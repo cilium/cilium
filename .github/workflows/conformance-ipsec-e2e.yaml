@@ -224,7 +224,7 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
       - name: Setup bootid file
-        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
+        uses: cilium/little-vm-helper@3b6f374a9b62e6987efee7e3ab226f968d857c7c # v0.0.25
         with:
           provision: 'false'
           cmd: |
@@ -248,7 +248,7 @@ jobs:
           " >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}

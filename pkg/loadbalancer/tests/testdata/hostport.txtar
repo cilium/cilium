@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0
+#! --lb-test-fault-probability=0.0
 # Fault injection is currently disabled as it in some cases leads to
 # the backend being recreated when switching to host port 5555 due
 # to injected faults causing the deletion of the host port 4444 to be
@@ -29,8 +29,10 @@ lb/maps-dump lbmaps.actual
 replace 'phase: Running' 'phase: Succeeded' pod.yaml
 k8s/update pod.yaml
 
-# Services should be empty
+# Services and maps should be empty
 * db/empty services
+lb/maps-dump lbmaps.actual
+* empty lbmaps.actual
 
 # Add a new pod to take over the HostPort
 k8s/add other-pod.yaml

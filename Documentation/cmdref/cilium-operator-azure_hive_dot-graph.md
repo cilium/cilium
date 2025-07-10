@@ -74,6 +74,10 @@ cilium-operator-azure hive dot-graph [flags]
       --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                        Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
+      --kvstore string                                       Key-value store type
+      --kvstore-lease-ttl duration                           Time-to-live for the KVstore lease. (default 15m0s)
+      --kvstore-max-consecutive-quorum-errors uint           Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
+      --kvstore-opt stringToString                           Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
       --loadbalancer-l7 string                               Enable L7 loadbalancer capabilities for services via L7 proxy. Applicable values: envoy
       --loadbalancer-l7-algorithm string                     Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                        List of service ports that will be automatically redirected to backend.

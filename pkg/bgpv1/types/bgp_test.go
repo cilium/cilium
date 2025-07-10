@@ -29,7 +29,7 @@ func Test_RoutePolicyConditionsString(t *testing.T) {
 		{
 			name: "sets only neighbors",
 			conditions: RoutePolicyConditions{
-				MatchNeighbors: []string{"192.2.0.1", "192.2.0.2"},
+				MatchNeighbors: []netip.Addr{netip.MustParseAddr("192.2.0.1"), netip.MustParseAddr("192.2.0.2")},
 				MatchPrefixes:  []*RoutePolicyPrefixMatch{},
 				MatchFamilies:  []Family{},
 			},
@@ -38,7 +38,7 @@ func Test_RoutePolicyConditionsString(t *testing.T) {
 		{
 			name: "sets only prefixes",
 			conditions: RoutePolicyConditions{
-				MatchNeighbors: []string{},
+				MatchNeighbors: []netip.Addr{},
 				MatchPrefixes: []*RoutePolicyPrefixMatch{
 					{
 						CIDR: testPrefix,
@@ -50,7 +50,7 @@ func Test_RoutePolicyConditionsString(t *testing.T) {
 		{
 			name: "sets only families",
 			conditions: RoutePolicyConditions{
-				MatchNeighbors: []string{},
+				MatchNeighbors: []netip.Addr{},
 				MatchPrefixes:  []*RoutePolicyPrefixMatch{},
 				MatchFamilies: []Family{
 					{
@@ -64,7 +64,7 @@ func Test_RoutePolicyConditionsString(t *testing.T) {
 		{
 			name: "sets families and prefixes",
 			conditions: RoutePolicyConditions{
-				MatchNeighbors: []string{},
+				MatchNeighbors: []netip.Addr{},
 				MatchPrefixes: []*RoutePolicyPrefixMatch{
 					{
 						CIDR: testPrefix,
@@ -82,7 +82,7 @@ func Test_RoutePolicyConditionsString(t *testing.T) {
 		{
 			name: "sets families prefixes neighbors",
 			conditions: RoutePolicyConditions{
-				MatchNeighbors: []string{"192.2.0.1", "192.2.0.2"},
+				MatchNeighbors: []netip.Addr{netip.MustParseAddr("192.2.0.1"), netip.MustParseAddr("192.2.0.2")},
 				MatchPrefixes: []*RoutePolicyPrefixMatch{
 					{
 						CIDR: testPrefix,

@@ -74,7 +74,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	}, nil, wg)
 	wg.Wait()
 
-	s.repo = policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	s.repo = policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: time.Second, SingleInflight: true}
 	s.dnsServer = setupServer(tb)
 	require.NotNil(tb, s.dnsServer, "unable to setup DNS server")
@@ -96,7 +96,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 				return nil, false, fmt.Errorf("No EPs available when restoring")
 			}
 			model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-			ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
+			ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
 			ep.Start(uint16(model.ID))
 			tb.Cleanup(ep.Stop)
 			return ep, false, err
@@ -202,7 +202,9 @@ func serveDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 // Setup identities, ports and endpoint IDs we will need
 var (
-	cacheAllocator          = cache.NewCachingIdentityAllocator(logging.DefaultSlogLogger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
+	// slogloggercheck: the default logger is enough for tests.
+	cacheAllocator = cache.NewCachingIdentityAllocator(logging.DefaultSlogLogger, &testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
+	// slogloggercheck: the default logger is enough for tests.
 	testSelectorCache       = policy.NewSelectorCache(logging.DefaultSlogLogger, cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &testpolicy.DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
@@ -230,7 +232,7 @@ var (
 	tcpProtoPort53   = restore.MakeV2PortProto(53, u8proto.TCP)
 )
 
-func TestRejectFromDifferentEndpoint(t *testing.T) {
+func TestPrivilegedRejectFromDifferentEndpoint(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 
 	name := "cilium.io."
@@ -251,7 +253,7 @@ func TestRejectFromDifferentEndpoint(t *testing.T) {
 	require.False(t, allowed, "request was not rejected when it should be blocked")
 }
 
-func TestAcceptFromMatchingEndpoint(t *testing.T) {
+func TestPrivilegedAcceptFromMatchingEndpoint(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 
 	name := "cilium.io."
@@ -272,7 +274,7 @@ func TestAcceptFromMatchingEndpoint(t *testing.T) {
 	require.True(t, allowed, "request was rejected when it should be allowed")
 }
 
-func TestAcceptNonRegex(t *testing.T) {
+func TestPrivilegedAcceptNonRegex(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 
 	name := "simple.io."
@@ -293,7 +295,7 @@ func TestAcceptNonRegex(t *testing.T) {
 	require.True(t, allowed, "request was rejected when it should be allowed")
 }
 
-func TestRejectNonRegex(t *testing.T) {
+func TestPrivilegedRejectNonRegex(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 
 	name := "cilium.io."
@@ -336,7 +338,7 @@ func (s *DNSProxyTestSuite) requestRejectNonMatchingRefusedResponse(t *testing.T
 	return request
 }
 
-func TestRejectNonMatchingRefusedResponseWithNameError(t *testing.T) {
+func TestPrivilegedRejectNonMatchingRefusedResponseWithNameError(t *testing.T) {
 	// reject a query with NXDomain
 	option.Config.FQDNRejectResponse = option.FQDNProxyDenyWithNameError
 	t.Cleanup(func() {
@@ -351,7 +353,7 @@ func TestRejectNonMatchingRefusedResponseWithNameError(t *testing.T) {
 	require.Equal(t, dns.RcodeNameError, response.Rcode, "DNS request from test client was not rejected when it should be blocked")
 }
 
-func TestRejectNonMatchingRefusedResponseWithRefused(t *testing.T) {
+func TestPrivilegedRejectNonMatchingRefusedResponseWithRefused(t *testing.T) {
 	// reject a query with Refused
 	option.Config.FQDNRejectResponse = option.FQDNProxyDenyWithRefused
 	t.Cleanup(func() {
@@ -366,7 +368,7 @@ func TestRejectNonMatchingRefusedResponseWithRefused(t *testing.T) {
 	require.Equal(t, dns.RcodeRefused, response.Rcode, "DNS request from test client was not rejected when it should be blocked")
 }
 
-func TestErrorResponseServfail(t *testing.T) {
+func TestPrivilegedErrorResponseServfail(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 	// Trigger an error in the lookupTargetDNSServer function to force a SERVFAIL response
 	s.proxy.lookupTargetDNSServer = func(w dns.ResponseWriter) (network u8proto.U8proto, server netip.AddrPort, err error) {
@@ -381,7 +383,7 @@ func TestErrorResponseServfail(t *testing.T) {
 	require.Equal(t, dns.RcodeServerFailure, response.Rcode, "DNS request from test client did not trigger a SERVFAIL response")
 }
 
-func TestRespondViaCorrectProtocol(t *testing.T) {
+func TestPrivilegedRespondViaCorrectProtocol(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 
 	// Respond with an actual answer for the query. This also tests that the
@@ -412,7 +414,7 @@ func TestRespondViaCorrectProtocol(t *testing.T) {
 	require.Equal(t, "cilium.io.\t60\tIN\tA\t1.1.1.1", response.Answer[0].String(), "Proxy returned incorrect RRs")
 }
 
-func TestRespondMixedCaseInRequestResponse(t *testing.T) {
+func TestPrivilegedRespondMixedCaseInRequestResponse(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 
 	// Test that mixed case query is allowed out and then back in to support
@@ -448,7 +450,7 @@ func TestRespondMixedCaseInRequestResponse(t *testing.T) {
 	require.Equal(t, "ciliuM.io.\t60\tIN\tA\t1.1.1.1", response.Answer[0].String(), "Proxy returned incorrect RRs")
 }
 
-func TestCheckNoRules(t *testing.T) {
+func TestPrivilegedCheckNoRules(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 
 	name := "cilium.io."
@@ -482,7 +484,7 @@ func TestCheckNoRules(t *testing.T) {
 	require.True(t, allowed, "request was rejected when it should be allowed")
 }
 
-func TestCheckAllowedTwiceRemovedOnce(t *testing.T) {
+func TestPrivilegedCheckAllowedTwiceRemovedOnce(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 
 	name := "cilium.io."
@@ -529,7 +531,7 @@ func makeMapOfRuleIPOrCIDR(addrs ...string) map[restore.RuleIPOrCIDR]struct{} {
 	return m
 }
 
-func TestFullPathDependence(t *testing.T) {
+func TestPrivilegedFullPathDependence(t *testing.T) {
 	logger := hivetest.Logger(t)
 	s := setupDNSProxyTestSuite(t)
 
@@ -853,7 +855,7 @@ func TestFullPathDependence(t *testing.T) {
 
 	// Restore rules
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
+	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
 	require.NoError(t, err)
 
 	ep1.Start(uint16(model.ID))
@@ -905,7 +907,7 @@ func TestFullPathDependence(t *testing.T) {
 
 	// Restore rules for epID3
 	modelEP3 := newTestEndpointModel(int(epID3), endpoint.StateReady)
-	ep3, err := endpoint.NewEndpointFromChangeModel(t.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, modelEP3)
+	ep3, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, modelEP3)
 	require.NoError(t, err)
 
 	ep3.Start(uint16(modelEP3.ID))
@@ -1051,7 +1053,7 @@ func TestFullPathDependence(t *testing.T) {
 	require.False(t, exists)
 }
 
-func TestRestoredEndpoint(t *testing.T) {
+func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	logger := hivetest.Logger(t)
 	s := setupDNSProxyTestSuite(t)
 
@@ -1118,7 +1120,7 @@ func TestRestoredEndpoint(t *testing.T) {
 	// restore rules, set the mock to restoring state
 	s.restoring = true
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
+	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
 	require.NoError(t, err)
 
 	ep1.Start(uint16(model.ID))
@@ -1338,6 +1340,45 @@ func TestExtractMsgDetails(t *testing.T) {
 			},
 			ttl:     3600,
 			cnames:  []string{"foo1.cilium.io.", "foo2.cilium.io.", "foo3.cilium.io."},
+			wantErr: false,
+		},
+		// CNAME (subdomain) & A.
+
+		// Note: this is arguably a malformed response by the server, since the
+		// answer names don't match the query. However, servers send responses
+		// like this and clients accept them (and connect to the IP in the A
+		// record).
+		{
+			msg: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Response: true,
+				},
+				Question: []dns.Question{{
+					Name: fqdndns.FQDN("foo.cilium.io"),
+				}},
+				Answer: []dns.RR{
+					&dns.CNAME{
+						Hdr: dns.RR_Header{
+							Name:   fqdndns.FQDN("cilium.io"),
+							Rrtype: dns.TypeCNAME,
+							Class:  dns.ClassINET,
+							Ttl:    600,
+						},
+						Target: fqdndns.FQDN("bar.cilium.io."),
+					},
+					&dns.A{
+						Hdr: dns.RR_Header{
+							Name:   fqdndns.FQDN("bar.cilium.io"),
+							Rrtype: dns.TypeA,
+							Class:  dns.ClassINET,
+							Ttl:    700,
+						},
+						A: net.ParseIP("192.168.0.2"),
+					},
+				},
+			},
+			ttl:     600,
+			cnames:  []string{"bar.cilium.io."},
 			wantErr: false,
 		},
 	}

@@ -20,6 +20,7 @@
 #include <linux/udp.h>
 #include <linux/icmp.h>
 #include <linux/icmpv6.h>
+#include <linux/igmp.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
  * without having to come up with custom addresses.
@@ -83,6 +84,12 @@ volatile const __u8 v6_pod_three[] = v6_pod_three_addr;
 #define v6_node_one_addr {0xfd, 0x05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 #define v6_node_two_addr {0xfd, 0x05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
 #define v6_node_three_addr {0xfd, 0x05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3}
+
+#define v6_ext_node_one_addr {0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+#define v6_ext_node_two_addr {0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, }
+
+volatile const __u8 v6_ext_node_one[] = v6_ext_node_one_addr;
+volatile const __u8 v6_ext_node_two[] = v6_ext_node_two_addr;
 
 volatile const __u8 v6_node_one[] = v6_node_one_addr;
 volatile const __u8 v6_node_two[] = v6_node_two_addr;
@@ -167,6 +174,7 @@ enum pkt_layer {
 	PKT_LAYER_ICMPV6,
 	PKT_LAYER_SCTP,
 	PKT_LAYER_ESP,
+	PKT_LAYER_IGMP,
 
 	/* Tunnel layers */
 	PKT_LAYER_GENEVE,
@@ -452,6 +460,13 @@ struct icmp6hdr *pktgen__push_icmp6hdr(struct pktgen *builder)
 	return pktgen__push_rawhdr(builder, sizeof(struct icmp6hdr), PKT_LAYER_ICMPV6);
 }
 
+static __always_inline
+__attribute__((warn_unused_result))
+struct igmphdr *pktgen__push_igmphdr(struct pktgen *builder)
+{
+	return pktgen__push_rawhdr(builder, sizeof(struct igmphdr), PKT_LAYER_IGMP);
+}
+
 /* Push an empty ESP header onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
@@ -482,6 +497,20 @@ __attribute__((warn_unused_result))
 struct sctphdr *pktgen__push_sctphdr(struct pktgen *builder)
 {
 	return pktgen__push_rawhdr(builder, sizeof(struct sctphdr), PKT_LAYER_SCTP);
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct sctphdr *pktgen__push_default_sctphdr(struct pktgen *builder)
+{
+	struct sctphdr *hdr = pktgen__push_sctphdr(builder);
+
+	if (!hdr)
+		return NULL;
+
+	memset(hdr, 0, sizeof(*hdr));
+
+	return hdr;
 }
 
 /* Push an empty UDP header onto the packet */
@@ -735,9 +764,33 @@ pktgen__push_ipv4_icmp_packet(struct pktgen *builder,
 			      __be32 saddr, __be32 daddr,
 			      __u8 icmp_type)
 {
-	struct ethhdr *l2;
 	struct iphdr *l3;
 	struct icmphdr *l4;
+
+	l3 = pktgen__push_ipv4_packet(builder, smac, dmac, saddr, daddr);
+	if (!l3)
+		return NULL;
+
+	l4 = pktgen__push_icmphdr(builder);
+	if (!l4)
+		return NULL;
+
+	l4->type = icmp_type;
+	l4->code = 0;
+	l4->checksum = 0;
+
+	return l4;
+}
+
+static __always_inline struct igmphdr *
+pktgen__push_ipv4_igmp_packet(struct pktgen *builder,
+			      __u8 *smac, __u8 *dmac,
+			      __be32 saddr, __be32 daddr,
+			      __u8 igmp_type)
+{
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	struct igmphdr *l4;
 
 	l2 = pktgen__push_ethhdr(builder);
 	if (!l2)
@@ -752,13 +805,13 @@ pktgen__push_ipv4_icmp_packet(struct pktgen *builder,
 	l3->saddr = saddr;
 	l3->daddr = daddr;
 
-	l4 = pktgen__push_icmphdr(builder);
+	l4 = pktgen__push_igmphdr(builder);
 	if (!l4)
 		return NULL;
 
-	l4->type = icmp_type;
+	l4->type = igmp_type;
 	l4->code = 0;
-	l4->checksum = 0;
+	l4->csum = 0;
 
 	return l4;
 }
@@ -771,19 +824,10 @@ pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
 {
 	struct ipv6hdr *l3;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 
-	l2 = pktgen__push_ethhdr(builder);
-	if (!l2)
-		return NULL;
-
-	ethhdr__set_macs(l2, smac, dmac);
-
-	l3 = pktgen__push_default_ipv6hdr(builder);
+	l3 = pktgen__push_ipv6_packet(builder, smac, dmac, saddr, daddr);
 	if (!l3)
 		return NULL;
-
-	ipv6hdr__set_addrs(l3, saddr, daddr);
 
 	l4 = pktgen__push_default_tcphdr(builder);
 	if (!l4)
@@ -803,19 +847,10 @@ pktgen__push_ipv6_udp_packet(struct pktgen *builder,
 {
 	struct ipv6hdr *l3;
 	struct udphdr *l4;
-	struct ethhdr *l2;
 
-	l2 = pktgen__push_ethhdr(builder);
-	if (!l2)
-		return NULL;
-
-	ethhdr__set_macs(l2, smac, dmac);
-
-	l3 = pktgen__push_default_ipv6hdr(builder);
+	l3 = pktgen__push_ipv6_packet(builder, smac, dmac, saddr, daddr);
 	if (!l3)
 		return NULL;
-
-	ipv6hdr__set_addrs(l3, saddr, daddr);
 
 	l4 = pktgen__push_default_udphdr(builder);
 	if (!l4)
@@ -849,21 +884,12 @@ pktgen__push_ipv6_icmp6_packet(struct pktgen *builder,
 			       __u8 *saddr, __u8 *daddr,
 			       __u8 icmp6_type)
 {
-	struct ethhdr *l2;
 	struct ipv6hdr *l3;
 	struct icmp6hdr *l4;
 
-	l2 = pktgen__push_ethhdr(builder);
-	if (!l2)
-		return NULL;
-
-	ethhdr__set_macs(l2, smac, dmac);
-
-	l3 = pktgen__push_default_ipv6hdr(builder);
+	l3 = pktgen__push_ipv6_packet(builder, smac, dmac, saddr, daddr);
 	if (!l3)
 		return NULL;
-
-	ipv6hdr__set_addrs(l3, saddr, daddr);
 
 	l4 = pktgen__push_icmp6hdr(builder);
 	if (!l4)
@@ -946,6 +972,9 @@ static __always_inline void pktgen__finish_ipv4(const struct pktgen *builder, in
 		break;
 	case PKT_LAYER_ESP:
 		ipv4_layer->protocol = IPPROTO_ESP;
+		break;
+	case PKT_LAYER_IGMP:
+		ipv4_layer->protocol = IPPROTO_IGMP;
 		break;
 	default:
 		break;
@@ -1318,6 +1347,9 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_VXLAN:
+			break;
+
+		case PKT_LAYER_IGMP:
 			break;
 
 		case PKT_LAYER_DATA:

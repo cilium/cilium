@@ -80,6 +80,10 @@ const (
 	// Label is a singular label, where relevant
 	Label = "label"
 
+	// ConflictingLabels is the set of labels that conflict
+	// with an existing label set.
+	ConflictingLabels = "conflictingLabels"
+
 	// SourceFilter is the label or node information source
 	SourceFilter = "sourceFilter"
 
@@ -134,6 +138,9 @@ const (
 
 	// PolicyID is the identifier of a L3, L4 or L7 Policy. Ideally the .NumericIdentity
 	PolicyID = "policyID"
+
+	// IsDeny is 'true' for a deny rule
+	IsDeny = "isDeny"
 
 	// AddedPolicyID is the .NumericIdentity, or set or them
 	AddedPolicyID = "policyID.Added"

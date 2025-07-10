@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/key"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	idbackend "github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -55,7 +55,7 @@ func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reco
 	var fakeClient *k8sClient.FakeClientset
 
 	h := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Invoke(func(
 			c *k8sClient.FakeClientset,

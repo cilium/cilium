@@ -4,11 +4,9 @@
 package ipcache
 
 import (
-	"bytes"
 	"log/slog"
 	"maps"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -27,7 +25,19 @@ import (
 //
 // Note that when making a copy of this object, resourceInfo is pointer which
 // means it needs to be deep-copied via (*resourceInfo).DeepCopy().
-type prefixInfo map[ipcachetypes.ResourceID]*resourceInfo
+type prefixInfo struct {
+	byResource map[ipcachetypes.ResourceID]*resourceInfo
+
+	// flattened is the fully resolved information, with all information
+	// by resource merged.
+	flattened *resourceInfo
+}
+
+func newPrefixInfo() *prefixInfo {
+	return &prefixInfo{
+		byResource: make(map[ipcachetypes.ResourceID]*resourceInfo),
+	}
+}
 
 // IdentityOverride can be used to override the identity of a given prefix.
 // Must be provided together with a set of labels. Any other labels associated
@@ -130,6 +140,55 @@ func (m *resourceInfo) unmerge(logger *slog.Logger, info IPMetadata) {
 	}
 }
 
+// has returns true if the resourceInfo already has the particular metadata.
+// in the case of labels, the existing labels may be a superset.
+// In other words, returns true if merging info would result in m
+// being unchanged. It is used to prevent needless cache busting
+// when updating metadata.
+func (m *resourceInfo) has(src source.Source, infos []IPMetadata) bool {
+	if m == nil {
+		return false
+	}
+	if m.source != src {
+		return false
+	}
+
+	for _, info := range infos {
+		switch i := info.(type) {
+		case labels.Labels:
+			for key, newLabel := range i {
+				existingLabel, ok := m.labels[key]
+				if !ok || newLabel != existingLabel {
+					return false
+				}
+			}
+		case overrideIdentity:
+			if m.identityOverride != i {
+				return false
+			}
+		case ipcachetypes.TunnelPeer:
+			if m.tunnelPeer != i {
+				return false
+			}
+		case ipcachetypes.EncryptKey:
+			if m.encryptKey != i {
+				return false
+			}
+		case ipcachetypes.RequestedIdentity:
+			if m.requestedIdentity != i {
+				return false
+			}
+		case ipcachetypes.EndpointFlags:
+			if m.endpointFlags != i {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 func (m *resourceInfo) isValid() bool {
 	if m.labels != nil {
 		return true
@@ -165,7 +224,7 @@ func (m *resourceInfo) DeepCopy() *resourceInfo {
 }
 
 func (s prefixInfo) isValid() bool {
-	for _, v := range s {
+	for _, v := range s.byResource {
 		if v.isValid() {
 			return true
 		}
@@ -173,10 +232,10 @@ func (s prefixInfo) isValid() bool {
 	return false
 }
 
-func (s prefixInfo) sortedBySourceThenResourceID() []ipcachetypes.ResourceID {
-	return slices.SortedStableFunc(maps.Keys(s), func(a ipcachetypes.ResourceID, b ipcachetypes.ResourceID) int {
-		if s[a].source != s[b].source {
-			if !source.AllowOverwrite(s[a].source, s[b].source) {
+func (s *prefixInfo) sortedBySourceThenResourceID() []ipcachetypes.ResourceID {
+	return slices.SortedStableFunc(maps.Keys(s.byResource), func(a ipcachetypes.ResourceID, b ipcachetypes.ResourceID) int {
+		if s.byResource[a].source != s.byResource[b].source {
+			if !source.AllowOverwrite(s.byResource[a].source, s.byResource[b].source) {
 				return -1
 			} else {
 				return 1
@@ -186,208 +245,207 @@ func (s prefixInfo) sortedBySourceThenResourceID() []ipcachetypes.ResourceID {
 	})
 }
 
-func (s prefixInfo) ToLabels() labels.Labels {
-	l := labels.NewLabelsFromModel(nil)
-	for _, v := range s {
-		l.MergeLabels(v.labels)
+func (r *resourceInfo) ToLabels() labels.Labels {
+	if r.labels == nil {
+		return labels.Labels{} // code expects non-nil Labels.
 	}
-	return l
+	return r.labels
 }
 
-func (s prefixInfo) Source() source.Source {
-	src := source.Unspec
-	for _, v := range s {
-		if source.AllowOverwrite(src, v.source) {
-			src = v.source
-		}
+func (r *resourceInfo) Source() source.Source {
+	if r == nil {
+		return source.Unspec
 	}
-	return src
+	return r.source
 }
 
-func (s prefixInfo) EncryptKey() ipcachetypes.EncryptKey {
-	for rid := range s {
-		if k := s[rid].encryptKey; k.IsValid() {
-			return k
-		}
+func (r *resourceInfo) EncryptKey() ipcachetypes.EncryptKey {
+	if r == nil {
+		return ipcachetypes.EncryptKeyEmpty
 	}
-	return ipcachetypes.EncryptKeyEmpty
+	return r.encryptKey
 }
 
-func (s prefixInfo) TunnelPeer() ipcachetypes.TunnelPeer {
-	for rid := range s {
-		if t := s[rid].tunnelPeer; t.IsValid() {
-			return t
-		}
+func (r *resourceInfo) TunnelPeer() ipcachetypes.TunnelPeer {
+	if r == nil {
+		return ipcachetypes.TunnelPeer{}
 	}
-	return ipcachetypes.TunnelPeer{}
+	return r.tunnelPeer
 }
 
-func (s prefixInfo) RequestedIdentity() ipcachetypes.RequestedIdentity {
-	for _, rid := range s.sortedBySourceThenResourceID() {
-		if id := s[rid].requestedIdentity; id.IsValid() {
-			return id
-		}
+func (r *resourceInfo) RequestedIdentity() ipcachetypes.RequestedIdentity {
+	if r == nil {
+		return ipcachetypes.RequestedIdentity(identity.InvalidIdentity)
 	}
-	return ipcachetypes.RequestedIdentity(identity.InvalidIdentity)
+	return r.requestedIdentity
 }
 
-func (s prefixInfo) EndpointFlags() ipcachetypes.EndpointFlags {
-	for _, rid := range s.sortedBySourceThenResourceID() {
-		if flags := s[rid].endpointFlags; flags.IsValid() {
-			return flags
-		}
+func (r *resourceInfo) EndpointFlags() ipcachetypes.EndpointFlags {
+	if r == nil {
+		return ipcachetypes.EndpointFlags{}
 	}
-	return ipcachetypes.EndpointFlags{}
+	return r.endpointFlags
 }
 
-// identityOverride extracts the labels of the pre-determined identity from
-// the prefix info. If no override identity is present, this returns nil.
-// This pre-determined identity will overwrite any other identity which may
-// be derived from the prefix labels.
-func (s prefixInfo) identityOverride() (lbls labels.Labels, hasOverride bool) {
-	identities := make([]labels.Labels, 0, 1)
-	for _, info := range s {
-		// We emit a warning in logConflicts if an identity override
-		// was requested without labels
-		if info.identityOverride && len(info.labels) > 0 {
-			identities = append(identities, info.labels)
+// identityOverride returns true if the exact set of labels has been specified
+// and should not be manipulated further.
+func (r *resourceInfo) IdentityOverride() bool {
+	if r == nil {
+		return false
+	}
+	return bool(r.identityOverride)
+
+}
+
+// flatten resolves the set of all possible metadata in to a single
+// flattened resource.
+// In the event of a conflict, entries with a higher precedence source
+// will win.
+func (s *prefixInfo) flatten(scopedLog *slog.Logger) *resourceInfo {
+	// shortcut: with exactly one resource, we just return it
+	if len(s.byResource) == 1 {
+		for _, r := range s.byResource {
+			return r
 		}
 	}
 
-	// No override identity present
-	if len(identities) == 0 {
-		return nil, false
-	}
+	out := &resourceInfo{}
 
-	// Conflict-resolution: We pick the labels with the alphabetically
-	// lowest value when formatted in the KV store format. The conflict
-	// is logged below in logConflicts.
-	if len(identities) > 1 {
-		sort.Slice(identities, func(i, j int) bool {
-			a := identities[i].SortedList()
-			b := identities[j].SortedList()
-			return bytes.Compare(a, b) == -1
-		})
-	}
-
-	return identities[0], true
-}
-
-func (ri resourceInfo) shouldLogConflicts() bool {
-	return bool(ri.identityOverride) || ri.tunnelPeer.IsValid() || ri.encryptKey.IsValid() || ri.requestedIdentity.IsValid() || ri.endpointFlags.IsValid()
-}
-
-func (s prefixInfo) logConflicts(scopedLog *slog.Logger) {
 	var (
-		override           labels.Labels
-		overrideResourceID ipcachetypes.ResourceID
-
-		tunnelPeer           ipcachetypes.TunnelPeer
-		tunnelPeerResourceID ipcachetypes.ResourceID
-
-		encryptKey           ipcachetypes.EncryptKey
-		encryptKeyResourceID ipcachetypes.ResourceID
-
-		requestedID           ipcachetypes.RequestedIdentity
-		requestedIDResourceID ipcachetypes.ResourceID
-
-		endpointFlags           ipcachetypes.EndpointFlags
+		overrideResourceID      ipcachetypes.ResourceID
+		tunnelPeerResourceID    ipcachetypes.ResourceID
+		encryptKeyResourceID    ipcachetypes.ResourceID
+		requestedIDResourceID   ipcachetypes.ResourceID
 		endpointFlagsResourceID ipcachetypes.ResourceID
 	)
 
+	labelResourceIDs := map[string]ipcachetypes.ResourceID{}
+
 	for _, resourceID := range s.sortedBySourceThenResourceID() {
-		info := s[resourceID]
+		info := s.byResource[resourceID]
+
+		// Sorted by source priority, so the first source wins.
+		if out.source == "" {
+			out.source = info.source
+		}
+
+		if len(info.labels) > 0 && !out.identityOverride /* identityOverride already fixed the labels */ {
+			if len(out.labels) > 0 {
+				// merge labels, complaining if the value exists
+				for key, newLabel := range info.labels {
+					otherLabel, exists := out.labels[key]
+					if exists && !otherLabel.DeepEqual(&newLabel) {
+						scopedLog.Warn(
+							"Detected conflicting label for prefix. "+
+								"This may cause connectivity issues for this address.",
+							logfields.Labels, out.labels,
+							logfields.Resource, labelResourceIDs[key],
+							logfields.ConflictingLabels, otherLabel,
+						)
+					} else if !exists {
+						out.labels[key] = newLabel
+						labelResourceIDs[key] = resourceID
+					}
+				}
+			} else {
+				out.labels = labels.NewFrom(info.labels) // copy map, as we will be mutating it
+			}
+		}
 
 		if info.identityOverride {
-			if len(override) > 0 {
-				scopedLog.Warn(
-					"Detected conflicting identity override for prefix. "+
-						"This may cause connectivity issues for this address.",
-					logfields.Identity, override,
-					logfields.Resource, overrideResourceID,
-					logfields.ConflictingIdentity, info.labels,
-					logfields.ConflictingResource, resourceID,
-				)
-			}
-
 			if len(info.labels) == 0 {
 				scopedLog.Warn(
 					"Detected identity override, but no labels where specified. "+
 						"Falling back on the old non-override labels. "+
 						"This may cause connectivity issues for this address.",
 					logfields.Resource, resourceID,
-					logfields.IdentityOld, s.ToLabels(),
 				)
 			} else {
-				override = info.labels
-				overrideResourceID = resourceID
+				if out.identityOverride {
+					scopedLog.Warn(
+						"Detected conflicting identity override for prefix. "+
+							"This may cause connectivity issues for this address.",
+						logfields.Labels, out.labels,
+						logfields.Resource, overrideResourceID,
+						logfields.ConflictingLabels, info.labels,
+						logfields.ConflictingResource, resourceID,
+					)
+				} else {
+					out.identityOverride = true
+					out.labels = info.labels
+					overrideResourceID = resourceID
+				}
 			}
 		}
 
-		if info.tunnelPeer.IsValid() {
-			if tunnelPeer.IsValid() {
+		if info.tunnelPeer.IsValid() && info.tunnelPeer != out.tunnelPeer {
+			if out.tunnelPeer.IsValid() {
 				if option.Config.TunnelingEnabled() {
 					scopedLog.Warn(
 						"Detected conflicting tunnel peer for prefix. "+
 							"This may cause connectivity issues for this address.",
-						logfields.TunnelPeer, tunnelPeerResourceID,
-						logfields.Resource, resourceID,
+						logfields.TunnelPeer, out.tunnelPeer,
+						logfields.Resource, tunnelPeerResourceID,
 						logfields.ConflictingTunnelPeer, info.tunnelPeer,
 						logfields.ConflictingResource, resourceID,
 					)
 				}
 			} else {
-				tunnelPeer = info.tunnelPeer
+				out.tunnelPeer = info.tunnelPeer
 				tunnelPeerResourceID = resourceID
 			}
 		}
 
-		if info.encryptKey.IsValid() {
-			if encryptKey.IsValid() {
+		if info.encryptKey.IsValid() && info.encryptKey != out.encryptKey {
+			if out.encryptKey.IsValid() {
 				scopedLog.Warn(
 					"Detected conflicting encryption key index for prefix. "+
 						"This may cause connectivity issues for this address.",
-					logfields.Key, encryptKey,
+					logfields.Key, out.encryptKey,
 					logfields.Resource, encryptKeyResourceID,
 					logfields.ConflictingKey, info.encryptKey,
 					logfields.ConflictingResource, resourceID,
 				)
 			} else {
-				encryptKey = info.encryptKey
+				out.encryptKey = info.encryptKey
 				encryptKeyResourceID = resourceID
 			}
 		}
 
-		if info.requestedIdentity.IsValid() {
-			if requestedID.IsValid() {
+		if info.requestedIdentity.IsValid() && info.requestedIdentity != out.requestedIdentity {
+			if out.requestedIdentity.IsValid() {
 				scopedLog.Warn(
 					"Detected conflicting requested numeric identity for prefix. "+
 						"This may cause momentary connectivity issues for this address.",
-					logfields.Identity, requestedID,
+					logfields.Identity, out.requestedIdentity,
 					logfields.Resource, requestedIDResourceID,
-					logfields.ConflictingKey, info.requestedIdentity,
+					logfields.ConflictingIdentity, info.requestedIdentity,
 					logfields.ConflictingResource, resourceID,
 				)
 			} else {
-				requestedID = info.requestedIdentity
+				out.requestedIdentity = info.requestedIdentity
 				requestedIDResourceID = resourceID
 			}
 		}
 
-		if info.endpointFlags.IsValid() {
-			if endpointFlags.IsValid() {
+		// Note: if more flags are added in pkg/ipcache/types/types.go,
+		// they must be merged here.
+		if info.endpointFlags.IsValid() && info.endpointFlags != out.endpointFlags {
+			if out.endpointFlags.IsValid() {
 				scopedLog.Warn(
 					"Detected conflicting endpoint flags for prefix. "+
 						"This may cause connectivity issues for this address.",
-					logfields.EndpointFlags, endpointFlags,
+					logfields.EndpointFlags, out.endpointFlags,
 					logfields.Resource, endpointFlagsResourceID,
 					logfields.ConflictingEndpointFlags, info.endpointFlags,
 					logfields.ConflictingResource, resourceID,
 				)
 			} else {
-				endpointFlags = info.endpointFlags
+				out.endpointFlags = info.endpointFlags
 				endpointFlagsResourceID = resourceID
 			}
 		}
 	}
+
+	return out
 }

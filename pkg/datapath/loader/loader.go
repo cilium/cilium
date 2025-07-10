@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -77,22 +78,22 @@ type loader struct {
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
-	sysctl          sysctl.Sysctl
-	prefilter       datapath.PreFilter
-	compilationLock datapath.CompilationLock
-	configWriter    datapath.ConfigWriter
-	nodeHandler     datapath.NodeHandler
+	sysctl             sysctl.Sysctl
+	prefilter          datapath.PreFilter
+	compilationLock    datapath.CompilationLock
+	configWriter       datapath.ConfigWriter
+	nodeConfigNotifier *manager.NodeConfigNotifier
 }
 
 type Params struct {
 	cell.In
 
-	Logger          *slog.Logger
-	Sysctl          sysctl.Sysctl
-	Prefilter       datapath.PreFilter
-	CompilationLock datapath.CompilationLock
-	ConfigWriter    datapath.ConfigWriter
-	NodeHandler     datapath.NodeHandler
+	Logger             *slog.Logger
+	Sysctl             sysctl.Sysctl
+	Prefilter          datapath.PreFilter
+	CompilationLock    datapath.CompilationLock
+	ConfigWriter       datapath.ConfigWriter
+	NodeConfigNotifier *manager.NodeConfigNotifier
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -102,14 +103,14 @@ type Params struct {
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
 	return &loader{
-		logger:            p.Logger,
-		templateCache:     newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
-		sysctl:            p.Sysctl,
-		hostDpInitialized: make(chan struct{}),
-		prefilter:         p.Prefilter,
-		compilationLock:   p.CompilationLock,
-		configWriter:      p.ConfigWriter,
-		nodeHandler:       p.NodeHandler,
+		logger:             p.Logger,
+		templateCache:      newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
+		sysctl:             p.Sysctl,
+		hostDpInitialized:  make(chan struct{}),
+		prefilter:          p.Prefilter,
+		compilationLock:    p.CompilationLock,
+		configWriter:       p.ConfigWriter,
+		nodeConfigNotifier: p.NodeConfigNotifier,
 	}
 }
 
@@ -203,6 +204,8 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 			cfg.NATIPv6Masquerade = ipv6.As16()
 		}
 	}
+
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
@@ -416,6 +419,8 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 		cfg.SecctxFromIPCache = true
 	}
 
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
 
@@ -519,7 +524,7 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 			return fmt.Errorf("interface %s ingress: %w", device, err)
 		}
 
-		if option.Config.AreDevicesRequired() {
+		if option.Config.AreDevicesRequired(lnc.KPRConfig) {
 			// Attach cil_to_netdev to egress.
 			if err := attachSKBProgram(logger, iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
 				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
@@ -694,6 +699,8 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	cfg := config.NewBPFOverlay(nodeConfig(lnc))
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
@@ -743,6 +750,8 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		cfg.SecctxFromIPCache = true
 	}
 
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
@@ -760,7 +769,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
 	// Attach/detach cil_to_wireguard to/from egress.
-	if option.Config.NeedEgressOnWireGuardDevice() {
+	if option.Config.NeedEgressOnWireGuardDevice(lnc.KPRConfig) {
 		if err := attachSKBProgram(logger, device, obj.ToWireguard, symbolToWireguard,
 			linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s egress: %w", device, err)
@@ -775,7 +784,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		}
 	}
 	// Attach/detach cil_from_wireguard to/from ingress.
-	if option.Config.NeedIngressOnWireGuardDevice() {
+	if option.Config.NeedIngressOnWireGuardDevice(lnc.KPRConfig) {
 		if err := attachSKBProgram(logger, device, obj.FromWireguard, symbolFromWireguard,
 			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 			return fmt.Errorf("interface %s ingress: %w", device, err)

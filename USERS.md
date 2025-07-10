@@ -365,6 +365,11 @@ Users (Alphabetically)
       L: https://gdatasoftware.com
       Q: @farodin91
 
+    * N: Guida
+      D: Guida is using Cilium with their Managed Kubernetes offering both in public and private cloud.
+      U: CNI, Network Policies, Observability
+      L: https://www.guida.nl
+
     * N: Guidewire Software, Inc.
       D: Guidewire Software, Inc. is using Cilium for the Guidewire Cloud Platform.
       U: CNI, network policy, and network visibility
@@ -593,6 +598,11 @@ Users (Alphabetically)
       U: Networking, NetworkPolicy, Services
       L: https://www.nutanix.com/products/kubernetes-management-platform
       Q: @tuxtof
+
+    * N: Outscale Kubernetes as a Service (OKS)
+      D: Cilium is the default Container Network Interface (CNI) used by OUTSCALE on all clusters provisioned through its Kubernetes offering, OKS.
+      U: CNI, Hubble, CiliumNetworkPolicy, kube-proxy replacement, eBPF 
+      L: https://fr.outscale.com/cloud-experience/outscale-kubernetes-as-a-service/
 
     * N: Overstock Inc.
       D: Overstock is using Cilium as the main CNI plugin on bare-metal clusters (self hosted k8s).

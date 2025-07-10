@@ -42,14 +42,14 @@ import (
 
 const (
 	// reflectorBufferSize is the maximum size of the event buffer.
-	reflectorBufferSize = 5000
+	reflectorBufferSize = 500
 
 	// reflectorWaitTime is the maximum amount of time to try and fill the buffer.
 	// A higher wait time will reduce processing of transient states and increases
 	// throughput as it gives bigger batches downstream for processing. Batching
 	// also helps to combine related objects, e.g. a Service may have multiple
 	// associated EndpointSlices and preferably these would be processed together.
-	reflectorWaitTime = 100 * time.Millisecond
+	reflectorWaitTime = 500 * time.Millisecond
 )
 
 // K8sReflectorCell reflects Kubernetes Service and EndpointSlice objects to the
@@ -107,6 +107,7 @@ type reflectorParams struct {
 	HaveNetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 	TestConfig             *loadbalancer.TestConfig `optional:"true"`
 	LocalNodeStore         *node.LocalNodeStore
+	SVCMetrics             SVCMetrics `optional:"true"`
 }
 
 func (p reflectorParams) waitTime() time.Duration {
@@ -121,6 +122,10 @@ func RegisterK8sReflector(p reflectorParams) {
 	if !p.Writer.IsEnabled() || p.ServicesResource == nil {
 		return
 	}
+	if p.SVCMetrics == nil {
+		p.SVCMetrics = NewSVCMetricsNoop()
+	}
+
 	podsComplete := p.Writer.RegisterInitializer("k8s-pods")
 	epsComplete := p.Writer.RegisterInitializer("k8s-endpoints")
 	svcComplete := p.Writer.RegisterInitializer("k8s-services")
@@ -157,9 +162,11 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 			podName := obj.Namespace + "/" + obj.Name
 			if change.Deleted {
 				rh.update(podName, nil)
-				if err := deleteHostPort(p, txn, obj); err != nil {
-					p.Log.Error("BUG: Unexpected failure in deleteHostPort",
-						logfields.Error, err)
+				if p.ExtConfig.EnableHostPort {
+					if err := deleteHostPort(p, txn, obj); err != nil {
+						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
+							logfields.Error, err)
+					}
 				}
 			} else {
 				switch obj.Status.Phase {
@@ -167,18 +174,24 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 					// Pod has been terminated. Clean up the HostPort already even before the Pod object
 					// has been removed to free up the HostPort for other pods.
 					rh.update(podName, nil)
-					if err := deleteHostPort(p, txn, obj); err != nil {
-						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
-							logfields.Error, err)
+					if p.ExtConfig.EnableHostPort {
+						if err := deleteHostPort(p, txn, obj); err != nil {
+							p.Log.Error("BUG: Unexpected failure in deleteHostPort",
+								logfields.Error, err)
+						}
 					}
 				case slim_corev1.PodRunning:
+					var err error
+
 					if obj.ObjectMeta.DeletionTimestamp != nil {
 						// The pod has been marked for deletion. Stop processing HostPort changes
 						// for it.
 						continue
 					}
 
-					err := upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
+					if p.ExtConfig.EnableHostPort {
+						err = upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
+					}
 					rh.update(podName, err)
 				}
 			}
@@ -225,16 +238,20 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			svc, fes := convertService(p.Config, p.ExtConfig, p.Log, p.LocalNodeStore, obj, source.Kubernetes)
 			if svc == nil {
 				// The service should not be provisioned on this agent. Try to delete if it was previously.
-				name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
+				name := loadbalancer.NewServiceName(obj.Namespace, obj.Name)
 				rh.update("svc:"+name.String(), nil)
 
-				err := p.Writer.DeleteServiceAndFrontends(txn, name)
+				oldSvc, err := p.Writer.DeleteServiceAndFrontends(txn, name)
 				if err != nil && !errors.Is(err, statedb.ErrObjectNotFound) {
 					p.Log.Error("BUG: Unexpected failure in DeleteServiceAndFrontends",
 						logfields.Error, err)
 				}
+				if oldSvc != nil {
+					p.SVCMetrics.DelService(oldSvc)
+				}
 				return
 			}
+			p.SVCMetrics.AddService(svc)
 
 			// Sort the frontends by address
 			slices.SortStableFunc(fes, func(a, b loadbalancer.FrontendParams) int {
@@ -245,74 +262,93 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			rh.update("svc:"+svc.Name.String(), err)
 
 		case resource.Delete:
-			name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
+			name := loadbalancer.NewServiceName(obj.Namespace, obj.Name)
 			rh.update("svc:"+name.String(), nil)
 
-			err := p.Writer.DeleteServiceAndFrontends(txn, name)
+			svc, err := p.Writer.DeleteServiceAndFrontends(txn, name)
 			if err != nil && !errors.Is(err, statedb.ErrObjectNotFound) {
 				p.Log.Error("BUG: Unexpected failure in DeleteServiceAndFrontends",
 					logfields.Error, err)
 			}
+			if svc != nil {
+				p.SVCMetrics.DelService(svc)
+			}
 		}
 	}
 
-	currentBackends := map[string]sets.Set[loadbalancer.L3n4Addr]{}
-	processEndpointsEvent := func(txn writer.WriteTxn, kind resource.EventKind, obj *k8s.Endpoints) {
+	currentEndpoints := map[string]endpointsEvent{}
+	processEndpointsEvent := func(txn writer.WriteTxn, key bufferKey, kind resource.EventKind, allEps allEndpoints) {
 		switch kind {
 		case resource.Sync:
 			initEndpoints(txn)
 
 		case resource.Upsert:
-			name, backends := convertEndpoints(p.Log, p.ExtConfig, obj)
+			name := loadbalancer.NewServiceName(
+				key.key.Namespace,
+				key.key.Name,
+			)
+			var err error
 
-			if len(backends) > 0 {
-				err := p.Writer.UpsertBackends(
-					txn,
-					name,
-					source.Kubernetes,
-					backends...)
+			// Convert [k8s.Endpoints] to [loadbalancer.BackendParams]
+			backends := convertEndpoints(p.Log, p.ExtConfig, name, allEps.Backends())
 
-				rh.update("eps:"+obj.EndpointSliceName, err)
+			// Find orphaned backends. We are using iter.Seq to avoid unnecessary allocations.
+			var orphans iter.Seq[loadbalancer.L3n4Addr] = func(yield func(loadbalancer.L3n4Addr) bool) {
+				for ep := range allEps.All() {
+					previous, found := currentEndpoints[ep.name]
+					if !found {
+						continue
+					}
+					for addr, prevBe := range previous.backends {
+						be, foundBe := ep.backends[addr]
+						for l4Addr := range prevBe.Ports {
+							foundPort := false
+							if foundBe {
+								_, foundPort = be.Ports[l4Addr]
+							}
+							if !foundPort {
+								if !yield(
+									loadbalancer.L3n4Addr{
+										AddrCluster: addr,
+										L4Addr:      l4Addr,
+									}) {
+									return
+								}
+							}
+						}
+					}
+				}
 			}
 
-			// Release orphaned backends
-			newAddrs := sets.New[loadbalancer.L3n4Addr]()
-			for _, be := range backends {
-				newAddrs.Insert(be.Address)
+			err = p.Writer.UpsertAndReleaseBackends(txn, name, source.Kubernetes, backends, orphans)
+
+			for ep := range allEps.All() {
+				if len(ep.backends) == 0 {
+					delete(currentEndpoints, ep.name)
+				} else {
+					currentEndpoints[ep.name] = ep
+				}
 			}
-			old := currentBackends[obj.EndpointSliceName]
-			p.Writer.ReleaseBackends(txn, name, old.Difference(newAddrs).UnsortedList()...)
-			currentBackends[obj.EndpointSliceName] = newAddrs
+
+			rh.update("eps:"+name.String(), err)
 
 		case resource.Delete:
-			rh.update("eps:"+obj.EndpointSliceName, nil)
-			// Release the backends created before.
-			name := loadbalancer.ServiceName{
-				Name:      obj.ServiceID.Name,
-				Namespace: obj.ServiceID.Namespace,
-			}
-			p.Writer.ReleaseBackends(txn, name,
-				currentBackends[obj.EndpointSliceName].UnsortedList()...)
+			// [bufferInsert] will only emit Sync and Upsert for the merged endpoints.
+			panic("BUG: unexpected Delete event")
 		}
+	}
+
+	// Use a pool for the buffers to avoid reallocs.
+	bufferPool := sync.Pool{
+		New: func() any {
+			return container.NewInsertOrderedMap[bufferKey, bufferValue]()
+		},
 	}
 
 	// Combine services and endpoint events into a single buffer.
 	// Use InsertOrderedMap to retain relative ordering of events with different keys.
 	// This highly increases the probability that related services and endpoints are committed
-	// in the same transaction, thus reducing overall processing costs.
-	type bufferKey struct {
-		key   resource.Key
-		isSvc bool
-	}
-	type buffer = *container.InsertOrderedMap[bufferKey, resource.Event[runtime.Object]]
-
-	// Use a pool for the buffers to avoid reallocs.
-	bufferPool := sync.Pool{
-		New: func() any {
-			return container.NewInsertOrderedMap[bufferKey, resource.Event[runtime.Object]]()
-		},
-	}
-
+	// in the same transaction and thus reconciled together and reducing overall processing costs.
 	events := stream.ToChannel(ctx,
 		stream.Buffer(
 			joinObservables(
@@ -325,9 +361,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 				if buf == nil {
 					buf = bufferPool.Get().(buffer)
 				}
-				_, isSvc := ev.Object.(*slim_corev1.Service)
-				buf.Insert(bufferKey{key: ev.Key, isSvc: isSvc}, ev)
-				return buf
+				return bufferInsert(buf, ev)
 			},
 		),
 	)
@@ -335,14 +369,11 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 	processBuffer := func(buf buffer) {
 		txn := p.Writer.WriteTxn()
 		defer txn.Commit()
-		for _, ev := range buf.All() {
-			switch obj := ev.Object.(type) {
-			case *slim_corev1.Service:
-				processServiceEvent(txn, ev.Kind, obj)
-			case *k8s.Endpoints:
-				processEndpointsEvent(txn, ev.Kind, obj)
-			default:
-				panic(fmt.Sprintf("BUG: unhandled object type %T", obj))
+		for key, val := range buf.All() {
+			if key.isSvc {
+				processServiceEvent(txn, val.kind, val.svc)
+			} else {
+				processEndpointsEvent(txn, key, val.kind, val.allEndpoints)
 			}
 		}
 	}
@@ -354,6 +385,112 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 		rh.report()
 	}
 	return nil
+}
+
+type bufferKey struct {
+	key   resource.Key
+	isSvc bool
+}
+
+type bufferValue struct {
+	kind         resource.EventKind
+	svc          *slim_corev1.Service
+	allEndpoints allEndpoints
+}
+
+type endpointsEvent struct {
+	name     string
+	backends map[cmtypes.AddrCluster]*k8s.Backend
+}
+
+// allEndpoints holds one or more [k8s.Endpoints] that target the same service within a single buffer.
+// This type is designed to avoid allocations for the usual case of single endpoint slice per service.
+type allEndpoints struct {
+	head endpointsEvent
+	tail []endpointsEvent
+}
+
+func (ae allEndpoints) insert(deleted bool, ep *k8s.Endpoints) allEndpoints {
+	ev := endpointsEvent{
+		name: ep.EndpointSliceName,
+	}
+	if !deleted {
+		ev.backends = ep.Backends
+	}
+
+	if ae.head.name == "" || ae.head.name == ev.name {
+		ae.head = ev
+		return ae
+	}
+	for i, x := range ae.tail {
+		if ev.name == x.name {
+			ae.tail[i] = ev
+			return ae
+		}
+	}
+	ae.tail = append(ae.tail, ev)
+	return ae
+}
+
+func (ae *allEndpoints) All() iter.Seq[endpointsEvent] {
+	return func(yield func(endpointsEvent) bool) {
+		if ae.head.name != "" {
+			if !yield(ae.head) {
+				return
+			}
+		}
+		for _, ep := range ae.tail {
+			if !yield(ep) {
+				return
+			}
+		}
+	}
+}
+
+func (ae *allEndpoints) Backends() iter.Seq2[cmtypes.AddrCluster, *k8s.Backend] {
+	return func(yield func(cmtypes.AddrCluster, *k8s.Backend) bool) {
+		for ep := range ae.All() {
+			for addr, be := range ep.backends {
+				if !yield(addr, be) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// buffer for holding a batch of service or endpoint events
+type buffer = *container.InsertOrderedMap[bufferKey, bufferValue]
+
+func bufferInsert(buf buffer, ev resource.Event[runtime.Object]) buffer {
+	switch obj := ev.Object.(type) {
+	case *k8s.Endpoints:
+		if ev.Kind == resource.Sync {
+			buf.Insert(bufferKey{isSvc: false}, bufferValue{kind: ev.Kind})
+			return buf
+		}
+		key := bufferKey{
+			resource.Key{Name: obj.ServiceName.Name(), Namespace: obj.ServiceName.Namespace()},
+			false,
+		}
+		var allEps allEndpoints
+		if old, ok := buf.Get(key); ok {
+			allEps = old.allEndpoints
+		}
+		allEps = allEps.insert(ev.Kind == resource.Delete, obj)
+
+		// Since we may merge a mixture of Upsert and Delete events together we handle
+		// deletion as an Upsert of [endpointsEvent] with nil backends.
+		buf.Insert(key, bufferValue{
+			kind:         resource.Upsert,
+			allEndpoints: allEps,
+		})
+	case *slim_corev1.Service:
+		buf.Insert(bufferKey{key: ev.Key, isSvc: true}, bufferValue{kind: ev.Kind, svc: obj})
+	default:
+		panic(fmt.Sprintf("BUG: unhandled type %T", obj))
+	}
+	return buf
 }
 
 type reflectorHealth struct {
@@ -404,10 +541,10 @@ func (rh *reflectorHealth) report() {
 // HostPort entries for a pod. This handles the pod recreation where name stays but UID
 // changes, which we might see only as an update without any deletion.
 func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
-	return loadbalancer.ServiceName{
-		Name:      fmt.Sprintf("%s:host-port:", pod.ObjectMeta.Name),
-		Namespace: pod.ObjectMeta.Namespace,
-	}
+	return loadbalancer.NewServiceName(
+		pod.ObjectMeta.Namespace,
+		fmt.Sprintf("%s:host-port:", pod.ObjectMeta.Name),
+	)
 }
 
 func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalancer.Config, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn writer.WriteTxn, writer *writer.Writer, pod *slim_corev1.Pod) error {
@@ -439,10 +576,11 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 
 			// HostPort service names are of form:
 			// <namespace>/<name>:host-port:<port>:<uid>.
-			serviceName := serviceNamePrefix
-			serviceName.Name += fmt.Sprintf("%d:%s",
-				p.HostPort,
-				pod.ObjectMeta.UID)
+			serviceName := serviceNamePrefix.AppendSuffix(
+				fmt.Sprintf("%d:%s",
+					p.HostPort,
+					pod.ObjectMeta.UID),
+			)
 
 			var ipv4, ipv6 bool
 
@@ -562,7 +700,7 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 			return fmt.Errorf("DeleteBackendsOfService: %w", err)
 		}
 
-		err = writer.DeleteServiceAndFrontends(wtxn, svc.Name)
+		_, err = writer.DeleteServiceAndFrontends(wtxn, svc.Name)
 		if err != nil {
 			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
 		}
@@ -578,7 +716,7 @@ func deleteHostPort(params reflectorParams, wtxn writer.WriteTxn, pod *slim_core
 		if err != nil {
 			return fmt.Errorf("DeleteBackendsOfService: %w", err)
 		}
-		err = params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
+		_, err = params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
 		if err != nil {
 			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
 		}

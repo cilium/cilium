@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/internal/junit"
-	"github.com/cilium/cilium/cilium-cli/utils/codeowners"
+	"github.com/cilium/cilium/tools/testowners/codeowners"
 )
 
 const MetadataDelimiter = ";metadata;"
@@ -101,7 +101,7 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 			test.Time = 0
 		} else if t.failed {
 			test.Status = "failed"
-			test.Failure = &junit.Failure{Message: t.Name() + " failed", Type: "failure"}
+			test.Failure = &junit.Failure{Message: t.Name() + " failed", FailureMessages: t.FailureMessages(), Type: "failure"}
 			j.testSuite.Failures++
 			msgs := []string{}
 			for _, a := range t.failedActions() {

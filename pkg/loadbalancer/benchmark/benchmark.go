@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -38,7 +38,6 @@ import (
 	lbreconciler "github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -64,9 +63,9 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 	option.Config.EnableIPv4 = true
 	option.Config.EnableIPv6 = true
 
-	svcs, epSlices := ServicesAndSlices(testSize)
-
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: loglevel}))
+
+	svcs, epSlices := ServicesAndSlices(log, testSize)
 
 	var maps lbmaps.LBMaps
 	if testutils.IsPrivileged() {
@@ -75,7 +74,6 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 			Pinned: false,
 			Cfg: loadbalancer.Config{
 				UserConfig: loadbalancer.UserConfig{
-					EnableExperimentalLB:    true,
 					RetryBackoffMin:         time.Second,
 					RetryBackoffMax:         time.Second,
 					LBMapEntries:            3 * testSize,
@@ -317,7 +315,7 @@ func mapFunc[A, B any](xs []A, fn func(A) B) []B {
 	return out
 }
 
-func ServicesAndSlices(testSize int) (svcs []*slim_corev1.Service, epSlices []*k8s.Endpoints) {
+func ServicesAndSlices(logger *slog.Logger, testSize int) (svcs []*slim_corev1.Service, epSlices []*k8s.Endpoints) {
 	svcs = make([]*slim_corev1.Service, 0, testSize)
 	epSlices = make([]*k8s.Endpoints, 0, testSize)
 
@@ -375,7 +373,7 @@ func ServicesAndSlices(testSize int) (svcs []*slim_corev1.Service, epSlices []*k
 
 		tmpSlice.Name = fmt.Sprintf("%s-%06d", slice.Name, j)
 
-		epSlices = append(epSlices, k8s.ParseEndpointSliceV1(logging.DefaultSlogLogger, &tmpSlice))
+		epSlices = append(epSlices, k8s.ParseEndpointSliceV1(logger, &tmpSlice))
 	}
 	return
 }
@@ -409,11 +407,11 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 			i := 0
 			for svc := range writer.Services().All(txn) {
 				want := svcs[i]
-				if svc.Name.Namespace != want.Namespace {
-					err = errors.Join(err, fmt.Errorf("Incorrect namespace for service #%06d, got %q, want %q", i, svc.Name.Namespace, want.Namespace))
+				if svc.Name.Namespace() != want.Namespace {
+					err = errors.Join(err, fmt.Errorf("Incorrect namespace for service #%06d, got %q, want %q", i, svc.Name.Namespace(), want.Namespace))
 				}
-				if svc.Name.Name != want.Name {
-					err = errors.Join(err, fmt.Errorf("Incorrect name for service #%06d, got %q, want %q", i, svc.Name.Name, want.Name))
+				if svc.Name.Name() != want.Name {
+					err = errors.Join(err, fmt.Errorf("Incorrect name for service #%06d, got %q, want %q", i, svc.Name.Name(), want.Name))
 				}
 				if svc.Source != "k8s" {
 					err = errors.Join(err, fmt.Errorf("Incorrect source for service #%06d, got %q, want %q", i, svc.Source, "k8s"))
@@ -437,11 +435,11 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 			i := 0
 			for fe := range writer.Frontends().All(txn) {
 				want := svcs[i]
-				if fe.ServiceName.Namespace != want.Namespace {
-					err = errors.Join(err, fmt.Errorf("Incorrect namespace for frontend #%06d, got %q, want %q", i, fe.ServiceName.Namespace, want.Namespace))
+				if fe.ServiceName.Namespace() != want.Namespace {
+					err = errors.Join(err, fmt.Errorf("Incorrect namespace for frontend #%06d, got %q, want %q", i, fe.ServiceName.Namespace(), want.Namespace))
 				}
-				if fe.ServiceName.Name != want.Name {
-					err = errors.Join(err, fmt.Errorf("Incorrect name for frontend #%06d, got %q, want %q", i, fe.ServiceName.Name, want.Name))
+				if fe.ServiceName.Name() != want.Name {
+					err = errors.Join(err, fmt.Errorf("Incorrect name for frontend #%06d, got %q, want %q", i, fe.ServiceName.Name(), want.Name))
 				}
 				wantIP, _ := netip.ParseAddr(want.Spec.ClusterIP)
 				if fe.Address.AddrCluster.Addr() != wantIP {
@@ -479,7 +477,7 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 					if be.Address.AddrCluster != wantAddr {
 						err = errors.Join(err, fmt.Errorf("Incorrect address for backend #%06d, got %v, want %v", i, be.Address.AddrCluster, wantAddr))
 					}
-					for _, wantPort := range wantBe.Ports { // There is only one element in this map.
+					for wantPort := range wantBe.Ports { // There is only one element in this map.
 						if be.Address.Port != wantPort.Port {
 							err = errors.Join(err, fmt.Errorf("Incorrect port for backend #%06d, got %v, want %v", i, be.Address.Port, wantPort.Port))
 						}
@@ -492,8 +490,8 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 					err = errors.Join(err, fmt.Errorf("Incorrect instances count for backend #%06d, got %v, want %v", i, be.Instances.Len(), 1))
 				} else {
 					for k, instance := range be.Instances.All() { // There should
-						if k.ServiceName.Name != svcs[i].Name {
-							err = errors.Join(err, fmt.Errorf("Incorrect service name for backend #%06d, got %v, want %v", i, k.ServiceName.Name, svcs[i].Name))
+						if k.ServiceName.Name() != svcs[i].Name {
+							err = errors.Join(err, fmt.Errorf("Incorrect service name for backend #%06d, got %v, want %v", i, k.ServiceName.Name(), svcs[i].Name))
 						}
 						if state, tmpErr := instance.State.String(); tmpErr != nil || state != "active" {
 							err = errors.Join(err, fmt.Errorf("Incorrect state for backend #%06d, got %q, want %q", i, state, "active"))
@@ -537,7 +535,7 @@ func testHive(maps lbmaps.LBMaps,
 			"loadbalancer-test",
 			"Test module",
 
-			client.FakeClientCell,
+			k8sClient.FakeClientCell(),
 			node.LocalNodeStoreCell,
 
 			cell.Provide(

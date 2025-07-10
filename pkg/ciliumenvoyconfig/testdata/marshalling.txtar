@@ -77,6 +77,8 @@ kind: CiliumEnvoyConfig
 metadata:
   name: envoy-lb-listener
   namespace: test
+  labels:
+    foo: bar
 spec:
   services:
     - name: echo
@@ -112,6 +114,9 @@ spec:
         "name": "envoy-lb-listener"
       }
     ]
+  },
+  "Labels": {
+    "foo": "bar"
   },
   "SelectsLocalNode": true,
   "Listeners": [
@@ -361,11 +366,7 @@ spec:
   },
   "Redirects": [
     {
-      "k": {
-        "Namespace": "test",
-        "Name": "echo",
-        "Cluster": ""
-      },
+      "k": "test/echo",
       "v": {
         "ProxyPort": 1000,
         "Ports": [
@@ -376,11 +377,7 @@ spec:
   ],
   "ReconciledRedirects": [
     {
-      "k": {
-        "Namespace": "test",
-        "Name": "echo",
-        "Cluster": ""
-      },
+      "k": "test/echo",
       "v": {
         "ProxyPort": 1000,
         "Ports": [
@@ -390,10 +387,6 @@ spec:
     }
   ],
   "ReferencedServices": [
-    {
-      "Namespace": "test",
-      "Name": "echo",
-      "Cluster": ""
-    }
+    "test/echo"
   ]
 }

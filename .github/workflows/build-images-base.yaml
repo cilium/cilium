@@ -74,14 +74,14 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Set up QEMU
         id: qemu
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -140,7 +140,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
+        uses: anchore/sbom-action@9246b90769f852b3a8921f330c59e0b3f439d6e9 # v0.20.1
         with:
           artifact-name: sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
@@ -149,7 +149,7 @@ jobs:
       - name: Attach SBOM attestation to container image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attest -r -y --predicate sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
+          cosign attest -y --predicate sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
       - name: Image Release Digest Runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -228,7 +228,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
+        uses: anchore/sbom-action@9246b90769f852b3a8921f330c59e0b3f439d6e9 # v0.20.1
         with:
           artifact-name: sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
@@ -237,7 +237,7 @@ jobs:
       - name: Attach SBOM attestation to container image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attest -r -y --predicate sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
+          cosign attest -y --predicate sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
       - name: Image Release Digest Builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}

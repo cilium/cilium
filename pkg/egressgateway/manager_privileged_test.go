@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
@@ -180,7 +181,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	return k
 }
 
-func TestEgressGatewayCEGPParser(t *testing.T) {
+func TestPrivilegedEgressGatewayCEGPParser(t *testing.T) {
 	setupEgressGatewayTestSuite(t)
 	// must specify name
 	policy := policyParams{
@@ -300,7 +301,7 @@ func TestEgressGatewayCEGPParser(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestEgressGatewayManager(t *testing.T) {
+func TestPrivilegedEgressGatewayManager(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
 	createTestInterface(t, k.sysctl, testInterface2, []string{egressCIDR2, egressCIDR2v6})
@@ -402,6 +403,7 @@ func TestEgressGatewayManager(t *testing.T) {
 	// Restore old DestCIDR
 	policy1.destinationCIDRs = []string{destCIDR, destCIDRv6}
 	addPolicy(t, k.policies, &policy1)
+	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
 	// Create a new policy
 	addPolicy(t, k.policies, &policyParams{
@@ -602,7 +604,7 @@ func TestEgressGatewayManager(t *testing.T) {
 	})
 }
 
-func TestNodeSelector(t *testing.T) {
+func TestPrivilegedNodeSelector(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
@@ -688,7 +690,7 @@ func TestNodeSelector(t *testing.T) {
 	assertEgressRules6(t, policyMap6, []egressRule{})
 }
 
-func TestEndpointDataStore(t *testing.T) {
+func TestPrivilegedEndpointDataStore(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
@@ -777,7 +779,7 @@ func TestEndpointDataStore(t *testing.T) {
 	})
 }
 
-func TestMultigatewayPolicy(t *testing.T) {
+func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
 
@@ -979,7 +981,7 @@ func createTestInterface(tb testing.TB, sysctl sysctl.Sysctl, iface string, addr
 		tb.Fatal(err)
 	}
 
-	link, err := netlink.LinkByName(iface)
+	link, err := safenetlink.LinkByName(iface)
 	if err != nil {
 		tb.Fatal(err)
 	}

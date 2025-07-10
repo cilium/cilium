@@ -5,9 +5,12 @@ package reconcilerv2
 
 import (
 	"cmp"
+	"context"
+	"net/netip"
 	"slices"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -22,12 +25,12 @@ func Test_MergeRoutePolicies(t *testing.T) {
 	var nilPointerInt64 *int64
 
 	conditionsNeighborOne := types.RoutePolicyConditions{
-		MatchNeighbors: []string{"fd00::1"},
+		MatchNeighbors: []netip.Addr{netip.MustParseAddr("fd00::1")},
 		MatchFamilies:  []types.Family{{Afi: types.AfiIPv6}},
 	}
 
 	conditionsNeighborThree := types.RoutePolicyConditions{
-		MatchNeighbors: []string{"fd00::3"},
+		MatchNeighbors: []netip.Addr{netip.MustParseAddr("fd00::3")},
 		MatchFamilies:  []types.Family{{Afi: types.AfiIPv6}},
 	}
 
@@ -500,4 +503,530 @@ func SortRouteStatementsByName(statements []*types.RoutePolicyStatement) {
 	slices.SortFunc(statements, func(i, j *types.RoutePolicyStatement) int {
 		return cmp.Compare(i.Conditions.String(), j.Conditions.String())
 	})
+}
+
+type fakeRouterWithReset struct {
+	t *testing.T
+	*types.FakeRouter
+	resets map[netip.Addr]types.SoftResetDirection
+}
+
+func newFakeRouterWithReset(t *testing.T) *fakeRouterWithReset {
+	return &fakeRouterWithReset{
+		t:          t,
+		FakeRouter: types.NewFakeRouter().(*types.FakeRouter),
+		resets:     make(map[netip.Addr]types.SoftResetDirection),
+	}
+}
+
+func (f *fakeRouterWithReset) ResetNeighbor(ctx context.Context, r types.ResetNeighborRequest) error {
+	if r.Soft {
+		f.resets[r.PeerAddress] = r.SoftResetDirection
+	}
+	return nil
+}
+
+func (f *fakeRouterWithReset) ResetAllNeighbors(ctx context.Context, r types.ResetAllNeighborsRequest) error {
+	if r.Soft {
+		// Use an invalid address to indicate the all reset
+		f.resets[netip.Addr{}] = r.SoftResetDirection
+	}
+	return nil
+}
+
+func TestRoutePolicySoftReset(t *testing.T) {
+	logger := hivetest.Logger(t)
+	peer0 := netip.MustParseAddr("10.0.0.1")
+	peer1 := netip.MustParseAddr("fd00::2")
+	peer2 := netip.MustParseAddr("fe80::1%eth0")
+	allPeer := netip.Addr{}
+
+	// In this test, we're only interested in which neighbors are resetted with which
+	// direction. This is an abstructed policy to make the test easier.
+	type policy struct {
+		name      string
+		typ       types.RoutePolicyType
+		neighbors []netip.Addr
+	}
+
+	tests := []struct {
+		name            string
+		currentPolicies []*policy
+		desiredPolicies []*policy
+		expectedResets  map[netip.Addr]types.SoftResetDirection
+	}{
+		{
+			name:            "new outbound policies",
+			currentPolicies: []*policy{},
+			desiredPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1, peer2},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionOut,
+				peer1: types.SoftResetDirectionOut,
+				peer2: types.SoftResetDirectionOut,
+			},
+		},
+		{
+			name:            "new inbound policies",
+			currentPolicies: []*policy{},
+			desiredPolicies: []*policy{
+				{
+					name:      "inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer0, peer1, peer2},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionIn,
+				peer1: types.SoftResetDirectionIn,
+				peer2: types.SoftResetDirectionIn,
+			},
+		},
+		{
+			name:            "new outbound and inbound policies",
+			currentPolicies: []*policy{},
+			desiredPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1, peer2},
+				},
+				{
+					name:      "inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer0, peer1, peer2},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionBoth,
+				peer1: types.SoftResetDirectionBoth,
+				peer2: types.SoftResetDirectionBoth,
+			},
+		},
+		{
+			name:            "new mixed policies",
+			currentPolicies: []*policy{},
+			desiredPolicies: []*policy{
+				{
+					name:      "outbound0",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0},
+				},
+				{
+					name:      "outbound1",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer1},
+				},
+				{
+					name:      "inbound0",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer1},
+				},
+				{
+					name:      "inbound1",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer2},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionOut,
+				peer1: types.SoftResetDirectionBoth,
+				peer2: types.SoftResetDirectionIn,
+			},
+		},
+		// Update test cases
+		{
+			name: "update outbound policy neighbors",
+			currentPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+			},
+			desiredPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer1, peer2},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionOut, // was in old policy
+				peer1: types.SoftResetDirectionOut, // in both old and new policy
+				peer2: types.SoftResetDirectionOut, // in new policy
+			},
+		},
+		{
+			name: "update inbound policy neighbors",
+			currentPolicies: []*policy{
+				{
+					name:      "inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+			},
+			desiredPolicies: []*policy{
+				{
+					name:      "inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer1, peer2},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionIn, // was in old policy
+				peer1: types.SoftResetDirectionIn, // in both old and new policy
+				peer2: types.SoftResetDirectionIn, // in new policy
+			},
+		},
+		{
+			name: "update policy type from export to import",
+			currentPolicies: []*policy{
+				{
+					name:      "policy",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+			},
+			desiredPolicies: []*policy{
+				{
+					name:      "policy",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionBoth, // affected by both old export and new import policy
+				peer1: types.SoftResetDirectionBoth, // affected by both old export and new import policy
+			},
+		},
+		{
+			name: "update mixed policies with neighbor changes",
+			currentPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+				{
+					name:      "inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer1, peer2},
+				},
+			},
+			desiredPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer2},
+				},
+				{
+					name:      "inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionBoth, // affected by both policy types
+				peer1: types.SoftResetDirectionBoth, // affected by both policy types
+				peer2: types.SoftResetDirectionBoth, // affected by both policy types
+			},
+		},
+		// Delete test cases
+		{
+			name: "delete outbound policy",
+			currentPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1, peer2},
+				},
+			},
+			desiredPolicies: []*policy{},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionOut,
+				peer1: types.SoftResetDirectionOut,
+				peer2: types.SoftResetDirectionOut,
+			},
+		},
+		{
+			name: "delete inbound policy",
+			currentPolicies: []*policy{
+				{
+					name:      "inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer0, peer1, peer2},
+				},
+			},
+			desiredPolicies: []*policy{},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionIn,
+				peer1: types.SoftResetDirectionIn,
+				peer2: types.SoftResetDirectionIn,
+			},
+		},
+		{
+			name: "delete one of multiple policies",
+			currentPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+				{
+					name:      "inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer1, peer2},
+				},
+			},
+			desiredPolicies: []*policy{
+				{
+					name:      "inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer1, peer2},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionOut, // outbound policy deleted
+				peer1: types.SoftResetDirectionOut, // outbound policy deleted, inbound remains
+				// peer2 has no reset because it only had inbound policy which remains unchanged
+			},
+		},
+		{
+			name: "delete all policies",
+			currentPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+				{
+					name:      "inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer1, peer2},
+				},
+			},
+			desiredPolicies: []*policy{},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				peer0: types.SoftResetDirectionOut,  // had outbound policy
+				peer1: types.SoftResetDirectionBoth, // had both policies
+				peer2: types.SoftResetDirectionIn,   // had inbound policy
+			},
+		},
+		{
+			name: "no changes - same policies",
+			currentPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+			},
+			desiredPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{},
+		},
+		{
+			name:            "new policy with empty neighbors (all neighbors)",
+			currentPolicies: []*policy{},
+			desiredPolicies: []*policy{
+				{
+					name:      "all-outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				allPeer: types.SoftResetDirectionOut,
+			},
+		},
+		{
+			name:            "new policy with empty neighbors for import (all neighbors)",
+			currentPolicies: []*policy{},
+			desiredPolicies: []*policy{
+				{
+					name:      "all-inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				allPeer: types.SoftResetDirectionIn,
+			},
+		},
+		{
+			name:            "new policies with empty neighbors for both import and export (all neighbors)",
+			currentPolicies: []*policy{},
+			desiredPolicies: []*policy{
+				{
+					name:      "all-outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{},
+				},
+				{
+					name:      "all-inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				allPeer: types.SoftResetDirectionBoth,
+			},
+		},
+		{
+			name:            "mixed policy - some specific neighbors and all neighbors",
+			currentPolicies: []*policy{},
+			desiredPolicies: []*policy{
+				{
+					name:      "specific-outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+				{
+					name:      "all-inbound",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				allPeer: types.SoftResetDirectionIn,
+				peer0:   types.SoftResetDirectionOut,
+				peer1:   types.SoftResetDirectionOut,
+			},
+		},
+		{
+			name: "update policy from specific neighbors to all neighbors",
+			currentPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+			},
+			desiredPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				allPeer: types.SoftResetDirectionOut,
+			},
+		},
+		{
+			name: "update policy from all neighbors to specific neighbors",
+			currentPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{},
+				},
+			},
+			desiredPolicies: []*policy{
+				{
+					name:      "outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				allPeer: types.SoftResetDirectionOut,
+			},
+		},
+		{
+			name: "delete policy with all neighbors",
+			currentPolicies: []*policy{
+				{
+					name:      "all-outbound",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{},
+				},
+			},
+			desiredPolicies: []*policy{},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				allPeer: types.SoftResetDirectionOut,
+			},
+		},
+		{
+			name:            "all neighbors export, specific neighbors import",
+			currentPolicies: []*policy{},
+			desiredPolicies: []*policy{
+				{
+					name:      "all-export",
+					typ:       types.RoutePolicyTypeExport,
+					neighbors: []netip.Addr{},
+				},
+				{
+					name:      "specific-import",
+					typ:       types.RoutePolicyTypeImport,
+					neighbors: []netip.Addr{peer0, peer1},
+				},
+			},
+			expectedResets: map[netip.Addr]types.SoftResetDirection{
+				allPeer: types.SoftResetDirectionOut,
+				peer0:   types.SoftResetDirectionIn,
+				peer1:   types.SoftResetDirectionIn,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := require.New(t)
+			router := newFakeRouterWithReset(t)
+
+			current := RoutePolicyMap{}
+			for _, policy := range tt.currentPolicies {
+				current[policy.name] = &types.RoutePolicy{
+					Name: policy.name,
+					Type: policy.typ,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: policy.neighbors,
+							},
+						},
+					},
+				}
+			}
+
+			desired := RoutePolicyMap{}
+			for _, policy := range tt.desiredPolicies {
+				desired[policy.name] = &types.RoutePolicy{
+					Name: policy.name,
+					Type: policy.typ,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: policy.neighbors,
+							},
+						},
+					},
+				}
+			}
+
+			_, err := ReconcileRoutePolicies(&ReconcileRoutePoliciesParams{
+				Logger:          logger,
+				Ctx:             t.Context(),
+				Router:          router,
+				CurrentPolicies: current,
+				DesiredPolicies: desired,
+			})
+			req.NoError(err)
+
+			// Check if the reset happened for expected peers
+			req.Equal(tt.expectedResets, router.resets)
+		})
+	}
 }

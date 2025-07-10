@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"net"
 	"os"
@@ -29,6 +30,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
@@ -36,8 +38,11 @@ import (
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/status"
 	"github.com/cilium/cilium/cilium-cli/utils/wait"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	cmk8s "github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 const (
@@ -1715,4 +1720,118 @@ func removeFromClustermeshConfig(values map[string]any, clusterNames []string) (
 	}
 
 	return newValues, nil
+}
+
+type PolicyDefaultLocalClusterInspectResult struct {
+	CiliumNetworkPolicies            map[string]bool `json:"ciliumNetworkPolicies,omitempty"`
+	CiliumClusterWideNetworkPolicies map[string]bool `json:"ciliumClusterWideNetworkPolicies,omitempty"`
+	NetworkPolicies                  map[string]bool `json:"networkPolicies,omitempty"`
+}
+
+func PolicyDefaultLocalClusterInspect(ctx context.Context, k8sClient *k8s.Client, namespace string) (*PolicyDefaultLocalClusterInspectResult, error) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	res := PolicyDefaultLocalClusterInspectResult{
+		CiliumNetworkPolicies:            map[string]bool{},
+		CiliumClusterWideNetworkPolicies: map[string]bool{},
+		NetworkPolicies:                  map[string]bool{},
+	}
+
+	nps, err := k8sClient.ListSlimNetworkPolicies(ctx, namespace, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("Error listing network policies: %w", err)
+	}
+	for _, np := range nps.Items {
+		rulesAny, err := cmk8s.ParseNetworkPolicy(logger, cmtypes.PolicyAnyCluster, &np)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing network policies: %w", err)
+		}
+		rulesLocal, err := cmk8s.ParseNetworkPolicy(logger, "some-cluster", &np)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing network policies: %w", err)
+		}
+
+		res.NetworkPolicies[client.ObjectKeyFromObject(&np).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *api.Rule) bool { return a.DeepEqual(b) })
+	}
+
+	cnps, err := k8sClient.ListCiliumNetworkPolicies(ctx, namespace, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("Error listing Cilium network policies: %w", err)
+	}
+	for _, cnp := range cnps.Items {
+		rulesAny, err := cnp.Parse(logger, cmtypes.PolicyAnyCluster)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing Cilium network policies: %w", err)
+		}
+		rulesLocal, err := cnp.Parse(logger, "some-cluster")
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing Cilium network policies: %w", err)
+		}
+
+		res.CiliumNetworkPolicies[client.ObjectKeyFromObject(&cnp).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *api.Rule) bool { return a.DeepEqual(b) })
+	}
+
+	if namespace == corev1.NamespaceAll {
+		ccnps, err := k8sClient.ListCiliumClusterwideNetworkPolicies(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("Error listing Cilium Cluster Wide network policies: %w", err)
+		}
+		for _, ccnp := range ccnps.Items {
+			rulesAny, err := ccnp.Parse(logger, cmtypes.PolicyAnyCluster)
+			if err != nil {
+				return nil, fmt.Errorf("Error parsing Cilium Cluster Wide network policies: %w", err)
+			}
+			rulesLocal, err := ccnp.Parse(logger, "some-cluster")
+			if err != nil {
+				return nil, fmt.Errorf("Error parsing Cilium Cluster Wide network policies: %w", err)
+			}
+
+			res.CiliumClusterWideNetworkPolicies[client.ObjectKeyFromObject(&ccnp).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *api.Rule) bool { return a.DeepEqual(b) })
+		}
+	}
+
+	return &res, nil
+}
+
+func countDiff(netpolDiffMap map[string]bool) int {
+	count := 0
+	for _, diff := range netpolDiffMap {
+		if diff {
+			count += 1
+		}
+	}
+	return count
+}
+
+func outputDiffMap(name string, netpolDiffMap map[string]bool) {
+	diffCount := countDiff(netpolDiffMap)
+	status := "✅"
+	if diffCount > 0 {
+		status = "⚠️"
+	}
+	fmt.Printf("%s %s %d/%d\n", status, name, len(netpolDiffMap)-diffCount, len(netpolDiffMap))
+	for name, diff := range netpolDiffMap {
+		status := "✅"
+		if diff {
+			status = "⚠️"
+		}
+		fmt.Printf("\t%s %s\n", status, name)
+	}
+}
+
+func (res *PolicyDefaultLocalClusterInspectResult) OutputPolicyDefaultLocalClusterInspect(output string) error {
+	if output == status.OutputJSON {
+		jsonStatus, err := json.MarshalIndent(res, "", " ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal status to JSON")
+		}
+		fmt.Println(string(jsonStatus))
+		return nil
+	}
+	outputDiffMap("CiliumNetworkPolicy", res.CiliumNetworkPolicies)
+	fmt.Println()
+	outputDiffMap("CiliumClusterWideNetworkPolicy", res.CiliumClusterWideNetworkPolicies)
+	fmt.Println()
+	outputDiffMap("NetworkPolicy", res.NetworkPolicies)
+
+	return nil
 }

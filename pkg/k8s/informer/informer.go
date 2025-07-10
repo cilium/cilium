@@ -30,6 +30,7 @@ func init() {
 				//   panicking with ErrAbortHandler also suppresses logging of a stack trace to the server's error log.
 				return
 			}
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.Fatal(logging.DefaultSlogLogger, "Panic in Kubernetes runtime handler")
 		},
 	)

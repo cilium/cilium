@@ -99,6 +99,7 @@ type directoryInfo struct {
 var (
 	StandardCFlags = []string{"-O2", "--target=bpf", "-std=gnu99",
 		"-nostdinc",
+		"-ftrap-function=__undefined_trap",
 		"-Wall", "-Wextra", "-Werror", "-Wshadow",
 		"-Wno-address-of-packed-member",
 		"-Wno-unknown-warning-option",

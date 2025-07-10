@@ -6,6 +6,7 @@ package k8s
 import (
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"net/netip"
 	"slices"
@@ -25,6 +26,13 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
+
+// EndpointSliceID identifies a Kubernetes EndpointSlice as well as the legacy
+// v1.Endpoints.
+type EndpointSliceID struct {
+	ServiceName       loadbalancer.ServiceName
+	EndpointSliceName string
+}
 
 // Endpoints is an abstraction for the Kubernetes endpoints object. Endpoints
 // consists of a set of backend IPs in combination with a set of ports and
@@ -93,15 +101,35 @@ func (in *Endpoints) DeepCopy() *Endpoints {
 // Backend contains all ports, terminating state, and the node name of a given backend
 //
 // +k8s:deepcopy-gen=true
-// +deepequal-gen=true
+// +deepequal-gen=false
 type Backend struct {
-	Ports         serviceStore.PortConfiguration
+	Ports         map[loadbalancer.L4Addr][]string
 	NodeName      string
 	Hostname      string
 	Terminating   bool
 	HintsForZones []string
 	Preferred     bool
 	Zone          string
+}
+
+func (b *Backend) DeepEqual(other *Backend) bool {
+	return maps.EqualFunc(b.Ports, other.Ports, slices.Equal) &&
+		b.NodeName == other.NodeName &&
+		b.Hostname == other.Hostname &&
+		b.Terminating == other.Terminating &&
+		slices.Equal(b.HintsForZones, other.HintsForZones) &&
+		b.Preferred == other.Preferred &&
+		b.Zone == other.Zone
+}
+
+func (b *Backend) ToPortConfiguration() serviceStore.PortConfiguration {
+	pc := serviceStore.PortConfiguration{}
+	for addr, names := range b.Ports {
+		for _, name := range names {
+			pc[name] = &addr
+		}
+	}
+	return pc
 }
 
 // String returns the string representation of an endpoints resource, with
@@ -113,7 +141,7 @@ func (e *Endpoints) String() string {
 
 	backends := []string{}
 	for addrCluster, be := range e.Backends {
-		for _, port := range be.Ports {
+		for port := range be.Ports {
 			if be.Zone != "" {
 				backends = append(backends, fmt.Sprintf("%s/%s[%s]", net.JoinHostPort(addrCluster.Addr().String(), strconv.Itoa(int(port.Port))), port.Protocol, be.Zone))
 			} else {
@@ -147,10 +175,10 @@ func (e *Endpoints) Prefixes() []netip.Prefix {
 // ParseEndpointsID parses a Kubernetes endpoints and returns the EndpointSliceID
 func ParseEndpointsID(ep *slim_corev1.Endpoints) EndpointSliceID {
 	return EndpointSliceID{
-		ServiceID: ServiceID{
-			Name:      ep.ObjectMeta.Name,
-			Namespace: ep.ObjectMeta.Namespace,
-		},
+		ServiceName: loadbalancer.NewServiceName(
+			ep.ObjectMeta.Namespace,
+			ep.ObjectMeta.Name,
+		),
 		EndpointSliceName: ep.ObjectMeta.Name,
 	}
 }
@@ -169,7 +197,7 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
 
 			backend, ok := endpoints.Backends[addrCluster]
 			if !ok {
-				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
+				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
 				endpoints.Backends[addrCluster] = backend
 			}
 
@@ -180,7 +208,11 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
 
 			for _, port := range sub.Ports {
 				lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				backend.Ports[port.Name] = lbPort
+				if port.Name != "" {
+					backend.Ports[lbPort] = append(backend.Ports[lbPort], port.Name)
+				} else {
+					backend.Ports[lbPort] = nil
+				}
 			}
 		}
 	}
@@ -199,10 +231,10 @@ type endpointSlice interface {
 // EndpointSliceID
 func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 	return EndpointSliceID{
-		ServiceID: ServiceID{
-			Name:      es.GetLabels()[slim_discovery_v1.LabelServiceName],
-			Namespace: es.GetNamespace(),
-		},
+		ServiceName: loadbalancer.NewServiceName(
+			es.GetNamespace(),
+			es.GetLabels()[slim_discovery_v1.LabelServiceName],
+		),
 		EndpointSliceName: es.GetName(),
 	}
 }
@@ -250,7 +282,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 
 			backend, ok := endpoints.Backends[addrCluster]
 			if !ok {
-				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
+				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
 				endpoints.Backends[addrCluster] = backend
 				if nodeName, ok := sub.Topology[corev1.LabelHostname]; ok {
 					backend.NodeName = nodeName
@@ -268,9 +300,13 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 			}
 
 			for _, port := range ep.Ports {
-				name, lbPort := parseEndpointPortV1Beta1(port)
-				if lbPort != nil {
-					backend.Ports[name] = lbPort
+				name, lbPort, ok := parseEndpointPortV1Beta1(port)
+				if ok {
+					if name != "" {
+						backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
+					} else {
+						backend.Ports[lbPort] = nil
+					}
 				}
 			}
 		}
@@ -280,7 +316,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 
 // parseEndpointPortV1Beta1 returns the port name and the port parsed as a
 // L4Addr from the given port.
-func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string, *loadbalancer.L4Addr) {
+func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (name string, addr loadbalancer.L4Addr, ok bool) {
 	proto := loadbalancer.TCP
 	if port.Protocol != nil {
 		switch *port.Protocol {
@@ -291,18 +327,16 @@ func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string,
 		case slim_corev1.ProtocolSCTP:
 			proto = loadbalancer.SCTP
 		default:
-			return "", nil
+			return
 		}
 	}
 	if port.Port == nil {
-		return "", nil
+		return
 	}
-	var name string
 	if port.Name != nil {
 		name = *port.Name
 	}
-	lbPort := loadbalancer.NewL4Addr(proto, uint16(*port.Port))
-	return name, lbPort
+	return name, loadbalancer.NewL4Addr(proto, uint16(*port.Port)), true
 }
 
 // ParseEndpointSliceV1 parses a Kubernetes EndpointSlice resource.
@@ -370,7 +404,7 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 
 			backend, ok := endpoints.Backends[addrCluster]
 			if !ok {
-				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
+				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
 				endpoints.Backends[addrCluster] = backend
 				if sub.NodeName != nil {
 					backend.NodeName = *sub.NodeName
@@ -401,9 +435,13 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 			}
 
 			for _, port := range ep.Ports {
-				name, lbPort := parseEndpointPortV1(port)
-				if lbPort != nil {
-					backend.Ports[name] = lbPort
+				name, lbPort, ok := parseEndpointPortV1(port)
+				if ok {
+					if name != "" {
+						backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
+					} else {
+						backend.Ports[lbPort] = nil
+					}
 				}
 			}
 			if sub.Hints != nil && (*sub.Hints).ForZones != nil {
@@ -426,7 +464,7 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 
 // parseEndpointPortV1 returns the port name and the port parsed as a L4Addr from
 // the given port.
-func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (string, *loadbalancer.L4Addr) {
+func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (name string, addr loadbalancer.L4Addr, ok bool) {
 	proto := loadbalancer.TCP
 	if port.Protocol != nil {
 		switch *port.Protocol {
@@ -437,25 +475,22 @@ func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (string, *loadbala
 		case slim_corev1.ProtocolSCTP:
 			proto = loadbalancer.SCTP
 		default:
-			return "", nil
+			return
 		}
 	}
 	if port.Port == nil {
-		return "", nil
+		return
 	}
-	var name string
 	if port.Name != nil {
 		name = *port.Name
 	}
-	lbPort := loadbalancer.NewL4Addr(proto, uint16(*port.Port))
-	return name, lbPort
+	return name, loadbalancer.NewL4Addr(proto, uint16(*port.Port)), true
 }
 
 // EndpointSlices is the collection of all endpoint slices of a service.
 // The map key is the name of the endpoint slice or the name of the legacy
 // v1.Endpoint. The endpoints stored here are not namespaced since this
 // structure is only used as a value of another map that is already namespaced.
-// (see ServiceCache.endpoints).
 //
 // +deepequal-gen=true
 type EndpointSlices struct {
@@ -488,7 +523,7 @@ func (es *EndpointSlices) GetEndpoints() *Endpoints {
 				allEps.Backends[backend] = ep.DeepCopy()
 			} else {
 				for k, v := range ep.Ports {
-					b.Ports[k] = v.DeepCopy()
+					b.Ports[k] = slices.Clone(v)
 				}
 			}
 		}
@@ -514,17 +549,4 @@ func (es *EndpointSlices) Delete(esName string) bool {
 	}
 	delete(es.epSlices, esName)
 	return len(es.epSlices) == 0
-}
-
-// externalEndpoints is the collection of external endpoints in all remote
-// clusters. The map key is the name of the remote cluster.
-type externalEndpoints struct {
-	endpoints map[string]*Endpoints
-}
-
-// newExternalEndpoints returns a new ExternalEndpoints
-func newExternalEndpoints() externalEndpoints {
-	return externalEndpoints{
-		endpoints: map[string]*Endpoints{},
-	}
 }

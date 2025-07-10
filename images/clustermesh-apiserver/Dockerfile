@@ -3,17 +3,17 @@
 
 # distroless images are signed by cosign and can be verified using:
 # $ cosign verify $IMAGE_NAME --certificate-oidc-issuer https://accounts.google.com --certificate-identity keyless@distroless.iam.gserviceaccount.com
-ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:188ddfb9e497f861177352057cb21913d840ecae6c843d39e00d44fa64daa51c
+ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:627d6c5a23ad24e6bdff827f16c7b60e0289029b0c79e9f7ccd54ae3279fb45f
 # These SHA256 digests are important for two reasons:
 # 1. They 'pin' the container image to a specific version. Unlike a tag that can be changed at any future point, a
 #    SHA265 hash cannot be modified. This increases the security of the build by protecting against a class of supply
 #    chain attacks where an attacker has write access to our 3rd party dependency image registries.
 # 2. These digests must be to the *overall* digest, not the digest for a specific image. This is because the images will
 #    be architecture specific, but the overall digest will contain all of the architectures.
-ARG GOLANG_IMAGE=docker.io/library/golang:1.24.3@sha256:81bf5927dc91aefb42e2bc3a5abdbe9bb3bae8ba8b107e2a4cf43ce3402534c6
+ARG GOLANG_IMAGE=docker.io/library/golang:1.24.4@sha256:20a022e5112a144aa7b7aeb3f22ebf2cdaefcc4aac0d64e8deeee8cdc18b9c0f
 # We don't use ETCD_IMAGE because that's used in Makefile.defs to select a ETCD image approrpate for the *host platform*
 # to run tests with.
-ARG ETCD_SERVER_IMAGE=gcr.io/etcd-development/etcd:v3.6.0@sha256:2ebe4d4c6ad0458592d16806eb1711c4d30804e0f22b20cc5fbc24c19a8592e0
+ARG ETCD_SERVER_IMAGE=gcr.io/etcd-development/etcd:v3.6.1@sha256:56bc6ef112a4e2702142d365baecae44cba85c6efc6146b4a41a4c655dd7d231
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -27,14 +27,14 @@ ARG TARGETARCH
 # MODIFIERS are extra arguments to be passed to make at build time.
 ARG MODIFIERS
 
-WORKDIR /go/src/github.com/cilium/cilium/clustermesh-apiserver
+WORKDIR /go/src/github.com/cilium/cilium
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
-    mkdir -p /out/${TARGETOS}/${TARGETARCH} && cp etcd-config.yaml /out/${TARGETOS}/${TARGETARCH}/etcd-config.yaml
+    mkdir -p /out/${TARGETOS}/${TARGETARCH} && cp clustermesh-apiserver/etcd-config.yaml /out/${TARGETOS}/${TARGETARCH}/etcd-config.yaml
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/go/pkg \
-    make GOARCH=${TARGETARCH} $(echo $MODIFIERS | tr -d '"') \
-    && mkdir -p /out/${TARGETOS}/${TARGETARCH}/usr/bin && mv clustermesh-apiserver /out/${TARGETOS}/${TARGETARCH}/usr/bin
+    make GOARCH=${TARGETARCH} DESTDIR=/out/${TARGETOS}/${TARGETARCH} $(echo $MODIFIERS | tr -d '"') \
+    build-container-clustermesh-apiserver install-container-binary-clustermesh-apiserver
 
 WORKDIR /go/src/github.com/cilium/cilium
 # licenses-all is a "script" that executes "go run" so its ARCH should be set
@@ -72,6 +72,17 @@ COPY --from=etcd /usr/local/bin/etcd /usr/bin/etcd
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/etcd-config.yaml /var/lib/cilium/etcd-config.yaml
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/clustermesh-apiserver /usr/bin/clustermesh-apiserver
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
+
+# The Cilium Shell expects to be able to create a unix socket in /var/run/cilium
+# Create the directory in advance to make sure that it has write privileges (we
+# set 0777 permissions to the leaf directory), given that this container is
+# typically run as a non-root user.
+#
+# tar --utc -tvf images/clustermesh-apiserver/var-run-cilium.tar
+# drwxr-xr-x root/root         0 2025-06-15 00:00 var/
+# drwxr-xr-x root/root         0 2025-06-15 00:00 var/run/
+# drwxrwxrwx root/root         0 2025-06-15 00:00 var/run/cilium/
+ADD images/clustermesh-apiserver/var-run-cilium.tar /
 
 # Configure gops to use a temporary directory, to prevent permission
 # issues depending on the UID configured to run the entrypoint.

@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG BASE_IMAGE=scratch
-ARG GOLANG_IMAGE=docker.io/library/golang:1.24.3@sha256:81bf5927dc91aefb42e2bc3a5abdbe9bb3bae8ba8b107e2a4cf43ce3402534c6
+ARG GOLANG_IMAGE=docker.io/library/golang:1.24.4@sha256:20a022e5112a144aa7b7aeb3f22ebf2cdaefcc4aac0d64e8deeee8cdc18b9c0f
 ARG ALPINE_IMAGE=docker.io/library/alpine:3.22.0@sha256:8a1f59ffb675680d47db6337b49d22281a139e9d709335b492be023728e11715
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:b37296d28bbd6f18fd45e1e452ce77f1d3acf025@sha256:867699c0c3b034f96e3476e0782dbab45e28dafb6ea02a8922fc9b087be6f8b2
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:f8a2decb9bc384cbc8d19a24ef5546ba9fdd7fd9@sha256:859c73d230c634167f71e23e4d13ebf67807f16293b7a9239f81c2f469810c42
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -86,7 +86,10 @@ COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/cilium-${OPERATOR_VARIANT} /usr/bin/cilium-${OPERATOR_VARIANT}
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
 WORKDIR /
-ENV GOPS_CONFIG_DIR=/
+# Configure gops directory to prevent permission
+# issues depending on the UID configured to run the entrypoint.
+COPY --chmod=777 --from=scratch / /home/gops
+ENV GOPS_CONFIG_DIR=/home/gops
 CMD ["/usr/bin/cilium-${OPERATOR_VARIANT}"]
 
 FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} AS debug-tools

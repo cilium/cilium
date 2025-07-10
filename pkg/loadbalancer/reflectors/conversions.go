@@ -4,7 +4,9 @@
 package reflectors
 
 import (
+	"context"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -19,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -72,7 +75,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		)
 	})
 
-	name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
+	name := loadbalancer.NewServiceName(svc.Namespace, svc.Name)
 	s = &loadbalancer.Service{
 		Name:                name,
 		Source:              source,
@@ -97,7 +100,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 	}
 
 	if localNodeStore != nil {
-		if nodeMatches, err := k8s.CheckServiceNodeExposure(localNodeStore, svc.Annotations); err != nil {
+		if nodeMatches, err := CheckServiceNodeExposure(localNodeStore, svc.Annotations); err != nil {
 			log().Warn("Ignoring node service exposure", logfields.Error, err)
 		} else if !nodeMatches {
 			return nil, nil
@@ -105,7 +108,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		}
 	}
 
-	expType, err := k8s.NewSvcExposureType(svc)
+	expType, err := NewSvcExposureType(svc)
 	if err != nil {
 		log().Warn("Ignoring annotation",
 			logfields.Error, err,
@@ -201,12 +204,6 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 			}
 
 			for _, port := range svc.Spec.Ports {
-				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				if p == nil {
-					log().Debug("Skipping ClusterIP due to bad L4 type/port",
-						logfields.Port, port)
-					continue
-				}
 				fe := loadbalancer.FrontendParams{
 					Type:        loadbalancer.SVCTypeClusterIP,
 					PortName:    loadbalancer.FEPortName(port.Name),
@@ -215,7 +212,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 				}
 				fe.Address.AddrCluster = addr
 				fe.Address.Scope = loadbalancer.ScopeExternal
-				fe.Address.L4Addr = *p
+				fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 				fes = append(fes, fe)
 			}
 		}
@@ -262,12 +259,8 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 							continue
 						}
 
-						p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
-						if p == nil {
-							continue
-						}
 						fe.Address.Scope = scope
-						fe.Address.L4Addr = *p
+						fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
 						fes = append(fes, fe)
 					}
 				}
@@ -304,15 +297,9 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 							ServicePort: uint16(port.Port),
 						}
 
-						p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-						if p == nil {
-							log().Debug("Skipping LoadBalancer due to bad L4 type/port",
-								logfields.Port, port)
-							continue
-						}
 						fe.Address.AddrCluster = addr
 						fe.Address.Scope = scope
-						fe.Address.L4Addr = *p
+						fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 						fes = append(fes, fe)
 					}
 				}
@@ -344,16 +331,9 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 					ServicePort: uint16(port.Port),
 				}
 
-				p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				if p == nil {
-					log().Debug("Skipping ExternalIP due to bad L4 type/port",
-						logfields.Port, port)
-					continue
-				}
-
 				fe.Address.AddrCluster = addr
 				fe.Address.Scope = loadbalancer.ScopeExternal
-				fe.Address.L4Addr = *p
+				fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 				fes = append(fes, fe)
 			}
 		}
@@ -394,74 +374,54 @@ func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
 	return svc.Spec.IPFamilies
 }
 
-func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []loadbalancer.BackendParams) {
-	// Lazily construct the augmented logger as we very rarely log here.
-	log := sync.OnceValue(func() *slog.Logger {
-		return rawlog.With(
-			logfields.Service, ep.GetName(),
-			logfields.K8sNamespace, ep.GetNamespace(),
-		)
-	})
-
-	name = loadbalancer.ServiceName{
-		Name:      ep.ServiceID.Name,
-		Namespace: ep.ServiceID.Namespace,
-	}
-
-	// k8s.Endpoints may have the same backend address multiple times
-	// with a different port name. Collapse them down into single
-	// entry.
-	type entry struct {
-		portNames []string
-		backend   *k8s.Backend
-	}
-	entries := map[loadbalancer.L3n4Addr]entry{}
-
-	for addrCluster, be := range ep.Backends {
-		if (!cfg.EnableIPv6 && addrCluster.Is6()) || (!cfg.EnableIPv4 && addrCluster.Is4()) {
-			log().Debug(
-				"Skipping Backend due to disabled IP family",
-				logfields.IPv4, cfg.EnableIPv4,
-				logfields.IPv6, cfg.EnableIPv6,
-				logfields.Address, addrCluster,
+func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcName loadbalancer.ServiceName, bes iter.Seq2[cmtypes.AddrCluster, *k8s.Backend]) iter.Seq[loadbalancer.BackendParams] {
+	return func(yield func(be loadbalancer.BackendParams) bool) {
+		// Lazily construct the augmented logger as we very rarely log here.
+		log := sync.OnceValue(func() *slog.Logger {
+			return rawlog.With(
+				logfields.Service, svcName.Name,
+				logfields.K8sNamespace, svcName.Namespace,
 			)
-			continue
-		}
-		for portName, l4Addr := range be.Ports {
-			l3n4Addr := loadbalancer.L3n4Addr{
-				AddrCluster: addrCluster,
-				L4Addr:      *l4Addr,
-			}
-			if isIngressDummyEndpoint(l3n4Addr) {
+		})
+
+		for addrCluster, be := range bes {
+			if (!cfg.EnableIPv6 && addrCluster.Is6()) || (!cfg.EnableIPv4 && addrCluster.Is4()) {
+				log().Debug(
+					"Skipping Backend due to disabled IP family",
+					logfields.IPv4, cfg.EnableIPv4,
+					logfields.IPv6, cfg.EnableIPv6,
+					logfields.Address, addrCluster,
+				)
 				continue
 			}
-			portNames := entries[l3n4Addr].portNames
-			if portName != "" {
-				portNames = append(portNames, portName)
-			}
-			entries[l3n4Addr] = entry{
-				portNames: portNames,
-				backend:   be,
+			for l4Addr, portNames := range be.Ports {
+				l3n4Addr := loadbalancer.L3n4Addr{
+					AddrCluster: addrCluster,
+					L4Addr:      l4Addr,
+				}
+				if isIngressDummyEndpoint(l3n4Addr) {
+					continue
+				}
+
+				state := loadbalancer.BackendStateActive
+				if be.Terminating {
+					state = loadbalancer.BackendStateTerminating
+				}
+				be := loadbalancer.BackendParams{
+					Address:   l3n4Addr,
+					NodeName:  be.NodeName,
+					PortNames: portNames,
+					Weight:    loadbalancer.DefaultBackendWeight,
+					Zone:      be.Zone,
+					ForZones:  be.HintsForZones,
+					State:     state,
+				}
+				if !yield(be) {
+					break
+				}
 			}
 		}
 	}
-	for l3n4Addr, entry := range entries {
-		state := loadbalancer.BackendStateActive
-		if entry.backend.Terminating {
-			state = loadbalancer.BackendStateTerminating
-		}
-		be := loadbalancer.BackendParams{
-			Address:   l3n4Addr,
-			NodeName:  entry.backend.NodeName,
-			PortNames: entry.portNames,
-			Weight:    loadbalancer.DefaultBackendWeight,
-			Zone:      entry.backend.Zone,
-			ForZones:  entry.backend.HintsForZones,
-			State:     state,
-		}
-		out = append(out, be)
-	}
-	return
 }
 
 func isTopologyAware(svc *slim_corev1.Service) bool {
@@ -477,4 +437,81 @@ func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 		value = svc.ObjectMeta.Annotations[corev1.AnnotationTopologyMode]
 	}
 	return !(value == "" || value == "disabled" || value == "Disabled")
+}
+
+// CheckServiceNodeExposure returns true if the service should be installed onto the
+// local node, and false if the node should ignore and not install the service.
+func CheckServiceNodeExposure(localNodeStore *node.LocalNodeStore, annotations map[string]string) (bool, error) {
+	if serviceAnnotationValue, serviceAnnotationExists := annotations[annotation.ServiceNodeSelectorExposure]; serviceAnnotationExists {
+		ln, err := localNodeStore.Get(context.Background())
+		if err != nil {
+			return false, fmt.Errorf("failed to retrieve local node: %w", err)
+		}
+
+		selector, err := k8sLabels.Parse(serviceAnnotationValue)
+		if err != nil {
+			return false, fmt.Errorf("failed to parse node label annotation: %w", err)
+		}
+
+		if selector.Matches(k8sLabels.Set(ln.Labels)) {
+			return true, nil
+		}
+
+		// prioritize any existing node-selector annotation - and return in any case
+		return false, nil
+	}
+
+	if serviceAnnotationValue, serviceAnnotationExists := annotations[annotation.ServiceNodeExposure]; serviceAnnotationExists {
+		ln, err := localNodeStore.Get(context.Background())
+		if err != nil {
+			return false, fmt.Errorf("failed to retrieve local node: %w", err)
+		}
+
+		nodeLabelValue, nodeLabelExists := ln.Labels[annotation.ServiceNodeExposure]
+		if !nodeLabelExists || nodeLabelValue != serviceAnnotationValue {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// exposeSvcType is used to determine whether a given service can be provisioned
+// for a given service type (passed to the "canExpose" method).
+//
+// This is controlled by the ServiceTypeExposure K8s Service annotation. If it
+// set, then only the service type in the value is provisioned. For example, a
+// LoadBalancer service includes ClusterIP and NodePort (unless
+// allocateLoadBalancerNodePorts is set to false). To avoid provisioning the
+// latter two, one can set the annotation with the value "LoadBalancer".
+type exposeSvcType slim_corev1.ServiceType
+
+func NewSvcExposureType(svc *slim_corev1.Service) (*exposeSvcType, error) {
+	typ, isSet := svc.Annotations[annotation.ServiceTypeExposure]
+	if !isSet {
+		return nil, nil
+	}
+
+	svcType := slim_corev1.ServiceType(typ)
+
+	switch svcType {
+	case slim_corev1.ServiceTypeClusterIP,
+		slim_corev1.ServiceTypeNodePort,
+		slim_corev1.ServiceTypeLoadBalancer:
+	default:
+		return nil,
+			fmt.Errorf("not supported type for %q: %s", annotation.ServiceTypeExposure, typ)
+	}
+
+	expType := exposeSvcType(svcType)
+	return &expType, nil
+}
+
+// CanExpose checks whether a given service type can be provisioned.
+func (e *exposeSvcType) CanExpose(t slim_corev1.ServiceType) bool {
+	if e == nil {
+		return true
+	}
+
+	return slim_corev1.ServiceType(*e) == t
 }

@@ -21,9 +21,6 @@ type scriptCommandsParams struct {
 }
 
 func scriptCommands(p scriptCommandsParams) hive.ScriptCmdsOut {
-	if !p.Config.EnableExperimentalLB {
-		return hive.ScriptCmdsOut{}
-	}
 	cmds := map[string]script.Cmd{
 		"lb/prune": script.Command(
 			script.CmdUsage{Summary: "Trigger pruning of load-balancing BPF maps"},

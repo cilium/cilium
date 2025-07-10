@@ -1,9 +1,13 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0
+#! --lb-test-fault-probability=0.0 --metrics-sampling-interval=100ms
 #
 # Test the infra for implementing active backend health checking and the restoration
 # of quarantined backends.
 
 hive/start
+
+# Wait until the initial pruning is done to avoid it messing with the test
+metrics -s reconciler_prune_count -o metrics.actual
+* grep 'prune_count.*1' metrics.actual
 
 # Add our test service and backends.
 k8s/add service.yaml endpointslice.yaml
@@ -31,41 +35,18 @@ k8s/delete service.yaml endpointslice.yaml
 lb/maps-restore
 test/bpfops-reset
 
-# We should see a quarantined restored backend.
-test/bpfops-summary
-stdout 'restoredQuarantines: 1'
-
-# Restore service and backends. Add an additional backend to ensure we've
-# actually updated the maps.
-k8s/add service.yaml endpointslice2.yaml
+# Restore service and backends. Add an additional backend to check we're actually updating
+# maps.
+k8s/add endpointslice2.yaml
+db/cmp backends backends_healthy2.table
+k8s/add service.yaml
 
 # Wait for reconciliation.
 db/show frontends --columns=Address,Status -o frontends.actual
 * grep '10.96.*Done' frontends.actual
 
-# Check BPF maps. We should get the same contents as before but
-# with an extra backend.
-lb/maps-dump maps.actual
-* grep 'SLOT=0.*COUNT=1 QCOUNT=1' maps2.expected
-* cmp maps.actual maps2.expected
-
-# Mark the quarantined backend as healthy again
-test/update-backend-health test/echo 10.244.1.2:80/TCP true
-db/cmp backends backends_healthy2.table
-
-# Check BPF maps
-lb/maps-dump maps.actual
-* grep 'SLOT=0.*COUNT=2 QCOUNT=0' maps3.expected
-* cmp maps.actual maps3.expected
-
-# The quarantined restored state is clean now.
-test/bpfops-summary
-stdout 'restoredQuarantines: 0'
-stdout 'restoredServiceIDs: 1'
-stdout 'restoredBackendIDs: 2'
-
-# Since we now have some restored data, check that forced
-# pruning will now clean up the state.
+# Since we now have some restored data, force the prune to make sure 10.244.1.1
+# has been removed.
 lb/prune
 
 # Wait until prune is done by checking that internal state
@@ -74,9 +55,26 @@ test/bpfops-summary
 * stdout 'restoredServiceIDs: 0'
 stdout 'restoredBackendIDs: 0'
 
-# Pruning should have removed the leftover 10.244.1.1:80.
+# Check BPF maps. We should get the same contents as before but
+# with 10.244.1.1 gone and 10.244.1.3 added.
 lb/maps-dump maps.actual
-* cmp maps.actual maps4.expected
+* grep 'SLOT=0.*COUNT=2 QCOUNT=1' maps2.expected
+* cmp maps.actual maps2.expected
+
+# Mark the quarantined backend as healthy again
+test/update-backend-health test/echo 10.244.1.2:80/TCP true
+db/cmp backends backends_healthy2.table
+
+# Check BPF maps
+lb/maps-dump maps.actual
+* grep 'SLOT=0.*COUNT=3 QCOUNT=0' maps3.expected
+* cmp maps.actual maps3.expected
+
+# The quarantined restored state is clean now.
+test/bpfops-summary
+stdout 'restoredQuarantines: 0'
+stdout 'restoredServiceIDs: 0'
+stdout 'restoredBackendIDs: 0'
 
 -- maps1.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
@@ -90,26 +88,19 @@ BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
 BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
 BE: ID=3 ADDR=10.244.1.3:80/TCP STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=1 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=1 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=3 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- maps3.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
 BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
 BE: ID=3 ADDR=10.244.1.3:80/TCP STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
--- maps4.expected --
-BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
-BE: ID=3 ADDR=10.244.1.3:80/TCP STATE=active
-REV: ID=1 ADDR=10.96.50.104:80
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
--- maps.empty --
-
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=3 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=3 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- services.table --
 Name
 test/echo
@@ -127,6 +118,7 @@ Address             Instances
 
 -- backends_healthy2.table --
 Address             Instances
+10.244.1.1:80/TCP   test/echo (http)
 10.244.1.2:80/TCP   test/echo (http)
 10.244.1.3:80/TCP   test/echo (http)
 
@@ -155,7 +147,7 @@ kind: EndpointSlice
 metadata:
   labels:
     kubernetes.io/service-name: echo
-  name: echo-kvlm2
+  name: echo-eps1
   namespace: test
 addressType: IPv4
 endpoints:
@@ -172,18 +164,18 @@ ports:
   port: 80
   protocol: TCP
 
-
 -- endpointslice2.yaml --
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
   labels:
     kubernetes.io/service-name: echo
-  name: echo-kvlm2
+  name: echo-eps2
   namespace: test
 addressType: IPv4
 endpoints:
 - addresses:
+  - 10.244.1.1
   - 10.244.1.2
   - 10.244.1.3
   conditions:

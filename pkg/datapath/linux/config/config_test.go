@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -102,6 +103,7 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
 				NewHeaderfileWriter,
 			),
+			kpr.Cell,
 			cell.Invoke(func(writer_ datapath.ConfigWriter) {
 				writer = writer_
 			}),
@@ -115,14 +117,14 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 	}
 }
 
-func TestWriteNodeConfig(t *testing.T) {
+func TestPrivilegedWriteNodeConfig(t *testing.T) {
 	setupConfigSuite(t)
 	writeConfig(t, "node", func(w io.Writer, dp datapath.ConfigWriter) error {
 		return dp.WriteNodeConfig(w, &dummyNodeCfg)
 	})
 }
 
-func TestWriteNetdevConfig(t *testing.T) {
+func TestPrivilegedWriteNetdevConfig(t *testing.T) {
 	setupConfigSuite(t)
 	writeConfig(t, "netdev", func(w io.Writer, dp datapath.ConfigWriter) error {
 		return dp.WriteNetdevConfig(w, dummyDevCfg.GetOptions())
@@ -156,7 +158,7 @@ func createVlanLink(vlanId int, mainLink *netlink.Dummy, t *testing.T) *netlink.
 	return link
 }
 
-func TestVLANBypassConfig(t *testing.T) {
+func TestPrivilegedVLANBypassConfig(t *testing.T) {
 	setupConfigSuite(t)
 
 	var devs []*tables.Device
@@ -231,7 +233,7 @@ return false;`, main1.Index, main2.Index), m)
 	require.Equal(t, "return true", m)
 }
 
-func TestWriteNodeConfigExtraDefines(t *testing.T) {
+func TestPrivilegedWriteNodeConfigExtraDefines(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	setupConfigSuite(t)
 
@@ -379,7 +381,7 @@ func TestPreferredIPv6Address(t *testing.T) {
 	}
 }
 
-func TestNewHeaderfileWriter(t *testing.T) {
+func TestPrivilegedNewHeaderfileWriter(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	setupConfigSuite(t)
 

@@ -4,6 +4,7 @@
 package manager
 
 import (
+	"log/slog"
 	"maps"
 	"os"
 	"slices"
@@ -12,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/cgroups"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -50,7 +50,7 @@ type CGroupManager interface {
 // During initialization, the manager checks for a valid cgroup path pathProvider.
 // If it fails to find a pathProvider, it will ignore all the subsequent pod events.
 type cgroupManager struct {
-	logger logging.FieldLogger
+	logger *slog.Logger
 	// Map of pod metadata indexed by their UIDs
 	podMetadataById map[podUID]*podMetadata
 	// Map of container metadata indexed by their cgroup ids
@@ -200,7 +200,7 @@ func (c cgroupImpl) GetCgroupID(cgroupPath string) (uint64, error) {
 	return cgroups.GetCgroupID(cgroupPath)
 }
 
-func newManager(logger logging.FieldLogger, cg cgroup, pathProvider cgroupPathProvider, channelSize int) *cgroupManager {
+func newManager(logger *slog.Logger, cg cgroup, pathProvider cgroupPathProvider, channelSize int) *cgroupManager {
 	return &cgroupManager{
 		logger:                    logger,
 		podMetadataById:           make(map[string]*podMetadata),

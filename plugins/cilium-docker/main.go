@@ -41,6 +41,7 @@ connected to a Docker network of type "cilium".`,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium-docker")
 
+		// slogloggercheck: the logger has been initialized with default settings
 		logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-docker-driver")
 		createPluginSock(logger)
 
@@ -56,6 +57,7 @@ connected to a Docker network of type "cilium".`,
 }
 
 func main() {
+	// slogloggercheck: the logger has been initialized with default settings
 	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-docker-driver")
 	if err := RootCmd.Execute(); err != nil {
 		logging.Fatal(logger, err.Error())

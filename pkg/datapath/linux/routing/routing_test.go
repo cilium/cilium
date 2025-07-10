@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
@@ -26,7 +27,7 @@ func setupLinuxRoutingSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 }
 
-func TestConfigure(t *testing.T) {
+func TestPrivilegedConfigure(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ns1 := netns.NewNetNS(t)
@@ -52,7 +53,7 @@ func TestConfigure(t *testing.T) {
 	})
 }
 
-func TestConfigureZeros(t *testing.T) {
+func TestPrivilegedConfigureZeros(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ns1 := netns.NewNetNS(t)
@@ -67,7 +68,7 @@ func TestConfigureZeros(t *testing.T) {
 	})
 }
 
-func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
+func TestPrivilegedConfigureRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	_, ri := getFakes(t, true, false)
@@ -76,7 +77,7 @@ func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
 	require.ErrorContains(t, err, "IP not compatible")
 }
 
-func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
+func TestPrivilegedDeleteRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ip := netip.Addr{}
@@ -85,7 +86,7 @@ func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
 	require.ErrorContains(t, err, "IP not compatible")
 }
 
-func TestDelete(t *testing.T) {
+func TestPrivilegedDelete(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	fakeIP, fakeRoutingInfo := getFakes(t, true, false)
@@ -211,7 +212,7 @@ func listRulesAndRoutes(t *testing.T, family int) ([]netlink.Rule, []netlink.Rou
 	// those tables.
 	var routes []netlink.Route
 	for _, r := range rules {
-		rr, err := netlink.RouteListFiltered(family, &netlink.Route{
+		rr, err := safenetlink.RouteListFiltered(family, &netlink.Route{
 			Table: r.Table,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -299,7 +300,7 @@ func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, Routi
 }
 
 func linkExistsWithMAC(t *testing.T, macAddr mac.MAC) bool {
-	links, err := netlink.LinkList()
+	links, err := safenetlink.LinkList()
 	require.NoError(t, err)
 
 	for _, link := range links {

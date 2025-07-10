@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -136,7 +137,7 @@ func testNewPolicyRepository(t *testing.T, initialIDs []*identity.Identity) *pol
 		idmap[id.ID] = id.LabelArray
 	}
 	logger := hivetest.Logger(t)
-	repo := policy.NewPolicyRepository(logger, idmap, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, idmap, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return repo
 }
@@ -148,13 +149,13 @@ func validateNetworkPolicy(t *testing.T, repo *policy.Repository, allowFlows, de
 	logger := hivetest.Logger(t)
 
 	for i, allow := range allowFlows {
-		verdict, err := policy.LookupFlow(logger, repo, allow, nil, nil)
+		verdict, _, _, err := policy.LookupFlow(logger, repo, allow, nil, nil)
 		require.NoError(t, err, "Looking up allow flow %i failed", i)
 		require.Equal(t, api.Allowed, verdict, "Verdict for allow flow %d must match", i)
 	}
 
 	for i, allow := range denyFlows {
-		verdict, err := policy.LookupFlow(logger, repo, allow, nil, nil)
+		verdict, _, _, err := policy.LookupFlow(logger, repo, allow, nil, nil)
 		require.NoError(t, err, "Looking up deny flow %i failed", i)
 		require.Equal(t, api.Denied, verdict, "Verdict for deny flow %d must match", i)
 	}
@@ -678,7 +679,7 @@ func TestParseNetworkPolicyEgressL4PortRangeAllowAll(t *testing.T) {
 		flow := flowAToC
 		flow.Dport = port
 
-		verdict, err := policy.LookupFlow(hivetest.Logger(t), repo, flow, nil, nil)
+		verdict, _, _, err := policy.LookupFlow(hivetest.Logger(t), repo, flow, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, expected, verdict, "Port %d", port)
 	}

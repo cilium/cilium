@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/stream"
@@ -26,6 +27,32 @@ import (
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
+
+// Mock resources for testing
+type mockResource[T k8sRuntime.Object] struct {
+	items []resource.Event[T]
+}
+
+func (mr *mockResource[T]) Observe(ctx context.Context, next func(resource.Event[T]), complete func(error)) {
+	panic("observe not impl")
+}
+
+func (mr *mockResource[T]) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[T] {
+	ch := make(chan resource.Event[T], len(mr.items))
+	for _, item := range mr.items {
+		ch <- item
+	}
+	// Keep channel open until context is cancelled to simulate blocking behavior
+	go func() {
+		<-ctx.Done()
+		close(ch)
+	}()
+	return ch
+}
+
+func (mr *mockResource[T]) Store(context.Context) (resource.Store[T], error) {
+	panic("store not impl")
+}
 
 type fakeLocalNode struct {
 	events chan resource.Event[*slim_corev1.Node]
@@ -212,22 +239,119 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 	assert.Equal(t, "test-node", n.Name)
 }
 
-type mockResource[T k8sRuntime.Object] struct {
-	items []resource.Event[T]
-}
-
-func (mr *mockResource[T]) Observe(ctx context.Context, next func(resource.Event[T]), complete func(error)) {
-	panic("observe not impl")
-}
-
-func (mr *mockResource[T]) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[T] {
-	ch := make(chan resource.Event[T], len(mr.items))
-	for _, item := range mr.items {
-		ch <- item
+func TestLocalNodeSync_NodeDeletion(t *testing.T) {
+	// Helper to create test node object
+	createTestNode := func(deletionTimestamp *slim_metav1.Time) *slim_corev1.Node {
+		return &slim_corev1.Node{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name:              "test-node",
+				UID:               k8stypes.UID("test-uid"),
+				DeletionTimestamp: deletionTimestamp,
+			},
+			Status: slim_corev1.NodeStatus{
+				Addresses: []slim_corev1.NodeAddress{
+					{Type: slim_corev1.NodeInternalIP, Address: "10.0.0.1"},
+				},
+			},
+		}
 	}
-	return ch
+
+	t.Run("upsert_with_deletion_timestamp", func(t *testing.T) {
+		now := slim_metav1.Now()
+		nodeEvent := resource.Event[*slim_corev1.Node]{
+			Kind:   resource.Upsert,
+			Key:    resource.Key{Name: "test-node"},
+			Object: createTestNode(&now),
+			Done:   func(err error) {},
+		}
+		testNodeDeletion(t, nodeEvent)
+	})
+
+	t.Run("delete_event", func(t *testing.T) {
+		nodeEvent := resource.Event[*slim_corev1.Node]{
+			Kind:   resource.Delete,
+			Key:    resource.Key{Name: "test-node"},
+			Object: createTestNode(nil),
+			Done:   func(err error) {},
+		}
+		testNodeDeletion(t, nodeEvent)
+	})
 }
 
-func (mr *mockResource[T]) Store(context.Context) (resource.Store[T], error) {
-	panic("store not impl")
+func testNodeDeletion(t *testing.T, nodeEvent resource.Event[*slim_corev1.Node]) {
+	t.Helper()
+
+	// Helper to create test node object
+	createTestNode := func(deletionTimestamp *slim_metav1.Time) *slim_corev1.Node {
+		return &slim_corev1.Node{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name:              "test-node",
+				UID:               k8stypes.UID("test-uid"),
+				DeletionTimestamp: deletionTimestamp,
+			},
+			Status: slim_corev1.NodeStatus{
+				Addresses: []slim_corev1.NodeAddress{
+					{Type: slim_corev1.NodeInternalIP, Address: "10.0.0.1"},
+				},
+			},
+		}
+	}
+
+	// Create a normal node event first
+	normalEvent := resource.Event[*slim_corev1.Node]{
+		Kind:   resource.Upsert,
+		Key:    resource.Key{Name: "test-node"},
+		Object: createTestNode(nil),
+		Done:   func(err error) {},
+	}
+
+	fakeNode := &mockResource[*slim_corev1.Node]{
+		items: []resource.Event[*slim_corev1.Node]{normalEvent, nodeEvent},
+	}
+
+	sync := newLocalNodeSynchronizer(localNodeSynchronizerParams{
+		Logger: hivetest.Logger(t),
+		Config: &option.DaemonConfig{
+			IPv4NodeAddr:               "1.2.3.4",
+			IPv6NodeAddr:               "fd00::1",
+			NodeEncryptionOptOutLabels: k8sLabels.Nothing(),
+		},
+		K8sLocalNode: fakeNode,
+		K8sCiliumLocalNode: &mockResource[*v2.CiliumNode]{
+			items: []resource.Event[*v2.CiliumNode]{
+				{Kind: resource.Sync, Done: func(err error) {}},
+			},
+		},
+	})
+
+	// Initialize local node
+	local := node.LocalNode{Node: types.Node{Name: "test-node"}}
+	store := node.NewTestLocalNodeStore(local)
+
+	// Start observing updates
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	updates := stream.ToChannel(ctx, store.Observable, stream.WithBufferSize(3))
+
+	// Verify initial state
+	initialNode, _ := store.Get(context.Background())
+	assert.False(t, initialNode.IsBeingDeleted)
+
+	// Start the sync
+	go sync.SyncLocalNode(ctx, store)
+
+	// Wait for the deletion update - may come after the normal update
+	var foundDeleted bool
+	for !foundDeleted {
+		select {
+		case updatedNode := <-updates:
+			if updatedNode.IsBeingDeleted {
+				foundDeleted = true
+			}
+		case <-ctx.Done():
+			t.Fatal("Timeout waiting for node update")
+		}
+	}
+	assert.True(t, foundDeleted, "Node should be marked as being deleted")
 }

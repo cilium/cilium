@@ -27,6 +27,10 @@ var (
 )
 
 const (
+	// DefaultSyncInterval is the default value for the periodic synchronization
+	// of the allocated identities.
+	DefaultSyncInterval = 5 * time.Minute
+
 	// defaultMaxAllocAttempts is the default number of attempted allocation
 	// requests performed before failing.
 	defaultMaxAllocAttempts = 16
@@ -157,6 +161,9 @@ type Allocator struct {
 	// maxAllocAttempts is the number of attempted allocation requests
 	// performed before failing.
 	maxAllocAttempts int
+
+	// syncInterval is the interval for local keys refresh.
+	syncInterval time.Duration
 
 	// cacheValidators implement extra validations of retrieved identities, e.g.,
 	// to ensure that they belong to the expected range.
@@ -323,6 +330,7 @@ func NewAllocator(rootLogger *slog.Logger, typ AllocatorKey, backend Backend, op
 			Factor: 2.0,
 		},
 		maxAllocAttempts: defaultMaxAllocAttempts,
+		syncInterval:     DefaultSyncInterval,
 	}
 
 	for _, fn := range opts {
@@ -428,6 +436,11 @@ func WithoutGC() AllocatorOption {
 // WithoutAutostart prevents starting the allocator when it is initialized
 func WithoutAutostart() AllocatorOption {
 	return func(a *Allocator) { a.disableAutostart = true }
+}
+
+// WithSyncInterval configures the interval for local keys refresh.
+func WithSyncInterval(interval time.Duration) AllocatorOption {
+	return func(a *Allocator) { a.syncInterval = interval }
 }
 
 // WithCacheValidator registers a validator triggered for each identity
@@ -1041,7 +1054,7 @@ func (a *Allocator) startLocalKeySync() {
 			case <-a.stopGC:
 				a.logger.Debug("Stopped master key sync routine")
 				return
-			case <-time.After(option.Config.KVstorePeriodicSync):
+			case <-time.After(a.syncInterval):
 			}
 		}
 	}(a)

@@ -18,9 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	"github.com/cilium/cilium/pkg/defaults"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -65,11 +63,10 @@ type testData struct {
 }
 
 func newTestData(logger *slog.Logger) *testData {
-	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
 	td := &testData{
 		sc:                testNewSelectorCache(logger, nil),
-		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, api.NewPolicyMetricsNoop()),
+		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, testpolicy.NewPolicyMetricsNoop()),
 		testPolicyContext: &testPolicyContextType{logger: logger},
 	}
 	td.testPolicyContext.sc = td.sc
@@ -235,6 +232,14 @@ func (p *testPolicyContextType) DefaultDenyEgress() bool {
 
 func (p *testPolicyContextType) GetLogger() *slog.Logger {
 	return p.logger
+}
+
+func (p *testPolicyContextType) Origin() ruleOrigin {
+	return NilRuleOrigin
+}
+
+func (p *testPolicyContextType) SetOrigin(ruleOrigin) {
+	panic("SetOrigin not implemented")
 }
 
 func (p *testPolicyContextType) PolicyTrace(format string, a ...any) {
@@ -2464,8 +2469,7 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 
 			toEndpoints := api.EndpointSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
 
-			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto,
-				EmptyStringLabels, nil)
+			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto, nil)
 
 			require.NoError(t, err)
 			require.NotNil(t, l4Filter)

@@ -6,7 +6,7 @@
 hive start
 
 # Configure gobgp server
-gobgp/add-server --router-id=1.2.3.4 65001 fd00::aa:bb:cc:101 1790
+gobgp/add-server test --router-id=1.2.3.4 65001 fd00::aa:bb:cc:101 1790
 gobgp/add-peer --password=Cilium123 fd00::aa:bb:cc:102 65001
 
 # Configure BGP on Cilium

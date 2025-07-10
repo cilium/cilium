@@ -43,7 +43,12 @@ func (s *Status) GetPeeringState(ctx context.Context) error {
 
 	res, err := s.fetchPeeringStateConcurrently(ctx)
 	if err != nil {
-		return err
+		if len(res) == 0 {
+			// no results retrieved - just return the error
+			return err
+		}
+		// print the errors, but continue with printing results
+		fmt.Fprintf(os.Stderr, "Errors by retrieving routes: %v\n\n", err)
 	}
 
 	return s.writeStatus(res)

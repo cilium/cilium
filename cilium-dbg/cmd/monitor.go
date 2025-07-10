@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
+	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/format"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 	"github.com/cilium/cilium/pkg/time"
@@ -53,7 +54,7 @@ programs attached to endpoints and devices. This includes:
 		},
 	}
 	linkCache  = link.NewLinkCache()
-	printer    = format.NewMonitorFormatter(format.INFO, linkCache)
+	printer    = format.NewMonitorFormatter(api.INFO, linkCache, os.Stdout)
 	socketPath = ""
 	verbosity  = []bool{}
 )
@@ -76,15 +77,15 @@ func init() {
 
 func setVerbosity() {
 	if printer.JSONOutput {
-		printer.Verbosity = format.JSON
+		printer.Verbosity = api.JSON
 	} else {
 		switch len(verbosity) {
 		case 1:
-			printer.Verbosity = format.DEBUG
+			printer.Verbosity = api.DEBUG
 		case 2:
-			printer.Verbosity = format.VERBOSE
+			printer.Verbosity = api.VERBOSE
 		default:
-			printer.Verbosity = format.INFO
+			printer.Verbosity = api.INFO
 		}
 	}
 }
@@ -146,7 +147,6 @@ func consumeMonitorEvents(ctx context.Context, conn net.Conn, version listener.V
 				logfields.Error, err,
 				logfields.Type, pl.Type,
 			)
-			format.LostEvent(pl.Lost, pl.CPU)
 		}
 	}
 }

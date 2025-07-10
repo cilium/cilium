@@ -155,8 +155,20 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
+          cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.3
+          go-version: 1.24.4
+
+      # Load Golang cache build from GitHub
+      - name: Load Golang cache build from GitHub
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        id: go-cache
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-integration-test-cache-${{ runner.arch }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-integration-test-cache-${{ runner.arch }}-
+            ${{ runner.os }}-go-integration-test-cache-
 
       - name: Set clang directory
         id: set_clang_dir
@@ -168,8 +180,22 @@ jobs:
           version: "19.1.7"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
 
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+        shell: bash
+        run: |
+          mkdir -p "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}"
+
       - name: Prepare environment
         timeout-minutes: 15
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+        shell: bash
         run: |
           # renovate: datasource=github-releases depName=mfridman/tparse
           go install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442 # v0.14.0
@@ -177,7 +203,11 @@ jobs:
           go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
 
       - name: Run integration tests
+        id: run-tests
         timeout-minutes: 60
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
         run: |
           export V=0
           export DOCKER_BUILD_FLAGS=--quiet
@@ -185,6 +215,7 @@ jobs:
           make integration-tests LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml"
 
       - name: Fetch JUnits
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         shell: bash
         run: |
           mkdir -p cilium-junits
@@ -197,6 +228,7 @@ jobs:
           for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
 
       - name: Upload JUnits [junit]
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cilium-junits-${{ env.job_name }}

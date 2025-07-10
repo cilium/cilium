@@ -48,6 +48,14 @@ type CIDR struct {
 	*net.IPNet
 }
 
+func (c *CIDR) String() string {
+	if c == nil {
+		var n *net.IPNet
+		return n.String()
+	}
+	return c.IPNet.String()
+}
+
 // DeepEqual is an deepequal function, deeply comparing the receiver with other.
 // in must be non-nil.
 func (in *CIDR) DeepEqual(other *CIDR) bool {

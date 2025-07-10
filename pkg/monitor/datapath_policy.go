@@ -6,7 +6,6 @@ package monitor
 import (
 	"bufio"
 	"fmt"
-	"os"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
@@ -62,12 +61,25 @@ type PolicyVerdictNotify struct {
 	// data
 }
 
-// DecodePolicyVerdictNotify will decode 'data' into the provided PolicyVerdictNotify structure
-func DecodePolicyVerdictNotify(data []byte, pvn *PolicyVerdictNotify) error {
-	return pvn.decodePolicyVerdictNotify(data)
+// Dump prints the message according to the verbosity level specified
+func (pn *PolicyVerdictNotify) Dump(args *api.DumpArgs) {
+	pn.DumpInfo(args.Buf, args.Data, args.Format)
 }
 
-func (n *PolicyVerdictNotify) decodePolicyVerdictNotify(data []byte) error {
+// GetSrc retrieves the source endpoint for the message.
+func (n *PolicyVerdictNotify) GetSrc() uint16 {
+	return n.Source
+}
+
+// GetDst retrieves the security identity for the message.
+// `POLICY_INGRESS` -> `RemoteLabel` is the src security identity.
+// `POLICY_EGRESS` -> `RemoteLabel` is the dst security identity.
+func (n *PolicyVerdictNotify) GetDst() uint16 {
+	return uint16(n.RemoteLabel)
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (n *PolicyVerdictNotify) Decode(data []byte) error {
 	if l := len(data); l < PolicyVerdictNotifyLen {
 		return fmt.Errorf("unexpected PolicyVerdictNotify data length, expected %d but got %d", PolicyVerdictNotifyLen, l)
 	}
@@ -134,8 +146,7 @@ func (n *PolicyVerdictNotify) GetAuthType() policy.AuthType {
 }
 
 // DumpInfo prints a summary of the policy notify messages.
-func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric DisplayFormat) {
-	buf := bufio.NewWriter(os.Stdout)
+func (n *PolicyVerdictNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.DisplayFormat) {
 	dir := "egress"
 	if n.IsTrafficIngress() {
 		dir = "ingress"
@@ -150,5 +161,4 @@ func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 		GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
 		n.GetAuthType(), n.GetPolicyMatchType(),
 		GetConnectionSummary(data[PolicyVerdictNotifyLen:], nil))
-	buf.Flush()
 }

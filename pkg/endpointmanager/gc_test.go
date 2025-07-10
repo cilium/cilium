@@ -46,7 +46,7 @@ func TestMarkAndSweep(t *testing.T) {
 	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
 	for _, id := range allEndpointIDs {
 		model := newTestEndpointModel(int(id), endpoint.StateReady)
-		ep, err := endpoint.NewEndpointFromChangeModel(t.Context(), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
+		ep, err := endpoint.NewEndpointFromChangeModel(t.Context(), logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
 		require.NoError(t, err)
 
 		ep.Start(uint16(model.ID))

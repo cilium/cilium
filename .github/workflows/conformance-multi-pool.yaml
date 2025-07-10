@@ -58,7 +58,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  kind_config: .github/kind-config.yaml
   timeout: 5m
 
 jobs:
@@ -175,7 +174,6 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
           # Notes:
-          #  - Multi-pool IPAM only supports endpoint routes
           #  - iptables-based masquerading does not support multiple non-masquerade
           #    CIDRs. Thus, we enable BPF masquerading where we can add multiple
           #    non-masquerade CIDRs.
@@ -184,21 +182,15 @@ jobs:
           #    (https://github.com/cilium/cilium/issues/23283#issuecomment-1597282247)
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=hubble.relay.enabled=true \
-            --helm-set=endpointRoutes.enabled=true \
             --helm-set=kubeProxyReplacement=true \
             --helm-set=bpf.masquerade=true \
             --helm-set=bpf.hostLegacyRouting=true\
             --helm-set=ipMasqAgent.enabled=true \
-            --helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,192.168.0.0/16}' \
-            --helm-set=ipam.mode=multi-pool \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{10.10.0.0/16}' \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.cidrs='{10.20.0.0/16}' \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.maskSize=24 \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.cidrs='{192.168.0.0/20}' \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.maskSize=27 \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/20}' \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27"
+            --helm-set=ipam.mode=multi-pool"
+
+          if [ "${{ matrix.endpoint-routes }}" == "enabled" ]; then
+            CILIUM_INSTALL_ROUTES="--helm-set=endpointRoutes.enabled=true"
+          fi
 
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
@@ -209,6 +201,46 @@ jobs:
           if [ "${{ matrix.encryption }}" != "disabled" ]; then
             CILIUM_INSTALL_ENCRYPTION="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
           fi
+
+          case "${{ matrix.family }}" in
+            ipv4)
+              CILIUM_INSTALL_MULTIPOOL_IPAM="--helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,192.168.0.0/16}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{10.10.0.0/16}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.cidrs='{10.20.0.0/16}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.maskSize=24 \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.cidrs='{192.168.0.0/20}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.maskSize=27 \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/20}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27"
+              CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=false"
+              KIND_SVC_CIDR="10.243.0.0/16"
+              ;;
+            dual)
+              CILIUM_INSTALL_MULTIPOOL_IPAM="--helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,192.168.0.0/16,fd00::/104}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{10.10.0.0/16}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.cidrs='{10.20.0.0/16}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.maskSize=24 \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.cidrs='{192.168.0.0/20}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.maskSize=27 \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/20}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27 \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv6.cidrs='{fd00::/120}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv6.maskSize=122 \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv6.cidrs='{fd00::100/120}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv6.maskSize=122 \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv6.cidrs='{fd00::200/120}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv6.maskSize=122 \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv6.cidrs='{fd00::300/120}' \
+                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv6.maskSize=122"
+              CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=true"
+              KIND_SVC_CIDR="10.243.0.0/16,fd00:10:243::/112"
+              ;;
+            *)
+              echo "Unknown IP family '${{ matrix.family }}'" && false
+              ;;
+          esac
 
           CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
             --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
@@ -224,8 +256,17 @@ jobs:
                 \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
             }'"
 
-          echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_ENCRYPTION}" >> $GITHUB_OUTPUT
+          echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ROUTES} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_MULTIPOOL_IPAM}" >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+
+          echo kind_svc_cidr=${KIND_SVC_CIDR} >> $GITHUB_OUTPUT
+
+      - name: Generate Kind configuration files
+        run: |
+          SVCCIDR=${{ steps.vars.outputs.kind_svc_cidr }} \
+            IPFAMILY=${{ matrix.family }} \
+            KUBEPROXYMODE=none \
+            envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-multi-pool.yaml
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -244,17 +285,48 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           node_image: ${{ env.KIND_K8S_IMAGE }}
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
-          config: ${{ env.kind_config }}
+          config: ./.github/kind-config-multi-pool.yaml
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
+      - name: Start Cilium KVStore
+        id: kvstore
+        if: matrix.kvstore == 'true'
+        run: |
+          make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
+
+          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
+          echo config="--set=etcd.enabled=true --set=identityAllocationMode=kvstore --set=etcd.endpoints[0]=http://${IP}:2378" >> $GITHUB_OUTPUT
+
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
+      # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
+      # Additionally, this is also required to workaround
+      # https://github.com/cilium/cilium/issues/23283#issuecomment-1597282247.
+      - name: Configure the coredns nameservers
+        run: |
+          COREDNS_PATCH="
+          spec:
+            template:
+              spec:
+                dnsPolicy: None
+                dnsConfig:
+                  nameservers:
+                  - 8.8.4.4
+                  - 8.8.8.8
+          "
+
+          kubectl -n kube-system get configmap coredns -o yaml | \
+            sed '/loadbalance/a \        log' | kubectl replace -f -
+
+          kubectl patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
 
       - name: Create the IPSec secret
         if: matrix.encryption == 'ipsec'
@@ -265,7 +337,7 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ steps.kvstore.outputs.config }}
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -307,6 +379,16 @@ jobs:
 
           for ip in "${{ steps.ips.outputs.echo-other-node }}".split():
             assert ip_address(ip) in ip_network("${{ steps.ips.outputs.echo-other-node-pool }}"), "echo-other-node pool mismatch"
+
+      - name: Fetch artifacts
+        if: ${{ !success() }}
+        shell: bash
+        run: |
+          if [ "${{ matrix.kvstore }}" == "true" ]; then
+            echo
+            echo "# Retrieving Cilium etcd logs"
+            kubectl -n kube-system logs kvstore
+          fi
 
       - name: Run common post steps
         if: ${{ always() }}

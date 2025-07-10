@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -39,7 +40,7 @@ func filterDefaultRouteIPv6(t *testing.T, rt []netlink.Route) netlink.Route {
 	return rt[i]
 }
 
-func TestRoutes(t *testing.T) {
+func TestPrivilegedRoutes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	t.Run("IPv4", func(t *testing.T) {
@@ -56,7 +57,7 @@ func TestRoutes(t *testing.T) {
 				assert.NotEmpty(t, rules)
 
 				// List the proxy routing table, expect a single entry.
-				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V4,
+				rt, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 1)
@@ -72,7 +73,7 @@ func TestRoutes(t *testing.T) {
 				assert.Empty(t, rules)
 
 				// List the proxy routing table, expect it to be empty.
-				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
+				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Empty(t, rt)
@@ -104,7 +105,7 @@ func TestRoutes(t *testing.T) {
 				assert.NotEmpty(t, rules)
 
 				// List the from proxy (2005) routing table, expect a single entry.
-				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V4,
+				rt, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 2)
@@ -124,7 +125,7 @@ func TestRoutes(t *testing.T) {
 				assert.NoError(t, installFromProxyRoutesIPv4(logger, testIPv4, ifName, true, true, withOverheadMTU))
 
 				// Re-list the from proxy (2005) routing table, expect a single entry.
-				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
+				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 2)
@@ -141,7 +142,7 @@ func TestRoutes(t *testing.T) {
 				assert.Empty(t, rules)
 
 				// List the proxy routing table, expect it to be empty.
-				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
+				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Empty(t, rt)
@@ -165,7 +166,7 @@ func TestRoutes(t *testing.T) {
 				assert.NotEmpty(t, rules)
 
 				// List the proxy routing table, expect a single entry.
-				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V6,
+				rt, err := safenetlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 1)
@@ -181,7 +182,7 @@ func TestRoutes(t *testing.T) {
 				assert.Empty(t, rules)
 
 				// List the proxy routing table, expect it to be empty.
-				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
+				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Empty(t, rt)
@@ -214,7 +215,7 @@ func TestRoutes(t *testing.T) {
 				assert.NotEmpty(t, rules)
 
 				// List the proxy routing table, expect a single entry.
-				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V6,
+				rt, err := safenetlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 2)
@@ -234,7 +235,7 @@ func TestRoutes(t *testing.T) {
 				assert.NoError(t, installFromProxyRoutesIPv6(logger, testIPv6, ifName, true, true, withOverheadMTU))
 
 				// Re-list the from proxy (2005) routing table, expect a single entry.
-				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
+				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Len(t, rt, 2)
@@ -251,7 +252,7 @@ func TestRoutes(t *testing.T) {
 				assert.Empty(t, rules)
 
 				// List the proxy routing table, expect it to be empty.
-				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
+				rt, err = safenetlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
 				assert.Empty(t, rt)

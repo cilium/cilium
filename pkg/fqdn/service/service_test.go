@@ -24,10 +24,9 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/time"
@@ -45,6 +44,14 @@ func newBufconnListener(lis *bufconn.Listener) *bufconnListener {
 
 func (b *bufconnListener) Listen(ctx context.Context, network, addr string) (net.Listener, error) {
 	return b.buf, nil
+}
+
+type mockUpdater struct{}
+
+func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{} {
+	out := make(chan struct{})
+	close(out)
+	return out
 }
 
 func TestFQDNDataServer(t *testing.T) {
@@ -82,13 +89,11 @@ func TestFQDNDataServer(t *testing.T) {
 					},
 
 					func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
-						pr := policy.NewPolicyRepository(logger, nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 						return ipcache.NewIPCache(&ipcache.Configuration{
 							Context:           t.Context(),
 							Logger:            logger,
 							IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
-							PolicyHandler:     pr.GetSelectorCache(),
-							DatapathHandler:   em,
+							IdentityUpdater:   &mockUpdater{},
 						})
 					},
 					func(ipc *ipcache.IPCache, logger *slog.Logger) namemanager.NameManager {

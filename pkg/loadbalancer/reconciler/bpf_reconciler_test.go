@@ -108,7 +108,7 @@ func parseAddrPort(s string) loadbalancer.L3n4Addr {
 	}
 	addr := types.MustParseAddrCluster(addrS)
 	port, _ := strconv.ParseInt(portS, 10, 16)
-	return *loadbalancer.NewL3n4Addr(
+	return loadbalancer.NewL3n4Addr(
 		loadbalancer.TCP,
 		addr, uint16(port), loadbalancer.ScopeExternal,
 	)
@@ -153,7 +153,7 @@ type testCase struct {
 	maps, maglev []maps.MapDump
 }
 
-var testServiceName = loadbalancer.ServiceName{Name: "test", Namespace: "test"}
+var testServiceName = loadbalancer.NewServiceName("test", "test")
 
 var baseService = loadbalancer.Service{
 	Name:                   testServiceName,
@@ -729,7 +729,8 @@ var localRedirectTestCases = []testCase{
 		"LocalRedirect",
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = ClusterIP
-			fe.RedirectTo = &loadbalancer.ServiceName{Name: "foo", Namespace: "bar"}
+			svcName := loadbalancer.NewServiceName("bar", "foo")
+			fe.RedirectTo = &svcName
 			fe.Address = autoAddr
 			return false, []loadbalancer.Backend{}
 		},
@@ -1051,14 +1052,15 @@ func TestBPFOps(t *testing.T) {
 
 	// Enable features.
 	extCfg := loadbalancer.ExternalConfig{
-		ZoneMapper:           &option.DaemonConfig{},
-		EnableIPv4:           true,
-		EnableIPv6:           true,
-		KubeProxyReplacement: true,
+		ZoneMapper:            &option.DaemonConfig{},
+		EnableIPv4:            true,
+		EnableIPv6:            true,
+		KubeProxyReplacement:  true,
+		EnableHostPort:        true,
+		EnableSessionAffinity: true,
 	}
 
 	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
-	cfg.EnableExperimentalLB = true
 
 	var lbmaps maps.LBMaps
 	if testutils.IsPrivileged() {
@@ -1163,8 +1165,8 @@ func TestBPFOps(t *testing.T) {
 		require.Empty(t, maps, "BPF maps not empty")
 
 		// Verify that all internal state has been cleaned up.
-		require.Empty(t, ops.backendIDAlloc.entities, "Backend ID allocations remain")
-		require.Empty(t, ops.serviceIDAlloc.entities, "Frontend ID allocations remain")
+		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
+		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remain")
 		require.Empty(t, ops.backendReferences, "Backend references remain")
 		require.Empty(t, ops.nodePortAddrByPort, "NodePort addrs state remain")

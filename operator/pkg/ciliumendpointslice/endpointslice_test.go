@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -35,7 +35,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(
@@ -107,7 +107,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(
@@ -147,7 +147,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
 	cesController.priorityNamespaces["FastNamespace"] = struct{}{}
 	cesController.initializeQueue()
-	var ns string = "NotSoImportant"
+	var ns = "NotSoImportant"
 	var standardQueueLen int
 	var fastQueueLen int
 
@@ -209,7 +209,7 @@ func TestCESManagement(t *testing.T) {
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(
@@ -248,7 +248,7 @@ func TestCESManagement(t *testing.T) {
 	cesController.cond = *sync.NewCond(&lock.Mutex{})
 	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
 	cesController.initializeQueue()
-	var ns string = "ns"
+	var ns = "ns"
 
 	cep1 := tu.CreateStoreEndpoint(fmt.Sprintf("cep-%d", 0), ns, 0)
 	cesController.onEndpointUpdate(cep1)

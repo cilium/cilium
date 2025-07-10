@@ -213,7 +213,7 @@ func ReportDirectoryPath() string {
 	prefix := ""
 	testName := ginkgoext.GetTestName()
 	if strings.HasPrefix(strings.ToLower(testName), K8s) {
-		prefix = fmt.Sprintf("%s-", strings.Replace(GetCurrentK8SEnv(), ".", "", -1))
+		prefix = fmt.Sprintf("%s-", strings.ReplaceAll(GetCurrentK8SEnv(), ".", ""))
 	}
 	return filepath.Join(TestResultsPath, prefix, testName)
 }

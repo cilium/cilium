@@ -30,9 +30,12 @@ var (
 	enableDefaultDenyDefault = true
 )
 
-// Sanitize validates and sanitizes a policy rule. Minor edits such as
-// capitalization of the protocol name are automatically fixed up. More
-// fundamental violations will cause an error to be returned.
+// Sanitize validates and sanitizes a policy rule. Minor edits such as capitalization
+// of the protocol name are automatically fixed up.
+// As part of `EndpointSelector` sanitization we also convert the label keys to internal
+// representation prefixed with the source information. Check `EndpointSelector.sanitize()`
+// method for more details.
+// More fundamental violations will cause an error to be returned.
 //
 // Note: this function is called from both the operator and the agent;
 // make sure any configuration flags are bound in **both** binaries.
@@ -68,14 +71,14 @@ func (r *Rule) Sanitize() error {
 	}
 
 	if r.EndpointSelector.LabelSelector != nil {
-		if err := r.EndpointSelector.sanitize(); err != nil {
+		if err := r.EndpointSelector.Sanitize(); err != nil {
 			return err
 		}
 	}
 
 	var hostPolicy bool
 	if r.NodeSelector.LabelSelector != nil {
-		if err := r.NodeSelector.sanitize(); err != nil {
+		if err := r.NodeSelector.Sanitize(); err != nil {
 			return err
 		}
 		hostPolicy = true
@@ -224,20 +227,20 @@ func (i *IngressCommonRule) sanitize() error {
 		retErr = ErrFromToNodesRequiresNodeSelectorOption
 	}
 
-	for _, es := range i.FromEndpoints {
-		if err := es.sanitize(); err != nil {
+	for n := range i.FromEndpoints {
+		if err := i.FromEndpoints[n].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
-	for _, es := range i.FromRequires {
-		if err := es.sanitize(); err != nil {
+	for n := range i.FromRequires {
+		if err := i.FromRequires[n].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
-	for _, ns := range i.FromNodes {
-		if err := ns.sanitize(); err != nil {
+	for n := range i.FromNodes {
+		if err := i.FromNodes[n].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -437,20 +440,20 @@ func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
 		retErr = ErrFromToNodesRequiresNodeSelectorOption
 	}
 
-	for _, es := range e.ToEndpoints {
-		if err := es.sanitize(); err != nil {
+	for i := range e.ToEndpoints {
+		if err := e.ToEndpoints[i].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
-	for _, es := range e.ToRequires {
-		if err := es.sanitize(); err != nil {
+	for i := range e.ToRequires {
+		if err := e.ToRequires[i].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
 
-	for _, ns := range e.ToNodes {
-		if err := ns.sanitize(); err != nil {
+	for i := range e.ToNodes {
+		if err := e.ToNodes[i].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -638,7 +641,9 @@ func (pr *PortDenyRule) sanitize() error {
 
 func (pp *PortProtocol) sanitize(hasDNSRules bool) (isZero bool, err error) {
 	if pp.Port == "" {
-		return isZero, errors.New("Port must be specified")
+		if !option.Config.EnableExtendedIPProtocols {
+			return isZero, errors.New("port must be specified")
+		}
 	}
 
 	// Port names are formatted as IANA Service Names.  This means that
@@ -646,7 +651,10 @@ func (pp *PortProtocol) sanitize(hasDNSRules bool) (isZero bool, err error) {
 	// 0x10 is now considered a name rather than number 16.
 	if iana.IsSvcName(pp.Port) {
 		pp.Port = strings.ToLower(pp.Port) // Normalize for case insensitive comparison
-	} else {
+	} else if pp.Port != "" {
+		if pp.Port != "0" && (pp.Protocol == ProtoVRRP || pp.Protocol == ProtoIGMP) {
+			return isZero, errors.New("port must be empty or 0")
+		}
 		p, err := strconv.ParseUint(pp.Port, 0, 16)
 		if err != nil {
 			return isZero, fmt.Errorf("unable to parse port: %w", err)
@@ -713,7 +721,7 @@ func (c *CIDRRule) sanitize() error {
 	if c.CIDRGroupSelector != nil {
 		cnt++
 		es := NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, c.CIDRGroupSelector)
-		if err := es.sanitize(); err != nil {
+		if err := es.Sanitize(); err != nil {
 			return fmt.Errorf("failed to parse cidrGroupSelector %v: %w", c.CIDRGroupSelector.String(), err)
 		}
 	}

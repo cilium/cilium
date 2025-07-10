@@ -38,6 +38,8 @@ func NewGetPolicy(ctx *middleware.Context, handler GetPolicyHandler) *GetPolicy 
 # Retrieve entire policy tree
 
 Returns the entire policy tree with all children.
+
+Deprecated: will be removed in v1.19
 */
 type GetPolicy struct {
 	Context *middleware.Context

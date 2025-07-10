@@ -32,9 +32,10 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -63,6 +64,7 @@ type HeaderfileWriter struct {
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
 	sysctl             sysctl.Sysctl
+	kprCfg             kpr.KPRConfig
 }
 
 func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
@@ -79,6 +81,7 @@ func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
 		nodeExtraDefineFns: p.NodeExtraDefineFns,
 		log:                p.Log,
 		sysctl:             p.Sysctl,
+		kprCfg:             p.KPRConfig,
 	}, nil
 }
 
@@ -178,7 +181,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBAffinityMapEntries)
 	cDefinesMap["CILIUM_LB_SOURCE_RANGE_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBSourceRangeMapEntries)
 	cDefinesMap["CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBMaglevMapEntries)
-	cDefinesMap["CILIUM_LB_SKIP_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.SkipLBMapMaxEntries)
+	cDefinesMap["CILIUM_LB_SKIP_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmaps.SkipLBMapMaxEntries)
 
 	cDefinesMap["ENDPOINTS_MAP_SIZE"] = fmt.Sprintf("%d", lxcmap.MaxEntries)
 	cDefinesMap["METRICS_MAP_SIZE"] = fmt.Sprintf("%d", metricsmap.MaxEntries)
@@ -211,11 +214,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LB6_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", cfg.LBConfig.LBSockRevNatEntries)
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", cfg.LBConfig.LBSockRevNatEntries)
 
-	if option.Config.EnableSessionAffinity {
+	if h.kprCfg.EnableSessionAffinity {
 		cDefinesMap["ENABLE_SESSION_AFFINITY"] = "1"
 	}
 
-	cDefinesMap["TRACE_PAYLOAD_LEN"] = fmt.Sprintf("%dULL", option.Config.TracePayloadlen)
 	cDefinesMap["MTU"] = fmt.Sprintf("%d", cfg.DeviceMTU)
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
@@ -313,7 +315,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_L7_LB"] = "1"
 	}
 
-	if option.Config.EnableSocketLB {
+	if h.kprCfg.EnableSocketLB {
 		if option.Config.BPFSocketLBHostnsOnly {
 			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
 		} else {
@@ -349,11 +351,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["NAT_46X64_PREFIX_2"] = "0"
 	cDefinesMap["NAT_46X64_PREFIX_3"] = "0"
 
-	if option.Config.EnableNodePort {
+	if h.kprCfg.EnableNodePort {
 		if option.Config.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
-		if option.Config.EnableMKE && option.Config.EnableSocketLB {
+		if option.Config.EnableMKE && h.kprCfg.EnableSocketLB {
 			cDefinesMap["ENABLE_MKE"] = "1"
 			cDefinesMap["MKE_HOST"] = fmt.Sprintf("%d", option.HostExtensionMKE)
 		}
@@ -447,7 +449,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if !option.Config.EnableHostLegacyRouting {
 			cDefinesMap["ENABLE_HOST_ROUTING"] = "1"
 		}
-		if option.Config.EnableSVCSourceRangeCheck {
+		if h.kprCfg.EnableSVCSourceRangeCheck {
 			cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
 			if option.Config.EnableIPv4 {
 				cDefinesMap["LB4_SRC_RANGE_MAP_SIZE"] =
@@ -498,7 +500,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash1)
 
-	if option.Config.DirectRoutingDeviceRequired() {
+	if option.Config.DirectRoutingDeviceRequired(h.kprCfg) {
 		drd := cfg.DirectRoutingDevice
 		if option.Config.EnableIPv4 {
 			if drd == nil {
@@ -548,7 +550,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_HOST_FIREWALL"] = "1"
 	}
 
-	if option.Config.EnableNodePort {
+	if h.kprCfg.EnableNodePort {
 		if option.Config.EnableIPv4 {
 			cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
 		}

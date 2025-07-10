@@ -56,11 +56,11 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.24.3
+  go_version: 1.24.4
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 524.0.0
+  gcloud_version: 528.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  cmapisrv_mock_ref: 700d6ecc48008fe2427c881e7ef6d7e0775be400
+  cmapisrv_mock_ref: d3d2c05b6825c62586d158d4cd71ff7b48565a81
 
   test_name: scale-clustermesh
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -121,7 +121,7 @@ jobs:
           go-version: ${{ env.go_version }}
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/install-kops@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193 # v2.1.10
@@ -162,7 +162,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/create-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.CLUSTER_NAME }}
@@ -176,7 +176,7 @@ jobs:
           kube_proxy_enabled: false
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -196,7 +196,7 @@ jobs:
           gcloud version
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/setup-firewall@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         with:
           cluster_name: ${{ steps.vars.outputs.CLUSTER_NAME }}
 
@@ -243,7 +243,7 @@ jobs:
       # This step must be run after installing Cilium, as it requires
       # system pods (e.g., coredns) to be running.
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/validate-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.CLUSTER_NAME }}
@@ -371,24 +371,25 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ env.job_name }}"
+          always_capture_sysdump: true
+          artifacts_suffix: "final"
           job_status: "${{ job.status }}"
-          capture_sysdump: false
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: cilium/scale-tests-action/cleanup-cluster@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/cleanup-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         with:
           cluster_name: ${{ steps.vars.outputs.CLUSTER_NAME }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/export-results@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         with:
           test_name: ${{ env.test_name }}
+          tested_sha: ${{ inputs.SHA || github.sha }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
-          artifacts: ./perf-tests/clusterloader2/report/*
+          artifacts: ./perf-tests/clusterloader2/report/
           other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
 
   commit-status-final:

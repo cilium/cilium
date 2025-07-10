@@ -1256,11 +1256,12 @@ func init() {
     },
     "/policy": {
       "get": {
-        "description": "Returns the entire policy tree with all children.\n",
+        "description": "Returns the entire policy tree with all children.\n\nDeprecated: will be removed in v1.19\n",
         "tags": [
           "policy"
         ],
         "summary": "Retrieve entire policy tree",
+        "deprecated": true,
         "parameters": [
           {
             "name": "labels",
@@ -1283,10 +1284,12 @@ func init() {
         }
       },
       "put": {
+        "description": "Deprecated: will be removed in v1.19",
         "tags": [
           "policy"
         ],
         "summary": "Create or update a policy (sub)tree",
+        "deprecated": true,
         "parameters": [
           {
             "$ref": "#/parameters/policy-rules"
@@ -1332,10 +1335,12 @@ func init() {
         }
       },
       "delete": {
+        "description": "Deprecated: will be removed in v1.19",
         "tags": [
           "policy"
         ],
         "summary": "Delete a policy (sub)tree",
+        "deprecated": true,
         "parameters": [
           {
             "name": "labels",
@@ -1624,30 +1629,6 @@ func init() {
                 "$ref": "#/definitions/Service"
               }
             }
-          }
-        }
-      }
-    },
-    "/service/{id}": {
-      "get": {
-        "tags": [
-          "service"
-        ],
-        "summary": "Retrieve configuration of a service",
-        "parameters": [
-          {
-            "$ref": "#/parameters/service-id"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Service"
-            }
-          },
-          "404": {
-            "description": "Service not found"
           }
         }
       }
@@ -4247,7 +4228,7 @@ func init() {
       }
     },
     "Policy": {
-      "description": "Policy definition",
+      "description": "Policy definition\nDeprecated, will be removed in v1.19.\n",
       "type": "object",
       "properties": {
         "policy": {
@@ -6840,11 +6821,12 @@ func init() {
     },
     "/policy": {
       "get": {
-        "description": "Returns the entire policy tree with all children.\n",
+        "description": "Returns the entire policy tree with all children.\n\nDeprecated: will be removed in v1.19\n",
         "tags": [
           "policy"
         ],
         "summary": "Retrieve entire policy tree",
+        "deprecated": true,
         "parameters": [
           {
             "name": "labels",
@@ -6867,10 +6849,12 @@ func init() {
         }
       },
       "put": {
+        "description": "Deprecated: will be removed in v1.19",
         "tags": [
           "policy"
         ],
         "summary": "Create or update a policy (sub)tree",
+        "deprecated": true,
         "parameters": [
           {
             "description": "Policy rules",
@@ -6931,10 +6915,12 @@ func init() {
         }
       },
       "delete": {
+        "description": "Deprecated: will be removed in v1.19",
         "tags": [
           "policy"
         ],
         "summary": "Delete a policy (sub)tree",
+        "deprecated": true,
         "parameters": [
           {
             "name": "labels",
@@ -7253,34 +7239,6 @@ func init() {
                 "$ref": "#/definitions/Service"
               }
             }
-          }
-        }
-      }
-    },
-    "/service/{id}": {
-      "get": {
-        "tags": [
-          "service"
-        ],
-        "summary": "Retrieve configuration of a service",
-        "parameters": [
-          {
-            "type": "integer",
-            "description": "ID of service",
-            "name": "id",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Service"
-            }
-          },
-          "404": {
-            "description": "Service not found"
           }
         }
       }
@@ -10324,7 +10282,7 @@ func init() {
       }
     },
     "Policy": {
-      "description": "Policy definition",
+      "description": "Policy definition\nDeprecated, will be removed in v1.19.\n",
       "type": "object",
       "properties": {
         "policy": {

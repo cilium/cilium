@@ -36,10 +36,6 @@ type lbmapsParams struct {
 }
 
 func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
-	if !p.Config.EnableExperimentalLB {
-		return bpf.MapOut[LBMaps]{}
-	}
-
 	pinned := true
 
 	if p.TestConfig != nil {
@@ -75,6 +71,7 @@ type backendMaps interface {
 	UpdateBackend(BackendKey, BackendValue) error
 	DeleteBackend(BackendKey) error
 	DumpBackend(cb func(BackendKey, BackendValue)) error
+	LookupBackend(BackendKey) (BackendValue, error)
 }
 
 type revNatMaps interface {
@@ -135,6 +132,7 @@ type BPFLBMaps struct {
 	backend4Map, backend6Map         *bpf.Map
 	revNat4Map, revNat6Map           *bpf.Map
 	affinityMatchMap                 *bpf.Map
+	affinity4Map, affinity6Map       *bpf.Map
 	sockRevNat4Map, sockRevNat6Map   *bpf.Map
 	sourceRange4Map, sourceRange6Map *bpf.Map
 	maglev4Map, maglev6Map           *bpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
@@ -149,7 +147,7 @@ type BPFLBMaps struct {
 // BPF map constructors
 //
 
-func newService4Map(maxEntries int) *bpf.Map {
+func NewService4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		Service4MapV2Name,
 		ebpf.Hash,
@@ -160,7 +158,7 @@ func newService4Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newService6Map(maxEntries int) *bpf.Map {
+func NewService6Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		Service6MapV2Name,
 		ebpf.Hash,
@@ -171,7 +169,7 @@ func newService6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newBackend4Map(maxEntries int) *bpf.Map {
+func NewBackend4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		Backend4MapV3Name,
 		ebpf.Hash,
@@ -182,7 +180,7 @@ func newBackend4Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newBackend6Map(maxEntries int) *bpf.Map {
+func NewBackend6Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		Backend6MapV3Name,
 		ebpf.Hash,
@@ -193,7 +191,7 @@ func newBackend6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newRevNat4Map(maxEntries int) *bpf.Map {
+func NewRevNat4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		RevNat4MapName,
 		ebpf.Hash,
@@ -204,7 +202,7 @@ func newRevNat4Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newRevNat6Map(maxEntries int) *bpf.Map {
+func NewRevNat6Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		RevNat6MapName,
 		ebpf.Hash,
@@ -215,7 +213,7 @@ func newRevNat6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newAffinityMatchMap(maxEntries int) *bpf.Map {
+func NewAffinityMatchMap(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		AffinityMatchMapName,
 		ebpf.Hash,
@@ -226,7 +224,29 @@ func newAffinityMatchMap(maxEntries int) *bpf.Map {
 	)
 }
 
-func newSourceRange4Map(maxEntries int) *bpf.Map {
+func newAffinity4Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		Affinity4MapName,
+		ebpf.LRUHash,
+		&Affinity4Key{},
+		&AffinityValue{},
+		maxEntries,
+		0,
+	)
+}
+
+func newAffinity6Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		Affinity6MapName,
+		ebpf.LRUHash,
+		&Affinity6Key{},
+		&AffinityValue{},
+		maxEntries,
+		0,
+	)
+}
+
+func NewSourceRange4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		SourceRange4MapName,
 		ebpf.LPMTrie,
@@ -237,7 +257,7 @@ func newSourceRange4Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newSourceRange6Map(maxEntries int) *bpf.Map {
+func NewSourceRange6Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		SourceRange6MapName,
 		ebpf.LPMTrie,
@@ -248,7 +268,7 @@ func newSourceRange6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newSockRevNat4Map(maxEntries int) *bpf.Map {
+func NewSockRevNat4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		SockRevNat4MapName,
 		ebpf.LRUHash,
@@ -259,7 +279,7 @@ func newSockRevNat4Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newSockRevNat6Map(maxEntries int) *bpf.Map {
+func NewSockRevNat6Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		SockRevNat6MapName,
 		ebpf.LRUHash,
@@ -270,7 +290,7 @@ func newSockRevNat6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func newMaglevOuterMap(name string, maxEntries int, innerSpec *ebpf.MapSpec) *bpf.Map {
+func NewMaglevOuterMap(name string, maxEntries int, innerSpec *ebpf.MapSpec) *bpf.Map {
 	return bpf.NewMapWithInnerSpec(
 		name,
 		ebpf.HashOfMaps,
@@ -290,54 +310,83 @@ type mapDesc struct {
 
 func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 	newMaglev4 := func(maxEntries int) *bpf.Map {
-		return newMaglevOuterMap(MaglevOuter4MapName, maxEntries, r.maglevInnerMapSpec)
+		return NewMaglevOuterMap(MaglevOuter4MapName, maxEntries, r.maglevInnerMapSpec)
 	}
 	newMaglev6 := func(maxEntries int) *bpf.Map {
-		return newMaglevOuterMap(MaglevOuter6MapName, maxEntries, r.maglevInnerMapSpec)
+		return NewMaglevOuterMap(MaglevOuter6MapName, maxEntries, r.maglevInnerMapSpec)
 	}
 	v4Maps := []mapDesc{
-		{&r.service4Map, newService4Map, r.Cfg.LBServiceMapEntries},
-		{&r.backend4Map, newBackend4Map, r.Cfg.LBBackendMapEntries},
-		{&r.revNat4Map, newRevNat4Map, r.Cfg.LBRevNatEntries},
-		{&r.sourceRange4Map, newSourceRange4Map, r.Cfg.LBSourceRangeMapEntries},
+		{&r.service4Map, NewService4Map, r.Cfg.LBServiceMapEntries},
+		{&r.backend4Map, NewBackend4Map, r.Cfg.LBBackendMapEntries},
+		{&r.revNat4Map, NewRevNat4Map, r.Cfg.LBRevNatEntries},
 		{&r.maglev4Map, newMaglev4, r.Cfg.LBMaglevMapEntries},
-		{&r.sockRevNat4Map, newSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sockRevNat4Map, NewSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
+		{&r.affinity4Map, newAffinity4Map, r.Cfg.LBAffinityMapEntries},
 	}
 	v6Maps := []mapDesc{
-		{&r.service6Map, newService6Map, r.Cfg.LBServiceMapEntries},
-		{&r.backend6Map, newBackend6Map, r.Cfg.LBBackendMapEntries},
-		{&r.revNat6Map, newRevNat6Map, r.Cfg.LBRevNatEntries},
-		{&r.sourceRange6Map, newSourceRange6Map, r.Cfg.LBSourceRangeMapEntries},
+		{&r.service6Map, NewService6Map, r.Cfg.LBServiceMapEntries},
+		{&r.backend6Map, NewBackend6Map, r.Cfg.LBBackendMapEntries},
+		{&r.revNat6Map, NewRevNat6Map, r.Cfg.LBRevNatEntries},
 		{&r.maglev6Map, newMaglev6, r.Cfg.LBMaglevMapEntries},
-		{&r.sockRevNat6Map, newSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sockRevNat6Map, NewSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
+		{&r.affinity6Map, newAffinity6Map, r.Cfg.LBAffinityMapEntries},
 	}
-	mapsToCreate := []mapDesc{
-		{&r.affinityMatchMap, newAffinityMatchMap, r.Cfg.LBAffinityMapEntries},
-	}
+	affinityMap := mapDesc{&r.affinityMatchMap, NewAffinityMatchMap, r.Cfg.LBAffinityMapEntries}
+	v4SourceRangeMap := mapDesc{&r.sourceRange4Map, NewSourceRange4Map, r.Cfg.LBSourceRangeMapEntries}
+	v6SourceRangeMap := mapDesc{&r.sourceRange6Map, NewSourceRange6Map, r.Cfg.LBSourceRangeMapEntries}
+
+	mapsToCreate := []mapDesc{}
 	mapsToDelete := []mapDesc{}
+
+	if r.ExtCfg.EnableSessionAffinity {
+		mapsToCreate = append(mapsToCreate, affinityMap)
+	} else {
+		mapsToDelete = append(mapsToDelete, affinityMap)
+	}
+
+	if r.ExtCfg.EnableSVCSourceRangeCheck {
+		if r.ExtCfg.EnableIPv4 {
+			mapsToCreate = append(mapsToCreate, v4SourceRangeMap)
+		} else {
+			mapsToDelete = append(mapsToDelete, v4SourceRangeMap)
+		}
+		if r.ExtCfg.EnableIPv6 {
+			mapsToCreate = append(mapsToCreate, v6SourceRangeMap)
+		} else {
+			mapsToDelete = append(mapsToDelete, v6SourceRangeMap)
+		}
+	} else {
+		mapsToDelete = append(mapsToDelete, v4SourceRangeMap, v6SourceRangeMap)
+	}
+
 	if r.ExtCfg.EnableIPv4 {
 		mapsToCreate = append(mapsToCreate, v4Maps...)
 	} else {
 		mapsToDelete = append(mapsToDelete, v4Maps...)
+		mapsToDelete = append(mapsToDelete, v4SourceRangeMap)
 	}
 	if r.ExtCfg.EnableIPv6 {
 		mapsToCreate = append(mapsToCreate, v6Maps...)
 	} else {
 		mapsToDelete = append(mapsToDelete, v6Maps...)
+		mapsToDelete = append(mapsToDelete, v6SourceRangeMap)
 	}
 	return mapsToCreate, mapsToDelete
 }
 
-// Start implements cell.HookInterface.
-func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
-	r.maglevInnerMapSpec = &ebpf.MapSpec{
+func NewMaglevInnerMapSpec(tableSize uint) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
 		Name:       MaglevInnerMapName,
 		Type:       ebpf.Array,
 		KeySize:    uint32(unsafe.Sizeof(MaglevInnerKey{})),
 		MaxEntries: 1,
-		ValueSize:  MaglevBackendLen * uint32(r.MaglevCfg.TableSize),
+		ValueSize:  MaglevBackendLen * uint32(tableSize),
 	}
+}
 
+// Start implements cell.HookInterface.
+func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
+	r.maglevInnerMapSpec = NewMaglevInnerMapSpec(r.MaglevCfg.TableSize)
 	mapsToCreate, mapsToDelete := r.allMaps()
 	openedMaps := make([]*bpf.Map, 0, len(mapsToCreate))
 	for _, desc := range mapsToCreate {
@@ -471,6 +520,22 @@ func (r *BPFLBMaps) DeleteBackend(key BackendKey) error {
 		return nil
 	}
 	return err
+}
+
+func (r *BPFLBMaps) LookupBackend(key BackendKey) (val BackendValue, err error) {
+	var v bpf.MapValue
+	switch key.(type) {
+	case *Backend4KeyV3:
+		v, err = r.backend4Map.Lookup(key)
+	case *Backend6KeyV3:
+		v, err = r.backend6Map.Lookup(key)
+	default:
+		panic("unknown BackendKey")
+	}
+	if err == nil {
+		val = v.(BackendValue)
+	}
+	return
 }
 
 // DeleteService implements lbmaps.
@@ -621,7 +686,7 @@ func (r *BPFLBMaps) DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, MaglevInn
 			RevNatID: byteorder.NetworkToHost16(key.(*MaglevOuterKey).RevNatID),
 		}
 		maglevValue := value.(*MaglevOuterVal)
-		inner, err := MaglevInnerMapFromID(r.Log, maglevValue.FD)
+		inner, err := MaglevInnerMapFromID(maglevValue.FD)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("cannot open inner map with fd %d: %w", maglevValue.FD, err))
 			return
@@ -707,16 +772,9 @@ func (m MaglevInnerMap) TableSize() uint32 {
 	return m.Map.ValueSize() / uint32(MaglevBackendLen)
 }
 
-// UpdateBackends updates the maglev inner map's list of backends.
-func (m MaglevInnerMap) UpdateBackends(backends []loadbalancer.BackendID) error {
-	// Backends are stored at inner map key zero.
-	var key MaglevInnerKey
-	return m.Map.Update(key, backends, 0)
-}
-
 // MaglevInnerMapFromID returns a new object representing the maglev inner map
 // identified by an ID.
-func MaglevInnerMapFromID(log *slog.Logger, id uint32) (MaglevInnerMap, error) {
+func MaglevInnerMapFromID(id uint32) (MaglevInnerMap, error) {
 	m, err := ebpf.NewMapFromID(ebpf.MapID(id))
 	return MaglevInnerMap{m}, err
 }
@@ -930,6 +988,11 @@ func (f *FaultyLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16)
 	return f.impl.ExistsSockRevNat(cookie, addr, port)
 }
 
+// LookupBackend implements LBMaps.
+func (f *FaultyLBMaps) LookupBackend(key BackendKey) (BackendValue, error) {
+	return f.impl.LookupBackend(key)
+}
+
 func (f *FaultyLBMaps) isFaulty() bool {
 	// Float32() returns value between [0.0, 1.0).
 	// We fail if the value is less than our probability [0.0, 1.0].
@@ -960,6 +1023,14 @@ func (fm *fakeBPFMap) update(key bpf.MapKey, value any) error {
 func (fm *fakeBPFMap) exists(key bpf.MapKey) bool {
 	_, exists := fm.Map.Load(bpfKey(key))
 	return exists
+}
+
+func (fm *fakeBPFMap) lookup(key bpf.MapKey) (any, error) {
+	v, exists := fm.Map.Load(bpfKey(key))
+	if !exists {
+		return nil, ebpf.ErrKeyNotExist
+	}
+	return v.b, nil
 }
 
 func (fm *fakeBPFMap) IsEmpty() bool {
@@ -1185,6 +1256,15 @@ func (f *FakeLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) b
 		key = key6
 	}
 	return f.sockRevNat.exists(key)
+}
+
+// LookupBackend implements LBMaps.
+func (f *FakeLBMaps) LookupBackend(key BackendKey) (BackendValue, error) {
+	v, err := f.be.lookup(key)
+	if err != nil {
+		return nil, err
+	}
+	return v.(BackendValue), nil
 }
 
 // IsEmpty implements lbmaps.

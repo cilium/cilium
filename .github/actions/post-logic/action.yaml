@@ -5,21 +5,19 @@ inputs:
   job_status:
     description: "Status of the job, used to determine if some post steps should run."
     required: true
-    type: string
   artifacts_suffix:
     description: "Suffix added to the artifacts name. This is useful to distinguish artifacts from parallel runs."
-    type: string
   capture_features_tested:
     description: "Capture features tested in the test."
-    type: boolean
-    default: true
+    default: "true"
   capture_sysdump:
     description: "Capture sysdump in case of a test failure."
-    type: boolean
-    default: true
+    default: "true"
+  always_capture_sysdump:
+    description: "Always capture sysdump, regardless of test status; the result is uploaded as artifact only in case of test failure"
+    default: "false"
   junits-directory:
     description: "Directory where JUnit XML files are stored."
-    type: string
     default: cilium-junits
 
 runs:
@@ -33,7 +31,7 @@ runs:
         json-filename: "features-tested-${{ inputs.artifacts_suffix }}"
 
     - name: Post-test information gathering
-      if: ${{ always() && inputs.job_status == 'failure' && inputs.capture_sysdump }}
+      if: ${{ always() && ( ( inputs.job_status == 'failure' && inputs.capture_sysdump  == 'true') || inputs.always_capture_sysdump == 'true') }}
       shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
       run: |
         echo "=== Retrieve cluster state ==="

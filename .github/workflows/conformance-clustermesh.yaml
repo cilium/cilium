@@ -66,7 +66,7 @@ env:
   contextName2: kind-cluster2-${{ github.run_id }}
 
   # renovate: datasource=github-releases depName=cert-manager/cert-manager
-  CERT_MANAGER_VERSION: v1.17.2
+  CERT_MANAGER_VERSION: v1.18.1
 
 jobs:
   echo-inputs:
@@ -119,7 +119,7 @@ jobs:
             tunnel: 'disabled'
             ipFamily: 'ipv4'
             encryption: 'disabled'
-            kube-proxy: 'iptables'
+            kube-proxy: 'none'
             mode: 'kvstoremesh'
             tls-auto-method: helm
             cm-auth-mode-1: 'legacy'
@@ -127,6 +127,7 @@ jobs:
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'enabled'
             policy-default-local-cluster: true
+            multipool-ipam: 'enabled'
 
           - name: '2'
             tunnel: 'disabled'
@@ -140,6 +141,7 @@ jobs:
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: false
+            multipool-ipam: 'disabled'
 
           - name: '3'
             tunnel: 'disabled'
@@ -153,6 +155,7 @@ jobs:
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
 
           # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
           # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters (#23917)
@@ -168,6 +171,7 @@ jobs:
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: false
+            multipool-ipam: 'disabled'
 
           - name: '5'
             tunnel: 'disabled'
@@ -179,19 +183,21 @@ jobs:
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
 
           - name: '6'
             tunnel: 'vxlan'
             ipFamily: 'ipv4'
             encryption: 'disabled'
             kube-proxy: 'none'
-            mode: 'clustermesh'
+            mode: 'kvstoremesh'
             tls-auto-method: helm
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'enabled'
             policy-default-local-cluster: false
+            multipool-ipam: 'enabled'
 
           - name: '7'
             tunnel: 'geneve'
@@ -205,6 +211,7 @@ jobs:
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
 
           - name: '8'
             tunnel: 'vxlan'
@@ -218,17 +225,21 @@ jobs:
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: false
+            multipool-ipam: 'disabled'
 
-        # Tunneling is currently not supported in case of ipv6-only clusters (#17240)
-        #  - name: '9'
-        #    tunnel: 'vxlan'
-        #    ipFamily: 'ipv6'
-        #    encryption: 'disabled'
-        #    kube-proxy: 'none'
-        #    mode: 'kvstoremesh'
-        #    tls-auto-method: certmanager
-        #    cm-auth-mode-1: 'cluster'
-        #    cm-auth-mode-2: 'cluster'
+          - name: '9'
+            tunnel: 'vxlan'
+            ipFamily: 'ipv6'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            mode: 'kvstoremesh'
+            tls-auto-method: certmanager
+            cm-auth-mode-1: 'cluster'
+            cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'enabled'
+            policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
 
           - name: '10'
             tunnel: 'vxlan'
@@ -240,6 +251,7 @@ jobs:
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
 
     steps:
       - name: Collect Workflow Telemetry
@@ -288,7 +300,10 @@ jobs:
             --helm-set=extraConfig.clustermesh-sync-timeout=5m \
             "
 
-          CILIUM_INSTALL_TUNNEL="--helm-set=tunnelProtocol=${{ matrix.tunnel }}"
+          CILIUM_INSTALL_TUNNEL=" \
+            --helm-set=tunnelProtocol=${{ matrix.tunnel }} \
+            --helm-set=underlayProtocol=${{ matrix.ipFamily == 'ipv6' && 'ipv6' || 'ipv4' }} \
+          "
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
               --helm-set=autoDirectNodeRoutes=true \
@@ -334,6 +349,30 @@ jobs:
             CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true"
           fi
 
+          CILIUM_INSTALL_MULTIPOOL_IPAM=""
+          CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER1=""
+          CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER2=""
+          if [ "${{ matrix.multipool-ipam }}" != "disabled" ]; then
+            CILIUM_INSTALL_MULTIPOOL_IPAM="--helm-set=endpointRoutes.enabled=true \
+              --helm-set=bpf.hostLegacyRouting=true \
+              --helm-set=ipam.mode=multi-pool \
+              --helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,11.0.0.0/8,192.168.0.0/20,192.168.16.0/20}'"
+
+            CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER1="--helm-set=ipMasqAgent.enabled=true \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{10.10.0.0/16}' \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.cidrs='{10.20.0.0/16}' \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.maskSize=24 \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.cidrs='{192.168.0.0/24}' \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.maskSize=27"
+
+            CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER2="--helm-set=ipMasqAgent.enabled=true \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{11.10.0.0/16}' \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/24}' \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27"
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
@@ -345,6 +384,15 @@ jobs:
             --collect-sysdump-on-failure \
             --sysdump-output-filename 'cilium-sysdump-${{ matrix.name }}-<ts>'" \
 
+          if [ "${{ matrix.multipool-ipam }}" != "disabled" ]; then
+            CONNECTIVITY_TEST_DEFAULTS="$CONNECTIVITY_TEST_DEFAULTS \
+              --namespace-annotations=ipam.cilium.io/ip-pool=cilium-test-pool \
+              --deployment-pod-annotations='{ \
+                  \"client\":{\"ipam.cilium.io/ip-pool\":\"client-pool\"}, \
+                  \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
+              }'"
+          fi
+
           # Skip external traffic (e.g. 1.1.1.1 and www.google.com) tests as IPv6 is not supported
           # in GitHub runners: https://github.com/actions/runner-images/issues/668
           if [[ "${{ matrix.ipFamily }}" == "ipv6" ]]; then
@@ -354,7 +402,9 @@ jobs:
           fi
 
           echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} \
-            ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_INGRESS}" >> $GITHUB_OUTPUT
+            ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_INGRESS} ${CILIUM_INSTALL_MULTIPOOL_IPAM}" >> $GITHUB_OUTPUT
+          echo cilium_install_multipool_ipam_cluster1="${CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER1}" >> $GITHUB_OUTPUT
+          echo cilium_install_multipool_ipam_cluster2="${CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER2}" >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
@@ -398,7 +448,7 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -522,6 +572,7 @@ jobs:
             --helm-set cluster.id=1 \
             --helm-set clustermesh.apiserver.service.nodePort=32379 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
+            ${{ steps.vars.outputs.cilium_install_multipool_ipam_cluster1 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }} \
             --nodes-without-cilium
@@ -544,6 +595,7 @@ jobs:
             --helm-set cluster.id=${{ matrix.maxConnectedClusters }} \
             --helm-set clustermesh.apiserver.service.nodePort=32380 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
+            ${{ steps.vars.outputs.cilium_install_multipool_ipam_cluster2 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }}
 
@@ -669,7 +721,7 @@ jobs:
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"
-          job_status: "success"
+          job_status: "${{ job.status }}"
           capture_features_tested: false
           capture_sysdump: false
 

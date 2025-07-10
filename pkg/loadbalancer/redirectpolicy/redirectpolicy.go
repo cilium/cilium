@@ -5,12 +5,12 @@ package redirectpolicy
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -22,11 +22,8 @@ import (
 // as backends. ':' is used as separator as that is not an allowed character in k8s.
 const localRedirectServiceSuffix = ":local-redirect"
 
-func lrpServiceName(lrpID k8s.ServiceID) lb.ServiceName {
-	return lb.ServiceName{
-		Name:      lrpID.Name + localRedirectServiceSuffix,
-		Namespace: lrpID.Namespace,
-	}
+func lrpServiceName(lrpID lb.ServiceName) lb.ServiceName {
+	return lrpID.AppendSuffix(localRedirectServiceSuffix)
 }
 
 type lrpConfigType = int
@@ -88,7 +85,7 @@ func frontendConfigTypeString(t frontendConfigType) string {
 // LocalRedirectPolicy is the internal representation of Cilium Local Redirect Policy.
 type LocalRedirectPolicy struct {
 	// ID is the parsed config name and namespace
-	ID k8s.ServiceID
+	ID lb.ServiceName
 	// UID is the unique identifier assigned by Kubernetes
 	UID types.UID
 	// LRPType is the type of either address matcher or service matcher policy
@@ -99,7 +96,7 @@ type LocalRedirectPolicy struct {
 	// frontend address, frontend port name, and a slice of its associated backends
 	FrontendMappings []feMapping
 	// ServiceID is the parsed service name and namespace
-	ServiceID k8s.ServiceID
+	ServiceID lb.ServiceName
 	// BackendSelector is an endpoint selector generated from the parsed policy selector
 	BackendSelector api.EndpointSelector
 	// BackendPorts is a slice of backend port and protocol along with the port name
@@ -129,16 +126,16 @@ func (lrp *LocalRedirectPolicy) TableRow() []string {
 		mappings = append(mappings, feM.feAddr.StringWithProtocol())
 	}
 	return []string{
-		lrp.ID.Namespace + "/" + lrp.ID.Name,
+		lrp.ID.String(),
 		lrpConfigTypeString(lrp.LRPType),
-		lrp.ServiceID.Namespace + "/" + lrp.ServiceID.Name,
+		lrp.ServiceID.String(),
 		frontendConfigTypeString(lrp.FrontendType),
 		strings.Join(mappings, ", "),
 		lrp.BackendSelector.String(),
 	}
 }
 
-func (lrp *LocalRedirectPolicy) ServiceName() lb.ServiceName {
+func (lrp *LocalRedirectPolicy) RedirectServiceName() lb.ServiceName {
 	return lrpServiceName(lrp.ID)
 }
 
@@ -165,7 +162,7 @@ func (p bePortInfo) String() string {
 
 // parse parses the specified cilium local redirect policy spec, and returns
 // a sanitized LocalRedirectPolicy.
-func parseLRP(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LocalRedirectPolicy, error) {
+func parseLRP(cfg Config, log *slog.Logger, clrp *v2.CiliumLocalRedirectPolicy) (*LocalRedirectPolicy, error) {
 	name := clrp.ObjectMeta.Name
 	if name == "" {
 		return nil, fmt.Errorf("CiliumLocalRedirectPolicy must have a name")
@@ -176,19 +173,10 @@ func parseLRP(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LocalRedirect
 		return nil, fmt.Errorf("CiliumLocalRedirectPolicy must have a non-empty namespace")
 	}
 
-	if sanitize {
-		return getSanitizedLocalRedirectPolicy(name, namespace, clrp.UID, clrp.Spec)
-	} else {
-		return &LocalRedirectPolicy{
-			ID: k8s.ServiceID{
-				Name:      name,
-				Namespace: namespace,
-			},
-		}, nil
-	}
+	return getSanitizedLocalRedirectPolicy(cfg, log, name, namespace, clrp.UID, clrp.Spec)
 }
 
-func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec v2.CiliumLocalRedirectPolicySpec) (*LocalRedirectPolicy, error) {
+func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespace string, uid types.UID, spec v2.CiliumLocalRedirectPolicySpec) (*LocalRedirectPolicy, error) {
 
 	var (
 		addrMatcher    = spec.RedirectFrontend.AddressMatcher
@@ -197,7 +185,7 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 		frontendType   = frontendTypeUnknown
 		checkNamedPort = false
 		lrpType        lrpConfigType
-		k8sSvc         k8s.ServiceID
+		k8sSvc         lb.ServiceName
 		fe             lb.L3n4Addr
 		feMappings     []feMapping
 		bePorts        []bePortInfo
@@ -218,6 +206,11 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 		if err != nil {
 			return nil, fmt.Errorf("invalid address matcher IP %v: %w", addrMatcher.IP, err)
 		}
+
+		if !cfg.addressAllowed(addrCluster.Addr()) {
+			return nil, fmt.Errorf("address %q in AddressMatcher disallowed by --"+AddressMatcherCIDRsName, addrMatcher.IP)
+		}
+
 		if len(addrMatcher.ToPorts) > 1 {
 			// If there are multiple ports, then the ports must be named.
 			checkNamedPort = true
@@ -232,7 +225,7 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 				return nil, fmt.Errorf("invalid address matcher port: %w", err)
 			}
 			// Set the scope to ScopeExternal as the externalTrafficPolicy is set to Cluster.
-			fe = *lb.NewL3n4Addr(proto, addrCluster, p, lb.ScopeExternal)
+			fe = lb.NewL3n4Addr(proto, addrCluster, p, lb.ScopeExternal)
 			feMappings[i] = feMapping{
 				feAddr: fe,
 				fePort: lb.FEPortName(pName),
@@ -241,15 +234,12 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 		lrpType = lrpConfigTypeAddr
 	case svcMatcher != nil:
 		// LRP specifies service config for traffic that needs to be redirected.
-		k8sSvc = k8s.ServiceID{
-			Name:      svcMatcher.Name,
-			Namespace: svcMatcher.Namespace,
-		}
-		if k8sSvc.Name == "" {
+		k8sSvc = lb.NewServiceName(svcMatcher.Namespace, svcMatcher.Name)
+		if k8sSvc.Name() == "" {
 			return nil, fmt.Errorf("kubernetes service name can" +
 				"not be empty")
 		}
-		if namespace != "" && k8sSvc.Namespace != namespace {
+		if namespace != "" && k8sSvc.Namespace() != namespace {
 			return nil, fmt.Errorf("kubernetes service namespace" +
 				"does not match with the CiliumLocalRedirectPolicy namespace")
 		}
@@ -270,7 +260,7 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 			}
 			// Set the scope to ScopeExternal as the externalTrafficPolicy is set to Cluster.
 			// frontend ip will later be populated with the clusterIP of the service.
-			fe = *lb.NewL3n4Addr(proto, cmtypes.AddrCluster{}, p, lb.ScopeExternal)
+			fe = lb.NewL3n4Addr(proto, cmtypes.AddrCluster{}, p, lb.ScopeExternal)
 			feMappings[i] = feMapping{
 				feAddr: fe,
 				fePort: lb.FEPortName(pName),
@@ -333,9 +323,6 @@ func getSanitizedLocalRedirectPolicy(name, namespace string, uid types.UID, spec
 		LRPType:                 lrpType,
 		FrontendType:            frontendType,
 		SkipRedirectFromBackend: spec.SkipRedirectFromBackend,
-		ID: k8s.ServiceID{
-			Name:      name,
-			Namespace: namespace,
-		},
+		ID:                      lb.NewServiceName(namespace, name),
 	}, nil
 }

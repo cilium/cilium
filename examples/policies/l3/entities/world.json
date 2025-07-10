@@ -1,7 +1,0 @@
-[{
-    "labels": [{"key": "name", "value":"from-world-to-role-public"}],
-    "endpointSelector": {"matchLabels": {"role":"public"}},
-    "ingress": [{
-        "fromEntities": ["world"]
-    }]
-}]

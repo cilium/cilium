@@ -20,6 +20,7 @@ func init() {
 }
 
 func main() {
+	// slogloggercheck: the logger has been initialized with default settings
 	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-cni")
 	c := cmd.NewCmd(logger)
 	skel.PluginMainFuncs(c.CNIFuncs(),

@@ -815,12 +815,6 @@
             ]
           },
           "type": "array"
-        },
-        "sliceMode": {
-          "enum": [
-            "identity",
-            "fcfs"
-          ]
         }
       },
       "type": "object"
@@ -1500,6 +1494,9 @@
         "confPath": {
           "type": "string"
         },
+        "configMap": {
+          "type": "string"
+        },
         "configMapKey": {
           "type": "string"
         },
@@ -1682,6 +1679,9 @@
         "minTtl": {
           "type": "integer"
         },
+        "preAllocateIdentities": {
+          "type": "boolean"
+        },
         "preCache": {
           "type": "string"
         },
@@ -1707,9 +1707,6 @@
         }
       },
       "type": "object"
-    },
-    "enableCiliumEndpointSlice": {
-      "type": "boolean"
     },
     "enableCriticalPriorityClass": {
       "type": "boolean"
@@ -4111,9 +4108,6 @@
       "properties": {
         "enabled": {
           "type": "boolean"
-        },
-        "refreshPeriod": {
-          "type": "string"
         }
       },
       "type": "object"
@@ -4159,9 +4153,6 @@
         "acceleration": {
           "type": "string"
         },
-        "experimental": {
-          "type": "boolean"
-        },
         "l7": {
           "properties": {
             "algorithm": {
@@ -4176,6 +4167,20 @@
             }
           },
           "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "localRedirectPolicies": {
+      "properties": {
+        "addressMatcherCIDRs": {
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
         }
       },
       "type": "object"
@@ -4785,6 +4790,39 @@
             "anyOf": [
               {
                 "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
                   "operator": {
                     "type": "string"
                   }
@@ -4792,7 +4830,10 @@
               }
             ]
           },
-          "type": "array"
+          "type": [
+            "null",
+            "array"
+          ]
         },
         "topologySpreadConstraints": {
           "items": {},
@@ -4940,6 +4981,37 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "envoy": {
+          "properties": {
+            "image": {
+              "properties": {
+                "digest": {
+                  "type": "string"
+                },
+                "override": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "pullPolicy": {
+                  "type": "string"
+                },
+                "repository": {
+                  "type": "string"
+                },
+                "tag": {
+                  "type": "string"
+                },
+                "useDigest": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
         },
         "extraEnv": {
           "items": {},

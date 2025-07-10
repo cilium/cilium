@@ -53,6 +53,13 @@ type ExtraOptions struct {
 
 	// NoEndpointStatusChecks disables the status checks for the endpoints
 	NoEndpointStatusChecks bool
+
+	// LeaseTTL is the TTL of the leases.
+	LeaseTTL time.Duration
+
+	// MaxConsecutiveQuorumErrors represents the maximum number of consecutive
+	// quorum errors before recreating the etcd connection.
+	MaxConsecutiveQuorumErrors uint
 }
 
 // StatusCheckInterval returns the interval of status checks depending on the
@@ -83,27 +90,13 @@ func (e *ExtraOptions) StatusCheckInterval(allConnected bool) time.Duration {
 
 // backendModule is the interface that each kvstore backend has to implement.
 type backendModule interface {
-	// getName must return the name of the backend
-	getName() string
-
 	// setConfig must configure the backend with the specified options.
 	// This function is called once before newClient().
 	setConfig(logger *slog.Logger, opts map[string]string) error
 
-	// setExtraConfig sets more options in the kvstore that are not able to
-	// be set by strings.
-	setExtraConfig(opts *ExtraOptions) error
-
-	// setConfigDummy must configure the backend with dummy configuration
-	// for testing purposes. This is a replacement for setConfig().
-	setConfigDummy()
-
-	// getConfig must return the backend configuration.
-	getConfig() map[string]string
-
 	// newClient must initializes the backend and create a new kvstore
 	// client which implements the BackendOperations interface
-	newClient(ctx context.Context, logger *slog.Logger, opts *ExtraOptions) (BackendOperations, chan error)
+	newClient(ctx context.Context, logger *slog.Logger, opts ExtraOptions) (BackendOperations, chan error)
 
 	// createInstance creates a new instance of the module
 	createInstance() backendModule
@@ -118,6 +111,7 @@ var (
 // registerBackend must be called by kvstore backends to register themselves
 func registerBackend(name string, module backendModule) {
 	if _, ok := registeredBackends[name]; ok {
+		// slogloggercheck: it's safe to use the default logger here since it's just to print a panic.
 		logging.Panic(logging.DefaultSlogLogger, "backend already registered", logfields.Name, name)
 	}
 
@@ -137,10 +131,6 @@ func getBackend(name string) backendModule {
 // must implement. Direct use of this interface is possible but will bypass the
 // tracing layer.
 type BackendOperations interface {
-	// Connected returns a channel which is closed whenever the kvstore client
-	// is connected to the kvstore server.
-	Connected(ctx context.Context) <-chan error
-
 	// Status returns the status of the kvstore client
 	Status() *models.Status
 

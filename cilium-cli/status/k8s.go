@@ -448,7 +448,7 @@ func (k *K8sStatusCollector) logComponentTask(status *Status, namespace, deploym
 						if containerStatus.RestartCount > 0 {
 							getPrevious = true
 						}
-						logs, errLogCollection := k.client.ContainerLogs(ctx, namespace, podName, containerName, terminated.FinishedAt.Time.Add(-2*time.Minute), getPrevious)
+						logs, errLogCollection := k.client.ContainerLogs(ctx, namespace, podName, containerName, terminated.FinishedAt.Add(-2*time.Minute), getPrevious)
 						if errLogCollection != nil {
 							status.CollectionError(fmt.Errorf("failed to gather logs from %s:%s:%s: %w", namespace, podName, containerName, err))
 						} else if logs != "" {

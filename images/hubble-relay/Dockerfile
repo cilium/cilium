@@ -3,9 +3,9 @@
 
 # distroless images are signed by cosign and can be verified using:
 # $ cosign verify $IMAGE_NAME --certificate-oidc-issuer https://accounts.google.com --certificate-identity keyless@distroless.iam.gserviceaccount.com
-ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:188ddfb9e497f861177352057cb21913d840ecae6c843d39e00d44fa64daa51c
-ARG GOLANG_IMAGE=docker.io/library/golang:1.24.3@sha256:81bf5927dc91aefb42e2bc3a5abdbe9bb3bae8ba8b107e2a4cf43ce3402534c6
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:b37296d28bbd6f18fd45e1e452ce77f1d3acf025@sha256:867699c0c3b034f96e3476e0782dbab45e28dafb6ea02a8922fc9b087be6f8b2
+ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:627d6c5a23ad24e6bdff827f16c7b60e0289029b0c79e9f7ccd54ae3279fb45f
+ARG GOLANG_IMAGE=docker.io/library/golang:1.24.4@sha256:20a022e5112a144aa7b7aeb3f22ebf2cdaefcc4aac0d64e8deeee8cdc18b9c0f
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:f8a2decb9bc384cbc8d19a24ef5546ba9fdd7fd9@sha256:859c73d230c634167f71e23e4d13ebf67807f16293b7a9239f81c2f469810c42
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -56,6 +56,10 @@ LABEL maintainer="maintainer@cilium.io"
 COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/hubble-relay /usr/bin/hubble-relay
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
+# Configure gops to use a temporary directory, to prevent permission
+# issues depending on the UID configured to run the entrypoint.
+COPY --chmod=777 --from=scratch / /home/gops
+ENV GOPS_CONFIG_DIR=/home/gops
 # use uid:gid for the nonroot user for compatibility with runAsNonRoot
 USER 65532:65532
 ENTRYPOINT ["/usr/bin/hubble-relay"]

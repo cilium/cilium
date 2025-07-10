@@ -436,7 +436,7 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 	}, rt, nil
 }
 
-func setupLogging(n *types.NetConf) error {
+func (cmd *Cmd) setupLogging(n *types.NetConf) error {
 	f := n.LogFormat
 	if f == "" {
 		f = string(logging.DefaultLogFormatTimestamp)
@@ -452,6 +452,7 @@ func setupLogging(n *types.NetConf) error {
 
 	if len(n.LogFile) != 0 {
 		logging.AddHandlers(hooks.NewFileRotationLogHook(
+			// slogloggercheck: the logger has been initialized with default settings
 			logging.GetSlogLevel(logging.DefaultSlogLogger),
 			n.LogFile,
 			hooks.EnableCompression(),
@@ -459,6 +460,8 @@ func setupLogging(n *types.NetConf) error {
 		))
 	}
 
+	// slogloggercheck: The logger has been initialized with options from cilium CNI config.
+	cmd.logger = logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-cni")
 	return nil
 }
 
@@ -505,7 +508,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("unable to parse CNI configuration %q: %w", string(args.StdinData), err)
 	}
 
-	if err = setupLogging(n); err != nil {
+	if err = cmd.setupLogging(n); err != nil {
 		return fmt.Errorf("unable to setup logging: %w", err)
 	}
 
@@ -634,78 +637,62 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			return fmt.Errorf("unable to prepare endpoint configuration: %w", err)
 		}
 
+		cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
+		linkConfig := connector.LinkConfig{
+			GROIPv6MaxSize: int(conf.GROMaxSize),
+			GSOIPv6MaxSize: int(conf.GSOMaxSize),
+			GROIPv4MaxSize: int(conf.GROIPV4MaxSize),
+			GSOIPv4MaxSize: int(conf.GSOIPV4MaxSize),
+			DeviceMTU:      int(conf.DeviceMTU),
+		}
+		var hostLink, epLink netlink.Link
+		var tmpIfName string
+		var l2Mode bool
 		switch conf.DatapathMode {
 		case datapathOption.DatapathModeVeth:
-			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			veth, peer, tmpIfName, err := connector.SetupVeth(scopedLogger, cniID, int(conf.DeviceMTU),
-				int(conf.GROMaxSize), int(conf.GSOMaxSize),
-				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep, sysctl)
-			if err != nil {
-				return fmt.Errorf("unable to set up veth on host side: %w", err)
-			}
-			defer func() {
-				if err != nil {
-					if err2 := netlink.LinkDel(veth); err2 != nil {
-						scopedLogger.Warn(
-							"Failed to clean up and delete veth",
-							logfields.Error, err2,
-							logfields.Veth, veth.Name,
-						)
-					}
-				}
-			}()
-
-			res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
-				Name: veth.Attrs().Name,
-				Mac:  veth.Attrs().HardwareAddr.String(),
-			})
-
-			if err := netlink.LinkSetNsFd(peer, ns.FD()); err != nil {
-				return fmt.Errorf("unable to move veth pair %q to netns %s: %w", peer, args.Netns, err)
-			}
-
-			err = connector.SetupVethRemoteNs(ns, tmpIfName, epConf.IfName())
-			if err != nil {
-				return fmt.Errorf("unable to set up veth on container side: %w", err)
-			}
+			l2Mode = true
+			hostLink, epLink, tmpIfName, err = connector.SetupVeth(scopedLogger, cniID, linkConfig, sysctl)
 		case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
-			l2Mode := conf.DatapathMode == datapathOption.DatapathModeNetkitL2
-			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-			netkit, peer, tmpIfName, err := connector.SetupNetkit(scopedLogger, cniID, int(conf.DeviceMTU),
-				int(conf.GROMaxSize), int(conf.GSOMaxSize),
-				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), l2Mode, ep, sysctl)
-			if err != nil {
-				return fmt.Errorf("unable to set up netkit on host side: %w", err)
-			}
-			defer func() {
-				if err != nil {
-					if err2 := netlink.LinkDel(netkit); err2 != nil {
-						scopedLogger.Warn(
-							"Failed to clean up and delete netkit",
-							logfields.Error, err2,
-							logfields.Netkit, netkit.Name,
-						)
-					}
-				}
-			}()
-
-			iface := &cniTypesV1.Interface{
-				Name: netkit.Attrs().Name,
-			}
-			if l2Mode {
-				iface.Mac = netkit.Attrs().HardwareAddr.String()
-			}
-			res.Interfaces = append(res.Interfaces, iface)
-
-			if err := netlink.LinkSetNsFd(peer, ns.FD()); err != nil {
-				return fmt.Errorf("unable to move netkit pair %q to netns %s: %w", peer, args.Netns, err)
-			}
-
-			err = connector.SetupNetkitRemoteNs(ns, tmpIfName, epConf.IfName())
-			if err != nil {
-				return fmt.Errorf("unable to set up netkit on container side: %w", err)
-			}
+			l2Mode = conf.DatapathMode == datapathOption.DatapathModeNetkitL2
+			hostLink, epLink, tmpIfName, err = connector.SetupNetkit(scopedLogger, cniID, linkConfig, l2Mode, sysctl)
 		}
+		if err != nil {
+			return fmt.Errorf("unable to set up link on host side: %w", err)
+		}
+		defer func() {
+			if err != nil {
+				if err2 := netlink.LinkDel(hostLink); err2 != nil {
+					scopedLogger.Warn(
+						"Failed to clean up and delete link",
+						logfields.Error, err2,
+						logfields.Veth, hostLink.Attrs().Name,
+					)
+				}
+			}
+		}()
+
+		iface := &cniTypesV1.Interface{
+			Name: hostLink.Attrs().Name,
+		}
+		if l2Mode {
+			iface.Mac = hostLink.Attrs().HardwareAddr.String()
+		}
+		res.Interfaces = append(res.Interfaces, iface)
+
+		if err := netlink.LinkSetNsFd(epLink, ns.FD()); err != nil {
+			return fmt.Errorf("unable to move netkit pair %q to netns %s: %w", epLink, args.Netns, err)
+		}
+		err = connector.RenameLinkInRemoteNs(ns, tmpIfName, epConf.IfName())
+		if err != nil {
+			return fmt.Errorf("unable to set up netkit on container side: %w", err)
+		}
+
+		if l2Mode {
+			ep.Mac = epLink.Attrs().HardwareAddr.String()
+			ep.HostMac = hostLink.Attrs().HardwareAddr.String()
+		}
+		ep.InterfaceIndex = int64(hostLink.Attrs().Index)
+		ep.InterfaceName = hostLink.Attrs().Name
 
 		var (
 			ipConfig   *cniTypesV1.IPConfig
@@ -856,7 +843,7 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to parse CNI configuration %q: %w", string(args.StdinData), err)
 	}
 
-	if err := setupLogging(n); err != nil {
+	if err := cmd.setupLogging(n); err != nil {
 		return fmt.Errorf("unable to setup logging: %w", err)
 	}
 
@@ -959,7 +946,7 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 			fmt.Sprintf("unable to parse CNI configuration \"%s\": %v", string(args.StdinData), err))
 	}
 
-	if err := setupLogging(n); err != nil {
+	if err := cmd.setupLogging(n); err != nil {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidLoggingConfig",
 			fmt.Sprintf("unable to setup logging: %s", err))
 	}
@@ -1079,7 +1066,7 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 			fmt.Sprintf("unable to parse CNI configuration \"%s\": %v", string(args.StdinData), err))
 	}
 
-	if err := setupLogging(n); err != nil {
+	if err := cmd.setupLogging(n); err != nil {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidLoggingConfig",
 			fmt.Sprintf("unable to setup logging: %s", err))
 	}

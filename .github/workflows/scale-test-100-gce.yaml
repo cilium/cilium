@@ -56,11 +56,11 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.24.3
+  go_version: 1.24.4
   test_name: scale-100
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 524.0.0
+  gcloud_version: 528.0.0
 
 jobs:
   echo-inputs:
@@ -105,49 +105,66 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
+          # Retrieve the desired version from the arguments.
+          if [[ "${{ inputs.extra-args }}" =~ version=([-+.0-9a-z]+) ]]; then
+            VERSION=${BASH_REMATCH[1]}
+          else
+            VERSION=""
+          fi
+
           # Adding k8s.local to the end makes kops happy
           # has stricter DNS naming requirements.
           CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
 
-          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --set pprof.enabled=true \
-            --helm-set=prometheus.enabled=true \
-            --helm-set=cluster.name=${{ env.cluster_name }} \
-            --helm-set=k8sServiceHost=api.internal.${CLUSTER_NAME} \
-            --helm-set=k8sServicePort=443 \
-            --helm-set=kubeProxyReplacement=true \
-            --helm-set=operator.replicas=1 \
+          CILIUM_INSTALL_DEFAULTS=" \
+            --set=pprof.enabled=true \
+            --set=prometheus.enabled=true \
+            --set=cluster.name=${{ env.cluster_name }} \
+            --set=k8sServiceHost=api.internal.${CLUSTER_NAME} \
+            --set=k8sServicePort=443 \
+            --set=kubeProxyReplacement=true \
+            --set=operator.replicas=1 \
+            --set=updateStrategy.rollingUpdate.maxUnavailable=100% \
             --wait=false"
 
-          # only add SHA to the image tags if it was set
-          if [ -n "${SHA}" ]; then
+          # only add SHA to the image tags if VERSION is not set
+          if [ -z "${VERSION}" ]; then
             echo sha=${SHA} >> $GITHUB_OUTPUT
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-            --helm-set=image.useDigest=false \
-            --helm-set=image.tag=${SHA} \
-            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-            --helm-set=operator.image.suffix=-ci \
-            --helm-set=operator.image.tag=${SHA} \
-            --helm-set=operator.image.useDigest=false \
-            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
-            --helm-set=clustermesh.apiserver.image.tag=${SHA} \
-            --helm-set=clustermesh.apiserver.image.useDigest=false \
-            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-            --helm-set=hubble.relay.image.tag=${SHA} \
-            --helm-set=hubble.relay.image.useDigest=false"
+            CILIUM_INSTALL_DEFAULTS+=" --set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --set=image.useDigest=false \
+            --set=image.tag=${SHA} \
+            --set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --set=operator.image.suffix=-ci \
+            --set=operator.image.tag=${SHA} \
+            --set=operator.image.useDigest=false \
+            --set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
+            --set=clustermesh.apiserver.image.tag=${SHA} \
+            --set=clustermesh.apiserver.image.useDigest=false \
+            --set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --set=hubble.relay.image.tag=${SHA} \
+            --set=hubble.relay.image.useDigest=false"
           fi
 
           echo SHA=${SHA} >> $GITHUB_OUTPUT
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
+          echo VERSION=${VERSION} >> $GITHUB_OUTPUT
 
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.SHA }} &> /dev/null; do sleep 45s; done
-          done
+      - name: Checkout pull request branch (NOT TRUSTED)
+        if: ${{ steps.vars.outputs.version == '' }} # We don't need to checkout the PR if it's released version
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Wait for images
+        if: ${{ steps.vars.outputs.version == '' }} # We don't need to wait for images if it's released version
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ steps.vars.outputs.SHA }}
 
       - name: Install Go
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
@@ -155,7 +172,7 @@ jobs:
           go-version: ${{ env.go_version }}
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/install-kops@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193 # v2.1.10
@@ -207,7 +224,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/create-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -220,12 +237,12 @@ jobs:
           kube_proxy_enabled: false
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@b83e200cdea7099967b48cdad1d7275b949f7dc0  # main
+        uses: cilium/scale-tests-action/setup-firewall@969e82091d02975fbc5a798f5b7ba065fb8c67c3  # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -247,11 +264,16 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium_install_args="${{ steps.vars.outputs.cilium_install_defaults }}"
+          if [[ -z "${{ steps.vars.outputs.version }}" ]]; then
+            helm install -n kube-system cilium ./untrusted/install/kubernetes/cilium $cilium_install_args
+          else
+            helm repo add cilium https://helm.cilium.io/
+            helm install -n kube-system cilium cilium/cilium --version ${{ steps.vars.outputs.version }} $cilium_install_args
+          fi
 
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/validate-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -281,7 +303,7 @@ jobs:
             2>&1 | tee cl2-setup.txt
 
       - name: Create Instance Group for workload deployments
-        uses: cilium/scale-tests-action/create-instance-group@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/create-instance-group@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -291,7 +313,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/validate-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -299,7 +321,7 @@ jobs:
           interval: 10s
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/setup-firewall@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           create_native_routing_firewall: 'false'
@@ -312,7 +334,7 @@ jobs:
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
         shell: bash
-        timeout-minutes: 40
+        timeout-minutes: 60
         env:
           CL2_ENABLE_PVS: "false"
           CL2_ENABLE_NETWORKPOLICIES: "true"
@@ -326,7 +348,10 @@ jobs:
           ./clusterloader \
             -v=2 \
             --testconfig=./testing/load/config.yaml \
+            --testconfig=./testing/custom/common/restart.yaml \
             --testconfig=./testing/custom/netpol/config.yaml \
+            --testconfig=./testing/custom/common/restart.yaml \
+            --testconfig=./testing/custom/servicechurn/config.yaml \
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
@@ -344,23 +369,26 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ env.job_name }}"
+          always_capture_sysdump: true
+          artifacts_suffix: "final"
           job_status: "${{ job.status }}"
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: cilium/scale-tests-action/cleanup-cluster@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/cleanup-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/export-results@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         with:
           test_name: ${{ env.test_name }}
+          tested_version: ${{ steps.vars.outputs.version }}
+          tested_sha: ${{ steps.vars.outputs.sha }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
-          artifacts: ./perf-tests/clusterloader2/report/*
+          artifacts: ./perf-tests/clusterloader2/report/
           other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
 
   commit-status-final:

@@ -147,10 +147,6 @@ func (r *authMapGarbageCollector) NodeValidateImplementation(node nodeTypes.Node
 	return nil
 }
 
-func (r *authMapGarbageCollector) NodeConfigurationChanged(config datapathTypes.LocalNodeConfiguration) error {
-	return nil
-}
-
 func (r *authMapGarbageCollector) cleanupNodes(_ context.Context) error {
 	r.ciliumNodesMutex.Lock()
 	defer r.ciliumNodesMutex.Unlock()

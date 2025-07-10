@@ -39,9 +39,6 @@ func newNodeLabels(params nodeLabelControllerParams) *nodeLabels {
 	nl := &nodeLabels{
 		initialized: make(chan struct{}),
 	}
-	if !params.ExpConfig.EnableExperimentalLB {
-		return nil
-	}
 	c := &nodeLabelController{nodeLabelControllerParams: params, nodeLabels: nl}
 	params.JobGroup.Add(job.Observer("node-labels", c.process, params.LocalNodeStore))
 

@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sConsts "github.com/cilium/cilium/pkg/k8s/constants"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option/resolver"
 )
 
@@ -39,7 +38,7 @@ var buildConfigCmd = &cobra.Command{
 	Short: "Resolve all of the configuration sources that apply to this node",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Info("Running")
-		if err := buildConfigHive.Run(logging.DefaultSlogLogger); err != nil {
+		if err := buildConfigHive.Run(log); err != nil {
 			Fatalf("Build config failed: %v\n", err)
 		}
 	},

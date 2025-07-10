@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
@@ -128,6 +127,27 @@ func (e *EndpointMapManager) RemoveMapPath(path string) {
 	}
 }
 
+// ListMapsDir gives names of files (or subdirectories) found in the specified path.
+func (e *EndpointMapManager) ListMapsDir(path string) []string {
+	var maps []string
+
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		e.logger.Warn(
+			"Error while listing maps dir",
+			logfields.Path, path,
+			logfields.Error, err,
+		)
+		return maps
+	}
+
+	for _, e := range entries {
+		maps = append(maps, e.Name())
+	}
+
+	return maps
+}
+
 // initMaps opens all BPF maps (and creates them if they do not exist). This
 // must be done *before* any operations which read BPF maps, especially
 // restoring endpoints and services.
@@ -171,10 +191,6 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	for _, ep := range d.endpointManager.GetEndpoints() {
-		ep.InitMap()
-	}
-
 	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4,
 		option.Config.EnableIPv6) {
 		if err := m.Create(); err != nil {
@@ -183,7 +199,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	ipv4Nat, ipv6Nat := nat.GlobalMaps(d.metricsRegistry, option.Config.EnableIPv4,
-		option.Config.EnableIPv6, option.Config.EnableNodePort)
+		option.Config.EnableIPv6, d.kprCfg.EnableNodePort)
 	if ipv4Nat != nil {
 		if err := ipv4Nat.Create(); err != nil {
 			return fmt.Errorf("initializing ipv4nat map: %w", err)
@@ -195,7 +211,7 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if option.Config.EnableNodePort {
+	if d.kprCfg.EnableNodePort {
 		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing neighbors map: %w", err)
@@ -269,7 +285,7 @@ func setupVTEPMapping(logger *slog.Logger, registry *metrics.Registry) error {
 			logfields.IPAddr, ep,
 		)
 
-		err := vtep.UpdateVTEPMapping(logging.DefaultSlogLogger, registry, option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
+		err := vtep.UpdateVTEPMapping(logger, registry, option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
 		if err != nil {
 			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
 		}

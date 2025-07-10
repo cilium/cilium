@@ -6,6 +6,8 @@
 #include <linux/icmpv6.h>
 #include <linux/icmp.h>
 
+#include <bpf/config/node.h>
+
 #include "common.h"
 #include "utils.h"
 #include "ipv4.h"
@@ -14,6 +16,9 @@
 #include "l4.h"
 #include "signal.h"
 #include "ipfrag.h"
+
+/* Traffic is allowed/dropped based on user-defined policies. */
+DECLARE_CONFIG(bool, enable_extended_ip_protocols, "Pass traffic with extended IP protocols")
 
 enum ct_action {
 	ACTION_UNSPEC,
@@ -59,7 +64,7 @@ static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags
 	if (unlikely(flags.value & (TCP_FLAG_RST | TCP_FLAG_FIN)))
 		return ACTION_CLOSE;
 
-	if (unlikely(flags.value & TCP_FLAG_SYN))
+	if (unlikely((flags.value & TCP_FLAG_SYN) && !(flags.value & TCP_FLAG_ACK)))
 		return ACTION_CREATE;
 
 	return ACTION_UNSPEC;
@@ -568,6 +573,12 @@ ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 		return ipv6_load_l4_ports(ctx, ip6, fraginfo, off,
 					  dir, &tuple->dport);
 	default:
+		/* See comment in ct_extract_ports4. */
+		if (CONFIG(enable_extended_ip_protocols)) {
+			tuple->sport = 0;
+			tuple->dport = 0;
+			break;
+		}
 		/* Unsupported L4 protocol */
 		return DROP_CT_UNKNOWN_PROTO;
 	}
@@ -819,6 +830,12 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		return ipv4_load_l4_ports(ctx, ip4, fraginfo, off,
 					  dir, &tuple->dport);
 	default:
+		/* Traffic is allowed/dropped based on user-defined policies. */
+		if (CONFIG(enable_extended_ip_protocols)) {
+			tuple->sport = 0;
+			tuple->dport = 0;
+			break;
+		}
 		/* Unsupported L4 protocol */
 		return DROP_CT_UNKNOWN_PROTO;
 	}

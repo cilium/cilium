@@ -79,6 +79,7 @@ Lund
 Lx
 Majkowski
 Marek
+Matcher
 Mbit
 Mediatek
 Mellanox
@@ -246,6 +247,7 @@ commonLabels
 compat
 config
 configMap
+configMapKey
 configSources
 configmap
 configs
@@ -283,6 +285,7 @@ debuginfo
 decapsulate
 decapsulated
 decapsulation
+declaratively
 decrypt
 decrypted
 deduplicate
@@ -516,6 +519,7 @@ loadbalancer
 loadbalancers
 loadbalancing
 loadinfo
+localRedirectPolicies
 localhost
 lockdown
 lockless
@@ -730,6 +734,7 @@ sid
 sig
 skb
 snat
+socknat
 spinlock
 srv
 ssl
@@ -794,6 +799,7 @@ toGroups
 tofqdns
 tolerations
 toolchain
+topologies
 toto
 traceparent
 tracepoint

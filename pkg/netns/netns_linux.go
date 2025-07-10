@@ -256,9 +256,8 @@ func getFromThread(pid, tid int) (*os.File, error) {
 // The *NetNS handle is provided for to allow for cases where the ns must
 // be used explicitly*inside* the loop.
 func All() (iter.Seq2[string, *NetNS], <-chan error) {
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	files, err := os.ReadDir(defaults.NetNsPath)
-
 	if err != nil {
 		errCh <- err
 		close(errCh)
@@ -291,5 +290,4 @@ func All() (iter.Seq2[string, *NetNS], <-chan error) {
 			}
 		}
 	}, errCh
-
 }

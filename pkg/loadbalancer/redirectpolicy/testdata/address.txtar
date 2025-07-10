@@ -1,3 +1,5 @@
+#! --lrp-address-matcher-cidrs=169.254.169.0/24,2001::/64
+
 hive start
 
 # Add a pod and an address-based redirection. Add IPv4 first then
@@ -21,17 +23,45 @@ db/cmp backends backends.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.actual maps.expected
 
-# Deleting the LRP cleans up the tables.
-k8s/delete lrp-addr.yaml lrp-addr-ipv6.yaml
+# Remove the IPv6 redirect
+k8s/delete lrp-addr-ipv6.yaml
+
+# Change the redirection to a non-allowed address.
+replace '169.254.169.254' '10.1.1.1' lrp-addr.yaml
+k8s/update lrp-addr.yaml
+
+# Entries and map should be empty
+# The entry should now have type none and maps should be empty
+db/show localredirectpolicies
+* db/empty localredirectpolicies
+* lb/maps-empty
+
+# Changing back to an allowed address reverts
+replace '10.1.1.1' '169.254.169.253' lrp-addr.yaml
+k8s/update lrp-addr.yaml
+db/cmp localredirectpolicies lrp-fixed.table
+
+# Check the BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps-v4.expected
+
+# Remove the remaining policy
+k8s/delete lrp-addr.yaml
 
 # Tables and maps should now be empty.
 * db/empty services frontends backends localredirectpolicies
 * lb/maps-empty
 
+# ---
+
 -- lrp.table --
 Name               Type     FrontendType      Frontends
 test/lrp-addr      address  addr-single-port  169.254.169.254:8080/TCP
 test/lrp-addr-ipv6 address  addr-single-port  [2001::1]:8080/TCP
+
+-- lrp-fixed.table --
+Name               Type     FrontendType      Frontends
+test/lrp-addr      address  addr-single-port  169.254.169.253:8080/TCP
 
 -- services.table --
 Name                              Source
@@ -133,3 +163,8 @@ SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 
 SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
 SVC: ID=2 ADDR=[2001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
 SVC: ID=2 ADDR=[2001::1]:8080/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+-- maps-v4.expected --
+BE: ID=3 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=3 ADDR=169.254.169.253:8080
+SVC: ID=3 ADDR=169.254.169.253:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=3 ADDR=169.254.169.253:8080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect

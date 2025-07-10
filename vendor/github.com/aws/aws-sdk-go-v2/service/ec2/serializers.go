@@ -49832,6 +49832,16 @@ func awsEc2query_serializeDocumentEbsBlockDevice(v *types.EbsBlockDevice, value 
 	object := value.Object()
 	_ = object
 
+	if v.AvailabilityZone != nil {
+		objectKey := object.Key("AvailabilityZone")
+		objectKey.String(*v.AvailabilityZone)
+	}
+
+	if v.AvailabilityZoneId != nil {
+		objectKey := object.Key("AvailabilityZoneId")
+		objectKey.String(*v.AvailabilityZoneId)
+	}
+
 	if v.DeleteOnTermination != nil {
 		objectKey := object.Key("DeleteOnTermination")
 		objectKey.Boolean(*v.DeleteOnTermination)
@@ -57399,6 +57409,19 @@ func awsEc2query_serializeDocumentSubnetConfigurationsList(v []types.SubnetConfi
 	return nil
 }
 
+func awsEc2query_serializeDocumentSubnetIdList(v []string, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("AssociatedSubnetId")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
+	}
+	return nil
+}
+
 func awsEc2query_serializeDocumentSubnetIdStringList(v []string, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -61426,6 +61449,11 @@ func awsEc2query_serializeOpDocumentCreateImageInput(v *CreateImageInput, value 
 		objectKey.Boolean(*v.NoReboot)
 	}
 
+	if len(v.SnapshotLocation) > 0 {
+		objectKey := object.Key("SnapshotLocation")
+		objectKey.String(string(v.SnapshotLocation))
+	}
+
 	if v.TagSpecifications != nil {
 		objectKey := object.FlatKey("TagSpecification")
 		if err := awsEc2query_serializeDocumentTagSpecificationList(v.TagSpecifications, objectKey); err != nil {
@@ -62897,6 +62925,11 @@ func awsEc2query_serializeOpDocumentCreateRouteInput(v *CreateRouteInput, value 
 	if v.NetworkInterfaceId != nil {
 		objectKey := object.Key("NetworkInterfaceId")
 		objectKey.String(*v.NetworkInterfaceId)
+	}
+
+	if v.OdbNetworkArn != nil {
+		objectKey := object.Key("OdbNetworkArn")
+		objectKey.String(*v.OdbNetworkArn)
 	}
 
 	if v.RouteTableId != nil {
@@ -76778,6 +76811,13 @@ func awsEc2query_serializeOpDocumentModifyNetworkInterfaceAttributeInput(v *Modi
 	object := value.Object()
 	_ = object
 
+	if v.AssociatedSubnetIds != nil {
+		objectKey := object.FlatKey("AssociatedSubnetId")
+		if err := awsEc2query_serializeDocumentSubnetIdList(v.AssociatedSubnetIds, objectKey); err != nil {
+			return err
+		}
+	}
+
 	if v.AssociatePublicIpAddress != nil {
 		objectKey := object.Key("AssociatePublicIpAddress")
 		objectKey.Boolean(*v.AssociatePublicIpAddress)
@@ -79273,6 +79313,11 @@ func awsEc2query_serializeOpDocumentReplaceRouteInput(v *ReplaceRouteInput, valu
 	if v.NetworkInterfaceId != nil {
 		objectKey := object.Key("NetworkInterfaceId")
 		objectKey.String(*v.NetworkInterfaceId)
+	}
+
+	if v.OdbNetworkArn != nil {
+		objectKey := object.Key("OdbNetworkArn")
+		objectKey.String(*v.OdbNetworkArn)
 	}
 
 	if v.RouteTableId != nil {

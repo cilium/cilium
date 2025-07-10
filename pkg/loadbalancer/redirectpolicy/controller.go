@@ -18,7 +18,6 @@ import (
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
@@ -30,17 +29,24 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+const lrpControllerInitName = "lrp-controller"
+
 func registerLRPController(g job.Group, p lrpControllerParams) {
 	if !p.Enabled {
 		return
 	}
+
+	// Register load-balancing initializer. This will also delay initial
+	// endpoint regeneration until we're done.
+	lbInit := p.Writer.RegisterInitializer(lrpControllerInitName)
+
 	// Register table initializer for Table[desiredSkipLB] to delay pruning
 	// until we've processed the initial data sets.
-	wtxn := p.Writer.WriteTxn(p.DesiredSkipLB)
-	desiredSkipLBInit := p.DesiredSkipLB.RegisterInitializer(wtxn, "lrp-controller")
+	wtxn := p.DB.WriteTxn(p.DesiredSkipLB)
+	desiredSkipLBInit := p.DesiredSkipLB.RegisterInitializer(wtxn, lrpControllerInitName)
 	wtxn.Commit()
 
-	h := &lrpController{p: p, desiredSkipLBInit: desiredSkipLBInit}
+	h := &lrpController{p: p, desiredSkipLBInit: desiredSkipLBInit, lbInit: lbInit}
 	g.Add(job.OneShot("controller", h.run))
 }
 
@@ -56,11 +62,13 @@ type lrpControllerParams struct {
 	Writer             *writer.Writer
 	NetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 	Metrics            controllerMetrics
+	LRPMetrics         LRPMetrics `optional:"true"`
 }
 
 type lrpController struct {
 	p                 lrpControllerParams
 	desiredSkipLBInit func(statedb.WriteTxn)
+	lbInit            func(writer.WriteTxn)
 
 	skipLBWarningLogged bool
 }
@@ -74,12 +82,12 @@ type lrpController struct {
 //     to instruct BPF datapath to not perform load-balancing on traffic from the backend
 //     pod to the redirected frontends (if SkipRedirectFromBackend is set).
 func (c *lrpController) run(ctx context.Context, health cell.Health) error {
-	watchSets := map[k8s.ServiceID]*statedb.WatchSet{}
+	watchSets := map[lb.ServiceName]*statedb.WatchSet{}
 	var closedWatches []<-chan struct{}
-	orphans := sets.New[k8s.ServiceID]()
+	orphans := sets.New[lb.ServiceName]()
 
 	// Functions to clean up the state from the redirect policy when it is removed.
-	cleanupFuncs := map[k8s.ServiceID]func(writer.WriteTxn){}
+	cleanupFuncs := map[lb.ServiceName]func(writer.WriteTxn){}
 
 	// Amount of time to wait before reprocessing. This reduces the overhead around
 	// the WriteTxn and the WatchSet and avoids processing intermediate states of
@@ -113,8 +121,12 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 		lrps, watch := c.p.LRPs.AllWatch(wtxn)
 		allWatches.Add(watch)
 
-		existing := sets.New[k8s.ServiceID]()
+		existing := sets.New[lb.ServiceName]()
 		for lrp := range lrps {
+			if c.p.LRPMetrics != nil && !existing.Has(lrp.ID) {
+				c.p.LRPMetrics.AddLRPConfig(lrp.ID)
+			}
+
 			existing.Insert(lrp.ID)
 			orphans.Delete(lrp.ID)
 
@@ -140,15 +152,24 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 				cleanup(wtxn)
 			}
 			delete(cleanupFuncs, lrpID)
+			if c.p.LRPMetrics != nil {
+				c.p.LRPMetrics.DelLRPConfig(lrpID)
+			}
 		}
 
-		// Mark Table[desiredSkipLB] initialized once we've processed all
-		// input tables and they're initialized.
 		if initWatches != nil {
 			if chanIsClosed(podsInitWatch) &&
-				chanIsClosed(lrpsInitWatch) &&
-				chanIsClosed(fesInitWatch) {
-				c.desiredSkipLBInit(wtxn)
+				chanIsClosed(lrpsInitWatch) {
+
+				// Mark load-balancing state initialized now that pods and LRPs have been
+				// processed. We can't wait for frontends to initialize since we're one
+				// of the initializers.
+				c.lbInit(wtxn)
+
+				if chanIsClosed(fesInitWatch) {
+					// Mark desired SkipLBs as initialized to allow pruning
+					c.desiredSkipLBInit(wtxn)
+				}
 				initWatches = nil
 			}
 		}
@@ -168,7 +189,7 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 	}
 }
 
-func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID k8s.ServiceID) (*statedb.WatchSet, func(writer.WriteTxn)) {
+func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.ServiceName) (*statedb.WatchSet, func(writer.WriteTxn)) {
 	lrp, _, watch, found := c.p.LRPs.GetWatch(wtxn, lrpIDIndex.Query(lrpID))
 	if !found {
 		return nil, nil
@@ -191,7 +212,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID k8s.Se
 	cleanup := func(wtxn writer.WriteTxn) {
 		// Unset the redirect on all frontends.
 		if lrp.LRPType == lrpConfigTypeSvc {
-			targetName := lb.ServiceName{Name: lrp.ServiceID.Name, Namespace: lrp.ServiceID.Namespace}
+			targetName := lrp.ServiceID
 			for fe := range c.p.Writer.Frontends().List(wtxn, lb.FrontendByServiceName(targetName)) {
 				c.p.Writer.SetRedirectTo(wtxn, fe, nil)
 			}
@@ -218,7 +239,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID k8s.Se
 	// will pick up the local pods as the new backends.
 	// If the redirect policy is an "address matcher" then we will also create frontends for
 	// this service.
-	lrpServiceName := lrp.ServiceName()
+	lrpServiceName := lrp.RedirectServiceName()
 	if _, _, found := c.p.Writer.Services().Get(wtxn, lb.ServiceByName(lrpServiceName)); !found {
 		_, err := c.p.Writer.UpsertService(wtxn,
 			&lb.Service{
@@ -239,7 +260,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID k8s.Se
 	case lrpConfigTypeSvc:
 		// Find frontends associated with the target service that match the redirection criteria and
 		// redirect them to the LRP "pseudo-service".
-		targetName := lb.ServiceName{Name: lrp.ServiceID.Name, Namespace: lrp.ServiceID.Namespace}
+		targetName := lrp.ServiceID
 		fes, watch := c.p.Writer.Frontends().ListWatch(wtxn, lb.FrontendByServiceName(targetName))
 		ws.Add(watch)
 		for fe := range fes {
@@ -288,17 +309,20 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID k8s.Se
 					logfields.Error, err)
 			}
 		}
+	case lrpConfigTypeNone:
+		cleanup(wtxn)
+		return ws, func(writer.WriteTxn) {}
 	}
 
 	// For each matching pod create a backend and associate it with the LocalRedirect
 	// service we just created above. We find pods by doing a prefix search with the
 	// namespace (more efficient than having a separate namespace index for pods).
-	podsSameNamespace, watch := c.p.Pods.PrefixWatch(wtxn, daemonk8s.PodByName(lrpID.Namespace, ""))
+	podsSameNamespace, watch := c.p.Pods.PrefixWatch(wtxn, daemonk8s.PodByName(lrpID.Namespace(), ""))
 	ws.Add(watch)
 
 	var matchingPods []podInfo
 	for pod := range podsSameNamespace {
-		if len(pod.Namespace) != len(lrp.ID.Namespace) {
+		if len(pod.Namespace) != len(lrp.ID.Namespace()) {
 			// Stop when we hit a different namespace, e.g. prefix search hit a longer name.
 			break
 		}
@@ -330,7 +354,7 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb
 
 	// Construct the BackendParams from matching pods.
 	beps := make([]lb.BackendParams, 0, len(pods))
-	lrpServiceName := lrp.ServiceName()
+	lrpServiceName := lrp.RedirectServiceName()
 	for _, podInfo := range pods {
 		for _, addr := range podInfo.addrs {
 			if portNameMatches != nil && !portNameMatches(addr.portName) {
@@ -376,7 +400,7 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb
 	// If the LRP is an address matcher, then lrpServiceName == targetName and we already
 	// refreshed the frontend via SetBackends() above.
 	if lrp.LRPType == lrpConfigTypeSvc {
-		targetName := lb.ServiceName{Name: lrp.ServiceID.Name, Namespace: lrp.ServiceID.Namespace}
+		targetName := lrp.ServiceID
 		c.p.Writer.RefreshFrontends(wtxn, targetName)
 	}
 }
@@ -459,7 +483,7 @@ func (c *lrpController) updateSkipLB(wtxn writer.WriteTxn, ws *statedb.WatchSet,
 				}
 			}
 
-			toName := lrp.ServiceName()
+			toName := lrp.RedirectServiceName()
 			if found {
 				skiplb = skiplb.clone()
 			} else {
@@ -507,9 +531,9 @@ func (c *lrpController) frontendsToSkip(txn statedb.ReadTxn, ws *statedb.WatchSe
 	var targetName lb.ServiceName
 	if lrp.LRPType == lrpConfigTypeAddr {
 		// For address-based matching we created the frontends, so we look up from the pseudo-service
-		targetName = lrp.ServiceName()
+		targetName = lrp.RedirectServiceName()
 	} else {
-		targetName = lb.ServiceName{Name: lrp.ServiceID.Name, Namespace: lrp.ServiceID.Namespace}
+		targetName = lrp.ServiceID
 	}
 
 	feAddrs := []lb.L3n4Addr{}
@@ -545,7 +569,7 @@ func podAddrs(pod *slim_corev1.Pod) (addrs []podAddr) {
 				addr := podAddr{
 					L3n4Addr: lb.L3n4Addr{
 						AddrCluster: addrCluster,
-						L4Addr:      *l4addr,
+						L4Addr:      l4addr,
 						Scope:       0,
 					},
 					portName: port.Name,

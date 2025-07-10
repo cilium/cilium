@@ -15,6 +15,9 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"k8s.io/apimachinery/pkg/util/duration"
 
+	"github.com/cilium/cilium/api/v1/models"
+
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -121,6 +124,65 @@ func (fe *Frontend) TableRow() []string {
 	}
 }
 
+func (fe *Frontend) ToModel() *models.Service {
+	var natPolicy string
+
+	svc := fe.Service
+
+	id := int64(fe.ID)
+	if svc.NatPolicy != SVCNatPolicyNone {
+		natPolicy = string(svc.NatPolicy)
+	}
+	spec := &models.ServiceSpec{
+		ID:              id,
+		FrontendAddress: fe.Address.GetModel(),
+		Flags: &models.ServiceSpecFlags{
+			Type:                string(fe.Type),
+			TrafficPolicy:       string(svc.ExtTrafficPolicy),
+			ExtTrafficPolicy:    string(svc.ExtTrafficPolicy),
+			IntTrafficPolicy:    string(svc.IntTrafficPolicy),
+			NatPolicy:           natPolicy,
+			HealthCheckNodePort: svc.HealthCheckNodePort,
+			Name:                svc.Name.Name(),
+			Namespace:           svc.Name.Namespace(),
+		},
+	}
+
+	if fe.RedirectTo != nil {
+		spec.Flags.Type = string(SVCTypeLocalRedirect)
+	}
+
+	if svc.Name.Cluster() != option.Config.ClusterName {
+		spec.Flags.Cluster = svc.Name.Cluster()
+	}
+
+	backendModel := func(be BackendParams) *models.BackendAddress {
+		addrClusterStr := be.Address.AddrCluster.String()
+		stateStr, _ := be.State.String()
+		return &models.BackendAddress{
+			IP:        &addrClusterStr,
+			Protocol:  be.Address.Protocol,
+			Port:      be.Address.Port,
+			NodeName:  be.NodeName,
+			Zone:      be.Zone,
+			State:     stateStr,
+			Preferred: true,
+			Weight:    &be.Weight,
+		}
+	}
+
+	for be := range fe.Backends {
+		spec.BackendAddresses = append(spec.BackendAddresses, backendModel(be))
+	}
+
+	return &models.Service{
+		Spec: spec,
+		Status: &models.ServiceStatus{
+			Realized: spec,
+		},
+	}
+}
+
 // showBackends returns the backends associated with a frontend in form
 // "1.2.3.4:80, [2001::1]:443"
 func showBackends(bes BackendsSeq2) string {
@@ -161,9 +223,9 @@ var (
 	frontendServiceIndex = statedb.Index[*Frontend, ServiceName]{
 		Name: "service",
 		FromObject: func(fe *Frontend) index.KeySet {
-			return index.NewKeySet(index.Stringer(fe.ServiceName))
+			return index.NewKeySet(fe.ServiceName.Key())
 		},
-		FromKey:    index.Stringer[ServiceName],
+		FromKey:    ServiceName.Key,
 		FromString: index.FromString,
 		Unique:     false,
 	}

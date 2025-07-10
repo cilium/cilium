@@ -22,8 +22,10 @@ import (
 	"golang.org/x/sys/unix"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -35,7 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func TestSocketTermination_ControlPlane(t *testing.T) {
+func TestPrivilegedSocketTermination_ControlPlane(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	for _, hostOnly := range []bool{true, false} {
@@ -80,10 +82,16 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 			func() *option.DaemonConfig {
 				return &option.DaemonConfig{
 					BPFSocketLBHostnsOnly:                  hostOnly,
-					EnableSocketLB:                         true,
 					EnableSocketLBPodConnectionTermination: true,
 					EnableIPv4:                             true,
 					EnableIPv6:                             true,
+				}
+			},
+			func() kpr.KPRConfig {
+				return kpr.KPRConfig{
+					KubeProxyReplacement: "true",
+					EnableNodePort:       true,
+					EnableSocketLB:       true,
 				}
 			},
 			func() netnsOps {
@@ -124,7 +132,7 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 	wtxn := db.WriteTxn(backends)
 	be := &loadbalancer.Backend{Address: beAddr}
 	be.Instances = be.Instances.Set(loadbalancer.BackendInstanceKey{
-		ServiceName:    loadbalancer.ServiceName{Name: "foo", Namespace: "bar"},
+		ServiceName:    loadbalancer.NewServiceName("bar", "foo"),
 		SourcePriority: 0,
 	}, loadbalancer.BackendParams{
 		Address:   beAddr,
@@ -172,7 +180,7 @@ var _ sockets.SocketDestroyer = &mockDestroyer{}
 func initializeNetns(t *testing.T, ns *netns.NetNS, addr string) net.Conn {
 	var conn net.Conn
 	assert.NoError(t, ns.Do(func() error {
-		ls, err := netlink.LinkList()
+		ls, err := safenetlink.LinkList()
 		assert.NoError(t, err)
 		for _, l := range ls {
 			// Netns should be default created with loopback dev
@@ -197,7 +205,7 @@ func initializeNetns(t *testing.T, ns *netns.NetNS, addr string) net.Conn {
 	return conn
 }
 
-func TestSocketTermination_Datapath(t *testing.T) {
+func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ns1, err := netns.New()
@@ -231,7 +239,7 @@ func TestSocketTermination_Datapath(t *testing.T) {
 		}
 		out := uint32(0)
 		ns.Do(func() error {
-			sock, err := netlink.SocketDiagUDP(unix.AF_INET)
+			sock, err := safenetlink.SocketDiagUDP(unix.AF_INET)
 			assert.NoError(t, err)
 			for _, s := range sock {
 				if s.ID.DestinationPort == port {
@@ -285,7 +293,13 @@ func TestSocketTermination_Datapath(t *testing.T) {
 		goleak.VerifyNone(t)
 	})
 
-	// Set up the parameters that [terminateUDPConnectionsToBackend] needs.
+	namespaces := map[string]*netns.NetNS{
+		"cni-0000": ns1,
+		"cni-0001": ns2,
+		"cni-0002": ns3,
+	}
+
+	// Set up the parameters that [terminateConnectionsToBackend] needs.
 	params := socketTerminationParams{
 		JobGroup:        nil,
 		DB:              nil,
@@ -300,12 +314,14 @@ func TestSocketTermination_Datapath(t *testing.T) {
 			do:      (*netns.NetNS).Do,
 			all: func() (iter.Seq2[string, *netns.NetNS], <-chan error) {
 				errs := make(chan error)
-				close(errs)
-				return maps.All(map[string]*netns.NetNS{
-					"cni-0000": ns1,
-					"cni-0001": ns2,
-					"cni-0002": ns3,
-				}), errs
+				return func(yield func(string, *netns.NetNS) bool) {
+					defer close(errs)
+					for n, ns := range namespaces {
+						if !yield(n, ns) {
+							return
+						}
+					}
+				}, errs
 			},
 		},
 	}
@@ -335,13 +351,13 @@ func TestSocketTermination_Datapath(t *testing.T) {
 	// 	* Real socket cookie.
 	// 	* BPFSocketLBHostnsOnly is disabled
 	// Therefore we expect a socket close.
-	terminateUDPConnectionsToBackend(params, *l4a)
+	terminateConnectionsToBackend(params, l4a)
 
 	assertForceClose(true, conn1)
 	assertForceClose(false, conn2)
 
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30001, 0)
-	terminateUDPConnectionsToBackend(params, *l4a)
+	terminateConnectionsToBackend(params, l4a)
 	assertForceClose(false, conn3)
 
 	// 2. Will otherwise close, but we have lb host ns only enabled so we expect
@@ -355,7 +371,7 @@ func TestSocketTermination_Datapath(t *testing.T) {
 	lbmap.UpdateSockRevNat(uint64(cookie3), net.IP{127, 0, 0, 1}, 30001, 0)
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30001, 0)
 	params.ExtConfig.BPFSocketLBHostnsOnly = true
-	terminateUDPConnectionsToBackend(params, *l4a)
+	terminateConnectionsToBackend(params, l4a)
 	assertForceClose(false, conn3)
 
 	// 3. Now we try a similar test, but with a connection in host ns
@@ -364,7 +380,7 @@ func TestSocketTermination_Datapath(t *testing.T) {
 	assert.NoError(t, err)
 	lbmap.UpdateSockRevNat(uint64(getCookie(nil, 30004)), net.IP{127, 0, 0, 1}, 30004, 0)
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30004, 0)
-	terminateUDPConnectionsToBackend(params, *l4a)
+	terminateConnectionsToBackend(params, l4a)
 	assertForceClose(true, conn3)
 
 	// 4. Now we try one in ns3 again, but we turn off lb host ns only so we expect a connection
@@ -379,7 +395,7 @@ func TestSocketTermination_Datapath(t *testing.T) {
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30003, 0)
 
 	params.ExtConfig.BPFSocketLBHostnsOnly = false
-	terminateUDPConnectionsToBackend(params, *l4a)
+	terminateConnectionsToBackend(params, l4a)
 	assertForceClose(true, conn3)
 }
 
@@ -415,7 +431,7 @@ func benchmarkChangeIteration(b *testing.B, proto loadbalancer.L4Type) {
 		be.Address.L4Addr.Protocol = proto
 		be.Instances = be.Instances.Set(
 			loadbalancer.BackendInstanceKey{
-				ServiceName:    loadbalancer.ServiceName{Namespace: "foo", Name: "bar"},
+				ServiceName:    loadbalancer.NewServiceName("foo", "bar"),
 				SourcePriority: 0,
 			}, loadbalancer.BackendParams{
 				Address:   be.Address,

@@ -59,10 +59,10 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 	return testMap
 }
 
-func TestPolicyMapDumpToSlice(t *testing.T) {
+func TestPrivilegedPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
-	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
+	fooKey := newKey(1, 1, 1, 1, SinglePortPrefixLen)
 	entry := newAllowEntry(fooKey, 42, policyTypes.AuthTypeSpire.AsDerivedRequirement(), 0)
 	// err := testMap.AllowKey(fooKey, 42, policyTypes.AuthTypeSpire.AsDerivedRequirement(), 0)
 	err := testMap.Update(&fooKey, &entry)
@@ -79,7 +79,7 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 	require.Equal(t, policyTypes.ProxyPortPriority(42), dump[0].PolicyEntry.ProxyPortPriority)
 
 	// Special case: allow-all entry
-	barKey := NewKey(0, 0, 0, 0, 0)
+	barKey := newKey(0, 0, 0, 0, 0)
 	barEntry := newAllowEntry(barKey, 0, policyTypes.AuthRequirement(0), 0)
 	err = testMap.Update(&barKey, &barEntry)
 	require.NoError(t, err)
@@ -89,9 +89,9 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 	require.Len(t, dump, 2)
 }
 
-func TestDeleteNonexistentKey(t *testing.T) {
+func TestPrivilegedDeleteNonexistentKey(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
-	key := NewKey(trafficdirection.Ingress, 27, u8proto.TCP, 80, SinglePortPrefixLen)
+	key := newKey(trafficdirection.Ingress, 27, u8proto.TCP, 80, SinglePortPrefixLen)
 	err := testMap.Map.Delete(&key)
 	require.Error(t, err)
 	var errno unix.Errno
@@ -99,10 +99,10 @@ func TestDeleteNonexistentKey(t *testing.T) {
 	require.Equal(t, unix.ENOENT, errno)
 }
 
-func TestDenyPolicyMapDumpToSlice(t *testing.T) {
+func TestPrivilegedDenyPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
-	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
+	fooKey := newKey(1, 1, 1, 1, SinglePortPrefixLen)
 	fooEntry := newDenyEntry(fooKey)
 	err := testMap.Update(&fooKey, &fooEntry)
 	require.NoError(t, err)
@@ -115,7 +115,7 @@ func TestDenyPolicyMapDumpToSlice(t *testing.T) {
 	require.Equal(t, fooEntry, dump[0].PolicyEntry)
 
 	// Special case: deny-all entry
-	barKey := NewKey(0, 0, 0, 0, 0)
+	barKey := newKey(0, 0, 0, 0, 0)
 	barEntry := newDenyEntry(barKey)
 	err = testMap.Update(&barKey, &barEntry)
 	require.NoError(t, err)

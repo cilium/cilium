@@ -542,6 +542,9 @@ paths:
       summary: Retrieve entire policy tree
       description: |
         Returns the entire policy tree with all children.
+
+        Deprecated: will be removed in v1.19
+      deprecated: true
       tags:
       - policy
       parameters:
@@ -558,6 +561,8 @@ paths:
           description: No policy rules found
     put:
       summary: Create or update a policy (sub)tree
+      description: "Deprecated: will be removed in v1.19"
+      deprecated: true
       tags:
       - policy
       parameters:
@@ -588,6 +593,8 @@ paths:
             "$ref": "#/definitions/Error"
     delete:
       summary: Delete a policy (sub)tree
+      description: "Deprecated: will be removed in v1.19"
+      deprecated: true
       tags:
       - policy
       parameters:
@@ -649,20 +656,6 @@ paths:
             type: array
             items:
               "$ref": "#/definitions/Service"
-  "/service/{id}":
-    get:
-      summary: Retrieve configuration of a service
-      tags:
-      - service
-      parameters:
-      - "$ref": "#/parameters/service-id"
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/Service"
-        '404':
-          description: Service not found
 
   "/recorder":
     get:
@@ -2757,7 +2750,9 @@ definitions:
         description: Node address type, one of HostName, ExternalIP or InternalIP
         type: string
   Policy:
-    description: Policy definition
+    description: |
+      Policy definition
+      Deprecated, will be removed in v1.19.
     type: object
     properties:
       revision:

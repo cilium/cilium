@@ -94,10 +94,14 @@ jobs:
           df -h
           echo "# Usage for /mnt"
           sudo du --human-readable \
-                --threshold 50m \
                 -- /mnt
+          if compgen -G "/mnt/.*" > /dev/null; then
+            echo "# Hidden files in /mnt:"
+            sudo du --human-readable -- /mnt/.* 2>/dev/null
+          fi
           echo "# Removing /mnt/tmp-pv.img"
           sudo rm -f '/mnt/tmp-pv.img'
+          sudo rm -rf '/mnt/docker-volumes'
 
       - name: Setup docker volumes into /mnt
         # This allows us to make use of all available disk.
@@ -109,7 +113,7 @@ jobs:
           sudo systemctl start docker
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
         # Disable GC entirely to avoid buildkit from GC caches.
         with:
           buildkitd-config-inline: |
@@ -236,7 +240,7 @@ jobs:
           fi
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
 
       - name: CI Build ${{ matrix.name }}
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
@@ -302,7 +306,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ matrix.name != 'cilium-cli' }}
-        uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
+        uses: anchore/sbom-action@9246b90769f852b3a8921f330c59e0b3f439d6e9 # v0.20.1
         with:
           artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -310,7 +314,7 @@ jobs:
 
       - name: Generate SBOM (race)
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
-        uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
+        uses: anchore/sbom-action@9246b90769f852b3a8921f330c59e0b3f439d6e9 # v0.20.1
         with:
           artifact-name: sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -318,7 +322,7 @@ jobs:
 
       - name: Generate SBOM (unstripped)
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
-        uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
+        uses: anchore/sbom-action@9246b90769f852b3a8921f330c59e0b3f439d6e9 # v0.20.1
         with:
           artifact-name: sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -327,12 +331,12 @@ jobs:
       - name: Attach SBOM attestation to container image
         if: ${{ matrix.name != 'cilium-cli' }}
         run: |
-          cosign attest -r -y --predicate sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
+          cosign attest -y --predicate sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
           if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
-            cosign attest -r -y --predicate sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
+            cosign attest -y --predicate sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
           fi
           if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
-            cosign attest -r -y --predicate sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
+            cosign attest -y --predicate sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
           fi
 
       - name: CI Image Releases digests

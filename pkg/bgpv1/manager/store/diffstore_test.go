@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -70,7 +71,7 @@ func newDiffStoreFixture() *DiffStoreFixture {
 
 		// Provide the faked client cells directly
 		cell.Provide(func() k8sClient.Clientset {
-			return &k8sClient.FakeClientset{
+			return &k8sFakeClient.FakeClientset{
 				SlimFakeClientset: fixture.slimCs,
 			}
 		}),

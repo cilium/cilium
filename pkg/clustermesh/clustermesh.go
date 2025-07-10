@@ -42,6 +42,9 @@ type Configuration struct {
 	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
 	ClusterInfo cmtypes.ClusterInfo
 
+	// RemoteClientFactory is the factory to create new backend instances.
+	RemoteClientFactory common.RemoteClientFactoryFn
+
 	// ServiceMerger is the interface responsible to merge service and
 	// endpoints into an existing cache
 	ServiceMerger ServiceMerger
@@ -141,6 +144,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 		Logger:                       c.Logger,
 		Config:                       c.Config,
 		ClusterInfo:                  c.ClusterInfo,
+		RemoteClientFactory:          c.RemoteClientFactory,
 		ClusterSizeDependantInterval: c.ClusterSizeDependantInterval,
 		ServiceResolver:              c.ServiceResolver,
 
@@ -190,14 +194,10 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		common.NewSharedServicesObserver(
 			rc.log,
 			cm.globalServices,
-			func(svc *serviceStore.ClusterService) {
-				cm.conf.ServiceMerger.MergeExternalServiceUpdate(svc, rc.synced.services)
-			},
-			func(svc *serviceStore.ClusterService) {
-				cm.conf.ServiceMerger.MergeExternalServiceDelete(svc, rc.synced.services)
-			},
+			cm.conf.ServiceMerger.MergeExternalServiceUpdate,
+			cm.conf.ServiceMerger.MergeExternalServiceDelete,
 		),
-		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.services.Stop() }),
+		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.services) }),
 	)
 
 	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(

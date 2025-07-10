@@ -66,18 +66,18 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.24.3
+  go_version: 1.24.4
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.208.0
+  eksctl_version: v0.210.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.33.1
+  kubectl_version: v1.33.2
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 524.0.0
+  gcloud_version: 528.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 700d6ecc48008fe2427c881e7ef6d7e0775be400
+  egw_utils_ref: d3d2c05b6825c62586d158d4cd71ff7b48565a81
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -359,7 +359,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -600,11 +600,12 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/export-results@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         with:
           test_name: ${{ steps.vars.outputs.test_name }}
+          tested_sha: ${{ steps.vars.outputs.SHA }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
-          artifacts: ./perf-tests/clusterloader2/report/*
+          artifacts: ./perf-tests/clusterloader2/report/
           other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
 
       # Refresh credentials

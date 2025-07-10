@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestGetBPFUsage(t *testing.T) {
+func TestPrivilegedGetBPFUsage(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	prefix := "_ciltest_"

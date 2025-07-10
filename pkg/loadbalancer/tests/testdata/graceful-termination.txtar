@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --bpf-lb-algorithm=maglev --bpf-lb-external-clusterip=true
+#! --bpf-lb-algorithm=maglev --bpf-lb-external-clusterip=true
 # Test graceful termination with maglev to verify that both the services map and
 # the maglev table correctly use terminating backends when no active backends are
 # available.

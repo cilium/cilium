@@ -4,13 +4,11 @@
 package k8s
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -39,11 +37,11 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 				svcEP: &Endpoints{
 					Backends: map[cmtypes.AddrCluster]*Backend{
 						cmtypes.MustParseAddrCluster("172.20.0.1"): {
-							Ports: map[string]*loadbalancer.L4Addr{
-								"foo": {
+							Ports: map[loadbalancer.L4Addr][]string{
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     1,
-								},
+								}: {"foo"},
 							},
 							NodeName: "k8s1",
 						},
@@ -54,11 +52,11 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 				o: &Endpoints{
 					Backends: map[cmtypes.AddrCluster]*Backend{
 						cmtypes.MustParseAddrCluster("172.20.0.1"): {
-							Ports: map[string]*loadbalancer.L4Addr{
-								"foo": {
+							Ports: map[loadbalancer.L4Addr][]string{
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     1,
-								},
+								}: {"foo"},
 							},
 							NodeName: "k8s1",
 						},
@@ -73,11 +71,11 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 				svcEP: &Endpoints{
 					Backends: map[cmtypes.AddrCluster]*Backend{
 						cmtypes.MustParseAddrCluster("172.20.0.1"): {
-							Ports: map[string]*loadbalancer.L4Addr{
-								"foo": {
+							Ports: map[loadbalancer.L4Addr][]string{
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     1,
-								},
+								}: {"foo"},
 							},
 						},
 					},
@@ -87,11 +85,11 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 				o: &Endpoints{
 					Backends: map[cmtypes.AddrCluster]*Backend{
 						cmtypes.MustParseAddrCluster("172.20.0.2"): {
-							Ports: map[string]*loadbalancer.L4Addr{
-								"foo": {
+							Ports: map[loadbalancer.L4Addr][]string{
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     1,
-								},
+								}: {"foo"},
 							},
 						},
 					},
@@ -105,11 +103,11 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 				svcEP: &Endpoints{
 					Backends: map[cmtypes.AddrCluster]*Backend{
 						cmtypes.MustParseAddrCluster("172.20.0.1"): {
-							Ports: map[string]*loadbalancer.L4Addr{
-								"foo": {
+							Ports: map[loadbalancer.L4Addr][]string{
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     1,
-								},
+								}: {"foo"},
 							},
 						},
 					},
@@ -119,11 +117,11 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 				o: &Endpoints{
 					Backends: map[cmtypes.AddrCluster]*Backend{
 						cmtypes.MustParseAddrCluster("172.20.0.1"): {
-							Ports: map[string]*loadbalancer.L4Addr{
-								"foz": {
+							Ports: map[loadbalancer.L4Addr][]string{
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     1,
-								},
+								}: {"foz"},
 							},
 						},
 					},
@@ -137,11 +135,11 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 				svcEP: &Endpoints{
 					Backends: map[cmtypes.AddrCluster]*Backend{
 						cmtypes.MustParseAddrCluster("172.20.0.1"): {
-							Ports: map[string]*loadbalancer.L4Addr{
-								"foo": {
+							Ports: map[loadbalancer.L4Addr][]string{
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     1,
-								},
+								}: {"foo"},
 							},
 						},
 					},
@@ -151,11 +149,11 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 				o: &Endpoints{
 					Backends: map[cmtypes.AddrCluster]*Backend{
 						cmtypes.MustParseAddrCluster("172.20.0.1"): {
-							Ports: map[string]*loadbalancer.L4Addr{
-								"foo": {
+							Ports: map[loadbalancer.L4Addr][]string{
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     2,
-								},
+								}: {"foo"},
 							},
 						},
 					},
@@ -169,11 +167,11 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 				svcEP: &Endpoints{
 					Backends: map[cmtypes.AddrCluster]*Backend{
 						cmtypes.MustParseAddrCluster("172.20.0.1"): {
-							Ports: map[string]*loadbalancer.L4Addr{
-								"foo": {
+							Ports: map[loadbalancer.L4Addr][]string{
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     1,
-								},
+								}: {"foo"},
 							},
 						},
 					},
@@ -183,15 +181,15 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 				o: &Endpoints{
 					Backends: map[cmtypes.AddrCluster]*Backend{
 						cmtypes.MustParseAddrCluster("172.20.0.1"): {
-							Ports: map[string]*loadbalancer.L4Addr{
-								"foo": {
+							Ports: map[loadbalancer.L4Addr][]string{
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     1,
-								},
-								"baz": {
+								}: {"foo"},
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     2,
-								},
+								}: {"baz"},
 							},
 						},
 					},
@@ -206,11 +204,11 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 				o: &Endpoints{
 					Backends: map[cmtypes.AddrCluster]*Backend{
 						cmtypes.MustParseAddrCluster("172.20.0.1"): {
-							Ports: map[string]*loadbalancer.L4Addr{
-								"foo": {
+							Ports: map[loadbalancer.L4Addr][]string{
+								{
 									Protocol: loadbalancer.NONE,
 									Port:     1,
-								},
+								}: {"foo"},
 							},
 						},
 					},
@@ -263,7 +261,7 @@ func Test_parseK8sEPv1(t *testing.T) {
 		Namespace: "bar",
 	}
 	sliceID := EndpointSliceID{
-		ServiceID:         ServiceID{Name: "foo", Namespace: "bar"},
+		ServiceName:       loadbalancer.NewServiceName("bar", "foo"),
 		EndpointSliceName: "foo",
 	}
 	newEmptyEndpoints := func() *Endpoints {
@@ -324,8 +322,8 @@ func Test_parseK8sEPv1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
 					},
 					NodeName: nodeName,
 				}
@@ -367,9 +365,9 @@ func Test_parseK8sEPv1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					NodeName: nodeName,
 					Hostname: hostname,
@@ -414,16 +412,16 @@ func Test_parseK8sEPv1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					NodeName: nodeName,
 				}
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
 				return svcEP
@@ -466,16 +464,16 @@ func Test_parseK8sEPv1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					NodeName: nodeName,
 				}
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
 				return svcEP
@@ -510,8 +508,8 @@ func Test_parseK8sEPv1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"sctp-test-svc": loadbalancer.NewL4Addr(loadbalancer.SCTP, 5555),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.SCTP, 5555): {"sctp-test-svc"},
 					},
 					NodeName: nodeName,
 				}
@@ -578,7 +576,7 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 		Labels:    map[string]string{slim_discovery_v1beta1.LabelServiceName: "quux"},
 	}
 	sliceID := EndpointSliceID{
-		ServiceID:         ServiceID{Name: "quux", Namespace: "bar"},
+		ServiceName:       loadbalancer.NewServiceName("bar", "quux"),
 		EndpointSliceName: "foo",
 	}
 
@@ -641,8 +639,8 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
 					},
 					NodeName: nodeName,
 					Hostname: hostname,
@@ -685,9 +683,9 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					NodeName: nodeName,
 				}
@@ -734,16 +732,16 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					NodeName: nodeName,
 				}
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
 				return svcEP
@@ -797,16 +795,16 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					NodeName: nodeName,
 				}
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
 				return svcEP
@@ -853,15 +851,15 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					Terminating: true,
 				}
@@ -914,16 +912,16 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					Terminating: true,
 				}
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					Terminating: true,
 				}
@@ -958,8 +956,8 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"sctp-test-svc": loadbalancer.NewL4Addr(loadbalancer.SCTP, 5555),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.SCTP, 5555): {"sctp-test-svc"},
 					},
 				}
 				return svcEP
@@ -992,8 +990,8 @@ func Test_parseK8sEPSlicev1Beta1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("fd00::1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
 					},
 				}
 				return svcEP
@@ -1048,7 +1046,8 @@ func Test_parseEndpointPortV1Beta1(t *testing.T) {
 		name     string
 		args     args
 		portName string
-		l4Addr   *loadbalancer.L4Addr
+		l4Addr   loadbalancer.L4Addr
+		fail     bool
 	}{
 		{
 			name: "tcp-port",
@@ -1060,7 +1059,7 @@ func Test_parseEndpointPortV1Beta1(t *testing.T) {
 				},
 			},
 			portName: "http-test-svc",
-			l4Addr: &loadbalancer.L4Addr{
+			l4Addr: loadbalancer.L4Addr{
 				Protocol: loadbalancer.TCP,
 				Port:     8080,
 			},
@@ -1075,7 +1074,7 @@ func Test_parseEndpointPortV1Beta1(t *testing.T) {
 				},
 			},
 			portName: "http-test-svc",
-			l4Addr: &loadbalancer.L4Addr{
+			l4Addr: loadbalancer.L4Addr{
 				Protocol: loadbalancer.UDP,
 				Port:     8080,
 			},
@@ -1090,7 +1089,7 @@ func Test_parseEndpointPortV1Beta1(t *testing.T) {
 				},
 			},
 			portName: "sctp-test-svc",
-			l4Addr: &loadbalancer.L4Addr{
+			l4Addr: loadbalancer.L4Addr{
 				Protocol: loadbalancer.SCTP,
 				Port:     5555,
 			},
@@ -1104,7 +1103,7 @@ func Test_parseEndpointPortV1Beta1(t *testing.T) {
 				},
 			},
 			portName: "http-test-svc",
-			l4Addr: &loadbalancer.L4Addr{
+			l4Addr: loadbalancer.L4Addr{
 				Protocol: loadbalancer.TCP,
 				Port:     8080,
 			},
@@ -1116,15 +1115,19 @@ func Test_parseEndpointPortV1Beta1(t *testing.T) {
 					Name: func() *string { a := "http-test-svc"; return &a }(),
 				},
 			},
+			fail: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotPortName, gotL4Addr := parseEndpointPortV1Beta1(tt.args.port)
+			gotPortName, gotL4Addr, ok := parseEndpointPortV1Beta1(tt.args.port)
+			if !ok && !tt.fail {
+				t.Errorf("parseEndpointPortV1Beta1() failed with %v", tt.args.port)
+			}
 			if gotPortName != tt.portName {
 				t.Errorf("parseEndpointPortV1Beta1() got = %v, want %v", gotPortName, tt.portName)
 			}
-			if !reflect.DeepEqual(gotL4Addr, tt.l4Addr) {
+			if !gotL4Addr.Equals(tt.l4Addr) {
 				t.Errorf("parseEndpointPortV1Beta1() got1 = %v, want %v", gotL4Addr, tt.l4Addr)
 			}
 		})
@@ -1141,7 +1144,7 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 		Labels:    map[string]string{slim_discovery_v1.LabelServiceName: "quux"},
 	}
 	sliceID := EndpointSliceID{
-		ServiceID:         ServiceID{Name: "quux", Namespace: "bar"},
+		ServiceName:       loadbalancer.NewServiceName("bar", "quux"),
 		EndpointSliceName: "foo",
 	}
 
@@ -1204,8 +1207,8 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
 					},
 					NodeName: nodeName,
 					Hostname: hostname,
@@ -1248,9 +1251,9 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					NodeName: nodeName,
 				}
@@ -1297,16 +1300,16 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					NodeName: nodeName,
 				}
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
 				return svcEP
@@ -1360,16 +1363,16 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					NodeName: nodeName,
 				}
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
 				return svcEP
@@ -1420,16 +1423,16 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					NodeName: nodeName,
 				}
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
 				return svcEP
@@ -1477,9 +1480,9 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
 				return svcEP
@@ -1527,15 +1530,15 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					Terminating: true,
 				}
@@ -1580,9 +1583,9 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
 				return svcEP
@@ -1682,16 +1685,16 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					Terminating: true,
 				}
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
-						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 					Terminating: true,
 				}
@@ -1726,8 +1729,8 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
 					},
 					HintsForZones: []string{"testing"},
 				}
@@ -1761,8 +1764,8 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
 				svcEP.Backends[cmtypes.MustParseAddrCluster("fd00::1")] = &Backend{
-					Ports: serviceStore.PortConfiguration{
-						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
 					},
 				}
 				return svcEP
@@ -1817,7 +1820,8 @@ func Test_parseEndpointPortV1(t *testing.T) {
 		name     string
 		args     args
 		portName string
-		l4Addr   *loadbalancer.L4Addr
+		l4Addr   loadbalancer.L4Addr
+		fail     bool
 	}{
 		{
 			name: "tcp-port",
@@ -1829,7 +1833,7 @@ func Test_parseEndpointPortV1(t *testing.T) {
 				},
 			},
 			portName: "http-test-svc",
-			l4Addr: &loadbalancer.L4Addr{
+			l4Addr: loadbalancer.L4Addr{
 				Protocol: loadbalancer.TCP,
 				Port:     8080,
 			},
@@ -1844,7 +1848,7 @@ func Test_parseEndpointPortV1(t *testing.T) {
 				},
 			},
 			portName: "http-test-svc",
-			l4Addr: &loadbalancer.L4Addr{
+			l4Addr: loadbalancer.L4Addr{
 				Protocol: loadbalancer.UDP,
 				Port:     8080,
 			},
@@ -1859,7 +1863,7 @@ func Test_parseEndpointPortV1(t *testing.T) {
 				},
 			},
 			portName: "sctp-test-svc",
-			l4Addr: &loadbalancer.L4Addr{
+			l4Addr: loadbalancer.L4Addr{
 				Protocol: loadbalancer.SCTP,
 				Port:     5555,
 			},
@@ -1873,7 +1877,7 @@ func Test_parseEndpointPortV1(t *testing.T) {
 				},
 			},
 			portName: "http-test-svc",
-			l4Addr: &loadbalancer.L4Addr{
+			l4Addr: loadbalancer.L4Addr{
 				Protocol: loadbalancer.TCP,
 				Port:     8080,
 			},
@@ -1885,15 +1889,19 @@ func Test_parseEndpointPortV1(t *testing.T) {
 					Name: func() *string { a := "http-test-svc"; return &a }(),
 				},
 			},
+			fail: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotPortName, gotL4Addr := parseEndpointPortV1(tt.args.port)
+			gotPortName, gotL4Addr, ok := parseEndpointPortV1(tt.args.port)
+			if !ok && !tt.fail {
+				t.Errorf("parseEndpointPortV1() failed with %v", tt.args.port)
+			}
 			if gotPortName != tt.portName {
 				t.Errorf("parseEndpointPortV1() got = %v, want %v", gotPortName, tt.portName)
 			}
-			if !reflect.DeepEqual(gotL4Addr, tt.l4Addr) {
+			if !gotL4Addr.Equals(tt.l4Addr) {
 				t.Errorf("parseEndpointPortV1() got1 = %v, want %v", gotL4Addr, tt.l4Addr)
 			}
 		})

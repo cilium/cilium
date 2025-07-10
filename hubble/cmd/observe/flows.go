@@ -18,11 +18,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.yaml.in/yaml/v3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"gopkg.in/yaml.v3"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
@@ -161,7 +161,7 @@ var GetHubbleClientFunc = func(ctx context.Context, vp *viper.Viper) (client obs
 			}
 			cleanup = f.Close
 		}
-		client = NewIOReaderObserver(f)
+		client = NewIOReaderObserver(logger.Logger, f)
 		return client, cleanup, nil
 	}
 	// read flows from a hubble server

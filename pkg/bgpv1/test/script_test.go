@@ -27,11 +27,12 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -52,7 +53,7 @@ const (
 	probeTCPMD5Flag    = "probe-tcp-md5"
 )
 
-func TestScript(t *testing.T) {
+func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	slog.SetLogLoggerLevel(slog.LevelDebug) // used by test GoBGP instances
 
@@ -106,7 +107,7 @@ func TestScript(t *testing.T) {
 			}),
 		)
 		h := ciliumhive.New(
-			client.FakeClientCell,
+			k8sClient.FakeClientCell(),
 			daemonk8s.ResourcesCell,
 			metrics.Cell,
 			bgpv1.Cell,
@@ -150,7 +151,7 @@ func TestScript(t *testing.T) {
 		})
 
 		// setup test peering IPs
-		l, err := netlink.LinkByName(testLinkName)
+		l, err := safenetlink.LinkByName(testLinkName)
 		require.NoError(t, err)
 		for _, ip := range *peeringIPs {
 			ipAddr, err := netip.ParseAddr(ip)

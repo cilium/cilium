@@ -24,7 +24,7 @@ import (
 )
 
 // Actions used in scopes.
-// Reference: https://docs.docker.com/registry/spec/auth/scope/
+// Reference: https://distribution.github.io/distribution/spec/auth/scope/
 const (
 	// ActionPull represents generic read access for resources of the repository
 	// type.
@@ -43,7 +43,7 @@ const (
 const ScopeRegistryCatalog = "registry:catalog:*"
 
 // ScopeRepository returns a repository scope with given actions.
-// Reference: https://docs.docker.com/registry/spec/auth/scope/
+// Reference: https://distribution.github.io/distribution/spec/auth/scope/
 func ScopeRepository(repository string, actions ...string) string {
 	actions = cleanActions(actions)
 	if repository == "" || len(actions) == 0 {
@@ -98,7 +98,7 @@ type scopesContextKey struct{}
 // Passing an empty list of scopes will virtually remove the scope hints in the
 // context.
 //
-// Reference: https://docs.docker.com/registry/spec/auth/scope/
+// Reference: https://distribution.github.io/distribution/spec/auth/scope/
 func WithScopes(ctx context.Context, scopes ...string) context.Context {
 	scopes = CleanScopes(scopes)
 	return context.WithValue(ctx, scopesContextKey{}, scopes)
@@ -143,7 +143,7 @@ type scopesForHostContextKey string
 // Passing an empty list of scopes will virtually remove the scope hints in the
 // context for the given host.
 //
-// Reference: https://docs.docker.com/registry/spec/auth/scope/
+// Reference: https://distribution.github.io/distribution/spec/auth/scope/
 func WithScopesForHost(ctx context.Context, host string, scopes ...string) context.Context {
 	scopes = CleanScopes(scopes)
 	return context.WithValue(ctx, scopesForHostContextKey(host), scopes)
@@ -303,7 +303,7 @@ func cleanActions(actions []string) []string {
 	// slow path
 	slices.Sort(actions)
 	n := 0
-	for i := 0; i < len(actions); i++ {
+	for i := range len(actions) {
 		if actions[i] == "*" {
 			return []string{"*"}
 		}

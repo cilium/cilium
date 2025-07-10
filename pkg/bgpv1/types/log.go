@@ -114,4 +114,7 @@ const (
 
 	// UpdatedInstancesLogField ...
 	UpdatedInstancesLogField = "updated_instances"
+
+	// DirectionLogField is a log field for direction of BGP reset
+	DirectionLogField = "direction"
 )

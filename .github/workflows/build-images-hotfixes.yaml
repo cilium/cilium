@@ -69,7 +69,7 @@ jobs:
           cp -r .github/actions/set-runtime-image ../cilium-base-branch
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Login to quay.io
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
@@ -126,7 +126,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
 
       - name: Sign Container Image
         run: |
@@ -134,7 +134,7 @@ jobs:
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
+        uses: anchore/sbom-action@9246b90769f852b3a8921f330c59e0b3f439d6e9 # v0.20.1
         with:
           artifact-name: sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -142,8 +142,8 @@ jobs:
 
       - name: Attach SBOM attestation to container image
         run: |
-          cosign attest -r -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev@${{ steps.docker_build_release.outputs.digest }}
-          cosign attest -r -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_release.outputs.digest }}
+          cosign attest -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev@${{ steps.docker_build_release.outputs.digest }}
+          cosign attest -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Image Release Digest
         shell: bash

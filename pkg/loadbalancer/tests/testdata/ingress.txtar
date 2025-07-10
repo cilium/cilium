@@ -1,4 +1,4 @@
-#! --enable-experimental-lb --lb-test-fault-probability=0.0
+#! --lb-test-fault-probability=0.0
 # Test the handling for the ingress service created by the operator.
 # The control-plane should ignore the dummy ingress endpoint (192.192.192.192:9999), but
 # still process the service.

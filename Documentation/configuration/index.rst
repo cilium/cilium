@@ -29,7 +29,6 @@ may look like
    $ kubectl -n kube-system get configmap cilium-config -o yaml
    data:
      agent-not-ready-taint-key: node.cilium.io/agent-not-ready
-     arping-refresh-period: 30s
      auto-direct-node-routes: "false"
      (output continues)
 

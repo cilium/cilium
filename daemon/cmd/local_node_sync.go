@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -32,6 +33,7 @@ type localNodeSynchronizerParams struct {
 
 	Logger             *slog.Logger
 	Config             *option.DaemonConfig
+	TunnelConfig       tunnel.Config
 	K8sLocalNode       agentK8s.LocalNodeResource
 	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
 
@@ -54,6 +56,8 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 	if err := ini.initFromConfig(ctx, n); err != nil {
 		return err
 	}
+
+	n.UnderlayProtocol = ini.TunnelConfig.UnderlayProtocol()
 
 	if err := ini.initFromK8s(ctx, n); err != nil {
 		return err
@@ -78,13 +82,26 @@ func (ini *localNodeSynchronizer) SyncLocalNode(ctx context.Context, store *node
 
 	for ev := range ini.K8sLocalNode.Events(ctx) {
 		if ev.Kind == resource.Upsert {
-			ini.Logger.Debug("Received Node upsert event", logfields.Node, ev.Object)
+			ini.Logger.Debug("Received Local Node upsert event", logfields.Node, ev.Object)
+			isBeingDeleted := ev.Object.DeletionTimestamp != nil
+			if isBeingDeleted {
+				// Update LocalNode to mark it as being deleted
+				store.Update(func(ln *node.LocalNode) {
+					ln.IsBeingDeleted = true
+				})
+			}
 			new := parseNode(ini.Logger, ev.Object)
 			if !ini.mutableFieldsEqual(new) {
 				store.Update(func(ln *node.LocalNode) {
 					ini.syncFromK8s(ln, new)
 				})
 			}
+		} else if ev.Kind == resource.Delete {
+			ini.Logger.Info("Received Local node Delete event", logfields.Node, ev.Object)
+			// Mark as being deleted on explicit delete events too
+			store.Update(func(ln *node.LocalNode) {
+				ln.IsBeingDeleted = true
+			})
 		}
 
 		ev.Done(nil)

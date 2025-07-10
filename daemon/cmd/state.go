@@ -13,26 +13,19 @@ import (
 	"sync"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-var syncLBMapsControllerGroup = controller.NewGroup("sync-lb-maps-with-k8s-services")
 
 func (d *Daemon) WaitForEndpointRestore(ctx context.Context) error {
 	if !option.Config.RestoreState {
@@ -183,7 +176,7 @@ func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, logging.DefaultSlogLogger, d.endpointCreator, dir, eptsID)
+	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, d.logger, d.endpointCreator, dir, eptsID)
 
 	if len(state.possible) == 0 {
 		d.logger.Info("No old endpoints found.")
@@ -467,69 +460,6 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsR
 		// received the full list of policies present at the time the daemon
 		// is bootstrapped.
 		d.regenerateRestoredEndpoints(restoredEndpoints, endpointsRegenerator)
-
-		go func() {
-			if d.clientset.IsEnabled() {
-				// Configure the controller which removes any leftover Kubernetes
-				// services that may have been deleted while Cilium was not
-				// running. Once this controller succeeds, because it has no
-				// RunInterval specified, it will not run again unless updated
-				// elsewhere. This means that if, for instance, a user manually
-				// adds a service via the CLI into the BPF maps, it will
-				// not be cleaned up by the daemon until it restarts.
-				syncServices := func(localOnly bool) {
-					d.controllers.UpdateController(
-						"sync-lb-maps-with-k8s-services",
-						controller.ControllerParams{
-							Group: syncLBMapsControllerGroup,
-							DoFunc: func(ctx context.Context) error {
-								var localServices sets.Set[k8s.ServiceID]
-								if localOnly {
-									localServices = d.k8sSvcCache.LocalServices()
-								}
-
-								stale, err := d.svc.SyncWithK8sFinished(localOnly, localServices)
-
-								// Always process the list of stale services, regardless
-								// of whether an error was returned.
-								swg := lock.NewStoppableWaitGroup()
-								for _, svc := range stale {
-									d.k8sSvcCache.EnsureService(svc, swg)
-									if option.Config.EnableLocalRedirectPolicy {
-										d.lrpManager.EnsureService(svc)
-									}
-								}
-
-								swg.Stop()
-								swg.Wait()
-
-								return err
-							},
-							Context: d.ctx,
-						},
-					)
-				}
-
-				// Also wait for all shared services to be synchronized with the
-				// datapath before proceeding.
-				if d.clustermesh != nil {
-					// Do a first pass synchronizing only the services which are not
-					// marked as global, so that we can drop their stale backends
-					// without needing to wait for full clustermesh synchronization.
-					syncServices(true /* only local services */)
-
-					err := d.clustermesh.ServicesSynced(d.ctx)
-					if err != nil {
-						return // The parent context expired, and we are already terminating
-					}
-					d.logger.Debug("all clusters have been correctly synchronized locally")
-				}
-
-				// Now that possible global services have also been synchronized, let's
-				// do a final pass to remove the remaining stale services and backends.
-				syncServices(false /* all services */)
-			}
-		}()
 	} else {
 		d.logger.Info("State restore is disabled. Existing endpoints on node are ignored")
 	}

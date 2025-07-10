@@ -8,13 +8,15 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/lbmap"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
@@ -34,6 +36,14 @@ type endpointManager interface {
 	EndpointExists(endpointID uint16) bool
 	RemoveDatapathMapping(endpointID uint16) error
 	RemoveMapPath(path string)
+	ListMapsDir(path string) []string
+}
+
+// PrefixedMap describes a pattern for filtering map files.
+// It specifies which files to match via Prefix and which to exclude via Excludes.
+type PrefixedMap struct {
+	Prefix   string
+	Excludes []string
 }
 
 // MapSweeper is responsible for checking stale map paths on the filesystem
@@ -44,16 +54,18 @@ type MapSweeper struct {
 	endpointManager
 	bwManager dptypes.BandwidthManager
 	lbConfig  loadbalancer.Config
+	kprCfg    kpr.KPRConfig
 }
 
 // NewMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config) *MapSweeper {
+func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
 	return &MapSweeper{
 		logger:          defaultLogger.With(logfields.LogSubsys, "datapath-maps"),
 		endpointManager: g,
 		bwManager:       bwm,
 		lbConfig:        lbConfig,
+		kprCfg:          kprCfg,
 	}
 }
 
@@ -116,7 +128,13 @@ func (ms *MapSweeper) CollectStaleMapGarbage() {
 // been disabled. The maps may still be in use in which case they will continue
 // to live until the BPF program using them is being replaced.
 func (ms *MapSweeper) RemoveDisabledMaps() {
-	maps := []string{"cilium_proxy4", "cilium_proxy6"}
+	var (
+		mapsDir      = bpf.TCGlobalsPath()
+		maps         = []string{"cilium_proxy4", "cilium_proxy6"}
+		prefixedMaps = []PrefixedMap{
+			{"cilium_policy_", []string{policymap.MapName}},
+		}
+	)
 
 	if !option.Config.EnableIPv6 {
 		maps = append(maps, []string{
@@ -131,10 +149,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb6_reverse_sk",
 			"cilium_snat_v6_external",
 			recorder.MapNameWcard6,
-			lbmap.MaglevOuter6MapName,
-			lbmap.Affinity6MapName,
-			lbmap.SourceRange6MapName,
-			lbmap.HealthProbe6MapName,
+			lbmaps.MaglevOuter6MapName,
+			lbmaps.Affinity6MapName,
+			lbmaps.SourceRange6MapName,
+			lbmaps.HealthProbe6MapName,
 			ipmasq.MapNameIPv6,
 			cidrmap.MapName + "v6_dyn",
 			cidrmap.MapName + "v6_fix",
@@ -154,17 +172,17 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
 			recorder.MapNameWcard4,
-			lbmap.MaglevOuter4MapName,
-			lbmap.Affinity4MapName,
-			lbmap.SourceRange4MapName,
-			lbmap.HealthProbe4MapName,
+			lbmaps.MaglevOuter4MapName,
+			lbmaps.Affinity4MapName,
+			lbmaps.SourceRange4MapName,
+			lbmaps.HealthProbe4MapName,
 			ipmasq.MapNameIPv4,
 			cidrmap.MapName + "v4_dyn",
 			cidrmap.MapName + "v4_fix",
 		}...)
 	}
 
-	if !option.Config.EnableNodePort {
+	if !ms.kprCfg.EnableNodePort {
 		maps = append(maps, []string{"cilium_snat_v4_external", "cilium_snat_v6_external"}...)
 	}
 
@@ -186,20 +204,20 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 	}
 
 	if !option.Config.EnableHealthDatapath {
-		maps = append(maps, lbmap.HealthProbe6MapName, lbmap.HealthProbe4MapName)
+		maps = append(maps, lbmaps.HealthProbe6MapName, lbmaps.HealthProbe4MapName)
 	}
 
 	if ms.lbConfig.LBAlgorithm != loadbalancer.LBAlgorithmMaglev &&
 		!ms.lbConfig.AlgorithmAnnotation {
-		maps = append(maps, lbmap.MaglevOuter6MapName, lbmap.MaglevOuter4MapName)
+		maps = append(maps, lbmaps.MaglevOuter6MapName, lbmaps.MaglevOuter4MapName)
 	}
 
-	if !option.Config.EnableSessionAffinity {
-		maps = append(maps, lbmap.Affinity6MapName, lbmap.Affinity4MapName, lbmap.AffinityMatchMapName)
+	if !ms.kprCfg.EnableSessionAffinity {
+		maps = append(maps, lbmaps.Affinity6MapName, lbmaps.Affinity4MapName, lbmaps.AffinityMatchMapName)
 	}
 
-	if !option.Config.EnableSVCSourceRangeCheck {
-		maps = append(maps, lbmap.SourceRange6MapName, lbmap.SourceRange4MapName)
+	if !ms.kprCfg.EnableSVCSourceRangeCheck {
+		maps = append(maps, lbmaps.SourceRange6MapName, lbmaps.SourceRange4MapName)
 	}
 
 	if !(option.Config.EnableIPMasqAgent && option.Config.EnableIPv4Masquerade) {
@@ -219,10 +237,33 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		}...)
 	}
 
-	for _, m := range maps {
-		p := path.Join(bpf.TCGlobalsPath(), m)
-		if _, err := os.Stat(p); !os.IsNotExist(err) {
-			ms.RemoveMapPath(p)
+	// helper func to check if a map name match any excludes
+	containsExcluded := func(mapName string, excludes []string) bool {
+		for _, ex := range excludes {
+			if strings.Contains(mapName, ex) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// helper func to check if map name matches any prefixedMaps and does not match excludes
+	matchesPrefixedMap := func(mapName string) bool {
+		for _, pm := range prefixedMaps {
+			if !strings.HasPrefix(mapName, pm.Prefix) {
+				continue
+			}
+			if containsExcluded(mapName, pm.Excludes) {
+				continue
+			}
+			return true
+		}
+		return false
+	}
+
+	for _, m := range ms.ListMapsDir(mapsDir) {
+		if slices.Contains(maps, m) || matchesPrefixedMap(m) {
+			ms.RemoveMapPath(path.Join(mapsDir, m))
 		}
 	}
 }

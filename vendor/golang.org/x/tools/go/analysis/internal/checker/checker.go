@@ -99,7 +99,7 @@ func Run(args []string, analyzers []*analysis.Analyzer) (exitcode int) {
 	// without having to remember what code to return.
 	//
 	// TODO(adonovan): interpreting exit codes is like reading tea-leaves.
-	// Insted of wasting effort trying to encode a multidimensional result
+	// Instead of wasting effort trying to encode a multidimensional result
 	// into 7 bits we should just emit structured JSON output, and
 	// an exit code of 0 or 1 for success or failure.
 	exitAtLeast := func(code int) {

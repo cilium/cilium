@@ -4,23 +4,32 @@
 package loadbalancer
 
 import (
+	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
+	"unsafe"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/cilium/pkg/container/cache"
+	"github.com/cilium/cilium/pkg/hive"
 )
+
+// InitWaitFunc is provided by the load-balancing cell to wait until the
+// load-balancing control-plane has finished reconciliation of the initial
+// data set.
+type InitWaitFunc hive.WaitFunc
 
 type IPFamily = bool
 
@@ -474,53 +483,165 @@ type ServiceID uint16
 // including both the namespace and name of the service (and optionally the cluster).
 // +k8s:deepcopy-gen=true
 type ServiceName struct {
-	Namespace string
-	Name      string
-	Cluster   string
+	// str is (<cluster>/)<namespace>/<name>
+	str string
+
+	// namePos is where the name starts
+	// (<cluster>/)<namespace>/<name>
+	//                         ^
+	namePos uint16
+
+	// clusterEndPos is where the cluster (including '/' ends. If zero then there is
+	// no cluster.
+	// (<cluster>/)<namespace>/<name>
+	//             ^
+	clusterEndPos uint16
 }
 
-func (m ServiceName) MarshalYAML() (any, error) {
-	return m.String(), nil
-}
-
-func (m *ServiceName) UnmarshalYAML(value *yaml.Node) error {
-	parts := strings.Split(value.Value, "/")
-	switch len(parts) {
-	case 0: /* empty name */
-	case 1:
-		m.Name = parts[0]
-	case 2:
-		m.Namespace = parts[0]
-		m.Name = parts[1]
-	case 3:
-		m.Cluster = parts[0]
-		m.Namespace = parts[1]
-		m.Name = parts[2]
-	default:
-		return fmt.Errorf("expected 0, 1 or 2 slashes, got %d", len(parts))
+func (s ServiceName) Cluster() string {
+	if s.clusterEndPos > 0 {
+		return s.str[:s.clusterEndPos-1]
 	}
+	return ""
+}
+
+func (s ServiceName) Name() string {
+	return s.str[s.namePos:]
+}
+
+func (s ServiceName) Namespace() string {
+	return s.str[s.clusterEndPos : s.namePos-1]
+}
+
+func (n ServiceName) Key() index.Key {
+	// index.Key is never mutated so it's safe to return the underlying
+	// string as []byte without copying.
+	return unsafe.Slice(unsafe.StringData(n.str), len(n.str))
+}
+
+func NewServiceName(namespace, name string) ServiceName {
+	return NewServiceNameInCluster("", namespace, name)
+}
+
+// serviceNameCache for deduplicating the [ServiceName.str] to reduce overall
+// memory usage.
+var serviceNameCache = cache.New(
+	func(n ServiceName) uint64 {
+		return serviceNameHash(n.Cluster(), n.Namespace(), n.Name())
+	},
+	nil,
+	func(a, b ServiceName) bool {
+		return b.str != "" /* only match if non-zero value */ &&
+			a.str == b.str
+	},
+)
+
+func serviceNameHash(cluster, namespace, name string) uint64 {
+	var d xxhash.Digest
+	d.WriteString(cluster)
+	d.WriteString(namespace)
+	d.WriteString(name)
+	return d.Sum64()
+}
+
+func NewServiceNameInCluster(cluster, namespace, name string) ServiceName {
+	return cache.GetOrPutWith(
+		serviceNameCache,
+		serviceNameHash(cluster, namespace, name),
+		func(sn ServiceName) bool {
+			return len(sn.str) > 0 &&
+				sn.Cluster() == cluster && sn.Namespace() == namespace && sn.Name() == name
+		},
+		func() ServiceName {
+			// ServiceName not found from cache, create it.
+			var b strings.Builder
+			pos := 0
+			if cluster != "" {
+				n, _ := b.WriteString(cluster)
+				b.WriteRune('/')
+				pos += n + 1
+			}
+			cendPos := pos
+			n, _ := b.WriteString(namespace)
+			b.WriteRune('/')
+			pos += n + 1
+			b.WriteString(name)
+			return ServiceName{
+				str:           b.String(),
+				clusterEndPos: uint16(cendPos),
+				namePos:       uint16(pos),
+			}
+		},
+	)
+}
+
+func (n ServiceName) MarshalJSON() ([]byte, error) {
+	return json.Marshal(n.str)
+}
+
+func (n *ServiceName) UnmarshalJSON(bs []byte) error {
+	return n.unmarshalString(strings.Trim(string(bs), `"`))
+}
+
+func (n *ServiceName) unmarshalString(s string) error {
+	s = strings.TrimSpace(s[:min(len(s), 65535)])
+	orig := s
+	n.str = s
+	pos := 0
+	popSlash := func() int {
+		if len(s) > 0 {
+			idx := strings.Index(s, "/")
+			if idx >= 0 {
+				s = s[idx+1:]
+				pos += idx + 1
+				return pos
+			}
+		}
+		return -1
+	}
+	i1, i2 := popSlash(), popSlash()
+	switch {
+	case i1 < 0:
+		n.str = ""
+		return fmt.Errorf("invalid service name: no namespace in %q", orig)
+	case i2 < 0:
+		n.namePos = uint16(i1)
+	default:
+		n.clusterEndPos = uint16(i1)
+		n.namePos = uint16(i2)
+	}
+	// Deduplicate
+	*n = serviceNameCache.Get(*n)
 	return nil
 }
 
+func (n ServiceName) MarshalYAML() (any, error) {
+	return n.String(), nil
+}
+
+func (n *ServiceName) UnmarshalYAML(value *yaml.Node) error {
+	return n.unmarshalString(value.Value)
+}
+
 func (n *ServiceName) Equal(other ServiceName) bool {
-	return n.Namespace == other.Namespace &&
-		n.Name == other.Name &&
-		n.Cluster == other.Cluster
+	return n.clusterEndPos == other.clusterEndPos &&
+		n.namePos == other.namePos &&
+		n.str == other.str
 }
 
 func (n ServiceName) Compare(other ServiceName) int {
 	switch {
-	case n.Namespace < other.Namespace:
+	case n.Namespace() < other.Namespace():
 		return -1
-	case n.Namespace > other.Namespace:
+	case n.Namespace() > other.Namespace():
 		return 1
-	case n.Name < other.Name:
+	case n.Name() < other.Name():
 		return -1
-	case n.Name > other.Name:
+	case n.Name() > other.Name():
 		return 1
-	case n.Cluster < other.Cluster:
+	case n.Cluster() < other.Cluster():
 		return -1
-	case n.Cluster > other.Cluster:
+	case n.Cluster() > other.Cluster():
 		return 1
 	default:
 		return 0
@@ -528,70 +649,19 @@ func (n ServiceName) Compare(other ServiceName) int {
 }
 
 func (n ServiceName) String() string {
-	if n.Cluster != "" {
-		return n.Cluster + "/" + n.Namespace + "/" + n.Name
-	}
-
-	return n.Namespace + "/" + n.Name
+	return n.str
 }
 
 func (n ServiceName) AppendSuffix(suffix string) ServiceName {
-	return ServiceName{
-		Namespace: n.Namespace,
-		Name:      n.Name + suffix,
-		Cluster:   n.Cluster,
-	}
+	n.str += suffix
+	return n
 }
 
 // BackendID is the backend's ID.
 type BackendID uint32
 
-// ID is the ID of L3n4Addr endpoint (either service or backend).
-type ID uint32
-
 // BackendState is the state of a backend for load-balancing service traffic.
 type BackendState uint8
-
-func IsValidStateTransition(old, new BackendState) bool {
-	if old == new {
-		return true
-	}
-	if new == BackendStateInvalid {
-		return false
-	}
-
-	switch old {
-	case BackendStateActive:
-	case BackendStateTerminating:
-		return false
-	case BackendStateQuarantined:
-		if new == BackendStateMaintenance {
-			return false
-		}
-	case BackendStateMaintenance:
-		if new != BackendStateActive {
-			return false
-		}
-	default:
-		return false
-	}
-	return true
-}
-
-func GetBackendState(state string) (BackendState, error) {
-	switch strings.ToLower(state) {
-	case models.BackendAddressStateActive, "":
-		return BackendStateActive, nil
-	case models.BackendAddressStateTerminating:
-		return BackendStateTerminating, nil
-	case models.BackendAddressStateQuarantined:
-		return BackendStateQuarantined, nil
-	case models.BackendAddressStateMaintenance:
-		return BackendStateMaintenance, nil
-	default:
-		return BackendStateInvalid, fmt.Errorf("invalid backend state %s", state)
-	}
-}
 
 func (state BackendState) String() (string, error) {
 	switch state {
@@ -606,12 +676,6 @@ func (state BackendState) String() (string, error) {
 	default:
 		return "", fmt.Errorf("invalid backend state %d", state)
 	}
-}
-
-func IsValidBackendState(state string) bool {
-	_, err := GetBackendState(state)
-
-	return err == nil
 }
 
 func NewL4Type(name string) (L4Type, error) {
@@ -664,23 +728,17 @@ func (l *L4Addr) DeepEqual(o *L4Addr) bool {
 }
 
 // NewL4Addr creates a new L4Addr.
-func NewL4Addr(protocol L4Type, number uint16) *L4Addr {
-	return &L4Addr{Protocol: protocol, Port: number}
+func NewL4Addr(protocol L4Type, number uint16) L4Addr {
+	return L4Addr{Protocol: protocol, Port: number}
 }
 
 // Equals returns true if both L4Addr are considered equal.
-func (l *L4Addr) Equals(o *L4Addr) bool {
-	switch {
-	case (l == nil) != (o == nil):
-		return false
-	case (l == nil) && (o == nil):
-		return true
-	}
+func (l L4Addr) Equals(o L4Addr) bool {
 	return l.Port == o.Port && l.Protocol == o.Protocol
 }
 
 // String returns a string representation of an L4Addr
-func (l *L4Addr) String() string {
+func (l L4Addr) String() string {
 	return fmt.Sprintf("%d/%s", l.Port, l.Protocol)
 }
 
@@ -707,12 +765,9 @@ func (l *L3n4Addr) DeepEqual(o *L3n4Addr) bool {
 }
 
 // NewL3n4Addr creates a new L3n4Addr.
-func NewL3n4Addr(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, scope uint8) *L3n4Addr {
+func NewL3n4Addr(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, scope uint8) L3n4Addr {
 	lbport := NewL4Addr(protocol, portNumber)
-
-	addr := L3n4Addr{AddrCluster: addrCluster, L4Addr: *lbport, Scope: scope}
-
-	return &addr
+	return L3n4Addr{AddrCluster: addrCluster, L4Addr: lbport, Scope: scope}
 }
 
 func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
@@ -749,7 +804,7 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		return nil, fmt.Errorf("invalid scope \"%s\"", base.Scope)
 	}
 
-	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr, Scope: scope}, nil
+	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: l4addr, Scope: scope}, nil
 }
 
 // L3n4AddrFromString constructs a StateDB key by parsing the input in the form of
@@ -937,37 +992,9 @@ func (a *L3n4Addr) StringID() string {
 	return a.String()
 }
 
-// Hash calculates a unique string of the L3n4Addr e.g for use as a key in maps.
-// Note: the resulting string is meant to be used as a key for maps and is not
-// readable by a human eye when printed out.
-func (a L3n4Addr) Hash() string {
-	const lenProto = 1 // proto is uint8
-	const lenScope = 1 // scope is uint8 which is an alias for byte
-	const lenPort = 2  // port is uint16 which is 2 bytes
-
-	b := make([]byte, cmtypes.AddrClusterLen+lenProto+lenScope+lenPort)
-	ac20 := a.AddrCluster.As20()
-	copy(b, ac20[:])
-	u8p, _ := u8proto.ParseProtocol(a.Protocol)
-	b[net.IPv6len] = byte(u8p)
-	// scope is a uint8 which is an alias for byte so a cast is safe
-	b[net.IPv6len+lenProto] = byte(a.Scope)
-	// port is a uint16, so 2 bytes
-	b[net.IPv6len+lenProto+lenScope] = byte(a.Port >> 8)
-	b[net.IPv6len+lenProto+lenScope+1] = byte(a.Port & 0xff)
-	return string(b)
-}
-
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
 func (a *L3n4Addr) IsIPv6() bool {
 	return a.AddrCluster.Is6()
-}
-
-// ProtocolsEqual returns true if protocols match for both L3 and L4.
-func (l *L3n4Addr) ProtocolsEqual(o *L3n4Addr) bool {
-	return l.Protocol == o.Protocol &&
-		(l.AddrCluster.Is4() && o.AddrCluster.Is4() ||
-			l.AddrCluster.Is6() && o.AddrCluster.Is6())
 }
 
 func (l *L3n4Addr) AddrString() string {
@@ -976,21 +1003,56 @@ func (l *L3n4Addr) AddrString() string {
 	return str
 }
 
+type l3n4AddrCacheEntry struct {
+	addr  L3n4Addr
+	bytes []byte
+}
+
+var l3n4AddrCache = cache.New(
+	func(e l3n4AddrCacheEntry) uint64 {
+		return e.addr.l3n4AddrCacheHash()
+	},
+	nil,
+	func(a, b l3n4AddrCacheEntry) bool {
+		return bytes.Equal(a.bytes, b.bytes)
+	},
+)
+
+func (l L3n4Addr) l3n4AddrCacheHash() uint64 {
+	var d xxhash.Digest
+	buf := l.AddrCluster.Addr().As16()
+	d.Write(buf[:])
+	binary.BigEndian.PutUint16(buf[:], l.Port)
+	d.Write(buf[:2])
+	return d.Sum64()
+}
+
 // Bytes returns the address as a byte slice for indexing purposes.
 // Similar to Hash() but includes the L4 protocol.
 func (l L3n4Addr) Bytes() []byte {
-	const keySize = cmtypes.AddrClusterLen +
-		2 /* Port */ +
-		1 /* Protocol */ +
-		1 /* Scope */
+	return cache.GetOrPutWith(
+		l3n4AddrCache,
+		l.l3n4AddrCacheHash(),
+		func(e l3n4AddrCacheEntry) bool {
+			return e.addr.DeepEqual(&l)
+		},
+		func() l3n4AddrCacheEntry {
+			const keySize = cmtypes.AddrClusterLen +
+				2 /* Port */ +
+				1 /* Protocol */ +
+				1 /* Scope */
 
-	key := make([]byte, 0, keySize)
-	addr20 := l.AddrCluster.As20()
-	key = append(key, addr20[:]...)
-	key = binary.BigEndian.AppendUint16(key, l.Port)
-	key = append(key, L4TypeAsByte(l.Protocol))
-	key = append(key, l.Scope)
-	return key
+			key := make([]byte, 0, keySize)
+			addr20 := l.AddrCluster.As20()
+			key = append(key, addr20[:]...)
+			key = binary.BigEndian.AppendUint16(key, l.Port)
+			key = append(key, L4TypeAsByte(l.Protocol))
+			key = append(key, l.Scope)
+			return l3n4AddrCacheEntry{
+				addr:  l,
+				bytes: key,
+			}
+		}).bytes
 }
 
 func (l L3n4Addr) MarshalYAML() (any, error) {
@@ -1001,39 +1063,22 @@ func (l *L3n4Addr) UnmarshalYAML(value *yaml.Node) error {
 	return l.ParseFromString(value.Value)
 }
 
-// L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the
-// KVStore.
-//
-// +k8s:deepcopy-gen=true
-// +deepequal-gen=true
-// +deepequal-gen:private-method=true
-type L3n4AddrID struct {
-	L3n4Addr
-	ID ID
-}
-
-// DeepEqual returns true if both the receiver and 'o' are deeply equal.
-func (l *L3n4AddrID) DeepEqual(o *L3n4AddrID) bool {
-	if l == nil {
-		return o == nil
+func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
+	if base.IP == nil {
+		return nil, fmt.Errorf("missing IP address")
 	}
-	return l.deepEqual(o)
-}
 
-// NewL3n4AddrID creates a new L3n4AddrID.
-func NewL3n4AddrID(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, scope uint8, id ID) *L3n4AddrID {
-	l3n4Addr := NewL3n4Addr(protocol, addrCluster, portNumber, scope)
-	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}
-}
-
-// IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.
-func (l *L3n4AddrID) IsIPv6() bool {
-	return l.L3n4Addr.IsIPv6()
+	l4addr := NewL4Addr(base.Protocol, base.Port)
+	addrCluster, err := cmtypes.ParseAddrCluster(*base.IP)
+	if err != nil {
+		return nil, err
+	}
+	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: l4addr}, nil
 }
 
 func init() {
 	// Register the types for use with part.Map and part.Set.
 	part.RegisterKeyType(
-		func(name ServiceName) []byte { return []byte(name.String()) })
+		func(name ServiceName) []byte { return []byte(name.Key()) })
 	part.RegisterKeyType(L3n4Addr.Bytes)
 }

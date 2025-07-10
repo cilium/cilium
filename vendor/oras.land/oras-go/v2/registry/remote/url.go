@@ -34,14 +34,14 @@ func buildScheme(plainHTTP bool) string {
 
 // buildRegistryBaseURL builds the URL for accessing the base API.
 // Format: <scheme>://<registry>/v2/
-// Reference: https://docs.docker.com/registry/spec/api/#base
+// Reference: https://distribution.github.io/distribution/spec/api/#base
 func buildRegistryBaseURL(plainHTTP bool, ref registry.Reference) string {
 	return fmt.Sprintf("%s://%s/v2/", buildScheme(plainHTTP), ref.Host())
 }
 
 // buildRegistryCatalogURL builds the URL for accessing the catalog API.
 // Format: <scheme>://<registry>/v2/_catalog
-// Reference: https://docs.docker.com/registry/spec/api/#catalog
+// Reference: https://distribution.github.io/distribution/spec/api/#catalog
 func buildRegistryCatalogURL(plainHTTP bool, ref registry.Reference) string {
 	return fmt.Sprintf("%s://%s/v2/_catalog", buildScheme(plainHTTP), ref.Host())
 }
@@ -54,14 +54,14 @@ func buildRepositoryBaseURL(plainHTTP bool, ref registry.Reference) string {
 
 // buildRepositoryTagListURL builds the URL for accessing the tag list API.
 // Format: <scheme>://<registry>/v2/<repository>/tags/list
-// Reference: https://docs.docker.com/registry/spec/api/#tags
+// Reference: https://distribution.github.io/distribution/spec/api/#tags
 func buildRepositoryTagListURL(plainHTTP bool, ref registry.Reference) string {
 	return buildRepositoryBaseURL(plainHTTP, ref) + "/tags/list"
 }
 
 // buildRepositoryManifestURL builds the URL for accessing the manifest API.
 // Format: <scheme>://<registry>/v2/<repository>/manifests/<digest_or_tag>
-// Reference: https://docs.docker.com/registry/spec/api/#manifest
+// Reference: https://distribution.github.io/distribution/spec/api/#manifest
 func buildRepositoryManifestURL(plainHTTP bool, ref registry.Reference) string {
 	return strings.Join([]string{
 		buildRepositoryBaseURL(plainHTTP, ref),
@@ -72,7 +72,7 @@ func buildRepositoryManifestURL(plainHTTP bool, ref registry.Reference) string {
 
 // buildRepositoryBlobURL builds the URL for accessing the blob API.
 // Format: <scheme>://<registry>/v2/<repository>/blobs/<digest>
-// Reference: https://docs.docker.com/registry/spec/api/#blob
+// Reference: https://distribution.github.io/distribution/spec/api/#blob
 func buildRepositoryBlobURL(plainHTTP bool, ref registry.Reference) string {
 	return strings.Join([]string{
 		buildRepositoryBaseURL(plainHTTP, ref),
@@ -83,14 +83,14 @@ func buildRepositoryBlobURL(plainHTTP bool, ref registry.Reference) string {
 
 // buildRepositoryBlobUploadURL builds the URL for blob uploading.
 // Format: <scheme>://<registry>/v2/<repository>/blobs/uploads/
-// Reference: https://docs.docker.com/registry/spec/api/#initiate-blob-upload
+// Reference: https://distribution.github.io/distribution/spec/api/#initiate-blob-upload
 func buildRepositoryBlobUploadURL(plainHTTP bool, ref registry.Reference) string {
 	return buildRepositoryBaseURL(plainHTTP, ref) + "/blobs/uploads/"
 }
 
 // buildRepositoryBlobMountURLbuilds the URL for cross-repository mounting.
 // Format: <scheme>://<registry>/v2/<repository>/blobs/uploads/?mount=<digest>&from=<other_repository>
-// Reference: https://docs.docker.com/registry/spec/api/#blob
+// Reference: https://distribution.github.io/distribution/spec/api/#blob
 func buildRepositoryBlobMountURL(plainHTTP bool, ref registry.Reference, d digest.Digest, fromRepo string) string {
 	return fmt.Sprintf("%s?mount=%s&from=%s",
 		buildRepositoryBlobUploadURL(plainHTTP, ref),
@@ -101,7 +101,7 @@ func buildRepositoryBlobMountURL(plainHTTP bool, ref registry.Reference, d diges
 
 // buildReferrersURL builds the URL for querying the Referrers API.
 // Format: <scheme>://<registry>/v2/<repository>/referrers/<digest>?artifactType=<artifactType>
-// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.0/spec.md#listing-referrers
+// Reference: https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md#listing-referrers
 func buildReferrersURL(plainHTTP bool, ref registry.Reference, artifactType string) string {
 	var query string
 	if artifactType != "" {

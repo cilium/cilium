@@ -103,7 +103,7 @@ type EndpointPatchEndpointIDLabelsHandler struct {
 }
 
 func (h *EndpointGetEndpointHandler) Handle(params endpointapi.GetEndpointParams) middleware.Responder {
-	h.logger.Debug("GET /endpoint request", logfields.Params, logfields.Repr(params))
+	h.logger.Debug("GET /endpoint request", logfields.Params, params)
 
 	r, err := h.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointList)
 	if err != nil {
@@ -122,7 +122,7 @@ func (h *EndpointGetEndpointHandler) Handle(params endpointapi.GetEndpointParams
 }
 
 func (h *EndpointDeleteEndpointHandler) Handle(params endpointapi.DeleteEndpointParams) middleware.Responder {
-	h.logger.Debug("DELETE /endpoint/ request", logfields.Params, logfields.Repr(params))
+	h.logger.Debug("DELETE /endpoint/ request", logfields.Params, params)
 
 	if params.Endpoint.ContainerID == "" {
 		return api.New(endpointapi.DeleteEndpointInvalidCode, "invalid container id")
@@ -180,9 +180,9 @@ func (h *EndpointGetEndpointIDHandler) Handle(params endpointapi.GetEndpointIDPa
 
 func (h *EndpointPutEndpointIDHandler) Handle(params endpointapi.PutEndpointIDParams) (resp middleware.Responder) {
 	if ep := params.Endpoint; ep != nil {
-		h.logger.Debug("PUT /endpoint/{id} request", logfields.Endpoint, logfields.Repr(*ep))
+		h.logger.Debug("PUT /endpoint/{id} request", logfields.Endpoint, *ep)
 	} else {
-		h.logger.Debug("PUT /endpoint/{id} request", logfields.Params, logfields.Repr(params))
+		h.logger.Debug("PUT /endpoint/{id} request", logfields.Params, params)
 	}
 	epTemplate := params.Endpoint
 
@@ -217,9 +217,9 @@ func validPatchTransitionState(state *models.EndpointState) bool {
 }
 
 func (h *EndpointPatchEndpointIDHandler) Handle(params endpointapi.PatchEndpointIDParams) middleware.Responder {
-	scopedLog := h.logger.With(logfields.Params, logfields.Repr(params))
+	scopedLog := h.logger.With(logfields.Params, params)
 	if ep := params.Endpoint; ep != nil {
-		scopedLog = scopedLog.With(logfields.Endpoint, logfields.Repr(*ep))
+		scopedLog = scopedLog.With(logfields.Endpoint, *ep)
 	}
 	scopedLog.Debug("PATCH /endpoint/{id} request")
 
@@ -305,7 +305,7 @@ func (h *EndpointPatchEndpointIDHandler) Handle(params endpointapi.PatchEndpoint
 }
 
 func (h *EndpointDeleteEndpointIDHandler) Handle(params endpointapi.DeleteEndpointIDParams) middleware.Responder {
-	h.logger.Debug("DELETE /endpoint/{id} request", logfields.Params, logfields.Repr(params))
+	h.logger.Debug("DELETE /endpoint/{id} request", logfields.Params, params)
 
 	// Bypass the rate limiter for endpoints that have already been deleted.
 	// Kubelet will generate at minimum 2 delete requests for a Pod, so this
@@ -338,7 +338,7 @@ func (h *EndpointDeleteEndpointIDHandler) Handle(params endpointapi.DeleteEndpoi
 }
 
 func (h *EndpointPatchEndpointIDConfigHandler) Handle(params endpointapi.PatchEndpointIDConfigParams) middleware.Responder {
-	h.logger.Debug("PATCH /endpoint/{id}/config request", logfields.Params, logfields.Repr(params))
+	h.logger.Debug("PATCH /endpoint/{id}/config request", logfields.Params, params)
 
 	r, err := h.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
 	if err != nil {
@@ -360,7 +360,7 @@ func (h *EndpointPatchEndpointIDConfigHandler) Handle(params endpointapi.PatchEn
 }
 
 func (h *EndpointGetEndpointIDConfigHandler) Handle(params endpointapi.GetEndpointIDConfigParams) middleware.Responder {
-	h.logger.Debug("GET /endpoint/{id}/config", logfields.Params, logfields.Repr(params))
+	h.logger.Debug("GET /endpoint/{id}/config", logfields.Params, params)
 
 	r, err := h.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
@@ -383,7 +383,7 @@ func (h *EndpointGetEndpointIDConfigHandler) Handle(params endpointapi.GetEndpoi
 }
 
 func (h *EndpointGetEndpointIDLabelsHandler) Handle(params endpointapi.GetEndpointIDLabelsParams) middleware.Responder {
-	h.logger.Debug("GET /endpoint/{id}/labels", logfields.Params, logfields.Repr(params))
+	h.logger.Debug("GET /endpoint/{id}/labels", logfields.Params, params)
 
 	r, err := h.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
@@ -455,7 +455,7 @@ func (h *EndpointGetEndpointIDHealthzHandler) Handle(params endpointapi.GetEndpo
 }
 
 func (h *EndpointPatchEndpointIDLabelsHandler) Handle(params endpointapi.PatchEndpointIDLabelsParams) middleware.Responder {
-	h.logger.Debug("PATCH /endpoint/{id}/labels request", logfields.Params, logfields.Repr(params))
+	h.logger.Debug("PATCH /endpoint/{id}/labels request", logfields.Params, params)
 
 	r, err := h.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
 	if err != nil {

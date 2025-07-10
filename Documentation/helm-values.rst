@@ -528,6 +528,10 @@
      - Configure cgroup root where cgroup2 filesystem is mounted on the host (see also: ``cgroup.autoMount``\ )
      - string
      - ``"/run/cilium/cgroupv2"``
+   * - :spelling:ignore:`ciliumEndpointSlice`
+     - CiliumEndpointSlice configuration options.
+     - object
+     - ``{"enabled":false,"rateLimits":[{"burst":20,"limit":10,"nodes":0},{"burst":100,"limit":50,"nodes":100}]}``
    * - :spelling:ignore:`ciliumEndpointSlice.enabled`
      - Enable Cilium EndpointSlice feature.
      - bool
@@ -536,10 +540,6 @@
      - List of rate limit options to be used for the CiliumEndpointSlice controller. Each object in the list must have the following fields: nodes: Count of nodes at which to apply the rate limit. limit: The sustained request rate in requests per second. The maximum rate that can be configured is 50. burst: The burst request rate in requests per second. The maximum burst that can be configured is 100.
      - list
      - ``[{"burst":20,"limit":10,"nodes":0},{"burst":100,"limit":50,"nodes":100}]``
-   * - :spelling:ignore:`ciliumEndpointSlice.sliceMode`
-     - The slicing mode to use for CiliumEndpointSlices. identity groups together CiliumEndpoints that share the same identity. fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
-     - string
-     - ``"identity"``
    * - :spelling:ignore:`cleanBpfState`
      - Clean all eBPF datapath state from the initContainer of the cilium-agent DaemonSet.  WARNING: Use with care!
      - bool
@@ -960,8 +960,12 @@
      - Configure the path to the CNI configuration directory on the host.
      - string
      - ``"/etc/cni/net.d"``
+   * - :spelling:ignore:`cni.configMap`
+     - When defined, configMap will mount the provided value as ConfigMap and interpret the 'cni.configMapKey' value as CNI configuration file and write it when the agent starts up.
+     - string
+     - ``""``
    * - :spelling:ignore:`cni.configMapKey`
-     - Configure the key in the CNI ConfigMap to read the contents of the CNI configuration from.
+     - Configure the key in the CNI ConfigMap to read the contents of the CNI configuration from. For this to be effective, the 'cni.configMap' parameter must be specified too. Note that the 'cni.configMap' parameter is the name of the ConfigMap, while 'cni.configMapKey' is the name of the key in the ConfigMap data containing the actual configuration.
      - string
      - ``"cni-config"``
    * - :spelling:ignore:`cni.customConf`
@@ -1104,6 +1108,10 @@
      - The minimum time, in seconds, to use DNS data for toFQDNs policies. If the upstream DNS server returns a DNS record with a shorter TTL, Cilium overwrites the TTL with this value. Setting this value to zero means that Cilium will honor the TTLs returned by the upstream DNS server.
      - int
      - ``0``
+   * - :spelling:ignore:`dnsProxy.preAllocateIdentities`
+     - Pre-allocate ToFQDN identities. This reduces DNS proxy tail latency, at the potential cost of some unnecessary policymap entries. Disable this if you have a large (200+) number of unique ToFQDN selectors.
+     - bool
+     - ``true``
    * - :spelling:ignore:`dnsProxy.preCache`
      - DNS cache data at this path is preloaded on agent startup.
      - string
@@ -1128,10 +1136,6 @@
      - Time between triggers of egress gateway state reconciliations
      - string
      - ``"1s"``
-   * - :spelling:ignore:`enableCiliumEndpointSlice`
-     - Enable CiliumEndpointSlice feature (deprecated, please use ``ciliumEndpointSlice.enabled`` instead).
-     - bool
-     - ``false``
    * - :spelling:ignore:`enableCriticalPriorityClass`
      - Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in ``helm template`` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for gke clusters in advance.
      - bool
@@ -1367,7 +1371,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:c4fe15f10b612c845709eda05d449e2735a9a7dc9b799e858d31e6ddac332b29","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.3-1749082895-be938e41a8b374f8084ecbf1d6883510e4059620","useDigest":true}``
+     - ``{"digest":"sha256:84bdfde77e6edc32364d15fa909b26b4b9a48e25098e8295d5cf0dc415a91945","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.1-1752029260-6675448d88d49594fff5ac5d9786c51378263b9d","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -2667,11 +2671,7 @@
    * - :spelling:ignore:`l2NeighDiscovery.enabled`
      - Enable L2 neighbor discovery in the agent
      - bool
-     - ``true``
-   * - :spelling:ignore:`l2NeighDiscovery.refreshPeriod`
-     - Override the agent's default neighbor resolution refresh period.
-     - string
-     - ``"30s"``
+     - ``false``
    * - :spelling:ignore:`l2announcements`
      - Configure L2 announcements
      - object
@@ -2711,15 +2711,11 @@
    * - :spelling:ignore:`loadBalancer`
      - Configure service load balancing
      - object
-     - ``{"acceleration":"disabled","experimental":true,"l7":{"algorithm":"round_robin","backend":"disabled","ports":[]}}``
+     - ``{"acceleration":"disabled","l7":{"algorithm":"round_robin","backend":"disabled","ports":[]}}``
    * - :spelling:ignore:`loadBalancer.acceleration`
      - acceleration is the option to accelerate service handling via XDP Applicable values can be: disabled (do not use XDP), native (XDP BPF program is run directly out of the networking driver's early receive path), or best-effort (use native mode XDP acceleration on devices that support it).
      - string
      - ``"disabled"``
-   * - :spelling:ignore:`loadBalancer.experimental`
-     - experimental enables support for the experimental load-balancing control-plane.
-     - bool
-     - ``true``
    * - :spelling:ignore:`loadBalancer.l7`
      - L7 LoadBalancer
      - object
@@ -2736,8 +2732,16 @@
      - List of ports from service to be automatically redirected to above backend. Any service exposing one of these ports will be automatically redirected. Fine-grained control can be achieved by using the service annotation.
      - list
      - ``[]``
+   * - :spelling:ignore:`localRedirectPolicies.addressMatcherCIDRs`
+     - Limit the allowed addresses in Address Matcher rule of Local Redirect Policies to the given CIDRs. @schema@ type: [null, array] @schema@
+     - string
+     - ``nil``
+   * - :spelling:ignore:`localRedirectPolicies.enabled`
+     - Enable local redirect policies.
+     - bool
+     - ``false``
    * - :spelling:ignore:`localRedirectPolicy`
-     - Enable Local Redirect Policy.
+     - Enable Local Redirect Policy (deprecated, please use 'localRedirectPolicies.enabled' instead)
      - bool
      - ``false``
    * - :spelling:ignore:`logSystemLoad`
@@ -3081,9 +3085,9 @@
      - bool
      - ``false``
    * - :spelling:ignore:`operator.tolerations`
-     - Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ @schema type: [null, array] @schema
      - list
-     - ``[{"operator":"Exists"}]``
+     - ``[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists"},{"key":"node-role.kubernetes.io/master","operator":"Exists"},{"key":"node.kubernetes.io/not-ready","operator":"Exists"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists"}]``
    * - :spelling:ignore:`operator.topologySpreadConstraints`
      - Pod topology spread constraints for cilium-operator
      - list
@@ -3152,6 +3156,10 @@
      - Enable Cilium pre-flight resources (required for upgrade)
      - bool
      - ``false``
+   * - :spelling:ignore:`preflight.envoy.image`
+     - Envoy pre-flight image.
+     - object
+     - ``{"digest":"sha256:84bdfde77e6edc32364d15fa909b26b4b9a48e25098e8295d5cf0dc415a91945","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.1-1752029260-6675448d88d49594fff5ac5d9786c51378263b9d","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list

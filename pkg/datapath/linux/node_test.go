@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -51,7 +52,7 @@ func TestCreateNodeRoute(t *testing.T) {
 	}
 	log := hivetest.Logger(t)
 
-	nodeHandler := newNodeHandler(log, dpConfig, nil, new(mockEnqueuer))
+	nodeHandler := newNodeHandler(log, dpConfig, nil, kpr.KPRConfig{})
 	nodeHandler.NodeConfigurationChanged(nodeConfig)
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")
@@ -83,18 +84,7 @@ func TestCreateNodeRouteSpecMtu(t *testing.T) {
 	require.Equal(t, 0, generatedRoute.MTU)
 }
 
-func TestStoreLoadNeighLinks(t *testing.T) {
-	tmpDir := t.TempDir()
-	devExpected := []string{"dev1"}
-	err := storeNeighLink(tmpDir, devExpected)
-	require.NoError(t, err)
-
-	devsActual, err := loadNeighLink(tmpDir)
-	require.NoError(t, err)
-	require.Equal(t, devExpected, devsActual)
-}
-
-func TestLocalRule(t *testing.T) {
+func TestPrivilegedLocalRule(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ns := netns.NewNetNS(t)

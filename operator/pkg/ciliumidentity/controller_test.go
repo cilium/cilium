@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -109,7 +109,7 @@ func initHiveTest(t *testing.T, operatorManagingCID bool) (*resource.Resource[*c
 	var cidMetrics Metrics
 
 	h := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Provide(func() config {

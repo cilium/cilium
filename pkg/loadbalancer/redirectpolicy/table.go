@@ -4,6 +4,9 @@
 package redirectpolicy
 
 import (
+	"iter"
+	"log/slog"
+
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -14,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -21,21 +25,21 @@ const (
 )
 
 var (
-	lrpIDIndex = statedb.Index[*LocalRedirectPolicy, k8s.ServiceID]{
+	lrpIDIndex = statedb.Index[*LocalRedirectPolicy, lb.ServiceName]{
 		Name: "id",
 		FromObject: func(obj *LocalRedirectPolicy) index.KeySet {
 			return index.NewKeySet(index.String(obj.ID.String()))
 		},
-		FromKey: index.Stringer[k8s.ServiceID],
+		FromKey: index.Stringer[lb.ServiceName],
 		Unique:  true,
 	}
 
-	lrpServiceIndex = statedb.Index[*LocalRedirectPolicy, k8s.ServiceID]{
+	lrpServiceIndex = statedb.Index[*LocalRedirectPolicy, lb.ServiceName]{
 		Name: "service",
 		FromObject: func(lrp *LocalRedirectPolicy) index.KeySet {
 			return index.NewKeySet(index.String(lrp.ServiceID.String()))
 		},
-		FromKey: index.Stringer[k8s.ServiceID],
+		FromKey: index.Stringer[lb.ServiceName],
 		Unique:  false,
 	}
 
@@ -79,7 +83,7 @@ func newLRPListerWatcher(cs client.Clientset) lrpListerWatcher {
 	return k8sUtils.ListerWatcherFromTyped(cs.CiliumV2().CiliumLocalRedirectPolicies("" /* all namespaces */))
 }
 
-func registerLRPReflector(enabled lrpIsEnabled, db *statedb.DB, jg job.Group, lw lrpListerWatcher, lrps statedb.RWTable[*LocalRedirectPolicy]) {
+func registerLRPReflector(enabled lrpIsEnabled, cfg Config, db *statedb.DB, log *slog.Logger, jg job.Group, lw lrpListerWatcher, lrps statedb.RWTable[*LocalRedirectPolicy]) {
 	if !enabled || lw == nil {
 		return
 	}
@@ -89,13 +93,32 @@ func registerLRPReflector(enabled lrpIsEnabled, db *statedb.DB, jg job.Group, lw
 			Name:          "lrps",
 			Table:         lrps,
 			ListerWatcher: lw,
-			Transform: func(_ statedb.ReadTxn, obj any) (*LocalRedirectPolicy, bool) {
-				clrp, ok := obj.(*ciliumv2.CiliumLocalRedirectPolicy)
-				if !ok {
-					return nil, false
+			MetricScope:   "CiliumLocalRedirectPolicy",
+			TransformMany: func(_ statedb.ReadTxn, deleted bool, obj any) (toInsert, toDelete iter.Seq[*LocalRedirectPolicy]) {
+				clrp := obj.(*ciliumv2.CiliumLocalRedirectPolicy)
+				rp, err := parseLRP(cfg, log, clrp)
+				if err != nil {
+					log.Warn("Rejecting malformed CiliumLocalRedirectPolicy",
+						logfields.K8sNamespace, clrp.Namespace,
+						logfields.Name, clrp.Name,
+						logfields.Error, err)
+					toDelete = func(yield func(*LocalRedirectPolicy) bool) {
+						yield(&LocalRedirectPolicy{
+							ID:  lb.NewServiceName(clrp.Namespace, clrp.Name),
+							UID: clrp.UID,
+						})
+					}
+				} else {
+					it := func(yield func(*LocalRedirectPolicy) bool) {
+						yield(rp)
+					}
+					if deleted {
+						toDelete = it
+					} else {
+						toInsert = it
+					}
 				}
-				rp, err := parseLRP(clrp, true)
-				return rp, err == nil
+				return
 			},
 		})
 }

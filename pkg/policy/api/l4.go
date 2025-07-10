@@ -18,6 +18,8 @@ const (
 	ProtoSCTP   L4Proto = "SCTP"
 	ProtoICMP   L4Proto = "ICMP"
 	ProtoICMPv6 L4Proto = "ICMPV6"
+	ProtoVRRP   L4Proto = "VRRP"
+	ProtoIGMP   L4Proto = "IGMP"
 	ProtoAny    L4Proto = "ANY"
 
 	PortProtocolAny = "0/ANY"
@@ -40,7 +42,7 @@ type PortProtocol struct {
 	// or "http-8080".
 	//
 	// +kubebuilder:validation:Pattern=`^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$`
-	Port string `json:"port"`
+	Port string `json:"port,omitempty"`
 
 	// EndPort can only be an L4 port number.
 	//
@@ -49,15 +51,17 @@ type PortProtocol struct {
 	// +kubebuilder:validation:Optional
 	EndPort int32 `json:"endPort,omitempty"`
 
-	// Protocol is the L4 protocol. If omitted or empty, any protocol
-	// matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+	// Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
+	// with transport ports (TCP, UDP, SCTP) match.
+	//
+	// Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
 	//
 	// Matching on ICMP is not supported.
 	//
 	// Named port specified for a container may narrow this down, but may not
 	// contradict this.
 	//
-	// +kubebuilder:validation:Enum=TCP;UDP;SCTP;ANY
+	// +kubebuilder:validation:Enum=TCP;UDP;SCTP;VRRP;IGMP;ANY
 	// +kubebuilder:validation:Optional
 	Protocol L4Proto `json:"protocol,omitempty"`
 }

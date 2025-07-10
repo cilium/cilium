@@ -7,8 +7,8 @@ package allocator
 // Interface manages the allocation of items out of a range. Interface
 // should be threadsafe.
 type Interface interface {
-	Allocate(int) (bool, error)
-	AllocateNext() (int, bool, error)
+	Allocate(int) bool
+	AllocateNext() (int, bool)
 	Release(int)
 	ForEach(func(int))
 	Has(int) bool

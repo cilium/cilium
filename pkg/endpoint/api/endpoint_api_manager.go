@@ -199,7 +199,7 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 
 	if ep.K8sNamespaceAndPodNameIsSet() && m.clientset.IsEnabled() {
 		pod, k8sMetadata, err := m.handleOutdatedPodInformer(ctx, ep)
-		if errors.Is(err, endpointmetadata.PodStoreOutdatedErr) {
+		if errors.Is(err, endpointmetadata.ErrPodStoreOutdated) {
 			m.logger.Warn("Timeout occurred waiting for Pod store, fetching latest Pod via the apiserver.",
 				logfields.K8sPodName, ep.K8sNamespace+"/"+ep.K8sPodName,
 				logfields.K8sUID, ep.K8sUID,
@@ -237,14 +237,14 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 				m.logger.Warn("Endpoint has bandwidth annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
 					logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName,
 					logfields.Annotation, bandwidth.IngressBandwidth,
-					logfields.Annotations, logfields.Repr(pod.Annotations),
+					logfields.Annotations, pod.Annotations,
 				)
 			}
 			if _, ok := pod.Annotations[bandwidth.EgressBandwidth]; ok && !m.bandwidthManager.Enabled() {
 				m.logger.Warn("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
 					logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName,
 					logfields.Annotation, bandwidth.EgressBandwidth,
-					logfields.Annotations, logfields.Repr(pod.Annotations),
+					logfields.Annotations, pod.Annotations,
 				)
 			}
 			if hwAddr, ok := pod.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
@@ -362,7 +362,7 @@ func (m *endpointAPIManager) handleOutdatedPodInformer(ctx context.Context, ep *
 			return true, err2
 		}
 
-		if errors.Is(err2, endpointmetadata.PodStoreOutdatedErr) {
+		if errors.Is(err2, endpointmetadata.ErrPodStoreOutdated) {
 			once.Do(func() {
 				m.logger.Warn("Detected outdated Pod UID during Endpoint creation. Endpoint creation cannot proceed with an outdated Pod store. Attempting to fetch latest Pod.",
 					logfields.K8sPodName, ep.K8sNamespace+"/"+ep.K8sPodName,
@@ -376,7 +376,7 @@ func (m *endpointAPIManager) handleOutdatedPodInformer(ctx context.Context, ep *
 	})
 
 	if wait.Interrupted(err) {
-		return nil, nil, endpointmetadata.PodStoreOutdatedErr
+		return nil, nil, endpointmetadata.ErrPodStoreOutdated
 	}
 
 	return pod, k8sMetadata, err
@@ -521,7 +521,7 @@ func (m *endpointAPIManager) ModifyEndpointIdentityLabelsFromAPI(id string, add,
 		return PatchEndpointIDInvalidCode, err
 	}
 
-	if err := ep.ModifyIdentityLabels(labels.LabelSourceAny, addLabels, delLabels); err != nil {
+	if err := ep.ModifyIdentityLabels(labels.LabelSourceAny, addLabels, delLabels, 0); err != nil {
 		return PatchEndpointIDLabelsNotFoundCode, err
 	}
 

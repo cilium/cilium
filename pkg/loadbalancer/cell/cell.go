@@ -38,13 +38,10 @@ var Cell = cell.Group(
 	// Support for HealthCheckNodePort
 	healthserver.Cell,
 
-	cell.Module(
-		"loadbalancing-adapters",
-		"Adapters to legacy APIs",
+	// /service REST API
+	cell.Provide(newServiceRestApiHandler),
 
-		// Replace the [k8s.ServiceCacheReader] and [service.ServiceReader] if this
-		// implementation is enabled.
-		cell.Provide(newAdapters),
-		cell.DecorateAll(decorateAdapters),
-	),
+	// Provide a function to wait until load-balancing control-plane has received
+	// and reconciled the initial state.
+	cell.Provide(newInitWaitFunc),
 )

@@ -166,6 +166,9 @@ const (
 	// option.IdentityChangeGracePeriod
 	IdentityChangeGracePeriod = 5 * time.Second
 
+	// CiliumIdentityMaxJitter is the maximum duration to delay processing a CiliumIdentity under certain conditions.
+	CiliumIdentityMaxJitter = 30 * time.Second
+
 	// IdentityRestoreGracePeriodKvstore is the default value for
 	// option.IdentityRestoreGracePeriod when kvstore is enabled.
 	IdentityRestoreGracePeriodKvstore = 10 * time.Minute
@@ -287,12 +290,6 @@ const (
 
 	// AlignCheckerName is the BPF object name for the alignchecker.
 	AlignCheckerName = "bpf_alignchecker.o"
-
-	// KVstorePeriodicSync is the default kvstore periodic sync interval
-	KVstorePeriodicSync = 5 * time.Minute
-
-	// KVstoreConnectivityTimeout is the timeout when performing kvstore operations
-	KVstoreConnectivityTimeout = 2 * time.Minute
 
 	// KVStoreStaleLockTimeout is the timeout for when a lock is held for
 	// a kvstore path for too long.
@@ -421,10 +418,6 @@ const (
 	// K8sClientBurst is the default burst for the cilium-agent k8s client.
 	K8sClientBurst = 20
 
-	// K8sServiceCacheSize is the default value for option.K8sServiceCacheSize
-	// which denotes the value of Cilium's K8s service cache size.
-	K8sServiceCacheSize = 128
-
 	// AllowICMPFragNeeded is the default value for option.AllowICMPFragNeeded flag.
 	// It is enabled by default and directs that the ICMP Fragmentation needed type
 	// packets are allowed to enable TCP Path MTU.
@@ -495,6 +488,20 @@ const (
 	// ServiceNoBackendResponse is the default response for services without backends
 	ServiceNoBackendResponse = "reject"
 
+	// TracePayloadLen is the default length of payload to capture when tracing native packets.
+	// The value is aligned to 2 cache-lines (64B each):
+	// - decreasing below 64B would not be enough for decoding typical headers
+	// - any value between 64B-128B would still require access to 2 cache-lines
+	TracePayloadLen = 128
+
+	// TracePayloadLenOverlay is the default length of payload to capture when tracing overlay packets.
+	// The above TracePayloadLen might not be enough, resulting in a decode error for packets:
+	// - TCPv6 with options over VXLANv4 (>=134B) -- decode error
+	// - TCPv6 with SRv6 segments (>=136B) -- decode error
+	// - {ICMP,UDP,TCP}v6 over (future) VXLANv6 (>=132B) -- decode error
+	// The value is aligned to 3 cache-lines, see above comment in TracePayloadLen.
+	TracePayloadLenOverlay = 192
+
 	// Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation.
 	UseCiliumInternalIPForIPsec = false
 
@@ -502,9 +509,6 @@ const (
 	TunnelPortVXLAN uint16 = 8472
 	// TunnelPortGeneve is the default Geneve port
 	TunnelPortGeneve uint16 = 6081
-
-	// ARPBaseReachableTime resembles the kernel's NEIGH_VAR_BASE_REACHABLE_TIME which defaults to 30 seconds.
-	ARPBaseReachableTime = 30 * time.Second
 
 	// EnableVTEP enables VXLAN Tunnel Endpoint (VTEP) Integration
 	EnableVTEP     = false
@@ -568,6 +572,9 @@ const (
 
 	// ConnectivityProbeFrequencyRatio is the default connectivity probe frequency
 	ConnectivityProbeFrequencyRatio = 0.5
+
+	// EnableExtendedIPProtocols controls whether traffic with extended IP protocols is supported in datapath.
+	EnableExtendedIPProtocols = false
 )
 
 var (
@@ -577,27 +584,27 @@ var (
 	// Under the worst case GC may need to memcopy almost the entire buffer, which will
 	// cause memory spikes. Be mindful of this when increasing the default buffer configurations.
 	BPFEventBufferConfigs = map[string]string{
-		"cilium_lxc": "enabled,128,0",
-		// cilium_ipcache is the likely the most useful use of this feature, but also has
+		"cilium_lxc": "enabled_128_0",
+		// cilium_ipcache is likely the most useful use of this feature, but also has
 		// the highest churn.
-		"cilium_ipcache":           "enabled,1024,0",
-		"cilium_lb_affinity_match": "enabled,128,0",
+		"cilium_ipcache_v2":        "enabled_1024_0",
+		"cilium_lb_affinity_match": "enabled_128_0",
 
 		// ip4
-		"cilium_lb4_services_v2":    "enabled,128,0",
-		"cilium_lb4_backends_v2":    "enabled,128,0",
-		"cilium_lb4_reverse_nat":    "enabled,128,0",
-		"cilium_lb4_backends_v3":    "enabled,128,0",
-		"cilium_lb4_source_range":   "enabled,128,0",
-		"cilium_lb4_affinity_match": "enabled,128,0",
+		"cilium_lb4_services_v2":    "enabled_128_0",
+		"cilium_lb4_backends_v2":    "enabled_128_0",
+		"cilium_lb4_reverse_nat":    "enabled_128_0",
+		"cilium_lb4_backends_v3":    "enabled_128_0",
+		"cilium_lb4_source_range":   "enabled_128_0",
+		"cilium_lb4_affinity_match": "enabled_128_0",
 
 		// ip6
-		"cilium_lb6_services_v2":    "enabled,128,0",
-		"cilium_lb6_backends_v2":    "enabled,128,0",
-		"cilium_lb6_reverse_nat":    "enabled,128,0",
-		"cilium_lb6_backends_v3":    "enabled,128,0",
-		"cilium_lb6_source_range":   "enabled,128,0",
-		"cilium_lb6_affinity_match": "enabled,128,0",
+		"cilium_lb6_services_v2":    "enabled_128_0",
+		"cilium_lb6_backends_v2":    "enabled_128_0",
+		"cilium_lb6_reverse_nat":    "enabled_128_0",
+		"cilium_lb6_backends_v3":    "enabled_128_0",
+		"cilium_lb6_source_range":   "enabled_128_0",
+		"cilium_lb6_affinity_match": "enabled_128_0",
 	}
 
 	PolicyCIDRMatchMode = []string{}

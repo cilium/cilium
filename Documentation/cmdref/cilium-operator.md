@@ -14,6 +14,7 @@ cilium-operator [flags]
       --alibaba-cloud-vpc-id string                          Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
       --auto-create-cilium-pod-ip-pools map                  Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)
       --aws-enable-prefix-delegation                         Allows operator to allocate prefixes to ENIs instead of individual IP addresses
+      --aws-pagination-enabled                               Enable pagination for AWS EC2 API requests. The default page size is 1000 items. (default true)
       --aws-release-excess-ips                               Enable releasing excess free IP addresses from AWS ENI.
       --aws-use-primary-address                              Allows for using primary address of the ENI for allocations on the node
       --azure-resource-group string                          Resource group to use for Azure IPAM
@@ -106,8 +107,8 @@ cilium-operator [flags]
       --k8s-service-proxy-name string                        Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --kvstore string                                       Key-value store type
       --kvstore-lease-ttl duration                           Time-to-live for the KVstore lease. (default 15m0s)
-      --kvstore-max-consecutive-quorum-errors uint           Max acceptable kvstore consecutive quorum errors before the operator assumes permanent failure (default 2)
-      --kvstore-opt map                                      Key-value store options e.g. etcd.address=127.0.0.1:4001
+      --kvstore-max-consecutive-quorum-errors uint           Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
+      --kvstore-opt stringToString                           Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
       --leader-election-lease-duration duration              Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)
       --leader-election-renew-deadline duration              Duration that current acting master will retry refreshing leadership in before giving up the lock (default 10s)
       --leader-election-retry-period duration                Duration that LeaderElector clients should wait between retries of the actions (default 2s)

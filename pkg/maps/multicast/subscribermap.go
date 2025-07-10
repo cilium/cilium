@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 // compile time checks
@@ -102,7 +101,7 @@ func NewGroupV4Map(in ParamsIn) ParamsOut {
 	// must have "bpf_map_for_each_elem" helper available, if not, don't
 	// initialize the map, dependent code should be checking if their map
 	// dependency is nil or not.
-	if probes.HaveProgramHelper(logging.DefaultSlogLogger, ciliumebpf.SchedCLS, asm.FnForEachMapElem) != nil {
+	if probes.HaveProgramHelper(in.Logger, ciliumebpf.SchedCLS, asm.FnForEachMapElem) != nil {
 		in.Logger.Error("Disabled support for BPF Multicast due to missing kernel support (Linux 5.13 or later)")
 		return out
 	}

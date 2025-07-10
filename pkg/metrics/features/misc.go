@@ -4,28 +4,26 @@
 package features
 
 import (
-	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/legacy/redirectpolicy"
 )
 
-func (m Metrics) AddLRPConfig(_ *redirectpolicy.LRPConfig) {
+func (m Metrics) AddLRPConfig(_ loadbalancer.ServiceName) {
 	m.NPLRPIngested.WithLabelValues(actionAdd).Inc()
 }
 
-func (m Metrics) DelLRPConfig(_ *redirectpolicy.LRPConfig) {
+func (m Metrics) DelLRPConfig(_ loadbalancer.ServiceName) {
 	m.NPLRPIngested.WithLabelValues(actionDel).Inc()
 }
 
-func (m Metrics) AddService(svc *k8s.Service) {
-	if svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+func (m Metrics) AddService(svc *loadbalancer.Service) {
+	if svc != nil && svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
 		m.ACLBInternalTrafficPolicyIngested.WithLabelValues(actionAdd).Inc()
 	}
 }
 
-func (m Metrics) DelService(svc *k8s.Service) {
-	if svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+func (m Metrics) DelService(svc *loadbalancer.Service) {
+	if svc != nil && svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
 		m.ACLBInternalTrafficPolicyIngested.WithLabelValues(actionDel).Inc()
 	}
 }

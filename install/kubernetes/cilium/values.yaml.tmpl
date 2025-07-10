@@ -747,12 +747,16 @@ cni:
   # readCniConf: /host/etc/cni/net.d/05-sample.conflist.input
 
   # -- When defined, configMap will mount the provided value as ConfigMap and
-  # interpret the cniConf variable as CNI configuration file and write it
-  # when the agent starts up
-  # configMap: cni-configuration
+  # interpret the 'cni.configMapKey' value as CNI configuration file and write it
+  # when the agent starts up.
+  configMap: ""
 
   # -- Configure the key in the CNI ConfigMap to read the contents of
-  # the CNI configuration from.
+  # the CNI configuration from. For this to be effective, the 'cni.configMap'
+  # parameter must be specified too.
+  # Note that the 'cni.configMap' parameter is the name of the ConfigMap, while
+  # 'cni.configMapKey' is the name of the key in the ConfigMap data containing
+  # the actual configuration.
   configMapKey: cni-config
   # -- Configure the path to where to mount the ConfigMap inside the agent pod.
   confFileMountPath: /tmp/cni-configuration
@@ -856,9 +860,7 @@ forceDeviceDetection: false
 # -- Enable Kubernetes EndpointSlice feature in Cilium if the cluster supports it.
 # enableK8sEndpointSlice: true
 
-# -- Enable CiliumEndpointSlice feature (deprecated, please use `ciliumEndpointSlice.enabled` instead).
-enableCiliumEndpointSlice: false
-
+# -- CiliumEndpointSlice configuration options.
 ciliumEndpointSlice:
   # -- Enable Cilium EndpointSlice feature.
   enabled: false
@@ -874,14 +876,6 @@ ciliumEndpointSlice:
   - nodes: 100
     limit: 50
     burst: 100
-
-  # @schema
-  # enum: ["identity", "fcfs"]
-  # @schema
-  # -- The slicing mode to use for CiliumEndpointSlices.
-  # identity groups together CiliumEndpoints that share the same identity.
-  # fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
-  sliceMode: identity
 
 # @schema
 # enum: ["agent", "operator", "both"]
@@ -2128,13 +2122,24 @@ readinessProbe:
 kubeProxyReplacementHealthzBindAddr: ""
 l2NeighDiscovery:
   # -- Enable L2 neighbor discovery in the agent
-  enabled: true
-  # -- Override the agent's default neighbor resolution refresh period.
-  refreshPeriod: "30s"
+  enabled: false
 # -- Enable Layer 7 network policy.
 l7Proxy: true
-# -- Enable Local Redirect Policy.
+
+# -- Enable Local Redirect Policy (deprecated, please use 'localRedirectPolicies.enabled' instead)
 localRedirectPolicy: false
+
+localRedirectPolicies:
+  # -- Enable local redirect policies.
+  enabled: false
+  
+  # -- Limit the allowed addresses in Address Matcher rule of
+  # Local Redirect Policies to the given CIDRs.
+  # @schema@
+  # type: [null, array]
+  # @schema@
+  addressMatcherCIDRs: ~
+
 # To include or exclude matched resources from cilium identity evaluation
 # labels: ""
 
@@ -2247,10 +2252,6 @@ loadBalancer:
   # -- serviceTopology enables K8s Topology Aware Hints -based service
   # endpoints filtering
   # serviceTopology: false
-
-  # -- experimental enables support for the experimental load-balancing
-  # control-plane.
-  experimental: true
 
   # -- L7 LoadBalancer
   l7:
@@ -2904,12 +2905,18 @@ operator:
     kubernetes.io/os: linux
   # -- Node tolerations for cilium-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-  tolerations:
-    - operator: Exists
-      # - key: "key"
-      #   operator: "Equal|Exists"
-      #   value: "value"
-      #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
+  # @schema
+  # type: [null, array]
+  # @schema
+  tolerations: 
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: Exists
+    - key: "node-role.kubernetes.io/master" #deprecated
+      operator: Exists
+    - key: "node.kubernetes.io/not-ready"
+      operator: Exists
+    - key: "node.cilium.io/agent-not-ready"
+      operator: Exists
   # -- Additional cilium-operator container arguments.
   extraArgs: []
   # -- Additional cilium-operator environment variables.
@@ -3160,6 +3167,18 @@ preflight:
     digest: ${CILIUM_DIGEST}
     useDigest: ${USE_DIGESTS}
     pullPolicy: "${PULL_POLICY}"
+  envoy:
+    # -- Envoy pre-flight image.
+    image:
+      # @schema
+      # type: [null, string]
+      # @schema
+      override: ~
+      repository: "${CILIUM_ENVOY_REPO}"
+      tag: "${CILIUM_ENVOY_VERSION}"
+      pullPolicy: "${PULL_POLICY}"
+      digest: "${CILIUM_ENVOY_DIGEST}"
+      useDigest: true
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
   # -- preflight update strategy
@@ -3799,6 +3818,9 @@ dnsProxy:
   proxyResponseMaxDelay: 100ms
   # -- DNS proxy operation mode (true/false, or unset to use version dependent defaults)
   # enableTransparentMode: true
+  # -- Pre-allocate ToFQDN identities. This reduces DNS proxy tail latency, at the potential cost of some
+  # unnecessary policymap entries. Disable this if you have a large (200+) number of unique ToFQDN selectors.
+  preAllocateIdentities: true
 # -- SCTP Configuration Values
 sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.

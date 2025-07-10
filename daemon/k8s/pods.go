@@ -129,6 +129,7 @@ func podReflectorConfig(cs client.Clientset, pods statedb.RWTable[LocalPod]) k8s
 		Name:          reflectorName,
 		Table:         pods,
 		ListerWatcher: lw,
+		MetricScope:   "Pod",
 		Transform: func(_ statedb.ReadTxn, obj any) (LocalPod, bool) {
 			pod, ok := obj.(*slim_corev1.Pod)
 			if !ok {

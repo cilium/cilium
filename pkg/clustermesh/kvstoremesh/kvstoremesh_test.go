@@ -24,15 +24,14 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -243,7 +242,7 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			st := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 			fakeclock := baseclocktest.NewFakeClock(time.Now())
-			km := KVStoreMesh{backend: client, storeFactory: st, logger: hivetest.Logger(t), clock: fakeclock}
+			km := KVStoreMesh{client: client, storeFactory: st, logger: hivetest.Logger(t), clock: fakeclock}
 
 			rc := km.newRemoteCluster("foo", nil)
 			ready := make(chan error)
@@ -259,7 +258,7 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			// Assert that the cluster config got properly propagated
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				cfg, err := utils.GetClusterConfig(ctx, "foo", client)
+				cfg, err := clustercfg.Get(ctx, "foo", client)
 				assert.NoError(c, err)
 				assert.Equal(c, tt.dstcfg, cfg)
 			}, timeout, tick, "Failed to retrieve the cluster config")
@@ -326,7 +325,7 @@ func TestRemoteClusterRun(t *testing.T) {
 }
 
 type localClientWrapper struct {
-	kvstore.BackendOperations
+	kvstore.Client
 	errors map[string]uint
 }
 
@@ -336,7 +335,7 @@ func (lcw *localClientWrapper) Delete(ctx context.Context, key string) error {
 		return errors.New("fake error")
 	}
 
-	return lcw.BackendOperations.Delete(ctx, key)
+	return lcw.Client.Delete(ctx, key)
 }
 
 func (lcw *localClientWrapper) DeletePrefix(ctx context.Context, path string) error {
@@ -345,7 +344,7 @@ func (lcw *localClientWrapper) DeletePrefix(ctx context.Context, path string) er
 		return errors.New("fake error")
 	}
 
-	return lcw.BackendOperations.DeletePrefix(ctx, path)
+	return lcw.Client.DeletePrefix(ctx, path)
 }
 
 func TestRemoteClusterRemove(t *testing.T) {
@@ -372,7 +371,7 @@ func TestRemoteClusterRemove(t *testing.T) {
 	}
 
 	wrapper := &localClientWrapper{
-		BackendOperations: client,
+		Client: client,
 		errors: map[string]uint{
 			"cilium/cache/identities/v1/foobar/": 1,
 			"cilium/cluster-config/baz":          10,
@@ -381,7 +380,7 @@ func TestRemoteClusterRemove(t *testing.T) {
 
 	st := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 	fakeclock := baseclocktest.NewFakeClock(time.Now())
-	km := KVStoreMesh{backend: wrapper, storeFactory: st, logger: hivetest.Logger(t), clock: fakeclock}
+	km := KVStoreMesh{client: wrapper, storeFactory: st, logger: hivetest.Logger(t), clock: fakeclock}
 	rcs := make(map[string]*remoteCluster)
 	for _, cluster := range []string{"foo", "foobar", "baz"} {
 		rcs[cluster] = km.newRemoteCluster(cluster, nil).(*remoteCluster)
@@ -540,7 +539,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 	// Let's manually create a fake cluster configuration for the remote cluster,
 	// because we are using the same kvstore. This will be used as a synchronization
 	// point to stop the hive while blocked waiting for the grace period.
-	require.NoError(t, utils.SetClusterConfig(ctx, "remote", types.CiliumClusterConfig{ID: 20}, client))
+	require.NoError(t, clustercfg.Set(ctx, "remote", types.CiliumClusterConfig{ID: 20}, client))
 
 	var km *KVStoreMesh
 	h := hive.New(
@@ -550,11 +549,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 		cell.Provide(
 			func() types.ClusterInfo { return types.ClusterInfo{ID: 10, Name: "local"} },
 			func() Config { return DefaultConfig },
-			func() promise.Promise[kvstore.BackendOperations] {
-				clr, clp := promise.New[kvstore.BackendOperations]()
-				clr.Resolve(client)
-				return clp
-			},
+			func() (kvstore.Client, kvstore.Config) { return client, kvstore.Config{} },
 		),
 
 		cell.Invoke(func(km_ *KVStoreMesh) { km = km_ }),
@@ -619,7 +614,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 		},
 	}
 	st := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
-	km := KVStoreMesh{backend: client, storeFactory: st, logger: hivetest.Logger(t)}
+	km := KVStoreMesh{client: client, storeFactory: st, logger: hivetest.Logger(t)}
 
 	rc := km.newRemoteCluster("foo", func() *models.RemoteCluster {
 		return &models.RemoteCluster{

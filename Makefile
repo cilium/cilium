@@ -15,6 +15,7 @@ include Makefile.defs
 SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool tools/mount tools/sysctlfix plugins/cilium-cni
 SUBDIR_OPERATOR_CONTAINER := operator
 SUBDIR_RELAY_CONTAINER := hubble-relay
+SUBDIR_CLUSTERMESH_APISERVER_CONTAINER := clustermesh-apiserver
 
 ifdef LIBNETWORK_PLUGIN
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
@@ -24,7 +25,7 @@ endif
 -include Makefile.override
 
 # List of subdirectories used for global "make build", "make clean", etc
-SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools $(SUBDIR_RELAY_CONTAINER) bpf clustermesh-apiserver
+SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools $(SUBDIR_RELAY_CONTAINER) bpf $(SUBDIR_CLUSTERMESH_APISERVER_CONTAINER) cilium-cli
 
 # Filter out any directories where the parent directory is also present, to avoid
 # building or cleaning a subdirectory twice.
@@ -77,8 +78,26 @@ build-container-operator-alibabacloud: ## Builds components required for a ciliu
 build-container-hubble-relay:
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_RELAY_CONTAINER) all
 
+build-container-clustermesh-apiserver: ## Builds components required for the clustermesh-apiserver container.
+	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_CLUSTERMESH_APISERVER_CONTAINER) all
+
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
+
+tests-privileged-only: ## Run Go only the unit tests that require elevated privileges.
+	@$(ECHO_CHECK) running privileged tests...
+	## We split tests into two parts: one that can be run in parallel
+	## and tests that cannot be run in parallel with other packages
+	## One drawback of this approach is that
+	## if first set of tests fails, second one is not run
+	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(TESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" $(GOTEST_COVER_OPTS) \
+	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" \
+		-json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
+	tail -n+2 coverage2.out >> coverage.out
+	rm coverage2.out
+	$(MAKE) generate-cov
 
 tests-privileged: ## Run Go tests including ones that require elevated privileges.
 	@$(ECHO_CHECK) running privileged tests...
@@ -89,7 +108,8 @@ tests-privileged: ## Run Go tests including ones that require elevated privilege
 	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
 		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
 	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
-		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) -json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
+		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) \
+		-json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
 	tail -n+2 coverage2.out >> coverage.out
 	rm coverage2.out
 	$(MAKE) generate-cov
@@ -128,7 +148,7 @@ else
 endif
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
-integration-tests: start-kvstores ## Run Go tests including ones that are marked as integration tests.
+integration-tests: start-kvstores ## Run non-privileged Go tests and including ones that are marked as integration tests.
 	@$(ECHO_CHECK) running integration tests...
 	INTEGRATION_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
@@ -215,6 +235,9 @@ install-container-binary-hubble-relay:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_RELAY_CONTAINER) install-binary
 
+install-container-binary-clustermesh-apiserver: ## Install binaries for all components required for the clustermesh-apiserver container.
+	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_CLUSTERMESH_APISERVER_CONTAINER) install-binary
+
 # Workaround for not having git in the build environment
 # Touch the file only if needed
 GIT_VERSION: force
@@ -235,69 +258,73 @@ generate-apis: generate-api generate-health-api generate-hubble-api generate-ope
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-f api/v1/openapi.yaml \
 		--default-scheme=unix \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-f api/v1/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
 
 generate-health-api: api/v1/health/openapi.yaml ## Generate cilium-health client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/health/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-t api/v1/health/ \
 		-f api/v1/health/openapi.yaml \
 		--default-scheme=unix \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-t api/v1/health/ \
 		-f api/v1/health/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/health
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/health
 
 generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/operator/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-t api/v1/operator/ \
 		-f api/v1/operator/openapi.yaml \
 		--default-scheme=http \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-t api/v1/operator/ \
 		-f api/v1/operator/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/operator
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/operator
 
 generate-kvstoremesh-api: api/v1/kvstoremesh/openapi.yaml ## Generate kvstoremesh client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/kvstoremesh/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-t api/v1/kvstoremesh/ \
 		-f api/v1/kvstoremesh/openapi.yaml \
 		--default-scheme=http \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-t api/v1/kvstoremesh/ \
 		-f api/v1/kvstoremesh/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/kvstoremesh
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/kvstoremesh
 
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
@@ -439,12 +466,10 @@ endif
 	$(QUIET) contrib/scripts/check-xfrmstate.sh
 	@$(ECHO_CHECK) contrib/scripts/check-legacy-header-guard.sh
 	$(QUIET) contrib/scripts/check-legacy-header-guard.sh
-	@$(ECHO_CHECK) contrib/scripts/check-logrus.sh
-	$(QUIET) contrib/scripts/check-logrus.sh
-	@$(ECHO_CHECK) contrib/scripts/check-safenetlink.sh
-	$(QUIET) contrib/scripts/check-safenetlink.sh
 	@$(ECHO_CHECK) contrib/scripts/check-datapathconfig.sh
 	$(QUIET) contrib/scripts/check-datapathconfig.sh
+	@$(ECHO_CHECK) $(GO) run ./tools/slogloggercheck .
+	$(QUIET)$(GO) run ./tools/slogloggercheck .
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap

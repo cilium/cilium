@@ -23,6 +23,8 @@ var Cell = cell.Module(
 	"local-redirect-policies",
 	"Controller for CiliumLocalRedirectPolicy",
 
+	cell.Config(DefaultConfig),
+
 	cell.Provide(
 		// Provide Table[*LocalRedirectPolicy]. Used from replaceAPI.
 		statedb.RWTable[*LocalRedirectPolicy].ToTable,
@@ -59,23 +61,17 @@ var Cell = cell.Module(
 
 	metrics.Metric(newControllerMetrics),
 
-	// Replace the REST API implementation if enabled
-	cell.DecorateAll(replaceAPI),
+	cell.Provide(lrpAPI),
 )
 
-func replaceAPI(enabled lrpIsEnabled, old service.GetLrpHandler, db *statedb.DB, lrps statedb.Table[*LocalRedirectPolicy]) service.GetLrpHandler {
-	if !enabled {
-		return old
-	}
+func lrpAPI(enabled lrpIsEnabled, db *statedb.DB, lrps statedb.Table[*LocalRedirectPolicy]) service.GetLrpHandler {
 	return &getLrpHandler{db, lrps}
 }
 
 type lrpIsEnabled bool
 
 func newLRPIsEnabled(expConfig loadbalancer.Config, daemonConfig *option.DaemonConfig) lrpIsEnabled {
-	return lrpIsEnabled(
-		expConfig.EnableExperimentalLB && daemonConfig.EnableLocalRedirectPolicy,
-	)
+	return lrpIsEnabled(daemonConfig.EnableLocalRedirectPolicy)
 }
 
 type controllerMetrics struct {
@@ -94,4 +90,9 @@ func newControllerMetrics() controllerMetrics {
 			Buckets: []float64{.0005, .001, .0025, .005, .01, .025, .05, 0.1, 0.25, 0.5, 1.0},
 		}),
 	}
+}
+
+type LRPMetrics interface {
+	AddLRPConfig(loadbalancer.ServiceName)
+	DelLRPConfig(loadbalancer.ServiceName)
 }

@@ -401,8 +401,8 @@ func (res *CmdRes) Reset() {
 // SingleOut returns res's stdout as a string without any newline characters
 func (res *CmdRes) SingleOut() string {
 	strstdout := res.stdout.String()
-	strstdoutSingle := strings.Replace(strstdout, "\n", "", -1)
-	return strings.Replace(strstdoutSingle, "\r", "", -1)
+	strstdoutSingle := strings.ReplaceAll(strstdout, "\n", "")
+	return strings.ReplaceAll(strstdoutSingle, "\r", "")
 }
 
 // Unmarshal unmarshalls res's stdout into data. It assumes that the stdout of

@@ -65,7 +65,7 @@ env:
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 524.0.0
+  gcloud_version: 528.0.0
 
 jobs:
   echo-inputs:
@@ -249,6 +249,13 @@ jobs:
           native_cidr="$(gcloud container clusters describe ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }} --format 'value(clusterIpv4Cidr)')"
           echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
 
+      - name: Create ESP allow firewall rule
+        if: ${{ matrix.name == 'tunnel-ipsec' }}
+        uses: ./.github/actions/gke-create-esp-rule
+        with:
+          cluster_name: ${{ env.clusterName }}-${{ matrix.index }}
+          cluster_zone: ${{ env.gcp_zone }}
+
       - name: Get cluster credentials
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }}
@@ -260,7 +267,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -296,11 +303,19 @@ jobs:
           sudo chmod -R +r ./output
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && matrix.mode != 'baseline' }}
         uses: ./.github/actions/post-logic
         with:
+          always_capture_sysdump: true
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
+
+      - name: Clean up ESP allow firewall rule
+        if: ${{ always() && matrix.name == 'tunnel-ipsec' }}
+        uses: ./.github/actions/gke-clean-esp-rule
+        with:
+          cluster_name: ${{ env.clusterName }}-${{ matrix.index }}
+          cluster_zone: ${{ env.gcp_zone }}
 
       - name: Clean up GKE
         if: ${{ always() }}
@@ -311,13 +326,23 @@ jobs:
           gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }} --quiet --async
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
+      # We needed to configure a unique suffix to ensure that the artifacts can
+      # be correctly uploaded, but we want the sysdump to have a fixed name when
+      # uploading it to the GS bucket.
+      - name: Rename sysdump before uploading it to the GS bucket
+        if : ${{ always() && matrix.mode != 'baseline' }}
+        run: |
+          mv "cilium-sysdump-${{ env.job_name }} (${{ join(matrix.*, ', ') }}).zip" cilium-sysdump-final.zip
+
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@b83e200cdea7099967b48cdad1d7275b949f7dc0 # main
+        uses: cilium/scale-tests-action/export-results@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
         with:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
+          tested_sha: ${{ inputs.SHA || github.sha }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
-          artifacts: ./output/*
+          artifacts: ./output/
+          results_regex: 'NetworkPerformance*'
           other_files: ${{ matrix.mode != 'baseline' && 'cilium-sysdump-final.zip' || '' }}
 
   merge-upload-and-status:

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 // This test fuzzes the incremental update engine from an end-to-end perspective
@@ -44,7 +45,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	idcache := make(identity.IdentityMap, testfactor)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
-	repo := policy.NewPolicyRepository(hivetest.Logger(t), fakeAllocator.GetIdentityCache(), nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(hivetest.Logger(t), fakeAllocator.GetIdentityCache(), nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
 		t.Helper()

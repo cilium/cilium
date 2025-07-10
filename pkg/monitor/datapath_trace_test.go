@@ -47,7 +47,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 	require.NoError(t, err)
 
 	out := TraceNotify{}
-	err = DecodeTraceNotify(buf.Bytes(), &out)
+	err = out.Decode(buf.Bytes())
 	require.NoError(t, err)
 	require.Equal(t, in.Type, out.Type)
 	require.Equal(t, in.ObsPoint, out.ObsPoint)
@@ -67,14 +67,14 @@ func TestDecodeTraceNotify(t *testing.T) {
 
 func TestDecodeTraceNotifyErrors(t *testing.T) {
 	tn := TraceNotify{}
-	err := DecodeTraceNotify([]byte{}, &tn)
+	err := tn.Decode([]byte{})
 	require.Error(t, err)
 	require.Equal(t, "unexpected TraceNotify data length, expected at least 32 but got 0", err.Error())
 
 	// invalid version
 	ev := make([]byte, traceNotifyV1Len)
 	ev[14] = 0xff
-	err = DecodeTraceNotify(ev, &tn)
+	err = tn.Decode(ev)
 	require.Error(t, err)
 	require.Equal(t, "Unrecognized trace event (version 255)", err.Error())
 }
@@ -104,6 +104,16 @@ func TestIsEncrypted(t *testing.T) {
 			require.Equal(t, tc.encrypted, tn.IsEncrypted())
 		})
 	}
+}
+
+func TestTraceFlags(t *testing.T) {
+	tn := &TraceNotify{
+		Flags: 0x0f,
+	}
+	require.True(t, tn.IsIPv6())
+	require.True(t, tn.IsL3Device())
+	require.True(t, tn.IsVXLAN())
+	require.True(t, tn.IsGeneve())
 }
 
 func TestTraceReason(t *testing.T) {
@@ -313,7 +323,7 @@ func BenchmarkDecodeTraceNotifyVersion0(b *testing.B) {
 
 	for b.Loop() {
 		tn := &TraceNotify{}
-		if err := tn.decodeTraceNotify(buf.Bytes()); err != nil {
+		if err := tn.Decode(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -331,7 +341,7 @@ func BenchmarkDecodeTraceNotifyVersion1(b *testing.B) {
 
 	for b.Loop() {
 		tn := &TraceNotify{Version: TraceNotifyVersion1}
-		if err := tn.decodeTraceNotify(buf.Bytes()); err != nil {
+		if err := tn.Decode(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}

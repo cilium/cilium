@@ -29,6 +29,7 @@ cilium-agent hive dot-graph [flags]
       --bpf-lb-map-max int                                        Maximum number of entries in Cilium BPF lbmap (default 65536)
       --bpf-lb-mode string                                        BPF load balancing mode ("snat", "dsr", "hybrid") (default "snat")
       --bpf-lb-mode-annotation                                    Enable service-level annotation for configuring BPF load balancing mode
+      --bpf-lb-sock                                               Enable socket-based LB for E/W traffic
       --bpf-lb-source-range-all-types                             Propagate loadbalancerSourceRanges to all corresponding service types
       --bpf-node-map-max uint32                                   Sets size of node bpf map which will be the max number of unique Node IPs in the cluster (default 16384)
       --bpf-policy-map-max int                                    Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
@@ -72,6 +73,7 @@ cilium-agent hive dot-graph [flags]
       --enable-ipv6-big-tcp                                       Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
       --enable-k8s                                                Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                  Enable discovery of Kubernetes API groups and resources with the discovery API
+      --enable-l2-neigh-discovery                                 Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec
       --enable-l2-pod-announcements                               Enable announcing Pod IPs with Gratuitous ARP
       --enable-monitor                                            Enable the monitor unix domain socket server (default true)
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
@@ -138,6 +140,8 @@ cilium-agent hive dot-graph [flags]
       --hubble-tls-cert-file string                               Path to the public key file for the Hubble server. The file must contain PEM encoded data.
       --hubble-tls-client-ca-files strings                        Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
       --hubble-tls-key-file string                                Path to the private key file for the Hubble server. The file must contain PEM encoded data.
+      --identity-allocation-sync-interval duration                Periodic synchronization interval of the allocated identities (default 5m0s)
+      --identity-allocation-timeout duration                      Timeout for identity allocation operations (default 2m0s)
       --identity-management-mode string                           Configure whether Cilium Identities are managed by cilium-agent, cilium-operator, or both (default "agent")
       --ignore-flags-drift-checker strings                        Ignores specified flags during drift checking
       --ingress-secrets-namespace string                          IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
@@ -151,9 +155,15 @@ cilium-agent hive dot-graph [flags]
       --k8s-heartbeat-timeout duration                            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                                Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                             Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
+      --kube-proxy-replacement string                             Enable kube-proxy replacement (default "false")
       --kube-proxy-replacement-healthz-bind-address string        The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.
+      --kvstore string                                            Key-value store type
+      --kvstore-lease-ttl duration                                Time-to-live for the KVstore lease. (default 15m0s)
+      --kvstore-max-consecutive-quorum-errors uint                Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
+      --kvstore-opt stringToString                                Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
       --l2-pod-announcements-interface-pattern string             Regex matching interfaces used for sending gratuitous arp messages
       --lb-state-file string                                      Synchronize load-balancing state from the specified file
+      --lrp-address-matcher-cidrs strings                         Limit address matches to specific CIDRs
       --max-connected-clusters uint32                             Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
       --mesh-auth-enabled                                         Enable authentication processing & garbage collection (beta) (default true)
       --mesh-auth-gc-interval duration                            Interval in which auth entries are attempted to be garbage collected (default 5m0s)
@@ -203,6 +213,7 @@ cilium-agent hive dot-graph [flags]
       --status-collector-probe-check-timeout duration             The timeout after which all probes should have finished at least once (default 5m0s)
       --status-collector-stackdump-path string                    The path where probe stackdumps should be written to (default "/run/cilium/state/agent.stack.gz")
       --status-collector-warning-threshold duration               The duration after which a probe is declared as stale (default 15s)
+      --tofqdns-preallocate-identities                            Preallocate identities for ToFQDN selectors. This reduces proxied DNS response latency. Disable if you have many ToFQDN selectors. (default true)
       --tunnel-port uint16                                        Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --tunnel-protocol string                                    Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")
       --tunnel-source-port-range string                           Tunnel source port range hint (default 0-0) (default "0-0")

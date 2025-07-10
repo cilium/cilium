@@ -104,7 +104,7 @@ func BenchmarkSplitID(b *testing.B) {
 	b.ReportAllocs()
 }
 
-func TestParse(t *testing.T) {
+func TestPrivilegedParse(t *testing.T) {
 	type test struct {
 		input      PrefixType
 		wantPrefix PrefixType
