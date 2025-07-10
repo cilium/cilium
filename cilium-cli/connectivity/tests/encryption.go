@@ -289,6 +289,17 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	client, server, clientHost *check.Pod, serverHost *check.Pod,
 	reqType requestType, ipFam features.IPFamily, assertNoLeaks, biDirCheck, wgEncap bool,
 ) {
+	var finalizers []func() error
+
+	// on exit, run registered finalizers
+	defer func() {
+		for _, f := range finalizers {
+			if err := f(); err != nil {
+				t.Infof("Failed to run finalizer: %w", err)
+			}
+		}
+	}()
+
 	srcFilter := getFilter(ctx, t, client, clientHost, server, serverHost, ipFam, reqType, wgEncap)
 	srcIface := getInterNodeIface(ctx, t, client, clientHost, server, serverHost, ipFam, wgEncap)
 
@@ -297,20 +308,22 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 		snifferMode = sniff.ModeSanity
 	}
 
-	srcSniffer, err := sniff.Sniff(ctx, s.Name(), clientHost, srcIface, srcFilter, snifferMode, t)
+	srcSniffer, cancel, err := sniff.Sniff(ctx, s.Name(), clientHost, srcIface, srcFilter, snifferMode, t)
 	if err != nil {
 		t.Fatal(err)
 	}
+	finalizers = append(finalizers, cancel)
 
 	var dstSniffer *sniff.Sniffer
 	if biDirCheck {
 		dstFilter := getFilter(ctx, t, server, serverHost, client, clientHost, ipFam, reqType, wgEncap)
 		dstIface := getInterNodeIface(ctx, t, server, serverHost, client, clientHost, ipFam, wgEncap)
 
-		dstSniffer, err = sniff.Sniff(ctx, s.Name(), serverHost, dstIface, dstFilter, snifferMode, t)
+		dstSniffer, cancel, err = sniff.Sniff(ctx, s.Name(), serverHost, dstIface, dstFilter, snifferMode, t)
 		if err != nil {
 			t.Fatal(err)
 		}
+		finalizers = append(finalizers, cancel)
 	}
 
 	switch reqType {
