@@ -106,6 +106,7 @@ type podToPodEncryptionV2 struct {
 	serverFilter6  string
 	clientSniffer6 *sniff.Sniffer
 	serverSniffer6 *sniff.Sniffer
+	finalizers     []func() error
 }
 
 func (s *podToPodEncryptionV2) Name() string {
@@ -461,19 +462,22 @@ func (s *podToPodEncryptionV2) startSniffers(ctx context.Context, t *check.Test)
 	}
 
 	var err error
+	var cancel func() error
 
 	if s.ipv4Enabled.Enabled {
-		s.clientSniffer4, err = sniff.Sniff(ctx, s.Name(), s.clientHostNS, s.clientEgressDev, s.clientFilter4, mode, t)
+		s.clientSniffer4, cancel, err = sniff.Sniff(ctx, s.Name(), s.clientHostNS, s.clientEgressDev, s.clientFilter4, mode, t)
 		if err != nil {
 			return fmt.Errorf("Failed to start sniffer on client: %w", err)
 		}
+		s.finalizers = append(s.finalizers, cancel)
 		t.Debugf("started client tcpdump sniffer: [client: %s] [node: %s] [dev: %s] [filter: %s] [mode: %s]",
 			s.client.Pod.Name, s.client.Pod.Spec.NodeName, s.clientEgressDev, s.clientFilter4, mode)
 
-		s.serverSniffer4, err = sniff.Sniff(ctx, s.Name(), s.serverHostNS, s.serverEgressDev, s.serverFilter4, mode, t)
+		s.serverSniffer4, cancel, err = sniff.Sniff(ctx, s.Name(), s.serverHostNS, s.serverEgressDev, s.serverFilter4, mode, t)
 		if err != nil {
 			return fmt.Errorf("Failed to start sniffer on server: %w", err)
 		}
+		s.finalizers = append(s.finalizers, cancel)
 		t.Debugf("started server tcpdump sniffer: [server: %s] [node: %s] [dev: %s] [filter: %s] [mode: %s]",
 			s.server.Pod.Name, s.server.Pod.Spec.NodeName, s.serverEgressDev, s.serverFilter4, mode)
 	}
@@ -501,17 +505,19 @@ func (s *podToPodEncryptionV2) startSniffers(ctx context.Context, t *check.Test)
 		// write to the same pcap file and this can break validation.
 		name := fmt.Sprintf("%s-ipv6", s.Name())
 
-		s.clientSniffer6, err = sniff.Sniff(ctx, name, s.clientHostNS, s.clientEgressDev, s.clientFilter6, mode, t)
+		s.clientSniffer6, cancel, err = sniff.Sniff(ctx, name, s.clientHostNS, s.clientEgressDev, s.clientFilter6, mode, t)
 		if err != nil {
 			return fmt.Errorf("Failed to start sniffer on client for IPv6: %w", err)
 		}
+		s.finalizers = append(s.finalizers, cancel)
 		t.Debugf("started client tcpdump sniffer for IPv6: [client: %s] [node: %s] [dev: %s] [filter: %s] [mode: %s]",
 			s.client.Pod.Name, s.client.Pod.Spec.NodeName, s.clientEgressDev, s.clientFilter6, mode)
 
-		s.serverSniffer6, err = sniff.Sniff(ctx, name, s.serverHostNS, s.serverEgressDev, s.serverFilter6, mode, t)
+		s.serverSniffer6, cancel, err = sniff.Sniff(ctx, name, s.serverHostNS, s.serverEgressDev, s.serverFilter6, mode, t)
 		if err != nil {
 			return fmt.Errorf("Failed to start sniffer on server for IPv6: %w", err)
 		}
+		s.finalizers = append(s.finalizers, cancel)
 		t.Debugf("started server tcpdump sniffer for IPv6: [server: %s] [node: %s] [dev: %s] [filter: %s] [mode: %s]",
 			s.server.Pod.Name, s.server.Pod.Spec.NodeName, s.serverEgressDev, s.serverFilter6, mode)
 	}
@@ -555,6 +561,15 @@ func (s *podToPodEncryptionV2) clientToServerTest(ctx context.Context, t *check.
 
 func (s *podToPodEncryptionV2) Run(ctx context.Context, t *check.Test) {
 	s.ct = t.Context()
+
+	// on exit, run registered finalizers
+	defer func() {
+		for _, f := range s.finalizers {
+			if err := f(); err != nil {
+				t.Infof("Failed to run finalizer: %w", err)
+			}
+		}
+	}()
 
 	// grab the features influencing this test
 	var ok bool
