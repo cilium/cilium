@@ -47,7 +47,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
     ./iptables-wrapper-installer.sh --no-sanity-check
 
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
-COPY --from=bpftool-dist /usr/local /usr/local
+COPY --from=bpftool-dist /usr/local/bin/bpftool /usr/local/bin/bpftool
 
 ARG TARGETPLATFORM
 COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/loopback /cni/loopback
