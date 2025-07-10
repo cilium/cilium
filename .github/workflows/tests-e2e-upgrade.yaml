@@ -104,7 +104,7 @@ jobs:
         id: generate-matrix
         run: |
           cd /tmp/generated/e2e
-          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+          jq '[.[] | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
           echo "matrix=$(jq -c . < /tmp/generated/e2e/matrix.json)" >> $GITHUB_OUTPUT
@@ -126,8 +126,8 @@ jobs:
 
   setup-and-test:
     needs: [wait-for-images, generate-matrix]
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     name: 'Setup & Test'
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     env:
       job_name: 'Setup & Test'
     strategy:
@@ -136,7 +136,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
-    timeout-minutes: 55
+    timeout-minutes: 75
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -324,7 +324,7 @@ jobs:
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
           if ${{ matrix.encryption == 'ipsec' }}; then
-            cilium encrypt create-key --auth-algo rfc4106-gcm-aes
+            cilium encrypt create-key --auth-algo ${{ matrix.key-one }}
           fi
 
           if ${{ matrix.skip-upgrade != 'true' }}; then
@@ -432,14 +432,43 @@ jobs:
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
-      - name: Setup conn-disrupt-test before downgrading
-        uses: ./.github/actions/conn-disrupt-test-setup
-
       - name: Features tested before downgrade
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested before downgrade"
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before downgrade"
+
+      - name: Start unencrypted packets check for key rotation
+        if: ${{ matrix.encryption == 'ipsec' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+          # As we are not testing with proxy connections during key rotation,
+          # disable the check for proxy traffic.
+          args: ${{ steps.bpftrace-params.outputs.params }} "false" "ipsec"
+
+      - name: Setup conn-disrupt-test before rotating (${{ join(matrix.*, ', ') }})
+        if: ${{ matrix.encryption == 'ipsec' }}
+        uses: ./.github/actions/conn-disrupt-test-setup
+
+      - name: Rotate IPsec Key (${{ join(matrix.*, ', ') }})
+        if: ${{ matrix.encryption == 'ipsec' }}
+        uses: ./.github/actions/ipsec-key-rotate
+        with:
+          key-algo: ${{ matrix.key-two }}
+
+      - name: Assert that no unencrypted packets are leaked during key rotation
+        if: ${{ matrix.encryption == 'ipsec' }}
+        uses: ./.github/actions/bpftrace/check
+
+      - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
+        if: ${{ matrix.encryption == 'ipsec' }}
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: ${{ env.job_name }}-${{ matrix.name }}-post-rotate
+
+      - name: Setup conn-disrupt-test before downgrading
+        uses: ./.github/actions/conn-disrupt-test-setup
 
       - name: Start unencrypted packets check for downgrade
         if: ${{ matrix.encryption != '' }}
@@ -448,7 +477,6 @@ jobs:
           # disable the check for proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
-
 
       - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
