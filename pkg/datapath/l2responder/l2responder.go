@@ -249,6 +249,7 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 			return
 		}
 		e.satisfied = true
+		desiredMap[*key] = e
 	})
 	var toDelete6 []*l2v6respondermap.L2V6ResponderKey
 	ndMap.IterateWithCallback(func(key *l2v6respondermap.L2V6ResponderKey, _ *l2respondermap.L2ResponderStats) {
@@ -258,6 +259,7 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 			return
 		}
 		e.satisfied = true
+		desiredMap6[*key] = e
 	})
 
 	// Delete all unwanted map values
