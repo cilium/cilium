@@ -558,7 +558,6 @@ int icmp6_send_echo_reply(struct __ctx_buff *ctx)
 	union macaddr dmac = {};
 	struct in6_addr saddr;
 	struct in6_addr daddr;
-	__wsum csum;
 	int ret;
 
 	if (!__revalidate_data_pull(ctx, &data, &data_end, (void **)&ip6,
@@ -604,27 +603,27 @@ int icmp6_send_echo_reply(struct __ctx_buff *ctx)
 	icmphdr->icmp6_type = ICMPV6_ECHO_REPLY;
 	icmphdr->icmp6_code = 0;
 
-	/* Update ICMPv6 checksum - account for type change and IPv6 address changes */
-	/* First, account for the type change from ECHO_REQUEST to ECHO_REPLY */
-	csum = csum_diff(&((__u8[]){ICMPV6_ECHO_REQUEST, 0}), 2, &icmphdr->icmp6_type, 2, 0);
-	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr) +
-			      offsetof(struct icmp6hdr, icmp6_cksum),
-			      0, csum, BPF_F_PSEUDO_HDR);
-	if (ret < 0)
-		return ret;
+	/* Revalidate data pointers to get updated IPv6 header */
+	if (!__revalidate_data_pull(ctx, &data, &data_end, (void **)&ip6,
+				    ETH_HLEN, sizeof(struct ipv6hdr), false))
+		return DROP_INVALID;
+
+	/* Update ICMP header pointer after revalidation */
+	icmphdr = (struct icmp6hdr *)(data + sizeof(struct ethhdr) + sizeof(struct ipv6hdr));
+	if ((void *)(icmphdr + 1) > data_end)
+		return DROP_INVALID;
+
+	/* Recalculate ICMPv6 checksum from scratch using proper checksum computation */
+	__u16 icmp6_len = bpf_ntohs(ip6->payload_len);
+	/* Bounds check for verifier - typical ICMP echo packets are small */
+	if (icmp6_len > 1024)
+		return DROP_INVALID;
 	
-	/* Then account for the IPv6 address changes in the pseudo-header */
-	csum = csum_diff(&saddr, 16, &daddr, 16, 0);
+	__be32 sum = csum_diff(NULL, 0, icmphdr, icmp6_len, 0);
+	sum = ipv6_pseudohdr_checksum(ip6, IPPROTO_ICMPV6, icmp6_len, sum);
 	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr) +
 			      offsetof(struct icmp6hdr, icmp6_cksum),
-			      0, csum, BPF_F_PSEUDO_HDR);
-	if (ret < 0)
-		return ret;
-	
-	csum = csum_diff(&daddr, 16, &saddr, 16, 0);
-	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr) +
-			      offsetof(struct icmp6hdr, icmp6_cksum),
-			      0, csum, BPF_F_PSEUDO_HDR);
+			      0, sum, BPF_F_PSEUDO_HDR);
 	if (ret < 0)
 		return ret;
 
