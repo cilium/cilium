@@ -76,7 +76,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		sniffer.cmd = append([]string{"tcpdump"}, append(args, "\""+filter+"\"")...)
 		// Wait for stdout to be available before starting tcpdump to avoid a race condition
 		// where tcpdump fails with error 14 (Broken pipe) due to missing output stream.
-		sniffer.cmd = append([]string{"sh", "-c"}, "while [ ! -e /proc/$$/fd/1 ] || [ ! -w /proc/$$/fd/1 ]; do sleep 1; done; "+strings.Join(sniffer.cmd, " "))
+		sniffer.cmd = append([]string{"sh", "-c"}, "while [ ! -e /proc/$$/fd/1 ] || [ ! -w /proc/$$/fd/1 ]; do sleep 0.5; done; "+strings.Join(sniffer.cmd, " "))
 
 		dbg.Debugf("Running sniffer in background on %s (%s), mode=%s: %s",
 			target.String(), target.NodeName(), mode, strings.Join(sniffer.cmd, " "))
