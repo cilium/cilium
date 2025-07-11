@@ -1,3 +1,5 @@
+.. _ingress_reference:
+
 Reference
 #########
 
@@ -53,6 +55,13 @@ This means that, when applying Network Policy to a cluster, it's important to
 ensure that both steps are allowed, and that traffic is allowed from ``world`` to
 ``ingress``, and from ``ingress`` to identities in the cluster (like the
 ``productpage`` identity in the image above).
+
+.. warning::
+   Be aware that that the client's source IP is **not** preserved by the ingress, so 
+   ``ciliumclusterwidenetworkpolicies.cilium.io``, ``ciliumnetworkpolicies.cilium.io`` 
+   and ``networkpolicies.networking.k8s.io`` can not match on it at the backend node 
+   (see also `GH#34786 <https://github.com/cilium/cilium/issues/34786>`__ for further 
+   details).
 
 Please see the :ref:`gs_ingress_and_network_policy` for more details for Ingress,
 although the same principles also apply for Gateway API.
