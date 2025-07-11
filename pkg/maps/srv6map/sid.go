@@ -70,8 +70,14 @@ func (m *SIDMap) IterateWithCallback(cb SRv6SIDIterateCallback) error {
 }
 
 func newSIDMap(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*SIDMap], defines.NodeOut) {
+	nodeOut := defines.NodeOut{
+		NodeDefines: defines.Map{
+			"SRV6_SID_MAP_SIZE": strconv.FormatUint(maxSIDEntries, 10),
+		},
+	}
+
 	if !dc.EnableSRv6 {
-		return bpf.MapOut[*SIDMap]{}, defines.NodeOut{}
+		return bpf.MapOut[*SIDMap]{}, nodeOut
 	}
 
 	m := bpf.NewMap(
@@ -91,12 +97,6 @@ func newSIDMap(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*SIDMap],
 			return m.Close()
 		},
 	})
-
-	nodeOut := defines.NodeOut{
-		NodeDefines: defines.Map{
-			"SRV6_SID_MAP_SIZE": strconv.FormatUint(maxSIDEntries, 10),
-		},
-	}
 
 	return bpf.NewMapOut(&SIDMap{m}), nodeOut
 }

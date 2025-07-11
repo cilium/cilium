@@ -4,6 +4,7 @@
 package bpf
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,6 +15,8 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 
+	"github.com/cilium/cilium/pkg/bpf/analyze"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -271,6 +274,12 @@ reset:
 // objects to the given object. It is a wrapper around [LoadCollection]. See its
 // documentation for more details on the loading process.
 func LoadAndAssign(logger *slog.Logger, to any, spec *ebpf.CollectionSpec, opts *CollectionOptions) (func() error, error) {
+	keep, err := analyze.Fields(to)
+	if err != nil {
+		return nil, fmt.Errorf("analyzing fields of %T: %w", to, err)
+	}
+	opts.Keep = keep
+
 	coll, commit, err := LoadCollection(logger, spec, opts)
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
@@ -299,6 +308,9 @@ type CollectionOptions struct {
 	// Maps to be renamed during loading. Key is the key in CollectionSpec.Maps,
 	// value is the new name.
 	MapRenames map[string]string
+
+	// Set of objects to keep during reachability pruning.
+	Keep *set.Set[string]
 }
 
 // LoadCollection loads the given spec into the kernel with the specified opts.
@@ -312,11 +324,6 @@ type CollectionOptions struct {
 // function should only be run after all entrypoints have been attached. For
 // example, attach both bpf_host.c:cil_to_netdev and cil_from_netdev before
 // invoking the returned function, otherwise missing tail calls will occur.
-//
-// The value given in ProgramOptions.LogSize is used as the starting point for
-// sizing the verifier's log buffer and defaults to 4MiB. On each retry, the log
-// buffer quadruples in size, for a total of 5 attempts. If that proves
-// insufficient, a truncated ebpf.VerifierError is returned.
 //
 // Any maps marked as pinned in the spec are automatically loaded from the path
 // given in opts.Maps.PinPath and will be used instead of creating new ones.
@@ -346,6 +353,11 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, fmt.Errorf("applying variable overrides: %w", err)
 	}
 
+	keep, err := removeUnusedMaps(spec, opts.Keep)
+	if err != nil {
+		return nil, nil, fmt.Errorf("pruning unused maps: %w", err)
+	}
+
 	// Find and strip all CILIUM_PIN_REPLACE pinning flags before creating the
 	// Collection. ebpf-go will reject maps with pins it doesn't recognize.
 	toReplace := consumePinReplace(spec)
@@ -369,6 +381,13 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if logger.Enabled(context.Background(), slog.LevelDebug) {
+		if err := verifyUnusedMaps(coll, keep); err != nil {
+			return nil, nil, fmt.Errorf("verifying unused maps: %w", err)
+		}
+		logger.Debug("Verified no unused maps after loading Collection")
 	}
 
 	// Collect Maps that need their bpffs pins replaced. Pull out Map objects

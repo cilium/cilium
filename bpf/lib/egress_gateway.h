@@ -10,6 +10,24 @@
 #include "encap.h"
 #include "eps.h"
 
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct egress_gw_policy_key);
+	__type(value, struct egress_gw_policy_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_egress_gw_policy_v4 __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct egress_gw_policy_key6);
+	__type(value, struct egress_gw_policy_entry6);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_egress_gw_policy_v6 __section_maps_btf;
+
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 
 /* EGRESS_STATIC_PREFIX represents the size in bits of the static prefix part of
@@ -66,15 +84,6 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 }
 
 # ifdef ENABLE_EGRESS_GATEWAY
-struct {
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
-	__type(key, struct egress_gw_policy_key);
-	__type(value, struct egress_gw_policy_entry);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_egress_gw_policy_v4 __section_maps_btf;
-
 static __always_inline
 struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 {
@@ -261,15 +270,6 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_IPV6
 #ifdef ENABLE_EGRESS_GATEWAY
-struct {
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
-	__type(key, struct egress_gw_policy_key6);
-	__type(value, struct egress_gw_policy_entry6);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_egress_gw_policy_v6 __section_maps_btf;
-
 static __always_inline
 struct egress_gw_policy_entry6 *lookup_ip6_egress_gw_policy(const union v6addr *saddr,
 							    const union v6addr *daddr)
