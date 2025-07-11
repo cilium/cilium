@@ -1297,8 +1297,6 @@ type L4PolicyMap interface {
 	MatchesLabels(port, protocol string, labels labels.LabelArray) (match, isDeny bool)
 	Detach(selectorCache *SelectorCache)
 	ForEach(func(l4 *L4Filter) bool)
-	TestingOnlyEquals(bMap L4PolicyMap) bool
-	TestingOnlyDiff(expectedMap L4PolicyMap) string
 	Len() int
 }
 
@@ -1486,57 +1484,6 @@ func (l4M *l4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 			return
 		}
 	}
-}
-
-// Equals returns true if both L4PolicyMaps are equal.
-func (l4M *l4PolicyMap) TestingOnlyEquals(bMap L4PolicyMap) bool {
-	if l4M.Len() != bMap.Len() {
-		return false
-	}
-	equal := true
-	l4M.ForEach(func(l4 *L4Filter) bool {
-		port := l4.PortName
-		if len(port) == 0 {
-			port = fmt.Sprintf("%d", l4.Port)
-		}
-		l4B := bMap.ExactLookup(port, l4.EndPort, string(l4.Protocol))
-		equal = l4.Equals(l4B)
-		return equal
-	})
-	return equal
-}
-
-// Diff returns the difference between to L4PolicyMaps.
-func (l4M *l4PolicyMap) TestingOnlyDiff(expected L4PolicyMap) (res string) {
-	res += "Missing (-), Unexpected (+):\n"
-	expected.ForEach(func(eV *L4Filter) bool {
-		port := eV.PortName
-		if len(port) == 0 {
-			port = fmt.Sprintf("%d", eV.Port)
-		}
-		oV := l4M.ExactLookup(port, eV.Port, string(eV.Protocol))
-		if oV != nil {
-			if !eV.Equals(oV) {
-				res += "- " + eV.String() + "\n"
-				res += "+ " + oV.String() + "\n"
-			}
-		} else {
-			res += "- " + eV.String() + "\n"
-		}
-		return true
-	})
-	l4M.ForEach(func(oV *L4Filter) bool {
-		port := oV.PortName
-		if len(port) == 0 {
-			port = fmt.Sprintf("%d", oV.Port)
-		}
-		eV := expected.ExactLookup(port, oV.Port, string(oV.Protocol))
-		if eV == nil {
-			res += "+ " + oV.String() + "\n"
-		}
-		return true
-	})
-	return
 }
 
 // Len returns the number of entries in the map.
