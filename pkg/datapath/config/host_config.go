@@ -12,6 +12,8 @@ type BPFHost struct {
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
+	// Drop traffic to non-existent ports on virtual IPs.
+	DropTrafficToVirtualIps bool `config:"drop_traffic_to_virtual_ips"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Length of the Ethernet header on this device. May be set to zero on L2-less
@@ -25,6 +27,8 @@ type BPFHost struct {
 	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
+	// Reply to ICMP echo requests on virtual IPs.
+	ReplyToIcmpEchoOnVirtualIps bool `config:"reply_to_icmp_echo_on_virtual_ips"`
 	// Pull security context from IP cache.
 	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 	// The endpoint's security label.
@@ -34,8 +38,8 @@ type BPFHost struct {
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{0x5dc, false, 0xe, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFHost{0x5dc, false, false, 0xe, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, 0x0, node}
+		false, false, 0x0, node}
 }

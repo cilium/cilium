@@ -500,6 +500,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash1)
 
+	if cfg.LBConfig.DropTrafficToVirtualIPs {
+		cDefinesMap["ENABLE_DROP_VIRTUAL_IP_TRAFFIC"] = "1"
+	}
+
+	if cfg.LBConfig.ReplyToICMPEchoOnVirtualIPs {
+		cDefinesMap["ENABLE_VIRTUAL_IP_ICMP_ECHO_REPLY"] = "1"
+	}
+
 	if option.Config.DirectRoutingDeviceRequired(h.kprCfg) {
 		drd := cfg.DirectRoutingDevice
 		if option.Config.EnableIPv4 {

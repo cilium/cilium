@@ -29,7 +29,7 @@ assign_socket_tcp(struct __ctx_buff *ctx,
 
 	dbg_ctx = READ_ONCE(sk)->family << 16 | ctx->protocol;
 	result = sk_assign(ctx, sk, 0);
-	cilium_dbg(ctx, DBG_SK_ASSIGN, -result, dbg_ctx);
+	cilium_dbg(ctx, DBG_SK_ASSIGN, (__u32)(-result), dbg_ctx);
 	if (result == 0)
 		result = CTX_ACT_OK;
 	else
@@ -58,7 +58,7 @@ assign_socket_udp(struct __ctx_buff *ctx,
 
 	dbg_ctx = READ_ONCE(sk)->family << 16 | ctx->protocol;
 	result = sk_assign(ctx, sk, 0);
-	cilium_dbg(ctx, DBG_SK_ASSIGN, -result, dbg_ctx);
+	cilium_dbg(ctx, DBG_SK_ASSIGN, (__u32)(-result), dbg_ctx);
 	if (result == 0)
 		result = CTX_ACT_OK;
 	else
