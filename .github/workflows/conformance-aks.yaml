@@ -1,4 +1,19 @@
 name: Conformance AKS (ci-aks)
+  
+  
+  az group create -l eastus -n byocni
+  
+  az network vnet create -g byocni --location canadacentral --name byocni-vnet --address-prefixes 192.168.8.0/22 -o none
+  
+  az network vnet subnet create -g byocni --vnet-name byocni-vnet --name byocni-subnet --address-prefixes 192.168.10.0/24 -o none
+  
+  az network vnet subnet create -g byocni --vnet-name byocni-vnet --name egressgw-subnet --address-prefixes 192.168.11.0/24 -o none
+  
+  az aks create -l eastus -g byocni -n byocni --network-plugin none --vnet-subnet-id /subscriptions/#############################/resourceGroups/byocni/providers/Microsoft.Network/virtualNetworks/byocni-vnet/subnets/byocni-subnet
+  
+  az aks get-credentials --resource-group byocni --name byocni
+
+
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -19,7 +34,8 @@ on:
         default: '{}'
   push:
     branches:
-      - 'renovate/main-**'
+#      - 'renovate/main-**'
+      - '**'
   # Run every 8 hours
   schedule:
     - cron:  '0 0/8 * * *'
@@ -248,6 +264,13 @@ jobs:
             --name ${{ env.name }} \
             --location ${{ matrix.location }} \
             --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
+          
+          # Create virtual networks and subnets
+          az network vnet create -g ${{ env.name }} --location ${{ matrix.location }} --name ${{ env.name }}-vnet --address-prefixes 192.168.8.0/22 -o none
+          NODE_SUBNET_ID=$(az network vnet subnet create -g ${{ env.name }} --vnet-name ${{ env.name }}-vnet --name ${{ env.name }}-subnet --address-prefixes 192.168.10.0/24 --query "id" -o tsv)
+          echo "node_subnet_id=$NODE_SUBNET_ID" >> $GITHUB_OUTPUT
+          EGW_SUBNET_ID=$(az network vnet subnet create -g ${{ env.name }} --vnet-name ${{ env.name }}-vnet --name ${{ env.name }}-egressgw-subnet --address-prefixes 192.168.11.0/24 --query "id" -o tsv)
+          echo "egw_subnet_id=$EGW_SUBNET_ID" >> $GITHUB_OUTPUT
 
           # Create AKS cluster
           az aks create \
@@ -256,10 +279,24 @@ jobs:
             --location ${{ matrix.location }} \
             --kubernetes-version ${{ matrix.version }} \
             --network-plugin none \
-            --node-count 2 \
+            --node-count 3 \
             --ip-families ipv4,ipv6 \
             ${{ env.cost_reduction }} \
+            --vnet-subnet-id $NODE_SUBNET_ID \
             --generate-ssh-keys
+          
+          # Get cluster credentials
+          az aks get-credentials \
+            --resource-group ${{ env.name }} \
+            --name ${{ env.name }}
+          
+          # Label a node so that Cilium pods don't get scheduled.
+          NON_CILIUM_NODE=$(kubectl get nodes --selector agentpool --no-headers -o custom-columns=NAME:.metadata.name | head -n 1)
+          kubectl label node "$NON_CILIUM_NODE" cilium.io/no-schedule=true --overwrite
+          echo "Non-cilium node: $NON_CILIUM_NODE"  >> $GITHUB_OUTPUT
+
+          az aks nodepool add -g ${{ env.name }} --cluster-name ${{ env.name }} -n ${{ env.name }}-egressgw --enable-node-public-ip --node-count 1  --vnet-subnet-id $EGW_SUBNET_ID 
+          az aks nodepool update -g ${{ env.name }} --cluster-name ${{ env.name }} --name ${{ env.name }}-egressgw --labels io.cilium/egress-gateway=true
 
       - name: Get cluster credentials
         run: |
