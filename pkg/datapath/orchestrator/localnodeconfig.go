@@ -5,6 +5,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -73,10 +74,21 @@ func newLocalNodeConfig(
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
 	}
 
-	directRoutingDevice, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
 	nativeDevices, devsWatch := tables.SelectedDevices(devices, txn)
 	nodeAddrsIter, addrsWatch := nodeAddresses.AllWatch(txn)
 	mtuRoute, _, mtuWatch, _ := mtuTbl.GetWatch(txn, mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
+
+	watchChans := []<-chan struct{}{devsWatch, addrsWatch, mtuWatch}
+	var directRoutingDevice *tables.Device
+	if option.Config.DirectRoutingDeviceRequired(kprCfg) {
+		drd, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
+		if drd == nil {
+			return datapath.LocalNodeConfiguration{}, nil, errors.New("direct routing device required but not configured")
+		}
+
+		watchChans = append(watchChans, directRoutingDevWatch)
+		directRoutingDevice = drd
+	}
 
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
@@ -112,5 +124,5 @@ func newLocalNodeConfig(
 		LBConfig:                     lbConfig,
 		KPRConfig:                    kprCfg,
 		MaglevConfig:                 maglevConfig,
-	}, common.MergeChannels(devsWatch, addrsWatch, directRoutingDevWatch, mtuWatch), nil
+	}, common.MergeChannels(watchChans...), nil
 }
