@@ -777,6 +777,9 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off)
 	__u32 icmpoff;
 	__u8 type;
 	int ret;
+	__u32 icmp_xlen_off = (__u32)off + offsetof(struct icmphdr, un.frag.__unused) + 1;
+	__u8 icmp_xlen;
+	bool icmp_has_full_l4_header;
 
 	/* According to the RFC 5508, any networking equipment that is
 	 * responding with an ICMP Error packet should embed the original
@@ -833,12 +836,24 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off)
 	if (!state)
 		return NAT_PUNT_TO_STACK;
 
+	/*
+	 * The snat_v4_rewrite_headers() call only rewrites the checksum for
+	 * TCP and UDP.  UDP's checksum is covered by the RFC 792 inclusion
+	 * of the 1st 64 bits of the datagram following the IP header, but
+	 * TCP needs an additional 3 32-bit words to include the checksum.
+	 */
+	if (ctx_load_bytes(ctx, icmp_xlen_off, &icmp_xlen, sizeof(__u8)) < 0)
+		return DROP_INVALID;
+	icmp_has_full_l4_header = icmp_xlen >= ((tuple.nexthdr == IPPROTO_TCP) ? 3 : 0);
+
 	/* We found SNAT entry to NAT embedded packet. The destination addr
 	 * should be NATed according to the entry.
 	 */
-	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, icmpoff,
+	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off,
+				      icmp_has_full_l4_header, icmpoff,
 				      tuple.saddr, state->to_saddr, IPV4_DADDR_OFF,
 				      tuple.sport, state->to_sport, port_off);
+
 	if (IS_ERR(ret))
 		return ret;
 
@@ -972,6 +987,10 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	__u16 port_off;
 	__u32 icmpoff;
 	__u8 type;
+	__u8 icmp_xlen;
+	bool icmp_has_full_l4_header;
+	__u32 icmp_xlen_off = (__u32) inner_l3_off - sizeof(struct icmphdr) +
+	  offsetof(struct icmphdr, un.frag.__unused) + 1;
 
 	/* According to the RFC 5508, any networking equipment that is
 	 * responding with an ICMP Error packet should embed the original
@@ -1031,8 +1050,19 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	if (!*state)
 		return NAT_PUNT_TO_STACK;
 
+	/*
+	 * The snat_v4_rewrite_headers() call only rewrites the checksum for
+	 * TCP and UDP.  UDP's checksum is covered by the RFC 792 inclusion
+	 * of the 1st 64 bits of the datagram following the IP header, but
+	 * TCP needs an additional 3 32-bit words to include the checksum.
+	 */
+	if (ctx_load_bytes(ctx, icmp_xlen_off, &icmp_xlen, sizeof(__u8)) < 0)
+		return DROP_INVALID;
+	icmp_has_full_l4_header = icmp_xlen >= ((tuple.nexthdr == IPPROTO_TCP) ? 3 : 0);
+
 	/* The embedded packet was SNATed on egress. Reverse it again: */
-	return snat_v4_rewrite_headers(ctx, tuple.nexthdr, (int)inner_l3_off, true, icmpoff,
+	return snat_v4_rewrite_headers(ctx, tuple.nexthdr, (int)inner_l3_off,
+				       icmp_has_full_l4_header, icmpoff,
 				       tuple.daddr, (*state)->to_daddr, IPV4_SADDR_OFF,
 				       tuple.dport, (*state)->to_dport, port_off);
 }
