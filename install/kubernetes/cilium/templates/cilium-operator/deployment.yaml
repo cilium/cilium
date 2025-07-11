@@ -170,6 +170,7 @@ spec:
         - name: AZURE_RESOURCE_GROUP
           value: {{ .Values.azure.resourceGroup }}
         {{- end }}
+        {{- if .Values.azure.clientID }}
         - name: AZURE_CLIENT_ID
           valueFrom:
             secretKeyRef:
@@ -180,6 +181,7 @@ spec:
             secretKeyRef:
               name: cilium-azure
               key: AZURE_CLIENT_SECRET
+        {{- end }}
         {{- end }}
         {{- with .Values.operator.extraEnv }}
         {{- toYaml . | nindent 8 }}
