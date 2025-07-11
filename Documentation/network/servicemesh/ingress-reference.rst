@@ -68,7 +68,10 @@ Source IP Visibility
    details).
 
 Having a backend be able to deduce what IP address the actual request came from
-is important for most applications.
+is important for most applications. However, when traffic is sent through
+an Ingress proxy, the original source IP address is not preserved in the IP
+headers when forwarding the traffic to a backend. Instead, the source IP
+address is preserved in an HTTP header.
 
 By default, Cilium's Envoy instances are configured to append the visible source
 address of incoming HTTP connections to the ``X-Forwarded-For`` header, using the
