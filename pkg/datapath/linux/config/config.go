@@ -501,12 +501,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash1)
 
-	if option.Config.DirectRoutingDeviceRequired(h.kprCfg) {
-		drd := cfg.DirectRoutingDevice
+	// We assume that validation for DirectRoutingDevice requirement and presence is already done
+	// upstream when constructing the LocalNodeConfiguration.
+	// See orchestrator/localnodeconfig.go
+	drd := cfg.DirectRoutingDevice
+	if drd != nil {
 		if option.Config.EnableIPv4 {
-			if drd == nil {
-				return fmt.Errorf("IPv4 direct routing device not found")
-			}
 			var ipv4 uint32
 			for _, addr := range drd.Addrs {
 				if addr.Addr.Is4() {
@@ -520,10 +520,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
 		}
 		if option.Config.EnableIPv6 {
-			if drd == nil {
-				return fmt.Errorf("IPv6 direct routing device not found")
-			}
-
 			ip := preferredIPv6Address(drd.Addrs)
 			if ip.IsUnspecified() {
 				return fmt.Errorf("IPv6 direct routing device IP not found")
