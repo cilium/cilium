@@ -1644,6 +1644,10 @@
      - Enables the enforcement of host policies in the eBPF datapath.
      - bool
      - ``false``
+   * - :spelling:ignore:`hostPort.enabled`
+     - Enable hostPort service support.
+     - bool
+     - ``false``
    * - :spelling:ignore:`hubble.annotations`
      - Annotations to be added to all top-level hubble objects (resources under templates/hubble)
      - object
