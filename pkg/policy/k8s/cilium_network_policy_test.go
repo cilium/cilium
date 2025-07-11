@@ -21,7 +21,7 @@ import (
 )
 
 func Test_GH33432(t *testing.T) {
-	policyAdd := make(chan api.Rules, 1)
+	policyAdd := make(chan policytypes.PolicyEntries, 1)
 	policyImporter := &fakePolicyImporter{
 		OnUpdatePolicy: func(upd *policytypes.PolicyUpdate) {
 			policyAdd <- upd.Rules
@@ -77,12 +77,12 @@ func Test_GH33432(t *testing.T) {
 	// added rules should have a nil ToEndpoints slice
 	rules := <-policyAdd
 	assert.Len(t, rules, 1)
-	assert.Len(t, rules[0].Egress, 1)
-	assert.Equal(t, api.CIDRSlice{"1.1.1.1/32"}, rules[0].Egress[0].EgressCommonRule.ToCIDR)
-	assert.Len(t, rules[0].Egress[0].ToPorts, 1)
-	assert.Len(t, rules[0].Egress[0].ToPorts[0].Ports, 1)
-	assert.Equal(t, []api.PortProtocol{{Port: "80", Protocol: api.ProtoTCP}}, rules[0].Egress[0].ToPorts[0].Ports)
-	assert.Nil(t, rules[0].Egress[0].EgressCommonRule.ToEndpoints)
+	assert.False(t, rules[0].Ingress)
+	assert.Len(t, rules[0].L3, 1)
+	assert.True(t, policytypes.FromEndpointSelectorInterfaceSlice[api.EndpointSelector](rules[0].L3)[0].HasKey("cidr.1.1.1.1/32"))
+	assert.Len(t, rules[0].L4, 1)
+	assert.Len(t, rules[0].L4[0].Ports, 1)
+	assert.Equal(t, []api.PortProtocol{{Port: "80", Protocol: api.ProtoTCP}}, rules[0].L4[0].Ports)
 
 	updCNP := cnp.DeepCopy()
 	updCNP.Generation++
@@ -97,14 +97,12 @@ func Test_GH33432(t *testing.T) {
 	assert.NoError(t, err)
 
 	// policy update should be propagated and the new rules should be the same
-	// except for the empty non-nil ToEndpoints slice
+	// except for the empty L3 slice
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
-	assert.Len(t, rules[0].Egress, 1)
-	assert.Equal(t, api.CIDRSlice{"1.1.1.1/32"}, rules[0].Egress[0].EgressCommonRule.ToCIDR)
-	assert.Len(t, rules[0].Egress[0].ToPorts, 1)
-	assert.Len(t, rules[0].Egress[0].ToPorts[0].Ports, 1)
-	assert.Equal(t, []api.PortProtocol{{Port: "80", Protocol: api.ProtoTCP}}, rules[0].Egress[0].ToPorts[0].Ports)
-	assert.NotNil(t, rules[0].Egress[0].EgressCommonRule.ToEndpoints)
-	assert.Empty(t, rules[0].Egress[0].EgressCommonRule.ToEndpoints)
+	assert.False(t, rules[0].Ingress)
+	assert.Empty(t, rules[0].L3)
+	assert.Len(t, rules[0].L4, 1)
+	assert.Len(t, rules[0].L4[0].Ports, 1)
+	assert.Equal(t, []api.PortProtocol{{Port: "80", Protocol: api.ProtoTCP}}, rules[0].L4[0].Ports)
 }
