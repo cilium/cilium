@@ -309,7 +309,21 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 		params.SourceTunnelIP = &localIP
 		params.DestTunnelIP = &remoteIP
 		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "ADD out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+		if err != nil {
+			statesUpdated = false
+		}
+	}
+
+	for _, remoteCIDR := range cidr.CIDRsToIPNets(addedCIDRs) {
+		params := ipsec.NewIPSecParamaters(template)
+		params.Dir = ipsec.IPSecDirOut
+		params.SourceSubnet = wildcardCIDR
+		params.DestSubnet = remoteCIDR
+		params.SourceTunnelIP = &localIP
+		params.DestTunnelIP = &remoteIP
+		err = ipsec.DeleteXfrmPolicyOut(n.log, 0, remoteCIDR)
+		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "DEL out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
 			statesUpdated = false
 		}
