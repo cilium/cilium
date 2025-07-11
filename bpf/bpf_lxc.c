@@ -14,6 +14,7 @@
 
 #define IS_BPF_LXC 1
 
+#define EFFECTIVE_EP_ID LXC_ID
 #define EVENT_SOURCE LXC_ID
 
 #define USE_LOOPBACK_LB		1
