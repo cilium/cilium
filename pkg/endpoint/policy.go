@@ -378,15 +378,12 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	ctx.Stats = regenerationStatistics{}
 	stats := &ctx.Stats
 	stats.totalTime.Start()
-	debugLogsEnabled := e.getLogger().Enabled(context.Background(), slog.LevelDebug)
 
-	if debugLogsEnabled {
-		e.getLogger().Debug(
-			"Regenerating endpoint",
-			logfields.StartTime, time.Now(),
-			logfields.Reason, ctx.Reason,
-		)
-	}
+	e.getLogger().Debug(
+		"Regenerating endpoint",
+		logfields.StartTime, time.Now(),
+		logfields.Reason, ctx.Reason,
+	)
 
 	defer func() {
 		// This has to be within a func(), not deferred directly, so that the
