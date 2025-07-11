@@ -531,6 +531,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
 	option.BindEnv(vp, option.EnableHostFirewall)
 
+	flags.Bool(option.K8sEnableHostFirewallBypass, false, "Enable bypassing host firewall for Kubernetes API server access")
+	option.BindEnv(vp, option.K8sEnableHostFirewallBypass)
+
 	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the IPv4 CIDR for native routing. "+
 		"When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. "+
 		"Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. "+
@@ -1217,6 +1220,12 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	if option.Config.EnableHostFirewall {
 		if option.Config.EnableIPSec {
 			logging.Fatal(logger, "IPSec cannot be used with the host firewall.")
+		}
+	}
+
+	if option.Config.EnableK8sHostFirewallBypass {
+		if !option.Config.EnableHostFirewall {
+			option.Config.EnableK8sHostFirewallBypass = false
 		}
 	}
 

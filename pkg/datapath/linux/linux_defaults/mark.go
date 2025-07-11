@@ -3,6 +3,10 @@
 
 package linux_defaults
 
+import (
+	"github.com/cilium/cilium/pkg/identity"
+)
+
 // The skb mark is used to transmit both identity and special markers to
 // identify traffic from and to proxies. The mark field is being used in the
 // following way:
@@ -125,3 +129,10 @@ const (
 	// needs to encrypt a packet.
 	MagicMarkEncrypt = 0x0E00
 )
+
+// Constructs a full packet mark from one of the magic values above
+// and a security identity.
+func MakeMagicMark(mark uint32, securityIdentity identity.NumericIdentity) uint32 {
+	mark |= uint32(securityIdentity&0xFFFF)<<16 | uint32((securityIdentity&0xFF0000)>>16)
+	return mark
+}

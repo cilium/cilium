@@ -106,6 +106,10 @@ var (
 		// Provides Clientset, API for accessing Kubernetes objects.
 		k8sClient.Cell,
 
+		// Provides optional configuration callback to enable bypassing
+		// host firewall when accessing Kubernetes objects.
+		cell.Provide(newEnableK8sHostFirewallBypass),
+
 		// Provide the logic to map DNS names matching Kubernetes services to the
 		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
 		// and clustermesh. Note that it depends on k8s.ServiceResource, which is
