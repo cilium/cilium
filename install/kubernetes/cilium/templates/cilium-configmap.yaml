@@ -754,6 +754,12 @@ data:
 {{- end }}
 {{- end }}
 
+{{- if hasKey .Values "hostPort" }}
+{{- if eq $kubeProxyReplacement "false" }}
+  enable-host-port: {{ .Values.hostPort.enabled | quote }}
+{{- end }}
+{{- end }}
+
 {{- if hasKey .Values "nodePort" }}
 {{- if eq $kubeProxyReplacement "false" }}
   enable-node-port: {{ .Values.nodePort.enabled | quote }}

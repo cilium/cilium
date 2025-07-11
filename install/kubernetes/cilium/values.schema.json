@@ -2490,6 +2490,14 @@
       },
       "type": "object"
     },
+    "hostPort": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "hubble": {
       "properties": {
         "annotations": {
