@@ -256,6 +256,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
+          role-duration-seconds: 28800 # 8h
 
       - name: Create EKS cluster
         uses: ./.github/actions/setup-eks-cluster
