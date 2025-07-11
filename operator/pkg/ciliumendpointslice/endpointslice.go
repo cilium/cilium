@@ -10,6 +10,8 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/workerpool"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
@@ -309,31 +311,41 @@ func (c *Controller) processNextWorkItem() bool {
 	} else {
 		c.metrics.CiliumEndpointSliceQueueDelay.WithLabelValues(LabelQueueStandard).Observe(queueDelay)
 	}
-	if err != nil {
-		c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeFail).Inc()
-	} else {
-		c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeSuccess).Inc()
-	}
 
-	c.handleErr(queue, err, key)
+	isRetried := c.handleErr(queue, err, key)
+	if err != nil {
+		if isRetried {
+			c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelOutcome, LabelValueOutcomeFail, LabelFailureType, LabelFailureTypeTransient).Inc()
+		} else {
+			c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelOutcome, LabelValueOutcomeFail, LabelFailureType, LabelFailureTypeFatal).Inc()
+		}
+	} else {
+		c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeSuccess, "").Inc()
+	}
 
 	return true
 }
 
-func (c *Controller) handleErr(queue workqueue.TypedRateLimitingInterface[CESKey], err error, key CESKey) {
+func (c *Controller) handleErr(queue workqueue.TypedRateLimitingInterface[CESKey], err error, key CESKey) (retry bool) {
 	if err == nil {
 		queue.Forget(key)
-		return
+		return false
 	}
 
 	if queue.NumRequeues(key) < maxRetries {
+		if !k8serrors.IsConflict(err) && !k8serrors.IsAlreadyExists(err) && !k8serrors.IsNotFound(err) && !(k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause)) {
+			c.logger.Warn("Error processing CES, retrying",
+				logfields.CESName, key.string(),
+				logfields.Error, err,
+				logfields.Attempt, queue.NumRequeues(key)+1)
+		}
 		time.AfterFunc(c.rateLimiter.When(key), func() {
 			c.cond.L.Lock()
 			defer c.cond.L.Unlock()
 			queue.Add(key)
 			c.cond.Signal()
 		})
-		return
+		return true
 	}
 
 	// Drop the CES from queue, we maxed out retries.
@@ -341,4 +353,5 @@ func (c *Controller) handleErr(queue workqueue.TypedRateLimitingInterface[CESKey
 		logfields.CESName, key.string(),
 		logfields.Error, err)
 	queue.Forget(key)
+	return false
 }
