@@ -189,6 +189,14 @@ func terminateConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n4Ad
 	case lb.TCP:
 		protocol = unix.IPPROTO_TCP
 		states = sockets.StateFilterTCP
+		// Currently terminating TCP is false by default since iterating
+		// TCP sockets can become expensive compared to UDP due to the
+		// sheer number of sockets in the system. Once this is optimized
+		// where the cost is significantly reduced, the hidden config flag
+		// can be removed.
+		if !p.Config.LBSockTerminateAllProtos {
+			return
+		}
 	default:
 		return
 	}

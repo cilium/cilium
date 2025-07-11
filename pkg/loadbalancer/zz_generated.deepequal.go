@@ -149,6 +149,9 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.LBPressureMetricsInterval != other.LBPressureMetricsInterval {
 		return false
 	}
+	if in.LBSockTerminateAllProtos != other.LBSockTerminateAllProtos {
+		return false
+	}
 	if in.EnableServiceTopology != other.EnableServiceTopology {
 		return false
 	}
