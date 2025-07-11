@@ -14,6 +14,9 @@ const (
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
 
+	// LabelFailureType indicates which failure type occurred when "outcome" is "fail"
+	LabelFailureType = "failure_type"
+
 	// LabelOpcode indicates the kind of CES metric, could be CEP insert or remove
 	LabelOpcode = "opcode"
 
@@ -27,6 +30,12 @@ const (
 
 	// LabelValueOutcomeFail is used as an unsuccessful outcome of an operation
 	LabelValueOutcomeFail = "fail"
+
+	// LabelFailureTypeTransient is used to indicate a transient failure, which is retried
+	LabelFailureTypeTransient = "transient"
+
+	// LabelFailureTypeFatal is used to indicate a fatal failure, when all retries have been exhausted
+	LabelFailureTypeFatal = "fatal"
 
 	// LabelValueCEPInsert is used to indicate the number of CEPs inserted in a CES
 	LabelValueCEPInsert = "cepinserted"
@@ -61,7 +70,7 @@ func NewMetrics() *Metrics {
 			Namespace: metrics.CiliumOperatorNamespace,
 			Name:      "ces_sync_total",
 			Help:      "The number of completed CES syncs by outcome",
-		}, []string{LabelOutcome}),
+		}, []string{LabelOutcome, LabelFailureType}),
 
 		CiliumEndpointSliceQueueDelay: metric.NewHistogramVec(metric.HistogramOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
