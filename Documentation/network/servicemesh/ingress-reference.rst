@@ -60,12 +60,9 @@ although the same principles also apply for Gateway API.
 Source IP Visibility
 ********************
 
-.. warning::
-   Be aware that that the client's source IP is **not** preserved by the ingress, so 
-   ``ciliumclusterwidenetworkpolicies.cilium.io``, ``ciliumnetworkpolicies.cilium.io`` 
-   and ``networkpolicies.networking.k8s.io`` can not match on it at the backend node 
-   (see also `GH#34786 <https://github.com/cilium/cilium/issues/34786>`__ for further 
-   details).
+When Cilium Ingress forwards traffic towards Pods within the cluster, the original source IP is not preserved, so 
+``ciliumclusterwidenetworkpolicies.cilium.io``, ``ciliumnetworkpolicies.cilium.io`` 
+and ``networkpolicies.networking.k8s.io`` can not match on the source IP at the backend node. See :gh-issue:`34786` for more information about this limitation.
 
 Having a backend be able to deduce what IP address the actual request came from
 is important for most applications. However, when traffic is sent through
