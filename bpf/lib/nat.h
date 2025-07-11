@@ -1752,11 +1752,12 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 					    icmp6_dataun.u_echo.identifier);
 			break;
 		case ICMPV6_PKT_TOOBIG:
-			/* ICMPV6_PKT_TOOBIG does not include identifer and
+			/* In a PKT_TOOBIG message the instigating packet is
+			 * included following the ICMPV6 header.
+			 * ICMPV6_PKT_TOOBIG does not include identifer and
 			 * sequence in its headers.
 			 */
-			inner_l3_off = off + sizeof(struct icmp6hdr) -
-				       field_sizeof(struct icmp6hdr, icmp6_dataun.u_echo);
+			inner_l3_off = off + sizeof(struct icmp6hdr);
 
 			ret = snat_v6_rev_nat_handle_icmp_pkt_toobig(ctx,
 								     inner_l3_off,
