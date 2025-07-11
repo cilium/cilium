@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -773,6 +774,18 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				// Add manually configured Native Routing CIDR
 				if a.conf.IPv4NativeRoutingCIDR != nil {
 					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR.String())
+				}
+				// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded
+				if a.conf.EnableIPMasqAgent {
+					ipmasqAgent := ipmasq.NewIPMasqAgent(a.logger, nil, a.conf.IPMasqAgentConfigPath)
+					nonMasqCidrs := ipmasqAgent.NonMasqCIDRsFromConfig()
+					for _, prefix := range nonMasqCidrs {
+						if ip.To4() != nil && prefix.Addr().Is4() {
+							result.CIDRs = append(result.CIDRs, prefix.String())
+						} else if ip.To4() == nil && prefix.Addr().Is6() {
+							result.CIDRs = append(result.CIDRs, prefix.String())
+						}
+					}
 				}
 				if eni.Subnet.CIDR != "" {
 					// The gateway for a subnet and VPC is always x.x.x.1
