@@ -135,15 +135,6 @@ func (e *Endpoint) UpdateLogger(fields map[string]any) {
 	// Create a base logger with the subsys attribute.
 	baseLoggerWithSubsys := baseLogger.With(logfields.LogSubsys, subsys)
 
-	// If this endpoint is set to debug ensure it will print debug by giving it
-	// an independent logger.
-	// If this endpoint is not set to debug, it will use the log level set by the user.
-	if e.Options != nil && e.Options.IsEnabled(option.Debug) {
-		// FIXME @aanm re-enable this functionality once we figure out a solution
-		//  to have a logger per subsystem.
-		// baseLogger.SetLevel(slog.LevelDebug)
-	}
-
 	e.logger.Store(baseLoggerWithSubsys)
 }
 
