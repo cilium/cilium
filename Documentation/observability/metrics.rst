@@ -790,10 +790,14 @@ CiliumEndpointSlices (CES)
 Name                                           Labels                           Description
 ============================================== ================================ ========================================================
 ``number_of_ceps_per_ces``                                                      The number of CEPs batched in a CES
-``number_of_cep_changes_per_ces``              ``opcode``                       The number of changed CEPs in each CES update
+``number_of_cep_changes_per_ces``              ``opcode``, ``failure_type``     The number of changed CEPs in each CES update
 ``ces_sync_total``                             ``outcome``                      The number of completed CES syncs by outcome
 ``ces_queueing_delay_seconds``                                                  CiliumEndpointSlice queueing delay in seconds
 ============================================== ================================ ========================================================
+
+Note that the CES controller has multiple internal queues for handling CES updates.
+Detailed metrics which are emitted by these queues can be found in the
+:ref:`Internal WorkQueues <internal_workqueues_metrics>` section below.
 
 Unmanaged Pods
 ~~~~~~~~~~~~~~
@@ -830,10 +834,13 @@ Name                                        Labels                      Descript
 ``cid_controller_work_queue_latency``       ``resource``, ``phase``     Duration of CID controller work queues enqueuing and processing latencies in seconds
 =========================================== =========================== =====================================================================================
 
+.. _internal_workqueues_metrics:
+
 Internal WorkQueues
 ~~~~~~~~~~~~~~~~~~~~
 
-The Operator uses internal queues to manage the processing of various tasks. Currently only the Cilium Node Synchronizer queues are reporting the metrics listed below.
+The Operator uses internal queues to manage the processing of various tasks.
+Currently, only the Cilium Node Synchronizer queues and Cilium EndpointSlice Controller queues are reporting the metrics listed below.
 
 ==================================================== ============================================= ========== ===========================================================
 Name                                                 Labels                                        Default    Description
