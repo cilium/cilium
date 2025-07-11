@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/logcookie"
 )
 
 // CachedSelector represents an identity selector owned by the selector cache
@@ -91,7 +92,7 @@ func (s CachedSelectorSlice) SelectsAllEndpoints() bool {
 type CachedSelectionUser interface {
 	// The caller is responsible for making sure the same identity is not
 	// present in both 'added' and 'deleted'.
-	IdentitySelectionUpdated(logger *slog.Logger, selector CachedSelector, added, deleted []identity.NumericIdentity)
+	IdentitySelectionUpdated(logger *slog.Logger, selector CachedSelector, added, deleted []identity.NumericIdentity, policyLogBakery logcookie.PolicyLogBakery)
 
 	// IdentitySelectionCommit tells the user that all IdentitySelectionUpdated calls relating
 	// to a specific added or removed identity have been made.

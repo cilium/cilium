@@ -70,6 +70,12 @@ type PodMetadataGetter interface {
 	GetPodMetadataForContainer(cgroupId uint64) *cgroupManager.PodMetadata
 }
 
+// PolicyMetadataGetter fetches policy metadata.
+type PolicyMetadataGetter interface {
+	// GetLog returns the policy log string associated with the given cookie, if it exists.
+	GetLog(cookie uint32) (string, bool)
+}
+
 // EndpointInfo defines readable fields of a Cilium endpoint.
 type EndpointInfo interface {
 	GetID() uint64

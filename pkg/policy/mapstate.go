@@ -399,18 +399,13 @@ type mapStateEntry struct {
 	derivedFromRules ruleOrigin
 }
 
-// newMapStateEntry creates a map state entry.
-func newMapStateEntry(derivedFrom ruleOrigin, proxyPort uint16, priority ListenerPriority, deny bool, authReq AuthRequirement) mapStateEntry {
-	return mapStateEntry{
-		MapStateEntry:    types.NewMapStateEntry(deny, proxyPort, priority, authReq),
-		derivedFromRules: derivedFrom,
-	}
-}
-
 // newAllowEntryWithLabels creates an allow entry with the specified labels.
 // Used for adding allow-all entries when policy enforcement is not wanted.
 func newAllowEntryWithLabels(lbls labels.LabelArray) mapStateEntry {
-	return newMapStateEntry(makeSingleRuleOrigin(lbls, ""), 0, 0, false, NoAuthRequirement)
+	return mapStateEntry{
+		MapStateEntry:    types.NewMapStateEntry(false, 0, 0, NoAuthRequirement, 0),
+		derivedFromRules: makeSingleRuleOrigin(lbls, ""),
+	}
 }
 
 func NewMapStateEntry(e MapStateEntry) mapStateEntry {
