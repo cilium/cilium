@@ -3435,7 +3435,7 @@
    * - :spelling:ignore:`terminationGracePeriodSeconds`
      - Configure termination grace period for cilium-agent DaemonSet.
      - int
-     - ``1``
+     - ``10``
    * - :spelling:ignore:`tls`
      - Configure TLS configuration in the agent.
      - object
