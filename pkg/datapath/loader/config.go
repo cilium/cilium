@@ -23,5 +23,9 @@ func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
 	node.TracePayloadLen = uint32(option.Config.TracePayloadlen)
 	node.TracePayloadLenOverlay = uint32(option.Config.TracePayloadlenOverlay)
 
+	if lnc.DirectRoutingDevice != nil {
+		node.DirectRoutingDevIfindex = uint32(lnc.DirectRoutingDevice.Index)
+	}
+
 	return node
 }
