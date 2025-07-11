@@ -54,6 +54,7 @@ func NewMetrics() *Metrics {
 			Namespace: metrics.CiliumOperatorNamespace,
 			Name:      "number_of_cep_changes_per_ces",
 			Help:      "The number of changed CEPs in each CES update",
+			Buckets:   []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000},
 		}, []string{LabelOpcode}),
 
 		CiliumEndpointSliceSyncTotal: metric.NewCounterVec(metric.CounterOpts{
