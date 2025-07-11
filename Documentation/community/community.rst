@@ -41,7 +41,8 @@ Slack
 =====
 
 Our `Cilium & eBPF Slack <Cilium Slack_>`_ is the main discussion space for the
-Cilium community.
+Cilium community. Please be sure to follow and abide by the `Slack Guidelines
+<https://github.com/cilium/community/blob/main/slack-guidelines.md>`__
 
 Slack channels
 --------------
