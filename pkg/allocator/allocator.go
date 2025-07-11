@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/google/uuid"
-
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -53,8 +51,8 @@ const (
 //
 // Lookup ID by key:
 //  1. Return ID from local cache updated by watcher (no Backend interactions)
-//  2. Do ListPrefix() on slave key excluding node suffix, return the first
-//     result that matches the exact prefix.
+//  2. Do ListPrefix() on slave key, return the first result that matches the exact
+//     prefix.
 //
 // Lookup key by ID:
 //  1. Return key from local cache updated by watcher (no Backend interactions)
@@ -112,10 +110,6 @@ type Allocator struct {
 	// localKeys contains all keys including their reference count for keys
 	// which have been allocated and are in local use
 	localKeys *localKeys
-
-	// suffix is the suffix attached to keys which must be node specific,
-	// this is typical set to the node's IP address
-	suffix string
 
 	// backoffTemplate is the backoff configuration while allocating
 	backoffTemplate backoff.Exponential
@@ -322,7 +316,6 @@ func NewAllocator(rootLogger *slog.Logger, typ AllocatorKey, backend Backend, op
 		max:          idpool.ID(^uint64(0)),
 		localKeys:    newLocalKeys(rootLogger),
 		stopGC:       make(chan struct{}),
-		suffix:       uuid.New().String()[:10],
 		remoteCaches: map[string]*remoteCache{},
 		backoffTemplate: backoff.Exponential{
 			Logger: rootLogger.With(subsysLogAttr...),
@@ -338,10 +331,6 @@ func NewAllocator(rootLogger *slog.Logger, typ AllocatorKey, backend Backend, op
 	}
 
 	a.mainCache = newCache(a)
-
-	if a.suffix == "<nil>" {
-		return nil, errors.New("allocator suffix is <nil> and unlikely unique")
-	}
 
 	if a.min < 1 {
 		return nil, errors.New("minimum ID must be >= 1")
@@ -549,8 +538,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	defer lock.Unlock(context.Background())
 
-	// fetch first key that matches /value/<key> while ignoring the
-	// node suffix
+	// fetch first key that matches /value/<key>
 	value, err := a.GetIfLocked(ctx, key, lock)
 	if err != nil {
 		return 0, false, false, err
