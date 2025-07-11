@@ -47,7 +47,7 @@ func hasMatchingController(ctx context.Context, c client.Client, controllerName 
 		gwc := &gatewayv1.GatewayClass{}
 		key := types.NamespacedName{Name: string(gw.Spec.GatewayClassName)}
 		if err := c.Get(ctx, key, gwc); err != nil {
-			scopedLog.Error("Unable to get GatewayClass", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Unable to get GatewayClass", logfields.Error, err)
 			return false
 		}
 
@@ -63,7 +63,7 @@ func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Objec
 
 	gwList := &gatewayv1.GatewayList{}
 	if err := c.List(ctx, gwList); err != nil {
-		scopedLog.Warn("Unable to list Gateways", logfields.Error, err)
+		scopedLog.WarnContext(ctx, "Unable to list Gateways", logfields.Error, err)
 		return nil
 	}
 
@@ -96,7 +96,7 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 
 	gwList := &gatewayv1.GatewayList{}
 	if err := c.List(ctx, gwList); err != nil {
-		scopedLog.Warn("Unable to list Gateways", logfields.Error, err)
+		scopedLog.WarnContext(ctx, "Unable to list Gateways", logfields.Error, err)
 		return nil
 	}
 
@@ -124,7 +124,7 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 				nsList := &corev1.NamespaceList{}
 				err := c.List(ctx, nsList, client.MatchingLabels(l.AllowedRoutes.Namespaces.Selector.MatchLabels))
 				if err != nil {
-					scopedLog.Warn("Unable to list Namespaces", logfields.Error, err)
+					scopedLog.WarnContext(ctx, "Unable to list Namespaces", logfields.Error, err)
 					return nil
 				}
 				for _, item := range nsList.Items {
