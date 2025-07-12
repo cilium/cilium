@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
@@ -316,7 +317,9 @@ func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 // reloadHostEndpoint (re)attaches programs from bpf_host.c to cilium_host,
 // cilium_net and external (native) devices.
 func reloadHostEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
-	// Replace programs on cilium_host.
+	if err := reloadNatExclusionMaps(logger, lnc); err != nil {
+		return fmt.Errorf("reloading NAT exclusion maps: %w", err)
+	}
 	if err := attachCiliumHost(logger, ep, lnc, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
@@ -331,6 +334,53 @@ func reloadHostEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath
 
 	return nil
 }
+
+// reloadNatExclusionMaps reloads the NAT exclusion maps with the new configuration.
+func reloadNatExclusionMaps(logger *slog.Logger, lnc *datapath.LocalNodeConfiguration) error {
+	// Initialize NAT exclusion maps (uses sync.Once)
+	if err := nat.InitNatExclusionMaps(logger); err != nil {
+		return fmt.Errorf("failed to initialize NAT exclusion maps: %w", err)
+	}
+
+	// Clear entries from NAT exclusion maps if they are no longer in the config
+	if nat.NatExclusionMapIPv4 != nil {
+		for cidr := nat.NatExclusionMapIPv4.CIDRNext(nil); cidr != nil; cidr = nat.NatExclusionMapIPv4.CIDRNext(cidr) {
+			if !cidrInSlice(*cidr, lnc.IPv4MasqueradeSrcExclusionCIDRs) {
+				if err := nat.NatExclusionMapIPv4.DeleteCIDR(*cidr); err != nil {
+					logger.Error("Failed to delete old NAT exclusion entry", logfields.CIDR, cidr, logfields.Error, err)
+				}
+			}
+		}
+	}
+	if nat.NatExclusionMapIPv6 != nil {
+		for cidr := nat.NatExclusionMapIPv6.CIDRNext(nil); cidr != nil; cidr = nat.NatExclusionMapIPv6.CIDRNext(cidr) {
+			if !cidrInSlice(*cidr, lnc.IPv6MasqueradeSrcExclusionCIDRs) {
+				if err := nat.NatExclusionMapIPv6.DeleteCIDR(*cidr); err != nil {
+					logger.Error("Failed to delete old NAT exclusion entry", logfields.CIDR, cidr, logfields.Error, err)
+				}
+			}
+		}
+	}
+
+	// update maps with new entries
+	for _, cidr := range lnc.IPv4MasqueradeSrcExclusionCIDRs {
+		nat.NatExclusionMapIPv4.InsertCIDR(*cidr)
+	}
+	for _, cidr := range lnc.IPv6MasqueradeSrcExclusionCIDRs {
+		nat.NatExclusionMapIPv6.InsertCIDR(*cidr)
+		}
+	return nil	
+}
+
+func cidrInSlice(cidr net.IPNet, slice []*net.IPNet) bool {
+	for _, c := range slice {
+		if c.String() == cidr.String() {
+			return true
+		}
+	}
+	return false
+}
+
 
 // ciliumHostRewrites prepares configuration data for attaching bpf_host.c to
 // the cilium_host network device.

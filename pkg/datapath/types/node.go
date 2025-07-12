@@ -193,6 +193,14 @@ type LocalNodeConfiguration struct {
 	MaglevConfig maglev.Config
 
 	KPRConfig kpr.KPRConfig
+
+	// IPv4MasqueradeSrcExclusionCIDRs is a list of source CIDRs that should be excluded
+	// from masquerade.
+	IPv4MasqueradeSrcExclusionCIDRs []*net.IPNet
+
+	// IPv6MasqueradeSrcExclusionCIDRs is a list of source CIDRs that should be excluded
+	// from masquerade.
+	IPv6MasqueradeSrcExclusionCIDRs []*net.IPNet
 }
 
 func (cfg *LocalNodeConfiguration) DeviceNames() []string {

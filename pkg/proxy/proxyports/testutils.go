@@ -32,6 +32,14 @@ func (m *MockIPTablesManager) GetProxyPorts() map[string]uint16 {
 	return nil
 }
 
+func (m *MockIPTablesManager) IPv4MasqueradeSrcExclusionCIDRs() string {
+	return ""
+}
+
+func (m *MockIPTablesManager) IPv6MasqueradeSrcExclusionCIDRs() string {
+	return ""
+}
+
 func proxyPortsForTest(t *testing.T) (*ProxyPorts, func()) {
 	mockIPTablesManager := &MockIPTablesManager{}
 	config := ProxyPortsConfig{
