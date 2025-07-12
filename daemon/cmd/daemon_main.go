@@ -316,6 +316,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableSocketLBPodConnectionTermination)
 	option.BindEnv(vp, option.EnableSocketLBPodConnectionTermination)
 
+	flags.Bool(option.EnableSocketLBConnectionTerminationAll, false, "Enable terminating connections to deleted service backends for both TCP and UDP")
+	flags.MarkHidden(option.EnableSocketLBConnectionTerminationAll)
+	option.BindEnv(vp, option.EnableSocketLBConnectionTerminationAll)
+
 	flags.Bool(option.EnableSocketLBTracing, true, "Enable tracing for socket-based LB")
 	option.BindEnv(vp, option.EnableSocketLBTracing)
 

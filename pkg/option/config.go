@@ -460,6 +460,10 @@ const (
 	// to deleted service backends when socket-LB is enabled.
 	EnableSocketLBPodConnectionTermination = "bpf-lb-sock-terminate-pod-connections"
 
+	// EnableSocketLBConnectionTerminationAll enables termination of both UDP and TCP
+	// sockets as opposed to just UDP sockets.
+	EnableSocketLBConnectionTerminationAll = "bpf-lb-sock-terminate-all-protos"
+
 	// RoutingMode is the name of the option to choose between native routing and tunneling mode
 	RoutingMode = "routing-mode"
 
@@ -2003,6 +2007,10 @@ type DaemonConfig struct {
 	// to deleted service backends when socket-LB is enabled
 	EnableSocketLBPodConnectionTermination bool
 
+	// EnableSocketLBConnectionTerminationAll enables termination of both UDP and TCP
+	// sockets as opposed to just UDP sockets.
+	EnableSocketLBConnectionTerminationAll bool
+
 	// EnableInternalTrafficPolicy enables handling routing for services with internalTrafficPolicy configured
 	EnableInternalTrafficPolicy bool
 
@@ -2623,6 +2631,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
 	c.EnableSocketLBPodConnectionTermination = vp.GetBool(EnableSocketLBPodConnectionTermination)
+	c.EnableSocketLBConnectionTerminationAll = vp.GetBool(EnableSocketLBConnectionTerminationAll)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
 	c.DirectRoutingSkipUnreachable = vp.GetBool(DirectRoutingSkipUnreachableName)

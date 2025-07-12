@@ -504,6 +504,7 @@ type ExternalConfig struct {
 	BPFSocketLBHostnsOnly                  bool
 	EnableSocketLB                         bool
 	EnableSocketLBPodConnectionTermination bool
+	EnableSocketLBConnectionTerminationAll bool
 	EnableHealthCheckLoadBalancerIP        bool
 
 	// The following options will be removed in v1.19
@@ -523,6 +524,7 @@ func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalC
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
 		EnableSocketLB:                         kprCfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
+		EnableSocketLBConnectionTerminationAll: cfg.EnableSocketLBConnectionTerminationAll,
 		EnableHealthCheckLoadBalancerIP:        cfg.EnableHealthCheckLoadBalancerIP,
 		EnableHostPort:                         kprCfg.EnableHostPort,
 		EnableSessionAffinity:                  kprCfg.EnableSessionAffinity,
