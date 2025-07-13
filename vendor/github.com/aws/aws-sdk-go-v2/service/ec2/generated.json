@@ -264,6 +264,8 @@
         "api_op_DescribeCapacityBlockExtensionHistory.go",
         "api_op_DescribeCapacityBlockExtensionOfferings.go",
         "api_op_DescribeCapacityBlockOfferings.go",
+        "api_op_DescribeCapacityBlockStatus.go",
+        "api_op_DescribeCapacityBlocks.go",
         "api_op_DescribeCapacityReservationBillingRequests.go",
         "api_op_DescribeCapacityReservationFleets.go",
         "api_op_DescribeCapacityReservations.go",

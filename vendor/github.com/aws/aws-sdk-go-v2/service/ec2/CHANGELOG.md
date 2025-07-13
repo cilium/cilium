@@ -1,3 +1,19 @@
+# v1.231.0 (2025-07-09)
+
+* **Feature**: Adds support to Capacity Blocks for ML for purchasing EC2 P6e-GB200 UltraServers. Customers can now purchase u-p6e-gb200x72 and u-p6e-gb200x36 UltraServers. Adds new DescribeCapacityBlocks andDescribeCapacityBlockStatus APIs. Adds support for CapacityBlockId to DescribeInstanceTopology.
+
+# v1.230.0 (2025-07-03)
+
+* **Feature**: This release adds GroupOwnerId as a response member to the DescribeSecurityGroupVpcAssociations API and also adds waiters for SecurityGroupVpcAssociations (SecurityGroupVpcAssociationAssociated and SecurityGroupVpcAssociationDisassociated).
+
+# v1.229.0 (2025-07-02)
+
+* **Feature**: AWS Site-to-Site VPN now supports IPv6 addresses on outer tunnel IPs, making it easier for customers to build or transition to IPv6-only networks.
+
+# v1.228.0 (2025-07-01)
+
+* **Feature**: Add Context to GetInstanceTypesFromInstanceRequirements API
+
 # v1.227.0 (2025-06-26)
 
 * **Feature**: This release adds support for OdbNetworkArn as a target in VPC Route Tables
