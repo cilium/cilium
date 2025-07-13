@@ -55,6 +55,9 @@ type PurchaseCapacityBlockInput struct {
 
 type PurchaseCapacityBlockOutput struct {
 
+	// The Capacity Block.
+	CapacityBlocks []types.CapacityBlock
+
 	// The Capacity Reservation.
 	CapacityReservation *types.CapacityReservation
 

@@ -9,37 +9,29 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
-	"time"
 )
 
-// Describes Capacity Block offerings available for purchase in the Amazon Web
-// Services Region that you're currently using. With Capacity Blocks, you can
-// purchase a specific GPU instance type or EC2 UltraServer for a period of time.
-//
-// To search for an available Capacity Block offering, you specify a reservation
-// duration and instance count.
-func (c *Client) DescribeCapacityBlockOfferings(ctx context.Context, params *DescribeCapacityBlockOfferingsInput, optFns ...func(*Options)) (*DescribeCapacityBlockOfferingsOutput, error) {
+// Describes the availability of capacity for the specified Capacity blocks, or
+// all of your Capacity Blocks.
+func (c *Client) DescribeCapacityBlockStatus(ctx context.Context, params *DescribeCapacityBlockStatusInput, optFns ...func(*Options)) (*DescribeCapacityBlockStatusOutput, error) {
 	if params == nil {
-		params = &DescribeCapacityBlockOfferingsInput{}
+		params = &DescribeCapacityBlockStatusInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeCapacityBlockOfferings", params, optFns, c.addOperationDescribeCapacityBlockOfferingsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeCapacityBlockStatus", params, optFns, c.addOperationDescribeCapacityBlockStatusMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DescribeCapacityBlockOfferingsOutput)
+	out := result.(*DescribeCapacityBlockStatusOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DescribeCapacityBlockOfferingsInput struct {
+type DescribeCapacityBlockStatusInput struct {
 
-	// The reservation duration for the Capacity Block, in hours. You must specify the
-	// duration in 1-day increments up 14 days, and in 7-day increments up to 182 days.
-	//
-	// This member is required.
-	CapacityDurationHours *int32
+	// The ID of the Capacity Block.
+	CapacityBlockIds []string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -47,16 +39,11 @@ type DescribeCapacityBlockOfferingsInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The latest end date for the Capacity Block offering.
-	EndDateRange *time.Time
-
-	// The number of instances for which to reserve capacity. Each Capacity Block can
-	// have up to 64 instances, and you can have up to 256 instances across Capacity
-	// Blocks.
-	InstanceCount *int32
-
-	// The type of instance for which the Capacity Block offering reserves capacity.
-	InstanceType *string
+	// One or more filters.
+	//
+	//   - interconnect-status - The status of the interconnect for the Capacity Block (
+	//   ok | impaired | insufficient-data ).
+	Filters []types.Filter
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
@@ -68,22 +55,13 @@ type DescribeCapacityBlockOfferingsInput struct {
 	// The token to use to retrieve the next page of results.
 	NextToken *string
 
-	// The earliest start date for the Capacity Block offering.
-	StartDateRange *time.Time
-
-	// The number of EC2 UltraServers in the offerings.
-	UltraserverCount *int32
-
-	// The EC2 UltraServer type of the Capacity Block offerings.
-	UltraserverType *string
-
 	noSmithyDocumentSerde
 }
 
-type DescribeCapacityBlockOfferingsOutput struct {
+type DescribeCapacityBlockStatusOutput struct {
 
-	// The recommended Capacity Block offering for the dates specified.
-	CapacityBlockOfferings []types.CapacityBlockOffering
+	// The availability of capacity for a Capacity Block.
+	CapacityBlockStatuses []types.CapacityBlockStatus
 
 	// The token to use to retrieve the next page of results. This value is null when
 	// there are no more results to return.
@@ -95,19 +73,19 @@ type DescribeCapacityBlockOfferingsOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDescribeCapacityBlockOfferingsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeCapacityBlockStatusMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeCapacityBlockOfferings{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeCapacityBlockStatus{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeCapacityBlockOfferings{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeCapacityBlockStatus{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeCapacityBlockOfferings"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeCapacityBlockStatus"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -162,10 +140,7 @@ func (c *Client) addOperationDescribeCapacityBlockOfferingsMiddlewares(stack *mi
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpDescribeCapacityBlockOfferingsValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeCapacityBlockOfferings(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeCapacityBlockStatus(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -198,9 +173,9 @@ func (c *Client) addOperationDescribeCapacityBlockOfferingsMiddlewares(stack *mi
 	return nil
 }
 
-// DescribeCapacityBlockOfferingsPaginatorOptions is the paginator options for
-// DescribeCapacityBlockOfferings
-type DescribeCapacityBlockOfferingsPaginatorOptions struct {
+// DescribeCapacityBlockStatusPaginatorOptions is the paginator options for
+// DescribeCapacityBlockStatus
+type DescribeCapacityBlockStatusPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
 	// information, see [Pagination].
@@ -213,24 +188,24 @@ type DescribeCapacityBlockOfferingsPaginatorOptions struct {
 	StopOnDuplicateToken bool
 }
 
-// DescribeCapacityBlockOfferingsPaginator is a paginator for
-// DescribeCapacityBlockOfferings
-type DescribeCapacityBlockOfferingsPaginator struct {
-	options   DescribeCapacityBlockOfferingsPaginatorOptions
-	client    DescribeCapacityBlockOfferingsAPIClient
-	params    *DescribeCapacityBlockOfferingsInput
+// DescribeCapacityBlockStatusPaginator is a paginator for
+// DescribeCapacityBlockStatus
+type DescribeCapacityBlockStatusPaginator struct {
+	options   DescribeCapacityBlockStatusPaginatorOptions
+	client    DescribeCapacityBlockStatusAPIClient
+	params    *DescribeCapacityBlockStatusInput
 	nextToken *string
 	firstPage bool
 }
 
-// NewDescribeCapacityBlockOfferingsPaginator returns a new
-// DescribeCapacityBlockOfferingsPaginator
-func NewDescribeCapacityBlockOfferingsPaginator(client DescribeCapacityBlockOfferingsAPIClient, params *DescribeCapacityBlockOfferingsInput, optFns ...func(*DescribeCapacityBlockOfferingsPaginatorOptions)) *DescribeCapacityBlockOfferingsPaginator {
+// NewDescribeCapacityBlockStatusPaginator returns a new
+// DescribeCapacityBlockStatusPaginator
+func NewDescribeCapacityBlockStatusPaginator(client DescribeCapacityBlockStatusAPIClient, params *DescribeCapacityBlockStatusInput, optFns ...func(*DescribeCapacityBlockStatusPaginatorOptions)) *DescribeCapacityBlockStatusPaginator {
 	if params == nil {
-		params = &DescribeCapacityBlockOfferingsInput{}
+		params = &DescribeCapacityBlockStatusInput{}
 	}
 
-	options := DescribeCapacityBlockOfferingsPaginatorOptions{}
+	options := DescribeCapacityBlockStatusPaginatorOptions{}
 	if params.MaxResults != nil {
 		options.Limit = *params.MaxResults
 	}
@@ -239,7 +214,7 @@ func NewDescribeCapacityBlockOfferingsPaginator(client DescribeCapacityBlockOffe
 		fn(&options)
 	}
 
-	return &DescribeCapacityBlockOfferingsPaginator{
+	return &DescribeCapacityBlockStatusPaginator{
 		options:   options,
 		client:    client,
 		params:    params,
@@ -249,12 +224,12 @@ func NewDescribeCapacityBlockOfferingsPaginator(client DescribeCapacityBlockOffe
 }
 
 // HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeCapacityBlockOfferingsPaginator) HasMorePages() bool {
+func (p *DescribeCapacityBlockStatusPaginator) HasMorePages() bool {
 	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
 }
 
-// NextPage retrieves the next DescribeCapacityBlockOfferings page.
-func (p *DescribeCapacityBlockOfferingsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeCapacityBlockOfferingsOutput, error) {
+// NextPage retrieves the next DescribeCapacityBlockStatus page.
+func (p *DescribeCapacityBlockStatusPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeCapacityBlockStatusOutput, error) {
 	if !p.HasMorePages() {
 		return nil, fmt.Errorf("no more pages available")
 	}
@@ -271,7 +246,7 @@ func (p *DescribeCapacityBlockOfferingsPaginator) NextPage(ctx context.Context, 
 	optFns = append([]func(*Options){
 		addIsPaginatorUserAgent,
 	}, optFns...)
-	result, err := p.client.DescribeCapacityBlockOfferings(ctx, &params, optFns...)
+	result, err := p.client.DescribeCapacityBlockStatus(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
 	}
@@ -290,18 +265,18 @@ func (p *DescribeCapacityBlockOfferingsPaginator) NextPage(ctx context.Context, 
 	return result, nil
 }
 
-// DescribeCapacityBlockOfferingsAPIClient is a client that implements the
-// DescribeCapacityBlockOfferings operation.
-type DescribeCapacityBlockOfferingsAPIClient interface {
-	DescribeCapacityBlockOfferings(context.Context, *DescribeCapacityBlockOfferingsInput, ...func(*Options)) (*DescribeCapacityBlockOfferingsOutput, error)
+// DescribeCapacityBlockStatusAPIClient is a client that implements the
+// DescribeCapacityBlockStatus operation.
+type DescribeCapacityBlockStatusAPIClient interface {
+	DescribeCapacityBlockStatus(context.Context, *DescribeCapacityBlockStatusInput, ...func(*Options)) (*DescribeCapacityBlockStatusOutput, error)
 }
 
-var _ DescribeCapacityBlockOfferingsAPIClient = (*Client)(nil)
+var _ DescribeCapacityBlockStatusAPIClient = (*Client)(nil)
 
-func newServiceMetadataMiddleware_opDescribeCapacityBlockOfferings(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDescribeCapacityBlockStatus(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DescribeCapacityBlockOfferings",
+		OperationName: "DescribeCapacityBlockStatus",
 	}
 }
