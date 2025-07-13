@@ -7,7 +7,7 @@ inputs:
     default: "1"
   etcd-image:
     description: "etcd docker image"
-    default: gcr.io/etcd-development/etcd:v3.6.1@sha256:56bc6ef112a4e2702142d365baecae44cba85c6efc6146b4a41a4c655dd7d231
+    default: gcr.io/etcd-development/etcd:v3.6.2@sha256:6adf168b4454b1f62377e2ec356455f64e8bcff6942e1a23e73129e46dc281d2
   name:
     description: "Base name of the etcd containers (to which the index is appended)"
     default: kvstore
