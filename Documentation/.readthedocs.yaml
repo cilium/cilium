@@ -21,8 +21,3 @@ sphinx:
 python:
   install:
   - requirements: Documentation/requirements.txt
-
-# to allow generating offline documentation
-formats:
-  - pdf
-  - epub
