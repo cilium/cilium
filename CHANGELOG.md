@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.18.0-rc.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Change the default taints that Cilium tolerates to avoid deploying to a drained node (cilium/cilium#40475, @parlakisik)
+
+**Bugfixes:**
+* Bpf datapath TCP conntrack entries are (re)created only in the forward direction, solving an issue with freezing proxy connections when backend connection is re-opened. (cilium/cilium#40447, @jrajahalme)
+
+**CI Changes:**
+* gh: ariane: Add ipsec-upgrade test (cilium/cilium#40446, @parlakisik)
+* golangci-lint: bump timeout to 30m (Backport PR cilium/cilium#40386, Upstream PR cilium/cilium#40300, @tklauser)
+* ipsec: Extend BPF tests to cover IPv6 underlay (Backport PR cilium/cilium#40386, Upstream PR cilium/cilium#39997, @pchaigno)
+
+**Misc Changes:**
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#40352, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (patch) (cilium/cilium#40315, @cilium-renovate[bot])
+* chore(deps): update dependency go to v1.24.5 (v1.18) (cilium/cilium#40423, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.4 docker digest to 20a022e (v1.18) (cilium/cilium#40314, @cilium-renovate[bot])
+* clustermesh: add global service without selector test (Backport PR cilium/cilium#40386, Upstream PR cilium/cilium#40363, @giorio94)
+* fix(deps): update all-dependencies (v1.18) (cilium/cilium#40316, @cilium-renovate[bot])
+* fix(deps): update all-dependencies (v1.18) (cilium/cilium#40477, @cilium-renovate[bot])
+* gateway-api: Add file base test for all supoported routes reconcilation (Backport PR cilium/cilium#40386, Upstream PR cilium/cilium#40318, @sayboras)
+* gateway-api: Add file base test for Gateway reconcilation (Backport PR cilium/cilium#40386, Upstream PR cilium/cilium#40287, @sayboras)
+* v1.18: .github: Re-add the labeler configuration (cilium/cilium#40310, @joestringer)
+* v1.18: docs: Remove unnecessary upgrade guide sections (cilium/cilium#40311, @joestringer)
+* install: Update image digests for v1.18.0-rc.0 (cilium/cilium#40303, @cilium-release-bot[bot])
+* v1.18: docs: Document encapsulation options (cilium/cilium#40470, @pchaigno)
+
 ## v1.18.0-rc.0
 
 Summary of Changes
