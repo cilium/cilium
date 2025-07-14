@@ -932,6 +932,78 @@
      - The maximum number of clusters to support in a ClusterMesh. This value cannot be changed on running clusters, and all clusters in a ClusterMesh must be configured with the same value. Values > 255 will decrease the maximum allocatable cluster-local identities. Supported values are 255 and 511.
      - int
      - ``255``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.affinity`
+     - Affinity for coredns-mcsapi-autoconfig
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.annotations`
+     - Annotations to be added to the coredns-mcsapi-autoconfig Job
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.clusterDomain`
+     - The cluster domain for the cluster CoreDNS service
+     - string
+     - ``"cluster.local"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.clustersetDomain`
+     - The clusterset domain for the cluster CoreDNS service
+     - string
+     - ``"clusterset.local"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.configMapName`
+     - The ConfigMap name for the cluster CoreDNS service
+     - string
+     - ``"coredns"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.deploymentName`
+     - The Deployment for the cluster CoreDNS service
+     - string
+     - ``"coredns"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.namespace`
+     - The namespace for the cluster CoreDNS service
+     - string
+     - ``"kube-system"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.serviceAccountName`
+     - The Service Account name for the cluster CoreDNS service
+     - string
+     - ``"coredns"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.enabled`
+     - Enable auto-configuration of CoreDNS for Multi-Cluster Services API.    CoreDNS MUST be at least in version v1.12.2 to run this.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.extraArgs`
+     - Additional arguments to ``clustermesh-apiserver coredns-mcsapi-auto-configure``.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.extraVolumeMounts`
+     - Additional coredns-mcsapi-autoconfig volumeMounts.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.extraVolumes`
+     - Additional coredns-mcsapi-autoconfig volumes.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.nodeSelector`
+     - Node selector for coredns-mcsapi-autoconfig ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.podLabels`
+     - Labels to be added to coredns-mcsapi-autoconfig pods
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.priorityClassName`
+     - Priority class for coredns-mcsapi-autoconfig ref: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass
+     - string
+     - ``""``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.resources`
+     - Resource limits for coredns-mcsapi-autoconfig ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.tolerations`
+     - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.ttlSecondsAfterFinished`
+     - Seconds after which the completed job pod will be deleted
+     - int
+     - ``1800``
    * - :spelling:ignore:`clustermesh.mcsapi.enabled`
      - Enable Multi-Cluster Services API support
      - bool
@@ -3388,6 +3460,10 @@
      - Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob
      - object
      - ``{"annotations":{},"automount":true,"create":true,"name":"clustermesh-apiserver-generate-certs"}``
+   * - :spelling:ignore:`serviceAccounts.corednsMCSAPI`
+     - CorednsMCSAPI is used if clustermesh.mcsapi.corednsAutoConfigure.enabled=true
+     - object
+     - ``{"annotations":{},"automount":true,"create":true,"name":"cilium-coredns-mcsapi-autoconfig"}``
    * - :spelling:ignore:`serviceAccounts.hubblecertgen`
      - Hubblecertgen is used if hubble.tls.auto.method=cronJob
      - object

@@ -1,0 +1,29 @@
+{{- if and (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.mcsapi.corednsAutoConfigure.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: coredns-mcsapi
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{/*
+      We have to leave CoreDNS RBAC to be able to read MCS-API resources
+      as we would leave a broken CoreDNS installation otherwise
+    */}}
+    helm.sh/resource-policy: keep
+    {{- with .Values.clustermesh.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+rules:
+- apiGroups:
+  - multicluster.x-k8s.io
+  resources:
+  - serviceimports
+  verbs:
+  - list
+  - watch
+{{- end }}

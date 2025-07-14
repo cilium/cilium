@@ -292,6 +292,7 @@ communicating via the proxy must reconnect to re-establish connections.
 
 1.19 Upgrade Notes
 ------------------
+* MCS-API CoreDNS configuration recommendation has been updated. See :ref:`clustermesh_mcsapi_prereqs` for more details.
 
 Removed Options
 ~~~~~~~~~~~~~~~
