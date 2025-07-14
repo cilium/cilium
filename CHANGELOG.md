@@ -1,5 +1,40 @@
 # Changelog
 
+## v1.16.19
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Fix CIDRGroupRef handling in cilium network policy rule spec. (cilium/cilium#40139, @fristonio)
+* LBIPAM: Fix deletion of CiliumLoadBalancerIPPool with multiple IP blocks that led to an operator crash (Backport PR cilium/cilium#40093, Upstream PR cilium/cilium#40013, @pippolo84)
+* pkg/egressgateway: ensure gateway IP is IPv4 (Backport PR cilium/cilium#40331, Upstream PR cilium/cilium#40209, @rgo3)
+
+**CI Changes:**
+* Backported setting egressMasqueradeInterfaces and concurrent test runs to fix ci-eks workflow. (cilium/cilium#40468, @jrajahalme)
+
+**Misc Changes:**
+* .github/workflows: remove reviewers if ciliumbot approved PR (Backport PR cilium/cilium#40093, Upstream PR cilium/cilium#39989, @aanm)
+* auto-approve: add repository as part command (Backport PR cilium/cilium#40093, Upstream PR cilium/cilium#40050, @aanm)
+* auto-approve: add repository as part command (Backport PR cilium/cilium#40331, Upstream PR cilium/cilium#40089, @aanm)
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#40159, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#40370, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.5 (v1.16) (cilium/cilium#40327, @cilium-renovate[bot])
+* chore(deps): update dependency go to v1.24.5 (v1.16) (cilium/cilium#40425, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.4 docker digest to 20a022e (v1.16) (cilium/cilium#40160, @cilium-renovate[bot])
+* contrib/git: add merge drivers to automate post-merge commands (Backport PR cilium/cilium#40292, Upstream PR cilium/cilium#40189, @aanm)
+* disk-cleanup: parallelize cleanup process to speed up step (Backport PR cilium/cilium#40093, Upstream PR cilium/cilium#40054, @aanm)
+* docs/ipsec: Fix incorrect statement on hostns encryption (Backport PR cilium/cilium#40173, Upstream PR cilium/cilium#40133, @pchaigno)
+* Makefile: Require API generation commands to succeed (Backport PR cilium/cilium#40206, Upstream PR cilium/cilium#40199, @joestringer)
+* operator/secretsync: silence reconciliation logs (Backport PR cilium/cilium#40226, Upstream PR cilium/cilium#40217, @tklauser)
+* proxy: Use upstream envoy control plane API (Backport PR cilium/cilium#40242, Upstream PR cilium/cilium#39672, @sayboras)
+
+**Other Changes:**
+* [v1.16] deps: Update cilium-envoy image to 1.33.x (cilium/cilium#40163, @sayboras)
+* Bpf datapath TCP conntrack entries are (re)created only in the forward direction, solving an issue with freezing proxy connections when backend connection is re-opened. (cilium/cilium#40449, @jrajahalme)
+* install: Update image digests for v1.16.11 (cilium/cilium#40115, @cilium-release-bot[bot])
+* v1.16: docs: Document encapsulation options (cilium/cilium#40472, @pchaigno)
+
 ## v1.16.11
 
 Summary of Changes
