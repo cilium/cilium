@@ -7,7 +7,6 @@ triggers:
     - conformance-aws-cni.yaml
     - conformance-clustermesh.yaml
     - conformance-delegated-ipam.yaml
-    - conformance-ipsec-e2e.yaml
     - conformance-eks.yaml
     - conformance-gateway-api.yaml
     - conformance-ginkgo.yaml
@@ -38,9 +37,6 @@ triggers:
   /ci-ipsec-upgrade:
     workflows:
     - tests-ipsec-upgrade.yaml
-  /ci-ipsec-e2e:
-    workflows:
-    - conformance-ipsec-e2e.yaml
   /ci-eks:
     workflows:
     - conformance-eks.yaml
