@@ -23,11 +23,19 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
-func Test_InvalidPayloads(t *testing.T) {
-	p, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil, nil)
+func newParser(t *testing.T) *Parser {
+	t.Helper()
+
+	p, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil, nil, nil)
 	assert.NoError(t, err)
 
-	_, err = p.Decode(nil)
+	return p
+}
+
+func Test_InvalidPayloads(t *testing.T) {
+	p := newParser(t)
+
+	_, err := p.Decode(nil)
 	assert.Equal(t, err, errors.ErrEmptyData)
 
 	_, err = p.Decode(&observerTypes.MonitorEvent{
@@ -49,8 +57,7 @@ func Test_InvalidPayloads(t *testing.T) {
 }
 
 func Test_ParserDispatch(t *testing.T) {
-	p, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil, nil)
-	assert.NoError(t, err)
+	p := newParser(t)
 
 	// Test L3/L4 record
 	tn := monitor.TraceNotify{
@@ -89,8 +96,7 @@ func Test_ParserDispatch(t *testing.T) {
 }
 
 func Test_EventType_RecordLost(t *testing.T) {
-	p, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil, nil)
-	assert.NoError(t, err)
+	p := newParser(t)
 
 	ts := time.Now()
 	ev, err := p.Decode(&observerTypes.MonitorEvent{

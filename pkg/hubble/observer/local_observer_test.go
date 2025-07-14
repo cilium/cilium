@@ -38,9 +38,9 @@ var (
 	nsManager = NewNamespaceManager()
 )
 
-func noopParser(t *testing.T) *parser.Parser {
+func noopParser(tb testing.TB) *parser.Parser {
 	pp, err := parser.New(
-		hivetest.Logger(t),
+		hivetest.Logger(tb),
 		&testutils.NoopEndpointGetter,
 		&testutils.NoopIdentityGetter,
 		&testutils.NoopDNSGetter,
@@ -48,8 +48,9 @@ func noopParser(t *testing.T) *parser.Parser {
 		&testutils.NoopServiceGetter,
 		&testutils.NoopLinkGetter,
 		&testutils.NoopPodMetadataGetter,
+		&testutils.NoopPolicyMetadataGetter,
 	)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	return pp
 }
 
@@ -775,19 +776,7 @@ func TestLocalObserverServer_GetNamespaces(t *testing.T) {
 }
 
 func Benchmark_TrackNamespaces(b *testing.B) {
-	pp, err := parser.New(
-		hivetest.Logger(b),
-		&testutils.NoopEndpointGetter,
-		&testutils.NoopIdentityGetter,
-		&testutils.NoopDNSGetter,
-		&testutils.NoopIPGetter,
-		&testutils.NoopServiceGetter,
-		&testutils.NoopLinkGetter,
-		&testutils.NoopPodMetadataGetter,
-	)
-	if err != nil {
-		b.Fatal(err)
-	}
+	pp := noopParser(b)
 
 	nsManager := NewNamespaceManager()
 	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(b), observeroption.WithMaxFlows(container.Capacity1))
