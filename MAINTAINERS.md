@@ -62,6 +62,7 @@ to learn how to level up through the project.
 
 We would like to acknowledge previous committers and their huge contributions to our collective success:
 
+ * [Beatriz Martínez] (Isovalent)
  * [Eloy Coto] (Red Hat)
  * [Ilya Dmitrichenko] (Docker)
  * [Ray Bejjani]
