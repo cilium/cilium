@@ -11,7 +11,6 @@ to learn how to level up through the project.
  * [Aditi Ghag] (Isovalent)
  * [Alexandre Perrin] (Isovalent)
  * [André Martins] (Isovalent)
- * [Beatriz Martínez] (Isovalent)
  * [Bill Mulligan] (Isovalent)
  * [Bruno M. Custódio] (Isovalent)
  * [Casey Callendrello] (Isovalent)
