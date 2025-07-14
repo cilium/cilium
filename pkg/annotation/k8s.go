@@ -14,6 +14,9 @@ const (
 	// ConfigPrefix is the common prefix for configuration related annotations.
 	ConfigPrefix = "config.cilium.io"
 
+	// ClusterMeshPrefix is the common prefix for ClusterMesh related annotations.
+	ClusterMeshPrefix = "clustermesh.cilium.io"
+
 	// IngressPrefix is the common prefix for ingress related annotations.
 	IngressPrefix = "ingress.cilium.io"
 
@@ -117,6 +120,10 @@ const (
 	//		no preference. Default behavior if this annotation does not exist
 	ServiceAffinity      = ServicePrefix + "/affinity"
 	ServiceAffinityAlias = Prefix + "/service-affinity"
+
+	// CoreDNSAutoPatched is the annotation used to roll out CoreDNS once we
+	// we have patched its configuration to enabled MCS-API support.
+	CoreDNSAutoPatched = ClusterMeshPrefix + "/autoPatchedAt"
 
 	// ServiceLoadBalancingAlgorithm indicates which backend selection algorithm
 	// for a given Service to use. This annotation will override the default
