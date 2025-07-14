@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 	apiext_clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -126,29 +125,45 @@ type compositeClientset struct {
 	restConfigManager *restConfigManager
 }
 
-func newClientset(lc cell.Lifecycle, logger *slog.Logger, cfg Config, jobs job.Group) (Clientset, *restConfigManager, error) {
-	return newClientsetForUserAgent(lc, logger, cfg, "", jobs)
+// ConfigureK8sClientsetDialer provides an optional extension point
+// to configure the dialer used by the clientset.
+type ConfigureK8sClientsetDialer interface {
+	ConfigureK8sClientsetDialer(dialer *net.Dialer)
 }
 
-func newClientsetForUserAgent(lc cell.Lifecycle, logger *slog.Logger, cfg Config, name string, jobs job.Group) (Clientset, *restConfigManager, error) {
-	if !cfg.isEnabled() {
+type compositeClientsetParams struct {
+	cell.In
+
+	Logger    *slog.Logger
+	Lifecycle cell.Lifecycle
+	Config    Config
+
+	ConfigureK8sClientsetDialer ConfigureK8sClientsetDialer `optional:"true"`
+}
+
+func newClientset(params compositeClientsetParams) (Clientset, *restConfigManager, error) {
+	return newClientsetForUserAgent(params, "")
+}
+
+func newClientsetForUserAgent(params compositeClientsetParams, name string) (Clientset, *restConfigManager, error) {
+	if !params.Config.isEnabled() {
 		return &compositeClientset{disabled: true}, nil, nil
 	}
 
 	client := compositeClientset{
-		logger:     logger,
+		logger:     params.Logger,
 		controller: controller.NewManager(),
-		config:     cfg,
+		config:     params.Config,
 	}
 
 	var err error
-	client.restConfigManager, err = restConfigManagerInit(cfg, name, logger)
+	client.restConfigManager, err = restConfigManagerInit(params.Config, name, params.Logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create k8s client rest configuration: %w", err)
 	}
 	rc := client.restConfigManager.getConfig()
 
-	defaultCloseAllConns := setDialer(cfg, rc)
+	defaultCloseAllConns := params.setDialer(rc)
 
 	httpClient, err := rest.HTTPClientFor(rc)
 	if err != nil {
@@ -197,7 +212,7 @@ func newClientsetForUserAgent(lc cell.Lifecycle, logger *slog.Logger, cfg Config
 		return nil, nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
 	}
 
-	lc.Append(cell.Hook{
+	params.Lifecycle.Append(cell.Hook{
 		OnStart: client.onStart,
 		OnStop:  client.onStop,
 	})
@@ -346,14 +361,21 @@ func (c *compositeClientset) waitForConn(ctx context.Context) error {
 	return err
 }
 
-func setDialer(cfg Config, restConfig *rest.Config) func() {
-	if cfg.K8sClientConnectionTimeout == 0 || cfg.K8sClientConnectionKeepAlive == 0 {
-		return func() {}
-	}
-	ctx := (&net.Dialer{
+func (p *compositeClientsetParams) setDialer(restConfig *rest.Config) func() {
+	cfg := p.Config
+	innerDialer := &net.Dialer{
 		Timeout:   cfg.K8sClientConnectionTimeout,
 		KeepAlive: cfg.K8sClientConnectionKeepAlive,
-	}).DialContext
+	}
+	if p.ConfigureK8sClientsetDialer != nil {
+		p.ConfigureK8sClientsetDialer.ConfigureK8sClientsetDialer(innerDialer)
+	}
+
+	ctx := innerDialer.DialContext
+	if cfg.K8sClientConnectionTimeout == 0 || cfg.K8sClientConnectionKeepAlive == 0 {
+		restConfig.Dial = ctx
+		return func() {}
+	}
 	dialer := connrotation.NewDialer(ctx)
 	restConfig.Dial = dialer.DialContext
 	return dialer.CloseAll
@@ -414,9 +436,9 @@ type ClientBuilderFunc func(name string) (Clientset, error)
 // NewClientBuilder returns a function that creates a new Clientset with the given
 // name appended to the user agent, or returns an error if the Clientset cannot be
 // created.
-func NewClientBuilder(lc cell.Lifecycle, logger *slog.Logger, cfg Config, jobs job.Group) ClientBuilderFunc {
+func NewClientBuilder(params compositeClientsetParams) ClientBuilderFunc {
 	return func(name string) (Clientset, error) {
-		c, _, err := newClientsetForUserAgent(lc, logger, cfg, name, jobs)
+		c, _, err := newClientsetForUserAgent(params, name)
 		if err != nil {
 			return nil, err
 		}

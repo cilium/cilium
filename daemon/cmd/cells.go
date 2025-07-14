@@ -47,6 +47,7 @@ import (
 	ipcache "github.com/cilium/cilium/pkg/ipcache/cell"
 	ipmasq "github.com/cilium/cilium/pkg/ipmasq/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/hostfirewallbypass"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -105,6 +106,10 @@ var (
 
 		// Provides Clientset, API for accessing Kubernetes objects.
 		k8sClient.Cell,
+
+		// Provides optional configuration callback to bypass
+		// host firewall when accessing Kubernetes objects.
+		hostfirewallbypass.Cell,
 
 		// Provide the logic to map DNS names matching Kubernetes services to the
 		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
