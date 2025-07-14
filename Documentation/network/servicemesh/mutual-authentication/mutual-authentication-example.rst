@@ -226,11 +226,11 @@ Start by enabling debug level:
     cilium config set debug true
 
 Examine the logs on the Cilium agent located in the same node as the *echo* Pod. 
-For brevity, you can search for some specific log messages:
+For brevity, you can search for some specific log messages by label:
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system -c cilium-agent logs cilium-9pshw --timestamps=true | grep "Policy is requiring authentication\|Validating Server SNI\|Validated certificate\|Successfully authenticated"
+    $ kubectl -n kube-system -c cilium-agent logs -l k8s-app=cilium --timestamps=true | grep "Policy is requiring authentication\|Validating Server SNI\|Validated certificate\|Successfully authenticated"
     2023-07-04T17:58:28.795760597Z level=debug msg="Policy is requiring authentication" key="localIdentity=17947, remoteIdentity=39239, remoteNodeID=54264, authType=spire" subsys=auth
     2023-07-04T17:58:28.800509503Z level=debug msg="Validating Server SNI" SNI ID=39239 subsys=auth
     2023-07-04T17:58:28.800525190Z level=debug msg="Validated certificate" subsys=auth uri-san="[spiffe://spiffe.cilium/identity/39239]"
