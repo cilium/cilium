@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.15.19
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* LBIPAM: Fix deletion of CiliumLoadBalancerIPPool with multiple IP blocks that led to an operator crash (Backport PR cilium/cilium#40092, Upstream PR cilium/cilium#40013, @pippolo84)
+
+**Misc Changes:**
+* .github/workflows: remove reviewers if ciliumbot approved PR (Backport PR cilium/cilium#40092, Upstream PR cilium/cilium#39989, @aanm)
+* auto-approve: add repository as part command (Backport PR cilium/cilium#40092, Upstream PR cilium/cilium#40050, @aanm)
+* auto-approve: add repository as part command (Backport PR cilium/cilium#40329, Upstream PR cilium/cilium#40089, @aanm)
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#40371, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.5 (v1.15) (cilium/cilium#40328, @cilium-renovate[bot])
+* chore(deps): update go (v1.15) (cilium/cilium#40426, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.33.3-1752058676-6ef6da8f651016be6a86e85775aa2a7b9081c138 (v1.15) (cilium/cilium#40439, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.33.4-1752151664-7c2edb0b44cf95f326d628b837fcdd845102ba68 (v1.15) (cilium/cilium#40467, @cilium-renovate[bot])
+* contrib/git: add merge drivers to automate post-merge commands (Backport PR cilium/cilium#40293, Upstream PR cilium/cilium#40189, @aanm)
+* disk-cleanup: parallelize cleanup process to speed up step (Backport PR cilium/cilium#40092, Upstream PR cilium/cilium#40054, @aanm)
+* docs/ipsec: Fix incorrect statement on hostns encryption (Backport PR cilium/cilium#40172, Upstream PR cilium/cilium#40133, @pchaigno)
+* operator/secretsync: silence reconciliation logs (Backport PR cilium/cilium#40223, Upstream PR cilium/cilium#40217, @tklauser)
+* proxy: Use upstream envoy control plane API (Backport PR cilium/cilium#40244, Upstream PR cilium/cilium#39672, @sayboras)
+
+**Other Changes:**
+* [v1.15] deps: Update cilium-envoy image to 1.33.x (cilium/cilium#40164, @sayboras)
+* install: Update image digests for v1.15.18 (cilium/cilium#40116, @cilium-release-bot[bot])
+* v1.15: docs: Document encapsulation options (cilium/cilium#40473, @pchaigno)
+
 ## v1.15.18
 
 Summary of Changes
