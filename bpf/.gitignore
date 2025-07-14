@@ -3,3 +3,4 @@ compile_commands.json
 *.i
 *.s
 .rebuild_all
+.clang_flags.mk
