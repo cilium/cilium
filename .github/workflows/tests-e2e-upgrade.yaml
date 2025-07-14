@@ -167,7 +167,7 @@ jobs:
           CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
 
-          EXTRA_CLI_FLAGS=()
+          EXTRA_CLI_FLAGS=("\"--timeout=15m\"")
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
             EXTRA_CLI_FLAGS+=("\"--secondary-network-iface=eth1\"")
           fi
