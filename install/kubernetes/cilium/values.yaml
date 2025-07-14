@@ -204,6 +204,12 @@ serviceAccounts:
     name: hubble-generate-certs
     automount: true
     annotations: {}
+  # -- CorednsMCSAPI is used if clustermesh.mcsapi.corednsAutoConfigure.enabled=true
+  corednsMCSAPI:
+    create: true
+    name: cilium-coredns-mcsapi-autoconfig
+    automount: true
+    annotations: {}
 # -- Configure termination grace period for cilium-agent DaemonSet.
 terminationGracePeriodSeconds: 1
 # -- Install the cilium agent resources.
@@ -3308,6 +3314,49 @@ clustermesh:
   mcsapi:
     # -- Enable Multi-Cluster Services API support
     enabled: false
+    corednsAutoConfigure:
+      # -- Enable auto-configuration of CoreDNS for Multi-Cluster Services API.
+      #    CoreDNS MUST be at least in version v1.12.2 to run this.
+      enabled: false
+      coredns:
+        # -- The Deployment for the cluster CoreDNS service
+        deploymentName: coredns
+        # -- The Service Account name for the cluster CoreDNS service
+        serviceAccountName: coredns
+        # -- The ConfigMap name for the cluster CoreDNS service
+        configMapName: coredns
+        # -- The namespace for the cluster CoreDNS service
+        namespace: kube-system
+        # -- The cluster domain for the cluster CoreDNS service
+        clusterDomain: cluster.local
+        # -- The clusterset domain for the cluster CoreDNS service
+        clustersetDomain: clusterset.local
+      # -- Additional arguments to `clustermesh-apiserver coredns-mcsapi-auto-configure`.
+      extraArgs: []
+      # -- Seconds after which the completed job pod will be deleted
+      ttlSecondsAfterFinished: 1800
+      # -- Labels to be added to coredns-mcsapi-autoconfig pods
+      podLabels: {}
+      # -- Annotations to be added to the coredns-mcsapi-autoconfig Job
+      annotations: {}
+      # -- Node selector for coredns-mcsapi-autoconfig
+      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+      nodeSelector: {}
+      # -- Priority class for coredns-mcsapi-autoconfig
+      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass
+      priorityClassName: ""
+      # -- Node tolerations for pod assignment on nodes with taints
+      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+      tolerations: []
+      # -- Resource limits for coredns-mcsapi-autoconfig
+      # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers
+      resources: {}
+      # -- Additional coredns-mcsapi-autoconfig volumes.
+      extraVolumes: []
+      # -- Additional coredns-mcsapi-autoconfig volumeMounts.
+      extraVolumeMounts: []
+      # -- Affinity for coredns-mcsapi-autoconfig
+      affinity: {}
   apiserver:
     # -- Clustermesh API server image.
     image:

@@ -1,0 +1,82 @@
+{{- if and (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.mcsapi.corednsAutoConfigure.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cilium-coredns-mcsapi-autoconfig
+  namespace: {{ include "cilium.namespace" . }}
+  labels:
+    k8s-app: cilium-coredns-mcsapi-autoconfig
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    app.kubernetes.io/part-of: cilium
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    {{- with .Values.clustermesh.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.clustermesh.mcsapi.corednsAutoConfigure.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  template:
+    metadata:
+      labels:
+        k8s-app: cilium-coredns-mcsapi-autoconfig
+        {{- with .Values.clustermesh.mcsapi.corednsAutoConfigure.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - name: autoconfig
+          image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+          imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
+          {{- with .Values.clustermesh.mcsapi.corednsAutoConfigure.resources }}
+          resources:
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          command:
+            - /usr/bin/clustermesh-apiserver
+          args:
+            - mcsapi-coredns-cfg
+            - --coredns-deployment-name={{ .Values.clustermesh.mcsapi.corednsAutoConfigure.coredns.deploymentName }}
+            - --coredns-configmap-name={{ .Values.clustermesh.mcsapi.corednsAutoConfigure.coredns.configMapName }}
+            - --coredns-namespace={{ .Values.clustermesh.mcsapi.corednsAutoConfigure.coredns.namespace }}
+            - --coredns-cluster-domain={{ .Values.clustermesh.mcsapi.corednsAutoConfigure.coredns.clusterDomain }}
+            - --coredns-clusterset-domain={{ .Values.clustermesh.mcsapi.corednsAutoConfigure.coredns.clustersetDomain }}
+            {{- with .Values.clustermesh.mcsapi.corednsAutoConfigure.extraArgs }}
+            {{- toYaml . | trim | nindent 12 }}
+            {{- end }}
+          {{- with .Values.clustermesh.mcsapi.corednsAutoConfigure.extraVolumeMounts }}
+          volumeMounts:
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      {{- with .Values.clustermesh.mcsapi.corednsAutoConfigure.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.clustermesh.mcsapi.corednsAutoConfigure.priorityClassName }}
+      priorityClassName: {{ .Values.clustermesh.mcsapi.corednsAutoConfigure.priorityClassName }}
+      {{- end }}
+      {{- with .Values.clustermesh.mcsapi.corednsAutoConfigure.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.serviceAccounts.corednsMCSAPI.name | quote }}
+      automountServiceAccountToken: true
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: OnFailure
+      {{- with .Values.clustermesh.mcsapi.corednsAutoConfigure.extraVolumes }}
+      volumes:
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.clustermesh.mcsapi.corednsAutoConfigure.affinity }}
+      affinity:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+  ttlSecondsAfterFinished: {{ .Values.clustermesh.mcsapi.corednsAutoConfigure.ttlSecondsAfterFinished }}
+{{- end }}
