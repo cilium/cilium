@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sConsts "github.com/cilium/cilium/pkg/k8s/constants"
+	"github.com/cilium/cilium/pkg/k8s/hostfirewallbypass"
 	"github.com/cilium/cilium/pkg/option/resolver"
 )
 
@@ -28,6 +29,7 @@ var buildConfigCell = cell.Module(
 
 var buildConfigHive = hive.New(
 	k8sClient.Cell,
+	hostfirewallbypass.Cell,
 	buildConfigCell,
 	cell.Invoke(func(*buildConfig) {}),
 )
