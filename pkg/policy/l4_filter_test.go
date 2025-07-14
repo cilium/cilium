@@ -211,23 +211,34 @@ func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4Poli
 	})
 }
 
-func (td *testData) validateResolvedPolicy(t *testing.T, id *identity.Identity, expectedIn, expectedOut L4PolicyMap) {
+func (td *testData) validateResolvedPolicy(t *testing.T, selPolicy *selectorPolicy, epPolicy *EndpointPolicy, expectedIn, expectedOut L4PolicyMap) {
 	t.Helper()
-
-	td.repo.mutex.RLock()
-	defer td.repo.mutex.RUnlock()
-
-	pol, err := td.repo.resolvePolicyLocked(id)
-	require.NoError(t, err)
-	defer pol.detach(true, 0)
+	logger := hivetest.Logger(t)
 
 	if expectedIn != nil {
-		td.verifyL4PolicyMapEqual(t, expectedIn, pol.L4Policy.Ingress.PortRules, td.idSet.AsSlice()...)
+		td.verifyL4PolicyMapEqual(t, expectedIn, selPolicy.L4Policy.Ingress.PortRules, td.idSet.AsSlice()...)
 	}
 
 	if expectedOut != nil {
-		td.verifyL4PolicyMapEqual(t, expectedOut, pol.L4Policy.Egress.PortRules, td.idSet.AsSlice()...)
+		td.verifyL4PolicyMapEqual(t, expectedOut, selPolicy.L4Policy.Egress.PortRules, td.idSet.AsSlice()...)
 	}
+
+	// Resolve the policy again and compare against the inputs to verify incremental updates
+	// are applied properly.
+	sp, err := td.repo.resolvePolicyLocked(idA)
+	require.NoError(t, err)
+
+	epp := sp.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	require.NotNil(t, epp)
+	epp.Ready()
+
+	closer, _ := epPolicy.ConsumeMapChanges()
+	closer()
+	epPolicy.Ready()
+
+	require.True(t, epPolicy.policyMapState.Equal(&epp.policyMapState), epPolicy.policyMapState.diff(&epp.policyMapState))
+
+	epp.Detach(logger)
 }
 
 // policyMapEquals takes a set of policies and an expected L4PolicyMap. The policies are assumed to
@@ -236,8 +247,9 @@ func (td *testData) validateResolvedPolicy(t *testing.T, id *identity.Identity, 
 // The repository is cleared when called.
 func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4PolicyMap, rules ...*api.Rule) {
 	t.Helper()
+	logger := hivetest.Logger(t)
 
-	// Initialize with a single identity: ID A
+	// Initialize with test identity
 	td.addIdentity(idA)
 	defer td.removeIdentity(idA)
 
@@ -250,19 +262,31 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 	}
 	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
 
-	td.validateResolvedPolicy(t, idA, expectedIn, expectedOut)
+	// Resolve the Selector policy for test identity
+	td.repo.mutex.RLock()
+	defer td.repo.mutex.RUnlock()
 
-	// Incrementally add other identities
+	selPolicy, err := td.repo.resolvePolicyLocked(idA)
+	require.NoError(t, err)
+	defer selPolicy.detach(true, 0)
+
+	// Distill Selector policy to Endpoint Policy
+	epPolicy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	epPolicy.Ready()
+
+	td.validateResolvedPolicy(t, selPolicy, epPolicy, expectedIn, expectedOut)
+
+	// Incrementally add identities
 	td.addIdentity(idB)
 	td.addIdentity(idC)
 
-	td.validateResolvedPolicy(t, idA, expectedIn, expectedOut)
+	td.validateResolvedPolicy(t, selPolicy, epPolicy, expectedIn, expectedOut)
 
-	// Incrementally delete other identities
+	// Incrementally delete identities
 	td.removeIdentity(idB)
 	td.removeIdentity(idC)
 
-	td.validateResolvedPolicy(t, idA, expectedIn, expectedOut)
+	td.validateResolvedPolicy(t, selPolicy, epPolicy, expectedIn, expectedOut)
 }
 
 // policyInvalid checks that the set of rules results in an error

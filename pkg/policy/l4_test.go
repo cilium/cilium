@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -518,4 +519,113 @@ func BenchmarkContainsAllL3L4(b *testing.B) {
 		}
 		b.StopTimer()
 	}
+}
+
+func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
+	logger := hivetest.Logger(b)
+	owner := DummyOwner{logger: logger}
+
+	newEmptyEndpointPolicy := func() *EndpointPolicy {
+		return &EndpointPolicy{
+			selectorPolicy:   &selectorPolicy{},
+			PolicyOwner:      owner,
+			policyMapState:   emptyMapState(logger),
+			policyMapChanges: MapChanges{logger: logger},
+		}
+	}
+
+	ws := newTestCachedSelector("wildcard", true)
+	testSelA := newTestCachedSelector("test-selector-a", false, 101, 102, 103)
+	testSelB := newTestCachedSelector("test-selector-b", false, 201, 202, 203)
+	testSelC := newTestCachedSelector("test-selector-c", false, 301, 302, 303)
+
+	testL4Filters := []*L4Filter{
+		// L4 wildcard selector.
+		{
+			Port:     9000,
+			Protocol: api.ProtoTCP,
+			wildcard: ws,
+			PerSelectorPolicies: L7DataMap{
+				ws: nil,
+			},
+			Ingress: true,
+		},
+		// L4 with multiple selectors.
+		{
+			Port:     9001,
+			Protocol: api.ProtoTCP,
+			PerSelectorPolicies: L7DataMap{
+				testSelA: nil,
+				testSelB: nil,
+				testSelC: nil,
+			},
+			Ingress: true,
+		},
+		// L4 with multiple selectors and wildcard.
+		{
+			Port:     9002,
+			Protocol: api.ProtoTCP,
+			wildcard: ws,
+			PerSelectorPolicies: L7DataMap{
+				ws:       nil,
+				testSelA: nil,
+				testSelB: nil,
+				testSelC: nil,
+			},
+			Ingress: true,
+		},
+	}
+
+	b.ReportAllocs()
+
+	b.Run("ToMapState", func(b *testing.B) {
+		for b.Loop() {
+			b.StopTimer()
+			epPolicy := newEmptyEndpointPolicy()
+			b.StartTimer()
+
+			for _, filter := range testL4Filters {
+				filter.toMapState(logger, epPolicy, 0, ChangeState{})
+			}
+		}
+	})
+
+	b.Run("IncrementalToMapState", func(b *testing.B) {
+		for b.Loop() {
+			b.StopTimer()
+			epPolicy := newEmptyEndpointPolicy()
+			l4Policy := L4Policy{
+				users: map[*EndpointPolicy]struct{}{
+					epPolicy: {},
+				},
+			}
+
+			// Compute initial policy with just the wildcard selectors.
+			for _, filter := range testL4Filters {
+				if filter.wildcard != nil {
+					psp := filter.PerSelectorPolicies
+					filter.PerSelectorPolicies = L7DataMap{ws: nil}
+
+					filter.toMapState(logger, epPolicy, 0, ChangeState{})
+					filter.PerSelectorPolicies = psp
+				}
+			}
+			b.StartTimer()
+
+			for _, filter := range testL4Filters {
+				for cs := range filter.PerSelectorPolicies {
+					testSel, ok := cs.(*testCachedSelector)
+					if !ok {
+						b.FailNow()
+					}
+
+					l4Policy.AccumulateMapChanges(logger, filter, cs, testSel.selections, nil)
+					l4Policy.SyncMapChanges(filter, versioned.LatestTx)
+
+					closer, _ := epPolicy.ConsumeMapChanges()
+					closer()
+				}
+			}
+		}
+	})
 }
