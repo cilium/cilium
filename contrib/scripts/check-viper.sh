@@ -19,7 +19,7 @@ if grep -r -E --exclude-dir={.git,_build,vendor,contrib} -i --include \*.go "(vi
 fi
 
 if grep -r --exclude-dir={.git,_build,vendor,contrib} -i --include \*.go "StringToStringVar" .; then
-  echo "Found flags.StringToStringVar usage. Please use option.NewNamedMapOptions instead";
+  echo "Found flags.StringToStringVar usage. Please use option.NewMapOptions instead";
   exit 1
 fi
 

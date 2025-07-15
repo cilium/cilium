@@ -142,7 +142,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.AgentDaemonSetName, "agent-daemonset-name", defaults.AgentDaemonSetName, "Name of cilium agent daemonset")
 	cmd.Flags().StringVar(&params.AgentPodSelector, "agent-pod-selector", defaults.AgentPodSelector, "Label on cilium-agent pods to select with")
 	cmd.Flags().StringVar(&params.CiliumPodSelector, "cilium-pod-selector", defaults.CiliumPodSelector, "Label selector matching all cilium-related pods")
-	cmd.Flags().Var(option.NewNamedMapOptions("node-selector", &params.NodeSelector, nil), "node-selector", "Restrict connectivity pods to nodes matching this label")
+	cmd.Flags().Var(option.NewMapOptions(&params.NodeSelector, nil), "node-selector", "Restrict connectivity pods to nodes matching this label")
 	cmd.Flags().StringVar(&params.MultiCluster, "multi-cluster", "", "Test across clusters to given context")
 	cmd.Flags().StringSliceVar(&tests, "test", []string{}, "Run tests that match one of the given regular expressions, skip tests by starting the expression with '!', target Scenarios with e.g. '/pod-to-cidr'")
 	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", check.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
@@ -165,7 +165,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.ServiceType, "service-type", "NodePort", "Type of Kubernetes Services created for connectivity tests")
 	cmd.Flags().StringSliceVar(&params.NodeCIDRs, "node-cidr", nil, "one or more CIDRs that cover all nodes in the cluster")
 	cmd.Flags().StringVar(&params.JunitFile, "junit-file", "", "Generate junit report and write to file")
-	cmd.Flags().Var(option.NewNamedMapOptions("junit-property", &params.JunitProperties, nil), "junit-property", "Add key=value properties to the generated junit file")
+	cmd.Flags().Var(option.NewMapOptions(&params.JunitProperties, nil), "junit-property", "Add key=value properties to the generated junit file")
 	cmd.Flags().BoolVar(&params.SkipIPCacheCheck, "skip-ip-cache-check", true, "Skip IPCache check")
 	cmd.Flags().MarkHidden("skip-ip-cache-check")
 	cmd.Flags().BoolVar(&params.IncludeUnsafeTests, "include-unsafe-tests", false, "Include tests which can modify cluster nodes state")
@@ -285,9 +285,9 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVar(&params.PerfParameters.KernelProfiles, "unsafe-capture-kernel-profiles", false,
 		"Capture kernel profiles during test execution. Warning: run on disposable nodes only, as it installs additional software and modifies their configuration")
 
-	cmd.Flags().Var(option.NewNamedMapOptions("node-selector-server", &params.PerfParameters.NodeSelectorServer, nil),
+	cmd.Flags().Var(option.NewMapOptions(&params.PerfParameters.NodeSelectorServer, nil),
 		"node-selector-server", "Node selector for the server pod (and client same-node)")
-	cmd.Flags().Var(option.NewNamedMapOptions("node-selector-client", &params.PerfParameters.NodeSelectorClient, nil),
+	cmd.Flags().Var(option.NewMapOptions(&params.PerfParameters.NodeSelectorClient, nil),
 		"node-selector-client", "Node selector for the other-node client pod")
 
 	cmd.Flags().StringVar(&params.PerfParameters.Image, "performance-image", defaults.ConnectivityCheckImagesPerf["ConnectivityPerformanceImage"], "Image path to use for performance")
@@ -301,8 +301,8 @@ func registerCommonFlags(flags *pflag.FlagSet) {
 	flags.BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
 	flags.StringSliceVar(&params.Tolerations, "tolerations", nil, "Extra NoSchedule tolerations added to test pods")
 	flags.StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity in (always suffixed with a sequence number to be compliant with test-concurrency param, e.g.: cilium-test-1)")
-	flags.Var(option.NewNamedMapOptions("namespace-labels", &params.NamespaceLabels, nil), "namespace-labels", "Add labels to the connectivity test namespace")
-	flags.Var(option.NewNamedMapOptions("namespace-annotations", &params.NamespaceAnnotations, nil), "namespace-annotations", "Add annotations to the connectivity test namespace")
+	flags.Var(option.NewMapOptions(&params.NamespaceLabels, nil), "namespace-labels", "Add labels to the connectivity test namespace")
+	flags.Var(option.NewMapOptions(&params.NamespaceAnnotations, nil), "namespace-annotations", "Add annotations to the connectivity test namespace")
 	flags.MarkHidden("namespace-annotations")
 	flags.Var(&params.DeploymentAnnotations, "deployment-pod-annotations", "Add annotations to the connectivity pods, e.g. '{\"client\":{\"foo\":\"bar\"}}'")
 	flags.MarkHidden("deployment-pod-annotations")
