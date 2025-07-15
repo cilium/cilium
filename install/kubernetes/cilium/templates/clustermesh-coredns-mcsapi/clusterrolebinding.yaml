@@ -8,10 +8,11 @@ metadata:
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  {{- with .Values.clustermesh.annotations }}
   annotations:
+    helm.sh/resource-policy: keep
+    {{- with .Values.clustermesh.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

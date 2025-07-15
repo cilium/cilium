@@ -39,7 +39,7 @@ spec:
           command:
             - /usr/bin/clustermesh-apiserver
           args:
-            - coredns-mcsapi-auto-configure
+            - mcsapi-coredns-cfg
             - --coredns-deployment-name={{ .Values.clustermesh.mcsapi.corednsAutoConfigure.coredns.deploymentName }}
             - --coredns-configmap-name={{ .Values.clustermesh.mcsapi.corednsAutoConfigure.coredns.configMapName }}
             - --coredns-namespace={{ .Values.clustermesh.mcsapi.corednsAutoConfigure.coredns.namespace }}
