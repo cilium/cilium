@@ -298,6 +298,40 @@ func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
 	}
 }
 
+// OutsideToNodePortForHostNetNs sends an HTTP request from client pod running on a node w/o
+// Cilium to NodePort services in front of a hostnetwork pod.
+func OutsideToNodePortForHostNetNs() check.Scenario {
+	return &outsideToNodePortForHostNetNs{
+		ScenarioBase: check.NewScenarioBase(),
+	}
+}
+
+type outsideToNodePortForHostNetNs struct {
+	check.ScenarioBase
+}
+
+func (s *outsideToNodePortForHostNetNs) Name() string {
+	return "outside-to-nodeport-for-host-netns"
+}
+
+func (s *outsideToNodePortForHostNetNs) Run(ctx context.Context, t *check.Test) {
+	clientPod := t.Context().HostNetNSPodsByNode()[t.NodesWithoutCilium()[0]]
+	i := 0
+
+	// With kube-proxy doing N/S LB it is not possible to see the original client
+	// IP, as iptables rules do the LB SNAT/DNAT before the packet hits any
+	// of Cilium's datapath BPF progs. So, skip the flow validation in that case.
+	status, ok := t.Context().Feature(features.KPRNodePort)
+	validateFlows := ok && status.Enabled
+
+	for _, svc := range t.Context().EchoHostNetNsServices() {
+		for _, node := range t.Context().Nodes() {
+			curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &clientPod, svc, node, validateFlows, t.Context().Params().SecondaryNetworkIface != "")
+			i++
+		}
+	}
+}
+
 // OutsideToIngressService sends an HTTP request from client pod running on a node w/o
 // Cilium to NodePort services.
 func OutsideToIngressService() check.Scenario {
