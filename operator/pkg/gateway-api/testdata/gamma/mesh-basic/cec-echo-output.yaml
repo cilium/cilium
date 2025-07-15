@@ -85,7 +85,6 @@ spec:
           maxStreamDuration:
             maxStreamDuration: 0s
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: gateway-conformance-mesh/echo-v1:8080
     name: gateway-conformance-mesh:echo-v1:8080

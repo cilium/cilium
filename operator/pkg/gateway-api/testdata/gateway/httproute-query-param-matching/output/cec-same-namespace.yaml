@@ -218,7 +218,6 @@ spec:
           maxStreamDuration:
             maxStreamDuration: 0s
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: gateway-conformance-infra/infra-backend-v1:8080
     name: gateway-conformance-infra:infra-backend-v1:8080
@@ -233,7 +232,6 @@ spec:
         useDownstreamProtocolConfig:
           http2ProtocolOptions: {}
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: gateway-conformance-infra/infra-backend-v2:8080
     name: gateway-conformance-infra:infra-backend-v2:8080
@@ -248,7 +246,6 @@ spec:
         useDownstreamProtocolConfig:
           http2ProtocolOptions: {}
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: gateway-conformance-infra/infra-backend-v3:8080
     name: gateway-conformance-infra:infra-backend-v3:8080
