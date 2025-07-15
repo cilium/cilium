@@ -594,38 +594,37 @@ int icmp6_send_echo_reply(struct __ctx_buff *ctx)
 	memcpy(ethhdr->h_dest, smac.addr, ETH_ALEN);
 	memcpy(ethhdr->h_source, dmac.addr, ETH_ALEN);
 
-	/* Rewrite IPv6 header */
-	ip6->saddr = daddr; /* Swap src/dst IP */
-	ip6->daddr = saddr;
-	ip6->hop_limit = IPDEFTTL;
-
+	/* Calculate ICMPv6 checksum deltas for all changes (save old values first) */
+	__be32 icmp6_old = (__be32)(icmphdr->icmp6_type << 24 | icmphdr->icmp6_code << 16);
+	
 	/* Convert ICMPv6 echo request to echo reply */
 	icmphdr->icmp6_type = ICMPV6_ECHO_REPLY;
 	icmphdr->icmp6_code = 0;
+	
+	/* Calculate diff for ICMP type change */
+	__be32 icmp6_new = (__be32)(icmphdr->icmp6_type << 24 | icmphdr->icmp6_code << 16);
+	__wsum diff = csum_diff(&icmp6_old, sizeof(icmp6_old), &icmp6_new, sizeof(icmp6_new), 0);
+	
+	/* Calculate diff for IPv6 address swap in pseudo-header and cascade */
+	diff = csum_diff(saddr.s6_addr, 16, daddr.s6_addr, 16, diff);
+	diff = csum_diff(daddr.s6_addr, 16, saddr.s6_addr, 16, diff);
+	
+	/* Apply the accumulated diff to ICMPv6 checksum */
+	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr) +
+			      offsetof(struct icmp6hdr, icmp6_cksum),
+			      0, diff, BPF_F_PSEUDO_HDR);
+	if (ret < 0)
+		return ret;
 
-	/* Revalidate data pointers to get updated IPv6 header */
+	/* Revalidate data pointers after packet modification */
 	if (!__revalidate_data_pull(ctx, &data, &data_end, (void **)&ip6,
 				    ETH_HLEN, sizeof(struct ipv6hdr), false))
 		return DROP_INVALID;
 
-	/* Update ICMP header pointer after revalidation */
-	icmphdr = (struct icmp6hdr *)(data + sizeof(struct ethhdr) + sizeof(struct ipv6hdr));
-	if ((void *)(icmphdr + 1) > data_end)
-		return DROP_INVALID;
-
-	/* Recalculate ICMPv6 checksum from scratch using proper checksum computation */
-	__u16 icmp6_len = bpf_ntohs(ip6->payload_len);
-	/* Bounds check for verifier - typical ICMP echo packets are small */
-	if (icmp6_len > 1024)
-		return DROP_INVALID;
-	
-	__be32 sum = csum_diff(NULL, 0, icmphdr, icmp6_len, 0);
-	sum = ipv6_pseudohdr_checksum(ip6, IPPROTO_ICMPV6, icmp6_len, sum);
-	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr) +
-			      offsetof(struct icmp6hdr, icmp6_cksum),
-			      0, sum, BPF_F_PSEUDO_HDR);
-	if (ret < 0)
-		return ret;
+	/* Now update the IPv6 header */
+	ip6->saddr = daddr; /* Swap src/dst IP */
+	ip6->daddr = saddr;
+	ip6->hop_limit = IPDEFTTL;
 
 	return 0;
 }

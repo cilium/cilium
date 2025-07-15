@@ -81,14 +81,21 @@ int icmp_send_echo_reply(struct __ctx_buff *ctx)
 	memcpy(ethhdr->h_dest, smac.addr, ETH_ALEN);
 	memcpy(ethhdr->h_source, dmac.addr, ETH_ALEN);
 
-	/* Rewrite IP header */
+	/* Calculate IP checksum delta for TTL change only (save old value first) */
+	__be32 third_word_old = (__be32)(ip4->ttl << 24 | ip4->protocol << 16);  /* TTL|Protocol */
+	
+	/* Rewrite IP header - swap addresses and update TTL */
 	ip4->saddr = daddr; /* Swap src/dst IP */
 	ip4->daddr = saddr;
 	ip4->ttl = IPDEFTTL;
-
-	/* Recalculate IP checksum - zero it out and let the helper recalculate */
+	
+	/* Calculate diff for TTL|Protocol word (only TTL actually changes) */
+	__be32 third_word_new = (__be32)(ip4->ttl << 24 | ip4->protocol << 16);
+	__wsum diff = csum_diff(&third_word_old, sizeof(third_word_old), &third_word_new, sizeof(third_word_new), 0);
+	
+	/* Apply the TTL diff to IP checksum */
 	ret = l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-			      0, 0, 0);
+			      0, diff, 0);
 	if (ret < 0)
 		return ret;
 
@@ -101,20 +108,20 @@ int icmp_send_echo_reply(struct __ctx_buff *ctx)
 	if ((void *)(icmphdr + 1) > data_end)
 		return DROP_INVALID;
 
+	/* Calculate ICMP checksum delta for type change */
+	__be32 icmp_old = (__be32)(icmphdr->type << 24 | icmphdr->code << 16);
+	
 	/* Convert ICMP echo request to echo reply */
 	icmphdr->type = ICMP_ECHOREPLY;
 	icmphdr->code = 0;
-
-	/* Recalculate ICMP checksum from scratch */
-	__u16 icmp_len = bpf_ntohs(ip4->tot_len) - (ip4->ihl * 4);
-	/* Bounds check for verifier - typical ICMP echo packets are small */
-	if (icmp_len > 1024)
-		return DROP_INVALID;
 	
-	__be32 sum = csum_diff(NULL, 0, icmphdr, icmp_len, 0);
+	__be32 icmp_new = (__be32)(icmphdr->type << 24 | icmphdr->code << 16);
+	
+	__wsum icmp_diff = csum_diff(&icmp_old, sizeof(icmp_old), &icmp_new, sizeof(icmp_new), 0);
+	
 	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct iphdr) +
 			      offsetof(struct icmphdr, checksum),
-			      0, sum, 0);
+			      0, icmp_diff, 0);
 	if (ret < 0)
 		return ret;
 
