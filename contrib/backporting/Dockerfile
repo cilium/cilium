@@ -1,6 +1,8 @@
+# check=error=true
+
 ARG GOLANG_IMAGE=docker.io/library/golang:1.20.2@sha256:5990c4fbb1ab074b4be7bcc9ee3b8bd2888a1d4f9572fc7d63b804ea5da54e73
 
-FROM $GOLANG_IMAGE as golang
+FROM $GOLANG_IMAGE AS golang
 
 FROM ubuntu:20.04
 COPY --from=golang /usr/local/go /usr/local/go
@@ -25,7 +27,7 @@ RUN set -ex \
   && rm -rf /hub
 RUN useradd -m user
 USER user
-ENV PATH /usr/local/go/bin:$PATH
+ENV PATH=/usr/local/go/bin:$PATH
 RUN pip3 install --user PyGithub
 
 LABEL maintainer="maintainer@cilium.io"
