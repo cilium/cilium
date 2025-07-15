@@ -9,8 +9,10 @@ import (
 	"github.com/cilium/cilium/pkg/netns"
 )
 
+type NetNS = netns.NetNS
+
 // NewNetNS returns a new network namespace.
-func NewNetNS(tb testing.TB) *netns.NetNS {
+func NewNetNS(tb testing.TB) *NetNS {
 	tb.Helper()
 
 	ns, err := netns.New()
