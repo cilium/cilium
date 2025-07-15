@@ -4,15 +4,12 @@
 package corednsMCSAPIAutoConfigure
 
 import (
-	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestUpdateCorefiles(t *testing.T) {
-	logger := slog.Default()
-
 	for _, tc := range []struct {
 		name             string
 		corefile         string
@@ -194,7 +191,7 @@ func TestUpdateCorefiles(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			corefile, err := updateCorefile(logger, "mycluster.local", "myclusterset.local", tc.corefile)
+			corefile, err := updateCorefile("mycluster.local", "myclusterset.local", tc.corefile)
 			if tc.expectedError {
 				require.Error(t, err)
 			} else {

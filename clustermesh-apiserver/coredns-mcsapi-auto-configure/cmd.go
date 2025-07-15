@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
+	applyappsv1 "k8s.io/client-go/applyconfigurations/apps/v1"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -38,7 +38,6 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 			}
 		},
 		PreRun: func(cmd *cobra.Command, args []string) {
-			// Overwrite the metrics namespace with the one specific for KVStoreMesh
 			option.Config.SetupLogging(h.Viper(), "coredns-mcsapi-auto-configure")
 
 			// slogloggercheck: the logger has been initialized in the SetupLogging call above
@@ -63,6 +62,12 @@ func configureCoreDNS(jg job.Group, logger *slog.Logger, shutdowner hive.Shutdow
 			shutdowner.Shutdown(hive.ShutdownWithError(err))
 		}()
 
+		if !client.IsEnabled() {
+			err = fmt.Errorf("Kubernetes client is not enabled, cannot configure CoreDNS")
+			fmt.Println(err.Error())
+			return
+		}
+
 		var coreDNSConfigmap *corev1.ConfigMap
 		coreDNSConfigmap, err = client.CoreV1().ConfigMaps(config.CoreDNSNamespace).Get(ctx, config.CoreDNSConfigMapName, metav1.GetOptions{})
 		if err != nil {
@@ -73,15 +78,17 @@ func configureCoreDNS(jg job.Group, logger *slog.Logger, shutdowner hive.Shutdow
 		var corefile string
 		var found bool
 		if corefile, found = coreDNSConfigmap.Data["Corefile"]; !found {
-			err = fmt.Errorf("Corefile not found in ConfigMap %s/%s\n", config.CoreDNSNamespace, config.CoreDNSConfigMapName)
+			err = fmt.Errorf("Corefile not found in ConfigMap %s/%s", config.CoreDNSNamespace, config.CoreDNSConfigMapName)
 			logger.Error(err.Error())
 			return
 		}
 
-		if corefile, err = updateCorefile(logger, config.CoreDNSClusterDomain, config.CoreDNSClustersetDomain, corefile); err != nil {
+		if corefile, err = updateCorefile(config.CoreDNSClusterDomain, config.CoreDNSClustersetDomain, corefile); err != nil {
+			logger.Error("Failed to update CoreDNS Corefile", logfields.Error, err)
 			return
 		}
 		if corefile == "" {
+			logger.Info("CoreDNS might already have MCS-API configuration, skipping configuration")
 			return
 		}
 		coreDNSConfigmap.Data["Corefile"] = corefile
@@ -93,26 +100,28 @@ func configureCoreDNS(jg job.Group, logger *slog.Logger, shutdowner hive.Shutdow
 
 		logger.Info("CoreDNS ConfigMap was updated successfully")
 
-		err = restartCoreDNS(ctx, logger, client, config)
+		err = restartCoreDNS(ctx, client, config)
 		if err != nil {
+			logger.Error("Failed to restart CoreDNS Deployment", logfields.Error, err)
+		} else {
 			logger.Info("CoreDNS is rolling out with the new configuration")
 		}
 		return
 	}))
 }
 
-func updateCorefile(logger *slog.Logger, clusterDomain, clustersetDomain string, corefile string) (string, error) {
+func updateCorefile(clusterDomain, clustersetDomain string, corefile string) (string, error) {
 	if strings.Contains(corefile, clustersetDomain) || strings.Contains(corefile, "multicluster") {
-		logger.Warn("CoreDNS might already have MCS-API configuration, skipping configuration")
 		return "", nil // This is not an error as this command might have already been executed
 	}
 
 	clusterDomainEscaped := strings.ReplaceAll(clusterDomain, ".", "\\.")
-	kubernetesMatchRegex := regexp.MustCompile(fmt.Sprintf(`(?m)^\s*kubernetes.*%s.*\{`, clusterDomainEscaped))
+	kubernetesMatchRegex, err := regexp.Compile(fmt.Sprintf(`(?m)^\s*kubernetes.*%s.*\{`, clusterDomainEscaped))
+	if err != nil {
+		return "", fmt.Errorf("Failed to compile regex for kubernetes plugin matching: %w", err)
+	}
 	if !kubernetesMatchRegex.MatchString(corefile) {
-		err := fmt.Errorf("CoreDNS not configured with kubernetes plugin and the domain '%s'", clusterDomain)
-		logger.Error(err.Error())
-		return "", err
+		return "", fmt.Errorf("CoreDNS not configured with kubernetes plugin and the domain '%s'", clusterDomain)
 	}
 
 	corefile = strings.ReplaceAll(
@@ -128,35 +137,35 @@ func updateCorefile(logger *slog.Logger, clusterDomain, clustersetDomain string,
 	return corefile, nil
 }
 
-func restartCoreDNS(ctx context.Context, logger *slog.Logger, client client.Clientset, config coreDNSConfig) error {
+func restartCoreDNS(ctx context.Context, client client.Clientset, config coreDNSConfig) error {
 	existingDeployment, err := client.AppsV1().Deployments(config.CoreDNSNamespace).Get(ctx, config.CoreDNSDeploymentName, metav1.GetOptions{})
 	if err != nil {
-		logger.Error("Failed to get CoreDNS Deployment", logfields.Error, err)
-		return err
+		return fmt.Errorf(
+			"Failed to get CoreDNS Deployment %s/%s: %w",
+			config.CoreDNSNamespace, config.CoreDNSDeploymentName, err,
+		)
 	}
 
 	if existingDeployment.Spec.Paused {
-		err := fmt.Errorf("Failed to update CoreDNS Deployment %s/%s: Deployment is paused", config.CoreDNSNamespace, config.CoreDNSDeploymentName)
-		logger.Error(err.Error())
-		return err
+		return fmt.Errorf(
+			"Deployment %s/%s is paused",
+			config.CoreDNSNamespace, config.CoreDNSDeploymentName,
+		)
 	}
 
-	tempDeployment := existingDeployment.DeepCopy()
-	if tempDeployment.Spec.Template.ObjectMeta.Annotations == nil {
-		tempDeployment.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
-	}
-	tempDeployment.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
-	patch := runtimeClient.MergeFrom(existingDeployment)
-	patchByte, err := patch.Data(tempDeployment)
+	_, err = client.AppsV1().Deployments(config.CoreDNSNamespace).Apply(
+		ctx,
+		applyappsv1.Deployment(config.CoreDNSDeploymentName, config.CoreDNSNamespace).
+			WithAnnotations(map[string]string{
+				"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
+			}),
+		metav1.ApplyOptions{FieldManager: "mcsapi-coredns-autocfg", Force: true},
+	)
 	if err != nil {
-		logger.Error("Failed to build CoreDNS Deployment patch", logfields.Error, err)
-		return err
-	}
-
-	_, err = client.AppsV1().Deployments(config.CoreDNSNamespace).Patch(ctx, config.CoreDNSDeploymentName, patch.Type(), patchByte, metav1.PatchOptions{})
-	if err != nil {
-		logger.Error("Failed to patch CoreDNS Deployment", logfields.Error, err)
-		return err
+		return fmt.Errorf(
+			"Failed to apply Deployment %s/%s: %w",
+			config.CoreDNSNamespace, config.CoreDNSDeploymentName, err,
+		)
 	}
 
 	return nil
