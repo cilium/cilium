@@ -13,12 +13,12 @@ import (
 
 func TestMapOptions(t *testing.T) {
 	for _, tc := range []struct {
-		desc      string
-		input     string
-		validator Validator
-		target    map[string]string
-		wantErr   string
-		want      map[string]string
+		desc       string
+		input      string
+		validators []Validator
+		target     map[string]string
+		wantErr    string
+		want       map[string]string
 	}{
 		{
 			desc:   "no validator",
@@ -33,25 +33,19 @@ func TestMapOptions(t *testing.T) {
 			desc:   "validator that returns error",
 			input:  "k1=v1,k2=v2",
 			target: make(map[string]string),
-			validator: func(val string) (string, error) {
-				return "", fmt.Errorf("invalid value %s", val)
+			validators: []Validator{
+				func(val string) error { return fmt.Errorf("invalid value %s", val) },
 			},
 			wantErr: "invalid value k1=v1",
 		},
 		{
-			desc:   "validator that modifies entries",
-			input:  "k8s:k1 =v1,k8s:k2= v2",
-			target: make(map[string]string),
-			validator: func(val string) (string, error) {
-				val = strings.TrimPrefix(val, "k8s:")
-				vals := strings.SplitN(val, "=", 2)
-				kv := []string{strings.TrimSpace(vals[0]), strings.TrimSpace(vals[1])}
-				return strings.Join(kv, "="), nil
+			desc:  "multiple validators that return success",
+			input: "k1=v1,k2=v2",
+			validators: []Validator{
+				func(val string) error { return nil },
+				func(val string) error { return nil },
 			},
-			want: map[string]string{
-				"k1": "v1",
-				"k2": "v2",
-			},
+			want: map[string]string{"k1": "v1", "k2": "v2"},
 		},
 		{
 			desc:   "nil target map",
@@ -61,7 +55,7 @@ func TestMapOptions(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			opts := NewMapOptions(&tc.target, tc.validator)
+			opts := NewMapOptions(&tc.target, tc.validators...)
 			err := opts.Set(tc.input)
 			if err != nil {
 				if len(tc.wantErr) == 0 {

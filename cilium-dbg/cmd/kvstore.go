@@ -64,5 +64,5 @@ func init() {
 	RootCmd.AddCommand(kvstoreCmd)
 	flags := kvstoreCmd.PersistentFlags()
 	flags.StringVar(&kvStore, "kvstore", "", "Key-Value Store type")
-	flags.Var(option.NewMapOptions(&kvStoreOpts, nil), "kvstore-opt", "Key-Value Store options")
+	flags.Var(option.NewMapOptions(&kvStoreOpts), "kvstore-opt", "Key-Value Store options")
 }
