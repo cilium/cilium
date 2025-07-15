@@ -432,14 +432,14 @@ jobs:
           artifacts: ./perf-tests/clusterloader2/report/
           other_files: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 'cilium-sysdump-final.zip' || '' }} ./perf-tests/clusterloader2/cl2-output.txt
 
-  commit-status-final:
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
-    name: Commit Status Final
     needs: install-and-scaletest
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.install-and-scaletest.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.install-and-scaletest.result }}
