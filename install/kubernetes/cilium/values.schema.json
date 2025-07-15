@@ -4817,16 +4817,6 @@
                     "type": "string"
                   }
                 }
-              },
-              {
-                "properties": {
-                  "key": {
-                    "type": "string"
-                  },
-                  "operator": {
-                    "type": "string"
-                  }
-                }
               }
             ]
           },

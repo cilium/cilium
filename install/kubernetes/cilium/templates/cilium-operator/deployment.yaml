@@ -308,6 +308,10 @@ spec:
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
+      {{- if hasKey .Values "agentNotReadyTaintKey" }}
+        - key: {{ .Values.agentNotReadyTaintKey }}
+          operator: Exists
+      {{ end}}
       volumes:
         # To read the configuration from the config map
       - name: cilium-config-path
