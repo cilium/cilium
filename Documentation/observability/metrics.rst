@@ -50,8 +50,10 @@ if you want to disable them, set Helm value ``operator.prometheus.enabled=false`
 The ports can be configured via ``prometheus.port``,
 ``envoy.prometheus.port``, or ``operator.prometheus.port`` respectively.
 
-When metrics are enabled, all Cilium components will have the following
-annotations. They can be used to signal Prometheus whether to scrape metrics:
+
+When metrics are enabled and ServiceMonitor is not enabled (``hubble.metrics.serviceMonitor.enabled: false``), all Cilium components will have the following annotations. These annotations can be used to signal Prometheus whether to scrape metrics.
+
+If ServiceMonitor is enabled (``hubble.metrics.serviceMonitor.enabled: true``), these annotations are omitted and Prometheus discovers metrics via the ServiceMonitor resource.
 
 .. code-block:: yaml
 
