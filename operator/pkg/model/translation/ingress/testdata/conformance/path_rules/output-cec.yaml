@@ -166,7 +166,6 @@ spec:
           maxStreamDuration:
             maxStreamDuration: 0s
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: random-namespace/aaa-prefix:8080
     name: random-namespace:aaa-prefix:8080
@@ -181,7 +180,6 @@ spec:
         useDownstreamProtocolConfig:
           http2ProtocolOptions: {}
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: random-namespace/aaa-slash-bbb-prefix:8080
     name: random-namespace:aaa-slash-bbb-prefix:8080
@@ -196,7 +194,6 @@ spec:
         useDownstreamProtocolConfig:
           http2ProtocolOptions: {}
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: random-namespace/aaa-slash-bbb-slash-prefix:8080
     name: random-namespace:aaa-slash-bbb-slash-prefix:8080
@@ -211,7 +208,6 @@ spec:
         useDownstreamProtocolConfig:
           http2ProtocolOptions: {}
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: random-namespace/foo-exact:8080
     name: random-namespace:foo-exact:8080
@@ -226,7 +222,6 @@ spec:
         useDownstreamProtocolConfig:
           http2ProtocolOptions: {}
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: random-namespace/foo-prefix:8080
     name: random-namespace:foo-prefix:8080
@@ -241,7 +236,6 @@ spec:
         useDownstreamProtocolConfig:
           http2ProtocolOptions: {}
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: random-namespace/foo-slash-exact:8080
     name: random-namespace:foo-slash-exact:8080

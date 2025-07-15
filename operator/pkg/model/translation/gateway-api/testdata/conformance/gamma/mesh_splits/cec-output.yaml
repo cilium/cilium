@@ -115,7 +115,6 @@ spec:
             - name: gateway-conformance-mesh:echo-v2:80
               weight: 1
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: gateway-conformance-mesh/echo-v1:80
     name: gateway-conformance-mesh:echo-v1:80
@@ -130,7 +129,6 @@ spec:
         useDownstreamProtocolConfig:
           http2ProtocolOptions: {}
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: gateway-conformance-mesh/echo-v2:80
     name: gateway-conformance-mesh:echo-v2:80

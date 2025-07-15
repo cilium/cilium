@@ -33,7 +33,6 @@ const (
 
 func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string) []ClusterMutator {
 	res := []ClusterMutator{
-		withConnectionTimeout(5),
 		withIdleTimeout(i.Config.ClusterConfig.IdleTimeoutSeconds),
 		withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
 		withOutlierDetection(true),
@@ -54,7 +53,6 @@ func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string) []
 
 func (i *cecTranslator) tcpClusterMutators(mutationFunc ...ClusterMutator) []ClusterMutator {
 	return append(mutationFunc,
-		withConnectionTimeout(5),
 		withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
 		withOutlierDetection(true),
 	)

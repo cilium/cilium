@@ -103,7 +103,6 @@ spec:
           hostRedirect: example.com
           portRedirect: 80
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: gateway-conformance-infra/infra-backend-v1:8080
     name: gateway-conformance-infra:infra-backend-v1:8080
