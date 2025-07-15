@@ -1,3 +1,5 @@
+# check=error=true
+
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
@@ -53,9 +55,9 @@ COPY --from=compilers-image /usr/lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gn
 
 COPY --from=golang-dist /usr/local/go /usr/local/go
 RUN mkdir -p /go
-ENV GOROOT /usr/local/go
-ENV GOPATH /go
-ENV PATH "${GOROOT}/bin:${GOPATH}/bin:${PATH}"
+ENV GOROOT=/usr/local/go
+ENV GOPATH=/go
+ENV PATH="${GOROOT}/bin:${GOPATH}/bin:${PATH}"
 
 RUN GOARCH=${TARGETARCH} CGO_ENABLED=0 go install github.com/go-delve/delve/cmd/dlv@latest
 
@@ -88,13 +90,13 @@ COPY --from=llvm-dist /usr/local/bin/llvm-objcopy /usr/local/bin/llvm-strip /bin
 RUN mkdir -p /.cache && chmod 777 /.cache && \
     mkdir -p /go/bin && chmod 777 /go/bin
 
-FROM ${TESTER_IMAGE} as test
+FROM ${TESTER_IMAGE} AS test
 COPY --from=rootfs / /
 COPY test /test
 RUN /test/bin/cst
 
 # this image is large, and re-using layers is beneficial,
 # so final images is not squashed
-FROM rootfs as release
+FROM rootfs AS release
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium
