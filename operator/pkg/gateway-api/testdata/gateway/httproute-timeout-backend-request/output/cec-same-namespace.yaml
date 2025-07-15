@@ -89,7 +89,6 @@ spec:
           cluster: gateway-conformance-infra:infra-backend-v1:8080
           timeout: 0.500s
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: gateway-conformance-infra/infra-backend-v1:8080
     name: gateway-conformance-infra:infra-backend-v1:8080
