@@ -122,56 +122,56 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags := cmd.Flags()
 
 	// Validators
-	option.Config.FixedIdentityMappingValidator = option.Validator(func(val string) (string, error) {
+	option.Config.FixedIdentityMappingValidator = option.Validator(func(val string) error {
 		vals := strings.Split(val, "=")
 		if len(vals) != 2 {
-			return "", fmt.Errorf(`invalid fixed identity: expecting "<numeric-identity>=<identity-name>" got %q`, val)
+			return fmt.Errorf(`invalid fixed identity: expecting "<numeric-identity>=<identity-name>" got %q`, val)
 		}
 		ni, err := identity.ParseNumericIdentity(vals[0])
 		if err != nil {
-			return "", fmt.Errorf(`invalid numeric identity %q: %w`, val, err)
+			return fmt.Errorf(`invalid numeric identity %q: %w`, val, err)
 		}
 		if !identity.IsUserReservedIdentity(ni) {
-			return "", fmt.Errorf(`invalid numeric identity %q: valid numeric identity is between %d and %d`,
+			return fmt.Errorf(`invalid numeric identity %q: valid numeric identity is between %d and %d`,
 				val, identity.UserReservedNumericIdentity.Uint32(), identity.MinimalNumericIdentity.Uint32())
 		}
 		lblStr := vals[1]
 		lbl := labels.ParseLabel(lblStr)
 		if lbl.IsReservedSource() {
-			return "", fmt.Errorf(`invalid source %q for label: %s`, labels.LabelSourceReserved, lblStr)
+			return fmt.Errorf(`invalid source %q for label: %s`, labels.LabelSourceReserved, lblStr)
 		}
-		return val, nil
+		return nil
 	})
 
-	option.Config.BPFMapEventBuffersValidator = option.Validator(func(val string) (string, error) {
+	option.Config.BPFMapEventBuffersValidator = option.Validator(func(val string) error {
 		vals := strings.Split(val, "=")
 		if len(vals) != 2 {
-			return "", fmt.Errorf(`invalid bpf map event config: expecting "<map_name>=<enabled>_<max_size>_<ttl>" got %q`, val)
+			return fmt.Errorf(`invalid bpf map event config: expecting "<map_name>=<enabled>_<max_size>_<ttl>" got %q`, val)
 		}
 		_, err := option.ParseEventBufferTupleString(vals[1])
 		if err != nil {
-			return "", err
+			return err
 		}
-		return "", nil
+		return nil
 	})
 
-	option.Config.FixedZoneMappingValidator = option.Validator(func(val string) (string, error) {
+	option.Config.FixedZoneMappingValidator = option.Validator(func(val string) error {
 		vals := strings.Split(val, "=")
 		if len(vals) != 2 {
-			return "", fmt.Errorf(`invalid fixed zone: expecting "<zone-name>=<numeric-id>" got %q`, val)
+			return fmt.Errorf(`invalid fixed zone: expecting "<zone-name>=<numeric-id>" got %q`, val)
 		}
 		lblStr := vals[0]
 		if len(lblStr) == 0 {
-			return "", fmt.Errorf(`invalid label: %q`, lblStr)
+			return fmt.Errorf(`invalid label: %q`, lblStr)
 		}
 		ni, err := strconv.Atoi(vals[1])
 		if err != nil {
-			return "", fmt.Errorf(`invalid numeric ID %q: %w`, vals[1], err)
+			return fmt.Errorf(`invalid numeric ID %q: %w`, vals[1], err)
 		}
 		if min, max := 1, math.MaxUint8; ni < min || ni >= max {
-			return "", fmt.Errorf(`invalid numeric ID %q: valid numeric ID is between %d and %d`, vals[1], min, max)
+			return fmt.Errorf(`invalid numeric ID %q: valid numeric ID is between %d and %d`, vals[1], min, max)
 		}
-		return val, nil
+		return nil
 	})
 
 	// Env bindings
@@ -290,7 +290,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.IPv6PodSubnets, []string{}, "List of IPv6 pod subnets to preconfigure for encryption")
 	option.BindEnv(vp, option.IPv6PodSubnets)
 
-	flags.Var(option.NewMapOptions(&option.Config.IPAMMultiPoolPreAllocation, nil),
+	flags.Var(option.NewMapOptions(&option.Config.IPAMMultiPoolPreAllocation),
 		option.IPAMMultiPoolPreAllocation,
 		fmt.Sprintf("Defines the minimum number of IPs a node should pre-allocate from each pool (default %s=8)", defaults.IPAMDefaultIPPool))
 	vp.SetDefault(option.IPAMMultiPoolPreAllocation, "")
@@ -549,7 +549,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.LogDriver, []string{}, "Logging endpoints to use for example syslog")
 	option.BindEnv(vp, option.LogDriver)
 
-	flags.Var(option.NewMapOptions(&option.Config.LogOpt, nil),
+	flags.Var(option.NewMapOptions(&option.Config.LogOpt),
 		option.LogOpt, `Log driver options for cilium-agent, `+
 			`configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"}`)
 	option.BindEnv(vp, option.LogOpt)
