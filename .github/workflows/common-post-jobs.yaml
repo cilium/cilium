@@ -25,13 +25,6 @@ jobs:
           ref: ${{ inputs.context-ref }}
           persist-credentials: false
 
-      - name: Merge Sysdumps
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-sysdumps
-          pattern: cilium-sysdumps-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Merge JUnits
         uses: ./.github/actions/merge-artifacts
         with:
