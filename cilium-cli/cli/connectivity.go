@@ -42,19 +42,11 @@ func newCmdConnectivity(hooks api.Hooks) *cobra.Command {
 var params = check.Parameters{
 	ExternalDeploymentPort: 8080,
 	EchoServerHostPort:     4000,
-	JunitProperties:        make(map[string]string),
-	NamespaceLabels:        make(map[string]string),
-	NamespaceAnnotations:   make(map[string]string),
-	NodeSelector:           make(map[string]string),
 	Writer:                 os.Stdout,
 	SysdumpOptions: sysdump.Options{
 		LargeSysdumpAbortTimeout: sysdump.DefaultLargeSysdumpAbortTimeout,
 		LargeSysdumpThreshold:    sysdump.DefaultLargeSysdumpThreshold,
 		Writer:                   os.Stdout,
-	},
-	PerfParameters: check.PerfParameters{
-		NodeSelectorServer: make(map[string]string),
-		NodeSelectorClient: make(map[string]string),
 	},
 }
 
