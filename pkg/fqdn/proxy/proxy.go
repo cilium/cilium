@@ -21,32 +21,3 @@ type DNSProxier interface {
 
 	Listen(port uint16) error
 }
-
-var _ DNSProxier = (*MockFQDNProxy)(nil)
-
-type MockFQDNProxy struct{}
-
-func (m MockFQDNProxy) GetRules(*versioned.VersionHandle, uint16) (restore.DNSRules, error) {
-	return nil, nil
-}
-
-func (m MockFQDNProxy) RemoveRestoredRules(u uint16) {
-}
-
-func (m MockFQDNProxy) UpdateAllowed(endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) (revert.RevertFunc, error) {
-	return nil, nil
-}
-
-func (m MockFQDNProxy) GetBindPort() uint16 {
-	return 0
-}
-
-func (m MockFQDNProxy) RestoreRules(op *endpoint.Endpoint) {
-}
-
-func (m MockFQDNProxy) Cleanup() {
-}
-
-func (m MockFQDNProxy) Listen(uint16) error {
-	return nil
-}
