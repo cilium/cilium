@@ -19,23 +19,15 @@ type MapOptions struct {
 	validator Validator
 }
 
-// NamedMapOptions is a MapOptions struct with a configuration name.
-// This struct is useful to keep reference to the assigned
-// field name in the internal configuration struct.
-type NamedMapOptions struct {
-	name string
-	MapOptions
-}
-
-// NewNamedMapOptions creates a reference to a new NamedMapOpts struct.
-func NewNamedMapOptions(name string, values *map[string]string, validator Validator) *NamedMapOptions {
+// NewMapOptions creates a reference to a new MapOptions struct.
+func NewMapOptions(values *map[string]string, validator Validator) *MapOptions {
 	if *values == nil {
 		*values = make(map[string]string)
 	}
 
-	return &NamedMapOptions{
-		name:       name,
-		MapOptions: *NewMapOpts(*values, validator),
+	return &MapOptions{
+		vals:      *values,
+		validator: validator,
 	}
 }
 

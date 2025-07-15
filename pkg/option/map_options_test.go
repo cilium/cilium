@@ -61,18 +61,18 @@ func TestMapOptions(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			opts := NewNamedMapOptions("flag-1", &tc.target, tc.validator)
+			opts := NewMapOptions(&tc.target, tc.validator)
 			err := opts.Set(tc.input)
 			if err != nil {
 				if len(tc.wantErr) == 0 {
-					t.Fatalf("NewNamedMapOptions()=%v, want nil", err)
+					t.Fatalf("NewMapOptions()=%v, want nil", err)
 				}
 				if !strings.Contains(err.Error(), tc.wantErr) {
-					t.Fatalf("NewNamedMapOptions()=%v, want error with substring %q", err, tc.wantErr)
+					t.Fatalf("NewMapOptions()=%v, want error with substring %q", err, tc.wantErr)
 				}
 				return
 			} else if len(tc.wantErr) != 0 {
-				t.Fatalf("NewNamedMapOptions()=nil, want error with substring %q", tc.wantErr)
+				t.Fatalf("NewMapOptions()=nil, want error with substring %q", tc.wantErr)
 			}
 			if diff := cmp.Diff(tc.want, tc.target); diff != "" {
 				t.Errorf("Unexpected result map (-want +got):\n%s", diff)
