@@ -8,26 +8,26 @@ import (
 	"strings"
 )
 
-// Validator returns a validated string along with a possible error.
-type Validator func(val string) (string, error)
+// Validator validates the option string.
+type Validator func(val string) error
 
 // MapOptions holds a map of values and a validation function.
 type MapOptions struct {
 	vals map[string]string
-	// Validator must validate individual "key=value" entries
+	// Validators must validate individual "key=value" entries
 	// within the map.
-	validator Validator
+	validators []Validator
 }
 
 // NewMapOptions creates a reference to a new MapOptions struct.
-func NewMapOptions(values *map[string]string, validator Validator) *MapOptions {
+func NewMapOptions(values *map[string]string, validators ...Validator) *MapOptions {
 	if *values == nil {
 		*values = make(map[string]string)
 	}
 
 	return &MapOptions{
-		vals:      *values,
-		validator: validator,
+		vals:       *values,
+		validators: validators,
 	}
 }
 
@@ -47,19 +47,13 @@ func (opts *MapOptions) Type() string {
 // Set validates, if needed, the input value and adds it to the internal map.
 // It splits the input string by ',' and then by '=' to create key-value pairs.
 func (opts *MapOptions) Set(value string) error {
-	if opts.validator != nil {
-		var kvs []string
-		for _, kv := range strings.Split(value, ",") {
-			v, err := opts.validator(kv)
-			if err != nil {
+	for kv := range strings.SplitSeq(value, ",") {
+		for _, validator := range opts.validators {
+			if err := validator(kv); err != nil {
 				return err
 			}
-
-			kvs = append(kvs, v)
 		}
-		value = strings.Join(kvs, ",")
-	}
-	for _, kv := range strings.Split(value, ",") {
+
 		vals := strings.SplitN(kv, "=", 2)
 		if len(vals) == 1 {
 			opts.vals[vals[0]] = ""

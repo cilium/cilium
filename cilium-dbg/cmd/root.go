@@ -58,7 +58,7 @@ func init() {
 	flags.StringVar(&cfgFile, "config", "", "Config file (default is $HOME/.cilium.yaml)")
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.StringSlice(option.LogDriver, []string{}, "Logging endpoints to use (example: syslog)")
-	flags.Var(option.NewMapOptions(&option.Config.LogOpt, nil), option.LogOpt, "Log driver options (example: format=json)")
+	flags.Var(option.NewMapOptions(&option.Config.LogOpt), option.LogOpt, "Log driver options (example: format=json)")
 	flags.StringP("host", "H", "", "URI to server-side API")
 	vp.BindPFlags(flags)
 	RootCmd.AddCommand(cmdref.NewCmd(RootCmd))

@@ -32,11 +32,11 @@ func (hook *awsFlagsHooks) RegisterProviderFlag(cmd *cobra.Command, vp *viper.Vi
 	flags.Bool(operatorOption.AWSEnablePrefixDelegation, false, "Allows operator to allocate prefixes to ENIs instead of individual IP addresses")
 	option.BindEnv(vp, operatorOption.AWSEnablePrefixDelegation)
 
-	flags.Var(option.NewMapOptions(&operatorOption.Config.ENITags, nil),
+	flags.Var(option.NewMapOptions(&operatorOption.Config.ENITags),
 		operatorOption.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 	option.BindEnv(vp, operatorOption.ENITags)
 
-	flags.Var(option.NewMapOptions(&operatorOption.Config.ENIGarbageCollectionTags, nil),
+	flags.Var(option.NewMapOptions(&operatorOption.Config.ENIGarbageCollectionTags),
 		operatorOption.ENIGarbageCollectionTags, "Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected")
 	option.BindEnv(vp, operatorOption.ENIGarbageCollectionTags)
 
