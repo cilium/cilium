@@ -95,7 +95,6 @@ spec:
           maxStreamDuration:
             maxStreamDuration: 0s
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: gateway-conformance-infra/backend-protocol-h2c:8080
     name: gateway-conformance-infra:backend-protocol-h2c:8080
