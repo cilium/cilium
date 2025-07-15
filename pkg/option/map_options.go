@@ -31,18 +31,6 @@ func NewMapOptions(values *map[string]string, validator Validator) *MapOptions {
 	}
 }
 
-// NewMapOpts creates a new MapOpts with the specified map of values and an
-// optional validator.
-func NewMapOpts(values map[string]string, validator Validator) *MapOptions {
-	if values == nil {
-		values = make(map[string]string)
-	}
-	return &MapOptions{
-		vals:      values,
-		validator: validator,
-	}
-}
-
 func (opts *MapOptions) String() string {
 	var kvs []string
 	for k, v := range opts.vals {
