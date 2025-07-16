@@ -24,12 +24,10 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
-	slim_discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/promise"
@@ -37,8 +35,6 @@ import (
 
 // Config defines the configuration options for k8s resources.
 type Config struct {
-	EnableK8sEndpointSlice bool
-
 	// K8sServiceProxyName is the value of service.kubernetes.io/service-proxy-name label,
 	// that identifies the service objects Cilium should handle.
 	// If the provided value is an empty string, Cilium will manage service objects when
@@ -49,8 +45,7 @@ type Config struct {
 
 // DefaultConfig represents the default k8s resources config values.
 var DefaultConfig = Config{
-	EnableK8sEndpointSlice: true,
-	K8sServiceProxyName:    "",
+	K8sServiceProxyName: "",
 }
 
 const (
@@ -60,8 +55,6 @@ const (
 
 // Flags implements the cell.Flagger interface.
 func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-k8s-endpoint-slice", def.EnableK8sEndpointSlice, "Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it")
-	flags.MarkDeprecated("enable-k8s-endpoint-slice", "The flag will be removed in v1.19. The feature will be unconditionally enabled by default.")
 	flags.String("k8s-service-proxy-name", def.K8sServiceProxyName, "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
 }
 
@@ -306,10 +299,6 @@ func EndpointsResourceWithIndexers(logger *slog.Logger, lc cell.Lifecycle, cfg C
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	endpointsOptsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(cfg.K8sServiceProxyName)
-	if err != nil {
-		return nil, err
-	}
 
 	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier()
 	if err != nil {
@@ -319,8 +308,6 @@ func EndpointsResourceWithIndexers(logger *slog.Logger, lc cell.Lifecycle, cfg C
 	lw := &endpointsListerWatcher{
 		logger:                      logger,
 		cs:                          cs,
-		enableK8sEndpointSlice:      cfg.EnableK8sEndpointSlice,
-		endpointsOptsModifiers:      append(opts, endpointsOptsModifier),
 		endpointSlicesOptsModifiers: append(opts, endpointSliceOptsModifier),
 	}
 
@@ -342,8 +329,6 @@ func EndpointsResourceWithIndexers(logger *slog.Logger, lc cell.Lifecycle, cfg C
 type endpointsListerWatcher struct {
 	logger                      *slog.Logger
 	cs                          client.Clientset
-	enableK8sEndpointSlice      bool
-	endpointsOptsModifiers      []func(*metav1.ListOptions)
 	endpointSlicesOptsModifiers []func(*metav1.ListOptions)
 	sourceObj                   k8sRuntime.Object
 
@@ -358,29 +343,12 @@ func (lw *endpointsListerWatcher) getSourceObj() k8sRuntime.Object {
 
 func (lw *endpointsListerWatcher) getListerWatcher() cache.ListerWatcher {
 	lw.once.Do(func() {
-		if lw.enableK8sEndpointSlice && version.Capabilities().EndpointSlice {
-			if version.Capabilities().EndpointSliceV1 {
-				lw.logger.Info("Using discoveryv1.EndpointSlice")
-				lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_discoveryv1.EndpointSliceList](
-					lw.cs.Slim().DiscoveryV1().EndpointSlices(""),
-				)
-				lw.sourceObj = &slim_discoveryv1.EndpointSlice{}
-			} else {
-				lw.logger.Info("Using discoveryv1beta1.EndpointSlice")
-				lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_discoveryv1beta1.EndpointSliceList](
-					lw.cs.Slim().DiscoveryV1beta1().EndpointSlices(""),
-				)
-				lw.sourceObj = &slim_discoveryv1beta1.EndpointSlice{}
-			}
-			lw.cachedListerWatcher = utils.ListerWatcherWithModifiers(lw.cachedListerWatcher, lw.endpointSlicesOptsModifiers...)
-		} else {
-			lw.logger.Info("Using v1.Endpoints")
-			lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](
-				lw.cs.Slim().CoreV1().Endpoints(""),
-			)
-			lw.sourceObj = &slim_corev1.Endpoints{}
-			lw.cachedListerWatcher = utils.ListerWatcherWithModifiers(lw.cachedListerWatcher, lw.endpointsOptsModifiers...)
-		}
+		lw.logger.Info("Using discoveryv1.EndpointSlice")
+		lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_discoveryv1.EndpointSliceList](
+			lw.cs.Slim().DiscoveryV1().EndpointSlices(""),
+		)
+		lw.sourceObj = &slim_discoveryv1.EndpointSlice{}
+		lw.cachedListerWatcher = utils.ListerWatcherWithModifiers(lw.cachedListerWatcher, lw.endpointSlicesOptsModifiers...)
 	})
 	return lw.cachedListerWatcher
 }
@@ -395,12 +363,8 @@ func (lw *endpointsListerWatcher) Watch(opts metav1.ListOptions) (watch.Interfac
 
 func transformEndpoint(logger *slog.Logger, obj any) (any, error) {
 	switch obj := obj.(type) {
-	case *slim_corev1.Endpoints:
-		return ParseEndpoints(obj), nil
 	case *slim_discoveryv1.EndpointSlice:
 		return ParseEndpointSliceV1(logger, obj), nil
-	case *slim_discoveryv1beta1.EndpointSlice:
-		return ParseEndpointSliceV1Beta1(obj), nil
 	case cache.DeletedFinalStateUnknown:
 		return obj, nil
 	default:

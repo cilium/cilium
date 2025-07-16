@@ -19,7 +19,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
-	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -172,55 +171,6 @@ func (e *Endpoints) Prefixes() []netip.Prefix {
 	return prefixes
 }
 
-// ParseEndpointsID parses a Kubernetes endpoints and returns the EndpointSliceID
-func ParseEndpointsID(ep *slim_corev1.Endpoints) EndpointSliceID {
-	return EndpointSliceID{
-		ServiceName: loadbalancer.NewServiceName(
-			ep.ObjectMeta.Namespace,
-			ep.ObjectMeta.Name,
-		),
-		EndpointSliceName: ep.ObjectMeta.Name,
-	}
-}
-
-// ParseEndpoints parses a Kubernetes Endpoints resource
-func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
-	endpoints := newEndpoints()
-	endpoints.ObjectMeta = ep.ObjectMeta
-
-	for _, sub := range ep.Subsets {
-		for _, addr := range sub.Addresses {
-			addrCluster, err := cmtypes.ParseAddrCluster(addr.IP)
-			if err != nil {
-				continue
-			}
-
-			backend, ok := endpoints.Backends[addrCluster]
-			if !ok {
-				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
-				endpoints.Backends[addrCluster] = backend
-			}
-
-			if addr.NodeName != nil {
-				backend.NodeName = *addr.NodeName
-			}
-			backend.Hostname = addr.Hostname
-
-			for _, port := range sub.Ports {
-				lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				if port.Name != "" {
-					backend.Ports[lbPort] = append(backend.Ports[lbPort], port.Name)
-				} else {
-					backend.Ports[lbPort] = nil
-				}
-			}
-		}
-	}
-
-	endpoints.EndpointSliceID = ParseEndpointsID(ep)
-	return endpoints
-}
-
 type endpointSlice interface {
 	GetNamespace() string
 	GetName() string
@@ -237,106 +187,6 @@ func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 		),
 		EndpointSliceName: es.GetName(),
 	}
-}
-
-// ParseEndpointSliceV1Beta1 parses a Kubernetes EndpointsSlice v1beta1 resource
-// It reads ready and terminating state of endpoints in the EndpointSlice to
-// return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
-func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoints {
-	endpoints := newEndpoints()
-	endpoints.ObjectMeta = ep.ObjectMeta
-	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
-
-	// Validate AddressType before parsing. Currently, we only support IPv4 and IPv6.
-	if ep.AddressType != slim_discovery_v1beta1.AddressTypeIPv4 &&
-		ep.AddressType != slim_discovery_v1beta1.AddressTypeIPv6 {
-		return endpoints
-	}
-
-	for _, sub := range ep.Endpoints {
-		skipEndpoint := false
-		// ready indicates that this endpoint is prepared to receive traffic,
-		// according to whatever system is managing the endpoint. A nil value
-		// indicates an unknown state. In most cases consumers should interpret this
-		// unknown state as ready.
-		// More info: vendor/k8s.io/api/discovery/v1beta1/types.go
-		if sub.Conditions.Ready != nil && !*sub.Conditions.Ready {
-			skipEndpoint = true
-			// Terminating indicates that the endpoint is getting terminated. A
-			// nil values indicates an unknown state. Ready is never true when
-			// an endpoint is terminating. Propagate the terminating endpoint
-			// state so that we can gracefully remove those endpoints.
-			// More details : vendor/k8s.io/api/discovery/v1/types.go
-			if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
-				skipEndpoint = false
-			}
-		}
-		if skipEndpoint {
-			continue
-		}
-		for _, addr := range sub.Addresses {
-			addrCluster, err := cmtypes.ParseAddrCluster(addr)
-			if err != nil {
-				continue
-			}
-
-			backend, ok := endpoints.Backends[addrCluster]
-			if !ok {
-				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
-				endpoints.Backends[addrCluster] = backend
-				if nodeName, ok := sub.Topology[corev1.LabelHostname]; ok {
-					backend.NodeName = nodeName
-				}
-				if sub.Hostname != nil {
-					backend.Hostname = *sub.Hostname
-				}
-				if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
-					backend.Terminating = true
-					metrics.TerminatingEndpointsEvents.Inc()
-				}
-				if zoneName, ok := sub.Topology[corev1.LabelTopologyZone]; ok {
-					backend.Zone = zoneName
-				}
-			}
-
-			for _, port := range ep.Ports {
-				name, lbPort, ok := parseEndpointPortV1Beta1(port)
-				if ok {
-					if name != "" {
-						backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
-					} else {
-						backend.Ports[lbPort] = nil
-					}
-				}
-			}
-		}
-	}
-	return endpoints
-}
-
-// parseEndpointPortV1Beta1 returns the port name and the port parsed as a
-// L4Addr from the given port.
-func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (name string, addr loadbalancer.L4Addr, ok bool) {
-	proto := loadbalancer.TCP
-	if port.Protocol != nil {
-		switch *port.Protocol {
-		case slim_corev1.ProtocolTCP:
-			proto = loadbalancer.TCP
-		case slim_corev1.ProtocolUDP:
-			proto = loadbalancer.UDP
-		case slim_corev1.ProtocolSCTP:
-			proto = loadbalancer.SCTP
-		default:
-			return
-		}
-	}
-	if port.Port == nil {
-		return
-	}
-	if port.Name != nil {
-		name = *port.Name
-	}
-	return name, loadbalancer.NewL4Addr(proto, uint16(*port.Port)), true
 }
 
 // ParseEndpointSliceV1 parses a Kubernetes EndpointSlice resource.
