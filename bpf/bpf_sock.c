@@ -303,6 +303,13 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_FWD, dst_ip,
 				bpf_ntohs(dst_port));
 
+	/* Do not perform service translation for these services
+	 * in case of E/W traffic, but rather let the fabric
+	 * hairpin the traffic into the entry points from N/S.
+	 */
+	if (lb4_svc_is_l7_punt_proxy(svc))
+		return SYS_PROCEED;
+
 	/* Do not perform service translation for external IPs
 	 * that are not a local address because we don't want
 	 * a k8s service to easily do MITM attacks for a public
@@ -1036,6 +1043,8 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_FWD, &key.address,
 				bpf_ntohs(dst_port));
 
+	if (lb6_svc_is_l7_punt_proxy(svc))
+		return SYS_PROCEED;
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
 
