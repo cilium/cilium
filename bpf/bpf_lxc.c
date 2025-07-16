@@ -106,6 +106,13 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			proxy_port = (__u16)svc->l7_lb_proxy_port;
 			goto skip_service_lookup;
 		}
+		/* We land here when socket-LB is enabled but we also have ENABLE_L7_LB.
+		 * Given in socket-LB we skip translation, we also need to do it here as
+		 * otherwise we end up picking a backend in the per-packet handling which
+		 * we want to avoid for E/W traffic.
+		 */
+		if (lb4_svc_is_l7_punt_proxy(svc))
+			goto skip_service_lookup;
 #endif /* ENABLE_L7_LB */
 		/* When socket-LB is enabled, local-redirect services are load-balanced in
 		 * bpf_sock. In some cases, load-balancing can be skipped for certain local
@@ -180,6 +187,9 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			proxy_port = (__u16)svc->l7_lb_proxy_port;
 			goto skip_service_lookup;
 		}
+		/* See comment in __per_packet_lb_svc_xlate_4. */
+		if (lb6_svc_is_l7_punt_proxy(svc))
+			goto skip_service_lookup;
 #endif /* ENABLE_L7_LB */
 		/* See comment in __per_packet_lb_svc_xlate_4. */
 #if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(ENABLE_SOCKET_LB_FULL)
