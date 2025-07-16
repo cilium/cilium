@@ -1248,6 +1248,88 @@ static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int
 	pktgen__udp_csum(builder, i, udp_layer);
 }
 
+static __always_inline void pktgen__finish_icmp(const struct pktgen *builder, int i)
+{
+	struct icmphdr *icmp_layer;
+	__u64 layer_off;
+	__u32 icmp_len;
+	__wsum csum = 0;
+
+	layer_off = builder->layer_offsets[i];
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct icmphdr))
+		return;
+
+	icmp_layer = ctx_data(builder->ctx) + layer_off;
+	if ((void *)icmp_layer + sizeof(struct icmphdr) > ctx_data_end(builder->ctx))
+		return;
+
+	/* Calculate ICMP message length (header + data) */
+	icmp_len = (__u32)(builder->cur_off - layer_off);
+	
+	/* Verify the entire ICMP message is within bounds */
+	if ((void *)icmp_layer + icmp_len > ctx_data_end(builder->ctx))
+		return;
+	
+	/* Zero out checksum field before calculation */
+	icmp_layer->checksum = 0;
+
+	/* Calculate checksum over entire ICMP message (header + data) */
+	csum = csum_diff(NULL, 0, icmp_layer, icmp_len, 0);
+	icmp_layer->checksum = csum_fold(csum);
+}
+
+static __always_inline void pktgen__finish_icmp6(const struct pktgen *builder, int i)
+{
+	struct icmp6hdr *icmp6_layer;
+	__u64 layer_off;
+	__u32 icmp6_len;
+	__u32 csum = 0;
+
+	if (i == 0)
+		return;
+
+	layer_off = builder->layer_offsets[i];
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct icmp6hdr))
+		return;
+
+	icmp6_layer = ctx_data(builder->ctx) + layer_off;
+	if ((void *)icmp6_layer + sizeof(struct icmp6hdr) > ctx_data_end(builder->ctx))
+		return;
+
+	/* Calculate ICMPv6 message length (header + data) */
+	icmp6_len = (__u32)(builder->cur_off - layer_off);
+	
+	/* Verify the entire ICMPv6 message is within bounds */
+	if ((void *)icmp6_layer + icmp6_len > ctx_data_end(builder->ctx))
+		return;
+	
+	/* Zero out checksum field before calculation */
+	icmp6_layer->icmp6_cksum = 0;
+
+	if (builder->layers[i - 1] == PKT_LAYER_IPV6) {
+		__be32 icmp6_len_be32;
+
+		/* Get pseudo-header checksum (addresses + next header) */
+		csum = pktgen__ip_csum(builder, i);
+		
+		/* Add length field to pseudo-header */
+		icmp6_len_be32 = __bpf_htonl(icmp6_len);
+		csum = csum_diff(NULL, 0, &icmp6_len_be32, sizeof(__be32), csum);
+
+		/* Add ICMPv6 message (header + data) to checksum */
+		csum = csum_diff(NULL, 0, icmp6_layer, icmp6_len, csum);
+		
+		/* Store final checksum */
+		icmp6_layer->icmp6_cksum = csum_fold(csum);
+	}
+}
+
 static __always_inline void pktgen__finish_geneve(const struct pktgen *builder, int i)
 {
 	struct genevehdr *geneve_layer;
@@ -1331,11 +1413,11 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_ICMP:
-			/* TODO implement checksum calc? */
+			pktgen__finish_icmp(builder, i);
 			break;
 
 		case PKT_LAYER_ICMPV6:
-			/* TODO implement checksum calc? */
+			pktgen__finish_icmp6(builder, i);
 			break;
 
 		case PKT_LAYER_SCTP:

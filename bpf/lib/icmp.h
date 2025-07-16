@@ -20,6 +20,8 @@
 #include "common.h"
 #include "eth.h"
 #include "drop.h"
+#include "ipv4.h"
+#include "csum.h"
 
 /**
  * icmp_send_echo_reply - Send ICMP echo reply
@@ -81,21 +83,15 @@ int icmp_send_echo_reply(struct __ctx_buff *ctx)
 	memcpy(ethhdr->h_dest, smac.addr, ETH_ALEN);
 	memcpy(ethhdr->h_source, dmac.addr, ETH_ALEN);
 
-	/* Calculate IP checksum delta for TTL change only (save old value first) */
-	__be32 third_word_old = (__be32)(ip4->ttl << 24 | ip4->protocol << 16);  /* TTL|Protocol */
-	
 	/* Rewrite IP header - swap addresses and update TTL */
+	__u8 old_ttl = ip4->ttl;
+	
 	ip4->saddr = daddr; /* Swap src/dst IP */
 	ip4->daddr = saddr;
 	ip4->ttl = IPDEFTTL;
 	
-	/* Calculate diff for TTL|Protocol word (only TTL actually changes) */
-	__be32 third_word_new = (__be32)(ip4->ttl << 24 | ip4->protocol << 16);
-	__wsum diff = csum_diff(&third_word_old, sizeof(third_word_old), &third_word_new, sizeof(third_word_new), 0);
-	
-	/* Apply the TTL diff to IP checksum */
-	ret = l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-			      0, diff, 0);
+	/* Update IPv4 checksum for TTL change using standard helper */
+	ret = ipv4_csum_update_by_value(ctx, ETH_HLEN, old_ttl, ip4->ttl, 2);
 	if (ret < 0)
 		return ret;
 
@@ -108,20 +104,20 @@ int icmp_send_echo_reply(struct __ctx_buff *ctx)
 	if ((void *)(icmphdr + 1) > data_end)
 		return DROP_INVALID;
 
-	/* Calculate ICMP checksum delta for type change */
-	__be32 icmp_old = (__be32)(icmphdr->type << 24 | icmphdr->code << 16);
+	/* Change ICMP type from ECHO to ECHOREPLY and update checksum.
+	 * We save the old type+code before modification for checksum update.
+	 * ICMP doesn't use pseudo-headers, so we don't need BPF_F_PSEUDO_HDR.
+	 */
+	__be16 old_type_code = *(__be16 *)icmphdr;  /* Save old type+code */
+	icmphdr->type = ICMP_ECHOREPLY;             /* Change type */
+	__be16 new_type_code = *(__be16 *)icmphdr;  /* Get new type+code */
 	
-	/* Convert ICMP echo request to echo reply */
-	icmphdr->type = ICMP_ECHOREPLY;
-	icmphdr->code = 0;
-	
-	__be32 icmp_new = (__be32)(icmphdr->type << 24 | icmphdr->code << 16);
-	
-	__wsum icmp_diff = csum_diff(&icmp_old, sizeof(icmp_old), &icmp_new, sizeof(icmp_new), 0);
-	
-	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct iphdr) +
-			      offsetof(struct icmphdr, checksum),
-			      0, icmp_diff, 0);
+	/* Update ICMP checksum using standard helper.
+	 * The checksum offset for ICMP is at byte 2.
+	 * We specify size 2 since we're replacing a 16-bit value.
+	 */
+	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct iphdr) + offsetof(struct icmphdr, checksum),
+			      old_type_code, new_type_code, 2);
 	if (ret < 0)
 		return ret;
 

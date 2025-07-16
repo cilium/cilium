@@ -10,6 +10,7 @@
 #include "eth.h"
 #include "drop.h"
 #include "eps.h"
+#include "csum.h"
 
 #define ICMP6_TYPE_OFFSET offsetof(struct icmp6hdr, icmp6_type)
 #define ICMP6_CSUM_OFFSET (sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum))
@@ -594,24 +595,25 @@ int icmp6_send_echo_reply(struct __ctx_buff *ctx)
 	memcpy(ethhdr->h_dest, smac.addr, ETH_ALEN);
 	memcpy(ethhdr->h_source, dmac.addr, ETH_ALEN);
 
-	/* Calculate ICMPv6 checksum deltas for all changes (save old values first) */
-	__be32 icmp6_old = (__be32)(icmphdr->icmp6_type << 24 | icmphdr->icmp6_code << 16);
+	/* Calculate ICMPv6 checksum deltas for all changes (4-byte aligned) */
+	__u8 type_code_old[4] = {icmphdr->icmp6_type, icmphdr->icmp6_code, 0, 0};
 	
 	/* Convert ICMPv6 echo request to echo reply */
 	icmphdr->icmp6_type = ICMPV6_ECHO_REPLY;
 	icmphdr->icmp6_code = 0;
 	
 	/* Calculate diff for ICMP type change */
-	__be32 icmp6_new = (__be32)(icmphdr->icmp6_type << 24 | icmphdr->icmp6_code << 16);
-	__wsum diff = csum_diff(&icmp6_old, sizeof(icmp6_old), &icmp6_new, sizeof(icmp6_new), 0);
+	__u8 type_code_new[4] = {icmphdr->icmp6_type, icmphdr->icmp6_code, 0, 0};
+	__wsum diff = csum_diff(type_code_old, 4, type_code_new, 4, 0);
 	
 	/* Calculate diff for IPv6 address swap in pseudo-header and cascade */
 	diff = csum_diff(saddr.s6_addr, 16, daddr.s6_addr, 16, diff);
 	diff = csum_diff(daddr.s6_addr, 16, saddr.s6_addr, 16, diff);
 	
-	/* Apply the accumulated diff to ICMPv6 checksum */
-	ret = l4_csum_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr) +
-			      offsetof(struct icmp6hdr, icmp6_cksum),
+	/* Apply the accumulated diff to ICMPv6 checksum using standard pattern */
+	struct csum_offset csum_off = {};
+	csum_l4_offset_and_flags(IPPROTO_ICMPV6, &csum_off);
+	ret = csum_l4_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr), &csum_off, 
 			      0, diff, BPF_F_PSEUDO_HDR);
 	if (ret < 0)
 		return ret;
