@@ -10,6 +10,11 @@
 Configuring IPAM Modes
 **********************
 
+Cilium supports multiple IP Address Management (IPAM) modes to meet the needs
+of different environments and cloud providers.
+
+The following sections provide documentation for each supported IPAM mode:
+
 .. toctree::
    :maxdepth: 1
    :glob:
@@ -17,3 +22,8 @@ Configuring IPAM Modes
    ipam-crd
    ipam-cluster-pool
    ipam-multi-pool
+
+   ../concepts/ipam/kubernetes
+   ../concepts/ipam/azure
+   ../concepts/ipam/azure-delegated-ipam
+   ../concepts/ipam/eni
