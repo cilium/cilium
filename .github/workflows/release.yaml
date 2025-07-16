@@ -89,4 +89,5 @@ jobs:
             --repo-dir "$(pwd)/../cilium" \
             --repo ${{ github.repository }} \
             --target-version ${{ github.event.inputs.version }} \
-            --steps ${{ github.event.inputs.step }}
+            --steps ${{ github.event.inputs.step }} \
+            --exclude-labels "cilium-cli-exclusive"
