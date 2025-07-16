@@ -21,10 +21,7 @@ var rootCmd = &cobra.Command{
 	Run:   rootCmdRun,
 }
 
-var (
-	backportingChecks *bool
-	nfsFirewallChecks *bool
-)
+var backportingChecks *bool
 
 // versionRegex determines the semantic version via regexp.
 const versionRegex string = `v?(\d+\.\d+(\.\d+)?\S*)`
@@ -32,7 +29,6 @@ const versionRegex string = `v?(\d+\.\d+(\.\d+)?\S*)`
 func init() {
 	flags := rootCmd.Flags()
 	backportingChecks = flags.Bool("backporting", false, "Run backporting checks")
-	nfsFirewallChecks = flags.Bool("nfs-firewall", false, "Run extra NFS firewall checks, requires root privileges")
 }
 
 func readGoModGoVersion(rootDir string) (*semver.Version, error) {
@@ -222,21 +218,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			&envVarCheck{
 				name:            "GITHUB_TOKEN",
 				ifNotSetOrEmpty: checkInfo,
-			},
-		)
-	}
-
-	if *nfsFirewallChecks {
-		checks = append(checks,
-			etcNFSConfCheck{},
-			&iptablesRuleCheck{
-				rule: []string{"INPUT", "-p", "tcp", "-s", "192.168.61.0/24", "--dport", "111", "-j", "ACCEPT"},
-			},
-			&iptablesRuleCheck{
-				rule: []string{"INPUT", "-p", "tcp", "-s", "192.168.61.0/24", "--dport", "2049", "-j", "ACCEPT"},
-			},
-			&iptablesRuleCheck{
-				rule: []string{"INPUT", "-p", "tcp", "-s", "192.168.61.0/24", "--dport", "20048", "-j", "ACCEPT"},
 			},
 		)
 	}
