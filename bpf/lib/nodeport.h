@@ -1465,6 +1465,34 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					punt_to_stack, ext_err);
 	} else {
 skip_service_lookup:
+		if (CONFIG(drop_traffic_to_virtual_ips) && is_svc_proto) {
+			/* Drop Traffic to Virtual IPs Feature
+			 *
+			 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
+			 * on ports where no service is configured, instead of forwarding them to the host.
+			 * This provides better network security by preventing unintended access to
+			 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
+			 *
+			 * Check if the destination IP is a virtual service IP by looking for a
+			 * wildcard service entry (port 0). If found, drop the packet since
+			 * there's no specific service on the requested port.
+			 */
+			struct lb6_key wildcard_key = {};
+			struct lb6_service *wildcard_svc;
+
+			memcpy(&wildcard_key.address, &ip6->daddr, sizeof(wildcard_key.address));
+			wildcard_key.dport = 0;
+			wildcard_key.scope = LB_LOOKUP_SCOPE_EXT;
+			wildcard_key.backend_slot = 0;
+			lb6_key_set_protocol(&wildcard_key, IPPROTO_ANY);
+			wildcard_svc = __lb6_lookup_service(&wildcard_key);
+			if (wildcard_svc && !lb6_svc_is_routable(wildcard_svc)) {
+				/* This is a virtual service IP (ClusterIP/LoadBalancer) without
+				 * a service on the requested port. Drop the packet.
+				 */
+				return DROP_NO_SERVICE;
+			}
+		}
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->daddr)) {
 			ret = neigh_record_ip6(ctx);
@@ -2802,6 +2830,35 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					punt_to_stack, ext_err);
 	} else {
 skip_service_lookup:
+		if (CONFIG(drop_traffic_to_virtual_ips) && is_svc_proto) {
+			/* Drop Traffic to Virtual IPs Feature
+			 *
+			 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
+			 * on ports where no service is configured, instead of forwarding them to the host.
+			 * This provides better network security by preventing unintended access to
+			 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
+			 *
+			 * Check if the destination IP is a virtual service IP by looking for a
+			 * wildcard service entry (port 0). If found, drop the packet since
+			 * there's no specific service on the requested port.
+			 */
+			struct lb4_key wildcard_key = {
+				.address = ip4->daddr,
+				.dport = 0,
+				.scope = LB_LOOKUP_SCOPE_EXT,
+				.backend_slot = 0,
+			};
+			struct lb4_service *wildcard_svc;
+
+			lb4_key_set_protocol(&wildcard_key, IPPROTO_ANY);
+			wildcard_svc = __lb4_lookup_service(&wildcard_key);
+			if (wildcard_svc && !lb4_svc_is_routable(wildcard_svc)) {
+				/* This is a virtual service IP (ClusterIP/LoadBalancer) without
+				 * a service on the requested port. Drop the packet.
+				 */
+				return DROP_NO_SERVICE;
+			}
+		}
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		if (ip4->daddr != IPV4_DIRECT_ROUTING)
 			return tail_call_internal(ctx, CILIUM_CALL_IPV46_RFC6052, ext_err);

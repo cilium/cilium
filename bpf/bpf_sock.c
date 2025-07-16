@@ -295,8 +295,38 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		lb4_key_set_protocol(&key, protocol);
 		svc = sock4_wildcard_lookup_full(&key, in_hostns);
 	}
-	if (!svc)
+	if (!svc) {
+		if (CONFIG(drop_traffic_to_virtual_ips)) {
+			/* Drop Traffic to Virtual IPs Feature
+			 *
+			 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
+			 * on ports where no service is configured, instead of allowing the connection.
+			 * This provides better network security by preventing unintended access to
+			 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
+			 *
+			 * Check if the destination IP is a virtual service IP by looking for a
+			 * wildcard service entry (port 0). If found, drop the connection since
+			 * there's no specific service on the requested port.
+			 */
+			struct lb4_key wildcard_key = {
+				.address = dst_ip,
+				.dport = 0,
+				.scope = LB_LOOKUP_SCOPE_EXT,
+				.backend_slot = 0,
+			};
+			struct lb4_service *wildcard_svc;
+
+			lb4_key_set_protocol(&wildcard_key, IPPROTO_ANY);
+			wildcard_svc = __lb4_lookup_service(&wildcard_key);
+			if (wildcard_svc && !lb4_svc_is_routable(wildcard_svc)) {
+				/* This is a virtual service IP (ClusterIP/LoadBalancer) without
+				 * a service on the requested port. Drop the connection.
+				 */
+				return -ECONNREFUSED;
+			}
+		}
 		return -ENXIO;
+	}
 	if (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc))
 		return -EHOSTUNREACH;
 
@@ -1028,8 +1058,37 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		lb6_key_set_protocol(&key, protocol);
 		svc = sock6_wildcard_lookup_full(&key, in_hostns);
 	}
-	if (!svc)
+	if (!svc) {
+		if (CONFIG(drop_traffic_to_virtual_ips)) {
+			/* Drop Traffic to Virtual IPs Feature
+			 *
+			 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
+			 * on ports where no service is configured, instead of allowing the connection.
+			 * This provides better network security by preventing unintended access to
+			 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
+			 *
+			 * Check if the destination IP is a virtual service IP by looking for a
+			 * wildcard service entry (port 0). If found, drop the connection since
+			 * there's no specific service on the requested port.
+			 */
+			struct lb6_key wildcard_key = {};
+			struct lb6_service *wildcard_svc;
+
+			memcpy(&wildcard_key.address, &key.address, sizeof(wildcard_key.address));
+			wildcard_key.dport = 0;
+			wildcard_key.scope = LB_LOOKUP_SCOPE_EXT;
+			wildcard_key.backend_slot = 0;
+			lb6_key_set_protocol(&wildcard_key, IPPROTO_ANY);
+			wildcard_svc = __lb6_lookup_service(&wildcard_key);
+			if (wildcard_svc && !lb6_svc_is_routable(wildcard_svc)) {
+				/* This is a virtual service IP (ClusterIP/LoadBalancer) without
+				 * a service on the requested port. Drop the connection.
+				 */
+				return -ECONNREFUSED;
+			}
+		}
 		return sock6_xlate_v4_in_v6(ctx, udp_only);
+	}
 	if (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc))
 		return -EHOSTUNREACH;
 

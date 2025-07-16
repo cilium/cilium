@@ -83,6 +83,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	struct lb4_key key = {};
 	__u16 proxy_port = 0;
 	__u32 cluster_id = 0;
+	bool is_svc_proto = true;
 	int l4_off;
 	int ret = 0;
 
@@ -91,7 +92,11 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 
 	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
-		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
+		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
+			is_svc_proto = false;
+			goto skip_service_lookup;
+		}
+		if (ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
 		else
 			return ret;
@@ -130,6 +135,36 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			return ret;
 	}
 skip_service_lookup:
+	if (CONFIG(drop_traffic_to_virtual_ips) && is_svc_proto) {
+		/* Drop Traffic to Virtual IPs Feature
+		 *
+		 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
+		 * on ports where no service is configured, instead of forwarding them to the host.
+		 * This provides better network security by preventing unintended access to
+		 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
+		 *
+		 * Check if the destination IP is a virtual service IP by looking for a
+		 * wildcard service entry (port 0). If found, drop the packet since
+		 * there's no specific service on the requested port.
+		 */
+		struct lb4_key wildcard_key = {
+			.address = tuple.daddr,
+			.dport = 0,
+			.scope = LB_LOOKUP_SCOPE_EXT,
+			.backend_slot = 0,
+		};
+		struct lb4_service *wildcard_svc;
+
+		lb4_key_set_protocol(&wildcard_key, IPPROTO_ANY);
+		wildcard_svc = __lb4_lookup_service(&wildcard_key);
+		if (wildcard_svc && !lb4_svc_is_routable(wildcard_svc)) {
+			/* This is a virtual service IP (ClusterIP/LoadBalancer) without
+			 * a service on the requested port. Drop the packet.
+			 */
+			return DROP_NO_SERVICE;
+		}
+	}
+
 	/* Store state to be picked up on the continuation tail call. */
 	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port, cluster_id);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_EGRESS, ext_err);
@@ -146,6 +181,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	__u16 proxy_port = 0;
+	bool is_svc_proto = true;
 	int l4_off;
 	int ret;
 
@@ -158,7 +194,11 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 
 	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
-		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
+		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
+			is_svc_proto = false;
+			goto skip_service_lookup;
+		}
+		if (ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
 		else
 			return ret;
@@ -201,6 +241,35 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	}
 
 skip_service_lookup:
+	if (CONFIG(drop_traffic_to_virtual_ips) && is_svc_proto) {
+		/* Drop Traffic to Virtual IPs Feature
+		 *
+		 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
+		 * on ports where no service is configured, instead of forwarding them to the host.
+		 * This provides better network security by preventing unintended access to
+		 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
+		 *
+		 * Check if the destination IP is a virtual service IP by looking for a
+		 * wildcard service entry (port 0). If found, drop the packet since
+		 * there's no specific service on the requested port.
+		 */
+		struct lb6_key wildcard_key = {};
+		struct lb6_service *wildcard_svc;
+
+		memcpy(&wildcard_key.address, &tuple.daddr, sizeof(wildcard_key.address));
+		wildcard_key.dport = 0;
+		wildcard_key.scope = LB_LOOKUP_SCOPE_EXT;
+		wildcard_key.backend_slot = 0;
+		lb6_key_set_protocol(&wildcard_key, IPPROTO_ANY);
+		wildcard_svc = __lb6_lookup_service(&wildcard_key);
+		if (wildcard_svc && !lb6_svc_is_routable(wildcard_svc)) {
+			/* This is a virtual service IP (ClusterIP/LoadBalancer) without
+			 * a service on the requested port. Drop the packet.
+			 */
+			return DROP_NO_SERVICE;
+		}
+	}
+
 	/* Store state to be picked up on the continuation tail call. */
 	lb6_ctx_store_state(ctx, &ct_state_new, proxy_port);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_EGRESS, ext_err);
