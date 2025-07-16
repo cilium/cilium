@@ -53,7 +53,7 @@ type cachedVersion struct {
 const (
 	// MinimalVersionConstraint is the minimal version that Cilium supports to
 	// run kubernetes.
-	MinimalVersionConstraint = "1.16.0"
+	MinimalVersionConstraint = "1.21.0"
 )
 
 var (
