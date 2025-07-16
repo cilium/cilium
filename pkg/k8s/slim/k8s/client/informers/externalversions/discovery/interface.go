@@ -7,7 +7,6 @@ package discovery
 
 import (
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/informers/externalversions/discovery/v1"
-	v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/informers/externalversions/discovery/v1beta1"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/informers/externalversions/internalinterfaces"
 )
 
@@ -15,8 +14,6 @@ import (
 type Interface interface {
 	// V1 provides access to shared informers for resources in V1.
 	V1() v1.Interface
-	// V1beta1 provides access to shared informers for resources in V1beta1.
-	V1beta1() v1beta1.Interface
 }
 
 type group struct {
@@ -33,9 +30,4 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // V1 returns a new v1.Interface.
 func (g *group) V1() v1.Interface {
 	return v1.New(g.factory, g.namespace, g.tweakListOptions)
-}
-
-// V1beta1 returns a new v1beta1.Interface.
-func (g *group) V1beta1() v1beta1.Interface {
-	return v1beta1.New(g.factory, g.namespace, g.tweakListOptions)
 }

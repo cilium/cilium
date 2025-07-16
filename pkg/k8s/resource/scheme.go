@@ -11,7 +11,6 @@ import (
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
-	discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 )
 
@@ -19,7 +18,6 @@ var scheme = runtime.NewScheme()
 
 var localSchemeBuilder = runtime.SchemeBuilder{
 	corev1.AddToScheme,
-	discoveryv1beta1.AddToScheme,
 	discoveryv1.AddToScheme,
 	networkingv1.AddToScheme,
 	cilium_api_v2.AddToScheme,

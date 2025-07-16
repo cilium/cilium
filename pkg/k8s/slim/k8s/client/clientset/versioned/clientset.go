@@ -11,7 +11,6 @@ import (
 
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1"
-	discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1beta1"
 	networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -22,17 +21,15 @@ type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	CoreV1() corev1.CoreV1Interface
 	DiscoveryV1() discoveryv1.DiscoveryV1Interface
-	DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface
 	NetworkingV1() networkingv1.NetworkingV1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	coreV1           *corev1.CoreV1Client
-	discoveryV1      *discoveryv1.DiscoveryV1Client
-	discoveryV1beta1 *discoveryv1beta1.DiscoveryV1beta1Client
-	networkingV1     *networkingv1.NetworkingV1Client
+	coreV1       *corev1.CoreV1Client
+	discoveryV1  *discoveryv1.DiscoveryV1Client
+	networkingV1 *networkingv1.NetworkingV1Client
 }
 
 // CoreV1 retrieves the CoreV1Client
@@ -43,11 +40,6 @@ func (c *Clientset) CoreV1() corev1.CoreV1Interface {
 // DiscoveryV1 retrieves the DiscoveryV1Client
 func (c *Clientset) DiscoveryV1() discoveryv1.DiscoveryV1Interface {
 	return c.discoveryV1
-}
-
-// DiscoveryV1beta1 retrieves the DiscoveryV1beta1Client
-func (c *Clientset) DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface {
-	return c.discoveryV1beta1
 }
 
 // NetworkingV1 retrieves the NetworkingV1Client
@@ -107,10 +99,6 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	cs.discoveryV1beta1, err = discoveryv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
 	cs.networkingV1, err = networkingv1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -138,7 +126,6 @@ func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.coreV1 = corev1.New(c)
 	cs.discoveryV1 = discoveryv1.New(c)
-	cs.discoveryV1beta1 = discoveryv1beta1.New(c)
 	cs.networkingV1 = networkingv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

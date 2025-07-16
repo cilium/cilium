@@ -355,7 +355,6 @@ endef
 define K8S_PROTO_PACKAGES
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1
-github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1

@@ -25,11 +25,6 @@ curl "${url}/staging/src/k8s.io/api/core/v1/register.go" > pkg/k8s/slim/k8s/api/
 curl "${url}/staging/src/k8s.io/api/core/v1/taint.go" > pkg/k8s/slim/k8s/api/core/v1/taint.go
 curl "${url}/staging/src/k8s.io/api/core/v1/types.go" > pkg/k8s/slim/k8s/api/core/v1/types.go
 
-curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/doc.go" > pkg/k8s/slim/k8s/api/discovery/v1beta1/doc.go
-curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/register.go" > pkg/k8s/slim/k8s/api/discovery/v1beta1/register.go
-curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/types.go" > pkg/k8s/slim/k8s/api/discovery/v1beta1/types.go
-curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/well_known_labels.go" > pkg/k8s/slim/k8s/api/discovery/v1beta1/well_known_labels.go
-
 curl "${url}/staging/src/k8s.io/api/discovery/v1/doc.go" > pkg/k8s/slim/k8s/api/discovery/v1/doc.go
 curl "${url}/staging/src/k8s.io/api/discovery/v1/register.go" > pkg/k8s/slim/k8s/api/discovery/v1/register.go
 curl "${url}/staging/src/k8s.io/api/discovery/v1/types.go" > pkg/k8s/slim/k8s/api/discovery/v1/types.go
