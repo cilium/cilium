@@ -141,6 +141,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	struct ct_buffer6 ct_buffer = {};
 	bool need_hostfw = false;
 	bool is_host_id = false;
+	bool skip_host_firewall = false;
 #endif /* ENABLE_HOST_FIREWALL */
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -168,10 +169,13 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 
 		if (likely(nexthdr == IPPROTO_ICMPV6)) {
 			ret = icmp6_host_handle(ctx, ETH_HLEN + hdrlen, ext_err, !from_host);
-			if (ret == SKIP_HOST_FIREWALL)
-				goto skip_host_firewall;
-			if (IS_ERR(ret))
+			if (ret == SKIP_HOST_FIREWALL) {
+#ifdef ENABLE_HOST_FIREWALL
+				skip_host_firewall = true;
+#endif /* ENABLE_HOST_FIREWALL */
+			} else if (IS_ERR(ret)) {
 				return ret;
+			}
 		}
 	}
 
@@ -196,6 +200,9 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_HOST_FIREWALL
+	if (skip_host_firewall)
+		goto skip_host_firewall;
+
 	if (from_host) {
 		if (ipv6_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip6, &ct_buffer)) {
 			if (unlikely(ct_buffer.ret < 0))
@@ -222,8 +229,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
-skip_host_firewall:
 #ifdef ENABLE_HOST_FIREWALL
+skip_host_firewall:
 	ctx_store_meta(ctx, CB_FROM_HOST,
 		       (need_hostfw ? FROM_HOST_FLAG_NEED_HOSTFW : 0) |
 		       (is_host_id ? FROM_HOST_FLAG_HOST_ID : 0));
