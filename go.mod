@@ -325,6 +325,7 @@ replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16
 
 tool (
 	github.com/cilium/deepequal-gen
+	github.com/cilium/ebpf/cmd/bpf2go
 	github.com/cilium/linters
 	github.com/gogo/protobuf/gogoproto
 	golang.org/x/tools/cmd/goimports
