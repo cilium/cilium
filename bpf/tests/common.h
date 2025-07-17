@@ -9,8 +9,6 @@
 #include <bpf/loader.h>
 #include <bpf/section.h>
 
-#define ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION		1
-
 /* We can use this macro inside the actual datapath code
  * to compile-in the code for testing. The primary usecase
  * is initializing map-in-map or prog-map.

@@ -102,7 +102,6 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 		lbClasses:    lbClasses,
 		ipv4Enabled:  option.Config.IPv4Enabled(),
 		ipv6Enabled:  option.Config.IPv6Enabled(),
-		lbProtoDiff:  option.Config.LBProtoDiffEnabled(),
 		poolClient:   params.Clientset.CiliumV2().CiliumLoadBalancerIPPools(),
 		svcClient:    params.Clientset.Slim().CoreV1(),
 		jobGroup:     params.JobGroup,
