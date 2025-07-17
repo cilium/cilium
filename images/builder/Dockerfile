@@ -1,8 +1,10 @@
+# check=error=true
+
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1732033829-330cbaf@sha256:5c54f614fb8ee7939492aa4b7d74b37922d98199f5993f6d957a1637ce30eb9e
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:3ab07a88c0badf0ab7c3ee0d7228e8ccbf800bf4@sha256:be9c386c9215082e1b1460795a37636556b4879cdd198a0093f44e4f9bb555e8
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:3ec456e5b94a925c248bef948eb2e033bd38746d@sha256:c2bd6d213c1768ba6fd97a18befeb5c6dadf4c39c23cd94a57de34e44d144806
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:1751996942-195b4d9@sha256:a5a3e2d8c597305ff5bb65185898ff52a47a6d53252957852334406830a431a0
 ARG GOLANG_IMAGE=docker.io/library/golang:1.24.5@sha256:14fd8a55e59a560704e5fc44970b301d00d344e45d6b914dda228e09f359a088
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1747754567-1d8e3ec@sha256:acbb945f89906996273dda37a51bb9f52a61cfccd369dcbe5ddf9409cc97bd88
@@ -53,9 +55,9 @@ COPY --from=compilers-image /usr/lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gn
 
 COPY --from=golang-dist /usr/local/go /usr/local/go
 RUN mkdir -p /go
-ENV GOROOT /usr/local/go
-ENV GOPATH /go
-ENV PATH "${GOROOT}/bin:${GOPATH}/bin:${PATH}"
+ENV GOROOT=/usr/local/go
+ENV GOPATH=/go
+ENV PATH="${GOROOT}/bin:${GOPATH}/bin:${PATH}"
 
 RUN GOARCH=${TARGETARCH} CGO_ENABLED=0 go install github.com/go-delve/delve/cmd/dlv@latest
 
@@ -88,13 +90,13 @@ COPY --from=llvm-dist /usr/local/bin/llvm-objcopy /bin/
 RUN mkdir -p /.cache && chmod 777 /.cache && \
     mkdir -p /go/bin && chmod 777 /go/bin
 
-FROM ${TESTER_IMAGE} as test
+FROM ${TESTER_IMAGE} AS test
 COPY --from=rootfs / /
 COPY test /test
 RUN /test/bin/cst
 
 # this image is large, and re-using layers is beneficial,
 # so final images is not squashed
-FROM rootfs as release
+FROM rootfs AS release
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium
