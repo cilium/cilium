@@ -117,6 +117,14 @@ func newTCPListener(logger log.Logger, address string, port uint32, bindToDev st
 		return nil
 	}
 
+	// Since 1.24, Go stdlib enables MPTCP for listeners by default. This
+	// makes setsockopt to call MPTCP-specific handler. This breaks the
+	// listener that enables TCP MD5 because it is not compatible with
+	// MPTCP. This is a workaround for that.
+	//
+	// See: https://github.com/golang/go/issues/74643 for more details.
+	lc.SetMultipathTCP(false)
+
 	l, err := lc.Listen(context.Background(), proto, addr)
 	if err != nil {
 		return nil, err
