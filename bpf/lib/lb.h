@@ -598,9 +598,7 @@ static __always_inline void
 lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
 		     __u8 protocol __maybe_unused)
 {
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	key->proto = protocol;
-#endif
 }
 
 static __always_inline void
@@ -690,13 +688,11 @@ struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 
 	svc = map_lookup_elem(&cilium_lb6_services_v2, key);
 
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	/* If there are no elements for a specific protocol, check for ANY entries. */
 	if (!svc && key->proto != IPPROTO_ANY) {
 		key->proto = IPPROTO_ANY;
 		svc = map_lookup_elem(&cilium_lb6_services_v2, key);
 	}
-#endif
 
 	return svc;
 }
@@ -1333,9 +1329,7 @@ static __always_inline void
 lb4_key_set_protocol(struct lb4_key *key __maybe_unused,
 		     __u8 protocol __maybe_unused)
 {
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	key->proto = protocol;
-#endif
 }
 
 static __always_inline void
@@ -1425,13 +1419,11 @@ struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 
 	svc = map_lookup_elem(&cilium_lb4_services_v2, key);
 
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	/* If there are no elements for a specific protocol, check for ANY entries. */
 	if (!svc && key->proto != IPPROTO_ANY) {
 		key->proto = IPPROTO_ANY;
 		svc = map_lookup_elem(&cilium_lb4_services_v2, key);
 	}
-#endif
 
 	return svc;
 }

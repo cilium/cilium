@@ -320,7 +320,6 @@ func TestSharedServiceUpdatedPorts(t *testing.T) {
 func TestSharedServiceSamePortWithDifferentProtocols(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	fixture := mkTestFixture(t, true, false)
-	fixture.lbipam.lbProtoDiff = true
 
 	fixture.UpsertPool(t, poolA)
 

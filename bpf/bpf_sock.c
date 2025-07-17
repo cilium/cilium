@@ -266,9 +266,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	struct lb4_key key = {
 		.address	= dst_ip,
 		.dport		= dst_port,
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 		.proto		= protocol,
-#endif
 	}, orig_key = key;
 	struct lb4_service *backend_slot;
 	bool backend_from_affinity = false;
@@ -442,9 +440,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 	struct lb4_key key = {
 		.address	= ctx->src_ip4,
 		.dport		= ctx_src_port(ctx),
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 		.proto		= protocol,
-#endif
 	};
 
 	if (!sock_proto_enabled(protocol) ||
@@ -563,9 +559,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 		struct lb4_key svc_key = {
 			.address	= val->address,
 			.dport		= val->port,
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 			.proto		= protocol,
-#endif
 		};
 
 		svc = lb4_lookup_service(&svc_key, true);
@@ -864,9 +858,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 	struct lb6_service *svc;
 	struct lb6_key key = {
 		.dport		= ctx_src_port(ctx),
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 		.proto		= protocol,
-#endif
 	};
 
 	if (!sock_proto_enabled(protocol) ||
@@ -1000,9 +992,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	__u8 protocol = ctx_protocol(ctx);
 	struct lb6_key key = {
 		.dport		= dst_port,
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 		.proto		= protocol,
-#endif
 	}, orig_key;
 	struct lb6_service *backend_slot;
 	bool backend_from_affinity = false;
@@ -1188,9 +1178,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 		struct lb6_key svc_key = {
 			.address	= val->address,
 			.dport		= val->port,
-#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 			.proto		= protocol,
-#endif
 		};
 
 		svc = lb6_lookup_service(&svc_key, true);
