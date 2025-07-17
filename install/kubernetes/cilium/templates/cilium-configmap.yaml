@@ -460,6 +460,9 @@ data:
   # policy map (per endpoint)
   bpf-policy-map-max: "{{ .Values.bpf.policyMapMax | int }}"
 {{- end }}
+{{- if has (kindOf .Values.bpf.policyMapPressureMetricsThreshold) (list "int64" "float64") }}
+  bpf-policy-map-pressure-metrics-threshold: {{ .Values.bpf.policyMapPressureMetricsThreshold | quote }}
+{{- end }}
 {{- if hasKey .Values.bpf "policyStatsMapMax" }}
   # bpf-policy-stats-map-max specifies the maximum number of entries in global
   # policy stats map
