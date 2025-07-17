@@ -26,7 +26,9 @@
 #include "lib/edt.h"
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
+#include "lib/icmp.h"
 #include "lib/icmp6.h"
+#include "lib/virtual_ip.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/l3.h"
@@ -135,35 +137,50 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			return ret;
 	}
 skip_service_lookup:
-	if (CONFIG(drop_traffic_to_virtual_ips) && is_svc_proto) {
-		/* Drop Traffic to Virtual IPs Feature
-		 *
-		 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
-		 * on ports where no service is configured, instead of forwarding them to the host.
-		 * This provides better network security by preventing unintended access to
-		 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
-		 *
-		 * Check if the destination IP is a virtual service IP by looking for a
-		 * wildcard service entry (port 0). If found, drop the packet since
-		 * there's no specific service on the requested port.
-		 */
-		struct lb4_key wildcard_key = {
-			.address = tuple.daddr,
-			.dport = 0,
-			.scope = LB_LOOKUP_SCOPE_EXT,
-			.backend_slot = 0,
-		};
-		struct lb4_service *wildcard_svc;
+	/* Handle both ICMP echo requests and drop traffic to virtual IPs with a single lookup */
+	if (CONFIG(reply_to_icmp_echo_on_virtual_ips) || CONFIG(drop_traffic_to_virtual_ips)) {
+		/* Reload packet pointers as they may have been invalidated by load balancing */
+		void *data, *data_end;
+		struct iphdr *new_ip4;
+		bool is_icmp_echo = false;
 
-		lb4_key_set_protocol(&wildcard_key, IPPROTO_ANY);
-		wildcard_svc = __lb4_lookup_service(&wildcard_key);
-		if (wildcard_svc && !lb4_svc_is_routable(wildcard_svc)) {
-			/* This is a virtual service IP (ClusterIP/LoadBalancer) without
-			 * a service on the requested port. Drop the packet.
-			 */
-			return DROP_NO_SERVICE;
+		if (!revalidate_data(ctx, &data, &data_end, &new_ip4))
+			goto skip_virtual_ip_handling;
+
+		/* Check if this is an ICMP echo request */
+		if (unlikely(new_ip4->protocol == IPPROTO_ICMP)) {
+			struct icmphdr icmphdr;
+			int icmp_l4_off = ETH_HLEN + ipv4_hdrlen(new_ip4);
+
+			if (ctx_load_bytes(ctx, icmp_l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
+			    icmphdr.type == ICMP_ECHO) {
+				is_icmp_echo = true;
+			}
+		}
+
+		/* Combined handling for both features with single lookup */
+		if (CONFIG(reply_to_icmp_echo_on_virtual_ips) || CONFIG(drop_traffic_to_virtual_ips)) {
+			svc = lookup_virtual_service_v4(new_ip4->daddr);
+
+			/* Handle ICMP echo reply first if applicable */
+			if (CONFIG(reply_to_icmp_echo_on_virtual_ips) && is_icmp_echo && svc) {
+				ret = icmp_send_echo_reply(ctx);
+				if (!ret) {
+					ret = ctx_redirect_peer(ctx, ctx_get_ifindex(ctx), 0);
+				}
+				if (IS_ERR(ret))
+					return send_drop_notify_error(ctx, SECLABEL_IPV4, ret, METRIC_EGRESS);
+				return ret;
+			}
+
+			/* Handle drop traffic to virtual IPs */
+			if (CONFIG(drop_traffic_to_virtual_ips) && is_svc_proto &&
+			    svc && !lb4_svc_is_routable(svc)) {
+				return DROP_NO_SERVICE;
+			}
 		}
 	}
+skip_virtual_ip_handling:
 
 	/* Store state to be picked up on the continuation tail call. */
 	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port, cluster_id);
@@ -241,34 +258,51 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	}
 
 skip_service_lookup:
-	if (CONFIG(drop_traffic_to_virtual_ips) && is_svc_proto) {
-		/* Drop Traffic to Virtual IPs Feature
-		 *
-		 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
-		 * on ports where no service is configured, instead of forwarding them to the host.
-		 * This provides better network security by preventing unintended access to
-		 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
-		 *
-		 * Check if the destination IP is a virtual service IP by looking for a
-		 * wildcard service entry (port 0). If found, drop the packet since
-		 * there's no specific service on the requested port.
-		 */
-		struct lb6_key wildcard_key = {};
-		struct lb6_service *wildcard_svc;
+	/* Handle both ICMPv6 echo requests and drop traffic to virtual IPs with a single lookup */
+	if (CONFIG(reply_to_icmp_echo_on_virtual_ips) || CONFIG(drop_traffic_to_virtual_ips)) {
+		/* Reload packet pointers as they may have been invalidated by load balancing */
+		void *data, *data_end;
+		struct ipv6hdr *new_ip6;
+		bool is_icmp_echo = false;
 
-		memcpy(&wildcard_key.address, &tuple.daddr, sizeof(wildcard_key.address));
-		wildcard_key.dport = 0;
-		wildcard_key.scope = LB_LOOKUP_SCOPE_EXT;
-		wildcard_key.backend_slot = 0;
-		lb6_key_set_protocol(&wildcard_key, IPPROTO_ANY);
-		wildcard_svc = __lb6_lookup_service(&wildcard_key);
-		if (wildcard_svc && !lb6_svc_is_routable(wildcard_svc)) {
-			/* This is a virtual service IP (ClusterIP/LoadBalancer) without
-			 * a service on the requested port. Drop the packet.
-			 */
-			return DROP_NO_SERVICE;
+		if (!revalidate_data(ctx, &data, &data_end, &new_ip6))
+			goto skip_virtual_ip_handling_v6;
+
+		/* Check if this is an ICMPv6 echo request */
+		if (unlikely(new_ip6->nexthdr == IPPROTO_ICMPV6)) {
+			struct icmp6hdr icmp6hdr;
+			int icmp_l4_off = ETH_HLEN + sizeof(struct ipv6hdr);
+
+			if (ctx_load_bytes(ctx, icmp_l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
+			    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
+				is_icmp_echo = true;
+			}
+		}
+
+		/* Combined handling for both features with single lookup */
+		if (CONFIG(reply_to_icmp_echo_on_virtual_ips) || CONFIG(drop_traffic_to_virtual_ips)) {
+			svc = lookup_virtual_service_v6((union v6addr *)&new_ip6->daddr);
+
+			/* Handle ICMPv6 echo reply first if applicable */
+			if (CONFIG(reply_to_icmp_echo_on_virtual_ips) && is_icmp_echo && svc) {
+				ret = icmp6_send_echo_reply(ctx);
+				if (!ret) {
+					cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
+					ret = ctx_redirect_peer(ctx, ctx_get_ifindex(ctx), 0);
+				}
+				if (IS_ERR(ret))
+					return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, METRIC_EGRESS);
+				return ret;
+			}
+
+			/* Handle drop traffic to virtual IPs */
+			if (CONFIG(drop_traffic_to_virtual_ips) && is_svc_proto &&
+			    svc && !lb6_svc_is_routable(svc)) {
+				return DROP_NO_SERVICE;
+			}
 		}
 	}
+skip_virtual_ip_handling_v6:
 
 	/* Store state to be picked up on the continuation tail call. */
 	lb6_ctx_store_state(ctx, &ct_state_new, proxy_port);
@@ -929,6 +963,30 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	return __per_packet_lb_svc_xlate_6(ctx, ip6, ext_err);
 #else
 	/* won't be a tailcall, see TAIL_CT_LOOKUP6 */
+	/* Handle ICMPv6 echo requests to service IPs when per-packet LB is disabled */
+	if (CONFIG(reply_to_icmp_echo_on_virtual_ips) && unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
+		struct icmp6hdr icmp6hdr;
+		int icmp6_l4_off = ETH_HLEN + sizeof(struct ipv6hdr);
+
+		if (ctx_load_bytes(ctx, icmp6_l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
+		    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
+			/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
+			struct lb6_service *icmp6_svc = lookup_virtual_service_v6((union v6addr *)&ip6->daddr);
+			if (icmp6_svc) {
+				int icmp_ret;
+
+				icmp_ret = icmp6_send_echo_reply(ctx);
+				if (!icmp_ret) {
+					icmp_ret = ctx_redirect_peer(ctx, ctx_get_ifindex(ctx), 0);
+				}
+				if (IS_ERR(icmp_ret)) {
+					*ext_err = (__s8)icmp_ret;
+					return DROP_WRITE_ERROR;
+				}
+				return icmp_ret;
+			}
+		}
+	}
 	return tail_ipv6_ct_egress(ctx);
 #endif /* ENABLE_PER_PACKET_LB */
 }
@@ -1494,6 +1552,30 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 	return __per_packet_lb_svc_xlate_4(ctx, ip4, ext_err);
 #else
 	/* won't be a tailcall, see TAIL_CT_LOOKUP4 */
+	/* Handle ICMP echo requests to service IPs when per-packet LB is disabled */
+	if (CONFIG(reply_to_icmp_echo_on_virtual_ips) && unlikely(ip4->protocol == IPPROTO_ICMP)) {
+		struct icmphdr icmphdr;
+		int icmp_l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+		if (ctx_load_bytes(ctx, icmp_l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
+		    icmphdr.type == ICMP_ECHO) {
+			/* Look for any service on this IP using wildcard entry (port=0, proto=ANY) */
+			struct lb4_service *icmp_svc = lookup_virtual_service_v4(ip4->daddr);
+			if (icmp_svc) {
+				int icmp_ret;
+
+				icmp_ret = icmp_send_echo_reply(ctx);
+				if (!icmp_ret) {
+					icmp_ret = ctx_redirect_peer(ctx, ctx_get_ifindex(ctx), 0);
+				}
+				if (IS_ERR(icmp_ret)) {
+					*ext_err = (__s8)icmp_ret;
+					return DROP_WRITE_ERROR;
+				}
+				return icmp_ret;
+			}
+		}
+	}
 	return tail_ipv4_ct_egress(ctx);
 #endif /* ENABLE_PER_PACKET_LB */
 }

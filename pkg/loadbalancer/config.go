@@ -90,6 +90,10 @@ const (
 	// (ClusterIP and LoadBalancer) on ports without services instead of forwarding them.
 	// This enhances security by preventing unintended access to virtual service addresses.
 	DropTrafficToVirtualIPsName = "bpf-lb-drop-traffic-to-virtual-ips"
+
+	// ReplyToICMPEchoOnVirtualIPsName is the name of the option to reply to ICMP echo requests
+	// on virtual IPs (ClusterIP and LoadBalancer) to make them appear reachable for diagnostics.
+	ReplyToICMPEchoOnVirtualIPsName = "bpf-lb-reply-icmp-echo-virtual-ips"
 )
 
 // Configuration option defaults
@@ -200,6 +204,11 @@ type UserConfig struct {
 	// and LoadBalancer) on ports without services instead of forwarding them.
 	// This provides better security by preventing access to non-existent services.
 	DropTrafficToVirtualIPs bool `mapstructure:"bpf-lb-drop-traffic-to-virtual-ips"`
+
+	// ReplyToICMPEchoOnVirtualIPs enables responding to ICMP echo requests (ping)
+	// on virtual IPs (ClusterIP and LoadBalancer) to make them appear reachable
+	// for network diagnostics.
+	ReplyToICMPEchoOnVirtualIPs bool `mapstructure:"bpf-lb-reply-icmp-echo-virtual-ips"`
 
 	// LBPressureMetricsInterval sets the interval for updating the load-balancer BPF map
 	// pressure metrics. A batch lookup is performed for all maps periodically to count
@@ -317,6 +326,9 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool(DropTrafficToVirtualIPsName, def.DropTrafficToVirtualIPs, "Drop traffic to virtual IPs (ClusterIP/LoadBalancer) on ports without services instead of forwarding (experimental)")
 	flags.MarkHidden(DropTrafficToVirtualIPsName)
+
+	flags.Bool(ReplyToICMPEchoOnVirtualIPsName, def.ReplyToICMPEchoOnVirtualIPs, "Reply to ICMP echo requests on virtual IPs (ClusterIP/LoadBalancer) to make them appear reachable (experimental)")
+	flags.MarkHidden(ReplyToICMPEchoOnVirtualIPsName)
 
 	flags.Duration("lb-pressure-metrics-interval", def.LBPressureMetricsInterval, "Interval for reporting pressure metrics for load-balancing BPF maps. 0 disables reporting.")
 	flags.MarkHidden("lb-pressure-metrics-interval")
@@ -501,6 +513,8 @@ var DefaultUserConfig = UserConfig{
 	EnableServiceTopology: false,
 
 	DropTrafficToVirtualIPs: false, // Experimental feature, disabled by default
+
+	ReplyToICMPEchoOnVirtualIPs: false, // Experimental feature, disabled by default
 }
 
 var DefaultConfig = Config{

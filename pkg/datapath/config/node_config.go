@@ -11,6 +11,8 @@ package config
 type Node struct {
 	// Drop traffic to non-existent ports on virtual IPs.
 	DropTrafficToVirtualIps bool `config:"drop_traffic_to_virtual_ips"`
+	// Reply to ICMP echo requests on virtual IPs.
+	ReplyToICMPEchoOnVirtualIps bool `config:"reply_to_icmp_echo_on_virtual_ips"`
 	// Internal IPv6 router address assigned to the cilium_host interface.
 	RouterIPv6 [16]byte `config:"router_ipv6"`
 	// IPv4 source address used for SNAT when a Pod talks to itself over a Service.
@@ -22,6 +24,6 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{false, [16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &Node{false, false, [16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0}, 0x0, 0x0}
 }

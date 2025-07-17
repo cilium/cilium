@@ -11,6 +11,7 @@
 
 #include "lib/common.h"
 #include "lib/lb.h"
+#include "lib/virtual_ip.h"
 #include "lib/endian.h"
 #include "lib/eps.h"
 #include "lib/identity.h"
@@ -280,6 +281,13 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
 		return -ENXIO;
 
+	/* Skip socket layer processing for ICMP.
+	 * ICMP echo requests to virtual IPs should be handled by the nodeport
+	 * layer where the echo reply functionality is implemented.
+	 */
+	if (unlikely(protocol == IPPROTO_ICMP))
+		return -ENXIO;
+
 	if (!udp_only && !sock_proto_enabled(protocol))
 		return -ENOTSUP;
 
@@ -296,6 +304,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		svc = sock4_wildcard_lookup_full(&key, in_hostns);
 	}
 	if (!svc) {
+
 		if (CONFIG(drop_traffic_to_virtual_ips)) {
 			/* Drop Traffic to Virtual IPs Feature
 			 *
@@ -303,21 +312,8 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 			 * on ports where no service is configured, instead of allowing the connection.
 			 * This provides better network security by preventing unintended access to
 			 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
-			 *
-			 * Check if the destination IP is a virtual service IP by looking for a
-			 * wildcard service entry (port 0). If found, drop the connection since
-			 * there's no specific service on the requested port.
 			 */
-			struct lb4_key wildcard_key = {
-				.address = dst_ip,
-				.dport = 0,
-				.scope = LB_LOOKUP_SCOPE_EXT,
-				.backend_slot = 0,
-			};
-			struct lb4_service *wildcard_svc;
-
-			lb4_key_set_protocol(&wildcard_key, IPPROTO_ANY);
-			wildcard_svc = __lb4_lookup_service(&wildcard_key);
+			struct lb4_service *wildcard_svc = lookup_virtual_service_v4_ext_only(dst_ip);
 			if (wildcard_svc && !lb4_svc_is_routable(wildcard_svc)) {
 				/* This is a virtual service IP (ClusterIP/LoadBalancer) without
 				 * a service on the requested port. Drop the connection.
@@ -1044,6 +1040,13 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
 		return -ENXIO;
 
+	/* Skip socket layer processing for ICMPv6.
+	 * ICMPv6 echo requests to virtual IPs should be handled by the nodeport
+	 * layer where the echo reply functionality is implemented.
+	 */
+	if (unlikely(protocol == IPPROTO_ICMPV6))
+		return -ENXIO;
+
 	if (!udp_only && !sock_proto_enabled(protocol))
 		return -ENOTSUP;
 
@@ -1059,6 +1062,12 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		svc = sock6_wildcard_lookup_full(&key, in_hostns);
 	}
 	if (!svc) {
+		/* Skip socket layer processing for ICMPv6 when echo reply is enabled.
+		 * ICMPv6 echo requests to virtual IPs should be handled by the nodeport
+		 * layer where the echo reply functionality is implemented.
+		 */
+		if (CONFIG(reply_to_icmp_echo_on_virtual_ips) && protocol == IPPROTO_ICMPV6)
+			return -ENXIO;
 		if (CONFIG(drop_traffic_to_virtual_ips)) {
 			/* Drop Traffic to Virtual IPs Feature
 			 *
@@ -1066,20 +1075,8 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 			 * on ports where no service is configured, instead of allowing the connection.
 			 * This provides better network security by preventing unintended access to
 			 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
-			 *
-			 * Check if the destination IP is a virtual service IP by looking for a
-			 * wildcard service entry (port 0). If found, drop the connection since
-			 * there's no specific service on the requested port.
 			 */
-			struct lb6_key wildcard_key = {};
-			struct lb6_service *wildcard_svc;
-
-			memcpy(&wildcard_key.address, &key.address, sizeof(wildcard_key.address));
-			wildcard_key.dport = 0;
-			wildcard_key.scope = LB_LOOKUP_SCOPE_EXT;
-			wildcard_key.backend_slot = 0;
-			lb6_key_set_protocol(&wildcard_key, IPPROTO_ANY);
-			wildcard_svc = __lb6_lookup_service(&wildcard_key);
+			struct lb6_service *wildcard_svc = lookup_virtual_service_v6_ext_only(&key.address);
 			if (wildcard_svc && !lb6_svc_is_routable(wildcard_svc)) {
 				/* This is a virtual service IP (ClusterIP/LoadBalancer) without
 				 * a service on the requested port. Drop the connection.

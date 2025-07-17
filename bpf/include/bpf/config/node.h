@@ -24,3 +24,9 @@ NODE_CONFIG(__u32, trace_payload_len, "Length of payload to capture when tracing
 NODE_CONFIG(__u32, trace_payload_len_overlay, "Length of payload to capture when tracing overlay packets.")
 
 NODE_CONFIG(bool, drop_traffic_to_virtual_ips, "Drop traffic to non-existent ports on virtual IPs")
+
+/* This CONFIG is used to control ICMP echo reply functionality for virtual IPs.
+ * When enabled, virtual service IPs will respond to ICMP echo requests (ping)
+ * making them appear reachable for network diagnostics.
+ */
+NODE_CONFIG(bool, reply_to_icmp_echo_on_virtual_ips, "Reply to ICMP echo requests on virtual IPs")
