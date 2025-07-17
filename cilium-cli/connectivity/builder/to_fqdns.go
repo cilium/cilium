@@ -23,6 +23,7 @@ func (t toFqdns) build(ct *check.ConnectivityTest, templates map[string]string) 
 			tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, tests.WithRetryDestPort(80)),
 			tests.PodToWorld2(ct.Params().ExternalTargetIPv6Capable), // resolves to ExternalOtherTarget
 		).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(features.IPFamilyAny) == ct.Params().ExternalOtherTarget {
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
