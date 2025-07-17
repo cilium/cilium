@@ -15,11 +15,9 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/vishvananda/netlink"
-	vns "github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -42,15 +40,10 @@ func newNetlinkFuncsGetter(lifecycle cell.Lifecycle) *netlinkFuncsGetter {
 	lifecycle.Append(
 		cell.Hook{
 			OnStart: func(_ cell.HookContext) error {
-				// Get a netlink handle in the [netns.Current] namespace.
-				// Otherwise we default to the host namespace. Which is not what we want
+				// Get a netlink handle in the current namespace.
+				// Otherwise we default to the namespace at startup. Which is not what we want
 				// during testing where we might currently be in a sub-namespace.
-				cur, err := netns.Current()
-				if err != nil {
-					return fmt.Errorf("getting current netns: %w", err)
-				}
-
-				handle, err := netlink.NewHandleAt(vns.NsHandle(cur.FD()))
+				handle, err := netlink.NewHandle()
 				if err != nil {
 					return fmt.Errorf("creating netlink handle: %w", err)
 				}
