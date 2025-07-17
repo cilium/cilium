@@ -75,7 +75,6 @@ type lbIPAMParams struct {
 	lbClasses   []string
 	ipv4Enabled bool
 	ipv6Enabled bool
-	lbProtoDiff bool
 
 	poolClient poolClient
 	svcClient  client_typed_v1.ServicesGetter
@@ -613,7 +612,7 @@ func (ipam *LBIPAM) checkSharingGroupCompatibility(sv *ServiceView) bool {
 
 		for _, sharedView := range sharedViews {
 			if sv != sharedView {
-				if c, _ := sharedView.isCompatible(sv, ipam.lbProtoDiff); !c {
+				if c, _ := sharedView.isCompatible(sv); !c {
 					return false
 				}
 			}
@@ -917,7 +916,7 @@ func (ipam *LBIPAM) satisfySpecificIPRequests(sv *ServiceView) (statusModified b
 			compatible := true
 			incompatibilityReason := ""
 			for _, serviceView := range serviceViews {
-				if c, r := serviceView.isCompatible(sv, ipam.lbProtoDiff); !c {
+				if c, r := serviceView.isCompatible(sv); !c {
 					compatible = false
 					incompatibilityReason = r
 					break
@@ -1010,7 +1009,7 @@ func (ipam *LBIPAM) satisfyGenericIPv4Requests(sv *ServiceView) (statusModified 
 			// Check if the ports and external traffic policy of the current service is compatible with the existing `ServiceViews`
 			compatible := true
 			for _, serviceView := range serviceViews {
-				if c, _ := serviceView.isCompatible(sv, ipam.lbProtoDiff); !c {
+				if c, _ := serviceView.isCompatible(sv); !c {
 					compatible = false
 					break
 				}
@@ -1076,7 +1075,7 @@ func (ipam *LBIPAM) satisfyGenericIPv6Requests(sv *ServiceView) (statusModified 
 				// Check if the ports and external traffic policy of the current service is compatible with the existing `ServiceViews`
 				compatible := true
 				for _, serviceView := range serviceViews {
-					if c, _ := serviceView.isCompatible(sv, ipam.lbProtoDiff); !c {
+					if c, _ := serviceView.isCompatible(sv); !c {
 						compatible = false
 						break
 					}

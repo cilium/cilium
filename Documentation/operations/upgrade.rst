@@ -295,7 +295,7 @@ communicating via the proxy must reconnect to re-establish connections.
 
 Removed Options
 ~~~~~~~~~~~~~~~
-
+* The previously deprecated ``--bpf-lb-proto-diff`` flag has been removed.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
