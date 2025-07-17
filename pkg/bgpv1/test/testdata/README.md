@@ -56,7 +56,7 @@ The tests need to be run as privileged, as they are adding/removing a testing ne
 To execute all script tests from the `pkg/bgpv1/test` directory using sudo, run:
 
 ```
-PRIVILEGED_TESTS=true go test -exec "sudo -E" . -test.run TestScript
+PRIVILEGED_TESTS=true go test -exec "sudo -E" . -test.run TestPrivilegedScript
 ```
 
 You can run the tests with `-test.v` argument to show the verbose output with logs.
