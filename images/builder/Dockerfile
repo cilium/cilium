@@ -5,7 +5,7 @@ ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1732033829-330cbaf@sha256:5c5
 ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:3ab07a88c0badf0ab7c3ee0d7228e8ccbf800bf4@sha256:be9c386c9215082e1b1460795a37636556b4879cdd198a0093f44e4f9bb555e8
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:1751996942-195b4d9@sha256:a5a3e2d8c597305ff5bb65185898ff52a47a6d53252957852334406830a431a0
 ARG GOLANG_IMAGE=docker.io/library/golang:1.24.5@sha256:14fd8a55e59a560704e5fc44970b301d00d344e45d6b914dda228e09f359a088
-ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1747754567-1d8e3ec@sha256:acbb945f89906996273dda37a51bb9f52a61cfccd369dcbe5ddf9409cc97bd88
+ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1752738770-9ae054f@sha256:f71a1e4200d4e17b83eff2ce0655b6f442b18e807511806828efc22f58bf9dba
 
 FROM ${COMPILERS_IMAGE} AS compilers-image
 
@@ -81,7 +81,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/b
     ./install-test-formatters.sh
 
 # used to facilitate the verifier tests
-COPY --from=llvm-dist /usr/local/bin/llvm-objcopy /bin/
+COPY --from=llvm-dist /usr/local/bin/llvm-objcopy /usr/local/bin/llvm-strip /bin/
 
 # Create a cache directory with 777 so that we can run the builder image and
 # compile golang code from any UID.
