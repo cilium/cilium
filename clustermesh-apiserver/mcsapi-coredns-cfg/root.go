@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package corednsMCSAPIAutoConfigure
+package mcsapiCorednsCfg
 
 import (
 	"context"
@@ -28,7 +28,7 @@ import (
 
 func NewCmd(h *hive.Hive) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "coredns-mcsapi-auto-configure",
+		Use:   "mcsapi-coredns-cfg",
 		Short: "Automatically configure CoreDNS with recommended MCS-API settings",
 		Run: func(cmd *cobra.Command, args []string) {
 			// slogloggercheck: it has been initialized in the PreRun function.
@@ -38,10 +38,10 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 			}
 		},
 		PreRun: func(cmd *cobra.Command, args []string) {
-			option.Config.SetupLogging(h.Viper(), "coredns-mcsapi-auto-configure")
+			option.Config.SetupLogging(h.Viper(), "mcsapi-coredns-cfg")
 
 			// slogloggercheck: the logger has been initialized in the SetupLogging call above
-			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "coredns-mcsapi-auto-configure")
+			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "mcsapi-coredns-cfg")
 
 			option.Config.Populate(log, h.Viper())
 			option.LogRegisteredSlogOptions(h.Viper(), log)

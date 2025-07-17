@@ -12,10 +12,10 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	clustermeshdbg "github.com/cilium/cilium/clustermesh-apiserver/clustermesh-dbg"
 	"github.com/cilium/cilium/clustermesh-apiserver/common"
-	corednsMCSAPIAutoConfigure "github.com/cilium/cilium/clustermesh-apiserver/coredns-mcsapi-auto-configure"
 	"github.com/cilium/cilium/clustermesh-apiserver/etcdinit"
 	"github.com/cilium/cilium/clustermesh-apiserver/kvstoremesh"
 	kvstoremeshdbg "github.com/cilium/cilium/clustermesh-apiserver/kvstoremesh-dbg"
+	mcsapiCorednsCfg "github.com/cilium/cilium/clustermesh-apiserver/mcsapi-coredns-cfg"
 	"github.com/cilium/cilium/clustermesh-apiserver/version"
 	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/hive"
@@ -39,7 +39,7 @@ func init() {
 		clustermeshdbg.RootCmd,
 		kvstoremeshdbg.RootCmd,
 		shellclient.ShellCmd,
-		corednsMCSAPIAutoConfigure.NewCmd(hive.New(corednsMCSAPIAutoConfigure.Cell)),
+		mcsapiCorednsCfg.NewCmd(hive.New(mcsapiCorednsCfg.Cell)),
 	)
 }
 

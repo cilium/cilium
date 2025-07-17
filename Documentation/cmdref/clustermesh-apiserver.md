@@ -15,10 +15,10 @@ Run the ClusterMesh apiserver
 * [clustermesh-apiserver clustermesh](clustermesh-apiserver_clustermesh.md)	 - Run ClusterMesh
 * [clustermesh-apiserver clustermesh-dbg](clustermesh-apiserver_clustermesh-dbg.md)	 - CLI for interacting with ClusterMesh
 * [clustermesh-apiserver completion](clustermesh-apiserver_completion.md)	 - Generate the autocompletion script for the specified shell
-* [clustermesh-apiserver coredns-mcsapi-auto-configure](clustermesh-apiserver_coredns-mcsapi-auto-configure.md)	 - Automatically configure CoreDNS with recommended MCS-API settings
 * [clustermesh-apiserver etcdinit](clustermesh-apiserver_etcdinit.md)	 - Initialize an etcd data directory for use by the etcd sidecar of clustermesh-apiserver
 * [clustermesh-apiserver kvstoremesh](clustermesh-apiserver_kvstoremesh.md)	 - Run KVStoreMesh
 * [clustermesh-apiserver kvstoremesh-dbg](clustermesh-apiserver_kvstoremesh-dbg.md)	 - CLI for interacting with KVStoreMesh
+* [clustermesh-apiserver mcsapi-coredns-cfg](clustermesh-apiserver_mcsapi-coredns-cfg.md)	 - Automatically configure CoreDNS with recommended MCS-API settings
 * [clustermesh-apiserver shell](clustermesh-apiserver_shell.md)	 - Connect to the Cilium shell
 * [clustermesh-apiserver version](clustermesh-apiserver_version.md)	 - Print version information
 

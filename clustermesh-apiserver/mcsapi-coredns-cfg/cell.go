@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package corednsMCSAPIAutoConfigure
+package mcsapiCorednsCfg
 
 import (
 	"github.com/cilium/hive/cell"
