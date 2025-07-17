@@ -57,6 +57,12 @@ After adding the pool to the cluster, it appears like so.
     NAME        DISABLED   CONFLICTING   IPS AVAILABLE   AGE
     blue-pool   false      False         65788           2s
 
+.. warning::
+
+  Updating an IP pool can result in IP addresses being reassigned and service IPs
+  could change. See :gh-issue:`40358`
+
+
 CIDRs, Ranges and reserved IPs
 ------------------------------
 
