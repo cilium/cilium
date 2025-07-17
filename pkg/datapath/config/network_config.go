@@ -12,9 +12,12 @@ type BPFNetwork struct {
 	// Drop traffic to non-existent ports on virtual IPs.
 	DropTrafficToVirtualIps bool `config:"drop_traffic_to_virtual_ips"`
 
+	// Reply to ICMP echo requests on virtual IPs.
+	ReplyToICMPEchoOnVirtualIps bool `config:"reply_to_icmp_echo_on_virtual_ips"`
+
 	Node
 }
 
 func NewBPFNetwork(node Node) *BPFNetwork {
-	return &BPFNetwork{false, node}
+	return &BPFNetwork{false, false, node}
 }

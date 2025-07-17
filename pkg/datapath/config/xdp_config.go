@@ -14,6 +14,8 @@ type BPFXDP struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Drop traffic to non-existent ports on virtual IPs.
 	DropTrafficToVirtualIps bool `config:"drop_traffic_to_virtual_ips"`
+	// Reply to ICMP echo requests on virtual IPs.
+	ReplyToICMPEchoOnVirtualIps bool `config:"reply_to_icmp_echo_on_virtual_ips"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Ifindex of the interface the bpf program is attached to.
@@ -31,7 +33,7 @@ type BPFXDP struct {
 }
 
 func NewBPFXDP(node Node) *BPFXDP {
-	return &BPFXDP{0x5dc, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFXDP{0x5dc, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		false, node}

@@ -192,6 +192,7 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 
 	// Set load balancer virtual IP configuration
 	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToICMPEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
@@ -352,6 +353,7 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 
 	// Set load balancer virtual IP configuration
 	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToICMPEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
 
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
@@ -432,6 +434,7 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	// Set load balancer virtual IP configuration
 	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToICMPEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
@@ -596,6 +599,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	// Set load balancer virtual IP configuration
 	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToICMPEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
 
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
@@ -714,6 +718,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	// Set load balancer virtual IP configuration
 	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToICMPEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
@@ -767,6 +772,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	// Set load balancer virtual IP configuration
 	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+	cfg.ReplyToICMPEchoOnVirtualIps = lnc.LBConfig.ReplyToICMPEchoOnVirtualIPs
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
