@@ -17,6 +17,7 @@ import (
 
 	delegatedidentityv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/agent/delegatedidentity/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
@@ -387,13 +388,25 @@ func TestSpireDelegateClient_GetCertificateForIdentity(t *testing.T) {
 				svidStore: svidStore,
 			}
 			got, err := s.GetCertificateForIdentity(tt.args.id)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SpireDelegateClient.GetCertificateForIdentity() error = %v, wantErr %v", err, tt.wantErr)
+			assert.Equal(t, tt.wantErr, err != nil)
+			if tt.want == nil {
+				assert.Nil(t, got)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("SpireDelegateClient.GetCertificateForIdentity() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want.Certificate, got.Certificate)
+			// Standard library hides private fields in the
+			// PrivateKey for FIPS compliance, which causes
+			// "assert.Equal()" to report inconsistent results,
+			// leading to unreliable failures of the test. Since
+			// we know the types here we can cast and use the type
+			// specific Equals.
+			wantKey := tt.want.PrivateKey.(*rsa.PrivateKey)
+			gotKey := got.PrivateKey.(*rsa.PrivateKey)
+			assert.True(t, wantKey.Equal(gotKey),
+				"SpireDelegateClient.GetCertificateForIdentity().PrivateKey: %v\nwant: %v",
+				got.PrivateKey, tt.want.PrivateKey,
+			)
+			assert.Equal(t, tt.want.Leaf, got.Leaf)
 		})
 	}
 }
