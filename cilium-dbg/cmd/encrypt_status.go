@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
 	"github.com/prometheus/procfs"
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
@@ -88,7 +87,16 @@ func dumpIPsecStatus() (models.EncryptionStatus, error) {
 		return models.EncryptionStatus{}, fmt.Errorf("error counting IPsec keys: %w", err)
 	}
 	status.Ipsec.KeysInUse = int64(keys)
-	decryptInts, err := getDecryptionInterfaces()
+
+	// Get the daemon's configuration so we can check for tunnel mode
+	cfg, err := client.Daemon.GetConfig(nil)
+	if err != nil {
+		return models.EncryptionStatus{}, fmt.Errorf("cannot get daemon config: %w", err)
+	}
+	daemonConfig := cfg.Payload
+
+	// Pass the configuration *spec* to the helper function
+	decryptInts, err := getDecryptionInterfaces(daemonConfig.Spec)
 	if err != nil {
 		return models.EncryptionStatus{}, fmt.Errorf("error getting IPsec decryption interfaces: %w", err)
 	}
@@ -204,7 +212,7 @@ func isDecryptionInterface(link netlink.Link) (bool, error) {
 	return false, nil
 }
 
-func getDecryptionInterfaces() ([]string, error) {
+func getDecryptionInterfaces(spec *models.DaemonConfigurationSpec) ([]string, error) {
 	links, err := safenetlink.LinkList()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list interfaces: %w", err)
@@ -219,6 +227,19 @@ func getDecryptionInterfaces() ([]string, error) {
 			decryptionIfaces = append(decryptionIfaces, link.Attrs().Name)
 		}
 	}
+
+	if len(decryptionIfaces) == 0 && spec != nil && spec.Options != nil {
+    // Look up the values from the Options map using their string keys.
+    tunnelMode, tunnelOK := spec.Options["tunnel"]
+    enableIpsec, ipsecOK := spec.Options["enable-ipsec"]
+
+    // If both keys exist and have the correct values...
+    if tunnelOK && ipsecOK && tunnelMode == "vxlan" && enableIpsec == "true" {
+        // then we know the interface must be cilium_vxlan.
+        decryptionIfaces = append(decryptionIfaces, "cilium_vxlan")
+    }
+}
+
 	return decryptionIfaces, nil
 }
 
