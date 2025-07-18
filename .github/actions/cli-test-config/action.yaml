@@ -3,19 +3,31 @@ description: "Workflow with Cilium's CLI default test flags"
 inputs:
   external-cidr:
     default: "8.0.0.0/8"
-    description: "IP prefix for testing connectivity outside the cluster"
+    description: "IPv4 prefix for testing connectivity outside the cluster"
+    required: false
+  external-cidrv6:
+    description: "IPv6 prefix for testing connectivity outside the cluster"
     required: false
   external-ip:
     default: "8.8.4.4"
-    description: "IP address for testing connectivity outside the cluster"
+    description: "IPv4 address for testing connectivity outside the cluster"
+    required: false
+  external-ipv6:
+    description: "IPv6 address for testing connectivity outside the cluster"
     required: false
   external-other-ip:
     default: "8.8.8.8"
-    description: "Extra IP address for testing connectivity outside the cluster"
+    description: "Extra IPv4 address for testing connectivity outside the cluster"
+    required: false
+  external-other-ipv6:
+    description: "Extra IPv6 address for testing connectivity outside the cluster"
     required: false
   external-target:
     default: "bing.com."
     description: "DNS name for testing connectivity outside the cluster"
+    required: false
+  external-other-target:
+    description: "Extra DNS name for testing connectivity outside the cluster"
     required: false
   flow-validation:
     default: false
@@ -57,6 +69,20 @@ runs:
           "--external-other-ip=${{ inputs.external-other-ip }}" \
           "--hubble=${{ inputs.hubble }}" \
         )
+
+        if [ -n "${{ inputs.external-cidrv6 }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-cidrv6=${{ inputs.external-cidrv6 }}")
+        fi
+        if [ -n "${{ inputs.external-ipv6 }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-ipv6=${{ inputs.external-ipv6 }}")
+        fi
+        if [ -n "${{ inputs.external-other-ipv6 }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-other-ipv6=${{ inputs.external-other-ipv6 }}")
+        fi
+        if [ -n "${{ inputs.external-other-target }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-other-target=${{ inputs.external-other-target }}")
+        fi
+
 
         if [ "${{ inputs.include-unsafe-tests }}" == "true" ]; then
           CONNECTIVITY_TEST_DEFAULTS+=("--include-unsafe-tests")
