@@ -35,3 +35,11 @@ func (m *FakeIptablesManager) InstallNoTrackRules(ip netip.Addr, port uint16) {
 
 func (m *FakeIptablesManager) RemoveNoTrackRules(ip netip.Addr, port uint16) {
 }
+
+func (m *FakeIptablesManager) IPv4MasqueradeSrcExclusionCIDRs() string {
+	return ""
+}
+
+func (m *FakeIptablesManager) IPv6MasqueradeSrcExclusionCIDRs() string {
+	return ""
+}
