@@ -595,7 +595,6 @@ data:
 {{ if .Values.eni.gcTags }}
   eni-gc-tags: {{ .Values.eni.gcTags | toRawJson | quote }}
 {{- end }}
-
 {{- if .Values.azure.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
@@ -1120,12 +1119,23 @@ data:
   {{- end }}
   auto-create-cilium-pod-ip-pools: {{ join "," $pools | quote }}
 {{- end }}
-
 {{- if .Values.ipam.operator.externalAPILimitBurstSize }}
   limit-ipam-api-burst: {{ .Values.ipam.operator.externalAPILimitBurstSize | quote }}
 {{- end }}
 {{- if .Values.ipam.operator.externalAPILimitQPS }}
   limit-ipam-api-qps: {{ .Values.ipam.operator.externalAPILimitQPS | quote }}
+{{- end }}
+{{- if .Values.ipam.operator.preAllocate }}
+  ipam-pre-allocate: {{ .Values.ipam.operator.preAllocate | quote }}
+{{- end }}
+{{- if .Values.ipam.operator.minAllocate }}
+  ipam-min-allocate: {{ .Values.ipam.operator.minAllocate | quote }}
+{{- end }}
+{{- if .Values.ipam.operator.maxAllocate }}
+  ipam-max-allocate: {{ .Values.ipam.operator.maxAllocate | quote }}
+{{- end }}
+{{- if .Values.ipam.operator.maxAboveWatermark }}
+  ipam-max-above-watermark: {{ .Values.ipam.operator.maxAboveWatermark | quote }}
 {{- end }}
 
 {{- if .Values.nodeIPAM.enabled }}

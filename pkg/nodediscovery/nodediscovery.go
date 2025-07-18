@@ -406,13 +406,22 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		nodeResource.Spec.ENI.UsePrimaryAddress = aws.Bool(defaults.UseENIPrimaryAddress)
 		nodeResource.Spec.ENI.DisablePrefixDelegation = aws.Bool(defaults.ENIDisableNodeLevelPD)
 
+		// Initialize IPAM parameters from CNI config or operator defaults
+		// Instance limits will be applied later when the operator reads these values
+
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
-			if c.IPAM.MinAllocate != 0 {
-				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
+			// Apply CNI config values (including explicit zeros)
+			// Always set these values from CNI config, even if they're zero
+			nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
+			nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+
+			// For MaxAllocate and MaxAboveWatermark, set if specified in CNI config
+			if c.IPAM.MaxAllocate != 0 {
+				nodeResource.Spec.IPAM.MaxAllocate = c.IPAM.MaxAllocate
 			}
 
-			if c.IPAM.PreAllocate != 0 {
-				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+			if c.IPAM.MaxAboveWatermark != 0 {
+				nodeResource.Spec.IPAM.MaxAboveWatermark = c.IPAM.MaxAboveWatermark
 			}
 
 			if len(c.IPAM.StaticIPTags) > 0 {
@@ -457,6 +466,7 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 
 			nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
 		}
+		// Note: Operator defaults will be applied later in syncToAPIServer when the operator processes this node
 
 		nodeResource.Spec.InstanceID = instanceID
 		nodeResource.Spec.ENI.InstanceType = instanceType
