@@ -399,7 +399,7 @@ If the selected service backend IP for a given service matches the local
 node IP, the annotation ``service.cilium.io/proxy-delegation: delegate-if-local``
 will pass the received packet unmodified to the upper stack, so that a
 L7 proxy such as Envoy (if present) can handle the request in the host
-namespace.
+namespace. This mechanism is mainly targeted for north/south traffic.
 
 If the selected service backend is a remote IP, then the received packet
 is not pushed to the upper stack and instead the BPF code forwards the
@@ -421,6 +421,9 @@ packet natively with the configured forwarding method to the remote IP.
 
 In combination with ``externalTrafficPolicy=Local`` this mechanism also allows
 for pushing all traffic to the upper proxy.
+
+For east/west traffic, the service translation is skipped and the packet goes
+out of the node without any DNAT.
 
 Non-presence of the ``service.cilium.io/proxy-delegation`` annotation leaves
 all forwarding to BPF natively which is also the default for the kube-proxy
