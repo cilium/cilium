@@ -46,6 +46,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -1404,6 +1405,8 @@ type daemonParams struct {
 	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
 	IPMasqAgent         *ipmasq.IPMasqAgent
+
+	EndpointMiddleware *endpointapi.Middleware
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
