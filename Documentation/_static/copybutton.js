@@ -97,40 +97,57 @@ function addCopyButtonToCodeCells() {
     codeCell.insertAdjacentHTML("afterend", clipboardButton(id));
   });
 
-  new ClipboardJS(".copybutton", {
-    text: function(trigger) {
-      var parent = trigger.parentNode.parentNode;
-      var code = parent.querySelector("pre");
-      var mode = trigger.getAttribute("data-clipboard-mode");
-      if (mode === "first-line") {
-        return code.textContent
-          .split("\n")[0]
-          .trim()
-          .replace(/^\$/, "")
-          .trim();
-      } else if (mode === "commands") {
-        /*
-         * Copy lines with "commands": each line starting with a prompt symbol
-         * ($ or #), plus the continuation lines, for commands ending with a
-         * backslash.
-         */
-        var cmds = "";
-        var continuation = false;
-        var lines = code.textContent.split("\n");
-        for (const l of lines) {
-          if (promptRegExp.test(l) || continuation) {
-            /* Keep line but remove prompt */
-            cmds += l.replace(promptRegExp, "") + "\n";
-            /* Expect a continuation line if command ends with a backslash */
-            continuation = /\\\s*$/.test(l);
-          }
+  
+
+
+
+var clipboard = new ClipboardJS(".copybutton", {
+  text: function(trigger) {
+    var parent = trigger.parentNode.parentNode;
+    var code = parent.querySelector("pre");
+    var mode = trigger.getAttribute("data-clipboard-mode");
+    if (mode === "first-line") {
+      return code.textContent
+        .split("\n")[0]
+        .trim()
+        .replace(/^\$/, "")
+        .trim();
+    } else if (mode === "commands") {
+      var cmds = "";
+      var continuation = false;
+      var lines = code.textContent.split("\n");
+      for (const l of lines) {
+        if (promptRegExp.test(l) || continuation) {
+          cmds += l.replace(promptRegExp, "") + "\n";
+          continuation = /\\\s*$/.test(l);
         }
-        return cmds;
-      } else {
-        return code.textContent;
       }
+      return cmds;
+    } else {
+      return code.textContent;
     }
-  });
+  }
+});
+
+// ✅ Add feedback on copy success
+clipboard.on("success", function(e) {
+  const button = e.trigger;
+  const originalText = button.innerHTML;
+
+  // Change button temporarily
+  button.innerHTML = "✅ Copied!";
+  button.classList.add("copied"); // Optional: style this in CSS
+
+  // Restore after 2 seconds
+  setTimeout(() => {
+    button.innerHTML = originalText;
+    button.classList.remove("copied");
+  }, 2000);
+
+  // Clear text selection
+  clearSelection();
+});
+
 }
 
 runWhenDOMLoaded(addCopyButtonToCodeCells);
