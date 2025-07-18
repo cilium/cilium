@@ -63,6 +63,7 @@ type endpointCreator struct {
 	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
 	// information about endpoints.
 	kvstoreSyncher *ipcache.IPIdentitySynchronizer
+	wireguard      datapath.WireguardAgent
 }
 
 var _ EndpointCreator = &endpointCreator{}
@@ -88,6 +89,7 @@ type endpointManagerParams struct {
 	Allocator           cache.IdentityAllocator
 	CTMapGC             ctmap.GCRunner
 	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
+	Wireguard           datapath.WireguardAgent
 }
 
 func newEndpointCreator(p endpointManagerParams) EndpointCreator {
@@ -110,6 +112,7 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
 		kvstoreSyncher:   p.KVStoreSynchronizer,
+		wireguard:        p.Wireguard,
 	}
 }
 
@@ -134,6 +137,7 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 		c.ctMapGC,
 		c.kvstoreSyncher,
 		base,
+		c.wireguard,
 	)
 }
 
@@ -157,6 +161,7 @@ func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, erro
 		c.ctMapGC,
 		c.kvstoreSyncher,
 		epJSON,
+		c.wireguard,
 	)
 }
 
@@ -179,6 +184,7 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 		c.allocator,
 		c.ctMapGC,
 		c.kvstoreSyncher,
+		c.wireguard,
 	)
 	if err != nil {
 		return err
@@ -212,6 +218,7 @@ func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 		c.allocator,
 		c.ctMapGC,
 		c.kvstoreSyncher,
+		c.wireguard,
 	)
 	if err != nil {
 		return err

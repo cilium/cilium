@@ -224,6 +224,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EnableLocalNodeRoute != other.EnableLocalNodeRoute {
 		return false
 	}
+	if in.EnableWireguard != other.EnableWireguard {
+		return false
+	}
 	if in.EnableIPSec != other.EnableIPSec {
 		return false
 	}

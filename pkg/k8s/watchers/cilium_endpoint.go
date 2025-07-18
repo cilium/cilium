@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	hubblemetrics "github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/identity"
@@ -40,6 +41,7 @@ type k8sCiliumEndpointsWatcherParams struct {
 	EndpointManager endpointmanager.EndpointManager
 	PolicyUpdater   *policy.Updater
 	IPCache         *ipcache.IPCache
+	Wireguard       datapath.WireguardAgent
 }
 
 func newK8sCiliumEndpointsWatcher(params k8sCiliumEndpointsWatcherParams) *K8sCiliumEndpointsWatcher {
@@ -51,6 +53,7 @@ func newK8sCiliumEndpointsWatcher(params k8sCiliumEndpointsWatcherParams) *K8sCi
 		endpointManager:   params.EndpointManager,
 		policyManager:     params.PolicyUpdater,
 		ipcache:           params.IPCache,
+		wireguard:         params.Wireguard,
 	}
 }
 
@@ -68,6 +71,7 @@ type K8sCiliumEndpointsWatcher struct {
 	endpointManager endpointManager
 	policyManager   policyManager
 	ipcache         ipcacheManager
+	wireguard       datapath.WireguardAgent
 
 	resources agentK8s.Resources
 }
@@ -155,7 +159,7 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 	}
 
 	// default to the standard key
-	encryptionKey := node.GetEndpointEncryptKeyIndex(k.logger)
+	encryptionKey := node.GetEndpointEncryptKeyIndex(k.logger, k.wireguard.Enabled())
 
 	id := identity.ReservedIdentityUnmanaged
 	if endpoint.Identity != nil {
