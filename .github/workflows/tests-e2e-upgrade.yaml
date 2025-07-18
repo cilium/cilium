@@ -365,6 +365,7 @@ jobs:
         if: ${{ matrix.node-local-dns == 'true' }}
         shell: bash
         run: |
+          sed -i '/Corefile: |/r .github/actions/kind-external-targets/node-local-dns-patch.txt' untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
           kubedns=$(kubectl get svc kube-dns -n kube-system -o jsonpath="{.spec.clusterIP}") && sed -i "s/__PILLAR__DNS__SERVER__/$kubedns/g;" untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
           sed -i "s/__PILLAR__UPSTREAM__SERVERS__/1.1.1.1/g;" untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
           kubectl apply -k untrusted/cilium-newest/examples/kubernetes-local-redirect
