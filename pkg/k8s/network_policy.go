@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 )
 
 const (
@@ -140,27 +141,27 @@ func hasV1PolicyType(pTypes []slim_networkingv1.PolicyType, typ slim_networkingv
 // ParseNetworkPolicy parses a k8s NetworkPolicy. Returns a list of
 // Cilium policy rules that can be added, along with an error if there was an
 // error sanitizing the rules.
-func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networkingv1.NetworkPolicy) (api.Rules, error) {
+func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networkingv1.NetworkPolicy) (types.PolicyEntries, error) {
 	if np == nil {
 		return nil, fmt.Errorf("cannot parse NetworkPolicy because it is nil")
 	}
 
-	ingresses := []api.IngressRule{}
-	egresses := []api.EgressRule{}
+	ingresses := types.PolicyEntries{}
+	egresses := types.PolicyEntries{}
 
 	// Since we know that the object NetworkPolicy is namespace scoped we assign
 	// namespace to default namespace if the field is empty in the object.
 	namespace := k8sUtils.ExtractNamespaceOrDefault(&np.ObjectMeta)
 
 	for _, iRule := range np.Spec.Ingress {
-		fromRules := []api.IngressRule{}
+		fromRules := types.PolicyEntries{}
 		if len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
-				ingress := api.IngressRule{}
+				ingress := &types.PolicyEntry{Ingress: true}
 				endpointSelector := parseNetworkPolicyPeer(clusterName, namespace, &rule)
 
 				if endpointSelector != nil {
-					ingress.FromEndpoints = append(ingress.FromEndpoints, *endpointSelector)
+					ingress.L3 = append(ingress.L3, *endpointSelector)
 				} else {
 					// No label-based selectors were in NetworkPolicyPeer.
 					logger.Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector", logfields.K8sNetworkPolicyName, np.Name)
@@ -168,7 +169,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 
 				// Parse CIDR-based parts of rule.
 				if rule.IPBlock != nil {
-					ingress.FromCIDRSet = append(ingress.FromCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
+					ingress.L3 = append(ingress.L3, ipBlockToEndpointSelectorSlice(rule.IPBlock)...)
 				}
 
 				fromRules = append(fromRules, ingress)
@@ -178,17 +179,20 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 			//   From []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
 			//   sources (traffic not restricted by source).
-			ingress := api.IngressRule{}
-			ingress.FromEndpoints = append(ingress.FromEndpoints, api.WildcardEndpointSelector)
+			ingress := &types.PolicyEntry{Ingress: true}
+			ingress.L3 = append(ingress.L3, api.WildcardEndpointSelector)
 
 			fromRules = append(fromRules, ingress)
 		}
 
 		// We apply the ports to all rules generated from the From section
 		if len(iRule.Ports) > 0 {
-			toPorts := parsePorts(iRule.Ports)
+			toPorts, err := parsePorts(iRule.Ports)
+			if err != nil {
+				return nil, err
+			}
 			for i := range fromRules {
-				fromRules[i].ToPorts = toPorts
+				fromRules[i].L4 = toPorts
 			}
 		}
 
@@ -196,22 +200,24 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 	}
 
 	for _, eRule := range np.Spec.Egress {
-		toRules := []api.EgressRule{}
+		toRules := types.PolicyEntries{}
 
 		if len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
-				egress := api.EgressRule{}
+				egress := &types.PolicyEntry{Ingress: false}
 				if rule.NamespaceSelector != nil || rule.PodSelector != nil {
 					endpointSelector := parseNetworkPolicyPeer(clusterName, namespace, &rule)
 
 					if endpointSelector != nil {
-						egress.ToEndpoints = append(egress.ToEndpoints, *endpointSelector)
+						egress.L3 = append(egress.L3, *endpointSelector)
 					} else {
 						logger.Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector", logfields.K8sNetworkPolicyName, np.Name)
 					}
 				}
+
+				// Parse CIDR-based parts of rule.
 				if rule.IPBlock != nil {
-					egress.ToCIDRSet = append(egress.ToCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
+					egress.L3 = append(egress.L3, ipBlockToEndpointSelectorSlice(rule.IPBlock)...)
 				}
 
 				toRules = append(toRules, egress)
@@ -221,17 +227,20 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 			//   To []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
 			//   destinations (traffic not restricted by destination)
-			egress := api.EgressRule{}
-			egress.ToEndpoints = append(egress.ToEndpoints, api.WildcardEndpointSelector)
+			egress := &types.PolicyEntry{Ingress: false}
+			egress.L3 = append(egress.L3, api.WildcardEndpointSelector)
 
 			toRules = append(toRules, egress)
 		}
 
 		// We apply the ports to all rules generated from the To section
 		if len(eRule.Ports) > 0 {
-			toPorts := parsePorts(eRule.Ports)
+			toPorts, err := parsePorts(eRule.Ports)
+			if err != nil {
+				return nil, err
+			}
 			for i := range toRules {
-				toRules[i].ToPorts = toPorts
+				toRules[i].L4 = toPorts
 			}
 		}
 
@@ -248,7 +257,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 	if len(ingresses) == 0 &&
 		(hasV1PolicyType(np.Spec.PolicyTypes, slim_networkingv1.PolicyTypeIngress) ||
 			!hasV1PolicyType(np.Spec.PolicyTypes, slim_networkingv1.PolicyTypeEgress)) {
-		ingresses = []api.IngressRule{{}}
+		ingresses = types.PolicyEntries{{Ingress: true}}
 	}
 
 	// Convert the k8s default-deny model to the Cilium default-deny model
@@ -257,23 +266,19 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 	//  policyTypes:
 	//	  - Egress
 	if len(egresses) == 0 && hasV1PolicyType(np.Spec.PolicyTypes, slim_networkingv1.PolicyTypeEgress) {
-		egresses = []api.EgressRule{{}}
+		egresses = types.PolicyEntries{{Ingress: false}}
 	}
 
 	podSelector := parsePodSelector(&np.Spec.PodSelector, namespace)
 
-	// The next patch will pass the UID.
-	rule := api.NewRule().
-		WithEndpointSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector)).
-		WithLabels(GetPolicyLabelsv1(logger, np)).
-		WithIngressRules(ingresses).
-		WithEgressRules(egresses)
-
-	if err := rule.Sanitize(); err != nil {
-		return nil, err
+	rules := append(ingresses, egresses...)
+	for _, r := range rules {
+		r.DefaultDeny = true
+		r.EndpointSelector = api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector)
+		r.Labels = GetPolicyLabelsv1(logger, np)
 	}
 
-	return api.Rules{rule}, nil
+	return rules, nil
 }
 
 func parsePodSelector(podSelectorIn *slim_metav1.LabelSelector, namespace string) *slim_metav1.LabelSelector {
@@ -301,22 +306,26 @@ func parsePodSelector(podSelectorIn *slim_metav1.LabelSelector, namespace string
 	return podSelector
 }
 
-func ipBlockToCIDRRule(block *slim_networkingv1.IPBlock) api.CIDRRule {
+func ipBlockToEndpointSelectorSlice(block *slim_networkingv1.IPBlock) types.EndpointSelectorInterfaceSlice {
 	cidrRule := api.CIDRRule{}
 	cidrRule.Cidr = api.CIDR(block.CIDR)
 	for _, v := range block.Except {
 		cidrRule.ExceptCIDRs = append(cidrRule.ExceptCIDRs, api.CIDR(v))
 	}
-	return cidrRule
+	return types.ToEndpointSelectorInterfaceSlice(api.CIDRRuleSlice{cidrRule}.GetAsEndpointSelectors())
 }
 
 // parsePorts converts list of K8s NetworkPolicyPorts to Cilium PortRules.
-func parsePorts(ports []slim_networkingv1.NetworkPolicyPort) []api.PortRule {
+func parsePorts(ports []slim_networkingv1.NetworkPolicyPort) ([]api.PortRule, error) {
 	portRules := []api.PortRule{}
 	for _, port := range ports {
 		protocol := api.ProtoTCP
 		if port.Protocol != nil {
-			protocol, _ = api.ParseL4Proto(string(*port.Protocol))
+			var err error
+			protocol, err = api.ParseL4Proto(string(*port.Protocol))
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		portStr := "0"
@@ -337,5 +346,5 @@ func parsePorts(ports []slim_networkingv1.NetworkPolicyPort) []api.PortRule {
 		portRules = append(portRules, portRule)
 	}
 
-	return portRules
+	return portRules, nil
 }

@@ -20,9 +20,11 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
+	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -129,7 +131,7 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+	td.repo.ReplaceByLabels(k8sCiliumUtils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
 
 	td.repo.mutex.RLock()
 	defer td.repo.mutex.RUnlock()
@@ -156,7 +158,7 @@ func (td *testData) policyInvalid(t *testing.T, errStr string, rules ...*api.Rul
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+	td.repo.ReplaceByLabels(k8sCiliumUtils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
 
 	_, err := td.repo.resolvePolicyLocked(idA)
 	require.Error(t, err)
@@ -173,7 +175,7 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+	td.repo.ReplaceByLabels(k8sCiliumUtils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
 
 	_, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -541,7 +543,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -556,7 +558,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 			},
 			{
 				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -604,7 +606,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -658,7 +660,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 			},
 			{
 				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -697,7 +699,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 			},
 			{
 				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -2467,9 +2469,9 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 				Protocol: tc.proto,
 			}
 
-			toEndpoints := api.EndpointSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
+			toEndpoints := policytypes.EndpointSelectorInterfaceSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
 
-			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto, nil)
+			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto)
 
 			require.NoError(t, err)
 			require.NotNil(t, l4Filter)

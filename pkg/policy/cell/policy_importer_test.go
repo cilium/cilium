@@ -120,7 +120,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		dc := make(chan uint64, 1)
 		pi.processUpdates(context.Background(), []*policytypes.PolicyUpdate{
 			{
-				Rules:    []*policyapi.Rule{r},
+				Rules:    utils.RulesToPolicyEntries([]*policyapi.Rule{r}),
 				Resource: resource,
 				DoneChan: dc,
 			},
@@ -509,7 +509,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 			}
 
 			pi.processUpdates(context.Background(), []*policytypes.PolicyUpdate{{
-				Rules:             rules,
+				Rules:             utils.RulesToPolicyEntries(rules),
 				ReplaceWithLabels: args.cnp.GetIdentityLabels(),
 				Source:            metrics.LabelEventSourceK8s,
 			}})
