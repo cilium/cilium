@@ -553,7 +553,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	if oldNode != nil {
 		addedCIDRs, removedCIDRs = cidr.DiffCIDRLists(oldNode.GetIPv6AllocCIDRs(), newNode.GetIPv6AllocCIDRs())
 	} else {
-		addedCIDRs = newNode.GetIPv4AllocCIDRs()
+		addedCIDRs = newNode.GetIPv6AllocCIDRs()
 	}
 	for _, remoteCIDR := range cidr.CIDRsToIPNets(addedCIDRs) {
 		if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
@@ -685,7 +685,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(oldNode, newNode *nodeTypes.Node, nod
 	if oldNode != nil {
 		addedCIDRs, removedCIDRs = cidr.DiffCIDRLists(oldNode.GetIPv6AllocCIDRs(), newNode.GetIPv6AllocCIDRs())
 	} else {
-		addedCIDRs = newNode.GetIPv4AllocCIDRs()
+		addedCIDRs = newNode.GetIPv6AllocCIDRs()
 	}
 
 	if newNode.IsLocal() {
