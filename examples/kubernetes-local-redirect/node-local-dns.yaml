@@ -47,6 +47,17 @@ data:
         prometheus :9253
         health
         }
+    cilium:53 {
+        errors
+        cache 30
+        reload
+        loop
+        bind 0.0.0.0
+        forward . __PILLAR__CLUSTER__DNS__ {
+                force_tcp
+        }
+        prometheus :9253
+        }
     in-addr.arpa:53 {
         errors
         cache 30
