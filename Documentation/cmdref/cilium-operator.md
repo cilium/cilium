@@ -101,7 +101,7 @@ cilium-operator [flags]
       --ipam-max-above-watermark int                         Maximum number of IP addresses that can be allocated beyond the current need when using cloud provider IPAM modes
       --ipam-max-allocate int                                Maximum number of IP addresses that can be allocated to a node when using cloud provider IPAM modes (0 = unlimited)
       --ipam-min-allocate int                                Minimum number of IP addresses that must be allocated when using cloud provider IPAM modes
-      --ipam-pre-allocate int                                Number of IP addresses that must be pre-allocated when using cloud provider IPAM modes (default 8)
+      --ipam-pre-allocate int                                Number of IP addresses that must be pre-allocated when using cloud provider IPAM modes. If this value exceeds the instance type limits, it will be automatically clamped to the maximum safe value for the instance type (default 8)
       --k8s-api-server-urls strings                          Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration            Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration               Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)

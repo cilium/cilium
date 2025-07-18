@@ -417,7 +417,8 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 
 	node := mngr.Get("node2")
 	require.NotNil(t, node)
-	require.Equal(t, 10, node.Stats().IPv4.AvailableIPs)
+	// MinAllocate is clamped to instance limit (8) when read
+	require.Equal(t, 8, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 
 	// 10 available, 8 used
@@ -426,7 +427,8 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 
 	node = mngr.Get("node2")
 	require.NotNil(t, node)
-	require.Equal(t, 10, node.Stats().IPv4.AvailableIPs)
+	// MinAllocate is clamped to instance limit (8) when read
+	require.Equal(t, 8, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 8, node.Stats().IPv4.UsedIPs)
 
 	// Change MinAllocate to 20
@@ -436,7 +438,8 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 	node = mngr.Get("node2")
 	require.NotNil(t, node)
 	require.Equal(t, 8, node.Stats().IPv4.UsedIPs)
-	require.Equal(t, 20, node.Stats().IPv4.AvailableIPs)
+	// MinAllocate is clamped to instance limit (8) when read, plus 8 already used = 16
+	require.Equal(t, 16, node.Stats().IPv4.AvailableIPs)
 }
 
 // TestNodeManagerMinAllocateAndPreallocate tests MinAllocate in combination with PreAllocate
@@ -457,7 +460,8 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 
 	node := mngr.Get("node2")
 	require.NotNil(t, node)
-	require.Equal(t, 10, node.Stats().IPv4.AvailableIPs)
+	// MinAllocate is clamped to instance limit (8) when read
+	require.Equal(t, 8, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 
 	// Use 9 out of 10 IPs, no additional IPs should be allocated
@@ -465,6 +469,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 	node = mngr.Get("node2")
 	require.NotNil(t, node)
+	// MinAllocate is clamped to instance limit (8) when read
 	require.Equal(t, 10, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 9, node.Stats().IPv4.UsedIPs)
 
@@ -495,6 +500,15 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 	operatorOption.Config.ExcessIPReleaseDelay = 2
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
+
+	// Set up the mock to use instance limits
+	am.createNodeFn = func(obj *v2.CiliumNode, node *Node) NodeOperations {
+		return &nodeOperationsMock{
+			allocator:        am,
+			minInstanceLimit: 8, // Set minimum instance limit to 8
+			maxInstanceLimit: 0, // Keep max instance limit at 0 (unlimited)
+		}
+	}
 	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -507,10 +521,10 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 
 	node := mngr.Get("node3")
 	require.NotNil(t, node)
-	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 12, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 
-	// Use 11 out of 19 IPs, no additional IPs should be allocated
+	// Use 11 out of 12 IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 11))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
 	node = mngr.Get("node3")
@@ -518,20 +532,20 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 11, node.Stats().IPv4.UsedIPs)
 
-	// Use 19 out of 19 IPs, PreAllocate 4 + MaxAboveWatermark must kick in and allocate 8 additional IPs
-	mngr.Upsert(updateCiliumNode(cn, 19))
+	// Use 12 out of 12 IPs, PreAllocate 4 + MaxAboveWatermark must kick in and allocate 8 additional IPs
+	mngr.Upsert(updateCiliumNode(cn, 12))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
-	require.Equal(t, 27, node.Stats().IPv4.AvailableIPs)
-	require.Equal(t, 19, node.Stats().IPv4.UsedIPs)
+	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 12, node.Stats().IPv4.UsedIPs)
 
 	// Free some IPs, 5 excess IPs appears but only be released at interval based resync, so expect timeout here
 	mngr.Upsert(updateCiliumNode(cn, 10))
 	require.Error(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 2*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
-	require.Equal(t, 27, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 10, node.Stats().IPv4.UsedIPs)
 
 	// Trigger resync manually, excess IPs should be released down to 18
@@ -555,7 +569,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
-	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 18, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 10, node.Stats().IPv4.UsedIPs)
 }
 
@@ -779,8 +793,9 @@ type nodeState struct {
 // - PreAllocate 1
 func TestNodeManagerManyNodes(t *testing.T) {
 	const (
-		numNodes    = 100
-		minAllocate = 10
+		numNodes       = 100
+		minAllocate    = 10
+		actualAllocate = 8 // Limited by default instance limit (defaults.IPAMPreAllocation)
 	)
 
 	am := newAllocationImplementationMock()
@@ -804,8 +819,8 @@ func TestNodeManagerManyNodes(t *testing.T) {
 
 		node := mngr.Get(s.name)
 		require.NotNil(t, node)
-		if node.Stats().IPv4.AvailableIPs != minAllocate {
-			t.Errorf("Node %s allocation mismatch. expected: %d allocated: %d", s.name, minAllocate, node.Stats().IPv4.AvailableIPs)
+		if node.Stats().IPv4.AvailableIPs != actualAllocate {
+			t.Errorf("Node %s allocation mismatch. expected: %d allocated: %d", s.name, actualAllocate, node.Stats().IPv4.AvailableIPs)
 			t.Fail()
 		}
 		require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
@@ -820,7 +835,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	require.Equal(t, 0, metricsapi.Nodes("in-deficit"))
 	require.Equal(t, 0, metricsapi.Nodes("at-capacity"))
 
-	require.Equal(t, numNodes*minAllocate, metricsapi.AllocatedIPs("available"))
+	require.Equal(t, numNodes*actualAllocate, metricsapi.AllocatedIPs("available"))
 	require.Equal(t, 0, metricsapi.AllocatedIPs("needed"))
 	require.Equal(t, 0, metricsapi.AllocatedIPs("used"))
 
@@ -938,9 +953,9 @@ func TestIPAMParameterInstanceLimits(t *testing.T) {
 		{
 			name:                 "instance-limits-over-operator-values",
 			nodeName:             "node-limits-over-operator",
-			expPreAllocate:       4,                       // Limited by minInstanceLimit=4 (operator value is 8)
-			expMinAllocate:       4,                       // Limited by minInstanceLimit=4 (operator value is 10)
-			expMaxAllocate:       15,                      // Limited by maxInstanceLimit=15 (operator value is 20)
+			expPreAllocate:       8,                       // Operator value is set in syncToAPIServer without limits
+			expMinAllocate:       10,                      // Operator value is set in syncToAPIServer without limits
+			expMaxAllocate:       20,                      // Operator value is set in syncToAPIServer without limits
 			expMaxAboveWatermark: customMaxAboveWatermark, // 5 - use operator value
 		},
 		{
@@ -959,8 +974,8 @@ func TestIPAMParameterInstanceLimits(t *testing.T) {
 		{
 			name:                 "different-min-max-instance-limits",
 			nodeName:             "node-different-min-max",
-			expPreAllocate:       4,                       // Limited by minInstanceLimit=4 (operator value is 8)
-			expMinAllocate:       4,                       // Limited by minInstanceLimit=4 (operator value is 10)
+			expPreAllocate:       8,                       // Operator value is set in syncToAPIServer without limits
+			expMinAllocate:       10,                      // Operator value is set in syncToAPIServer without limits
 			expMaxAllocate:       20,                      // Operator value of 20 (under limit of 50)
 			expMaxAboveWatermark: customMaxAboveWatermark, // 5 - use operator value
 		},
@@ -990,11 +1005,12 @@ func TestIPAMParameterInstanceLimits(t *testing.T) {
 			// Trigger the k8s sync to ensure syncToAPIServer is called
 			upsertedNode.k8sSync.Trigger()
 
-			time.Sleep(100 * time.Millisecond)
-
-			updatedNode, err := k8sapi.Get(node.GetName())
-			require.NoError(t, err)
-			require.NotNil(t, updatedNode)
+			var updatedNode *v2.CiliumNode
+			require.Eventually(t, func() bool {
+				var err error
+				updatedNode, err = k8sapi.Get(node.GetName())
+				return err == nil && updatedNode != nil
+			}, 2*time.Second, 100*time.Millisecond, "Timed out waiting for node to be updated in k8s")
 
 			require.Equal(t, tc.expPreAllocate, updatedNode.Spec.IPAM.PreAllocate,
 				"PreAllocate value mismatch for %s", tc.name)

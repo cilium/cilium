@@ -254,20 +254,45 @@ func (n *Node) getMaxAboveWatermark() int {
 }
 
 // getPreAllocate returns the pre-allocation setting for an AWS node
+// Instance limits are applied when reading the value to ensure safe operation
+// A value of 0 means use the default value
 //
 // n.mutex must be held when calling this function
 func (n *Node) getPreAllocate() int {
+	minInstanceLimit := n.ops.GetMinimumAllocatableIPv4()
+
 	if n.resource.Spec.IPAM.PreAllocate != 0 {
-		return n.resource.Spec.IPAM.PreAllocate
+		configuredValue := n.resource.Spec.IPAM.PreAllocate
+		if configuredValue > minInstanceLimit {
+			n.logger.Load().Warn(
+				fmt.Sprintf("pre-allocate (%d) is higher than the instance type limits (%d)",
+					configuredValue, minInstanceLimit),
+			)
+			return minInstanceLimit
+		}
+		return configuredValue
 	}
-	return defaults.IPAMPreAllocation
+
+	return min(defaults.IPAMPreAllocation, minInstanceLimit)
 }
 
 // getMinAllocate returns the minimum-allocation setting of an AWS node
+// Instance limits are applied when reading the value to ensure safe operation
 //
 // n.mutex must be held when calling this function
 func (n *Node) getMinAllocate() int {
-	return n.resource.Spec.IPAM.MinAllocate
+	minInstanceLimit := n.ops.GetMinimumAllocatableIPv4()
+	configuredValue := n.resource.Spec.IPAM.MinAllocate
+
+	if configuredValue > minInstanceLimit {
+		n.logger.Load().Warn(
+			fmt.Sprintf("min-allocate (%d) is higher than the instance type limits (%d)",
+				configuredValue, minInstanceLimit),
+		)
+		return minInstanceLimit
+	}
+
+	return configuredValue
 }
 
 // getMaxAllocate returns the maximum-allocation setting of an AWS node
@@ -1146,42 +1171,38 @@ func (n *Node) syncToAPIServer() error {
 		node.Spec.IPAM.Pool = pool
 		n.logger.Load().Debug("Updating node in apiserver", logfields.PoolSize, len(node.Spec.IPAM.Pool))
 
-		// The PreAllocate, MinAllocate, MaxAllocate, and MaxAboveWatermark values are added here rather than where the CiliumNode
-		// resource is created ((*NodeDiscovery).mutateNodeResource() inside
-		// pkg/nodediscovery), because mutateNodeResource() does not have
-		// access to the ipam.Node object. Since we are in the CiliumNode
-		// update sync loop, we can compute the values.
+		// The PreAllocate, MinAllocate, MaxAllocate, and MaxAboveWatermark default
+		// values are added here rather than where the CiliumNode resource is
+		// created ((*NodeDiscovery).mutateNodeResource() inside pkg/nodediscovery),
+		// because mutateNodeResource() does not have access to the ipam.Node object
+		// Since we are in the CiliumNode update sync loop, we can compute the values.
+		// Note: these values can be overridden by user-provided values in
+		// (*NodeDiscovery).mutateNodeResource() via custom CNI config.
 
-		// Get the instance limits for pre-allocation (minimum) and total allocation (maximum)
-		minInstanceLimit := n.ops.GetMinimumAllocatableIPv4()
-		maxInstanceLimit := n.ops.GetMaximumAllocatableIPv4()
+		// Set operator defaults for IPAM parameters that are still zero
+		// Instance limits are applied when these values are read via getter methods
+		// This preserves explicit zero values set by CNI config while providing defaults
 
 		if node.Spec.IPAM.PreAllocate == 0 {
 			managerPreAllocate := n.manager.getPreAllocate()
 			if managerPreAllocate > 0 {
-				// Use the smaller of the operator-configured value and the minimum instance limit
-				// to avoid exceeding the capabilities of smaller instances.
-				node.Spec.IPAM.PreAllocate = min(managerPreAllocate, minInstanceLimit)
+				node.Spec.IPAM.PreAllocate = managerPreAllocate
 			} else {
-				node.Spec.IPAM.PreAllocate = minInstanceLimit
+				node.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
 			}
 		}
 
 		if node.Spec.IPAM.MinAllocate == 0 {
 			minAllocate := n.manager.getMinAllocate()
 			if minAllocate > 0 {
-				// Use the smaller of the operator-configured value and the minimum instance limit
-				// to avoid exceeding the capabilities of smaller instances.
-				node.Spec.IPAM.MinAllocate = min(minAllocate, minInstanceLimit)
+				node.Spec.IPAM.MinAllocate = minAllocate
 			}
 		}
 
 		if node.Spec.IPAM.MaxAllocate == 0 {
 			maxAllocate := n.manager.getMaxAllocate()
 			if maxAllocate > 0 {
-				// Use the smaller of the operator-configured value and the maximum instance limit
-				// to avoid exceeding the total IP capacity of the instance.
-				node.Spec.IPAM.MaxAllocate = min(maxAllocate, maxInstanceLimit)
+				node.Spec.IPAM.MaxAllocate = maxAllocate
 			}
 		}
 
