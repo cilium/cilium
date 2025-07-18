@@ -152,6 +152,12 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+        with:
+          include-unsafe-tests: true
+
       - name: Set up job variables
         id: vars
         run: |
@@ -166,13 +172,9 @@ jobs:
             EXTRA_CLI_FLAGS+=("\"--secondary-network-iface=eth1\"")
           fi
 
-          CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
-                                      --collect-sysdump-on-failure \
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
                                       --sysdump-hubble-flows-count=1000000 \
                                       --sysdump-hubble-flows-timeout=5m \
-                                      --log-code-owners \
-                                      --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-                                      --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
                                       --flush-ct \
                                       ${EXTRA_CLI_FLAGS[*]}"
 
