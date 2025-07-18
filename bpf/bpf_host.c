@@ -175,26 +175,6 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 		}
 	}
 
-#ifdef ENABLE_NODEPORT
-	if (!from_host) {
-		if (!ctx_skip_nodeport(ctx)) {
-			bool is_dsr = false;
-
-			ret = nodeport_lb6(ctx, ip6, secctx, punt_to_stack, ext_err, &is_dsr);
-			/* nodeport_lb6() returns with TC_ACT_REDIRECT for
-			 * traffic to L7 LB. Policy enforcement needs to take
-			 * place after L7 LB has processed the packet, so we
-			 * return to stack immediately here with
-			 * TC_ACT_REDIRECT.
-			 */
-			if (ret < 0 || ret == TC_ACT_REDIRECT)
-				return ret;
-			if (*punt_to_stack)
-				return ret;
-		}
-	}
-#endif /* ENABLE_NODEPORT */
-
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
 		if (ipv6_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip6, &ct_buffer)) {
@@ -223,6 +203,26 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_HOST_FIREWALL */
 
 skip_host_firewall:
+#ifdef ENABLE_NODEPORT
+	if (!from_host) {
+		if (!ctx_skip_nodeport(ctx)) {
+			bool is_dsr = false;
+
+			ret = nodeport_lb6(ctx, ip6, secctx, punt_to_stack, ext_err, &is_dsr);
+			/* nodeport_lb6() returns with TC_ACT_REDIRECT for
+			 * traffic to L7 LB. Policy enforcement needs to take
+			 * place after L7 LB has processed the packet, so we
+			 * return to stack immediately here with
+			 * TC_ACT_REDIRECT.
+			 */
+			if (ret < 0 || ret == TC_ACT_REDIRECT)
+				return ret;
+			if (*punt_to_stack)
+				return ret;
+		}
+	}
+#endif /* ENABLE_NODEPORT */
+
 #ifdef ENABLE_HOST_FIREWALL
 	ctx_store_meta(ctx, CB_FROM_HOST,
 		       (need_hostfw ? FROM_HOST_FLAG_NEED_HOSTFW : 0) |
