@@ -37,7 +37,7 @@ func Test_topk(t *testing.T) {
 	assert.Equal(t, []int{5, 6, 7, 8, 9}, out)
 }
 
-func Test_countNat(t *testing.T) {
+func TestPrivilegedCountNat(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ip4Map := nat.NewMap(nil, "test_nat_map_ip4", nat.IPv4, 262144)

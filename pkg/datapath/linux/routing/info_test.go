@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 )
 
-func TestParse(t *testing.T) {
+func TestPrivilegedParse(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	_, fakeCIDR, err := net.ParseCIDR("192.168.0.0/16")

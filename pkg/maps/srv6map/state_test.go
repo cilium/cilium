@@ -41,7 +41,7 @@ func (v *dummyStateValue) String() string {
 	return ""
 }
 
-func TestStateMapsHive(t *testing.T) {
+func TestPrivilegedStateMapsHive(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 

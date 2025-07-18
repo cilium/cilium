@@ -551,6 +551,9 @@ bpf:
   events:
     # -- Default settings for all types of events except dbg and pcap.
     default:
+      # @schema
+      # type: [null, integer]
+      # @schema
       # -- (int) Configure the limit of messages per second that can be written to
       # BPF events map. The number of messages is averaged, meaning that if no messages
       # were written to the map over 5 seconds, it's possible to write more events
@@ -559,6 +562,9 @@ bpf:
       # and rateLimit to 0 disables BPF events rate limiting.
       # @default -- `0`
       rateLimit: ~
+      # @schema
+      # type: [null, integer]
+      # @schema
       # -- (int) Configure the maximum number of messages that can be written to BPF events
       # map in 1 second. If burstLimit is greater than 0, non-zero value for rateLimit must
       # also be provided lest the configuration is considered invalid. Setting both burstLimit
@@ -2905,6 +2911,7 @@ operator:
     kubernetes.io/os: linux
   # -- Node tolerations for cilium-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  # Toleration for agentNotReadyTaintKey taint is always added to cilium-operator pods.
   # @schema
   # type: [null, array]
   # @schema
@@ -2914,8 +2921,6 @@ operator:
     - key: "node-role.kubernetes.io/master" #deprecated
       operator: Exists
     - key: "node.kubernetes.io/not-ready"
-      operator: Exists
-    - key: "node.cilium.io/agent-not-ready"
       operator: Exists
   # -- Additional cilium-operator container arguments.
   extraArgs: []

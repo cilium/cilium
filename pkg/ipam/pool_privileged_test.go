@@ -17,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
-func Test_cleanupUnreachableRoutes(t *testing.T) {
+func TestPrivilegedCleanupUnreachableRoutes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	RegisterTestingT(t)

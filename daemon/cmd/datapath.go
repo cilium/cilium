@@ -127,6 +127,27 @@ func (e *EndpointMapManager) RemoveMapPath(path string) {
 	}
 }
 
+// ListMapsDir gives names of files (or subdirectories) found in the specified path.
+func (e *EndpointMapManager) ListMapsDir(path string) []string {
+	var maps []string
+
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		e.logger.Warn(
+			"Error while listing maps dir",
+			logfields.Path, path,
+			logfields.Error, err,
+		)
+		return maps
+	}
+
+	for _, e := range entries {
+		maps = append(maps, e.Name())
+	}
+
+	return maps
+}
+
 // initMaps opens all BPF maps (and creates them if they do not exist). This
 // must be done *before* any operations which read BPF maps, especially
 // restoring endpoints and services.

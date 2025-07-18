@@ -100,7 +100,9 @@ func TestFutureWatchedServerConfig(t *testing.T) {
 
 	// the files exists now, expect the watcher to become ready.
 	s := <-ch
-	s.Stop()
+	if assert.NotNil(t, s) {
+		s.Stop()
+	}
 }
 
 func TestNewWatchedServerConfig(t *testing.T) {

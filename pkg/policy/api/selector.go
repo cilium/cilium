@@ -324,8 +324,9 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 			return false
 		}
 	}
-	for _, req := range *n.requirements {
-		if !req.Matches(lblsToMatch) {
+	reqs := *n.requirements
+	for i := range reqs {
+		if !reqs[i].Matches(lblsToMatch) {
 			return false
 		}
 	}

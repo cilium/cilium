@@ -37,7 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func TestSocketTermination_ControlPlane(t *testing.T) {
+func TestPrivilegedSocketTermination_ControlPlane(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	for _, hostOnly := range []bool{true, false} {
@@ -205,7 +205,7 @@ func initializeNetns(t *testing.T, ns *netns.NetNS, addr string) net.Conn {
 	return conn
 }
 
-func TestSocketTermination_Datapath(t *testing.T) {
+func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ns1, err := netns.New()

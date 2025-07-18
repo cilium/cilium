@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDumpBatch4(t *testing.T) {
+func TestPrivilegedDumpBatch4(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	m := NewMap(nil, "test_snat_map", IPv4, 1<<18) // approximate default map size.
 	m.family = IPv4

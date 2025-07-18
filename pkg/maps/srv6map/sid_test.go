@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestSIDMapsHive(t *testing.T) {
+func TestPrivilegedSIDMapsHive(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	type in struct {

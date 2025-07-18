@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestHaveAttachType(t *testing.T) {
+func TestPrivilegedHaveAttachType(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	testCases := []struct {
@@ -40,7 +40,7 @@ func TestHaveAttachType(t *testing.T) {
 	}
 }
 
-func TestHaveAttachTypeUnsupported(t *testing.T) {
+func TestPrivilegedHaveAttachTypeUnsupported(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	if err := HaveAttachType(ebpf.CGroupSockAddr, ^ebpf.AttachType(0)); !errors.Is(err, ebpf.ErrNotSupported) {
