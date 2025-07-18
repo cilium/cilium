@@ -41,7 +41,7 @@ spec:
   {{- if .Values.ingressController.service.loadBalancerIP }}
   loadBalancerIP: {{ .Values.ingressController.service.loadBalancerIP }}
   {{- end }}
-  {{- if .Values.ingressController.service.externalTrafficPolicy }}
+  {{- if and .Values.ingressController.service.externalTrafficPolicy (not .Values.ingressController.hostNetwork.enabled) }}
   externalTrafficPolicy: {{ .Values.ingressController.service.externalTrafficPolicy }}
   {{- end }}
 ---
