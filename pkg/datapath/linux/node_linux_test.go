@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -289,6 +290,10 @@ func TestPrivilegedAll(t *testing.T) {
 			t.Run("TestNodeValidationDirectRouting", func(t *testing.T) {
 				s := setup(t, tt)
 				s.TestNodeValidationDirectRouting(t)
+			})
+			t.Run("TestNodePodCIDRsChurnIPSec", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestNodePodCIDRsChurnIPSec(t)
 			})
 		})
 	}
@@ -1150,6 +1155,253 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 
 	if s.enableIPv6 {
 		require.True(t, lookupFakeRoute(t, linuxNodeHandler, ip6Alloc1))
+	}
+}
+
+func lookupIPSecInRoutes(t *testing.T, family int, extDev string, prefixes []*cidr.CIDR) {
+	link, err := safenetlink.LinkByName(extDev)
+	require.NoError(t, err)
+
+	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return safenetlink.RouteListFiltered(
+			family,
+			&netlink.Route{
+				LinkIndex: link.Attrs().Index,
+				Table:     linux_defaults.RouteTableIPSec,
+				Protocol:  linux_defaults.RTProto,
+				Type:      route.RTN_LOCAL,
+			},
+			netlink.RT_FILTER_IIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL|netlink.RT_FILTER_TYPE,
+		)
+	})
+	require.NoError(t, err, "RouteListFiltered")
+	require.Len(t, routes, len(prefixes))
+	dests := make([]*cidr.CIDR, 0, len(routes))
+	for _, route := range routes {
+		dests = append(dests, &cidr.CIDR{IPNet: route.Dst})
+	}
+	require.ElementsMatch(t, dests, prefixes)
+}
+
+func lookupIPSecOutRoutes(t *testing.T, family int, extDev string, prefixes []*cidr.CIDR) {
+	link, err := safenetlink.LinkByName(extDev)
+	require.NoError(t, err)
+
+	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return safenetlink.RouteListFiltered(
+			family,
+			&netlink.Route{
+				LinkIndex: link.Attrs().Index,
+				Table:     linux_defaults.RouteTableIPSec,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
+	})
+
+	require.NoError(t, err, "RouteListFiltered")
+	require.Len(t, routes, len(prefixes))
+	dests := make([]*cidr.CIDR, 0, len(routes))
+	for _, route := range routes {
+		dests = append(dests, &cidr.CIDR{IPNet: route.Dst})
+	}
+	require.ElementsMatch(t, dests, prefixes)
+}
+
+func (s *linuxPrivilegedBaseTestSuite) TestNodePodCIDRsChurnIPSec(t *testing.T) {
+	remoteNode1IPv4, remoteNode1IPv6 := net.ParseIP("4.4.4.4"), net.ParseIP("face::1")
+	remoteNode1Device := "remote_node_1"
+	removeDevice(remoteNode1Device)
+	dev1, err := setupDummyDevice(remoteNode1Device, remoteNode1IPv4, remoteNode1IPv6)
+	require.NoError(t, err)
+	defer removeDevice(remoteNode1Device)
+
+	remoteNode2IPv4, remoteNode2IPv6 := net.ParseIP("4.4.4.5"), net.ParseIP("face::2")
+	remoteNode2Device := "remote_node_2"
+	removeDevice(remoteNode2Device)
+	dev2, err := setupDummyDevice(remoteNode2Device, remoteNode2IPv4, remoteNode2IPv6)
+	require.NoError(t, err)
+	defer removeDevice(remoteNode2Device)
+
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	log := hivetest.Logger(t)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{})
+
+	require.NotNil(t, linuxNodeHandler)
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
+
+	option.Config.RoutingMode = option.RoutingModeNative
+	nodeConfig.EnableIPSec = true
+	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
+
+	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
+	_, _, err = ipsec.LoadIPSecKeys(log, keys)
+	require.NoError(t, err)
+
+	// set "local_node" as the local node name
+	nodeTypes.SetName("local_node")
+
+	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
+	require.NoError(t, err)
+
+	// Add local node with multiple pod CIDRs
+	localIPv4AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("5.5.5.0/24"),
+		cidr.MustParseCIDR("6.6.6.0/24"),
+		cidr.MustParseCIDR("7.7.7.0/24"),
+	}
+	localIPv6AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("2001:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2002:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2003:aaaa:bbbb::/96"),
+	}
+	localNodeV1 := nodeTypes.Node{
+		Name:                    "local_node",
+		IPv4AllocCIDR:           localIPv4AllocCIDRsV1[0],
+		IPv4SecondaryAllocCIDRs: localIPv4AllocCIDRsV1[1:],
+		IPv6AllocCIDR:           localIPv6AllocCIDRsV1[0],
+		IPv6SecondaryAllocCIDRs: localIPv6AllocCIDRsV1[1:],
+	}
+	err = linuxNodeHandler.NodeAdd(localNodeV1)
+	require.NoError(t, err)
+	if s.enableIPv4 {
+		lookupIPSecInRoutes(t, netlink.FAMILY_V4, dummyExternalDeviceName, localIPv4AllocCIDRsV1)
+	}
+	if s.enableIPv6 {
+		lookupIPSecInRoutes(t, netlink.FAMILY_V6, dummyExternalDeviceName, localIPv6AllocCIDRsV1)
+	}
+
+	// Update local node and change the podCIDRs
+	localIPv4AllocCIDRsV2 := []*cidr.CIDR{
+		cidr.MustParseCIDR("6.6.6.0/24"),
+		cidr.MustParseCIDR("7.7.7.0/24"),
+		cidr.MustParseCIDR("8.8.8.0/24"),
+	}
+	localIPv6AllocCIDRsV2 := []*cidr.CIDR{
+		cidr.MustParseCIDR("2002:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2003:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2004:aaaa:bbbb::/96"),
+	}
+	localNodeV2 := localNodeV1
+	localNodeV2.IPv4AllocCIDR = localIPv4AllocCIDRsV2[0]
+	localNodeV2.IPv4SecondaryAllocCIDRs = localIPv4AllocCIDRsV2[1:]
+	localNodeV2.IPv6AllocCIDR = localIPv6AllocCIDRsV2[0]
+	localNodeV2.IPv6SecondaryAllocCIDRs = localIPv6AllocCIDRsV2[1:]
+	err = linuxNodeHandler.NodeUpdate(localNodeV1, localNodeV2)
+	require.NoError(t, err)
+	if s.enableIPv4 {
+		lookupIPSecInRoutes(t, netlink.FAMILY_V4, dummyExternalDeviceName, localIPv4AllocCIDRsV2)
+	}
+	if s.enableIPv6 {
+		lookupIPSecInRoutes(t, netlink.FAMILY_V6, dummyExternalDeviceName, localIPv6AllocCIDRsV2)
+	}
+
+	// Add first remote node
+	remoteNode1IPv4AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("9.9.9.0/24"),
+		cidr.MustParseCIDR("10.10.10.0/24"),
+		cidr.MustParseCIDR("11.11.11.0/24"),
+	}
+	remoteNode1IPv6AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("2005:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2006:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2007:aaaa:bbbb::/96"),
+	}
+	remoteNode1V1 := nodeTypes.Node{
+		Name: "remote_node_1",
+		IPAddresses: []nodeTypes.Address{
+			{IP: net.ParseIP("1.1.1.1"), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: remoteNode1IPv4, Type: nodeaddressing.NodeInternalIP},
+			{IP: net.ParseIP("face::3"), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: remoteNode1IPv6, Type: nodeaddressing.NodeInternalIP},
+		},
+		IPv4AllocCIDR:           remoteNode1IPv4AllocCIDRsV1[0],
+		IPv4SecondaryAllocCIDRs: remoteNode1IPv4AllocCIDRsV1[1:],
+		IPv6AllocCIDR:           remoteNode1IPv6AllocCIDRsV1[0],
+		IPv6SecondaryAllocCIDRs: remoteNode1IPv6AllocCIDRsV1[1:],
+		BootID:                  "b892866c-26cb-4018-8a55-c0330551a2be",
+	}
+	err = linuxNodeHandler.NodeAdd(remoteNode1V1)
+	require.NoError(t, err)
+	if s.enableIPv4 {
+		lookupIPSecOutRoutes(t, netlink.FAMILY_V4, dummyHostDeviceName, remoteNode1IPv4AllocCIDRsV1)
+	}
+	if s.enableIPv6 {
+		lookupIPSecOutRoutes(t, netlink.FAMILY_V6, dummyHostDeviceName, remoteNode1IPv6AllocCIDRsV1)
+	}
+
+	// Add second remote node
+	remoteNode2IPv4AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("12.12.12.0/24"),
+		cidr.MustParseCIDR("13.13.13.0/24"),
+		cidr.MustParseCIDR("14.14.14.0/24"),
+	}
+	remoteNode2IPv6AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("2008:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2009:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2010:aaaa:bbbb::/96"),
+	}
+	remoteNode2V1 := nodeTypes.Node{
+		Name: "remote_node_2",
+		IPAddresses: []nodeTypes.Address{
+			{IP: net.ParseIP("2.2.2.2"), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: remoteNode2IPv4, Type: nodeaddressing.NodeInternalIP},
+			{IP: net.ParseIP("face::4"), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: remoteNode2IPv6, Type: nodeaddressing.NodeInternalIP},
+		},
+		IPv4AllocCIDR:           remoteNode2IPv4AllocCIDRsV1[0],
+		IPv4SecondaryAllocCIDRs: remoteNode2IPv4AllocCIDRsV1[1:],
+		IPv6AllocCIDR:           remoteNode2IPv6AllocCIDRsV1[0],
+		IPv6SecondaryAllocCIDRs: remoteNode2IPv6AllocCIDRsV1[1:],
+		BootID:                  "581ec425-11af-4a29-9a0f-5550218463a7",
+	}
+	err = linuxNodeHandler.NodeAdd(remoteNode2V1)
+	require.NoError(t, err)
+	if s.enableIPv4 {
+		lookupIPSecOutRoutes(
+			t, netlink.FAMILY_V4, dummyHostDeviceName,
+			slices.Concat(remoteNode1IPv4AllocCIDRsV1, remoteNode2IPv4AllocCIDRsV1),
+		)
+	}
+	if s.enableIPv6 {
+		lookupIPSecOutRoutes(
+			t, netlink.FAMILY_V6, dummyHostDeviceName,
+			slices.Concat(remoteNode1IPv6AllocCIDRsV1, remoteNode2IPv6AllocCIDRsV1),
+		)
+	}
+
+	// Update first remote node and change the podCIDRs
+	remoteNode2IPv4AllocCIDRsV2 := []*cidr.CIDR{
+		cidr.MustParseCIDR("13.13.13.0/24"),
+		cidr.MustParseCIDR("14.14.14.0/24"),
+		cidr.MustParseCIDR("15.15.15.0/24"),
+	}
+	remoteNode2IPv6AllocCIDRsV2 := []*cidr.CIDR{
+		cidr.MustParseCIDR("2009:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2010:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2011:aaaa:bbbb::/96"),
+	}
+	remoteNode2V2 := remoteNode2V1
+	remoteNode2V2.IPv4AllocCIDR = remoteNode2IPv4AllocCIDRsV2[0]
+	remoteNode2V2.IPv4SecondaryAllocCIDRs = remoteNode2IPv4AllocCIDRsV2[1:]
+	remoteNode2V2.IPv6AllocCIDR = remoteNode2IPv6AllocCIDRsV2[0]
+	remoteNode2V2.IPv6SecondaryAllocCIDRs = remoteNode2IPv6AllocCIDRsV2[1:]
+	err = linuxNodeHandler.NodeUpdate(remoteNode2V1, remoteNode2V2)
+	require.NoError(t, err)
+	if s.enableIPv4 {
+		lookupIPSecOutRoutes(
+			t, netlink.FAMILY_V4, dummyHostDeviceName,
+			slices.Concat(remoteNode1IPv4AllocCIDRsV1, remoteNode2IPv4AllocCIDRsV2),
+		)
+	}
+	if s.enableIPv6 {
+		lookupIPSecOutRoutes(
+			t, netlink.FAMILY_V6, dummyHostDeviceName,
+			slices.Concat(remoteNode1IPv6AllocCIDRsV1, remoteNode2IPv6AllocCIDRsV2),
+		)
 	}
 }
 
