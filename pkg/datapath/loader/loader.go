@@ -190,6 +190,9 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
 
@@ -347,6 +350,9 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
@@ -423,6 +429,9 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
+
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
@@ -585,6 +594,9 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	cfg.PolicyVerdictLogFilter = ep.GetPolicyVerdictLogFilter()
 
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
+
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
@@ -700,6 +712,8 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
@@ -751,6 +765,8 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	// Set load balancer virtual IP configuration
+	cfg.DropTrafficToVirtualIps = lnc.LBConfig.DropTrafficToVirtualIPs
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
