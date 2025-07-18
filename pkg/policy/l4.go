@@ -628,6 +628,47 @@ func (c *ChangeState) Size() int {
 	return len(c.Adds) - deleteLen
 }
 
+// generateWildcardMapStateEntry creates map state entry for wildcard selector in the filter.
+func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16) *mapStateEntry {
+	if l4.wildcard == nil {
+		return nil
+	}
+
+	currentRule := l4.PerSelectorPolicies[l4.wildcard]
+	cs := l4.wildcard
+
+	entry := l4.makeMapStateEntry(logger, p, port, cs, currentRule)
+	return &entry
+}
+
+// makeMapStateEntry creates a mapStateEntry for the given selector and policy for the Endpoint.
+func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16, cs CachedSelector, currentRule *PerSelectorPolicy) mapStateEntry {
+	var proxyPort uint16
+	if currentRule.IsRedirect() {
+		var err error
+		proxyPort, err = p.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, currentRule.GetListener())
+		if err != nil {
+			// Skip unrealized redirects; this happens routineously just
+			// before new redirects are realized. Once created, we are called
+			// again.
+			logger.Debug(
+				"Skipping unrealized redirect",
+				logfields.Error, err,
+				logfields.EndpointSelector, cs,
+			)
+			return mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
+		}
+	}
+
+	return newMapStateEntry(
+		l4.RuleOrigin[cs],
+		proxyPort,
+		currentRule.GetPriority(),
+		currentRule.GetDeny(),
+		currentRule.getAuthRequirement(),
+	)
+}
+
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
 //
 // Note: It is possible for two selectors to select the same security ID.  To give priority to deny,
@@ -670,60 +711,25 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 			KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 	}
 
-	// makeEntry creates a mapStateEntry for the given selector and policy
-	makeEntry := func(cs CachedSelector, currentRule *PerSelectorPolicy) mapStateEntry {
-		var proxyPort uint16
-		if currentRule.IsRedirect() {
-			var err error
-			proxyPort, err = p.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, currentRule.GetListener())
-			if err != nil {
-				// Skip unrealized redirects; this happens routineously just
-				// before new redirects are realized. Once created, we are called
-				// again.
-				scopedLog.Debug(
-					"Skipping unrealized redirect",
-					logfields.Error, err,
-					logfields.EndpointSelector, cs,
-				)
-				return mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
-			}
-		}
-
-		return newMapStateEntry(
-			l4.RuleOrigin[cs],
-			proxyPort,
-			currentRule.GetPriority(),
-			currentRule.GetDeny(),
-			currentRule.getAuthRequirement(),
-		)
-	}
-
-	wildcardEntry := mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
-
 	// Compute and insert the wildcard entry, if present
-	if l4.wildcard != nil {
-		currentRule := l4.PerSelectorPolicies[l4.wildcard]
-		cs := l4.wildcard
-		wildcardEntry = makeEntry(cs, currentRule)
+	wildcardEntry := l4.generateWildcardMapStateEntry(scopedLog, p, port)
+	if wildcardEntry != nil && !wildcardEntry.Invalid {
+		for _, keyToAdd := range keysToAdd {
+			keyToAdd.Identity = 0
+			p.policyMapState.insertWithChanges(keyToAdd, *wildcardEntry, features, changes)
 
-		if !wildcardEntry.Invalid {
-			for _, keyToAdd := range keysToAdd {
-				keyToAdd.Identity = 0
-				p.policyMapState.insertWithChanges(keyToAdd, wildcardEntry, features, changes)
-
-				if port == 0 {
-					// Allow-all
-					scopedLog.Debug(
-						"ToMapState: allow all",
-						logfields.EndpointSelector, cs,
-					)
-				} else {
-					// L4 allow
-					scopedLog.Debug(
-						"ToMapState: L4 allow all",
-						logfields.EndpointSelector, cs,
-					)
-				}
+			if port == 0 {
+				// Allow-all
+				scopedLog.Debug(
+					"ToMapState: allow all",
+					logfields.EndpointSelector, l4.wildcard,
+				)
+			} else {
+				// L4 allow
+				scopedLog.Debug(
+					"ToMapState: L4 allow all",
+					logfields.EndpointSelector, l4.wildcard,
+				)
 			}
 		}
 	}
@@ -735,7 +741,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 		}
 
 		// create MapStateEntry
-		entry := makeEntry(cs, currentRule)
+		entry := l4.makeMapStateEntry(logger, p, port, cs, currentRule)
 		if entry.Invalid {
 			continue
 		}
@@ -743,7 +749,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 		// If this entry is identical to the wildcard's entry, we can elide it.
 		// Do not elide for port wildcards. TODO: This is probably too
 		// conservative, determine if it's safe to elide l3 entry when no l4 specifier is present.
-		if !wildcardEntry.Invalid && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
+		if wildcardEntry != nil && !wildcardEntry.Invalid && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
 			scopedLog.Debug("ToMapState: Skipping L3/L4 key due to existing identical L4-only key", logfields.EndpointSelector, cs)
 			continue
 		}
@@ -1297,8 +1303,6 @@ type L4PolicyMap interface {
 	MatchesLabels(port, protocol string, labels labels.LabelArray) (match, isDeny bool)
 	Detach(selectorCache *SelectorCache)
 	ForEach(func(l4 *L4Filter) bool)
-	TestingOnlyEquals(bMap L4PolicyMap) bool
-	TestingOnlyDiff(expectedMap L4PolicyMap) string
 	Len() int
 }
 
@@ -1486,57 +1490,6 @@ func (l4M *l4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 			return
 		}
 	}
-}
-
-// Equals returns true if both L4PolicyMaps are equal.
-func (l4M *l4PolicyMap) TestingOnlyEquals(bMap L4PolicyMap) bool {
-	if l4M.Len() != bMap.Len() {
-		return false
-	}
-	equal := true
-	l4M.ForEach(func(l4 *L4Filter) bool {
-		port := l4.PortName
-		if len(port) == 0 {
-			port = fmt.Sprintf("%d", l4.Port)
-		}
-		l4B := bMap.ExactLookup(port, l4.EndPort, string(l4.Protocol))
-		equal = l4.Equals(l4B)
-		return equal
-	})
-	return equal
-}
-
-// Diff returns the difference between to L4PolicyMaps.
-func (l4M *l4PolicyMap) TestingOnlyDiff(expected L4PolicyMap) (res string) {
-	res += "Missing (-), Unexpected (+):\n"
-	expected.ForEach(func(eV *L4Filter) bool {
-		port := eV.PortName
-		if len(port) == 0 {
-			port = fmt.Sprintf("%d", eV.Port)
-		}
-		oV := l4M.ExactLookup(port, eV.Port, string(eV.Protocol))
-		if oV != nil {
-			if !eV.Equals(oV) {
-				res += "- " + eV.String() + "\n"
-				res += "+ " + oV.String() + "\n"
-			}
-		} else {
-			res += "- " + eV.String() + "\n"
-		}
-		return true
-	})
-	l4M.ForEach(func(oV *L4Filter) bool {
-		port := oV.PortName
-		if len(port) == 0 {
-			port = fmt.Sprintf("%d", oV.Port)
-		}
-		eV := expected.ExactLookup(port, oV.Port, string(oV.Protocol))
-		if eV == nil {
-			res += "+ " + oV.String() + "\n"
-		}
-		return true
-	})
-	return
 }
 
 // Len returns the number of entries in the map.
@@ -1737,6 +1690,16 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
 		value := newMapStateEntry(derivedFrom, proxyPort, priority, isDeny, authReq)
+
+		// If the entry is identical to wildcard map entry, we can elide it.
+		// See comment in L4Filter.toMapState()
+		wildcardMapEntry := l4.generateWildcardMapStateEntry(logger, epPolicy, port)
+		if wildcardMapEntry != nil && !wildcardMapEntry.Invalid && port != 0 && value.MapStateEntry == wildcardMapEntry.MapStateEntry {
+			logger.Debug(
+				"AccumulateMapChanges: Skipping L3/L4 key due to existing identical L4-only key",
+				logfields.EndpointSelector, cs)
+			continue
+		}
 
 		if option.Config.Debug {
 			authString := "default"

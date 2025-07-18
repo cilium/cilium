@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"slices"
 	"sync"
 	"testing"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
@@ -43,6 +45,8 @@ type testData struct {
 	sc   *SelectorCache
 	repo *Repository
 
+	idSet set.Set[identity.NumericIdentity]
+
 	testPolicyContext *testPolicyContextType
 
 	cachedSelectorA        CachedSelector
@@ -67,6 +71,7 @@ func newTestData(logger *slog.Logger) *testData {
 	td := &testData{
 		sc:                testNewSelectorCache(logger, nil),
 		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, testpolicy.NewPolicyMetricsNoop()),
+		idSet:             set.NewSet[identity.NumericIdentity](),
 		testPolicyContext: &testPolicyContextType{logger: logger},
 	}
 	td.testPolicyContext.sc = td.sc
@@ -74,24 +79,37 @@ func newTestData(logger *slog.Logger) *testData {
 
 	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
 
-	td.cachedSelectorA, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, endpointSelectorA)
-	td.cachedSelectorB, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, endpointSelectorB)
-	td.cachedSelectorC, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, endpointSelectorC)
-	td.cachedSelectorHost, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, hostSelector)
+	td.cachedSelectorA = td.getCachedSelectorForTest(endpointSelectorA, idA.ID)
+	td.cachedSelectorB = td.getCachedSelectorForTest(endpointSelectorB, idB.ID)
+	td.cachedSelectorC = td.getCachedSelectorForTest(endpointSelectorC, idC.ID)
+	td.cachedSelectorHost = td.getCachedSelectorForTest(hostSelector, identity.ReservedIdentityHost)
 
-	td.cachedFooSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, fooSelector)
-	td.cachedBazSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, bazSelector)
+	td.cachedFooSelector = td.getCachedSelectorForTest(fooSelector)
+	td.cachedBazSelector = td.getCachedSelectorForTest(bazSelector)
 
-	td.cachedSelectorBar1, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, selBar1)
-	td.cachedSelectorBar2, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, selBar2)
+	td.cachedSelectorBar1 = td.getCachedSelectorForTest(selBar1)
+	td.cachedSelectorBar2 = td.getCachedSelectorForTest(selBar2)
 
-	td.cachedSelectorWorld, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.EntitySelectorMapping[api.EntityWorld][0])
-
-	td.cachedSelectorWorldV4, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.EntitySelectorMapping[api.EntityWorldIPv4][0])
-
-	td.cachedSelectorWorldV6, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.EntitySelectorMapping[api.EntityWorldIPv6][0])
+	td.cachedSelectorWorld = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorld][0], identity.ReservedIdentityWorld)
+	td.cachedSelectorWorldV4 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv4][0], identity.ReservedIdentityWorldIPv4)
+	td.cachedSelectorWorldV6 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv6][0], identity.ReservedIdentityWorldIPv6)
 
 	return td
+}
+
+func (td *testData) getCachedSelectorForTest(es api.EndpointSelector, selections ...identity.NumericIdentity) CachedSelector {
+	idSel := &identitySelector{
+		logger:           td.sc.logger,
+		key:              es.CachedString(),
+		users:            make(map[CachedSelectionUser]struct{}),
+		cachedSelections: make(map[identity.NumericIdentity]struct{}),
+	}
+
+	for _, sel := range selections {
+		idSel.cachedSelections[sel] = struct{}{}
+	}
+
+	return idSel
 }
 
 // withIDs loads the set of IDs in to the SelectorCache. Returns
@@ -104,6 +122,10 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(initial, nil, wg)
 	wg.Wait()
+
+	for id := range initial {
+		td.idSet.Insert(id)
+	}
 	return td
 }
 
@@ -114,6 +136,109 @@ func (td *testData) addIdentity(id *identity.Identity) {
 			id.ID: id.LabelArray,
 		}, nil, wg)
 	wg.Wait()
+	td.idSet.Insert(id.ID)
+}
+
+func (td *testData) removeIdentity(id *identity.Identity) {
+	wg := &sync.WaitGroup{}
+	td.sc.UpdateIdentities(
+		nil,
+		identity.IdentityMap{
+			id.ID: id.LabelArray,
+		}, wg)
+	wg.Wait()
+	td.idSet.Remove(id.ID)
+}
+
+func (td *testData) addIdentitySelector(sel api.EndpointSelector) bool {
+	_, added := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, sel)
+	return added
+}
+
+func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4PolicyMap, availableIDs ...identity.NumericIdentity) {
+	t.Helper()
+
+	require.Equal(t, expected.Len(), actual.Len())
+	expected.ForEach(func(l4 *L4Filter) bool {
+		port := l4.PortName
+		if len(port) == 0 {
+			port = fmt.Sprintf("%d", l4.Port)
+		}
+
+		l4B := actual.ExactLookup(port, l4.EndPort, string(l4.Protocol))
+		require.NotNil(t, l4B, "Port Protocol lookup failed: [Port: %s, EndPort: %d, Protocol: %s]", port, l4.EndPort, string(l4.Protocol))
+
+		// If no available IDs are provided, we assume the same pointer for
+		// cached selector is used for both expected and actual L4PolicyMap,
+		// just make sure L4 filter is equal
+		if len(availableIDs) == 0 {
+			require.True(t, l4.Equals(l4B), "Expected: %s\nActual: %s", l4.String(), l4B.String())
+			return true
+		}
+
+		require.Equal(t, l4.Port, l4B.Port)
+		require.Equal(t, l4.EndPort, l4B.EndPort)
+		require.Equal(t, l4.PortName, l4B.PortName)
+		require.Equal(t, l4.Protocol, l4B.Protocol)
+		require.Equal(t, l4.Ingress, l4B.Ingress)
+		require.Equal(t, l4.wildcard, l4B.wildcard)
+
+		require.Len(t, l4B.PerSelectorPolicies, len(l4.PerSelectorPolicies))
+
+		for k, v := range l4.PerSelectorPolicies {
+			found := false
+			for bK, bV := range l4B.PerSelectorPolicies {
+				if k.String() == bK.String() {
+					require.True(t, v.Equal(bV), "Expected: %s\nActual: %s", perSelectorPolicyToString(v), perSelectorPolicyToString(bV))
+
+					selActual := bK.(*identitySelector).cachedSelections
+					selExpected := make(map[identity.NumericIdentity]struct{})
+					for id := range k.(*identitySelector).cachedSelections {
+						if slices.Contains(availableIDs, id) {
+							selExpected[id] = struct{}{}
+						}
+					}
+
+					require.True(t, maps.Equal(selExpected, selActual), "Expected: %v\nActual: %v", selExpected, selActual)
+					found = true
+				}
+			}
+
+			require.True(t, found, "Failed to find expected cached selector in PerSelectorPolicy: %s", k.String())
+		}
+
+		return true
+	})
+}
+
+func (td *testData) validateResolvedPolicy(t *testing.T, selPolicy *selectorPolicy, epPolicy *EndpointPolicy, expectedIn, expectedOut L4PolicyMap) {
+	t.Helper()
+	logger := hivetest.Logger(t)
+
+	if expectedIn != nil {
+		td.verifyL4PolicyMapEqual(t, expectedIn, selPolicy.L4Policy.Ingress.PortRules, td.idSet.AsSlice()...)
+	}
+
+	if expectedOut != nil {
+		td.verifyL4PolicyMapEqual(t, expectedOut, selPolicy.L4Policy.Egress.PortRules, td.idSet.AsSlice()...)
+	}
+
+	// Resolve the policy again and compare against the inputs to verify incremental updates
+	// are applied properly.
+	sp, err := td.repo.resolvePolicyLocked(idA)
+	require.NoError(t, err)
+
+	epp := sp.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	require.NotNil(t, epp)
+	epp.Ready()
+
+	closer, _ := epPolicy.ConsumeMapChanges()
+	closer()
+	epPolicy.Ready()
+
+	require.True(t, epPolicy.policyMapState.Equal(&epp.policyMapState), epPolicy.policyMapState.diff(&epp.policyMapState))
+
+	epp.Detach(logger)
 }
 
 // policyMapEquals takes a set of policies and an expected L4PolicyMap. The policies are assumed to
@@ -122,7 +247,13 @@ func (td *testData) addIdentity(id *identity.Identity) {
 // The repository is cleared when called.
 func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4PolicyMap, rules ...*api.Rule) {
 	t.Helper()
-	td.withIDs(ruleTestIDs)
+	logger := hivetest.Logger(t)
+
+	// Initialize with test identity
+	td.addIdentity(idA)
+	defer td.removeIdentity(idA)
+
+	// Add the rules to policy repository.
 	for _, r := range rules {
 		if r.EndpointSelector.LabelSelector == nil {
 			r.EndpointSelector = endpointSelectorA
@@ -131,19 +262,31 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 	}
 	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
 
+	// Resolve the Selector policy for test identity
 	td.repo.mutex.RLock()
 	defer td.repo.mutex.RUnlock()
-	pol, err := td.repo.resolvePolicyLocked(idA)
+
+	selPolicy, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
-	defer pol.detach(true, 0)
+	defer selPolicy.detach(true, 0)
 
-	if expectedIn != nil {
-		require.True(t, expectedIn.TestingOnlyEquals(pol.L4Policy.Ingress.PortRules), expectedIn.TestingOnlyDiff(pol.L4Policy.Ingress.PortRules))
-	}
+	// Distill Selector policy to Endpoint Policy
+	epPolicy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	epPolicy.Ready()
 
-	if expectedOut != nil {
-		require.True(t, expectedOut.TestingOnlyEquals(pol.L4Policy.Egress.PortRules), expectedOut.TestingOnlyDiff(pol.L4Policy.Egress.PortRules))
-	}
+	td.validateResolvedPolicy(t, selPolicy, epPolicy, expectedIn, expectedOut)
+
+	// Incrementally add identities
+	td.addIdentity(idB)
+	td.addIdentity(idC)
+
+	td.validateResolvedPolicy(t, selPolicy, epPolicy, expectedIn, expectedOut)
+
+	// Incrementally delete identities
+	td.removeIdentity(idB)
+	td.removeIdentity(idC)
+
+	td.validateResolvedPolicy(t, selPolicy, epPolicy, expectedIn, expectedOut)
 }
 
 // policyInvalid checks that the set of rules results in an error
