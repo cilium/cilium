@@ -230,7 +230,7 @@ jobs:
           # DualStack : tests that are dual stack specific
           # IPv6 : tests that are IPv6 specific
 
-          SKIP_FLAG="Alpha|Beta|Experimental|Federation|PerformanceDNS|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|rejected|externalTrafficPolicy"
+          SKIP_FLAG="Alpha|Beta|Experimental|Federation|PerformanceDNS|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|rejected|externalTrafficPolicy|SCTPConnectivity"
           if [ "${IP_FAMILY}" != "dual" ]; then
             SKIP_FLAG="${SKIP_FLAG}|DualStack"
           fi
