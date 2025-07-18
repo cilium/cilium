@@ -301,6 +301,7 @@ func TestEgressGatewayManager(t *testing.T) {
 	// Restore old DestCIDR
 	policy1.destinationCIDR = destCIDR
 	addPolicy(t, k.policies, &policy1)
+	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
 	// Create a new policy
 	addPolicy(t, k.policies, &policyParams{

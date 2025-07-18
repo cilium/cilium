@@ -535,10 +535,16 @@
             "default": {
               "properties": {
                 "burstLimit": {
-                  "type": "null"
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
                 },
                 "rateLimit": {
-                  "type": "null"
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
                 }
               },
               "type": "object"
@@ -4639,6 +4645,14 @@
     "podSecurityContext": {
       "properties": {
         "appArmorProfile": {
+          "properties": {
+            "type": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "seccompProfile": {
           "properties": {
             "type": {
               "type": "string"

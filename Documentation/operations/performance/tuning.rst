@@ -444,9 +444,10 @@ should consider increasing the aggregation interval or rate limiting events.
 Increase Aggregation Interval
 -----------------------------
 
-By default Cilium generates a tracing event on every new connection, any time a packet
-contains TCP flags that have not been previously seen for the packet direction, and on
-average once per ``monitor-aggregation-interval``, which defaults to 5 seconds.
+By default Cilium generates a tracing event for send packets only on every new
+connection, any time a packet contains TCP flags that have not been previously
+seen for the packet direction, and on average once per ``monitor-aggregation-interval``,
+which defaults to 5 seconds.
 
 Depending on your network traffic patterns, the re-emitting of trace events per
 aggregation interval can make up a large part of the total events. Increasing the
