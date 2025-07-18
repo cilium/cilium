@@ -1468,6 +1468,82 @@
         "maxConnectedClusters": {
           "type": "integer"
         },
+        "mcsapi": {
+          "properties": {
+            "corednsAutoConfigure": {
+              "properties": {
+                "affinity": {
+                  "type": "object"
+                },
+                "annotations": {
+                  "type": "object"
+                },
+                "coredns": {
+                  "properties": {
+                    "clusterDomain": {
+                      "type": "string"
+                    },
+                    "clustersetDomain": {
+                      "type": "string"
+                    },
+                    "configMapName": {
+                      "type": "string"
+                    },
+                    "deploymentName": {
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "type": "string"
+                    },
+                    "serviceAccountName": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "extraArgs": {
+                  "items": {},
+                  "type": "array"
+                },
+                "extraVolumeMounts": {
+                  "items": {},
+                  "type": "array"
+                },
+                "extraVolumes": {
+                  "items": {},
+                  "type": "array"
+                },
+                "nodeSelector": {
+                  "type": "object"
+                },
+                "podLabels": {
+                  "type": "object"
+                },
+                "priorityClassName": {
+                  "type": "string"
+                },
+                "resources": {
+                  "type": "object"
+                },
+                "tolerations": {
+                  "items": {},
+                  "type": "array"
+                },
+                "ttlSecondsAfterFinished": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "policyDefaultLocalCluster": {
           "type": "boolean"
         },
@@ -5497,6 +5573,23 @@
           "type": "object"
         },
         "clustermeshcertgen": {
+          "properties": {
+            "annotations": {
+              "type": "object"
+            },
+            "automount": {
+              "type": "boolean"
+            },
+            "create": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "corednsMCSAPI": {
           "properties": {
             "annotations": {
               "type": "object"

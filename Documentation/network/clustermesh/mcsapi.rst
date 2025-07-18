@@ -10,11 +10,15 @@ This tutorial will guide you to through the support of `Multi-Cluster Services A
 
 .. _Multi-Cluster Services API (MCS-API): https://github.com/kubernetes/enhancements/blob/master/keps/sig-multicluster/1645-multi-cluster-services-api/README.md
 
+.. _clustermesh_mcsapi_prereqs:
+
 Prerequisites
 #############
 
 You need to have a functioning Cluster Mesh setup, please follow the
 :ref:`gs_clustermesh` guide to set it up.
+
+Make sure you are running CoreDNS 1.12.2 or later.
 
 You first need to install the required MCS-API CRDs:
 
@@ -30,7 +34,7 @@ To install Cilium with MCS-API support, run:
 
       helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set clustermesh.enableMCSAPISupport=true
+      --set clustermesh.mcsapi.enabled=true
 
 To enable MCS-API support on an existing Cilium installation, run:
 
@@ -39,64 +43,31 @@ To enable MCS-API support on an existing Cilium installation, run:
       helm upgrade cilium |CHART_RELEASE| \\
       --namespace kube-system \\
       --reuse-values \\
-      --set clustermesh.enableMCSAPISupport=true
+      --set clustermesh.mcsapi.enabled=true
 
-Also checkout the :ref:`EndpointSlice synchronization <endpointslicesync>` feature if you need Headless Services support.
+Also checkout the :ref:`EndpointSlice synchronization <endpointslicesync>` feature
+if you need Headless Services support.
 
-Installing CoreDNS multicluster
--------------------------------
-
-You also need to install and configure the `multicluster CoreDNS plugin`_.
-
-.. _`multicluster CoreDNS plugin`: https://github.com/coredns/multicluster
-
-The multicluster CoreDNS plugin is currently not provided by default in
-CoreDNS so you will have to recompile it yourself.
-
-To rebuild the CoreDNS image you need to first clone the `CoreDNS repo`_:
+If you set ```clustermesh.mcsapi.corednsAutoConfigure.enabled`` to ``true``, Cilium
+will automatically configure and rollout CoreDNS for MCS-API support. Otherwise to
+configure CoreDNS manually, you need to execute the following steps:
 
    .. code-block:: shell-session
 
-      git clone https://github.com/coredns/coredns.git
-      git checkout v1.11.4
+      # Adding RBAC to read SericeImports
+      kubectl create clusterrole coredns-mcsapi \
+         --verb=list,watch --resource=serviceimports.multicluster.x-k8s.io
+      kubectl create clusterrolebinding coredns-mcsapi \
+         --clusterrole=coredns-mcsapi --serviceaccount=kube-system:coredns
 
-
-Then you need add the multicluster plugin to the ``plugins.cfg`` file. The
-ordering of plugins matters, add it just below kubernetes plugin that has very
-similar functionality:
-
-   .. parsed-literal::
-
-      ...
-      kubernetes:kubernetes
-      multicluster:github.com/coredns/multicluster
-      ...
-
-.. _CoreDNS repo: https://github.com/coredns/coredns
-
-Then you can build your image simply by running ``make`` and then ``docker build .``
-with the right docker tag and upload it to your preferred registry.
-
-You also need to make sure that CoreDNS is able to read and watch the relevant
-MCS-API resources (ServiceImports). You can do so by running the following
-command on each cluster:
-
-   .. code-block:: shell-session
-
-      kubectl patch clusterrole system:coredns --type=json \
-         -p='[{"op":"add","path":"/rules/-","value":{"apiGroups":["multicluster.x-k8s.io"],"resources":["serviceimports"],"verbs":["list","watch"]}}]'
-
-After that you will need to update the CoreDNS's Corefile to also enable the
-multicluster plugin, for instance by executing the following command on each cluster:
-
-   .. code-block:: shell-session
-
+      # Configure CoreDNS to support MCS-API
       kubectl get configmap -n kube-system coredns -o yaml | \
-         sed -E -e 's/^(\s*)kubernetes.*cluster\.local.*$/\1multicluster clusterset.local\n&/' | \
+         sed -e 's/cluster\.local/cluster.local clusterset.local/g' | \
+         sed -E 's/^(.*)kubernetes(.*)\{/\1kubernetes\2{\n\1   multicluster clusterset.local/' | \
          kubectl replace -f-
 
-And you can finally deploy the CoreDNS image you previously built. Doing so will
-also rollout the CoreDNS deployment and activate the Corefile change you previously made.
+      # Rollout CoreDNS to apply the change
+      kubectl rollout deployment -n kube-system coredns
 
 Exporting a Service
 ###################

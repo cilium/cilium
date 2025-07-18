@@ -288,6 +288,19 @@ communicating via the proxy must reconnect to re-establish connections.
 
 .. _current_release_required_changes:
 
+.. _1.19_upgrade_notes:
+
+1.19 Upgrade Notes
+------------------
+
+* MCS-API CoreDNS configuration recommendation has been updated. See :ref:`clustermesh_mcsapi_prereqs` for more details.
+
+Helm Options
+~~~~~~~~~~~~
+
+* The Helm option ``clustermesh.enableMCSAPISupport`` has been deprecated in favor of ``clustermesh.mcsapi.enabled``
+  and will be removed in Cilium 1.20.
+
 .. _1.18_upgrade_notes:
 
 1.18 Upgrade Notes

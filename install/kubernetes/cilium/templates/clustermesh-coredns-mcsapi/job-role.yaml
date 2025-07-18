@@ -1,0 +1,36 @@
+{{- if and (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.mcsapi.corednsAutoConfigure.enabled }}
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cilium-coredns-mcsapi-autoconfig
+  namespace: {{ .Values.clustermesh.mcsapi.corednsAutoConfigure.coredns.namespace }}
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.clustermesh.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - "configmaps"
+  verbs:
+  - "update"
+  - "patch"
+  - "get"
+  resourceNames:
+  - "{{ .Values.clustermesh.mcsapi.corednsAutoConfigure.coredns.configMapName }}"
+- apiGroups:
+  - "apps"
+  resources:
+  - "deployments"
+  verbs:
+  - "patch"
+  - "update"
+  - "get"
+  resourceNames:
+  - "{{ .Values.clustermesh.mcsapi.corednsAutoConfigure.coredns.deploymentName }}"
+{{- end }}

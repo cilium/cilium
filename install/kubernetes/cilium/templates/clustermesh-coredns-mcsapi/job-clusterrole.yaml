@@ -1,0 +1,22 @@
+{{- if and (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.mcsapi.corednsAutoConfigure.enabled }}
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cilium-coredns-mcsapi-autoconfig
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.clustermesh.annotations }}
+  annotations:
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+rules:
+# note: namespaces permission are needed to initialize and verify that the kubernetes client works.
+- apiGroups:
+  - ""
+  resources:
+  - "namespaces"
+  verbs:
+  - "get"
+{{- end }}
