@@ -171,7 +171,6 @@ spec:
           maxStreamDuration:
             maxStreamDuration: 0s
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: random-namespace/foo-bar-com:http
     name: random-namespace:foo-bar-com:http
@@ -186,7 +185,6 @@ spec:
         useDownstreamProtocolConfig:
           http2ProtocolOptions: {}
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: random-namespace/wildcard-foo-com:8080
     name: random-namespace:wildcard-foo-com:8080
