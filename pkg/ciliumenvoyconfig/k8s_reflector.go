@@ -118,7 +118,7 @@ func registerCECK8sReflector(
 			objMeta.GetNamespace(),
 			objMeta.GetName(),
 			spec.Resources,
-			len(spec.Services) > 0,
+			isL7LB(objMeta, spec),
 			InjectCiliumEnvoyFilters(objMeta, spec),
 			UseOriginalSourceAddress(objMeta),
 			true,
