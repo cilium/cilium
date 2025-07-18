@@ -288,6 +288,10 @@ require (
 )
 
 replace (
+	// Using private fork of gobgp. See commit msg for more context as to why we
+	// are using a private fork.
+	github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464
+
 	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 
 	// Using private fork of controller-tools. See commit msg for more context

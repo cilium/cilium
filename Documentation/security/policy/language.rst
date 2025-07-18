@@ -270,14 +270,8 @@ For services backed by pods, use `Endpoints Based` rules on the backend pod
 labels.
 
 This example shows how to allow all endpoints with the label ``id=app2``
-<<<<<<< HEAD
 to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
 namespace ``default``.
-=======
-to talk to all endpoints of Kubernetes Service ``myservice`` in kubernetes
-namespace ``default`` as well as all services with label ``env=staging`` in
-namespace ``another-namespace``.
->>>>>>> 95294c7f24 (docs: Fix formatting in L3 policies)
 
 .. only:: html
 
@@ -1042,10 +1036,6 @@ latter rule will have no effect.
 
 .. note:: L7 policies for SNATed IPv6 traffic (e.g., pod-to-world) require a kernel with the `fix <https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/>`__ applied.
           The stable kernel versions with the fix are 6.14.1, 6.12.22, 6.6.86, 6.1.133, 5.15.180, 5.10.236, 5.4.292. See :gh-issue:`37932` for the reference.
-
-.. note:: :ref:`EnableDefaultDeny <policy_mode_default>` does not apply to layer-7 rules.
-   If using a layer 7 rule in concert with ``EnableDefaultDeny``, the rule should
-   allow all layer-7 traffic. See :gh-issue:`38676`. 
 
 HTTP
 ----

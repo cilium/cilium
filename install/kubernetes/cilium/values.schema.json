@@ -4463,6 +4463,14 @@
             }
           },
           "type": "object"
+        },
+        "seccompProfile": {
+          "properties": {
+            "type": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"

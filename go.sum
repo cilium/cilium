@@ -135,6 +135,8 @@ github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b h1
 github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b/go.mod h1:izWO5C3waDVkh/nt++nNyozXyJAPL6tfFpJSMtzVnwQ=
 github.com/cilium/fake v0.6.1 h1:cLkNx1nkF0b0pPW79JaQxaI5oG2/rBzRKpp0YUg1fTA=
 github.com/cilium/fake v0.6.1/go.mod h1:V9lCbbcsnSf3vB6sdOP7Q0bsUUJ/jyHPZxnFAw5nPUc=
+github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464 h1:lQMPil6k4HhTG3PJXxKsNFzjqPHOnu55uQg+1rhl0VE=
+github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464/go.mod h1:kVHVFy1/fyZHJ8P32+ctvPeJogn9qKwa1YCeMRXXrP0=
 github.com/cilium/hive v0.0.0-20240529072208-d997f86e4219 h1:iX4v9lg63iTv8x8MWUMVbeWqtAGcV6yh/w3Zp9sP3ME=
 github.com/cilium/hive v0.0.0-20240529072208-d997f86e4219/go.mod h1:6tW1eCwSq8Wz8IVtpZE0MemoCWSrEOUa8aLKotmBRCo=
 github.com/cilium/linters v0.2.0 h1:YxtPFl1XxOErU6I97qgmmMeGISDNHftoLRdF1G96J9U=
@@ -572,8 +574,6 @@ github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b h1:Ff
 github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b/go.mod h1:AC62GU6hc0BrNm+9RK9VSiwa/EUe1bkIeFORAMcHvJU=
 github.com/osrg/gobgp v2.0.0+incompatible h1:91ARQbE1AtO0U4TIxHPJ7wYVZIqduyBwS1+FjlHlmrY=
 github.com/osrg/gobgp v2.0.0+incompatible/go.mod h1:vGVJPLW6JFDD7WA1vJsjB8OKmbbC2TKwHtr90CZS/u4=
-github.com/osrg/gobgp/v3 v3.35.0 h1:8HQyCCoByAJyXiSzTFBl77wuOyVdDXozPdXX+tjYyHQ=
-github.com/osrg/gobgp/v3 v3.35.0/go.mod h1:l2nPaHaLmIoKbFxMUzKon/h6c9BTzCp5zJI9Dhnrx5c=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pascaldekloe/goe v0.1.0 h1:cBOtyMzM9HTpWjXfbbunk26uA6nG3a8n06Wieeh0MwY=
 github.com/pascaldekloe/goe v0.1.0/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
