@@ -1004,7 +1004,6 @@ spec:
 `
 
 func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
-
 	parser := CECResourceParser{
 		logger:        hivetest.Logger(t),
 		portAllocator: NewMockPortAllocator(),
@@ -1782,6 +1781,94 @@ func Test_injectCiliumEnvoyFilters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := InjectCiliumEnvoyFilters(tt.meta, tt.spec)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_isL7LB(t *testing.T) {
+	tests := []struct {
+		name string
+		meta *metav1.ObjectMeta
+		spec *cilium_v2.CiliumEnvoyConfigSpec
+		want bool
+	}{
+		{
+			name: "L7LB services defined",
+			meta: &metav1.ObjectMeta{},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{{
+					Name: "test",
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "L7LB services defined but override via annotation",
+			meta: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					annotation.CECIsL7LB: "false",
+				},
+			},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{{
+					Name: "test",
+				}},
+			},
+			want: false,
+		},
+		{
+			name: "No L7LB services but explicit inject via annotation",
+			meta: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					annotation.CECIsL7LB: "true",
+				},
+			},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{},
+			},
+			want: true,
+		},
+		{
+			name: "L7LB services defined and invalid annotation value",
+			meta: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					annotation.CECIsL7LB: "invalid",
+				},
+			},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{{
+					Name: "test",
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "No L7LB services and invalid annotation value",
+			meta: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					annotation.CECIsL7LB: "invalid",
+				},
+			},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{},
+			},
+			want: false,
+		},
+		{
+			name: "No L7LB services and no annotation",
+			meta: &metav1.ObjectMeta{
+				Annotations: map[string]string{},
+			},
+			spec: &cilium_v2.CiliumEnvoyConfigSpec{
+				Services: []*cilium_v2.ServiceListener{},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isL7LB(tt.meta, tt.spec)
 			assert.Equal(t, tt.want, got)
 		})
 	}
