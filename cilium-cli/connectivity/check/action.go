@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	testCommandRetries = 3
+	testCommandRetries = 5
 )
 
 var (
@@ -302,16 +302,22 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 		output, errOutput, err = pod.K8sClient.ExecInPodWithStderr(ctx,
 			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"], cmd)
 		a.cmdOutput = output.String()
+		// Log the output, errOutput and error only if the command failed.
+		a.Infof("Command %q output: %s errOutput: %s", cmdStr, a.cmdOutput, errOutput.String())
 		// Check for inconclusive results.
 		if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
 			a.Debugf("retrying command %s due to inconclusive results", cmdStr)
 			continue
 		} else if err != nil {
 			exitCode, _ := a.extractExitCode(err)
-			if exitCode == ExitInvalidCode {
-				a.Debugf("retrying command %s to to command execution error", cmdStr)
+			if a.expectedExitCode() == 0 || exitCode == ExitInvalidCode {
+				// Command failed unexpectedly, retry.
+				a.Infof("Command %q failed with exit code %d: err: %s", cmdStr, exitCode, err.Error())
 				continue
 			}
+			// if exitCode == ExitInvalidCode {
+			// a.Debugf("retrying command %s to to command execution error", cmdStr)
+			// }
 		}
 		break
 	}
