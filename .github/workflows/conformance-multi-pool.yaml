@@ -157,6 +157,14 @@ jobs:
           image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
 
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+        with:
+          hubble: false
+          include-unsafe-tests: true
+          test-concurrency: 5
+
       - name: Set up job variables
         id: vars
         run: |
@@ -222,14 +230,10 @@ jobs:
           CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=true"
           KIND_SVC_CIDR="10.243.0.0/16,fd00:10:243::/112"
 
-          CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
+          CONNECTIVITY_TEST_DEFAULTS=" ${{ steps.e2e_config.outputs.test_flags }} \
             --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
             --junit-file \"cilium-junits/${{ env.job_name }} ${{ matrix.name }}.xml\" \
             --junit-property github_job_step=\"Run tests ${{ matrix.name }}\" \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
-            --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8 \
             --namespace-annotations=ipam.cilium.io/ip-pool=cilium-test-pool \
             --deployment-pod-annotations='{ \
                 \"client\":{\"ipam.cilium.io/ip-pool\":\"client-pool\"}, \
