@@ -190,14 +190,14 @@ func Hint(err error) error {
 	}
 
 	if errors.Is(err, context.DeadlineExceeded) {
-		return fmt.Errorf("Cilium API client timeout exceeded")
+		return fmt.Errorf("cilium API client timeout exceeded")
 	}
 
 	e, _ := url.PathUnescape(err.Error())
 	if strings.Contains(err.Error(), defaults.SockPath) {
 		return fmt.Errorf("%s\nIs the agent running?", e)
 	}
-	return fmt.Errorf("%s", e)
+	return err
 }
 
 func timeSince(since time.Time) string {

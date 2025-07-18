@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/dynamiclifecycle"
 	"github.com/cilium/cilium/pkg/egressgateway"
+	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/cell"
 	"github.com/cilium/cilium/pkg/envoy"
 	fqdn "github.com/cilium/cilium/pkg/fqdn/cell"
@@ -339,11 +340,28 @@ var (
 	)
 )
 
-func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.DB, swaggerSpec *server.Spec, logger *slog.Logger) {
-	s.EnabledListeners = []string{"unix"}
-	s.SocketPath = cfg.SocketPath
-	s.ReadTimeout = apiTimeout
-	s.WriteTimeout = apiTimeout
+type apiServerParams struct {
+	cell.In
+
+	Logger *slog.Logger
+
+	Config *option.DaemonConfig
+
+	Spec   *server.Spec
+	Server *server.Server
+	DB     *statedb.DB
+
+	EndpointAPIMiddleware *endpointapi.Middleware
+}
+
+func configureAPIServer(params apiServerParams) {
+	params.Server.EnabledListeners = []string{"unix"}
+	params.Server.SocketPath = params.Config.SocketPath
+	params.Server.ReadTimeout = apiTimeout
+	params.Server.WriteTimeout = apiTimeout
+
+	// Configure middlewares for required subsystem's first.
+	params.EndpointAPIMiddleware.Configure(params.Spec, params.Server)
 
 	const msg = "Required API option is disabled. This may prevent Cilium from operating correctly"
 	hint := "Consider enabling this API in " + server.AdminEnableFlag
@@ -355,23 +373,23 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.
 		"PostIPAM",         // CNI: Reserve IPs for new Pods
 		"DeleteIPAMIP",     // CNI: Release IPs for deleted Pods
 	} {
-		if _, denied := swaggerSpec.DeniedAPIs[requiredAPI]; denied {
-			logger.Warn(
+		if _, denied := params.Spec.DeniedAPIs[requiredAPI]; denied {
+			params.Logger.Warn(
 				msg,
 				logfields.Hint, hint,
 				logfields.Params, requiredAPI,
 			)
 		}
 	}
-	api.DisableAPIs(logger, swaggerSpec.DeniedAPIs, s.GetAPI().AddMiddlewareFor)
+	api.DisableAPIs(params.Logger, params.Spec.DeniedAPIs, params.Server.GetAPI().AddMiddlewareFor)
 
-	s.ConfigureAPI()
+	params.Server.ConfigureAPI()
 
 	// Add the /statedb HTTP handler
 	mux := http.NewServeMux()
-	mux.Handle("/", s.GetHandler())
-	mux.Handle("/statedb/", http.StripPrefix("/statedb", db.HTTPHandler()))
-	s.SetHandler(mux)
+	mux.Handle("/", params.Server.GetHandler())
+	mux.Handle("/statedb/", http.StripPrefix("/statedb", params.DB.HTTPHandler()))
+	params.Server.SetHandler(mux)
 }
 
 var pprofConfig = pprof.Config{
