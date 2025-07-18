@@ -249,6 +249,15 @@ func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, RuleMeta, bool) {
 	return entry.MapStateEntry, entry.derivedFromRules.Value(), found
 }
 
+// CopyMapStateFrom copies the policy map entries from m.
+func (p *EndpointPolicy) CopyMapStateFrom(m MapStateMap) {
+	for key, entry := range m {
+		p.policyMapState.entries[key] = mapStateEntry{
+			MapStateEntry: entry,
+		}
+	}
+}
+
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
