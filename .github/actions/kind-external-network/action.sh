@@ -11,12 +11,12 @@ lvh_wrapper() {
 }
 
 IP4RANGE="172.20.0.0/16"
-IP6RANGE="fd00:10:64::/64"
+IP6RANGE="fc00:c111::/64"
 
 # A CIDR range inside the networks range, not overlapping with first IPs which will be
 # allocated to kind and the gateway.
 IP4EXTERNALRANGE="172.20.1.0/24"
-IP6EXTERNALRANGE="fd00:10:64::ffff:0/112"
+IP6EXTERNALRANGE="fc00:c111::ffff:0/112"
 
 echo "ipv4_external_cidr=$IP4EXTERNALRANGE" >> $GITHUB_OUTPUT
 echo "ipv6_external_cidr=$IP6EXTERNALRANGE" >> $GITHUB_OUTPUT
@@ -24,8 +24,8 @@ echo "ipv6_external_cidr=$IP6EXTERNALRANGE" >> $GITHUB_OUTPUT
 # Recognizable IPs inside the external CIDR
 IP4TARGET="172.20.1.100"
 IP4OTHERTARGET="172.20.1.101"
-IP6TARGET="fd00:10:64::ffff:ec"
-IP6OTHERTARGET="fd00:10:64::ffff:ee"
+IP6TARGET="fc00:c111::ffff:ec"
+IP6OTHERTARGET="fc00:c111::ffff:ee"
 
 echo "ipv4_external_target=$IP4TARGET" >> $GITHUB_OUTPUT
 echo "ipv4_other_external_target=$IP4OTHERTARGET" >> $GITHUB_OUTPUT
