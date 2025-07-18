@@ -246,9 +246,6 @@ const (
 	// which is relevant in lb-only mode
 	LoadBalancerExternalControlPlane = "bpf-lb-external-control-plane"
 
-	// LoadBalancerProtocolDifferentiation enables support for service protocol differentiation (TCP, UDP, SCTP)
-	LoadBalancerProtocolDifferentiation = "bpf-lb-proto-diff"
-
 	// NodePortBindProtection rejects bind requests to NodePort service ports
 	NodePortBindProtection = "node-port-bind-protection"
 
@@ -1719,9 +1716,6 @@ type DaemonConfig struct {
 	// its control plane in lb-only mode.
 	LoadBalancerExternalControlPlane bool
 
-	// LoadBalancerProtocolDifferentiation enables support for service protocol differentiation (TCP, UDP, SCTP)
-	LoadBalancerProtocolDifferentiation bool
-
 	// EnablePMTUDiscovery indicates whether to send ICMP fragmentation-needed
 	// replies to the client (when needed).
 	EnablePMTUDiscovery bool
@@ -2240,11 +2234,6 @@ func (c *DaemonConfig) IPv4Enabled() bool {
 // IPv6Enabled returns true if IPv6 is enabled
 func (c *DaemonConfig) IPv6Enabled() bool {
 	return c.EnableIPv6
-}
-
-// LBProtoDiffEnabled returns true if LoadBalancerProtocolDifferentiation is enabled
-func (c *DaemonConfig) LBProtoDiffEnabled() bool {
-	return c.LoadBalancerProtocolDifferentiation
 }
 
 // IPv6NDPEnabled returns true if IPv6 NDP support is enabled
@@ -3060,7 +3049,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		c.IdentityRestoreGracePeriod = defaults.IdentityRestoreGracePeriodKvstore
 	}
 
-	c.LoadBalancerProtocolDifferentiation = vp.GetBool(LoadBalancerProtocolDifferentiation)
 	c.EnableInternalTrafficPolicy = vp.GetBool(EnableInternalTrafficPolicy)
 	c.EnableSourceIPVerification = vp.GetBool(EnableSourceIPVerification)
 
