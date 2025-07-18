@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -91,6 +92,9 @@ func dumpIPsecStatus() (models.EncryptionStatus, error) {
 	decryptInts, err := getDecryptionInterfaces()
 	if err != nil {
 		return models.EncryptionStatus{}, fmt.Errorf("error getting IPsec decryption interfaces: %w", err)
+	}
+	if option.Config.TunnelingEnabled() && len(decryptInts) == 0 {
+		decryptInts = append(decryptInts, "cilium_vxlan")
 	}
 	status.Ipsec.DecryptInterfaces = decryptInts
 	seqNum, err := maxSequenceNumber()
