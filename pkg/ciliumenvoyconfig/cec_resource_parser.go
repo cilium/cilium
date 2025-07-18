@@ -1005,3 +1005,17 @@ func InjectCiliumEnvoyFilters(meta *metav1.ObjectMeta, spec *cilium_v2.CiliumEnv
 
 	return len(spec.Services) > 0
 }
+
+// isL7LB returns true if the given object indicates that CiliumEnvoyConfig handles L7 loadbalancing.
+// This can be an explicit annotation or the implicit presence of a L7LB service via the Services property.
+func isL7LB(meta *metav1.ObjectMeta, spec *cilium_v2.CiliumEnvoyConfigSpec) bool {
+	if meta.GetAnnotations() != nil {
+		if v, ok := meta.GetAnnotations()[annotation.CECIsL7LB]; ok {
+			if boolValue, err := strconv.ParseBool(v); err == nil {
+				return boolValue
+			}
+		}
+	}
+
+	return len(spec.Services) > 0
+}
