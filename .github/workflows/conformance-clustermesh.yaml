@@ -275,6 +275,15 @@ jobs:
           image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
 
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+        with:
+          external-target: google.com.
+          hubble: false
+          include-unsafe-tests: true
+          test-concurrency: 5
+
       - name: Set up job variables for GHA environment
         id: vars
         run: |
@@ -374,16 +383,9 @@ jobs:
               --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27"
           fi
 
-          CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --flow-validation=disabled \
-            --test-concurrency=5 \
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
             --multi-cluster=${{ env.contextName2 }} \
-            --external-target=google.com. \
-            --include-unsafe-tests \
-            --collect-sysdump-on-failure \
-            --sysdump-output-filename 'cilium-sysdump-${{ matrix.name }}-<ts>'" \
+            --sysdump-output-filename 'cilium-sysdump-${{ matrix.name }}-<ts>'"
 
           if [ "${{ matrix.multipool-ipam }}" != "disabled" ]; then
             CONNECTIVITY_TEST_DEFAULTS="$CONNECTIVITY_TEST_DEFAULTS \
