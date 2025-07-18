@@ -234,6 +234,16 @@ jobs:
         with:
           label: ${{ github.event_name == 'workflow_dispatch' && inputs.PR-number || github.ref_name }}
 
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+        with:
+          external-target: 'google.com.'
+          external-cidr: '8.0.0.0/8'
+          external-ip: '8.8.8.8'
+          external-other-ip: '8.8.4.4'
+          hubble: false
+
       - name: Set up job variables
         id: vars
         run: |
@@ -246,10 +256,8 @@ jobs:
             --helm-set loadBalancer.l7.backend=envoy \
             --wait=false"
 
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --external-target google.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4"
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
+
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
