@@ -221,3 +221,28 @@ func (o *PutEndpointIDFailed) WriteResponse(rw http.ResponseWriter, producer run
 		panic(err) // let the recovery middleware deal with this
 	}
 }
+
+// PutEndpointIDServiceUnavailableCode is the HTTP code returned for type PutEndpointIDServiceUnavailable
+const PutEndpointIDServiceUnavailableCode int = 503
+
+/*
+PutEndpointIDServiceUnavailable Service Unavailable
+
+swagger:response putEndpointIdServiceUnavailable
+*/
+type PutEndpointIDServiceUnavailable struct {
+}
+
+// NewPutEndpointIDServiceUnavailable creates PutEndpointIDServiceUnavailable with default headers values
+func NewPutEndpointIDServiceUnavailable() *PutEndpointIDServiceUnavailable {
+
+	return &PutEndpointIDServiceUnavailable{}
+}
+
+// WriteResponse to the client
+func (o *PutEndpointIDServiceUnavailable) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(503)
+}

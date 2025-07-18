@@ -135,3 +135,43 @@ func AllowedFlagsToDeniedPaths(spec *loads.Document, allowed []string) (PathSet,
 	paths := parseSpecPaths(spec.Spec().Paths)
 	return generateDeniedAPIEndpoints(paths, allowed)
 }
+
+// EndpointGroups is the grouping of API endpoints based on tags in the spec.
+type EndpointGroups map[string][]Endpoint
+
+// ParseAPIEndpointGroups converts an open-api swagger spec to endpoints grouped by tags.
+func ParseAPIEndpointGroups(specDoc *loads.Document) EndpointGroups {
+	epGroups := make(EndpointGroups)
+
+	for path, item := range specDoc.Spec().Paths.Paths {
+		allOps := map[string]*spec.Operation{
+			"DELETE": item.Delete,
+			"GET":    item.Get,
+			"PATCH":  item.Patch,
+			"POST":   item.Post,
+			"PUT":    item.Put,
+		}
+
+		for method, op := range allOps {
+			if op != nil {
+				// Group endpoints based on the first tag in the list(if present).
+				opTag := ""
+				if len(op.Tags) > 0 {
+					opTag = op.Tags[0]
+				}
+
+				if _, ok := epGroups[opTag]; !ok {
+					epGroups[opTag] = make([]Endpoint, 0, 1)
+				}
+
+				epGroups[opTag] = append(epGroups[opTag], Endpoint{
+					Method:      method,
+					Path:        path,
+					Description: op.Description,
+				})
+			}
+		}
+	}
+
+	return epGroups
+}

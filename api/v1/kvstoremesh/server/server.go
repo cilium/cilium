@@ -167,6 +167,9 @@ type Spec struct {
 
 	// DeniedAPIs is a set of APIs that are administratively disabled.
 	DeniedAPIs api.PathSet
+
+	// APIGroups is the grouping of API endpoints based on tags in open-api spec.
+	APIGroups api.EndpointGroups
 }
 
 func newSpec(cfg ServerConfig) (*Spec, error) {
@@ -184,6 +187,7 @@ func newSpec(cfg ServerConfig) (*Spec, error) {
 	return &Spec{
 		Document:   swaggerSpec,
 		DeniedAPIs: deniedAPIs,
+		APIGroups:  api.ParseAPIEndpointGroups(swaggerSpec),
 	}, nil
 }
 

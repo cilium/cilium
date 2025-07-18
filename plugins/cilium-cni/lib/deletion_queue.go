@@ -9,9 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/go-openapi/runtime"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
@@ -138,7 +141,18 @@ func (dc *DeletionFallbackClient) EndpointDelete(id string) error {
 // either by directly accessing the API or dropping in a queued-deletion file.
 func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDeleteRequest) error {
 	if dc.cli != nil {
-		return dc.cli.EndpointDeleteMany(req)
+		err := dc.cli.EndpointDeleteMany(req)
+		status, ok := err.(runtime.ClientResponseStatus)
+		if !ok || !status.IsCode(http.StatusServiceUnavailable) {
+			return err
+		}
+
+		// Fallback to queuing endpoint delete if cilium Endpoint service is unavailable.
+		// Once ready, cilium-agent will process all the pending deletes in this queue.
+		dc.logger.Warn(
+			"Received ServiceUnavailable response from server, queuing delete request to be processed later",
+			logfields.Request, req,
+		)
 	}
 
 	// fall-back mode

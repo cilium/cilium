@@ -156,3 +156,28 @@ func (o *DeleteEndpointTooManyRequests) WriteResponse(rw http.ResponseWriter, pr
 
 	rw.WriteHeader(429)
 }
+
+// DeleteEndpointServiceUnavailableCode is the HTTP code returned for type DeleteEndpointServiceUnavailable
+const DeleteEndpointServiceUnavailableCode int = 503
+
+/*
+DeleteEndpointServiceUnavailable Service Unavailable
+
+swagger:response deleteEndpointServiceUnavailable
+*/
+type DeleteEndpointServiceUnavailable struct {
+}
+
+// NewDeleteEndpointServiceUnavailable creates DeleteEndpointServiceUnavailable with default headers values
+func NewDeleteEndpointServiceUnavailable() *DeleteEndpointServiceUnavailable {
+
+	return &DeleteEndpointServiceUnavailable{}
+}
+
+// WriteResponse to the client
+func (o *DeleteEndpointServiceUnavailable) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(503)
+}

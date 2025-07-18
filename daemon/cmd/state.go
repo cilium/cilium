@@ -278,10 +278,6 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 	// match this Cilium userspace instance. If not, it must be removed
 	ctmap.DeleteIfUpgradeNeeded()
 
-	// we need to signalize when the endpoints are regenerated, i.e., when
-	// they have finished to rebuild after being restored.
-	epRegenerated := make(chan bool, len(state.restored))
-
 	// Insert all endpoints into the endpoint list first before starting
 	// the regeneration. This is required to ensure that if an individual
 	// regeneration causes an identity change of an endpoint, the new
@@ -304,57 +300,36 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 		}
 	}
 
-	if option.Config.EnableIPSec {
-		// To support v1.18 VinE upgrades, we need to restore the host
-		// endpoint before any other endpoint, to ensure a drop-less upgrade.
-		// This is because in v1.18 'bpf_lxc' programs stop issuing IPsec hooks
-		// which trigger encryption.
-		//
-		// Instead, 'bpf_host' is responsible for performing IPsec hooks.
-		// Therefore, we want 'bpf_host' to regenerate BEFORE 'bpf_lxc' so the
-		// IPsec hooks are always present while 'bpf_lxc' programs regen,
-		// ensuring no IPsec leaks occur.
-		//
-		// This can be removed in v1.19.
-		for _, ep := range state.restored {
-			if ep.IsHost() {
-				d.logger.Info("Successfully restored endpoint. Scheduling regeneration", logfields.EndpointID, ep.ID)
-				if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.endpointMetadata.FetchK8sMetadataForEndpoint); err != nil {
-					d.logger.Debug(
-						"error regenerating during restore",
-						logfields.Error, err,
-						logfields.EndpointID, ep.ID,
-					)
-					epRegenerated <- false
-				} else {
-					epRegenerated <- true
-				}
-				break
-			}
-		}
-	}
-
+	endpointsToRegenerate := make([]*endpoint.Endpoint, 0, len(state.restored))
 	for _, ep := range state.restored {
 		if ep.IsHost() && option.Config.EnableIPSec {
-			// The host endpoint was handled above.
+			// To support v1.18 VinE upgrades, we need to restore the host
+			// endpoint before any other endpoint, to ensure a drop-less upgrade.
+			// This is because in v1.18 'bpf_lxc' programs stop issuing IPsec hooks
+			// which trigger encryption.
+			//
+			// Instead, 'bpf_host' is responsible for performing IPsec hooks.
+			// Therefore, we want 'bpf_host' to regenerate BEFORE 'bpf_lxc' so the
+			// IPsec hooks are always present while 'bpf_lxc' programs regen,
+			// ensuring no IPsec leaks occur.
+			//
+			// This can be removed in v1.19.
+			d.logger.Info("Successfully restored Host endpoint. Scheduling regeneration", logfields.EndpointID, ep.ID)
+			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.endpointMetadata.FetchK8sMetadataForEndpoint); err != nil {
+				d.logger.Debug(
+					"Error regenerating Host endpoint during restore",
+					logfields.Error, err,
+					logfields.EndpointID, ep.ID,
+				)
+			}
 			continue
 		}
+
 		d.logger.Info(
 			"Successfully restored endpoint. Scheduling regeneration",
 			logfields.EndpointID, ep.ID,
 		)
-		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.endpointMetadata.FetchK8sMetadataForEndpoint); err != nil {
-				d.logger.Debug(
-					"error regenerating during restore",
-					logfields.Error, err,
-					logfields.EndpointID, ep.ID,
-				)
-				epRegenerated <- false
-				return
-			}
-			epRegenerated <- true
-		}(ep, epRegenerated)
+		endpointsToRegenerate = append(endpointsToRegenerate, ep)
 	}
 
 	var endpointCleanupCompleted sync.WaitGroup
@@ -375,6 +350,9 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 	}
 	endpointCleanupCompleted.Wait()
 
+	// Wait on *all* restored endpoints for initial envoy policy computation.
+	// Its safe to do so here because, we expect all endpoints to close this channel,
+	// even if they are eventually deleted and never undergo regeneration.
 	go func() {
 		for _, ep := range state.restored {
 			<-ep.InitialEnvoyPolicyComputed
@@ -382,28 +360,49 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 		close(d.endpointInitialPolicyComplete)
 	}()
 
-	go func() {
-		regenerated, total := 0, 0
-		if len(state.restored) > 0 {
-			for buildSuccess := range epRegenerated {
-				if buildSuccess {
-					regenerated++
-				}
-				total++
-				if total >= len(state.restored) {
-					break
-				}
-			}
-		}
-		close(epRegenerated)
+	// Trigger regeneration for relevant restored endopints in a separate goroutine.
+	go d.handleRestoredEndpointsRegeneration(endpointsToRegenerate, endpointsRegenerator)
+}
 
-		d.logger.Info(
-			"Finished regenerating restored endpoints",
-			logfields.Regenerated, regenerated,
-			logfields.Total, total,
-		)
-		close(d.endpointRestoreComplete)
-	}()
+// This method is called during daemon start to asynchronously handle regeneration for restored
+// endpoints. We assume that all the endpoints for which regeneration is requested are
+// already exposed to EndpointManager.
+// This method is responsible for listening/waiting on relevant signals from other subsystems
+// and only performing regeneration for alive endpoints.
+func (d *Daemon) handleRestoredEndpointsRegeneration(endpoints []*endpoint.Endpoint, endpointsRegenerator *endpoint.Regenerator) {
+	// Wait for Endpoint DeletionQueue to be processed first so we can avoid
+	// expensive regeneration for already deleted endpoints.
+	_ = d.endpointMiddleware.WaitReady(context.Background())
+
+	regenWg := &sync.WaitGroup{}
+	for _, ep := range endpoints {
+		// Check if the endpoint still exists in EndpointManager.
+		epFromLookup := d.endpointManager.LookupCiliumID(ep.ID)
+		if epFromLookup == nil {
+			d.logger.Debug(
+				"Endpoint missing in EndpointManager, assuming already deleted",
+				logfields.EndpointID, ep.ID,
+			)
+			continue
+		}
+
+		regenWg.Add(1)
+		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
+			defer wg.Done()
+
+			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.endpointMetadata.FetchK8sMetadataForEndpoint); err != nil {
+				d.logger.Debug(
+					"Error regenerating endpoint during restore",
+					logfields.Error, err,
+					logfields.EndpointID, ep.ID,
+				)
+			}
+		}(epFromLookup, regenWg)
+	}
+
+	regenWg.Wait()
+	d.logger.Info("Finished regenerating restored endpoints")
+	close(d.endpointRestoreComplete)
 }
 
 func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
