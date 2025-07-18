@@ -301,20 +301,39 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 		ZeroOutputMark: false,
 	}
 
-	params := ipsec.NewIPSecParamaters(template)
-	params.Dir = ipsec.IPSecDirOut
-	params.SourceSubnet = wildcardCIDR
-	params.DestSubnet = newNode.IPv4AllocCIDR.IPNet
-	params.SourceTunnelIP = &localIP
-	params.DestTunnelIP = &remoteIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
-	if err != nil {
-		statesUpdated = false
+	// we have to take into account all the CIDRs and not only the added ones here,
+	// since some other ipsec related parameters beside the remote CIDR might have been changed
+	// (e.g: RemoteBootID, RemoteNodeID and so on)
+	for _, remoteCIDR := range cidr.CIDRsToIPNets(newNode.GetIPv4AllocCIDRs()) {
+		params := ipsec.NewIPSecParamaters(template)
+		params.Dir = ipsec.IPSecDirOut
+		params.SourceSubnet = wildcardCIDR
+		params.DestSubnet = remoteCIDR
+		params.SourceTunnelIP = &localIP
+		params.DestTunnelIP = &remoteIP
+		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "ADD out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+		if err != nil {
+			statesUpdated = false
+		}
+	}
+
+	for _, remoteCIDR := range cidr.CIDRsToIPNets(removedCIDRs) {
+		if err := ipsec.DeleteXfrmPolicyOut(n.log, nodeID, remoteCIDR); err != nil {
+			nodeIDStr := fmt.Sprintf("0x%x", nodeID)
+			n.log.With(
+				logfields.Reason, "v4 XFRM policy OUT deletion",
+				logfields.CIDR, remoteCIDR,
+				logfields.NodeID, fmt.Sprintf("0x%x", nodeID),
+				logfields.Error, err,
+			).Error("IPsec enable failed", logfields.Error, err)
+			errs = errors.Join(errs, fmt.Errorf("failed to delete v4 XFRM policy OUT with nodeID %s and remote CIDR %v: %w", nodeIDStr, remoteCIDR, err))
+			statesUpdated = false
+		}
 	}
 
 	// insert fwd rule
-	params = ipsec.NewIPSecParamaters(template)
+	params := ipsec.NewIPSecParamaters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
@@ -560,20 +579,39 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 		ZeroOutputMark: false,
 	}
 
-	params := ipsec.NewIPSecParamaters(template)
-	params.Dir = ipsec.IPSecDirOut
-	params.SourceSubnet = wildcardCIDR6
-	params.DestSubnet = newNode.IPv6AllocCIDR.IPNet
-	params.SourceTunnelIP = &localIP
-	params.DestTunnelIP = &remoteIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
-	if err != nil {
-		statesUpdated = false
+	// we have to take into account all the CIDRs and not only the added ones here,
+	// since some other ipsec related parameters beside the remote CIDR might have been changed
+	// (e.g: RemoteBootID, RemoteNodeID and so on)
+	for _, remoteCIDR := range cidr.CIDRsToIPNets(newNode.GetIPv6AllocCIDRs()) {
+		params := ipsec.NewIPSecParamaters(template)
+		params.Dir = ipsec.IPSecDirOut
+		params.SourceSubnet = wildcardCIDR6
+		params.DestSubnet = remoteCIDR
+		params.SourceTunnelIP = &localIP
+		params.DestTunnelIP = &remoteIP
+		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+		if err != nil {
+			statesUpdated = false
+		}
+	}
+
+	for _, remoteCIDR := range cidr.CIDRsToIPNets(removedCIDRs) {
+		if err := ipsec.DeleteXfrmPolicyOut(n.log, nodeID, remoteCIDR); err != nil {
+			nodeIDStr := fmt.Sprintf("0x%x", nodeID)
+			n.log.With(
+				logfields.Reason, "v6 XFRM policy OUT deletion",
+				logfields.CIDR, remoteCIDR,
+				logfields.NodeID, fmt.Sprintf("0x%x", nodeID),
+				logfields.Error, err,
+			).Error("IPsec enable failed", logfields.Error, err)
+			errs = errors.Join(errs, fmt.Errorf("failed to delete v6 XFRM policy OUT with nodeID %s and remote CIDR %v: %w", nodeIDStr, remoteCIDR, err))
+			statesUpdated = false
+		}
 	}
 
 	// insert forward policy
-	params = ipsec.NewIPSecParamaters(template)
+	params := ipsec.NewIPSecParamaters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR6
 	params.DestSubnet = wildcardCIDR6
