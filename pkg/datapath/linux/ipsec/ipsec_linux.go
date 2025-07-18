@@ -7,6 +7,7 @@ package ipsec
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -686,6 +687,10 @@ func matchesOnNodeID(mark *netlink.XfrmMark) bool {
 		mark.Mask&linux_defaults.IPsecMarkMaskNodeID == linux_defaults.IPsecMarkMaskNodeID
 }
 
+func matchesOnDst(a *net.IPNet, b *net.IPNet) bool {
+	return a.IP.Equal(b.IP) && bytes.Equal(a.Mask, b.Mask)
+}
+
 func ipsecDeleteXfrmState(log *slog.Logger, nodeID uint16) error {
 	scopedLog := log.With(
 		logfields.NodeID, nodeID,
@@ -977,6 +982,38 @@ policy:
 	}
 
 	return ee.Error()
+}
+
+// DeleteXfrmPolicyOut will remove XFRM OUT policies by their node ID and destination subnet.
+func DeleteXfrmPolicyOut(log *slog.Logger, nodeID uint16, dst *net.IPNet) error {
+	if dst.IP.To4() != nil {
+		return deleteXfrmPolicyOutFamily(log, nodeID, dst, netlink.FAMILY_V4)
+	} else {
+		return deleteXfrmPolicyOutFamily(log, nodeID, dst, netlink.FAMILY_V6)
+	}
+}
+
+func deleteXfrmPolicyOutFamily(log *slog.Logger, nodeID uint16, dst *net.IPNet, family int) error {
+	xfrmPolicyList, err := safenetlink.XfrmPolicyList(family)
+	if err != nil {
+		log.Warn("Failed to list XFRM OUT policies for deletion", logfields.Error, err)
+		return fmt.Errorf("failed to list xfrm out policies: %w", err)
+	}
+	errs := resiliency.NewErrorSet("failed to delete xfrm out policies", len(xfrmPolicyList))
+	for _, p := range xfrmPolicyList {
+		if !matchesOnNodeID(p.Mark) || ipsec.GetNodeIDFromXfrmMark(p.Mark) != nodeID || !matchesOnDst(p.Dst, dst) {
+			continue
+		}
+		if err := netlink.XfrmPolicyDel(&p); err != nil {
+			errs.Add(fmt.Errorf("unable to delete xfrm out policy %s: %w", p.String(), err))
+		}
+	}
+	if err := errs.Error(); err != nil {
+		log.Warn("Failed to delete XFRM OUT policy", logfields.Error, err)
+		return err
+	}
+
+	return nil
 }
 
 func decodeIPSecKey(keyRaw string) (int, []byte, error) {
