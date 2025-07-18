@@ -17,6 +17,26 @@ This document covers the following common aspects of Cilium's integration with I
 * Istio configuration
 * Demo application
 
+.. note::
+
+   You can run Cilium with Istio in two ways:
+
+   1. **With kube-proxy present (recommended):**
+
+      - Set ``kubeProxyReplacement: false`` (the default).
+      - Cilium does not fully replace kube-proxy; kube-proxy continues to handle ClusterIP routing.
+      - This is the recommended setup for using Istio with minimal disruption, particularly in sidecar or ambient mode.
+
+   2. **With kube-proxy removed (full replacement):**
+
+      - Set ``kubeProxyReplacement: true``, ``socketLB.hostNamespaceOnly: true``, and ``cni.exclusive: false``.
+      - These settings prevent Cilium’s socket-based load balancing from interfering with Istio’s proxying.
+      - kube-proxy can be removed in this mode, but these configurations are required to ensure compatibility.
+
+   In summary, you can run Istio with Cilium and kube-proxy by setting ``kubeProxyReplacement: false`` (the default and recommended for most Istio installs);
+   or you can run without kube-proxy by setting ``kubeProxyReplacement: true``, but you must carefully configure Cilium to avoid conflicts with Istio.
+
+
 Cilium Configuration
 ====================
 
