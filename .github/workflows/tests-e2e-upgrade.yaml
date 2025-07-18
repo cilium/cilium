@@ -155,6 +155,10 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+
       - name: Set up job variables
         id: vars
         run: |
@@ -177,7 +181,8 @@ jobs:
             EXTRA_CLI_FLAGS+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
           fi
 
-          CONNECTIVITY_TEST_DEFAULTS="${EXTRA_CLI_FLAGS[*]}"
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
+                                      ${EXTRA_CLI_FLAGS[*]}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
           CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
