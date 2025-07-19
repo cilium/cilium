@@ -924,10 +924,13 @@ across all matches. This is in line with `RFC4271 <https://datatracker.ietf.org/
 which states *The higher degree of preference MUST be preferred.*
 
 
-Routing Aggregation
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Prefix Aggregation
+~~~~~~~~~~~~~~~~~~
 
-Cilium BGP Control Plane supports Routing Aggregation `RFC4632 <https://datatracker.ietf.org/doc/html/rfc4632>`__.
+By default, the Cilium BGP Control Plane advertises exact routes for service
+VIPs (/32 or /128 prefixes). You can modify the advertised prefix length with
+the ``.service.aggregationLengthIPv4`` and/or ``.service.aggregationLengthIPv6``
+fields (for IPv4 and/or IPv6 prefixes respectively) as in the following example:
 
 .. code-block:: yaml
 
@@ -941,8 +944,8 @@ Cilium BGP Control Plane supports Routing Aggregation `RFC4632 <https://datatrac
       advertisements:
         - advertisementType: "Service"
           service:
-            aggregationLengthIPv4: 24          # <-- specify the IPv4 prefix length to aggregate
-            aggregationLengthIPv6: 120         # <-- specify the IPv6 prefix length to aggregate
+            aggregationLengthIPv4: 24
+            aggregationLengthIPv6: 120
             addresses:
               - ClusterIP
               - ExternalIP
@@ -953,8 +956,27 @@ Cilium BGP Control Plane supports Routing Aggregation `RFC4632 <https://datatrac
 
 .. note::
 
-    If the Service has ``externalTrafficPolicy: Local`` then BGP Control Plane will ignore routing aggregation parameter
+    The ``.service.aggregationLengthIPv4`` / ``.service.aggregationLengthIPv6``
+    fields are ignored when advertising ``ExternalIP`` or ``LoadBalancerIP`` of
+    services with ``externalTrafficPolicy: Local``. Similarly, they are
+    ignored when advertising ``ClusterIP`` of services with
+    ``internalTrafficPolicy: Local``.
 
+There are some known issues for using this feature:
+
+* Prefix aggregation in general has a risk of creating black holes or routing
+  loops when you advertise routes that cannot be handled well by the
+  datapath. In Cilium, there's a known issue where sending traffic to a VIP
+  range not assigned to a Service causes a routing loop (see `this issue
+  <https://github.com/cilium/cilium/pull/37623>`__ for more details). This means
+  that if you advertise an aggregated prefix, and part of the address range is not
+  assigned to a Service, then traffic sent to that address will end up
+  in a routing loop.
+
+* The behavior is undefined when multiple Service advertisements
+  end up advertising the same prefix through aggregation, but with different path
+  attributes. You can track `this issue
+  <https://github.com/cilium/cilium/issues/40585>`__ for updates.
 
 .. _bgp-override:
 
