@@ -4265,6 +4265,9 @@
         "enableHealthCheckLoadBalancerIP": {
           "type": "boolean"
         },
+        "enableRouteBasedNodeIPDiscovery": {
+          "type": "boolean"
+        },
         "enabled": {
           "type": "boolean"
         }
