@@ -15,14 +15,6 @@
 /* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
-#define ctx_redirect_peer mock_ctx_redirect_peer
-static __always_inline __maybe_unused int
-mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex __maybe_unused,
-		       __u32 flags __maybe_unused)
-{
-	return TC_ACT_REDIRECT;
-}
-
 #include <bpf_lxc.c>
 
 /* Set the LXC source address to be the address of pod one */
