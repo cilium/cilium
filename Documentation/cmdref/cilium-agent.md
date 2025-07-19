@@ -87,6 +87,7 @@ cilium-agent [flags]
       --datapath-mode string                                      Datapath mode name (veth, netkit, netkit-l2) (default "veth")
   -D, --debug                                                     Enable debugging mode
       --debug-verbose strings                                     List of enabled verbose debug groups
+      --device-prefixes-to-exclude strings                        List of prefixes of devices to exclude from cilium management. Devices selected by --devices won't be excluded
       --devices strings                                           List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'
       --direct-routing-device string                              Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)
       --direct-routing-skip-unreachable                           Enable skipping L2 routes between nodes on different subnets
