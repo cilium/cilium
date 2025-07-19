@@ -89,24 +89,35 @@ jobs:
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: 'rhel8.6-20250721.013324'
             ci-kernel: '510'
+            image: 'complexity-test'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '5.10-20250721.013324'
             ci-kernel: '510'
+            image: 'complexity-test'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '5.15-20250721.013324'
             ci-kernel: '510'
+            image: 'complexity-test'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '6.1-20250721.013324'
             ci-kernel: '61'
+            image: 'complexity-test'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '6.6-20250721.013324'
             ci-kernel: '61'
+            image: 'complexity-test'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '6.12-20250721.013324'
             ci-kernel: '61'
+            image: 'complexity-test'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: 'bpf-next-20250721.013324'
             ci-kernel: 'netnext'
+            image: 'complexity-test'
+          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
+          - kernel: 'improve-tnum-branch-taken-20250730.212119'
+            ci-kernel: 'netnext'
+            image: 'complexity-test-ci'
     timeout-minutes: 60
     steps:
       - name: Collect Workflow Telemetry
@@ -126,7 +137,7 @@ jobs:
         uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
         with:
           test-name: datapath-bpf-complexity
-          image: 'complexity-test'
+          image: ${{ matrix.image }}
           image-version: ${{ matrix.kernel }}
           host-mount: ./
           images-folder-parent: "/tmp"
