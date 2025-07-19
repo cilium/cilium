@@ -51,6 +51,7 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 
 static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 						  union v6addr *saddr,
+						  __be16 *sport,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
@@ -103,6 +104,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 
 apply_snat:
 	ipv6_addr_copy(saddr, &tuple.saddr);
+	*sport = tuple.sport;
 	ret = snat_v6_nat(ctx, &tuple, ip6, fraginfo, l4_off,
 			  &target, trace, ext_err);
 	if (IS_ERR(ret))
@@ -128,10 +130,11 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 		.monitor = 0,
 	};
 	union v6addr saddr = {};
+	__be16 sport = 0;
 	int ret;
 	__s8 ext_err = 0;
 
-	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &trace, &ext_err);
+	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &sport, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
 
@@ -142,8 +145,8 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 */
 	if (ret == CTX_ACT_OK)
 		send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   &saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				   trace.reason, trace.monitor);
+			&saddr, bpf_ntohs(sport), TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+			trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -320,6 +323,7 @@ nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 						  __u32 cluster_id __maybe_unused,
 						  __be32 *saddr,
+						  __be16 *sport,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
@@ -408,6 +412,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 apply_snat:
 	*saddr = tuple.saddr;
+	*sport = tuple.sport;
 	ret = snat_v4_nat(ctx, &tuple, ip4, fraginfo, l4_off,
 			  &target, trace, ext_err);
 	if (IS_ERR(ret))
@@ -441,10 +446,11 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 		.monitor = 0,
 	};
 	__be32 saddr = 0;
+	__be16  sport = 0;
 	int ret;
 	__s8 ext_err = 0;
 
-	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &saddr, &trace, &ext_err);
+	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &saddr, &sport, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
 
@@ -455,8 +461,8 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 */
 	if (ret == CTX_ACT_OK)
 		send_trace_notify4(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				   trace.reason, trace.monitor);
+			saddr, bpf_ntohs(sport), TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+			trace.reason, trace.monitor);
 
 	return ret;
 }

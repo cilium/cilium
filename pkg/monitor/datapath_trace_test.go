@@ -41,6 +41,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 			0x27, 0x28,
 			0x29, 0x2a,
 		},
+		OrigPort: 0x1f_90,
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, in)
@@ -63,6 +64,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 	require.Equal(t, in.Flags, out.Flags)
 	require.Equal(t, in.Ifindex, out.Ifindex)
 	require.Equal(t, in.OrigIP, out.OrigIP)
+	require.Equal(t, in.OrigPort, out.OrigPort)
 }
 
 func TestDecodeTraceNotifyErrors(t *testing.T) {
