@@ -156,9 +156,7 @@ func (a Address) SolicitedNodeMaddr() netip.Addr {
 	copy(maddr[:13], SolicitedNodeMaddrPrefix[:13])
 	copy(maddr[13:], ipv6.AsSlice()[13:])
 
-	// Use slice-to-array-pointer conversion, available since Go 1.17.
-	// TODO: use slice-to-array conversion when switching to Go 1.20
-	return netip.AddrFrom16(*(*[16]byte)(maddr))
+	return netip.AddrFrom16([16]byte(maddr))
 }
 
 // interfaceByName get *net.Interface by name using netlink.
