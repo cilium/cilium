@@ -4,6 +4,7 @@
 #pragma once
 
 #include "nodeport.h"
+#include "network_device.h"
 
 #ifdef ENABLE_NODEPORT
 
@@ -367,9 +368,12 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 				 * current and parent interfaces are on the same L2 network such as
 				 * in EKS.
 				 */
-				union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(ep->parent_ifindex);
+				union macaddr *smac = device_mac(ep->parent_ifindex);
 
-				if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
+				if (!smac)
+					return DROP_NO_DEVICE;
+
+				if (eth_store_saddr_aligned(ctx, smac->addr, 0) < 0)
 					return DROP_WRITE_ERROR;
 
 				/* For EKS we don't have to rewrite the dmac. Once we require a 5.10
