@@ -49,7 +49,7 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 					Name:      string(cert.Name),
 				}
 				reqs = append(reqs, reconcile.Request{NamespacedName: s})
-				scopedLog.Debug("Enqueued secret for gateway", logfields.Secret, s)
+				scopedLog.DebugContext(ctx, "Enqueued secret for gateway", logfields.Secret, s)
 			}
 		}
 		return reqs
