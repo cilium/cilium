@@ -1254,8 +1254,9 @@ func (m *Manager) installMasqueradeRules(
 					}
 					for _, device := range devices {
 						filter := tables.DeviceFilter{device}
-						if filter.Match(link.Attrs().Name) {
-							match = true
+						m, reverse := filter.Match(link.Attrs().Name)
+						if m {
+							match = !reverse
 							break
 						}
 					}
