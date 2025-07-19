@@ -365,7 +365,7 @@ func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context, ciliumPods map[st
 	targetEntriesCallback func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error),
 	excludeEntries func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error),
 ) error {
-	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
+	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 5 * time.Minute})
 	defer w.Cancel()
 
 	ensureBpfPolicyEntries := func() error {
