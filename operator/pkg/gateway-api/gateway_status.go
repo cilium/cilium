@@ -101,7 +101,7 @@ func gatewayListenerProgrammedCondition(gw *gatewayv1.Gateway, ready bool, msg s
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: gw.GetGeneration(),
 			LastTransitionTime: metav1.NewTime(time.Now()),
-			Reason:             string(gatewayv1.ListenerConditionProgrammed),
+			Reason:             string(gatewayv1.ListenerReasonProgrammed),
 			Message:            msg,
 		}
 	default:
@@ -124,7 +124,7 @@ func gatewayListenerAcceptedCondition(gw *gatewayv1.Gateway, ready bool, msg str
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: gw.GetGeneration(),
 			LastTransitionTime: metav1.NewTime(time.Now()),
-			Reason:             string(gatewayv1.ListenerConditionAccepted),
+			Reason:             string(gatewayv1.ListenerReasonAccepted),
 			Message:            msg,
 		}
 	default:
