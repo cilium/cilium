@@ -184,6 +184,8 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 // timeout has been reached. The given syncCallback is always executed before
 // the function returns.
 func (km *KVStoreMesh) synced(ctx context.Context, syncCallback func(context.Context)) error {
+	km.common.WaitLoaded()
+
 	ctx, cancel := context.WithTimeout(ctx, km.config.GlobalReadyTimeout)
 	defer func() {
 		syncCallback(ctx)

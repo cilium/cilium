@@ -4,14 +4,24 @@
 package kvstoremesh
 
 import (
+	"context"
 	"github.com/spf13/cobra"
+	"log/slog"
+	"sync"
+	"time"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/hive/cell"
+)
+
+var (
+	backendLockName = kvstore.BaseKeyPrefix + "/kvstoremesh-lock"
 )
 
 func NewCmd(h *hive.Hive) *cobra.Command {
@@ -43,4 +53,61 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 	rootCmd.AddCommand(h.Command())
 
 	return rootCmd
+}
+
+func registerKVStoreMeshHooks(log *slog.Logger, lc cell.Lifecycle, llc *LeaderLifecycle, client kvstore.Client, shutdowner hive.Shutdowner) {
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			wg.Add(1)
+			go func() {
+				runKVStoreMesh(ctx, log, llc, client, shutdowner)
+				wg.Done()
+			}()
+			return nil
+		},
+		OnStop: func(ctx cell.HookContext) error {
+			if err := llc.Stop(log, ctx); err != nil {
+				return err
+			}
+			cancel()
+			wg.Wait()
+			return nil
+		},
+	})
+}
+
+func runKVStoreMesh(ctx context.Context, log *slog.Logger, lc *LeaderLifecycle, client kvstore.Client, shutdowner hive.Shutdowner) {
+	client.RegisterLockLeaseExpiredObserver(backendLockName, func(string) {
+		log.Error("Lost backend lock.")
+		shutdowner.Shutdown()
+	})
+
+	for {
+		log.Info("Locking backend")
+		lock, err := client.LockPath(ctx, backendLockName)
+		if err != nil {
+			log.With("error", err).Warn("Failed to acquire backend lock")
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(1 * time.Second):
+				continue
+			}
+		}
+		log.Info("Backend locked")
+
+		lc.Start(log, ctx)
+
+		<-ctx.Done()
+
+		log.Info("Releasing backend lock")
+		err = lock.Unlock(context.Background())
+		if err != nil {
+			log.With("error", err).Error("Failed to unlock backend lock")
+		}
+		return
+	}
 }
