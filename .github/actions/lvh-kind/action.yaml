@@ -29,6 +29,7 @@ runs:
       uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
       with:
         test-name: ${{ inputs.test-name }}
+        image: 'kind-ci'
         image-version: ${{ inputs.kernel }}
         images-folder-parent: "/tmp"
         host-mount: ./
