@@ -82,7 +82,7 @@ int test1_check(struct __ctx_buff *ctx)
 
 		ret = fib_do_redirect(ctx, false, &params, true,
 				      BPF_FIB_LKUP_RET_SUCCESS,
-				      ifindex_good, &ext_err);
+				      ifindex_good, &ext_err, false);
 		if (ret != CTX_REDIRECT_ENTERED)
 			test_fatal("did not enter ctx_redirect");
 
@@ -114,7 +114,7 @@ int test1_check(struct __ctx_buff *ctx)
 
 		ret = fib_do_redirect(ctx, false, &params, true,
 				      BPF_FIB_LKUP_RET_NO_NEIGH,
-				      ifindex_good, &ext_err);
+				      ifindex_good, &ext_err, false);
 		if (ret != REDIR_NEIGH_ENTERED)
 			test_fatal("did not enter redirect_neigh");
 
@@ -151,7 +151,7 @@ int test1_check(struct __ctx_buff *ctx)
 
 		ret = fib_do_redirect(ctx, false, NULL, true,
 				      BPF_FIB_LKUP_RET_NO_NEIGH,
-				      ifindex_good, &ext_err);
+				      ifindex_good, &ext_err, false);
 		if (ret != REDIR_NEIGH_ENTERED)
 			test_fatal("did not enter redirect_neigh");
 
