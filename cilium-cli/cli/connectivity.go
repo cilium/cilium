@@ -205,6 +205,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.ConnDisruptTestXfrmErrorsPath, "conn-disrupt-test-xfrm-errors-path", "/tmp/cilium-conn-disrupt-xfrm-errors", "Conn disrupt test temporary result file (used internally)")
 	cmd.Flags().DurationVar(&params.ConnDisruptDispatchInterval, "conn-disrupt-dispatch-interval", 0, "TCP packet dispatch interval")
 
+	cmd.Flags().BoolVar(&params.IncludeNoUnexpectedPacketDropsTest, "include-no-unexpected-packet-drops-test", false, "Include no unexpected packet drops test")
 	cmd.Flags().StringSliceVar(&params.ExpectedDropReasons, "expected-drop-reasons", defaults.ExpectedDropReasons, "List of expected drop reasons")
 	cmd.Flags().MarkHidden("expected-drop-reasons")
 	cmd.Flags().StringSliceVar(&params.ExpectedXFRMErrors, "expected-xfrm-errors", defaults.ExpectedXFRMErrors, "List of expected XFRM errors")

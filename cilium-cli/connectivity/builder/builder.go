@@ -327,10 +327,13 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 
 // finalTests injects the all connectivity tests that must be run as the last tests sequentially.
 func finalTests(ct *check.ConnectivityTest) error {
-	return injectTests([]testBuilder{
-		noUnexpectedPacketDrops{},
+	tests := []testBuilder{
 		checkLogErrors{},
-	}, ct)
+	}
+	if ct.Params().IncludeNoUnexpectedPacketDropsTest {
+		tests = append(tests, noUnexpectedPacketDrops{})
+	}
+	return injectTests(tests, ct)
 }
 
 func renderTemplates(clusterNameLocal, clusterNameRemote string, param check.Parameters) (map[string]string, error) {
