@@ -61631,6 +61631,11 @@ func awsEc2query_serializeOpDocumentCreateInstanceConnectEndpointInput(v *Create
 		objectKey.Boolean(*v.DryRun)
 	}
 
+	if len(v.IpAddressType) > 0 {
+		objectKey := object.Key("IpAddressType")
+		objectKey.String(string(v.IpAddressType))
+	}
+
 	if v.PreserveClientIp != nil {
 		objectKey := object.Key("PreserveClientIp")
 		objectKey.Boolean(*v.PreserveClientIp)
