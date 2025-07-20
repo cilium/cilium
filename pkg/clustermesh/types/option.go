@@ -146,7 +146,7 @@ type PolicyConfig struct {
 }
 
 var DefaultPolicyConfig = PolicyConfig{
-	PolicyDefaultLocalCluster: false,
+	PolicyDefaultLocalCluster: true,
 }
 
 func (p PolicyConfig) Flags(flags *pflag.FlagSet) {
