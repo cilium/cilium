@@ -4421,7 +4421,8 @@ type Ec2InstanceConnectEndpoint struct {
 	// The DNS name of the EC2 Instance Connect Endpoint.
 	DnsName *string
 
-	//
+	// The Federal Information Processing Standards (FIPS) compliant DNS name of the
+	// EC2 Instance Connect Endpoint.
 	FipsDnsName *string
 
 	// The Amazon Resource Name (ARN) of the EC2 Instance Connect Endpoint.
@@ -4429,6 +4430,9 @@ type Ec2InstanceConnectEndpoint struct {
 
 	// The ID of the EC2 Instance Connect Endpoint.
 	InstanceConnectEndpointId *string
+
+	// The IP address type of the endpoint.
+	IpAddressType IpAddressType
 
 	// The ID of the elastic network interface that Amazon EC2 automatically created
 	// when creating the EC2 Instance Connect Endpoint.
@@ -6808,6 +6812,14 @@ type Image struct {
 	// Specifies whether enhanced networking with ENA is enabled.
 	EnaSupport *bool
 
+	// Indicates whether the image is eligible for Amazon Web Services Free Tier.
+	//
+	//   - If true , the AMI is eligible for Free Tier and can be used to launch
+	//   instances under the Free Tier limits.
+	//
+	//   - If false , the AMI is not eligible for Free Tier.
+	FreeTierEligible *bool
+
 	// The hypervisor type of the image. Only xen is supported. ovm is not supported.
 	Hypervisor HypervisorType
 
@@ -7361,6 +7373,34 @@ type InferenceDeviceMemoryInfo struct {
 
 	// The size of the memory available to the inference accelerator, in MiB.
 	SizeInMiB *int32
+
+	noSmithyDocumentSerde
+}
+
+// Information about the volume initialization. For more information, see [Initialize Amazon EBS volumes].
+//
+// [Initialize Amazon EBS volumes]: https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html
+type InitializationStatusDetails struct {
+
+	// The estimated remaining time, in seconds, for volume initialization to
+	// complete. Returns 0 when volume initialization has completed.
+	//
+	// Only available for volumes created with Amazon EBS Provisioned Rate for Volume
+	// Initialization.
+	EstimatedTimeToCompleteInSeconds *int64
+
+	// The method used for volume initialization. Possible values include:
+	//
+	//   - default - Volume initialized using the default volume initialization rate or
+	//   fast snapshot restore.
+	//
+	//   - provisioned-rate - Volume initialized using an Amazon EBS Provisioned Rate
+	//   for Volume Initialization.
+	InitializationType InitializationType
+
+	// The current volume initialization progress as a percentage (0-100). Returns 100
+	// when volume initialization has completed.
+	Progress *int64
 
 	noSmithyDocumentSerde
 }
@@ -22362,6 +22402,17 @@ type VolumeStatusAttachmentStatus struct {
 type VolumeStatusDetails struct {
 
 	// The name of the volume status.
+	//
+	//   - io-enabled - Indicates the volume I/O status. For more information, see [Amazon EBS volume status checks].
+	//
+	//   - io-performance - Indicates the volume performance status. For more
+	//   information, see [Amazon EBS volume status checks].
+	//
+	//   - initialization-state - Indicates the status of the volume initialization
+	//   process. For more information, see [Initialize Amazon EBS volumes].
+	//
+	// [Amazon EBS volume status checks]: https://docs.aws.amazon.com/ebs/latest/userguide/monitoring-volume-checks.html
+	// [Initialize Amazon EBS volumes]: https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html
 	Name VolumeStatusName
 
 	// The intended status of the volume status.
@@ -22423,6 +22474,17 @@ type VolumeStatusItem struct {
 
 	// A list of events associated with the volume.
 	Events []VolumeStatusEvent
+
+	// Information about the volume initialization. It can take up to 5 minutes for
+	// the volume initialization information to be updated.
+	//
+	// Only available for volumes created from snapshots. Not available for empty
+	// volumes created without a snapshot.
+	//
+	// For more information, see [Initialize Amazon EBS volumes].
+	//
+	// [Initialize Amazon EBS volumes]: https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html
+	InitializationStatusDetails *InitializationStatusDetails
 
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string
