@@ -15,6 +15,7 @@ This guide will show you how to install Cilium using `Helm
 the :ref:`k8s_quick_install` and requires you to manually select the best
 datapath and IPAM mode for your particular environment.
 
+
 Install Cilium
 ==============
 
@@ -102,28 +103,43 @@ Install Cilium
 
     .. group-tab:: EKS
 
-       .. include:: requirements-eks.rst
+       **Retrieve cluster API URL and Port:**
 
-       **Patch VPC CNI (aws-node DaemonSet)**
+       Since the cluster is set up with the kube-proxy explicitly disabled, no component is handling the cluster's 
+       internal L4 load balancing. Therefore, the cilium agent needs to be made aware of the EKS cluster's API URL and port. 
+       These details can be retrieved using ``kubectl``. Run the command below to retrieve these details. 
+       
+       .. code-block:: bash
 
-       Cilium will manage ENIs instead of VPC CNI, so the ``aws-node``
-       DaemonSet has to be patched to prevent conflict behavior.
+          kubectl cluster-info
+       
+       The cluster API URL can also be retrieved using the AWS CLI. Run the command below to do this. 
 
-       .. code-block:: shell-session
+       .. code-block:: bash 
 
-          kubectl -n kube-system patch daemonset aws-node --type='strategic' -p='{"spec":{"template":{"spec":{"nodeSelector":{"io.cilium/aws-node-enabled":"true"}}}}}'
+          aws eks describe-cluster --name <your-cluster-name> --region <your-cluster-region> | jq -r .cluster.endpoint
+
+       .. code-block:: bash 
+
+         API_SERVER_IP=<your_api_server_FQDN>\
+         API_SERVER_PORT=443
 
        **Install Cilium:**
 
        Deploy Cilium release via Helm:
 
        .. parsed-literal::
-
+          
           helm install cilium |CHART_RELEASE| \\
             --namespace kube-system \\
-            --set eni.enabled=true
+            --set eni.enabled=true \\
+            --set k8sServiceHost={API_SERVER_IP} \\
+            --set k8sServicePort={API_SERVER_PORT}
 
        .. note::
+          Make sure to remove **https://** from your API server FQDN before running the Cilium installation commands
+          or this will cause the Cilium operator and agent pods to crash. 
+
 
           This helm command sets ``eni.enabled=true``,
           meaning that Cilium will allocate a fully-routable AWS ENI IP address
@@ -148,14 +164,8 @@ Install Cilium
 
             1. Excluding the line ``eni.enabled=true`` from the helm command will configure Cilium to use
                overlay routing mode (which is the helm default).
-            2. Flush iptables rules added by VPC CNI
 
-               .. code-block:: shell-session
-               
-                  iptables -t nat -F AWS-SNAT-CHAIN-0 \\
-                     && iptables -t nat -F AWS-SNAT-CHAIN-1 \\
-                     && iptables -t nat -F AWS-CONNMARK-CHAIN-0 \\
-                     && iptables -t nat -F AWS-CONNMARK-CHAIN-1
+       .. include:: requirements-eks.rst
 
     .. group-tab:: OpenShift
 

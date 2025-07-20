@@ -93,32 +93,21 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
        .. code-block:: none
 
-           export NAME="$(whoami)-$RANDOM"
            cat <<EOF >eks-config.yaml
            apiVersion: eksctl.io/v1alpha5
            kind: ClusterConfig
 
            metadata:
-             name: ${NAME}
+             name: cluster-1
              region: eu-west-1
-
-           managedNodeGroups:
-           - name: ng-1
-             desiredCapacity: 2
-             privateNetworking: true
-             # taint nodes so that application pods are
-             # not scheduled/executed until Cilium is deployed.
-             # Alternatively, see the note below.
-             taints:
-              - key: "node.cilium.io/agent-not-ready"
-                value: "true"
-                effect: "NoExecute"
+             version: '1.30'
+           
+           addonsConfig:
+             disableDefaultAddons: true
+           addons:
+             - name: coredns
            EOF
            eksctl create cluster -f ./eks-config.yaml
-
-       .. note::
-
-          Please make sure to read and understand the documentation page on :ref:`taint effects and unmanaged pods<taint_effects>`.
 
     .. group-tab:: kind
 
@@ -282,8 +271,6 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
            
     .. group-tab:: EKS
 
-       .. include:: ../installation/requirements-eks.rst
-
        **Install Cilium:**
 
        Install Cilium into the EKS cluster.
@@ -293,12 +280,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
            cilium install |CHART_VERSION|
            cilium status --wait
 
-       .. note::
-
-           If you have to uninstall Cilium and later install it again, that could cause
-           connectivity issues due to ``aws-node`` DaemonSet flushing Linux routing tables.
-           The issues can be fixed by restarting all pods, alternatively to avoid such issues
-           you can delete ``aws-node`` DaemonSet prior to installing Cilium.
+       .. include:: ../installation/requirements-eks.rst
 
     .. group-tab:: OpenShift
 
