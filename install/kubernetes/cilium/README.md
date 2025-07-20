@@ -283,7 +283,7 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.enableEndpointSliceSynchronization | bool | `false` | Enable the synchronization of Kubernetes EndpointSlices corresponding to the remote endpoints of appropriately-annotated global services through ClusterMesh |
 | clustermesh.enableMCSAPISupport | bool | `false` | Enable Multi-Cluster Services API support |
 | clustermesh.maxConnectedClusters | int | `255` | The maximum number of clusters to support in a ClusterMesh. This value cannot be changed on running clusters, and all clusters in a ClusterMesh must be configured with the same value. Values > 255 will decrease the maximum allocatable cluster-local identities. Supported values are 255 and 511. |
-| clustermesh.policyDefaultLocalCluster | bool | `false` | Control whether policy rules assume by default the local cluster if not explicitly selected |
+| clustermesh.policyDefaultLocalCluster | bool | `true` | Control whether policy rules assume by default the local cluster if not explicitly selected |
 | clustermesh.useAPIServer | bool | `false` | Deploy clustermesh-apiserver for clustermesh |
 | cni.binPath | string | `"/opt/cni/bin"` | Configure the path to the CNI binary directory on the host. |
 | cni.chainingMode | string | `nil` | Configure chaining on top of other CNI plugins. Possible values:  - none  - aws-cni  - flannel  - generic-veth  - portmap |
