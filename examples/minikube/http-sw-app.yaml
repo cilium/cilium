@@ -1,0 +1,64 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deathstar
+  labels:
+    app.kubernetes.io/name: deathstar
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+  selector:
+    org: empire
+    class: deathstar
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deathstar
+  labels:
+    app.kubernetes.io/name: deathstar
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      org: empire
+      class: deathstar
+  template:
+    metadata:
+      labels:
+        org: empire
+        class: deathstar
+        app.kubernetes.io/name: deathstar
+    spec:
+      containers:
+      - name: deathstar
+        # renovate: datasource=docker depName=quay.io/cilium/starwars
+        image: quay.io/cilium/starwars@sha256:896dc536ec505778c03efedb73c3b7b83c8de11e74264c8c35291ff6d5fe8ada # v2.3
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tiefighter
+  labels:
+    org: empire
+    class: tiefighter
+    app.kubernetes.io/name: tiefighter
+spec:
+  containers:
+  - name: spaceship
+    image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: xwing
+  labels:
+    app.kubernetes.io/name: xwing
+    org: alliance
+    class: xwing
+spec:
+  containers:
+  - name: spaceship
+    image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603

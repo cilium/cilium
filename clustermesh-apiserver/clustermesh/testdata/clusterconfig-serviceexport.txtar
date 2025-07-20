@@ -1,0 +1,20 @@
+#! --cluster-id=5 --cluster-name=cluster5 --clustermesh-enable-mcs-api
+
+hive/start
+
+# Assert that the ClusterConfig has been correctly created
+kvstore/list -o json cilium/cluster-config config.actual
+* cmp config.actual config.expected
+
+# ---
+
+-- config.expected --
+# cilium/cluster-config/cluster5
+{
+  "id": 5,
+  "capabilities": {
+    "syncedCanaries": true,
+    "maxConnectedClusters": 255,
+    "serviceExportsEnabled": true
+  }
+}

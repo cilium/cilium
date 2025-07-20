@@ -1,0 +1,236 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s1-backend
+  labels:
+    id: be1
+    role: backend
+spec:
+  containers:
+  - name: web
+    image: quay.io/cilium/echoserver:1.10.1
+    imagePullPolicy: IfNotPresent
+    ports:
+    - name: http
+      containerPort: 80
+      protocol: TCP
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 80
+  - name: udp
+    image: quay.io/cilium/echoserver-udp:v2020.01.30
+    imagePullPolicy: IfNotPresent
+    ports:
+    - name: tftp
+      containerPort: 69
+      protocol: UDP
+  terminationGracePeriodSeconds: 0
+  nodeSelector:
+    "cilium.io/ci-node": k8s1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s2-backend
+  labels:
+    id: be2
+    role: backend
+spec:
+  containers:
+  - name: web
+    image: quay.io/cilium/echoserver:1.10.1
+    imagePullPolicy: IfNotPresent
+    ports:
+    - name: http
+      containerPort: 80
+      protocol: TCP
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 80
+  - name: udp
+    image: quay.io/cilium/echoserver-udp:v2020.01.30
+    imagePullPolicy: IfNotPresent
+    ports:
+      - name: tftp
+        containerPort: 69
+        protocol: UDP
+  terminationGracePeriodSeconds: 0
+  nodeSelector:
+    "cilium.io/ci-node": k8s2
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s1-client
+  labels:
+    id: app1
+    role: frontend
+spec:
+  containers:
+  - name: web
+    image: quay.io/cilium/demo-client:1.0
+    imagePullPolicy: IfNotPresent
+    command: [ "sleep" ]
+    args:
+      - "1000h"
+  nodeSelector:
+    "cilium.io/ci-node": k8s1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s2-client
+  labels:
+    id: app2
+    role: frontend
+spec:
+  containers:
+  - name: web
+    image: quay.io/cilium/demo-client:1.0
+    imagePullPolicy: IfNotPresent
+    command: [ "sleep" ]
+    args:
+      - "1000h"
+  nodeSelector:
+    "cilium.io/ci-node": k8s2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lrp-demo-service
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: tftp
+    port: 69
+    targetPort: 69
+    protocol: UDP
+  selector:
+    role: backend
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-svc"
+spec:
+  redirectFrontend:
+    serviceMatcher:
+      serviceName: lrp-demo-service
+      namespace: default
+      toPorts:
+        - name: http
+          port: "80"
+          protocol: TCP
+        - name: tftp
+          port: "69"
+          protocol: UDP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        role: backend
+    toPorts:
+      - name: http
+        port: "80"
+        protocol: TCP
+      - name: tftp
+        port: "69"
+        protocol: UDP
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s1-backend2
+  labels:
+    id: be3
+    role: lrpAddrBackend
+spec:
+  # Host networked backends test kiam like use cases.
+  hostNetwork: true
+  containers:
+    - name: web
+      image: quay.io/cilium/echoserver:1.10.1
+      imagePullPolicy: IfNotPresent
+      ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 80
+    - name: udp
+      image: quay.io/cilium/echoserver-udp:v2020.01.30
+      imagePullPolicy: IfNotPresent
+      ports:
+        - name: tftp
+          containerPort: 69
+          protocol: UDP
+  terminationGracePeriodSeconds: 0
+  nodeSelector:
+    "cilium.io/ci-node": k8s1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s2-backend2
+  labels:
+    id: be4
+    role: lrpAddrBackend
+spec:
+  hostNetwork: true
+  containers:
+    - name: web
+      image: quay.io/cilium/echoserver:1.10.1
+      imagePullPolicy: IfNotPresent
+      ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 80
+    - name: udp
+      image: quay.io/cilium/echoserver-udp:v2020.01.30
+      imagePullPolicy: IfNotPresent
+      ports:
+        - name: tftp
+          containerPort: 69
+          protocol: UDP
+  terminationGracePeriodSeconds: 0
+  nodeSelector:
+    "cilium.io/ci-node": k8s2
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-test-addr"
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - name: http
+          port: "80"
+          protocol: TCP
+        - name: tftp
+          port: "69"
+          protocol: UDP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        role: lrpAddrBackend
+    toPorts:
+      - name: http
+        port: "80"
+        protocol: TCP
+      - name: tftp
+        port: "69"
+        protocol: UDP

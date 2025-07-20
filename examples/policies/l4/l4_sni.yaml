@@ -1,0 +1,15 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "l4-sni-rule"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: myService
+  egress:
+  - toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      serverNames:
+      - one.one.one.one

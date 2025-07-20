@@ -1,0 +1,111 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: "host-policy"
+specs:
+  - description: "Allow only test client <-> server communications on node <-> pod paths (local and remote pods)"
+    nodeSelector:
+      matchLabels:
+        status: lockdown
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          zgroup: testClient
+      toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+    - fromEndpoints:
+      - matchExpressions:
+        - key: test
+          operator: NotIn
+          values: [hostfw]
+    egress:
+    - toEndpoints:
+      - matchLabels:
+          zgroup: testServer
+      toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+    - toEndpoints:
+      - matchExpressions:
+        - key: test
+          operator: NotIn
+          values: [hostfw]
+  - description: "Open required ports + test application's port between nodes"
+    nodeSelector: {}
+    ingress:
+    - fromEntities:
+      - remote-node
+      toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        # VXLAN tunnels between nodes
+        - port: "8472"
+          protocol: UDP
+        # etcd connections
+        - port: "2379"
+          protocol: TCP
+        - port: "2380"
+          protocol: TCP
+        # kube-api server
+        - port: "6443"
+          protocol: TCP
+        # kubelet
+        - port: "10250"
+          protocol: TCP
+        # Health checks
+        - port: "4240"
+          protocol: TCP
+    egress:
+    - toEntities:
+      - remote-node
+      toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        # VXLAN tunnels between nodes
+        - port: "8472"
+          protocol: UDP
+        # etcd connections
+        - port: "2379"
+          protocol: TCP
+        - port: "2380"
+          protocol: TCP
+        # kube-api server
+        - port: "6443"
+          protocol: TCP
+        # kubelet
+        - port: "10250"
+          protocol: TCP
+        # Health checks
+        - port: "4240"
+          protocol: TCP
+  - description: "Allow all to/from health and world"
+    nodeSelector: {}
+    ingress:
+    - fromEntities:
+      - health
+      - world
+    egress:
+    - toEntities:
+      - health
+      - world
+  - description: "Allow ICMP/ICMPv6 traffic on all nodes"
+    nodeSelector: {}
+    ingress:
+    - icmps:
+      - fields:
+        - type: 8
+          family: IPv4
+        - type: 128
+          family: IPv6
+    egress:
+    - icmps:
+      - fields:
+        - type: 8
+          family: IPv4
+        - type: 128
+          family: IPv6

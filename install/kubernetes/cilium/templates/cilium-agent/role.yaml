@@ -1,0 +1,145 @@
+{{- $readSecretsOnlyFromSecretsNamespace := eq (include "readSecretsOnlyFromSecretsNamespace" .) "true" -}}
+
+{{- if and .Values.agent (not .Values.preflight.enabled) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cilium-config-agent
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+
+{{- end }}
+
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.ingressController.enabled .Values.ingressController.secretsNamespace.name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cilium-ingress-secrets
+  namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+{{- end }}
+
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.gatewayAPI.enabled .Values.gatewayAPI.secretsNamespace.name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cilium-gateway-secrets
+  namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+{{- end}}
+
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.envoyConfig.enabled .Values.envoyConfig.secretsNamespace.name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cilium-envoy-config-secrets
+  namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+{{- end}}
+
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.bgpControlPlane.enabled .Values.bgpControlPlane.secretsNamespace.name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cilium-bgp-control-plane-secrets
+  namespace: {{ .Values.bgpControlPlane.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+{{- end}}
+
+{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create $readSecretsOnlyFromSecretsNamespace .Values.tls.secretsNamespace.name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cilium-tlsinterception-secrets
+  namespace: {{ .Values.tls.secretsNamespace.name | quote }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+{{- end }}

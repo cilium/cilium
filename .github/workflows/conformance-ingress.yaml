@@ -1,0 +1,450 @@
+name: Conformance Ingress (ci-ingress)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  push:
+    branches:
+      - main
+      - ft/main/**
+      - 'renovate/main-**'
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  kind_config: .github/kind-config.yaml
+  timeout: 5m
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci operator-generic-ci
+
+  ingress-conformance-test:
+    name: Ingress Conformance Test
+    env:
+      job_name: "Ingress Conformance Test"
+    needs: [wait-for-images]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: Without_XDP
+          kube-proxy-replacement: true
+          enable-node-port: false
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: dedicated
+          default-ingress-controller: false
+        - name: With_XDP
+          kube-proxy-replacement: true
+          enable-node-port: false
+          bpf-lb-acceleration: native
+          loadbalancer-mode: dedicated
+          default-ingress-controller: false
+        - name: With_Shared_LB
+          kube-proxy-replacement: true
+          enable-node-port: false
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: shared
+          default-ingress-controller: false
+        - name: With_Default_Ingress_Controller
+          kube-proxy-replacement: true
+          enable-node-port: false
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: dedicated
+          default-ingress-controller: true
+        - name: Without_KPR
+          kube-proxy-replacement: false
+          enable-node-port: true
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: dedicated
+          default-ingress-controller: false
+
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
+
+      - name: Set image tag
+        id: vars
+        run: |
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set kubeProxyReplacement=${{ matrix.kube-proxy-replacement }} \
+            --helm-set nodePort.enabled=${{ matrix.enable-node-port }} \
+            --helm-set=ingressController.enabled=true \
+            --helm-set=ingressController.loadbalancerMode=${{ matrix.loadbalancer-mode }} \
+            --helm-set=ingressController.default=${{ matrix.default-ingress-controller }} \
+            --helm-set=extraConfig.bpf-lb-acceleration=${{ matrix.bpf-lb-acceleration }} \
+            --helm-set=l2announcements.enabled=true"
+
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+            examples
+
+      - name: Create kind cluster
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ${{ env.kind_config }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Checkout ingress-controller-conformance
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Use the forked repo with retry mechanism
+          # Please refer to https://github.com/kubernetes-sigs/ingress-controller-conformance/pull/101 for more details.
+          repository: cilium/ingress-controller-conformance
+          path: ingress-controller-conformance
+          ref: 6a193b3f73d8b1201a818bb7c8f204059b064857
+          persist-credentials: false
+
+      - name: Install Ingress conformance test tool
+        timeout-minutes: 10
+        run: |
+          cd ingress-controller-conformance
+          make build
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium to be ready
+        run: |
+          cilium status --wait --interactive=false
+          kubectl get pods -n kube-system
+
+      - name: Install Cilium LB IPPool and L2 Announcement Policy
+        timeout-minutes: 10
+        run: |
+          KIND_NET_CIDR=$(docker network inspect kind -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
+          echo "KIND_NET_CIDR: $KIND_NET_CIDR"
+          LB_CIDR=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200/28@")
+          echo "LB_CIDR: $LB_CIDR"
+          echo "Deploying LB-IPAM Pool..."
+          cat << EOF > pool.yaml
+          apiVersion: "cilium.io/v2"
+          kind: CiliumLoadBalancerIPPool
+          metadata:
+            name: "pool"
+          spec:
+            blocks:
+              - cidr: "$LB_CIDR"
+          EOF
+          cat pool.yaml
+          kubectl apply -f pool.yaml
+
+          echo "Deploying L2-Announcement Policy..."
+          cat << 'EOF' > l2policy.yaml
+          apiVersion: "cilium.io/v2alpha1"
+          kind: CiliumL2AnnouncementPolicy
+          metadata:
+            name: l2policy
+          spec:
+            loadBalancerIPs: true
+            interfaces:
+              - eth0
+            nodeSelector:
+              matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
+          EOF
+          cat l2policy.yaml
+          kubectl apply -f l2policy.yaml
+
+      - name: Create sample workload
+        timeout-minutes: 5
+        run: |
+          kubectl apply -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
+          if [ "${{ matrix.default-ingress-controller }}" = "true" ]; then
+            # remove ingressClassName line from basic-ingress.yaml
+            sed -i '/ingressClassName/d' untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
+            kubectl apply -n default -f untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
+            kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+          fi
+
+          kubectl apply -n default -f untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
+          kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+
+      - name: Run Sanity check (external)
+        timeout-minutes: 5
+        run: |
+          lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --retry-all-errors --retry-delay 5 --fail -- http://"$lb"
+
+          # By now the service should be up, no need to do the manual retries for the second request
+          curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"/details/1
+
+      - name: Run Sanity check (internal to NodePort)
+        if: ${{ matrix.kube-proxy-replacement == true }}
+        timeout-minutes: 5
+        run: |
+          if [ "${{ matrix.loadbalancer-mode }}" = "dedicated" ]; then
+            node_port=$(kubectl get svc cilium-ingress-basic-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
+          else
+            node_port=$(kubectl get -n kube-system svc cilium-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
+          fi
+          docker exec -i chart-testing-control-plane curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1
+
+      - name: Run Sanity check (headless service)
+        timeout-minutes: 5
+        run: |
+          BACKEND_IP=$(kubectl get pod -l app=details -o jsonpath="{.items[*].status.podIP}")
+          cat << EOF > ingress-with-headless-service.yaml
+          apiVersion: v1
+          kind: Endpoints
+          metadata:
+            name: details-headless
+          subsets:
+          - addresses:
+            - ip: ${BACKEND_IP}
+            ports:
+            - name: http
+              port: 9080
+              protocol: TCP
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: details-headless
+          spec:
+            ports:
+            - name: http
+              port: 9080
+              protocol: TCP
+              targetPort: 9080
+            clusterIP: None
+            ipFamilies:
+            - IPv4
+            ipFamilyPolicy: SingleStack
+          ---
+          apiVersion: discovery.k8s.io/v1
+          kind: EndpointSlice
+          metadata:
+            name: details-headless-endpoint-slice
+            labels:
+              kubernetes.io/service-name: details-headless-endpoint-slice
+          addressType: IPv4
+          endpoints:
+            - addresses:
+                - ${BACKEND_IP}
+          ports:
+            - name: http
+              port: 9080
+              protocol: TCP
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: details-headless-endpoint-slice
+          spec:
+            ports:
+              - name: http
+                port: 9082
+                protocol: TCP
+                targetPort: 9080
+            clusterIP: None
+            ipFamilies:
+              - IPv4
+            ipFamilyPolicy: SingleStack
+          ---
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: basic-ingress-headless
+          spec:
+            ingressClassName: cilium
+            rules:
+            - http:
+                paths:
+                - backend:
+                    service:
+                      name: details-headless
+                      port:
+                        number: 9080
+                  path: /details/1
+                  pathType: Prefix
+                - backend:
+                    service:
+                      name: details-headless-endpoint-slice
+                      port:
+                        number: 9082
+                  path: /details/2
+                  pathType: Prefix
+          EOF
+          kubectl apply -n default -f ingress-with-headless-service.yaml
+          until [ -n "$(kubectl get ingress basic-ingress-headless -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" ]; do
+            sleep 3
+          done
+          lb=$(kubectl get ingress basic-ingress-headless -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          curl -s -v --connect-timeout 2 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 --fail -- http://"$lb"/details/1
+          curl -s -v --connect-timeout 2 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 --fail -- http://"$lb"/details/2
+
+      - name: Cleanup Sanity check
+        timeout-minutes: 5
+        run: |
+          # Clean up after sanity check to avoid any conflicts with the conformance test
+          kubectl delete -n default -f untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
+          kubectl delete -n default -f ingress-with-headless-service.yaml
+          kubectl delete -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
+          kubectl wait ingress basic-ingress --for=delete
+          kubectl wait ingress basic-ingress-headless --for=delete
+
+      - name: Run Ingress conformance test
+        timeout-minutes: 30
+        run: |
+          cd ingress-controller-conformance
+          ./ingress-controller-conformance \
+            -ingress-class cilium \
+            -wait-time-for-ingress-status 60s \
+            -wait-time-for-ready 60s \
+            -http-client-timeout 60s \
+            -enable-http-debug \
+            -stop-on-failure
+
+      - name: Run basic CLI tests
+        shell: bash
+        run: |
+          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --test 'packet-drops'
+
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "${{ env.job_name }} ${{ matrix.name }}"
+          job_status: "${{ job.status }}"
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: ingress-conformance-test
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.ingress-conformance-test.result }}

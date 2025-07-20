@@ -1,0 +1,325 @@
+# This replicates the local redirection in examples/kubernetes-local-redirect. The input data was extracted
+# by running a local kind cluster with LRP enabled, applying example/kubernetes-local-redirect and
+# extracting with "kubectl get -o yaml" and adding the resulting files here after bit of pruning.
+
+# Start and wait for reflectors to catch up.
+hive start
+
+# Add the kubedns service and endpoints
+k8s/add svc-kubedns.yaml eps-kubedns.yaml
+db/cmp services services-before.table
+db/cmp frontends frontends-before.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual lbmaps-before.expected
+
+# Add the redirect and the first pod
+k8s/add lrp-kubedns.yaml pod-1-nodelocaldns.yaml
+db/cmp frontends frontends-no-pod2.table
+
+# Add the second pod separately to make sure we get backends
+# in consistent order.
+k8s/add pod-2-nodelocaldns.yaml
+db/cmp services services-after.table
+db/cmp frontends frontends-after.table
+
+# Check BPF maps again
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual lbmaps-after.expected
+
+# Change the labels on the second pod and verify it's no longer used
+# as LRP backend and then revert.
+sed 'k8s-app: node-local-dns' 'k8s-app: foo' pod-2-nodelocaldns.yaml
+k8s/update pod-2-nodelocaldns.yaml
+db/cmp frontends frontends-no-pod2.table
+
+sed 'k8s-app: foo' 'k8s-app: node-local-dns' pod-2-nodelocaldns.yaml
+k8s/update pod-2-nodelocaldns.yaml
+db/cmp frontends frontends-after.table
+
+# Removing the LRP reverts back to original setup
+k8s/delete lrp-kubedns.yaml
+db/cmp services services-before.table
+db/cmp frontends frontends-before.table
+
+# Compare maps. Some of the backend IDs are reassigned since backends became orphened
+# and thus removed, so this isn't exactly same as lbmaps-before.expected.
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual lbmaps-reverted.expected
+
+-- services-before.table --
+Name                  Source
+kube-system/kube-dns  k8s
+
+-- frontends-before.table --
+Address                    Type        ServiceName           PortName   RedirectTo   Status  Backends
+10.96.0.10:53/TCP          ClusterIP   kube-system/kube-dns  dns-tcp                 Done    10.244.1.51:53/TCP, 10.244.1.68:53/TCP
+10.96.0.10:53/UDP          ClusterIP   kube-system/kube-dns  dns                     Done    10.244.1.51:53/UDP, 10.244.1.68:53/UDP
+10.96.0.10:9153/TCP        ClusterIP   kube-system/kube-dns  metrics                 Done    10.244.1.51:9153/TCP, 10.244.1.68:9153/TCP
+
+-- services-after.table --
+Name                                     Source
+kube-system/kube-dns                     k8s
+kube-system/nodelocaldns:local-redirect  k8s
+
+-- frontends-after.table --
+Address                    Type        ServiceName           PortName   RedirectTo                               Status  Backends
+10.96.0.10:53/TCP          ClusterIP   kube-system/kube-dns  dns-tcp    kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/TCP, 10.244.0.226:53/TCP
+10.96.0.10:53/UDP          ClusterIP   kube-system/kube-dns  dns        kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/UDP, 10.244.0.226:53/UDP
+10.96.0.10:9153/TCP        ClusterIP   kube-system/kube-dns  metrics                                             Done    10.244.1.51:9153/TCP, 10.244.1.68:9153/TCP
+
+-- frontends-no-pod2.table --
+Address                    Type        ServiceName           PortName   RedirectTo                               Status  Backends
+10.96.0.10:53/TCP          ClusterIP   kube-system/kube-dns  dns-tcp    kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/TCP
+10.96.0.10:53/UDP          ClusterIP   kube-system/kube-dns  dns        kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/UDP
+10.96.0.10:9153/TCP        ClusterIP   kube-system/kube-dns  metrics                                             Done    10.244.1.51:9153/TCP, 10.244.1.68:9153/TCP
+
+-- lbmaps-before.expected --
+BE: ID=1 ADDR=10.244.1.51:53/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.68:53/TCP STATE=active
+BE: ID=3 ADDR=10.244.1.51:53/UDP STATE=active
+BE: ID=4 ADDR=10.244.1.68:53/UDP STATE=active
+BE: ID=5 ADDR=10.244.1.51:9153/TCP STATE=active
+BE: ID=6 ADDR=10.244.1.68:9153/TCP STATE=active
+REV: ID=1 ADDR=10.96.0.10:53
+REV: ID=2 ADDR=10.96.0.10:53
+REV: ID=3 ADDR=10.96.0.10:9153
+SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.0.10:9153/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.0.10:9153/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.0.10:9153/TCP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-after.expected --
+BE: ID=10 ADDR=10.244.0.226:53/UDP STATE=active
+BE: ID=5 ADDR=10.244.1.51:9153/TCP STATE=active
+BE: ID=6 ADDR=10.244.1.68:9153/TCP STATE=active
+BE: ID=7 ADDR=10.244.0.225:53/TCP STATE=active
+BE: ID=8 ADDR=10.244.0.225:53/UDP STATE=active
+BE: ID=9 ADDR=10.244.0.226:53/TCP STATE=active
+REV: ID=1 ADDR=10.96.0.10:53
+REV: ID=2 ADDR=10.96.0.10:53
+REV: ID=3 ADDR=10.96.0.10:9153
+SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=2 BEID=9 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=1 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=2 BEID=10 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=3 ADDR=10.96.0.10:9153/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.0.10:9153/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.0.10:9153/TCP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-reverted.expected --
+BE: ID=13 ADDR=10.244.1.51:53/TCP STATE=active
+BE: ID=14 ADDR=10.244.1.68:53/TCP STATE=active
+BE: ID=15 ADDR=10.244.1.51:53/UDP STATE=active
+BE: ID=16 ADDR=10.244.1.68:53/UDP STATE=active
+BE: ID=5 ADDR=10.244.1.51:9153/TCP STATE=active
+BE: ID=6 ADDR=10.244.1.68:9153/TCP STATE=active
+REV: ID=1 ADDR=10.96.0.10:53
+REV: ID=2 ADDR=10.96.0.10:53
+REV: ID=3 ADDR=10.96.0.10:9153
+SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=1 BEID=13 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.0.10:53/TCP SLOT=2 BEID=14 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=1 BEID=15 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.0.10:53/UDP SLOT=2 BEID=16 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.0.10:9153/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.0.10:9153/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.0.10:9153/TCP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- svc-kubedns.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    k8s-app: kube-dns
+    kubernetes.io/name: CoreDNS
+  name: kube-dns
+  namespace: kube-system
+spec:
+  clusterIP: 10.96.0.10
+  clusterIPs:
+  - 10.96.0.10
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+    targetPort: 53
+  - name: metrics
+    port: 9153
+    protocol: TCP
+    targetPort: 9153
+  selector:
+    k8s-app: kube-dns
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- eps-kubedns.yaml --
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints:
+- addresses:
+  - 10.244.1.68
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+- addresses:
+  - 10.244.1.51
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+kind: EndpointSlice
+metadata:
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: CoreDNS
+    kubernetes.io/service-name: kube-dns
+  name: kube-dns-8x8pw
+  namespace: kube-system
+ports:
+- name: metrics
+  port: 9153
+  protocol: TCP
+- name: dns
+  port: 53
+  protocol: UDP
+- name: dns-tcp
+  port: 53
+  protocol: TCP
+
+-- lrp-kubedns.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: nodelocaldns
+  namespace: kube-system
+spec:
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        k8s-app: node-local-dns
+    toPorts:
+    - name: dns
+      port: "53"
+      protocol: UDP
+    - name: dns-tcp
+      port: "53"
+      protocol: TCP
+  redirectFrontend:
+    serviceMatcher:
+      namespace: kube-system
+      serviceName: kube-dns
+  skipRedirectFromBackend: false
+
+-- pod-1-nodelocaldns.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    k8s-app: node-local-dns
+  name: node-local-dns-1
+  namespace: kube-system
+spec:
+  # lots of irrelevant details removed here ...
+  containers:
+  - name: node-cache
+    ports:
+    - containerPort: 53
+      name: dns
+      protocol: UDP
+    - containerPort: 53
+      name: dns-tcp
+      protocol: TCP
+    - containerPort: 9253
+      name: metrics
+      protocol: TCP
+  nodeName: testnode
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2025-03-13T09:43:36Z"
+    status: "True"
+    type: Ready
+  containerStatuses:
+  - name: node-cache
+    ready: true
+    started: true
+    state:
+      running:
+        startedAt: "2025-03-13T09:43:36Z"
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.0.225
+  podIPs:
+  - ip: 10.244.0.225
+  qosClass: Burstable
+  startTime: "2025-03-13T09:41:27Z"
+
+-- pod-2-nodelocaldns.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    k8s-app: node-local-dns
+  name: node-local-dns-2
+  namespace: kube-system
+spec:
+  # lots of irrelevant details removed here ...
+  containers:
+  - name: node-cache
+    ports:
+    - containerPort: 53
+      name: dns
+      protocol: UDP
+    - containerPort: 53
+      name: dns-tcp
+      protocol: TCP
+    - containerPort: 9253
+      name: metrics
+      protocol: TCP
+  nodeName: testnode
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2025-03-13T09:43:36Z"
+    status: "True"
+    type: Ready
+  containerStatuses:
+  - name: node-cache
+    ready: true
+    started: true
+    state:
+      running:
+        startedAt: "2025-03-13T09:43:36Z"
+  hostIP: 172.19.0.4
+  hostIPs:
+  - ip: 172.19.0.4
+  phase: Running
+  podIP: 10.244.0.226
+  podIPs:
+  - ip: 10.244.0.226
+  qosClass: Burstable
+  startTime: "2025-03-13T09:41:27Z"

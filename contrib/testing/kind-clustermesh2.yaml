@@ -1,0 +1,36 @@
+cluster:
+  name: clustermesh2
+  id: 2
+debug:
+  enabled: true
+image:
+  pullPolicy: Never
+operator:
+  image:
+    pullPolicy: Never
+ipam:
+  mode: kubernetes
+ipv6:
+  enabled: true
+ipv4:
+  enabled: true
+bpf:
+  monitorAggregation: none
+livenessProbe:
+  failureThreshold: 9999
+readinessProbe:
+  failureThreshold: 9999
+startupProbe:
+  failureThreshold: 9999
+clustermesh:
+  useAPIServer: true
+  apiserver:
+    image:
+      pullPolicy: Never
+    service:
+      nodePort: 32380
+    readinessProbe:
+      periodSeconds: 1
+    kvstoremesh:
+      readinessProbe:
+        periodSeconds: 1

@@ -1,0 +1,122 @@
+#! --lb-test-fault-probability=0.0
+#
+# Test service node exposure
+#
+
+hive start
+
+# Add the endpoints and service
+k8s/add endpointslice.yaml
+db/cmp backends backends.table
+
+test/set-node-labels service.cilium.io/node=foo
+
+# Add the service (with service.cilium.io/node=foo)
+k8s/add service-foo.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Change the service node exposure to /node=bar. It should remove the service.
+k8s/update service-bar.yaml
+db/cmp services services-empty.table
+db/cmp frontends frontends-empty.table
+
+# Update the node label 
+test/set-node-labels service.cilium.io/node=bar
+
+# Triggering the service update should re-create the service.
+db/cmp services services-empty.table
+k8s/update service-bar.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+#####
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy  Flags
+test/echo   k8s      http=80    Cluster
+
+-- services-empty.table --
+Name        Source   PortNames  TrafficPolicy  Flags
+
+-- frontends.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
+
+-- frontends-empty.table --
+Address               Type        ServiceName   PortName   Status   Backends
+
+-- service-foo.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    service.cilium.io/node: foo
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- service-bar.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    service.cilium.io/node: bar
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- backends.table --
+Address             Instances            NodeName
+10.244.1.1:80/TCP   test/echo (http)     nodeport-worker
+10.244.1.2:80/TCP   test/echo (http)     nodeport-worker2
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  nodeName: nodeport-worker
+- addresses:
+  - 10.244.1.2
+  nodeName: nodeport-worker2
+ports:
+- name: http
+  port: 80
+  protocol: TCP

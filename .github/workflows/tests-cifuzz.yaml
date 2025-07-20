@@ -1,0 +1,37 @@
+name: CIFuzz
+on:
+  schedule:
+    # Run the Fuzzers every Monday at 7am
+    - cron: '0 7 * * 1'
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - '.github/workflows/tests-cifuzz.yaml'
+      - '**/fuzz_test.go'
+      - 'test/fuzzing/*'
+permissions: read-all
+jobs:
+  Fuzzing:
+    name: Build and Run Fuzzers
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Build Fuzzers
+      id: build
+      uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@aa0dba641cb81070221554e0d2ed4f97aa46db35
+      with:
+        oss-fuzz-project-name: 'cilium'
+        dry-run: false
+        language: go
+    - name: Run Fuzzers
+      uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@aa0dba641cb81070221554e0d2ed4f97aa46db35
+      with:
+        oss-fuzz-project-name: 'cilium'
+        fuzz-seconds: 600
+        dry-run: false
+        language: go
+    - name: Upload Crash
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      if: failure() && steps.build.outcome == 'success'
+      with:
+        name: artifacts
+        path: ./out/artifacts

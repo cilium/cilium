@@ -1,0 +1,14 @@
+[Unit]
+Description=cilium
+Documentation=http://docs.cilium.io
+Requires=docker.service cilium-docker.service
+
+[Service]
+Type=simple
+LimitCORE=infinity
+EnvironmentFile=-/etc/sysconfig/cilium
+ExecStart=/usr/bin/cilium-agent $CILIUM_OPTS $CILIUM_EXTRA_OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

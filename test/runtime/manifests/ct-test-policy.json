@@ -1,0 +1,59 @@
+[{
+    "endpointSelector": {"matchLabels":{"id.curl":""}},
+    "egress": [{
+	    "toPorts": [{
+		    "ports": [{"port": "80", "protocol": "tcp"}]
+	    }]
+    }],
+    "labels": ["id=curl"]
+},{
+    "endpointSelector": {"matchLabels":{"id.server":""}},
+    "ingress": [{
+        "fromEndpoints": [
+	    {"matchLabels":{"reserved:host":""}},
+	    {"matchLabels":{"id.client":""}}
+	]
+    }],
+    "labels": ["id=server"]
+},{
+    "endpointSelector": {"matchLabels":{"id.client":""}},
+    "egress": [{
+        "toEndpoints": [
+            {"matchLabels":{"id.server":""}}
+        ]
+    }],
+    "labels": ["id=egress-from-client-to-server"]
+},{
+    "endpointSelector": {"matchLabels":{"id.httpd":""}},
+    "ingress": [{
+        "fromEndpoints": [
+	    {"matchLabels":{"id.curl":""}}
+	],
+	"toPorts": [
+	    {"ports": [{"port": "80", "protocol": "tcp"}]}
+	]
+    }],
+    "labels": ["id=httpd"]
+},{
+    "endpointSelector": {"matchLabels":{"id.httpd":""}},
+    "ingress": [{
+        "fromEndpoints": [
+	    {"matchLabels":{"id.curl2":""}}
+	],
+	"toPorts": [
+	    {"ports": [{"port": "8080", "protocol": "tcp"}]}
+	]
+    }],
+    "labels": ["id=httpd"]
+},{
+    "endpointSelector": {"matchLabels":{"id.httpd_deny":""}},
+    "ingress": [{
+        "fromEndpoints": [
+	    {"matchLabels":{"id.curl":""}}
+	],
+	"toPorts": [
+	    {"ports": [{"port": "9090", "protocol": "tcp"}]}
+	]
+    }],
+    "labels": ["id=httpd_deny"]
+}]

@@ -1,0 +1,18 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: web-backend
+      namespace: gateway-conformance-web-backend
+      port:
+        port: 8080
+    path_match: {}
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: backend-namespaces
+    namespace: gateway-conformance-infra
+    version: v1

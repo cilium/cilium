@@ -1,0 +1,111 @@
+#! --lb-test-fault-probability=0.0
+# Test the handling for the ingress service created by the operator.
+# The control-plane should ignore the dummy ingress endpoint (192.192.192.192:9999), but
+# still process the service.
+# An extended version of this test that include CiliumEnvoyConfig processing can be found
+# from pkg/ciliumenvoyconfig/testdata/ingress.yaml.
+# Based on https://docs.cilium.io/en/stable/network/servicemesh/http/
+
+hive/start
+
+# Add the service and endpoints
+k8s/add svc-ingress.yaml eps-ingress.yaml
+
+# Validate
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+###
+
+-- services.table --
+Name                                  Source  PortNames           TrafficPolicy  Flags
+default/cilium-ingress-basic-ingress  k8s     http=80, https=443  Cluster
+
+-- frontends.table --
+Address               Type      ServiceName                           PortName Status Error Backends
+0.0.0.0:30979/TCP     NodePort  default/cilium-ingress-basic-ingress  https    Done
+0.0.0.0:31988/TCP     NodePort  default/cilium-ingress-basic-ingress  http     Done
+10.96.171.236:80/TCP  ClusterIP default/cilium-ingress-basic-ingress  http     Done
+10.96.171.236:443/TCP ClusterIP default/cilium-ingress-basic-ingress  https    Done
+
+-- backends.table --
+Address Instances NodeName
+
+-- svc-ingress.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2025-03-25T10:13:20Z"
+  labels:
+    cilium.io/ingress: "true"
+  name: cilium-ingress-basic-ingress
+  namespace: default
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    controller: true
+    kind: Ingress
+    name: basic-ingress
+    uid: c5523e5b-bfcd-4f62-8349-d6d502ff514a
+  resourceVersion: "126848"
+  uid: 8161084b-2b57-44fd-b5d7-57545a2b27df
+spec:
+  allocateLoadBalancerNodePorts: true
+  clusterIP: 10.96.171.236
+  clusterIPs:
+  - 10.96.171.236
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 31988
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 30979
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer: {}
+
+-- eps-ingress.yaml --
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints:
+- addresses:
+  - 192.192.192.192
+  conditions:
+    ready: true
+kind: EndpointSlice
+metadata:
+  creationTimestamp: "2025-03-25T10:13:20Z"
+  generateName: cilium-ingress-basic-ingress-
+  generation: 1
+  labels:
+    cilium.io/ingress: "true"
+    endpointslice.kubernetes.io/managed-by: endpointslicemirroring-controller.k8s.io
+    kubernetes.io/service-name: cilium-ingress-basic-ingress
+  name: cilium-ingress-basic-ingress-gjh2c
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Endpoints
+    name: cilium-ingress-basic-ingress
+    uid: 9465c03a-ea0e-42bf-bd8d-56aabc86fcc2
+  resourceVersion: "126851"
+  uid: d93afa57-70a6-4b66-8906-16e53df84b3f
+ports:
+- name: ""
+  port: 9999
+  protocol: TCP
+
+

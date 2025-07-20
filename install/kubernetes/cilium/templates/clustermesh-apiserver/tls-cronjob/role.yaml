@@ -1,0 +1,44 @@
+{{- if and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.tls.auto.enabled (eq .Values.clustermesh.apiserver.tls.auto.method "cronJob") .Values.serviceAccounts.clustermeshcertgen.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: clustermesh-apiserver-generate-certs
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.clustermesh.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - cilium-ca
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - clustermesh-apiserver-server-cert
+      - clustermesh-apiserver-admin-cert
+      - clustermesh-apiserver-remote-cert
+      - clustermesh-apiserver-local-cert
+      - clustermesh-apiserver-client-cert
+    verbs:
+      - update
+{{- end }}

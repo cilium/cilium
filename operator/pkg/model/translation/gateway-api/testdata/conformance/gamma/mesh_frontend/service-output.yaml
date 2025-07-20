@@ -1,0 +1,24 @@
+metadata:
+  annotations:
+    service.cilium.io/src-ranges-policy: ""
+  creationTimestamp: null
+  labels:
+    gateway.networking.k8s.io/gateway-name: echo-v2
+    io.cilium.gateway/owning-gateway: echo-v2
+  name: cilium-gateway-echo-v2
+  namespace: gateway-conformance-mesh
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    controller: true
+    kind: Service
+    name: echo-v2
+    uid: ""
+spec:
+  ports:
+  - name: port-80
+    port: 80
+    protocol: TCP
+    targetPort: 0
+  type: ClusterIP
+status:
+  loadBalancer: {}

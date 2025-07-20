@@ -1,0 +1,38 @@
+{{- if and .Values.preflight.enabled .Values.preflight.validateCNPs .Values.preflight.podDisruptionBudget.enabled }}
+{{- $component := .Values.preflight.podDisruptionBudget }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cilium-pre-flight-check
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.preflight.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    k8s-app: cilium-pre-flight-check-deployment
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-pre-flight-check
+    kubernetes.io/cluster-service: "true"
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with $component.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with $component.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  {{- if (semverCompare ">= 1.27-0" .Capabilities.KubeVersion.Version) }}
+  {{- if hasKey $component "unhealthyPodEvictionPolicy" }}
+  {{- with $component.unhealthyPodEvictionPolicy }}
+  unhealthyPodEvictionPolicy: {{ . }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  selector:
+    matchLabels:
+      k8s-app: cilium-pre-flight-check-deployment
+      kubernetes.io/cluster-service: "true"
+{{- end }}

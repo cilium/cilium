@@ -1,0 +1,52 @@
+---
+    # A reusable workflow designed to be called from the context of a specific
+    # branch whenever a backport PR is merged. The workflow scans the backport PR
+    # body to get the list of the backported PRs and updates their labels, replacing
+    # all "backport-pending/<version>" with "backport-done/<version>".
+    name: Update labels of backported PRs
+    on:
+      workflow_call:
+        inputs:
+          pr-body:
+            required: true
+            type: string
+            description: "The PR description containing all the references to the backported PRs."
+          branch:
+            required: true
+            type: string
+            description: "The stable branch version."
+
+    jobs:
+      backport-label-updater:
+        name: Update labels of backported PRs
+        runs-on: ubuntu-24.04
+        permissions:
+          pull-requests: write # Adding and removing labels
+          repository-projects: read # Additionally required by `gh pr edit`
+        env:
+          body: ${{ inputs.pr-body }}
+        steps:
+          - name: Pre-process PR body
+            id: pre-process
+            uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+            with:
+              script: |
+                const { body } = process.env
+                return body.replace(/\'/g, '')
+                  .replace(/"/g, '')
+                  .replace(/`/g, '')
+                  .replace(/$/g, '')
+              result-encoding: string
+
+          - name: Update labels
+            env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              BRANCH: ${{ inputs.branch }}
+            run: |
+              VERSION=${BRANCH#v}
+              echo "${{steps.pre-process.outputs.result}}" | sed -En "/upstream-prs/ { n; p }" | cut -d ';' -f 1 | grep -Eo '[0-9]+' | while read -r pr; do
+                echo "Removing label backport-pending/${VERSION} from pr #${pr}."
+                gh pr edit ${pr} --repo "${GITHUB_REPOSITORY}" --remove-label backport-pending/${VERSION}
+                echo "Adding label backport-done/${VERSION} to pr #${pr}."
+                gh pr edit ${pr} --repo "${GITHUB_REPOSITORY}" --add-label backport-done/${VERSION}
+              done

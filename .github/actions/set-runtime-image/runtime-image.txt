@@ -1,0 +1,1 @@
+quay.io/cilium/cilium-runtime:3ab07a88c0badf0ab7c3ee0d7228e8ccbf800bf4@sha256:be9c386c9215082e1b1460795a37636556b4879cdd198a0093f44e4f9bb555e8

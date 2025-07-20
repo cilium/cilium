@@ -1,0 +1,360 @@
+hive start
+
+# Wait for metrics collection to start
+metrics -o metrics.out -s test_
+* grep 'test_C_.*800ms' metrics.out
+
+# Output to log, with and without regexp
+metrics
+metrics ^test
+
+# Output to file and validate
+metrics -o=actual ^test
+cmp all actual
+
+# Show sampled metrics
+metrics -s -o=actual ^test
+cmp sampled actual
+
+# Show in json format
+metrics -o=actual --format=json ^test
+cmp all.json actual
+
+# Show in yaml format
+metrics -o=actual --format=yaml ^test
+cmp all.yaml actual
+
+# Show samples in json format. Test long-form args.
+metrics --sampled --out=actual --format=json ^test
+cmp sampled.json actual
+
+# Show samples in yaml format
+metrics -s -o=actual --format=yaml ^test
+cmp sampled.yaml actual
+
+-- all --
+Metric           Labels   Value
+test_A                    1.000000
+test_C_seconds   lbl=a    10ms / 800ms / 980ms
+-- sampled --
+Metric           Labels   5m                     30m            60m            120m
+test_A                    1                      0              0              0
+test_B                    2                      0              0              0
+test_C_seconds   lbl=a    10ms / 800ms / 980ms   0s / 0s / 0s   0s / 0s / 0s   0s / 0s / 0s
+-- all.json --
+[
+  {
+    "name": "test_A",
+    "value": 1
+  },
+  {
+    "labels": {
+      "lbl": "a"
+    },
+    "name": "test_C_seconds",
+    "value": 0.8
+  }
+]
+-- all.yaml --
+- labels: {}
+  name: test_A
+  value: 1
+- labels:
+    lbl: a
+  name: test_C_seconds
+  value: 0.8
+-- sampled.json --
+{
+  "nsamples": 24,
+  "interval_seconds": 300,
+  "samples": [
+    {
+      "name": "test_A",
+      "gaugeOrCounter": {
+        "samples": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "latest": "1"
+    },
+    {
+      "name": "test_B",
+      "gaugeOrCounter": {
+        "samples": [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "latest": "2"
+    },
+    {
+      "name": "test_C_seconds",
+      "labels": "lbl=a",
+      "histogram": {
+        "p50": [
+          0.01,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "p90": [
+          0.8,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "p99": [
+          0.98,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "latest": "10ms / 800ms / 980ms"
+    }
+  ]
+}
+-- sampled.yaml --
+nsamples: 24
+interval_seconds: 300
+samples:
+    - name: test_A
+      gaugeOrCounter:
+        samples:
+            - 1
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+      latest: "1"
+    - name: test_B
+      gaugeOrCounter:
+        samples:
+            - 2
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+      latest: "2"
+    - name: test_C_seconds
+      labels: lbl=a
+      histogram:
+        p50:
+            - 0.01
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+        p90:
+            - 0.8
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+        p99:
+            - 0.98
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+      latest: 10ms / 800ms / 980ms

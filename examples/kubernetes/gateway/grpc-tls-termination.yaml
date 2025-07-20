@@ -1,0 +1,72 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: tls-gateway
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - name: https
+    protocol: HTTPS
+    port: 443
+    hostname: grpc-echo.cilium.rocks
+    tls:
+      certificateRefs:
+      - kind: Secret
+        name: grpc-certificate
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: grpc-route
+spec:
+  parentRefs:
+  - name: tls-gateway
+  rules:
+  - backendRefs:
+    - name: grpc-echo
+      port: 7070
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grpc-echo
+spec:
+  selector:
+    app.kubernetes.io/name: grpc-echo
+  ports:
+    - name: grpc
+      port: 7070
+      # This is needed to instruct the route to use plaintext HTTP/2 or
+      # you will get protocol errors.
+      appProtocol: kubernetes.io/h2c
+      targetPort: grpc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grpc-echo
+  labels:
+    app.kubernetes.io/name: grpc-echo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grpc-echo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: grpc-echo
+    spec:
+      containers:
+        - name: app
+          image: gcr.io/istio-testing/app:latest
+          ports:
+            - name: grpc
+              containerPort: 7070
+          readinessProbe:
+            failureThreshold: 2
+            grpc:
+              port: 7070
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1

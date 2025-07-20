@@ -1,0 +1,12 @@
+metadata:
+  annotations:
+    ingress.cilium.io/tls-passthrough: "true"
+  creationTimestamp: null
+  name: sslpassthru-ingress
+  namespace: dummy-namespace
+spec:
+  ingressClassName: cilium
+  rules:
+  - host: sslpassthru.example.com
+status:
+  loadBalancer: {}

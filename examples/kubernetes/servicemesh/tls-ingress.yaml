@@ -1,0 +1,50 @@
+# TLS ingress example, requires the below two applications
+# https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
+# https://github.com/GoogleCloudPlatform/microservices-demo
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tls-ingress
+  namespace: default
+spec:
+  ingressClassName: cilium
+  rules:
+  - host: hipstershop.cilium.rocks
+    http:
+      paths:
+      - backend:
+          service:
+            name: productcatalogservice
+            port:
+              number: 3550
+        path: /hipstershop.ProductCatalogService
+        pathType: Prefix
+      - backend:
+          service:
+            name: currencyservice
+            port:
+              number: 7000
+        path: /hipstershop.CurrencyService
+        pathType: Prefix
+  - host: bookinfo.cilium.rocks
+    http:
+      paths:
+      - backend:
+          service:
+            name: details
+            port:
+              number: 9080
+        path: /details
+        pathType: Prefix
+      - backend:
+          service:
+            name: productpage
+            port:
+              number: 9080
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - bookinfo.cilium.rocks
+    - hipstershop.cilium.rocks
+    secretName: demo-cert

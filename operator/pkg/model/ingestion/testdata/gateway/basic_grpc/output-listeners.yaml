@@ -1,0 +1,21 @@
+- hostname: '*'
+  name: prod-web-gw
+  port: 80
+  routes:
+  - backends:
+    - name: grp-service
+      namespace: default
+      port:
+        port: 8080
+    hostnames:
+    - example.com
+    is_grpc: true
+    path_match:
+      exact: /service.Echo/Ping
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1beta1

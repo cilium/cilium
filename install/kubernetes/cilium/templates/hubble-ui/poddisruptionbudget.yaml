@@ -1,0 +1,37 @@
+{{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled .Values.hubble.ui.podDisruptionBudget.enabled }}
+{{- $component := .Values.hubble.ui.podDisruptionBudget }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hubble-ui
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.hubble.ui.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    k8s-app: hubble-ui
+    app.kubernetes.io/name: hubble-ui
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+spec:
+  {{- with $component.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with $component.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  {{- if (semverCompare ">= 1.27-0" .Capabilities.KubeVersion.Version) }}
+  {{- if hasKey $component "unhealthyPodEvictionPolicy" }}
+  {{- with $component.unhealthyPodEvictionPolicy }}
+  unhealthyPodEvictionPolicy: {{ . }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  selector:
+    matchLabels:
+      k8s-app: hubble-ui
+{{- end }}

@@ -1,0 +1,57 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: "host-policy-nodeport-tests"
+spec:
+  nodeSelector: {}
+  ingress:
+  # Access from outside world
+  - fromEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "22"
+        protocol: TCP
+      - port: "6443"
+        protocol: TCP
+  # VXLAN tunnels and health checks
+  - fromEntities:
+    - remote-node
+
+  egress:
+  # VXLAN tunnels, kubelet, and health checks
+  - toEntities:
+    - remote-node
+    - health
+  # Kubelet to node without Cilium
+  - toCIDR:
+    - NODE_WITHOUT_CILIUM_IP/32
+    toPorts:
+    - ports:
+      - port: "10250"
+        protocol: TCP
+  # NodePort test from host namespace
+  - toEndpoints:
+    - matchLabels:
+        zgroup: testDS
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      - port: "69"
+        protocol: UDP
+  # kube-dns probes
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: kube-dns
+  # cilium-monitoring probes
+  - toEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": cilium-monitoring
+  # Upstream DNS requests
+  - toEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP

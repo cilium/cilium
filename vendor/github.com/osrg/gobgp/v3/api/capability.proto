@@ -1,0 +1,109 @@
+// Copyright (C) 2018 Nippon Telegraph and Telephone Corporation.
+//
+// Permission is hereby granted, free of charge, to any person
+// obtaining a copy of this software and associated documentation files
+// (the "Software"), to deal in the Software without restriction,
+// including without limitation the rights to use, copy, modify, merge,
+// publish, distribute, sublicense, and/or sell copies of the Software,
+// and to permit persons to whom the Software is furnished to do so,
+// subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+syntax = "proto3";
+
+package apipb;
+option go_package = "github.com/osrg/gobgp/v3/api;apipb";
+
+import "gobgp.proto";
+
+message MultiProtocolCapability {
+    apipb.Family family = 1;
+}
+
+message RouteRefreshCapability {
+}
+
+message CarryingLabelInfoCapability {
+}
+
+message ExtendedNexthopCapabilityTuple {
+    apipb.Family nlri_family = 1;
+    // Nexthop AFI must be either
+    // gobgp.IPv4 or
+    // gobgp.IPv6.
+    apipb.Family nexthop_family = 2;
+}
+
+message ExtendedNexthopCapability {
+    repeated ExtendedNexthopCapabilityTuple tuples = 1;
+}
+
+message GracefulRestartCapabilityTuple {
+    apipb.Family family = 1;
+    uint32 flags = 2;
+}
+
+message GracefulRestartCapability {
+    uint32 flags = 1;
+    uint32 time = 2;
+    repeated GracefulRestartCapabilityTuple tuples = 3;
+}
+
+message FourOctetASNCapability {
+    uint32 asn = 1;
+}
+
+message AddPathCapabilityTuple {
+    apipb.Family family = 1;
+    enum Mode {
+        NONE = 0;
+        RECEIVE = 1;
+        SEND = 2;
+        BOTH = 3;
+    }
+    Mode mode = 2;
+}
+
+message AddPathCapability {
+    repeated AddPathCapabilityTuple tuples = 1;
+}
+
+message EnhancedRouteRefreshCapability {
+}
+
+message LongLivedGracefulRestartCapabilityTuple {
+    apipb.Family family = 1;
+    uint32 flags = 2;
+    uint32 time = 3;
+}
+
+message LongLivedGracefulRestartCapability {
+    repeated LongLivedGracefulRestartCapabilityTuple tuples = 1;
+}
+
+message RouteRefreshCiscoCapability {
+}
+
+message FqdnCapability {
+    string host_name = 1;
+    string domain_name = 2;
+}
+
+message SoftwareVersionCapability {
+    string software_version = 1;
+}
+
+message UnknownCapability {
+    uint32 code = 1;
+    bytes value = 2;
+}

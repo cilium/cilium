@@ -1,0 +1,50 @@
+syntax = "proto3";
+package spire.api.types;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
+
+import "spire/api/types/selector.proto";
+import "spire/api/types/spiffeid.proto";
+import "google/protobuf/wrappers.proto";
+
+message Agent {
+    // Output only. SPIFFE ID of the agent.
+    spire.api.types.SPIFFEID id = 1;
+
+    // Output only. The method by which the agent attested.
+    string attestation_type = 2;
+
+    // Output only. The X509-SVID serial number.
+    string x509svid_serial_number = 3;
+
+    // Output only. The X509-SVID expiration (seconds since Unix epoch).
+    int64 x509svid_expires_at = 4;
+
+    // Output only. The selectors attributed to the agent during attestation.
+    repeated spire.api.types.Selector selectors = 5;
+
+    // Output only. Whether or not the agent is banned.
+    bool banned = 6;
+
+    // Output only. Whether or not the agent can re-attest.
+    bool can_reattest = 7;
+}
+
+message AgentMask {
+    // attestation_type field mask
+    bool attestation_type = 2;
+
+    // x509svid_serial_number field mask
+    bool x509svid_serial_number = 3;
+
+    // x509svid_expires_at field mask
+    bool x509svid_expires_at = 4;
+
+    // selectors field mask
+    bool selectors = 5;
+
+    // banned field mask
+    bool banned = 6;
+
+    // can_reattest field mask
+    bool can_reattest = 7;
+}

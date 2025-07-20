@@ -1,0 +1,214 @@
+name: Hubble CLI integration tests
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  push:
+    branches:
+    - main
+    - ft/main/**
+    - 'renovate/main-**'
+    paths-ignore:
+    - 'Documentation/**'
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  kind_config: .github/kind-config.yaml
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  integration-test:
+    runs-on: ubuntu-24.04
+    env:
+      job_name: "Integration Test"
+    name: Hubble CLI Integration Test
+    timeout-minutes: 20
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
+
+      - name: Set image tag
+        id: vars
+        run: |
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set=hubble.relay.enabled=true"
+
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+            examples
+
+      # Build hubble CLI before setting up the cluster and waiting on images to
+      # save time on failures.
+      - name: Setup go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Build hubble CLI
+        run: |
+          make -C hubble
+          ./hubble/hubble version
+
+      # Setup the cluster
+      - name: Create kind cluster
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0 -C hubble
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait --interactive=false
+          kubectl -n kube-system get pods
+
+      - name: Wait for hubble-relay to be running
+        run: |
+          kubectl -n kube-system rollout status deployment/hubble-relay
+
+      - name: Run Hubble CLI integration test
+        timeout-minutes: 5
+        run: |
+          set -ex
+          ./hubble/hubble --version
+
+          cilium hubble port-forward&
+          echo "wait until the port-forward is running"
+          sleep 10s
+          nc -nvz 127.0.0.1 4245
+
+          ./hubble/hubble status
+
+          echo "query hubble until we receive flows, or timeout"
+          flowCount=0
+          until [ $flowCount -gt 0 ]; do
+            ./hubble/hubble observe -n kube-system -o jsonpb  | tee flows.json
+            flowCount=$(jq -r --slurp 'length' flows.json)
+            sleep 5
+          done
+
+          echo "verify we got some flows"
+          test "$(jq -r --slurp 'length' flows.json)" -gt 0
+          echo "test piping flows into the CLI"
+          test "$(./hubble/hubble observe --input-file flows.json -o json | jq -r --slurp 'length')" -eq "$(jq -r --slurp 'length' flows.json)"
+
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "${{ env.job_name }}"
+          job_status: "${{ job.status }}"
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: integration-test
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.integration-test.result }}

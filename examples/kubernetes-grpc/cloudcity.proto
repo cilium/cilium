@@ -1,0 +1,80 @@
+// Copyright 2015 gRPC authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.cilium.examples.cloudcity";
+option java_outer_classname = "CloudCityProto";
+option objc_class_prefix = "HLW";
+
+package cloudcity;
+
+// The door manager service definition.
+service DoorManager {
+
+  // Get human readable name of door. 
+  rpc GetName(DoorRequest) returns (DoorNameReply) {} 
+
+  // Find the location of this door. 
+  rpc GetLocation (DoorRequest) returns (DoorLocationReply) {}
+
+  // Find out if door is open our closed
+  rpc GetStatus(DoorRequest) returns (DoorStatusReply) {} 
+
+  // Request maintenance on the door
+  rpc RequestMaintenance(DoorMaintRequest) returns (DoorActionReply) {} 
+
+  // Set Access Code to Open / Lock the door
+  rpc SetAccessCode(DoorAccessCodeRequest) returns (DoorActionReply) {} 
+
+}
+
+// The request message containing the user's name.
+message DoorRequest {
+  uint32 door_id = 1;
+}
+
+message DoorNameReply { 
+  string name = 1; 
+} 
+
+enum DoorStatus { 
+   OPEN = 0; 
+   CLOSED = 1; 
+} 
+
+message DoorStatusReply { 
+  DoorStatus state = 1; 
+} 
+
+message DoorAccessCodeRequest { 
+  uint32 door_id = 1; 
+  uint32 access_code = 2; 
+} 
+
+message DoorLocationReply {
+  float lat = 1;
+  float long = 2;
+}
+
+message DoorMaintRequest { 
+    uint32 door_id = 1; 
+    string maint_description = 2; 
+} 
+
+message DoorActionReply { 
+    bool success = 1; 
+} 
+

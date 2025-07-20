@@ -1,0 +1,112 @@
+syntax = "proto3";
+package spire.api.types;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
+
+import "spire/api/types/selector.proto";
+import "spire/api/types/spiffeid.proto";
+
+message Entry {
+    // Globally unique ID for the entry.
+    string id = 1;
+
+    // The SPIFFE ID of the identity described by this entry.
+    spire.api.types.SPIFFEID spiffe_id = 2;
+
+    // Who the entry is delegated to. If the entry describes a node, this is
+    // set to the SPIFFE ID of the SPIRE server of the trust domain (e.g.
+    // spiffe://example.org/spire/server). Otherwise, it will be set to a node
+    // SPIFFE ID.
+    spire.api.types.SPIFFEID parent_id = 3;
+
+    // The selectors which identify which entities match this entry. If this is
+    // an entry for a node, these selectors represent selectors produced by
+    // node attestation. Otherwise, these selectors represent those produced by
+    // workload attestation.
+    repeated spire.api.types.Selector selectors = 4;
+
+    // The time to live for X509-SVID identities issued for this entry (in seconds).
+    // Previously called ttl
+    int32 x509_svid_ttl = 5;
+
+    // The names of trust domains the identity described by this entry
+    // federates with.
+    repeated string federates_with = 6;
+
+    // Whether or not the identity described by this entry is an administrative
+    // workload. Administrative workloads are granted additional access to
+    // various managerial server APIs, such as entry registration.
+    bool admin = 7;
+
+    // Whether or not the identity described by this entry represents a
+    // downstream SPIRE server. Downstream SPIRE servers have additional access
+    // to various signing APIs, such as those used to sign X.509 CA
+    // certificates and publish JWT signing keys.
+    bool downstream = 8;
+
+    // When the entry expires (seconds since Unix epoch).
+    int64 expires_at = 9;
+
+    // A list of DNS names associated with the identity described by this entry.
+    repeated string dns_names = 10;
+
+    // Revision number is bumped every time the entry is updated
+    int64 revision_number = 11;
+
+    // Determines if the issued identity is exportable to a store
+    bool store_svid = 12;
+
+    // The time to live for JWT-SVID identities issued for this entry (in seconds), overrides ttl if set.
+    int32 jwt_svid_ttl = 13;
+
+    // An operator-specified string used to provide guidance on how this
+    // identity should be used by a workload when more than one SVID is returned.
+    string hint = 14;
+
+    // When the entry was created (seconds since Unix epoch).
+    int64 created_at = 15;
+}
+
+// Field mask for Entry fields
+message EntryMask {
+    // spiffe_id field mask
+    bool spiffe_id = 2;
+
+    // parent_id field mask
+    bool parent_id = 3;
+
+    // selectors field mask
+    bool selectors = 4;
+
+    // x509_svid_ttl field mask
+    bool x509_svid_ttl = 5;
+
+    // federates_with field mask
+    bool federates_with = 6;
+
+    // admin field mask
+    bool admin = 7;
+
+    // downstream field mask
+    bool downstream = 8;
+
+    // expires_at field mask
+    bool expires_at = 9;
+
+    // dns_names field mask
+    bool dns_names = 10;
+
+    // revision_number field mask
+    bool revision_number = 11;
+
+    // store_svid field mask
+    bool store_svid = 12;
+
+    // jwt_svid_ttl field mask
+    bool jwt_svid_ttl = 13;
+
+    // hint field mask
+    bool hint = 14;
+
+    // created_at field mask
+    bool created_at = 15;
+}

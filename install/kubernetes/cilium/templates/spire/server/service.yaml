@@ -1,0 +1,32 @@
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: spire-server
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+  labels:
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.authentication.mutual.spire.install.server.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- if or .Values.authentication.mutual.spire.install.server.service.annotations .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- with .Values.authentication.mutual.spire.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.authentication.mutual.spire.install.server.service.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  type: {{ .Values.authentication.mutual.spire.install.server.service.type }}
+  ports:
+  - name: grpc
+    port: 8081
+    targetPort: grpc
+    protocol: TCP
+  selector:
+    app: spire-server
+{{- end }}

@@ -1,0 +1,91 @@
+- metadata:
+    creationTimestamp: null
+    name: request-header-modifier
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: same-namespace
+    rules:
+    - backendRefs:
+      - filters:
+        - requestHeaderModifier:
+            set:
+            - name: X-Header-Set
+              value: set-overwrites-values
+          type: RequestHeaderModifier
+        name: infra-backend-v1
+        port: 8080
+      matches:
+      - path:
+          type: Exact
+          value: /set
+    - backendRefs:
+      - filters:
+        - requestHeaderModifier:
+            add:
+            - name: X-Header-Add
+              value: add-appends-values
+          type: RequestHeaderModifier
+        name: infra-backend-v1
+        port: 8080
+      matches:
+      - path:
+          type: Exact
+          value: /add
+    - backendRefs:
+      - filters:
+        - requestHeaderModifier:
+            remove:
+            - X-Header-Remove
+          type: RequestHeaderModifier
+        name: infra-backend-v1
+        port: 8080
+      matches:
+      - path:
+          type: Exact
+          value: /remove
+    - backendRefs:
+      - filters:
+        - requestHeaderModifier:
+            add:
+            - name: X-Header-Add-1
+              value: header-add-1
+            - name: X-Header-Add-2
+              value: header-add-2
+          type: RequestHeaderModifier
+        name: infra-backend-v1
+        port: 8080
+      - filters:
+        - requestHeaderModifier:
+            add:
+            - name: X-Header-Add-3
+              value: header-add-3
+          type: RequestHeaderModifier
+        name: infra-backend-v2
+        port: 8080
+      matches:
+      - path:
+          type: Exact
+          value: /multiple-backends
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      - filters:
+        - requestHeaderModifier:
+            add:
+            - name: X-Header-Add
+              value: header-add
+            remove:
+            - X-Header-Remove
+            set:
+            - name: X-Header-Set
+              value: header-set
+          type: RequestHeaderModifier
+        name: infra-backend-v2
+        port: 8080
+      matches:
+      - path:
+          type: Exact
+          value: /multiple-backends-with-some-not
+  status:
+    parents: null

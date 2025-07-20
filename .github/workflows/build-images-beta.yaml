@@ -1,0 +1,177 @@
+name: Beta Image Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Docker Image Tag'
+        required: true
+      suffix:
+        description: 'Docker Image Suffix (e.g. "beta" -> "cilium-beta")'
+        required: true
+        default: "beta"
+
+permissions:
+  # To be able to access the repository with `actions/checkout`
+  contents: read
+  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
+  id-token: write
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  build-and-push:
+    timeout-minutes: 45
+    name: Build and Push Images
+    environment: release-beta-images
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+
+          - name: operator
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+
+    steps:
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Login to quay.io
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_BETA_USERNAME }}
+          password: ${{ secrets.QUAY_BETA_PASSWORD }}
+
+      - name: Getting image tag
+        id: tag
+        run: |
+          echo tag=${GITHUB_REF##*/} >> $GITHUB_OUTPUT
+
+      - name: Checking if tag already exists
+        id: tag-in-repositories
+        shell: bash
+        run: |
+          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }} &>/dev/null; then
+            echo "Tag already exists!"
+            exit 1
+          fi
+
+      - name: Checkout Source Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Release Build ${{ matrix.name }}
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        id: docker_build_release
+        with:
+          provenance: false
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}
+          target: release
+          build-args: |
+            OPERATOR_VARIANT=${{ matrix.name }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+
+      - name: Sign Container Image
+        run: |
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@cee1b8e05ae5b2593a75e197229729eabaa9f8ec # v0.20.2
+        with:
+          artifact-name: sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx.json
+          output-file: ./sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx.json
+          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}
+
+      - name: Attach SBOM attestation to container image
+        run: |
+          cosign attest -y --predicate sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}
+
+      - name: Image Release Digest
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "## ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
+          echo "" >> image-digest/${{ matrix.name }}.txt
+          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "" >> image-digest/${{ matrix.name }}.txt
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-digest ${{ matrix.name }}
+          path: image-digest
+          retention-days: 1
+
+  image-digests:
+    name: Display Digests
+    runs-on: ubuntu-24.04
+    needs: build-and-push
+    steps:
+      - name: Downloading Image Digests
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+
+      - name: Download digests of all images built
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: image-digest/
+          pattern: "*image-digest *"
+
+      - name: Image Digests Output
+        shell: bash
+        run: |
+          cd image-digest/
+          find -type f | sort | xargs -d '\n' cat

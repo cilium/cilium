@@ -1,0 +1,737 @@
+name: Conformance Cluster Mesh (ci-clustermesh)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
+  push:
+    branches:
+      - main
+      - ft/main/**
+      - 'renovate/main-**'
+    paths-ignore:
+      - 'Documentation/**'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - push: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  clusterName1: cluster1-${{ github.run_id }}
+  clusterName2: cluster2-${{ github.run_id }}
+  ciliumClusterName1: c1
+  ciliumClusterName2: cluster2-with-long-name-01234567
+  contextName1: kind-cluster1-${{ github.run_id }}
+  contextName2: kind-cluster2-${{ github.run_id }}
+
+  # renovate: datasource=github-releases depName=cert-manager/cert-manager
+  CERT_MANAGER_VERSION: v1.18.2
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci cilium-cli-ci
+
+  installation-and-connectivity:
+    needs: [wait-for-images]
+    name: Installation and Connectivity Test
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    env:
+      job_name: "Installation and Connectivity Test"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: '1'
+            tunnel: 'disabled'
+            ipFamily: 'ipv4'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            mode: 'kvstoremesh'
+            tls-auto-method: helm
+            cm-auth-mode-1: 'legacy'
+            cm-auth-mode-2: 'legacy'
+            maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'enabled'
+            policy-default-local-cluster: true
+            multipool-ipam: 'enabled'
+
+          - name: '2'
+            tunnel: 'disabled'
+            ipFamily: 'dual'
+            encryption: 'wireguard'
+            kube-proxy: 'none'
+            mode: 'clustermesh'
+            tls-auto-method: cronJob
+            cm-auth-mode-1: 'migration'
+            cm-auth-mode-2: 'migration'
+            maxConnectedClusters: '511'
+            ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: false
+            multipool-ipam: 'disabled'
+
+          - name: '3'
+            tunnel: 'disabled'
+            ipFamily: 'dual'
+            encryption: 'ipsec'
+            kube-proxy: 'none'
+            mode: 'kvstoremesh'
+            tls-auto-method: certmanager
+            cm-auth-mode-1: 'cluster'
+            cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
+
+          # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
+          # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters (#23917)
+          - name: '4'
+            tunnel: 'disabled'
+            ipFamily: 'ipv6'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            mode: 'clustermesh'
+            tls-auto-method: certmanager
+            cm-auth-mode-1: 'legacy'
+            cm-auth-mode-2: 'migration'
+            maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: false
+            multipool-ipam: 'disabled'
+
+          - name: '5'
+            tunnel: 'disabled'
+            ipFamily: 'dual'
+            encryption: 'ipsec'
+            kube-proxy: 'iptables'
+            mode: 'external'
+            tls-auto-method: helm
+            maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
+
+          - name: '6'
+            tunnel: 'vxlan'
+            ipFamily: 'ipv4'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            mode: 'kvstoremesh'
+            tls-auto-method: helm
+            cm-auth-mode-1: 'cluster'
+            cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'enabled'
+            policy-default-local-cluster: false
+            multipool-ipam: 'enabled'
+
+          - name: '7'
+            tunnel: 'geneve'
+            ipFamily: 'dual'
+            encryption: 'wireguard'
+            kube-proxy: 'iptables'
+            mode: 'kvstoremesh'
+            tls-auto-method: cronJob
+            cm-auth-mode-1: 'migration'
+            cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '511'
+            ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
+
+          - name: '8'
+            tunnel: 'vxlan'
+            ipFamily: 'dual'
+            encryption: 'ipsec'
+            kube-proxy: 'iptables'
+            mode: 'clustermesh'
+            tls-auto-method: certmanager
+            cm-auth-mode-1: 'cluster'
+            cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: false
+            multipool-ipam: 'disabled'
+
+          - name: '9'
+            tunnel: 'vxlan'
+            ipFamily: 'ipv6'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            mode: 'kvstoremesh'
+            tls-auto-method: certmanager
+            cm-auth-mode-1: 'cluster'
+            cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'enabled'
+            policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
+
+          - name: '10'
+            tunnel: 'vxlan'
+            ipFamily: 'dual'
+            encryption: 'wireguard'
+            kube-proxy: 'iptables'
+            mode: 'external'
+            tls-auto-method: helm
+            maxConnectedClusters: '511'
+            ciliumEndpointSlice: 'disabled'
+            policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
+
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
+
+      - name: Set up job variables for GHA environment
+        id: vars
+        run: |
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
+            --helm-set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
+            --helm-set=hubble.enabled=true \
+            --helm-set=hubble.relay.enabled=true \
+            --helm-set=hubble.tls.auto.method=${{ matrix.tls-auto-method }} \
+            --helm-set=hubble.tls.auto.certManagerIssuerRef.group=cert-manager.io \
+            --helm-set=hubble.tls.auto.certManagerIssuerRef.kind=Issuer \
+            --helm-set=hubble.tls.auto.certManagerIssuerRef.name=cilium \
+            --helm-set=clustermesh.useAPIServer=${{ matrix.mode != 'external' }} \
+            --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.mode == 'kvstoremesh' }} \
+            --helm-set=clustermesh.maxConnectedClusters=${{ matrix.maxConnectedClusters }} \
+            --helm-set=clustermesh.enableEndpointSliceSynchronization=true \
+            --helm-set=clustermesh.apiserver.tls.auto.method=${{ matrix.tls-auto-method }} \
+            --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.group=cert-manager.io \
+            --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.kind=Issuer \
+            --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.name=cilium \
+            --helm-set=clustermesh.policyDefaultLocalCluster=${{ matrix.policy-default-local-cluster }} \
+            --helm-set=ciliumEndpointSlice.enabled=${{ matrix.ciliumEndpointSlice == 'enabled'}} \
+            --helm-set=extraConfig.clustermesh-sync-timeout=5m \
+            "
+
+          CILIUM_INSTALL_TUNNEL=" \
+            --helm-set=tunnelProtocol=${{ matrix.tunnel }} \
+            --helm-set=underlayProtocol=${{ matrix.ipFamily == 'ipv6' && 'ipv6' || 'ipv4' }} \
+          "
+          if [ "${{ matrix.tunnel }}" == "disabled" ]; then
+            CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
+              --helm-set=autoDirectNodeRoutes=true \
+              --helm-set=ipv4NativeRoutingCIDR=10.240.0.0/12 \
+              --helm-set=ipv6NativeRoutingCIDR=fd00:10:240::/44"
+          fi
+
+          case "${{ matrix.ipFamily }}" in
+            ipv4)
+              CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=false"
+              KIND_POD_CIDR_1="10.242.0.0/16"
+              KIND_SVC_CIDR_1="10.243.0.0/16"
+              KIND_POD_CIDR_2="10.244.0.0/16"
+              KIND_SVC_CIDR_2="10.245.0.0/16"
+              ;;
+            ipv6)
+              CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=false --helm-set=ipv6.enabled=true"
+              KIND_POD_CIDR_1="fd00:10:242::/48"
+              KIND_SVC_CIDR_1="fd00:10:243::/112"
+              KIND_POD_CIDR_2="fd00:10:244::/48"
+              KIND_SVC_CIDR_2="fd00:10:245::/112"
+              ;;
+            dual)
+              CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=true"
+              KIND_POD_CIDR_1="10.242.0.0/16,fd00:10:242::/48"
+              KIND_SVC_CIDR_1="10.243.0.0/16,fd00:10:243::/112"
+              KIND_POD_CIDR_2="10.244.0.0/16,fd00:10:244::/48"
+              KIND_SVC_CIDR_2="10.245.0.0/16,fd00:10:245::/112"
+              ;;
+            *)
+              echo "Unknown IP family '${{ matrix.ipFamily }}'" && false
+              ;;
+          esac
+
+          CILIUM_INSTALL_ENCRYPTION=""
+          if [ "${{ matrix.encryption }}" != "disabled" ]; then
+            CILIUM_INSTALL_ENCRYPTION="--helm-set=encryption.enabled=true \
+              --helm-set=encryption.type=${{ matrix.encryption }}"
+          fi
+
+          CILIUM_INSTALL_INGRESS=""
+          if [ "${{ matrix.kube-proxy }}" == "none" ]; then
+            CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true"
+          fi
+
+          CILIUM_INSTALL_MULTIPOOL_IPAM=""
+          CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER1=""
+          CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER2=""
+          if [ "${{ matrix.multipool-ipam }}" != "disabled" ]; then
+            CILIUM_INSTALL_MULTIPOOL_IPAM="--helm-set=endpointRoutes.enabled=true \
+              --helm-set=bpf.hostLegacyRouting=true \
+              --helm-set=ipam.mode=multi-pool \
+              --helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,11.0.0.0/8,192.168.0.0/20,192.168.16.0/20}'"
+
+            CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER1="--helm-set=ipMasqAgent.enabled=true \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{10.10.0.0/16}' \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.cidrs='{10.20.0.0/16}' \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.maskSize=24 \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.cidrs='{192.168.0.0/24}' \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.maskSize=27"
+
+            CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER2="--helm-set=ipMasqAgent.enabled=true \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{11.10.0.0/16}' \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/24}' \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27"
+          fi
+
+          CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --flow-validation=disabled \
+            --test-concurrency=5 \
+            --multi-cluster=${{ env.contextName2 }} \
+            --external-target=google.com. \
+            --include-unsafe-tests \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename 'cilium-sysdump-${{ matrix.name }}-<ts>'" \
+
+          if [ "${{ matrix.multipool-ipam }}" != "disabled" ]; then
+            CONNECTIVITY_TEST_DEFAULTS="$CONNECTIVITY_TEST_DEFAULTS \
+              --namespace-annotations=ipam.cilium.io/ip-pool=cilium-test-pool \
+              --deployment-pod-annotations='{ \
+                  \"client\":{\"ipam.cilium.io/ip-pool\":\"client-pool\"}, \
+                  \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
+              }'"
+          fi
+
+          # Skip external traffic (e.g. 1.1.1.1 and www.google.com) tests as IPv6 is not supported
+          # in GitHub runners: https://github.com/actions/runner-images/issues/668
+          if [[ "${{ matrix.ipFamily }}" == "ipv6" ]]; then
+            CONNECTIVITY_TEST_DEFAULTS="$CONNECTIVITY_TEST_DEFAULTS \
+              --test='!/pod-to-world' \
+              --test='!/pod-to-cidr'"
+          fi
+
+          echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} \
+            ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_INGRESS} ${CILIUM_INSTALL_MULTIPOOL_IPAM}" >> $GITHUB_OUTPUT
+          echo cilium_install_multipool_ipam_cluster1="${CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER1}" >> $GITHUB_OUTPUT
+          echo cilium_install_multipool_ipam_cluster2="${CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER2}" >> $GITHUB_OUTPUT
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+
+          echo kind_pod_cidr_1=${KIND_POD_CIDR_1} >> $GITHUB_OUTPUT
+          echo kind_svc_cidr_1=${KIND_SVC_CIDR_1} >> $GITHUB_OUTPUT
+          echo kind_pod_cidr_2=${KIND_POD_CIDR_2} >> $GITHUB_OUTPUT
+          echo kind_svc_cidr_2=${KIND_SVC_CIDR_2} >> $GITHUB_OUTPUT
+
+      - name: Generate Kind configuration files
+        run: |
+          PODCIDR=${{ steps.vars.outputs.kind_pod_cidr_1 }} \
+            SVCCIDR=${{ steps.vars.outputs.kind_svc_cidr_1 }} \
+            IPFAMILY=${{ matrix.ipFamily }} \
+            KUBEPROXYMODE=${{ matrix.kube-proxy }} \
+            envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-cluster1.yaml
+
+          PODCIDR=${{ steps.vars.outputs.kind_pod_cidr_2 }} \
+            SVCCIDR=${{ steps.vars.outputs.kind_svc_cidr_2 }} \
+            IPFAMILY=${{ matrix.ipFamily }} \
+            KUBEPROXYMODE=${{ matrix.kube-proxy }} \
+            envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-cluster2.yaml
+
+      - name: Create Kind cluster 1
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          cluster_name: ${{ env.clusterName1 }}
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ./.github/kind-config-cluster1.yaml
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Create Kind cluster 2
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          cluster_name: ${{ env.clusterName2 }}
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ./.github/kind-config-cluster2.yaml
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Label one of the nodes as external to the cluster
+        run: |
+          kubectl --context ${{ env.contextName1 }} label node \
+            ${{ env.clusterName1 }}-worker2 cilium.io/no-schedule=true
+
+      # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
+      # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
+      # Additionally, this is also required to workaround
+      # https://github.com/cilium/cilium/issues/23283#issuecomment-1597282247.
+      - name: Configure the coredns nameservers
+        run: |
+          COREDNS_PATCH="
+          spec:
+            template:
+              spec:
+                dnsPolicy: None
+                dnsConfig:
+                  nameservers:
+                  - 8.8.4.4
+                  - 8.8.8.8
+          "
+
+          kubectl --context ${{ env.contextName1 }} -n kube-system get configmap coredns -o yaml | \
+            sed '/loadbalance/a \        log' | kubectl --context ${{ env.contextName1 }} replace -f -
+          kubectl --context ${{ env.contextName2 }} -n kube-system get configmap coredns -o yaml | \
+            sed '/loadbalance/a \        log' | kubectl --context ${{ env.contextName2 }} replace -f -
+
+          kubectl --context ${{ env.contextName1 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
+          kubectl --context ${{ env.contextName2 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
+
+      - name: Start kvstore clusters
+        id: kvstore
+        if: matrix.mode == 'external'
+        uses: ./.github/actions/kvstore
+        with:
+          clusters: 2
+
+      - name: Create the secret containing the kvstore credentials
+        if: matrix.mode == 'external'
+        run: |
+          kubectl --context ${{ env.contextName1 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
+          kubectl --context ${{ env.contextName2 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
+
+      - name: Install cert-manager CRDs and create Cilium's issuer
+        if: matrix.tls-auto-method == 'certmanager'
+        run: |
+          # Generate the Cilium CA key and certificate
+          openssl genrsa 4096 > cilium-ca-key.pem
+          openssl req -new -x509 -nodes -days 1 -key cilium-ca-key.pem -out cilium-ca-crt.pem -subj "/CN=Cilium CA/"
+
+          cat << EOF > issuer.yaml
+          apiVersion: cert-manager.io/v1
+          kind: Issuer
+          metadata:
+            name: cilium
+            namespace: kube-system
+          spec:
+            ca:
+              secretName: cilium-root-ca
+          EOF
+
+          for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+            # Install the cert-manager CRDs
+            CRD_URL="https://github.com/cert-manager/cert-manager/releases/download/${{ env.CERT_MANAGER_VERSION }}/cert-manager.crds.yaml"
+            kubectl --context $ctx apply -f $CRD_URL
+
+            # Create the Cilium CA secret
+            kubectl --context $ctx create -n kube-system secret tls cilium-root-ca \
+              --key=cilium-ca-key.pem --cert=cilium-ca-crt.pem
+
+            # Create the cert-manager issuer
+            kubectl --context $ctx apply -f issuer.yaml
+          done
+
+      - name: Set clustermesh connection parameters
+        if: matrix.mode == 'external'
+        id: clustermesh-vars
+        run: |
+          echo "cilium_install_clustermesh= \
+            --set=clustermesh.config.enabled=true \
+            --set clustermesh.config.clusters[0].name=${{ env.ciliumClusterName1 }} \
+            --set clustermesh.config.clusters[1].name=${{ env.ciliumClusterName2 }} \
+            ${{ steps.kvstore.outputs.cilium_install_clustermesh }} \
+          " >> $GITHUB_OUTPUT
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Create the IPSec secret in both clusters
+        if: matrix.encryption == 'ipsec'
+        run: |
+          SECRET="3+ rfc4106(gcm(aes)) $(openssl rand -hex 20) 128"
+          kubectl --context ${{ env.contextName1 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
+          kubectl --context ${{ env.contextName2 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
+
+      - name: Install Cilium in cluster1
+        id: install-cilium-cluster1
+        env:
+          KVSTORE_ID: 1
+        run: |
+          # Explicitly configure the NodePort to make sure that it is different in
+          # each cluster, to workaround #24692
+          cilium --context ${{ env.contextName1 }} install \
+            ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --helm-set cluster.name=${{ env.ciliumClusterName1 }} \
+            --helm-set cluster.id=1 \
+            --helm-set clustermesh.apiserver.service.nodePort=32379 \
+            --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
+            ${{ steps.vars.outputs.cilium_install_multipool_ipam_cluster1 }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }} \
+            --nodes-without-cilium
+
+      - name: Copy the Cilium CA secret to cluster2, as they must match
+        if: matrix.tls-auto-method != 'certmanager'
+        run: |
+          kubectl --context ${{ env.contextName1 }} get secret -n kube-system cilium-ca -o yaml |
+            kubectl --context ${{ env.contextName2 }} create -f -
+
+      - name: Install Cilium in cluster2
+        env:
+          KVSTORE_ID: 2
+        run: |
+          # Explicitly configure the NodePort to make sure that it is different in
+          # each cluster, to workaround #24692
+          cilium --context ${{ env.contextName2 }} install \
+            ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --helm-set cluster.name=${{ env.ciliumClusterName2 }} \
+            --helm-set cluster.id=${{ matrix.maxConnectedClusters }} \
+            --helm-set clustermesh.apiserver.service.nodePort=32380 \
+            --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
+            ${{ steps.vars.outputs.cilium_install_multipool_ipam_cluster2 }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }}
+
+      - name: Install cert-manager
+        if: matrix.tls-auto-method == 'certmanager'
+        run: |
+          helm repo add jetstack https://charts.jetstack.io
+          for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+            helm --kube-context $ctx install \
+              cert-manager jetstack/cert-manager \
+              --namespace cert-manager \
+              --create-namespace \
+              --version ${{ env.CERT_MANAGER_VERSION }}
+          done
+
+      - name: Wait for cluster mesh status to be ready
+        run: |
+          cilium --context ${{ env.contextName1 }} status --wait --interactive=false
+          cilium --context ${{ env.contextName2 }} status --wait --interactive=false
+          cilium --context ${{ env.contextName1 }} clustermesh status --wait
+          cilium --context ${{ env.contextName2 }} clustermesh status --wait
+
+      - name: Connect clusters
+        if: matrix.mode != 'external'
+        run: |
+          cilium --context ${{ env.contextName1 }} clustermesh connect --destination-context ${{ env.contextName2 }}
+
+      - name: Wait for cluster mesh status to be ready
+        if: matrix.mode != 'external'
+        run: |
+          cilium --context ${{ env.contextName1 }} status --wait --interactive=false
+          cilium --context ${{ env.contextName2 }} status --wait --interactive=false
+          cilium --context ${{ env.contextName1 }} clustermesh status --wait
+          cilium --context ${{ env.contextName2 }} clustermesh status --wait
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
+      - name: Record "No node ID found" drops
+        id: no_nodeid_drops_prev
+        run: |
+          set -x
+          total_drops=0
+          for cilium_pod in $(kubectl -n kube-system --context ${{ env.contextName1 }} get po -l k8s-app=cilium -o jsonpath='{.items[*].metadata.name}'); do
+            drops=$(kubectl -n kube-system --context ${{ env.contextName1 }} exec $cilium_pod -- cilium metrics list -o json | jq '.[] | select((.name == "cilium_drop_count_total") and (.labels.reason == "No node ID found")) | .value')
+            total_drops=$((total_drops + drops))
+          done
+
+          echo "No node ID found drops: $total_drops"
+          echo "total_drops=$total_drops" >> $GITHUB_OUTPUT
+
+      - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium --context ${{ env.contextName1 }} connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})" \
+          --expected-drop-reasons='+No node ID found'
+
+      - name: Assert no "No node ID found" drops
+        run: |
+          set -x
+          total_drops=0
+          for cilium_pod in $(kubectl -n kube-system --context ${{ env.contextName1 }} get po -l k8s-app=cilium -o jsonpath='{.items[*].metadata.name}'); do
+            drops=$(kubectl -n kube-system --context ${{ env.contextName1 }} exec $cilium_pod -- cilium metrics list -o json | jq '.[] | select((.name == "cilium_drop_count_total") and (.labels.reason == "No node ID found")) | .value')
+            total_drops=$((total_drops + drops))
+          done
+
+          echo "prev_drops: ${{ steps.no_nodeid_drops_prev.outputs.total_drops }}"
+          echo "current_drops: $total_drops"
+          if [[ "$total_drops" != ${{ steps.no_nodeid_drops_prev.outputs.total_drops }} ]]; then
+            # run no-unexpected-packet-drops connectivity to collect sysdumps
+            cilium --context ${{ env.contextName1 }} connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})" \
+            --test 'no-unexpected-packet-drops'
+          fi
+
+      - name: Features tested on cluster 1
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 1"
+
+      - name: Features tested on cluster 2
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2"
+
+      - name: Post-test information gathering
+        if: ${{ !success() && steps.install-cilium-cluster1.outcome != 'skipped' }}
+        run: |
+          cilium --context ${{ env.contextName1 }} status
+          cilium --context ${{ env.contextName1 }} clustermesh status
+          cilium --context ${{ env.contextName2 }} status
+          cilium --context ${{ env.contextName2 }} clustermesh status
+
+          kubectl config use-context ${{ env.contextName1 }}
+          kubectl get pods --all-namespaces -o wide
+          cilium sysdump --output-filename cilium-sysdump-context1-final-${{ join(matrix.*, '-') }}
+
+          kubectl config use-context ${{ env.contextName2 }}
+          kubectl get pods --all-namespaces -o wide
+          cilium sysdump --output-filename cilium-sysdump-context2-final-${{ join(matrix.*, '-') }}
+
+          kubectl --context ${{ env.contextName1 }} logs -n kube-system -l k8s-app=kube-dns --prefix --timestamps --tail=-1
+          kubectl --context ${{ env.contextName2 }} logs -n kube-system -l k8s-app=kube-dns --prefix --timestamps --tail=-1
+
+          if [ "${{ matrix.mode }}" == "external" ]; then
+            for i in {1..2}; do
+              echo
+              echo "# Retrieving logs from kvstore$i docker container"
+              docker logs kvstore$i
+            done
+          fi
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "${{ matrix.name }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
+          capture_sysdump: false
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: installation-and-connectivity
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.installation-and-connectivity.result }}

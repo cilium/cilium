@@ -1,0 +1,23 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: "allow-extended-egress-worker-node"
+spec:
+  description: "Allow specific traffic on egress of worker nodes"
+  nodeSelector:
+    matchLabels:
+      type: ingress-worker
+  egress:
+  - toPorts:
+    - ports:
+      - port: "6443"
+        protocol: TCP
+      - port: "443"
+        protocol: TCP
+      - port: "2379"
+        protocol: TCP
+      - port: "4240"
+        protocol: TCP
+      - port: "8472"
+        protocol: UDP
+      - protocol: VRRP

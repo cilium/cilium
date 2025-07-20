@@ -1,0 +1,30 @@
+{{- if and .Values.operator.enabled .Values.operator.prometheus.enabled (or .Values.operator.prometheus.serviceMonitor.enabled .Values.operator.prometheus.metricsService) }}
+kind: Service
+apiVersion: v1
+metadata:
+  name: cilium-operator
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.operator.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    io.cilium/app: operator
+    name: cilium-operator
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-operator
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  clusterIP: None
+  type: ClusterIP
+  ports:
+  - name: metrics
+    port: 9963
+    protocol: TCP
+    targetPort: prometheus
+  selector:
+    io.cilium/app: operator
+    name: cilium-operator
+{{- end }}

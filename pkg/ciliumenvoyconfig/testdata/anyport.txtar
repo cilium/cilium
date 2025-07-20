@@ -1,0 +1,356 @@
+# Test handling of CiliumEnvoyConfig, without specifying service ports
+
+hive start
+
+# Set up the services and endpoints
+k8s/add service.yaml
+db/cmp services services.table
+k8s/add endpointslice.yaml
+db/cmp backends backends.table
+
+# Add the CiliumEnvoyConfig and wait for it to be ingested.
+k8s/add cec.yaml
+db/cmp ciliumenvoyconfigs cec.table
+
+# Check that both services are now redirected to proxy.
+db/cmp services services_redirected.table
+
+# Check BPF maps. The service should have L7 redirect set.
+lb/maps-dump lbmaps.out
+* cmp lbmaps.out lbmaps.expected
+
+# Check that right updates towards Envoy happened.
+* envoy/cmp envoy1.expected
+
+# Test the processing other way around, e.g. CEC exists before
+# the service. Start by dropping the backends.
+k8s/delete endpointslice.yaml
+
+# Backends towards Envoy should be dropped.
+* envoy/cmp envoy2.expected
+
+# Drop the service
+k8s/delete service.yaml
+
+# Services should be empty
+* db/empty services
+
+# Add back the service and endpoints
+k8s/add service.yaml endpointslice.yaml
+db/cmp services services_redirected.table
+
+# Check again that updates happened.
+* envoy/cmp envoy3.expected
+
+# Cleanup. Remove CEC and check that proxy redirect is gone.
+k8s/delete cec.yaml
+
+# Tables should be empty
+* db/empty ciliumenvoyconfigs envoy-resources
+db/cmp services services.table
+
+# The listener should now be deleted.
+* envoy/cmp envoy4.expected
+
+# ---------------------------------------------
+
+-- services.table --
+Name        Flags
+test/echo   
+
+-- services_redirected.table --
+Name        Flags
+test/echo   ProxyRedirect=1000
+
+-- backends.table --
+Address
+10.244.1.1:25/TCP
+10.244.1.1:8080/TCP
+
+-- cec.table --
+Name                    Services
+test/envoy-lb-listener  test/echo
+
+-- cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: envoy-lb-listener
+  namespace: test
+spec:
+  services:
+    - name: echo
+      namespace: test
+      listener: envoy-lb-listener
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: envoy-lb-listener
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: smtp
+    nodePort: 30725
+    port: 25
+    protocol: TCP
+    targetPort: 25
+  selector:
+    name: echo
+  type: NodePort
+status:
+  loadBalancer: {}
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+- name: smtp
+  port: 25
+  protocol: TCP
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=10.244.1.1:25/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.1:8080/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30725
+REV: ID=2 ADDR=0.0.0.0:30781
+REV: ID=3 ADDR=10.96.50.104:25
+REV: ID=4 ADDR=10.96.50.104:80
+SVC: ID=1 ADDR=0.0.0.0:30725/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=1 ADDR=0.0.0.0:30725/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=2 ADDR=0.0.0.0:30781/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=2 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=3 ADDR=10.96.50.104:25/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+SVC: ID=3 ADDR=10.96.50.104:25/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+SVC: ID=4 ADDR=10.96.50.104:80/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+SVC: ID=4 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+-- envoy1.expected --
+policy-trigger-count:
+  1
+endpoints:test/echo:
+  cluster_name: "test/echo"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 25
+          }
+        }
+      }
+    }
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+endpoints:test/echo:*:
+  cluster_name: "test/echo:*"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 25
+          }
+        }
+      }
+    }
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+listener:test/envoy-lb-listener/envoy-lb-listener:
+  name: "test/envoy-lb-listener/envoy-lb-listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
+-- envoy2.expected --
+policy-trigger-count:
+  1
+listener:test/envoy-lb-listener/envoy-lb-listener:
+  name: "test/envoy-lb-listener/envoy-lb-listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
+-- envoy3.expected --
+policy-trigger-count:
+  1
+endpoints:test/echo:
+  cluster_name: "test/echo"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 25
+          }
+        }
+      }
+    }
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+endpoints:test/echo:*:
+  cluster_name: "test/echo:*"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 25
+          }
+        }
+      }
+    }
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+listener:test/envoy-lb-listener/envoy-lb-listener:
+  name: "test/envoy-lb-listener/envoy-lb-listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
+-- envoy4.expected --
+policy-trigger-count:
+  2

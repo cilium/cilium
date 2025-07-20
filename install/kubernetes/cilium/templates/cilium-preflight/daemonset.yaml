@@ -1,0 +1,295 @@
+{{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
+
+{{- if .Values.preflight.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cilium-pre-flight-check
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.preflight.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-pre-flight-check
+      kubernetes.io/cluster-service: "true"
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: cilium-pre-flight-check
+        {{- with .Values.preflight.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        app.kubernetes.io/part-of: cilium
+        k8s-app: cilium-pre-flight-check
+        app.kubernetes.io/name: cilium-pre-flight-check
+        kubernetes.io/cluster-service: "true"
+        {{- with .Values.commonLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.preflight.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.preflight.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.preflight.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: clean-cilium-state
+          image: {{ include "cilium.image" .Values.preflight.image | quote }}
+          imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
+          command: ["/bin/echo"]
+          args:
+          - "hello"
+          terminationMessagePolicy: FallbackToLogsOnError
+      containers:
+        - name: cilium-pre-flight-check
+          image: {{ include "cilium.image" .Values.preflight.image | quote }}
+          imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - "touch /tmp/ready; sleep 1h"
+          livenessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          env:
+          - name: K8S_NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          {{- with .Values.preflight.extraEnv }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
+          volumeMounts:
+          - name: cilium-run
+            mountPath: /var/run/cilium
+          {{- if .Values.etcd.enabled }}
+          - name: etcd-config-path
+            mountPath: /var/lib/etcd-config
+            readOnly: true
+          {{- if .Values.etcd.ssl }}
+          - name: etcd-secrets
+            mountPath: /var/lib/etcd-secrets
+            readOnly: true
+          {{- end }}
+          {{- end }}
+          {{- with .Values.preflight.extraVolumeMounts }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- with .Values.preflight.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          {{- with .Values.preflight.securityContext }}
+          securityContext:
+            {{- toYaml . | trim | nindent 14 }}
+          {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
+        {{- if ne .Values.preflight.tofqdnsPreCache "" }}
+        - name: cilium-pre-flight-fqdn-precache
+          image: {{ include "cilium.image" .Values.preflight.image | quote }}
+          imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
+          name: cilium-pre-flight-fqdn-precache
+          command: ["/bin/sh"]
+          args:
+          - -ec
+          - |
+            cilium-dbg preflight fqdn-poller --tofqdns-pre-cache {{ .Values.preflight.tofqdnsPreCache }};
+            touch /tmp/ready-tofqdns-precache;
+          livenessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/read-tofqdns-precachey
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/read-tofqdns-precachey
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          env:
+          {{- if and .Values.k8sServiceHostRef.name .Values.k8sServiceHostRef.key }}
+          - name: KUBERNETES_SERVICE_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.k8sServiceHostRef.name }}
+                key: {{ .Values.k8sServiceHostRef.key }}
+          - name: KUBERNETES_SERVICE_PORT
+            value: {{ include "k8sServicePort" . }}
+          {{- end }}
+          {{- if .Values.k8sServiceHost }}
+          - name: KUBERNETES_SERVICE_HOST
+            value: {{ include "k8sServiceHost" . }}
+          - name: KUBERNETES_SERVICE_PORT
+            value: {{ include "k8sServicePort" . }}
+          {{- end }}
+          volumeMounts:
+          - name: cilium-run
+            mountPath: /var/run/cilium
+          {{- if .Values.etcd.enabled }}
+          - name: etcd-config-path
+            mountPath: /var/lib/etcd-config
+            readOnly: true
+          {{- if .Values.etcd.ssl }}
+          - name: etcd-secrets
+            mountPath: /var/lib/etcd-secrets
+            readOnly: true
+          {{- end }}
+          {{- end }}
+          {{- with .Values.preflight.extraVolumeMounts }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- with .Values.preflight.extraEnv }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
+          {{- with .Values.preflight.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          {{- with .Values.preflight.securityContext }}
+          securityContext:
+            {{- toYaml . | trim | nindent 14 }}
+          {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
+        {{- end }}
+        {{- if $envoyDS }}
+        - name: cilium-pre-flight-envoy
+          image: {{ include "cilium.image" .Values.preflight.envoy.image | quote }}
+          imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - "touch /tmp/ready; sleep 1h"
+          livenessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+          - name: envoy-sockets
+            mountPath: /var/run/cilium/envoy/sockets
+            readOnly: false
+          - name: envoy-artifacts
+            mountPath: /var/run/cilium/envoy/artifacts
+            readOnly: true
+          - name: envoy-config
+            mountPath: /var/run/cilium/envoy/
+            readOnly: true
+          {{- with .Values.preflight.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          {{- with .Values.preflight.securityContext }}
+          securityContext:
+            {{- toYaml . | trim | nindent 14 }}
+          {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
+        {{- end }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      restartPolicy: Always
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-node-critical") }}
+      serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.preflight.automount }}
+      terminationGracePeriodSeconds: {{ .Values.preflight.terminationGracePeriodSeconds }}
+      {{- with .Values.preflight.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.preflight.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      volumes:
+        # To keep state between restarts / upgrades
+      - name: cilium-run
+        hostPath:
+          path: /var/run/cilium
+          type: DirectoryOrCreate
+      - name: bpf-maps
+        hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+      {{- if .Values.etcd.enabled }}
+        # To read the etcd config stored in config maps
+      - name: etcd-config-path
+        configMap:
+          name: cilium-config
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          items:
+          - key: etcd-config
+            path: etcd.config
+        # To read the k8s etcd secrets in case the user might want to use TLS
+      {{- if .Values.etcd.ssl }}
+      - name: etcd-secrets
+        secret:
+          secretName: cilium-etcd-secrets
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          optional: true
+      {{- end }}
+      {{- end }}
+      {{- if $envoyDS }}
+      - name: envoy-sockets
+        hostPath:
+          path: "{{ .Values.daemon.runPath }}/envoy/sockets"
+          type: DirectoryOrCreate
+      - name: envoy-artifacts
+        hostPath:
+          path: "{{ .Values.daemon.runPath }}/envoy/artifacts"
+          type: DirectoryOrCreate
+      - name: envoy-config
+        configMap:
+          name: {{ .Values.envoy.bootstrapConfigMap | default "cilium-envoy-config" | quote }}
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          items:
+            - key: bootstrap-config.json
+              path: bootstrap-config.json
+      {{- end }}
+      {{- with .Values.preflight.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+{{- end }}

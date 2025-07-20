@@ -1,0 +1,196 @@
+name: Conformance Kind Envoy Embedded
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request:
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+  push:
+    branches:
+      - main
+      - ft/main/**
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+env:
+  kind_config: .github/kind-config-dual.yaml
+
+jobs:
+  installation-and-connectivity:
+    name: "Installation and Connectivity Test"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      job_name: "Installation and Connectivity Test"
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Add external docker network
+        uses: ./.github/actions/kind-external-network
+        id: external_network
+
+      - name: Create kind cluster
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ${{ env.kind_config }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Add external targets to kind cluster
+        uses: ./.github/actions/kind-external-targets
+        id: external_targets
+        with:
+          kind_network: ${{ steps.external_network.outputs.kind_network }}
+          ipv4_external_target: ${{ steps.external_network.outputs.ipv4_external_target }}
+          ipv4_other_external_target: ${{ steps.external_network.outputs.ipv4_other_external_target }}
+          ipv6_external_target: ${{ steps.external_network.outputs.ipv6_external_target }}
+          ipv6_other_external_target: ${{ steps.external_network.outputs.ipv6_other_external_target }}
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          # Note: On Kind, we install Cilium with HostPort (portmap CNI chaining) enabled,
+          # to ensure coverage of that feature in cilium connectivity test
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set=hubble.relay.enabled=true
+            --helm-set=cni.chainingMode=portmap \
+            --helm-set-string=kubeProxyReplacement=true \
+            --helm-set=loadBalancer.l7.backend=envoy \
+            --helm-set=tls.readSecretsOnlyFromSecretsNamespace=true \
+            --helm-set=tls.secretSync.enabled=true \
+            --helm-set=envoy.enabled=false \
+            --helm-set=ipv6.enabled=true \
+            --wait=false"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --test-concurrency=5 \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --hubble=false --collect-sysdump-on-failure \
+            --external-target=${{ steps.external_targets.outputs.external_target_name }} \
+            --external-other-target=${{ steps.external_targets.outputs.other_external_target_name }} \
+            --external-cidr=${{ steps.external_network.outputs.ipv4_external_cidr }} \
+            --external-cidrv6=${{ steps.external_network.outputs.ipv6_external_cidr }} \
+            --external-ip=${{ steps.external_network.outputs.ipv4_external_target }} \
+            --external-ipv6=${{ steps.external_network.outputs.ipv6_external_target }} \
+            --external-other-ip=${{ steps.external_network.outputs.ipv4_other_external_target }} \
+            --external-other-ipv6=${{ steps.external_network.outputs.ipv6_other_external_target }} \
+            --external-target-ca-namespace=external-target-secrets --external-target-ca-name=custom-ca \
+            --external-target-ipv6-capable"
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@011bd4acc9dd898b40bca93faf2986ea4b55a95a # v0.18.5
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait --interactive=false
+          kubectl -n kube-system get pods
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
+      - name: Run connectivity test
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --curl-parallel 3 \
+            --junit-file "cilium-junits/${{ env.job_name }}.xml" --junit-property github_job_step="Run connectivity test"
+
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}"
+
+      - name: Install Cilium with secret sync disabled
+        id: install-cilium-secret-sync-disabled
+        run: |
+          helm upgrade cilium ./install/kubernetes/cilium \
+            --namespace kube-system \
+            --reuse-values \
+            --set=tls.readSecretsOnlyFromSecretsNamespace=false \
+            --set=tls.secretSync.enabled=false
+
+          kubectl -n kube-system rollout restart ds/cilium deployment/cilium-operator
+          cilium status --wait --interactive=false --wait-duration=10m
+          kubectl -n kube-system get pods
+
+      - name: Run L7 related connectivity test
+        run: |
+          cilium connectivity test --test="l7|sni|check-log-errors" \
+            --curl-parallel 3 \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --junit-file "cilium-junits/${{ env.job_name }}-without-secret-sync.xml" \
+            --junit-property github_job_step="Run connectivity test with secret sync disabled" \
+            --external-target=${{ steps.external_targets.outputs.external_target_name }} \
+            --external-other-target=${{ steps.external_targets.outputs.other_external_target_name }} \
+            --external-cidr=${{ steps.external_network.outputs.ipv4_external_cidr }} \
+            --external-cidrv6=${{ steps.external_network.outputs.ipv6_external_cidr }} \
+            --external-ip=${{ steps.external_network.outputs.ipv4_external_target }} \
+            --external-ipv6=${{ steps.external_network.outputs.ipv6_external_target }} \
+            --external-other-ip=${{ steps.external_network.outputs.ipv4_other_external_target }} \
+            --external-other-ipv6=${{ steps.external_network.outputs.ipv6_other_external_target }} \
+            --external-target-ca-namespace=external-target-secrets --external-target-ca-name=custom-ca \
+            --external-target-ipv6-capable
+
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}-without-secret-sync"
+
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "${{ env.job_name }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
