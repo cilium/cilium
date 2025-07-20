@@ -156,6 +156,7 @@ jobs:
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
+            --include-no-unexpected-packet-drops-test \
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
