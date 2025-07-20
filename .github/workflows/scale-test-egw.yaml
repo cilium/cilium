@@ -68,16 +68,16 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.24.5
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.210.0
+  eksctl_version: v0.211.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.33.2
+  kubectl_version: v1.33.3
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 529.0.0
+  gcloud_version: 530.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 0b6ac85d1c51219004ffbd977e78127070091a01
+  egw_utils_ref: ebe06a35f96ed5458603c2744b91d1b86cc6c2a4
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -283,7 +283,7 @@ jobs:
           go-version: ${{ env.go_version }}
 
       - name: Setup gcloud credentials
-        uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193 # v2.1.10
+        uses: google-github-actions/auth@140bb5113ffb6b65a7e9b937a81fa96cf5064462 # v2.1.11
         with:
           workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PERF_SA }}
@@ -291,7 +291,7 @@ jobs:
           export_environment_variables: true
 
       - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a # v2.1.4
+        uses: google-github-actions/setup-gcloud@6a7c903a70c8625ed6700fa299f5ddb4ca6022e9 # v2.1.5
         with:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
