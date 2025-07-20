@@ -46,11 +46,12 @@ between two clusters. The cluster name refers to the name given via the
             io.cilium.k8s.policy.cluster: cluster2
 
 
-Note that by default policies automatically select endpoints from all the clusters unless it is explicitly specified.
-To restrict endpoint selection to the local cluster by default you can enable the option ``--policy-default-local-cluster``
-via the ConfigMap option ``policy-default-local-cluster`` or the Helm value ``clustermesh.policyDefaultLocalCluster``. Changing
-this option is a **breaking change** for existing policies. To migrate this setting safely read :ref:`change_policy_default_local_cluster` for
-more details.
+Policies automatically select endpoints from the local cluster only, unless one
+or multiple cluster are specifically targeted.
+
+.. warning::
+  In Cilium v1.18 or lower, policies used to select endpoints from all clusters by default.
+  See :ref:`change_policy_default_local_cluster` for more details about this change.
 
 The following policy illustrates how to explicitly allow pods to communicate to all clusters.
 
