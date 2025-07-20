@@ -292,6 +292,14 @@ communicating via the proxy must reconnect to re-establish connections.
 
 1.19 Upgrade Notes
 ------------------
+* In a Cluster Mesh environment, network policy ingress and egress selectors currently select by default
+  endpoints from all clusters unless one or more clusters are explicitly specified in the policy itself.
+  The ``policy-default-local-cluster`` flag allows to change this behavior, and only select endpoints
+  from the local cluster, unless explicitly specified, to improve the default security posture.
+  This option is now enabled by default in Cilium v1.19. If you are using Cilium ClusterMesh and network policies,
+  you need to take action to update your network policies to avoid this change from breaking connectivity for applications
+  across different clusters. See :ref:`change_policy_default_local_cluster` for more details and migration recommendations
+  to update your network policies.
 
 Removed Options
 ~~~~~~~~~~~~~~~
