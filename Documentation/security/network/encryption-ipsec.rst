@@ -301,12 +301,11 @@ Troubleshooting
        Encryption: IPsec
        Decryption interface(s): eth0, eth1, eth2
        Keys in use: 4
-       Max Seq. Number: 0x1e3/0xffffffff
+       Max Seq. Number: 0x1e3/0xffffffffffffffff
        Errors: 0
 
    If the error counter is non-zero, additional information will be displayed
-   with the specific errors the kernel encountered. If the sequence number
-   reaches its maximum value, it will also result in errors.
+   with the specific errors the kernel encountered.
 
    The number of keys in use should be 2 per remote node per enabled IP family.
    During a key rotation, it can double to 4 per remote node per IP family. For
@@ -324,11 +323,6 @@ errors.
    change on other nodes. You may notice the ``XfrmInNoStates`` and
    ``XfrmOutNoStates`` counters increase while the new node key is being
    deployed.
-
- * If the sequence number reaches its maximum value for any XFRM OUT state, it
-   will result in packet drops and XFRM errors of type
-   ``XfrmOutStateSeqError``. A key rotation resets all sequence numbers.
-   Rotate keys frequently to avoid this issue.
 
  * After a key rotation, if the old key is cleaned up before the
    configuration of the new key is installed on all nodes, it results in
