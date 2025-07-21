@@ -86,12 +86,12 @@ Errors: 0`,
 			inputString: `Encryption: IPsec
 Decryption interface(s):
 Keys in use: 1
-Max Seq. Number: 0x66c/0xffffffff
+Max Seq. Number: 0x66c/0xffffffffffffffff
 Errors: 0`,
 			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
 				Ipsec: &models.IPsecStatus{
-					MaxSeqNumber:      "0x66c/0xffffffff",
+					MaxSeqNumber:      "0x66c/0xffffffffffffffff",
 					KeysInUse:         1,
 					DecryptInterfaces: make([]string, 0),
 					XfrmErrors:        make(map[string]int64),
@@ -107,14 +107,14 @@ Errors: 0`,
   "ipsec": {
     "decrypt-interfaces": [],
     "keys-in-use": 1,
-    "max-seq-number": "0x66c/0xffffffff"
+    "max-seq-number": "0x66c/0xffffffffffffffff"
   },
   "mode": "IPsec"
 }`,
 			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
 				Ipsec: &models.IPsecStatus{
-					MaxSeqNumber:      "0x66c/0xffffffff",
+					MaxSeqNumber:      "0x66c/0xffffffffffffffff",
 					KeysInUse:         1,
 					DecryptInterfaces: make([]string, 0),
 				},
@@ -125,13 +125,13 @@ Errors: 0`,
 			inputString: `Encryption: IPsec
 Decryption interface(s):
 Keys in use: 2
-Max Seq. Number: 0x66c/0xffffffff
+Max Seq. Number: 0x66c/0xffffffffffffffff
 Errors: 2
     XfrmInNoState: 2`,
 			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
 				Ipsec: &models.IPsecStatus{
-					MaxSeqNumber:      "0x66c/0xffffffff",
+					MaxSeqNumber:      "0x66c/0xffffffffffffffff",
 					KeysInUse:         2,
 					ErrorCount:        2,
 					DecryptInterfaces: make([]string, 0),
@@ -150,7 +150,7 @@ Errors: 2
   "ipsec": {
     "decrypt-interfaces": [],
     "keys-in-use": 2,
-    "max-seq-number": "0x66c/0xffffffff",
+    "max-seq-number": "0x66c/0xffffffffffffffff",
     "error-count": 2,
     "xfrm-errors": {
       "XfrmInNoState": 2
@@ -161,7 +161,7 @@ Errors: 2
 			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
 				Ipsec: &models.IPsecStatus{
-					MaxSeqNumber:      "0x66c/0xffffffff",
+					MaxSeqNumber:      "0x66c/0xffffffffffffffff",
 					KeysInUse:         2,
 					ErrorCount:        2,
 					DecryptInterfaces: make([]string, 0),
@@ -176,14 +176,14 @@ Errors: 2
 			inputString: `Encryption: IPsec
 Decryption interface(s):
 Keys in use: 2
-Max Seq. Number: 0x66c/0xffffffff
+Max Seq. Number: 0x66c/0xffffffffffffffff
 Errors: 3
     XfrmInNoState: 2
     XfrmInHdrError: 1`,
 			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
 				Ipsec: &models.IPsecStatus{
-					MaxSeqNumber:      "0x66c/0xffffffff",
+					MaxSeqNumber:      "0x66c/0xffffffffffffffff",
 					KeysInUse:         2,
 					ErrorCount:        3,
 					DecryptInterfaces: make([]string, 0),
@@ -203,7 +203,7 @@ Errors: 3
   "ipsec": {
     "decrypt-interfaces": [],
     "keys-in-use": 2,
-    "max-seq-number": "0x66c/0xffffffff",
+    "max-seq-number": "0x66c/0xffffffffffffffff",
     "error-count": 3,
     "xfrm-errors": {
       "XfrmInNoState": 2,
@@ -215,7 +215,7 @@ Errors: 3
 			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
 				Ipsec: &models.IPsecStatus{
-					MaxSeqNumber:      "0x66c/0xffffffff",
+					MaxSeqNumber:      "0x66c/0xffffffffffffffff",
 					KeysInUse:         2,
 					ErrorCount:        3,
 					DecryptInterfaces: make([]string, 0),
@@ -295,14 +295,14 @@ func Test_getClusterStatus(t *testing.T) {
 					Mode: "IPsec",
 					Ipsec: &models.IPsecStatus{
 						KeysInUse:    1,
-						MaxSeqNumber: "0x66c/0xffffffff",
+						MaxSeqNumber: "0x66c/0xffffffffffffffff",
 					},
 				},
 				"node2": {
 					Mode: "IPsec",
 					Ipsec: &models.IPsecStatus{
 						KeysInUse:    1,
-						MaxSeqNumber: "0x77c/0xffffffff",
+						MaxSeqNumber: "0x77c/0xffffffffffffffff",
 					},
 				},
 			},
@@ -312,7 +312,7 @@ func Test_getClusterStatus(t *testing.T) {
 				EncIPsecNodeCount:       2,
 				IPsecExpectedKeyCount:   1,
 				IPsecKeysInUseNodeCount: map[int64]int64{1: 2},
-				IPsecMaxSeqNum:          "0x77c/0xffffffff",
+				IPsecMaxSeqNum:          "0x77c/0xffffffffffffffff",
 				XfrmErrors:              make(map[string]int64),
 				XfrmErrorNodeCount:      make(map[string]int64),
 			},
@@ -325,7 +325,7 @@ func Test_getClusterStatus(t *testing.T) {
 					Ipsec: &models.IPsecStatus{
 						KeysInUse:    1,
 						ErrorCount:   2,
-						MaxSeqNumber: "0x66c/0xffffffff",
+						MaxSeqNumber: "0x66c/0xffffffffffffffff",
 						XfrmErrors: map[string]int64{
 							"XfrmInNoState": 2,
 						},
@@ -336,7 +336,7 @@ func Test_getClusterStatus(t *testing.T) {
 					Ipsec: &models.IPsecStatus{
 						KeysInUse:    2,
 						ErrorCount:   3,
-						MaxSeqNumber: "0x77c/0xffffffff",
+						MaxSeqNumber: "0x77c/0xffffffffffffffff",
 						XfrmErrors: map[string]int64{
 							"XfrmInHdrError": 1,
 							"XfrmInNoState":  2,
@@ -351,7 +351,7 @@ func Test_getClusterStatus(t *testing.T) {
 				IPsecExpectedKeyCount:      1,
 				IPsecKeyRotationInProgress: true,
 				IPsecKeysInUseNodeCount:    map[int64]int64{1: 1, 2: 1},
-				IPsecMaxSeqNum:             "0x77c/0xffffffff",
+				IPsecMaxSeqNum:             "0x77c/0xffffffffffffffff",
 				IPsecErrCount:              5,
 				XfrmErrors: map[string]int64{
 					"XfrmInHdrError": 1,
@@ -371,7 +371,7 @@ func Test_getClusterStatus(t *testing.T) {
 					Ipsec: &models.IPsecStatus{
 						KeysInUse:    1,
 						ErrorCount:   2,
-						MaxSeqNumber: "0x66c/0xffffffff",
+						MaxSeqNumber: "0x66c/0xffffffffffffffff",
 						XfrmErrors: map[string]int64{
 							"XfrmInNoState": 2,
 						},
@@ -382,7 +382,7 @@ func Test_getClusterStatus(t *testing.T) {
 					Ipsec: &models.IPsecStatus{
 						KeysInUse:    2,
 						ErrorCount:   3,
-						MaxSeqNumber: "0x77c/0xffffffff",
+						MaxSeqNumber: "0x77c/0xffffffffffffffff",
 						XfrmErrors: map[string]int64{
 							"XfrmInHdrError": 1,
 							"XfrmInNoState":  2,
@@ -401,7 +401,7 @@ func Test_getClusterStatus(t *testing.T) {
 				IPsecExpectedKeyCount:      1,
 				IPsecKeyRotationInProgress: true,
 				IPsecKeysInUseNodeCount:    map[int64]int64{1: 1, 2: 1},
-				IPsecMaxSeqNum:             "0x77c/0xffffffff",
+				IPsecMaxSeqNum:             "0x77c/0xffffffffffffffff",
 				IPsecErrCount:              5,
 				XfrmErrors: map[string]int64{
 					"XfrmInHdrError": 1,
@@ -437,13 +437,13 @@ func Test_maxSequenceNumber(t *testing.T) {
 		},
 		{
 			seqNum1:           "N/A",
-			seqNum2:           "0x77c/0xffffffff",
-			expectedMaxSeqNum: "0x77c/0xffffffff",
+			seqNum2:           "0x77c/0xffffffffffffffff",
+			expectedMaxSeqNum: "0x77c/0xffffffffffffffff",
 		},
 		{
-			seqNum1:           "0x99c/0xffffffff",
-			seqNum2:           "0x77c/0xffffffff",
-			expectedMaxSeqNum: "0x99c/0xffffffff",
+			seqNum1:           "0x99c/0xffffffffffffffff",
+			seqNum2:           "0x77c/0xffffffffffffffff",
+			expectedMaxSeqNum: "0x99c/0xffffffffffffffff",
 		},
 		{
 			seqNum1:           "0x99c",
