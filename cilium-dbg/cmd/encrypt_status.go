@@ -182,7 +182,7 @@ func maxSequenceNumber() (string, error) {
 	if maxSeqNum == 0 {
 		return "N/A", nil
 	}
-	return fmt.Sprintf("0x%x/0xffffffff", maxSeqNum), nil
+	return fmt.Sprintf("0x%x/0xffffffffffffffff", maxSeqNum), nil
 }
 
 func isDecryptionInterface(link netlink.Link) (bool, error) {
