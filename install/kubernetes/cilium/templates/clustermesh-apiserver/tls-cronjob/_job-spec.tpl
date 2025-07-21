@@ -96,7 +96,6 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccount: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.clustermeshcertgen.automount }}
       {{- with .Values.imagePullSecrets }}
@@ -108,8 +107,8 @@ spec:
       volumes:
       {{- toYaml . | nindent 6 }}
       {{- end }}
-      affinity:
       {{- with .Values.certgen.affinity }}
+      affinity:
       {{- toYaml . | nindent 8 }}
       {{- end }}
   ttlSecondsAfterFinished: {{ .Values.certgen.ttlSecondsAfterFinished }}
