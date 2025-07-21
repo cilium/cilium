@@ -39,6 +39,10 @@ var Cell = cell.Module(
 		func(watcher *ipcache.LocalIPIdentityWatcher, fence regeneration.Fence) {
 			fence.Add("kvstore-ipcache", watcher.WaitForSync)
 		},
+
+		// Register a job to associate default/kubernetes backend IPs with the
+		// 'reserved:kube-apiserver' label.
+		registerAPIServerBackendWatcher,
 	),
 )
 
