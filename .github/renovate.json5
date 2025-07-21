@@ -230,8 +230,15 @@
       "matchPackageNames": [
         "github.com/miekg/dns",
         "github.com/cilium/dns",
+
+        // See https://github.com/cilium/cilium/pull/11607
         "sigs.k8s.io/controller-tools",
         "github.com/cilium/controller-tools",
+
+        // See https://github.com/cilium/cilium/pull/40566
+        "github.com/osrg/gobgp/v3",
+        "github.com/cilium/gobgp/v3",
+
         "github.com/cilium/client-go",
         // We update this dependency manually together with envoy proxy updates
         "github.com/cilium/proxy",
