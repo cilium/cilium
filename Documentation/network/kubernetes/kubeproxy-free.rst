@@ -670,36 +670,43 @@ In DSR with Geneve, Cilium encapsulates packets to the Loadbalancer with the Gen
 header that includes the service IP/port in the Geneve option and redirects them
 to the backends.
 
-The Helm example configuration in a kube-proxy-free environment with DSR and
-Geneve dispatch enabled would look as follows:
+You can use DSR with Geneve for encapsulating LoadBalancer traffic regardless
+of whether you have configured the routing mode to route traffic using Geneve
+:ref:`encapsulation` or :ref:`native_routing`.
 
-.. parsed-literal::
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set routingMode=native \\
-        --set tunnelProtocol=geneve \\
-        --set kubeProxyReplacement=true \\
-        --set loadBalancer.mode=dsr \\
-        --set loadBalancer.dsrDispatch=geneve \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+.. tabs::
 
-DSR with Geneve is compatible with the Geneve encapsulation mode (:ref:`arch_overlay`).
-It works with either the direct routing mode or the Geneve tunneling mode. Unfortunately,
-it doesn't work with the vxlan encapsulation mode.
+    .. group-tab:: Native (Routing)
 
-The example configuration in DSR with Geneve dispatch and tunneling mode is as follows.
+        Install Cilium via ``helm install`` with DSR Geneve dispatch and Native (routing) Mode
 
-.. parsed-literal::
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set routingMode=tunnel \\
-        --set tunnelProtocol=geneve \\
-        --set kubeProxyReplacement=true \\
-        --set loadBalancer.mode=dsr \\
-        --set loadBalancer.dsrDispatch=geneve \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        .. parsed-literal::
+
+            helm install cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --set routingMode=native \\
+                --set tunnelProtocol=geneve \\
+                --set kubeProxyReplacement=true \\
+                --set loadBalancer.mode=dsr \\
+                --set loadBalancer.dsrDispatch=geneve \\
+                --set k8sServiceHost=${API_SERVER_IP} \\
+                --set k8sServicePort=${API_SERVER_PORT}
+
+    .. group-tab:: Tunnel (encapsulation)
+
+        Install Cilium via ``helm install`` with DSR Geneve dispatch and tunneling (encapsulation) mode
+
+        .. parsed-literal::
+
+            helm install cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --set routingMode=tunnel \\
+                --set tunnelProtocol=geneve \\
+                --set kubeProxyReplacement=true \\
+                --set loadBalancer.mode=dsr \\
+                --set loadBalancer.dsrDispatch=geneve \\
+                --set k8sServiceHost=${API_SERVER_IP} \\
+                --set k8sServicePort=${API_SERVER_PORT}
 
 .. _Hybrid mode:
 
