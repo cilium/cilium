@@ -168,10 +168,6 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 		// add to pre-cleanup funcs because this needs to run on graceful shutdown, but
 		// before the relevant subystems are being shut down.
 		cleaner.preCleanupFuncs.Add(func() {
-			// Stop k8s watchers
-			params.Logger.Info("Stopping k8s watcher")
-			params.K8sWatcher.StopWatcher()
-
 			// Iterate over the policy repository and remove L7 DNS part
 			needsPolicyRegen := false
 			removeL7DNSRules := func(pr policyAPI.Ports) error {
