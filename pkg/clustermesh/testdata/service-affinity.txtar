@@ -45,7 +45,7 @@ db/cmp frontends frontends-all.table
 -- backends.table --
 Address              Instances         NodeName
 10.1.0.1:8080/TCP    test/echo (tcp)   nodeport-worker
-20.0.0.2:9090/TCP    test/echo (tcp)
+20.0.0.2@2:9090/TCP  test/echo (tcp)
 
 -- frontends-local.table --
 Address            Type       ServiceName   Status  Backends
@@ -53,11 +53,11 @@ Address            Type       ServiceName   Status  Backends
 
 -- frontends-remote.table --
 Address            Type       ServiceName   Status  Backends
-10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    20.0.0.2:9090/TCP
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    20.0.0.2@2:9090/TCP
 
 -- frontends-all.table --
 Address            Type       ServiceName   Status  Backends
-10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    10.1.0.1:8080/TCP, 20.0.0.2:9090/TCP
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    10.1.0.1:8080/TCP, 20.0.0.2@2:9090/TCP
 
 -- clusterservice2.json --
 {

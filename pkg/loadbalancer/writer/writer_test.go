@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"iter"
 	"log/slog"
+	"net/netip"
 	"os"
 	"slices"
 	"testing"
@@ -67,17 +68,16 @@ func fixture(t testing.TB) (p testParams) {
 	return p
 }
 
-func intToAddr(i int) types.AddrCluster {
+func intToAddr(i int, clusterID uint32) types.AddrCluster {
 	var addr [4]byte
 	binary.BigEndian.PutUint32(addr[:], 0x0100_0000+uint32(i))
-	addrCluster, _ := types.AddrClusterFromIP(addr[:])
-	return addrCluster
+	return types.AddrClusterFrom(netip.AddrFrom4(addr), clusterID)
 }
 
 func TestWriter_Service_UpsertDelete(t *testing.T) {
 	p := fixture(t)
 	name := loadbalancer.NewServiceName("test", "test1")
-	addrCluster := intToAddr(1)
+	addrCluster := intToAddr(1, LocalClusterID)
 	frontend := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal)
 
 	// Add a dump of the state if the test fails. Note that we abort
@@ -194,7 +194,7 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 	nextAddr := 0
 	mkAddr := func(port uint16) loadbalancer.L3n4Addr {
 		nextAddr++
-		addrCluster := intToAddr(nextAddr)
+		addrCluster := intToAddr(nextAddr, LocalClusterID)
 		return loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, port, loadbalancer.ScopeExternal)
 	}
 	frontend := mkAddr(3000)
@@ -303,7 +303,7 @@ func TestWriter_Initializers(t *testing.T) {
 	complete2 := p.Writer.RegisterInitializer("test2")
 
 	wtxn := p.Writer.WriteTxn()
-	addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 12345, loadbalancer.ScopeExternal)
+	addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123, LocalClusterID), 12345, loadbalancer.ScopeExternal)
 	name := loadbalancer.NewServiceName("test-ns", "test-name")
 	err := p.Writer.UpsertServiceAndFrontends(
 		wtxn,
@@ -360,20 +360,24 @@ func TestWriter_SetBackends(t *testing.T) {
 	name1 := loadbalancer.NewServiceName("test", "test1")
 	name2 := loadbalancer.NewServiceName("test", "test2")
 
-	feAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1231), 1231, loadbalancer.ScopeExternal)
-	feAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1232), 1232, loadbalancer.ScopeExternal)
+	feAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1231, LocalClusterID), 1231, loadbalancer.ScopeExternal)
+	feAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1232, LocalClusterID), 1232, loadbalancer.ScopeExternal)
 
-	beAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(121), 4241, loadbalancer.ScopeExternal)
-	beAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(122), 4242, loadbalancer.ScopeExternal)
-	beAddr3 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4243, loadbalancer.ScopeExternal)
+	beAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(121, LocalClusterID), 4241, loadbalancer.ScopeExternal)
+	beAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(122, LocalClusterID), 4242, loadbalancer.ScopeExternal)
+	beAddr3 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123, LocalClusterID), 4243, loadbalancer.ScopeExternal)
 
 	backend1 := loadbalancer.BackendParams{Address: beAddr1}
 	backend2 := loadbalancer.BackendParams{Address: beAddr2}
 	backend3 := loadbalancer.BackendParams{Address: beAddr3}
 
-	backend1_cluster1 := loadbalancer.BackendParams{Address: beAddr1, ClusterID: 1}
-	backend2_cluster1 := loadbalancer.BackendParams{Address: beAddr2, ClusterID: 1}
-	backend3_cluster2 := loadbalancer.BackendParams{Address: beAddr3, ClusterID: 2}
+	beAddr1_cluster1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(121, 1), 4241, loadbalancer.ScopeExternal)
+	beAddr2_cluster1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(122, 1), 4242, loadbalancer.ScopeExternal)
+	beAddr3_cluster2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123, 2), 4243, loadbalancer.ScopeExternal)
+
+	backend1_cluster1 := loadbalancer.BackendParams{Address: beAddr1_cluster1}
+	backend2_cluster1 := loadbalancer.BackendParams{Address: beAddr2_cluster1}
+	backend3_cluster2 := loadbalancer.BackendParams{Address: beAddr3_cluster2}
 
 	type testCase struct {
 		desc   string
@@ -472,9 +476,9 @@ func TestWriter_SetBackends(t *testing.T) {
 				require.NoError(t, w.SetBackendsOfCluster(wtxn, name1, source.ClusterMesh, 2, backend3_cluster2))
 			},
 			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
-				name1: {beAddr1: true, beAddr2: true, beAddr3: true},
+				name1: {beAddr1_cluster1: true, beAddr2_cluster1: true, beAddr3_cluster2: true},
 			},
-			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: true, beAddr2: true, beAddr3: true},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1_cluster1: true, beAddr2_cluster1: true, beAddr3_cluster2: true},
 		},
 		{
 			desc: "delete backend2 from first cluster",
@@ -483,9 +487,9 @@ func TestWriter_SetBackends(t *testing.T) {
 				require.NoError(t, w.SetBackendsOfCluster(wtxn, name1, source.ClusterMesh, 2, backend3_cluster2))
 			},
 			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
-				name1: {beAddr1: true, beAddr2: false, beAddr3: true},
+				name1: {beAddr1_cluster1: true, beAddr3_cluster2: true},
 			},
-			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: true, beAddr2: false, beAddr3: true},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1_cluster1: true, beAddr3_cluster2: true},
 		},
 	}
 
@@ -534,10 +538,10 @@ func TestWriter_WithConflictingSources(t *testing.T) {
 	name1 := loadbalancer.NewServiceName("test", "test1")
 	name2 := loadbalancer.NewServiceName("test", "test2")
 
-	feAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1234), 1234, loadbalancer.ScopeExternal)
-	feAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1235), 1235, loadbalancer.ScopeExternal)
+	feAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1234, LocalClusterID), 1234, loadbalancer.ScopeExternal)
+	feAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1235, LocalClusterID), 1235, loadbalancer.ScopeExternal)
 
-	backendTemplate := loadbalancer.BackendParams{Address: loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4242, loadbalancer.ScopeExternal)}
+	backendTemplate := loadbalancer.BackendParams{Address: loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123, 0), 4242, loadbalancer.ScopeExternal)}
 	backend10 := backendTemplate
 	backend10.Weight = 10
 	backend11 := backendTemplate

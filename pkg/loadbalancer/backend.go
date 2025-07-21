@@ -41,9 +41,6 @@ type BackendParams struct {
 	// ForZones where this backend should be consumed in
 	ForZones []string
 
-	// ClusterID of the cluster in which the backend is located. 0 for local cluster.
-	ClusterID uint32
-
 	// Source of the backend.
 	Source source.Source
 
@@ -59,6 +56,25 @@ type BackendParams struct {
 	// UnhealthyUpdatedAt is the timestamp for when [Unhealthy] was last updated. Zero
 	// value if never updated.
 	UnhealthyUpdatedAt time.Time
+}
+
+func (bep *BackendParams) ClusterID() uint32 {
+	return bep.Address.AddrCluster.ClusterID()
+}
+
+type BackendInstanceKey struct {
+	ServiceName    ServiceName
+	SourcePriority uint8
+}
+
+func (k BackendInstanceKey) Key() []byte {
+	if k.SourcePriority == 0 {
+		return k.ServiceName.Key()
+	}
+	sk := k.ServiceName.Key()
+	buf := make([]byte, 0, 2+len(sk))
+	buf = append(buf, sk...)
+	return append(buf, ' ', k.SourcePriority)
 }
 
 // Backend is a composite of the per-service backend instances that share the same
@@ -77,19 +93,8 @@ type Backend struct {
 	Instances part.Map[BackendInstanceKey, BackendParams]
 }
 
-type BackendInstanceKey struct {
-	ServiceName    ServiceName
-	SourcePriority uint8
-}
-
-func (k BackendInstanceKey) Key() []byte {
-	if k.SourcePriority == 0 {
-		return k.ServiceName.Key()
-	}
-	sk := k.ServiceName.Key()
-	buf := make([]byte, 0, 2+len(sk))
-	buf = append(buf, sk...)
-	return append(buf, ' ', k.SourcePriority)
+func (be *Backend) ClusterID() uint32 {
+	return be.Address.AddrCluster.ClusterID()
 }
 
 func (be *Backend) GetInstance(name ServiceName) *BackendParams {

@@ -5,6 +5,7 @@ package clustermesh
 
 import (
 	"context"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -91,7 +92,11 @@ func (sm *serviceMerger) MergeExternalServiceUpdate(service *serviceStore.Cluste
 
 func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []loadbalancer.BackendParams) {
 	for ipString, portConfig := range service.Backends {
-		addrCluster := cmtypes.MustParseAddrCluster(ipString)
+		addr, err := netip.ParseAddr(ipString)
+		if err != nil {
+			continue
+		}
+		addrCluster := cmtypes.AddrClusterFrom(addr, service.ClusterID)
 		for name, l4 := range portConfig {
 			portNames := []string(nil)
 			if name != "" {
@@ -105,7 +110,6 @@ func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps [
 				PortNames: portNames,
 				Weight:    loadbalancer.DefaultBackendWeight,
 				NodeName:  "",
-				ClusterID: service.ClusterID,
 				State:     loadbalancer.BackendStateActive,
 			}
 			beps = append(beps, bep)

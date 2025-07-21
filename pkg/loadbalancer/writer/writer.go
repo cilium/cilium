@@ -560,7 +560,7 @@ func (w *Writer) SetBackendsOfCluster(txn WriteTxn, name loadbalancer.ServiceNam
 			continue
 		}
 		inst := be.GetInstanceFromSource(name, source)
-		if inst == nil || inst.ClusterID != clusterID {
+		if inst == nil || inst.ClusterID() != clusterID {
 			continue
 		}
 		if err := w.removeBackendRefPerSource(txn, name, be, source, clusterID); err != nil {
@@ -598,7 +598,6 @@ func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 		}
 
 		bep.Source = source
-		bep.ClusterID = clusterID
 		be.Instances = be.Instances.Set(
 			loadbalancer.BackendInstanceKey{ServiceName: serviceName, SourcePriority: w.sourcePriority(bep.Source)},
 			bep,
@@ -776,7 +775,7 @@ func backendRelease(be *loadbalancer.Backend, name loadbalancer.ServiceName) (*l
 
 func backendReleasePerSource(be *loadbalancer.Backend, name loadbalancer.ServiceName, source source.Source, clusterID uint32) (*loadbalancer.Backend, bool) {
 	for k, inst := range be.GetInstancesOfService(name) {
-		if inst.Source == source && inst.ClusterID == clusterID {
+		if inst.Source == source && inst.ClusterID() == clusterID {
 			if be.Instances.Len() == 1 {
 				// This was the last instance.
 				return nil, true

@@ -27,12 +27,12 @@ db/cmp backends backends_v2.table
 
 -- backends.table --
 Address              Instances         NodeName
-20.0.0.2:9090/TCP    test/echo (tcp)
+20.0.0.2@2:9090/TCP  test/echo (tcp)
 
 -- backends_v2.table --
 Address              Instances         NodeName
-20.0.0.2:9090/TCP    test/echo (tcp)
-20.0.0.3:9090/TCP    test/echo (tcp)
+20.0.0.2@2:9090/TCP  test/echo (tcp)
+20.0.0.3@2:9090/TCP  test/echo (tcp)
 
 -- frontends.table --
 Address            Type       ServiceName   Status  Backends
@@ -40,11 +40,11 @@ Address            Type       ServiceName   Status  Backends
 
 -- frontends-with-clusterservice.table --
 Address            Type       ServiceName   Status  Backends
-10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    20.0.0.2:9090/TCP
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    20.0.0.2@2:9090/TCP
 
 -- frontends-with-clusterservice_v2.table --
 Address            Type       ServiceName   Status  Backends
-10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    20.0.0.2:9090/TCP, 20.0.0.3:9090/TCP
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    20.0.0.2@2:9090/TCP, 20.0.0.3@2:9090/TCP
 
 
 -- clusterservice2.json --
