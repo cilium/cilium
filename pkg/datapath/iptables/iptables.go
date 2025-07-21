@@ -1057,6 +1057,14 @@ func (m *Manager) doInstallProxyRules(proxyPort uint16, name string) error {
 	return nil
 }
 
+func (m *Manager) IPv4MasqueradeSrcExclusionCIDRs() string {
+	return m.cfg.IPv4MasqueradeSrcExclusionCIDRs
+}
+
+func (m *Manager) IPv6MasqueradeSrcExclusionCIDRs() string {
+	return m.cfg.IPv6MasqueradeSrcExclusionCIDRs
+}
+
 // GetProxyPorts enumerates all existing TPROXY rules in the datapath installed earlier with
 // InstallProxyRules and returns all proxy ports found.
 func (m *Manager) GetProxyPorts() map[string]uint16 {
@@ -1207,7 +1215,7 @@ func (m *Manager) installForwardChainRulesIpX(prog runnable, ifName, localDelive
 
 func (m *Manager) installMasqueradeRules(
 	prog iptablesInterface, nativeDevices []string,
-	localDeliveryInterface, snatDstExclusionCIDR, allocRange, hostMasqueradeIP string,
+	localDeliveryInterface, snatDstExclusionCIDR, snatSrcExclusionCIDRs, allocRange, hostMasqueradeIP string,
 ) error {
 	devices := nativeDevices
 
@@ -1216,6 +1224,25 @@ func (m *Manager) installMasqueradeRules(
 		for _, cmd := range cmds {
 			if err := prog.runProg(cmd); err != nil {
 				return err
+			}
+		}
+	}
+
+	// Ranges that have explicitly been excluded from masquerading will go first
+	// in list of rules to be installed, bypassing all other rules in the chain.
+	// This has the effect of treating those ranges as natively routed.
+	if snatSrcExclusionCIDRs != "" {
+		cidrs := strings.Split(snatSrcExclusionCIDRs, ",")
+		for _, cidr := range cidrs {
+			progArgs := []string{
+				"-t", "nat",
+				"-I", ciliumPostNatChain, "1",
+				"-s", cidr,
+				"-j", "ACCEPT",
+				"-m", "comment", "--comment", "cilium: snat src exclusion",
+			}
+			if err := prog.runProg(progArgs); err != nil {
+				return 	err
 			}
 		}
 	}
@@ -1552,6 +1579,7 @@ func (m *Manager) installRules(state desiredState) error {
 		if m.sharedCfg.IptablesMasqueradingIPv4Enabled && state.localNodeInfo.internalIPv4 != nil {
 			if err := m.installMasqueradeRules(ip4tables, state.devices.UnsortedList(), localDeliveryInterface,
 				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv4NativeRoutingCIDR, state.localNodeInfo.ipv4AllocCIDR),
+				m.cfg.IPv4MasqueradeSrcExclusionCIDRs,
 				state.localNodeInfo.ipv4AllocCIDR,
 				state.localNodeInfo.internalIPv4.String(),
 			); err != nil {
@@ -1568,6 +1596,7 @@ func (m *Manager) installRules(state desiredState) error {
 		if m.sharedCfg.IptablesMasqueradingIPv6Enabled && state.localNodeInfo.internalIPv6 != nil {
 			if err := m.installMasqueradeRules(ip6tables, state.devices.UnsortedList(), localDeliveryInterface,
 				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv6NativeRoutingCIDR, state.localNodeInfo.ipv6AllocCIDR),
+				m.cfg.IPv6MasqueradeSrcExclusionCIDRs,
 				state.localNodeInfo.ipv6AllocCIDR,
 				state.localNodeInfo.internalIPv6.String(),
 			); err != nil {
@@ -1826,7 +1855,6 @@ func nodeIpsetNATCmds(allocRange string, ipset string, masqueradeInterfaces []st
 		"-t", "nat",
 		"-A", ciliumPostNatChain,
 	}
-
 	postArgs := []string{
 		"-m", "set", "--match-set", ipset, "dst",
 		"-m", "comment", "--comment", "exclude traffic to cluster nodes from masquerade",
