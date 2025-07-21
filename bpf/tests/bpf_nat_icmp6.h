@@ -9,6 +9,7 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4
+#define ENABLE_SCTP
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_MASQUERADE_IPV6
@@ -24,6 +25,7 @@
  * Input packet represents a device sending a PKT_TOO_BIG response ICMPv6
  * message due to a MTU pathing issue following a TCP being sent to a l4
  * address tuple.
+ * Note: a similar remapping will be applied to other supported l4 protocols.
  *
  * ┌────────────────────────────────┐
  * │  L2 Header                     │
@@ -291,4 +293,74 @@ int snat_v6_pmtu_udp_check(const struct __ctx_buff *ctx) \
 						\
 	return 0;				\
 }						\
-
+						\
+PKTGEN("tc", "snat_v6_sctp_pmtu")		\
+int snat_v6_pmtu_sctp_pktgen(struct __ctx_buff *ctx) \
+{						\
+	struct pktgen builder;			\
+						\
+	pktgen__init(&builder, ctx);		\
+	gen_pmtu_pkt(&builder, IPPROTO_UDP);	\
+	pktgen__finish(&builder);		\
+	return TEST_PASS;			\
+}						\
+						\
+SETUP("tc", "snat_v6_sctp_pmtu")			\
+int snat_v6_pmtu_sctp_setup(struct __ctx_buff *ctx) \
+{						\
+	int ret;				\
+	struct ipv6_nat_entry entry = {		\
+		.to_daddr = POD_IP,		\
+	};					\
+	entry.to_sport = 0;			\
+	entry.to_dport = 20;			\
+	struct ipv6_ct_tuple tuple = {		\
+		.daddr   = NODE_ONE,		\
+		.saddr   = EXT_IP,		\
+		.dport   = 30001, /* SNAT remapped port */ \
+		.sport   = 1234,		\
+		.nexthdr = IPPROTO_UDP,		\
+		.flags = TUPLE_F_IN,		\
+	};					\
+	ret = map_update_elem(&cilium_snat_v6_external, &tuple, &entry, BPF_ANY); \
+	if (ret < 0)				\
+		return TEST_FAIL;		\
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV); \
+	return TEST_PASS;			\
+}						\
+						\
+CHECK("tc", "snat_v6_sctp_pmtu")			\
+int snat_v6_pmtu_sctp_check(const struct __ctx_buff *ctx) \
+{						\
+	test_init();				\
+	struct ipv6hdr *l3;			\
+	struct ipv6hdr *inner_l3;		\
+	struct sctphdr *l4;			\
+	void *data = (void *)(long)ctx->data;	\
+	void *data_end = (void *)(long)ctx->data_end; \
+						\
+	if (data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct ipv6hdr) + \
+		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr) + \
+		sizeof(struct sctphdr) > data_end) \
+		test_fatal("status code + eth + ipv6 out of bounds"); \
+						\
+	l3 = (struct ipv6hdr *)(data + sizeof(__u32) + sizeof(struct ethhdr)); \
+	assert(memcmp(&l3->daddr, (void *)v6_pod_one, 16) == 0); \
+	assert(memcmp(&l3->saddr, (void *)v6_ext_node_one, 16) == 0); \
+	assert(l3->nexthdr == IPPROTO_ICMPV6);	\
+						\
+	inner_l3 = (struct ipv6hdr *)(data + sizeof(__u32) + \
+		sizeof(struct ethhdr) + sizeof(struct ipv6hdr) + \
+		sizeof(struct icmp6hdr));	\
+	assert(memcmp(&inner_l3->daddr, (void *)v6_ext_node_one, 16) == 0); \
+	assert(memcmp(&inner_l3->saddr, (void *)v6_pod_one, 16) == 0); \
+	l4 = (struct sctphdr *)(data + sizeof(__u32) + \
+		sizeof(struct ethhdr) + sizeof(struct ipv6hdr) + \
+		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr)); \
+	assert(l4->dest == 1234);		\
+	assert(l4->source == 20); /* should be remapped entry.dport value. */ \
+						\
+	test_finish();				\
+						\
+	return 0;				\
+}						\
