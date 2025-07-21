@@ -373,10 +373,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 func unloadDNSPolicies(params daemonParams) {
 	if params.DaemonConfig.DNSPolicyUnloadOnShutdown {
-		// Stop k8s watchers
-		params.Logger.Info("Stopping k8s watcher")
-		params.K8sWatcher.StopWatcher()
-
 		params.Logger.Info("Unload DNS policies")
 
 		// Iterate over the policy repository and remove L7 DNS part
