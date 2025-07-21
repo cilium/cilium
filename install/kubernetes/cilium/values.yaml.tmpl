@@ -2251,8 +2251,8 @@ loadBalancer:
   # path), or best-effort (use native mode XDP acceleration on devices
   # that support it).
   acceleration: disabled
-  # -- dsrDispatch configures whether IP option or IPIP encapsulation is
-  # used to pass a service IP and port to remote backend
+  # -- dsrDispatch configures whether IP option (opt), IPIP encapsulation (ipip),
+  # Geneve Class Option (geneve) used to pass a service IP and port to remote backend
   # dsrDispatch: opt
 
   # -- serviceTopology enables K8s Topology Aware Hints -based service
