@@ -550,8 +550,7 @@ func testHive(maps lbmaps.LBMaps,
 
 				func() reflectors.StreamsOut {
 					return reflectors.StreamsOut{
-						ServicesStream:  stream.FromChannel(services),
-						EndpointsStream: stream.FromChannel(endpoints),
+						ServicesStream: stream.FromChannel(services),
 					}
 				},
 

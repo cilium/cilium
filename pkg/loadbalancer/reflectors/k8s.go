@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -27,8 +26,11 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -72,22 +74,19 @@ var K8sReflectorCell = cell.Module(
 
 type resourceIn struct {
 	cell.In
-	ServicesResource  resource.Resource[*slim_corev1.Service]
-	EndpointsResource resource.Resource[*k8s.Endpoints]
+	ServicesResource resource.Resource[*slim_corev1.Service]
 }
 
 type StreamsOut struct {
 	cell.Out
-	ServicesStream  stream.Observable[resource.Event[*slim_corev1.Service]]
-	EndpointsStream stream.Observable[resource.Event[*k8s.Endpoints]]
+	ServicesStream stream.Observable[resource.Event[*slim_corev1.Service]]
 }
 
 // resourcesToStreams extracts the stream.Observable from resource.Resource.
 // This makes the reflector easier to test as its API surface is reduced.
 func resourcesToStreams(in resourceIn) StreamsOut {
 	return StreamsOut{
-		ServicesStream:  in.ServicesResource,
-		EndpointsStream: in.EndpointsResource,
+		ServicesStream: in.ServicesResource,
 	}
 }
 
@@ -99,7 +98,7 @@ type reflectorParams struct {
 	Lifecycle              cell.Lifecycle
 	JobGroup               job.Group
 	ServicesResource       stream.Observable[resource.Event[*slim_corev1.Service]]
-	EndpointsResource      stream.Observable[resource.Event[*k8s.Endpoints]]
+	Clientset              client.Clientset
 	Pods                   statedb.Table[daemonK8s.LocalPod]
 	Writer                 *writer.Writer
 	Config                 loadbalancer.Config
@@ -277,12 +276,51 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 	}
 
 	currentEndpoints := map[string]endpointsEvent{}
-	processEndpointsEvent := func(txn writer.WriteTxn, key bufferKey, kind resource.EventKind, allEps allEndpoints) {
-		switch kind {
+	processEndpointsEvent := func(txn writer.WriteTxn, key bufferKey, val bufferValue) {
+		switch val.kind {
 		case resource.Sync:
+			// Gather known service names to refresh frontends since DeleteBackendsBySource
+			// does not refresh.
+			servicesToRefresh := sets.New[loadbalancer.ServiceName]()
+			for svc := range p.Writer.Services().All(txn) {
+				servicesToRefresh.Insert(svc.Name)
+			}
+
+			// Delete all previous endpoints
+			if err := p.Writer.DeleteBackendsBySource(txn, source.Kubernetes); err != nil {
+				p.Log.Error("BUG: Unexpected failure to delete backends", logfields.Error, err)
+			}
+			clear(currentEndpoints)
+
+			// Insert the replacements
+			for _, eps := range val.endpointsReplace {
+				name := eps.ServiceName
+
+				// UpsertBackend refreshes the frontends already.
+				servicesToRefresh.Delete(name)
+
+				// Convert [k8s.Endpoints] to [loadbalancer.BackendParams]
+				backends := convertEndpoints(p.Log, p.ExtConfig, name, maps.All(eps.Backends))
+
+				err := p.Writer.UpsertBackends(txn, name, source.Kubernetes, backends)
+				rh.update("eps:"+name.String(), err)
+
+				currentEndpoints[eps.EndpointSliceName] = endpointsEvent{
+					name:     eps.EndpointSliceName,
+					backends: eps.Backends,
+				}
+			}
+
+			// Refresh the remaining frontends that now have no backends.
+			for name := range servicesToRefresh {
+				p.Writer.RefreshFrontends(txn, name)
+			}
+
+			// Mark table as initialized (only on first replace)
 			initEndpoints(txn)
 
 		case resource.Upsert:
+			allEps := val.allEndpoints
 			name := loadbalancer.NewServiceName(
 				key.key.Namespace,
 				key.key.Name,
@@ -352,12 +390,12 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 	events := stream.ToChannel(ctx,
 		stream.Buffer(
 			joinObservables(
-				toObjectObservable(p.ServicesResource),
-				toObjectObservable(p.EndpointsResource),
+				serviceEvents(p.ServicesResource),
+				endpointsEvents(p.Log, p.Clientset),
 			),
 			reflectorBufferSize,
 			p.waitTime(),
-			func(buf buffer, ev resource.Event[runtime.Object]) buffer {
+			func(buf buffer, ev event) buffer {
 				if buf == nil {
 					buf = bufferPool.Get().(buffer)
 				}
@@ -373,7 +411,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			if key.isSvc {
 				processServiceEvent(txn, val.kind, val.svc)
 			} else {
-				processEndpointsEvent(txn, key, val.kind, val.allEndpoints)
+				processEndpointsEvent(txn, key, val)
 			}
 		}
 	}
@@ -393,9 +431,10 @@ type bufferKey struct {
 }
 
 type bufferValue struct {
-	kind         resource.EventKind
-	svc          *slim_corev1.Service
-	allEndpoints allEndpoints
+	kind             resource.EventKind
+	svc              *slim_corev1.Service
+	allEndpoints     allEndpoints
+	endpointsReplace []*k8s.Endpoints
 }
 
 type endpointsEvent struct {
@@ -462,33 +501,57 @@ func (ae *allEndpoints) Backends() iter.Seq2[cmtypes.AddrCluster, *k8s.Backend] 
 // buffer for holding a batch of service or endpoint events
 type buffer = *container.InsertOrderedMap[bufferKey, bufferValue]
 
-func bufferInsert(buf buffer, ev resource.Event[runtime.Object]) buffer {
-	switch obj := ev.Object.(type) {
-	case *k8s.Endpoints:
-		if ev.Kind == resource.Sync {
-			buf.Insert(bufferKey{isSvc: false}, bufferValue{kind: ev.Kind})
-			return buf
-		}
+func bufferInsert(buf buffer, ev event) buffer {
+	switch ev := ev.(type) {
+	case upsertServiceEvent:
 		key := bufferKey{
-			resource.Key{Name: obj.ServiceName.Name(), Namespace: obj.ServiceName.Namespace()},
+			resource.Key{Name: ev.obj.Name, Namespace: ev.obj.Namespace},
+			true,
+		}
+		buf.Insert(key, bufferValue{kind: resource.Upsert, svc: ev.obj})
+	case deleteServiceEvent:
+		key := bufferKey{
+			resource.Key{Name: ev.obj.Name, Namespace: ev.obj.Namespace},
+			true,
+		}
+		buf.Insert(key, bufferValue{kind: resource.Delete, svc: ev.obj})
+	case syncServicesEvent:
+		key := bufferKey{resource.Key{}, true}
+		buf.Insert(key, bufferValue{kind: resource.Sync})
+	case upsertEndpointEvent:
+		key := bufferKey{
+			resource.Key{Name: ev.obj.ServiceName.Name(), Namespace: ev.obj.ServiceName.Namespace()},
 			false,
 		}
 		var allEps allEndpoints
 		if old, ok := buf.Get(key); ok {
 			allEps = old.allEndpoints
 		}
-		allEps = allEps.insert(ev.Kind == resource.Delete, obj)
-
+		allEps = allEps.insert(false, ev.obj)
+		buf.Insert(key, bufferValue{
+			kind:         resource.Upsert,
+			allEndpoints: allEps,
+		})
+	case deleteEndpointEvent:
+		key := bufferKey{
+			resource.Key{Name: ev.obj.ServiceName.Name(), Namespace: ev.obj.ServiceName.Namespace()},
+			false,
+		}
+		var allEps allEndpoints
+		if old, ok := buf.Get(key); ok {
+			allEps = old.allEndpoints
+		}
+		allEps = allEps.insert(true, ev.obj)
 		// Since we may merge a mixture of Upsert and Delete events together we handle
 		// deletion as an Upsert of [endpointsEvent] with nil backends.
 		buf.Insert(key, bufferValue{
 			kind:         resource.Upsert,
 			allEndpoints: allEps,
 		})
-	case *slim_corev1.Service:
-		buf.Insert(bufferKey{key: ev.Key, isSvc: true}, bufferValue{kind: ev.Kind, svc: obj})
+	case replaceEndpointsEvent:
+		buf.Insert(bufferKey{isSvc: false}, bufferValue{kind: resource.Sync, endpointsReplace: ev.objs})
 	default:
-		panic(fmt.Sprintf("BUG: unhandled type %T", obj))
+		panic(fmt.Sprintf("unexpected reflectors.event: %#v", ev))
 	}
 	return buf
 }
@@ -724,18 +787,91 @@ func deleteHostPort(params reflectorParams, wtxn writer.WriteTxn, pod *slim_core
 	return nil
 }
 
-func toObjectObservable[T runtime.Object](src stream.Observable[resource.Event[T]]) stream.Observable[resource.Event[runtime.Object]] {
-	return stream.Map(src, func(ev resource.Event[T]) resource.Event[runtime.Object] {
+type event interface {
+	isEvent()
+}
+
+type upsertServiceEvent struct {
+	obj *slim_corev1.Service
+}
+
+func (upsertServiceEvent) isEvent() {}
+
+type deleteServiceEvent struct {
+	obj *slim_corev1.Service
+}
+
+func (deleteServiceEvent) isEvent() {}
+
+type syncServicesEvent struct{}
+
+func (syncServicesEvent) isEvent() {}
+
+type upsertEndpointEvent struct {
+	obj *k8s.Endpoints
+}
+
+func (upsertEndpointEvent) isEvent() {}
+
+type deleteEndpointEvent struct {
+	obj *k8s.Endpoints
+}
+
+func (deleteEndpointEvent) isEvent() {}
+
+type replaceEndpointsEvent struct {
+	objs []*k8s.Endpoints
+}
+
+func (replaceEndpointsEvent) isEvent() {}
+
+func serviceEvents(src stream.Observable[resource.Event[*slim_corev1.Service]]) stream.Observable[event] {
+	return stream.Map(src, func(ev resource.Event[*slim_corev1.Service]) event {
 		// Already mark the event as handled as we don't need retries.
 		ev.Done(nil)
-
-		return resource.Event[runtime.Object]{
-			Kind:   ev.Kind,
-			Key:    ev.Key,
-			Object: ev.Object,
-			Done:   ev.Done,
+		switch ev.Kind {
+		case resource.Delete:
+			return deleteServiceEvent{
+				obj: ev.Object,
+			}
+		case resource.Sync:
+			return syncServicesEvent{}
+		case resource.Upsert:
+			return upsertServiceEvent{
+				obj: ev.Object,
+			}
+		default:
+			panic(fmt.Sprintf("unexpected resource.EventKind: %#v", ev.Kind))
 		}
 	})
+}
+
+func endpointsEvents(log *slog.Logger, c client.Clientset) stream.Observable[event] {
+	lw := utils.ListerWatcherFromTyped(c.Slim().DiscoveryV1().EndpointSlices(""))
+	return stream.Map(
+		k8s.ListerWatcherToObservable(lw),
+		func(ev k8s.CacheStoreEvent) event {
+			if ev.Kind == k8s.CacheStoreEventReplace {
+				raw := ev.Obj.([]any)
+				objs := make([]*k8s.Endpoints, len(raw))
+				for i := range objs {
+					objs[i] = k8s.ParseEndpointSliceV1(log, raw[i].(*slim_discoveryv1.EndpointSlice))
+				}
+				return replaceEndpointsEvent{objs: objs}
+			}
+			obj := ev.Obj.(*slim_discoveryv1.EndpointSlice)
+			eps := k8s.ParseEndpointSliceV1(log, obj)
+			switch ev.Kind {
+			case k8s.CacheStoreEventAdd:
+				return upsertEndpointEvent{eps}
+			case k8s.CacheStoreEventUpdate:
+				return upsertEndpointEvent{eps}
+			case k8s.CacheStoreEventDelete:
+				return deleteEndpointEvent{eps}
+			default:
+				panic(fmt.Sprintf("unexpected k8s.CacheStoreEventKind: %#v", ev.Kind))
+			}
+		})
 }
 
 func joinObservables[T any](src stream.Observable[T], srcs ...stream.Observable[T]) stream.Observable[T] {
