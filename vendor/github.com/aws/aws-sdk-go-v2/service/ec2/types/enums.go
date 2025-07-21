@@ -988,6 +988,59 @@ func (CapacityBlockExtensionStatus) Values() []CapacityBlockExtensionStatus {
 	}
 }
 
+type CapacityBlockInterconnectStatus string
+
+// Enum values for CapacityBlockInterconnectStatus
+const (
+	CapacityBlockInterconnectStatusOk               CapacityBlockInterconnectStatus = "ok"
+	CapacityBlockInterconnectStatusImpaired         CapacityBlockInterconnectStatus = "impaired"
+	CapacityBlockInterconnectStatusInsufficientData CapacityBlockInterconnectStatus = "insufficient-data"
+)
+
+// Values returns all known values for CapacityBlockInterconnectStatus. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityBlockInterconnectStatus) Values() []CapacityBlockInterconnectStatus {
+	return []CapacityBlockInterconnectStatus{
+		"ok",
+		"impaired",
+		"insufficient-data",
+	}
+}
+
+type CapacityBlockResourceState string
+
+// Enum values for CapacityBlockResourceState
+const (
+	CapacityBlockResourceStateActive         CapacityBlockResourceState = "active"
+	CapacityBlockResourceStateExpired        CapacityBlockResourceState = "expired"
+	CapacityBlockResourceStateUnavailable    CapacityBlockResourceState = "unavailable"
+	CapacityBlockResourceStateCancelled      CapacityBlockResourceState = "cancelled"
+	CapacityBlockResourceStateFailed         CapacityBlockResourceState = "failed"
+	CapacityBlockResourceStateScheduled      CapacityBlockResourceState = "scheduled"
+	CapacityBlockResourceStatePaymentPending CapacityBlockResourceState = "payment-pending"
+	CapacityBlockResourceStatePaymentFailed  CapacityBlockResourceState = "payment-failed"
+)
+
+// Values returns all known values for CapacityBlockResourceState. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityBlockResourceState) Values() []CapacityBlockResourceState {
+	return []CapacityBlockResourceState{
+		"active",
+		"expired",
+		"unavailable",
+		"cancelled",
+		"failed",
+		"scheduled",
+		"payment-pending",
+		"payment-failed",
+	}
+}
+
 type CapacityReservationBillingRequestStatus string
 
 // Enum values for CapacityReservationBillingRequestStatus
@@ -1159,6 +1212,7 @@ const (
 	CapacityReservationStateAssessing      CapacityReservationState = "assessing"
 	CapacityReservationStateDelayed        CapacityReservationState = "delayed"
 	CapacityReservationStateUnsupported    CapacityReservationState = "unsupported"
+	CapacityReservationStateUnavailable    CapacityReservationState = "unavailable"
 )
 
 // Values returns all known values for CapacityReservationState. Note that this
@@ -1178,6 +1232,7 @@ func (CapacityReservationState) Values() []CapacityReservationState {
 		"assessing",
 		"delayed",
 		"unsupported",
+		"unavailable",
 	}
 }
 
@@ -2983,6 +3038,25 @@ const (
 func (ImdsSupportValues) Values() []ImdsSupportValues {
 	return []ImdsSupportValues{
 		"v2.0",
+	}
+}
+
+type InitializationType string
+
+// Enum values for InitializationType
+const (
+	InitializationTypeDefault         InitializationType = "default"
+	InitializationTypeProvisionedRate InitializationType = "provisioned-rate"
+)
+
+// Values returns all known values for InitializationType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (InitializationType) Values() []InitializationType {
+	return []InitializationType{
+		"default",
+		"provisioned-rate",
 	}
 }
 
@@ -7868,6 +7942,7 @@ const (
 	ResourceTypeInstanceConnectEndpoint                                ResourceType = "instance-connect-endpoint"
 	ResourceTypeVerifiedAccessEndpointTarget                           ResourceType = "verified-access-endpoint-target"
 	ResourceTypeIpamExternalResourceVerificationToken                  ResourceType = "ipam-external-resource-verification-token"
+	ResourceTypeCapacityBlock                                          ResourceType = "capacity-block"
 	ResourceTypeMacModificationTask                                    ResourceType = "mac-modification-task"
 )
 
@@ -7971,6 +8046,7 @@ func (ResourceType) Values() []ResourceType {
 		"instance-connect-endpoint",
 		"verified-access-endpoint-target",
 		"ipam-external-resource-verification-token",
+		"capacity-block",
 		"mac-modification-task",
 	}
 }
@@ -10196,8 +10272,9 @@ type VolumeStatusName string
 
 // Enum values for VolumeStatusName
 const (
-	VolumeStatusNameIoEnabled     VolumeStatusName = "io-enabled"
-	VolumeStatusNameIoPerformance VolumeStatusName = "io-performance"
+	VolumeStatusNameIoEnabled           VolumeStatusName = "io-enabled"
+	VolumeStatusNameIoPerformance       VolumeStatusName = "io-performance"
+	VolumeStatusNameInitializationState VolumeStatusName = "initialization-state"
 )
 
 // Values returns all known values for VolumeStatusName. Note that this can be
@@ -10208,6 +10285,7 @@ func (VolumeStatusName) Values() []VolumeStatusName {
 	return []VolumeStatusName{
 		"io-enabled",
 		"io-performance",
+		"initialization-state",
 	}
 }
 

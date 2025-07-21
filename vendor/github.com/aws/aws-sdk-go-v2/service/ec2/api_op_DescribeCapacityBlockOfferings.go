@@ -13,8 +13,8 @@ import (
 )
 
 // Describes Capacity Block offerings available for purchase in the Amazon Web
-// Services Region that you're currently using. With Capacity Blocks, you purchase
-// a specific instance type for a period of time.
+// Services Region that you're currently using. With Capacity Blocks, you can
+// purchase a specific GPU instance type or EC2 UltraServer for a period of time.
 //
 // To search for an available Capacity Block offering, you specify a reservation
 // duration and instance count.
@@ -70,6 +70,12 @@ type DescribeCapacityBlockOfferingsInput struct {
 
 	// The earliest start date for the Capacity Block offering.
 	StartDateRange *time.Time
+
+	// The number of EC2 UltraServers in the offerings.
+	UltraserverCount *int32
+
+	// The EC2 UltraServer type of the Capacity Block offerings.
+	UltraserverType *string
 
 	noSmithyDocumentSerde
 }
