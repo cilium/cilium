@@ -48,7 +48,7 @@ require (
 	github.com/go-openapi/validate v0.24.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8
-	github.com/google/cel-go v0.25.0
+	github.com/google/cel-go v0.26.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-licenses v1.6.1-0.20230903011517-706b9c60edd4
 	github.com/google/gops v0.3.28
@@ -86,7 +86,7 @@ require (
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cast v1.9.2
 	github.com/spf13/cobra v1.9.1
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.7
 	github.com/spf13/viper v1.20.1
 	github.com/spiffe/go-spiffe/v2 v2.5.0
 	github.com/spiffe/spire-api-sdk v1.12.4
@@ -112,31 +112,31 @@ require (
 	golang.org/x/term v0.33.0
 	golang.org/x/text v0.27.0
 	golang.org/x/time v0.12.0
-	golang.org/x/tools v0.34.0
+	golang.org/x/tools v0.35.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250721164621-a45f3dfb1074
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/ini.v1 v1.67.0
-	k8s.io/api v0.33.2
+	k8s.io/api v0.33.3
 	k8s.io/apiextensions-apiserver v0.33.2
-	k8s.io/apimachinery v0.33.2
+	k8s.io/apimachinery v0.33.3
 	k8s.io/cli-runtime v0.33.2
-	k8s.io/client-go v0.33.2
-	k8s.io/component-base v0.33.2
-	k8s.io/endpointslice v0.33.2
+	k8s.io/client-go v0.33.3
+	k8s.io/component-base v0.33.3
+	k8s.io/endpointslice v0.33.3
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.33.2
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/gateway-api v1.3.1-0.20250611112659-17a60f668a0d
 	sigs.k8s.io/mcs-api v0.1.1-0.20250610011024-38bab5ba476b
-	sigs.k8s.io/mcs-api/controllers v0.0.0-20250619142051-a23ff80a0902
+	sigs.k8s.io/mcs-api/controllers v0.0.0-20250715173623-20de0ebd811c
 	sigs.k8s.io/yaml v1.5.0
 )
 
 require (
-	cel.dev/expr v0.23.1 // indirect
+	cel.dev/expr v0.24.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2 // indirect
@@ -257,6 +257,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
+	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822 // indirect
