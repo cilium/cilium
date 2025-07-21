@@ -247,7 +247,7 @@ func removeDevice(name string) {
 	}
 }
 
-func TestAll(t *testing.T) {
+func TestPrivilegedAll(t *testing.T) {
 	for _, tt := range []string{"IPv4", "IPv6", "dual"} {
 		t.Run(tt, func(t *testing.T) {
 			t.Run("TestUpdateNodeRoute", func(t *testing.T) {
