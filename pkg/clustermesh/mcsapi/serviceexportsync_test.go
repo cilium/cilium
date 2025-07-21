@@ -16,11 +16,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/k8s"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -112,7 +112,14 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 	var serviceExports resource.Resource[*mcsapiv1alpha1.ServiceExport]
 	hive := hive.New(
 		k8sFakeClient.FakeClientCell(),
-		k8s.ResourcesCell,
+		cell.Group( // k8s resources (importing 'operator/k8s' would cause a cycle)
+			cell.Config(k8s.DefaultConfig),
+			cell.Provide(k8s.DefaultServiceWatchConfig),
+			cell.Provide(
+				k8s.ServiceResource,
+			),
+		),
+		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Config(envoyCfg.SecretSyncConfig{}),
 		cell.Provide(ServiceExportResource),
 		cell.Provide(func() mcsapitypes.MCSAPIConfig {
