@@ -86,7 +86,8 @@ type AttachVolumeInput struct {
 // Describes volume attachment details.
 type AttachVolumeOutput struct {
 
-	// The ARN of the Amazon ECS or Fargate task to which the volume is attached.
+	// The ARN of the Amazon Web Services-managed resource to which the volume is
+	// attached.
 	AssociatedResource *string
 
 	// The time stamp when the attachment initiated.
@@ -97,18 +98,21 @@ type AttachVolumeOutput struct {
 
 	// The device name.
 	//
-	// If the volume is attached to a Fargate task, this parameter returns null .
+	// If the volume is attached to an Amazon Web Services-managed resource, this
+	// parameter returns null .
 	Device *string
 
 	// The ID of the instance.
 	//
-	// If the volume is attached to a Fargate task, this parameter returns null .
+	// If the volume is attached to an Amazon Web Services-managed resource, this
+	// parameter returns null .
 	InstanceId *string
 
-	// The service principal of Amazon Web Services service that owns the underlying
-	// instance to which the volume is attached.
+	// The service principal of the Amazon Web Services service that owns the
+	// underlying resource to which the volume is attached.
 	//
-	// This parameter is returned only for volumes that are attached to Fargate tasks.
+	// This parameter is returned only for volumes that are attached to Amazon Web
+	// Services-managed resources.
 	InstanceOwningService *string
 
 	// The attachment state of the volume.
