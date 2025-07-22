@@ -95,7 +95,7 @@ func (r *nodePortAddrReconciler) nodePortAddressReconcilerLoop(ctx context.Conte
 			// the new addresses.
 			for fe := range r.frontends.All(wtxn) {
 				if fe.Type != loadbalancer.SVCTypeNodePort &&
-					!(fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster.IsUnspecified()) {
+					!(fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster().IsUnspecified()) {
 					continue
 				}
 
