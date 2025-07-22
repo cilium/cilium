@@ -179,7 +179,9 @@ Response code returned by RPC methods.
 | RESPONSE_CODE_FORMAT_ERROR | 2 |  |
 | RESPONSE_CODE_SERVER_FAILURE | 3 |  |
 | RESPONSE_CODE_NOT_IMPLEMENTED | 4 |  |
-| RESPONSE_CODE_REFUSED | 5 |  |
+| RESPONSE_CODE_ERROR_INVALID_ARGUMENT | 6 | Invalid argument passed to the RPC method |
+| RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND | 5 | Endpoint not found for the given IP |
+| RESPONSE_CODE_REFUSED | 7 |  |
 
 
  
