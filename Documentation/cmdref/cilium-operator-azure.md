@@ -16,6 +16,7 @@ cilium-operator-azure [flags]
       --azure-subscription-id string                         Subscription ID to access Azure API
       --azure-use-primary-address                            Use Azure IP address from interface's primary IPConfigurations
       --azure-user-assigned-identity-id string               ID of the user assigned identity used to auth with the Azure API
+      --bpf-lb-proto-diff                                    Enable support for service protocol differentiation (TCP, UDP, SCTP) (default true)
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
       --ces-slice-mode string                                Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity ("identity") or batched on a "First Come, First Served" basis ("fcfs") (default "identity")
