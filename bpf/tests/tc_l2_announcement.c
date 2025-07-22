@@ -12,6 +12,7 @@
 
 #include "pktgen.h"
 #include "scapy.h"
+#include "../lib/hexdump.h"
 
 /* Enable code paths under test */
 #define ENABLE_IPV4
@@ -51,6 +52,8 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 
 	pktgen__finish(&builder);
 
+	HEXDUMP("build_packet", ctx);
+
 	return 0;
 }
 
@@ -87,6 +90,7 @@ int l2_announcement_arp_no_entry_check(__maybe_unused const struct __ctx_buff *c
 		test_fatal("status code out of bounds");
 
 	status_code = data;
+	HEXDUMP_OFF("no_entry", ctx, sizeof(*status_code));
 
 	assert(*status_code == TC_ACT_OK);
 
@@ -141,6 +145,8 @@ int l2_announcement_arp_happy_path_check(__maybe_unused const struct __ctx_buff 
 		test_fatal("status code out of bounds");
 
 	status_code = data;
+
+	HEXDUMP_OFF("happy_path", ctx, sizeof(*status_code));
 
 	assert(*status_code == TC_ACT_REDIRECT);
 
