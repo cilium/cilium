@@ -894,7 +894,7 @@ github.com/google/shlex
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/gopacket/gopacket v1.3.2-0.20250513021322-b23ac340366c
+# github.com/gopacket/gopacket v1.3.2-0.20250721223119-be3fffa73cab
 ## explicit; go 1.23.0
 github.com/gopacket/gopacket
 github.com/gopacket/gopacket/layers
