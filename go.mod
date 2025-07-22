@@ -95,9 +95,9 @@ require (
 	github.com/tidwall/sjson v1.2.5
 	github.com/vishvananda/netlink v1.3.1
 	github.com/vishvananda/netns v0.0.5
-	go.etcd.io/etcd/api/v3 v3.6.2
-	go.etcd.io/etcd/client/pkg/v3 v3.6.2
-	go.etcd.io/etcd/client/v3 v3.6.2
+	go.etcd.io/etcd/api/v3 v3.6.3
+	go.etcd.io/etcd/client/pkg/v3 v3.6.3
+	go.etcd.io/etcd/client/v3 v3.6.3
 	go.opentelemetry.io/otel v1.37.0
 	go.opentelemetry.io/otel/trace v1.37.0
 	go.uber.org/goleak v1.3.0
@@ -115,7 +115,7 @@ require (
 	golang.org/x/tools v0.35.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250721164621-a45f3dfb1074
-	google.golang.org/grpc v1.73.0
+	google.golang.org/grpc v1.74.2
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/ini.v1 v1.67.0
 	k8s.io/api v0.33.3
