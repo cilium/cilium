@@ -312,10 +312,12 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 							}
 							if !foundPort {
 								if !yield(
-									loadbalancer.L3n4Addr{
-										AddrCluster: addr,
-										L4Addr:      l4Addr,
-									}) {
+									loadbalancer.NewL3n4Addr(
+										l4Addr.Protocol,
+										addr,
+										l4Addr.Port,
+										loadbalancer.ScopeExternal,
+									)) {
 									return
 								}
 							}
@@ -603,13 +605,12 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 				ipv6 = ipv6 || addr.Is6()
 
 				bep := loadbalancer.BackendParams{
-					Address: loadbalancer.L3n4Addr{
-						AddrCluster: addr,
-						L4Addr: loadbalancer.L4Addr{
-							Protocol: proto,
-							Port:     uint16(p.ContainerPort),
-						},
-					},
+					Address: loadbalancer.NewL3n4Addr(
+						proto,
+						addr,
+						uint16(p.ContainerPort),
+						loadbalancer.ScopeExternal,
+					),
 					Weight: loadbalancer.DefaultBackendWeight,
 				}
 				bes = append(bes, bep)
@@ -659,14 +660,12 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 				fe := loadbalancer.FrontendParams{
 					Type:        loadbalancer.SVCTypeHostPort,
 					ServiceName: serviceName,
-					Address: loadbalancer.L3n4Addr{
-						AddrCluster: addr,
-						L4Addr: loadbalancer.L4Addr{
-							Protocol: proto,
-							Port:     uint16(p.HostPort),
-						},
-						Scope: loadbalancer.ScopeExternal,
-					},
+					Address: loadbalancer.NewL3n4Addr(
+						proto,
+						addr,
+						uint16(p.HostPort),
+						loadbalancer.ScopeExternal,
+					),
 					ServicePort: uint16(p.HostPort),
 				}
 				fes = append(fes, fe)

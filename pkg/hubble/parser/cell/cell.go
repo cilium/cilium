@@ -162,14 +162,12 @@ func (h *payloadGetters) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Se
 		return nil
 	}
 	addrCluster := cmtypes.AddrClusterFrom(ip, 0)
-	addr := loadbalancer.L3n4Addr{
-		AddrCluster: addrCluster,
-		L4Addr: loadbalancer.L4Addr{
-			Port: port,
-		},
-	}
-
+	addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, port, loadbalancer.ScopeExternal)
 	fe, _, found := h.frontends.Get(h.db.ReadTxn(), loadbalancer.FrontendByAddress(addr))
+	if !found {
+		addr := loadbalancer.NewL3n4Addr(loadbalancer.UDP, addrCluster, port, loadbalancer.ScopeExternal)
+		fe, _, found = h.frontends.Get(h.db.ReadTxn(), loadbalancer.FrontendByAddress(addr))
+	}
 	if !found {
 		return nil
 	}

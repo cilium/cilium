@@ -406,7 +406,7 @@ func newServiceEndpoints(svc *loadbalancer.Service, txn statedb.ReadTxn, backend
 		backendPrefixes: sync.OnceValue(func() backendPrefixes {
 			prefixes := backendPrefixes{}
 			for be := range backends.List(txn, loadbalancer.BackendByServiceName(svc.Name)) {
-				addr := be.Address.AddrCluster.Addr()
+				addr := be.Address.Addr()
 				prefixes = append(prefixes, api.CIDR(netip.PrefixFrom(addr, addr.BitLen()).String()))
 			}
 			return prefixes
