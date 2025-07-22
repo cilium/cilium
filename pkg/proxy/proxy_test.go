@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
+	datapath "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
@@ -21,13 +22,13 @@ import (
 )
 
 func proxyForTest(t *testing.T) (*Proxy, func()) {
-	mockDatapathUpdater := &proxyports.MockIPTablesManager{}
+	fakeIPTablesManager := &datapath.FakeIptablesManager{}
 	ppConfig := proxyports.ProxyPortsConfig{
 		ProxyPortrangeMin:          10000,
 		ProxyPortrangeMax:          20000,
 		RestoredProxyPortsAgeLimit: 0,
 	}
-	pp := proxyports.NewProxyPorts(hivetest.Logger(t), ppConfig, mockDatapathUpdater)
+	pp := proxyports.NewProxyPorts(hivetest.Logger(t), ppConfig, fakeIPTablesManager)
 	p := createProxy(hivetest.Logger(t), nil, pp, nil, nil)
 	triggerDone := make(chan struct{})
 	p.proxyPorts.Trigger, _ = trigger.NewTrigger(trigger.Parameters{
