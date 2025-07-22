@@ -8,6 +8,8 @@
   // self-hosted configuration
   "username": "cilium-renovate[bot]",
   "repositories": ["cilium/cilium"],
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
   // renovate first reads this configuration, then reads the repository
   // configuration, since we don't split between the self-hosted and the
   // repository configuration, this can lead to duplicate of some areas of the
@@ -60,7 +62,6 @@
     "google/oss-fuzz"
   ],
   "pinDigests": true,
-  "ignorePresets": [":prHourlyLimit2"],
   // We don't want to separate major and minor upgrades in separate PRs since
   // we can upgrade them together in a single PR.
   "separateMajorMinor": false,
