@@ -15,13 +15,13 @@ import (
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
+	"github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/daemon/healthz"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
-	"github.com/cilium/cilium/pkg/bgpv1"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -240,7 +240,18 @@ var (
 		restapi.Cell,
 
 		// The BGP Control Plane which enables various BGP related interop.
-		bgpv1.Cell,
+		//bgpv1.Cell,
+		cell.Provide(
+			func() bgp.GetBgpPeersHandler {
+				return nil
+			},
+			func() bgp.GetBgpRoutePoliciesHandler {
+				return nil
+			},
+			func() bgp.GetBgpRoutesHandler {
+				return nil
+			},
+		),
 
 		// Brokers datapath signals from signalmap
 		signal.Cell,
