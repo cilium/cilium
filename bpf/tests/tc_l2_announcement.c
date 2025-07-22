@@ -156,5 +156,14 @@ int l2_announcement_arp_happy_path_check(__maybe_unused const struct __ctx_buff 
 				 ctx, sizeof(__u32),
 				 EXPECTED_ARP_REP,
 				 sizeof(BUF(EXPECTED_ARP_REP)));
+
+	HEXDUMP_OFF2("happy_path_arp_only", ARP, ctx,
+		     sizeof(__u32) + sizeof(struct ethhdr));
+	BUF_DECL(EXPECTED_ARP_REP_ONLY, l2_announce_arp_reply_only);
+	ASSERT_CTX_BUF_OFF("arp_rep_only_ok", "ARP",
+				 ctx,
+				 sizeof(__u32) + sizeof(struct ethhdr),
+				 EXPECTED_ARP_REP_ONLY,
+				 sizeof(BUF(EXPECTED_ARP_REP_ONLY)));
 	test_finish();
 }
