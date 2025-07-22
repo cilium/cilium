@@ -60,17 +60,16 @@ type GetNodeAddresses interface {
 
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
-	logger                *slog.Logger
-	Manager               nodemanager.NodeManager
-	Registrar             nodestore.NodeRegistrar
-	Registered            chan struct{}
-	localStateInitialized chan struct{}
-	cniConfigManager      cni.CNIConfigManager
-	k8sGetters            k8sGetters
-	localNodeStore        *node.LocalNodeStore
-	clientset             client.Clientset
-	kvstoreClient         kvstore.Client
-	ctrlmgr               *controller.Manager
+	logger           *slog.Logger
+	Manager          nodemanager.NodeManager
+	Registrar        nodestore.NodeRegistrar
+	Registered       chan struct{}
+	cniConfigManager cni.CNIConfigManager
+	k8sGetters       k8sGetters
+	localNodeStore   *node.LocalNodeStore
+	clientset        client.Clientset
+	kvstoreClient    kvstore.Client
+	ctrlmgr          *controller.Manager
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
@@ -84,16 +83,15 @@ func NewNodeDiscovery(
 	k8sNodeWatcher *watchers.K8sCiliumNodeWatcher,
 ) *NodeDiscovery {
 	return &NodeDiscovery{
-		logger:                logger,
-		Manager:               manager,
-		localNodeStore:        lns,
-		Registered:            make(chan struct{}),
-		localStateInitialized: make(chan struct{}),
-		cniConfigManager:      cniConfigManager,
-		clientset:             clientset,
-		kvstoreClient:         kvstoreClient,
-		ctrlmgr:               controller.NewManager(),
-		k8sGetters:            k8sNodeWatcher,
+		logger:           logger,
+		Manager:          manager,
+		localNodeStore:   lns,
+		Registered:       make(chan struct{}),
+		cniConfigManager: cniConfigManager,
+		clientset:        clientset,
+		kvstoreClient:    kvstoreClient,
+		ctrlmgr:          controller.NewManager(),
+		k8sGetters:       k8sNodeWatcher,
 	}
 }
 
@@ -135,7 +133,6 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 	}()
 
 	n.Manager.NodeUpdated(localNode.Node)
-	close(n.localStateInitialized)
 
 	n.updateLocalNode(ctx, &localNode)
 
@@ -150,13 +147,6 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 			n.updateLocalNode(ctx, &ln)
 		}
 	}()
-}
-
-// WaitForLocalNodeInit blocks until StartDiscovery() has been called.  This is used to block until
-// Node's local IP addresses have been allocated, see https://github.com/cilium/cilium/pull/14299
-// and https://github.com/cilium/cilium/pull/14670.
-func (n *NodeDiscovery) WaitForLocalNodeInit() {
-	<-n.localStateInitialized
 }
 
 // WaitForKVStoreSync blocks until kvstore synchronization of node information
