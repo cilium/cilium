@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"sync"
 )
 
 // CiliumVersion provides a minimal structure to the version string
@@ -57,9 +58,9 @@ func FromString(versionString string) CiliumVersion {
 }
 
 // GetCiliumVersion returns a initialized CiliumVersion structure
-func GetCiliumVersion() CiliumVersion {
+var GetCiliumVersion = sync.OnceValue(func() CiliumVersion {
 	return FromString(Version)
-}
+})
 
 // Base64 returns the version in a base64 format.
 func Base64() (string, error) {
