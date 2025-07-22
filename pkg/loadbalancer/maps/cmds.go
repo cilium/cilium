@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/script"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
@@ -126,6 +127,9 @@ func lbmapRestoreCommand(m LBMaps, snapshot *mapSnapshots) script.Cmd {
 		script.CmdUsage{
 			Summary: "Restore the load-balancing BPF maps from snapshot",
 			Args:    "",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.Bool("any-proto", false, "Restore backends with ANY protocol")
+			},
 			Detail: []string{
 				"Restore the load-balancing BPF map contents from a snapshot",
 				"created with lbmaps/snapshot.",
@@ -134,7 +138,8 @@ func lbmapRestoreCommand(m LBMaps, snapshot *mapSnapshots) script.Cmd {
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			return nil, snapshot.restore(m)
+			anyProto, _ := s.Flags.GetBool("any-proto")
+			return nil, snapshot.restore(m, anyProto)
 		},
 	)
 }

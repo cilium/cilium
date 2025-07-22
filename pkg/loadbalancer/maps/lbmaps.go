@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type lbmapsParams struct {
@@ -1335,15 +1336,36 @@ func (s *mapSnapshots) snapshot(lbmaps LBMaps) error {
 	return nil
 }
 
-func (s *mapSnapshots) restore(lbmaps LBMaps) (err error) {
+// restore the snapshot. If [anyProto] is true the protocol for services and backends is
+// ignored and 'ANY' is used instead. This is for testing migration from Cilium version
+// that did not support protocol differentiation.
+func (s *mapSnapshots) restore(lbmaps LBMaps, anyProto bool) (err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for _, kv := range s.services {
+		key := kv.key.(ServiceKey)
+		if anyProto {
+			switch k := key.(type) {
+			case *Service4Key:
+				k.Proto = uint8(u8proto.ANY)
+			case *Service6Key:
+				k.Proto = uint8(u8proto.ANY)
+			}
+		}
 		err = errors.Join(err, lbmaps.UpdateService(kv.key.(ServiceKey), kv.value.(ServiceValue)))
 	}
 	for _, kv := range s.backends {
-		err = errors.Join(err, lbmaps.UpdateBackend(kv.key.(BackendKey), kv.value.(BackendValue)))
+		value := kv.value.(BackendValue)
+		if anyProto {
+			switch v := value.(type) {
+			case *Backend4ValueV3:
+				v.Proto = u8proto.ANY
+			case *Backend6ValueV3:
+				v.Proto = u8proto.ANY
+			}
+		}
+		err = errors.Join(err, lbmaps.UpdateBackend(kv.key.(BackendKey), value))
 	}
 	for _, kv := range s.revNat {
 		err = errors.Join(err, lbmaps.UpdateRevNat(kv.key.(RevNatKey), kv.value.(RevNatValue)))
