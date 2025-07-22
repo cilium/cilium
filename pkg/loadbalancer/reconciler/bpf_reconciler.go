@@ -127,9 +127,9 @@ type BPFOps struct {
 	lastUpdatedAt atomic.Pointer[time.Time]
 
 	serviceIDAlloc     idAllocator[loadbalancer.ServiceID]
-	restoredServiceIDs sets.Set[loadbalancer.ServiceID]
+	restoredServiceIDs map[loadbalancer.L3n4Addr]loadbalancer.ServiceID
 	backendIDAlloc     idAllocator[loadbalancer.BackendID]
-	restoredBackendIDs sets.Set[loadbalancer.BackendID]
+	restoredBackendIDs map[loadbalancer.L3n4Addr]loadbalancer.BackendID
 
 	// restoredQuarantinedBackends are backends that were quarantined for
 	// a specific frontend. This comes into play when we have active health checker.
@@ -214,19 +214,32 @@ func (ops *BPFOps) start(cell.HookContext) (err error) {
 
 func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.serviceIDAlloc = newIDAllocator(firstFreeServiceID, maxSetOfServiceID)
-	ops.restoredServiceIDs = sets.New[loadbalancer.ServiceID]()
+	ops.restoredServiceIDs = map[loadbalancer.L3n4Addr]loadbalancer.ServiceID{}
 	ops.backendIDAlloc = newIDAllocator(firstFreeBackendID, maxSetOfBackendID)
-	ops.restoredBackendIDs = sets.New[loadbalancer.BackendID]()
+	ops.restoredBackendIDs = map[loadbalancer.L3n4Addr]loadbalancer.BackendID{}
 	ops.backendStates = map[loadbalancer.L3n4Addr]backendState{}
 	ops.backendReferences = map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{}
 	ops.nodePortAddrByPort = map[nodePortAddrKey][]netip.Addr{}
 	ops.prevSourceRanges = map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{}
 
 	// Restore backend IDs
+	backendIDToAddress := map[loadbalancer.BackendID]loadbalancer.L3n4Addr{}
 	err = ops.LBMaps.DumpBackend(func(key maps.BackendKey, value maps.BackendValue) {
 		value = value.ToHost()
-		ops.backendIDAlloc.addID(beValueToAddr(value), key.GetID())
-		ops.restoredBackendIDs.Insert(key.GetID())
+		addr := beValueToAddr(value)
+		backendIDToAddress[key.GetID()] = addr
+		if addr.Protocol == loadbalancer.ANY {
+			// Migrate from 'ANY' protocol by reusing the ID.
+			addr.Protocol = loadbalancer.TCP
+			ops.restoredBackendIDs[addr] = key.GetID()
+			addr.Protocol = loadbalancer.UDP
+			ops.restoredBackendIDs[addr] = key.GetID()
+			addr.Protocol = loadbalancer.SCTP
+			ops.restoredBackendIDs[addr] = key.GetID()
+		} else {
+			ops.restoredBackendIDs[addr] = key.GetID()
+		}
+		ops.backendIDAlloc.nextID = max(ops.backendIDAlloc.nextID, key.GetID()+1)
 	})
 	if err != nil {
 		return fmt.Errorf("restore backend ids: %w", err)
@@ -255,9 +268,21 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 			continue
 		}
 
-		id := master.GetRevNat()
-		ops.serviceIDAlloc.addID(addr, loadbalancer.ServiceID(id))
-		ops.restoredServiceIDs.Insert(loadbalancer.ServiceID(id))
+		id := loadbalancer.ServiceID(master.GetRevNat())
+
+		if addr.Protocol == loadbalancer.ANY {
+			addrCopy := addr
+			// Migrate from 'ANY' protocol by reusing the ID.
+			addrCopy.Protocol = loadbalancer.TCP
+			ops.restoredServiceIDs[addrCopy] = id
+			addrCopy.Protocol = loadbalancer.UDP
+			ops.restoredServiceIDs[addrCopy] = id
+			addrCopy.Protocol = loadbalancer.SCTP
+			ops.restoredServiceIDs[addrCopy] = id
+		} else {
+			ops.restoredServiceIDs[addr] = id
+		}
+		ops.serviceIDAlloc.nextID = max(ops.serviceIDAlloc.nextID, id+1)
 
 		if master.GetQCount() > 0 && len(slots) == 1+master.GetCount()+master.GetQCount() {
 			if ops.restoredQuarantinedBackends == nil {
@@ -269,7 +294,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 				ops.restoredQuarantinedBackends[addr] = backends
 			}
 			for _, slot := range slots[1+master.GetCount():] {
-				if addr, found := ops.backendIDAlloc.idToAddr[slot.GetBackendID()]; found {
+				if addr, found := backendIDToAddress[slot.GetBackendID()]; found {
 					backends.Insert(addr)
 				}
 			}
@@ -520,26 +545,8 @@ func (ops *BPFOps) pruneBackendMaps() error {
 }
 
 func (ops *BPFOps) pruneRestoredIDs() error {
-	for id := range ops.restoredServiceIDs {
-		if addr, found := ops.serviceIDAlloc.idToAddr[id]; found {
-			if _, found := ops.backendReferences[addr]; !found {
-				// This ID was restored but no frontend appeared to claim it. Free it.
-				ops.serviceIDAlloc.deleteLocalID(id)
-			}
-		}
-	}
-	for id := range ops.restoredBackendIDs {
-		if addr, found := ops.backendIDAlloc.idToAddr[id]; found {
-			if _, found := ops.backendStates[addr]; !found {
-				// This ID was restored but no frontend appeared to claim it. Free it.
-				ops.backendIDAlloc.deleteLocalID(id)
-			}
-		}
-	}
-
 	ops.restoredServiceIDs = nil
 	ops.restoredBackendIDs = nil
-
 	return nil
 }
 
@@ -731,9 +738,17 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 	// Assign/lookup an identifier for the service. May fail if we have run out of IDs.
 	// The Frontend.ID field is purely for debugging purposes.
-	feID, err := ops.serviceIDAlloc.acquireLocalID(fe.Address)
-	if err != nil {
-		return fmt.Errorf("failed to allocate id: %w", err)
+	var feID loadbalancer.ServiceID
+	if id, found := ops.restoredServiceIDs[fe.Address]; found {
+		feID = id
+		ops.serviceIDAlloc.addID(fe.Address, id)
+		delete(ops.restoredServiceIDs, fe.Address)
+	} else {
+		var err error
+		feID, err = ops.serviceIDAlloc.acquireLocalID(fe.Address)
+		if err != nil {
+			return fmt.Errorf("failed to allocate id: %w", err)
+		}
 	}
 	fe.ID = loadbalancer.ServiceID(feID)
 
@@ -817,11 +832,17 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		if s, ok := ops.backendStates[be.Address]; ok && s.id != 0 {
 			beID = s.id
 		} else {
-			acquiredID, err := ops.backendIDAlloc.acquireLocalID(be.Address)
-			if err != nil {
-				return err
+			if id, found := ops.restoredBackendIDs[be.Address]; found {
+				beID = id
+				ops.backendIDAlloc.addID(be.Address, id)
+				delete(ops.restoredBackendIDs, be.Address)
+			} else {
+				var err error
+				beID, err = ops.backendIDAlloc.acquireLocalID(be.Address)
+				if err != nil {
+					return err
+				}
 			}
-			beID = loadbalancer.BackendID(acquiredID)
 		}
 
 		if ops.needsUpdate(be.Address, be.Revision) {
