@@ -1,4 +1,4 @@
-# cel.dev/expr v0.23.1
+# cel.dev/expr v0.24.0
 ## explicit; go 1.22.0
 cel.dev/expr
 # dario.cat/mergo v1.0.1
@@ -245,7 +245,7 @@ github.com/chai2010/gettext-go
 github.com/chai2010/gettext-go/mo
 github.com/chai2010/gettext-go/plural
 github.com/chai2010/gettext-go/po
-# github.com/cilium/charts v0.0.0-20250701173857-e956e45834c7
+# github.com/cilium/charts v0.0.0-20250721171348-baccfff4e5d4
 ## explicit; go 1.17
 github.com/cilium/charts
 # github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
@@ -912,7 +912,7 @@ github.com/golang/protobuf/proto
 # github.com/google/btree v1.1.3
 ## explicit; go 1.18
 github.com/google/btree
-# github.com/google/cel-go v0.25.0
+# github.com/google/cel-go v0.26.0
 ## explicit; go 1.22.0
 github.com/google/cel-go/cel
 github.com/google/cel-go/checker
@@ -993,7 +993,7 @@ github.com/google/shlex
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/gopacket/gopacket v1.3.2-0.20250513021322-b23ac340366c
+# github.com/gopacket/gopacket v1.3.2-0.20250721223119-be3fffa73cab
 ## explicit; go 1.23.0
 github.com/gopacket/gopacket
 github.com/gopacket/gopacket/layers
@@ -1377,7 +1377,7 @@ github.com/spf13/cast/internal
 ## explicit; go 1.15
 github.com/spf13/cobra
 github.com/spf13/cobra/doc
-# github.com/spf13/pflag v1.0.6
+# github.com/spf13/pflag v1.0.7
 ## explicit; go 1.12
 github.com/spf13/pflag
 # github.com/spf13/viper v1.20.1
@@ -1799,7 +1799,7 @@ gomodules.xyz/jsonpatch/v2
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20250721164621-a45f3dfb1074
 ## explicit; go 1.23.0
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.73.0
@@ -2561,7 +2561,7 @@ k8s.io/component-base/metrics/legacyregistry
 k8s.io/component-base/metrics/prometheus/feature
 k8s.io/component-base/metrics/prometheusextension
 k8s.io/component-base/version
-# k8s.io/endpointslice v0.33.2
+# k8s.io/endpointslice v0.33.3
 ## explicit; go 1.24.0
 k8s.io/endpointslice/metrics
 k8s.io/endpointslice/util
@@ -2839,7 +2839,7 @@ sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/scheme
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake
-# sigs.k8s.io/mcs-api/controllers v0.0.0-20250619142051-a23ff80a0902
+# sigs.k8s.io/mcs-api/controllers v0.0.0-20250715173623-20de0ebd811c
 ## explicit; go 1.23.0
 sigs.k8s.io/mcs-api/controllers
 # sigs.k8s.io/randfill v1.0.0
