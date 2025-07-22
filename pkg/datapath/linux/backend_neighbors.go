@@ -82,7 +82,7 @@ func syncBackendNeighbors(p backendNeighborSyncParams, ctx context.Context, init
 
 			if change.Deleted {
 				err := p.ForwardableIPManager.Delete(
-					change.Object.Address.AddrCluster.Addr(),
+					change.Object.Address.Addr(),
 					owner,
 				)
 				if err != nil {
@@ -90,7 +90,7 @@ func syncBackendNeighbors(p backendNeighborSyncParams, ctx context.Context, init
 				}
 			} else {
 				err := p.ForwardableIPManager.Insert(
-					change.Object.Address.AddrCluster.Addr(),
+					change.Object.Address.Addr(),
 					owner,
 				)
 				if err != nil {
