@@ -161,7 +161,7 @@ ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),
 endif
 
 # Use git only if in a Git repo, otherwise find the files from the file system
-BPF_SRCFILES_IGNORE = bpf/.gitignore
+BPF_SRCFILES_IGNORE = bpf/.gitignore bpf/tests/% bpf/complexity-tests/% bpf/custom/% bpf/Makefile bpf/Makefile.bpf
 ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git/HEAD),)
     BPF_SRCFILES := $(shell git ls-files $(ROOT_DIR)/bpf/ | LC_ALL=C sort | tr "\n" ' ')
 else
