@@ -160,24 +160,7 @@ jobs:
           else
             SHA="${{ github.sha }}"
           fi
-
-          EXTRA_CLI_FLAGS=()
-          if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA_CLI_FLAGS+=("\"--secondary-network-iface=eth1\"")
-          fi
-
-          CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
-                                      --collect-sysdump-on-failure \
-                                      --sysdump-hubble-flows-count=1000000 \
-                                      --sysdump-hubble-flows-timeout=5m \
-                                      --log-code-owners \
-                                      --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-                                      --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-                                      --flush-ct \
-                                      ${EXTRA_CLI_FLAGS[*]}"
-
           echo sha=${SHA} >> $GITHUB_OUTPUT
-          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Derive Cilium installation config and junit type
         id: cilium-config
@@ -216,12 +199,46 @@ jobs:
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
       - name: Provision K8s on LVH VM
+        id: lvh-kind
         uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
+
+      - name: Set up job variables for connectivity tests
+        id: vars-conn
+        run: |
+          EXTRA_CLI_FLAGS=(
+            "\"--external-target=${{ steps.lvh-kind.outputs.external_target_name }}\""
+            "\"--external-other-target=${{ steps.lvh-kind.outputs.other_external_target_name }}\""
+            "\"--external-cidr=${{ steps.lvh-kind.outputs.ipv4_external_cidr }}\""
+            "\"--external-cidrv6=${{ steps.lvh-kind.outputs.ipv6_external_cidr }}\""
+            "\"--external-ip=${{ steps.lvh-kind.outputs.ipv4_external_target }}\""
+            "\"--external-ipv6=${{ steps.lvh-kind.outputs.ipv6_external_target }}\""
+            "\"--external-other-ip=${{ steps.lvh-kind.outputs.ipv4_other_external_target }}\""
+            "\"--external-other-ipv6=${{ steps.lvh-kind.outputs.ipv6_other_external_target }}\""
+            "\"--external-target-ca-namespace=external-target-secrets\""
+            "\"--external-target-ca-name=custom-ca\""
+            "\"--external-target-ipv6-capable\""
+          )
+          if [ "${{ matrix.secondary-network }}" = "true" ]; then
+            EXTRA_CLI_FLAGS+=("\"--secondary-network-iface=eth1\"")
+          fi
+
+          CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
+                                      --collect-sysdump-on-failure \
+                                      --sysdump-hubble-flows-count=1000000 \
+                                      --sysdump-hubble-flows-timeout=5m \
+                                      --log-code-owners \
+                                      --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+                                      --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+                                      --flush-ct \
+                                      ${EXTRA_CLI_FLAGS[*]}"
+
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
 
       - name: Setup bootid file
         uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
@@ -311,7 +328,7 @@ jobs:
             TEST='"seq-.*,!pod-to-world.*"'
           fi
 
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }}-sequential-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
@@ -327,7 +344,7 @@ jobs:
             TEST='"!(seq-.*|pod-to-world.*|pod-to-cidr)"'
           fi
 
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }}-concurrent-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
@@ -383,7 +400,7 @@ jobs:
             TEST='"seq-.*,!pod-to-world.*"'
           fi
 
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }}-sequential-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
@@ -399,7 +416,7 @@ jobs:
             TEST='"!(seq-.*|pod-to-world.*|pod-to-cidr)"'
           fi
 
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }}-concurrent-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
