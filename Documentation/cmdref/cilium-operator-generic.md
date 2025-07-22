@@ -12,6 +12,7 @@ cilium-operator-generic [flags]
 
 ```
       --auto-create-cilium-pod-ip-pools map                  Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)
+      --bpf-lb-proto-diff                                    Enable support for service protocol differentiation (TCP, UDP, SCTP) (default true)
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
       --cilium-endpoint-gc-interval duration                 GC interval for cilium endpoints (default 5m0s)
