@@ -202,45 +202,25 @@ jobs:
             CILIUM_INSTALL_ENCRYPTION="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
           fi
 
-          case "${{ matrix.family }}" in
-            ipv4)
-              CILIUM_INSTALL_MULTIPOOL_IPAM="--helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,192.168.0.0/16}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{10.10.0.0/16}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.cidrs='{10.20.0.0/16}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.maskSize=24 \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.cidrs='{192.168.0.0/20}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.maskSize=27 \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/20}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27"
-              CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=false"
-              KIND_SVC_CIDR="10.243.0.0/16"
-              ;;
-            dual)
-              CILIUM_INSTALL_MULTIPOOL_IPAM="--helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,192.168.0.0/16,fd00::/104}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{10.10.0.0/16}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.cidrs='{10.20.0.0/16}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.maskSize=24 \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.cidrs='{192.168.0.0/20}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.maskSize=27 \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/20}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27 \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv6.cidrs='{fd00::/120}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv6.maskSize=122 \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv6.cidrs='{fd00::100/120}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv6.maskSize=122 \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv6.cidrs='{fd00::200/120}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv6.maskSize=122 \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv6.cidrs='{fd00::300/120}' \
-                --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv6.maskSize=122"
-              CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=true"
-              KIND_SVC_CIDR="10.243.0.0/16,fd00:10:243::/112"
-              ;;
-            *)
-              echo "Unknown IP family '${{ matrix.family }}'" && false
-              ;;
-          esac
+          CILIUM_INSTALL_MULTIPOOL_IPAM="--helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,192.168.0.0/16,fd00::/104}' \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{10.10.0.0/16}' \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.cidrs='{10.20.0.0/16}' \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.maskSize=24 \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.cidrs='{192.168.0.0/20}' \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.maskSize=27 \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/20}' \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27 \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv6.cidrs='{fd00::/120}' \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv6.maskSize=122 \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv6.cidrs='{fd00::100/120}' \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv6.maskSize=122 \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv6.cidrs='{fd00::200/120}' \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv6.maskSize=122 \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv6.cidrs='{fd00::300/120}' \
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv6.maskSize=122"
+          CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=true"
+          KIND_SVC_CIDR="10.243.0.0/16,fd00:10:243::/112"
 
           CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
             --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
@@ -264,7 +244,7 @@ jobs:
       - name: Generate Kind configuration files
         run: |
           SVCCIDR=${{ steps.vars.outputs.kind_svc_cidr }} \
-            IPFAMILY=${{ matrix.family }} \
+            IPFAMILY=dual \
             KUBEPROXYMODE=none \
             envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-multi-pool.yaml
 
