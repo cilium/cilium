@@ -138,8 +138,8 @@ func socketTerminationLoop(p socketTerminationParams, ctx context.Context, healt
 				p.TestSyncChan = nil
 			}
 
-			if backend.Address.L4Addr.Protocol != lb.UDP &&
-				backend.Address.L4Addr.Protocol != lb.TCP {
+			if backend.Address.Protocol() != lb.UDP &&
+				backend.Address.Protocol() != lb.TCP {
 				continue
 			}
 
@@ -179,10 +179,9 @@ func terminateConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n4Ad
 		protocol uint8
 		states   uint32
 	)
-	ip := net.IP(l3n4Addr.AddrCluster.Addr().AsSlice())
-	l4Addr := l3n4Addr.L4Addr
+	ip := net.IP(l3n4Addr.Addr().AsSlice())
 
-	switch l3n4Addr.Protocol {
+	switch l3n4Addr.Protocol() {
 	case lb.UDP:
 		protocol = unix.IPPROTO_UDP
 		states = sockets.StateFilterUDP
@@ -227,7 +226,7 @@ func terminateConnectionsToBackend(p socketTerminationParams, l3n4Addr lb.L3n4Ad
 				Protocol:  protocol,
 				States:    states,
 				DestIp:    ip,
-				DestPort:  l4Addr.Port,
+				DestPort:  l3n4Addr.Port(),
 				DestroyCB: checkSockInRevNat,
 			})
 		})

@@ -298,7 +298,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 					Address:     feM.feAddr,
 					Type:        lb.SVCTypeLocalRedirect,
 					ServiceName: lrpServiceName,
-					ServicePort: feM.feAddr.Port,
+					ServicePort: feM.feAddr.Port(),
 				},
 			)
 			if err != nil {
@@ -373,7 +373,7 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb
 	orphanCount := 0
 	for be := range c.p.Writer.Backends().List(wtxn, lb.BackendByServiceName(lrpServiceName)) {
 		if slices.ContainsFunc(beps, func(bep lb.BackendParams) bool {
-			return bep.Address.DeepEqual(&be.Address)
+			return bep.Address == be.Address
 		}) {
 			newCount--
 		} else {
@@ -413,7 +413,7 @@ func shouldRedirectFrontend(log *slog.Logger, lrp *LocalRedirectPolicy, fe *lb.F
 	// 1.2. Frontend matches if the port number matches
 	if !match {
 		for _, feM := range lrp.FrontendMappings {
-			match = feM.feAddr.L4Addr.Port == fe.Address.Port && feM.feAddr.L4Addr.Protocol == fe.Address.Protocol
+			match = feM.feAddr.Port() == fe.Address.Port() && feM.feAddr.Protocol() == fe.Address.Protocol()
 			if match {
 				break
 			}
@@ -567,11 +567,12 @@ func podAddrs(pod *slim_corev1.Pod) (addrs []podAddr) {
 			for _, port := range container.Ports {
 				l4addr := lb.NewL4Addr(lb.L4Type(port.Protocol), uint16(port.ContainerPort))
 				addr := podAddr{
-					L3n4Addr: lb.L3n4Addr{
-						AddrCluster: addrCluster,
-						L4Addr:      l4addr,
-						Scope:       0,
-					},
+					L3n4Addr: lb.NewL3n4Addr(
+						l4addr.Protocol,
+						addrCluster,
+						l4addr.Port,
+						lb.ScopeExternal,
+					),
 					portName: port.Name,
 				}
 				addrs = append(addrs, addr)

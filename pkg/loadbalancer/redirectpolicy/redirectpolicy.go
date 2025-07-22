@@ -304,7 +304,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 	// When a single port is specified in the LRP frontend, the protocol for frontend and
 	// backend must match.
 	if len(feMappings) == 1 {
-		if bePorts[0].l4Addr.Protocol != feMappings[0].feAddr.Protocol {
+		if bePorts[0].l4Addr.Protocol != feMappings[0].feAddr.Protocol() {
 			return nil, fmt.Errorf("backend protocol must match with " +
 				"frontend protocol")
 		}

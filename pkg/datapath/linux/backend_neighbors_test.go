@@ -65,7 +65,7 @@ func TestBackendNeighborSync(t *testing.T) {
 		return func() bool {
 			rx := db.ReadTxn()
 			for fip := range forwardableIPs.All(rx) {
-				if fip.IP == addr.AddrCluster.Addr() {
+				if fip.IP == addr.Addr() {
 					return !invert
 				}
 			}

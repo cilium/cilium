@@ -236,16 +236,16 @@ func (bi *BackendInfo) setHashString() {
 	a := bi.Addr
 	if a.IsIPv6() {
 		b.WriteByte('[')
-		b.WriteString(a.AddrCluster.String())
+		b.WriteString(a.AddrCluster().String())
 		b.WriteString("]:")
 	} else {
-		b.WriteString(a.AddrCluster.String())
+		b.WriteString(a.AddrCluster().String())
 		b.WriteByte(':')
 	}
-	b.WriteString(strconv.FormatUint(uint64(a.Port), 10))
+	b.WriteString(strconv.FormatUint(uint64(a.Port()), 10))
 	b.WriteByte('/')
-	b.WriteString(a.Protocol)
-	if a.Scope == loadbalancer.ScopeInternal {
+	b.WriteString(a.Protocol())
+	if a.Scope() == loadbalancer.ScopeInternal {
 		b.WriteString("/i")
 	}
 	b.WriteString(",State:active]")

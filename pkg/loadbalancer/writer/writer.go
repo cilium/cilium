@@ -259,7 +259,7 @@ func (w *Writer) UpdateBackendHealth(txn WriteTxn, serviceName loadbalancer.Serv
 
 func (w *Writer) upsertFrontendParams(txn WriteTxn, params loadbalancer.FrontendParams, svc *loadbalancer.Service) (old *loadbalancer.Frontend, err error) {
 	if params.ServicePort == 0 {
-		params.ServicePort = params.Address.Port
+		params.ServicePort = params.Address.Port()
 	}
 	fe := &loadbalancer.Frontend{
 		FrontendParams: params,
@@ -382,7 +382,7 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 			node, err := w.lns.Get(context.Background())
 			if err == nil {
 				isLocalProxyDelegation = func(addr loadbalancer.L3n4Addr) bool {
-					return node.IsNodeIP(addr.AddrCluster.Addr()) != ""
+					return node.IsNodeIP(addr.Addr()) != ""
 				}
 			}
 		}
@@ -390,7 +390,7 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 
 	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
 		for be, rev := range bes {
-			if fe != nil && fe.Address.Protocol != be.Address.Protocol {
+			if fe != nil && fe.Address.Protocol() != be.Address.Protocol() {
 				continue
 			}
 			if be.Address.IsIPv6() {
@@ -740,7 +740,7 @@ func isIntLocal(extCfg *loadbalancer.ExternalConfig, fe *loadbalancer.Frontend) 
 func shouldUseLocalBackends(extCfg *loadbalancer.ExternalConfig, fe *loadbalancer.Frontend) bool {
 	// When both traffic policies are Local, there is only the external scope, which
 	// should contain node-local backends only. Checking isExtLocal is still enough.
-	switch fe.Address.Scope {
+	switch fe.Address.Scope() {
 	case loadbalancer.ScopeExternal:
 		if fe.Type == loadbalancer.SVCTypeClusterIP {
 			// ClusterIP doesn't support externalTrafficPolicy and has only the

@@ -44,7 +44,7 @@ func isIngressDummyEndpoint(l3n4Addr loadbalancer.L3n4Addr) bool {
 	// control-plane, but due to rolling upgrades we cannot remove it immediately. Hence we have the
 	// special handling here to just ignore this endpoint to avoid populating the tables with unnecessary
 	// data.
-	return l3n4Addr.AddrCluster.Equal(ingressDummyAddress) && l3n4Addr.Port == ingressDummyPort
+	return l3n4Addr.AddrCluster() == ingressDummyAddress && l3n4Addr.Port() == ingressDummyPort
 }
 
 func getAnnotationServiceForwardingMode(cfg loadbalancer.Config, svc *slim_corev1.Service) (loadbalancer.SVCForwardingMode, error) {
@@ -210,9 +210,12 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 					ServiceName: name,
 					ServicePort: uint16(port.Port),
 				}
-				fe.Address.AddrCluster = addr
-				fe.Address.Scope = loadbalancer.ScopeExternal
-				fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+				fe.Address = loadbalancer.NewL3n4Addr(
+					loadbalancer.L4Type(port.Protocol),
+					addr,
+					uint16(port.Port),
+					loadbalancer.ScopeExternal,
+				)
 				fes = append(fes, fe)
 			}
 		}
@@ -252,15 +255,23 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 
 						switch family {
 						case slim_corev1.IPv4Protocol:
-							fe.Address.AddrCluster = zeroV4
+							fe.Address = loadbalancer.NewL3n4Addr(
+								loadbalancer.L4Type(port.Protocol),
+								zeroV4,
+								uint16(port.NodePort),
+								scope,
+							)
 						case slim_corev1.IPv6Protocol:
-							fe.Address.AddrCluster = zeroV6
+							fe.Address = loadbalancer.NewL3n4Addr(
+								loadbalancer.L4Type(port.Protocol),
+								zeroV6,
+								uint16(port.NodePort),
+								scope,
+							)
 						default:
 							continue
 						}
 
-						fe.Address.Scope = scope
-						fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.NodePort))
 						fes = append(fes, fe)
 					}
 				}
@@ -297,9 +308,12 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 							ServicePort: uint16(port.Port),
 						}
 
-						fe.Address.AddrCluster = addr
-						fe.Address.Scope = scope
-						fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+						fe.Address = loadbalancer.NewL3n4Addr(
+							loadbalancer.L4Type(port.Protocol),
+							addr,
+							uint16(port.Port),
+							scope,
+						)
 						fes = append(fes, fe)
 					}
 				}
@@ -330,10 +344,12 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 					ServiceName: name,
 					ServicePort: uint16(port.Port),
 				}
-
-				fe.Address.AddrCluster = addr
-				fe.Address.Scope = loadbalancer.ScopeExternal
-				fe.Address.L4Addr = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+				fe.Address = loadbalancer.NewL3n4Addr(
+					loadbalancer.L4Type(port.Protocol),
+					addr,
+					uint16(port.Port),
+					loadbalancer.ScopeExternal,
+				)
 				fes = append(fes, fe)
 			}
 		}
@@ -395,10 +411,12 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 				continue
 			}
 			for l4Addr, portNames := range be.Ports {
-				l3n4Addr := loadbalancer.L3n4Addr{
-					AddrCluster: addrCluster,
-					L4Addr:      l4Addr,
-				}
+				l3n4Addr := loadbalancer.NewL3n4Addr(
+					l4Addr.Protocol,
+					addrCluster,
+					l4Addr.Port,
+					loadbalancer.ScopeExternal,
+				)
 				if isIngressDummyEndpoint(l3n4Addr) {
 					continue
 				}

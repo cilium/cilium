@@ -227,7 +227,7 @@ func BenchmarkReplaceService(b *testing.B) {
 				Address:     l3n4Addr,
 				Type:        loadbalancer.SVCTypeClusterIP,
 				PortName:    "",
-				ServicePort: l3n4Addr.Port,
+				ServicePort: l3n4Addr.Port(),
 			},
 		)
 	}

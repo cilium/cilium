@@ -152,13 +152,13 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 	// We should see two deletions: one for host ns (if enabled) and one for the mocked
 	// "foo" one.
 	filter := <-mock.requests
-	require.True(t, beAddr.AddrCluster.AsNetIP().Equal(filter.DestIp), "IP matches")
-	require.Equal(t, beAddr.Port, filter.DestPort, "Port matches")
+	require.True(t, beAddr.AddrCluster().AsNetIP().Equal(filter.DestIp), "IP matches")
+	require.Equal(t, beAddr.Port(), filter.DestPort, "Port matches")
 
 	if !hostOnly {
 		filter = <-mock.requests
-		require.True(t, beAddr.AddrCluster.AsNetIP().Equal(filter.DestIp), "IP matches")
-		require.Equal(t, beAddr.Port, filter.DestPort, "Port matches")
+		require.True(t, beAddr.AddrCluster().AsNetIP().Equal(filter.DestIp), "IP matches")
+		require.Equal(t, beAddr.Port(), filter.DestPort, "Port matches")
 		require.ElementsMatch(t, visitedNamespaces, []*netns.NetNS{hostNS, fooNS})
 	} else {
 		require.ElementsMatch(t, visitedNamespaces, []*netns.NetNS{hostNS})
@@ -427,8 +427,12 @@ func benchmarkChangeIteration(b *testing.B, proto loadbalancer.L4Type) {
 	for i := range numBackends {
 		addr := [4]byte{1, byte(i / (256 * 256)), byte(i / 256), byte(i % 256)}
 		be := loadbalancer.Backend{}
-		be.Address.AddrCluster = cmtypes.AddrClusterFrom(netip.AddrFrom4(addr), 0)
-		be.Address.L4Addr.Protocol = proto
+		be.Address = loadbalancer.NewL3n4Addr(
+			proto,
+			cmtypes.AddrClusterFrom(netip.AddrFrom4(addr), 0),
+			1,
+			loadbalancer.ScopeExternal,
+		)
 		be.Instances = be.Instances.Set(
 			loadbalancer.BackendInstanceKey{
 				ServiceName:    loadbalancer.NewServiceName("foo", "bar"),
@@ -458,7 +462,7 @@ func benchmarkChangeIteration(b *testing.B, proto loadbalancer.L4Type) {
 		for change := range changes {
 			backend := change.Object
 			total++
-			if change.Object.Address.L4Addr.Protocol != loadbalancer.UDP {
+			if change.Object.Address.Protocol() != loadbalancer.UDP {
 				continue
 			}
 			if change.Deleted || !backend.IsAlive() {

@@ -130,7 +130,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 		for change := range changes {
 			fe := change.Object
 			if (fe.Type != lb.SVCTypeLoadBalancer && fe.Type != lb.SVCTypeNodePort) ||
-				fe.Address.Scope == lb.ScopeInternal {
+				fe.Address.Scope() == lb.ScopeInternal {
 				continue
 			}
 
@@ -183,14 +183,12 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 							IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
 						},
 						lb.FrontendParams{
-							Address: lb.L3n4Addr{
-								AddrCluster: fe.Address.AddrCluster,
-								L4Addr: lb.L4Addr{
-									Protocol: lb.TCP,
-									Port:     port,
-								},
-								Scope: lb.ScopeExternal,
-							},
+							Address: lb.NewL3n4Addr(
+								lb.TCP,
+								fe.Address.AddrCluster(),
+								port,
+								lb.ScopeExternal,
+							),
 							Type:        lb.SVCTypeLoadBalancer,
 							ServiceName: healthServiceName,
 							ServicePort: port,
@@ -199,7 +197,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 
 					// Find NodePort addr to use as a backend for $LB_VIP:$HC_NODEPORT frontend.
 					beAddr := netip.IPv4Unspecified()
-					is4 := fe.Address.AddrCluster.Is4()
+					is4 := fe.Address.AddrCluster().Is4()
 					if !is4 {
 						beAddr = netip.IPv6Unspecified()
 					}
@@ -218,14 +216,12 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 						healthServiceName,
 						source.Local,
 						lb.BackendParams{
-							Address: lb.L3n4Addr{
-								AddrCluster: cmtypes.AddrClusterFrom(beAddr, 0),
-								L4Addr: lb.L4Addr{
-									Protocol: lb.TCP,
-									Port:     port,
-								},
-								Scope: lb.ScopeExternal,
-							},
+							Address: lb.NewL3n4Addr(
+								lb.TCP,
+								cmtypes.AddrClusterFrom(beAddr, 0),
+								port,
+								lb.ScopeExternal,
+							),
 							NodeName: s.nodeName,
 							State:    lb.BackendStateActive,
 						},

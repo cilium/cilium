@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unique"
 	"unsafe"
 
 	"github.com/cespare/xxhash/v2"
@@ -742,32 +743,45 @@ func (l L4Addr) String() string {
 	return fmt.Sprintf("%d/%s", l.Port, l.Protocol)
 }
 
-// L3n4Addr is used to store, as an unique L3+L4 address in the KVStore. It also
-// includes the lookup scope for frontend addresses which is used in service
-// handling for externalTrafficPolicy=Local and internalTrafficPolicy=Local,
-// that is, Scope{External,Internal}.
-//
-// +deepequal-gen=true
-// +deepequal-gen:private-method=true
-// +k8s:deepcopy-gen=true
-type L3n4Addr struct {
-	AddrCluster cmtypes.AddrCluster
+// L3n4Addr is an unique L3+L4 address and scope (for traffic policies).
+type L3n4Addr unique.Handle[l3n4AddrRep]
+
+// l3n4AddrRep is the internal representation for L3n4Addr.
+type l3n4AddrRep struct {
+	addrCluster cmtypes.AddrCluster
 	L4Addr
-	Scope uint8
+	scope uint8
 }
 
-// DeepEqual returns true if both the receiver and 'o' are deeply equal.
-func (l *L3n4Addr) DeepEqual(o *L3n4Addr) bool {
-	if l == nil {
-		return o == nil
-	}
-	return l.AddrCluster.Equal(o.AddrCluster) && l.deepEqual(o)
+func (l L3n4Addr) rep() l3n4AddrRep {
+	return unique.Handle[l3n4AddrRep](l).Value()
+}
+
+func (l L3n4Addr) Addr() netip.Addr {
+	return l.rep().addrCluster.Addr()
+}
+
+func (l L3n4Addr) Protocol() L4Type {
+	return l.rep().Protocol
+}
+
+func (l L3n4Addr) Port() uint16 {
+	return l.rep().Port
+}
+
+func (l L3n4Addr) Scope() uint8 {
+	return l.rep().scope
+}
+
+func (l L3n4Addr) AddrCluster() cmtypes.AddrCluster {
+	return l.rep().addrCluster
 }
 
 // NewL3n4Addr creates a new L3n4Addr.
 func NewL3n4Addr(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, scope uint8) L3n4Addr {
 	lbport := NewL4Addr(protocol, portNumber)
-	return L3n4Addr{AddrCluster: addrCluster, L4Addr: lbport, Scope: scope}
+	rep := l3n4AddrRep{addrCluster: addrCluster, L4Addr: lbport, scope: scope}
+	return L3n4Addr(unique.Make(rep))
 }
 
 func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
@@ -790,7 +804,6 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		proto = p
 	}
 
-	l4addr := NewL4Addr(proto, base.Port)
 	addrCluster, err := cmtypes.ParseAddrCluster(base.IP)
 	if err != nil {
 		return nil, err
@@ -804,7 +817,8 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		return nil, fmt.Errorf("invalid scope \"%s\"", base.Scope)
 	}
 
-	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: l4addr, Scope: scope}, nil
+	addr := NewL3n4Addr(proto, addrCluster, base.Port, scope)
+	return &addr, nil
 }
 
 // L3n4AddrFromString constructs a StateDB key by parsing the input in the form of
@@ -913,8 +927,7 @@ func (l *L3n4Addr) ParseFromString(s string) error {
 		addr, s, _ = strings.Cut(s, ":")
 	}
 
-	var err error
-	l.AddrCluster, err = cmtypes.ParseAddrCluster(addr)
+	addrCluster, err := cmtypes.ParseAddrCluster(addr)
 	if err != nil {
 		return formatError
 	}
@@ -930,24 +943,25 @@ func (l *L3n4Addr) ParseFromString(s string) error {
 	if err != nil {
 		return formatError
 	}
-	l.L4Addr.Port = uint16(port)
 
 	// Parse protocol
-	l.L4Addr.Protocol = TCP
+	protocol := TCP
 	if len(s) > 0 {
 		var proto string
 		proto, s, _ = strings.Cut(s, "/")
-		l.L4Addr.Protocol = L4Type(strings.ToUpper(proto))
-		if !slices.Contains(AllProtocols, l.L4Addr.Protocol) {
+		protocol = L4Type(strings.ToUpper(proto))
+		if !slices.Contains(AllProtocols, protocol) {
 			return formatError
 		}
 	}
 
 	// Parse scope.
-	l.Scope = ScopeExternal
+	scope := ScopeExternal
 	if s == "i" {
-		l.Scope = ScopeInternal
+		scope = ScopeInternal
 	}
+
+	*l = NewL3n4Addr(protocol, addrCluster, uint16(port), scope)
 	return nil
 }
 
@@ -957,50 +971,50 @@ func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 	}
 
 	scope := models.FrontendAddressScopeExternal
-	if a.Scope == ScopeInternal {
+	if a.Scope() == ScopeInternal {
 		scope = models.FrontendAddressScopeInternal
 	}
 	return &models.FrontendAddress{
-		IP:       a.AddrCluster.String(),
-		Protocol: a.Protocol,
-		Port:     a.Port,
+		IP:       a.AddrCluster().String(),
+		Protocol: a.Protocol(),
+		Port:     a.Port(),
 		Scope:    scope,
 	}
 }
 
 // String returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]" format for IPv4 and
 // "[IPv6]:Port/Protocol[/Scope]" format for IPv6.
-func (a *L3n4Addr) String() string {
+func (a L3n4Addr) String() string {
 	return a.StringWithProtocol()
 }
 
 // StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
 // format for IPv4 and "[IPv6]:Port/Protocol[/Scope]" format for IPv6.
-func (a *L3n4Addr) StringWithProtocol() string {
+func (a L3n4Addr) StringWithProtocol() string {
+	rep := a.rep()
 	var scope string
-	if a.Scope == ScopeInternal {
+	if rep.scope == ScopeInternal {
 		scope = "/i"
 	}
 	if a.IsIPv6() {
-		return "[" + a.AddrCluster.String() + "]:" + strconv.FormatUint(uint64(a.Port), 10) + "/" + a.Protocol + scope
+		return "[" + rep.addrCluster.String() + "]:" + strconv.FormatUint(uint64(rep.Port), 10) + "/" + rep.Protocol + scope
 	}
-	return a.AddrCluster.String() + ":" + strconv.FormatUint(uint64(a.Port), 10) + "/" + a.Protocol + scope
+	return rep.addrCluster.String() + ":" + strconv.FormatUint(uint64(rep.Port), 10) + "/" + rep.Protocol + scope
 }
 
 // StringID returns the L3n4Addr as string to be used for unique identification
-func (a *L3n4Addr) StringID() string {
+func (a L3n4Addr) StringID() string {
 	return a.String()
 }
 
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
-func (a *L3n4Addr) IsIPv6() bool {
-	return a.AddrCluster.Is6()
+func (a L3n4Addr) IsIPv6() bool {
+	return a.rep().addrCluster.Is6()
 }
 
-func (l *L3n4Addr) AddrString() string {
-	str := l.AddrCluster.Addr().String() + ":" + strconv.FormatUint(uint64(l.Port), 10)
-
-	return str
+func (l L3n4Addr) AddrString() string {
+	rep := l.rep()
+	return rep.addrCluster.Addr().String() + ":" + strconv.FormatUint(uint64(rep.Port), 10)
 }
 
 type l3n4AddrCacheEntry struct {
@@ -1020,21 +1034,21 @@ var l3n4AddrCache = cache.New(
 
 func (l L3n4Addr) l3n4AddrCacheHash() uint64 {
 	var d xxhash.Digest
-	buf := l.AddrCluster.Addr().As16()
+	buf := l.Addr().As16()
 	d.Write(buf[:])
-	binary.BigEndian.PutUint16(buf[:], l.Port)
+	binary.BigEndian.PutUint16(buf[:], l.Port())
 	d.Write(buf[:2])
 	return d.Sum64()
 }
 
 // Bytes returns the address as a byte slice for indexing purposes.
-// Similar to Hash() but includes the L4 protocol.
+// The returned byte slice must not be mutated.
 func (l L3n4Addr) Bytes() []byte {
 	return cache.GetOrPutWith(
 		l3n4AddrCache,
 		l.l3n4AddrCacheHash(),
 		func(e l3n4AddrCacheEntry) bool {
-			return e.addr.DeepEqual(&l)
+			return e.addr == l
 		},
 		func() l3n4AddrCacheEntry {
 			const keySize = cmtypes.AddrClusterLen +
@@ -1042,12 +1056,13 @@ func (l L3n4Addr) Bytes() []byte {
 				1 /* Protocol */ +
 				1 /* Scope */
 
+			rep := l.rep()
 			key := make([]byte, 0, keySize)
-			addr20 := l.AddrCluster.As20()
+			addr20 := rep.addrCluster.As20()
 			key = append(key, addr20[:]...)
-			key = binary.BigEndian.AppendUint16(key, l.Port)
-			key = append(key, L4TypeAsByte(l.Protocol))
-			key = append(key, l.Scope)
+			key = binary.BigEndian.AppendUint16(key, rep.Port)
+			key = append(key, L4TypeAsByte(rep.Protocol))
+			key = append(key, rep.scope)
 			return l3n4AddrCacheEntry{
 				addr:  l,
 				bytes: key,
@@ -1057,10 +1072,14 @@ func (l L3n4Addr) Bytes() []byte {
 
 func (l L3n4Addr) MarshalYAML() (any, error) {
 	return l.StringWithProtocol(), nil
-
 }
+
 func (l *L3n4Addr) UnmarshalYAML(value *yaml.Node) error {
 	return l.ParseFromString(value.Value)
+}
+
+func (l L3n4Addr) MarshalJSON() ([]byte, error) {
+	return json.Marshal(l.StringWithProtocol())
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
@@ -1073,7 +1092,8 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 	if err != nil {
 		return nil, err
 	}
-	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: l4addr}, nil
+	addr := NewL3n4Addr(l4addr.Protocol, addrCluster, l4addr.Port, ScopeExternal)
+	return &addr, nil
 }
 
 func init() {
