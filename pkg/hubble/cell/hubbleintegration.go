@@ -343,6 +343,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	var metricsTLSConfig *certloader.WatchedServerConfig
 	if h.config.EnableMetricsServerTLS {
 		metricsTLSConfigChan, err := certloader.FutureWatchedServerConfig(
+			ctx,
 			h.log.WithField("config", "hubble-metrics-server-tls"),
 			h.config.MetricsServerTLSClientCAFiles,
 			h.config.MetricsServerTLSCertFile,
@@ -569,6 +570,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 			options = append(options, serveroption.WithInsecure())
 		} else {
 			tlsServerConfigChan, err := certloader.FutureWatchedServerConfig(
+				ctx,
 				h.log.WithField("config", "tls-server"),
 				h.config.ServerTLSClientCAFiles,
 				h.config.ServerTLSCertFile,
