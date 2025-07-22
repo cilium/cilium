@@ -156,18 +156,16 @@ func (fe *Frontend) ToModel() *models.Service {
 	}
 
 	backendModel := func(be BackendParams) *models.BackendAddress {
-		addrClusterStr := be.Address.AddrCluster.String()
-
+		addrClusterStr := be.Address.AddrCluster().String()
 		state := be.State
 		if be.Unhealthy {
 			state = BackendStateQuarantined
 		}
 		stateStr, _ := state.String()
-
 		return &models.BackendAddress{
 			IP:        &addrClusterStr,
-			Protocol:  be.Address.Protocol,
-			Port:      be.Address.Port,
+			Protocol:  be.Address.Protocol(),
+			Port:      be.Address.Port(),
 			NodeName:  be.NodeName,
 			Zone:      be.Zone,
 			State:     stateStr,
