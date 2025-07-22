@@ -62,3 +62,9 @@ tcp_svc_three = 53
 
 default_data = "Should not change!!"
 
+# Test packet/buffer definitions
+
+## L2 announce (v4)
+
+l2_announce_arp_req = Ether(dst=mac_bcast, src=mac_one)/ARP(op="who-has", psrc=v4_ext_one, pdst=v4_svc_one, hwsrc=mac_one, hwdst=mac_bcast)
+l2_announce_arp_reply = Ether(dst=mac_one, src=mac_two)/ARP(op="is-at", psrc=v4_svc_one, pdst=v4_ext_one, hwsrc=mac_two, hwdst=mac_one)
