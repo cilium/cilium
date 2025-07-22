@@ -67,7 +67,7 @@ func TestSolicitedNodeMaddr(t *testing.T) {
 func randMaddr() netip.Addr {
 	maddr := make([]byte, 16)
 	rand.Read(maddr[13:])
-	return Address(netip.AddrFrom16(*(*[16]byte)(maddr))).SolicitedNodeMaddr()
+	return Address(netip.AddrFrom16(([16]byte)(maddr))).SolicitedNodeMaddr()
 }
 
 func TestMcastKey(t *testing.T) {
