@@ -43,43 +43,38 @@ const (
 
 var (
 	// special addresses that are replaced by the test runner.
-	autoAddr = loadbalancer.L3n4Addr{
-		AddrCluster: types.MustParseAddrCluster("0.0.0.1"),
-		L4Addr:      loadbalancer.L4Addr{},
-		Scope:       0,
-	}
-	zeroAddr = loadbalancer.L3n4Addr{
-		AddrCluster: types.MustParseAddrCluster("0.0.0.3"),
-		L4Addr:      loadbalancer.L4Addr{},
-		Scope:       0,
-	}
-
-	extraFrontend = loadbalancer.L3n4Addr{
-		AddrCluster: types.MustParseAddrCluster("10.0.0.2"),
-		L4Addr: loadbalancer.L4Addr{
-			Protocol: loadbalancer.TCP,
-			Port:     80,
-		},
-		Scope: 0,
-	}
+	autoAddr = loadbalancer.NewL3n4Addr(
+		loadbalancer.NONE,
+		types.MustParseAddrCluster("0.0.0.1"),
+		0,
+		loadbalancer.ScopeExternal,
+	)
+	zeroAddr = loadbalancer.NewL3n4Addr(
+		loadbalancer.NONE,
+		types.MustParseAddrCluster("0.0.0.3"),
+		0,
+		loadbalancer.ScopeExternal,
+	)
+	extraFrontend = loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		types.MustParseAddrCluster("10.0.0.2"),
+		80,
+		loadbalancer.ScopeExternal,
+	)
 
 	// backend addresses
-	backend1 = loadbalancer.L3n4Addr{
-		AddrCluster: types.MustParseAddrCluster("10.1.0.1"),
-		L4Addr: loadbalancer.L4Addr{
-			Protocol: loadbalancer.TCP,
-			Port:     80,
-		},
-		Scope: 0,
-	}
-	backend2 = loadbalancer.L3n4Addr{
-		AddrCluster: types.MustParseAddrCluster("10.1.0.2"),
-		L4Addr: loadbalancer.L4Addr{
-			Protocol: loadbalancer.TCP,
-			Port:     80,
-		},
-		Scope: 0,
-	}
+	backend1 = loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		types.MustParseAddrCluster("10.1.0.1"),
+		80,
+		loadbalancer.ScopeExternal,
+	)
+	backend2 = loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		types.MustParseAddrCluster("10.1.0.2"),
+		80,
+		loadbalancer.ScopeExternal,
+	)
 
 	// frontendAddrs are assigned to the <auto>/autoAddr. Each test set is run with
 	// each of these.
@@ -127,7 +122,7 @@ func dumpLBMapsWithReplace(lbmaps maps.LBMaps, feAddr loadbalancer.L3n4Addr, san
 			return
 		}
 		switch addr.String() {
-		case feAddr.AddrCluster.String():
+		case feAddr.AddrCluster().String():
 			s = "<auto>"
 		case nodePortAddrs[0].String():
 			s = "<nodePort>"
@@ -553,11 +548,12 @@ var proxyTestCases = []testCase{
 	),
 }
 
-var extraFrontendInternal = func() loadbalancer.L3n4Addr {
-	addr := extraFrontend
-	addr.Scope = loadbalancer.ScopeInternal
-	return addr
-}()
+var extraFrontendInternal = loadbalancer.NewL3n4Addr(
+	extraFrontend.Protocol(),
+	extraFrontend.AddrCluster(),
+	extraFrontend.Port(),
+	loadbalancer.ScopeInternal,
+)
 
 var miscFlagsTestCases = []testCase{
 	newTestCase(
@@ -634,7 +630,6 @@ var miscFlagsTestCases = []testCase{
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = HostPort
 			fe.Address = extraFrontendInternal
-			fe.Address.Scope = loadbalancer.ScopeInternal
 
 			return false, []loadbalancer.Backend{}
 		},
@@ -650,7 +645,6 @@ var miscFlagsTestCases = []testCase{
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
 			fe.Type = HostPort
 			fe.Address = extraFrontendInternal
-			fe.Address.Scope = loadbalancer.ScopeInternal
 
 			svc.ExtTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
 			svc.IntTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
@@ -1102,11 +1096,20 @@ func TestBPFOps(t *testing.T) {
 				case autoAddr.String():
 					frontend.Address = addr
 				case zeroAddr.String():
-					frontend.Address.L4Addr = addr.L4Addr
 					if addr.IsIPv6() {
-						frontend.Address.AddrCluster = types.AddrClusterFrom(netip.IPv6Unspecified(), 0)
+						frontend.Address = loadbalancer.NewL3n4Addr(
+							addr.Protocol(),
+							types.AddrClusterFrom(netip.IPv6Unspecified(), 0),
+							addr.Port(),
+							addr.Scope(),
+						)
 					} else {
-						frontend.Address.AddrCluster = types.AddrClusterFrom(netip.IPv4Unspecified(), 0)
+						frontend.Address = loadbalancer.NewL3n4Addr(
+							addr.Protocol(),
+							types.AddrClusterFrom(netip.IPv4Unspecified(), 0),
+							addr.Port(),
+							addr.Scope(),
+						)
 					}
 				}
 
