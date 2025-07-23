@@ -495,6 +495,10 @@ bgpControlPlane:
     mode: "default"
     # -- IP pool to allocate the BGP router-id from when the mode is ip-pool.
     ipPool: ""
+  # -- BGP readiness settings
+  bgpReadiness:
+    # -- Enable/Disable BGP readiness.
+    enabled: false
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.

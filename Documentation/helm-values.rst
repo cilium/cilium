@@ -275,7 +275,15 @@
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
-     - ``{"enabled":false,"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
+     - ``{"bgpReadiness":{"enabled":false},"enabled":false,"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
+   * - :spelling:ignore:`bgpControlPlane.bgpReadiness`
+     - BGP readiness settings
+     - object
+     - ``{"enabled":false}``
+   * - :spelling:ignore:`bgpControlPlane.bgpReadiness.enabled`
+     - Enable/Disable BGP readiness.
+     - bool
+     - ``false``
    * - :spelling:ignore:`bgpControlPlane.enabled`
      - Enables the BGP control plane.
      - bool

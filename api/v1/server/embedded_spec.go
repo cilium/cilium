@@ -1684,6 +1684,30 @@ func init() {
         "tcx"
       ]
     },
+    "BGPStatus": {
+      "description": "Status of an individual component",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "Internal state of the BGP component",
+          "type": "string"
+        },
+        "msg": {
+          "description": "Human readable status/error/warning message",
+          "type": "string"
+        },
+        "state": {
+          "description": "State the component is in",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
+          ]
+        }
+      }
+    },
     "BPFMap": {
       "description": "BPF map definition and content",
       "type": "object",
@@ -4952,6 +4976,10 @@ func init() {
           "description": "Status of bandwidth manager",
           "$ref": "#/definitions/BandwidthManager"
         },
+        "bgp-status": {
+          "description": "Status of BGP",
+          "$ref": "#/definitions/BGPStatus"
+        },
         "bpf-maps": {
           "description": "Status of BPF maps",
           "$ref": "#/definitions/BPFMapStatus"
@@ -7293,6 +7321,30 @@ func init() {
         "tc",
         "tcx"
       ]
+    },
+    "BGPStatus": {
+      "description": "Status of an individual component",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "Internal state of the BGP component",
+          "type": "string"
+        },
+        "msg": {
+          "description": "Human readable status/error/warning message",
+          "type": "string"
+        },
+        "state": {
+          "description": "State the component is in",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
+          ]
+        }
+      }
     },
     "BPFMap": {
       "description": "BPF map definition and content",
@@ -11073,6 +11125,10 @@ func init() {
         "bandwidth-manager": {
           "description": "Status of bandwidth manager",
           "$ref": "#/definitions/BandwidthManager"
+        },
+        "bgp-status": {
+          "description": "Status of BGP",
+          "$ref": "#/definitions/BGPStatus"
         },
         "bpf-maps": {
           "description": "Status of BPF maps",

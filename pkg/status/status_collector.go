@@ -274,6 +274,26 @@ func (d *statusCollector) getCNIChainingStatus() *models.CNIChainingStatus {
 	}
 }
 
+func (d *statusCollector) getBGPStatus(ctx context.Context) *models.BGPStatus {
+	if !d.statusParams.DaemonConfig.EnableBGPControlPlane {
+		return &models.BGPStatus{
+			Mode: models.BGPStatusStateDisabled,
+			Msg:  "BGP control plane is disabled",
+		}
+	}
+	healthy, msg := d.statusParams.BGPStatusGetter.GetBGPPeerStatus(ctx)
+	var mode string
+	if healthy {
+		mode = models.BGPStatusStateOk
+	} else {
+		mode = models.BGPStatusStateFailure
+	}
+	return &models.BGPStatus{
+		Mode: mode,
+		Msg:  msg,
+	}
+}
+
 func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *models.KubeProxyReplacement {
 	var mode string
 	switch d.statusParams.KPRConfig.KubeProxyReplacement {
@@ -638,6 +658,13 @@ func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) mod
 			State: models.StatusStateFailure,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
+	case d.statusResponse.BgpStatus != nil && d.statusResponse.BgpStatus.State == models.StatusStateFailure:
+		msg := "BGP readiness check failed:" + d.statusResponse.BgpStatus.Msg
+		sr.Cilium = &models.Status{
+			State: models.StatusStateFailure,
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
+		}
+
 	default:
 		sr.Cilium = &models.Status{
 			State: models.StatusStateOk,
@@ -1113,6 +1140,22 @@ func (d *statusCollector) getProbes() []Probe {
 				if status.Err == nil {
 					if s, ok := status.Data.(*models.BPFMapStatus); ok {
 						d.statusResponse.BpfMaps = s
+					}
+				}
+			},
+		},
+		{
+			Name: "bgp-status",
+			Probe: func(ctx context.Context) (any, error) {
+				return d.getBGPStatus(ctx), nil
+			},
+			OnStatusUpdate: func(status Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.BGPStatus); ok {
+						d.statusResponse.BgpStatus = s
 					}
 				}
 			},
