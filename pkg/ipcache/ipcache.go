@@ -182,16 +182,6 @@ func (ipc *IPCache) Shutdown() error {
 	return ipc.controllers.RemoveControllerAndWait(LabelInjectorName)
 }
 
-// Lock locks the IPCache's mutex.
-func (ipc *IPCache) Lock() {
-	ipc.mutex.Lock()
-}
-
-// Unlock unlocks the IPCache's mutex.
-func (ipc *IPCache) Unlock() {
-	ipc.mutex.Unlock()
-}
-
 // RLock RLocks the IPCache's mutex.
 func (ipc *IPCache) RLock() {
 	ipc.mutex.RLock()
