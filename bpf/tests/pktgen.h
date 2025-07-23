@@ -86,7 +86,7 @@ volatile const __u8 v6_pod_three[] = v6_pod_three_addr;
 #define v6_node_three_addr {0xfd, 0x05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3}
 
 #define v6_ext_node_one_addr {0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
-#define v6_ext_node_two_addr {0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, }
+#define v6_ext_node_two_addr {0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
 
 volatile const __u8 v6_ext_node_one[] = v6_ext_node_one_addr;
 volatile const __u8 v6_ext_node_two[] = v6_ext_node_two_addr;
@@ -96,7 +96,7 @@ volatile const __u8 v6_node_two[] = v6_node_two_addr;
 volatile const __u8 v6_node_three[] = v6_node_three_addr;
 
 /* IPv6 addresses for services in the cluster */
-#define v6_svc_one_addr {0xfd, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+#define v6_svc_one_addr {0xfd, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 
 volatile const __u8 v6_svc_one[] = v6_svc_one_addr;
 
