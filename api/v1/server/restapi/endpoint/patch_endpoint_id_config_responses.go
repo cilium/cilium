@@ -183,3 +183,28 @@ func (o *PatchEndpointIDConfigFailed) WriteResponse(rw http.ResponseWriter, prod
 		panic(err) // let the recovery middleware deal with this
 	}
 }
+
+// PatchEndpointIDConfigServiceUnavailableCode is the HTTP code returned for type PatchEndpointIDConfigServiceUnavailable
+const PatchEndpointIDConfigServiceUnavailableCode int = 503
+
+/*
+PatchEndpointIDConfigServiceUnavailable Service Unavailable
+
+swagger:response patchEndpointIdConfigServiceUnavailable
+*/
+type PatchEndpointIDConfigServiceUnavailable struct {
+}
+
+// NewPatchEndpointIDConfigServiceUnavailable creates PatchEndpointIDConfigServiceUnavailable with default headers values
+func NewPatchEndpointIDConfigServiceUnavailable() *PatchEndpointIDConfigServiceUnavailable {
+
+	return &PatchEndpointIDConfigServiceUnavailable{}
+}
+
+// WriteResponse to the client
+func (o *PatchEndpointIDConfigServiceUnavailable) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(503)
+}
