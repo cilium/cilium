@@ -215,7 +215,7 @@ func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
 	ipc.mutex.UnlockToRLock()
 	defer ipc.mutex.RUnlock()
 	// Initialize new listener with the current mappings
-	ipc.DumpToListenerLocked(listener)
+	ipc.dumpToListenerLocked(listener)
 }
 
 // Update a controller for this IPCache
@@ -500,9 +500,9 @@ func (ipc *IPCache) upsertLocked(
 // DumpToListener dumps the entire contents of the IPCache by triggering
 // the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
 func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
-	ipc.RLock()
-	ipc.DumpToListenerLocked(listener)
-	ipc.RUnlock()
+	ipc.mutex.RLock()
+	ipc.dumpToListenerLocked(listener)
+	ipc.mutex.RUnlock()
 }
 
 // MU is a batched metadata update, the short name is to cut down on visual clutter.
@@ -622,11 +622,11 @@ func (ipc *IPCache) WaitForRevision(ctx context.Context, desired uint64) error {
 	return ipc.metadata.waitForRevision(ctx, desired)
 }
 
-// DumpToListenerLocked dumps the entire contents of the IPCache by triggering
+// dumpToListenerLocked dumps the entire contents of the IPCache by triggering
 // the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
 // The caller *MUST* grab the IPCache.Lock for reading before calling this
 // function.
-func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
+func (ipc *IPCache) dumpToListenerLocked(listener IPIdentityMappingListener) {
 	for ip, identity := range ipc.ipToIdentityCache {
 		if identity.shadowed {
 			continue
