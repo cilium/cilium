@@ -85,7 +85,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		// Run tcpdump in the remote pod, capturing packets matching the filter.
 		// Retry if it fails with exit code 14, which is expected when the stdout
 		// is not available yet (observed CI flakes under heavy load in the API server).
-		w := wait.NewObserver(ctx, wait.Parameters{Timeout: 5 * time.Second})
+		w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
 		defer w.Cancel()
 		for {
 			err := target.K8sClient.ExecInPodWithWriters(ctx, cmdctx,
@@ -107,7 +107,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 	}()
 
 	// Wait until tcpdump is ready to capture pkts
-	wctx, wcancel := context.WithTimeout(ctx, 5*time.Second)
+	wctx, wcancel := context.WithTimeout(ctx, 10*time.Second)
 	defer wcancel()
 	for {
 		select {
