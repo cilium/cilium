@@ -1,0 +1,243 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package reconciler
+
+import (
+	"errors"
+	"fmt"
+	"slices"
+	"time"
+
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
+
+	"github.com/cilium/cilium/pkg/lock"
+)
+
+type DesiredRouteManager struct {
+	db  *statedb.DB
+	tbl statedb.RWTable[*DesiredRoute]
+
+	mu     lock.Mutex
+	owners map[string]*RouteOwner
+}
+
+func newDesiredRouteManager(db *statedb.DB, tbl statedb.RWTable[*DesiredRoute]) *DesiredRouteManager {
+	return &DesiredRouteManager{
+		db:     db,
+		tbl:    tbl,
+		owners: make(map[string]*RouteOwner),
+	}
+}
+
+var (
+	ErrOwnerExists       = errors.New("owner already exists")
+	ErrOwnerDoesNotExist = errors.New("owner does not exist")
+)
+
+func (m *DesiredRouteManager) RegisterOwner(name string, adminDistance AdminDistance) (*RouteOwner, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, exists := m.owners[name]; exists {
+		return nil, ErrOwnerExists
+	}
+
+	return m.newOwner(name, adminDistance), nil
+}
+
+func (m *DesiredRouteManager) GetOrRegisterOwner(name string, adminDistance AdminDistance) (*RouteOwner, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if owner, exists := m.owners[name]; exists {
+		return owner, nil
+	}
+
+	return m.newOwner(name, adminDistance), nil
+}
+
+// must be called with m.mu held
+func (m *DesiredRouteManager) newOwner(name string, adminDistance AdminDistance) *RouteOwner {
+	owner := &RouteOwner{
+		name:          name,
+		adminDistance: adminDistance,
+	}
+
+	m.owners[name] = owner
+	return owner
+}
+
+func (m *DesiredRouteManager) GetOwner(name string) (*RouteOwner, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	owner, exists := m.owners[name]
+	if !exists {
+		return nil, ErrOwnerDoesNotExist
+	}
+	return owner, nil
+}
+
+func (m *DesiredRouteManager) RemoveOwner(owner *RouteOwner) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, exists := m.owners[owner.name]; !exists {
+		return ErrOwnerDoesNotExist
+	}
+	delete(m.owners, owner.name)
+
+	txn := m.db.WriteTxn(m.tbl)
+	defer txn.Abort()
+
+	for route := range m.tbl.Prefix(txn, DesiredRouteIndex.Query(DesiredRouteKey{
+		Owner: owner,
+	})) {
+		if _, _, err := m.tbl.Delete(txn, route); err != nil {
+			return err
+		}
+
+		if err := m.selectRoutes(txn, route.GetOwnerlessKey()); err != nil {
+			return err
+		}
+	}
+
+	txn.Commit()
+	return nil
+}
+
+type Initializer struct {
+	initialized func(statedb.WriteTxn)
+}
+
+func (m *DesiredRouteManager) RegisterInitializer(name string) Initializer {
+	return Initializer{
+		initialized: m.tbl.RegisterInitializer(m.db.WriteTxn(m.tbl), name),
+	}
+}
+
+func (m *DesiredRouteManager) FinalizeInitializer(initializer Initializer) {
+	if initializer.initialized != nil {
+		initializer.initialized(m.db.WriteTxn(m.tbl))
+	}
+}
+
+func (m *DesiredRouteManager) UpsertRoutes(route DesiredRoute) error {
+	txn := m.db.WriteTxn(m.tbl)
+	defer txn.Abort()
+
+	// By default, any new route we add is not selected and does not have to be reconciled.
+	// The [selectRoutes] method will select the best route for each prefix+table.
+	route.selected = false
+	route.SetStatus(reconciler.StatusDone())
+
+	if _, _, err := m.tbl.Insert(txn, &route); err != nil {
+		return err
+	}
+
+	if err := m.selectRoutes(txn, route.GetOwnerlessKey()); err != nil {
+		return err
+	}
+
+	txn.Commit()
+	return nil
+}
+
+func (m *DesiredRouteManager) UpsertRoutesWait(route DesiredRoute) error {
+	if err := m.UpsertRoutes(route); err != nil {
+		return nil
+	}
+
+	return m.waitForReconciliation(route.GetFullKey())
+}
+
+func (m *DesiredRouteManager) DeleteRoutes(route DesiredRoute) error {
+	txn := m.db.WriteTxn(m.tbl)
+	defer txn.Abort()
+
+	if _, _, err := m.tbl.Delete(txn, &route); err != nil {
+		return err
+	}
+
+	if err := m.selectRoutes(txn, route.GetOwnerlessKey()); err != nil {
+		return err
+	}
+
+	txn.Commit()
+	return nil
+}
+
+const reconciliationTimeout = 1 * time.Second
+
+func (m *DesiredRouteManager) waitForReconciliation(routeKey DesiredRouteKey) error {
+	t := time.NewTimer(reconciliationTimeout)
+	defer t.Stop()
+
+	var err error
+	for {
+		obj, _, watch, found := m.tbl.GetWatch(m.db.ReadTxn(), DesiredRouteIndex.Query(routeKey))
+		if !found {
+			return fmt.Errorf("route %s not found", routeKey)
+		}
+
+		if obj.status.Kind == reconciler.StatusKindDone {
+			// already reconciled
+			return nil
+		}
+
+		select {
+		case <-t.C:
+			return fmt.Errorf("timeout waiting for parameter %s reconciliation: %w", routeKey, err)
+		case <-watch:
+			if obj.status.Kind == reconciler.StatusKindDone {
+				return nil
+			}
+			if obj.status.Kind == reconciler.StatusKindError {
+				err = errors.New(obj.status.Error)
+			}
+		}
+	}
+}
+
+func (m *DesiredRouteManager) selectRoutes(txn statedb.WriteTxn, key DesiredRouteKey) error {
+	// Get all routes with the same prefix and table.
+	routes := slices.Collect(statedb.ToSeq(m.tbl.List(txn, DesiredRouteTablePrefixIndex.Query(key))))
+	if len(routes) == 0 {
+		return nil // nothing to select
+	}
+
+	// Sort routes by admin distance and name, so that the first one is the
+	// one that is selected.
+	slices.SortStableFunc(routes, func(a, b *DesiredRoute) int {
+		adminDiff := int(a.Owner.adminDistance) - int(b.Owner.adminDistance)
+		if adminDiff == 0 {
+			if a.Owner.name < b.Owner.name {
+				return -1
+			}
+			if a.Owner.name > b.Owner.name {
+				return 1
+			}
+		}
+
+		return adminDiff
+	})
+
+	// Mark first route as selected, and all others as not selected.
+	for i, route := range routes {
+		selected := i == 0
+		if selected == route.selected {
+			continue
+		}
+
+		changed := route.Clone()
+		changed.selected = selected
+		changed.SetStatus(reconciler.StatusPending())
+		if _, _, err := m.tbl.Insert(txn, changed); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

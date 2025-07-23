@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	dpcfg "github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -149,6 +150,10 @@ var Cell = cell.Module(
 	// "forwardable". The neighbor subsystem converts these IPs into neighbor entries
 	// in the kernel and ensures they are kept up to date.
 	neighbor.Cell,
+
+	// Provides the desired route table, and a reconciler that installs these desired routes
+	// into the Linux kernel routing table.
+	routeReconciler.Cell,
 )
 
 func newWireguardAgent(rootLogger *slog.Logger, lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Health, registry job.Registry, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) *wg.Agent {
