@@ -186,11 +186,17 @@ func WriteEndpoint(f EndpointFrontend) error {
 		return err
 	}
 
-	// FIXME: Revert on failure
-	for _, v := range GetBPFKeys(f) {
-		if err := LXCMap(nil).Update(v, info); err != nil {
-			return err
+	keys := GetBPFKeys(f)
+	var writtenKeys []*EndpointKey
+
+	for _, key := range keys {
+		if err := LXCMap(nil).Update(key, info); err != nil {
+			for _, k := range writtenKeys {
+				_ = LXCMap(nil).Delete(k)
+			}
+			return fmt.Errorf("failed to update key %v in LXC map: %w", key, err)
 		}
+		writtenKeys = append(writtenKeys, key)
 	}
 
 	return nil
