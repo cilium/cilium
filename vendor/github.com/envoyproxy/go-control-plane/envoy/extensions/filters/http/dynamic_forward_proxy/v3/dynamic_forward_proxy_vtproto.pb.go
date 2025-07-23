@@ -50,6 +50,16 @@ func (m *FilterConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.AllowDynamicHostFromFilterState {
+		i--
+		if m.AllowDynamicHostFromFilterState {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x20
+	}
 	if msg, ok := m.ImplementationSpecifier.(*FilterConfig_SubClusterConfig); ok {
 		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -263,6 +273,9 @@ func (m *FilterConfig) SizeVT() (n int) {
 		n += vtmsg.SizeVT()
 	}
 	if m.SaveUpstreamAddress {
+		n += 2
+	}
+	if m.AllowDynamicHostFromFilterState {
 		n += 2
 	}
 	n += len(m.unknownFields)

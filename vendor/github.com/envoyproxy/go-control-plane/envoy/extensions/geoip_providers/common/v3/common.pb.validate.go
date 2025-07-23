@@ -277,6 +277,21 @@ func (m *CommonGeoipProviderConfig_GeolocationHeadersToAdd) validate(all bool) e
 
 	}
 
+	if m.GetAnon() != "" {
+
+		if !_CommonGeoipProviderConfig_GeolocationHeadersToAdd_Anon_Pattern.MatchString(m.GetAnon()) {
+			err := CommonGeoipProviderConfig_GeolocationHeadersToAddValidationError{
+				field:  "Anon",
+				reason: "value does not match regex pattern \"^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if m.GetAnonVpn() != "" {
 
 		if !_CommonGeoipProviderConfig_GeolocationHeadersToAdd_AnonVpn_Pattern.MatchString(m.GetAnonVpn()) {
@@ -327,6 +342,36 @@ func (m *CommonGeoipProviderConfig_GeolocationHeadersToAdd) validate(all bool) e
 		if !_CommonGeoipProviderConfig_GeolocationHeadersToAdd_AnonProxy_Pattern.MatchString(m.GetAnonProxy()) {
 			err := CommonGeoipProviderConfig_GeolocationHeadersToAddValidationError{
 				field:  "AnonProxy",
+				reason: "value does not match regex pattern \"^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	if m.GetIsp() != "" {
+
+		if !_CommonGeoipProviderConfig_GeolocationHeadersToAdd_Isp_Pattern.MatchString(m.GetIsp()) {
+			err := CommonGeoipProviderConfig_GeolocationHeadersToAddValidationError{
+				field:  "Isp",
+				reason: "value does not match regex pattern \"^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	if m.GetApplePrivateRelay() != "" {
+
+		if !_CommonGeoipProviderConfig_GeolocationHeadersToAdd_ApplePrivateRelay_Pattern.MatchString(m.GetApplePrivateRelay()) {
+			err := CommonGeoipProviderConfig_GeolocationHeadersToAddValidationError{
+				field:  "ApplePrivateRelay",
 				reason: "value does not match regex pattern \"^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$\"",
 			}
 			if !all {
@@ -436,6 +481,8 @@ var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_Asn_Pattern = regexp.Must
 
 var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_IsAnon_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
 
+var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_Anon_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
+
 var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_AnonVpn_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
 
 var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_AnonHosting_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
@@ -443,3 +490,7 @@ var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_AnonHosting_Pattern = reg
 var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_AnonTor_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
 
 var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_AnonProxy_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
+
+var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_Isp_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
+
+var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_ApplePrivateRelay_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")

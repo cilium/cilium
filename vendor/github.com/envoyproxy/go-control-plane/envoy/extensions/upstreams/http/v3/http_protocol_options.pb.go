@@ -84,11 +84,11 @@ type HttpProtocolOptions struct {
 	//	*HttpProtocolOptions_UseDownstreamProtocolConfig
 	//	*HttpProtocolOptions_AutoConfig
 	UpstreamProtocolOptions isHttpProtocolOptions_UpstreamProtocolOptions `protobuf_oneof:"upstream_protocol_options"`
+	// Optional HTTP filters for the upstream HTTP filter chain.
+	//
 	// .. note::
 	//
 	//	Upstream HTTP filters are currently in alpha.
-	//
-	// Optional HTTP filters for the upstream HTTP filter chain.
 	//
 	// These filters will be applied for all HTTP streams which flow through this
 	// cluster. Unlike downstream HTTP filters, they will *not* be applied to terminated CONNECT requests.

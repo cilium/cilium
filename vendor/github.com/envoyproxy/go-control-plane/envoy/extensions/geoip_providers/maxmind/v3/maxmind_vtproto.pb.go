@@ -49,6 +49,13 @@ func (m *MaxMindConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.IspDbPath) > 0 {
+		i -= len(m.IspDbPath)
+		copy(dAtA[i:], m.IspDbPath)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.IspDbPath)))
+		i--
+		dAtA[i] = 0x2a
+	}
 	if m.CommonProviderConfig != nil {
 		if vtmsg, ok := interface{}(m.CommonProviderConfig).(interface {
 			MarshalToSizedBufferVTStrict([]byte) (int, error)
@@ -78,10 +85,10 @@ func (m *MaxMindConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x1a
 	}
-	if len(m.IspDbPath) > 0 {
-		i -= len(m.IspDbPath)
-		copy(dAtA[i:], m.IspDbPath)
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.IspDbPath)))
+	if len(m.AsnDbPath) > 0 {
+		i -= len(m.AsnDbPath)
+		copy(dAtA[i:], m.AsnDbPath)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.AsnDbPath)))
 		i--
 		dAtA[i] = 0x12
 	}
@@ -105,7 +112,7 @@ func (m *MaxMindConfig) SizeVT() (n int) {
 	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
-	l = len(m.IspDbPath)
+	l = len(m.AsnDbPath)
 	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
@@ -121,6 +128,10 @@ func (m *MaxMindConfig) SizeVT() (n int) {
 		} else {
 			l = proto.Size(m.CommonProviderConfig)
 		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.IspDbPath)
+	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

@@ -89,6 +89,16 @@ func (m *CookieConfigs) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.CodeVerifierCookieConfig != nil {
+		size, err := m.CodeVerifierCookieConfig.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x3a
+	}
 	if m.OauthNonceCookieConfig != nil {
 		size, err := m.OauthNonceCookieConfig.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -181,6 +191,13 @@ func (m *OAuth2Credentials_CookieNames) MarshalToSizedBufferVTStrict(dAtA []byte
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.CodeVerifier) > 0 {
+		i -= len(m.CodeVerifier)
+		copy(dAtA[i:], m.CodeVerifier)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.CodeVerifier)))
+		i--
+		dAtA[i] = 0x3a
 	}
 	if len(m.OauthNonce) > 0 {
 		i -= len(m.OauthNonce)
@@ -377,6 +394,48 @@ func (m *OAuth2Config) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.CodeVerifierTokenExpiresIn != nil {
+		size, err := (*durationpb.Duration)(m.CodeVerifierTokenExpiresIn).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xca
+	}
+	if m.CsrfTokenExpiresIn != nil {
+		size, err := (*durationpb.Duration)(m.CsrfTokenExpiresIn).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xc2
+	}
+	if len(m.EndSessionEndpoint) > 0 {
+		i -= len(m.EndSessionEndpoint)
+		copy(dAtA[i:], m.EndSessionEndpoint)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.EndSessionEndpoint)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xba
+	}
+	if len(m.StatPrefix) > 0 {
+		i -= len(m.StatPrefix)
+		copy(dAtA[i:], m.StatPrefix)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.StatPrefix)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xb2
 	}
 	if m.CookieConfigs != nil {
 		size, err := m.CookieConfigs.MarshalToSizedBufferVTStrict(dAtA[:i])
@@ -752,6 +811,10 @@ func (m *CookieConfigs) SizeVT() (n int) {
 		l = m.OauthNonceCookieConfig.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
+	if m.CodeVerifierCookieConfig != nil {
+		l = m.CodeVerifierCookieConfig.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -783,6 +846,10 @@ func (m *OAuth2Credentials_CookieNames) SizeVT() (n int) {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	l = len(m.OauthNonce)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.CodeVerifier)
 	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
@@ -971,6 +1038,22 @@ func (m *OAuth2Config) SizeVT() (n int) {
 	}
 	if m.CookieConfigs != nil {
 		l = m.CookieConfigs.SizeVT()
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.StatPrefix)
+	if l > 0 {
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.EndSessionEndpoint)
+	if l > 0 {
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.CsrfTokenExpiresIn != nil {
+		l = (*durationpb.Duration)(m.CsrfTokenExpiresIn).SizeVT()
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.CodeVerifierTokenExpiresIn != nil {
+		l = (*durationpb.Duration)(m.CodeVerifierTokenExpiresIn).SizeVT()
 		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

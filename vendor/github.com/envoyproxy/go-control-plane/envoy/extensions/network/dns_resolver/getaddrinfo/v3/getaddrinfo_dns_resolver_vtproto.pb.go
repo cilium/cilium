@@ -49,6 +49,16 @@ func (m *GetAddrInfoDnsResolverConfig) MarshalToSizedBufferVTStrict(dAtA []byte)
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.NumResolverThreads != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.NumResolverThreads).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x12
+	}
 	if m.NumRetries != nil {
 		size, err := (*wrapperspb.UInt32Value)(m.NumRetries).MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -70,6 +80,10 @@ func (m *GetAddrInfoDnsResolverConfig) SizeVT() (n int) {
 	_ = l
 	if m.NumRetries != nil {
 		l = (*wrapperspb.UInt32Value)(m.NumRetries).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.NumResolverThreads != nil {
+		l = (*wrapperspb.UInt32Value)(m.NumResolverThreads).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

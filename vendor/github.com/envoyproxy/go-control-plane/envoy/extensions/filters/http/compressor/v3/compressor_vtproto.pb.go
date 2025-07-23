@@ -167,6 +167,26 @@ func (m *Compressor_ResponseDirectionConfig) MarshalToSizedBufferVTStrict(dAtA [
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.UncompressibleResponseCodes) > 0 {
+		var pksize2 int
+		for _, num := range m.UncompressibleResponseCodes {
+			pksize2 += protohelpers.SizeOfVarint(uint64(num))
+		}
+		i -= pksize2
+		j1 := i
+		for _, num := range m.UncompressibleResponseCodes {
+			for num >= 1<<7 {
+				dAtA[j1] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j1++
+			}
+			dAtA[j1] = uint8(num)
+			j1++
+		}
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(pksize2))
+		i--
+		dAtA[i] = 0x22
+	}
 	if m.RemoveAcceptEncodingHeader {
 		i--
 		if m.RemoveAcceptEncodingHeader {
@@ -578,6 +598,13 @@ func (m *Compressor_ResponseDirectionConfig) SizeVT() (n int) {
 	}
 	if m.RemoveAcceptEncodingHeader {
 		n += 2
+	}
+	if len(m.UncompressibleResponseCodes) > 0 {
+		l = 0
+		for _, e := range m.UncompressibleResponseCodes {
+			l += protohelpers.SizeOfVarint(uint64(e))
+		}
+		n += 1 + protohelpers.SizeOfVarint(uint64(l)) + l
 	}
 	n += len(m.unknownFields)
 	return n

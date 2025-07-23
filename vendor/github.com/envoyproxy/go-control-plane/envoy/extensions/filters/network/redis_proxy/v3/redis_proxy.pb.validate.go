@@ -452,6 +452,35 @@ func (m *RedisProtocolOptions) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetAwsIam()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RedisProtocolOptionsValidationError{
+					field:  "AwsIam",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RedisProtocolOptionsValidationError{
+					field:  "AwsIam",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAwsIam()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RedisProtocolOptionsValidationError{
+				field:  "AwsIam",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return RedisProtocolOptionsMultiError(errors)
 	}
@@ -531,6 +560,179 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RedisProtocolOptionsValidationError{}
+
+// Validate checks the field values on AwsIam with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *AwsIam) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on AwsIam with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in AwsIamMultiError, or nil if none found.
+func (m *AwsIam) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AwsIam) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetCredentialProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AwsIamValidationError{
+					field:  "CredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AwsIamValidationError{
+					field:  "CredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCredentialProvider()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AwsIamValidationError{
+				field:  "CredentialProvider",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if utf8.RuneCountInString(m.GetCacheName()) < 1 {
+		err := AwsIamValidationError{
+			field:  "CacheName",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	// no validation rules for ServiceName
+
+	// no validation rules for Region
+
+	if d := m.GetExpirationTime(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = AwsIamValidationError{
+				field:  "ExpirationTime",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			lte := time.Duration(900*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur < gte || dur > lte {
+				err := AwsIamValidationError{
+					field:  "ExpirationTime",
+					reason: "value must be inside range [0s, 15m0s]",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	if len(errors) > 0 {
+		return AwsIamMultiError(errors)
+	}
+
+	return nil
+}
+
+// AwsIamMultiError is an error wrapping multiple validation errors returned by
+// AwsIam.ValidateAll() if the designated constraints aren't met.
+type AwsIamMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AwsIamMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AwsIamMultiError) AllErrors() []error { return m }
+
+// AwsIamValidationError is the validation error returned by AwsIam.Validate if
+// the designated constraints aren't met.
+type AwsIamValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e AwsIamValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e AwsIamValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e AwsIamValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e AwsIamValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e AwsIamValidationError) ErrorName() string { return "AwsIamValidationError" }
+
+// Error satisfies the builtin error interface
+func (e AwsIamValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAwsIam.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = AwsIamValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = AwsIamValidationError{}
 
 // Validate checks the field values on RedisExternalAuthProvider with the rules
 // defined in the proto definition for this message. If any rules are

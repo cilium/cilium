@@ -22,6 +22,11 @@ const (
 )
 
 // Configuration for the CEL formatter.
+//
+// .. warning::
+//
+//	This extension is treated as built-in extension and will be enabled by default now.
+//	It is unnecessary to configure this extension.
 type Cel struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

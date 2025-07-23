@@ -442,6 +442,21 @@ func (m *LocalRateLimit) validate(all bool) error {
 
 	}
 
+	if wrapper := m.GetMaxDynamicDescriptors(); wrapper != nil {
+
+		if wrapper.GetValue() < 1 {
+			err := LocalRateLimitValidationError{
+				field:  "MaxDynamicDescriptors",
+				reason: "value must be greater than or equal to 1",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return LocalRateLimitMultiError(errors)
 	}

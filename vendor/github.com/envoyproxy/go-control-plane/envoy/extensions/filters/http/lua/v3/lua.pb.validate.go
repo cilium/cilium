@@ -136,6 +136,35 @@ func (m *Lua) validate(all bool) error {
 
 	// no validation rules for StatPrefix
 
+	if all {
+		switch v := interface{}(m.GetClearRouteCache()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, LuaValidationError{
+					field:  "ClearRouteCache",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, LuaValidationError{
+					field:  "ClearRouteCache",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetClearRouteCache()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return LuaValidationError{
+				field:  "ClearRouteCache",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return LuaMultiError(errors)
 	}
@@ -235,7 +264,35 @@ func (m *LuaPerRoute) validate(all bool) error {
 
 	var errors []error
 
-	oneofOverridePresent := false
+	if all {
+		switch v := interface{}(m.GetFilterContext()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, LuaPerRouteValidationError{
+					field:  "FilterContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, LuaPerRouteValidationError{
+					field:  "FilterContext",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFilterContext()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return LuaPerRouteValidationError{
+				field:  "FilterContext",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	switch v := m.Override.(type) {
 	case *LuaPerRoute_Disabled:
 		if v == nil {
@@ -248,7 +305,6 @@ func (m *LuaPerRoute) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
-		oneofOverridePresent = true
 
 		if m.GetDisabled() != true {
 			err := LuaPerRouteValidationError{
@@ -272,7 +328,6 @@ func (m *LuaPerRoute) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
-		oneofOverridePresent = true
 
 		if utf8.RuneCountInString(m.GetName()) < 1 {
 			err := LuaPerRouteValidationError{
@@ -296,7 +351,6 @@ func (m *LuaPerRoute) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
-		oneofOverridePresent = true
 
 		if all {
 			switch v := interface{}(m.GetSourceCode()).(type) {
@@ -329,16 +383,6 @@ func (m *LuaPerRoute) validate(all bool) error {
 
 	default:
 		_ = v // ensures v is used
-	}
-	if !oneofOverridePresent {
-		err := LuaPerRouteValidationError{
-			field:  "Override",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
 	}
 
 	if len(errors) > 0 {

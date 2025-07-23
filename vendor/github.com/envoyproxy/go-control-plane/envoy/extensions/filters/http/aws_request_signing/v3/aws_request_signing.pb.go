@@ -137,7 +137,7 @@ type AwsRequestSigning struct {
 	// query_string: {}
 	QueryString *AwsRequestSigning_QueryString `protobuf:"bytes,7,opt,name=query_string,json=queryString,proto3" json:"query_string,omitempty"`
 	// The credential provider for signing the request. This is optional and if not set,
-	// it will be retrieved from the procedure described in :ref:`config_http_filters_aws_request_signing`.
+	// it will be retrieved using the procedure described in :ref:`config_http_filters_aws_request_signing`.
 	CredentialProvider *v31.AwsCredentialProvider `protobuf:"bytes,8,opt,name=credential_provider,json=credentialProvider,proto3" json:"credential_provider,omitempty"`
 }
 

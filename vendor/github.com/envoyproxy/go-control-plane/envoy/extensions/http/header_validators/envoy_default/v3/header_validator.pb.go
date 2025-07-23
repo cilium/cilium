@@ -24,9 +24,12 @@ const (
 
 // Action to take when Envoy receives client request with header names containing underscore
 // characters.
-// Underscore character is allowed in header names by the RFC-7230 and this behavior is implemented
-// as a security measure due to systems that treat '_' and '-' as interchangeable. Envoy by default allows client request headers with underscore
-// characters.
+//
+// Underscore character is allowed in header names by RFC-7230, and this behavior is implemented
+// as a security measure due to systems that treat “_“ and “-“ as interchangeable. Envoy by
+// default allows client request headers with underscore characters.
+//
+// This setting provides control over how to handle such headers for security and compatibility reasons.
 type HeaderValidatorConfig_HeadersWithUnderscoresAction int32
 
 const (
@@ -87,29 +90,46 @@ func (HeaderValidatorConfig_HeadersWithUnderscoresAction) EnumDescriptor() ([]by
 
 // Determines the action for requests that contain “%2F“, “%2f“, “%5C“ or “%5c“ sequences in the URI path.
 // This operation occurs before URL normalization and the merge slashes transformations if they were enabled.
+//
+// Escaped slash sequences in URLs can be used for path confusion attacks, so proper handling
+// is important for security.
 type HeaderValidatorConfig_UriPathNormalizationOptions_PathWithEscapedSlashesAction int32
 
 const (
 	// Default behavior specific to implementation (i.e. Envoy) of this configuration option.
 	// Envoy, by default, takes the “KEEP_UNCHANGED“ action.
-	// NOTE: the implementation may change the default behavior at-will.
+	//
+	// .. note::
+	//
+	//	The implementation may change the default behavior at-will.
 	HeaderValidatorConfig_UriPathNormalizationOptions_IMPLEMENTATION_SPECIFIC_DEFAULT HeaderValidatorConfig_UriPathNormalizationOptions_PathWithEscapedSlashesAction = 0
-	// Keep escaped slashes.
+	// Keep escaped slashes unchanged in the URI path.
+	// This preserves the original request path without any modifications to escaped sequences.
 	HeaderValidatorConfig_UriPathNormalizationOptions_KEEP_UNCHANGED HeaderValidatorConfig_UriPathNormalizationOptions_PathWithEscapedSlashesAction = 1
 	// Reject client request with the 400 status. gRPC requests will be rejected with the “INTERNAL“ (13) error code.
-	// The “http#.downstream_rq_failed_path_normalization“ counter is incremented for each rejected request.
+	// The :ref:`httpN.downstream_rq_failed_path_normalization <config_http_conn_man_stats_per_codec>` counter is incremented for each rejected request.
+	//
+	// This is the safest option when security is a primary concern, as it prevents any potential
+	// path confusion attacks by rejecting requests with escaped slashes entirely.
 	HeaderValidatorConfig_UriPathNormalizationOptions_REJECT_REQUEST HeaderValidatorConfig_UriPathNormalizationOptions_PathWithEscapedSlashesAction = 2
 	// Unescape “%2F“ and “%5C“ sequences and redirect the request to the new path if these sequences were present.
 	// The redirect occurs after path normalization and merge slashes transformations if they were configured.
-	// NOTE: gRPC requests will be rejected with the “INTERNAL“ (13) error code.
-	// This option minimizes possibility of path confusion exploits by forcing request with unescaped slashes to
-	// traverse all parties: downstream client, intermediate proxies, Envoy and upstream server.
-	// The “http#.downstream_rq_redirected_with_normalized_path“ counter is incremented for each
+	//
+	// .. note::
+	//
+	//	gRPC requests will be rejected with the ``INTERNAL`` (13) error code.
+	//	This option minimizes possibility of path confusion exploits by forcing request with unescaped slashes to
+	//	traverse all parties: downstream client, intermediate proxies, Envoy and upstream server.
+	//
+	// The :ref:`httpN.downstream_rq_redirected_with_normalized_path <config_http_conn_man_stats_per_codec>` counter is incremented for each
 	// redirected request.
 	HeaderValidatorConfig_UriPathNormalizationOptions_UNESCAPE_AND_REDIRECT HeaderValidatorConfig_UriPathNormalizationOptions_PathWithEscapedSlashesAction = 3
 	// Unescape “%2F“ and “%5C“ sequences.
-	// Note: this option should not be enabled if intermediaries perform path based access control as
-	// it may lead to path confusion vulnerabilities.
+	//
+	// .. attention::
+	//
+	//	This option should not be enabled if intermediaries perform path based access control as
+	//	it may lead to path confusion vulnerabilities.
 	HeaderValidatorConfig_UriPathNormalizationOptions_UNESCAPE_AND_FORWARD HeaderValidatorConfig_UriPathNormalizationOptions_PathWithEscapedSlashesAction = 4
 )
 
@@ -160,17 +180,22 @@ func (HeaderValidatorConfig_UriPathNormalizationOptions_PathWithEscapedSlashesAc
 
 // This extension validates that HTTP request and response headers are well formed according to respective RFCs.
 //
-// #. HTTP/1 header map validity according to `RFC 7230 section 3.2 <https://datatracker.ietf.org/doc/html/rfc7230#section-3.2>`_
-// #. Syntax of HTTP/1 request target URI and response status
-// #. HTTP/2 header map validity according to `RFC 7540 section 8.1.2 <https://datatracker.ietf.org/doc/html/rfc7540#section-8.1.2>`_
-// #. Syntax of HTTP/2 pseudo headers
-// #. HTTP/3 header map validity according to `RFC 9114 section 4.3  <https://www.rfc-editor.org/rfc/rfc9114.html>`_
-// #. Syntax of HTTP/3 pseudo headers
-// #. Syntax of Content-Length and Transfer-Encoding
-// #. Validation of HTTP/1 requests with both “Content-Length“ and “Transfer-Encoding“ headers
+// The validator performs comprehensive HTTP header validation including:
+//
+// #. HTTP/1 header map validity according to `RFC 7230 section 3.2 <https://datatracker.ietf.org/doc/html/rfc7230#section-3.2>`_.
+// #. Syntax of HTTP/1 request target URI and response status.
+// #. HTTP/2 header map validity according to `RFC 7540 section 8.1.2 <https://datatracker.ietf.org/doc/html/rfc7540#section-8.1.2>`_.
+// #. Syntax of HTTP/2 pseudo headers.
+// #. HTTP/3 header map validity according to `RFC 9114 section 4.3  <https://www.rfc-editor.org/rfc/rfc9114.html>`_.
+// #. Syntax of HTTP/3 pseudo headers.
+// #. Syntax of Content-Length and Transfer-Encoding.
+// #. Validation of HTTP/1 requests with both “Content-Length“ and “Transfer-Encoding“ headers.
 // #. Normalization of the URI path according to `Normalization and Comparison <https://datatracker.ietf.org/doc/html/rfc3986#section-6>`_
 //
-//	without `case normalization <https://datatracker.ietf.org/doc/html/rfc3986#section-6.2.2.1>`_
+//	without `case normalization <https://datatracker.ietf.org/doc/html/rfc3986#section-6.2.2.1>`_.
+//
+// This validator ensures that HTTP traffic processed by Envoy conforms to established
+// standards and helps prevent issues caused by malformed headers or invalid HTTP syntax.
 //
 // [#comment:TODO(yanavlasov): Put #extension: envoy.http.header_validators.envoy_default after it is not hidden any more]
 // [#next-free-field: 6]
@@ -179,24 +204,44 @@ type HeaderValidatorConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// HTTP/1 protocol specific options.
+	// These settings control HTTP/1 specific validation behaviors.
 	Http1ProtocolOptions *HeaderValidatorConfig_Http1ProtocolOptions `protobuf:"bytes,1,opt,name=http1_protocol_options,json=http1ProtocolOptions,proto3" json:"http1_protocol_options,omitempty"`
 	// The URI path normalization options.
+	//
 	// By default Envoy normalizes URI path using the default values of the :ref:`UriPathNormalizationOptions
 	// <envoy_v3_api_msg_extensions.http.header_validators.envoy_default.v3.HeaderValidatorConfig.UriPathNormalizationOptions>`.
 	// URI path transformations specified by the “uri_path_normalization_options“ configuration can be applied to a portion
 	// of requests by setting the “envoy_default_header_validator.uri_path_transformations“ runtime value.
-	// Caution: disabling path normalization may lead to path confusion vulnerabilities in access control or incorrect service
-	// selection.
+	//
+	// .. attention::
+	//
+	//	Disabling path normalization may lead to path confusion vulnerabilities in access control or incorrect service
+	//	selection.
 	UriPathNormalizationOptions *HeaderValidatorConfig_UriPathNormalizationOptions `protobuf:"bytes,2,opt,name=uri_path_normalization_options,json=uriPathNormalizationOptions,proto3" json:"uri_path_normalization_options,omitempty"`
-	// Restrict HTTP methods to these defined in the `RFC 7231 section 4.1 <https://datatracker.ietf.org/doc/html/rfc7231#section-4.1>`_
+	// Restrict HTTP methods to these defined in the `RFC 7231 section 4.1 <https://datatracker.ietf.org/doc/html/rfc7231#section-4.1>`_.
+	//
 	// Envoy will respond with 400 to requests with disallowed methods.
 	// By default methods with arbitrary names are accepted.
+	//
+	// This setting helps enforce HTTP compliance and can prevent attacks that rely on
+	// non-standard HTTP methods.
 	RestrictHttpMethods bool `protobuf:"varint,3,opt,name=restrict_http_methods,json=restrictHttpMethods,proto3" json:"restrict_http_methods,omitempty"`
 	// Action to take when a client request with a header name containing underscore characters is received.
-	// If this setting is not specified, the value defaults to ALLOW.
+	//
+	// If this setting is not specified, the value defaults to “ALLOW“.
+	//
+	// This setting provides security control over headers with underscores, which can be a source
+	// of security issues when different systems interpret underscores and hyphens differently.
 	HeadersWithUnderscoresAction HeaderValidatorConfig_HeadersWithUnderscoresAction `protobuf:"varint,4,opt,name=headers_with_underscores_action,json=headersWithUnderscoresAction,proto3,enum=envoy.extensions.http.header_validators.envoy_default.v3.HeaderValidatorConfig_HeadersWithUnderscoresAction" json:"headers_with_underscores_action,omitempty"`
 	// Allow requests with fragment in URL path and strip the fragment before request processing.
-	// By default Envoy rejects requests with fragment in URL path.
+	//
+	// By default Envoy rejects requests with fragment in URL path. When this option is enabled,
+	// the fragment portion (everything after “#“) will be removed from the path before
+	// further processing.
+	//
+	// Fragments are typically used by client-side applications and should not normally
+	// be sent to the server, so stripping them can help normalize requests.
 	StripFragmentFromPath bool `protobuf:"varint,5,opt,name=strip_fragment_from_path,json=stripFragmentFromPath,proto3" json:"strip_fragment_from_path,omitempty"`
 }
 
@@ -267,37 +312,56 @@ func (x *HeaderValidatorConfig) GetStripFragmentFromPath() bool {
 	return false
 }
 
+// Configuration options for URI path normalization and transformation.
+//
+// These options control how Envoy processes and normalizes incoming request URI paths
+// to ensure consistent behavior and security. Path normalization helps prevent
+// path traversal attacks and ensures that equivalent paths are handled consistently.
 type HeaderValidatorConfig_UriPathNormalizationOptions struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	// Should paths be normalized according to RFC 3986?
+	//
 	// This operation overwrites the original request URI path and the new path is used for processing of
 	// the request by HTTP filters and proxied to the upstream service.
 	// Envoy will respond with 400 to requests with malformed paths that fail path normalization.
 	// The default behavior is to normalize the path.
+	//
 	// This value may be overridden by the runtime variable
 	// :ref:`http_connection_manager.normalize_path<config_http_conn_man_runtime_normalize_path>`.
 	// See `Normalization and Comparison <https://datatracker.ietf.org/doc/html/rfc3986#section-6>`_
 	// for details of normalization.
-	// Note that Envoy does not perform
-	// `case normalization <https://datatracker.ietf.org/doc/html/rfc3986#section-6.2.2.1>`_
-	// URI path normalization can be applied to a portion of requests by setting the
-	// “envoy_default_header_validator.path_normalization“ runtime value.
+	//
+	// .. note::
+	//
+	//	Envoy does not perform
+	//	`case normalization <https://datatracker.ietf.org/doc/html/rfc3986#section-6.2.2.1>`_.
+	//	URI path normalization can be applied to a portion of requests by setting the
+	//	``envoy_default_header_validator.path_normalization`` runtime value.
 	SkipPathNormalization bool `protobuf:"varint,1,opt,name=skip_path_normalization,json=skipPathNormalization,proto3" json:"skip_path_normalization,omitempty"`
 	// Determines if adjacent slashes in the path are merged into one.
+	//
 	// This operation overwrites the original request URI path and the new path is used for processing of
 	// the request by HTTP filters and proxied to the upstream service.
-	// Setting this option to true will cause incoming requests with path “//dir///file“ to not match against
-	// route with “prefix“ match set to “/dir“. Defaults to “false“. Note that slash merging is not part of
-	// `HTTP spec <https://datatracker.ietf.org/doc/html/rfc3986>`_ and is provided for convenience.
-	// Merging of slashes in URI path can be applied to a portion of requests by setting the
-	// “envoy_default_header_validator.merge_slashes“ runtime value.
+	// Setting this option to “true“ will cause incoming requests with path “//dir///file“ to not match against
+	// route with “prefix“ match set to “/dir“. Defaults to “false“.
+	//
+	// .. note::
+	//
+	//	Slash merging is not part of the
+	//	`HTTP spec <https://datatracker.ietf.org/doc/html/rfc3986>`_ and is provided for convenience.
+	//	Merging of slashes in URI path can be applied to a portion of requests by setting the
+	//	``envoy_default_header_validator.merge_slashes`` runtime value.
 	SkipMergingSlashes bool `protobuf:"varint,2,opt,name=skip_merging_slashes,json=skipMergingSlashes,proto3" json:"skip_merging_slashes,omitempty"`
 	// The action to take when request URL path contains escaped slash sequences (“%2F“, “%2f“, “%5C“ and “%5c“).
+	//
 	// This operation may overwrite the original request URI path and the new path is used for processing of
 	// the request by HTTP filters and proxied to the upstream service.
+	//
+	// The handling of escaped slashes is important for security as these sequences can be used
+	// in path confusion attacks to bypass access controls.
 	PathWithEscapedSlashesAction HeaderValidatorConfig_UriPathNormalizationOptions_PathWithEscapedSlashesAction `protobuf:"varint,3,opt,name=path_with_escaped_slashes_action,json=pathWithEscapedSlashesAction,proto3,enum=envoy.extensions.http.header_validators.envoy_default.v3.HeaderValidatorConfig_UriPathNormalizationOptions_PathWithEscapedSlashesAction" json:"path_with_escaped_slashes_action,omitempty"`
 }
 
@@ -354,6 +418,10 @@ func (x *HeaderValidatorConfig_UriPathNormalizationOptions) GetPathWithEscapedSl
 	return HeaderValidatorConfig_UriPathNormalizationOptions_IMPLEMENTATION_SPECIFIC_DEFAULT
 }
 
+// HTTP/1 protocol specific options for header validation.
+//
+// These options control how Envoy handles HTTP/1 specific behaviors and edge cases
+// that may not apply to HTTP/2 or HTTP/3 protocols.
 type HeaderValidatorConfig_Http1ProtocolOptions struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -362,6 +430,7 @@ type HeaderValidatorConfig_Http1ProtocolOptions struct {
 	// Allows Envoy to process HTTP/1 requests/responses with both “Content-Length“ and “Transfer-Encoding“
 	// headers set. By default such messages are rejected, but if option is enabled - Envoy will
 	// remove the “Content-Length“ header and process the message.
+	//
 	// See `RFC7230, sec. 3.3.3 <https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.3>`_ for details.
 	//
 	// .. attention::

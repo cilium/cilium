@@ -104,6 +104,16 @@ func (m *GradientControllerConfig_MinimumRTTCalculationParams) MarshalToSizedBuf
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.FixedValue != nil {
+		size, err := (*durationpb.Duration)(m.FixedValue).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x32
+	}
 	if m.Buffer != nil {
 		if vtmsg, ok := interface{}(m.Buffer).(interface {
 			MarshalToSizedBufferVTStrict([]byte) (int, error)
@@ -417,6 +427,10 @@ func (m *GradientControllerConfig_MinimumRTTCalculationParams) SizeVT() (n int) 
 		} else {
 			l = proto.Size(m.Buffer)
 		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.FixedValue != nil {
+		l = (*durationpb.Duration)(m.FixedValue).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

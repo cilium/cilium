@@ -138,9 +138,9 @@ type FilterDependencies struct {
 
 	// A list of dependencies required on the decode path.
 	DecodeRequired []*Dependency `protobuf:"bytes,1,rep,name=decode_required,json=decodeRequired,proto3" json:"decode_required,omitempty"`
-	// A list of dependencies provided on the encode path.
+	// A list of dependencies provided on the decode path.
 	DecodeProvided []*Dependency `protobuf:"bytes,2,rep,name=decode_provided,json=decodeProvided,proto3" json:"decode_provided,omitempty"`
-	// A list of dependencies required on the decode path.
+	// A list of dependencies required on the encode path.
 	EncodeRequired []*Dependency `protobuf:"bytes,3,rep,name=encode_required,json=encodeRequired,proto3" json:"encode_required,omitempty"`
 	// A list of dependencies provided on the encode path.
 	EncodeProvided []*Dependency `protobuf:"bytes,4,rep,name=encode_provided,json=encodeProvided,proto3" json:"encode_provided,omitempty"`

@@ -49,6 +49,16 @@ func (m *Tap) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.SocketTapConfig != nil {
+		size, err := m.SocketTapConfig.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1a
+	}
 	if m.TransportSocket != nil {
 		if vtmsg, ok := interface{}(m.TransportSocket).(interface {
 			MarshalToSizedBufferVTStrict([]byte) (int, error)
@@ -96,6 +106,56 @@ func (m *Tap) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *SocketTapConfig) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SocketTapConfig) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *SocketTapConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.StatsPrefix) > 0 {
+		i -= len(m.StatsPrefix)
+		copy(dAtA[i:], m.StatsPrefix)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.StatsPrefix)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.SetConnectionPerEvent {
+		i--
+		if m.SetConnectionPerEvent {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *Tap) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -120,6 +180,27 @@ func (m *Tap) SizeVT() (n int) {
 		} else {
 			l = proto.Size(m.TransportSocket)
 		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.SocketTapConfig != nil {
+		l = m.SocketTapConfig.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *SocketTapConfig) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.SetConnectionPerEvent {
+		n += 2
+	}
+	l = len(m.StatsPrefix)
+	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

@@ -31,15 +31,15 @@ type CaresDnsResolverConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// A list of dns resolver addresses.
-	// :ref:`use_resolvers_as_fallback<envoy_v3_api_field_extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig.use_resolvers_as_fallback>`
+	// A list of DNS resolver addresses.
+	// :ref:`use_resolvers_as_fallback <envoy_v3_api_field_extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig.use_resolvers_as_fallback>`
 	// below dictates if the DNS client should override system defaults or only use the provided
 	// resolvers if the system defaults are not available, i.e., as a fallback.
 	Resolvers []*v3.Address `protobuf:"bytes,1,rep,name=resolvers,proto3" json:"resolvers,omitempty"`
 	// If true use the resolvers listed in the
-	// :ref:`resolvers<envoy_v3_api_field_extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig.resolvers>`
+	// :ref:`resolvers <envoy_v3_api_field_extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig.resolvers>`
 	// field only if c-ares is unable to obtain a
-	// nameserver from the system (e.g., /etc/resolv.conf).
+	// nameserver from the system (e.g., “/etc/resolv.conf“).
 	// Otherwise, the resolvers listed in the resolvers list will override the default system
 	// resolvers. Defaults to false.
 	UseResolversAsFallback bool `protobuf:"varint,3,opt,name=use_resolvers_as_fallback,json=useResolversAsFallback,proto3" json:"use_resolvers_as_fallback,omitempty"`
@@ -50,25 +50,34 @@ type CaresDnsResolverConfig struct {
 	FilterUnroutableFamilies bool `protobuf:"varint,4,opt,name=filter_unroutable_families,json=filterUnroutableFamilies,proto3" json:"filter_unroutable_families,omitempty"`
 	// Configuration of DNS resolver option flags which control the behavior of the DNS resolver.
 	DnsResolverOptions *v3.DnsResolverOptions `protobuf:"bytes,2,opt,name=dns_resolver_options,json=dnsResolverOptions,proto3" json:"dns_resolver_options,omitempty"`
-	// This option allows for number of UDP based DNS queries to be capped. Note, this
-	// is only applicable to c-ares DNS resolver currently.
+	// This option allows the number of UDP based DNS queries to be capped.
+	//
+	// .. note::
+	//
+	//	This is only applicable to c-ares DNS resolver currently.
 	UdpMaxQueries *wrapperspb.UInt32Value `protobuf:"bytes,5,opt,name=udp_max_queries,json=udpMaxQueries,proto3" json:"udp_max_queries,omitempty"`
 	// The number of seconds each name server is given to respond to a query on the first try of any given server.
 	//
-	// Note: While the c-ares library defaults to 2 seconds, Envoy's default (if this field is unset) is 5 seconds.
-	// This adjustment was made to maintain the previous behavior after users reported an increase in DNS resolution times.
+	// .. note::
+	//
+	//	While the c-ares library defaults to 2 seconds, Envoy's default (if this field is unset) is 5 seconds.
+	//	This adjustment was made to maintain the previous behavior after users reported an increase in DNS resolution times.
 	QueryTimeoutSeconds *wrapperspb.UInt64Value `protobuf:"bytes,6,opt,name=query_timeout_seconds,json=queryTimeoutSeconds,proto3" json:"query_timeout_seconds,omitempty"`
 	// The maximum number of query attempts the resolver will make before giving up.
 	// Each attempt may use a different name server.
 	//
-	// Note: While the c-ares library defaults to 3 attempts, Envoy's default (if this field is unset) is 4 attempts.
-	// This adjustment was made to maintain the previous behavior after users reported an increase in DNS resolution times.
+	// .. note::
+	//
+	//	While the c-ares library defaults to 3 attempts, Envoy's default (if this field is unset) is 4 attempts.
+	//	This adjustment was made to maintain the previous behavior after users reported an increase in DNS resolution times.
 	QueryTries *wrapperspb.UInt32Value `protobuf:"bytes,7,opt,name=query_tries,json=queryTries,proto3" json:"query_tries,omitempty"`
 	// Enable round-robin selection of name servers for DNS resolution. When enabled, the resolver will cycle through the
 	// list of name servers for each resolution request. This can help distribute the query load across multiple name
 	// servers. If disabled (default), the resolver will try name servers in the order they are configured.
 	//
-	// Note: This setting overrides any system configuration for name server rotation.
+	// .. note::
+	//
+	//	This setting overrides any system configuration for name server rotation.
 	RotateNameservers bool `protobuf:"varint,8,opt,name=rotate_nameservers,json=rotateNameservers,proto3" json:"rotate_nameservers,omitempty"`
 }
 

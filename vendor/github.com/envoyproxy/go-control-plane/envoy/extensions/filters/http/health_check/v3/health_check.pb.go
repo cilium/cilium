@@ -39,7 +39,8 @@ type HealthCheck struct {
 	CacheTime *durationpb.Duration `protobuf:"bytes,3,opt,name=cache_time,json=cacheTime,proto3" json:"cache_time,omitempty"`
 	// If operating in non-pass-through mode, specifies a set of upstream cluster
 	// names and the minimum percentage of servers in each of those clusters that
-	// must be healthy or degraded in order for the filter to return a 200.
+	// must be healthy or degraded in order for the filter to return a 200. If any of
+	// the clusters configured here does not exist, the filter will not return a 200.
 	//
 	// .. note::
 	//

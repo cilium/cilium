@@ -60,6 +60,8 @@ func (m *FilterConfig) validate(all bool) error {
 
 	// no validation rules for SaveUpstreamAddress
 
+	// no validation rules for AllowDynamicHostFromFilterState
+
 	switch v := m.ImplementationSpecifier.(type) {
 	case *FilterConfig_DnsCacheConfig:
 		if v == nil {
