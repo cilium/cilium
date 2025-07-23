@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/operator/pkg/ciliumidentity"
 	"github.com/cilium/cilium/operator/pkg/client"
+	operatorIPAM "github.com/cilium/cilium/operator/pkg/config/ipam"
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
@@ -151,6 +152,9 @@ var (
 
 		// Shell for inspecting the operator. Listens on the 'shell.sock' UNIX socket.
 		shell.Cell,
+
+		// Operator IPAM configuration for allocation parameters.
+		operatorIPAM.Cell,
 	)
 
 	// ControlPlane implements the control functions.
@@ -540,7 +544,7 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, kvstoreClient kvstore.Client, resources operatorK8s.Resources, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, kvstoreClient kvstore.Client, resources operatorK8s.Resources, cfgClusterMeshPolicy cmtypes.PolicyConfig, metrics *UnmanagedPodsMetric, ipamConfig operatorIPAM.Config, logger *slog.Logger) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:                  ctx,
@@ -550,6 +554,7 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, kv
 		resources:            resources,
 		cfgClusterMeshPolicy: cfgClusterMeshPolicy,
 		metrics:              metrics,
+		ipamConfig:           ipamConfig,
 		logger:               logger,
 	}
 	lc.Append(cell.Hook{
@@ -567,6 +572,7 @@ type legacyOnLeader struct {
 	resources            operatorK8s.Resources
 	cfgClusterMeshPolicy cmtypes.PolicyConfig
 	metrics              *UnmanagedPodsMetric
+	ipamConfig           operatorIPAM.Config
 
 	logger *slog.Logger
 }
@@ -607,6 +613,12 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		nodeManager allocator.NodeEventHandler
 		withKVStore bool
 	)
+
+	// Bridge cell config to legacy operator config for backward compatibility
+	operatorOption.Config.IPAMPreAllocate = legacy.ipamConfig.IPAMPreAllocate
+	operatorOption.Config.IPAMMinAllocate = legacy.ipamConfig.IPAMMinAllocate
+	operatorOption.Config.IPAMMaxAllocate = legacy.ipamConfig.IPAMMaxAllocate
+	operatorOption.Config.IPAMMaxAboveWatermark = legacy.ipamConfig.IPAMMaxAboveWatermark
 
 	legacy.logger.Info(
 		"Initializing IPAM",
