@@ -830,6 +830,35 @@ func (m *PluginConfig) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetAllowOnHeadersStopIteration()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, PluginConfigValidationError{
+					field:  "AllowOnHeadersStopIteration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, PluginConfigValidationError{
+					field:  "AllowOnHeadersStopIteration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAllowOnHeadersStopIteration()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return PluginConfigValidationError{
+				field:  "AllowOnHeadersStopIteration",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	switch v := m.Vm.(type) {
 	case *PluginConfig_VmConfig:
 		if v == nil {

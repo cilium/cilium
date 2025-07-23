@@ -26,9 +26,18 @@ const (
 type ProcessingMode_HeaderSendMode int32
 
 const (
-	// The default HeaderSendMode depends on which part of the message is being
-	// processed. By default, request and response headers are sent,
-	// while trailers are skipped.
+	// When used to configure the ext_proc filter :ref:`processing_mode
+	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`,
+	// the default HeaderSendMode depends on which part of the message is being processed. By
+	// default, request and response headers are sent, while trailers are skipped.
+	//
+	// When used in :ref:`mode_override
+	// <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.mode_override>` or
+	// :ref:`allowed_override_modes
+	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.allowed_override_modes>`,
+	// a value of DEFAULT indicates that there is no change from the behavior that is configured for
+	// the filter in :ref:`processing_mode
+	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`.
 	ProcessingMode_DEFAULT ProcessingMode_HeaderSendMode = 0
 	// Send the header or trailer.
 	ProcessingMode_SEND ProcessingMode_HeaderSendMode = 1
@@ -166,6 +175,9 @@ type ProcessingMode struct {
 	unknownFields protoimpl.UnknownFields
 
 	// How to handle the request header. Default is "SEND".
+	// Note this field is ignored in :ref:`mode_override
+	// <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.mode_override>`, since mode
+	// overrides can only affect messages exchanged after the request header is processed.
 	RequestHeaderMode ProcessingMode_HeaderSendMode `protobuf:"varint,1,opt,name=request_header_mode,json=requestHeaderMode,proto3,enum=envoy.extensions.filters.http.ext_proc.v3.ProcessingMode_HeaderSendMode" json:"request_header_mode,omitempty"`
 	// How to handle the response header. Default is "SEND".
 	ResponseHeaderMode ProcessingMode_HeaderSendMode `protobuf:"varint,2,opt,name=response_header_mode,json=responseHeaderMode,proto3,enum=envoy.extensions.filters.http.ext_proc.v3.ProcessingMode_HeaderSendMode" json:"response_header_mode,omitempty"`
