@@ -396,7 +396,7 @@ jobs:
       - name: Install LLVM and Clang prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libtinfo5
+          sudo apt-get install -y --no-install-recommends libtinfo6
 
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@a7a1a882e2d06ebe05d5bb97c3e1f8c984ae96fc # v2.0.7
