@@ -1327,18 +1327,7 @@ func (m *ExtAuthzPerRoute) validate(all bool) error {
 			errors = append(errors, err)
 		}
 		oneofOverridePresent = true
-
-		if m.GetDisabled() != true {
-			err := ExtAuthzPerRouteValidationError{
-				field:  "Disabled",
-				reason: "value must equal true",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-
+		// no validation rules for Disabled
 	case *ExtAuthzPerRoute_CheckSettings:
 		if v == nil {
 			err := ExtAuthzPerRouteValidationError{
