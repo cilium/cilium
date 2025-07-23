@@ -5,10 +5,10 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/netip"
 	"path/filepath"
 	"slices"
@@ -17,13 +17,12 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
-	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
-	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
@@ -83,6 +82,10 @@ type loader struct {
 	compilationLock    datapath.CompilationLock
 	configWriter       datapath.ConfigWriter
 	nodeConfigNotifier *manager.NodeConfigNotifier
+
+	db           *statedb.DB
+	devices      statedb.Table[*tables.Device]
+	routeManager *routeReconciler.DesiredRouteManager
 }
 
 type Params struct {
@@ -94,6 +97,7 @@ type Params struct {
 	CompilationLock    datapath.CompilationLock
 	ConfigWriter       datapath.ConfigWriter
 	NodeConfigNotifier *manager.NodeConfigNotifier
+	RouteManager       *routeReconciler.DesiredRouteManager
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -111,26 +115,38 @@ func newLoader(p Params) *loader {
 		compilationLock:    p.CompilationLock,
 		configWriter:       p.ConfigWriter,
 		nodeConfigNotifier: p.NodeConfigNotifier,
+		routeManager:       p.RouteManager,
 	}
 }
 
-func upsertEndpointRoute(logger *slog.Logger, ep datapath.Endpoint, ip net.IPNet) error {
-	endpointRoute := route.Route{
-		Prefix: ip,
-		Device: ep.InterfaceName(),
-		Scope:  netlink.SCOPE_LINK,
-		Proto:  linux_defaults.RTProto,
+func upsertEndpointRoute(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep datapath.Endpoint, ip netip.Prefix) error {
+	owner, err := rm.GetOrRegisterOwner("endpoint/"+ep.StringID(), routeReconciler.AdminDistanceDefault)
+	if err != nil {
+		return fmt.Errorf("getting or registering owner for endpoint %s: %w", ep.StringID(), err)
 	}
 
-	return route.Upsert(logger, endpointRoute)
-}
+	epDev, _, found := devices.Get(db.ReadTxn(), tables.DeviceIDIndex.Query(ep.GetIfIndex()))
+	if !found {
+		return fmt.Errorf("device %d not found for endpoint %s", ep.GetIfIndex(), ep.StringID())
+	}
 
-func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
-	return route.Delete(route.Route{
+	return rm.UpsertRoutes(routeReconciler.DesiredRoute{
+		Owner:  owner,
 		Prefix: ip,
-		Device: ep.InterfaceName(),
-		Scope:  netlink.SCOPE_LINK,
+		Table:  routeReconciler.TableMain,
+
+		Device: epDev,
+		Scope:  routeReconciler.SCOPE_LINK,
 	})
+}
+
+func removeEndpointRoute(ep datapath.Endpoint, rm *routeReconciler.DesiredRouteManager) error {
+	owner, err := rm.GetOwner("endpoint/" + ep.StringID())
+	if !errors.Is(err, routeReconciler.ErrOwnerDoesNotExist) {
+		return fmt.Errorf("getting route owner for endpoint %s: %w", ep.StringID(), err)
+	}
+
+	return rm.RemoveOwner(owner)
 }
 
 func bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguration) (masq4, masq6 netip.Addr) {
@@ -610,7 +626,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func reloadEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func reloadEndpoint(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
 	co, renames := endpointRewrites(ep, lnc)
@@ -677,14 +693,14 @@ func reloadEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Loc
 			logfields.Interface, device,
 		)
 		if ip := ep.IPv4Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(logger, ep, *netipx.AddrIPNet(ip)); err != nil {
+			if err := upsertEndpointRoute(logger, db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
 				scopedLog.Warn("Failed to upsert route",
 					logfields.Error, err,
 				)
 			}
 		}
 		if ip := ep.IPv6Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(logger, ep, *netipx.AddrIPNet(ip)); err != nil {
+			if err := upsertEndpointRoute(logger, db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
 				scopedLog.Warn("Failed to upsert route",
 					logfields.Error, err,
 				)
@@ -867,7 +883,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(l.logger, ep, lnc, spec)
+	err = reloadEndpoint(l.logger, l.db, l.devices, l.routeManager, ep, lnc, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
@@ -876,11 +892,11 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 func (l *loader) Unload(ep datapath.Endpoint) {
 	if ep.RequireEndpointRoute() {
 		if ip := ep.IPv4Address(); ip.IsValid() {
-			removeEndpointRoute(ep, *netipx.AddrIPNet(ip))
+			removeEndpointRoute(ep, l.routeManager)
 		}
 
 		if ip := ep.IPv6Address(); ip.IsValid() {
-			removeEndpointRoute(ep, *netipx.AddrIPNet(ip))
+			removeEndpointRoute(ep, l.routeManager)
 		}
 	}
 
