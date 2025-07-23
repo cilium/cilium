@@ -604,7 +604,7 @@ func (dl *dummyListener) ExpectMapping(t *testing.T, targetIP string, targetIden
 
 	// Dump reliably supplies the IP once and only the pod identity.
 	dl.entries = make(map[string]identityPkg.NumericIdentity)
-	dl.ipc.DumpToListenerLocked(dl)
+	dl.ipc.dumpToListenerLocked(dl)
 	require.Equal(t, map[string]identityPkg.NumericIdentity{
 		targetIP: targetIdentity,
 	}, dl.entries)
