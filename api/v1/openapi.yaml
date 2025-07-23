@@ -153,6 +153,8 @@ paths:
             "$ref": "#/definitions/Error"
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
     patch:
       summary: Modify existing endpoint
       deprecated: true
@@ -182,6 +184,8 @@ paths:
             "$ref": "#/definitions/Error"
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
     delete:
       summary: Delete endpoint
       description: |
@@ -219,6 +223,8 @@ paths:
           description: Endpoint not found
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
   "/endpoint":
     get:
       summary: Retrieves a list of endpoints that have metadata matching the provided parameters.
@@ -262,6 +268,8 @@ paths:
           description: No endpoints with provided parameters found
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
   "/endpoint/{id}/config":
     get:
       summary: Retrieve endpoint configuration
@@ -311,6 +319,8 @@ paths:
             "$ref": "#/definitions/Error"
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
   "/endpoint/{id}/labels":
     get:
       summary: Retrieves the list of labels associated with an endpoint.
@@ -355,6 +365,8 @@ paths:
             "$ref": "#/definitions/Error"
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
   "/endpoint/{id}/log":
     get:
       summary: Retrieves the status logs associated with this endpoint.
