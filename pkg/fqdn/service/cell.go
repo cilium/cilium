@@ -68,6 +68,7 @@ func newServer(params serverParams) *FQDNDataServer {
 		return srv
 	}
 
+	srv.enabled = true
 	params.IPCache.AddListener(srv)
 
 	params.JobGroup.Add(job.OneShot("sdp-grpc-server", srv.ListenAndServe,
