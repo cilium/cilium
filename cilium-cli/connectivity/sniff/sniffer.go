@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/lock"
+	"github.com/cilium/cilium/cilium-cli/utils/wait"
 )
 
 // Mode configures the Sniffer validation mode.
@@ -80,12 +81,28 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 
 		dbg.Debugf("Running sniffer in background on %s (%s), mode=%s: %s",
 			target.String(), target.NodeName(), mode, strings.Join(sniffer.cmd, " "))
-		err := target.K8sClient.ExecInPodWithWriters(ctx, cmdctx,
-			target.Pod.Namespace, target.Pod.Name, "", sniffer.cmd, &sniffer.stdout, k8s.StderrAsError)
-		if err != nil {
-			sniffer.exited <- err
-		}
 
+		// Run tcpdump in the remote pod, capturing packets matching the filter.
+		// Retry if it fails with exit code 14, which is expected when the stdout
+		// is not available yet (observed CI flakes under heavy load in the API server).
+		w := wait.NewObserver(ctx, wait.Parameters{Timeout: 5 * time.Second})
+		defer w.Cancel()
+		for {
+			err := target.K8sClient.ExecInPodWithWriters(ctx, cmdctx,
+				target.Pod.Namespace, target.Pod.Name, "", sniffer.cmd, &sniffer.stdout, k8s.StderrAsError)
+			if err == nil {
+				break
+			}
+			if !strings.HasSuffix(err.Error(), "exit code 14") {
+				sniffer.exited <- err
+				break
+			}
+			if err := w.Retry(err); err != nil {
+				sniffer.exited <- fmt.Errorf("Failed to retry tcpdump: %w", err)
+				break
+			}
+			dbg.Debugf("Remote tcpdump failed with exit code 14, retrying: %s", err)
+		}
 		close(sniffer.exited)
 	}()
 
