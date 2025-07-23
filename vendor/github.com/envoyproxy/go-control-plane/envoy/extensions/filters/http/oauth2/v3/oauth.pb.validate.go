@@ -342,6 +342,35 @@ func (m *CookieConfigs) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetCodeVerifierCookieConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CookieConfigsValidationError{
+					field:  "CodeVerifierCookieConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CookieConfigsValidationError{
+					field:  "CodeVerifierCookieConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCodeVerifierCookieConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CookieConfigsValidationError{
+				field:  "CodeVerifierCookieConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return CookieConfigsMultiError(errors)
 	}
@@ -764,6 +793,8 @@ func (m *OAuth2Config) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	// no validation rules for EndSessionEndpoint
+
 	if m.GetCredentials() == nil {
 		err := OAuth2ConfigValidationError{
 			field:  "Credentials",
@@ -1100,6 +1131,66 @@ func (m *OAuth2Config) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for StatPrefix
+
+	if all {
+		switch v := interface{}(m.GetCsrfTokenExpiresIn()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OAuth2ConfigValidationError{
+					field:  "CsrfTokenExpiresIn",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OAuth2ConfigValidationError{
+					field:  "CsrfTokenExpiresIn",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCsrfTokenExpiresIn()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OAuth2ConfigValidationError{
+				field:  "CsrfTokenExpiresIn",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetCodeVerifierTokenExpiresIn()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OAuth2ConfigValidationError{
+					field:  "CodeVerifierTokenExpiresIn",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OAuth2ConfigValidationError{
+					field:  "CodeVerifierTokenExpiresIn",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCodeVerifierTokenExpiresIn()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OAuth2ConfigValidationError{
+				field:  "CodeVerifierTokenExpiresIn",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return OAuth2ConfigMultiError(errors)
 	}
@@ -1416,6 +1507,21 @@ func (m *OAuth2Credentials_CookieNames) validate(all bool) error {
 
 	}
 
+	if m.GetCodeVerifier() != "" {
+
+		if !_OAuth2Credentials_CookieNames_CodeVerifier_Pattern.MatchString(m.GetCodeVerifier()) {
+			err := OAuth2Credentials_CookieNamesValidationError{
+				field:  "CodeVerifier",
+				reason: "value does not match regex pattern \"^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return OAuth2Credentials_CookieNamesMultiError(errors)
 	}
@@ -1508,3 +1614,5 @@ var _OAuth2Credentials_CookieNames_IdToken_Pattern = regexp.MustCompile("^:?[0-9
 var _OAuth2Credentials_CookieNames_RefreshToken_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
 
 var _OAuth2Credentials_CookieNames_OauthNonce_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
+
+var _OAuth2Credentials_CookieNames_CodeVerifier_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")

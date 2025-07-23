@@ -567,10 +567,10 @@ func (m *RateLimitDescriptor_Entry) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	if utf8.RuneCountInString(m.GetValue()) < 1 {
+	if utf8.RuneCountInString(m.GetValue()) < 0 {
 		err := RateLimitDescriptor_EntryValidationError{
 			field:  "Value",
-			reason: "value length must be at least 1 runes",
+			reason: "value length must be at least 0 runes",
 		}
 		if !all {
 			return err

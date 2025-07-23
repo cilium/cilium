@@ -566,6 +566,15 @@ func (m *RedisProxy) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.CustomCommands) > 0 {
+		for iNdEx := len(m.CustomCommands) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.CustomCommands[iNdEx])
+			copy(dAtA[i:], m.CustomCommands[iNdEx])
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.CustomCommands[iNdEx])))
+			i--
+			dAtA[i] = 0x5a
+		}
+	}
 	if m.ExternalAuthProvider != nil {
 		size, err := m.ExternalAuthProvider.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -726,6 +735,16 @@ func (m *RedisProtocolOptions) MarshalToSizedBufferVTStrict(dAtA []byte) (int, e
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.AwsIam != nil {
+		size, err := m.AwsIam.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1a
+	}
 	if m.AuthUsername != nil {
 		if vtmsg, ok := interface{}(m.AuthUsername).(interface {
 			MarshalToSizedBufferVTStrict([]byte) (int, error)
@@ -760,6 +779,92 @@ func (m *RedisProtocolOptions) MarshalToSizedBufferVTStrict(dAtA []byte) (int, e
 			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
 		} else {
 			encoded, err := proto.Marshal(m.AuthPassword)
+			if err != nil {
+				return 0, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *AwsIam) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AwsIam) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *AwsIam) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.ExpirationTime != nil {
+		size, err := (*durationpb.Duration)(m.ExpirationTime).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.Region) > 0 {
+		i -= len(m.Region)
+		copy(dAtA[i:], m.Region)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Region)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.ServiceName) > 0 {
+		i -= len(m.ServiceName)
+		copy(dAtA[i:], m.ServiceName)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.ServiceName)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.CacheName) > 0 {
+		i -= len(m.CacheName)
+		copy(dAtA[i:], m.CacheName)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.CacheName)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.CredentialProvider != nil {
+		if vtmsg, ok := interface{}(m.CredentialProvider).(interface {
+			MarshalToSizedBufferVTStrict([]byte) (int, error)
+		}); ok {
+			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		} else {
+			encoded, err := proto.Marshal(m.CredentialProvider)
 			if err != nil {
 				return 0, err
 			}
@@ -1097,6 +1202,12 @@ func (m *RedisProxy) SizeVT() (n int) {
 		l = m.ExternalAuthProvider.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
+	if len(m.CustomCommands) > 0 {
+		for _, s := range m.CustomCommands {
+			l = len(s)
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -1125,6 +1236,46 @@ func (m *RedisProtocolOptions) SizeVT() (n int) {
 		} else {
 			l = proto.Size(m.AuthUsername)
 		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.AwsIam != nil {
+		l = m.AwsIam.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *AwsIam) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.CredentialProvider != nil {
+		if size, ok := interface{}(m.CredentialProvider).(interface {
+			SizeVT() int
+		}); ok {
+			l = size.SizeVT()
+		} else {
+			l = proto.Size(m.CredentialProvider)
+		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.CacheName)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.ServiceName)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.Region)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.ExpirationTime != nil {
+		l = (*durationpb.Duration)(m.ExpirationTime).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
