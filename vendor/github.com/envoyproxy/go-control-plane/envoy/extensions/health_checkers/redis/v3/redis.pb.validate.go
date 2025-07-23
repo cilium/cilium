@@ -59,6 +59,35 @@ func (m *Redis) validate(all bool) error {
 
 	// no validation rules for Key
 
+	if all {
+		switch v := interface{}(m.GetAwsIam()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RedisValidationError{
+					field:  "AwsIam",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RedisValidationError{
+					field:  "AwsIam",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAwsIam()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RedisValidationError{
+				field:  "AwsIam",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return RedisMultiError(errors)
 	}

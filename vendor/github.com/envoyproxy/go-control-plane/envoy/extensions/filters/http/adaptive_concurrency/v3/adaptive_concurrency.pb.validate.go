@@ -675,17 +675,6 @@ func (m *GradientControllerConfig_MinimumRTTCalculationParams) validate(all bool
 
 	var errors []error
 
-	if m.GetInterval() == nil {
-		err := GradientControllerConfig_MinimumRTTCalculationParamsValidationError{
-			field:  "Interval",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if d := m.GetInterval(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
@@ -706,6 +695,36 @@ func (m *GradientControllerConfig_MinimumRTTCalculationParams) validate(all bool
 				err := GradientControllerConfig_MinimumRTTCalculationParamsValidationError{
 					field:  "Interval",
 					reason: "value must be greater than or equal to 1ms",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	if d := m.GetFixedValue(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = GradientControllerConfig_MinimumRTTCalculationParamsValidationError{
+				field:  "FixedValue",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur <= gt {
+				err := GradientControllerConfig_MinimumRTTCalculationParamsValidationError{
+					field:  "FixedValue",
+					reason: "value must be greater than 0s",
 				}
 				if !all {
 					return err
