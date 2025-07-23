@@ -4,10 +4,8 @@
 package ciliumidentity
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
-	"reflect"
 	"sync"
 	"testing"
 
@@ -55,7 +53,7 @@ func TestCIDState(t *testing.T) {
 			},
 		}
 
-		assert.NoError(t, validateCIDState(state, expectedState), "cid 1 added")
+		validateCIDState(t, state, expectedState, "cid 1 added")
 
 		state.Upsert("2", k2)
 		expectedState = &CIDState{
@@ -72,7 +70,7 @@ func TestCIDState(t *testing.T) {
 			},
 		}
 
-		assert.NoError(t, validateCIDState(state, expectedState), "cid 2 added")
+		validateCIDState(t, state, expectedState, "cid 2 added")
 
 		state.Upsert("3", k3)
 		expectedState = &CIDState{
@@ -89,7 +87,7 @@ func TestCIDState(t *testing.T) {
 			},
 		}
 
-		assert.NoError(t, validateCIDState(state, expectedState), "cid 3 added - duplicate")
+		validateCIDState(t, state, expectedState, "cid 3 added - duplicate")
 	})
 
 	t.Run("Lookup CID state", func(t *testing.T) {
@@ -124,7 +122,7 @@ func TestCIDState(t *testing.T) {
 			},
 		}
 
-		assert.NoError(t, validateCIDState(state, expectedState), "cid 2 removed")
+		validateCIDState(t, state, expectedState, "cid 2 removed")
 
 		_, exists := state.LookupByID("2")
 		assert.False(t, exists, "cid 2 LookupByID - not found")
@@ -139,7 +137,7 @@ func TestCIDState(t *testing.T) {
 				},
 			},
 		}
-		assert.NoError(t, validateCIDState(state, expectedState), "cid 3 removed")
+		validateCIDState(t, state, expectedState, "cid 3 removed")
 	})
 }
 
@@ -175,14 +173,9 @@ func TestCIDStateThreadSafety(t *testing.T) {
 	wg.Wait()
 }
 
-func validateCIDState(state, expectedState *CIDState) error {
-	if !reflect.DeepEqual(state.idToLabels, expectedState.idToLabels) {
-		return fmt.Errorf("failed to validate the state, expected idToLabels %v, got %v", expectedState.idToLabels, state.idToLabels)
-	}
-
-	if !reflect.DeepEqual(state.labelsToID, expectedState.labelsToID) {
-		return fmt.Errorf("failed to validate the state, expected labelsToID %v, got %v", expectedState.labelsToID, state.labelsToID)
-	}
+func validateCIDState(t assert.TestingT, state, expectedState *CIDState, cidStatus string) error {
+	assert.Equal(t, expectedState.idToLabels, state.idToLabels, "%s, idToLabels does not match expected result", cidStatus)
+	assert.Equal(t, expectedState.labelsToID, state.labelsToID, "%s, labelsToID does not match expected result", cidStatus)
 
 	return nil
 }
