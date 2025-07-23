@@ -203,6 +203,10 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		if option.Config.EnableIPv6Masquerade && ipv6.IsValid() {
 			cfg.NATIPv6Masquerade = ipv6.As16()
 		}
+		// Masquerading IPv4 traffic from endpoints leaving the host.
+		if option.Config.EnableRemoteNodeMasquerade {
+			cfg.EnableRemoteNodeMasquerade = true
+		}
 	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols

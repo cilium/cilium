@@ -293,6 +293,12 @@ communicating via the proxy must reconnect to re-establish connections.
 1.19 Upgrade Notes
 ------------------
 
+* ``enable-remote-node-masquerade`` config option is introduced. To masquerade traffic to remote nodes in BPF masquerading mode, 
+  use the option ``enable-remote-node-masquerade: "true"``. This option requires ``enable-bpf-masquerade: "true"`` and also either
+  ``enable-ipv4-masquerade: "true"`` or ``enable-ipv6-masquerade: "true"`` to SNAT traffic for IPv4 and IPv6, respectively. 
+  This flag currently masquerades traffic to node ``InternalIP`` addresses.
+  This may change in future. See :gh-issue:`35823` and :gh-issue:`17177` for further discussion on this topic.
+
 Removed Options
 ~~~~~~~~~~~~~~~
 * The previously deprecated ``--bpf-lb-proto-diff`` flag has been removed.

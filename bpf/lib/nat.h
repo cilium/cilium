@@ -26,6 +26,7 @@
 
 DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
+DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade packets from endpoints destined to a remote node")
 
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
@@ -740,12 +741,10 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		/* SNAT the packet to remote node if enable-remote-node-masquerade flag is set to true.
 		 * This is a feature flag that can be enabled in BPF masquerading mode.
 		 */
-		#ifdef ENABLE_REMOTE_NODE_MASQUERADE
-		{
+		if (CONFIG(enable_remote_node_masquerade) == true) {
 			target->addr = CONFIG(nat_ipv4_masquerade).be32;
 			return NAT_NEEDED;
 		}
-		#endif
 		/* Don't masquerade in native-routing mode: */
 		if (!is_defined(TUNNEL_MODE))
 			return NAT_PUNT_TO_STACK;
@@ -1698,12 +1697,10 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 	remote_ep = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
 	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
-		#ifdef ENABLE_REMOTE_NODE_MASQUERADE
-		{
+		if (CONFIG(enable_remote_node_masquerade)) {
 			ipv6_addr_copy(&target->addr, &masq_addr);
 			return NAT_NEEDED;
 		}
-		#endif
 		if (!is_defined(TUNNEL_MODE))
 			return NAT_PUNT_TO_STACK;
 

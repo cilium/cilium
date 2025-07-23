@@ -14,7 +14,7 @@
 #define DEBUG
 
 /* Flags for this test case: Remote Node Masquerade DISABLED */
-/* #undef ENABLE_REMOTE_NODE_MASQUERADE (implicitly undefined) */
+/* Note: Remote node masquerade is configured via ASSIGN_CONFIG below */
 #define ENABLE_BPF_MASQUERADE 1
 #define ENABLE_MASQUERADE_IPV4 1
 #define IS_BPF_HOST 1
@@ -36,21 +36,17 @@ static struct remote_endpoint_info *mocked_remote_endpoint;
 #include "bpf_nat_tuples.h"
 #define IPV4_MASQUERADE bpf_htonl(0x0A000001) /* 10.0.0.1 */
 
-/* Minimal struct to satisfy typeof(CONFIG_DEFAULTS.x) */
-struct {
-    struct { __u32 be32; } nat_ipv4_masquerade;
-} CONFIG_DEFAULTS = {};
+/* Include conntrack headers for extend protocols declaration */
+#include <lib/conntrack.h>
 
-/* Now define CONFIG macro */
-#undef CONFIG
-#define CONFIG(x) ({ \
-	typeof(CONFIG_DEFAULTS.x) __cfg = {}; \
-	if (__builtin_strcmp(#x, "nat_ipv4_masquerade") == 0) \
-		__cfg.be32 = IPV4_MASQUERADE; \
-	__cfg; \
-})
-
+/* Include necessary headers to get configuration declarations */
 #include <lib/nat.h>
+
+/* Configure the test with proper values for disabled remote node masquerade */
+ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = IPV4_MASQUERADE })
+ASSIGN_CONFIG(bool, enable_remote_node_masquerade, false)
+ASSIGN_CONFIG(__u32, trace_payload_len, 128UL)
+ASSIGN_CONFIG(bool, enable_extended_ip_protocols, false)
 
 CHECK("tc", "nat4_remote_node_masquerade_skipped_test")
 int test_nat4_remote_node_masquerade_skipped(__maybe_unused struct __ctx_buff *ctx)
@@ -93,7 +89,7 @@ int test_nat4_remote_node_masquerade_skipped(__maybe_unused struct __ctx_buff *c
     mocked_remote_endpoint = &remote_info;
 
     /*
-     * Test: With ENABLE_REMOTE_NODE_MASQUERADE undefined (top of file)
+     * Test: With enable_remote_node_masquerade configured as false via ASSIGN_CONFIG.
      * and TUNNEL_MODE undefined.
      * Expect NAT_PUNT_TO_STACK and target.addr to be 0.
      */
