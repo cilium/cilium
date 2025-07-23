@@ -258,7 +258,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 		++*retries_hist;
 
 	/* Loop completed without finding a free port: */
-	ret = DROP_NAT_NO_MAPPING;
+	ret = DROP_CUSTOM_1;
 	goto out;
 
 create_nat_entry:
@@ -275,7 +275,16 @@ create_nat_entry:
 		map_delete_elem(map, &rtuple); /* rollback */
 		if (ext_err)
 			*ext_err = (__s8)ret;
-		ret = DROP_NAT_NO_MAPPING;
+		if (ret == -ENOMEM)
+			ret = DROP_CUSTOM_20;
+		else if (ret == -EEXIST)
+			ret = DROP_CUSTOM_21;
+		else if (ret == -ETIMEDOUT)
+			ret = DROP_CUSTOM_22;
+		else if (ret == -EDEADLK)
+			ret = DROP_CUSTOM_23;
+		else
+			ret = DROP_CUSTOM_2;
 	}
 
 out:
@@ -356,7 +365,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 				if (ret < 0) {
 					if (ext_err)
 						*ext_err = (__s8)ret;
-					return DROP_NAT_NO_MAPPING;
+					return DROP_CUSTOM_3;
 				}
 			}
 			barrier_data(*state);
@@ -426,7 +435,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 
 			ret = __snat_create(map, &otuple, &ostate);
 			if (ret < 0)
-				return DROP_NAT_NO_MAPPING;
+				return DROP_CUSTOM_4;
 		}
 	}
 
@@ -455,7 +464,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 	if (*state)
 		return 0;
 
-	return DROP_NAT_NO_MAPPING;
+	return DROP_CUSTOM_5;
 }
 
 static __always_inline int
@@ -572,7 +581,7 @@ snat_v4_create_dsr(const struct ipv4_ct_tuple *tuple,
 	ret = map_update_elem(&cilium_snat_v4_external, &tmp, &state, 0);
 	if (ret) {
 		*ext_err = (__s8)ret;
-		return DROP_NAT_NO_MAPPING;
+		return DROP_CUSTOM_6;
 	}
 
 	return CTX_ACT_OK;
@@ -1306,7 +1315,7 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	if (retries_hist)
 		++*retries_hist;
 
-	ret = DROP_NAT_NO_MAPPING;
+	ret = DROP_CUSTOM_7;
 	goto out;
 
 create_nat_entry:
@@ -1322,7 +1331,7 @@ create_nat_entry:
 		map_delete_elem(&cilium_snat_v6_external, &rtuple); /* rollback */
 		if (ext_err)
 			*ext_err = (__s8)ret;
-		ret = DROP_NAT_NO_MAPPING;
+		ret = DROP_CUSTOM_8;
 	}
 
 out:
@@ -1395,7 +1404,7 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 				if (ret < 0) {
 					if (ext_err)
 						*ext_err = (__s8)ret;
-					return DROP_NAT_NO_MAPPING;
+					return DROP_CUSTOM_9;
 				}
 			}
 			barrier_data(*state);
@@ -1452,7 +1461,7 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 
 			ret = __snat_create(&cilium_snat_v6_external, &otuple, &ostate);
 			if (ret < 0)
-				return DROP_NAT_NO_MAPPING;
+				return DROP_CUSTOM_10;
 		}
 	}
 
@@ -1481,7 +1490,7 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 	if (*state)
 		return 0;
 
-	return DROP_NAT_NO_MAPPING;
+	return DROP_CUSTOM_11;
 }
 
 static __always_inline int
@@ -1578,7 +1587,7 @@ snat_v6_create_dsr(const struct ipv6_ct_tuple *tuple, union v6addr *to_saddr,
 	ret = map_update_elem(&cilium_snat_v6_external, &tmp, &state, 0);
 	if (ret) {
 		*ext_err = (__s8)ret;
-		return DROP_NAT_NO_MAPPING;
+		return DROP_CUSTOM_12;
 	}
 
 	return CTX_ACT_OK;
