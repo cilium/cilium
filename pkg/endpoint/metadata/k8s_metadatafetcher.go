@@ -18,6 +18,12 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
+)
+
+const (
+	// Maximum amount of time to wait for pod or namespace to appear.
+	fetchWaitTime = 100 * time.Millisecond
 )
 
 var ErrPodStoreOutdated = errors.New("pod store outdated")
@@ -91,26 +97,41 @@ func (cemf *cachedEndpointMetadataFetcher) getPod(namespace, name string) (*slim
 	_, initWatch := cemf.pods.Initialized(cemf.db.ReadTxn())
 	<-initWatch
 
-	pod, _, found := cemf.pods.Get(cemf.db.ReadTxn(), daemonk8s.PodByName(namespace, name))
-	if !found {
-		return nil, k8sErrors.NewNotFound(schema.GroupResource{
-			Group:    "core",
-			Resource: "pod",
-		}, name)
+	pod, _, watch, found := cemf.pods.GetWatch(cemf.db.ReadTxn(), daemonk8s.PodByName(namespace, name))
+	if found {
+		return pod.Pod, nil
 	}
-	return pod.Pod, nil
+	select {
+	case <-watch:
+	case <-time.After(fetchWaitTime):
+	}
+	pod, _, found = cemf.pods.Get(cemf.db.ReadTxn(), daemonk8s.PodByName(namespace, name))
+	if found {
+		return pod.Pod, nil
+	}
+	return nil, k8sErrors.NewNotFound(schema.GroupResource{
+		Group:    "core",
+		Resource: "pod",
+	}, name)
 }
 
 func (cemf *cachedEndpointMetadataFetcher) getNamespace(namespace string) (daemonk8s.Namespace, error) {
 	_, initWatch := cemf.namespaces.Initialized(cemf.db.ReadTxn())
 	<-initWatch
-
-	ns, _, found := cemf.namespaces.Get(cemf.db.ReadTxn(), daemonk8s.NamespaceIndex.Query(namespace))
-	if !found {
-		return daemonk8s.Namespace{}, k8sErrors.NewNotFound(schema.GroupResource{
-			Group:    "core",
-			Resource: "namespace",
-		}, namespace)
+	ns, _, watch, found := cemf.namespaces.GetWatch(cemf.db.ReadTxn(), daemonk8s.NamespaceIndex.Query(namespace))
+	if found {
+		return ns, nil
 	}
-	return ns, nil
+	select {
+	case <-watch:
+	case <-time.After(fetchWaitTime):
+	}
+	ns, _, found = cemf.namespaces.Get(cemf.db.ReadTxn(), daemonk8s.NamespaceIndex.Query(namespace))
+	if found {
+		return ns, nil
+	}
+	return daemonk8s.Namespace{}, k8sErrors.NewNotFound(schema.GroupResource{
+		Group:    "core",
+		Resource: "namespace",
+	}, namespace)
 }
