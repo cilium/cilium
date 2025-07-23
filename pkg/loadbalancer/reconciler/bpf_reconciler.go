@@ -105,6 +105,7 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 			case <-initWatch:
 			case <-time.After(initGracePeriod):
 			}
+			time.Sleep(30 * time.Second)
 			health.OK("Starting")
 			if err := rlc.Start(p.Log, ctx); err != nil {
 				return err
