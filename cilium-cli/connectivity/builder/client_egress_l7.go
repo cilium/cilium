@@ -32,9 +32,7 @@ func clientEgressL7Test(ct *check.ConnectivityTest, templates map[string]string,
 		WithCiliumPolicy(templates[templateName]).                    // L7 allow policy with HTTP introspection
 		WithScenarios(
 			tests.PodToPod(),
-			// TODO: Reenable IPv6 for this test once the kernel with the bugfix is released:
-			// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-			tests.PodToWorld(false, tests.WithRetryDestPort(80), tests.WithRetryPodLabel("other", "client")),
+			tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, tests.WithRetryDestPort(80), tests.WithRetryPodLabel("other", "client")),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.

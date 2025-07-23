@@ -62,10 +62,8 @@ func (t toFqdnsWithProxy) build(ct *check.ConnectivityTest, templates map[string
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithScenarios(
-			// TODO: Reenable IPv6 for this test once the kernel with the bugfix is released:
-			// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-			tests.PodToWorld(false, tests.WithRetryDestPort(80)),
-			tests.PodToWorld2(false), // resolves to ExternalOtherTarget
+			tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, tests.WithRetryDestPort(80)),
+			tests.PodToWorld2(ct.Params().ExternalTargetIPv6Capable), // resolves to ExternalOtherTarget
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(features.IPFamilyAny) == ct.Params().ExternalOtherTarget {
