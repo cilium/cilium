@@ -29,19 +29,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Float64(operatorOption.IPAMAPIQPSLimit, defaults.IPAMAPIQPSLimit, "Queries per second limit when accessing external IPAM APIs")
 	option.BindEnv(vp, operatorOption.IPAMAPIQPSLimit)
 
-	flags.Int(operatorOption.IPAMPreAllocate, defaults.IPAMPreAllocation, "Number of IP addresses that must be pre-allocated when using cloud provider IPAM modes. "+
-		"If this value exceeds the instance type limits, it will be automatically clamped to the maximum safe value for the instance type")
-	option.BindEnv(vp, operatorOption.IPAMPreAllocate)
-
-	flags.Int(operatorOption.IPAMMinAllocate, defaults.IPAMMinAllocation, "Minimum number of IP addresses that must be allocated when using cloud provider IPAM modes")
-	option.BindEnv(vp, operatorOption.IPAMMinAllocate)
-
-	flags.Int(operatorOption.IPAMMaxAllocate, defaults.IPAMMaxAllocation, "Maximum number of IP addresses that can be allocated to a node when using cloud provider IPAM modes (0 = unlimited)")
-	option.BindEnv(vp, operatorOption.IPAMMaxAllocate)
-
-	flags.Int(operatorOption.IPAMMaxAboveWatermark, defaults.IPAMMaxAboveWatermark, "Maximum number of IP addresses that can be allocated beyond the current need when using cloud provider IPAM modes")
-	option.BindEnv(vp, operatorOption.IPAMMaxAboveWatermark)
-
 	flags.Var(option.NewMapOptions(&operatorOption.Config.IPAMSubnetsTags),
 		operatorOption.IPAMSubnetsTags, "Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
 	option.BindEnv(vp, operatorOption.IPAMSubnetsTags)

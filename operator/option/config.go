@@ -469,10 +469,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.IPAMAPIQPSLimit = vp.GetFloat64(IPAMAPIQPSLimit)
 	c.IPAMAPIBurst = vp.GetInt(IPAMAPIBurst)
 	c.ParallelAllocWorkers = vp.GetInt64(ParallelAllocWorkers)
-	c.IPAMPreAllocate = vp.GetInt(IPAMPreAllocate)
-	c.IPAMMinAllocate = vp.GetInt(IPAMMinAllocate)
-	c.IPAMMaxAllocate = vp.GetInt(IPAMMaxAllocate)
-	c.IPAMMaxAboveWatermark = vp.GetInt(IPAMMaxAboveWatermark)
 
 	// Gateways and Ingress
 	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
