@@ -39,7 +39,7 @@ type serverParams struct {
 	cell.In
 
 	Logger             *slog.Logger
-	EndpointManager    endpointmanager.EndpointManager
+	EndpointsLookup    endpointmanager.EndpointsLookup
 	DNSRequestHandler  messagehandler.DNSMessageHandler
 	IPCache            *ipcache.IPCache
 	JobGroup           job.Group

@@ -142,7 +142,7 @@ func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress 
 
 func (p *Proxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
 	if p.dnsIntegration.sdpPolicyUpdater != nil {
-		p.dnsIntegration.sdpPolicyUpdater.UpdatePolicyRules(rules, true)
+		p.dnsIntegration.sdpPolicyUpdater.UpdatePolicyRules(rules)
 	}
 }
 
