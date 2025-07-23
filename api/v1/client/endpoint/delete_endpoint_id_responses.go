@@ -63,6 +63,12 @@ func (o *DeleteEndpointIDReader) ReadResponse(response runtime.ClientResponse, c
 			return nil, err
 		}
 		return nil, result
+	case 503:
+		result := NewDeleteEndpointIDServiceUnavailable()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	default:
 		return nil, runtime.NewAPIError("[DELETE /endpoint/{id}] DeleteEndpointID", response, response.Code())
 	}
@@ -426,6 +432,62 @@ func (o *DeleteEndpointIDTooManyRequests) String() string {
 }
 
 func (o *DeleteEndpointIDTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewDeleteEndpointIDServiceUnavailable creates a DeleteEndpointIDServiceUnavailable with default headers values
+func NewDeleteEndpointIDServiceUnavailable() *DeleteEndpointIDServiceUnavailable {
+	return &DeleteEndpointIDServiceUnavailable{}
+}
+
+/*
+DeleteEndpointIDServiceUnavailable describes a response with status code 503, with default header values.
+
+Service Unavailable
+*/
+type DeleteEndpointIDServiceUnavailable struct {
+}
+
+// IsSuccess returns true when this delete endpoint Id service unavailable response has a 2xx status code
+func (o *DeleteEndpointIDServiceUnavailable) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete endpoint Id service unavailable response has a 3xx status code
+func (o *DeleteEndpointIDServiceUnavailable) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete endpoint Id service unavailable response has a 4xx status code
+func (o *DeleteEndpointIDServiceUnavailable) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete endpoint Id service unavailable response has a 5xx status code
+func (o *DeleteEndpointIDServiceUnavailable) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this delete endpoint Id service unavailable response a status code equal to that given
+func (o *DeleteEndpointIDServiceUnavailable) IsCode(code int) bool {
+	return code == 503
+}
+
+// Code gets the status code for the delete endpoint Id service unavailable response
+func (o *DeleteEndpointIDServiceUnavailable) Code() int {
+	return 503
+}
+
+func (o *DeleteEndpointIDServiceUnavailable) Error() string {
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdServiceUnavailable", 503)
+}
+
+func (o *DeleteEndpointIDServiceUnavailable) String() string {
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdServiceUnavailable", 503)
+}
+
+func (o *DeleteEndpointIDServiceUnavailable) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

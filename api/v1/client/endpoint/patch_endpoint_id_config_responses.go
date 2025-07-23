@@ -63,6 +63,12 @@ func (o *PatchEndpointIDConfigReader) ReadResponse(response runtime.ClientRespon
 			return nil, err
 		}
 		return nil, result
+	case 503:
+		result := NewPatchEndpointIDConfigServiceUnavailable()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	default:
 		return nil, runtime.NewAPIError("[PATCH /endpoint/{id}/config] PatchEndpointIDConfig", response, response.Code())
 	}
@@ -412,6 +418,62 @@ func (o *PatchEndpointIDConfigFailed) readResponse(response runtime.ClientRespon
 	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
 		return err
 	}
+
+	return nil
+}
+
+// NewPatchEndpointIDConfigServiceUnavailable creates a PatchEndpointIDConfigServiceUnavailable with default headers values
+func NewPatchEndpointIDConfigServiceUnavailable() *PatchEndpointIDConfigServiceUnavailable {
+	return &PatchEndpointIDConfigServiceUnavailable{}
+}
+
+/*
+PatchEndpointIDConfigServiceUnavailable describes a response with status code 503, with default header values.
+
+Service Unavailable
+*/
+type PatchEndpointIDConfigServiceUnavailable struct {
+}
+
+// IsSuccess returns true when this patch endpoint Id config service unavailable response has a 2xx status code
+func (o *PatchEndpointIDConfigServiceUnavailable) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id config service unavailable response has a 3xx status code
+func (o *PatchEndpointIDConfigServiceUnavailable) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id config service unavailable response has a 4xx status code
+func (o *PatchEndpointIDConfigServiceUnavailable) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this patch endpoint Id config service unavailable response has a 5xx status code
+func (o *PatchEndpointIDConfigServiceUnavailable) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this patch endpoint Id config service unavailable response a status code equal to that given
+func (o *PatchEndpointIDConfigServiceUnavailable) IsCode(code int) bool {
+	return code == 503
+}
+
+// Code gets the status code for the patch endpoint Id config service unavailable response
+func (o *PatchEndpointIDConfigServiceUnavailable) Code() int {
+	return 503
+}
+
+func (o *PatchEndpointIDConfigServiceUnavailable) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigServiceUnavailable", 503)
+}
+
+func (o *PatchEndpointIDConfigServiceUnavailable) String() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigServiceUnavailable", 503)
+}
+
+func (o *PatchEndpointIDConfigServiceUnavailable) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }
