@@ -4,7 +4,10 @@
 package api
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io"
+	"os"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -57,6 +60,34 @@ func PrintBGPPeersTable(w *tabwriter.Writer, peers []*models.BgpPeer, printUptim
 		}
 	}
 	w.Flush()
+}
+
+// PrintBGPPeersCaps prints the capabilities of the provided BGP peers.
+func PrintBGPPeersCaps(w io.Writer, peers []*models.BgpPeer) {
+	if len(peers) == 0 {
+		fmt.Fprintf(w, "No BGP peer sessions found on this node\n")
+		return
+	}
+
+	for _, peer := range peers {
+		localCaps, err := decodeBgpCapabilities(peer.LocalCapabilities)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not decode all local capabilities: %s\n", err)
+		}
+		remoteCaps, err := decodeBgpCapabilities(peer.RemoteCapabilities)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not decode all remote capabilities: %s\n", err)
+		}
+
+		fmt.Fprintf(w, "BGP neighbor is %s, remote AS %d\n", peer.PeerAddress, peer.PeerAsn)
+		fmt.Fprintf(w, "Neighbor capabilities:\n")
+		if len(remoteCaps) == 0 && len(localCaps) == 0 {
+			fmt.Fprintf(w, "No capabilities found\n")
+		} else {
+			printLocalRemoteCaps(w, localCaps, remoteCaps)
+		}
+
+	}
 }
 
 // PrintBGPRoutesTable prints table of provided BGP routes in the provided tab writer.
@@ -189,4 +220,236 @@ func formatPathActions(stmt *models.BgpRoutePolicyStatement) []string {
 		res = append(res, fmt.Sprintf("AddLargeCommunities: %v", stmt.AddLargeCommunities))
 	}
 	return res
+}
+func decodeBgpCapabilities(caps []*models.BgpCapabilities) ([]bgppacket.ParameterCapabilityInterface, error) {
+	decodedCaps := make([]bgppacket.ParameterCapabilityInterface, len(caps))
+	for i, cap := range caps {
+		bin, err := base64.StdEncoding.DecodeString(cap.Capabilities)
+		if err != nil {
+			return decodedCaps, fmt.Errorf("could not decode from base64 to bytes %s: %w", cap.Capabilities, err)
+		}
+		decodedCap, err := bgppacket.DecodeCapability(bin)
+		if err != nil {
+			return decodedCaps, fmt.Errorf("could not decode from bytes to capability %s: %w", cap.Capabilities, err)
+		}
+		decodedCaps[i] = decodedCap
+	}
+
+	return decodedCaps, nil
+}
+func printLocalRemoteCaps(w io.Writer, localCaps, remoteCaps []bgppacket.ParameterCapabilityInterface) {
+	caps := []bgppacket.ParameterCapabilityInterface{}
+	caps = append(caps, localCaps...)
+	for _, cap := range remoteCaps {
+		if capslookup(cap, caps) == nil {
+			caps = append(caps, cap)
+		}
+	}
+	sort.Slice(caps, func(i, j int) bool {
+		return caps[i].Code() < caps[j].Code()
+	})
+
+	mCapHeader := false
+	for _, cap := range caps {
+		support := determineSupport(cap, localCaps, remoteCaps)
+		localCap := capslookup(cap, localCaps)
+		remoteCap := capslookup(cap, remoteCaps)
+
+		if cap.Code() == bgppacket.BGP_CAP_MULTIPROTOCOL && !mCapHeader {
+			m := cap.(*bgppacket.CapMultiProtocol)
+			fmt.Fprintf(w, "\t%s:\n", m.Code())
+			mCapHeader = true
+		}
+
+		if formatter, found := capabilityFormatters[cap.Code()]; found {
+			formatter(w, cap, support, localCap, remoteCap)
+		} else {
+			formatDefaultCap(w, cap, support, localCap, remoteCap)
+		}
+	}
+}
+
+func determineSupport(cap bgppacket.ParameterCapabilityInterface, localCaps, remoteCaps []bgppacket.ParameterCapabilityInterface) string {
+	var support string
+	if capslookup(cap, localCaps) != nil {
+		support += "advertised"
+	}
+	if capslookup(cap, remoteCaps) != nil {
+		if len(support) != 0 {
+			support += " and "
+		}
+		support += "received"
+	}
+	return support
+}
+
+// capabilityFormatter defines the function signature for a capability-specific printer.
+type capabilityFormatter func(w io.Writer, cap bgppacket.ParameterCapabilityInterface, support string, localCap, remoteCap bgppacket.ParameterCapabilityInterface)
+
+// capabilityFormatters is a registry mapping BGP capability codes to their specific formatting functions.
+var capabilityFormatters = map[bgppacket.BGPCapabilityCode]capabilityFormatter{
+	bgppacket.BGP_CAP_MULTIPROTOCOL:               formatMultiProtocolCap,
+	bgppacket.BGP_CAP_GRACEFUL_RESTART:            formatGracefulRestartCap,
+	bgppacket.BGP_CAP_LONG_LIVED_GRACEFUL_RESTART: formatLongLivedGracefulRestartCap,
+	bgppacket.BGP_CAP_EXTENDED_NEXTHOP:            formatExtendedNexthopCap,
+	bgppacket.BGP_CAP_ADD_PATH:                    formatAddPathCap,
+	bgppacket.BGP_CAP_FQDN:                        formatFQDNCap,
+	bgppacket.BGP_CAP_SOFT_VERSION:                formatSoftwareVersionCap,
+}
+
+func formatMultiProtocolCap(w io.Writer, cap bgppacket.ParameterCapabilityInterface, support string, localCap, remoteCap bgppacket.ParameterCapabilityInterface) {
+	m := cap.(*bgppacket.CapMultiProtocol)
+	fmt.Fprintf(w, "\t\t%s: %s\n", m.CapValue, support)
+}
+
+func formatCapabilityWithDetails(w io.Writer, cap bgppacket.ParameterCapabilityInterface, support string, localCap, remoteCap bgppacket.ParameterCapabilityInterface,
+	handler func(io.Writer, bgppacket.ParameterCapabilityInterface)) {
+
+	caps := []struct {
+		cap   bgppacket.ParameterCapabilityInterface
+		label string
+	}{
+		{localCap, "local"},
+		{remoteCap, "remote"},
+	}
+	fmt.Fprintf(w, "\t%s: %s\n", cap.Code(), support)
+	for _, item := range caps {
+		if item.cap != nil {
+			fmt.Fprintf(w, "\t\t%s:\n", item.label)
+			handler(w, item.cap)
+		}
+	}
+}
+
+func formatGracefulRestartCap(w io.Writer, cap bgppacket.ParameterCapabilityInterface, support string, localCap, remoteCap bgppacket.ParameterCapabilityInterface) {
+	formatCapabilityWithDetails(w, cap, support, localCap, remoteCap, func(w io.Writer, c bgppacket.ParameterCapabilityInterface) {
+		g := c.(*bgppacket.CapGracefulRestart)
+		if s := parseGracefulRestartCap(g); len(strings.TrimSpace(s)) > 0 {
+			fmt.Fprintf(w, " %s", s)
+		}
+	})
+}
+
+func formatLongLivedGracefulRestartCap(w io.Writer, cap bgppacket.ParameterCapabilityInterface, support string, localCap, remoteCap bgppacket.ParameterCapabilityInterface) {
+	formatCapabilityWithDetails(w, cap, support, localCap, remoteCap, func(w io.Writer, c bgppacket.ParameterCapabilityInterface) {
+		g := c.(*bgppacket.CapLongLivedGracefulRestart)
+		if s := parseLongLivedGracefulRestartCap(g); len(strings.TrimSpace(s)) > 0 {
+			fmt.Fprintf(w, " %s", s)
+		}
+	})
+}
+
+func formatExtendedNexthopCap(w io.Writer, cap bgppacket.ParameterCapabilityInterface, support string, localCap, remoteCap bgppacket.ParameterCapabilityInterface) {
+	formatCapabilityWithDetails(w, cap, support, localCap, remoteCap, func(w io.Writer, c bgppacket.ParameterCapabilityInterface) {
+		e := c.(*bgppacket.CapExtendedNexthop)
+		if s := parseExtendedNexthopCap(e); len(strings.TrimSpace(s)) > 0 {
+			fmt.Fprintf(w, " %s", s)
+		}
+	})
+}
+
+func formatAddPathCap(w io.Writer, cap bgppacket.ParameterCapabilityInterface, support string, localCap, remoteCap bgppacket.ParameterCapabilityInterface) {
+	formatCapabilityWithDetails(w, cap, support, localCap, remoteCap, func(w io.Writer, c bgppacket.ParameterCapabilityInterface) {
+		for _, item := range c.(*bgppacket.CapAddPath).Tuples {
+			fmt.Fprintf(w, "\t\t\t%s: %s\n", item.RouteFamily, item.Mode)
+		}
+	})
+}
+
+func formatFQDNCap(w io.Writer, cap bgppacket.ParameterCapabilityInterface, support string, localCap, remoteCap bgppacket.ParameterCapabilityInterface) {
+	formatCapabilityWithDetails(w, cap, support, localCap, remoteCap, func(w io.Writer, c bgppacket.ParameterCapabilityInterface) {
+		fqdn := c.(*bgppacket.CapFQDN)
+		fmt.Fprintf(w, "\t\t\tname: %s\n\t\t\tdomain: %s\n", fqdn.HostName, fqdn.DomainName)
+	})
+}
+
+func formatSoftwareVersionCap(w io.Writer, cap bgppacket.ParameterCapabilityInterface, support string, localCap, remoteCap bgppacket.ParameterCapabilityInterface) {
+	formatCapabilityWithDetails(w, cap, support, localCap, remoteCap, func(w io.Writer, c bgppacket.ParameterCapabilityInterface) {
+		version := c.(*bgppacket.CapSoftwareVersion)
+		fmt.Fprintf(w, "\t\t\t%s\n", version.SoftwareVersion)
+	})
+}
+
+func formatDefaultCap(w io.Writer, cap bgppacket.ParameterCapabilityInterface, support string, localCap, remoteCap bgppacket.ParameterCapabilityInterface) {
+	formatCapabilityWithDetails(w, cap, support, localCap, remoteCap, func(w io.Writer, c bgppacket.ParameterCapabilityInterface) {
+		fmt.Fprintf(w, "\t\t\t%s\n", c.Code())
+	})
+}
+
+func capslookup(val bgppacket.ParameterCapabilityInterface, l []bgppacket.ParameterCapabilityInterface) bgppacket.ParameterCapabilityInterface {
+	for _, v := range l {
+		if v.Code() == val.Code() {
+			if v.Code() == bgppacket.BGP_CAP_MULTIPROTOCOL {
+				lhs := v.(*bgppacket.CapMultiProtocol).CapValue
+				rhs := val.(*bgppacket.CapMultiProtocol).CapValue
+				if lhs == rhs {
+					return v
+				}
+				continue
+			}
+			return v
+		}
+	}
+	return nil
+}
+
+func parseGracefulRestartCap(g *bgppacket.CapGracefulRestart) string {
+	grStr := "\t\t\t"
+	if len(g.Tuples) > 0 {
+		grStr += fmt.Sprintf("restart time: %d sec", g.Time)
+	}
+	if g.Flags&0x08 > 0 {
+		if len(strings.TrimSpace(grStr)) > 0 {
+			grStr += ", "
+		}
+		grStr += "restart flag set"
+	}
+	if g.Flags&0x04 > 0 {
+		if len(strings.TrimSpace(grStr)) > 0 {
+			grStr += ", "
+		}
+		grStr += "notification flag set"
+	}
+
+	if len(grStr) > 0 {
+		grStr += "\n"
+	}
+	for _, t := range g.Tuples {
+		grStr += fmt.Sprintf("\t\t\t%s", bgppacket.AfiSafiToRouteFamily(t.AFI, t.SAFI))
+		if t.Flags == 0x80 {
+			grStr += ", forward flag set"
+		}
+		grStr += "\n"
+	}
+	return grStr
+}
+
+func parseLongLivedGracefulRestartCap(g *bgppacket.CapLongLivedGracefulRestart) string {
+	llgrStr := ""
+	for _, t := range g.Tuples {
+		llgrStr += fmt.Sprintf("\t\t\t%s, restart time %d sec", bgppacket.AfiSafiToRouteFamily(t.AFI, t.SAFI), t.RestartTime)
+		if t.Flags == 0x80 {
+			llgrStr += ", forward flag set"
+		}
+		llgrStr += "\n"
+	}
+	return llgrStr
+}
+
+func parseExtendedNexthopCap(e *bgppacket.CapExtendedNexthop) string {
+	lines := make([]string, 0, len(e.Tuples))
+	for _, t := range e.Tuples {
+		var nhafi string
+		switch int(t.NexthopAFI) {
+		case bgppacket.AFI_IP:
+			nhafi = "ipv4"
+		case bgppacket.AFI_IP6:
+			nhafi = "ipv6"
+		default:
+			nhafi = fmt.Sprintf("%d", t.NexthopAFI)
+		}
+		line := fmt.Sprintf("\t\t\tnlri: %s, nexthop: %s\n", bgppacket.AfiSafiToRouteFamily(t.NLRIAFI, uint8(t.NLRISAFI)), nhafi)
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "")
 }

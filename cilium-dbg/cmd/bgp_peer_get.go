@@ -16,32 +16,42 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 )
 
-var BgpPeersCmd = &cobra.Command{
-	Use:     "peers",
-	Aliases: []string{"neighbors"},
-	Short:   "List current state of all peers",
-	Long:    "List state of all peers defined in CiliumBGPPeeringPolicy",
-	Run: func(cmd *cobra.Command, args []string) {
-		res, err := client.Bgp.GetBgpPeers(nil)
-		if err != nil {
-			disabledErr := bgp.NewGetBgpPeersDisabled()
-			if errors.As(err, &disabledErr) {
-				fmt.Println("BGP Control Plane is disabled")
-				return
-			}
-			Fatalf("cannot get peers list: %s\n", err)
-		}
+var (
+	showCaps bool
 
-		if command.OutputOption() {
-			if err := command.PrintOutput(res.GetPayload()); err != nil {
-				Fatalf("error getting output in JSON: %s\n", err)
+	BgpPeersCmd = &cobra.Command{
+		Use:     "peers",
+		Aliases: []string{"neighbors"},
+		Short:   "List current state of all peers",
+		Long:    "List state of all peers defined in Cilium BGP configuration",
+		Run: func(cmd *cobra.Command, args []string) {
+			res, err := client.Bgp.GetBgpPeers(nil)
+			if err != nil {
+				disabledErr := bgp.NewGetBgpPeersDisabled()
+				if errors.As(err, &disabledErr) {
+					fmt.Println("BGP Control Plane is disabled")
+					return
+				}
+				Fatalf("cannot get peers list: %s\n", err)
 			}
-		} else {
-			w := NewTabWriter()
-			api.PrintBGPPeersTable(w, res.GetPayload(), true)
-		}
-	},
-}
+
+			if command.OutputOption() {
+				if err := command.PrintOutput(res.GetPayload()); err != nil {
+					Fatalf("error getting output in JSON: %s\n", err)
+				}
+			} else {
+				w := NewTabWriter()
+				payload := res.GetPayload()
+				if showCaps {
+					api.PrintBGPPeersCaps(w, payload)
+					w.Flush()
+				} else {
+					api.PrintBGPPeersTable(w, payload, true)
+				}
+			}
+		},
+	}
+)
 
 // NewTabWriter initialises tabwriter.Writer with following defaults
 // width 5 and padding 3
@@ -58,4 +68,5 @@ func NewTabWriter() *tabwriter.Writer {
 func init() {
 	BgpCmd.AddCommand(BgpPeersCmd)
 	command.AddOutputOption(BgpPeersCmd)
+	BgpPeersCmd.Flags().BoolVarP(&showCaps, "capabilities", "c", false, "Show BGP peer capabilities in detail")
 }

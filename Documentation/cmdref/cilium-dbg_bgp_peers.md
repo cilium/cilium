@@ -6,7 +6,7 @@ List current state of all peers
 
 ### Synopsis
 
-List state of all peers defined in CiliumBGPPeeringPolicy
+List state of all peers defined in Cilium BGP configuration
 
 ```
 cilium-dbg bgp peers [flags]
@@ -15,6 +15,7 @@ cilium-dbg bgp peers [flags]
 ### Options
 
 ```
+  -c, --capabilities    Show BGP peer capabilities in detail
   -h, --help            help for peers
   -o, --output string   json| yaml| jsonpath='{}'
 ```
