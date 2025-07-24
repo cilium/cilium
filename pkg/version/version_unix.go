@@ -19,20 +19,17 @@ import (
 func parseKernelVersion(ver string) (semver.Version, error) {
 	verStrs := strings.Split(ver, ".")
 
-	// We are assuming the kernel version will be one of the following:
-	// 4.9.17-040917-generic or 4.9-040917-generic or 4-generic
-	// So as observed, the kernel value is N.N.N-m or N.N-m or N-m
-	// This implies the len(verStrs) should be between 1 and 3
+	// We used to assume kernel versions will follow a specific format. However,
+	// different distributions change this. The only assumption we can really make
+	// is that there should be at least one digit.
 
-	if len(verStrs) < 1 || len(verStrs) > 3 {
+	if len(verStrs) < 1 {
 		return semver.Version{}, fmt.Errorf("unable to get kernel version from %q", ver)
 	}
 
-	// Given the observations, we use regular expression to extract
-	// the patch number from the last element of the verStrs array and
-	// append "0" to the verStrs array in case the until its length is
-	// 3 as in all cases we want to return from this function :
-	// Major.Minor.PatchNumber
+	// Use regular expression to extract the patch number from the last element of
+	// the verStrs array, appending "0" to the verStrs array if we get something odd
+	// like a string.
 
 	patch := regexp.MustCompilePOSIX(`^[0-9]+`).FindString(verStrs[len(verStrs)-1])
 	if patch == "" {
@@ -40,6 +37,9 @@ func parseKernelVersion(ver string) (semver.Version, error) {
 	} else {
 		verStrs[len(verStrs)-1] = patch
 	}
+
+	// Append another zero if the number of parts to verStrs still does not provide
+	// a specific Major.Minor.Patch scheme. Anything beyond this is truncated.
 
 	for len(verStrs) < 3 {
 		verStrs = append(verStrs, "0")
