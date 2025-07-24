@@ -50,7 +50,7 @@ const (
 	rm -f {{ .PidPath }} {{ .DumpPath }} {{ .LogPath }}
 
 	# Start tcpdump directly in background and capture its PID.
-	timeout {{ .KillSeconds }} tcpdump -i {{ .Iface }} {{ .Sanity }} --immediate-mode -U -w {{ .DumpPath }} "{{ .Filter }}" > {{ .LogPath }} 2>&1 &
+	timeout {{ .KillSeconds }} tcpdump -i {{ .Iface }} -c {{ .PktCount }} --immediate-mode -U -w {{ .DumpPath }} "{{ .Filter }}" > {{ .LogPath }} 2>&1 &
 	pid=$!
 	echo $pid > {{ .PidPath }}
 
@@ -137,8 +137,8 @@ type sniffScriptParams struct {
 	DumpPath    string
 	PidPath     string
 	Iface       string
-	Sanity      string
 	Filter      string
+	PktCount    int
 	WaitSeconds int
 	KillSeconds int
 }
@@ -163,12 +163,13 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		mode:     mode,
 	}
 
-	var sanity string
-	if sniffer.mode == ModeSanity {
-		// We limit the number of packets to be captured only when expecting
-		// them to be seen (i.e., in sanity mode). Otherwise, better to capture
-		// them all to provide more informative debug messages on failures.
-		sanity = "-c 1"
+	// Limit packet capture to avoid large files: 1 in sanity mode, 1000 in assert mode.
+	var count int
+	switch sniffer.mode {
+	case ModeSanity:
+		count = 1
+	case ModeAssert:
+		count = 1000
 	}
 
 	// Execute the template to have the final command.
@@ -180,7 +181,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		DumpPath:    sniffer.dumpPath,
 		PidPath:     sniffer.pidPath,
 		Iface:       iface,
-		Sanity:      sanity,
+		PktCount:    count,
 		Filter:      filter,
 		WaitSeconds: int(sniffScriptTimeout.Seconds()),
 		KillSeconds: int(sniffKillTimeout.Seconds()),
