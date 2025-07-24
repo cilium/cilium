@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -1576,7 +1577,7 @@ func (ct *ConnectivityTest) createTestConnDisruptClientDeploymentForNSTraffic(ct
 					}
 
 					// On GKE ExternalIP is not reachable from inside a cluster
-					if addr.Type == corev1.NodeExternalIP {
+					if addr.Type == slimcorev1.NodeExternalIP {
 						if f, ok := ct.Feature(features.Flavor); ok && f.Enabled && f.Mode == "gke" {
 							continue
 						}
@@ -1605,7 +1606,7 @@ func (ct *ConnectivityTest) createTestConnDisruptClientDeploymentForNSTraffic(ct
 
 type nodeWithType struct {
 	nodeType string
-	node     *corev1.Node
+	node     *slimcorev1.Node
 }
 
 func (ct *ConnectivityTest) getBackendNodeAndNonBackendNode(ctx context.Context) ([]nodeWithType, error) {
@@ -1658,7 +1659,7 @@ func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, i
 	}
 
 	for _, addr := range gatewayNode.Status.Addresses {
-		if addr.Type != corev1.NodeInternalIP {
+		if addr.Type != slimcorev1.NodeInternalIP {
 			continue
 		}
 
