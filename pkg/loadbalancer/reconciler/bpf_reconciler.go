@@ -161,8 +161,14 @@ type BPFOps struct {
 }
 
 type nodePortAddrKey struct {
+	// family is Address Family of the key
 	family loadbalancer.IPFamily
-	port   uint16
+
+	// protocol is the Layer 4 protocol number of the key
+	protocol u8proto.U8proto
+
+	// port is the Layer 4 port number of the key
+	port uint16
 }
 
 type backendState struct {
@@ -346,7 +352,8 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revisi
 	if fe.Type == loadbalancer.SVCTypeNodePort ||
 		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster().IsUnspecified() {
 
-		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port()}
+		proto := loadbalancer.L4TypeAsProtocolNumber(fe.Address.Protocol())
+		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port(), protocol: proto}
 		addrs := ops.nodePortAddrByPort[key]
 		for _, addr := range addrs {
 			fe = fe.Clone()
@@ -686,7 +693,8 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster().IsUnspecified() {
 		// For NodePort create entries for each node address.
 		// For HostPort only create them if the address was not specified (HostIP is unset).
-		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port()}
+		proto := loadbalancer.L4TypeAsProtocolNumber(fe.Address.Protocol())
+		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port(), protocol: proto}
 		old := sets.New(ops.nodePortAddrByPort[key]...)
 
 		// Collect the node addresses suitable for NodePort that match the IP family of
