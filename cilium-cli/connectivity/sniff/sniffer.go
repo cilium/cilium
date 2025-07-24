@@ -73,8 +73,16 @@ const (
 `
 
 	// Command executed to stop the remote tcpdump inside a pod.
+	// On successful sniffer stop, prints captured packets and their total count to stdout.
 	sniffScriptStopTmpl = `
 {
+	# Print captured packets and their count to stdout.
+	# Redirect stderr to /dev/null, as tcpdump logs to stderr.
+	report() {
+		tcpdump -r {{ .DumpPath }} --count 2>/dev/null || true
+		tcpdump -r {{ .DumpPath }}         2>/dev/null || true
+	}
+
 	# Ignore signals received when killing tcpdump.
 	trap '' TERM INT HUP
 
@@ -92,12 +100,14 @@ const (
 	elif [ "$(tcpdump -r {{ .DumpPath }} --count 2>/dev/null)" = "0 packets" ]; then
 		exit 198
 	else
+		report
 		exit 0
 	fi
 
 	# Confirm that process has been stopped and exit with success code.
 	for i in $(seq 1 {{ .WaitSeconds }}); do
 		if ! kill -0 $pid 2>/dev/null; then
+			report
 			exit 0
 		fi
 		sleep 1
@@ -115,6 +125,7 @@ type Sniffer struct {
 	dumpPath string
 	logPath  string
 	pidPath  string
+	out      bytes.Buffer
 	mode     Mode
 	cmd      []string
 	stopCmd  []string
@@ -203,38 +214,25 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 // Validate stops the tcpdump capture previously started by Sniff and asserts that
 // no packets (or at least one packet when running in sanity mode) got captured. It
 // additionally dumps the captured packets in case of failure if debug logs are enabled.
-func (sniffer *Sniffer) Validate(ctx context.Context, a *check.Action) {
+func (sniffer *Sniffer) Validate(a *check.Action) {
 	// Stop tcpdump if needed.
 	if err := sniffer.stop(); err != nil {
 		a.Fatal(err)
 	}
 
-	// Redirect stderr to /dev/null, as tcpdump logs to stderr, and ExecInPod
-	// will return an error if any char is written to stderr. Anyway, the count
-	// is written to stdout.
-	cmd := []string{"/bin/sh", "-c", fmt.Sprintf("tcpdump -r %s --count 2>/dev/null", sniffer.dumpPath)}
-	count, err := sniffer.target.K8sClient.ExecInPod(ctx, sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, "", cmd)
+	// First line in the output is packet count, subsequent ones are captured packets.
+	count, err := sniffer.out.ReadString('\n')
 	if err != nil {
-		a.Fatalf("Failed to retrieve tcpdump packet count on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), err)
+		a.Fatalf("tcpdump output doesn't look correct on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), count)
 	}
 
-	if !strings.Contains(count.String(), "packet") {
-		a.Fatalf("tcpdump output doesn't look correct on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), count.String())
-	}
-
-	if !strings.HasPrefix(count.String(), "0 packets") && sniffer.mode == ModeAssert {
-		a.Failf("Captured unexpected packets (count=%s)", strings.TrimRight(count.String(), "\n\r"))
+	if !strings.HasPrefix(count, "0 packets") && sniffer.mode == ModeAssert {
+		a.Failf("Captured unexpected packets (count=%s)", strings.TrimRight(count, "\n\r"))
 		a.Infof("Capture executed on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), strings.Join(sniffer.cmd, " "))
-
-		cmd := []string{"/bin/sh", "-c", fmt.Sprintf("tcpdump -r %s 2>/dev/null", sniffer.dumpPath)}
-		out, err := sniffer.target.K8sClient.ExecInPod(ctx, sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, "", cmd)
-		if err != nil {
-			a.Fatalf("Failed to retrieve tcpdump output on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), err)
-		}
-		a.Infof("Captured packets:\n%s", out.String())
+		a.Infof("Captured packets:\n%s", sniffer.out.String())
 	}
 
-	if strings.HasPrefix(count.String(), "0 packets") && sniffer.mode == ModeSanity {
+	if strings.HasPrefix(count, "0 packets") && sniffer.mode == ModeSanity {
 		a.Failf("Expected to capture packets, but none found. This check might be broken.")
 		a.Infof("Capture executed on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), strings.Join(sniffer.cmd, " "))
 	}
@@ -253,6 +251,7 @@ func (sniffer *Sniffer) stop() (err error) {
 
 		err = tmpl.Execute(&buf, sniffScriptParams{
 			PidPath:     sniffer.pidPath,
+			DumpPath:    sniffer.dumpPath,
 			WaitSeconds: int(sniffScriptTimeout.Seconds()),
 		})
 		if err != nil {
@@ -268,8 +267,8 @@ func (sniffer *Sniffer) stop() (err error) {
 		ctx, cancel := context.WithTimeout(context.Background(), sniffConnectionTimeout)
 		defer cancel()
 
-		// Stop tcpdump.
-		_, err = sniffer.target.K8sClient.ExecInPod(ctx, sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, "", sniffer.stopCmd)
+		// Stop tcpdump and store output.
+		sniffer.out, err = sniffer.target.K8sClient.ExecInPod(ctx, sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, "", sniffer.stopCmd)
 		if err != nil {
 			err = fmt.Errorf("Failed to stop tcpdump on %s (%s): %w", sniffer.target.String(), sniffer.target.NodeName(), err)
 		}
