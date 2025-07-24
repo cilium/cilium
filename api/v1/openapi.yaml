@@ -3716,6 +3716,16 @@ definitions:
           Applied initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.
           The applied value holds the value that is in effect on the current BGP session.
         type: integer
+      local-capabilities:
+        description: Capabilities announced by the local peer
+        type: array
+        items:
+          "$ref": "#/definitions/BgpCapabilities"
+      remote-capabilities:
+        description: Capabilities announced by the remote peer
+        type: array
+        items:
+          "$ref": "#/definitions/BgpCapabilities"
   BgpPeerFamilies:
     description: |-
       BGP AFI SAFI state of the peer
@@ -3893,6 +3903,13 @@ definitions:
       prefix-len-max:
         description: Maximal prefix length that will match if it falls under CIDR
         type: integer
+  BgpCapabilities:
+    description: Represents the BGP capabilities.
+    properties:
+      capabilities:
+        description: Base64-encoded BGP capabilities details
+        type: string
+
   Label:
     description: Label is the Cilium's representation of a container label
     type: object
