@@ -109,7 +109,8 @@ status:
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "foo",
-  "K8sPodName": "cep-001"
+  "K8sPodName": "cep-001",
+  "ClusterID": 3
 }
 # cilium/state/ip/v1/default/10.244.2.74
 {
@@ -120,7 +121,8 @@ status:
   "Key": 5,
   "Metadata": "",
   "K8sNamespace": "bar",
-  "K8sPodName": "cep-002"
+  "K8sPodName": "cep-002",
+  "ClusterID": 3
 }
 # cilium/state/ip/v1/default/fd00:10:244:1::d643
 {
@@ -131,7 +133,8 @@ status:
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "foo",
-  "K8sPodName": "cep-001"
+  "K8sPodName": "cep-001",
+  "ClusterID": 3
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e024
 {
@@ -142,7 +145,8 @@ status:
   "Key": 5,
   "Metadata": "",
   "K8sNamespace": "bar",
-  "K8sPodName": "cep-002"
+  "K8sPodName": "cep-002",
+  "ClusterID": 3
 }
 -- ips-1+2-v2.expected --
 # cilium/state/ip/v1/default/10.244.1.80
@@ -154,7 +158,8 @@ status:
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "foo",
-  "K8sPodName": "cep-001"
+  "K8sPodName": "cep-001",
+  "ClusterID": 3
 }
 # cilium/state/ip/v1/default/10.244.2.74
 {
@@ -165,7 +170,8 @@ status:
   "Key": 5,
   "Metadata": "",
   "K8sNamespace": "bar",
-  "K8sPodName": "cep-002"
+  "K8sPodName": "cep-002",
+  "ClusterID": 3
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e024
 {
@@ -176,7 +182,8 @@ status:
   "Key": 5,
   "Metadata": "",
   "K8sNamespace": "bar",
-  "K8sPodName": "cep-002"
+  "K8sPodName": "cep-002",
+  "ClusterID": 3
 }
 -- ips-1+2+3.expected --
 # cilium/state/ip/v1/default/10.244.1.80
@@ -188,7 +195,8 @@ status:
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "foo",
-  "K8sPodName": "cep-001"
+  "K8sPodName": "cep-001",
+  "ClusterID": 3
 }
 # cilium/state/ip/v1/default/10.244.2.74
 {
@@ -199,7 +207,8 @@ status:
   "Key": 5,
   "Metadata": "",
   "K8sNamespace": "bar",
-  "K8sPodName": "cep-002"
+  "K8sPodName": "cep-002",
+  "ClusterID": 3
 }
 # cilium/state/ip/v1/default/10.244.2.91
 {
@@ -210,7 +219,8 @@ status:
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "foo",
-  "K8sPodName": "cep-002"
+  "K8sPodName": "cep-002",
+  "ClusterID": 3
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e024
 {
@@ -221,7 +231,8 @@ status:
   "Key": 5,
   "Metadata": "",
   "K8sNamespace": "bar",
-  "K8sPodName": "cep-002"
+  "K8sPodName": "cep-002",
+  "ClusterID": 3
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b4
 {
@@ -232,7 +243,8 @@ status:
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "foo",
-  "K8sPodName": "cep-002"
+  "K8sPodName": "cep-002",
+  "ClusterID": 3
 }
 -- ips-1+3.expected --
 # cilium/state/ip/v1/default/10.244.1.80
@@ -244,7 +256,8 @@ status:
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "foo",
-  "K8sPodName": "cep-001"
+  "K8sPodName": "cep-001",
+  "ClusterID": 3
 }
 # cilium/state/ip/v1/default/10.244.2.91
 {
@@ -255,7 +268,8 @@ status:
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "foo",
-  "K8sPodName": "cep-002"
+  "K8sPodName": "cep-002",
+  "ClusterID": 3
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b4
 {
@@ -266,5 +280,6 @@ status:
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "foo",
-  "K8sPodName": "cep-002"
+  "K8sPodName": "cep-002",
+  "ClusterID": 3
 }

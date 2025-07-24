@@ -5,6 +5,7 @@ package clustermesh
 
 import (
 	"errors"
+	"fmt"
 	"iter"
 	"log/slog"
 	"maps"
@@ -39,6 +40,19 @@ func singleIter[T any](value T) iter.Seq[T] {
 	return func(yield func(T) bool) {
 		yield(value)
 	}
+}
+
+// encodeClusterIntoIdentity encodes the cluster ID into bits 16-23 of the given identity
+func encodeClusterIntoIdentity(originalID identity.NumericIdentity, clusterID uint32) identity.NumericIdentity {
+	// Clear the cluster ID bits (16-23)
+	clusterIDShift := identity.GetClusterIDShift()
+	clearMask := ^(uint32(cmtypes.ClusterIDMax) << clusterIDShift)
+	clearedID := uint32(originalID) & clearMask
+	
+	// Set the new cluster ID in bits 16-23
+	encodedClusterID := (clusterID & cmtypes.ClusterIDMax) << clusterIDShift
+	
+	return identity.NumericIdentity(clearedID | encodedClusterID)
 }
 
 // ----- Generic ----- //
@@ -134,15 +148,29 @@ func newCiliumIdentityOptions() Options[*cilium_api_v2.CiliumIdentity] {
 }
 
 // CiliumIdentityConverter implements Converter[*cilium_api_v2.CiliumIdentity]
-type CiliumIdentityConverter struct{ logger *slog.Logger }
+type CiliumIdentityConverter struct{ 
+	logger *slog.Logger
+	cinfo cmtypes.ClusterInfo
+}
 
-func newCiliumIdentityConverter(logger *slog.Logger) Converter[*cilium_api_v2.CiliumIdentity] {
-	return &CiliumIdentityConverter{logger: logger}
+func newCiliumIdentityConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo) Converter[*cilium_api_v2.CiliumIdentity] {
+	return &CiliumIdentityConverter{logger: logger, cinfo: cinfo}
 }
 
 func (ic *CiliumIdentityConverter) Convert(event resource.Event[*cilium_api_v2.CiliumIdentity]) (upserts iter.Seq[store.Key], deletes iter.Seq[store.NamedKey]) {
 	if event.Kind == resource.Delete {
-		key := store.NewKVPair(event.Key.Name, "")
+		// For delete events, we need to use the cluster-encoded identity key
+		encodedKey, err := ic.encodeClusterIntoIdentityName(event.Key.Name)
+		if err != nil {
+			ic.logger.Warn(
+				"Failed to encode cluster ID for delete",
+				logfields.Error, err,
+				logfields.Identity, event.Key.Name,
+			)
+			// Fallback to original key if encoding fails
+			encodedKey = event.Key.Name
+		}
+		key := store.NewKVPair(encodedKey, "")
 		return noneIter[store.Key], singleIter[store.NamedKey](key)
 	}
 
@@ -157,9 +185,36 @@ func (ic *CiliumIdentityConverter) Convert(event resource.Event[*cilium_api_v2.C
 		return noneIter[store.Key], noneIter[store.NamedKey]
 	}
 
+	// Encode cluster ID into the identity before writing to etcd
+	encodedKey, err := ic.encodeClusterIntoIdentityName(identity.Name)
+	if err != nil {
+		ic.logger.Warn(
+			"Failed to encode cluster ID into identity",
+			logfields.Error, err,
+			logfields.Identity, identity.Name,
+		)
+		// Fallback to original key if encoding fails
+		encodedKey = identity.Name
+	}
+
 	lbls := labels.Map2Labels(identity.SecurityLabels, "").SortedList()
-	kv := store.NewKVPair(identity.Name, string(lbls))
+	kv := store.NewKVPair(encodedKey, string(lbls))
 	return singleIter[store.Key](kv), noneIter[store.NamedKey]
+}
+
+// encodeClusterIntoIdentityName takes an identity name (string), decodes it to a numeric identity,
+// encodes the cluster ID into the third octet (bits 16-23), and returns the encoded identity as a string.
+func (ic *CiliumIdentityConverter) encodeClusterIntoIdentityName(identityName string) (string, error) {
+	// Parse the identity name as a numeric identity
+	originalID, err := identity.ParseNumericIdentity(identityName)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse identity %s: %w", identityName, err)
+	}
+
+	// Encode cluster ID into the identity
+	encodedID := encodeClusterIntoIdentity(originalID, ic.cinfo.ID)
+	
+	return encodedID.StringID(), nil
 }
 
 // ----- CiliumEndpoints - CiliumEndpointSlices ----- //
@@ -174,34 +229,39 @@ func newCiliumEndpointOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[*type
 }
 
 func newCiliumEndpointConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo) Converter[*types.CiliumEndpoint] {
-	return NewCachedCoverter(ciliumEndpointMapper)
+	return NewCachedCoverter(newCiliumEndpointMapper(cinfo))
 }
 
-func ciliumEndpointMapper(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
-	return func(yield func(store.Key) bool) {
-		if n := endpoint.Networking; n != nil {
-			for _, address := range n.Addressing {
-				for _, ip := range []string{address.IPV4, address.IPV6} {
-					if ip == "" {
-						continue
-					}
-					entry := identity.IPIdentityPair{
-						IP:           net.ParseIP(ip),
-						HostIP:       net.ParseIP(n.NodeIP),
-						K8sNamespace: endpoint.Namespace,
-						K8sPodName:   endpoint.Name,
-					}
+func newCiliumEndpointMapper(cinfo cmtypes.ClusterInfo) func(*types.CiliumEndpoint) iter.Seq[store.Key] {
+	return func(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
+		return func(yield func(store.Key) bool) {
+			if n := endpoint.Networking; n != nil {
+				for _, address := range n.Addressing {
+					for _, ip := range []string{address.IPV4, address.IPV6} {
+						if ip == "" {
+							continue
+						}
+						entry := identity.IPIdentityPair{
+							IP:           net.ParseIP(ip),
+							HostIP:       net.ParseIP(n.NodeIP),
+							K8sNamespace: endpoint.Namespace,
+							K8sPodName:   endpoint.Name,
+							ClusterID:    cinfo.ID,
+						}
 
-					if endpoint.Identity != nil {
-						entry.ID = identity.NumericIdentity(endpoint.Identity.ID)
-					}
+						if endpoint.Identity != nil {
+							// Encode cluster ID into the identity before storing
+							originalID := identity.NumericIdentity(endpoint.Identity.ID)
+							entry.ID = encodeClusterIntoIdentity(originalID, cinfo.ID)
+						}
 
-					if endpoint.Encryption != nil {
-						entry.Key = uint8(endpoint.Encryption.Key)
-					}
+						if endpoint.Encryption != nil {
+							entry.Key = uint8(endpoint.Encryption.Key)
+						}
 
-					if !yield(&entry) {
-						return
+						if !yield(&entry) {
+							return
+						}
 					}
 				}
 			}
@@ -219,30 +279,33 @@ func newCiliumEndpointSliceOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[
 }
 
 func newCiliumEndpointSliceConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo) Converter[*cilium_api_v2a1.CiliumEndpointSlice] {
-	return NewCachedCoverter(ciliumEndpointSliceMapper)
+	return NewCachedCoverter(newCiliumEndpointSliceMapper(cinfo))
 }
 
-func ciliumEndpointSliceMapper(endpointslice *cilium_api_v2a1.CiliumEndpointSlice) iter.Seq[store.Key] {
-	return func(yield func(store.Key) bool) {
-		for _, endpoint := range endpointslice.Endpoints {
-			if n := endpoint.Networking; n != nil {
-				for _, address := range n.Addressing {
-					for _, ip := range []string{address.IPV4, address.IPV6} {
-						if ip == "" {
-							continue
-						}
+func newCiliumEndpointSliceMapper(cinfo cmtypes.ClusterInfo) func(*cilium_api_v2a1.CiliumEndpointSlice) iter.Seq[store.Key] {
+	return func(endpointslice *cilium_api_v2a1.CiliumEndpointSlice) iter.Seq[store.Key] {
+		return func(yield func(store.Key) bool) {
+			for _, endpoint := range endpointslice.Endpoints {
+				if n := endpoint.Networking; n != nil {
+					for _, address := range n.Addressing {
+						for _, ip := range []string{address.IPV4, address.IPV6} {
+							if ip == "" {
+								continue
+							}
 
-						entry := identity.IPIdentityPair{
-							IP:           net.ParseIP(ip),
-							HostIP:       net.ParseIP(n.NodeIP),
-							K8sNamespace: endpointslice.Namespace,
-							K8sPodName:   endpoint.Name,
-							ID:           identity.NumericIdentity(endpoint.IdentityID),
-							Key:          uint8(endpoint.Encryption.Key),
-						}
+							entry := identity.IPIdentityPair{
+								IP:           net.ParseIP(ip),
+								HostIP:       net.ParseIP(n.NodeIP),
+								K8sNamespace: endpointslice.Namespace,
+								K8sPodName:   endpoint.Name,
+								ID:           encodeClusterIntoIdentity(identity.NumericIdentity(endpoint.IdentityID), cinfo.ID),
+								Key:          uint8(endpoint.Encryption.Key),
+								ClusterID:    cinfo.ID,
+							}
 
-						if !yield(&entry) {
-							return
+							if !yield(&entry) {
+								return
+							}
 						}
 					}
 				}

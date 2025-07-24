@@ -362,6 +362,7 @@ func TestIPIdentityPair_PrefixString(t *testing.T) {
 				NamedPorts: []NamedPort{
 					{Name: "port", Port: 8080, Protocol: "TCP"},
 				},
+				ClusterID: 5,
 			},
 		},
 		{
@@ -378,6 +379,7 @@ func TestIPIdentityPair_PrefixString(t *testing.T) {
 				NamedPorts: []NamedPort{
 					{Name: "port", Port: 8080, Protocol: "TCP"},
 				},
+				ClusterID: 5,
 			},
 		},
 		{
@@ -395,6 +397,7 @@ func TestIPIdentityPair_PrefixString(t *testing.T) {
 				NamedPorts: []NamedPort{
 					{Name: "port", Port: 8080, Protocol: "TCP"},
 				},
+				ClusterID: 5,
 			},
 		},
 		{
@@ -411,6 +414,7 @@ func TestIPIdentityPair_PrefixString(t *testing.T) {
 				NamedPorts: []NamedPort{
 					{Name: "port", Port: 8080, Protocol: "TCP"},
 				},
+				ClusterID: 5,
 			},
 		},
 		{
@@ -428,6 +432,7 @@ func TestIPIdentityPair_PrefixString(t *testing.T) {
 				NamedPorts: []NamedPort{
 					{Name: "port", Port: 8080, Protocol: "TCP"},
 				},
+				ClusterID: 5,
 			},
 		},
 		{
@@ -444,6 +449,7 @@ func TestIPIdentityPair_PrefixString(t *testing.T) {
 				NamedPorts: []NamedPort{
 					{Name: "port", Port: 8080, Protocol: "TCP"},
 				},
+				ClusterID: 5,
 			},
 		},
 	}
@@ -452,6 +458,59 @@ func TestIPIdentityPair_PrefixString(t *testing.T) {
 			prefix := tt.pair.PrefixString()
 			assert.Len(t, prefix, len(tt.expected))
 			assert.Equal(t, tt.expected, prefix)
+		})
+	}
+}
+
+func TestIPIdentityPair_ClusterID(t *testing.T) {
+	tests := []struct {
+		name        string
+		pair        *IPIdentityPair
+		expectedCID uint32
+	}{
+		{
+			name: "IPIdentityPair with ClusterID",
+			pair: &IPIdentityPair{
+				IP:           net.ParseIP("10.1.128.15"),
+				HostIP:       net.ParseIP("10.1.128.15"),
+				ID:           123,
+				K8sNamespace: "default",
+				K8sPodName:   "test-pod",
+				ClusterID:    42,
+			},
+			expectedCID: 42,
+		},
+		{
+			name: "IPIdentityPair without ClusterID",
+			pair: &IPIdentityPair{
+				IP:           net.ParseIP("10.1.128.15"),
+				HostIP:       net.ParseIP("10.1.128.15"),
+				ID:           123,
+				K8sNamespace: "default",
+				K8sPodName:   "test-pod",
+				ClusterID:    0,
+			},
+			expectedCID: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expectedCID, tt.pair.ClusterID)
+
+			// Test JSON marshaling/unmarshaling to ensure ClusterID is preserved
+			jsonData, err := tt.pair.Marshal()
+			require.NoError(t, err)
+
+			var unmarshaledPair IPIdentityPair
+			err = unmarshaledPair.Unmarshal(tt.pair.GetKeyName(), jsonData)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedCID, unmarshaledPair.ClusterID)
+			assert.Equal(t, tt.pair.IP.String(), unmarshaledPair.IP.String())
+			assert.Equal(t, tt.pair.ID, unmarshaledPair.ID)
+			assert.Equal(t, tt.pair.K8sNamespace, unmarshaledPair.K8sNamespace)
+			assert.Equal(t, tt.pair.K8sPodName, unmarshaledPair.K8sPodName)
 		})
 	}
 }
