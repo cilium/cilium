@@ -205,7 +205,7 @@ func ScopeForLabels(lbls labels.Labels) NumericIdentity {
 	// The ingress label is for L7 LB with cilium proxy, which is running on
 	// every node. So it's not necessary to be global identity, but local
 	// identity instead.
-	if lbls.HasIngressLabel() {
+	if lbls.IsReserved() && lbls.HasIngressLabel() {
 		return IdentityScopeLocal
 	}
 
