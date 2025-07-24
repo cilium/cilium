@@ -69,6 +69,7 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context) (types.GetPeerStateRespo
 			}
 
 			peerState.SessionState = toAgentSessionState(peer.State.SessionState).String()
+			peerState.RemoteCapabilities = toAgentCap(peer.State.RemoteCap)
 
 			// Uptime is time since session got established.
 			// It is calculated by difference in time from uptime timestamp till now.

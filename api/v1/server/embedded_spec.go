@@ -1845,6 +1845,15 @@ func init() {
         }
       }
     },
+    "BgpCapability": {
+      "description": "Represents the single BGP capability.",
+      "properties": {
+        "capability": {
+          "description": "Base64-encoded BGP capability details",
+          "type": "string"
+        }
+      }
+    },
     "BgpFamily": {
       "description": "Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path",
       "properties": {
@@ -1976,6 +1985,13 @@ func init() {
           "type": "integer",
           "maximum": 65535,
           "minimum": 1
+        },
+        "remote-capabilities": {
+          "description": "Capabilities announced by the remote peer",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpCapability"
+          }
         },
         "session-state": {
           "description": "BGP peer operational state as described here\nhttps://www.rfc-editor.org/rfc/rfc4271#section-8.2.2\n",
@@ -7455,6 +7471,15 @@ func init() {
         }
       }
     },
+    "BgpCapability": {
+      "description": "Represents the single BGP capability.",
+      "properties": {
+        "capability": {
+          "description": "Base64-encoded BGP capability details",
+          "type": "string"
+        }
+      }
+    },
     "BgpFamily": {
       "description": "Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path",
       "properties": {
@@ -7586,6 +7611,13 @@ func init() {
           "type": "integer",
           "maximum": 65535,
           "minimum": 1
+        },
+        "remote-capabilities": {
+          "description": "Capabilities announced by the remote peer",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpCapability"
+          }
         },
         "session-state": {
           "description": "BGP peer operational state as described here\nhttps://www.rfc-editor.org/rfc/rfc4271#section-8.2.2\n",
