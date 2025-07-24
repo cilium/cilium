@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"slices"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 // PodToService sends an HTTP request from all client Pods
@@ -205,7 +204,7 @@ func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {
 }
 
 func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
-	name string, pod *check.Pod, svc check.Service, node *corev1.Node,
+	name string, pod *check.Pod, svc check.Service, node *slimcorev1.Node,
 	validateFlows bool, secondaryNetwork bool) {
 
 	// Get the NodePort allocated to the Service.
@@ -215,13 +214,13 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 
 	if secondaryNetwork {
 		if t.Context().Features[features.IPv4].Enabled {
-			addrs = append(addrs, corev1.NodeAddress{
+			addrs = append(addrs, slimcorev1.NodeAddress{
 				Type:    "SecondaryNetworkIPv4",
 				Address: t.Context().SecondaryNetworkNodeIPv4()[node.Name],
 			})
 		}
 		if t.Context().Features[features.IPv6].Enabled {
-			addrs = append(addrs, corev1.NodeAddress{
+			addrs = append(addrs, slimcorev1.NodeAddress{
 				Type:    "SecondaryNetworkIPv6",
 				Address: t.Context().SecondaryNetworkNodeIPv6()[node.Name],
 			})
@@ -236,7 +235,7 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 			}
 
 			// On GKE ExternalIP is not reachable from inside a cluster
-			if addr.Type == corev1.NodeExternalIP {
+			if addr.Type == slimcorev1.NodeExternalIP {
 				if f, ok := t.Context().Feature(features.Flavor); ok && f.Enabled && f.Mode == "gke" {
 					continue
 				}
