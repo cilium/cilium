@@ -331,18 +331,18 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 		// Curl the server from the client to generate some traffic
 		t.NewAction(s, fmt.Sprintf("curl-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, a.CurlCommand(server))
-			srcSniffer.Validate(ctx, a)
+			srcSniffer.Validate(a)
 			if dstSniffer != nil {
-				dstSniffer.Validate(ctx, a)
+				dstSniffer.Validate(a)
 			}
 		})
 	case requestICMPEcho:
 		// Ping the server from the client to generate some traffic
 		t.NewAction(s, fmt.Sprintf("ping-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, t.Context().PingCommand(server, ipFam))
-			srcSniffer.Validate(ctx, a)
+			srcSniffer.Validate(a)
 			if dstSniffer != nil {
-				dstSniffer.Validate(ctx, a)
+				dstSniffer.Validate(a)
 			}
 		})
 	}
