@@ -333,18 +333,6 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 			// Do nothing if e.policyMap was not initialized already
 			if e.policyMap != nil && e.desiredPolicy != e.realizedPolicy {
 				e.desiredPolicy.Detach(e.getLogger())
-				// Make sure e.desiredPolicy still reflects the
-				// desired state of the world after reverting
-				// back to the last known good state. On the
-				// next regeneration attempt, res.endpointPolicy
-				// will not be recalculated, since we already
-				// updated e.nextPolicyRevision; we want to
-				// preserve the desired policy calculated in
-				// this round so that we don't just end up with
-				// an empty map. See GH-38998.
-				defer func(p *policy.EndpointPolicy) {
-					e.desiredPolicy = p
-				}(e.desiredPolicy)
 				e.desiredPolicy = e.realizedPolicy
 
 				currentMap, err := e.policyMap.DumpToMapStateMap()
