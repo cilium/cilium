@@ -427,6 +427,7 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg cgroups list -o json",
 		"cilium-dbg statedb",
 		"cilium-dbg bgp peers",
+		"cilium-dbg bgp peers --capabilities",
 		"cilium-dbg bgp routes available ipv4 unicast",
 		"cilium-dbg bgp routes available ipv6 unicast",
 		"cilium-dbg bgp routes advertised ipv4 unicast",
