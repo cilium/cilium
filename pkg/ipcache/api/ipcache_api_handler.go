@@ -71,7 +71,7 @@ func (ipc *ipCacheDumpListener) getIdentity(securityIdentity uint32) (*identity.
 	return ident, nil
 }
 
-// OnIPIdentityCacheChange is called by DumpToListenerLocked
+// OnIPIdentityCacheChange is called by ipcache.(*IPCache).DumpToListener
 func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 	cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
 	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata, endpointFlags uint8,
