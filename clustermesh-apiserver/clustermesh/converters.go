@@ -246,7 +246,6 @@ func newCiliumEndpointMapper(cinfo cmtypes.ClusterInfo) func(*types.CiliumEndpoi
 							HostIP:       net.ParseIP(n.NodeIP),
 							K8sNamespace: endpoint.Namespace,
 							K8sPodName:   endpoint.Name,
-							ClusterID:    cinfo.ID,
 						}
 
 						if endpoint.Identity != nil {
@@ -300,7 +299,6 @@ func newCiliumEndpointSliceMapper(cinfo cmtypes.ClusterInfo) func(*cilium_api_v2
 								K8sPodName:   endpoint.Name,
 								ID:           encodeClusterIntoIdentity(identity.NumericIdentity(endpoint.IdentityID), cinfo.ID),
 								Key:          uint8(endpoint.Encryption.Key),
-								ClusterID:    cinfo.ID,
 							}
 
 							if !yield(&entry) {
