@@ -7,10 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 // PodToHost sends an ICMP ping from all client Pods to all nodes
@@ -45,11 +44,11 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 					}
 
 					switch {
-					case addr.Type == corev1.NodeInternalIP:
+					case addr.Type == slimcorev1.NodeInternalIP:
 						addrType = "internal-ip"
-					case addr.Type == corev1.NodeExternalIP:
+					case addr.Type == slimcorev1.NodeExternalIP:
 						addrType = "external-ip"
-					case addr.Type == corev1.NodeHostName:
+					case addr.Type == slimcorev1.NodeHostName:
 						addrType = "hostname"
 					}
 
