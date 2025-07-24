@@ -292,6 +292,8 @@ communicating via the proxy must reconnect to re-establish connections.
 
 1.19 Upgrade Notes
 ------------------
+* The ``v2alpha1`` version of ``CiliumLoadBalancerIPPool`` CRD has been deprecated in favor of the ``v2`` version. Please change ``apiVersion: cilium.io/v2alpha1``
+  to ``apiVersion: cilium.io/v2`` in your manifests for all ``CiliumLoadBalancerIPPool`` resources.
 
 Removed Options
 ~~~~~~~~~~~~~~~
