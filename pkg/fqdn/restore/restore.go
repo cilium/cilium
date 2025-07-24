@@ -13,9 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"sort"
 	"strconv"
-	"testing"
 
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -169,34 +167,6 @@ func (ip *RuleIPOrCIDR) UnmarshalText(b []byte) (err error) {
 // RuleRegex is a wrapper for a pointer to a string so that we can define marshalers for it.
 type RuleRegex struct {
 	Pattern *string
-}
-
-// Sort is only used for testing
-// Sorts in place, but returns IPRules for convenience
-func (r IPRules) Sort(_ *testing.T) IPRules {
-	sort.SliceStable(r, func(i, j int) bool {
-		if r[i].Re.Pattern != nil && r[j].Re.Pattern != nil {
-			return *r[i].Re.Pattern < *r[j].Re.Pattern
-		}
-		if r[i].Re.Pattern != nil {
-			return true
-		}
-		return false
-	})
-
-	return r
-}
-
-// Sort is only used for testing
-// Sorts in place, but returns DNSRules for convenience
-func (r DNSRules) Sort(_ *testing.T) DNSRules {
-	for pp, ipRules := range r {
-		if len(ipRules) > 0 {
-			ipRules = ipRules.Sort(nil)
-			r[pp] = ipRules
-		}
-	}
-	return r
 }
 
 // UnmarshalText unmarshals json into a RuleRegex
