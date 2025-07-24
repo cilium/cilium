@@ -116,6 +116,10 @@ func TestScopeForLabels(t *testing.T) {
 			lbls:  labels.NewLabelsFromModel([]string{"reserved:remote-node", "reserved:kube-apiserver"}),
 			scope: IdentityScopeRemoteNode,
 		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"k8s:ingress=allowed"}),
+			scope: IdentityScopeGlobal,
+		},
 	}
 
 	for i, test := range tests {
