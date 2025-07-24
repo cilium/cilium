@@ -1,3 +1,6 @@
+# Copyright Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 from scapy.all import *
 
 # Note: these replicate pktgen.h values
