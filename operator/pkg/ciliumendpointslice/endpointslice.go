@@ -10,6 +10,8 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/workerpool"
+	"github.com/prometheus/client_golang/prometheus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
@@ -56,10 +58,16 @@ func (c *Controller) initializeQueue() {
 	c.rateLimiter = workqueue.NewTypedItemExponentialFailureRateLimiter[CESKey](defaultSyncBackOff, maxSyncBackOff)
 	c.fastQueue = workqueue.NewTypedRateLimitingQueueWithConfig(
 		c.rateLimiter,
-		workqueue.TypedRateLimitingQueueConfig[CESKey]{Name: "cilium_endpoint_slice"})
+		workqueue.TypedRateLimitingQueueConfig[CESKey]{
+			Name:            "cilium_endpoint_slice_fast",
+			MetricsProvider: c.workqueueMetricsProvider,
+		})
 	c.standardQueue = workqueue.NewTypedRateLimitingQueueWithConfig(
 		c.rateLimiter,
-		workqueue.TypedRateLimitingQueueConfig[CESKey]{Name: "cilium_endpoint_slice"})
+		workqueue.TypedRateLimitingQueueConfig[CESKey]{
+			Name:            "cilium_endpoint_slice_standard",
+			MetricsProvider: c.workqueueMetricsProvider,
+		})
 }
 
 func (c *Controller) onEndpointUpdate(cep *cilium_api_v2.CiliumEndpoint) {
@@ -303,31 +311,43 @@ func (c *Controller) processNextWorkItem() bool {
 	} else {
 		c.metrics.CiliumEndpointSliceQueueDelay.WithLabelValues(LabelQueueStandard).Observe(queueDelay)
 	}
-	if err != nil {
-		c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeFail).Inc()
-	} else {
-		c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeSuccess).Inc()
-	}
 
-	c.handleErr(queue, err, key)
+	isRetried := c.handleErr(queue, err, key)
+	if err != nil {
+		labels := prometheus.Labels{LabelOutcome: LabelValueOutcomeFail}
+		if isRetried {
+			labels[LabelFailureType] = LabelFailureTypeTransient
+		} else {
+			labels[LabelFailureType] = LabelFailureTypeFatal
+		}
+		c.metrics.CiliumEndpointSliceSyncTotal.With(labels).Inc()
+	} else {
+		c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeSuccess, "").Inc()
+	}
 
 	return true
 }
 
-func (c *Controller) handleErr(queue workqueue.TypedRateLimitingInterface[CESKey], err error, key CESKey) {
+func (c *Controller) handleErr(queue workqueue.TypedRateLimitingInterface[CESKey], err error, key CESKey) (retry bool) {
 	if err == nil {
 		queue.Forget(key)
-		return
+		return false
 	}
 
 	if queue.NumRequeues(key) < maxRetries {
+		if !k8serrors.IsConflict(err) && !k8serrors.IsAlreadyExists(err) && !k8serrors.IsNotFound(err) {
+			c.logger.Warn("Error processing CES, retrying",
+				logfields.CESName, key.string(),
+				logfields.Error, err,
+				logfields.Attempt, queue.NumRequeues(key)+1)
+		}
 		time.AfterFunc(c.rateLimiter.When(key), func() {
 			c.cond.L.Lock()
 			defer c.cond.L.Unlock()
 			queue.Add(key)
 			c.cond.Signal()
 		})
-		return
+		return true
 	}
 
 	// Drop the CES from queue, we maxed out retries.
@@ -335,4 +355,5 @@ func (c *Controller) handleErr(queue workqueue.TypedRateLimitingInterface[CESKey
 		logfields.CESName, key.string(),
 		logfields.Error, err)
 	queue.Forget(key)
+	return false
 }
