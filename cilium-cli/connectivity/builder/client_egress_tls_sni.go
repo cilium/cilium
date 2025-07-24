@@ -30,7 +30,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
 		// TODO: Reenable IPv6 for this test once the kernel with the bugfix is released:
 		// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-		WithScenarios(tests.PodToWorld(false)).
+		WithScenarios(tests.PodToWorld(false, tests.WithRetryAll())).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 443 {
 				return check.ResultOK, check.ResultNone
@@ -63,7 +63,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
 		// TODO: Reenable IPv6 for this test once the kernel with the bugfix is released:
 		// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-		WithScenarios(tests.PodToWorld(false)).
+		WithScenarios(tests.PodToWorld(false, tests.WithRetryAll())).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 443 {
 				return check.ResultOK, check.ResultNone
@@ -99,7 +99,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 			WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
 			// TODO: Reenable IPv6 for this test once the kernel with the bugfix is released:
 			// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-			WithScenarios(tests.PodToWorld(false)).
+			WithScenarios(tests.PodToWorld(false, tests.WithRetryAll())).
 			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 				if a.Destination().Port() == 443 {
 					return check.ResultOK, check.ResultNone

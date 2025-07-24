@@ -302,6 +302,8 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 		output, errOutput, err = pod.K8sClient.ExecInPodWithStderr(ctx,
 			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"], cmd)
 		a.cmdOutput = output.String()
+		// Log the output, errOutput and error only if the command failed.
+		a.Infof("Command %q output: %s errOutput: %s", cmdStr, a.cmdOutput, errOutput.String())
 		// Check for inconclusive results.
 		if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
 			a.Debugf("retrying command %s due to inconclusive results", cmdStr)
@@ -309,7 +311,7 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 		} else if err != nil {
 			exitCode, _ := a.extractExitCode(err)
 			if exitCode == ExitInvalidCode {
-				a.Debugf("retrying command %s to to command execution error", cmdStr)
+				a.Debugf("retrying command %s due to command execution error", cmdStr)
 				continue
 			}
 		}
