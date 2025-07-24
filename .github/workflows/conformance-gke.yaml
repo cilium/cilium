@@ -2,6 +2,31 @@ name: Conformance GKE (ci-gke)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  workflow_call:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: false
+        type: string
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: false
+        type: string
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: false
+        type: string
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        type: string
+        default: '{}'
+      is-workflow-call:
+        description: "Distinguish if it's a workflow_call event."
+        required: false
+        type: boolean
+        default: true
+
   workflow_dispatch:
     inputs:
       PR-number:
@@ -20,9 +45,9 @@ on:
   push:
     branches:
       - 'renovate/main-**'
-  # Run every 8 hours
+  # Run every 12 hours
   schedule:
-    - cron:  '0 2/8 * * *'
+    - cron:  '0 3/12 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -44,7 +69,10 @@ concurrency:
   # - Event type
   # - A unique identifier depending on event type:
   #   - schedule: SHA
-  #   - workflow_dispatch: PR number
+  #   - workflow_dispatch: PR number. Because in workflow_call the parent context
+  #     is used, we need to add a prefix name ('gke') for the concurrency group
+  #     so that workflows that are executed in parallel don't conflict with each
+  #     other.
   #
   # This structure ensures a unique concurrency group name is generated for each
   # type of testing, such that re-runs will cancel the previous run.
@@ -54,7 +82,7 @@ concurrency:
     ${{
       (github.event_name == 'push' && github.sha) ||
       (github.event_name == 'schedule' && github.sha) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+      (github.event_name == 'workflow_dispatch' && format('{0}-{1}', github.event.inputs.PR-number, 'gke'))
     }}
   cancel-in-progress: true
 
@@ -120,11 +148,30 @@ jobs:
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
           VERSIONS=$(echo ${{ inputs.extra-args }} | awk -F'=' '{print $2}')
+          IPSEC=$(echo '${{ inputs.extra-args }}' | jq -r '.["ipsec"] // empty')
+
           # shellcheck disable=SC2193
           if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* || "$VERSIONS" == "all" ]];then
             cp gke.json /tmp/matrix.json
           else
             jq '{ "k8s": [ .k8s[] | select(.default) ], "config": .config}' gke.json > /tmp/matrix.json
+          fi
+
+          # Add IPsec options to all configurations if ipsec is true
+          if [[ "$IPSEC" == "true" ]]; then
+            echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
+            echo "Adding IPsec encryption options to all configurations"
+            jq '.config |= map(
+              # Add -ipsec suffix to type unless it already contains ipsec
+              .type = (if (.type | test("ipsec")) then .type else .type + "-ipsec" end) |
+              # Add IPsec helm options to cilium-install-opts
+              if .["cilium-install-opts"] then
+                .["cilium-install-opts"] += " --helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
+              else
+                .["cilium-install-opts"] = "--helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
+              end
+            )' /tmp/matrix.json > /tmp/matrix.json.tmp
+            mv /tmp/matrix.json.tmp /tmp/matrix.json
           fi
 
           echo "Generated matrix:"
@@ -242,7 +289,7 @@ jobs:
             --helm-set=cluster.name=${{ env.clusterName }}-${{ matrix.config.index }} \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
-            --helm-set loadBalancer.l7.backend=envoy \
+            --helm-set=loadBalancer.l7.backend=envoy \
             --wait=false"
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
@@ -339,7 +386,7 @@ jobs:
             install/kubernetes/cilium
 
       - name: Create custom IPsec secret
-        if: ${{ matrix.config.type == 'ipsec' || matrix.config.type == 'tunnel-ipsec' }}
+        if: ${{ contains(fromJSON('["no-tunnel-ipsec", "tunnel-ipsec", "tunnel-ingress-controller-ipsec"]'), matrix.config.type) }}
         run: |
           cilium encrypt create-key --auth-algo rfc4106-gcm-aes
 
@@ -368,7 +415,7 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }})"
+          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ matrix.config.type }})"
           job_status: "${{ job.status }}"
 
       - name: Clean up ESP allow firewall rule
@@ -389,7 +436,7 @@ jobs:
 
   merge-upload-and-status:
     name: Merge Upload and Status
-    if: ${{ always() }}
+    if: ${{ always() && !inputs.is-workflow-call }}
     needs: installation-and-connectivity
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
