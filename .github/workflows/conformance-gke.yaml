@@ -228,14 +228,20 @@ jobs:
           image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
 
+      - name: Truncate owner label for GKE
+        id: truncate-owner
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        uses: ./.github/actions/truncate-label
+        with:
+          label: ${{ github.ref_name }}
+
       - name: Set up job variables
         id: vars
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             OWNER="${{ inputs.PR-number }}"
           else
-            OWNER="${{ github.ref_name }}"
-            OWNER="${OWNER//[.\/]/-}"
+            OWNER="${{ steps.truncate-owner.outputs.truncated_label }}"
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
