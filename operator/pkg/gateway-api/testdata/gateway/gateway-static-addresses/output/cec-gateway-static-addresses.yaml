@@ -1,9 +1,9 @@
 metadata:
-  annotations:
-    io.cilium/lb-ipam-ips: 10.10.10.10,20.20.20.20
   creationTimestamp: null
+  annotations:
+    cec.cilium.io/use-original-source-address: "false"
+    io.cilium/lb-ipam-ips: 10.10.10.10,20.20.20.20
   labels:
-    cilium.io/use-original-source-address: "false"
     gateway.networking.k8s.io/gateway-name: gateway-static-addresses
   name: cilium-gateway-gateway-static-addresses
   namespace: gateway-conformance-infra
