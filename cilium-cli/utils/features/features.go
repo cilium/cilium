@@ -260,9 +260,8 @@ func RequireModeIsNot(feature Feature, mode string) Requirement {
 	}
 }
 
-// ExtractFromVersionedConfigMap extracts features based on Cilium version and cilium-config
-// ConfigMap.
-func (fs Set) ExtractFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) {
+// ExtractFromCiliumVersion extracts features based on Cilium version.
+func (fs Set) ExtractFromCiliumVersion(ciliumVersion semver.Version) {
 	fs[PortRanges] = ExtractPortRanges(ciliumVersion)
 	fs[L7PortRanges] = ExtractL7PortRanges(ciliumVersion)
 }
