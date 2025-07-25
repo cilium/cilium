@@ -145,7 +145,7 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 	// if error appears while reconciling and maximum number of retries for this element has not been reached, it is added to the appropriate queue.
 	// if the error has not appeared or the maximum number of retries has been reached, the element is forgotten.
 
-	c.logger.Info("Bootstrap ces controller")
+	c.logger.InfoContext(ctx, "Bootstrap ces controller")
 	c.context, c.contextCancel = context.WithCancel(context.Background())
 	defer utilruntime.HandleCrash()
 
@@ -170,7 +170,7 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 	c.wp.Submit("cilium-endpoint-slices-updater", c.runCiliumEndpointSliceUpdater)
 	c.wp.Submit("cilium-nodes-updater", c.runCiliumNodesUpdater)
 
-	c.logger.Info("Starting CES controller reconciler.")
+	c.logger.InfoContext(ctx, "Starting CES controller reconciler.")
 	c.Job.Add(
 		job.OneShot("proc-queues", func(ctx context.Context, health cell.Health) error {
 			c.worker()
@@ -193,10 +193,10 @@ func (c *Controller) runCiliumEndpointsUpdater(ctx context.Context) error {
 	for event := range c.ciliumEndpoint.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.Debug("Got Upsert Endpoint event", logfields.CEPName, event.Key)
+			c.logger.DebugContext(ctx, "Got Upsert Endpoint event", logfields.CEPName, event.Key)
 			c.onEndpointUpdate(event.Object)
 		case resource.Delete:
-			c.logger.Debug("Got Delete Endpoint event", logfields.CEPName, event.Key)
+			c.logger.DebugContext(ctx, "Got Delete Endpoint event", logfields.CEPName, event.Key)
 			c.onEndpointDelete(event.Object)
 		}
 		event.Done(nil)
@@ -208,10 +208,10 @@ func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
 	for event := range c.ciliumEndpointSlice.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.Debug("Got Upsert Endpoint Slice event", logfields.CESName, event.Key)
+			c.logger.DebugContext(ctx, "Got Upsert Endpoint Slice event", logfields.CESName, event.Key)
 			c.onSliceUpdate(event.Object)
 		case resource.Delete:
-			c.logger.Debug("Got Delete Endpoint Slice event", logfields.CESName, event.Key)
+			c.logger.DebugContext(ctx, "Got Delete Endpoint Slice event", logfields.CESName, event.Key)
 			c.onSliceDelete(event.Object)
 		}
 		event.Done(nil)
@@ -222,14 +222,14 @@ func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
 func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
 	ciliumNodesStore, err := c.ciliumNodes.Store(ctx)
 	if err != nil {
-		c.logger.Warn("Couldn't get CiliumNodes store", logfields.Error, err)
+		c.logger.WarnContext(ctx, "Couldn't get CiliumNodes store", logfields.Error, err)
 		return err
 	}
 	for event := range c.ciliumNodes.Events(ctx) {
 		event.Done(nil)
 		totalNodes := len(ciliumNodesStore.List())
 		if c.rateLimit.updateRateLimiterWithNodes(totalNodes) {
-			c.logger.Info("Updated CES controller workqueue configuration",
+			c.logger.InfoContext(ctx, "Updated CES controller workqueue configuration",
 				logfields.WorkQueueQPSLimit, c.rateLimit.current.Limit,
 				logfields.WorkQueueBurstLimit, c.rateLimit.current.Burst)
 		}
@@ -242,7 +242,7 @@ func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
 func (c *Controller) syncCESsInLocalCache(ctx context.Context) error {
 	store, err := c.ciliumEndpointSlice.Store(ctx)
 	if err != nil {
-		c.logger.Warn("Error getting CES Store", logfields.Error, err)
+		c.logger.WarnContext(ctx, "Error getting CES Store", logfields.Error, err)
 		return err
 	}
 	for _, ces := range store.List() {
@@ -251,7 +251,7 @@ func (c *Controller) syncCESsInLocalCache(ctx context.Context) error {
 			c.manager.initializeMappingCEPtoCES(&cep, ces.Namespace, cesName)
 		}
 	}
-	c.logger.Debug("Successfully synced all CESs locally")
+	c.logger.DebugContext(ctx, "Successfully synced all CESs locally")
 	return nil
 }
 
