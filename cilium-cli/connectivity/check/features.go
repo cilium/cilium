@@ -323,37 +323,43 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 	if cm.Data == nil {
 		return fmt.Errorf("ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
 	}
-	for _, ciliumPod := range ct.ciliumPods {
-		features := features.Set{}
 
-		// If unsure from which source to retrieve the information from,
-		// prefer "CiliumStatus" over "ConfigMap" over "RuntimeConfig".
-		// See the corresponding functions for more information.
-		features.ExtractFromVersionedConfigMap(ct.CiliumVersion, cm)
-		features.ExtractFromConfigMap(cm)
+	// Extract cluster-wide features once outside the loop
+	clusterFeatures := features.Set{}
+	clusterFeatures.ExtractFromCiliumVersion(ct.CiliumVersion)
+	clusterFeatures.ExtractFromConfigMap(cm)
+	clusterFeatures.ExtractFromNodes(ct.nodesWithoutCilium)
+	ct.extractFeaturesFromK8sCluster(ctx, clusterFeatures)
+	err = ct.extractFeaturesFromCRDs(ctx, clusterFeatures)
+	if err != nil {
+		return err
+	}
+	err = ct.extractFeaturesFromDNSConfig(ctx, clusterFeatures)
+	if err != nil {
+		return err
+	}
+	err = ct.extractFeaturesFromClusterRole(ctx, ct.client, clusterFeatures)
+	if err != nil {
+		return err
+	}
+
+	for _, ciliumPod := range ct.ciliumPods {
+		// Start with cluster-wide features
+		features := make(features.Set)
+		for k, v := range clusterFeatures {
+			features[k] = v
+		}
+
+		// Extract pod-specific features
 		err = ct.extractFeaturesFromRuntimeConfig(ctx, ciliumPod, features)
 		if err != nil {
 			return err
 		}
-		features.ExtractFromNodes(ct.nodesWithoutCilium)
 		err = ct.extractFeaturesFromCiliumStatus(ctx, ciliumPod, features)
 		if err != nil {
 			return err
 		}
-		err = ct.extractFeaturesFromClusterRole(ctx, ciliumPod.K8sClient, features)
-		if err != nil {
-			return err
-		}
-		ct.extractFeaturesFromK8sCluster(ctx, features)
 		err = features.DeriveFeatures()
-		if err != nil {
-			return err
-		}
-		err = ct.extractFeaturesFromCRDs(ctx, features)
-		if err != nil {
-			return err
-		}
-		err = ct.extractFeaturesFromDNSConfig(ctx, features)
 		if err != nil {
 			return err
 		}
