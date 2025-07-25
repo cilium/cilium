@@ -12,6 +12,9 @@
 #include "edt.h"
 #include "l3.h"
 #include "lb.h"
+#include "icmp.h"
+#include "icmp6.h"
+#include "virtual_ip.h"
 #include "common.h"
 #include "overloadable.h"
 #include "egress_gateway.h"
@@ -27,6 +30,8 @@
 #include "stubs.h"
 #include "proxy_hairpin.h"
 #include "fib.h"
+#include "icmp.h"
+#include "icmp6.h"
 #include "srv6.h"
 
 DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached to (default: MTU set in node_config.h by agent)")
@@ -1465,6 +1470,41 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					punt_to_stack, ext_err);
 	} else {
 skip_service_lookup:
+		/* Handle both ICMPv6 echo requests and drop traffic to virtual IPs with a single lookup */
+		if (CONFIG(reply_to_icmp_echo_on_virtual_ips) || CONFIG(drop_traffic_to_virtual_ips)) {
+			bool is_icmp_echo = false;
+			struct lb6_service *virtual_svc;
+			
+			/* Check if this is an ICMPv6 echo request */
+			if (unlikely(tuple.nexthdr == IPPROTO_ICMPV6)) {
+				struct icmp6hdr icmp6hdr;
+				if (ctx_load_bytes(ctx, l4_off, &icmp6hdr, sizeof(icmp6hdr)) >= 0 &&
+				    icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
+					is_icmp_echo = true;
+				}
+			}
+			
+			/* Perform the lookup once */
+			virtual_svc = lookup_virtual_service_v6((union v6addr *)&ip6->daddr);
+			
+			/* Handle ICMPv6 echo reply first if applicable */
+			if (CONFIG(reply_to_icmp_echo_on_virtual_ips) && is_icmp_echo && virtual_svc) {
+				ret = icmp6_send_echo_reply(ctx);
+				if (!ret) {
+					cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ctx_get_ifindex(ctx));
+					ret = redirect_self(ctx);
+				}
+				if (IS_ERR(ret))
+					return send_drop_notify_error(ctx, src_sec_identity, ret, METRIC_INGRESS);
+				return ret;
+			}
+			
+			/* Handle drop traffic to virtual IPs */
+			if (CONFIG(drop_traffic_to_virtual_ips) && is_svc_proto && 
+			    virtual_svc && !lb6_svc_is_routable(virtual_svc)) {
+				return DROP_NO_SERVICE;
+			}
+		}
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->daddr)) {
 			ret = neigh_record_ip6(ctx);
@@ -2802,6 +2842,41 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					punt_to_stack, ext_err);
 	} else {
 skip_service_lookup:
+		/* Handle both ICMP echo requests and drop traffic to virtual IPs with a single lookup */
+		if (CONFIG(reply_to_icmp_echo_on_virtual_ips) || CONFIG(drop_traffic_to_virtual_ips)) {
+			bool is_icmp_echo = false;
+			struct lb4_service *virtual_svc;
+			
+			/* Check if this is an ICMP echo request */
+			if (unlikely(ip4->protocol == IPPROTO_ICMP)) {
+				struct icmphdr icmphdr;
+				if (ctx_load_bytes(ctx, l4_off, &icmphdr, sizeof(icmphdr)) >= 0 &&
+				    icmphdr.type == ICMP_ECHO) {
+					is_icmp_echo = true;
+				}
+			}
+			
+			/* Perform the lookup once */
+			virtual_svc = lookup_virtual_service_v4(ip4->daddr);
+			
+			/* Handle ICMP echo reply first if applicable */
+			if (CONFIG(reply_to_icmp_echo_on_virtual_ips) && is_icmp_echo && virtual_svc) {
+				ret = icmp_send_echo_reply(ctx);
+				if (!ret) {
+					cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ctx_get_ifindex(ctx));
+					ret = redirect_self(ctx);
+				}
+				if (IS_ERR(ret))
+					return send_drop_notify_error(ctx, src_sec_identity, ret, METRIC_INGRESS);
+				return ret;
+			}
+			
+			/* Handle drop traffic to virtual IPs */
+			if (CONFIG(drop_traffic_to_virtual_ips) && is_svc_proto && 
+			    virtual_svc && !lb4_svc_is_routable(virtual_svc)) {
+				return DROP_NO_SERVICE;
+			}
+		}
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		if (ip4->daddr != IPV4_DIRECT_ROUTING)
 			return tail_call_internal(ctx, CILIUM_CALL_IPV46_RFC6052, ext_err);

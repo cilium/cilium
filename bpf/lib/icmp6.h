@@ -10,6 +10,7 @@
 #include "eth.h"
 #include "drop.h"
 #include "eps.h"
+#include "csum.h"
 
 #define ICMP6_TYPE_OFFSET offsetof(struct icmp6hdr, icmp6_type)
 #define ICMP6_CSUM_OFFSET (sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum))
@@ -523,6 +524,113 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 	return CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
 }
+
+#ifdef ENABLE_IPV6
+/*
+ * ICMPv6 Echo Reply Support for Virtual IPs
+ *
+ * This provides ICMPv6 echo reply functionality for virtual service IPs,
+ * complementing the IPv4 ICMP support in icmp.h. This allows IPv6 services
+ * to respond to ping6 requests.
+ */
+
+/**
+ * icmp6_send_echo_reply - Send ICMPv6 echo reply
+ * @ctx:	Packet context
+ *
+ * Converts an ICMPv6 echo request packet to an echo reply by:
+ * - Swapping source and destination MAC addresses
+ * - Swapping source and destination IPv6 addresses
+ * - Converting ICMPv6 type from ECHO_REQUEST to ECHO_REPLY
+ * - Updating checksums
+ *
+ * Returns:
+ *   - 0 on success
+ *   - Negative error code on failure
+ */
+static __always_inline
+int icmp6_send_echo_reply(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	struct ethhdr *ethhdr;
+	struct ipv6hdr *ip6;
+	struct icmp6hdr *icmphdr;
+	union macaddr smac = {};
+	union macaddr dmac = {};
+	struct in6_addr saddr;
+	struct in6_addr daddr;
+	int ret;
+
+	if (!__revalidate_data_pull(ctx, &data, &data_end, (void **)&ip6,
+				    ETH_HLEN, sizeof(struct ipv6hdr), false))
+		return DROP_INVALID;
+
+	/* Copy the incoming src and dest IPs and mac addresses to the stack.
+	 * The pointers will not be valid after modifying the packet.
+	 */
+	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
+		return DROP_INVALID;
+
+	if (eth_load_daddr(ctx, dmac.addr, 0) < 0)
+		return DROP_INVALID;
+
+	saddr = ip6->saddr;
+	daddr = ip6->daddr;
+
+	/* Load ICMP header */
+	icmphdr = (struct icmp6hdr *)(data + sizeof(struct ethhdr) + sizeof(struct ipv6hdr));
+	if ((void *)(icmphdr + 1) > data_end)
+		return DROP_INVALID;
+
+	/* Only respond to ICMPv6 echo requests */
+	if (icmphdr->icmp6_type != ICMPV6_ECHO_REQUEST)
+		return DROP_INVALID;
+
+	/* Rewrite ethernet header */
+	ethhdr = (struct ethhdr *)data;
+	if ((void *)(ethhdr + 1) > data_end)
+		return DROP_INVALID;
+
+	/* Swap src/dst MAC addresses */
+	memcpy(ethhdr->h_dest, smac.addr, ETH_ALEN);
+	memcpy(ethhdr->h_source, dmac.addr, ETH_ALEN);
+
+	/* Calculate ICMPv6 checksum deltas for all changes (4-byte aligned) */
+	__u8 type_code_old[4] = {icmphdr->icmp6_type, icmphdr->icmp6_code, 0, 0};
+	
+	/* Convert ICMPv6 echo request to echo reply */
+	icmphdr->icmp6_type = ICMPV6_ECHO_REPLY;
+	icmphdr->icmp6_code = 0;
+	
+	/* Calculate diff for ICMP type change */
+	__u8 type_code_new[4] = {icmphdr->icmp6_type, icmphdr->icmp6_code, 0, 0};
+	__wsum diff = csum_diff(type_code_old, 4, type_code_new, 4, 0);
+	
+	/* Calculate diff for IPv6 address swap in pseudo-header and cascade */
+	diff = csum_diff(saddr.s6_addr, 16, daddr.s6_addr, 16, diff);
+	diff = csum_diff(daddr.s6_addr, 16, saddr.s6_addr, 16, diff);
+	
+	/* Apply the accumulated diff to ICMPv6 checksum using standard pattern */
+	struct csum_offset csum_off = {};
+	csum_l4_offset_and_flags(IPPROTO_ICMPV6, &csum_off);
+	ret = csum_l4_replace(ctx, ETH_HLEN + sizeof(struct ipv6hdr), &csum_off, 
+			      0, diff, BPF_F_PSEUDO_HDR);
+	if (ret < 0)
+		return ret;
+
+	/* Revalidate data pointers after packet modification */
+	if (!__revalidate_data_pull(ctx, &data, &data_end, (void **)&ip6,
+				    ETH_HLEN, sizeof(struct ipv6hdr), false))
+		return DROP_INVALID;
+
+	/* Now update the IPv6 header */
+	ip6->saddr = daddr; /* Swap src/dst IP */
+	ip6->daddr = saddr;
+	ip6->hop_limit = IPDEFTTL;
+
+	return 0;
+}
+#endif /* ENABLE_IPV6 */
 
 static __always_inline
 bool icmp6_ndisc_validate(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
