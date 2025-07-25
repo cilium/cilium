@@ -159,6 +159,10 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 	processBuffer := func(txn writer.WriteTxn, buf iter.Seq2[types.NamespacedName, statedb.Change[daemonK8s.LocalPod]]) {
 		for _, change := range buf {
 			obj := change.Object.Pod
+			if obj.Spec.HostNetwork {
+				continue
+			}
+
 			podName := obj.Namespace + "/" + obj.Name
 			if change.Deleted {
 				rh.update(podName, nil)
