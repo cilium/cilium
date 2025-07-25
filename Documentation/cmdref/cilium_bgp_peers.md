@@ -16,6 +16,7 @@ cilium bgp peers [flags]
 
 ```
       --agent-pod-selector string   Label on cilium-agent pods to select with (default "k8s-app=cilium")
+  -c, --capabilities                Show all BGP peer capabilities in detail
   -h, --help                        help for peers
       --node string                 Node from which BGP status will be fetched, omit to select all nodes
   -o, --output string               Output format. One of: json, summary (default "summary")
