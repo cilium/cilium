@@ -184,17 +184,21 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Truncate owner label for GKE
+        id: truncate-owner
+        uses: ./.github/actions/truncate-label
+        with:
+          label: ${{ (github.event_name == 'workflow_dispatch' || github.event.pull_request) && inputs.PR-number || github.ref_name }}
+
       - name: Set up job variables
         id: vars
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ ${{ github.event.pull_request }} ] ; then
             SHA="${{ inputs.SHA }}"
-            OWNER="${{ inputs.PR-number }}"
           else
             SHA="${{ github.sha }}"
-            OWNER="${{ github.ref_name }}"
-            OWNER="${OWNER//[.\/]/-}"
           fi
+          OWNER="${{ steps.truncate-owner.outputs.truncated_label }}"
 
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --helm-set=cluster.name=${{ env.clusterName }}-${{ matrix.index }} \
