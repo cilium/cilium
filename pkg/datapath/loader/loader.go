@@ -136,6 +136,19 @@ func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 func bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguration) (masq4, masq6 netip.Addr) {
 	if cfg.DeriveMasqIPAddrFromDevice != "" {
 		ifName = cfg.DeriveMasqIPAddrFromDevice
+	} else if len(cfg.DeriveMasqIPAddrFromDeviceMapping) != 0 {
+		for _, s := range cfg.DeriveMasqIPAddrFromDeviceMapping {
+			if s == "" {
+				continue
+			}
+			mapping := strings.Split(s, ":")
+			if len(mapping) != 2 {
+				continue
+			}
+			if mapping[0] == ifName {
+				ifName = mapping[1]
+			}
+		}
 	}
 
 	find := func(devName string) bool {

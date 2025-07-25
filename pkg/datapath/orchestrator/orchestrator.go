@@ -49,7 +49,8 @@ const (
 var DefaultConfig = Config{
 	// By default the masquerading IP is the primary IP address of the device in
 	// question.
-	DeriveMasqIPAddrFromDevice: "",
+	DeriveMasqIPAddrFromDevice:        "",
+	DeriveMasqIPAddrFromDeviceMapping: []string{},
 }
 
 type Config struct {
@@ -59,6 +60,10 @@ type Config struct {
 	// See commit d204d789746b1389cc2ba02fdd55b81a2f55b76e for original context.
 	// This can be removed once https://github.com/cilium/cilium/issues/17158 is resolved.
 	DeriveMasqIPAddrFromDevice string
+	// DeriveMasqIPAddrFromDeviceMapping specifies which device's IP addr is used for BPF masquerade.
+	// This is a hidden option and by default not set. Only needed in very specific setups
+	// with ECMP and multiple devices.
+	DeriveMasqIPAddrFromDeviceMapping []string
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -67,6 +72,11 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 		deriveFlag, def.DeriveMasqIPAddrFromDevice,
 		"Device name from which Cilium derives the IP addr for BPF masquerade")
 	flags.MarkHidden(deriveFlag)
+	const deriveFlagMapping = "derive-masq-ip-addr-from-device-mapping"
+	flags.StringArray(
+		deriveFlagMapping, def.DeriveMasqIPAddrFromDeviceMapping,
+		"Device name mapping from which Cilium derives the IP addr for BPF masquerade")
+	flags.MarkHidden(deriveFlagMapping)
 }
 
 type orchestrator struct {
@@ -203,6 +213,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.Devices,
 			o.params.NodeAddresses,
 			o.params.Config.DeriveMasqIPAddrFromDevice,
+			o.params.Config.DeriveMasqIPAddrFromDeviceMapping,
 			o.params.XDPConfig,
 			o.params.LBConfig,
 			o.params.KPRConfig,
