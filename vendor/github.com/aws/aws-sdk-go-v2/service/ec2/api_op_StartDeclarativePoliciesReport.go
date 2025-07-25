@@ -21,9 +21,9 @@ import (
 // (OU) or root (the entire Amazon Web Services Organization).
 //
 // The report is saved to your specified S3 bucket, using the following path
-// structure (with the italicized placeholders representing your specific values):
+// structure (with the capitalized placeholders representing your specific values):
 //
-//	s3://amzn-s3-demo-bucket/your-optional-s3-prefix/ec2_targetId_reportId_yyyyMMddThhmmZ.csv
+//	s3://AMZN-S3-DEMO-BUCKET/YOUR-OPTIONAL-S3-PREFIX/ec2_TARGETID_REPORTID_YYYYMMDDTHHMMZ.csv
 //
 // Prerequisites for generating a report
 //
