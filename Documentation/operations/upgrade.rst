@@ -293,6 +293,8 @@ communicating via the proxy must reconnect to re-establish connections.
 1.19 Upgrade Notes
 ------------------
 * MCS-API CoreDNS configuration recommendation has been updated. See :ref:`clustermesh_mcsapi_prereqs` for more details.
+* If MCS-API support is enabled, Cilium now install and manage MCS-API CRDs by default.
+  You can set ``clustermesh.mcsapi.installCRDs`` to ``false`` to opt-out.
 
 Removed Options
 ~~~~~~~~~~~~~~~

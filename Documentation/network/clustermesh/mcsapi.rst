@@ -20,14 +20,6 @@ You need to have a functioning Cluster Mesh setup, please follow the
 
 Make sure you are running CoreDNS 1.12.2 or later.
 
-You first need to install the required MCS-API CRDs:
-
-   .. code-block:: shell-session
-
-      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/62ede9a032dcfbc41b3418d7360678cb83092498/config/crd/multicluster.x-k8s.io_serviceexports.yaml
-      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/62ede9a032dcfbc41b3418d7360678cb83092498/config/crd/multicluster.x-k8s.io_serviceimports.yaml
-
-
 To install Cilium with MCS-API support, run:
 
    .. parsed-literal::
@@ -53,6 +45,10 @@ will automatically configure and rollout CoreDNS for MCS-API support. Otherwise 
 configure CoreDNS manually, you need to execute the following steps:
 
    .. code-block:: shell-session
+
+      # Install MCS-API CRDs if Cilium is not yet started or CRDs automatic CRDs installation is disabled (optional)
+      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/62ede9a032dcfbc41b3418d7360678cb83092498/config/crd/multicluster.x-k8s.io_serviceexports.yaml
+      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/62ede9a032dcfbc41b3418d7360678cb83092498/config/crd/multicluster.x-k8s.io_serviceimports.yaml
 
       # Adding RBAC to read SericeImports
       kubectl create clusterrole coredns-mcsapi \
