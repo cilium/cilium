@@ -677,6 +677,26 @@
     {
       "enabled": false,
       "matchFileNames": [
+        ".github/workflows/lint-build-commits.yaml"
+      ],
+      "matchDepTypes": [
+        "github-runner",
+      ],
+      "matchPackageNames": [
+        "ubuntu",
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "matchBaseBranches": [
+        "v1.17",
+        "v1.16",
+        "v1.15"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchFileNames": [
         ".github/workflows/documentation.yaml"
       ],
       "matchDepTypes": [
