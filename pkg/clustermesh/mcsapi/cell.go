@@ -110,12 +110,14 @@ func registerMCSAPIController(params mcsAPIParams) error {
 		"Checking for required MCS-API resources",
 		logfields.RequiredGVK, requiredGVK,
 	)
-	if err := checkRequiredCRDs(context.Background(), params.Clientset); err != nil {
-		params.Logger.Error(
-			"Required MCS-API resources are not found, please refer to docs for installation instructions",
-			logfields.Error, err,
-		)
-		return err
+	if !params.CfgMCSAPI.ShouldInstallMCSAPICrds() {
+		if err := checkRequiredCRDs(context.Background(), params.Clientset); err != nil {
+			params.Logger.Error(
+				"Required MCS-API resources are not found, please refer to docs for installation instructions",
+				logfields.Error, err,
+			)
+			return err
+		}
 	}
 	if err := mcsapiv1alpha1.AddToScheme(params.Scheme); err != nil {
 		return err
