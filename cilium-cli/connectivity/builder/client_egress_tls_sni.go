@@ -28,9 +28,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
-		// TODO: Reenable IPv6 for this test once the kernel with the bugfix is released:
-		// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-		WithScenarios(tests.PodToWorld(false)).
+		WithScenarios(tests.PodToWorld(true)).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 443 {
 				return check.ResultOK, check.ResultNone
@@ -44,9 +42,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
-		// TODO: Reenable IPv6 for this test once the kernel with the bugfix is released:
-		// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-		WithScenarios(tests.PodToWorld(false)). // External Target is not allowed
+		WithScenarios(tests.PodToWorld(true)).                        // External Target is not allowed
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 443 {
 				// SSL error as another external target (e.g. cilium.io) SNI is not allowed
@@ -61,9 +57,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
-		// TODO: Reenable IPv6 for this test once the kernel with the bugfix is released:
-		// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-		WithScenarios(tests.PodToWorld(false)).
+		WithScenarios(tests.PodToWorld(true)).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 443 {
 				return check.ResultOK, check.ResultNone
@@ -77,9 +71,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
-		// TODO: Reenable IPv6 for this test once the kernel with the bugfix is released:
-		// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-		WithScenarios(tests.PodToWorld2(false)).
+		WithScenarios(tests.PodToWorld2(true)).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 443 {
 				// SSL error as another external target (e.g. cilium.io) SNI is not allowed
@@ -97,9 +89,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 			WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 			WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
 			WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
-			// TODO: Reenable IPv6 for this test once the kernel with the bugfix is released:
-			// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-			WithScenarios(tests.PodToWorld(false)).
+			WithScenarios(tests.PodToWorld(true)).
 			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 				if a.Destination().Port() == 443 {
 					return check.ResultOK, check.ResultNone
@@ -113,9 +103,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 			WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 			WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
 			WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
-			// TODO: Reenable IPv6 for this test once the kernel with the bugfix is released:
-			// https://patchwork.kernel.org/project/netdevbpf/patch/20250318161516.3791383-1-maxim@isovalent.com/
-			WithScenarios(tests.PodToWorld2(false)).
+			WithScenarios(tests.PodToWorld2(true)).
 			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 				if a.Destination().Port() == 443 {
 					// SSL error as another external target (e.g. cilium.io) SNI is not allowed
