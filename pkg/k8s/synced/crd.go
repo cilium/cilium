@@ -18,8 +18,10 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -103,12 +105,16 @@ func AgentCRDResourceNames() []string {
 // ClusterMeshAPIServerResourceNames returns a list of all CRD resource names the
 // clustermesh-apiserver needs to wait to be registered before initializing any
 // k8s watchers.
-func ClusterMeshAPIServerResourceNames() []string {
-	return []string{
+func ClusterMeshAPIServerResourceNames(mcsAPICfg mcsapitypes.MCSAPIConfig) []string {
+	res := []string{
 		CRDResourceName(v2.CNName),
 		CRDResourceName(v2.CIDName),
 		CRDResourceName(v2.CEPName),
 	}
+	if mcsAPICfg.ClusterMeshEnableMCSAPI {
+		res = append(res, MCSAPIResourceNames()...)
+	}
+	return res
 }
 
 func GatewayAPIResourceNames() []string {
@@ -120,13 +126,23 @@ func GatewayAPIResourceNames() []string {
 	}
 }
 
+func MCSAPIResourceNames() []string {
+	return []string{
+		CRDResourceName(mcsapiv1alpha1.ServiceImportFullName),
+		CRDResourceName(mcsapiv1alpha1.ServiceExportFullName),
+	}
+}
+
 // AllCiliumCRDResourceNames returns a list of all Cilium CRD resource names
 // that the cilium operator or testsuite may register.
-func AllCiliumCRDResourceNames() []string {
+func AllCiliumCRDResourceNames(mcsAPICfg mcsapitypes.MCSAPIConfig) []string {
 	res := append(AgentCRDResourceNames(), GatewayAPIResourceNames()...)
 	res = append(res,
 		CRDResourceName(v2.CNCName),
 	)
+	if mcsAPICfg.ShouldInstallMCSAPICrds() {
+		res = append(res, MCSAPIResourceNames()...)
+	}
 	return res
 }
 

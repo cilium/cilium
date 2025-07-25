@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -199,7 +200,9 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 func CreateCustomResourceDefinitions(logger *slog.Logger, clientset apiextensionsclient.Interface) error {
 	crds := CustomResourceDefinitionList()
 
-	for _, r := range synced.AllCiliumCRDResourceNames() {
+	for _, r := range synced.AllCiliumCRDResourceNames(mcsapitypes.MCSAPIConfig{
+		ClusterMeshEnableMCSAPI: false, // We do not create MCS CRDs here
+	}) {
 		if crd, ok := crds[r]; ok {
 			if err := createCRD(logger, crd.Name, crd.FullName)(clientset); err != nil {
 				return err
