@@ -44,7 +44,9 @@ var Cell = cell.Module(
 	synced.Cell,
 
 	// Provide CRD resource names for 'synced.CRDSyncCell' below.
-	cell.Provide(func() synced.CRDSyncResourceNames { return synced.ClusterMeshAPIServerResourceNames() }),
+	cell.Provide(func(mcsAPICfg mcsapitypes.MCSAPIConfig) synced.CRDSyncResourceNames {
+		return synced.ClusterMeshAPIServerResourceNames(mcsAPICfg)
+	}),
 
 	// CRDSyncCell provides a promise that is resolved as soon as CRDs used by the
 	// clustermesh-apiserver have synced.

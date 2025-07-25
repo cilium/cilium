@@ -21,6 +21,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// ServiceImportPluralName is the plural name of ServiceImport
+	ServiceImportPluralName = "serviceimports"
+	// ServiceImportKindName is the kind name of ServiceImport
+	ServiceImportKindName = "ServiceImport"
+	// ServiceImportFullName is the full name of ServiceImport
+	ServiceImportFullName = ServiceImportPluralName + "." + GroupName
+)
+
+// ServiceImportVersionedName is the versioned name of ServiceImport
+var ServiceImportVersionedName = ServiceImportKindName + "/" + GroupVersion.Version
+
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName={svcim,svcimport}
