@@ -1,7 +1,7 @@
 metadata:
   creationTimestamp: null
-  labels:
-    cilium.io/use-original-source-address: "false"
+  annotations:
+    cec.cilium.io/use-original-source-address: "false"
   name: cilium-ingress-dummy-namespace-dummy-ingress
   namespace: dummy-namespace
 spec:

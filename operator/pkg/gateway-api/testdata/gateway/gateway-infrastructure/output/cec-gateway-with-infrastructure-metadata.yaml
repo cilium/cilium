@@ -1,9 +1,9 @@
 metadata:
-  annotations:
-    key1: value1
   creationTimestamp: null
+  annotations:
+    cec.cilium.io/use-original-source-address: "false"
+    key1: value1
   labels:
-    cilium.io/use-original-source-address: "false"
     gateway.networking.k8s.io/gateway-name: gateway-with-infrastructure-metadata
     key2: value2
   name: cilium-gateway-gateway-with-infrastructure-metadata
