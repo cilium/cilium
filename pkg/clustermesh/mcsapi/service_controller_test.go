@@ -142,6 +142,10 @@ var (
 				Name:      derivedName(types.NamespacedName{Name: "full-update", Namespace: "default"}),
 				Namespace: "default",
 			},
+			Spec: corev1.ServiceSpec{
+				ClusterIP:  "42.42.42.42",
+				ClusterIPs: []string{"42.42.42.42"},
+			},
 		},
 
 		&mcsapiv1alpha1.ServiceImport{
@@ -292,6 +296,7 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 			err = c.Get(context.Background(), key, svcImport)
 			require.NoError(t, err)
 			require.Equal(t, keyDerived.Name, svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation])
+			require.Equal(t, svc.Spec.ClusterIPs, svcImport.Spec.IPs)
 		}
 	})
 
