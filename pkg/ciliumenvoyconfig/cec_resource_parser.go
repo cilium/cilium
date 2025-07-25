@@ -972,7 +972,7 @@ func toAny(message proto.Message) *anypb.Any {
 }
 
 // UseOriginalSourceAddress returns true if the given object metadata indicates that the owner needs the Envoy listener to assume the identity of Cilium Ingress.
-// This can be an explicit label or the presence of an OwnerReference of Kind "Ingress" or "Gateway".
+// This can be an explicit annotation (or deprecated label) or the presence of an OwnerReference of Kind "Ingress" or "Gateway".
 func UseOriginalSourceAddress(meta *metav1.ObjectMeta) bool {
 	for _, owner := range meta.OwnerReferences {
 		if owner.Kind == "Ingress" || owner.Kind == "Gateway" {
@@ -980,6 +980,15 @@ func UseOriginalSourceAddress(meta *metav1.ObjectMeta) bool {
 		}
 	}
 
+	if meta.GetAnnotations() != nil {
+		if v, ok := meta.GetAnnotations()[annotation.CECUseOriginalSourceAddress]; ok {
+			if boolValue, err := strconv.ParseBool(v); err == nil {
+				return boolValue
+			}
+		}
+	}
+
+	// fallback to deprecated label
 	if meta.GetLabels() != nil {
 		if v, ok := meta.GetLabels()[k8s.UseOriginalSourceAddressLabel]; ok {
 			if boolValue, err := strconv.ParseBool(v); err == nil {

@@ -1,7 +1,8 @@
 metadata:
   creationTimestamp: null
+  annotations:
+    cec.cilium.io/use-original-source-address: "true"
   labels:
-    cilium.io/use-original-source-address: "true"
     gateway.networking.k8s.io/gateway-name: mesh-matching
   name: echo
   namespace: gateway-conformance-mesh

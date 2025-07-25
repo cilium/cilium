@@ -1,7 +1,8 @@
 metadata:
   creationTimestamp: null
+  annotations:
+    cec.cilium.io/use-original-source-address: "false"
   labels:
-    cilium.io/use-original-source-address: "false"
     gateway.networking.k8s.io/gateway-name: gateway-remove-listener
   name: cilium-gateway-gateway-remove-listener
   namespace: gateway-conformance-infra

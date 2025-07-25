@@ -215,8 +215,9 @@ const (
 	LBIPAMSharingAcrossNamespace      = LBIPAMPrefix + "/sharing-cross-namespace"
 	LBIPAMSharingAcrossNamespaceAlias = Prefix + "/lb-ipam-sharing-cross-namespace"
 
-	CECInjectCiliumFilters = CECPrefix + "/inject-cilium-filters"
-	CECIsL7LB              = CECPrefix + "/is-l7lb"
+	CECInjectCiliumFilters      = CECPrefix + "/inject-cilium-filters"
+	CECIsL7LB                   = CECPrefix + "/is-l7lb"
+	CECUseOriginalSourceAddress = CECPrefix + "/use-original-source-address"
 )
 
 // CiliumPrefixRegex is a regex matching Cilium specific annotations.
