@@ -7,7 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
-	"github.com/cilium/cilium/pkg/clustermesh/operator"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
@@ -18,7 +18,7 @@ var Cell = cell.Module(
 	"Enforce the CiliumClusterConfig in the KVStore",
 
 	cell.Provide(
-		func(cinfo cmtypes.ClusterInfo, mcsAPICfg operator.MCSAPIConfig, sc syncedCanaries) cmtypes.CiliumClusterConfig {
+		func(cinfo cmtypes.ClusterInfo, mcsAPICfg mcsapitypes.MCSAPIConfig, sc syncedCanaries) cmtypes.CiliumClusterConfig {
 			return cmtypes.CiliumClusterConfig{
 				ID: cinfo.ID,
 				Capabilities: cmtypes.CiliumClusterConfigCapabilities{

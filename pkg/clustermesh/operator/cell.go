@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/dial"
@@ -22,7 +23,7 @@ var Cell = cell.Module(
 	"clustermesh",
 	"Cell providing clustermesh capabilities in the operator",
 	cell.Config(ClusterMeshConfig{}),
-	cell.Config(MCSAPIConfig{}),
+	cell.Config(mcsapitypes.DefaultMCSAPIConfig),
 	cell.Provide(
 		common.DefaultRemoteClientFactory,
 		newClusterMesh,
@@ -42,7 +43,7 @@ type clusterMeshParams struct {
 	common.Config
 	wait.TimeoutConfig
 	Cfg       ClusterMeshConfig
-	CfgMCSAPI MCSAPIConfig
+	CfgMCSAPI mcsapitypes.MCSAPIConfig
 	Logger    *slog.Logger
 
 	// ClusterInfo is the id/name of the local cluster.
@@ -71,20 +72,5 @@ func (cfg ClusterMeshConfig) Flags(flags *pflag.FlagSet) {
 		"clustermesh-enable-endpoint-sync",
 		cfg.ClusterMeshEnableEndpointSync,
 		"Whether or not the endpoint slice cluster mesh synchronization is enabled.",
-	)
-}
-
-// MCSAPIConfig contains the configuration for MCS-API
-type MCSAPIConfig struct {
-	// ClusterMeshEnableMCSAPI enables the MCS API support
-	ClusterMeshEnableMCSAPI bool `mapstructure:"clustermesh-enable-mcs-api"`
-}
-
-// Flags adds the flags used by ClientConfig.
-func (cfg MCSAPIConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool(
-		"clustermesh-enable-mcs-api",
-		cfg.ClusterMeshEnableMCSAPI,
-		"Whether or not the MCS API support is enabled.",
 	)
 }
