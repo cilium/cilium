@@ -558,6 +558,21 @@ func TestParseWithNodeSelector(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ccnplAsCNP.Parse(logger, cmtypes.PolicyAnyCluster)
 	require.NoError(t, err)
+
+	// Now test the case where nodeSelector is in Specs (plural) instead of Spec (singular).
+	// This should also be rejected for namespaced CNPs.
+	rule.EndpointSelector = emptySelector
+	rule.NodeSelector = prevEPSelector
+	cnplWithSpecs := CiliumNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "rule",
+			UID:       uuidRule,
+		},
+		Specs: api.Rules{&rule}, // Using Specs instead of Spec
+	}
+	_, err = cnplWithSpecs.Parse(logger, cmtypes.PolicyAnyCluster)
+	require.ErrorContains(t, err, "Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
 }
 
 func TestCiliumNodeInstanceID(t *testing.T) {
