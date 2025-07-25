@@ -1233,6 +1233,226 @@ func TestBPFOps(t *testing.T) {
 	}
 }
 
+func TestBPFOps_WildcardServices(t *testing.T) {
+	lc := hivetest.Lifecycle(t)
+	log := hivetest.Logger(t)
+
+	maglevCfg, err := maglev.UserConfig{
+		TableSize: 1021,
+		HashSeed:  maglev.DefaultHashSeed,
+	}.ToConfig()
+	require.NoError(t, err, "ToConfig")
+	maglev := maglev.New(maglevCfg, lc)
+
+	// Enable features.
+	extCfg := loadbalancer.ExternalConfig{
+		ZoneMapper:           &option.DaemonConfig{},
+		EnableIPv4:           true,
+		EnableIPv6:           true,
+		KubeProxyReplacement: true,
+	}
+
+	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
+	cfg.EnableExperimentalLB = true
+
+	var lbmaps maps.LBMaps
+	if testutils.IsPrivileged() {
+		r := &maps.BPFLBMaps{
+			Log:       log,
+			Pinned:    false,
+			Cfg:       cfg,
+			ExtCfg:    extCfg,
+			MaglevCfg: maglevCfg,
+		}
+		lc.Append(r)
+		lbmaps = r
+	} else {
+		lbmaps = maps.NewFakeLBMaps()
+	}
+
+	// Insert node addrs used for NodePort/HostPort
+	db := statedb.New()
+	nodeAddrs, _ := tables.NewNodeAddressTable()
+	require.NoError(t, db.RegisterTable(nodeAddrs))
+	wtxn := db.WriteTxn(nodeAddrs)
+	wtxn.Commit()
+
+	p := bpfOpsParams{
+		Lifecycle:      lc,
+		Log:            log,
+		Config:         cfg,
+		ExternalConfig: extCfg,
+		LBMaps:         lbmaps,
+		Maglev:         maglev,
+		DB:             db,
+		NodeAddresses:  nodeAddrs,
+	}
+
+	t.Run("DropTrafficToVirtualIPs_enabled", func(t *testing.T) {
+		// Test with the feature enabled
+		cfgCopy := cfg
+		cfgCopy.DropTrafficToVirtualIPs = true
+		pCopy := p
+		pCopy.Config = cfgCopy
+		ops := newBPFOps(pCopy)
+
+		// Create a ClusterIP frontend
+		fe := baseFrontend
+		fe.Type = ClusterIP
+		fe.Address = loadbalancer.L3n4Addr{
+			AddrCluster: types.MustParseAddrCluster("10.96.0.1"),
+			L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
+			Scope:       0,
+		}
+		fe.Service = &baseService
+		fe.Backends = func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
+			yield(*baseBackend.GetInstance(testServiceName), 1)
+		}
+
+		// Update should create both the service and wildcard entries
+		err := ops.Update(context.TODO(), db.ReadTxn(), 0, &fe)
+		require.NoError(t, err, "Update")
+
+		// Verify that wildcard service entry was created
+		dump := dumpLBMapsWithReplace(lbmaps, fe.Address, false)
+		wildcardFound := false
+		for _, entry := range dump {
+			// Look for ANY protocol wildcard entry with 0 backends (wildcard service)
+			if strings.Contains(entry, "/ANY") && strings.Contains(entry, "COUNT=0") && strings.Contains(entry, "SLOT=0") {
+				wildcardFound = true
+				break
+			}
+		}
+		require.True(t, wildcardFound, "Wildcard service entry should be created for ClusterIP service")
+
+		// Delete should remove both entries
+		err = ops.Delete(context.TODO(), nil, 0, &fe)
+		require.NoError(t, err, "Delete")
+
+		// Verify wildcard was deleted
+		dump = dumpLBMapsWithReplace(lbmaps, fe.Address, false)
+		wildcardFound = false
+		for _, entry := range dump {
+			if strings.Contains(entry, "/ANY") && strings.Contains(entry, "COUNT=0") && strings.Contains(entry, "SLOT=0") {
+				wildcardFound = true
+				break
+			}
+		}
+		require.False(t, wildcardFound, "Wildcard service entry should be deleted")
+	})
+
+	t.Run("DropTrafficToVirtualIPs_disabled", func(t *testing.T) {
+		// Test with the feature disabled
+		cfgCopy := cfg
+		cfgCopy.DropTrafficToVirtualIPs = false
+		pCopy := p
+		pCopy.Config = cfgCopy
+		ops := newBPFOps(pCopy)
+
+		// Create a ClusterIP frontend
+		fe := baseFrontend
+		fe.Type = ClusterIP
+		fe.Address = loadbalancer.L3n4Addr{
+			AddrCluster: types.MustParseAddrCluster("10.96.0.2"),
+			L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 80},
+			Scope:       0,
+		}
+		fe.Service = &baseService
+		fe.Backends = func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
+			yield(*baseBackend.GetInstance(testServiceName), 1)
+		}
+
+		// Update should create only the service entry, no wildcard
+		err := ops.Update(context.TODO(), db.ReadTxn(), 0, &fe)
+		require.NoError(t, err, "Update")
+
+		// Verify that wildcard service entry was NOT created
+		dump := dumpLBMapsWithReplace(lbmaps, fe.Address, false)
+		wildcardFound := false
+		for _, entry := range dump {
+			if strings.Contains(entry, "/ANY") && strings.Contains(entry, "COUNT=0") && strings.Contains(entry, "SLOT=0") {
+				wildcardFound = true
+				break
+			}
+		}
+		require.False(t, wildcardFound, "Wildcard service entry should NOT be created when feature is disabled")
+	})
+
+	t.Run("NodePort_no_wildcard", func(t *testing.T) {
+		// Test that NodePort services don't get wildcard entries even with feature enabled
+		cfgCopy := cfg
+		cfgCopy.DropTrafficToVirtualIPs = true
+		pCopy := p
+		pCopy.Config = cfgCopy
+		ops := newBPFOps(pCopy)
+
+		// Create a NodePort frontend
+		fe := baseFrontend
+		fe.Type = NodePort
+		fe.Address = loadbalancer.L3n4Addr{
+			AddrCluster: types.MustParseAddrCluster("192.168.1.10"),
+			L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 30080},
+			Scope:       0,
+		}
+		fe.Service = &baseService
+		fe.Backends = func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
+			yield(*baseBackend.GetInstance(testServiceName), 1)
+		}
+
+		// Update should create only the service entry, no wildcard for NodePort
+		err := ops.Update(context.TODO(), db.ReadTxn(), 0, &fe)
+		require.NoError(t, err, "Update")
+
+		// Verify that wildcard service entry was NOT created for NodePort
+		dump := dumpLBMapsWithReplace(lbmaps, fe.Address, false)
+		wildcardFound := false
+		for _, entry := range dump {
+			if strings.Contains(entry, "/ANY") && strings.Contains(entry, "COUNT=0") && strings.Contains(entry, "SLOT=0") {
+				wildcardFound = true
+				break
+			}
+		}
+		require.False(t, wildcardFound, "Wildcard service entry should NOT be created for NodePort services")
+	})
+
+	t.Run("LoadBalancer_with_wildcard", func(t *testing.T) {
+		// Test that LoadBalancer services get wildcard entries when feature is enabled
+		cfgCopy := cfg
+		cfgCopy.DropTrafficToVirtualIPs = true
+		pCopy := p
+		pCopy.Config = cfgCopy
+		ops := newBPFOps(pCopy)
+
+		// Create a LoadBalancer frontend
+		fe := baseFrontend
+		fe.Type = LoadBalancer
+		fe.Address = loadbalancer.L3n4Addr{
+			AddrCluster: types.MustParseAddrCluster("203.0.113.10"),
+			L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 443},
+			Scope:       0,
+		}
+		fe.Service = &baseService
+		fe.Backends = func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
+			yield(*baseBackend.GetInstance(testServiceName), 1)
+		}
+
+		// Update should create both the service and wildcard entries
+		err := ops.Update(context.TODO(), db.ReadTxn(), 0, &fe)
+		require.NoError(t, err, "Update")
+
+		// Verify that wildcard service entry was created
+		dump := dumpLBMapsWithReplace(lbmaps, fe.Address, false)
+		wildcardFound := false
+		for _, entry := range dump {
+			if strings.Contains(entry, "/ANY") && strings.Contains(entry, "COUNT=0") && strings.Contains(entry, "SLOT=0") {
+				wildcardFound = true
+				break
+			}
+		}
+		require.True(t, wildcardFound, "Wildcard service entry should be created for LoadBalancer service")
+	})
+}
+
 // showMaps formats the map dumps as the Go code expected in the test cases.
 func showMaps(m []maps.MapDump) string {
 	var w strings.Builder
