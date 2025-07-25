@@ -9,6 +9,7 @@ import (
 	"encoding/base32"
 	"log/slog"
 	"maps"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -91,15 +92,37 @@ func servicePorts(svcImport *mcsapiv1alpha1.ServiceImport, localSvc *corev1.Serv
 	return ports
 }
 
-func (r *mcsAPIServiceReconciler) addServiceImportDerivedAnnotation(ctx context.Context, svcImport *mcsapiv1alpha1.ServiceImport, derivedServiceName string) error {
-	if svcImport.Annotations == nil {
-		svcImport.Annotations = map[string]string{}
+// getDesiredIPs returns the IPs of the ServiceImport based on the derived Service
+func getDesiredIPs(svc *corev1.Service) []string {
+	if svc.Spec.ClusterIP == corev1.ClusterIPNone {
+		return []string{}
 	}
-	if svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation] != derivedServiceName {
-		svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation] = derivedServiceName
-		if err := r.Client.Update(ctx, svcImport); err != nil {
-			return err
-		}
+	return slices.Clone(svc.Spec.ClusterIPs)
+}
+
+// patchServiceImport patches the ServiceImport with the derived service name and
+// also report back the IPs of the derived service to the ServiceImport.
+func (r *mcsAPIServiceReconciler) patchServiceImport(
+	ctx context.Context, svcImport *mcsapiv1alpha1.ServiceImport,
+	derivedServiceName string, desiredIPs []string,
+) error {
+	updated := false
+	desired := svcImport.DeepCopy()
+	if desired.Annotations == nil {
+		desired.Annotations = map[string]string{}
+	}
+	if desired.Annotations[mcsapicontrollers.DerivedServiceAnnotation] != derivedServiceName {
+		desired.Annotations[mcsapicontrollers.DerivedServiceAnnotation] = derivedServiceName
+		updated = true
+	}
+
+	if !slices.Equal(desired.Spec.IPs, desiredIPs) {
+		desired.Spec.IPs = desiredIPs
+		updated = true
+	}
+
+	if updated {
+		return r.Client.Patch(ctx, desired, client.MergeFrom(svcImport))
 	}
 	return nil
 }
@@ -220,9 +243,8 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	// Update the derived Service annotation on the ServiceImport object
-	// only after that the derived Service has been created for higher consistency.
-	return controllerruntime.Fail(r.addServiceImportDerivedAnnotation(ctx, svcImport, derivedServiceName))
+	// Update the ServiceImport object after the derived Service creation
+	return controllerruntime.Fail(r.patchServiceImport(ctx, svcImport, derivedServiceName, getDesiredIPs(svc)))
 }
 
 // SetupWithManager sets up the controller with the Manager.
