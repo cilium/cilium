@@ -41,14 +41,14 @@ Caveats
   as possible.
 * If you create a ``CiliumEnvoyConfig`` resource directly (ie, not via the
   Cilium Ingress or Gateway API controllers), if the CEC is intended to manage
-  E/W traffic, set the label ``cilium.io/use-original-source-address: "false"``.
+  E/W traffic, set the annotation ``cec.cilium.io/use-original-source-address: "false"``.
   Otherwise, Envoy will bind the sockets for the upstream connection pools to
   the original source address/port. This may cause 5-tuple collisions when pods
   send multiple requests over the same pipelined HTTP/1.1 or HTTP/2 connection.
   (The Cilium agent assumes all CECs with parentRefs pointing to the Cilium
-  Ingress or Gateway API controllers have
-  ``cilium.io/use-original-source-address`` set to ``"false"``, but all other CECs
-  are assumed to have this label set to ``"true"``.)
+  Ingress or Gateway API controllers have annotation
+  ``cec.cilium.io/use-original-source-address`` set to ``"false"``, but all other CECs
+  are assumed to have this annotation set to ``"true"``.)
 
 .. include:: installation.rst
 
