@@ -22,7 +22,6 @@ var Cell = cell.Module(
 	cell.Provide(newK8sWatcher),
 	cell.ProvidePrivate(newK8sPodWatcher),
 	cell.Provide(newK8sCiliumNodeWatcher),
-	cell.ProvidePrivate(newK8sEndpointsWatcher),
 	cell.ProvidePrivate(newK8sCiliumEndpointsWatcher),
 	cell.Provide(newK8sEventReporter),
 )
@@ -37,7 +36,6 @@ type k8sWatcherParams struct {
 	K8sEventReporter          *K8sEventReporter
 	K8sPodWatcher             *K8sPodWatcher
 	K8sCiliumNodeWatcher      *K8sCiliumNodeWatcher
-	K8sEndpointsWatcher       *K8sEndpointsWatcher
 	K8sCiliumEndpointsWatcher *K8sCiliumEndpointsWatcher
 
 	AgentConfig *option.DaemonConfig
@@ -57,7 +55,6 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.Clientset,
 		params.K8sPodWatcher,
 		params.K8sCiliumNodeWatcher,
-		params.K8sEndpointsWatcher,
 		params.K8sCiliumEndpointsWatcher,
 		params.K8sEventReporter,
 		params.K8sResourceSynced,
