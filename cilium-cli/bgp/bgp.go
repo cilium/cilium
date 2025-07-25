@@ -23,6 +23,7 @@ type Parameters struct {
 	Writer           io.Writer
 	WaitDuration     time.Duration
 	Output           string
+	ShowCaps         bool
 }
 
 // Status is used to get bgp state from cilium agents

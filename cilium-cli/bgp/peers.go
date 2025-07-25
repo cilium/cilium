@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/status"
+	"github.com/cilium/cilium/pkg/bgpv1/api"
 )
 
 const (
@@ -129,7 +130,11 @@ func (s *Status) writeStatus(res map[string][]*models.BgpPeer) error {
 		}
 		fmt.Println(string(jsonStatus))
 	} else {
-		printSummary(os.Stdout, res)
+		if s.params.ShowCaps {
+			printAllPeersCaps(os.Stdout, res)
+		} else {
+			printSummary(os.Stdout, res)
+		}
 	}
 
 	return nil
@@ -183,4 +188,25 @@ func printSummary(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
 		}
 	}
 	w.Flush()
+}
+
+func printAllPeersCaps(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
+	if len(peersPerNode) == 0 {
+		fmt.Fprintln(out, "No BGP peer sessions found on any node")
+	}
+
+	// sort by node names
+	nodes := slices.Sorted(maps.Keys(peersPerNode))
+	// sort peers per node
+	for _, peers := range peersPerNode {
+		// sort by local AS, if peers from same AS then sort by peer address.
+		sort.Slice(peers, func(i, j int) bool {
+			return peers[i].LocalAsn < peers[j].LocalAsn || peers[i].PeerAddress < peers[j].PeerAddress
+		})
+	}
+	for _, node := range nodes {
+		fmt.Fprintf(out, "Cilium node: %s\n", node)
+		peers := peersPerNode[node]
+		api.PrintBGPPeersCaps(out, peers)
+	}
 }

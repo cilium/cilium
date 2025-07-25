@@ -52,7 +52,7 @@ func newCmdBgpPeers() *cobra.Command {
 	cmd.Flags().StringVar(&params.NodeName, "node", "", "Node from which BGP status will be fetched, omit to select all nodes")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
-
+	cmd.Flags().BoolVarP(&params.ShowCaps, "capabilities", "c", false, "Show all BGP peer capabilities in detail")
 	return cmd
 }
 
