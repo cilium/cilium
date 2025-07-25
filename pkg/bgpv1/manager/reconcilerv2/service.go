@@ -165,14 +165,14 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcilePa
 		}
 	}
 
-	// populate locally available services
-	ls, err := r.populateLocalServices(p.CiliumNode.Name)
+	// populate routable services based on eTP/iTP and active backends
+	rs, err := r.populateRoutableServices(p.CiliumNode.Name)
 	if err != nil {
 		return fmt.Errorf("failed to populate local services: %w", err)
 	}
 
 	// get desired service route policies
-	desiredSvcRoutePolicies, err = r.getDesiredRoutePolicies(p, desiredPeerAdverts, toReconcile, toWithdraw, ls)
+	desiredSvcRoutePolicies, err = r.getDesiredRoutePolicies(p, desiredPeerAdverts, toReconcile, toWithdraw, rs)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcilePa
 	}
 
 	// get desired service paths
-	desiredSvcPaths, err = r.getDesiredPaths(p, desiredPeerAdverts, toReconcile, toWithdraw, ls)
+	desiredSvcPaths, err = r.getDesiredPaths(p, desiredPeerAdverts, toReconcile, toWithdraw, rs)
 	if err != nil {
 		return err
 	}
@@ -333,9 +333,9 @@ func (r *ServiceReconciler) updateServiceAdvertisementsMetadata(p ReconcileParam
 	})
 }
 
-// Populate locally available services used for externalTrafficPolicy=local handling
-func (r *ServiceReconciler) populateLocalServices(localNodeName string) (sets.Set[resource.Key], error) {
-	ls := sets.New[resource.Key]()
+// Populate routable services hold a map of announceable service IPs for potential route withdrawal
+func (r *ServiceReconciler) populateRoutableServices(localNodeName string) (sets.Set[resource.Key], error) {
+	rs := sets.New[resource.Key]()
 
 	epList, err := r.epDiffStore.List()
 	if err != nil {
@@ -344,7 +344,7 @@ func (r *ServiceReconciler) populateLocalServices(localNodeName string) (sets.Se
 
 endpointsLoop:
 	for _, eps := range epList {
-		_, exists, err := r.resolveSvcFromEndpoints(eps)
+		svc, exists, err := r.resolveSvcFromEndpoints(eps)
 		if err != nil {
 			// Cannot resolve service from EPs. We have nothing to do here.
 			continue
@@ -355,26 +355,40 @@ endpointsLoop:
 			continue
 		}
 
+		// Zero endpoints mean that route should be withdrawed -> we do not store svcID in the rs map
+		if len(eps.Backends) == 0 {
+			continue
+		}
+
 		svcKey := resource.Key{
 			Name:      eps.ServiceName.Name(),
 			Namespace: eps.ServiceName.Namespace(),
 		}
 
-		for _, be := range eps.Backends {
-			if !be.Terminating && be.NodeName == localNodeName {
-				// At least one endpoint is available on this node. We
-				// can add service to the local services set.
-				ls.Insert(svcKey)
-				continue endpointsLoop
+		// We only care about local endpoints when eTP or iTP is Local.
+		if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal ||
+			(svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal) {
+			for _, be := range eps.Backends {
+				// In case no **local** endpoint was found we do not store svcID in the map
+				// as svc should be withdrawed in case of remote ep (and/or no endpoints at all)
+				if !be.Terminating && be.NodeName == localNodeName {
+					// At least one endpoint is available on this node and eTP or iTP is set to Local.
+					// We can add service to the routable services set.
+					rs.Insert(svcKey)
+					continue endpointsLoop
+				}
 			}
+		} else {
+			// For eTP/iTP=Cluster any endpoint is valid
+			rs.Insert(svcKey)
 		}
 	}
 
-	return ls, nil
+	return rs, nil
 }
 
-func hasLocalEndpoints(svc *slim_corev1.Service, ls sets.Set[resource.Key]) bool {
-	return ls.Has(resource.Key{Name: svc.GetName(), Namespace: svc.GetNamespace()})
+func hasValidEndpoints(svc *slim_corev1.Service, rs sets.Set[resource.Key]) bool {
+	return rs.Has(resource.Key{Name: svc.GetName(), Namespace: svc.GetNamespace()})
 }
 
 func (r *ServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_corev1.Service, bool, error) {
@@ -441,11 +455,8 @@ func (r *ServiceReconciler) diffReconciliationServiceList(p ReconcileParams) (to
 			continue
 		}
 
-		// We only need Endpoints tracking for externalTrafficPolicy=Local or internalTrafficPolicy=Local services.
-		if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal ||
-			(svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal) {
-			upserted = append(upserted, svc)
-		}
+		// We keep track of endpoint changes for potential withdrawal
+		upserted = append(upserted, svc)
 	}
 
 	// We may have duplicated services that changes happened for both of
@@ -562,11 +573,10 @@ func (r *ServiceReconciler) getServicePrefixes(svc *slim_corev1.Service, advert 
 	return desiredRoutes, nil
 }
 
-func (r *ServiceReconciler) getExternalIPPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], advert v2.BGPAdvertisement) []netip.Prefix {
+func (r *ServiceReconciler) getExternalIPPaths(svc *slim_corev1.Service, rs sets.Set[resource.Key], advert v2.BGPAdvertisement) []netip.Prefix {
 	var desiredRoutes []netip.Prefix
-	// Ignore externalTrafficPolicy == Local && no local EPs.
-	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal &&
-		!hasLocalEndpoints(svc, ls) {
+
+	if !hasValidEndpoints(svc, rs) {
 		return desiredRoutes
 	}
 	for _, extIP := range svc.Spec.ExternalIPs {
@@ -586,11 +596,10 @@ func (r *ServiceReconciler) getExternalIPPaths(svc *slim_corev1.Service, ls sets
 	return desiredRoutes
 }
 
-func (r *ServiceReconciler) getClusterIPPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], advert v2.BGPAdvertisement) []netip.Prefix {
+func (r *ServiceReconciler) getClusterIPPaths(svc *slim_corev1.Service, rs sets.Set[resource.Key], advert v2.BGPAdvertisement) []netip.Prefix {
 	var desiredRoutes []netip.Prefix
-	// Ignore internalTrafficPolicy == Local && no local EPs.
-	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal &&
-		!hasLocalEndpoints(svc, ls) {
+
+	if !hasValidEndpoints(svc, rs) {
 		return desiredRoutes
 	}
 	if svc.Spec.ClusterIP == "" || len(svc.Spec.ClusterIPs) == 0 || svc.Spec.ClusterIP == corev1.ClusterIPNone {
@@ -620,14 +629,13 @@ func (r *ServiceReconciler) getClusterIPPaths(svc *slim_corev1.Service, ls sets.
 	return desiredRoutes
 }
 
-func (r *ServiceReconciler) getLBSvcPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], advert v2.BGPAdvertisement) []netip.Prefix {
+func (r *ServiceReconciler) getLBSvcPaths(svc *slim_corev1.Service, rs sets.Set[resource.Key], advert v2.BGPAdvertisement) []netip.Prefix {
 	var desiredRoutes []netip.Prefix
 	if svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
 		return desiredRoutes
 	}
-	// Ignore externalTrafficPolicy == Local && no local EPs.
-	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal &&
-		!hasLocalEndpoints(svc, ls) {
+
+	if !hasValidEndpoints(svc, rs) {
 		return desiredRoutes
 	}
 	// Ignore service managed by an unsupported LB class.
@@ -659,6 +667,10 @@ func (r *ServiceReconciler) getServiceRoutePolicy(peer PeerID, family types.Fami
 	peerAddr, err := netip.ParseAddr(peer.Address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse peer address: %w", err)
+	}
+
+	if !hasValidEndpoints(svc, ls) {
+		return nil, nil
 	}
 
 	valid, err := checkServiceAdvertisement(advert, advertType)
