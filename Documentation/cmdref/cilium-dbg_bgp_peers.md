@@ -15,6 +15,7 @@ cilium-dbg bgp peers [flags]
 ### Options
 
 ```
+  -c, --caps            Show BGP peer capabilities in detail
   -h, --help            help for peers
   -o, --output string   json| yaml| jsonpath='{}'
 ```

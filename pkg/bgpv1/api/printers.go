@@ -4,7 +4,9 @@
 package api
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -57,6 +59,24 @@ func PrintBGPPeersTable(w *tabwriter.Writer, peers []*models.BgpPeer, printUptim
 		}
 	}
 	w.Flush()
+}
+
+// PrintBGPPeersCaps prints the capabilities of the provided BGP peers.
+func PrintBGPPeersCaps(w io.Writer, peers []*models.BgpPeer) {
+	if len(peers) == 0 {
+		fmt.Fprintf(w, "No BGP peer sessions found on this node\n")
+	}
+
+	for _, peer := range peers {
+		fmt.Fprintf(w, "BGP neighbor is %s, remote AS %d\n", peer.PeerAddress, peer.PeerAsn)
+		fmt.Fprintf(w, "  Neighbor capabilities:\n")
+		if len(peer.RemoteCapabilities) == 0 {
+			fmt.Fprintf(w, "    No capabilities found\n")
+		}
+		for _, cap := range peer.RemoteCapabilities {
+			fmt.Fprintf(w, "    %s\n", printCapability(cap))
+		}
+	}
 }
 
 // PrintBGPRoutesTable prints table of provided BGP routes in the provided tab writer.
@@ -189,4 +209,104 @@ func formatPathActions(stmt *models.BgpRoutePolicyStatement) []string {
 		res = append(res, fmt.Sprintf("AddLargeCommunities: %v", stmt.AddLargeCommunities))
 	}
 	return res
+}
+func printCapability(c *models.BgpCapability) string {
+	bin, err := base64.StdEncoding.DecodeString(c.Capability)
+	if err != nil {
+		return fmt.Sprintf("Could not decode from base64 to bytes %s: %s", c.Capability, err)
+	}
+	capability, err := bgppacket.DecodeCapability(bin)
+	if err != nil {
+		return fmt.Sprintf("Could not decode from bytes to capability %s: %s", c.Capability, err)
+	}
+	switch capability.Code() {
+	case bgppacket.BGP_CAP_MULTIPROTOCOL:
+		m := capability.(*bgppacket.CapMultiProtocol)
+		return fmt.Sprintf("%s: %s", m.Code(), m.CapValue)
+	case bgppacket.BGP_CAP_GRACEFUL_RESTART:
+		grStr := func(g *bgppacket.CapGracefulRestart) string {
+			str := "        "
+			if len(g.Tuples) > 0 {
+				str += fmt.Sprintf("restart time %d sec", g.Time)
+			}
+			if g.Flags&0x08 > 0 {
+				if len(strings.TrimSpace(str)) > 0 {
+					str += ", "
+				}
+				str += "restart flag set"
+			}
+			if g.Flags&0x04 > 0 {
+				if len(strings.TrimSpace(str)) > 0 {
+					str += ", "
+				}
+				str += "notification flag set"
+			}
+
+			if len(str) > 0 {
+				str += "\n"
+			}
+			for _, t := range g.Tuples {
+				str += fmt.Sprintf("        %s", bgppacket.AfiSafiToRouteFamily(t.AFI, t.SAFI))
+				if t.Flags == 0x80 {
+					str += ", forward flag set"
+				}
+				str += "\n"
+			}
+			return str
+		}
+		g := capability.(*bgppacket.CapGracefulRestart)
+		return fmt.Sprintf("%s:\n%s", g.Code(), grStr(g))
+	case bgppacket.BGP_CAP_LONG_LIVED_GRACEFUL_RESTART:
+		grStr := func(g *bgppacket.CapLongLivedGracefulRestart) string {
+			var str string
+			for _, t := range g.Tuples {
+				str += fmt.Sprintf("        %s, restart time %d sec", bgppacket.AfiSafiToRouteFamily(t.AFI, t.SAFI), t.RestartTime)
+				if t.Flags == 0x80 {
+					str += ", forward flag set"
+				}
+				str += "\n"
+			}
+			return str
+		}
+		g := capability.(*bgppacket.CapLongLivedGracefulRestart)
+		return fmt.Sprintf("%s:\n%s", g.Code(), grStr(g))
+	case bgppacket.BGP_CAP_EXTENDED_NEXTHOP:
+		exnhStr := func(e *bgppacket.CapExtendedNexthop) string {
+			lines := make([]string, 0, len(e.Tuples))
+			for _, t := range e.Tuples {
+				var nhafi string
+				switch int(t.NexthopAFI) {
+				case bgppacket.AFI_IP:
+					nhafi = "ipv4"
+				case bgppacket.AFI_IP6:
+					nhafi = "ipv6"
+				default:
+					nhafi = fmt.Sprintf("%d", t.NexthopAFI)
+				}
+				line := fmt.Sprintf("        nlri: %s, nexthop: %s", bgppacket.AfiSafiToRouteFamily(t.NLRIAFI, uint8(t.NLRISAFI)), nhafi)
+				lines = append(lines, line)
+			}
+			return strings.Join(lines, "\n")
+		}
+		e := capability.(*bgppacket.CapExtendedNexthop)
+		return fmt.Sprintf("%s:\n%s", e.Code(), exnhStr(e))
+	case bgppacket.BGP_CAP_ADD_PATH:
+		addPathStr := func(a *bgppacket.CapAddPath) string {
+			var str string
+			for _, item := range a.Tuples {
+				str += fmt.Sprintf("         %s:\t%s\n", item.RouteFamily, item.Mode)
+			}
+			return str
+		}
+		a := capability.(*bgppacket.CapAddPath)
+		return fmt.Sprintf("%s:\n%s", a.Code(), addPathStr(a))
+	case bgppacket.BGP_CAP_FQDN:
+		f := capability.(*bgppacket.CapFQDN)
+		return fmt.Sprintf("%s: name: %s, domain: %s", f.Code(), f.HostName, f.DomainName)
+	case bgppacket.BGP_CAP_SOFT_VERSION:
+		s := capability.(*bgppacket.CapSoftwareVersion)
+		return fmt.Sprintf("%s: %s", s.Code(), s.SoftwareVersion)
+	default:
+		return capability.Code().String()
+	}
 }

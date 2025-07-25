@@ -79,6 +79,17 @@ func (in *BgpPeer) DeepCopyInto(out *BgpPeer) {
 		*out = new(BgpGracefulRestart)
 		**out = **in
 	}
+	if in.RemoteCapabilities != nil {
+		in, out := &in.RemoteCapabilities, &out.RemoteCapabilities
+		*out = make([]*BgpCapability, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(BgpCapability)
+				**out = **in
+			}
+		}
+	}
 	return
 }
 
