@@ -11,7 +11,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -32,16 +31,14 @@ type httpRouteReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	logger       *slog.Logger
-	optionalGVKs []schema.GroupVersionKind
+	logger *slog.Logger
 }
 
 func newHTTPRouteReconciler(mgr ctrl.Manager, logger *slog.Logger) *httpRouteReconciler {
 	return &httpRouteReconciler{
-		Client:       mgr.GetClient(),
-		Scheme:       mgr.GetScheme(),
-		logger:       logger,
-		optionalGVKs: optionalGVKs,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		logger: logger,
 	}
 }
 
