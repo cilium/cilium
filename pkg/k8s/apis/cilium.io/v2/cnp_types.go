@@ -203,6 +203,9 @@ func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (ap
 			if err := rule.Sanitize(); err != nil {
 				return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
 			}
+			if rule.NodeSelector.LabelSelector != nil {
+				return nil, NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+			}
 			cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, rule)
 			retRules = append(retRules, cr)
 		}
