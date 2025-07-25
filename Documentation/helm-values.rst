@@ -1028,6 +1028,10 @@
      - Enable Multi-Cluster Services API support
      - bool
      - ``false``
+   * - :spelling:ignore:`clustermesh.mcsapi.installCRDs`
+     - Enabled MCS-API CRDs auto-installation
+     - bool
+     - ``true``
    * - :spelling:ignore:`clustermesh.policyDefaultLocalCluster`
      - Control whether policy rules assume by default the local cluster if not explicitly selected
      - bool

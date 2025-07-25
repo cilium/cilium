@@ -76,7 +76,7 @@ func registerServiceExportSync(jg job.Group, cfg ServiceExportSyncParameters) {
 			func(ctx context.Context, _ cell.Health) error {
 				(&serviceExportSync{
 					logger:      cfg.Logger,
-					enabled:     cfg.Config.ClusterMeshEnableMCSAPI,
+					enabled:     cfg.Config.EnableMCSAPI,
 					clusterName: cfg.ClusterInfo.Name,
 
 					clientset:      cfg.Clientset,
