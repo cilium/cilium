@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -102,6 +104,7 @@ type gatewayAPIParams struct {
 
 	AgentConfig      *option.DaemonConfig
 	OperatorConfig   *operatorOption.OperatorConfig
+	MCSAPIConfig     mcsapitypes.MCSAPIConfig
 	GatewayApiConfig gatewayApiConfig
 }
 
@@ -128,6 +131,10 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 	if err != nil {
 		params.Logger.Error("Required GatewayAPI resources are not found, please refer to docs for installation instructions", logfields.Error, err)
 		return nil
+	}
+	if params.MCSAPIConfig.ShouldInstallMCSAPICrds() && !slices.Contains(installedKinds, mcsapiv1alpha1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind)) {
+		// We can just assume ServiceImport are installed if we are going to install it
+		installedKinds = append(installedKinds, mcsapiv1alpha1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind))
 	}
 
 	if err := registerGatewayAPITypesToScheme(params.Scheme, installedKinds); err != nil {
