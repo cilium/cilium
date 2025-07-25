@@ -595,16 +595,9 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16
 }
 
 static __always_inline void
-lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
-	key->proto = protocol;
-}
-
-static __always_inline void
 lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
 {
-	lb6_key_set_protocol(key, tuple->nexthdr);
+	key->proto = tuple->nexthdr;
 	ipv6_addr_copy(&key->address, &tuple->daddr);
 	key->dport = tuple->sport;
 }
@@ -684,37 +677,63 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 static __always_inline
 struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 {
-	struct lb6_service *svc;
-
-	svc = map_lookup_elem(&cilium_lb6_services_v2, key);
-
-	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != IPPROTO_ANY) {
-		key->proto = IPPROTO_ANY;
-		svc = map_lookup_elem(&cilium_lb6_services_v2, key);
-	}
-
-	return svc;
+	return map_lookup_elem(&cilium_lb6_services_v2, key);
 }
 
+/*
+ * Perform an IPv6 service lookup against an lb6_key.
+ *
+ * See lb4_lookup_service() for routine semantics.
+ *
+ * @param[in,out]   key            Pointer to lb6_key to lookup
+ * @param[in]       scope_switch   Switch to internal scope if external lookup
+ *                                 is successful
+ * 
+ * @returns Pointer to a service map entry, or NULL
+ */
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 				       const bool scope_switch)
 {
-	__u8 orig_proto = key->proto;
 	struct lb6_service *svc;
 
 	key->backend_slot = 0;
 
+	/* External scope lookup */
+
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb6_lookup_service(key);
 	if (!svc)
+	{
+		/* If no service exists, look for a wildcard entry, which should be
+		 * programmed with dport = WILDCARD_DPORT and proto = WILDCARD_PROTO. */
+
+		__u8 orig_proto = key->proto;
+		__u16 orig_dport = key->dport;
+
+		key->dport = LB_SVC_WILDCARD_DPORT;
+		key->proto = LB_SVC_WILDCARD_PROTO;
+
+		svc = __lb6_lookup_service(key);
+		if (svc)
+			return svc;
+		
+		/* Ensure we restore the original key values */
+
+		key->dport = orig_dport;
+		key->proto = orig_proto;
+
+		/* If we have no external scope for this, it's safe to return NULL here
+		 * because there can't be an internal scope. (For now.) */
+
 		return NULL;
+	}
 
 	if (!scope_switch || !lb6_svc_is_two_scopes(svc))
 		return svc;
+	
+	/* Perform internal scope lookup */
 
-	key->proto = orig_proto;
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb6_lookup_service(key);
 }
@@ -1202,12 +1221,6 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key __maybe_unused,
 	return NULL;
 }
 
-static __always_inline void
-lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
-}
-
 static __always_inline
 struct lb6_service *__lb6_lookup_backend_slot(struct lb6_key *key __maybe_unused)
 {
@@ -1326,16 +1339,9 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 }
 
 static __always_inline void
-lb4_key_set_protocol(struct lb4_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
-	key->proto = protocol;
-}
-
-static __always_inline void
 lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
 {
-	lb4_key_set_protocol(key, tuple->nexthdr);
+	key->proto = tuple->nexthdr;
 	key->address = tuple->daddr;
 	/* CT tuple has ports in reverse order: */
 	key->dport = tuple->sport;
@@ -1415,37 +1421,70 @@ lb4_to_lb6_service(const struct lb4_service *svc __maybe_unused)
 static __always_inline
 struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 {
-	struct lb4_service *svc;
-
-	svc = map_lookup_elem(&cilium_lb4_services_v2, key);
-
-	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != IPPROTO_ANY) {
-		key->proto = IPPROTO_ANY;
-		svc = map_lookup_elem(&cilium_lb4_services_v2, key);
-	}
-
-	return svc;
+	return map_lookup_elem(&cilium_lb4_services_v2, key);
 }
 
+/*
+ * Perform an IPv4 service lookup against an lb4_key.
+ *
+ * This routine will perform an inital map lookup with an external scope. If the
+ * external scope lookup fails, an additional wildcard lookup will be undertaken
+ * with a zeroised dport and protocol field. If found, the wildcard service entry
+ * will be returned and the key changes will be propagated. Otherwise, the key
+ * values will be restored.
+ * 
+ * Where scope_switch is TRUE, an external non-wildcard lookup must be found
+ * before search can progress to an internal lookup.
+ *
+ * @param[in,out]   key            Pointer to lb4_key to lookup
+ * @param[in]       scope_switch   Switch to internal scope if external lookup
+ *                                 is successful
+ * 
+ * @returns Pointer to a service map entry, or NULL
+ **/
 static __always_inline
 struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 				       const bool scope_switch)
 {
-	__u8 orig_proto = key->proto;
 	struct lb4_service *svc;
 
 	key->backend_slot = 0;
 
+	/* External scope lookup */
+
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb4_lookup_service(key);
 	if (!svc)
-		return NULL;
+	{
+		/* If no service exists, look for a wildcard entry, which should be
+		 * programmed with dport = WILDCARD_DPORT and proto = WILDCARD_PROTO. */
 
+	 	__u8 orig_proto = key->proto;
+		__u16 orig_dport = key->dport;
+
+		key->dport = LB_SVC_WILDCARD_DPORT;
+		key->proto = LB_SVC_WILDCARD_PROTO;
+
+		svc = __lb4_lookup_service(key);
+		if (svc)
+			return svc;
+
+		/* Ensure we restore the original key values */
+
+		key->dport = orig_dport;
+		key->proto = orig_proto;
+
+		/* If we have no external scope for this, it's safe to return NULL here
+		 * because there can't be an internal scope. (For now.) */
+
+		return NULL;
+	}
+	
 	if (!scope_switch || !lb4_svc_is_two_scopes(svc))
 		return svc;
+	
+	/* Perform internal scope lookup */
 
-	key->proto = orig_proto;
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb4_lookup_service(key);
 }

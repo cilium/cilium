@@ -46,6 +46,14 @@ const (
 	initGracePeriod = 10 * time.Second
 )
 
+const (
+	// WildcardProtoNumber is basically IPPROTO_ANY
+	WildcardProtoNumber u8proto.U8proto = u8proto.ANY
+
+	// WildcardPortNumber is a zero destination port number
+	WildcardPortNumber uint16 = 0
+)
+
 func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config, ops *BPFOps, fes statedb.Table[*loadbalancer.Frontend], w *writer.Writer) (reconciler.Reconciler[*loadbalancer.Frontend], error) {
 	if !w.IsEnabled() {
 		return nil, nil
@@ -150,6 +158,9 @@ type BPFOps struct {
 	// This is used when updating to remove orphans.
 	prevSourceRanges map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]
 
+	// wildcardAddrs maps an IP Address to a set of parent Service IDs
+	wildcardAddrs map[netip.Addr]sets.Set[loadbalancer.ServiceID]
+
 	// nodePortAddrByPort are the last used NodePort addresses for a given NodePort
 	// (or HostPort) service (by port).
 	nodePortAddrByPort map[nodePortAddrKey][]netip.Addr
@@ -159,8 +170,14 @@ type BPFOps struct {
 }
 
 type nodePortAddrKey struct {
+	// family is Address Family of the key
 	family loadbalancer.IPFamily
-	port   uint16
+
+	// protocol is the Layer 4 protocol number of the key
+	protocol u8proto.U8proto
+
+	// port is the Layer 4 port number of the key
+	port uint16
 }
 
 type backendState struct {
@@ -219,6 +236,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.restoredBackendIDs = map[loadbalancer.L3n4Addr]loadbalancer.BackendID{}
 	ops.backendStates = map[loadbalancer.L3n4Addr]backendState{}
 	ops.backendReferences = map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{}
+	ops.wildcardAddrs = map[netip.Addr]sets.Set[loadbalancer.ServiceID]{}
 	ops.nodePortAddrByPort = map[nodePortAddrKey][]netip.Addr{}
 	ops.prevSourceRanges = map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{}
 
@@ -335,7 +353,8 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revisi
 	if fe.Type == loadbalancer.SVCTypeNodePort ||
 		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster.IsUnspecified() {
 
-		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port}
+		proto := loadbalancer.L4TypeAsIanaProtocolNumber(fe.Address.Protocol)
+		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port, protocol: proto}
 		addrs := ops.nodePortAddrByPort[key]
 		for _, addr := range addrs {
 			fe = fe.Clone()
@@ -465,6 +484,12 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		delete(ops.prevSourceRanges, fe.Address)
 	}
 
+	// Cleanup any wildcard entries this fe might be associated with
+
+	if err := ops.deleteWildcard(fe); err != nil {
+		return fmt.Errorf("delete wildcard: %w", err)
+	}
+
 	// Decrease the backend reference counts and drop state associated with the frontend.
 	ops.updateBackendRefCounts(fe.Address, nil)
 	delete(ops.backendReferences, fe.Address)
@@ -475,18 +500,29 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 
 func (ops *BPFOps) pruneServiceMaps() error {
 	toDelete := []maps.ServiceKey{}
+
 	svcCB := func(svcKey maps.ServiceKey, svcValue maps.ServiceValue) {
 		svcKey = svcKey.ToHost()
 		svcValue = svcValue.ToHost()
+
 		ac, ok := cmtypes.AddrClusterFromIP(svcKey.GetAddress())
 		if !ok {
 			ops.log.Warn("Prune: bad address in service key", logfields.Key, svcKey)
 			return
 		}
-		proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
+
+		port := svcKey.GetPort()
+		proto := svcKey.GetProtocol()
+
+		// Don't delete wildcard entries, which by definition have no backend refs.
+
+		if port == WildcardPortNumber && proto == uint8(WildcardProtoNumber) {
+			return
+		}
+
 		addr := loadbalancer.L3n4Addr{
 			AddrCluster: ac,
-			L4Addr:      loadbalancer.L4Addr{Protocol: proto, Port: svcKey.GetPort()},
+			L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.NewL4TypeFromNumber(proto), Port: port},
 			Scope:       svcKey.GetScope(),
 		}
 		expectedSlots := 0
@@ -672,7 +708,9 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster.IsUnspecified() {
 		// For NodePort create entries for each node address.
 		// For HostPort only create them if the address was not specified (HostIP is unset).
-		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port}
+
+		proto := loadbalancer.L4TypeAsIanaProtocolNumber(fe.Address.Protocol)
+		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port, protocol: proto}
 		old := sets.New(ops.nodePortAddrByPort[key]...)
 
 		// Collect the node addresses suitable for NodePort that match the IP family of
@@ -995,6 +1033,17 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
+	// Upsert wildcard entries such that the data path will have a service entry for any
+	// LB VIP that receives traffic for an unknown protocol or port combination.
+
+	ops.log.Debug("Update wildcard", logfields.ID, feID)
+	if err := ops.upsertWildcard(fe); err != nil {
+		return fmt.Errorf("upsert wildcard: %w", err)
+	}
+
+	// Calculate the number of existing backend references, so we can cleanup if there there
+	// has been a change.
+
 	numPreviousBackends := len(ops.backendReferences[fe.Address])
 
 	if backendCount != numPreviousBackends {
@@ -1009,6 +1058,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 	// Finally update the new references. This makes sure any failures reconciling the service slots
 	// above can be retried and entries are not leaked.
+
 	ops.updateReferences(fe.Address, backendAddrs)
 
 	return nil
@@ -1058,6 +1108,20 @@ func (ops *BPFOps) useMaglev(fe *loadbalancer.Frontend) bool {
 	}
 }
 
+// Identify if a Frontend should invoke wildcard service entries.
+//
+// @param[in]    fe    Pointer to a Frontend object
+//
+// @returns true or false
+func (ops *BPFOps) useWildcard(fe *loadbalancer.Frontend) bool {
+	switch fe.Type {
+	case loadbalancer.SVCTypeLoadBalancer:
+	case loadbalancer.SVCTypeClusterIP:
+		return true
+	}
+	return false
+}
+
 func (ops *BPFOps) upsertService(svcKey maps.ServiceKey, svcVal maps.ServiceValue) error {
 	var err error
 	svcKey = svcKey.ToNetwork()
@@ -1072,6 +1136,11 @@ func (ops *BPFOps) upsertService(svcKey maps.ServiceKey, svcVal maps.ServiceValu
 			svcKey, svcVal, loadbalancer.LBMapEntriesName)
 	}
 	return err
+}
+
+func (ops *BPFOps) deleteService(svcKey maps.ServiceKey) error {
+	svcKey = svcKey.ToNetwork()
+	return ops.LBMaps.DeleteService(svcKey)
 }
 
 func (ops *BPFOps) upsertMaster(svcKey maps.ServiceKey, svcVal maps.ServiceValue, fe *loadbalancer.Frontend, activeBackends, inactiveBackends int) error {
@@ -1199,6 +1268,142 @@ func (ops *BPFOps) updateMaglev(fe *loadbalancer.Frontend, feID loadbalancer.Ser
 	if err := ops.LBMaps.UpdateMaglev(maps.MaglevOuterKey{RevNatID: uint16(feID)}, maglevTable, fe.Address.IsIPv6()); err != nil {
 		return fmt.Errorf("ops.LBMaps.UpdateMaglev failed: %w", err)
 	}
+	return nil
+}
+
+// Upsert a wildcard entry into the data path based on an update to a Frontend.
+//
+// This routine updates relationships between a Frontend service and an associated wildcard
+// entry in the data path, used to drop traffic for unknown protocol/dest port combinations.
+//
+// There can be N frontend services to 1 wildcard entry, so we track the relationships via
+// presence of a parent ServiceID in the wildcardAddrs map set. Only if the frontend
+// is the first service to be inserted into the set at the specified IP address will the
+// wildcard entry be programmed into the data path.
+//
+// This routine will have no effect if the frontend type is not LoadBalancer or ClusterIP,
+// or if the Frontend is already present in the wildcardAddrs map set.
+//
+// @param[in]    fe    Pointer to a Frontend object
+//
+// @returns Nil on success, error otherwise.
+func (ops *BPFOps) upsertWildcard(fe *loadbalancer.Frontend) error {
+
+	if !ops.useWildcard(fe) {
+		return nil
+	}
+
+	// Identify the wildcard address we will use as key into wildcardStates. This
+	// is basically the Frontend IP address.
+
+	addr := fe.Address.AddrCluster.Addr()
+
+	if ops.wildcardAddrs[addr] == nil {
+		ops.wildcardAddrs[addr] = sets.New[loadbalancer.ServiceID]()
+	}
+
+	// If the Frontend ServiceID already exists in the wildcardAddrs set, we take
+	// no action because the FE must already be mapped to a wildcard service entry.
+
+	if ops.wildcardAddrs[addr].Has(fe.ID) {
+		return nil
+	}
+
+	// If there's nothing in the wildcard addr service set, we need to insert the
+	// wildcard entry into the data path
+
+	if ops.wildcardAddrs[addr].Len() == 0 {
+
+		var wildcardKey maps.ServiceKey
+		var wildcardVal maps.ServiceValue
+
+		if addr.Is6() {
+			wildcardKey = maps.NewService6Key(addr.AsSlice(), WildcardPortNumber,
+				WildcardProtoNumber, loadbalancer.ScopeExternal, 0)
+			wildcardVal = &maps.Service6Value{}
+		} else {
+			wildcardKey = maps.NewService4Key(addr.AsSlice(), WildcardPortNumber,
+				WildcardProtoNumber, loadbalancer.ScopeExternal, 0)
+			wildcardVal = &maps.Service4Value{}
+		}
+
+		// We don't need to apply any configuration into the wildcard Value, because
+		// the data path will only use this to trigger a drop.
+
+		ops.log.Debug("Update wildcard service entry for first parent service",
+			logfields.ServiceID, fe.ID,
+			logfields.Type, fe.Type,
+			logfields.Address, fe.Address)
+
+		if err := ops.upsertService(wildcardKey, wildcardVal); err != nil {
+			return fmt.Errorf("upsert wildcard: %w", err)
+		}
+	}
+
+	// A wildcard entry will now exist in the data path, irrespective of whether this
+	// is the first service or not. Insert the service ID into this wildcard entry.
+
+	ops.wildcardAddrs[addr].Insert(fe.ID)
+
+	return nil
+}
+
+// Delete a wildcard entry based on the deletion of a Frontend.
+//
+// See upsertWildcard() for semantics. This does the reverse.
+//
+// @param[in]    fe    Pointer to a Frontend object
+//
+// @returns Nil on success, error otherwise
+func (ops *BPFOps) deleteWildcard(fe *loadbalancer.Frontend) error {
+
+	if !ops.useWildcard(fe) {
+		return nil
+	}
+
+	// Identify the wildcard map entry from the frontend address
+
+	addr := fe.Address.AddrCluster.Addr()
+
+	if ops.wildcardAddrs[addr] == nil {
+		return nil
+	}
+
+	// Just take the frontend Service ID out the set.
+
+	if ops.wildcardAddrs[addr].Has(fe.ID) {
+		ops.wildcardAddrs[addr].Delete(fe.ID)
+	}
+
+	// If there are no more ServiceIDs in the set for this wildcard, we can remove
+	// the underlying data path map.
+
+	if ops.wildcardAddrs[addr].Len() == 0 {
+
+		var wildcardKey maps.ServiceKey
+
+		if addr.Is6() {
+			wildcardKey = maps.NewService6Key(addr.AsSlice(), WildcardPortNumber,
+				WildcardProtoNumber, loadbalancer.ScopeExternal, 0)
+		} else {
+			wildcardKey = maps.NewService4Key(addr.AsSlice(), WildcardPortNumber,
+				WildcardProtoNumber, loadbalancer.ScopeExternal, 0)
+		}
+
+		ops.log.Debug("Delete wildcard service entry for last parent service",
+			logfields.ID, fe.ID,
+			logfields.Type, fe.Type,
+			logfields.Address, fe.Address)
+
+		if err := ops.deleteService(wildcardKey); err != nil {
+			return fmt.Errorf("delete wildcard: %w", err)
+		}
+
+		// Destroy the map entry as well
+
+		delete(ops.wildcardAddrs, addr)
+	}
+
 	return nil
 }
 
@@ -1341,7 +1546,8 @@ func (ops *BPFOps) StateIsEmpty() bool {
 		len(ops.backendStates) == 0 &&
 		len(ops.nodePortAddrByPort) == 0 &&
 		len(ops.serviceIDAlloc.addrToId) == 0 &&
-		len(ops.backendIDAlloc.addrToId) == 0
+		len(ops.backendIDAlloc.addrToId) == 0 &&
+		len(ops.wildcardAddrs) == 0
 }
 
 // StateSummary returns a multi-line summary of the internal state.
@@ -1358,6 +1564,8 @@ func (ops *BPFOps) StateSummary() string {
 	fmt.Fprintf(&b, "nodePortAddrByPort: %d\n", len(ops.nodePortAddrByPort))
 	fmt.Fprintf(&b, "prevSourceRanges: %d\n", len(ops.prevSourceRanges))
 	fmt.Fprintf(&b, "restoredQuarantines: %d\n", len(ops.restoredQuarantinedBackends))
+	fmt.Fprintf(&b, "wildcardAddrs: %d\n", len(ops.wildcardAddrs))
+
 	return b.String()
 }
 
