@@ -5,7 +5,6 @@ package xds
 
 import (
 	"context"
-	"reflect"
 	"sort"
 	"testing"
 	"time"
@@ -42,36 +41,30 @@ var resources = []*envoy_config_route.RouteConfiguration{
 	{Name: "resource2"},
 }
 
-func responseCheck(response *envoy_service_discovery.DiscoveryResponse,
-	versionInfo string, resources []proto.Message, canary bool, typeURL string) assert.Comparison {
-	return func() bool {
-		result := response.VersionInfo == versionInfo &&
-			len(response.Resources) == len(resources) &&
-			response.Canary == canary &&
-			response.TypeUrl == typeURL
+func responseCheck(t assert.TestingT, response *envoy_service_discovery.DiscoveryResponse,
+	versionInfo string, resources []proto.Message, canary bool, typeURL string) {
+	result := response.VersionInfo == versionInfo &&
+		len(response.Resources) == len(resources) &&
+		response.Canary == canary &&
+		response.TypeUrl == typeURL
 
-		if result && len(resources) > 0 {
-			// Convert the resources into Any protocol buffer messages, which is
-			// the type of Resources in the response, so that we can compare them.
-			resourcesAny := make([]*anypb.Any, 0, len(resources))
-			for _, res := range resources {
-				a, err := anypb.New(res)
-				if err != nil {
-					return false
-				}
-				resourcesAny = append(resourcesAny, a)
-			}
-			// Sort both lists.
-			sort.Slice(response.Resources, func(i, j int) bool {
-				return response.Resources[i].String() < response.Resources[j].String()
-			})
-			sort.Slice(resourcesAny, func(i, j int) bool {
-				return resourcesAny[i].String() < resourcesAny[j].String()
-			})
-			result = reflect.DeepEqual(response.Resources, resourcesAny)
+	if result && len(resources) > 0 {
+		// Convert the resources into Any protocol buffer messages, which is
+		// the type of Resources in the response, so that we can compare them.
+		resourcesAny := make([]*anypb.Any, 0, len(resources))
+		for _, res := range resources {
+			a, err := anypb.New(res)
+			assert.Equal(t, err, nil)
+			resourcesAny = append(resourcesAny, a)
 		}
-
-		return result
+		// Sort both lists.
+		sort.Slice(response.Resources, func(i, j int) bool {
+			return response.Resources[i].String() < response.Resources[j].String()
+		})
+		sort.Slice(resourcesAny, func(i, j int) bool {
+			return resourcesAny[i].String() < resourcesAny[j].String()
+		})
+		assert.Equal(t, resourcesAny, response.Resources)
 	}
 }
 
@@ -121,7 +114,7 @@ func TestRequestAllResources(t *testing.T) {
 	// Expecting an empty response.
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
-	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
+	responseCheck(t, resp, "1", nil, false, typeURL)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
@@ -146,7 +139,7 @@ func TestRequestAllResources(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
+	responseCheck(t, resp, "2", []proto.Message{resources[0]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -173,7 +166,7 @@ func TestRequestAllResources(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL))
+	responseCheck(t, resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -197,7 +190,7 @@ func TestRequestAllResources(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "4", []proto.Message{resources[1]}, false, typeURL))
+	responseCheck(t, resp, "4", []proto.Message{resources[1]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -257,8 +250,8 @@ func TestAck(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
-	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
+	responseCheck(t, resp, "1", nil, false, typeURL)
+	responseCheck(t, resp, "1", nil, false, typeURL)
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -280,7 +273,7 @@ func TestAck(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
+	responseCheck(t, resp, "2", []proto.Message{resources[0]}, false, typeURL)
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
@@ -303,7 +296,7 @@ func TestAck(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL))
+	responseCheck(t, resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL)
 
 	// Version 2 was ACKed by the last request.
 	require.Condition(t, completedComparison(comp1))
@@ -380,7 +373,7 @@ func TestRequestSomeResources(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
+	responseCheck(t, resp, "1", nil, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -404,7 +397,7 @@ func TestRequestSomeResources(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "2", nil, false, typeURL))
+	responseCheck(t, resp, "2", nil, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -429,7 +422,7 @@ func TestRequestSomeResources(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[1]}, false, typeURL))
+	responseCheck(t, resp, "3", []proto.Message{resources[1]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -453,7 +446,7 @@ func TestRequestSomeResources(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "4", []proto.Message{resources[1], resources[2]}, false, typeURL))
+	responseCheck(t, resp, "4", []proto.Message{resources[1], resources[2]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -491,7 +484,7 @@ func TestRequestSomeResources(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "6", []proto.Message{resources[2]}, false, typeURL))
+	responseCheck(t, resp, "6", []proto.Message{resources[2]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -572,7 +565,7 @@ func TestUpdateRequestResources(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[1]}, false, typeURL))
+	responseCheck(t, resp, "2", []proto.Message{resources[1]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -609,7 +602,7 @@ func TestUpdateRequestResources(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[1], resources[2]}, false, typeURL))
+	responseCheck(t, resp, "3", []proto.Message{resources[1], resources[2]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -670,7 +663,7 @@ func TestRequestStaleNonce(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
+	responseCheck(t, resp, "1", nil, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -694,7 +687,7 @@ func TestRequestStaleNonce(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
+	responseCheck(t, resp, "2", []proto.Message{resources[0]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -720,7 +713,7 @@ func TestRequestStaleNonce(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL))
+	responseCheck(t, resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -744,7 +737,7 @@ func TestRequestStaleNonce(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "4", []proto.Message{resources[1]}, false, typeURL))
+	responseCheck(t, resp, "4", []proto.Message{resources[1]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -804,7 +797,7 @@ func TestNAck(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
+	responseCheck(t, resp, "1", nil, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -829,7 +822,7 @@ func TestNAck(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
+	responseCheck(t, resp, "2", []proto.Message{resources[0]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -861,7 +854,7 @@ func TestNAck(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL))
+	responseCheck(t, resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL)
 
 	require.Condition(t, isNotCompletedComparison(comp1))
 	require.Condition(t, isNotCompletedComparison(comp2))
@@ -940,7 +933,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
+	responseCheck(t, resp, "1", nil, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
 
@@ -964,7 +957,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
+	responseCheck(t, resp, "2", []proto.Message{resources[0]}, false, typeURL)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 1, metrics.ack[typeURL])
 
@@ -998,7 +991,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	// Note that the stream should not have a message that repeats the previous one!
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
-	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL))
+	responseCheck(t, resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL)
 	require.NotEmpty(t, resp.Nonce)
 
 	require.Condition(t, isNotCompletedComparison(comp2))
@@ -1083,7 +1076,7 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	// Expecting a response with that resource, and an updated version.
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
-	require.Condition(t, responseCheck(resp, "65", []proto.Message{resources[0]}, false, typeURL))
+	responseCheck(t, resp, "65", []proto.Message{resources[0]}, false, typeURL)
 	require.NotEmpty(t, resp.Nonce)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
@@ -1175,7 +1168,7 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	// Expecting a response with that resource, and an updated version.
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
-	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0]}, false, typeURL))
+	responseCheck(t, resp, "3", []proto.Message{resources[0]}, false, typeURL)
 	require.NotEmpty(t, resp.Nonce)
 	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
@@ -1245,7 +1238,7 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	resp, err = stream.RecvResponse()
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Condition(t, responseCheck(resp, "65", []proto.Message{resources[0]}, false, typeURL))
+	responseCheck(t, resp, "65", []proto.Message{resources[0]}, false, typeURL)
 
 	// Version 2 was not ACKED by the last request, so it must NOT be completedInTime successfully.
 	require.Condition(t, isNotCompletedComparison(comp1))

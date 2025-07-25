@@ -4,7 +4,6 @@
 package envoy
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -14,6 +13,7 @@ import (
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -1670,9 +1670,8 @@ func Test_getPublicListenerAddress(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getPublicListenerAddress(tt.args.port, tt.args.ipv4, tt.args.ipv6); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getPublicListenerAddress() = %v, want %v", got, tt.want)
-			}
+			got := getPublicListenerAddress(tt.args.port, tt.args.ipv4, tt.args.ipv6)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -1742,12 +1741,8 @@ func Test_getLocalListenerAddresses(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, gotAdditional := GetLocalListenerAddresses(tt.args.port, tt.args.ipv4, tt.args.ipv6)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getLocalListenerAddresses() got = %v, want %v", got, tt.want)
-			}
-			if !reflect.DeepEqual(gotAdditional, tt.wantAdditional) {
-				t.Errorf("getLocalListenerAddresses() got1 = %v, want %v", gotAdditional, tt.wantAdditional)
-			}
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantAdditional, gotAdditional)
 		})
 	}
 }

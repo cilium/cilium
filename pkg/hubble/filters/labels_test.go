@@ -4,11 +4,11 @@
 package filters
 
 import (
-	"reflect"
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLabelSelectorFilter(t *testing.T) {
@@ -647,8 +647,8 @@ func Test_parseSelector(t *testing.T) {
 				t.Errorf("parseSelector() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !tt.wantErr && !reflect.DeepEqual(got.String(), tt.want) {
-				t.Errorf("parseSelector() = %q, want %q", got, tt.want)
+			if !tt.wantErr {
+				assert.Equal(t, tt.want, got.String())
 			}
 		})
 	}

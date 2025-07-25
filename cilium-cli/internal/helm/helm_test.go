@@ -4,7 +4,6 @@
 package helm
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/blang/semver/v4"
@@ -59,9 +58,7 @@ func TestResolveHelmChartVersion(t *testing.T) {
 				t.Errorf("ResolveHelmChartVersion() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ResolveHelmChartVersion() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -130,9 +127,7 @@ func TestParseVals(t *testing.T) {
 				t.Errorf("ParseVals() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ParseVals() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

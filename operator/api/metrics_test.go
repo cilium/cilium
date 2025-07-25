@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/go-openapi/runtime"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/api/v1/operator/models"
@@ -159,6 +159,7 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 	}
 
 	if err := testMetric(
+		t,
 		metrics,
 		"operator_api_metrics_test_metric_a",
 		float64(1),
@@ -174,16 +175,14 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 	}
 }
 
-func testMetric(metrics []models.Metric, name string, value float64, labels map[string]string,
+func testMetric(t assert.TestingT, metrics []models.Metric, name string, value float64, labels map[string]string,
 ) error {
 	for _, metric := range metrics {
 		if metric.Name == name {
 			if metric.Value != value {
 				return fmt.Errorf("expected value %f for %q, got %f", value, name, metric.Value)
 			}
-			if !reflect.DeepEqual(metric.Labels, labels) {
-				return fmt.Errorf("expected labels map %v for %q, got %v", labels, name, metric.Labels)
-			}
+			assert.Equal(t, metric.Labels, labels)
 			return nil
 		}
 	}

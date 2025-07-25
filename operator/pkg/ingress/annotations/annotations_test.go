@@ -4,10 +4,10 @@
 package annotations
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -130,9 +130,7 @@ func TestGetAnnotationServiceExternalTrafficPolicy(t *testing.T) {
 				t.Errorf("GetAnnotationServiceExternalTrafficPolicy() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAnnotationServiceExternalTrafficPolicy() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -192,9 +190,7 @@ func TestGetAnnotationRequestTimeout(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAnnotationRequestTimeout() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -252,9 +248,7 @@ func TestGetAnnotationSecureNodePort(t *testing.T) {
 				t.Errorf("GetAnnotationSecureNodePort() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAnnotationSecureNodePort() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -311,9 +305,7 @@ func TestGetAnnotationInsecureNodePort(t *testing.T) {
 				t.Errorf("GetAnnotationSecureNodePort() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAnnotationSecureNodePort() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -371,9 +363,7 @@ func TestGetAnnotationHostListenerPort(t *testing.T) {
 				t.Errorf("GetAnnotationHostListenerPort() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAnnotationHostListenerPort() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -464,9 +454,7 @@ func TestGetAnnotationSSLPassthrough(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := GetAnnotationTLSPassthroughEnabled(tt.args.ingress)
 
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAnnotationSecureNodePort() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -557,9 +545,7 @@ func TestGetAnnotationEnforceHTTPSEnabled(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := GetAnnotationForceHTTPSEnabled(tt.args.ingress)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAnnotationForceHTTPSEnabled() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -11,11 +11,11 @@
 package utils
 
 import (
-	"reflect"
 	"testing"
 
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDeploymentMetadata(t *testing.T) {
@@ -97,12 +97,8 @@ func TestDeploymentMetadata(t *testing.T) {
 				t.Fatalf("expected ok=%t, got ok=%t", tt.expectOK, ok)
 			}
 			if ok {
-				if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
-					t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
-				}
-				if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
-					t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
-				}
+				assert.Equal(t, tt.wantObjectMetadata, gotObjectMeta)
+				assert.Equal(t, tt.wantTypeMetadata, gotTypeMeta)
 			}
 		})
 	}
@@ -189,12 +185,8 @@ func TestCronJobMetadata(t *testing.T) {
 				t.Fatalf("expected ok=true, got ok=%t", ok)
 			}
 			if ok {
-				if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
-					t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
-				}
-				if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
-					t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
-				}
+				assert.Equal(t, tt.wantObjectMetadata, gotObjectMeta)
+				assert.Equal(t, tt.wantTypeMetadata, gotTypeMeta)
 			}
 		})
 	}
@@ -251,12 +243,8 @@ func TestDeploymentConfigMetadata(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected ok=true, got ok=%t", ok)
 			}
-			if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
-				t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
-			}
-			if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
-				t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
-			}
+			assert.Equal(t, tt.wantObjectMetadata, gotObjectMeta)
+			assert.Equal(t, tt.wantTypeMetadata, gotTypeMeta)
 		})
 	}
 }
@@ -319,12 +307,8 @@ func TestStatefulSetMetadata(t *testing.T) {
 				t.Fatalf("expected ok=true, got ok=%t", ok)
 			}
 			if ok {
-				if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
-					t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
-				}
-				if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
-					t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
-				}
+				assert.Equal(t, tt.wantObjectMetadata, gotObjectMeta)
+				assert.Equal(t, tt.wantTypeMetadata, gotTypeMeta)
 			}
 		})
 	}

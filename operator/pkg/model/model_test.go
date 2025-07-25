@@ -4,8 +4,9 @@
 package model
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var testTLSListener = TLSPassthroughListener{
@@ -72,9 +73,8 @@ func TestModel_GetListeners(t *testing.T) {
 				HTTP:           tt.fields.HTTP,
 				TLSPassthrough: tt.fields.TLS,
 			}
-			if got := m.GetListeners(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Model.GetListeners() = %v, want %v", got, tt.want)
-			}
+			got := m.GetListeners()
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

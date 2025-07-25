@@ -18,23 +18,23 @@ import (
 )
 
 // Helper function to compare two slices of maps ignoring the order
-func equalClusterSlices(a, b []map[string]any) bool {
-	if len(a) != len(b) {
-		return false
-	}
+func equalClusterSlices(t assert.TestingT, a, b []map[string]any) {
+	assert.Equal(t, len(a), len(b))
 
 	bCopy := make([]map[string]any, len(b))
 	copy(bCopy, b)
 
-	return slices.EqualFunc(a, bCopy, func(m1, m2 map[string]any) bool {
+	found := false
+	for _, am := range a {
 		for i, bm := range bCopy {
-			if reflect.DeepEqual(m1, bm) {
+			if reflect.DeepEqual(am, bm) {
 				bCopy = slices.Delete(bCopy, i, i+1)
-				return true
+				found = true
+				break
 			}
 		}
-		return false
-	})
+	}
+	assert.Equal(t, found, true, "%v not found in the actual clusters", b)
 }
 
 func TestMergeClusters(t *testing.T) {
@@ -444,7 +444,7 @@ func TestMergeClusters(t *testing.T) {
 			expectedClusters := u.e["clustermesh"].(map[string]any)["config"].(map[string]any)["clusters"].([]map[string]any)
 			actualClusters := ee["clustermesh"].(map[string]any)["config"].(map[string]any)["clusters"].([]map[string]any)
 
-			assert.True(t, equalClusterSlices(expectedClusters, actualClusters))
+			equalClusterSlices(t, expectedClusters, actualClusters)
 		})
 	}
 }

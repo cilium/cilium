@@ -4,10 +4,10 @@
 package locksweeper
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_getOldestLeases(t *testing.T) {
@@ -88,9 +88,8 @@ func Test_getOldestLeases(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getOldestLeases(tt.args.m); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getOldestLeases() = %v, want %v", got, tt.want)
-			}
+			got := getOldestLeases(tt.args.m)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -4,8 +4,9 @@
 package filters
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_translateSelector(t *testing.T) {
@@ -93,8 +94,8 @@ func Test_translateSelector(t *testing.T) {
 				t.Errorf("parseSelector() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseSelector() = %q, want %q", got, tt.want)
+			if !tt.wantErr {
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}
