@@ -57,6 +57,12 @@ func (o *PatchEndpointIDLabelsReader) ReadResponse(response runtime.ClientRespon
 			return nil, err
 		}
 		return nil, result
+	case 503:
+		result := NewPatchEndpointIDLabelsServiceUnavailable()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	default:
 		return nil, runtime.NewAPIError("[PATCH /endpoint/{id}/labels] PatchEndpointIDLabels", response, response.Code())
 	}
@@ -350,6 +356,62 @@ func (o *PatchEndpointIDLabelsUpdateFailed) readResponse(response runtime.Client
 	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
 		return err
 	}
+
+	return nil
+}
+
+// NewPatchEndpointIDLabelsServiceUnavailable creates a PatchEndpointIDLabelsServiceUnavailable with default headers values
+func NewPatchEndpointIDLabelsServiceUnavailable() *PatchEndpointIDLabelsServiceUnavailable {
+	return &PatchEndpointIDLabelsServiceUnavailable{}
+}
+
+/*
+PatchEndpointIDLabelsServiceUnavailable describes a response with status code 503, with default header values.
+
+Service Unavailable
+*/
+type PatchEndpointIDLabelsServiceUnavailable struct {
+}
+
+// IsSuccess returns true when this patch endpoint Id labels service unavailable response has a 2xx status code
+func (o *PatchEndpointIDLabelsServiceUnavailable) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id labels service unavailable response has a 3xx status code
+func (o *PatchEndpointIDLabelsServiceUnavailable) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id labels service unavailable response has a 4xx status code
+func (o *PatchEndpointIDLabelsServiceUnavailable) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this patch endpoint Id labels service unavailable response has a 5xx status code
+func (o *PatchEndpointIDLabelsServiceUnavailable) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this patch endpoint Id labels service unavailable response a status code equal to that given
+func (o *PatchEndpointIDLabelsServiceUnavailable) IsCode(code int) bool {
+	return code == 503
+}
+
+// Code gets the status code for the patch endpoint Id labels service unavailable response
+func (o *PatchEndpointIDLabelsServiceUnavailable) Code() int {
+	return 503
+}
+
+func (o *PatchEndpointIDLabelsServiceUnavailable) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsServiceUnavailable", 503)
+}
+
+func (o *PatchEndpointIDLabelsServiceUnavailable) String() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsServiceUnavailable", 503)
+}
+
+func (o *PatchEndpointIDLabelsServiceUnavailable) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }
