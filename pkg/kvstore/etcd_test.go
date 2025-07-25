@@ -84,7 +84,9 @@ func TestGetIfLocked(t *testing.T) {
 			name: "getting locked path",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = cl.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -112,7 +114,9 @@ func TestGetIfLocked(t *testing.T) {
 			name: "getting locked path with no value",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = cl.Delete(context.Background(), key)
 				require.NoError(t, err)
@@ -136,7 +140,9 @@ func TestGetIfLocked(t *testing.T) {
 			name: "getting locked path where lock was lost",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				err = kvlocker.Unlock(context.TODO())
 				require.NoError(t, err)
@@ -194,7 +200,9 @@ func TestDeleteIfLocked(t *testing.T) {
 			name: "deleting locked path",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -223,7 +231,9 @@ func TestDeleteIfLocked(t *testing.T) {
 			name: "deleting locked path with no value",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -254,7 +264,9 @@ func TestDeleteIfLocked(t *testing.T) {
 			name: "deleting locked path where lock was lost",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -316,7 +328,9 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -347,7 +361,9 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path with no value without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -379,7 +395,9 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path where lock was lost without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -410,7 +428,9 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -442,7 +462,9 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path with no value with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -475,7 +497,9 @@ func TestUpdateIfLocked(t *testing.T) {
 			name: "update locked path where lock was lost with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -539,7 +563,9 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -572,7 +598,9 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path without lease and with same value",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -603,7 +631,9 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path with no value without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -637,7 +667,9 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path where lock was lost without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -671,7 +703,9 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -705,7 +739,9 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path with no value with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -742,7 +778,9 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path with lease and with same value",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				created, err := client.CreateOnly(context.Background(), key, []byte("bar"), true)
 				require.NoError(t, err)
@@ -776,7 +814,9 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 			name: "update locked path where lock was lost with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -841,7 +881,9 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -874,7 +916,9 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path with an existing value without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Put(context.Background(), key, "bar")
@@ -907,7 +951,9 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path where lock was lost without lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Delete(context.Background(), key)
 				require.NoError(t, err)
@@ -938,7 +984,9 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Delete(context.Background(), key)
@@ -972,7 +1020,9 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path with an existing value with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 
 				_, err = e.Put(context.Background(), key, "bar")
@@ -1006,7 +1056,9 @@ func TestCreateOnlyIfLocked(t *testing.T) {
 			name: "create only locked path where lock was lost with lease",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Delete(context.Background(), key)
 				require.NoError(t, err)
@@ -1069,7 +1121,9 @@ func TestListPrefixIfLocked(t *testing.T) {
 			name: "list prefix locked",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -1107,7 +1161,9 @@ func TestListPrefixIfLocked(t *testing.T) {
 			name: "list prefix locked with no values",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Delete(context.Background(), key, etcdAPI.WithPrefix())
 				require.NoError(t, err)
@@ -1130,7 +1186,9 @@ func TestListPrefixIfLocked(t *testing.T) {
 			name: "list prefix locked where lock was lost",
 			setupArgs: func() args {
 				key := randomPath + "foo"
-				kvlocker, err := client.LockPath(context.Background(), "locks/"+key+"/.lock")
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				kvlocker, err := client.LockPath(ctx, "locks/"+key+"/.lock")
 				require.NoError(t, err)
 				_, err = e.Put(context.Background(), key, "bar")
 				require.NoError(t, err)
@@ -1388,7 +1446,9 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 			}
 
 			if tt.useKVLocker {
-				kvlocker, err = client.LockPath(ctx, "locks/"+prefix+"/.lock")
+				toCtx, cancel := context.WithTimeout(ctx, time.Minute)
+				defer cancel()
+				kvlocker, err = client.LockPath(toCtx, "locks/"+prefix+"/.lock")
 				require.NoError(t, err)
 
 				t.Cleanup(func() {

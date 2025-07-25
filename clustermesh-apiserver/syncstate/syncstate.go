@@ -5,6 +5,8 @@ package syncstate
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 
@@ -31,14 +33,6 @@ func new(lc cell.Lifecycle, metrics Metrics, clusterInfo types.ClusterInfo) Sync
 		<-ss.WaitChannel()
 		metrics.BootstrapDuration.WithLabelValues(clusterInfo.Name).Set(syncTime.Seconds())
 	}()
-
-	lc.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			ss.Stop()
-			return nil
-		},
-	})
-
 	return ss
 }
 
@@ -46,6 +40,8 @@ func new(lc cell.Lifecycle, metrics Metrics, clusterInfo types.ClusterInfo) Sync
 // of various resources to the kvstore.
 type SyncState struct {
 	*lock.StoppableWaitGroup
+	counter atomic.Int32
+	lock    sync.Mutex
 }
 
 // Complete returns true if all resources have been synchronized to the kvstore.
@@ -62,8 +58,15 @@ func (ss SyncState) Complete() bool {
 // called when the resource has been synchronized.
 func (ss SyncState) WaitForResource() func(context.Context) {
 	done := ss.Add()
+	ss.counter.Add(1)
 	return func(_ context.Context) {
 		done()
+		ss.lock.Lock()
+		ss.counter.Add(-1)
+		if ss.counter.Load() == 0 {
+			ss.Stop()
+		}
+		ss.lock.Unlock()
 	}
 }
 

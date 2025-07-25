@@ -120,7 +120,9 @@ func BenchmarkRunLocksGC(b *testing.B) {
 		client, _ := kvstore.NewClient(context.Background(), hivetest.Logger(b), "etcd", map[string]string{
 			kvstore.EtcdAddrOption: kvstore.EtcdDummyAddress(),
 		}, kvstore.ExtraOptions{})
-		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+shortKey.GetKey())
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		lock2, err = client.LockPath(ctx, allocatorName+"/locks/"+shortKey.GetKey())
 		require.NoError(b, err)
 		close(gotLock2)
 	}()
