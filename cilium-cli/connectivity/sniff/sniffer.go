@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -57,6 +59,12 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		exited:   make(chan error, 1),
 	}
 
+	fmt.Fprintf(os.Stderr, "XXX: sniffer %p is starting soon\n", sniffer)
+
+	runtime.SetFinalizer(sniffer, func(s *Sniffer) {
+		fmt.Fprintf(os.Stderr, "XXX: sniffer %p finalized\n", sniffer)
+	})
+
 	go func() {
 		// Run tcpdump with -w instead of directly printing captured pkts. This
 		// is to avoid a race after sending ^C (triggered by cancel()) which
@@ -73,16 +81,15 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 			// them all to provide more informative debug messages on failures.
 			args = append(args, "-c", "1")
 		}
-		sniffer.cmd = append([]string{"tcpdump"}, append(args, "\""+filter+"\"")...)
-		// We wait before starting tcpdump to avoid an observed race
-		// condition when using a websocket connection
-		sniffer.cmd = append([]string{"sh", "-c"}, "sleep 1 && "+strings.Join(sniffer.cmd, " "))
+		sniffer.cmd = append([]string{"tcpdump"}, append(args, filter)...)
 
+		fmt.Fprintf(os.Stderr, "XXX: starting sniffer %p, mode %s, command %v\n", sniffer, mode, sniffer.cmd)
 		dbg.Debugf("Running sniffer in background on %s (%s), mode=%s: %s",
 			target.String(), target.NodeName(), mode, strings.Join(sniffer.cmd, " "))
 		err := target.K8sClient.ExecInPodWithWriters(ctx, cmdctx,
 			target.Pod.Namespace, target.Pod.Name, "", sniffer.cmd, &sniffer.stdout, k8s.StderrAsError)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "XXX: sniffer %p exited with err %v\n", sniffer, err)
 			sniffer.exited <- err
 		}
 
@@ -92,11 +99,14 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 	// Wait until tcpdump is ready to capture pkts
 	wctx, wcancel := context.WithTimeout(ctx, 5*time.Second)
 	defer wcancel()
+	defer fmt.Fprintf(os.Stderr, "XXX: leaving Sniff, sniffer %p\n", sniffer)
 	for {
 		select {
 		case <-wctx.Done():
+			fmt.Fprintf(os.Stderr, "XXX: failed to wait for tcpdump to be ready, sniffer %p\n", sniffer)
 			return nil, fmt.Errorf("Failed to wait for tcpdump to be ready")
 		case err := <-sniffer.exited:
+			fmt.Fprintf(os.Stderr, "XXX: failed to wait for tcpdump to be ready, sniffer %p\n", sniffer)
 			if err == nil {
 				// When running in sanity mode, tcpdump exits after capturing a
 				// single packet matching the filter. Hence, it is possible that
@@ -108,10 +118,14 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 			return nil, fmt.Errorf("Failed to execute `%s`: %w", strings.Join(sniffer.cmd, " "), err)
 		case <-time.After(100 * time.Millisecond):
 			line, err := sniffer.stdout.ReadString('\n')
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "XXX: stdout err %v, sniffer %p\n", err, sniffer)
+			}
 			if err != nil && !errors.Is(err, io.EOF) {
 				return nil, fmt.Errorf("Failed to read kubectl exec's stdout: %w", err)
 			}
 			if strings.Contains(line, fmt.Sprintf("listening on %s", iface)) {
+				fmt.Fprintf(os.Stderr, "XXX: tcpdump is listening, sniffer %p\n", sniffer)
 				return sniffer, nil
 			}
 		}
@@ -123,7 +137,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 // additionally dumps the captured packets in case of failure if debug logs are enabled.
 func (sniffer *Sniffer) Validate(ctx context.Context, a *check.Action) {
 	// Wait until tcpdump has exited
-	if err := sniffer.stopAndWait(ctx); err != nil {
+	if err := sniffer.stopAndWait(ctx, a); err != nil {
 		a.Fatalf("Failed to execute tcpdump on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), err)
 	}
 
@@ -158,9 +172,12 @@ func (sniffer *Sniffer) Validate(ctx context.Context, a *check.Action) {
 	}
 }
 
-func (sniffer *Sniffer) stopAndWait(ctx context.Context) error {
+func (sniffer *Sniffer) stopAndWait(ctx context.Context, dbg *check.Action) error {
+	fmt.Fprintf(os.Stderr, "XXX: stopAndWait, sniffer %p\n", sniffer)
+	defer fmt.Fprintf(os.Stderr, "XXX: leaving stopAndWait, sniffer %p\n", sniffer)
 	select {
 	case err := <-sniffer.exited:
+		fmt.Fprintf(os.Stderr, "XXX: sniffer.exited %p, err %v\n", sniffer, err)
 		// When running in assert mode, it is an error if tcpdump already stopped
 		// at this point, as we may have missed packets. That's not the case in
 		// sanity mode, as configured to stop after receiving a single packet.
@@ -173,9 +190,11 @@ func (sniffer *Sniffer) stopAndWait(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
+		fmt.Fprintf(os.Stderr, "XXX: sniffer.cancel() %p\n", sniffer)
 		sniffer.cancel()
 		select {
 		case err := <-sniffer.exited:
+			fmt.Fprintf(os.Stderr, "XXX: sniffer.exited %p after cancel, err %v\n", sniffer, err)
 			// We canceled the context, so this is expected.
 			if errors.Is(err, context.Canceled) {
 				return nil
@@ -183,6 +202,7 @@ func (sniffer *Sniffer) stopAndWait(ctx context.Context) error {
 			return err
 
 		case <-ctx.Done():
+			fmt.Fprintf(os.Stderr, "XXX: failed to wait for tcpdump to terminate within timeout, sniffer %p\n", sniffer)
 			return errors.New("failed to wait for tcpdump to terminate within timeout")
 		}
 	}
