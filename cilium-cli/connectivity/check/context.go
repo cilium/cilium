@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/tools/testowners/codeowners"
 )
@@ -98,8 +99,8 @@ type ConnectivityTest struct {
 
 	lastFlowTimestamps map[string]time.Time
 
-	nodes              map[string]*corev1.Node
-	controlPlaneNodes  map[string]*corev1.Node
+	nodes              map[string]*slimcorev1.Node
+	controlPlaneNodes  map[string]*slimcorev1.Node
 	nodesWithoutCilium map[string]struct{}
 	ciliumNodes        map[NodeIdentity]*ciliumv2.CiliumNode
 
@@ -245,7 +246,7 @@ func NewConnectivityTest(
 		hostNetNSPodsByNode:      make(map[string]Pod),
 		secondaryNetworkNodeIPv4: make(map[string]string),
 		secondaryNetworkNodeIPv6: make(map[string]string),
-		nodes:                    make(map[string]*corev1.Node),
+		nodes:                    make(map[string]*slimcorev1.Node),
 		nodesWithoutCilium:       make(map[string]struct{}),
 		ciliumNodes:              make(map[NodeIdentity]*ciliumv2.CiliumNode),
 		tests:                    []*Test{},
@@ -718,7 +719,7 @@ func (ct *ConnectivityTest) detectNodeCIDRs(ctx context.Context) error {
 		return nil
 	}
 
-	nodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{})
+	nodes, err := ct.client.ListSlimNodes(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list nodes: %w", err)
 	}
@@ -728,7 +729,7 @@ func (ct *ConnectivityTest) detectNodeCIDRs(ctx context.Context) error {
 
 	for i, node := range nodes.Items {
 		for _, addr := range node.Status.Addresses {
-			if addr.Type != "InternalIP" {
+			if addr.Type != slimcorev1.NodeInternalIP {
 				continue
 			}
 
@@ -858,7 +859,7 @@ func (ct *ConnectivityTest) detectSingleNode(ctx context.Context) error {
 		return nil
 	}
 
-	nodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{})
+	nodes, err := ct.client.ListSlimNodes(ctx, metav1.ListOptions{})
 	if err != nil {
 		ct.Fatal("Unable to list nodes.")
 		return fmt.Errorf("unable to list nodes: %w", err)
@@ -936,10 +937,10 @@ func (ct *ConnectivityTest) initCiliumPods(ctx context.Context) error {
 }
 
 func (ct *ConnectivityTest) getNodes(ctx context.Context) error {
-	ct.nodes = make(map[string]*corev1.Node)
-	ct.controlPlaneNodes = make(map[string]*corev1.Node)
+	ct.nodes = make(map[string]*slimcorev1.Node)
+	ct.controlPlaneNodes = make(map[string]*slimcorev1.Node)
 	ct.nodesWithoutCilium = make(map[string]struct{})
-	nodeList, err := ct.client.ListNodes(ctx, metav1.ListOptions{})
+	nodeList, err := ct.client.ListSlimNodes(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list K8s Nodes: %w", err)
 	}
@@ -1101,11 +1102,11 @@ func (ct *ConnectivityTest) CiliumPods() map[string]Pod {
 	return ct.ciliumPods
 }
 
-func (ct *ConnectivityTest) Nodes() map[string]*corev1.Node {
+func (ct *ConnectivityTest) Nodes() map[string]*slimcorev1.Node {
 	return ct.nodes
 }
 
-func (ct *ConnectivityTest) ControlPlaneNodes() map[string]*corev1.Node {
+func (ct *ConnectivityTest) ControlPlaneNodes() map[string]*slimcorev1.Node {
 	return ct.controlPlaneNodes
 }
 
@@ -1250,7 +1251,7 @@ func (ct *ConnectivityTest) InternalNodeIPAddresses(ipFamily features.IPFamily) 
 	var res []netip.Addr
 	for _, node := range ct.Nodes() {
 		for _, addr := range node.Status.Addresses {
-			if addr.Type != corev1.NodeInternalIP {
+			if addr.Type != slimcorev1.NodeInternalIP {
 				continue
 			}
 			a, err := netip.ParseAddr(addr.Address)

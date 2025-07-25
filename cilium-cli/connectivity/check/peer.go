@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 // TestPeer is the abstraction used for all peer types (pods, services, IPs,
@@ -246,7 +247,7 @@ func (s Service) FlowFilters() []*flow.FlowFilter {
 	return nil
 }
 
-func (s Service) ToNodeportService(node *corev1.Node) NodeportService {
+func (s Service) ToNodeportService(node *slimcorev1.Node) NodeportService {
 	return NodeportService{
 		Service: s,
 		Node:    node,
@@ -263,7 +264,7 @@ func (s Service) ToEchoIPService() EchoIPService {
 // It implements interface TestPeer.
 type NodeportService struct {
 	Service
-	Node *corev1.Node
+	Node *slimcorev1.Node
 }
 
 // Address returns the node IP of the wrapped Service.
@@ -273,7 +274,7 @@ func (s NodeportService) Address(family features.IPFamily) string {
 	}
 
 	for _, address := range s.Node.Status.Addresses {
-		if address.Type == corev1.NodeInternalIP {
+		if address.Type == slimcorev1.NodeInternalIP {
 			parsedAddress := net.ParseIP(address.Address)
 
 			switch family {
