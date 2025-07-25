@@ -97,7 +97,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 				globalServices:       common.NewGlobalServiceCache(logger),
 				globalServiceExports: NewGlobalServiceExportCache(),
 				cfg:                  ClusterMeshConfig{ClusterMeshEnableEndpointSync: tt.clusterMeshEnableEndpointSync},
-				cfgMCSAPI:            mcsapitypes.MCSAPIConfig{ClusterMeshEnableMCSAPI: tt.clusterMeshEnableMCSAPI},
+				cfgMCSAPI:            mcsapitypes.MCSAPIConfig{EnableMCSAPI: tt.clusterMeshEnableMCSAPI},
 			}
 
 			// Populate the kvstore with the appropriate KV pairs

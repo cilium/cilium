@@ -90,7 +90,7 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 		return nil, nil
 	}
 
-	if !params.Cfg.ClusterMeshEnableEndpointSync && !params.CfgMCSAPI.ClusterMeshEnableMCSAPI {
+	if !params.Cfg.ClusterMeshEnableEndpointSync && !params.CfgMCSAPI.EnableMCSAPI {
 		return nil, nil
 	}
 
@@ -193,7 +193,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 		logger:                        cm.logger.With(logfields.ClusterName, name),
 		name:                          name,
 		clusterMeshEnableEndpointSync: cm.cfg.ClusterMeshEnableEndpointSync,
-		clusterMeshEnableMCSAPI:       cm.cfgMCSAPI.ClusterMeshEnableMCSAPI,
+		clusterMeshEnableMCSAPI:       cm.cfgMCSAPI.EnableMCSAPI,
 		storeFactory:                  cm.storeFactory,
 		synced:                        newSynced(),
 		status:                        status,

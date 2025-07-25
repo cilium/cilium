@@ -99,7 +99,7 @@ func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error
 }
 
 func registerMCSAPIController(params mcsAPIParams) error {
-	if !params.Clientset.IsEnabled() || params.ClusterMesh == nil || !params.CfgMCSAPI.ClusterMeshEnableMCSAPI {
+	if !params.Clientset.IsEnabled() || params.ClusterMesh == nil || !params.CfgMCSAPI.EnableMCSAPI {
 		return nil
 	}
 

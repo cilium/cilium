@@ -116,7 +116,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		cell.Config(envoyCfg.SecretSyncConfig{}),
 		cell.Provide(ServiceExportResource),
 		cell.Provide(func() mcsapitypes.MCSAPIConfig {
-			return mcsapitypes.MCSAPIConfig{ClusterMeshEnableMCSAPI: true}
+			return mcsapitypes.MCSAPIConfig{EnableMCSAPI: true}
 		}),
 		cell.Invoke(func(
 			svc resource.Resource[*slim_corev1.Service],
