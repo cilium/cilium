@@ -14,18 +14,21 @@ import (
 // Stops an Amazon EBS-backed instance. You can restart your instance at any time
 // using the [StartInstances]API. For more information, see [Stop and start Amazon EC2 instances] in the Amazon EC2 User Guide.
 //
-// When you stop an instance, we shut it down.
+// When you stop or hibernate an instance, we shut it down. By default, this
+// includes a graceful operating system (OS) shutdown. To bypass the graceful
+// shutdown, use the skipOsShutdown parameter; however, this might risk data
+// integrity.
 //
-// You can use the Stop operation together with the Hibernate parameter to
-// hibernate an instance if the instance is [enabled for hibernation]and meets the [hibernation prerequisites]. Stopping an instance
-// doesn't preserve data stored in RAM, while hibernation does. If hibernation
-// fails, a normal shutdown occurs. For more information, see [Hibernate your Amazon EC2 instance]in the Amazon EC2
-// User Guide.
+// You can use the StopInstances operation together with the Hibernate parameter
+// to hibernate an instance if the instance is [enabled for hibernation]and meets the [hibernation prerequisites]. Stopping an
+// instance doesn't preserve data stored in RAM, while hibernation does. If
+// hibernation fails, a normal shutdown occurs. For more information, see [Hibernate your Amazon EC2 instance]in the
+// Amazon EC2 User Guide.
 //
 // If your instance appears stuck in the stopping state, there might be an issue
-// with the underlying host computer. You can use the Stop operation together with
-// the Force parameter to force stop your instance. For more information, see [Troubleshoot Amazon EC2 instance stop issues]in
-// the Amazon EC2 User Guide.
+// with the underlying host computer. You can use the StopInstances operation
+// together with the Force parameter to force stop your instance. For more
+// information, see [Troubleshoot Amazon EC2 instance stop issues]in the Amazon EC2 User Guide.
 //
 // Stopping and hibernating an instance differs from rebooting or terminating it.
 // For example, a stopped or hibernated instance retains its root volume and any
@@ -93,12 +96,22 @@ type StopInstancesInput struct {
 
 	// Hibernates the instance if the instance was enabled for hibernation at launch.
 	// If the instance cannot hibernate successfully, a normal shutdown occurs. For
-	// more information, see [Hibernate your instance]in the Amazon EC2 User Guide.
+	// more information, see [Hibernate your Amazon EC2 instance]in the Amazon EC2 User Guide.
 	//
 	// Default: false
 	//
-	// [Hibernate your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
+	// [Hibernate your Amazon EC2 instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
 	Hibernate *bool
+
+	// Specifies whether to bypass the graceful OS shutdown process when the instance
+	// is stopped.
+	//
+	// Bypassing the graceful OS shutdown might result in data loss or corruption (for
+	// example, memory contents not flushed to disk or loss of in-flight IOs) or
+	// skipped shutdown scripts.
+	//
+	// Default: false
+	SkipOsShutdown *bool
 
 	noSmithyDocumentSerde
 }
