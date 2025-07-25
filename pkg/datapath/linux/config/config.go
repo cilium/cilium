@@ -501,12 +501,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash1)
 
-	if option.Config.DirectRoutingDeviceRequired(h.kprCfg) {
-		drd := cfg.DirectRoutingDevice
+	// We assume that validation for DirectRoutingDevice requirement and presence is already done
+	// upstream when constructing the LocalNodeConfiguration.
+	// See orchestrator/localnodeconfig.go
+	drd := cfg.DirectRoutingDevice
+	if drd != nil {
 		if option.Config.EnableIPv4 {
-			if drd == nil {
-				return fmt.Errorf("IPv4 direct routing device not found")
-			}
 			var ipv4 uint32
 			for _, addr := range drd.Addrs {
 				if addr.Addr.Is4() {
@@ -518,24 +518,17 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				return fmt.Errorf("IPv4 direct routing device IP not found")
 			}
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
-			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", drd.Index)
 		}
 		if option.Config.EnableIPv6 {
-			if drd == nil {
-				return fmt.Errorf("IPv6 direct routing device not found")
-			}
-
 			ip := preferredIPv6Address(drd.Addrs)
 			if ip.IsUnspecified() {
 				return fmt.Errorf("IPv6 direct routing device IP not found")
 			}
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = ip.String()
 			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", ip.AsSlice()))
-			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", drd.Index)
 		}
 	} else {
 		var directRoutingIPv6 net.IP
-		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = "0"
 		if option.Config.EnableIPv4 {
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = "0"
 		}
@@ -910,14 +903,9 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
-	if !option.Config.EnableHostLegacyRouting {
-		if drd != nil {
-			fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", drd.Index)
-			if len(devices) == 1 {
-				if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
-					fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
-				}
-			}
+	if !option.Config.EnableHostLegacyRouting && drd != nil && len(devices) == 1 {
+		if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
+			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
 		}
 	}
 
@@ -925,8 +913,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 		// Only used to differentiate between host endpoint template and other templates.
 		fmt.Fprintf(fw, "#define HOST_ENDPOINT 1\n")
 	}
-
-	fmt.Fprintf(fw, "#define HOST_EP_ID %d\n", uint32(hostEndpointID))
 
 	if e.IsHost() || option.Config.DatapathMode != datapathOption.DatapathModeNetkit {
 		if e.RequireARPPassthrough() {
