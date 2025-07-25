@@ -121,7 +121,7 @@ Address                 Type         ServiceName            PortName   Status  B
 [::]:30781/TCP          NodePort     test/echo              http       Done    [fd02::1]:80/TCP, [fd02::2]:80/TCP
 [fd00::aaaa]:80/TCP     ClusterIP    test/echo              http       Done    [fd02::1]:80/TCP, [fd02::2]:80/TCP
 [fd01::bbbb]:80/TCP     LoadBalancer test/echo              http       Done    [fd02::1]:80/TCP, [fd02::2]:80/TCP
-[fd01::bbbb]:$HEALTHPORT/TCP  LoadBalancer test/echo:healthserver            Done    [fd03::1111]:$HEALTHPORT/TCP/i
+[fd01::bbbb]:$HEALTHPORT/TCP  LoadBalancer test/echo:healthserver            Done    [fd03::1111]:$HEALTHPORT/TCP
 
 -- frontends_tpcluster.table --
 Address                 Type         ServiceName            PortName   Status  Backends
@@ -134,7 +134,7 @@ Address                 Type         ServiceName            PortName   Status  B
 [::]:30781/TCP          NodePort     test/echo              http       Done    
 [fd00::aaaa]:80/TCP     ClusterIP    test/echo              http       Done    
 [fd01::bbbb]:80/TCP     LoadBalancer test/echo              http       Done    
-[fd01::bbbb]:$HEALTHPORT/TCP  LoadBalancer test/echo:healthserver            Done    [fd03::1111]:$HEALTHPORT/TCP/i
+[fd01::bbbb]:$HEALTHPORT/TCP  LoadBalancer test/echo:healthserver            Done    [fd03::1111]:$HEALTHPORT/TCP
 
 -- frontends_nohealthcheck.table --
 Address                 Type         ServiceName            PortName   Status  Backends
@@ -155,7 +155,7 @@ test/echo (http)       [fd02::1]:80/TCP
 test/echo (http)       [fd02::2]:80/TCP
 test/echo (http)       [fd02::3]:80/TCP
 test/echo (http)       [fd02::4]:80/TCP
-test/echo:healthserver [fd03::1111]:$HEALTHPORT/TCP/i
+test/echo:healthserver [fd03::1111]:$HEALTHPORT/TCP
 
 -- backends_othernode.table --
 Address           Instances              NodeName
