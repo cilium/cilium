@@ -224,7 +224,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 									Protocol: lb.TCP,
 									Port:     port,
 								},
-								Scope: lb.ScopeInternal,
+								Scope: lb.ScopeExternal,
 							},
 							NodeName: s.nodeName,
 							State:    lb.BackendStateActive,
