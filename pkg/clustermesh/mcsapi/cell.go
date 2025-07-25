@@ -18,6 +18,7 @@ import (
 	mcsapicontrollers "sigs.k8s.io/mcs-api/controllers"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -42,7 +43,7 @@ type mcsAPIParams struct {
 
 	ClusterMesh operator.ClusterMesh
 	Cfg         operator.ClusterMeshConfig
-	CfgMCSAPI   operator.MCSAPIConfig
+	CfgMCSAPI   mcsapitypes.MCSAPIConfig
 
 	// ClusterInfo is the id/name of the local cluster.
 	ClusterInfo types.ClusterInfo
