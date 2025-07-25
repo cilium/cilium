@@ -24,7 +24,7 @@ var Cell = cell.Module(
 				Capabilities: cmtypes.CiliumClusterConfigCapabilities{
 					SyncedCanaries:        bool(sc),
 					MaxConnectedClusters:  cinfo.MaxConnectedClusters,
-					ServiceExportsEnabled: &mcsAPICfg.ClusterMeshEnableMCSAPI,
+					ServiceExportsEnabled: &mcsAPICfg.EnableMCSAPI,
 				},
 			}
 		},
