@@ -15,6 +15,8 @@ import (
 // UseOriginalSourceAddressLabel is the k8s label that can be added to a
 // `CiliumEnvoyConfig`. This way the Cilium BPF Metadata listener filter is configured
 // to use the original source address when extracting the metadata for a request.
+//
+// Deprecated: use the corresponding annotation
 const UseOriginalSourceAddressLabel = "cilium.io/use-original-source-address"
 
 type nameLabelsGetter interface {
