@@ -88,6 +88,10 @@ type LocalNodeConfiguration struct {
 	// the masquerading IP address for the node.
 	DeriveMasqIPAddrFromDevice string
 
+	// DeriveMasqIPAddrFromDeviceMapping overrides the interface name based on a mapping to use for deriving
+	// the masquerading IP address for the node.
+	DeriveMasqIPAddrFromDeviceMapping []string
+
 	// HostEndpointID is the endpoint ID assigned to the host endpoint.
 	// Immutable at runtime.
 	HostEndpointID uint64
