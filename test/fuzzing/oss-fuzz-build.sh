@@ -15,6 +15,7 @@ printf "package policy\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/testin
 go mod tidy && go mod vendor
 mv $SRC/cilium/pkg/policy/distillery_test.go $SRC/cilium/pkg/policy/distillery_test_fuzz.go
 mv $SRC/cilium/pkg/policy/l4_filter_test.go $SRC/cilium/pkg/policy/l4_filter_test_fuzz.go
+mv $SRC/cilium/pkg/policy/l4_test.go $SRC/cilium/pkg/policy/l4_test_fuzz.go
 mv $SRC/cilium/pkg/policy/mapstate_test.go $SRC/cilium/pkg/policy/mapstate_test_fuzz.go
 mv $SRC/cilium/pkg/policy/repository_test.go $SRC/cilium/pkg/policy/repository_test_fuzz.go
 mv $SRC/cilium/pkg/policy/resolve_test.go $SRC/cilium/pkg/policy/resolve_test_fuzz.go
