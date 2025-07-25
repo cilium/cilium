@@ -13,7 +13,7 @@ FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} AS bpftool-dist
 FROM ${CILIUM_IPTABLES_IMAGE} AS iptables-dist
 
-FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS gops-cni-builder
+FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS go-builder
 
 RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu
 
@@ -24,17 +24,15 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
 # download-cni.sh will build both archs at the same time
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
     ./download-cni.sh
+# build-iptables-wrapper.sh will build both archs at the same time
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+    ./build-iptables-wrapper.sh
 
 FROM ${UBUNTU_IMAGE} AS rootfs
 
 # Change the number to force the generation of a new git-tree SHA. Useful when
 # we want to re-run 'apt-get upgrade' for stale images.
 ENV FORCE_BUILD=4
-
-# Update ubuntu packages to the most recent versions
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y jq
 
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
@@ -43,15 +41,17 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
 COPY --from=iptables-dist /iptables /iptables
 RUN dpkg -i /iptables/*\.deb && rm -rf /iptables
 
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
-    ./iptables-wrapper-installer.sh --no-sanity-check
-
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
 COPY --from=bpftool-dist /usr/local/bin/bpftool /usr/local/bin/bpftool
 
 ARG TARGETPLATFORM
-COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/loopback /cni/loopback
-COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/gops /bin/gops
+COPY --from=go-builder /out/${TARGETPLATFORM}/bin/loopback /cni/loopback
+COPY --from=go-builder /out/${TARGETPLATFORM}/bin/gops /bin/gops
+COPY --from=go-builder /out/${TARGETPLATFORM}/bin/iptables-wrapper /iptables-wrapper/iptables-wrapper
+COPY --from=go-builder /go/src/github.com/kubernetes-sigs/iptables-wrappers/iptables-wrapper-installer.sh /iptables-wrapper/iptables-wrapper-installer.sh
+RUN cd /iptables-wrapper && \
+    ./iptables-wrapper-installer.sh --no-sanity-check && \
+    rm -rf /iptables-wrapper
 
 FROM ${TESTER_IMAGE} AS test
 COPY --from=rootfs / /
