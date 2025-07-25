@@ -39,6 +39,8 @@ const (
 	// we start reconciling towards the BPF maps. This reduces the probability that load-balancing is scaled
 	// down temporarily due to not yet seeing all backends.
 	//
+	// The delay happens only when existing BPF state existed.
+	//
 	// We must not wait forever for initialization though due to potential interdependencies between load-balancing
 	// data sources. For example we might depend on Kubernetes data to connect to the ClusterMesh api-server and
 	// thus may need to first reconcile the Kubernetes services to connect to ClusterMesh (if endpoints have changed
@@ -94,17 +96,26 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 	g.Add(
 		job.OneShot("start-reconciler", func(ctx context.Context, health cell.Health) error {
 			defer close(started)
-			// We give a short grace period for initializers to finish populating the initial contents
-			// of the tables to avoid scaling down load-balancing due to e.g. seeing services before
-			// the endpoint slices.
-			health.OK("Waiting for load-balancing tables to initialize")
-			_, initWatch := w.Frontends().Initialized(p.DB.ReadTxn())
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-initWatch:
-			case <-time.After(initGracePeriod):
+
+			if len(ops.restoredServiceIDs) > 0 {
+				// We give a short grace period for initializers to finish populating the initial contents
+				// of the tables to avoid scaling down load-balancing due to e.g. seeing backends from k8s
+				// much earlier than from ClusterMesh for the same service.
+				//
+				// We only do this if we restored data from BPF maps as only in that scenario we could
+				// be scaling down. This way we also don't introduce an unnecessary delay to connecting
+				// to the ClusterMesh api-server if it connects via a k8s service.
+				health.OK("Waiting for load-balancing tables to initialize")
+				_, initWatch := w.Frontends().Initialized(p.DB.ReadTxn())
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-initWatch:
+				case <-time.After(initGracePeriod):
+					p.Log.Warn("Timed out waiting for load-balancing state to initialize, proceeding with reconciliation")
+				}
 			}
+
 			health.OK("Starting")
 			if err := rlc.Start(p.Log, ctx); err != nil {
 				return err
