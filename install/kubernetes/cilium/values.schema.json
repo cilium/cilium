@@ -1557,6 +1557,9 @@
             },
             "enabled": {
               "type": "boolean"
+            },
+            "installCRDs": {
+              "type": "boolean"
             }
           },
           "type": "object"
