@@ -87,11 +87,12 @@ func TestL3n4Addr_Bytes(t *testing.T) {
 		expected []byte
 	}{
 		{
-			addr: L3n4Addr{
-				L4Addr:      L4Addr{Protocol: NONE, Port: 0xabcd},
-				AddrCluster: v4,
-				Scope:       ScopeExternal,
-			},
+			addr: NewL3n4Addr(
+				NONE,
+				v4,
+				0xabcd,
+				ScopeExternal,
+			),
 			expected: []byte{
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 1, 1, 1, 1, // IP
 				0, 0, 0, 0, // Cluster 0
@@ -101,11 +102,12 @@ func TestL3n4Addr_Bytes(t *testing.T) {
 			},
 		},
 		{
-			addr: L3n4Addr{
-				L4Addr:      L4Addr{Protocol: TCP, Port: 0xabcd},
-				AddrCluster: v4c3,
-				Scope:       ScopeInternal,
-			},
+			addr: NewL3n4Addr(
+				TCP,
+				v4c3,
+				0xabcd,
+				ScopeInternal,
+			),
 			expected: []byte{
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 1, 1, 1, 1, // IP
 				0, 0, 0, 3, // Cluster 3
@@ -115,11 +117,12 @@ func TestL3n4Addr_Bytes(t *testing.T) {
 			},
 		},
 		{
-			addr: L3n4Addr{
-				L4Addr:      L4Addr{Protocol: UDP, Port: 0xaabb},
-				AddrCluster: v6,
-				Scope:       ScopeExternal,
-			},
+			addr: NewL3n4Addr(
+				UDP,
+				v6,
+				0xaabb,
+				ScopeExternal,
+			),
 			expected: []byte{
 				32, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, // IP
 				0, 0, 0, 0, // Cluster 0
@@ -153,95 +156,9 @@ func TestL3n4AddrYAML(t *testing.T) {
 				assert.Equal(t, strings.Trim(string(out), "\n'"), test)
 				var l2 L3n4Addr
 				assert.NoError(t, yaml.Unmarshal(out, &l2))
-				assert.True(t, l.DeepEqual(&l2))
+				assert.Equal(t, l, l2)
 			}
 		}
-	}
-}
-
-func TestL3n4Addr_DeepEqual(t *testing.T) {
-	type args struct {
-		o L3n4Addr
-	}
-	tests := []struct {
-		name   string
-		fields L3n4Addr
-		args   args
-		want   bool
-	}{
-		{
-			name: "both equal",
-			fields: L3n4Addr{
-				L4Addr: L4Addr{
-					Protocol: NONE,
-					Port:     1,
-				},
-				AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-			},
-			args: args{
-				o: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: NONE,
-						Port:     1,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-				},
-			},
-			want: true,
-		},
-		{
-			name: "IPs different",
-			fields: L3n4Addr{
-				L4Addr: L4Addr{
-					Protocol: NONE,
-					Port:     1,
-				},
-				AddrCluster: cmtypes.MustParseAddrCluster("2.2.2.2"),
-			},
-			args: args{
-				o: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: NONE,
-						Port:     1,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-				},
-			},
-			want: false,
-		},
-		{
-			name: "Ports different",
-			fields: L3n4Addr{
-				L4Addr: L4Addr{
-					Protocol: NONE,
-					Port:     2,
-				},
-				AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-			},
-			args: args{
-				o: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: NONE,
-						Port:     1,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-				},
-			},
-			want: false,
-		},
-		{
-			name: "both nil",
-			args: args{},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := tt.fields
-			if got := f.DeepEqual(&tt.args.o); got != tt.want {
-				t.Errorf("%q.DeepEqual(%q) = %v, want %v", f, tt.args.o, got, tt.want)
-			}
-		})
 	}
 }
 
@@ -254,101 +171,89 @@ func TestL3n4Addr_Strings(t *testing.T) {
 	}{
 		{
 			name: "IPv4 no protocol",
-			fields: L3n4Addr{
-				L4Addr: L4Addr{
-					Protocol: NONE,
-					Port:     9876,
-				},
-				AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-			},
+			fields: NewL3n4Addr(
+				NONE,
+				cmtypes.MustParseAddrCluster("1.1.1.1"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "1.1.1.1:9876/NONE",
 			stringWithProtocol: "1.1.1.1:9876/NONE",
 		},
 		{
 			name: "IPv4 TCP",
-			fields: L3n4Addr{
-				L4Addr: L4Addr{
-					Protocol: TCP,
-					Port:     9876,
-				},
-				AddrCluster: cmtypes.MustParseAddrCluster("2.2.2.2"),
-				Scope:       ScopeExternal,
-			},
+			fields: NewL3n4Addr(
+				TCP,
+				cmtypes.MustParseAddrCluster("2.2.2.2"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "2.2.2.2:9876/TCP",
 			stringWithProtocol: "2.2.2.2:9876/TCP",
 		},
 		{
 			name: "IPv4 UDP",
-			fields: L3n4Addr{
-				L4Addr: L4Addr{
-					Protocol: UDP,
-					Port:     9876,
-				},
-				AddrCluster: cmtypes.MustParseAddrCluster("3.3.3.3"),
-				Scope:       ScopeInternal,
-			},
+			fields: NewL3n4Addr(
+				UDP,
+				cmtypes.MustParseAddrCluster("3.3.3.3"),
+				9876,
+				ScopeInternal,
+			),
 			string:             "3.3.3.3:9876/UDP/i",
 			stringWithProtocol: "3.3.3.3:9876/UDP/i",
 		},
 		{
 			name: "IPv4 SCTP",
-			fields: L3n4Addr{
-				L4Addr: L4Addr{
-					Protocol: SCTP,
-					Port:     9876,
-				},
-				AddrCluster: cmtypes.MustParseAddrCluster("4.4.4.4"),
-			},
+			fields: NewL3n4Addr(
+				SCTP,
+				cmtypes.MustParseAddrCluster("4.4.4.4"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "4.4.4.4:9876/SCTP",
 			stringWithProtocol: "4.4.4.4:9876/SCTP",
 		},
 		{
 			name: "IPv6 no protocol",
-			fields: L3n4Addr{
-				L4Addr: L4Addr{
-					Protocol: NONE,
-					Port:     9876,
-				},
-				AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
-			},
+			fields: NewL3n4Addr(
+				NONE,
+				cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/NONE",
 			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/NONE",
 		},
 		{
 			name: "IPv6 TCP",
-			fields: L3n4Addr{
-				L4Addr: L4Addr{
-					Protocol: TCP,
-					Port:     9876,
-				},
-				AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
-				Scope:       ScopeExternal,
-			},
+			fields: NewL3n4Addr(
+				TCP,
+				cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/TCP",
 			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/TCP",
 		},
 		{
 			name: "IPv6 UDP",
-			fields: L3n4Addr{
-				L4Addr: L4Addr{
-					Protocol: UDP,
-					Port:     9876,
-				},
-				AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
-				Scope:       ScopeInternal,
-			},
+			fields: NewL3n4Addr(
+				UDP,
+				cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+				9876,
+				ScopeInternal,
+			),
 			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/UDP/i",
 			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/UDP/i",
 		},
 		{
 			name: "IPv6 SCTP",
-			fields: L3n4Addr{
-				L4Addr: L4Addr{
-					Protocol: SCTP,
-					Port:     9876,
-				},
-				AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
-			},
+			fields: NewL3n4Addr(
+				SCTP,
+				cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/SCTP",
 			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/SCTP",
 		},

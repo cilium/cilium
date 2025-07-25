@@ -187,7 +187,7 @@ func (ac AddrCluster) ClusterID() uint32 {
 
 // Equal returns true when given AddrCluster has a same IP address and ClusterID
 func (ac0 AddrCluster) Equal(ac1 AddrCluster) bool {
-	return ac0.addr == ac1.addr && ac0.clusterID == ac1.clusterID
+	return ac0 == ac1
 }
 
 // Less compares ac0 and ac1 and returns true if ac0 is lesser than ac1

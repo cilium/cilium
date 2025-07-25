@@ -98,10 +98,12 @@ func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps [
 				portNames = []string{name}
 			}
 			bep := loadbalancer.BackendParams{
-				Address: loadbalancer.L3n4Addr{
-					AddrCluster: addrCluster,
-					L4Addr:      *l4,
-				},
+				Address: loadbalancer.NewL3n4Addr(
+					l4.Protocol,
+					addrCluster,
+					l4.Port,
+					loadbalancer.ScopeExternal,
+				),
 				PortNames: portNames,
 				Weight:    loadbalancer.DefaultBackendWeight,
 				NodeName:  "",
