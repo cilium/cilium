@@ -127,6 +127,10 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 		},
 	}
 
+	eps1NonDefaultIPv4Local := eps1IPv4Local.DeepCopy()
+	eps1NonDefaultIPv4Local.ObjectMeta.Namespace = "non-default"
+	eps1NonDefaultIPv4Local.EndpointSliceID.ServiceName = loadbalancer.NewServiceName("non-default", "svc-1")
+
 	eps1IPv4LocalTerminating := &k8s.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "svc-1-ipv4",
@@ -257,6 +261,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			name:               "lb-svc-1-ingress",
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
 			advertised:         make(map[resource.Key][]string),
 			upsertedServices:   []*slim_corev1.Service{svc1},
 			updated: map[resource.Key][]string{
@@ -270,6 +275,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			name:               "lb-svc-2-ingress",
 			oldServiceSelector: &blueSelector,
 			newServiceSelector: &blueSelector,
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
 			advertised:         make(map[resource.Key][]string),
 			upsertedServices:   []*slim_corev1.Service{svc1TwoIngress},
 			updated: map[resource.Key][]string{
@@ -328,7 +334,8 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 					ingressV4Prefix,
 				},
 			},
-			upsertedServices: []*slim_corev1.Service{svc1TwoIngress},
+			upsertedServices:  []*slim_corev1.Service{svc1TwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					ingressV4Prefix,
@@ -355,6 +362,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 				svc1,
 				svc2NonDefault,
 			},
+			upsertedEndpoints: []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					ingressV4Prefix,
@@ -371,6 +379,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 				svc1,
 				svc1NonDefault,
 			},
+			upsertedEndpoints: []*k8s.Endpoints{eps1IPv4Local, eps1NonDefaultIPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					ingressV4Prefix,
@@ -387,6 +396,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
 			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					ingressV4Prefix,
@@ -830,6 +840,9 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 		},
 	}
 
+	eps1NonDefaultIPv4Local := eps1IPv4Local.DeepCopy()
+	eps1NonDefaultIPv4Local.ObjectMeta.Namespace = "non-default"
+
 	eps1IPv4Remote := &k8s.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "svc-1-ipv4",
@@ -945,6 +958,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			newServiceSelector: &blueSelector,
 			advertised:         make(map[resource.Key][]string),
 			upsertedServices:   []*slim_corev1.Service{svc1},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					clusterIPV4Prefix,
@@ -958,6 +972,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			newServiceSelector: &blueSelector,
 			advertised:         make(map[resource.Key][]string),
 			upsertedServices:   []*slim_corev1.Service{svc1TwoIngress},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					clusterIPV4Prefix,
@@ -1014,7 +1029,8 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 					clusterIPV4Prefix,
 				},
 			},
-			upsertedServices: []*slim_corev1.Service{svc1TwoIngress},
+			upsertedServices:  []*slim_corev1.Service{svc1TwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					clusterIPV4Prefix,
@@ -1041,6 +1057,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 				svc1,
 				svc2NonDefault,
 			},
+			upsertedEndpoints: []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					clusterIPV4Prefix,
@@ -1056,6 +1073,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			upsertedServices: []*slim_corev1.Service{
 				svc1,
 			},
+			upsertedEndpoints: []*k8s.Endpoints{eps1IPv4Local, eps1NonDefaultIPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					clusterIPV4Prefix,
@@ -1069,6 +1087,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
 			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					clusterIPV4Prefix,
@@ -1473,6 +1492,10 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 		},
 	}
 
+	eps1NonDefaultIPv4Local := eps1IPv4Local.DeepCopy()
+	eps1NonDefaultIPv4Local.ObjectMeta.Namespace = "non-default"
+	eps1NonDefaultIPv4Local.EndpointSliceID.ServiceName = loadbalancer.NewServiceName("non-default", "svc-1")
+
 	eps1IPv4Remote := &k8s.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "svc-1-ipv4",
@@ -1588,6 +1611,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			newServiceSelector: &blueSelector,
 			advertised:         make(map[resource.Key][]string),
 			upsertedServices:   []*slim_corev1.Service{svc1},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					externalIPV4Prefix,
@@ -1601,6 +1625,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			newServiceSelector: &blueSelector,
 			advertised:         make(map[resource.Key][]string),
 			upsertedServices:   []*slim_corev1.Service{svc1TwoIngress},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					externalIPV4Prefix,
@@ -1657,7 +1682,8 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 					externalIPV4Prefix,
 				},
 			},
-			upsertedServices: []*slim_corev1.Service{svc1TwoIngress},
+			upsertedServices:  []*slim_corev1.Service{svc1TwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					externalIPV4Prefix,
@@ -1684,6 +1710,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 				svc1,
 				svc2NonDefault,
 			},
+			upsertedEndpoints: []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					externalIPV4Prefix,
@@ -1699,6 +1726,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			upsertedServices: []*slim_corev1.Service{
 				svc1,
 			},
+			upsertedEndpoints: []*k8s.Endpoints{eps1IPv4Local, eps1NonDefaultIPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					externalIPV4Prefix,
@@ -1712,6 +1740,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
 			upsertedServices:   []*slim_corev1.Service{svc1LbClass},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					externalIPV4Prefix,
@@ -2083,11 +2112,9 @@ func TestEPUpdateOnly(t *testing.T) {
 		expectedMetadata map[resource.Key][]string
 	}{
 		{
-			name:           "initial setup, cluster wide service",
-			upsertServices: []*slim_corev1.Service{svc1},
-			expectedMetadata: map[resource.Key][]string{
-				svc1Name: {clusterIPV4Prefix},
-			},
+			name:             "initial setup, cluster wide service",
+			upsertServices:   []*slim_corev1.Service{svc1},
+			expectedMetadata: map[resource.Key][]string{}, // since there is no local endpoint, no metadata should be added
 		},
 		{
 			name:             "set service to internalTrafficPolicy=Local",
@@ -2226,6 +2253,22 @@ func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
 	svc1ExternalIPAndClusterIP.Spec.ClusterIP = clusterIPV4
 	svc1ExternalIPAndClusterIP.Spec.ExternalIPs = []string{externalIPV4}
 
+	eps1Local := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
+			EndpointSliceName: "svc-1",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+
 	var table = []struct {
 		// name of the test case
 		name string
@@ -2255,6 +2298,7 @@ func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
 			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
 			upsertedServices:   []*slim_corev1.Service{svc1ExternalIPAndClusterIP},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1Local},
 			updated: map[resource.Key][]string{
 				svc1Name: {
 					clusterIPV4Prefix,
