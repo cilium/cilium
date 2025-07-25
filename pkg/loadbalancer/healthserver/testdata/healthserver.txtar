@@ -121,7 +121,7 @@ Address               Type         ServiceName            PortName   Status  Bac
 0.0.0.0:30781/TCP     NodePort     test/echo              http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
 10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
 172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
-172.16.1.1:$HEALTHPORT/TCP  LoadBalancer test/echo:healthserver            Done    1.1.1.1:$HEALTHPORT/TCP/i
+172.16.1.1:$HEALTHPORT/TCP  LoadBalancer test/echo:healthserver            Done    1.1.1.1:$HEALTHPORT/TCP
 
 -- frontends_tpcluster.table --
 Address               Type         ServiceName            PortName   Status  Backends
@@ -134,7 +134,7 @@ Address               Type         ServiceName            PortName   Status  Bac
 0.0.0.0:30781/TCP     NodePort     test/echo              http       Done    
 10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    
 172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    
-172.16.1.1:$HEALTHPORT/TCP  LoadBalancer test/echo:healthserver            Done    1.1.1.1:$HEALTHPORT/TCP/i
+172.16.1.1:$HEALTHPORT/TCP  LoadBalancer test/echo:healthserver            Done    1.1.1.1:$HEALTHPORT/TCP
 
 -- frontends_nohealthcheck.table --
 Address               Type         ServiceName            PortName   Status  Backends
@@ -151,7 +151,7 @@ test/echo (http)       10.244.1.4:80/TCP
 
 -- backends.table --
 Instances              Address
-test/echo:healthserver 1.1.1.1:$HEALTHPORT/TCP/i
+test/echo:healthserver 1.1.1.1:$HEALTHPORT/TCP
 test/echo (http)       10.244.1.1:80/TCP
 test/echo (http)       10.244.1.2:80/TCP
 test/echo (http)       10.244.1.3:80/TCP
