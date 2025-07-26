@@ -250,7 +250,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if option.Config.EnableWireguard {
+	if cfg.EnableWireguard {
 		cDefinesMap["ENABLE_WIREGUARD"] = "1"
 		ifindex, err := link.GetIfIndex(wgtypes.IfaceName)
 		if err != nil {
@@ -501,7 +501,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", cfg.MaglevConfig.SeedJhash1)
 
-	if option.Config.DirectRoutingDeviceRequired(h.kprCfg) {
+	if option.Config.DirectRoutingDeviceRequired(h.kprCfg, cfg.EnableWireguard) {
 		drd := cfg.DirectRoutingDevice
 		if option.Config.EnableIPv4 {
 			if drd == nil {

@@ -92,6 +92,7 @@ type featuresParams struct {
 	BigTCP              types.BigTCPConfig
 	L2PodAnnouncement   gneigh.L2PodAnnouncementConfig
 	DynamicConfigSource dynamicconfig.ConfigSource
+	Wireguard           types.WireguardAgent
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.EncapProtocol {
