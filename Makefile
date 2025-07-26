@@ -378,6 +378,11 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	contrib/scripts/builder.sh \
 		$(MAKE) -C /go/src/github.com/cilium/cilium/ generate-k8s-api-local
 
+.PHONY: generate-bpf
+generate-bpf: ## Generate config structs from BPF objects using dpgen and Go skeletons with bpf2go
+	contrib/scripts/builder.sh \
+		$(MAKE) -C /go/src/github.com/cilium/cilium/bpf generate
+
 check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
 	./contrib/scripts/check-preflight-clusterrole.sh
 

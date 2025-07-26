@@ -4,6 +4,6 @@
 
 set -e
 
-make -C bpf generate
+make generate-bpf
 
-test -z "$(git status bpf/ --porcelain)" || (echo "please run 'make -C bpf generate' and submit your changes"; exit 1)
+test -z "$(git status bpf/ pkg/ --porcelain)" || (echo "please run 'make generate-bpf' and submit your changes"; exit 1)
