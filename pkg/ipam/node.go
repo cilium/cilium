@@ -1046,6 +1046,7 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 	n.poolMaintenanceComplete()
 	n.recalculate(ctx)
 	if instanceMutated || err != nil {
+		time.Sleep(5 * time.Second)
 		n.instanceSync.Trigger()
 	}
 	return err
