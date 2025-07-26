@@ -43,8 +43,6 @@
 #include "lib/nodeport.h"
 #include "lib/tailcall.h"
 
-#ifdef ENABLE_PREFILTER
-#ifdef CIDR4_FILTER
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct lpm_v4_key);
@@ -54,7 +52,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_cidr_v4_fix __section_maps_btf;
 
-#ifdef CIDR4_LPM_PREFILTER
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct lpm_v4_key);
@@ -64,10 +61,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_cidr_v4_dyn __section_maps_btf;
 
-#endif /* CIDR4_LPM_PREFILTER */
-#endif /* CIDR4_FILTER */
-
-#ifdef CIDR6_FILTER
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct lpm_v6_key);
@@ -77,7 +70,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_cidr_v6_fix __section_maps_btf;
 
-#ifdef CIDR6_LPM_PREFILTER
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct lpm_v6_key);
@@ -86,9 +78,6 @@ struct {
 	__uint(max_entries, CIDR4_LMAP_ELEMS);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_cidr_v6_dyn __section_maps_btf;
-#endif /* CIDR6_LPM_PREFILTER */
-#endif /* CIDR6_FILTER */
-#endif /* ENABLE_PREFILTER */
 
 static __always_inline __maybe_unused int
 bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
