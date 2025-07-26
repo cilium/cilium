@@ -6,11 +6,12 @@ package seven
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_decodeKafka(t *testing.T) {

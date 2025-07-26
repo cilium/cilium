@@ -19,7 +19,7 @@ import (
 
 // Helper function to compare two slices of maps ignoring the order
 func equalClusterSlices(t assert.TestingT, a, b []map[string]any) {
-	assert.Equal(t, len(a), len(b))
+	assert.Len(t, a, len(b))
 
 	bCopy := make([]map[string]any, len(b))
 	copy(bCopy, b)
@@ -34,7 +34,7 @@ func equalClusterSlices(t assert.TestingT, a, b []map[string]any) {
 			}
 		}
 	}
-	assert.Equal(t, found, true, "%v not found in the actual clusters", b)
+	assert.True(t, found, "%v not found in the actual clusters", b)
 }
 
 func TestMergeClusters(t *testing.T) {

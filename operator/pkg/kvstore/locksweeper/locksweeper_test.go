@@ -6,8 +6,9 @@ package locksweeper
 import (
 	"testing"
 
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cilium/cilium/pkg/kvstore"
 )
 
 func Test_getOldestLeases(t *testing.T) {

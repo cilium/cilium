@@ -54,7 +54,7 @@ func responseCheck(t assert.TestingT, response *envoy_service_discovery.Discover
 		resourcesAny := make([]*anypb.Any, 0, len(resources))
 		for _, res := range resources {
 			a, err := anypb.New(res)
-			assert.Equal(t, err, nil)
+			assert.NoError(t, err)
 			resourcesAny = append(resourcesAny, a)
 		}
 		// Sort both lists.
