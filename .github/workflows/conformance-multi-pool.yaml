@@ -243,6 +243,7 @@ jobs:
           esac
 
           CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
+            --include-no-unexpected-packet-drops-test \
             --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
             --junit-file \"cilium-junits/${{ env.job_name }} ${{ matrix.name }}.xml\" \
             --junit-property github_job_step=\"Run tests ${{ matrix.name }}\" \

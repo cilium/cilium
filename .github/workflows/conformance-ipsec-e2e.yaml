@@ -167,6 +167,7 @@ jobs:
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
+                                      --include-no-unexpected-packet-drops-test \
                                       --collect-sysdump-on-failure \
                                       --sysdump-hubble-flows-count=1000000 \
                                       --sysdump-hubble-flows-timeout=5m \

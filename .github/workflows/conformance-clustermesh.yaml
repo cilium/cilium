@@ -374,6 +374,7 @@ jobs:
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
+            --include-no-unexpected-packet-drops-test \
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --flow-validation=disabled \

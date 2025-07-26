@@ -229,6 +229,7 @@ jobs:
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false \
+            --include-no-unexpected-packet-drops-test \
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --collect-sysdump-on-failure --external-target amazon.com."

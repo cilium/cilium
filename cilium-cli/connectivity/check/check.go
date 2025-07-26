@@ -122,8 +122,9 @@ type Parameters struct {
 	ConnDisruptTestXfrmErrorsPath       string
 	ConnDisruptDispatchInterval         time.Duration
 
-	ExpectedDropReasons []string
-	ExpectedXFRMErrors  []string
+	IncludeNoUnexpectedPacketDropsTest bool
+	ExpectedDropReasons                []string
+	ExpectedXFRMErrors                 []string
 
 	CodeOwners        []string
 	LogCodeOwners     bool

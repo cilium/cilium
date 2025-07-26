@@ -50,6 +50,7 @@ cilium connectivity test [flags]
       --include-conn-disrupt-test                             Include conn disrupt test
       --include-conn-disrupt-test-egw                         Include conn disrupt test for Egress Gateway
       --include-conn-disrupt-test-ns-traffic                  Include conn disrupt test for NS traffic
+      --include-no-unexpected-packet-drops-test               Include no unexpected packet drops test
       --ip-families strings                                   Restrict test actions to specific IP families (default [ipv4,ipv6])
       --json-mock-image string                                Image path to use for json mock (default "quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603")
       --junit-file string                                     Generate junit report and write to file
