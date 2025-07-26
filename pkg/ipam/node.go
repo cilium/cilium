@@ -254,20 +254,45 @@ func (n *Node) getMaxAboveWatermark() int {
 }
 
 // getPreAllocate returns the pre-allocation setting for an AWS node
+// Instance limits are applied when reading the value to ensure safe operation
+// A value of 0 means use the default value
 //
 // n.mutex must be held when calling this function
 func (n *Node) getPreAllocate() int {
+	minInstanceLimit := n.ops.GetMinimumAllocatableIPv4()
+
 	if n.resource.Spec.IPAM.PreAllocate != 0 {
-		return n.resource.Spec.IPAM.PreAllocate
+		configuredValue := n.resource.Spec.IPAM.PreAllocate
+		if configuredValue > minInstanceLimit {
+			n.logger.Load().Warn(
+				fmt.Sprintf("pre-allocate (%d) is higher than the instance type limits (%d)",
+					configuredValue, minInstanceLimit),
+			)
+			return minInstanceLimit
+		}
+		return configuredValue
 	}
-	return defaults.IPAMPreAllocation
+
+	return min(defaults.IPAMPreAllocation, minInstanceLimit)
 }
 
 // getMinAllocate returns the minimum-allocation setting of an AWS node
+// Instance limits are applied when reading the value to ensure safe operation
 //
 // n.mutex must be held when calling this function
 func (n *Node) getMinAllocate() int {
-	return n.resource.Spec.IPAM.MinAllocate
+	minInstanceLimit := n.ops.GetMinimumAllocatableIPv4()
+	configuredValue := n.resource.Spec.IPAM.MinAllocate
+
+	if configuredValue > minInstanceLimit {
+		n.logger.Load().Warn(
+			fmt.Sprintf("min-allocate (%d) is higher than the instance type limits (%d)",
+				configuredValue, minInstanceLimit),
+		)
+		return minInstanceLimit
+	}
+
+	return configuredValue
 }
 
 // getMaxAllocate returns the maximum-allocation setting of an AWS node
@@ -1086,10 +1111,11 @@ func (n *Node) PopulateStaticIPStatus(node *v2.CiliumNode) {
 //
 // For Azure and ENI IPAM modes, this function serves two purposes: (1)
 // finalizes the initialization of the CiliumNode resource (setting
-// PreAllocate) and (2) to keep the resource up-to-date with K8s.
+// IPAM allocation parameters like PreAllocate, MinAllocate, MaxAllocate,
+// and MaxAboveWatermark) and (2) to keep the resource up-to-date with K8s.
 //
-// To initialize, or seed, the CiliumNode resource, the PreAllocate field is
-// populated with a default value and then is adjusted as necessary.
+// To initialize, or seed, the CiliumNode resource, the IPAM allocation fields are
+// populated with default values and then adjusted as necessary.
 func (n *Node) syncToAPIServer() error {
 	n.logger.Load().Debug("Refreshing node")
 
@@ -1145,13 +1171,46 @@ func (n *Node) syncToAPIServer() error {
 		node.Spec.IPAM.Pool = pool
 		n.logger.Load().Debug("Updating node in apiserver", logfields.PoolSize, len(node.Spec.IPAM.Pool))
 
-		// The PreAllocate value is added here rather than where the CiliumNode
-		// resource is created ((*NodeDiscovery).mutateNodeResource() inside
-		// pkg/nodediscovery), because mutateNodeResource() does not have
-		// access to the ipam.Node object. Since we are in the CiliumNode
-		// update sync loop, we can compute the value.
+		// The PreAllocate, MinAllocate, MaxAllocate, and MaxAboveWatermark default
+		// values are added here rather than where the CiliumNode resource is
+		// created ((*NodeDiscovery).mutateNodeResource() inside pkg/nodediscovery),
+		// because mutateNodeResource() does not have access to the ipam.Node object
+		// Since we are in the CiliumNode update sync loop, we can compute the values.
+		// Note: these values can be overridden by user-provided values in
+		// (*NodeDiscovery).mutateNodeResource() via custom CNI config.
+
+		// Set operator defaults for IPAM parameters that are still zero
+		// Instance limits are applied when these values are read via getter methods
+		// This preserves explicit zero values set by CNI config while providing defaults
+
 		if node.Spec.IPAM.PreAllocate == 0 {
-			node.Spec.IPAM.PreAllocate = n.ops.GetMinimumAllocatableIPv4()
+			managerPreAllocate := n.manager.getPreAllocate()
+			if managerPreAllocate > 0 {
+				node.Spec.IPAM.PreAllocate = managerPreAllocate
+			} else {
+				node.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
+			}
+		}
+
+		if node.Spec.IPAM.MinAllocate == 0 {
+			minAllocate := n.manager.getMinAllocate()
+			if minAllocate > 0 {
+				node.Spec.IPAM.MinAllocate = minAllocate
+			}
+		}
+
+		if node.Spec.IPAM.MaxAllocate == 0 {
+			maxAllocate := n.manager.getMaxAllocate()
+			if maxAllocate > 0 {
+				node.Spec.IPAM.MaxAllocate = maxAllocate
+			}
+		}
+
+		if node.Spec.IPAM.MaxAboveWatermark == 0 {
+			maxAboveWatermark := n.manager.getMaxAboveWatermark()
+			if maxAboveWatermark > 0 {
+				node.Spec.IPAM.MaxAboveWatermark = maxAboveWatermark
+			}
 		}
 
 		err := n.update(origNode, node, false)
