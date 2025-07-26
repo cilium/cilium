@@ -114,6 +114,8 @@ func registerMCSAPIController(params mcsAPIParams) error {
 		return err
 	}
 
+	registerMCSAPICollector(params.Logger, params.Clientset)
+
 	if err := newMCSAPIServiceReconciler(params.CtrlRuntimeManager, params.Logger).SetupWithManager(params.CtrlRuntimeManager); err != nil {
 		return fmt.Errorf("Failed to register MCSAPIServiceReconciler: %w", err)
 	}
