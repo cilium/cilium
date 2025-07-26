@@ -854,6 +854,17 @@ Name                                                 Labels                     
 ``workqueue_retries_total``                          ``queue_name``                                 Enabled    Total number of retries handled by workqueue
 ==================================================== ============================================= ========== ===========================================================
 
+MCS-API
+~~~~~~~
+
+==================================== ============================================================ ========== ===========================================================
+Name                                                 Labels                                                    Default     Description
+==================================== ============================================================ ========== ===========================================================
+``serviceexport_info``               ``serviceexport``, ``namespace``                             Enabled    Information about ServiceExport in the local cluster
+``serviceexport_status_condition``   ``serviceexport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceExport in the local cluster
+``serviceimport_info``               ``serviceimport``, ``namespace``                             Enabled    Information about ServiceImport in the local cluster
+==================================== ============================================================ ========== ===========================================================
+
 
 Hubble
 ------

@@ -123,6 +123,8 @@ func registerMCSAPIController(params mcsAPIParams) error {
 
 	params.Logger.Info("Multi-Cluster Services API support enabled")
 
+	registerMCSAPICollector(params.Logger, params.CtrlRuntimeManager.GetClient())
+
 	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: params.Logger}
 	params.ClusterMesh.RegisterClusterServiceExportUpdateHook(remoteClusterServiceSource.onClusterServiceExportEvent)
 	params.ClusterMesh.RegisterClusterServiceExportDeleteHook(remoteClusterServiceSource.onClusterServiceExportEvent)
