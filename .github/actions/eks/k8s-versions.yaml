@@ -16,3 +16,21 @@ include:
     region: us-east-1
     ipsec: true
     default: true
+  - version: "1.30"
+    region: us-west-1
+  - version: "1.30"
+    region: us-west-1
+  - version: "1.30"
+    region: us-west-1
+  - version: "1.30"
+    region: us-west-1
+  - version: "1.30"
+    region: us-west-1
+  - version: "1.30"
+    region: us-west-1
+  - version: "1.30"
+    region: us-west-1
+  - version: "1.30"
+    region: us-west-1
+  - version: "1.30"
+    region: us-west-1
