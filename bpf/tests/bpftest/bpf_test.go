@@ -186,18 +186,14 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 
 	testNameToPrograms := make(map[string]programSet)
 
-	checkProgExists := func(progName, testName, progType string) {
-		checkProgName := strings.Replace(progName, progType, "check", 1)
-		if spec, ok := spec.Programs[checkProgName]; ok {
-			match := checkProgRegex.FindStringSubmatch(spec.SectionName)
-			if match[1] != testName {
-				t.Fatalf(
-					"File '%s' contains a %s program for '%s' test, but no check program.",
-					elfPath,
-					progType,
-					testName,
-				)
-			}
+	checkProgUnique := func(prog *ebpf.Program, testName, progType string) {
+		if prog != nil {
+			t.Fatalf(
+				"File '%s' contains duplicate %s programs for the '%s' test.",
+				elfPath,
+				progType,
+				testName,
+			)
 		}
 	}
 
@@ -209,17 +205,28 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 
 		progs := testNameToPrograms[match[1]]
 		if match[2] == "pktgen" {
-			checkProgExists(progName, match[1], match[2])
+			checkProgUnique(progs.pktgenProg, match[1], match[2])
 			progs.pktgenProg = coll.Programs[progName]
 		}
 		if match[2] == "setup" {
-			checkProgExists(progName, match[1], match[2])
+			checkProgUnique(progs.setupProg, match[1], match[2])
 			progs.setupProg = coll.Programs[progName]
 		}
 		if match[2] == "check" {
+			checkProgUnique(progs.checkProg, match[1], match[2])
 			progs.checkProg = coll.Programs[progName]
 		}
 		testNameToPrograms[match[1]] = progs
+	}
+
+	for testName, progSet := range testNameToPrograms {
+		if progSet.checkProg == nil {
+			t.Fatalf(
+				"File '%s' does not contain a check program for the '%s' test.",
+				elfPath,
+				testName,
+			)
+		}
 	}
 
 	// Collect debug events and add them as logs of the main test
