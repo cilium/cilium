@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -110,9 +109,9 @@ var (
 	maxEntries = 16
 )
 
-func mapsEqual(a, b *Map) bool {
+func mapsEqual(t assert.TestingT, a, b *Map) bool {
 	return a.name == b.name &&
-		reflect.DeepEqual(a.spec, b.spec)
+		assert.Equal(t, b.spec, a.spec)
 }
 
 func TestPrivilegedOpen(t *testing.T) {
@@ -152,7 +151,7 @@ func TestPrivilegedOpenMap(t *testing.T) {
 
 	openedMap, err = OpenMap(MapPath(logger, "cilium_test"), &TestKey{}, &TestValue{})
 	require.NoError(t, err)
-	require.True(t, mapsEqual(openedMap, testMap))
+	mapsEqual(t, openedMap, testMap)
 }
 
 func TestPrivilegedOpenOrCreate(t *testing.T) {
@@ -203,7 +202,7 @@ func TestPrivilegedRecreateMap(t *testing.T) {
 	require.Error(t, err)
 
 	// Check OpenMap warning section
-	require.True(t, mapsEqual(parallelMap, testMap))
+	mapsEqual(t, parallelMap, testMap)
 
 	key1 := &TestKey{Key: 101}
 	value1 := &TestValue{Value: 201}

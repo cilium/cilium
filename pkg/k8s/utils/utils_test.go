@@ -5,13 +5,14 @@ package utils
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/stretchr/testify/assert"
 
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -204,9 +205,8 @@ func TestValidIPs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ValidIPs(tt.args); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ValidIPs() = %v, want %v", got, tt.want)
-			}
+			got := ValidIPs(tt.args)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -237,9 +237,8 @@ func TestIsPodRunning(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsPodRunning(tt.args); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("TestIsPodRunning() = %v, want %v", got, tt.want)
-			}
+			got := IsPodRunning(tt.args)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -326,9 +325,8 @@ func TestGetLatestPodReadiness(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := GetLatestPodReadiness(tt.args); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetLatestPodReadiness() = %v, want %v", got, tt.want)
-			}
+			got := GetLatestPodReadiness(tt.args)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -449,9 +447,8 @@ func TestStripPodLabels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := StripPodSpecialLabels(tt.labels); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("StripPodSpecialLabels() = %v, want %v", got, tt.want)
-			}
+			got := StripPodSpecialLabels(tt.labels)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -504,9 +501,8 @@ func Test_filterPodLabels(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := RemoveCiliumLabels(tt.labels); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("filterPodLabels() = %v, want %v", got, tt.want)
-			}
+			got := RemoveCiliumLabels(tt.labels)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

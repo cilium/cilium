@@ -9,7 +9,6 @@ import (
 	"maps"
 	"net"
 	"net/netip"
-	"reflect"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -353,7 +352,7 @@ func TestReconciliationLoop(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		mu.Lock()
 		defer mu.Unlock()
-		if err := assertIptablesState(state, testCases[0].expected); err != nil {
+		if err := assertIptablesState(t, state, testCases[0].expected); err != nil {
 			t.Logf("assertIptablesState: %s", err)
 			return false
 		}
@@ -375,7 +374,7 @@ func TestReconciliationLoop(t *testing.T) {
 
 				mu.Lock()
 				defer mu.Unlock()
-				if err := assertIptablesState(state, tc.expected); err != nil {
+				if err := assertIptablesState(t, state, tc.expected); err != nil {
 					t.Logf("assertIptablesState: %s", err)
 					return false
 				}
@@ -397,7 +396,7 @@ func TestReconciliationLoop(t *testing.T) {
 
 		mu.Lock()
 		defer mu.Unlock()
-		if err := assertIptablesState(state, expected); err != nil {
+		if err := assertIptablesState(t, state, expected); err != nil {
 			t.Logf("assertIptablesState: %s", err)
 			return false
 		}
@@ -413,7 +412,7 @@ func TestReconciliationLoop(t *testing.T) {
 	assert.NoError(t, <-errs)
 }
 
-func assertIptablesState(current, expected desiredState) error {
+func assertIptablesState(t assert.TestingT, current, expected desiredState) error {
 	if current.installRules != expected.installRules {
 		return fmt.Errorf("expected installRules to be %t, found %t",
 			expected.installRules, current.installRules)
@@ -426,10 +425,8 @@ func assertIptablesState(current, expected desiredState) error {
 		return fmt.Errorf("expected local node info to be %v, found %v",
 			expected.localNodeInfo, current.localNodeInfo)
 	}
-	if len(current.proxies) != 0 && len(expected.proxies) != 0 &&
-		!reflect.DeepEqual(current.proxies, expected.proxies) {
-		return fmt.Errorf("expected proxies info to be %v, found %v",
-			expected.proxies, current.proxies)
+	if len(current.proxies) != 0 && len(expected.proxies) != 0 {
+		assert.Equal(t, expected.proxies, current.proxies)
 	}
 	if !current.noTrackPods.Equal(expected.noTrackPods) {
 		return fmt.Errorf("expected no tracking pods info to be %v, found %v",
