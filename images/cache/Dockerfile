@@ -1,7 +1,7 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-FROM docker.io/library/alpine:3.19.7@sha256:e5d0aea7f7d2954678a9a6269ca2d06e06591881161961ea59e974dff3f12377 AS import-cache
+FROM docker.io/library/alpine:3.19.8@sha256:3be987e6cde1d07e873c012bf6cfe941e6e85d16ca5fc5b8bedc675451d2de67 AS import-cache
 
 RUN --mount=type=bind,target=/host-tmp \
     --mount=type=cache,target=/root/.cache \
