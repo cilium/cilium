@@ -50,6 +50,7 @@ clean:
 	rm -f $(wildcard *.d)
 
 BPF_TEST_FLAGS:= $(GO_TEST_FLAGS)
+BPF_BENCH_FLAGS:=
 ifneq ($(shell id -u), 0)
 		BPF_TEST_FLAGS += -exec "sudo -E"
 endif
@@ -74,8 +75,12 @@ endif
 ifdef BPF_TEST_DUMP_CTX
     BPF_TEST_FLAGS += -dump-ctx
 endif
+ifdef BPF_TEST_BENCH
+	BPF_TEST_FLAGS += -bpf-bench
+endif
 ifdef BPF_TEST_FILE
 	BPF_TEST_FLAGS += -test $(BPF_TEST_FILE)
+	BPF_BENCH_FLAGS += -test $(BPF_TEST_FILE)
 endif
 
 run: $(TEST_OBJECTS)
@@ -83,5 +88,10 @@ run: $(TEST_OBJECTS)
 		-bpf-test-path $(ROOT_DIR)/bpf/tests \
 		$(BPF_TEST_FLAGS) \
 	| $(GOTEST_FORMATTER)
+
+run_bench: $(TEST_OBJECTS)
+	$(QUIET)$(GO) run ./bpfbench \
+		-bpf-test-path $(ROOT_DIR)/bpf/tests \
+		$(BPF_BENCH_FLAGS)
 
 -include $(TEST_OBJECTS:.o=.d)

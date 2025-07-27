@@ -554,6 +554,11 @@ run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder cont
 			"JUNIT_PATH=$(JUNIT_PATH)" \
 			"V=$(BPF_TEST_VERBOSE)"
 
+run_bpf_benchmarks: ## Build and run the BPF benchmarks tests using the cilium-builder container image.
+	DOCKER_ARGS=--privileged RUN_AS_ROOT=1 contrib/scripts/builder.sh \
+		$(MAKE) $(SUBMAKEOPTS) -j$(shell nproc) -C bpf/tests/ run_bench \
+			"BPF_TEST_FILE=$(BPF_TEST_FILE)"
+
 run-builder: ## Drop into a shell inside a container running the cilium-builder image.
 	DOCKER_ARGS=-it contrib/scripts/builder.sh bash
 

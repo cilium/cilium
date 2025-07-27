@@ -84,13 +84,13 @@ func loadAndPrepSuiteSpec(logger *slog.Logger, elfPath string) (*ebpf.Collection
 	return spec, nil
 }
 
-var progRegex = regexp.MustCompile(`[^/]+/test/([^/]+)/((?:check)|(?:setup)|(?:pktgen))`)
+var progRegex = regexp.MustCompile(`[^/]+/test/([^/]+)/((?:check)|(?:bench)|(?:setup)|(?:pktgen))`)
 
 // CollectionToSuite converts spec and coll into a final set of tests while
 // performing some validation:
 //
-// 1. Each test must contain a CHECK program.
-// 2. Each test must contain at most one PKTGEN/SETUP/CHECK program.
+// 1. Each test must contain a CHECK or BENCH program.
+// 2. Each test must contain at most one PKTGEN/SETUP/CHECK/BENCH program.
 //
 // It sorts the tests alphabetically based on their name.
 func CollectionToSuite(spec *ebpf.CollectionSpec, coll *ebpf.Collection) ([]Test, error) {
@@ -125,12 +125,18 @@ func CollectionToSuite(spec *ebpf.CollectionSpec, coll *ebpf.Collection) ([]Test
 			}
 			test.checkProg = coll.Programs[progName]
 		}
+		if match[2] == "bench" {
+			if test.benchProg != nil {
+				return nil, duplicateProgram(match[1], match[2])
+			}
+			test.benchProg = coll.Programs[progName]
+		}
 		tests[match[1]] = test
 	}
 
 	for testName, test := range tests {
-		if test.checkProg == nil {
-			return nil, fmt.Errorf("does not contain a check program for the '%s' test", testName)
+		if test.checkProg == nil && test.benchProg == nil {
+			return nil, fmt.Errorf("does not contain a check or bench program for the '%s' test", testName)
 		}
 	}
 
@@ -155,6 +161,7 @@ type Test struct {
 	pktgenProg *ebpf.Program
 	setupProg  *ebpf.Program
 	checkProg  *ebpf.Program
+	benchProg  *ebpf.Program
 }
 
 // Name returns the name of the unit test.
@@ -316,6 +323,40 @@ func (tt *Test) Check(t *testing.T, dumpCtx bool) {
 	}
 }
 
+// HasBench returns true if this BPF unit test contains a BENCH program.
+func (tt *Test) HasBench() bool {
+	return tt.benchProg != nil
+}
+
+// Bench runs the PKTGEN, and BENCH programs for a BPF unit test.
+func (tt *Test) Bench() (testing.BenchmarkResult, error) {
+	// create ctx with the max allowed size(4k - head room - tailroom)
+	data := make([]byte, 4096-256-320)
+
+	// ctx is only used for tc programs
+	// non-empty ctx passed to non-tc programs will cause error: invalid argument
+	ctx := make([]byte, 0)
+	if tt.benchProg.Type() == ebpf.SchedCLS {
+		// sizeof(struct __sk_buff) < 256, let's make it 256
+		ctx = make([]byte, 256)
+	}
+
+	var err error
+
+	if tt.pktgenProg != nil {
+		if _, data, ctx, err = runBpfProgram(tt.pktgenProg, data, ctx); err != nil {
+			return testing.BenchmarkResult{}, fmt.Errorf("while running pktgen prog: %w", err)
+		}
+	}
+
+	result, err := benchmarkBpfProgram(tt.benchProg, data, ctx)
+	if err != nil {
+		return testing.BenchmarkResult{}, fmt.Errorf("while running bench program: %w", err)
+	}
+
+	return result, nil
+}
+
 func runBpfProgram(prog *ebpf.Program, data, ctx []byte) (statusCode uint32, dataOut, ctxOut []byte, err error) {
 	dataOut = make([]byte, len(data))
 	if len(dataOut) > 0 {
@@ -332,6 +373,20 @@ func runBpfProgram(prog *ebpf.Program, data, ctx []byte) (statusCode uint32, dat
 	}
 	ret, err := prog.Run(opts)
 	return ret, opts.DataOut, ctxOut, err
+}
+
+func benchmarkBpfProgram(prog *ebpf.Program, data, ctx []byte) (testing.BenchmarkResult, error) {
+	const repeat = 1_000_000
+
+	_, avg, err := prog.Benchmark(data, repeat, nil)
+	if err != nil {
+		return testing.BenchmarkResult{}, err
+	}
+
+	return testing.BenchmarkResult{
+		N: repeat,
+		T: avg * repeat,
+	}, nil
 }
 
 // A simplified version of fmt.Printf logic, the meaning of % specifiers changed to match the kernels printk specifiers.
