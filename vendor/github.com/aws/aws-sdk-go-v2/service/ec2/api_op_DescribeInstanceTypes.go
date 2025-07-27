@@ -80,8 +80,8 @@ type DescribeInstanceTypesInput struct {
 	//   - ebs-info.nvme-support - Indicates whether non-volatile memory express (NVMe)
 	//   is supported for EBS volumes ( required | supported | unsupported ).
 	//
-	//   - free-tier-eligible - Indicates whether the instance type is eligible to use
-	//   in the free tier ( true | false ).
+	//   - free-tier-eligible - A Boolean that indicates whether this instance type can
+	//   be used under the Amazon Web Services Free Tier ( true | false ).
 	//
 	//   - hibernation-supported - Indicates whether On-Demand hibernation is supported
 	//   ( true | false ).

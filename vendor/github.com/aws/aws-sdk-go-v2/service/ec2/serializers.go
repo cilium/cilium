@@ -80816,6 +80816,11 @@ func awsEc2query_serializeOpDocumentStopInstancesInput(v *StopInstancesInput, va
 		}
 	}
 
+	if v.SkipOsShutdown != nil {
+		objectKey := object.Key("SkipOsShutdown")
+		objectKey.Boolean(*v.SkipOsShutdown)
+	}
+
 	return nil
 }
 
@@ -80860,6 +80865,11 @@ func awsEc2query_serializeOpDocumentTerminateInstancesInput(v *TerminateInstance
 		if err := awsEc2query_serializeDocumentInstanceIdStringList(v.InstanceIds, objectKey); err != nil {
 			return err
 		}
+	}
+
+	if v.SkipOsShutdown != nil {
+		objectKey := object.Key("SkipOsShutdown")
+		objectKey.Boolean(*v.SkipOsShutdown)
 	}
 
 	return nil
