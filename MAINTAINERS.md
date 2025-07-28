@@ -17,7 +17,6 @@ to learn how to level up through the project.
  * [Chance Zibolski] (Isovalent)
  * [Chris Tarazi] (Isovalent)
  * [Daniel Borkmann] (Isovalent)
- * [Dan Wendlandt] (Isovalent)
  * [Deepesh Pathak] (Isovalent)
  * [Dorde Lapcevic] (Google)
  * [Dylan Reimerink] (Isovalent)
@@ -63,6 +62,7 @@ to learn how to level up through the project.
 We would like to acknowledge previous committers and their huge contributions to our collective success:
 
  * [Beatriz Martínez] (Isovalent)
+ * [Dan Wendlandt] (Isovalent)
  * [Eloy Coto] (Red Hat)
  * [Ilya Dmitrichenko] (Docker)
  * [Ray Bejjani]
@@ -70,7 +70,6 @@ We would like to acknowledge previous committers and their huge contributions to
  * [Weilong Cui] (Google)
  * [Yongkun Gui] (Google)
  * [Zang Li] (Google)
-
 
 Please see the AUTHORS file for the full list of contributors to the Cilium
 project.
