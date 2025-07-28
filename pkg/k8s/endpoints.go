@@ -214,12 +214,6 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 		// unknown state as ready.
 		// More info: vendor/k8s.io/api/discovery/v1/types.go
 		isReady := sub.Conditions.Ready == nil || *sub.Conditions.Ready
-		// serving is identical to ready except that it is set regardless of the
-		// terminating state of endpoints. This condition should be set to true for
-		// a ready endpoint that is terminating. If nil, consumers should defer to
-		// the ready condition.
-		// More info: vendor/k8s.io/api/discovery/v1/types.go
-		isServing := (sub.Conditions.Serving == nil && isReady) || (sub.Conditions.Serving != nil && *sub.Conditions.Serving)
 		// Terminating indicates that the endpoint is getting terminated. A
 		// nil values indicates an unknown state. Ready is never true when
 		// an endpoint is terminating. Propagate the terminating endpoint
@@ -227,17 +221,9 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 		// More info: vendor/k8s.io/api/discovery/v1/types.go
 		isTerminating := sub.Conditions.Terminating != nil && *sub.Conditions.Terminating
 
-		// if is not Ready allow endpoints that are Serving and Terminating
-		if !isReady {
-
-			// filter not Serving endpoints since those can not receive traffic
-			if !isServing {
-				logger.Debug(
-					"discarding Endpoint on EndpointSlice: not Serving",
-					logfields.Name, ep.Name,
-				)
-				continue
-			}
+		// Not Ready endpoints are only allowed if Terminating.
+		if !isReady && !isTerminating {
+			continue
 		}
 
 		for _, addr := range sub.Addresses {
@@ -272,8 +258,7 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 					backend.Zone = zoneName
 				}
 				// If is not ready check if is serving and terminating
-				if !isReady &&
-					isServing && isTerminating {
+				if !isReady && isTerminating {
 					logger.Debug(
 						"Endpoint address on EndpointSlice is Terminating",
 						logfields.Address, addr,
