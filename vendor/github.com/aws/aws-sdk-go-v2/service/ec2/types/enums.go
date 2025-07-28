@@ -9538,6 +9538,7 @@ const (
 	TransitGatewayAttachmentResourceTypeConnect              TransitGatewayAttachmentResourceType = "connect"
 	TransitGatewayAttachmentResourceTypePeering              TransitGatewayAttachmentResourceType = "peering"
 	TransitGatewayAttachmentResourceTypeTgwPeering           TransitGatewayAttachmentResourceType = "tgw-peering"
+	TransitGatewayAttachmentResourceTypeNetworkFunction      TransitGatewayAttachmentResourceType = "network-function"
 )
 
 // Values returns all known values for TransitGatewayAttachmentResourceType. Note
@@ -9553,6 +9554,7 @@ func (TransitGatewayAttachmentResourceType) Values() []TransitGatewayAttachmentR
 		"connect",
 		"peering",
 		"tgw-peering",
+		"network-function",
 	}
 }
 
