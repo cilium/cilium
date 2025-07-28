@@ -4,8 +4,9 @@
 package auth
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_alwaysFailAuthHandler_authenticate(t *testing.T) {
@@ -32,9 +33,7 @@ func Test_alwaysFailAuthHandler_authenticate(t *testing.T) {
 				t.Errorf("alwaysFailAuthHandler.authenticate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("alwaysFailAuthHandler.authenticate() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
