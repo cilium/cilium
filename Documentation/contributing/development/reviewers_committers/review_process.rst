@@ -47,7 +47,7 @@ Review process
    +================================+===========================================================================+
    | ``dont-merge/needs-sign-off``  | Some commits are not signed off                                           |
    +--------------------------------+---------------------------------------------------------------------------+
-   | ``needs-rebase``               | PR is outdated and needs to be rebased                                    |
+   | ``dont-merge/needs-rebase``    | PR is outdated and needs to be rebased                                    |
    +--------------------------------+---------------------------------------------------------------------------+
 
 #. Validate that bugfixes are marked with ``kind/bug`` and validate whether the
