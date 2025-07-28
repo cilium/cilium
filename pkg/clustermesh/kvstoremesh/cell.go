@@ -23,4 +23,5 @@ var Cell = cell.Module(
 	cell.Config(common.DefaultConfig),
 
 	metrics.Metric(common.MetricsProvider("")),
+	metrics.Metric(MetricsProvider),
 )
