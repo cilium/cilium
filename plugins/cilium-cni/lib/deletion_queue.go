@@ -9,9 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/go-openapi/runtime"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
@@ -88,9 +91,10 @@ func (dc *DeletionFallbackClient) tryConnect() error {
 
 func (dc *DeletionFallbackClient) tryQueueLock() error {
 	dc.logger.Debug(
-		"attempting to acquire deletion queue lock",
+		"Attempting to acquire deletion queue lock",
 		logfields.Path, defaults.DeleteQueueLockfile,
 	)
+	startTime := time.Now()
 
 	// Ensure deletion queue directory exists, obtain shared lock
 	err := os.MkdirAll(defaults.DeleteQueueDir, 0755)
@@ -110,35 +114,54 @@ func (dc *DeletionFallbackClient) tryQueueLock() error {
 	if err != nil {
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
+
+	dc.logger.Debug("Deletion Queue lock acquired",
+		logfields.Path, defaults.DeleteQueueLockfile,
+		logfields.Duration, time.Since(startTime))
 	dc.lockfile = lf
 	return nil
-}
-
-// EndpointDelete deletes an endpoint given by an endpoint id, either
-// by directly accessing the API or dropping in a queued-deletion file.
-// endpoint-id is a qualified endpoint reference, e.g. "container-id:XXXXXXX"
-func (dc *DeletionFallbackClient) EndpointDelete(id string) error {
-	if dc.cli != nil {
-		return dc.cli.EndpointDelete(id)
-	}
-
-	// fall-back mode
-	if dc.lockfile != nil {
-		dc.logger.Info(
-			"Queueing deletion request for endpoint",
-			logfields.EndpointID, id,
-		)
-		return dc.enqueueDeletionRequestLocked(id)
-	}
-
-	return errors.New("attempt to delete with no valid connection")
 }
 
 // EndpointDeleteMany deletes multiple endpoints based on the endpoint deletion request,
 // either by directly accessing the API or dropping in a queued-deletion file.
 func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDeleteRequest) error {
 	if dc.cli != nil {
-		return dc.cli.EndpointDeleteMany(req)
+		startTime := time.Now()
+		err := dc.cli.EndpointDeleteMany(req)
+		if err == nil {
+			dc.logger.Debug("Endpoint delete request successful",
+				logfields.Request, req,
+				logfields.Duration, time.Since(startTime),
+			)
+			return nil
+		}
+
+		status, ok := err.(runtime.ClientResponseStatus)
+		if !ok || !status.IsCode(http.StatusServiceUnavailable) {
+			// Propagate unhandled Endpoint delete errors.
+			return err
+		}
+
+		// Fallback to queuing endpoint delete if cilium Endpoint service is unavailable.
+		// Once ready, cilium-agent will process all the pending deletes in this queue.
+		dc.logger.Warn(
+			"Received ServiceUnavailable response from server for batch Endpoint Delete request",
+			logfields.Request, req,
+		)
+
+		// If we don't already have lock on the local endpoint deletion queue, try acquire it.
+		if dc.lockfile == nil {
+			dc.logger.Debug("Deletion Queue lock not already held, reprocessing delete request with locked queue")
+			if err = dc.tryQueueLock(); err != nil || dc.lockfile == nil {
+				// LockFile nil check to make sure we don't end up in an inifinite loop.
+				return fmt.Errorf("failed to acquire deletion queue lock: %w", err)
+			}
+
+			// Once we have the lock reprocess the Endpoint delete request. This is to make sure
+			// we don't race with an already proccessed cilium-agent endpoint deletion queue while
+			// we waited to acquire the lock.
+			return dc.EndpointDeleteMany(req)
+		}
 	}
 
 	// fall-back mode
@@ -169,7 +192,7 @@ func (dc *DeletionFallbackClient) enqueueDeletionRequestLocked(contents string) 
 	files, err := os.ReadDir(defaults.DeleteQueueDir)
 	if err != nil {
 		dc.logger.Error(
-			"failed to list deletion queue directory",
+			"Failed to list deletion queue directory",
 			logfields.Error, err,
 			logfields.Path, defaults.DeleteQueueDir,
 		)
@@ -188,12 +211,12 @@ func (dc *DeletionFallbackClient) enqueueDeletionRequestLocked(contents string) 
 	err = os.WriteFile(path, []byte(contents), 0644)
 	if err != nil {
 		dc.logger.Error(
-			"failed to write deletion file",
+			"Failed to write deletion file",
 			logfields.Error, err,
 			logfields.Path, path,
 		)
 		return fmt.Errorf("failed to write deletion file %s: %w", path, err)
 	}
-	dc.logger.Info("wrote queued deletion file")
+	dc.logger.Info("Wrote queued deletion file", logfields.Path, path)
 	return nil
 }

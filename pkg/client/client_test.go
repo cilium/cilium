@@ -28,7 +28,7 @@ func TestHint(t *testing.T) {
 	require.ErrorContains(t, Hint(err), "ayy lmao")
 
 	err = context.DeadlineExceeded
-	require.ErrorContains(t, Hint(err), "Cilium API client timeout exceeded")
+	require.ErrorContains(t, Hint(err), "cilium API client timeout exceeded")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
@@ -36,7 +36,7 @@ func TestHint(t *testing.T) {
 	<-ctx.Done()
 	err = ctx.Err()
 
-	require.ErrorContains(t, Hint(err), "Cilium API client timeout exceeded")
+	require.ErrorContains(t, Hint(err), "cilium API client timeout exceeded")
 }
 
 func TestClusterReadiness(t *testing.T) {
