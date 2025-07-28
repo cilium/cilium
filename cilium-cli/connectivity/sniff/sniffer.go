@@ -79,8 +79,8 @@ const (
 	# Print captured packets and their count to stdout.
 	# Redirect stderr to /dev/null, as tcpdump logs to stderr.
 	report() {
-		tcpdump -r {{ .DumpPath }} --count 2>/dev/null || true
-		tcpdump -r {{ .DumpPath }}         2>/dev/null || true
+		tcpdump -n -r {{ .DumpPath }} --count 2>/dev/null || true
+		tcpdump -n -r {{ .DumpPath }}         2>/dev/null || true
 	}
 
 	# Ignore signals received when killing tcpdump.
