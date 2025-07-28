@@ -105,14 +105,14 @@
         "renovatebot/renovate", // Renovate's bot name
       ],
       "matchPackagePrefixes": [
-        "actions/", // GitHub official's GH actions
-        "cilium/", // Cilium's GH actions,
-        "docker.io/library/", // official Docker images,
-        "docker/", // official Docker actions,
+        "actions/", // GitHub's official GH actions
+        "cilium/", // Cilium's GH actions
+        "docker.io/library/", // official Docker images
+        "docker/", // official Docker actions
         "gcr.io/distroless", // official distroless images
         "gcr.io/etcd-development/etcd", // etcd
         "ghcr.io/spiffe/", // Spiffe's official images
-        "github.com/actions/", // GitHub official's GH actions
+        "github.com/actions/", // GitHub's official GH actions
         "github.com/aws/", // Amazon's dependencies
         "github.com/Azure/", // Azure's dependencies
         "github.com/cilium/", // Any Cilium dependency
@@ -121,7 +121,7 @@
         "github.com/google/", // Google official org
         "github.com/go-openapi/", // Open API official org
         "github.com/hashicorp/", // Hashicorp's official org
-        "github.com/prometheus/", // Prometheu's official org
+        "github.com/prometheus/", // Prometheus's official org
         "go.etcd.io/etcd/", // etcd's official org
         "golang.org/x/", // Golang official experimental org
         "golangci/golangci-lint", // Golang CI linter
