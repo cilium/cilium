@@ -401,12 +401,12 @@ func (a *Action) Debugf(format string, s ...any) {
 	}
 }
 
-// Info logs a debug message.
+// Info logs an informational message.
 func (a *Action) Info(s ...any) {
 	a.test.Info(s...)
 }
 
-// Infof logs a formatted debug message.
+// Infof logs a formatted informational message.
 func (a *Action) Infof(format string, s ...any) {
 	a.test.Infof(format, s...)
 }

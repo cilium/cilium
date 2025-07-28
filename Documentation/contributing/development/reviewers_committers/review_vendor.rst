@@ -32,7 +32,7 @@ To join the team, you must be a Cilium Reviewer. see `Cilium's Contributor
 Ladder <ladder_>`_ for details on the requirements and the application process.
 
 The team has a dedicated Slack channel in the Cilium Community Slack Workspace
-named `#sig-vendor <sig_vendor_slack_>`_, which can be used for starting discussions
+named `#dev-vendor <dev_vendor_slack_>`_, which can be used for starting discussions
 and asking questions in regards to dependency management for Cilium and its related
 projects.
 
@@ -42,7 +42,7 @@ projects.
 .. _vendor_slash: https://github.com/cilium/cilium/blob/main/vendor
 .. _vendor_to_review: https://github.com/pulls?q=is%3Aopen+is%3Apr+team-review-requested%3Acilium%2Fvendor+archived%3Afalse+org%3Acilium+
 .. _ladder: https://github.com/cilium/community/blob/main/CONTRIBUTOR-LADDER.md
-.. _sig_vendor_slack: https://cilium.slack.com/archives/C07GZTL0Z1P
+.. _dev_vendor_slack: https://cilium.slack.com/archives/C07GZTL0Z1P
 
 Reviewing Pull Requests
 =======================

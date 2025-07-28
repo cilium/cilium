@@ -304,7 +304,7 @@ func (n *EndpointSelector) AddMatchExpression(key string, op slim_metav1.LabelSe
 		Values:   values,
 	})
 
-	// Update cache of the EndopintSelector from the embedded label selector.
+	// Update cache of the EndpointSelector from the embedded label selector.
 	// This is to make sure we have updates caches containing the required selectors.
 	n.requirements = labelSelectorToRequirements(n.LabelSelector)
 	n.cachedLabelSelectorString = n.LabelSelector.String()
