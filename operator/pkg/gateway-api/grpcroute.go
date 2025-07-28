@@ -45,9 +45,9 @@ func newGRPCRouteReconciler(mgr ctrl.Manager, logger *slog.Logger) *grpcRouteRec
 // SetupWithManager sets up the controller with the Manager.
 func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		backendServiceIndex:       r.referencedBackendService,
-		backendServiceImportIndex: r.referencedBackendServiceImport,
-		gatewayIndex:              r.referencedGateway,
+		backendServiceHTTPRouteIndex:       r.referencedBackendService,
+		backendServiceImportHTTPRouteIndex: r.referencedBackendServiceImport,
+		gatewayHTTPRouteIndex:              r.referencedGateway,
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
@@ -147,13 +147,13 @@ func (r *grpcRouteReconciler) referencedBackendServiceImport(rawObj client.Objec
 // enqueueRequestForBackendService makes sure that GRPC Routes are reconciled
 // if the backend services are updated.
 func (r *grpcRouteReconciler) enqueueRequestForBackendService() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceIndex))
+	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceHTTPRouteIndex))
 }
 
 // enqueueRequestForBackendServiceImport makes sure that TLS Routes are reconciled
 // if the backend Service Imports are updated.
 func (r *grpcRouteReconciler) enqueueRequestForBackendServiceImport() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceImportIndex))
+	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceImportHTTPRouteIndex))
 }
 
 // enqueueRequestForReferenceGrant makes sure that all GRPC Routes are reconciled
@@ -163,7 +163,7 @@ func (r *grpcRouteReconciler) enqueueRequestForReferenceGrant() handler.EventHan
 }
 
 func (r *grpcRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(gatewayIndex))
+	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(gatewayHTTPRouteIndex))
 }
 
 func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
