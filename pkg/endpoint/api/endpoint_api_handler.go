@@ -19,12 +19,16 @@ import (
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/rate"
 )
 
-var errEndpointNotFound = errors.New("endpoint not found")
+var (
+	errAPINotReady      = errors.New("api not ready")
+	errEndpointNotFound = errors.New("endpoint not found")
+)
 
 type EndpointGetEndpointHandler struct {
 	logger          *slog.Logger
@@ -37,6 +41,7 @@ type EndpointDeleteEndpointHandler struct {
 	apiLimiterSet      *rate.APILimiterSet
 	endpointManager    endpointmanager.EndpointManager
 	endpointAPIManager EndpointAPIManager
+	waitReadyFn        hive.WaitFunc
 }
 
 type EndpointGetEndpointIDHandler struct {
@@ -49,6 +54,7 @@ type EndpointPutEndpointIDHandler struct {
 	logger             *slog.Logger
 	apiLimiterSet      *rate.APILimiterSet
 	endpointAPIManager EndpointAPIManager
+	waitReadyFn        hive.WaitFunc
 }
 
 type EndpointPatchEndpointIDHandler struct {
@@ -56,6 +62,7 @@ type EndpointPatchEndpointIDHandler struct {
 	apiLimiterSet   *rate.APILimiterSet
 	endpointManager endpointmanager.EndpointManager
 	endpointCreator endpointcreator.EndpointCreator
+	waitReadyFn     hive.WaitFunc
 }
 
 type EndpointDeleteEndpointIDHandler struct {
@@ -63,12 +70,14 @@ type EndpointDeleteEndpointIDHandler struct {
 	apiLimiterSet      *rate.APILimiterSet
 	endpointManager    endpointmanager.EndpointManager
 	endpointAPIManager EndpointAPIManager
+	waitReadyFn        hive.WaitFunc
 }
 
 type EndpointPatchEndpointIDConfigHandler struct {
 	logger             *slog.Logger
 	apiLimiterSet      *rate.APILimiterSet
 	endpointAPIManager EndpointAPIManager
+	waitReadyFn        hive.WaitFunc
 }
 
 type EndpointGetEndpointIDConfigHandler struct {
@@ -100,6 +109,7 @@ type EndpointPatchEndpointIDLabelsHandler struct {
 	apiLimiterSet      *rate.APILimiterSet
 	endpointManager    endpointmanager.EndpointManager
 	endpointAPIManager EndpointAPIManager
+	waitReadyFn        hive.WaitFunc
 }
 
 func (h *EndpointGetEndpointHandler) Handle(params endpointapi.GetEndpointParams) middleware.Responder {
@@ -123,6 +133,10 @@ func (h *EndpointGetEndpointHandler) Handle(params endpointapi.GetEndpointParams
 
 func (h *EndpointDeleteEndpointHandler) Handle(params endpointapi.DeleteEndpointParams) middleware.Responder {
 	h.logger.Debug("DELETE /endpoint/ request", logfields.Params, params)
+	err := h.waitReadyFn(params.HTTPRequest.Context())
+	if err != nil {
+		return api.Error(endpointapi.DeleteEndpointServiceUnavailableCode, errAPINotReady)
+	}
 
 	if params.Endpoint.ContainerID == "" {
 		return api.New(endpointapi.DeleteEndpointInvalidCode, "invalid container id")
@@ -184,6 +198,12 @@ func (h *EndpointPutEndpointIDHandler) Handle(params endpointapi.PutEndpointIDPa
 	} else {
 		h.logger.Debug("PUT /endpoint/{id} request", logfields.Params, params)
 	}
+
+	err := h.waitReadyFn(params.HTTPRequest.Context())
+	if err != nil {
+		return api.Error(endpointapi.PutEndpointIDServiceUnavailableCode, errAPINotReady)
+	}
+
 	epTemplate := params.Endpoint
 
 	r, err := h.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointCreate)
@@ -222,6 +242,10 @@ func (h *EndpointPatchEndpointIDHandler) Handle(params endpointapi.PatchEndpoint
 		scopedLog = scopedLog.With(logfields.Endpoint, *ep)
 	}
 	scopedLog.Debug("PATCH /endpoint/{id} request")
+	err := h.waitReadyFn(params.HTTPRequest.Context())
+	if err != nil {
+		return api.Error(endpointapi.PatchEndpointIDServiceUnavailableCode, errAPINotReady)
+	}
 
 	r, err := h.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
 	if err != nil {
@@ -306,6 +330,10 @@ func (h *EndpointPatchEndpointIDHandler) Handle(params endpointapi.PatchEndpoint
 
 func (h *EndpointDeleteEndpointIDHandler) Handle(params endpointapi.DeleteEndpointIDParams) middleware.Responder {
 	h.logger.Debug("DELETE /endpoint/{id} request", logfields.Params, params)
+	err := h.waitReadyFn(params.HTTPRequest.Context())
+	if err != nil {
+		return api.Error(endpointapi.DeleteEndpointIDServiceUnavailableCode, errAPINotReady)
+	}
 
 	// Bypass the rate limiter for endpoints that have already been deleted.
 	// Kubelet will generate at minimum 2 delete requests for a Pod, so this
@@ -339,6 +367,10 @@ func (h *EndpointDeleteEndpointIDHandler) Handle(params endpointapi.DeleteEndpoi
 
 func (h *EndpointPatchEndpointIDConfigHandler) Handle(params endpointapi.PatchEndpointIDConfigParams) middleware.Responder {
 	h.logger.Debug("PATCH /endpoint/{id}/config request", logfields.Params, params)
+	err := h.waitReadyFn(params.HTTPRequest.Context())
+	if err != nil {
+		return api.Error(endpointapi.PatchEndpointIDConfigServiceUnavailableCode, errAPINotReady)
+	}
 
 	r, err := h.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
 	if err != nil {
@@ -456,6 +488,10 @@ func (h *EndpointGetEndpointIDHealthzHandler) Handle(params endpointapi.GetEndpo
 
 func (h *EndpointPatchEndpointIDLabelsHandler) Handle(params endpointapi.PatchEndpointIDLabelsParams) middleware.Responder {
 	h.logger.Debug("PATCH /endpoint/{id}/labels request", logfields.Params, params)
+	err := h.waitReadyFn(params.HTTPRequest.Context())
+	if err != nil {
+		return api.Error(endpointapi.PatchEndpointIDLabelsServiceUnavailableCode, errAPINotReady)
+	}
 
 	r, err := h.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
 	if err != nil {
