@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	k8syaml "sigs.k8s.io/yaml"
 )
 
@@ -106,6 +107,10 @@ func readInput(t *testing.T, file string) []client.Object {
 			res = append(res, obj)
 		case "ReferenceGrant":
 			obj := &gatewayv1beta1.ReferenceGrant{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
+		case "ServiceImport":
+			obj := &mcsapiv1alpha1.ServiceImport{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
 		}

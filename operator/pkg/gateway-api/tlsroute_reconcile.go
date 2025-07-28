@@ -29,7 +29,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	scopedLog := r.logger.With(
 		logfields.ParentResource, req.NamespacedName,
 	)
-	scopedLog.Info("Reconciling TLSRoute")
+	scopedLog.InfoContext(ctx, "Reconciling TLSRoute")
 
 	// Fetch the TLSRoute instance
 	original := &gatewayv1alpha2.TLSRoute{}

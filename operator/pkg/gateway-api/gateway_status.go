@@ -49,9 +49,8 @@ func gatewayStatusProgrammedCondition(gw *gatewayv1.Gateway, scheduled bool, msg
 	switch scheduled {
 	case true:
 		return metav1.Condition{
-			Type:   string(gatewayv1.GatewayConditionProgrammed),
-			Status: metav1.ConditionTrue,
-			//Reason:             string(gatewayv1.GatewayReasonProgrammed),
+			Type:               string(gatewayv1.GatewayConditionProgrammed),
+			Status:             metav1.ConditionTrue,
 			Reason:             string(reason),
 			Message:            msg,
 			ObservedGeneration: gw.GetGeneration(),
@@ -59,9 +58,8 @@ func gatewayStatusProgrammedCondition(gw *gatewayv1.Gateway, scheduled bool, msg
 		}
 	default:
 		return metav1.Condition{
-			Type:   string(gatewayv1.GatewayConditionProgrammed),
-			Status: metav1.ConditionFalse,
-			//Reason:             string(gatewayv1.GatewayReasonListenersNotReady),
+			Type:               string(gatewayv1.GatewayConditionProgrammed),
+			Status:             metav1.ConditionFalse,
 			Reason:             string(reason),
 			Message:            msg,
 			ObservedGeneration: gw.GetGeneration(),

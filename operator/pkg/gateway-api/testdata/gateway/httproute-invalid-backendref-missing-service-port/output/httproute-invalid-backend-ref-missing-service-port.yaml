@@ -1,0 +1,31 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-backend-ref-missing-service-port
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /serviceimport
+      backendRefs:
+        - name: infra-backend-v1
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Accepted HTTPRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Must have port for backend object reference
+          reason: InvalidKind
+          status: "False"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: same-namespace
