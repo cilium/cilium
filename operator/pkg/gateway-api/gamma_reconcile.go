@@ -54,7 +54,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	// Ignore deleting Gateway, this can happen when foregroundDeletion is enabled
 	// The reconciliation loop will automatically kick off for related Gateway resources.
 	if originalSvc.GetDeletionTimestamp() != nil {
-		scopedLog.Info("Gateway is being deleted, doing nothing")
+		scopedLog.InfoContext(ctx, "Gateway is being deleted, doing nothing")
 		return controllerruntime.Success()
 	}
 
@@ -74,7 +74,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return controllerruntime.Success()
 	}
 
-	scopedLog.Debug("Service exists and is a GAMMA Service", relevantHTTPRoutes, len(httpRouteList.Items))
+	scopedLog.DebugContext(ctx, "Service exists and is a GAMMA Service", relevantHTTPRoutes, len(httpRouteList.Items))
 
 	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
 	servicesList := &corev1.ServiceList{}
@@ -126,7 +126,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return controllerruntime.Fail(fmt.Errorf("failed to update Gamma Service status: %w", err))
 	}
 
-	scopedLog.Info("Successfully reconciled GAMMA Service")
+	scopedLog.InfoContext(ctx, "Successfully reconciled GAMMA Service")
 	return controllerruntime.Success()
 }
 

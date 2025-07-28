@@ -24,13 +24,24 @@ import (
 
 const (
 	// controllerName is the gateway controller name used in cilium.
-	controllerName            = "io.cilium/gateway-controller"
-	backendServiceIndex       = "backendServiceIndex"
-	backendServiceImportIndex = "backendServiceImportIndex"
-	gatewayIndex              = "gatewayIndex"
-	gammaBackendServiceIndex  = "gammaBackendServiceIndex"
-	gammaListenerServiceIndex = "gammaListenerServiceIndex"
-	gammaParentRefsIndex      = "gammaParentRefs"
+	controllerName = "io.cilium/gateway-controller"
+
+	// Indexes HTTPRoutes by all the backend Services referenced in the object.
+	backendServiceHTTPRouteIndex = "backendServiceHTTPRouteIndex"
+
+	// Indexes HTTPRoutes by all the backend ServiceImports referenced in the object.
+	backendServiceImportHTTPRouteIndex = "backendServiceImportHTTPRouteIndex"
+
+	// Indexes HTTPRoutes by all the Gateway parents referenced in the object.
+	gatewayHTTPRouteIndex = "gatewayHTTPRouteIndex"
+
+	// Indexes Gateways and records if the Gateway is relevant for Cilium.
+	implementationGatewayIndex = "implementationGatewayIndex"
+
+	// Indexes GAMMA HTTPRoutes by all the GAMMA parents of that HTTPRoute.
+	// This is then be used by the Service reconciler to only retrieve any HTTPRoutes that have that specific
+	// Service as a parent.
+	gammaParentRefsIndex = "gammaParentRefs"
 )
 
 func hasMatchingController(ctx context.Context, c client.Client, controllerName string, logger *slog.Logger) func(object client.Object) bool {
