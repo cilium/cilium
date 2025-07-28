@@ -20,6 +20,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// ServiceExportPluralName is the plural name of ServiceExport
+	ServiceExportPluralName = "serviceexports"
+	// ServiceExportKindName is the kind name of ServiceExport
+	ServiceExportKindName = "ServiceExport"
+	// ServiceExportFullName is the full name of ServiceExport
+	ServiceExportFullName = ServiceExportPluralName + "." + GroupName
+)
+
+// ServiceExportVersionedName is the versioned name of ServiceExport
+var ServiceExportVersionedName = ServiceExportKindName + "/" + GroupVersion.Version
+
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName={svcex,svcexport}

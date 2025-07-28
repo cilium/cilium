@@ -29,7 +29,7 @@ type clusterMesh struct {
 	common common.ClusterMesh
 
 	cfg       ClusterMeshConfig
-	cfgMCSAPI MCSAPIConfig
+	cfgMCSAPI mcsapitypes.MCSAPIConfig
 	logger    *slog.Logger
 	Metrics   Metrics
 

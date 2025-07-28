@@ -14,7 +14,7 @@ import (
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
-	"github.com/cilium/cilium/pkg/clustermesh/operator"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -30,7 +30,7 @@ var Cell = cell.Module(
 	"clustermesh",
 	"Cilium ClusterMesh",
 
-	cell.Config(operator.MCSAPIConfig{}),
+	cell.Config(mcsapitypes.DefaultMCSAPIConfig),
 
 	pprof.Cell(pprofConfig),
 	gops.Cell(defaults.EnableGops, defaults.GopsPortApiserver),
@@ -44,7 +44,9 @@ var Cell = cell.Module(
 	synced.Cell,
 
 	// Provide CRD resource names for 'synced.CRDSyncCell' below.
-	cell.Provide(func() synced.CRDSyncResourceNames { return synced.ClusterMeshAPIServerResourceNames() }),
+	cell.Provide(func(mcsAPICfg mcsapitypes.MCSAPIConfig) synced.CRDSyncResourceNames {
+		return synced.ClusterMeshAPIServerResourceNames(mcsAPICfg)
+	}),
 
 	// CRDSyncCell provides a promise that is resolved as soon as CRDs used by the
 	// clustermesh-apiserver have synced.
