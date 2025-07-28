@@ -32,7 +32,7 @@ const (
 	sniffConnectionTimeout = sniffScriptTimeout + 5*time.Second
 	// Max remote sniffer runtime to prevent lingering processes in the pod.
 	// NOTE: too low may kill tcpdump while test is running.
-	sniffKillTimeout = sniffConnectionTimeout * 4
+	SniffKillTimeout = sniffConnectionTimeout * 4
 
 	// Command executed to start the remote tcpdump in background inside a pod.
 	//
@@ -153,7 +153,8 @@ type debugLogger interface {
 // to make sure the remote sniffer is properly closed, in case [*Sniffer.Validate] has
 // not been called (e.g., expired context or error in between).
 func Sniff(ctx context.Context, name string, target *check.Pod,
-	iface string, filter string, mode Mode, dbg debugLogger,
+	iface string, filter string, mode Mode,
+	killTimeout time.Duration, dbg debugLogger,
 ) (*Sniffer, func() error, error) {
 	sniffer := &Sniffer{
 		target:   target,
@@ -184,7 +185,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		PktCount:    count,
 		Filter:      filter,
 		WaitSeconds: int(sniffScriptTimeout.Seconds()),
-		KillSeconds: int(sniffKillTimeout.Seconds()),
+		KillSeconds: int(killTimeout.Seconds()),
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("template execution failed: %w", err)
