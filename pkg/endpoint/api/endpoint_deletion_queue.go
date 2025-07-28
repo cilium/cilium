@@ -23,6 +23,9 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 )
 
+// DeletionQueue manages the processing of persisted CNI delete requests.
+// This state is populated by CNI when the API is unreachable (agent restart),
+// and is only processed *once* as a hive lifecycle job during startup.
 type DeletionQueue struct {
 	logger                 *slog.Logger
 	lf                     *lockfile.Lockfile
@@ -31,7 +34,7 @@ type DeletionQueue struct {
 	processed              chan struct{}
 }
 
-func (dq *DeletionQueue) Process(ctx context.Context, health cell.Health) error {
+func (dq *DeletionQueue) process(ctx context.Context, health cell.Health) error {
 	if _, err := dq.endpointRestorePromise.Await(ctx); err != nil {
 		dq.logger.Error("deletionQueue: restorer promise failed", logfields.Error, err)
 		return fmt.Errorf("restorer promise failed: %w", err)
@@ -42,7 +45,7 @@ func (dq *DeletionQueue) Process(ctx context.Context, health cell.Health) error 
 	}
 
 	// unlock lock file also in case of errors
-	defer func() { dq.processed <- struct{}{} }()
+	defer func() { close(dq.processed) }()
 
 	if err := dq.processQueuedDeletes(ctx); err != nil {
 		dq.logger.Error("deletionQueue: processQueuedDeletes failed", logfields.Error, err)
@@ -71,9 +74,20 @@ func newDeletionQueue(params deletionQueueParams) *DeletionQueue {
 		processed:              make(chan struct{}),
 	}
 
-	params.JobGroup.Add(job.OneShot("cni-deletion-queue", dq.Process))
+	params.JobGroup.Add(job.OneShot("cni-deletion-queue", dq.process))
 
 	return dq
+}
+
+// Wait until the DeletionQueue processing is complete or the context is cancelled.
+func (dq *DeletionQueue) Wait(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-dq.processed:
+	}
+
+	return nil
 }
 
 func (dq *DeletionQueue) lock(ctx context.Context) error {
@@ -163,14 +177,9 @@ func (dq *DeletionQueue) processQueuedDeletes(ctx context.Context) error {
 // delete queue and thus allow CNI plugin to proceed.
 func unlockAfterAPIServer(jobGroup job.Group, _ *server.Server, dq *DeletionQueue) {
 	jobGroup.Add(job.OneShot("unlock-lockfile", func(ctx context.Context, health cell.Health) error {
-		// Explicitly wait until deletion queue finished processing or job context is cancelled
-		select {
-		case <-ctx.Done():
-			// continue and unlock
-		case <-dq.processed:
-			// continue and unlock
-		}
+		_ = dq.Wait(ctx)
 
+		// Continue and release the lock on offline queue.
 		if dq.lf != nil {
 			unlockErr := dq.lf.Unlock()
 			closeErr := dq.lf.Close()

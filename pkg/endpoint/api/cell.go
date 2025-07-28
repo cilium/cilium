@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -14,8 +15,10 @@ import (
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipam"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/rate"
 )
 
@@ -44,6 +47,9 @@ var Cell = cell.Module(
 	// has started and the deletion queue has been drained to unlock the
 	// delete queue and thus allow CNI plugin to proceed.
 	cell.Invoke(unlockAfterAPIServer),
+
+	// Fence blocks until this package is ready to process Endpoint API requests.
+	cell.Provide(newFence),
 )
 
 type endpointAPIManagerParams struct {
@@ -86,9 +92,9 @@ type endpointAPIHandlerParams struct {
 	EndpointCreator    endpointcreator.EndpointCreator
 	EndpointAPIManager EndpointAPIManager
 
-	// The API handlers depend on [deletionQueue] to make sure the deletion lock file is created and locked
-	// before the API server starts.
-	DeletionQueue *DeletionQueue
+	EndpointRestorerPromise promise.Promise[endpointstate.Restorer]
+
+	Fence Fence
 }
 
 type endpointAPIHandlerOut struct {
@@ -109,18 +115,25 @@ type endpointAPIHandlerOut struct {
 }
 
 func newEndpointAPIHandler(params endpointAPIHandlerParams) endpointAPIHandlerOut {
+	endpointStateRestoreCompleteWaitFn := func(ctx context.Context) error {
+		_, err := params.EndpointRestorerPromise.Await(ctx)
+		return err
+	}
+
 	return endpointAPIHandlerOut{
 		EndpointDeleteEndpointHandler: &EndpointDeleteEndpointHandler{
 			logger:             params.Logger,
 			apiLimiterSet:      params.APILimiterSet,
 			endpointManager:    params.EndpointManager,
 			endpointAPIManager: params.EndpointAPIManager,
+			waitReadyFn:        endpointStateRestoreCompleteWaitFn,
 		},
 		EndpointDeleteEndpointIDHandler: &EndpointDeleteEndpointIDHandler{
 			logger:             params.Logger,
 			apiLimiterSet:      params.APILimiterSet,
 			endpointManager:    params.EndpointManager,
 			endpointAPIManager: params.EndpointAPIManager,
+			waitReadyFn:        endpointStateRestoreCompleteWaitFn,
 		},
 		EndpointGetEndpointHandler: &EndpointGetEndpointHandler{
 			logger:          params.Logger,
@@ -156,23 +169,27 @@ func newEndpointAPIHandler(params endpointAPIHandlerParams) endpointAPIHandlerOu
 			logger:             params.Logger,
 			apiLimiterSet:      params.APILimiterSet,
 			endpointAPIManager: params.EndpointAPIManager,
+			waitReadyFn:        params.Fence.Wait,
 		},
 		EndpointPatchEndpointIDHandler: &EndpointPatchEndpointIDHandler{
 			logger:          params.Logger,
 			apiLimiterSet:   params.APILimiterSet,
 			endpointManager: params.EndpointManager,
 			endpointCreator: params.EndpointCreator,
+			waitReadyFn:     params.Fence.Wait,
 		},
 		EndpointPatchEndpointIDLabelsHandler: &EndpointPatchEndpointIDLabelsHandler{
 			logger:             params.Logger,
 			apiLimiterSet:      params.APILimiterSet,
 			endpointManager:    params.EndpointManager,
 			endpointAPIManager: params.EndpointAPIManager,
+			waitReadyFn:        params.Fence.Wait,
 		},
 		EndpointPutEndpointIDHandler: &EndpointPutEndpointIDHandler{
 			logger:             params.Logger,
 			apiLimiterSet:      params.APILimiterSet,
 			endpointAPIManager: params.EndpointAPIManager,
+			waitReadyFn:        params.Fence.Wait,
 		},
 	}
 }
