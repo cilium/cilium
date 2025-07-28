@@ -1,0 +1,41 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: partial-valid-parentref-and-gamma-same-name
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+      namespace: gateway-conformance-infra
+      group: ""
+      kind: Service
+    - name: same-namespace
+      namespace: gateway-conformance-infra
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /partial-invalid-same-name
+      backendRefs:
+        - name: infra-backend-v1
+          kind: Service
+          port: 8080
+# Note only one parentRef on this because the GAMMA one should not be accepted by this reconciler.
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Accepted HTTPRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Service reference is valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: same-namespace
+        namespace: gateway-conformance-infra
