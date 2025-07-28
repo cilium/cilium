@@ -22,10 +22,10 @@ db/cmp frontends frontends.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
 
-# Check pressure metrics. We have 8 frontends and 8 backends, 4 per family.
-# For NodePort we have 2 additional backends, so we get: (4+2)*(1+2) == 18,
-# which for MaxEntries=1000 is 0.0018 entries in services maps and
-# revnat maps (one per frontend address).
+# Check pressure metrics. We have 8 frontends and 8 backends, plus 1 wildcard
+# service entry for the underlying frontend IP Address. For NodePort we have 2
+# additional backends, so we get: ((4+2)*(1+2)+1) == 19 which for MaxEntries=1000
+# is 0.0019 entries in services maps and revnat maps (one per frontend address).
 [privileged] metrics --out=metrics.actual cilium_bpf_map_pressure
 [privileged] * cmp metrics.expected metrics.actual
 
@@ -95,10 +95,10 @@ Address                        Instances
 Metric                    Labels                     Value
 cilium_bpf_map_pressure   map_name=lb4_backends_v3   0.004000
 cilium_bpf_map_pressure   map_name=lb4_reverse_nat   0.006000
-cilium_bpf_map_pressure   map_name=lb4_services_v2   0.018000
+cilium_bpf_map_pressure   map_name=lb4_services_v2   0.019000
 cilium_bpf_map_pressure   map_name=lb6_backends_v3   0.004000
 cilium_bpf_map_pressure   map_name=lb6_reverse_nat   0.006000
-cilium_bpf_map_pressure   map_name=lb6_services_v2   0.018000
+cilium_bpf_map_pressure   map_name=lb6_services_v2   0.019000
 -- service.yaml --
 apiVersion: v1
 kind: Service
@@ -276,6 +276,8 @@ REV: ID=6 ADDR=1.1.1.1:30181
 REV: ID=7 ADDR=0.0.0.0:32757
 REV: ID=8 ADDR=1.1.1.1:32757
 REV: ID=9 ADDR=10.96.207.99:69
+SVC: ID=0 ADDR=10.96.207.99:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=[fd00:10:96::b050]:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=1 ADDR=[::]:30181/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
 SVC: ID=1 ADDR=[::]:30181/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
 SVC: ID=1 ADDR=[::]:30181/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
