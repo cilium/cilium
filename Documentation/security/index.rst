@@ -24,7 +24,6 @@ Securing Networks with Cilium
    dns
    standalone-dns-proxy
    tls-visibility
-   kafka
    grpc
    elasticsearch
    aws

@@ -6,7 +6,6 @@ package api
 import (
 	"testing"
 
-	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,20 +25,6 @@ func TestHTTPEqual(t *testing.T) {
 	require.True(t, rule1.Exists(rules))
 	require.True(t, rule2.Exists(rules))
 	require.False(t, rule3.Exists(rules))
-}
-
-func TestKafkaEqual(t *testing.T) {
-	rule1 := kafka.PortRule{APIVersion: "1", APIKey: "foo", Topic: "topic1"}
-	rule2 := kafka.PortRule{APIVersion: "1", APIKey: "bar", Topic: "topic1"}
-	rule3 := kafka.PortRule{APIVersion: "1", APIKey: "foo", Topic: "topic2"}
-
-	rules := L7Rules{
-		Kafka: []kafka.PortRule{rule1, rule2},
-	}
-
-	require.True(t, rule1.Exists(rules.Kafka))
-	require.True(t, rule2.Exists(rules.Kafka))
-	require.False(t, rule3.Exists(rules.Kafka))
 }
 
 func TestL7Equal(t *testing.T) {

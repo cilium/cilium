@@ -3350,14 +3350,6 @@
                 }
               },
               "type": "object"
-            },
-            "kafka": {
-              "properties": {
-                "apiKey": {
-                  "type": "boolean"
-                }
-              },
-              "type": "object"
             }
           },
           "type": "object"

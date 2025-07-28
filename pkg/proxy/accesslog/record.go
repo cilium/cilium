@@ -184,9 +184,6 @@ type LogRecord struct {
 	// HTTP contains information for HTTP request/responses
 	HTTP *LogRecordHTTP `json:"HTTP,omitempty"`
 
-	// Kafka contains information for Kafka request/responses
-	Kafka *LogRecordKafka `json:"Kafka,omitempty"`
-
 	// DNS contains information for DNS request/responses
 	DNS *LogRecordDNS `json:"DNS,omitempty"`
 
@@ -220,33 +217,6 @@ type LogRecordHTTP struct {
 
 	// RejectedHeaders are HTTP request headers that were rejected from the request
 	RejectedHeaders http.Header
-}
-
-// KafkaTopic contains the topic for requests
-type KafkaTopic struct {
-	Topic string `json:"Topic,omitempty"`
-}
-
-// LogRecordKafka contains the Kafka-specific portion of a log record
-type LogRecordKafka struct {
-	// ErrorCode is the Kafka error code being returned
-	ErrorCode int
-
-	// APIVersion of the Kafka api used
-	APIVersion int16
-
-	// APIKey for Kafka message
-	// Reference: https://kafka.apache.org/protocol#protocol_api_keys
-	APIKey string
-
-	// CorrelationID is a user-supplied integer value that will be passed
-	// back with the response
-	CorrelationID int32
-
-	// Topic of the request, currently is a single topic
-	// Note that this string can be empty since not all messages use
-	// Topic. example: LeaveGroup, Heartbeat
-	Topic KafkaTopic
 }
 
 type DNSDataSource string

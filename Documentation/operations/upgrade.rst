@@ -347,6 +347,13 @@ from Cilium.
 * The ``encryption.ipsec.interface`` Helm flag (the ``--encrypt-interface``
   agent flag) was a no-op since Cilium 1.18 and has now been removed.
 
+* Support for Envoy Go Extensions (proxylib) and Kafka-aware network policies
+  has been removed. These features were deprecated in v1.18.
+
+* The Helm value ``hubble.redact.kafka.apiKey`` and the corresponding
+  ``hubble-redact-kafka-apikey`` agent flag have been removed as part of
+  dropping Kafka support.
+
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
 
@@ -358,7 +365,8 @@ Added Metrics
 Changed Metrics
 ###############
 
-* TODO
+* The ``cilium_feature_np_other_l7_policies_total`` metric no longer counts
+  Kafka policies, as Kafka-aware network policy support has been removed.
 
 Deprecated Metrics
 ##################

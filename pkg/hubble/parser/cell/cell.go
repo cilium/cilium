@@ -54,7 +54,6 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 			parserOptions.WithRedact(
 				params.Config.RedactHttpURLQuery,
 				params.Config.RedactHttpUserInfo,
-				params.Config.RedactKafkaAPIKey,
 				params.Config.RedactHttpHeadersAllow,
 				params.Config.RedactHttpHeadersDeny,
 			),

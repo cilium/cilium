@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -251,7 +250,6 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
-	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
 	labelsICMP := labels.LabelArray{labels.ParseLabel("icmp")}
 	labelsICMPv6 := labels.LabelArray{labels.ParseLabel("icmpv6")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
@@ -266,27 +264,6 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			},
 		},
 		Labels: labelsL3,
-	}
-
-	kafkaRule := api.Rule{
-		Ingress: []api.IngressRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{selBar2},
-				},
-				ToPorts: []api.PortRule{{
-					Ports: []api.PortProtocol{
-						{Port: "9092", Protocol: api.ProtoTCP},
-					},
-					Rules: &api.L7Rules{
-						Kafka: []kafka.PortRule{
-							{APIKey: "produce"},
-						},
-					},
-				}},
-			},
-		},
-		Labels: labelsKafka,
 	}
 
 	httpRule := api.Rule{
@@ -396,23 +373,6 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			Ingress:    true,
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMPv6}}),
 		},
-		"9092/TCP": {
-			Port:     9092,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			Ingress:  true,
-			PerSelectorPolicies: L7DataMap{
-				td.cachedSelectorBar2: &PerSelectorPolicy{
-					Verdict:          types.Allow,
-					L7Parser:         ParserTypeKafka,
-					ListenerPriority: ListenerPriorityKafka,
-					L7Rules: api.L7Rules{
-						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
-					},
-				},
-			},
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}}),
-		},
 		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
@@ -439,7 +399,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				td.cachedSelectorBar2: &PerSelectorPolicy{
 					Verdict:          types.Allow,
 					L7Parser:         L7ParserType("tester"),
-					ListenerPriority: ListenerPriorityProxylib,
+					ListenerPriority: ListenerPriorityNone,
 					L7Rules: api.L7Rules{
 						L7Proto: "tester",
 						L7:      []api.PortRuleL7{l7Rule.Ingress[0].ToPorts[0].Rules.L7[0]},
@@ -450,53 +410,14 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 		},
 	})
 
-	td.policyMapEquals(t, expected, nil, &l3Rule, &kafkaRule, &httpRule, &l7Rule, &icmpRule, &icmpV6Rule)
+	td.policyMapEquals(t, expected, nil, &l3Rule, &httpRule, &l7Rule, &icmpRule, &icmpV6Rule)
 }
 
 func TestWildcardL4RulesIngress(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t))
 
-	labelsL4Kafka := labels.LabelArray{labels.ParseLabel("L4-kafka")}
-	labelsL7Kafka := labels.LabelArray{labels.ParseLabel("kafka")}
 	labelsL4HTTP := labels.LabelArray{labels.ParseLabel("L4-http")}
 	labelsL7HTTP := labels.LabelArray{labels.ParseLabel("http")}
-
-	l49092Rule := api.Rule{
-		Ingress: []api.IngressRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{selBar1},
-				},
-				ToPorts: []api.PortRule{{
-					Ports: []api.PortProtocol{
-						{Port: "9092", Protocol: api.ProtoTCP},
-					},
-				}},
-			},
-		},
-		Labels: labelsL4Kafka,
-	}
-
-	kafkaRule := api.Rule{
-		Ingress: []api.IngressRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{selBar2},
-				},
-				ToPorts: []api.PortRule{{
-					Ports: []api.PortProtocol{
-						{Port: "9092", Protocol: api.ProtoTCP},
-					},
-					Rules: &api.L7Rules{
-						Kafka: []kafka.PortRule{
-							{APIKey: "produce"},
-						},
-					},
-				}},
-			},
-		},
-		Labels: labelsL7Kafka,
-	}
 
 	l480Rule := api.Rule{
 		Ingress: []api.IngressRule{
@@ -557,30 +478,9 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 				td.cachedSelectorBar2: {labelsL7HTTP},
 			}),
 		},
-		"9092/TCP": {
-			Port:     9092,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			Ingress:  true,
-			PerSelectorPolicies: L7DataMap{
-				td.cachedSelectorBar1: nil,
-				td.cachedSelectorBar2: &PerSelectorPolicy{
-					Verdict:          types.Allow,
-					L7Parser:         ParserTypeKafka,
-					ListenerPriority: ListenerPriorityKafka,
-					L7Rules: api.L7Rules{
-						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
-					},
-				},
-			},
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
-				td.cachedSelectorBar1: {labelsL4Kafka},
-				td.cachedSelectorBar2: {labelsL7Kafka},
-			}),
-		},
 	})
 
-	td.policyMapEquals(t, expected, nil, &l49092Rule, &kafkaRule, &l480Rule, &httpRule)
+	td.policyMapEquals(t, expected, nil, &l480Rule, &httpRule)
 }
 
 func TestWildcardL3RulesEgress(t *testing.T) {
@@ -976,7 +876,6 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
-	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
 
 	l3Rule := api.Rule{
@@ -988,27 +887,6 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 			},
 		},
 		Labels: labelsL3,
-	}
-
-	kafkaRule := api.Rule{
-		Ingress: []api.IngressRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{selBar2},
-				},
-				ToPorts: []api.PortRule{{
-					Ports: []api.PortProtocol{
-						{Port: "9092", Protocol: api.ProtoTCP},
-					},
-					Rules: &api.L7Rules{
-						Kafka: []kafka.PortRule{
-							{APIKey: "produce"},
-						},
-					},
-				}},
-			},
-		},
-		Labels: labelsKafka,
 	}
 
 	httpRule := api.Rule{
@@ -1049,23 +927,6 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 				td.cachedSelectorWorldV6: {labelsL3},
 			}),
 		},
-		"9092/TCP": {
-			Port:     9092,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			Ingress:  true,
-			PerSelectorPolicies: L7DataMap{
-				td.cachedSelectorBar2: &PerSelectorPolicy{
-					Verdict:          types.Allow,
-					L7Parser:         ParserTypeKafka,
-					ListenerPriority: ListenerPriorityKafka,
-					L7Rules: api.L7Rules{
-						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
-					},
-				},
-			},
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}}),
-		},
 		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
@@ -1085,7 +946,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 		},
 	})
 
-	td.policyMapEquals(t, expected, nil, &l3Rule, &kafkaRule, &httpRule)
+	td.policyMapEquals(t, expected, nil, &l3Rule, &httpRule)
 }
 
 func TestWildcardL3RulesEgressToEntities(t *testing.T) {

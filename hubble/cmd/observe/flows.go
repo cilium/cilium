@@ -50,7 +50,6 @@ var protocols = []string{
 	// L7
 	"dns",
 	"http",
-	"kafka",
 }
 
 var verdicts = []string{

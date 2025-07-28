@@ -115,13 +115,6 @@ func (logTags) HTTP(h *LogRecordHTTP) LogTag {
 	}
 }
 
-// Kafka attaches Kafka information to the log record
-func (logTags) Kafka(k *LogRecordKafka) LogTag {
-	return func(lr *LogRecord, _ EndpointInfoRegistry) {
-		lr.Kafka = k
-	}
-}
-
 // DNS attaches DNS information to the log record
 func (logTags) DNS(d *LogRecordDNS) LogTag {
 	return func(lr *LogRecord, _ EndpointInfoRegistry) {

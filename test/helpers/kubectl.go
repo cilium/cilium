@@ -747,26 +747,6 @@ func (kub *Kubectl) CreateSecret(secretType, name, namespace, args string) *CmdR
 	return kub.ExecShort(fmt.Sprintf("kubectl create secret %s %s -n %s %s", secretType, name, namespace, args))
 }
 
-// ExecKafkaPodCmd executes shell command with arguments arg in the specified pod residing in the specified
-// namespace. It returns the stdout of the command that was executed.
-// The kafka producer and consumer scripts do not return error if command
-// leads to TopicAuthorizationException or any other error. Hence the
-// function needs to also take into account the stderr messages returned.
-func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) error {
-	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, arg)
-	res := kub.Exec(command)
-	if !res.WasSuccessful() {
-		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed %s",
-			res.GetCmd(), res.OutputPrettyPrint())
-	}
-
-	if strings.Contains(res.Stderr(), "ERROR") {
-		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s'",
-			res.GetCmd(), res.OutputPrettyPrint())
-	}
-	return nil
-}
-
 // ExecPodCmd executes command cmd in the specified pod residing in the specified
 // namespace. It returns a pointer to CmdRes with all the output
 func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string, options ...ExecOptions) *CmdRes {

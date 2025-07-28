@@ -14,7 +14,6 @@ import (
 	"syscall"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 
@@ -185,9 +184,6 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 }
 
 func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry) (*accesslog.LogRecord, error) {
-	var kafkaRecord *accesslog.LogRecordKafka
-	var kafkaTopics []string
-
 	var l7tags accesslog.LogTag = func(lr *accesslog.LogRecord, endpointInfoRegistry accesslog.EndpointInfoRegistry) {}
 
 	if httpLogEntry := pblog.GetHttp(); httpLogEntry != nil {
@@ -200,20 +196,6 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 			MissingHeaders:  GetNetHttpHeaders(httpLogEntry.MissingHeaders),
 			RejectedHeaders: GetNetHttpHeaders(httpLogEntry.RejectedHeaders),
 		})
-	} else if kafkaLogEntry := pblog.GetKafka(); kafkaLogEntry != nil {
-		kafkaRecord = &accesslog.LogRecordKafka{
-			ErrorCode:     int(kafkaLogEntry.ErrorCode),
-			APIVersion:    int16(kafkaLogEntry.ApiVersion),
-			APIKey:        kafka.ApiKeyToString(int16(kafkaLogEntry.ApiKey)),
-			CorrelationID: kafkaLogEntry.CorrelationId,
-		}
-		if len(kafkaLogEntry.Topics) > 0 {
-			kafkaRecord.Topic.Topic = kafkaLogEntry.Topics[0]
-			if len(kafkaLogEntry.Topics) > 1 {
-				kafkaTopics = kafkaLogEntry.Topics[1:] // Rest of the topics
-			}
-		}
-		l7tags = accesslog.LogTags.Kafka(kafkaRecord)
 	} else if l7LogEntry := pblog.GetGenericL7(); l7LogEntry != nil {
 		l7tags = accesslog.LogTags.L7(&accesslog.LogRecordL7{
 			Proto:  l7LogEntry.GetProto(),
@@ -249,12 +231,6 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 	}
 
 	s.accessLogger.Log(r)
-
-	// Each kafka topic needs to be logged separately, log the rest if any
-	for i := range kafkaTopics {
-		kafkaRecord.Topic.Topic = kafkaTopics[i]
-		s.accessLogger.Log(r)
-	}
 
 	return r, nil
 }

@@ -16,7 +16,6 @@ import (
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
@@ -348,13 +347,11 @@ const (
 	// parsing. If TLS policies are used with HTTP rules, ParserTypeHTTP is used instead.
 	ParserTypeTLS L7ParserType = "tls"
 	// ParserTypeCRD is used with a custom CiliumEnvoyConfig redirection. Incompatible with any
-	// parser type with L7 enforcement (HTTP, Kafka, proxylib), as the custom Listener generally
+	// parser type with L7 enforcement (e.g HTTP), as the custom Listener generally
 	// does not support them.
 	ParserTypeCRD L7ParserType = "crd"
 	// ParserTypeHTTP specifies a HTTP parser type
 	ParserTypeHTTP L7ParserType = "http"
-	// ParserTypeKafka specifies a Kafka parser type
-	ParserTypeKafka L7ParserType = "kafka"
 	// ParserTypeDNS specifies a DNS parser type
 	ParserTypeDNS L7ParserType = "dns"
 )
@@ -367,9 +364,7 @@ type ListenerPriority = types.ListenerPriority
 // ..
 // 100 - lowest (non-default) listener priority
 // 101 - priority for HTTP parser type
-// 106 - priority for the Kafka parser type
-// 111 - priority for the proxylib parsers
-// 116 - priority for TLS interception parsers (can be promoted to HTTP/Kafka/proxylib)
+// 116 - priority for TLS interception parsers (can be promoted to HTTP)
 // 121 - priority for DNS parser type
 // 126 - default priority for CRD parser type
 // 127 - reserved (listener priority passed as 0)
@@ -377,13 +372,11 @@ type ListenerPriority = types.ListenerPriority
 // MapStateEntry stores this reverted in the low 8 bits of 'Precedence' where higher numbers have
 // higher precedence
 const (
-	ListenerPriorityNone     ListenerPriority = 0
-	ListenerPriorityHTTP     ListenerPriority = 101
-	ListenerPriorityKafka    ListenerPriority = 106
-	ListenerPriorityProxylib ListenerPriority = 111
-	ListenerPriorityTLS      ListenerPriority = 116
-	ListenerPriorityDNS      ListenerPriority = 121
-	ListenerPriorityCRD      ListenerPriority = 126
+	ListenerPriorityNone ListenerPriority = 0
+	ListenerPriorityHTTP ListenerPriority = 101
+	ListenerPriorityTLS  ListenerPriority = 116
+	ListenerPriorityDNS  ListenerPriority = 121
+	ListenerPriorityCRD  ListenerPriority = 126
 )
 
 // defaultPriority maps the parser type to an "API listener priority"
@@ -393,8 +386,6 @@ func (l7 L7ParserType) defaultPriority() ListenerPriority {
 		return ListenerPriorityNone // no l7 redirect
 	case ParserTypeHTTP:
 		return ListenerPriorityHTTP
-	case ParserTypeKafka:
-		return ListenerPriorityKafka
 	case ParserTypeTLS:
 		return ListenerPriorityTLS
 	case ParserTypeDNS:
@@ -402,8 +393,8 @@ func (l7 L7ParserType) defaultPriority() ListenerPriority {
 	case ParserTypeCRD:
 		// CRD type can have an explicit higher priority in range 1-100
 		return ListenerPriorityCRD
-	default: // proxylib parsers
-		return ListenerPriorityProxylib
+	default:
+		return ListenerPriorityNone
 	}
 }
 
@@ -415,9 +406,6 @@ const (
 	redirectTypeDNS redirectTypes = 1 << iota
 	// redirectTypeEnvoy bit is set when policy contains a redirection to Envoy
 	redirectTypeEnvoy
-	// redirectTypeProxylib bits are set when policy contains a redirection to Proxylib (via
-	// Envoy)
-	redirectTypeProxylib redirectTypes = 1<<iota | redirectTypeEnvoy
 
 	// redirectTypeNone represents the case where there is no proxy redirect
 	redirectTypeNone redirectTypes = redirectTypes(0)
@@ -472,12 +460,6 @@ func hasWildcard(rules *api.L7Rules, parserType L7ParserType) bool {
 				return true
 			}
 		}
-	case parserType == ParserTypeKafka:
-		for _, rule := range rules.Kafka {
-			if rule.Topic == "" {
-				return true
-			}
-		}
 	case rules.L7Proto != "":
 		// For custom L7 rules
 		for _, rule := range rules.L7 {
@@ -506,10 +488,6 @@ func addWildcard(rules *api.L7Rules, parserType L7ParserType) *api.L7Rules {
 	case parserType == ParserTypeHTTP:
 		if len(rules.HTTP) > 0 {
 			result.HTTP = append(result.HTTP, api.PortRuleHTTP{})
-		}
-	case parserType == ParserTypeKafka:
-		if len(rules.Kafka) > 0 {
-			result.Kafka = append(result.Kafka, kafka.PortRule{})
 		}
 	case rules.L7Proto != "":
 		// For custom L7 rules with L7Proto
@@ -1035,8 +1013,6 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 				switch {
 				case len(rules.HTTP) > 0:
 					l7Parser = ParserTypeHTTP
-				case len(rules.Kafka) > 0:
-					l7Parser = ParserTypeKafka
 				case rules.L7Proto != "":
 					l7Parser = (L7ParserType)(rules.L7Proto)
 				}
@@ -1208,8 +1184,7 @@ func (sp *PerSelectorPolicy) redirectType() redirectTypes {
 	case ParserTypeHTTP, ParserTypeTLS, ParserTypeCRD:
 		return redirectTypeEnvoy
 	default:
-		// all other (non-empty) values are used for proxylib redirects
-		return redirectTypeProxylib
+		return redirectTypeNone
 	}
 }
 
@@ -1761,11 +1736,6 @@ func (l4 *L4Policy) HasRedirect() bool {
 // HasEnvoyRedirect returns true if the L4 policy contains at least one port redirection to Envoy
 func (l4 *L4Policy) HasEnvoyRedirect() bool {
 	return l4 != nil && l4.redirectTypes&redirectTypeEnvoy == redirectTypeEnvoy
-}
-
-// HasProxylibRedirect returns true if the L4 policy contains at least one port redirection to Proxylib
-func (l4 *L4Policy) HasProxylibRedirect() bool {
-	return l4 != nil && l4.redirectTypes&redirectTypeProxylib == redirectTypeProxylib
 }
 
 // GetModel returns the API model of the L4 policy.

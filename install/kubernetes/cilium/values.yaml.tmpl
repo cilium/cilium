@@ -1616,20 +1616,6 @@ hubble:
         #   --set hubble.redact.enabled="true"
         #   --set hubble.redact.http.headers.deny="Authorization,Proxy-Authorization"
         deny: []
-    kafka:
-      # -- Enables redacting Kafka's API key (deprecated, will be removed in v1.19).
-      # Example:
-      #
-      #   redact:
-      #     enabled: true
-      #     kafka:
-      #       apiKey: true
-      #
-      # You can specify the options from the helm CLI:
-      #
-      #   --set hubble.redact.enabled="true"
-      #   --set hubble.redact.kafka.apiKey="true"
-      apiKey: true
   # -- An additional address for Hubble to listen to.
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
   # Hubble is listening on port 4244.

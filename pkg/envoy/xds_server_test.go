@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -782,69 +781,6 @@ func TestGetNetworkPolicyL7(t *testing.T) {
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPoliciesL7,
-		ConntrackMapName:       "global",
-	}
-	require.Equal(t, expected, obtained)
-}
-
-var L4PolicyKafka = &policy.L4Policy{
-	Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
-		"9090/TCP": {
-			Port: 9092, Protocol: api.ProtoTCP,
-			PerSelectorPolicies: policy.L7DataMap{
-				cachedSelector1: &policy.PerSelectorPolicy{
-					L7Parser: "kafka",
-					L7Rules: api.L7Rules{
-						Kafka: []kafka.PortRule{{
-							Role:  "consume",
-							Topic: "deathstar-plans",
-						}},
-					},
-				},
-			},
-			Ingress: true,
-		},
-	})},
-}
-
-var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
-	{
-		Port:     9092,
-		Protocol: envoy_config_core.SocketAddress_TCP,
-		Rules: []*cilium.PortNetworkPolicyRule{
-			{
-				RemotePolicies: []uint32{1001, 1002},
-				L7Proto:        "kafka",
-				L7: &cilium.PortNetworkPolicyRule_KafkaRules{
-					KafkaRules: &cilium.KafkaNetworkPolicyRules{
-						KafkaRules: []*cilium.KafkaNetworkPolicyRule{{
-							ApiVersion: -1,
-							ApiKeys: []int32{
-								int32(kafka.FetchKey), int32(kafka.OffsetsKey),
-								int32(kafka.MetadataKey), int32(kafka.OffsetCommitKey),
-								int32(kafka.OffsetFetchKey), int32(kafka.FindCoordinatorKey),
-								int32(kafka.JoinGroupKey), int32(kafka.HeartbeatKey),
-								int32(kafka.LeaveGroupKey), int32(kafka.SyncgroupKey),
-								int32(kafka.APIVersionsKey),
-							},
-							ClientId: "",
-							Topic:    "deathstar-plans",
-						}},
-					},
-				},
-			},
-		},
-	},
-}
-
-func TestGetNetworkPolicyKafka(t *testing.T) {
-	xds := testXdsServer(t)
-	selectors := testSelectorCache.GetSelectorSnapshot()
-	obtained := xds.getNetworkPolicy(ep, selectors, []string{IPv4Addr}, L4PolicyKafka, true, true, false, false, "")
-	expected := &cilium.NetworkPolicy{
-		EndpointIps:            []string{IPv4Addr},
-		EndpointId:             uint64(ep.GetID()),
-		IngressPerPortPolicies: ExpectedPerPortPoliciesKafka,
 		ConntrackMapName:       "global",
 	}
 	require.Equal(t, expected, obtained)

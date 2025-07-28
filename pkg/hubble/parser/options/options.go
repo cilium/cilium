@@ -35,7 +35,6 @@ type HubbleRedactSettings struct {
 	Enabled            bool
 	RedactHTTPQuery    bool
 	RedactHTTPUserInfo bool
-	RedactKafkaAPIKey  bool
 	RedactHttpHeaders  HttpHeadersList
 }
 
@@ -53,12 +52,11 @@ func CacheSize(size int) Option {
 }
 
 // WithRedact configures which data Hubble will redact.
-func WithRedact(httpQuery, httpUserInfo, kafkaApiKey bool, allowHeaders, denyHeaders []string) Option {
+func WithRedact(httpQuery, httpUserInfo bool, allowHeaders, denyHeaders []string) Option {
 	return func(opt *Options) {
 		opt.HubbleRedactSettings.Enabled = true
 		opt.HubbleRedactSettings.RedactHTTPQuery = httpQuery
 		opt.HubbleRedactSettings.RedactHTTPUserInfo = httpUserInfo
-		opt.HubbleRedactSettings.RedactKafkaAPIKey = kafkaApiKey
 		opt.HubbleRedactSettings.RedactHttpHeaders = HttpHeadersList{
 			Allow: headerSliceToMap(allowHeaders),
 			Deny:  headerSliceToMap(denyHeaders),

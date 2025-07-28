@@ -2315,12 +2315,12 @@
    ],
    "dynamic_listeners": [
     {
-     "name": "cilium-proxylib-egress:14655",
+     "name": "cilium-generic-egress:14655",
      "active_state": {
       "version_info": "9",
       "listener": {
        "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
-       "name": "cilium-proxylib-egress:14655",
+       "name": "cilium-generic-egress:14655",
        "address": {
         "socket_address": {
          "address": "127.0.0.1",
@@ -2337,11 +2337,7 @@
            "name": "cilium.network",
            "typed_config": {
             "@type": "type.googleapis.com/cilium.NetworkFilter",
-            "proxylib": "libcilium.so",
-            "proxylib_params": {
-             "access-log-path": "/var/run/cilium/envoy/sockets/access_log.sock",
-             "xds-path": "/var/run/cilium/envoy/sockets/xds.sock"
-            }
+            "access_log_path": "/var/run/cilium/access_log.sock"
            }
           },
           {
@@ -2363,11 +2359,7 @@
            "name": "cilium.network",
            "typed_config": {
             "@type": "type.googleapis.com/cilium.NetworkFilter",
-            "proxylib": "libcilium.so",
-            "proxylib_params": {
-             "access-log-path": "/var/run/cilium/envoy/sockets/access_log.sock",
-             "xds-path": "/var/run/cilium/envoy/sockets/xds.sock"
-            }
+            "access_log_path": "/var/run/cilium/access_log.sock"
            }
           },
           {
@@ -2486,7 +2478,7 @@
       "version_info": "2",
       "listener": {
        "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
-       "name": "cilium-proxylib-egress:14655",
+       "name": "cilium-generic-egress:14655",
        "address": {
         "socket_address": {
          "address": "127.0.0.1",
@@ -2503,11 +2495,7 @@
            "name": "cilium.network",
            "typed_config": {
             "@type": "type.googleapis.com/cilium.NetworkFilter",
-            "proxylib": "libcilium.so",
-            "proxylib_params": {
-             "access-log-path": "/var/run/cilium/envoy/sockets/access_log.sock",
-             "xds-path": "/var/run/cilium/envoy/sockets/xds.sock"
-            }
+            "access_log_path": "/var/run/cilium/access_log.sock"
            }
           },
           {
@@ -2529,11 +2517,7 @@
            "name": "cilium.network",
            "typed_config": {
             "@type": "type.googleapis.com/cilium.NetworkFilter",
-            "proxylib": "libcilium.so",
-            "proxylib_params": {
-             "xds-path": "/var/run/cilium/envoy/sockets/xds.sock",
-             "access-log-path": "/var/run/cilium/envoy/sockets/access_log.sock"
-            }
+            "access_log_path": "/var/run/cilium/access_log.sock"
            }
           },
           {

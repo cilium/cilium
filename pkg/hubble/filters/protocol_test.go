@@ -85,7 +85,7 @@ func TestFlowProtocolFilter(t *testing.T) {
 		{
 			name: "multiple protocols",
 			args: args{
-				f: []*flowpb.FlowFilter{{Protocol: []string{"tcp", "kafka"}}},
+				f: []*flowpb.FlowFilter{{Protocol: []string{"tcp", "icmp"}}},
 				ev: &v1.Event{Event: &flowpb.Flow{
 					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{}}},
 				}},

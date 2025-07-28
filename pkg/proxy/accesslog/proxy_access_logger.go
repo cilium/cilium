@@ -120,14 +120,5 @@ func (r *proxyAccessLogger) getLogFields(lr *LogRecord) []any {
 		)
 	}
 
-	if lr.Kafka != nil {
-		fields = append(fields,
-			FieldCode, lr.Kafka.ErrorCode,
-			FieldKafkaAPIVersion, lr.Kafka.APIVersion,
-			FieldKafkaAPIKey, lr.Kafka.APIKey,
-			FieldKafkaCorrelationID, lr.Kafka.CorrelationID,
-		)
-	}
-
 	return fields
 }

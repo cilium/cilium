@@ -54,7 +54,6 @@ func New(
 			Enabled:            false,
 			RedactHTTPUserInfo: true,
 			RedactHTTPQuery:    false,
-			RedactKafkaAPIKey:  false,
 			RedactHttpHeaders: options.HttpHeadersList{
 				Allow: map[string]struct{}{},
 				Deny:  map[string]struct{}{},
@@ -360,11 +359,6 @@ func decodeLayer7(r *accesslog.LogRecord, opts *options.Options) *flowpb.Layer7 
 			Type:   flowType,
 			Record: decodeHTTP(r.Type, r.HTTP, opts),
 		}
-	case r.Kafka != nil:
-		return &flowpb.Layer7{
-			Type:   flowType,
-			Record: decodeKafka(r.Type, r.Kafka, opts),
-		}
 	default:
 		return &flowpb.Layer7{
 			Type: flowType,
@@ -394,8 +388,6 @@ func (p *Parser) getSummary(logRecord *accesslog.LogRecord, flow *flowpb.Flow) s
 	}
 	if http := logRecord.HTTP; http != nil {
 		return p.httpSummary(logRecord.Type, http, flow)
-	} else if kafka := logRecord.Kafka; kafka != nil {
-		return kafkaSummary(flow)
 	} else if dns := logRecord.DNS; dns != nil {
 		return dnsSummary(logRecord.Type, dns)
 	} else if generic := logRecord.L7; generic != nil {

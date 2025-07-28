@@ -502,7 +502,7 @@ a single egress rule.
 ``toFQDNs`` egress rules cannot contain any other L3 rules, such as
 ``toEndpoints`` (under `Endpoints Based`_) and ``toCIDRs`` (under `CIDR Based`_).
 They may contain L4/L7 rules, such as ``toPorts`` (see :ref:`l4_policy`)
-with, optionally, ``HTTP`` and ``Kafka`` sections (see :ref:`l7_policy`).
+with, optionally, ``HTTP`` section (see :ref:`l7_policy`).
 
 .. note:: DNS based rules are intended for external connections and behave
           similarly to `CIDR based`_ rules. See `Services based`_ and

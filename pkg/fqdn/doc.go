@@ -65,7 +65,7 @@
 //	        - matchName: "cilium.io"
 //
 // These redirects are implemented by the datapath and the management logic is
-// shared with other proxies in cilium (envoy and kafka). L7 DNS rules can
+// shared with other proxies in cilium (e.g. envoy). L7 DNS rules can
 // apply to an endpoint from various policies and, if any allow a request, it
 // will be forwarded to the original target of the DNS packet. This is often
 // configured in /etc/resolv.conf for a pod and k8s sets this automatically

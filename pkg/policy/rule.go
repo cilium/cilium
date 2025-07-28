@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/cilium/proxy/pkg/policy/api/kafka"
-
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -74,15 +72,6 @@ func (epd *PerSelectorPolicy) appendL7WildcardRule(policyContext PolicyContext) 
 			epd.L7Rules.HTTP = append(epd.L7Rules.HTTP, rule)
 		} else {
 			policyContext.PolicyTrace("   Merging HTTP wildcard rule, equal rule already exists: %+v\n", rule)
-		}
-	case len(epd.L7Rules.Kafka) > 0:
-		rule := kafka.PortRule{}
-		rule.Sanitize()
-		if !rule.Exists(epd.L7Rules.Kafka) {
-			policyContext.PolicyTrace("   Merging Kafka wildcard rule: %+v\n", rule)
-			epd.L7Rules.Kafka = append(epd.L7Rules.Kafka, rule)
-		} else {
-			policyContext.PolicyTrace("   Merging Kafka wildcard rule, equal rule already exists: %+v\n", rule)
 		}
 	case len(epd.L7Rules.DNS) > 0:
 		// Wildcarding at L7 for DNS is specified via allowing all via
@@ -331,11 +320,6 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 					existingPolicy.HTTP = append(existingPolicy.HTTP, newRule)
 				}
 			}
-			for _, newRule := range newPolicy.Kafka {
-				if !newRule.Exists(existingPolicy.L7Rules.Kafka) {
-					existingPolicy.Kafka = append(existingPolicy.Kafka, newRule)
-				}
-			}
 			if existingPolicy.L7Proto == "" && newPolicy.L7Proto != "" {
 				existingPolicy.L7Proto = newPolicy.L7Proto
 			}
@@ -416,9 +400,6 @@ func (resMap *L4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 			}
 			if !pr.Rules.IsEmpty() {
 				for _, l7 := range pr.Rules.HTTP {
-					policyCtx.PolicyTrace("          %+v\n", l7)
-				}
-				for _, l7 := range pr.Rules.Kafka {
 					policyCtx.PolicyTrace("          %+v\n", l7)
 				}
 				for _, l7 := range pr.Rules.L7 {

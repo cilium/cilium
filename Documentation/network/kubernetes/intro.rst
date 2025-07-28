@@ -27,7 +27,6 @@ cluster:
     application protocols:
 
     * HTTP
-    * Kafka
   * Egress support for CIDRs to secure access to external services
   * Enforcement to external headless services to automatically restrict to the
     set of Kubernetes endpoints configured for a service.

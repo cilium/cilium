@@ -178,8 +178,6 @@ var PortNetworkPolicyRule7 = &cilium.PortNetworkPolicyRule{
 	},
 }
 
-// TODO: Test sorting Kafka rules.
-
 func TestSortPortNetworkPolicyRules(t *testing.T) {
 	var slice, expected []*cilium.PortNetworkPolicyRule
 

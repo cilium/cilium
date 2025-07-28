@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -1277,59 +1276,6 @@ func TestICMPRuleWithOtherRuleFailed(t *testing.T) {
 	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
 	err = egressICMPDenyWithPort.Sanitize()
 	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
-}
-
-// This test ensures that PortRules aren't configured in the wrong direction,
-// which ends up being a no-op with only vague error messages rather than a
-// clear indication that something is wrong in the policy.
-func TestL7RuleDirectionalitySupport(t *testing.T) {
-	// Kafka egress is now supported.
-	egressKafkaRule := Rule{
-		EndpointSelector: WildcardEndpointSelector,
-		Egress: []EgressRule{
-			{
-				ToPorts: []PortRule{{
-					Ports: []PortProtocol{
-						{Port: "80", Protocol: ProtoTCP},
-						{Port: "81", Protocol: ProtoTCP},
-					},
-					Rules: &L7Rules{
-						Kafka: []kafka.PortRule{{
-							Role:  "consume",
-							Topic: "deathstar-plans",
-						}},
-					},
-				}},
-			},
-		},
-	}
-
-	err := egressKafkaRule.Sanitize()
-	require.NoError(t, err)
-
-	// DNS ingress is not supported.
-	invalidDNSRule := Rule{
-		EndpointSelector: WildcardEndpointSelector,
-		Ingress: []IngressRule{
-			{
-				ToPorts: []PortRule{{
-					Ports: []PortProtocol{
-						{Port: "53", Protocol: ProtoTCP},
-						{Port: "53", Protocol: ProtoUDP},
-					},
-					Rules: &L7Rules{
-						DNS: []PortRuleDNS{{
-							MatchName: "empire.gov",
-						}},
-					},
-				}},
-			},
-		},
-	}
-
-	err = invalidDNSRule.Sanitize()
-	require.Error(t, err)
-
 }
 
 func BenchmarkCIDRSanitize(b *testing.B) {

@@ -30,8 +30,6 @@ type config struct {
 	// RedactHttpHeadersDeny controls which http headers will be redacted from
 	// flows.
 	RedactHttpHeadersDeny []string `mapstructure:"hubble-redact-http-headers-deny"`
-	// RedactKafkaAPIKey controls if Kafka API key will be redacted from flows.
-	RedactKafkaAPIKey bool `mapstructure:"hubble-redact-kafka-apikey"`
 }
 
 var defaultConfig = config{
@@ -42,7 +40,6 @@ var defaultConfig = config{
 	RedactHttpUserInfo:             true,
 	RedactHttpHeadersAllow:         []string{},
 	RedactHttpHeadersDeny:          []string{},
-	RedactKafkaAPIKey:              false,
 }
 
 func (cfg config) validate() error {
@@ -60,7 +57,5 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("hubble-redact-http-userinfo", def.RedactHttpUserInfo, "Hubble redact http user info from flows")
 	flags.StringSlice("hubble-redact-http-headers-allow", def.RedactHttpHeadersAllow, "HTTP headers to keep visible in flows")
 	flags.StringSlice("hubble-redact-http-headers-deny", def.RedactHttpHeadersDeny, "HTTP headers to redact from flows")
-	flags.Bool("hubble-redact-kafka-apikey", def.RedactKafkaAPIKey, "Hubble redact Kafka API key from flows")
-	flags.MarkDeprecated("hubble-redact-kafka-apikey", "kafka support will be removed in v1.19")
 	flags.Bool("hubble-network-policy-correlation-enabled", def.EnableNetworkPolicyCorrelation, "Enable network policy correlation of Hubble flows")
 }

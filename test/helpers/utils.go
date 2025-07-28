@@ -159,8 +159,7 @@ func WithContext(ctx context.Context, f func(ctx context.Context) (bool, error),
 }
 
 // GetAppPods fetches app pod names for a namespace.
-// For Http based tests, we identify pods with format id=<pod_name>, while
-// for Kafka based tests, we identify pods with the format app=<pod_name>.
+// For Http based tests, we identify pods with format id=<pod_name>.
 func GetAppPods(apps []string, namespace string, kubectl *Kubectl, appFmt string) map[string]string {
 	appPods := make(map[string]string)
 	for _, v := range apps {

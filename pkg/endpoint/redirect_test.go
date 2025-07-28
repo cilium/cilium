@@ -70,11 +70,10 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 
 	s.rsp = &RedirectSuiteProxy{
 		parserProxyPortMap: map[string]uint16{
-			policy.ParserTypeHTTP.String():  httpPort,
-			policy.ParserTypeDNS.String():   dnsPort,
-			policy.ParserTypeKafka.String(): kafkaPort,
-			"crd/cec1/listener1":            crd1Port,
-			"crd/cec2/listener2":            crd2Port,
+			policy.ParserTypeHTTP.String(): httpPort,
+			policy.ParserTypeDNS.String():  dnsPort,
+			"crd/cec1/listener1":           crd1Port,
+			"crd/cec2/listener2":           crd2Port,
 		},
 		redirects: make(map[string]uint16),
 	}
@@ -158,11 +157,10 @@ func (d *DummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) <-cha
 }
 
 const (
-	httpPort  = uint16(19001)
-	dnsPort   = uint16(19002)
-	kafkaPort = uint16(19003)
-	crd1Port  = uint16(19004)
-	crd2Port  = uint16(19005)
+	httpPort = uint16(19001)
+	dnsPort  = uint16(19002)
+	crd1Port = uint16(19004)
+	crd2Port = uint16(19005)
 )
 
 func (s *RedirectSuite) createTestEndpointParams(tb testing.TB) EndpointParams {

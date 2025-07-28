@@ -10,13 +10,12 @@ import (
 )
 
 func TestRedact(t *testing.T) {
-	opt := WithRedact(true, false, false, nil, nil)
+	opt := WithRedact(true, false, nil, nil)
 	opts := Options{
 		HubbleRedactSettings: HubbleRedactSettings{
 			Enabled:            false,
 			RedactHTTPQuery:    false,
 			RedactHTTPUserInfo: false,
-			RedactKafkaAPIKey:  false,
 			RedactHttpHeaders: HttpHeadersList{
 				Allow: map[string]struct{}{},
 				Deny:  map[string]struct{}{"tracecontent": {}},

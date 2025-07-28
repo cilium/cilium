@@ -131,7 +131,7 @@ func ruleTypePortRules(rf *RuleFeatures, portRules api.PortRules) {
 				}
 			}
 		}
-		if p.Rules != nil && (len(p.Rules.L7) > 0 || len(p.Rules.Kafka) > 0) {
+		if p.Rules != nil && (len(p.Rules.L7) > 0) {
 			rf.OtherL7 = true
 		}
 		if !rf.TLSInspection && (p.OriginatingTLS != nil || p.TerminatingTLS != nil) {
