@@ -19,13 +19,10 @@ import (
 )
 
 const (
-	kindGateway   = "Gateway"
 	kindHTTPRoute = "HTTPRoute"
 	kindTLSRoute  = "TLSRoute"
 	kindUDPRoute  = "UDPRoute"
 	kindTCPRoute  = "TCPRoute"
-	kindService   = "Service"
-	kindSecret    = "Secret"
 )
 
 func GatewayAddressTypePtr(addr gatewayv1.AddressType) *gatewayv1.AddressType {
@@ -149,6 +146,7 @@ func getSupportedGroupKind(protocol gatewayv1.ProtocolType) (*gatewayv1.Group, g
 		return GroupPtr("Unknown"), "Unknown"
 	}
 }
+
 func getGatewayKindForObject(obj metav1.Object) gatewayv1.Kind {
 	switch obj.(type) {
 	case *gatewayv1.HTTPRoute:

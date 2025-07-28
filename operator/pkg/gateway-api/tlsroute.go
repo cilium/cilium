@@ -43,7 +43,7 @@ func newTLSRouteReconciler(mgr ctrl.Manager, logger *slog.Logger) *tlsRouteRecon
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, backendServiceIndex,
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, backendServiceHTTPRouteIndex,
 		func(rawObj client.Object) []string {
 			route, ok := rawObj.(*gatewayv1alpha2.TLSRoute)
 			if !ok {
@@ -75,7 +75,7 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, backendServiceImportIndex,
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, backendServiceImportHTTPRouteIndex,
 		func(rawObj client.Object) []string {
 			hr, ok := rawObj.(*gatewayv1alpha2.TLSRoute)
 			if !ok {
@@ -101,7 +101,7 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, gatewayIndex,
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, gatewayHTTPRouteIndex,
 		func(rawObj client.Object) []string {
 			hr := rawObj.(*gatewayv1alpha2.TLSRoute)
 			var gateways []string
@@ -147,13 +147,13 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // enqueueRequestForBackendService makes sure that TLS Routes are reconciled
 // if the backend services are updated.
 func (r *tlsRouteReconciler) enqueueRequestForBackendService() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceIndex))
+	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceHTTPRouteIndex))
 }
 
 // enqueueRequestForBackendServiceImport makes sure that TLS Routes are reconciled
 // if the backend Service Imports are updated.
 func (r *tlsRouteReconciler) enqueueRequestForBackendServiceImport() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceImportIndex))
+	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceImportHTTPRouteIndex))
 }
 
 // enqueueRequestForReferenceGrant makes sure that all TLS Routes are reconciled
@@ -163,7 +163,7 @@ func (r *tlsRouteReconciler) enqueueRequestForReferenceGrant() handler.EventHand
 }
 
 func (r *tlsRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(gatewayIndex))
+	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(gatewayHTTPRouteIndex))
 }
 
 func (r *tlsRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {

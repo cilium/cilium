@@ -16,6 +16,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
@@ -28,6 +29,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -41,6 +43,23 @@ func testScheme() *runtime.Scheme {
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 
 	registerGatewayAPITypesToScheme(scheme, optionalGVKs)
+
+	return scheme
+}
+
+func testSchemeNoServiceImport() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(ciliumv2.AddToScheme(scheme))
+	utilruntime.Must(ciliumv2alpha1.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
+
+	noMCSGVKs := []schema.GroupVersionKind{
+		gatewayv1alpha2.SchemeGroupVersion.WithKind(helpers.TLSRouteKind),
+	}
+
+	registerGatewayAPITypesToScheme(scheme, noMCSGVKs)
 
 	return scheme
 }

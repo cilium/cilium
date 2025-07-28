@@ -97,7 +97,7 @@ func (r *gammaReconciler) enqueueAll() handler.MapFunc {
 		list := &corev1.ServiceList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{}); err != nil {
-			scopedLog.Error("Failed to list Service", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Failed to list Service", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -110,7 +110,7 @@ func (r *gammaReconciler) enqueueAll() handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: svc,
 			})
-			scopedLog.Info("Enqueued Service for resource", gamma, svc)
+			scopedLog.InfoContext(ctx, "Enqueued Service for resource", gamma, svc)
 		}
 		return requests
 	}
@@ -168,17 +168,17 @@ func getGammaReconcileRequestsForRoute(ctx context.Context, c client.Client, obj
 			Name:      string(parent.Name),
 		}, s); err != nil {
 			if !k8serrors.IsNotFound(err) {
-				scopedLog.Error("Failed to get Gamma Service", logfields.Error, err)
+				scopedLog.ErrorContext(ctx, "Failed to get Gamma Service", logfields.Error, err)
 			}
 			continue
 		}
 
 		if !isValidGammaService(s) {
-			scopedLog.Warn("Service referenced as GAMMA parent is not valid")
+			scopedLog.WarnContext(ctx, "Service referenced as GAMMA parent is not valid")
 			continue
 		}
 
-		scopedLog.Info("Enqueued GAMMA Service for Route",
+		scopedLog.InfoContext(ctx, "Enqueued GAMMA Service for Route",
 			logfields.K8sNamespace, ns,
 			logfields.ParentResource, parent.Name,
 			logfields.Route, object.GetName())
