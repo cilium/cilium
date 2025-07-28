@@ -113,8 +113,6 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 }
 
 type SyncWaiterParams struct {
-	cell.In
-
 	KVStoreMesh *KVStoreMesh
 	SyncState   syncstate.SyncState
 	Lifecycle   cell.Lifecycle

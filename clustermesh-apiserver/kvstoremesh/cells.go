@@ -4,7 +4,6 @@
 package kvstoremesh
 
 import (
-	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
@@ -28,32 +27,29 @@ var Cell = cell.Module(
 
 	APIServerCell,
 
-	kvstoremesh.Cell,
+	WithLeaderLifecycle(
+		kvstoremesh.Cell,
 
-	cell.Provide(func(kmConfig kvstoremesh.Config) heartbeat.Config {
-		return heartbeat.Config{
-			EnableHeartBeat: kmConfig.EnableHeartBeat,
-		}
-	}),
-	heartbeat.Cell,
+		cell.Provide(func(kmConfig kvstoremesh.Config) heartbeat.Config {
+			return heartbeat.Config{
+				EnableHeartBeat: kmConfig.EnableHeartBeat,
+			}
+		}),
+		heartbeat.Cell,
 
-	cell.Invoke(kvstoremesh.RegisterSyncWaiter),
+		cell.Invoke(func(*kvstoremesh.KVStoreMesh) {}),
+	),
 
-	cell.Invoke(func(*kvstoremesh.KVStoreMesh) {}),
-
-	cell.Invoke(registerSyncStateStop),
+	// This needs to be the last in the list, so that the start hook responsible
+	// for leader election is guaranteed to be executed last, when
+	// all the previous ones have already completed. Otherwise, cells within
+	// the "WithLeaderLifecycle" scope may be incorrectly started too early,
+	// given that "registerLeaderElectionHooks" does not depend on all of their
+	// individual dependencies outside of that scope.
+	cell.Invoke(
+		registerLeaderElectionHooks,
+	),
 )
-
-func registerSyncStateStop(lc cell.Lifecycle, ss syncstate.SyncState) {
-	lc.Append(
-		cell.Hook{
-			OnStart: func(cell.HookContext) error {
-				ss.Stop()
-				return nil
-			},
-		},
-	)
-}
 
 var pprofConfig = pprof.Config{
 	Pprof:        false,
