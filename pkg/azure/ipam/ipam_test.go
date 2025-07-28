@@ -207,6 +207,7 @@ func TestIpamPreAllocate8(t *testing.T) {
 func TestIpamMinAllocate10(t *testing.T) {
 	preAllocate := 8
 	minAllocate := 10
+	clampedMinAllocate := 8
 	toUse := 7
 
 	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVnet})
@@ -251,7 +252,8 @@ func TestIpamMinAllocate10(t *testing.T) {
 
 	node := mngr.Get("node1")
 	require.NotNil(t, node)
-	require.Equal(t, minAllocate, node.Stats().IPv4.AvailableIPs)
+	// MinAllocate=10 is clamped to instance limit of 8 by the getMinAllocate() method in pkg/ipam/node.go
+	require.Equal(t, clampedMinAllocate, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 
 	// Use 7 out of 10 IPs
