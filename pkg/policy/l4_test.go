@@ -36,8 +36,6 @@ func TestRedirectType(t *testing.T) {
 	require.Equal(t, redirectTypeNone, redirectTypes(0))
 	require.Equal(t, redirectTypeDNS, redirectTypes(0x1))
 	require.Equal(t, redirectTypeEnvoy, redirectTypes(0x2))
-	require.Equal(t, redirectTypes(0x4)|redirectTypeEnvoy, redirectTypeProxylib)
-	require.Equal(t, redirectTypeEnvoy, redirectTypeProxylib&redirectTypeEnvoy)
 }
 
 func TestParserTypeMerge(t *testing.T) {
@@ -115,7 +113,7 @@ func TestParserTypeMerge(t *testing.T) {
 		{ParserTypeDNS, L7ParserType("foo"), ParserTypeNone, false},
 		{L7ParserType("foo"), ParserTypeDNS, ParserTypeNone, false},
 
-		// Proxylib parsers do not merge with other proxylib parsers nor with HTTP
+		// Different L7 parsers do not merge with each other nor with HTTP
 
 		{ParserTypeKafka, ParserTypeHTTP, ParserTypeNone, false},
 		{ParserTypeHTTP, ParserTypeKafka, ParserTypeNone, false},
@@ -468,7 +466,6 @@ func TestJSONMarshal(t *testing.T) {
 	}
 
 	require.True(t, policy.HasEnvoyRedirect())
-	require.True(t, policy.HasProxylibRedirect())
 }
 
 // TestL4PolicyMapPortRangeOverlaps tests the Upsert, ExactLookup,

@@ -35,9 +35,6 @@ func extractTraceContext(record *accesslog.LogRecord) *flowpb.TraceContext {
 				TraceId: traceID,
 			},
 		}
-	case record.Kafka != nil:
-		// TODO
-		return nil
 	default:
 		return nil
 	}

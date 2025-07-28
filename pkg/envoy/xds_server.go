@@ -500,11 +500,9 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngr
 }
 
 // getTcpFilterChainProto creates a TCP filter chain with the Cilium network filter.
-// By default, the returned chain can be used with the Cilium Go extensions L7 parsers
-// in 'proxylib' directory in the Cilium repo.
-// When optional 'filterName' is given, it is configured as the first filter in the chain
-// and 'proxylib' is not configured. In this case the returned filter chain is only used
-// if the applicable network policy specifies 'filterName' as the L7 parser.
+// When optional 'filterName' is given, it is configured as the first filter in the chain.
+// In this case the returned filter chain is only used if the applicable network policy
+// specifies 'filterName' as the L7 parser.
 func (s *xdsServer) getTcpFilterChainProto(clusterName string, filterName string, config *anypb.Any, tls bool) *envoy_config_listener.FilterChain {
 	var filters []*envoy_config_listener.Filter
 
@@ -520,22 +518,10 @@ func (s *xdsServer) getTcpFilterChainProto(clusterName string, filterName string
 	}
 
 	// 2. Add Cilium Network filter.
-	var ciliumConfig *cilium.NetworkFilter
-	if filterName == "" {
-		// Use proxylib by default
-		ciliumConfig = &cilium.NetworkFilter{
-			Proxylib: "libcilium.so",
-			ProxylibParams: map[string]string{
-				"access-log-path": s.accessLogPath,
-				"xds-path":        s.socketPath,
-			},
-		}
-	} else {
-		// Envoy metadata logging requires accesslog path
-		ciliumConfig = &cilium.NetworkFilter{
-			AccessLogPath: s.accessLogPath,
-		}
+	var ciliumConfig = &cilium.NetworkFilter{
+		AccessLogPath: s.accessLogPath,
 	}
+
 	filters = append(filters, &envoy_config_listener.Filter{
 		Name: "cilium.network",
 		ConfigType: &envoy_config_listener.Filter_TypedConfig{
@@ -994,13 +980,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		// Add a TLS variant
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true, isIngress))
 	} else {
-		// Default TCP chain, takes care of all parsers in proxylib
-		// The proxylib is deprecated and will be removed in the future
-		// https://github.com/cilium/cilium/issues/38224
-		s.logger.Warn("The support for Envoy Go Extensions (proxylib) has been deprecated due to lack of maintainers. If you are interested in helping to maintain, please reach out on GitHub or the official Cilium slack",
-			logfields.URL, "https://slack.cilium.io")
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, "", nil, false))
-
 		// Add a TLS variant
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(tlsClusterName, "", nil, true))
 
@@ -1148,7 +1128,7 @@ func getL7Rules(l7Rules []api.PortRuleL7, l7Proto string) *cilium.L7NetworkPolic
 				allowRules = append(allowRules, rule)
 			}
 		} else {
-			// proxylib go extension key/value policy
+			// generic key/value L7 policy
 			rule := &cilium.L7NetworkPolicyRule{Rule: make(map[string]string, len(l7))}
 			maps.Copy(rule.Rule, l7)
 			allowRules = append(allowRules, rule)
@@ -1706,13 +1686,6 @@ func getNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
 
 	// Host proxy uses "127.0.0.1" as the nodeID
 	nodeIDs = append(nodeIDs, "127.0.0.1")
-	// Require additional ACK from proxylib if policy has proxylib redirects
-	// Note that if a previous policy had a proxylib redirect and this one does not,
-	// we only wait for the ACK from the main Envoy node ID.
-	if policy.HasProxylibRedirect() {
-		// Proxylib uses "127.0.0.2" as the nodeID
-		nodeIDs = append(nodeIDs, "127.0.0.2")
-	}
 	return nodeIDs
 }
 

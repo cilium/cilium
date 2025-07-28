@@ -338,6 +338,9 @@ from Cilium.
 * The previously deprecated Helm value ``clustermesh.enableMCSAPISupport`` was
   removed in favor of the ``clustermesh.mcsapi.enabled`` Helm value.
 
+* Support for Envoy Go Extensions (proxylib) and Kafka-aware network policies
+  has been removed. These features were deprecated in v1.18.
+
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
 
