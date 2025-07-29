@@ -34,20 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-const (
-	// initGracePeriod is the amount of time we wait for the load-balancing tables to be initialized before
-	// we start reconciling towards the BPF maps. This reduces the probability that load-balancing is scaled
-	// down temporarily due to not yet seeing all backends.
-	//
-	// The delay happens only when existing BPF state existed.
-	//
-	// We must not wait forever for initialization though due to potential interdependencies between load-balancing
-	// data sources. For example we might depend on Kubernetes data to connect to the ClusterMesh api-server and
-	// thus may need to first reconcile the Kubernetes services to connect to ClusterMesh (if endpoints have changed
-	// while agent was down).
-	initGracePeriod = 1 * time.Minute
-)
-
 func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config, ops *BPFOps, fes statedb.Table[*loadbalancer.Frontend], w *writer.Writer) (reconciler.Reconciler[*loadbalancer.Frontend], error) {
 	if !w.IsEnabled() {
 		return nil, nil
@@ -111,7 +97,7 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 				case <-ctx.Done():
 					return nil
 				case <-initWatch:
-				case <-time.After(initGracePeriod):
+				case <-time.After(cfg.InitWaitTimeout):
 					p.Log.Warn("Timed out waiting for load-balancing state to initialize, proceeding with reconciliation")
 				}
 			}

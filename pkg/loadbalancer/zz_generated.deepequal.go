@@ -130,6 +130,9 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.EnableServiceTopology != other.EnableServiceTopology {
 		return false
 	}
+	if in.InitWaitTimeout != other.InitWaitTimeout {
+		return false
+	}
 
 	return true
 }
