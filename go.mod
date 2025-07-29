@@ -34,8 +34,8 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/docker v28.3.2+incompatible
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
-	github.com/envoyproxy/go-control-plane/contrib v1.32.4
-	github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250722125442-5321204dac14
+	github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250726235758-896bd55d3690
+	github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250726235758-896bd55d3690
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.9.0
