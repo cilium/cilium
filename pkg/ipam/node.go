@@ -14,6 +14,7 @@ import (
 	"slices"
 	"sync/atomic"
 
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/cache"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
@@ -1199,6 +1200,10 @@ func (n *Node) update(origNode, node *v2.CiliumNode, status bool) error {
 		if updateErr == nil {
 			return nil
 		}
+	} else if updateErr != nil && k8sErrors.IsNotFound(updateErr) {
+		// If the CiliumNode resource no longer exists, there is no point in
+		// trying to update or get it again.
+		return nil
 	} else if updateErr != nil {
 		var newNode *v2.CiliumNode
 		newNode, err = n.manager.k8sAPI.Get(node.Name)
