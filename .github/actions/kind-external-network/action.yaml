@@ -2,6 +2,11 @@ name: Create a docker network for kind and external targets
 description: |
   Create a docker network which will be used by both kind and
   external targets added in a later step.
+inputs:
+  lvh:
+    required: false
+    description: "Whether to SSH into LVH"
+    default: 'false'
 outputs:
   ipv4_external_cidr:
     description: "IPv4 CIDR in which the external targets are created"
@@ -30,4 +35,4 @@ runs:
     - id: make_network
       shell: bash
       run: |
-        bash ./.github/actions/kind-external-network/action.sh
+        bash ./.github/actions/kind-external-network/action.sh ${{ inputs.lvh }}
