@@ -146,7 +146,13 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 		ClusterInfo:                  c.ClusterInfo,
 		RemoteClientFactory:          c.RemoteClientFactory,
 		ClusterSizeDependantInterval: c.ClusterSizeDependantInterval,
-		ServiceResolver:              c.ServiceResolver,
+
+		Resolvers: func() (out []dial.Resolver) {
+			if c.ServiceResolver != nil {
+				out = append(out, c.ServiceResolver)
+			}
+			return out
+		}(),
 
 		NewRemoteCluster: cm.NewRemoteCluster,
 
