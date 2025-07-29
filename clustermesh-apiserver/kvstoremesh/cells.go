@@ -4,6 +4,7 @@
 package kvstoremesh
 
 import (
+	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
@@ -39,7 +40,20 @@ var Cell = cell.Module(
 	cell.Invoke(kvstoremesh.RegisterSyncWaiter),
 
 	cell.Invoke(func(*kvstoremesh.KVStoreMesh) {}),
+
+	cell.Invoke(registerSyncStateStop),
 )
+
+func registerSyncStateStop(lc cell.Lifecycle, ss syncstate.SyncState) {
+	lc.Append(
+		cell.Hook{
+			OnStart: func(cell.HookContext) error {
+				ss.Stop()
+				return nil
+			},
+		},
+	)
+}
 
 var pprofConfig = pprof.Config{
 	Pprof:        false,
