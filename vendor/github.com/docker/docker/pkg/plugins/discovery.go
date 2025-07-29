@@ -1,4 +1,4 @@
-package plugins // import "github.com/docker/docker/pkg/plugins"
+package plugins
 
 import (
 	"encoding/json"
@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/containerd/containerd/pkg/userns"
 	"github.com/containerd/log"
+	"github.com/moby/sys/userns"
 	"github.com/pkg/errors"
 )
 
@@ -151,7 +151,7 @@ func readPluginInfo(name, path string) (*Plugin, error) {
 		return nil, err
 	}
 
-	if len(u.Scheme) == 0 {
+	if u.Scheme == "" {
 		return nil, fmt.Errorf("Unknown protocol")
 	}
 
@@ -170,7 +170,7 @@ func readPluginJSONInfo(name, path string) (*Plugin, error) {
 		return nil, err
 	}
 	p.name = name
-	if p.TLSConfig != nil && len(p.TLSConfig.CAFile) == 0 {
+	if p.TLSConfig != nil && p.TLSConfig.CAFile == "" {
 		p.TLSConfig.InsecureSkipVerify = true
 	}
 	p.activateWait = sync.NewCond(&sync.Mutex{})
