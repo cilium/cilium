@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -70,11 +69,15 @@ func newServiceResolver(jg job.Group, services resource.Resource[*slim_corev1.Se
 	return &sr
 }
 
-func (sr *ServiceResolver) Resolve(ctx context.Context, host string) (string, error) {
+func (sr *ServiceResolver) Resolve(ctx context.Context, host, port string) (string, string) {
+	return sr.resolve(ctx, host), port
+}
+
+func (sr *ServiceResolver) resolve(ctx context.Context, host string) string {
 	nsname, err := ServiceURLToNamespacedName(host)
 	if err != nil {
 		// The host does not look like a k8s service DNS name
-		return "", err
+		return host
 	}
 
 	sr.start()
@@ -82,23 +85,22 @@ func (sr *ServiceResolver) Resolve(ctx context.Context, host string) (string, er
 	select {
 	case <-ctx.Done():
 		// The context expired before the underlying store was ready
-		return "", ctx.Err()
+		return host
 	case <-sr.ready:
 	}
 
 	svc, exists, err := sr.store.GetByKey(resource.Key{Namespace: nsname.Namespace, Name: nsname.Name})
-	switch {
-	case err != nil:
-		return "", err
-	case !exists:
-		return "", k8serr.NewNotFound(slim_corev1.Resource("service"), nsname.String())
+	if err != nil || !exists {
+		// We could not find a match for this service
+		return host
 	}
 
 	if _, err := netip.ParseAddr(svc.Spec.ClusterIP); err != nil {
-		return "", fmt.Errorf("cannot parse ClusterIP address: %w", err)
+		// The ClusterIP is not a valid IP address (e.g., headless service)
+		return host
 	}
 
-	return svc.Spec.ClusterIP, nil
+	return svc.Spec.ClusterIP
 }
 
 func ServiceURLToNamespacedName(host string) (types.NamespacedName, error) {

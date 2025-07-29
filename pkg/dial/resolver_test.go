@@ -79,34 +79,37 @@ func TestServiceResolver(t *testing.T) {
 	}, metav1.CreateOptions{})
 	require.NoError(t, err, "Unexpected error while creating service")
 
-	// Trying to resolve a name not matching a service should return an error
-	_, err = resolver.Resolve(ctx, "foo.bar.com")
-	require.ErrorContains(t, err, "foo.bar.com does not match the <name>.<namespace>(.svc) form")
+	// Trying to resolve a name not matching a service should return the provided host/port pair
+	host, port := resolver.Resolve(ctx, "foo.bar.com", "8080")
+	require.Equal(t, "foo.bar.com", host)
+	require.Equal(t, "8080", port)
 	require.False(t, started.Load(), "The store should not have started")
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		got, err := resolver.Resolve(ctx, "foo.bar")
-		assert.NoError(c, err, "Unexpected error while resolving service")
-		assert.Equal(c, "192.168.0.1", got)
+		host, port := resolver.Resolve(ctx, "foo.bar", "8080")
+		assert.Equal(c, "192.168.0.1", host)
+		assert.Equal(c, "8080", port)
 	}, timeout, tick)
 
 	require.True(t, started.Load(), "The store should have started")
 
-	got, err := resolver.Resolve(ctx, "foo.bar.svc")
-	require.NoError(t, err, "Unexpected error while resolving service")
-	require.Equal(t, "192.168.0.1", got)
+	host, port = resolver.Resolve(ctx, "foo.bar.svc", "8080")
+	require.Equal(t, "192.168.0.1", host)
+	require.Equal(t, "8080", port)
 
-	got, err = resolver.Resolve(ctx, "foo.bar.svc.cluster.local")
-	require.NoError(t, err, "Unexpected error while resolving service")
-	require.Equal(t, "192.168.0.1", got)
+	host, port = resolver.Resolve(ctx, "foo.bar.svc.cluster.local", "9090")
+	require.Equal(t, "192.168.0.1", host)
+	require.Equal(t, "9090", port)
 
-	// Trying to resolve a name for a not-existing service should return an error
-	_, err = resolver.Resolve(ctx, "foo.baz")
-	require.ErrorContains(t, err, "service \"baz/foo\" not found")
+	// Trying to resolve a name for a not-existing service should return the provided host/port pair
+	host, port = resolver.Resolve(ctx, "foo.baz", "8080")
+	require.Equal(t, "foo.baz", host)
+	require.Equal(t, "8080", port)
 
-	// Trying to resolve a name for a service without a ClusterIP should return an error
-	_, err = resolver.Resolve(ctx, "qux.bar")
-	require.ErrorContains(t, err, "cannot parse ClusterIP address")
+	// Trying to resolve a name for a service without a ClusterIP return the provided host/port pair
+	host, port = resolver.Resolve(ctx, "qux.bar", "8080")
+	require.Equal(t, "qux.bar", host)
+	require.Equal(t, "8080", port)
 }
 
 func TestServiceURLToNamespacedName(t *testing.T) {

@@ -4,8 +4,8 @@
 package dial
 
 import (
+	"cmp"
 	"context"
-	"errors"
 	"log/slog"
 	"net"
 	"testing"
@@ -13,14 +13,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockResolver struct{ before, after string }
+type mockResolver struct{ beforeHost, afterHost, afterPort string }
 
-func (mr mockResolver) Resolve(_ context.Context, host string) (string, error) {
-	if host != mr.before {
-		return "", errors.New("unknown translation")
+func (mr mockResolver) Resolve(_ context.Context, host, port string) (string, string) {
+	if host != mr.beforeHost {
+		return host, port
 	}
 
-	return mr.after, nil
+	return mr.afterHost, cmp.Or(mr.afterPort, port)
 }
 
 func TestNewContextDialer(t *testing.T) {
@@ -44,8 +44,13 @@ func TestNewContextDialer(t *testing.T) {
 			assertErr: assert.NoError,
 		},
 		{
+			hostport:  "1.2.3.4:8888",
+			expected:  "5.6.7.8:9090",
+			assertErr: assert.NoError,
+		},
+		{
 			hostport:  "resolve.foo:8888",
-			expected:  "1.2.3.4:8888",
+			expected:  "5.6.7.8:9090",
 			assertErr: assert.NoError,
 		},
 		{
@@ -72,9 +77,10 @@ func TestNewContextDialer(t *testing.T) {
 	dialer := newContextDialer(
 		slog.Default(),
 		upstream,
-		mockResolver{"resolve.foo", "1.2.3.4"},
-		mockResolver{"resolve.bar", "fd00::8888"},
-		mockResolver{"resolve.baz", "qux.fred"},
+		mockResolver{"resolve.foo", "1.2.3.4", ""},
+		mockResolver{"resolve.bar", "fd00::8888", ""},
+		mockResolver{"1.2.3.4", "5.6.7.8", "9090"},
+		mockResolver{"resolve.baz", "qux.fred", ""},
 	)
 
 	for _, tt := range tests {

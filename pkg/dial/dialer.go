@@ -12,17 +12,18 @@ import (
 )
 
 type Resolver interface {
-	// Resolve translates the provided hostname into the corresponding IP address, or
-	// possibly another alias DNS name. An error is returned if no mapping is found.
-	Resolve(ctx context.Context, host string) (string, error)
+	// Resolve maps the provided host and port, according to the implemented strategy
+	// (e.g., DNS resolution, service load-balancing, ...). The original host and port
+	// must be returned in case no mapping can be found.
+	Resolve(ctx context.Context, host, port string) (string, string)
 }
 
 type dialContextFn func(context.Context, string) (net.Conn, error)
 
 // NewContextDialer returns a custom dialer associated with a set of resolvers,
-// that map the target hostname into the corresponding IP address (or a possible
-// alias DNS name). The dialer eventually calls (&net.Dialer{}).DialContext with
-// the first successfully translated address, or the original one otherwise.
+// that map the provided address/port pair according to the implemented strategy.
+// The dialer eventually calls (&net.Dialer{}).DialContext on the address/port
+// pair returned by the sequential execution of all provided resolvers.
 func NewContextDialer(log *slog.Logger, resolvers ...Resolver) dialContextFn {
 	return newContextDialer(log, func(ctx context.Context, address string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, "tcp", address)
@@ -37,18 +38,19 @@ func newContextDialer(log *slog.Logger, dialContext dialContextFn, resolvers ...
 			return nil, &net.OpError{Op: "dial", Net: "tcp", Source: nil, Addr: nil, Err: err}
 		}
 
+		oldHost, oldPort := host, port
 		for _, resolver := range resolvers {
-			if resolved, err := resolver.Resolve(ctx, host); err == nil {
-				log.Debug(
-					"Resolved hostname via custom dialer",
-					logfields.Address, host,
-					logfields.Port, port,
-					logfields.Target, resolved,
-				)
+			host, port = resolver.Resolve(ctx, host, port)
+		}
 
-				hostport = net.JoinHostPort(resolved, port)
-				break
-			}
+		if oldHost != host || oldPort != port {
+			hostport = net.JoinHostPort(host, port)
+			log.Debug(
+				"Resolved hostport via custom dialer",
+				logfields.Address, oldHost,
+				logfields.Port, oldPort,
+				logfields.Target, hostport,
+			)
 		}
 
 		return dialContext(ctx, hostport)
