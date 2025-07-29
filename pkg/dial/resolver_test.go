@@ -5,12 +5,14 @@ package dial
 
 import (
 	"context"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
@@ -19,11 +21,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8stest "k8s.io/client-go/testing"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/kpr"
+	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 // Configure a generous timeout to prevent flakes when running in a noisy CI environment.
@@ -155,5 +165,154 @@ func TestServiceURLToNamespacedName(t *testing.T) {
 		got, err := ServiceURLToNamespacedName(tt.host)
 		tt.assertErr(t, err, "Got incorrect error for host %q", tt.host)
 		assert.Equal(t, tt.expected, got, "Got incorrect value for host %q", tt.host)
+	}
+}
+
+func TestServiceBackendResolver(t *testing.T) {
+	var (
+		log = hivetest.Logger(t)
+		ctx = t.Context()
+
+		wr       *writer.Writer
+		resolver *ServiceBackendResolver
+	)
+
+	h := hive.New(
+		lb.ConfigCell,
+		node.LocalNodeStoreCell,
+		writer.Cell,
+
+		cell.Provide(
+			ServiceBackendResolverFactory("test1"),
+
+			func() *option.DaemonConfig { return &option.DaemonConfig{} },
+			tables.NewNodeAddressTable,
+			statedb.RWTable[tables.NodeAddress].ToTable,
+			source.NewSources,
+			func() kpr.KPRConfig { return kpr.KPRConfig{} },
+		),
+
+		cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
+
+		cell.Invoke(func(wr_ *writer.Writer, resolver_ *ServiceBackendResolver) {
+			wr = wr_
+			resolver = resolver_
+		}),
+	)
+
+	require.NoError(t, h.Start(hivetest.Logger(t), ctx))
+	t.Cleanup(func() { require.NoError(t, h.Stop(log, context.Background())) })
+
+	toAddr := func(proto lb.L4Type, addr string, port uint16) lb.L3n4Addr {
+		return lb.NewL3n4Addr(proto, cmtypes.MustParseAddrCluster(addr), port, lb.ScopeExternal)
+	}
+
+	be := func(proto lb.L4Type, addr string, port uint16, portname string, state lb.BackendState) lb.BackendParams {
+		return lb.BackendParams{
+			Address:   toAddr(proto, addr, port),
+			PortNames: []string{portname},
+			State:     state,
+		}
+	}
+
+	// Upsert test frontends and backends
+	txn := wr.WriteTxn()
+
+	svc := &lb.Service{Name: lb.NewServiceName("foo", "bar"), Source: source.Kubernetes}
+	require.NoError(t, wr.UpsertServiceAndFrontends(txn, svc,
+		lb.FrontendParams{
+			ServiceName: svc.Name,
+			Address:     toAddr(lb.TCP, "192.168.10.10", 8080),
+			Type:        lb.SVCTypeClusterIP,
+			PortName:    "alpha",
+		},
+		lb.FrontendParams{
+			ServiceName: svc.Name,
+			Address:     toAddr(lb.TCP, "192.168.10.10", 8081),
+			Type:        lb.SVCTypeClusterIP,
+			PortName:    "beta",
+		},
+		lb.FrontendParams{
+			ServiceName: svc.Name,
+			Address:     toAddr(lb.UDP, "192.168.10.10", 8080),
+			Type:        lb.SVCTypeClusterIP,
+			PortName:    "gamma",
+		},
+	), "Unexpected UpsertServiceAndFrontends error")
+
+	require.NoError(t, wr.UpsertBackends(txn, svc.Name, source.Kubernetes,
+		slices.Values([]lb.BackendParams{
+			be(lb.TCP, "10.0.0.1", 9090, "alpha", lb.BackendStateActive),
+			be(lb.TCP, "10.0.0.2", 9090, "alpha", lb.BackendStateActive),
+			be(lb.TCP, "10.0.0.3", 9090, "alpha", lb.BackendStateActive),
+			be(lb.TCP, "10.0.0.4", 9091, "beta", lb.BackendStateTerminating),
+			be(lb.UDP, "10.0.0.4", 9090, "gamma", lb.BackendStateActive),
+		}),
+	), "Unexpected UpsertBackends error")
+
+	txn.Commit()
+
+	// Register the test initializers ("test1" is ignored by the resolver)
+	_ = wr.RegisterInitializer("test1")
+	done := wr.RegisterInitializer("test2")
+
+	// Host is not an IP
+	host, port := resolver.Resolve(ctx, "foo.bar", "80")
+	require.Equal(t, "foo.bar", host)
+	require.Equal(t, "80", port)
+
+	// There are pending (non-ignored) initializers
+	tctx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
+	host, port = resolver.Resolve(tctx, "192.168.10.10", "8080")
+	require.Contains(t, "192.168.10.10", host)
+	require.Equal(t, "8080", port)
+	cancel()
+
+	// Mark the non-ignored initializer as completed
+	txn = wr.WriteTxn()
+	done(txn)
+	txn.Commit()
+
+	// Host IP which is not known
+	host, port = resolver.Resolve(ctx, "1.2.3.4", "80")
+	require.Equal(t, "1.2.3.4", host)
+	require.Equal(t, "80", port)
+
+	// Port does not match
+	host, port = resolver.Resolve(ctx, "192.168.10.10", "80")
+	require.Equal(t, "192.168.10.10", host)
+	require.Equal(t, "80", port)
+
+	// Host and port do match a known service, but has no (active) backends
+	host, port = resolver.Resolve(ctx, "192.168.10.10", "8081")
+	require.Equal(t, "192.168.10.10", host)
+	require.Equal(t, "8081", port)
+
+	// Host and port do match a known service
+	expected := []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"}
+	host, port = resolver.Resolve(ctx, "192.168.10.10", "8080")
+	require.Contains(t, expected, host)
+	require.Equal(t, "9090", port)
+
+	// Subsequent requests should always hit the same backend
+	for range 10 {
+		got, _ := resolver.Resolve(ctx, "192.168.10.10", "8080")
+		require.Equal(t, host, got)
+	}
+
+	// Remove the previously used backend
+	txn = wr.WriteTxn()
+	wr.ReleaseBackends(txn, svc.Name, slices.Values([]lb.L3n4Addr{toAddr(lb.TCP, host, 9090)}))
+	txn.Commit()
+
+	// Should switch to one of the remaining backends
+	expected = slices.DeleteFunc(expected, func(a string) bool { return a == host })
+	host, _ = resolver.Resolve(ctx, "192.168.10.10", "8080")
+	require.Contains(t, expected, host)
+
+	// Subsequent requests should again always hit the same backend
+	for range 10 {
+		got, _ := resolver.Resolve(ctx, "192.168.10.10", "8080")
+		require.Equal(t, host, got)
 	}
 }
