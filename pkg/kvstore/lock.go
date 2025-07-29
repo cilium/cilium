@@ -128,7 +128,9 @@ func LockPath(ctx context.Context, logger *slog.Logger, backend BackendOperation
 		return nil, err
 	}
 
-	lock, err := backend.LockPath(ctx, path)
+	toCtx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	lock, err := backend.LockPath(toCtx, path)
 	if err != nil {
 		kvstoreLocks.unlock(path, id)
 		Trace(logger, "Failed to lock", fieldKey, path)

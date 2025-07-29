@@ -614,11 +614,6 @@ func (e *etcdClient) newExpBackoffRateLimiter(name string) backoff.Exponential {
 }
 
 func (e *etcdClient) LockPath(ctx context.Context, path string) (locker KVLocker, err error) {
-	// Create the context first, so that the timeout also accounts for the time
-	// possibly required to acquire a new session (if not already established).
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
 	session, err := e.lockLeaseManager.GetSession(ctx, path)
 	if err != nil {
 		return nil, Hint(err)
