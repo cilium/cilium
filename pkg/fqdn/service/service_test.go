@@ -188,6 +188,79 @@ func TestFQDNDataServer(t *testing.T) {
 	}
 }
 
+func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNSProxy bool, standaloneDNSProxyServerPort int, lis *bufconn.Listener) (*hive.Hive, *FQDNDataServer) {
+
+	var fqdnDataServer *FQDNDataServer
+	h := hive.New(
+		cell.Module(
+			"test-fqdn-grpc-server",
+			"Test FQDN gRPC server",
+			cell.Config(defaultConfig),
+			cell.Provide(
+				func(logger *slog.Logger) endpointmanager.EndpointManager {
+					return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
+				},
+
+				func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
+					return ipcache.NewIPCache(&ipcache.Configuration{
+						Context:           t.Context(),
+						IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
+					})
+				},
+				func(ipc *ipcache.IPCache) namemanager.NameManager {
+					return namemanager.New(namemanager.ManagerParams{
+						Config: namemanager.NameManagerConfig{
+							MinTTL:            1,
+							DNSProxyLockCount: defaults.DNSProxyLockCount,
+							StateDir:          defaults.StateDir,
+						},
+						IPCache: ipc,
+					})
+				},
+				func(lc cell.Lifecycle, logger *slog.Logger) messagehandler.DNSMessageHandler {
+					return messagehandler.NewDNSMessageHandler(
+						messagehandler.DNSMessageHandlerParams{
+							Lifecycle:         lc,
+							Logger:            logger,
+							NameManager:       nil,
+							ProxyAccessLogger: nil,
+						})
+				},
+				func() *option.DaemonConfig {
+					return &option.DaemonConfig{
+						EnableL7Proxy:    enableL7Proxy,
+						ToFQDNsProxyPort: port,
+					}
+				},
+				func() listenConfig {
+					return newBufconnListener(lis)
+				},
+				newServer,
+			)),
+		cell.Invoke(func(_f *FQDNDataServer) {
+			fqdnDataServer = _f
+		}))
+
+	hive.AddConfigOverride(
+		h,
+		func(cfg *FQDNConfig) {
+			cfg.EnableStandaloneDNSProxy = enableStandaloneDNSProxy
+			cfg.StandaloneDNSProxyServerPort = standaloneDNSProxyServerPort
+		})
+	tlog := hivetest.Logger(t)
+	if err := h.Start(tlog, t.Context()); err != nil {
+		t.Fatalf("failed to start: %s", err)
+	}
+
+	t.Cleanup(func() {
+		// Stop the server
+		if err := h.Stop(tlog, context.TODO()); err != nil {
+			t.Fatalf("failed to stop: %s", err)
+		}
+	})
+	return h, fqdnDataServer
+}
+
 type dummyEpSyncher struct{}
 
 func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, h cell.Health) {
@@ -278,4 +351,68 @@ func TestHandleIPUpsert(t *testing.T) {
 	server.OnIPIdentityCacheChange(ipcache.Delete, validCIDR, nil, nil, &dummyIdentity2, dummyIdentity2, 0, nil, 0)
 	require.Empty(t, server.currentIdentityToIP)
 	require.Empty(t, server.currentIdentityToIP[dummyIdentity2.ID])
+}
+
+// TestIsEnabled tests the IsEnabled method of FQDNDataServer
+func TestIsEnabled(t *testing.T) {
+	tests := map[string]struct {
+		enableL7Proxy                bool
+		enableStandaloneDNSProxy     bool
+		standaloneDNSProxyServerPort int
+		toFQDNsProxyPort             int
+		expectedEnabled              bool
+	}{
+		"Standalone DNS proxy enabled with valid configuration": {
+			enableL7Proxy:                true,
+			enableStandaloneDNSProxy:     true,
+			standaloneDNSProxyServerPort: 40045,
+			toFQDNsProxyPort:             40046,
+			expectedEnabled:              true,
+		},
+		"Standalone DNS proxy disabled": {
+			enableL7Proxy:                true,
+			enableStandaloneDNSProxy:     false,
+			standaloneDNSProxyServerPort: 40045,
+			toFQDNsProxyPort:             40046,
+			expectedEnabled:              false,
+		},
+		"L7 proxy disabled": {
+			enableL7Proxy:                false,
+			enableStandaloneDNSProxy:     true,
+			standaloneDNSProxyServerPort: 40045,
+			toFQDNsProxyPort:             40046,
+			expectedEnabled:              false,
+		},
+		"Invalid standalone DNS proxy server port": {
+			enableL7Proxy:                true,
+			enableStandaloneDNSProxy:     true,
+			standaloneDNSProxyServerPort: 0,
+			toFQDNsProxyPort:             40046,
+			expectedEnabled:              false,
+		},
+		"Invalid ToFQDNs proxy port": {
+			enableL7Proxy:                true,
+			enableStandaloneDNSProxy:     true,
+			standaloneDNSProxyServerPort: 40045,
+			toFQDNsProxyPort:             0,
+			expectedEnabled:              false,
+		},
+	}
+
+	for scenario, tt := range tests {
+		t.Run(scenario, func(t *testing.T) {
+			buffer := 1024 * 1024
+			lis := bufconn.Listen(buffer)
+
+			_, server := setupServer(t, tt.toFQDNsProxyPort, tt.enableL7Proxy, tt.enableStandaloneDNSProxy, tt.standaloneDNSProxyServerPort, lis)
+
+			if tt.expectedEnabled {
+				require.NotNil(t, server)
+				require.Equal(t, tt.expectedEnabled, server.IsEnabled())
+
+			} else {
+				require.Nil(t, server)
+			}
+		})
+	}
 }

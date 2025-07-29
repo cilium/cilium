@@ -46,22 +46,22 @@ type serverParams struct {
 }
 
 func newServer(params serverParams) *FQDNDataServer {
-	srv := NewServer(params.EndpointManager, params.DNSRequestHandler, params.Config.StandaloneDNSProxyServerPort, params.Logger, params.DefaultListener)
 
 	if !params.Config.EnableStandaloneDNSProxy {
-		return srv
+		return nil
 	}
 
 	if !params.DaemonConfig.EnableL7Proxy {
-		srv.log.Error("Standalone DNS proxy requires L7 proxy to be enabled")
-		return srv
+		params.Logger.Error("Standalone DNS proxy requires L7 proxy to be enabled")
+		return nil
 	}
 
 	if params.DaemonConfig.ToFQDNsProxyPort == 0 || params.Config.StandaloneDNSProxyServerPort == 0 {
-		srv.log.Error("Standalone DNS proxy requires a valid port number to be set")
-		return srv
+		params.Logger.Error("Standalone DNS proxy requires a valid port number to be set")
+		return nil
 	}
 
+	srv := NewServer(params.EndpointManager, params.DNSRequestHandler, params.Config.StandaloneDNSProxyServerPort, params.Logger, params.DefaultListener)
 	params.IPCache.AddListener(srv)
 
 	params.JobGroup.Add(job.OneShot("sdp-grpc-server", srv.ListenAndServe,
