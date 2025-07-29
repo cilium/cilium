@@ -21,6 +21,7 @@ func (t policyLocalCluster) build(ct *check.ConnectivityTest, templates map[stri
 		WithCiliumPolicy(clientEgressToEchoNoClusterPolicyYAML).
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]).
 		WithScenarios(tests.PodToPod()).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if !ct.Features[features.PolicyDefaultLocalCLuster].Enabled {
 				return check.ResultOK, check.ResultOK
