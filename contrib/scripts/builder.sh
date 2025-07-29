@@ -56,6 +56,6 @@ docker run --rm \
 	$MOUNT_CCACHE_DIR \
 	-v "$PWD":/go/src/github.com/cilium/cilium \
 	-w /go/src/github.com/cilium/cilium \
-	${DOCKER_ARGS:+"$DOCKER_ARGS"} \
+	${DOCKER_ARGS:+$DOCKER_ARGS} \
 	"$CILIUM_BUILDER_IMAGE" \
 	"$@"
