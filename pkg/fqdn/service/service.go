@@ -61,6 +61,20 @@ type FQDNDataServer struct {
 
 	// listener is used to create a net.Listener when starting the grpc server
 	listener listenConfig
+
+	// enabled indicates whether the standalone DNS proxy is enabled
+	// This field is set to true only when ALL the following conditions are met:
+	//
+	// | Flag/Setting                           | Required Value | Description                                    |
+	// |----------------------------------------|----------------|------------------------------------------------|
+	// | EnableStandaloneDNSProxy               | true           | Feature flag to enable standalone DNS proxy   |
+	// | DaemonConfig.EnableL7Proxy             | true           | L7 proxy must be enabled as a prerequisite    |
+	// | DaemonConfig.ToFQDNsProxyPort          | > 0            | Valid port for FQDN proxy                     |
+	// | Config.StandaloneDNSProxyServerPort    | > 0            | Valid port for standalone DNS proxy server    |
+	//
+	// If ANY of these conditions is not met, enabled will be false and the standalone
+	// DNS proxy will not function. The IsEnabled() method returns this field's value.
+	enabled bool
 }
 
 var (
@@ -98,6 +112,9 @@ type PolicyUpdater interface {
 	// This is currently being called whenever there is a policy regeneration event
 	// for an endpoint.
 	UpdatePolicyRules(map[identity.NumericIdentity]policy.SelectorPolicy, bool) error
+
+	// IsEnabled returns true if the standalone DNS proxy is enabled
+	IsEnabled() bool
 }
 
 // StreamPolicyState is a bidirectional streaming RPC to subscribe to DNS policies
@@ -125,6 +142,7 @@ func NewServer(endpointManager endpointmanager.EndpointManager, updateOnDNSMsg m
 		log:                 logger,
 		prefixLengths:       counter.DefaultPrefixLengthCounter(),
 		listener:            listener,
+		enabled:             true,
 	}
 
 	grpcServer := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(kaep), grpc.KeepaliveParams(kasp))
@@ -195,6 +213,10 @@ func (s *FQDNDataServer) deleteFromIdentityToIPLocked(identity *ipcache.Identity
 // Note: this method is left empty on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
 func (s *FQDNDataServer) UpdatePolicyRules(policies map[identity.NumericIdentity]policy.SelectorPolicy, rulesUpdate bool) error {
 	return nil
+}
+
+func (s *FQDNDataServer) IsEnabled() bool {
+	return s != nil && s.enabled
 }
 
 // UpdateMappingRequest updates the FQDN mapping with the given data

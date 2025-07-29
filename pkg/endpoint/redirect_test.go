@@ -131,6 +131,11 @@ func (r *RedirectSuiteProxy) GetListenerProxyPort(listener string) uint16 {
 	return 0
 }
 
+// IsSDPEnabled returns false for test proxy.
+func (r *RedirectSuiteProxy) IsSDPEnabled() bool {
+	return false
+}
+
 // DummyOwner implements pkg/endpoint/regeneration/Owner. Used for unit testing.
 type DummyOwner struct {
 	repo  policy.PolicyRepository
