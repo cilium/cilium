@@ -73,8 +73,7 @@
     "main",
     "v1.18",
     "v1.17",
-    "v1.16",
-    "v1.15",
+    "v1.16"
   ],
   "vulnerabilityAlerts": {
     "enabled": true
@@ -206,9 +205,9 @@
       ],
       matchBaseBranches: [
         "main",
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ]
     },
     {
@@ -221,9 +220,9 @@
         "go.sum"
       ],
       matchBaseBranches: [
+        "v1.18",
         "v1.17",
-        "v1.16",
-        "v1.15",
+        "v1.16"
       ]
     },
     {
@@ -289,9 +288,9 @@
         "minor",
       ],
       matchBaseBranches: [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ]
     },
     {
@@ -326,6 +325,7 @@
       ],
       "allowedVersions": "24.04",
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "main",
       ],
@@ -337,7 +337,6 @@
       "allowedVersions": "22.04",
       "matchBaseBranches": [
         "v1.16",
-        "v1.15",
       ],
     },
     {
@@ -347,9 +346,18 @@
       ],
       "allowedVersions": "<1.25",
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.23",
+      "matchBaseBranches": [
+        "v1.18",
       ]
     },
     {
@@ -360,7 +368,6 @@
       "matchBaseBranches": [
         "v1.17",
         "v1.16",
-        "v1.15"
       ]
     },
     {
@@ -369,9 +376,9 @@
       ],
       "allowedVersions": "<0.2.0",
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ]
     },
     {
@@ -419,9 +426,9 @@
       ],
       "matchBaseBranches": [
         "main",
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ]
     },
     {
@@ -454,9 +461,9 @@
         "golangci/golangci-lint"
       ],
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ]
     },
     {
@@ -476,9 +483,9 @@
       ],
       "allowedVersions": "!/bpf-next-.*/",
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ],
     },
     {
@@ -613,9 +620,9 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
       "allowedVersions": "/^v1\\.33\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
-        "v1.16",
-        "v1.15"
+        "v1.16"
       ]
     },
     {
@@ -689,27 +696,9 @@
         "major"
       ],
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15"
-      ]
-    },
-    {
-      "enabled": false,
-      "matchFileNames": [
-        ".github/workflows/documentation.yaml"
-      ],
-      "matchDepTypes": [
-        "github-runner",
-      ],
-      "matchPackageNames": [
-        "ubuntu",
-      ],
-      "matchUpdateTypes": [
-        "major"
-      ],
-      matchBaseBranches: [
-        "v1.15"
       ]
     },
     {
@@ -723,9 +712,9 @@
         "minor",
       ],
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ]
     }
   ],
