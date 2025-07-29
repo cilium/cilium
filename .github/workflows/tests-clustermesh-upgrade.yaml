@@ -202,6 +202,7 @@ jobs:
             --set=clustermesh.maxConnectedClusters=${{ matrix.max-connected-clusters }} \
             --set=clustermesh.config.enabled=true \
             --set=extraConfig.clustermesh-sync-timeout=10m \
+            --set=extraConfig.lb-init-wait-timeout=4m \
             --set=clustermesh.apiserver.readinessProbe.periodSeconds=1 \
             --set=clustermesh.apiserver.kvstoremesh.readinessProbe.periodSeconds=1 \
             --set=clustermesh.apiserver.updateStrategy.rollingUpdate.maxSurge=1 `# Use surge update strategy to enable clients to failover` \
