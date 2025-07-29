@@ -23,6 +23,7 @@ type EndpointProxy interface {
 	UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup)
 	RemoveNetworkPolicy(ep endpoint.EndpointInfoSource)
 	GetListenerProxyPort(listener string) uint16
+	IsSDPEnabled() bool
 }
 
 func (e *Endpoint) removeNetworkPolicy() {
@@ -66,4 +67,9 @@ func (f *FakeEndpointProxy) UpdateSDP(rules map[identity.NumericIdentity]policy.
 // GetListenerProxyPort does nothing.
 func (f *FakeEndpointProxy) GetListenerProxyPort(listener string) uint16 {
 	return 0
+}
+
+// IsSDPEnabled returns false for fake proxy.
+func (f *FakeEndpointProxy) IsSDPEnabled() bool {
+	return false
 }
