@@ -50,7 +50,7 @@ type FQDNDataServer struct {
 	// grpcServer is the grpc server for the standalone DNS proxy
 	grpcServer *grpc.Server
 
-	endpointManager endpointmanager.EndpointManager
+	endpointsLookup endpointmanager.EndpointsLookup
 
 	// db is the database used to store the policy rules table
 	db *statedb.DB
@@ -97,12 +97,29 @@ type policyRules struct {
 
 // TableHeader implements statedb.TableWritable.
 func (p policyRules) TableHeader() []string {
-	return []string{"Identity"}
+	return []string{"Identity", "PolicyRules"}
 }
 
 // TableRow implements statedb.TableWritable.
 func (p policyRules) TableRow() []string {
-	return []string{p.Identity.String()}
+	var policyDetails []string
+	for i, rule := range p.PolicyRules {
+		var servers []string
+		for _, server := range rule.DnsServers {
+			servers = append(servers, fmt.Sprintf("identity:%d port:%d proto:%d",
+				server.DnsServerIdentity, server.DnsServerPort, server.DnsServerProto))
+		}
+
+		policyDetail := fmt.Sprintf("Rule[%d]: Patterns:%v Servers:[%s]",
+			i, rule.DnsPattern, strings.Join(servers, ","))
+		policyDetails = append(policyDetails, policyDetail)
+	}
+
+	return []string{
+		p.Identity.String(),
+		strings.Join(policyDetails, " | "),
+	}
+
 }
 
 var _ statedb.TableWritable = policyRules{}
@@ -129,8 +146,8 @@ func (i identityToIPs) TableRow() []string {
 var _ statedb.TableWritable = identityToIPs{}
 
 const (
-	PolicyRulesTableName   = "policy-rules"
-	IdentityToIPsTableName = "identity-to-ip"
+	PolicyRulesTableName   = "sdp-policy-rules"
+	IdentityToIPsTableName = "sdp-identity-to-ip"
 )
 
 var (
@@ -224,19 +241,18 @@ func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateS
 		case <-streamCtx.Done():
 			return streamCtx.Err()
 		case <-rulesWatch:
-			// If there are changes in the policy rules table, we will send the current state
-			// of the DNS policies to the client.
-			rules, watch := s.policyRulesTable.AllWatch(s.db.ReadTxn())
-			if err := s.sendAndRecvAckForDNSPolicies(stream, rules, s.identityToIPsTable.All(s.db.ReadTxn())); err != nil {
-				return err
-			}
-			rulesWatch = watch
 		case <-changeWatch:
-			identityToIPs, watch := s.identityToIPsTable.AllWatch(s.db.ReadTxn())
-			if err := s.sendAndRecvAckForDNSPolicies(stream, s.policyRulesTable.All(s.db.ReadTxn()), identityToIPs); err != nil {
-				return err
-			}
-			changeWatch = watch
+		}
+		// If there are changes in the policy rules table or identity to IPs mapping, we will send the current state
+		// of the DNS rules and identity to IPs mapping to the client.
+		txn := s.db.ReadTxn()
+		identityToIPs, watch := s.identityToIPsTable.AllWatch(txn)
+		changeWatch = watch
+		rules, watch := s.policyRulesTable.AllWatch(txn)
+		rulesWatch = watch
+
+		if err := s.sendAndRecvAckForDNSPolicies(stream, rules, identityToIPs); err != nil {
+			return err
 		}
 		// Limit the rate at which we send the full snapshots
 		if err := limiter.Wait(streamCtx); err != nil {
@@ -272,7 +288,7 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 			prefixes = append(prefixes, prefix)
 
 			ip := prefix.Addr()
-			ep := s.endpointManager.LookupIP(ip)
+			ep := s.endpointsLookup.LookupIP(ip)
 			if ep != nil {
 				epID := uint64(ep.GetID())
 				endpointToIPsBytes[epID] = append(endpointToIPsBytes[epID], ip.AsSlice())
@@ -310,7 +326,7 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 			// For each IP, find the corresponding endpoint and create DNS policy
 			for _, prefix := range epIPs {
 				ip := prefix.Addr()
-				ep := s.endpointManager.LookupIP(ip)
+				ep := s.endpointsLookup.LookupIP(ip)
 				if ep == nil {
 					// If the endpoint is not found, log a warning
 					s.log.Debug("Endpoint not found for IP", logfields.IPAddr, ip)
@@ -370,7 +386,7 @@ func NewServer(params serverParams) *FQDNDataServer {
 
 	fqdnDataServer := &FQDNDataServer{
 		port:               params.Config.StandaloneDNSProxyServerPort,
-		endpointManager:    params.EndpointManager,
+		endpointsLookup:    params.EndpointsLookup,
 		updateOnDNSMsg:     params.DNSRequestHandler,
 		log:                params.Logger,
 		prefixLengths:      counter.DefaultPrefixLengthCounter(),
@@ -645,7 +661,7 @@ func (s *FQDNDataServer) UpdateMappingRequest(ctx context.Context, mappings *pb.
 	}
 
 	endpointAddr := netip.MustParseAddr(string(sourceIP))
-	ep := s.endpointManager.LookupIP(endpointAddr)
+	ep := s.endpointsLookup.LookupIP(endpointAddr)
 	if ep == nil {
 		s.log.Error("Endpoint not found for IP", logfields.IPAddr, endpointAddr)
 		return &pb.UpdateMappingResponse{

@@ -134,11 +134,11 @@ func TestFQDNDataServer(t *testing.T) {
 			h := hive.New(
 				cell.Config(DefaultConfig),
 				cell.Provide(
-					func(logger *slog.Logger) endpointmanager.EndpointManager {
+					func(logger *slog.Logger) endpointmanager.EndpointsLookup {
 						return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
 					},
 
-					func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
+					func(logger *slog.Logger) *ipcache.IPCache {
 						return ipcache.NewIPCache(&ipcache.Configuration{
 							Context:           t.Context(),
 							Logger:            logger,
@@ -249,12 +249,12 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 			"Test FQDN gRPC server",
 			cell.Config(DefaultConfig),
 			cell.Provide(
-				func(logger *slog.Logger) endpointmanager.EndpointManager {
+				func(logger *slog.Logger) endpointmanager.EndpointsLookup {
 					baseEM := endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
 					return &mockEndpointManager{EndpointManager: baseEM}
 				},
 
-				func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
+				func(logger *slog.Logger) *ipcache.IPCache {
 					return ipcache.NewIPCache(&ipcache.Configuration{
 						Context:           t.Context(),
 						IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
