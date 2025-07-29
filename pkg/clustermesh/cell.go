@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -28,6 +29,10 @@ var Cell = cell.Module(
 	cell.Provide(
 		common.DefaultRemoteClientFactory,
 		NewClusterMesh,
+	),
+
+	cell.ProvidePrivate(
+		dial.ServiceBackendResolverFactory("clustermesh"),
 	),
 
 	// Convert concrete objects into more restricted interfaces used by clustermesh.
