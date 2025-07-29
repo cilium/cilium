@@ -31,14 +31,6 @@ func new(lc cell.Lifecycle, metrics Metrics, clusterInfo types.ClusterInfo) Sync
 		<-ss.WaitChannel()
 		metrics.BootstrapDuration.WithLabelValues(clusterInfo.Name).Set(syncTime.Seconds())
 	}()
-
-	lc.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			ss.Stop()
-			return nil
-		},
-	})
-
 	return ss
 }
 
