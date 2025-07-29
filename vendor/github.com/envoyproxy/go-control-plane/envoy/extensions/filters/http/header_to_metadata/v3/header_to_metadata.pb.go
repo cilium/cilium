@@ -23,6 +23,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Specifies the value type to use in metadata.
 type Config_ValueType int32
 
 const (
@@ -74,15 +75,18 @@ func (Config_ValueType) EnumDescriptor() ([]byte, []int) {
 	return file_envoy_extensions_filters_http_header_to_metadata_v3_header_to_metadata_proto_rawDescGZIP(), []int{0, 0}
 }
 
-// ValueEncode defines the encoding algorithm.
+// Specifies the encoding scheme for the value.
 type Config_ValueEncode int32
 
 const (
-	// The value is not encoded.
+	// No encoding is applied.
 	Config_NONE Config_ValueEncode = 0
 	// The value is encoded in `Base64 <https://tools.ietf.org/html/rfc4648#section-4>`_.
-	// Note: this is mostly used for STRING and PROTOBUF_VALUE to escape the
-	// non-ASCII characters in the header.
+	//
+	// .. note::
+	//
+	//	This is mostly used for ``STRING`` and ``PROTOBUF_VALUE`` to escape the
+	//	non-ASCII characters in the header.
 	Config_BASE64 Config_ValueEncode = 1
 )
 
@@ -206,7 +210,9 @@ type Config_KeyValuePair struct {
 	//
 	// This is only used for :ref:`on_header_present <envoy_v3_api_field_extensions.filters.http.header_to_metadata.v3.Config.Rule.on_header_present>`.
 	//
-	// Note: if the “value“ field is non-empty this field should be empty.
+	// .. note::
+	//
+	//	If the ``value`` field is non-empty this field should be empty.
 	RegexValueRewrite *v3.RegexMatchAndSubstitute `protobuf:"bytes,6,opt,name=regex_value_rewrite,json=regexValueRewrite,proto3" json:"regex_value_rewrite,omitempty"`
 	// The value's type — defaults to string.
 	Type Config_ValueType `protobuf:"varint,4,opt,name=type,proto3,enum=envoy.extensions.filters.http.header_to_metadata.v3.Config_ValueType" json:"type,omitempty"`
@@ -302,14 +308,14 @@ type Config_Rule struct {
 	Header string `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
 	// The cookie to be extracted.
 	Cookie string `protobuf:"bytes,5,opt,name=cookie,proto3" json:"cookie,omitempty"`
-	// If the header or cookie is present, apply this metadata KeyValuePair.
+	// If the header or cookie is present, apply this metadata “KeyValuePair“.
 	//
-	// If the value in the KeyValuePair is non-empty, it'll be used instead
+	// If the value in the “KeyValuePair“ is non-empty, it'll be used instead
 	// of the header or cookie value.
 	OnHeaderPresent *Config_KeyValuePair `protobuf:"bytes,2,opt,name=on_header_present,json=onHeaderPresent,proto3" json:"on_header_present,omitempty"`
-	// If the header or cookie is not present, apply this metadata KeyValuePair.
+	// If the header or cookie is not present, apply this metadata “KeyValuePair“.
 	//
-	// The value in the KeyValuePair must be set, since it'll be used in lieu
+	// The value in the “KeyValuePair“ must be set, since it'll be used in lieu
 	// of the missing header or cookie value.
 	OnHeaderMissing *Config_KeyValuePair `protobuf:"bytes,3,opt,name=on_header_missing,json=onHeaderMissing,proto3" json:"on_header_missing,omitempty"`
 	// Whether or not to remove the header after a rule is applied.
