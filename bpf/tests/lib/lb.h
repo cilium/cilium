@@ -91,16 +91,6 @@ lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u8 proto, __u16 backend
 			    flags, flags2, false, 0);
 }
 
-/* XXX FIXME */
-static __always_inline void
-lb_v4_add_mixed_proto_service_with_flags(__be32 addr, __be16 port, __u8 proto,
-					 __u8 proto_int, __u16 backend_count,
-					 __u16 rev_nat_index, __u8 flags, __u8 flags2)
-{
-	__lb_v4_add_service(addr, port, proto, proto_int, backend_count, rev_nat_index,
-			    flags, flags2, false, 0);
-}
-
 static __always_inline void
 lb_v4_upsert_backend(__u32 backend_id, __be32 backend_addr, __be16 backend_port,
 		     __u8 backend_proto, __u8 flags, __u8 cluster_id)
