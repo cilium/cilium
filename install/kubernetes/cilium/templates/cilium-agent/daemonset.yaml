@@ -10,6 +10,7 @@
 
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement "false") -}}
 {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
+{{- $buildDaemonConfig := or (kindIs "invalid" .Values.daemon.configSources) (not (regexMatch "^config-map:[^,]+$" .Values.daemon.configSources)) -}}
 
 ---
 apiVersion: apps/v1
@@ -390,8 +391,14 @@ spec:
           mountPath: /var/lib/cilium/tls/hubble
           readOnly: true
         {{- end }}
+        {{- if $buildDaemonConfig }}
         - name: tmp
           mountPath: /tmp
+        {{- else }}
+        - name: cilium-config-path
+          mountPath: /tmp/cilium/config-map
+          readOnly: true
+        {{- end }}
         {{- range .Values.extraHostPathMounts }}
         - name: {{ .name }}
           mountPath: {{ .mountPath }}
@@ -447,6 +454,7 @@ spec:
       {{- toYaml .Values.extraContainers | nindent 6 }}
       {{- end }}
       initContainers:
+      {{- if $buildDaemonConfig }}
       - name: config
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -520,6 +528,7 @@ spec:
             drop:
               - ALL
           {{- end}}
+      {{- end }}
       {{- if .Values.cgroup.autoMount.enabled }}
       # Required to mount cgroup2 filesystem on the underlying Kubernetes node.
       # We use nsenter command with host's cgroup and mount namespaces enabled.
@@ -838,9 +847,16 @@ spec:
       {{- end }}
       {{- end }}
       volumes:
-        # For sharing configuration between the "config" initContainer and the agent
+      {{- if $buildDaemonConfig }}
+      # For sharing configuration between the "config" initContainer and the agent
       - name: tmp
         emptyDir: {}
+      {{- else }}
+      # To read the configuration from the config map
+      - name: cilium-config-path
+        configMap:
+          name: {{ trimPrefix "config-map:" .Values.daemon.configSources }}
+      {{- end }}
         # To keep state between restarts / upgrades
       - name: cilium-run
         hostPath:
