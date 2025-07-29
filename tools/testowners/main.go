@@ -79,6 +79,7 @@ func main() {
 		fmt.Fprintln(w, "Package\tOwner")
 	}
 	exitCode := 0
+	reportedLines := map[string]struct{}{}
 	for pkg := range failedPackages {
 		relPath := strings.TrimPrefix(pkg, "github.com/cilium/cilium/") + "/"
 		rule, err := owners.Match(relPath)
@@ -88,7 +89,10 @@ func main() {
 			if err != nil {
 				line = line + ":" + err.Error()
 			}
-			slog.Error(line)
+			if _, reported := reportedLines[line]; !reported {
+				slog.Error(line)
+				reportedLines[line] = struct{}{}
+			}
 			continue
 		}
 		owners := make([]string, 0, len(rule.Owners))
