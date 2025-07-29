@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/api/v1/models"
-
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -158,7 +157,13 @@ func (fe *Frontend) ToModel() *models.Service {
 
 	backendModel := func(be BackendParams) *models.BackendAddress {
 		addrClusterStr := be.Address.AddrCluster.String()
-		stateStr, _ := be.State.String()
+
+		state := be.State
+		if be.Unhealthy {
+			state = BackendStateQuarantined
+		}
+		stateStr, _ := state.String()
+
 		return &models.BackendAddress{
 			IP:        &addrClusterStr,
 			Protocol:  be.Address.Protocol,
