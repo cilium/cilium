@@ -354,6 +354,15 @@ func (txn *writeTxn) delete(meta TableMeta, guardRevision Revision, data any) (o
 	return obj, true, nil
 }
 
+// reset clears all fields of [writeTxn], except the ones used for statistics.
+func (txn *writeTxn) reset() {
+	txn.db = nil
+	txn.dbRoot = nil
+	txn.modifiedTables = nil
+	txn.smus = nil
+	txn.tableNames = nil
+}
+
 const (
 	// nonUniqueSeparator is the byte that delimits the secondary and primary keys.
 	// It has to be 0x00 for correct ordering, e.g. if secondary prefix is "ab",
@@ -477,7 +486,7 @@ func (txn *writeTxn) Abort() {
 		txn.tableNames,
 		time.Since(txn.acquiredAt))
 
-	*txn = writeTxn{}
+	txn.reset()
 }
 
 // Commit the transaction. Returns a ReadTxn that is the snapshot of the database at the
@@ -589,7 +598,7 @@ func (txn *writeTxn) Commit() ReadTxn {
 		txn.tableNames,
 		time.Since(txn.acquiredAt))
 
-	*txn = writeTxn{}
+	txn.reset()
 	return readTxn(root)
 }
 
