@@ -298,6 +298,7 @@ jobs:
             --helm-set=clustermesh.policyDefaultLocalCluster=${{ matrix.policy-default-local-cluster }} \
             --helm-set=ciliumEndpointSlice.enabled=${{ matrix.ciliumEndpointSlice == 'enabled'}} \
             --helm-set=extraConfig.clustermesh-sync-timeout=5m \
+            --helm-set=extraConfig.lb-init-wait-timeout=4m \
             "
 
           CILIUM_INSTALL_TUNNEL=" \

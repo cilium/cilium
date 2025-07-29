@@ -202,6 +202,18 @@ type UserConfig struct {
 
 	// Enable processing of service topology aware hints
 	EnableServiceTopology bool
+
+	// InitWaitTimeout is the amount of time we wait for the load-balancing tables to be initialized before
+	// we start reconciling towards the BPF maps. This reduces the probability that load-balancing is scaled
+	// down temporarily due to not yet seeing all backends.
+	//
+	// The delay happens only when existing BPF state existed.
+	//
+	// We must not wait forever for initialization though due to potential interdependencies between load-balancing
+	// data sources. For example we might depend on Kubernetes data to connect to the ClusterMesh api-server and
+	// thus may need to first reconcile the Kubernetes services to connect to ClusterMesh (if endpoints have changed
+	// while agent was down).
+	InitWaitTimeout time.Duration `mapstructure:"lb-init-wait-timeout"`
 }
 
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
@@ -312,6 +324,9 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.MarkHidden("lb-sock-terminate-all-protos")
 
 	flags.Bool(EnableServiceTopologyName, def.EnableServiceTopology, "Enable support for service topology aware hints")
+
+	flags.Duration("lb-init-wait-timeout", def.InitWaitTimeout, "Amount of time to wait for initialization before reconciling BPF maps")
+	flags.MarkHidden("lb-init-wait-timeout")
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
@@ -482,6 +497,8 @@ var DefaultUserConfig = UserConfig{
 	EnableHealthCheckNodePort: true,
 
 	EnableServiceTopology: false,
+
+	InitWaitTimeout: 1 * time.Minute,
 }
 
 var DefaultConfig = Config{
