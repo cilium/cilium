@@ -11,6 +11,7 @@
 
 #include "lib/common.h"
 #include "lib/lb.h"
+#include "lib/virtual_ip.h"
 #include "lib/endian.h"
 #include "lib/eps.h"
 #include "lib/identity.h"
@@ -278,6 +279,13 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
 		return -ENXIO;
 
+	/* Skip socket layer processing for ICMP.
+	 * ICMP echo requests to virtual IPs should be handled by the nodeport
+	 * layer where the echo reply functionality is implemented.
+	 */
+	if (unlikely(protocol == IPPROTO_ICMP))
+		return -ENXIO;
+
 	if (!udp_only && !sock_proto_enabled(protocol))
 		return -ENOTSUP;
 
@@ -293,8 +301,26 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		lb4_key_set_protocol(&key, protocol);
 		svc = sock4_wildcard_lookup_full(&key, in_hostns);
 	}
-	if (!svc)
+	if (!svc) {
+
+		if (CONFIG(drop_traffic_to_virtual_ips)) {
+			/* Drop Traffic to Virtual IPs Feature
+			 *
+			 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
+			 * on ports where no service is configured, instead of allowing the connection.
+			 * This provides better network security by preventing unintended access to
+			 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
+			 */
+			struct lb4_service *wildcard_svc = lookup_virtual_service_v4_ext_only(dst_ip);
+			if (wildcard_svc && !lb4_svc_is_routable(wildcard_svc)) {
+				/* This is a virtual service IP (ClusterIP/LoadBalancer) without
+				 * a service on the requested port. Drop the connection.
+				 */
+				return -ECONNREFUSED;
+			}
+		}
 		return -ENXIO;
+	}
 	if (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc))
 		return -EHOSTUNREACH;
 
@@ -1011,6 +1037,13 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
 		return -ENXIO;
 
+	/* Skip socket layer processing for ICMPv6.
+	 * ICMPv6 echo requests to virtual IPs should be handled by the nodeport
+	 * layer where the echo reply functionality is implemented.
+	 */
+	if (unlikely(protocol == IPPROTO_ICMPV6))
+		return -ENXIO;
+
 	if (!udp_only && !sock_proto_enabled(protocol))
 		return -ENOTSUP;
 
@@ -1025,8 +1058,31 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		lb6_key_set_protocol(&key, protocol);
 		svc = sock6_wildcard_lookup_full(&key, in_hostns);
 	}
-	if (!svc)
+	if (!svc) {
+		/* Skip socket layer processing for ICMPv6 when echo reply is enabled.
+		 * ICMPv6 echo requests to virtual IPs should be handled by the nodeport
+		 * layer where the echo reply functionality is implemented.
+		 */
+		if (CONFIG(reply_to_icmp_echo_on_virtual_ips) && protocol == IPPROTO_ICMPV6)
+			return -ENXIO;
+		if (CONFIG(drop_traffic_to_virtual_ips)) {
+			/* Drop Traffic to Virtual IPs Feature
+			 *
+			 * This feature drops traffic destined to virtual service IPs (ClusterIP/LoadBalancer)
+			 * on ports where no service is configured, instead of allowing the connection.
+			 * This provides better network security by preventing unintended access to
+			 * virtual IP addresses. Controlled by drop_traffic_to_virtual_ips configuration option.
+			 */
+			struct lb6_service *wildcard_svc = lookup_virtual_service_v6_ext_only(&key.address);
+			if (wildcard_svc && !lb6_svc_is_routable(wildcard_svc)) {
+				/* This is a virtual service IP (ClusterIP/LoadBalancer) without
+				 * a service on the requested port. Drop the connection.
+				 */
+				return -ECONNREFUSED;
+			}
+		}
 		return sock6_xlate_v4_in_v6(ctx, udp_only);
+	}
 	if (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc))
 		return -EHOSTUNREACH;
 
