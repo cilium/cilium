@@ -63,6 +63,13 @@ to your preferences:
   Assuming new packets are sent at least once per interval, this ensures that on
   average one event is sent during the interval.
 
+  Socket-level traces: When socket load-balancing is enabled, Cilium may emit
+  socket-level trace notifications for translation events (for example, pre/post
+  reverse translation). These socket traces follow the same aggregation timing
+  when ``monitor-aggregation`` is set to ``medium`` or higher: On average, one
+  trace is emitted per ``monitor-aggregation-interval`` for active flows. When
+  ``monitor-aggregation`` is set to ``none``, socket traces are not rate-limited.
+
 * ``preallocate-bpf-maps`` - Pre-allocation of map entries allows per-packet
   latency to be reduced, at the expense of up-front memory allocation for the
   entries in the maps. Set to ``true`` to optimize for latency. If this value
