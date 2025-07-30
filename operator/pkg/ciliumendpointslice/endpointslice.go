@@ -315,9 +315,9 @@ func (c *Controller) processNextWorkItem() bool {
 	isRetried := c.handleErr(queue, err, key)
 	if err != nil {
 		if isRetried {
-			c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelOutcome, LabelValueOutcomeFail, LabelFailureType, LabelFailureTypeTransient).Inc()
+			c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeFail, LabelFailureTypeTransient).Inc()
 		} else {
-			c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelOutcome, LabelValueOutcomeFail, LabelFailureType, LabelFailureTypeFatal).Inc()
+			c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeFail, LabelFailureTypeFatal).Inc()
 		}
 	} else {
 		c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeSuccess, "").Inc()
