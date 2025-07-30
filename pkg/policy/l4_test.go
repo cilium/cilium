@@ -21,6 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/testutils"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	pkgTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -775,4 +777,79 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 			}
 		}
 	})
+}
+
+// A hold taken by one endpoint must keep a shared selectorPolicy attached until
+// it is released, even after all current users have been removed.
+func TestHoldPreventsDetach(t *testing.T) {
+	logger := hivetest.Logger(t)
+	repo := NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	repo.revision.Store(1)
+	cache := repo.policyCache
+
+	ep := testutils.NewTestEndpoint(t)
+	id := ep.GetSecurityIdentity()
+	cache.insert(id)
+
+	sp, _, _, err := cache.updateSelectorPolicy(id, ep.Id)
+	require.NoError(t, err)
+	require.Equal(t, 0, sp.L4Policy.holdCount)
+
+	a := DummyOwner{logger: logger, previousMap: &mapState{}}
+	b := DummyOwner{logger: logger, previousMap: &mapState{}}
+
+	// DistillPolicy registers a user but leaves the hold for the caller.
+	require.True(t, sp.AddHold())
+	epA := sp.DistillPolicy(logger, a, nil)
+	require.Equal(t, 1, sp.L4Policy.holdCount)
+	require.Len(t, sp.L4Policy.users, 1)
+	sp.ReleaseHold()
+	require.Equal(t, 0, sp.L4Policy.holdCount)
+
+	// With A's user removed but B holding, the policy stays attached with no users.
+	require.True(t, sp.AddHold())
+	sp.removeUser(epA)
+	require.NotNil(t, sp.L4Policy.users)
+	require.Empty(t, sp.L4Policy.users)
+
+	epB := sp.DistillPolicy(logger, b, nil)
+	require.NotSame(t, epA, epB)
+	require.Len(t, sp.L4Policy.users, 1)
+	sp.ReleaseHold()
+	require.Equal(t, 0, sp.L4Policy.holdCount)
+}
+
+// AddHold must fail on a superseded policy so a stale endpoint doesn't attach to
+// a policy that is being replaced.
+func TestAddHoldRejectsDetached(t *testing.T) {
+	logger := hivetest.Logger(t)
+	repo := NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	repo.revision.Store(1)
+	cache := repo.policyCache
+
+	ep := testutils.NewTestEndpoint(t)
+	id := ep.GetSecurityIdentity()
+	cache.insert(id)
+
+	repo.mutex.RLock()
+	old, _, _, err := cache.updateSelectorPolicy(id, 0)
+	repo.mutex.RUnlock()
+	require.NoError(t, err)
+
+	repo.BumpRevision()
+	repo.mutex.RLock()
+	cur, prev, _, err := cache.updateSelectorPolicy(id, 0)
+	repo.mutex.RUnlock()
+	require.NoError(t, err)
+	require.Same(t, old, prev)
+	require.NotSame(t, old, cur)
+
+	old.Supersede()
+	require.Nil(t, old.L4Policy.users)
+	require.False(t, old.AddHold())
+
+	// The replacement is still usable.
+	require.True(t, cur.AddHold())
+	require.NotNil(t, cur.DistillPolicy(logger, DummyOwner{logger: logger}, nil))
+	require.Len(t, cur.L4Policy.users, 1)
 }

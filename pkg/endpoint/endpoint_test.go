@@ -1027,6 +1027,16 @@ func (sp *testSelectorPolicy) GetEgressNamedPorts(name string, proto u8proto.U8p
 	}
 }
 
+func (sp *testSelectorPolicy) AddHold() bool { return true }
+
+func (sp *testSelectorPolicy) ReleaseHold() {}
+
+func (sp *testSelectorPolicy) Detach() {}
+
+func (sp *testSelectorPolicy) Supersede() {}
+
+func (sp *testSelectorPolicy) GetRevision() uint64 { return 0 }
+
 func TestProxyID(t *testing.T) {
 	setupEndpointSuite(t)
 

@@ -195,7 +195,7 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 		owner.previousMap = epPolicy.GetMapState()
 		epPolicy.Ready()
 	}
-	ip.detach(true, 0)
+	ip.Detach()
 	assert.Equal(b, 117515, owner.previousMap.Len())
 }
 
@@ -210,7 +210,7 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	epPolicy := ip.DistillPolicy(logger, owner, nil)
 	owner.previousMap = epPolicy.GetMapState()
 	epPolicy.Ready()
-	ip.detach(true, 0)
+	ip.Detach()
 	assert.Equal(t, 117515, owner.previousMap.Len())
 }
 
@@ -613,7 +613,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 
 	// Verify that cached selector is not found after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
-	policy.SelectorPolicy.detach(true, 0)
+	policy.SelectorPolicy.Detach()
 	cachedSelectorTest = td.sc.findCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.Nil(t, cachedSelectorTest)
 

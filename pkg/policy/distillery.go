@@ -118,7 +118,7 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 		delete(cache.policies, identity.ID)
 		selPolicy := cip.getPolicy()
 		if selPolicy != nil {
-			selPolicy.detach(true, 0)
+			selPolicy.Detach()
 		}
 	}
 	cache.emitChange(PolicyCacheChange{Kind: PolicyChangeDelete, ID: identity.ID})
