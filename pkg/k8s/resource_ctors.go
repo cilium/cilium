@@ -139,17 +139,6 @@ func CiliumNodeResource(params CiliumResourceParams, opts ...func(*metav1.ListOp
 	), nil
 }
 
-func PodResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Pod], error) {
-	if !cs.IsEnabled() {
-		return nil, nil
-	}
-	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*slim_corev1.PodList](cs.Slim().CoreV1().Pods("")),
-		opts...,
-	)
-	return resource.New[*slim_corev1.Pod](lc, lw, resource.WithMetric("Pod")), nil
-}
-
 func NamespaceResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Namespace], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
