@@ -163,6 +163,8 @@ type SelectorPolicy interface {
 
 	// GetSelectorSnapshot returns a selector snapshot if available and valid
 	GetSelectorSnapshot() SelectorSnapshot
+	Detach()
+	GetRevision() uint64
 }
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -295,6 +297,13 @@ func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
 // can be freed when not needed any more
 func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
 	p.L4Policy.removeUser(user)
+}
+
+func (p *selectorPolicy) Detach() {
+	if p == nil {
+		return
+	}
+	p.detach(true, 0)
 }
 
 // detach releases resources held by a selectorPolicy to enable
@@ -555,6 +564,13 @@ func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolic
 			p.L4Policy.Egress.forEachRedirectFilter(yield)
 		}
 	}
+}
+
+func (p *selectorPolicy) GetRevision() uint64 {
+	if p == nil {
+		return 0
+	}
+	return p.Revision
 }
 
 func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, PerSelectorPolicyTuple) bool) bool {
