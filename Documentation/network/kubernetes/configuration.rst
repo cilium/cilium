@@ -58,6 +58,13 @@ to your preferences:
   - ``maximum`` - An alias for the most aggressive aggregation level. Currently
     this is equivalent to setting ``monitor-aggregation`` to ``medium``.
 
+  When socket load-balancing is enabled, these aggregation levels also apply to
+  socket translation events:
+
+  - ``none`` - Emit all socket trace events
+  - ``lowest``/``low`` - Suppress reverse-direction (recv) socket trace events
+  - ``medium``/``maximum`` - Emit socket trace events only for connect system calls
+
 * ``monitor-aggregation-interval`` - Defines the interval to report tracing
   events. Only applicable for ``monitor-aggregation`` levels ``medium`` or higher.
   Assuming new packets are sent at least once per interval, this ensures that on
