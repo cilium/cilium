@@ -46,11 +46,11 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
 	testcertificatemanager "github.com/cilium/cilium/pkg/testutils/certificatemanager"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testmonitor "github.com/cilium/cilium/pkg/testutils/monitor"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
@@ -62,6 +62,7 @@ type testFixture struct {
 	allocator  cache.IdentityAllocator
 	epm        endpointmanager.EndpointManager
 	repo       policy.PolicyRepository
+	computer   compute.PolicyRecomputer
 	importer   policycell.PolicyImporter
 	templateEP *endpoint.Endpoint
 }
@@ -88,19 +89,20 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 		),
 
 		cell.Invoke(
-			func(client_ *k8sClient.FakeClientset, repo_ policy.PolicyRepository, idmgr_ identitymanager.IDManager,
-				alloc_ cache.IdentityAllocator,
-				imp_ policycell.PolicyImporter, epm_ endpointmanager.EndpointManager) error {
-				f.repo = repo_
-				f.idmgr = idmgr_
-				f.allocator = alloc_
-				f.importer = imp_
-				f.epm = epm_
+			func(client *k8sClient.FakeClientset, repo policy.PolicyRepository, idmgr identitymanager.IDManager,
+				alloc cache.IdentityAllocator, comp compute.PolicyRecomputer,
+				imp policycell.PolicyImporter, epm endpointmanager.EndpointManager) error {
+				f.repo = repo
+				f.idmgr = idmgr
+				f.allocator = alloc
+				f.computer = comp
+				f.importer = imp
+				f.epm = epm
 
 				option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD
 				defer func() { option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore }()
 
-				<-f.allocator.(*cache.CachingIdentityAllocator).InitIdentityAllocator(client_, nil)
+				<-f.allocator.(*cache.CachingIdentityAllocator).InitIdentityAllocator(client, nil)
 
 				f.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
@@ -116,7 +118,7 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 						MonitorAgent:        &testmonitor.TestMonitorAgent{},
 						PolicyMapFactory:    &fakePolicyMapFactory{},
 						PolicyRepo:          f.repo,
-						NamedPortsGetter:    testipcache.NewMockIPCache(),
+						PolicyFetcher:       f.computer,
 						Allocator:           f.allocator,
 						CTMapGC:             ctmap.NewFakeGCRunner(),
 						KVStoreSynchronizer: ipcache.NewIPIdentitySynchronizer(log, kvstore.SetupDummy(t, kvstore.DisabledBackendName)),
@@ -163,6 +165,11 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 		policycell.Cell,
 		endpointmanager.TestCell,
 		node.LocalNodeStoreTestCell,
+
+		cell.Provide(func(params compute.Params) compute.PolicyRecomputer {
+			return compute.NewIdentityPolicyComputer(params)
+		}),
+		cell.ProvidePrivate(compute.NewPolicyComputationTable),
 	)
 
 	require.NoError(t, f.hive.Start(log, context.Background()))
