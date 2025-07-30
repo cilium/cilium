@@ -84,9 +84,8 @@ jobs:
           sudo du --human-readable \
                 --threshold 50m \
                 -- /mnt
-          echo "# Removing all contents of /mnt"
-          sudo rm -rf /mnt/*
-          sudo rm -rf /mnt/.*
+          echo "# Removing all contents of /mnt except /mnt/swapfile"
+          sudo find /mnt -mindepth 1 ! -path /mnt/swapfile -exec rm -rf {} + || true
 
       - name: Setup docker volumes into /mnt
         # This allows us to make use of all available disk.
