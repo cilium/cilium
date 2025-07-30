@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
-	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,7 +28,9 @@ import (
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	identitycache "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
@@ -51,7 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var debug = flag.Bool("debug", true, "Enable debug logging")
+var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -68,6 +69,7 @@ func TestScript(t *testing.T) {
 	}
 
 	var idmgr identitymanager.IDManager
+	var allocator cache.IdentityAllocator
 	var p policy.PolicyRepository
 	var c compute.PolicyRecomputer
 	var importer policycell.PolicyImporter
@@ -90,11 +92,23 @@ func TestScript(t *testing.T) {
 				),
 
 				cell.Invoke(
-					func(p_ policy.PolicyRepository, idmgr_ identitymanager.IDManager, c_ compute.PolicyRecomputer, i_ policycell.PolicyImporter) error {
+					func(client_ *k8sClient.FakeClientset, p_ policy.PolicyRepository, idmgr_ identitymanager.IDManager,
+						alloc_ cache.IdentityAllocator, c_ compute.PolicyRecomputer,
+						i_ policycell.PolicyImporter) error {
 						p = p_
 						idmgr = idmgr_
+						allocator = alloc_
 						c = c_
 						importer = i_
+
+						option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD
+						defer func() { option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore }()
+
+						// Init the identity allocator.
+						<-allocator.(*cache.CachingIdentityAllocator).InitIdentityAllocator(client_, nil)
+
+						p.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
+
 						return nil
 					},
 				),
@@ -117,19 +131,17 @@ func TestScript(t *testing.T) {
 				cell.ProvidePrivate(func() agent.Agent {
 					return &testmonitor.TestMonitorAgent{}
 				}),
-				cell.ProvidePrivate(func() cache.IdentityAllocator {
-					return testidentity.NewMockIdentityAllocator(nil)
-				}),
 				cell.ProvidePrivate(func() synced.CacheStatus {
 					ch := make(chan struct{}, 1)
 					ch <- struct{}{}
 					return ch
 				}),
-				cell.ProvidePrivate(func() *testipcache.MockIPCache {
+				cell.ProvidePrivate(func() ipcache.MetadataBatchAPI {
 					return testipcache.NewMockIPCache()
 				}),
 				cell.ProvidePrivate(regeneration.NewFence),
 				identitymanager.Cell,
+				identitycache.Cell,
 				policycell.Cell,
 
 				cell.Provide(
@@ -138,7 +150,6 @@ func TestScript(t *testing.T) {
 					},
 				),
 				cell.ProvidePrivate(compute.NewPolicyComputationTable),
-				cell.Invoke(statedb.RegisterTable[compute.Result]),
 			)
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
@@ -152,6 +163,7 @@ func TestScript(t *testing.T) {
 			maps.Insert(cmds, maps.All(script.DefaultCmds()))
 			maps.Insert(cmds, maps.All(policy.RepositoryScriptCmds(p.(*policy.Repository))))
 			maps.Insert(cmds, maps.All(identitymanager.ScriptCmds(idmgr.(*identitymanager.IdentityManager))))
+			maps.Insert(cmds, maps.All(cache.ScriptCmds(allocator.(*cache.CachingIdentityAllocator))))
 			maps.Insert(cmds, maps.All(policycell.PolicyImporterScriptCmds(importer.(*policycell.Importer))))
 			fmt.Println(c)
 			return &script.Engine{

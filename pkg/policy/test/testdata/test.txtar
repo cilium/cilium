@@ -2,19 +2,20 @@ hive/start
 db/show health
 
 k8s/add policy.yaml
-k8s/resources
-k8s/list cilium.io.v2.ciliumnetworkpolicies default
 
-policyrepo/add policy.yaml
-policyrepo/list
+policy/import policy.yaml
 
-idm/add 4 reserved:health
-idm/add 1234 foo=bar
-idm/list
+identity/allocate k8s:io.kubernetes.pod.namespace=default,k8s:foo=bar
+env --from-stdout id1
+idm/add-from-stdout k8s:io.kubernetes.pod.namespace=default,k8s:foo=bar
 
 replace 'policy' 'p2' policy.yaml
-policyrepo/add policy.yaml
-policyrepo/list
+policy/import policy.yaml
+policy/import allow-env-prod.yaml
+
+identity/allocate k8s:io.kubernetes.pod.namespace=default,k8s:baz=bar
+env --from-stdout id2
+idm/add-from-stdout k8s:io.kubernetes.pod.namespace=default,k8s:baz=bar
 
 db/cmp policy-computations policy.table
 
@@ -24,8 +25,8 @@ kind: CiliumNetworkPolicy
 metadata:
   name: "policy"
   namespace: "default"
-specs:
-- endpointSelector: {}
+spec:
+  endpointSelector: {}
   egress:
     - toEndpoints:
       - matchLabels: {}
@@ -46,6 +47,20 @@ specs:
     - toCIDR:
       - "1.1.1.1/32"
 
+-- allow-env-prod.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "allow-env-prod"
+  namespace: "default"
+spec:
+  endpointSelector:
+    matchLabels:
+      env: prod
+  egress:
+  - {}
+
 -- policy.table --
-Identity NewPolicy OldPolicy Revision NeedsRelease Err
-4        2         0         2        false
+Identity Revision Err
+${id1}   3
+${id2}   4
