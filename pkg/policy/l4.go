@@ -1516,6 +1516,14 @@ type L4Policy struct {
 	mutex lock.RWMutex
 	users map[*EndpointPolicy]struct{}
 
+	// holdCount prevents detachment between policy fetch and insertUser registration.
+	holdCount int
+
+	// superseded is set when this policy has been replaced by a newer one.
+	// shouldDetachLocked only performs full detachment for superseded policies,
+	// preventing premature detachment of policies still current in statedb.
+	superseded bool
+
 	// detachedTime can be used for users that don't need to grab the lock.
 	detachedTime atomic.Pointer[time.Time]
 }
@@ -1530,11 +1538,64 @@ func NewL4Policy(revision uint64) L4Policy {
 	}
 }
 
+// addHold prevents detachment between policy fetch and insertUser.
+// Returns false if already detached.
+func (l4 *L4Policy) addHold() bool {
+	l4.mutex.Lock()
+	defer l4.mutex.Unlock()
+	if l4.users == nil {
+		return false
+	}
+	l4.holdCount++
+	return true
+}
+
+// releaseHold decrements the hold count, detaching the policy if no users
+// or holds remain. Used on error paths when insertUser will not be called.
+func (l4 *L4Policy) releaseHold(selectorCache *SelectorCache) {
+	l4.mutex.Lock()
+	if l4.holdCount > 0 {
+		l4.holdCount--
+	}
+	needsDetach := l4.shouldDetachLocked()
+	l4.mutex.Unlock()
+
+	if needsDetach {
+		l4.finishDetach(selectorCache)
+	}
+}
+
+// shouldDetachLocked marks the policy as detached (users=nil) if no users,
+// holds, or active references remain. Returns true if the caller must call
+// finishDetach after releasing l4.mutex.
+//
+// The superseded check prevents premature detachment when removeUser drains
+// a policy that is still the current statedb entry — without it, removeUser
+// would create a permanently stale entry that traps endpoints in a regen loop.
+//
+// Must be called with l4.mutex held.
+func (l4 *L4Policy) shouldDetachLocked() bool {
+	if l4.holdCount == 0 && l4.users != nil && len(l4.users) == 0 && l4.superseded {
+		l4.users = nil
+		l4.detachedTime.Store(ptr.To(time.Now()))
+		return true
+	}
+	return false
+}
+
+// finishDetach removes cached selectors from the SelectorCache.
+// Must be called WITHOUT l4.mutex held (takes sc.mutex internally).
+func (l4 *L4Policy) finishDetach(selectorCache *SelectorCache) {
+	l4.Ingress.Detach(selectorCache)
+	l4.Egress.Detach(selectorCache)
+}
+
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be forwarded to the users of it.
 // May not call into SelectorCache, as SelectorCache is locked during this call.
-func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
+func (l4 *L4Policy) insertUser(user *EndpointPolicy, selectorCache *SelectorCache) {
 	l4.mutex.Lock()
+	defer l4.mutex.Unlock()
 
 	// 'users' is set to nil when the policy is detached. This
 	// happens to the old policy when it is being replaced with a
@@ -1557,21 +1618,26 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 		})
 	}
 
-	l4.mutex.Unlock()
+	// Release hold; detach impossible here (user count >= 1 or already detached).
+	if l4.holdCount > 0 {
+		l4.holdCount--
+	}
 }
 
 // removeUser removes a user that no longer needs incremental updates
-// from the L4Policy.
-func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
-	// 'users' is set to nil when the policy is detached. This
-	// happens to the old policy when it is being replaced with a
-	// new one, or when the last endpoint using this policy is
-	// removed.
+// from the L4Policy. It detaches the policy if this was the last user
+// and there are no outstanding holds.
+func (l4 *L4Policy) removeUser(user *EndpointPolicy, selectorCache *SelectorCache) {
 	l4.mutex.Lock()
 	if l4.users != nil {
 		delete(l4.users, user)
 	}
+	needsDetach := l4.shouldDetachLocked()
 	l4.mutex.Unlock()
+
+	if needsDetach {
+		l4.finishDetach(selectorCache)
+	}
 }
 
 // AccumulateMapChanges distributes the given changes to the registered users.
@@ -1701,26 +1767,34 @@ func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn SelectorSnapshot) {
 // Note that the L4Policy itself is not modified in any way, so that it may still
 // be used concurrently.
 func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpointID uint64) {
-	l4.Ingress.Detach(selectorCache)
-	l4.Egress.Detach(selectorCache)
+	if isDelete {
+		l4.Ingress.Detach(selectorCache)
+		l4.Egress.Detach(selectorCache)
+		l4.mutex.Lock()
+		defer l4.mutex.Unlock()
+		l4.users = nil
+		l4.detachedTime.Store(ptr.To(time.Now()))
+		return
+	}
 
+	// Notify existing users to regenerate so they migrate to the new policy.
 	l4.mutex.Lock()
-	defer l4.mutex.Unlock()
-	// If this detach is a delete there is no reason to initiate
-	// a regenerate.
-	if !isDelete {
-		for ePolicy := range l4.users {
-			if endpointID != ePolicy.PolicyOwner.GetID() {
-				go ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
-					Reason:            regeneration.ReasonSelectorPolicyStale,
-					Message:           "selector policy has changed because of another endpoint with the same identity",
-					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-				})
-			}
+	for ePolicy := range l4.users {
+		if endpointID != ePolicy.PolicyOwner.GetID() {
+			go ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
+				Reason:            regeneration.ReasonSelectorPolicyStale,
+				Message:           "selector policy has changed because of another endpoint with the same identity",
+				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+			})
 		}
 	}
-	l4.users = nil
-	l4.detachedTime.Store(ptr.To(time.Now()))
+	l4.superseded = true
+	needsDetach := l4.shouldDetachLocked()
+	l4.mutex.Unlock()
+
+	if needsDetach {
+		l4.finishDetach(selectorCache)
+	}
 }
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.

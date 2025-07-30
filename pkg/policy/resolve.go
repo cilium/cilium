@@ -163,6 +163,11 @@ type SelectorPolicy interface {
 
 	// GetSelectorSnapshot returns a selector snapshot if available and valid
 	GetSelectorSnapshot() SelectorSnapshot
+	AddHold() bool
+	ReleaseHold()
+	Detach()
+	MaybeDetach()
+	GetRevision() uint64
 }
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -285,16 +290,48 @@ func newSelectorPolicy(selectorCache *SelectorCache) *selectorPolicy {
 	}
 }
 
+func (p *selectorPolicy) AddHold() bool {
+	return p.L4Policy.addHold()
+}
+
+func (p *selectorPolicy) ReleaseHold() {
+	if p == nil {
+		return
+	}
+	p.L4Policy.releaseHold(p.SelectorCache)
+}
+
+func (p *selectorPolicy) MaybeDetach() {
+	if p == nil {
+		return
+	}
+	p.L4Policy.mutex.Lock()
+	p.L4Policy.superseded = true
+	needsDetach := p.L4Policy.shouldDetachLocked()
+	p.L4Policy.mutex.Unlock()
+
+	if needsDetach {
+		p.L4Policy.finishDetach(p.SelectorCache)
+	}
+}
+
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be fowarded.
 func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
-	p.L4Policy.insertUser(user)
+	p.L4Policy.insertUser(user, p.SelectorCache)
 }
 
 // removeUser removes a user from the L4Policy so the EndpointPolicy
 // can be freed when not needed any more
 func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
-	p.L4Policy.removeUser(user)
+	p.L4Policy.removeUser(user, p.SelectorCache)
+}
+
+func (p *selectorPolicy) Detach() {
+	if p == nil {
+		return
+	}
+	p.detach(true, 0)
 }
 
 // detach releases resources held by a selectorPolicy to enable
@@ -555,6 +592,13 @@ func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolic
 			p.L4Policy.Egress.forEachRedirectFilter(yield)
 		}
 	}
+}
+
+func (p *selectorPolicy) GetRevision() uint64 {
+	if p == nil {
+		return 0
+	}
+	return p.Revision
 }
 
 func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, PerSelectorPolicyTuple) bool) bool {
