@@ -44,6 +44,9 @@ type PolicyRepository interface {
 	// calculation.
 	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics, endpointID uint64) (SelectorPolicy, uint64, error)
 
+	// TODO:
+	ComputeSelectorPolicy(id *identity.Identity, skipRevision uint64) (SelectorPolicy, uint64, SelectorPolicy, bool, error)
+
 	// GetPolicySnapshot returns a map of all the SelectorPolicies in the repository.
 	GetPolicySnapshot() map[identity.NumericIdentity]SelectorPolicy
 	GetRevision() uint64
@@ -511,6 +514,25 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 	}
 
 	return sp, rev, err
+}
+
+// ComputeSelectorPolicy computes the SelectorPolicy for a given identity.
+//
+// It returns nil if skipRevision is >= than the already calculated version.
+// This is used to skip policy calculation when a certain revision delta is
+// known to not affect the given identity. Pass a skipRevision of 0 to force
+// calculation.
+func (r *Repository) ComputeSelectorPolicy(id *identity.Identity, skipRevision uint64) (SelectorPolicy, uint64, SelectorPolicy, bool, error) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	rev := r.GetRevision()
+	sp, old, release, err := r.policyCache.updateSelectorPolicy(id, 0)
+	if err != nil {
+		return nil, 0, nil, release, err
+	}
+
+	return sp, rev, old, release, err
 }
 
 // ReplaceByResource replaces all rules by resource, returning the complete set of affected endpoints.
