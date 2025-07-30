@@ -36,13 +36,18 @@ type PolicyRepository interface {
 	GetAuthTypes(localID identity.NumericIdentity, remoteID identity.NumericIdentity) AuthTypes
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool)
 
-	// GetSelectorPolicy computes the SelectorPolicy for a given identity.
+	// GetSelectorPolicy computes the SelectorPolicy for a given identity. It
+	// is only used in unit tests.
 	//
 	// It returns nil if skipRevision is >= than the already calculated version.
 	// This is used to skip policy calculation when a certain revision delta is
 	// known to not affect the given identity. Pass a skipRevision of 0 to force
 	// calculation.
 	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics, endpointID uint64) (SelectorPolicy, uint64, error)
+
+	// ComputeSelectorPolicy computes the SelectorPolicy for a given identity,
+	// if it needs recomputing.
+	ComputeSelectorPolicy(id *identity.Identity, skipRevision uint64) (SelectorPolicy, uint64, SelectorPolicy, bool, error)
 
 	// GetPolicySnapshot returns a map of all the SelectorPolicies in the repository.
 	GetPolicySnapshot() map[identity.NumericIdentity]SelectorPolicy
@@ -505,7 +510,8 @@ func wildcardRule(subject *identity.Identity, lbls labels.LabelArray, ingress bo
 	}
 }
 
-// GetSelectorPolicy computes the SelectorPolicy for a given identity.
+// GetSelectorPolicy computes the SelectorPolicy for a given identity. It is
+// only used in unit tests.
 //
 // It returns nil if skipRevision is >= than the already calculated version.
 // This is used to skip policy calculation when a certain revision delta is
@@ -537,6 +543,21 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 	}
 
 	return sp, rev, err
+}
+
+// ComputeSelectorPolicy computes the SelectorPolicy for a given identity, if
+// it needs recomputing.
+func (r *Repository) ComputeSelectorPolicy(id *identity.Identity, skipRevision uint64) (SelectorPolicy, uint64, SelectorPolicy, bool, error) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	rev := r.GetRevision()
+	sp, old, release, err := r.policyCache.updateSelectorPolicy(id, 0)
+	if err != nil {
+		return nil, 0, nil, release, err
+	}
+
+	return sp, rev, old, release, err
 }
 
 // ReplaceByResource replaces all rules by resource, returning the complete set of affected endpoints.
