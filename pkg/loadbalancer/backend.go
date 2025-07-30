@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"iter"
 	"strings"
+	"unsafe"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -60,6 +61,19 @@ type BackendParams struct {
 	// value if never updated.
 	UnhealthyUpdatedAt time.Time
 }
+
+const maxBackendParamsSize = 160
+
+// Assert on the size of [BackendParams] to keep changes to it at check.
+// If you're adding more fields to [BackendParams] and they're most of the time
+// not set, please consider putting them behind a separate struct and referring to
+// it by pointer. This way we use less memory for the majority of use-cases.
+var _ = func() struct{} {
+	if size := unsafe.Sizeof(BackendParams{}); size > maxBackendParamsSize {
+		panic(fmt.Sprintf("BackendParams has size %d, maximum set to %d\n", size, maxBackendParamsSize))
+	}
+	return struct{}{}
+}()
 
 // Backend is a composite of the per-service backend instances that share the same
 // IP address and port.
