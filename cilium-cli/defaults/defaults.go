@@ -82,7 +82,7 @@ const (
 
 	CurlParallel = 0
 
-	ConnectTimeout = 2 * time.Second
+	ConnectTimeout = 5 * time.Second
 	RequestTimeout = 10 * time.Second
 
 	UninstallTimeout = 5 * time.Minute
