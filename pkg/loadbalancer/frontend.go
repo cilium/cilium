@@ -167,7 +167,7 @@ func (fe *Frontend) ToModel() *models.Service {
 			Protocol:  be.Address.Protocol(),
 			Port:      be.Address.Port(),
 			NodeName:  be.NodeName,
-			Zone:      be.Zone,
+			Zone:      be.GetZone(),
 			State:     stateStr,
 			Preferred: true,
 			Weight:    &be.Weight,

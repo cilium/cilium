@@ -413,9 +413,9 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 					fe.RedirectTo == nil &&
 					fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
 					thisZone := w.nodeZone.Load()
-					if len(be.ForZones) > 0 && thisZone != nil {
+					if be.Zone != nil && len(be.Zone.ForZones) > 0 && thisZone != nil {
 						// Topology-aware routing is enabled. Only use this backend if it is selected for this zone.
-						if !slices.Contains(be.ForZones, *thisZone) {
+						if !slices.Contains(be.Zone.ForZones, *thisZone) {
 							continue
 						}
 					}

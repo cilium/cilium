@@ -94,8 +94,7 @@ Address              Instances
       ],
       "Weight": 100,
       "NodeName": "nodeport-worker",
-      "Zone": "",
-      "ForZones": null,
+      "Zone": null,
       "ClusterID": 0,
       "Source": "k8s",
       "State": 0,
@@ -125,8 +124,7 @@ Address              Instances
       ],
       "Weight": 100,
       "NodeName": "nodeport-worker",
-      "Zone": "",
-      "ForZones": null,
+      "Zone": null,
       "ClusterID": 0,
       "Source": "k8s",
       "State": 0,
@@ -153,8 +151,7 @@ Address              Instances
         ],
         "Weight": 100,
         "NodeName": "nodeport-worker",
-        "Zone": "",
-        "ForZones": null,
+        "Zone": null,
         "ClusterID": 0,
         "Source": "k8s",
         "State": 0,
@@ -179,8 +176,7 @@ Address              Instances
         ],
         "Weight": 100,
         "NodeName": "nodeport-worker",
-        "Zone": "",
-        "ForZones": null,
+        "Zone": null,
         "ClusterID": 0,
         "Source": "k8s",
         "State": 0,
@@ -228,8 +224,7 @@ backends:
         - http
       weight: 100
       nodename: nodeport-worker
-      zone: ""
-      forzones: []
+      zone: null
       clusterid: 0
       source: k8s
       state: 0
@@ -254,8 +249,7 @@ backends:
         - http
       weight: 100
       nodename: nodeport-worker
-      zone: ""
-      forzones: []
+      zone: null
       clusterid: 0
       source: k8s
       state: 0
@@ -275,8 +269,7 @@ instances:
             - http
         weight: 100
         nodename: nodeport-worker
-        zone: ""
-        forzones: []
+        zone: null
         clusterid: 0
         source: k8s
         state: 0
@@ -294,8 +287,7 @@ instances:
             - http
         weight: 100
         nodename: nodeport-worker
-        zone: ""
-        forzones: []
+        zone: null
         clusterid: 0
         source: k8s
         state: 0

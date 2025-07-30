@@ -36,11 +36,8 @@ type BackendParams struct {
 	// a node.
 	NodeName string
 
-	// Zone where backend is located.
-	Zone string
-
-	// ForZones where this backend should be consumed in
-	ForZones []string
+	// Optional zone information for topology-aware routing.
+	Zone *BackendZone
 
 	// ClusterID of the cluster in which the backend is located. 0 for local cluster.
 	ClusterID uint32
@@ -62,7 +59,7 @@ type BackendParams struct {
 	UnhealthyUpdatedAt time.Time
 }
 
-const maxBackendParamsSize = 160
+const maxBackendParamsSize = 128
 
 // Assert on the size of [BackendParams] to keep changes to it at check.
 // If you're adding more fields to [BackendParams] and they're most of the time
@@ -74,6 +71,23 @@ var _ = func() struct{} {
 	}
 	return struct{}{}
 }()
+
+func (bep *BackendParams) GetZone() string {
+	if bep.Zone == nil {
+		return ""
+	}
+	return bep.Zone.Zone
+}
+
+// BackendZone locates the backend to a specific zone and specifies what zones
+// the backend should be used in for topology aware routing.
+type BackendZone struct {
+	// Zone where backend is located.
+	Zone string
+
+	// ForZones where this backend should be consumed in
+	ForZones []string
+}
 
 // Backend is a composite of the per-service backend instances that share the same
 // IP address and port.
