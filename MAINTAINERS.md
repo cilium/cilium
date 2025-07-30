@@ -38,7 +38,6 @@ to learn how to level up through the project.
  * [Maciej Kwiek] (Isovalent)
  * [Marco Iorio] (Isovalent)
  * [Martynas Pumputis] (Isovalent)
- * [Michal Rostecki] (Anza)
  * [Michi Mutsuzaki] (Isovalent)
  * [Natália Réka Ivánkó] (Isovalent)
  * [Nathan Sweet] (Isovalent)
@@ -65,6 +64,7 @@ We would like to acknowledge previous committers and their huge contributions to
  * [Dan Wendlandt] (Isovalent)
  * [Eloy Coto] (Red Hat)
  * [Ilya Dmitrichenko] (Docker)
+ * [Michal Rostecki] (Anza)
  * [Ray Bejjani]
  * [Tom Payne]
  * [Weilong Cui] (Google)
