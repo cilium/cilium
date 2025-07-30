@@ -8,6 +8,8 @@
 
 #define RATELIMIT_USAGE_ICMPV6 1
 #define RATELIMIT_USAGE_EVENTS_MAP 2
+/* Dedicated usage bucket for socket-level trace events */
+#define RATELIMIT_USAGE_SOCKET_EVENTS_MAP 3
 
 struct ratelimit_key {
 	__u32 usage;
