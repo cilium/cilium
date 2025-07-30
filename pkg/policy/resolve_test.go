@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -953,4 +954,50 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEndpointPolicy_GetRuleMeta(t *testing.T) {
+	log := hivetest.Logger(t)
+
+	key1 := ingressKey(192, 6, 80, 0)
+	key2 := ingressKey(193, 6, 80, 0)
+
+	lbls := labels.ParseLabelArray("k8s:k=v")
+	lblss := labels.LabelArrayList{lbls}
+	logstr := "log"
+	logstrs := []string{logstr}
+
+	// test empty map state
+	p := &EndpointPolicy{
+		policyMapState: emptyMapState(log),
+	}
+	_, err := p.GetRuleMeta(key1)
+	require.Error(t, err)
+
+	// test non-empty mapstate
+	p.policyMapState = emptyMapState(log).withState(mapStateMap{
+		key1: newMapStateEntry(makeSingleRuleOrigin(lbls, logstr), 0, 0, false, NoAuthRequirement),
+	})
+
+	rm, err := p.GetRuleMeta(key1)
+	require.NoError(t, err)
+	require.Equal(t, rm.LabelArray(), lblss)
+	require.Equal(t, rm.Log(), logstrs)
+
+	_, err = p.GetRuleMeta(key2)
+	require.Error(t, err)
+
+	// test mapstate from dump
+	msDump := MapStateMap{
+		key1: types.NewMapStateEntry(false, 0, 0, NoAuthRequirement),
+	}
+
+	p = &EndpointPolicy{
+		policyMapState: emptyMapState(log),
+	}
+
+	p.CopyMapStateFrom(msDump)
+	rm, err = p.GetRuleMeta(key1)
+	require.NoError(t, err)
+	require.Equal(t, NilRuleOrigin.Value(), rm)
 }
