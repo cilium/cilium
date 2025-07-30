@@ -210,6 +210,49 @@ func TestRemovalOfNodeAnnotations(t *testing.T) {
 	}
 }
 
+func convertToAddress(v1Addrs []v1.NodeAddress) []slim_corev1.NodeAddress {
+	if v1Addrs == nil {
+		return nil
+	}
+
+	addrs := make([]slim_corev1.NodeAddress, 0, len(v1Addrs))
+	for _, addr := range v1Addrs {
+		addrs = append(
+			addrs,
+			slim_corev1.NodeAddress{
+				Type:    slim_corev1.NodeAddressType(addr.Type),
+				Address: addr.Address,
+			},
+		)
+	}
+	return addrs
+}
+
+func convertToTaints(v1Taints []v1.Taint) []slim_corev1.Taint {
+	if v1Taints == nil {
+		return nil
+	}
+
+	taints := make([]slim_corev1.Taint, 0, len(v1Taints))
+	for _, taint := range v1Taints {
+		var ta *slim_metav1.Time
+		if taint.TimeAdded != nil {
+			t := slim_metav1.NewTime(taint.TimeAdded.Time)
+			ta = &t
+		}
+		taints = append(
+			taints,
+			slim_corev1.Taint{
+				Key:       taint.Key,
+				Value:     taint.Value,
+				Effect:    slim_corev1.TaintEffect(taint.Effect),
+				TimeAdded: ta,
+			},
+		)
+	}
+	return taints
+}
+
 func toSlimNode(node *v1.Node) *slim_corev1.Node {
 	return &slim_corev1.Node{
 		TypeMeta: slim_metav1.TypeMeta{
