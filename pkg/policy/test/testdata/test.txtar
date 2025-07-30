@@ -1,0 +1,51 @@
+hive/start
+db/show health
+
+k8s/add policy.yaml
+k8s/resources
+k8s/list cilium.io.v2.ciliumnetworkpolicies default
+
+policyrepo/add policy.yaml
+policyrepo/list
+
+idm/add 4 reserved:health
+idm/add 1234 foo=bar
+idm/list
+
+replace 'policy' 'p2' policy.yaml
+policyrepo/add policy.yaml
+policyrepo/list
+
+db/cmp policy-computations policy.table
+
+-- policy.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "policy"
+  namespace: "default"
+specs:
+- endpointSelector: {}
+  egress:
+    - toEndpoints:
+      - matchLabels: {}
+    - toEndpoints:
+      - matchLabels:
+          "k8s:io.kubernetes.pod.namespace": kube-system
+          "k8s:k8s-app": kube-dns
+      toPorts:
+      - ports:
+        - port: "53"
+          protocol: "UDP"
+        rules:
+          dns:
+          - matchPattern: "*"
+    - toFQDNs:
+      - matchPattern: "*"
+      - matchPattern: "ifconfig.co"
+    - toCIDR:
+      - "1.1.1.1/32"
+
+-- policy.table --
+Identity NewPolicy OldPolicy Revision NeedsRelease Err
+4        2         0         2        false
