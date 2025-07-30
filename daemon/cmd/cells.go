@@ -75,6 +75,7 @@ import (
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	policy "github.com/cilium/cilium/pkg/policy/cell"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
@@ -283,6 +284,9 @@ var (
 
 		// Provides PolicyRepository (List of policy rules)
 		policy.Cell,
+
+		// Provides PolicyRecomputer (policy computation).
+		compute.Cell,
 
 		// K8s policy resource watcher cell. It depends on the half-initialized daemon which is
 		// resolved by newDaemonPromise()
