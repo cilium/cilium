@@ -245,13 +245,14 @@ func (w *Writer) UpdateBackendHealth(txn WriteTxn, serviceName loadbalancer.Serv
 	if inst == nil {
 		return false, loadbalancer.ErrServiceNotFound
 	}
-	if inst.Unhealthy == !healthy && !inst.UnhealthyUpdatedAt.IsZero() {
+	if inst.Unhealthy == !healthy && inst.UnhealthyUpdatedAt != nil {
 		return false, nil
 	}
 
 	be = be.Clone()
 	inst.Unhealthy = !healthy
-	inst.UnhealthyUpdatedAt = time.Now()
+	now := time.Now()
+	inst.UnhealthyUpdatedAt = &now
 	be.Instances = be.Instances.Set(loadbalancer.BackendInstanceKey{ServiceName: serviceName, SourcePriority: w.sourcePriority(inst.Source)}, *inst)
 	w.bes.Insert(txn, be)
 	return true, w.RefreshFrontends(txn, serviceName)
