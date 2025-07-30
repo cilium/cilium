@@ -60,6 +60,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -138,7 +139,8 @@ type Endpoint struct {
 
 	epBuildQueue EndpointBuildQueue
 
-	policyRepo policy.PolicyRepository
+	policyRepo    policy.PolicyRepository
+	policyFetcher compute.PolicyRecomputer
 
 	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
 	// information about endpoints. Initialized by manager.expose.
@@ -412,6 +414,12 @@ type Endpoint struct {
 	// skipped regeneration levels.
 	skippedRegenerationLevel regeneration.DatapathRegenerationLevel
 
+	// skippedPolicyRevision is the highest PolicyRevisionToWaitFor from a regeneration
+	// event that was skipped because the endpoint was already in StateWaitingToRegenerate.
+	// The queued regeneration is bumped to wait for this revision so it doesn't complete
+	// at an older one.
+	skippedPolicyRevision uint64
+
 	// DatapathConfiguration is the endpoint's datapath configuration as
 	// passed in via the plugin that created the endpoint, e.g. the CNI
 	// plugin which performed the plumbing will enable certain datapath
@@ -603,9 +611,10 @@ func createEndpoint(
 		wgConfig:           p.WgConfig,
 		ipsecConfig:        p.IPSecConfig,
 		lxcMap:             p.LxcMap,
+		localNodeStore:     p.LocalNodeStore,
 		policyMapFactory:   p.PolicyMapFactory,
 		policyRepo:         p.PolicyRepo,
-		localNodeStore:     p.LocalNodeStore,
+		policyFetcher:      p.PolicyFetcher,
 		ID:                 ID,
 		createdAt:          time.Now(),
 		proxy:              proxy,
@@ -704,7 +713,6 @@ func CreateIngressEndpoint(p EndpointParams,
 func CreateHostEndpoint(p EndpointParams,
 	dnsRulesAPI DNSRulesAPI, proxy EndpointProxy,
 	policyDebugLog io.Writer) (*Endpoint, error) {
-
 	iface, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return nil, err
@@ -933,13 +941,14 @@ func ParseEndpoint(p EndpointParams,
 		wgConfig:         p.WgConfig,
 		ipsecConfig:      p.IPSecConfig,
 		lxcMap:           p.LxcMap,
+		localNodeStore:   p.LocalNodeStore,
 		policyMapFactory: p.PolicyMapFactory,
 		policyRepo:       p.PolicyRepo,
+		policyFetcher:    p.PolicyFetcher,
 		proxy:            proxy,
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
 		kvstoreSyncher:   p.KVStoreSynchronizer,
-		localNodeStore:   p.LocalNodeStore,
 	}
 
 	if err := ep.UnmarshalJSON(epJSON); err != nil {
@@ -2429,6 +2438,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 		}
 	}
 
+	// Unconditionally force policy recomputation after a new identity has been
+	// assigned.
+	e.forcePolicyComputation()
+
 	readyToRegenerate := false
 	regenMetadata := &regeneration.ExternalRegenerationMetadata{
 		Reason:            regeneration.ReasonLabelsUpdate,
@@ -2447,10 +2460,6 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	if e.ID != 0 {
 		readyToRegenerate = e.setRegenerateStateLocked(regenMetadata)
 	}
-
-	// Unconditionally force policy recomputation after a new identity has been
-	// assigned.
-	e.forcePolicyComputation()
 
 	// Trigger the sync-to-k8s-ciliumendpoint controller to sync the new
 	// endpoint's identity.
@@ -2921,6 +2930,7 @@ func (e *Endpoint) CopyFromTemplate() *Endpoint {
 		monitorAgent:       e.monitorAgent,
 		nodeMAC:            e.nodeMAC,
 		orchestrator:       e.orchestrator,
+		policyFetcher:      e.policyFetcher,
 		policyMapFactory:   e.policyMapFactory,
 		policyRepo:         e.policyRepo,
 		proxy:              e.proxy,

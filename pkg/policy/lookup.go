@@ -151,13 +151,8 @@ func (ei *endpointInfo) RegenerateIfAlive(*regeneration.ExternalRegenerationMeta
 
 type dummyPolicyStats struct {
 	waitingForPolicyRepository spanstat.SpanStat
-	policyCalculation          spanstat.SpanStat
 }
 
 func (s *dummyPolicyStats) WaitingForPolicyRepository() *spanstat.SpanStat {
 	return &s.waitingForPolicyRepository
-}
-
-func (s *dummyPolicyStats) SelectorPolicyCalculation() *spanstat.SpanStat {
-	return &s.policyCalculation
 }
