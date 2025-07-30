@@ -5,7 +5,6 @@ package policycell
 
 import (
 	"context"
-	"log/slog"
 	"net/netip"
 	"testing"
 
@@ -17,6 +16,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	policyutils "github.com/cilium/cilium/pkg/policy/utils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -101,11 +102,17 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		},
 	}
 
+	logger := hivetest.Logger(t)
+	idmgr := identitymanager.NewIDManager(logger)
+	repo := policy.NewPolicyRepository(logger, ids, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
+	polComputer := compute.InstantiateCellForTesting(t, logger, "policy-cell", "TestAddReplaceRemoveRule", repo, idmgr)
+
 	pi := &policyImporter{
-		log:  slog.Default(),
-		repo: policy.NewPolicyRepository(hivetest.Logger(t), ids, nil, nil, nil, testpolicy.NewPolicyMetricsNoop()),
-		epm:  epm,
-		ipc:  ipc,
+		log:      logger,
+		repo:     repo,
+		computer: polComputer,
+		epm:      epm,
+		ipc:      ipc,
 
 		q: make(chan *policytypes.PolicyUpdate, 10),
 
@@ -210,12 +217,14 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 	uuid := k8sTypes.UID("13bba160-ddca-13e8-b697-0800273b04ff")
 	type args struct {
-		cnp  *types.SlimCNP
-		repo policy.PolicyRepository
+		cnp   *types.SlimCNP
+		idmgr identitymanager.IDManager
+		repo  policy.PolicyRepository
 	}
 	type wanted struct {
-		err  error
-		repo policy.PolicyRepository
+		err   error
+		idmgr identitymanager.IDManager
+		repo  policy.PolicyRepository
 	}
 	tests := []struct {
 		name        string
@@ -225,6 +234,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 		{
 			name: "simple policy added",
 			setupArgs: func() args {
+				idmgr := identitymanager.NewIDManager(hivetest.Logger(t))
 				return args{
 					cnp: &types.SlimCNP{
 						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
@@ -246,11 +256,13 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 							},
 						},
 					},
-					repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop()),
+					idmgr: idmgr,
+					repo:  policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop()),
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+				idmgr := identitymanager.NewIDManager(hivetest.Logger(t))
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					policyapi.NewRule().
 						WithEndpointSelector(
@@ -271,15 +283,17 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 						),
 				})
 				return wanted{
-					err:  nil,
-					repo: r,
+					err:   nil,
+					idmgr: idmgr,
+					repo:  r,
 				}
 			},
 		},
 		{
 			name: "have a rule with user labels and update it without user labels, all other rules should be deleted",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+				idmgr := identitymanager.NewIDManager(hivetest.Logger(t))
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.MustAddList(policyapi.Rules{
@@ -315,11 +329,13 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 							},
 						},
 					},
-					repo: r,
+					idmgr: idmgr,
+					repo:  r,
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+				idmgr := identitymanager.NewIDManager(hivetest.Logger(t))
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					policyapi.NewRule().
 						WithEndpointSelector(
@@ -340,15 +356,17 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 						)),
 				})
 				return wanted{
-					err:  nil,
-					repo: r,
+					err:   nil,
+					idmgr: idmgr,
+					repo:  r,
 				}
 			},
 		},
 		{
 			name: "have a rule without user labels and update it with user labels, all other rules should be deleted",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+				idmgr := identitymanager.NewIDManager(hivetest.Logger(t))
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
 						EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
@@ -382,11 +400,13 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 							},
 						},
 					},
-					repo: r,
+					idmgr: idmgr,
+					repo:  r,
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+				idmgr := identitymanager.NewIDManager(hivetest.Logger(t))
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.MustAddList(policyapi.Rules{
@@ -402,15 +422,17 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 						WithLabels(lbls),
 				})
 				return wanted{
-					err:  nil,
-					repo: r,
+					err:   nil,
+					idmgr: idmgr,
+					repo:  r,
 				}
 			},
 		},
 		{
 			name: "have a rule policy installed with multiple rules and apply an empty spec should delete all rules installed",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+				idmgr := identitymanager.NewIDManager(hivetest.Logger(t))
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
 						EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
@@ -448,11 +470,13 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 							},
 						},
 					},
-					repo: r,
+					idmgr: idmgr,
+					repo:  r,
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+				idmgr := identitymanager.NewIDManager(hivetest.Logger(t))
+				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 				r.MustAddList(policyapi.Rules{
 					{
 						EndpointSelector: policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
@@ -481,8 +505,9 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 					},
 				})
 				return wanted{
-					err:  v2.ErrEmptyCNP,
-					repo: r,
+					err:   v2.ErrEmptyCNP,
+					idmgr: idmgr,
+					repo:  r,
 				}
 			},
 		},
@@ -504,9 +529,11 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				return
 			}
 
+			logger := hivetest.Logger(t)
 			pi := &policyImporter{
-				log:  slog.Default(),
-				repo: args.repo,
+				log:      logger,
+				repo:     args.repo,
+				computer: compute.InstantiateCellForTesting(t, logger, "policy-cell", "TestAddCiliumNetworkPolicyByLabels", args.repo, args.idmgr),
 			}
 
 			pi.processUpdates(context.Background(), []*policytypes.PolicyUpdate{{
