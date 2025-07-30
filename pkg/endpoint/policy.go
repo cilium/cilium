@@ -31,6 +31,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
@@ -194,7 +195,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	}
 
 	// Copy out some values we care about, then unlock
-	forcePolicyCompute := e.forcePolicyCompute
+	// forcePolicyCompute := e.forcePolicyCompute
 	securityIdentity := e.SecurityIdentity
 
 	// We are computing policy; set this to false.
@@ -211,28 +212,76 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 
 	e.getLogger().Debug("Starting policy recalculation...")
 	skipPolicyRevision := e.nextPolicyRevision
-	if forcePolicyCompute || e.desiredPolicy == nil {
-		e.getLogger().Debug("Forced policy recalculation")
-		skipPolicyRevision = 0
-	}
+	// if forcePolicyCompute || e.desiredPolicy == nil {
+	// 	e.getLogger().Debug("Forced policy recalculation")
+	// 	skipPolicyRevision = 0
+	// }
 
-	var selectorPolicy policy.SelectorPolicy
-	selectorPolicy, result.policyRevision, err = e.policyRepo.GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats, e.GetID())
-	if err != nil {
-		e.getLogger().Warn("Failed to calculate SelectorPolicy", logfields.Error, err)
-		return err
-	}
+	var (
+		selectorPolicy policy.SelectorPolicy
+		computeResult  compute.Result
+		retries        int
+	)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if retries >= 3 {
+			return errors.New("failed to fetch computed policy")
+		}
 
-	// selectorPolicy is nil if skipRevision was matched.
-	if selectorPolicy == nil {
-		e.getLogger().Debug(
-			"Skipping unnecessary endpoint policy recalculation",
-			logfields.PolicyRevisionNext, e.nextPolicyRevision,
-			logfields.PolicyRevisionRepo, result.policyRevision,
-			logfields.PolicyChanged, e.nextPolicyRevision > e.policyRevision,
+		var (
+			found bool
+			watch <-chan struct{}
 		)
+		// TODO: The revision from computeResult should never be lower than
+		// nextPolicyRevision, if so, then it means we fetched an outdated
+		// policy and we need to keep looping here until we get the latest
+		// policy.
+		computeResult, _, watch, found = e.policyFetcher.GetIdentityPolicyByIdentity(securityIdentity)
+		if found {
+			fmt.Printf("chris debug: regeneratePolicy fetched policy computation for %v: %+v found=%v nextPolicyRevision=%v policyRevision=%v\n",
+				securityIdentity, computeResult, found, e.nextPolicyRevision, e.policyRevision)
+			break
+		} else if !found {
+			policyRepoRevision := e.policyRepo.GetRevision()
+			fmt.Printf("chris debug: regeneratePolicy not found for %v: skipPolicyRevision=%v policyRepoRevision=%v\n",
+				securityIdentity, skipPolicyRevision, policyRepoRevision)
+			// Do we already have a given revision?
+			// If so, skip calculation.
+			if skipPolicyRevision >= policyRepoRevision {
+				e.getLogger().Debug(
+					"Skipping unnecessary endpoint policy recalculation",
+					logfields.PolicyRevisionNext, e.nextPolicyRevision,
+					logfields.PolicyRevisionRepo, result.policyRevision,
+					logfields.PolicyChanged, e.nextPolicyRevision > e.policyRevision,
+				)
+				datapathRegenCtxt.policyResult = result
+				return nil
+			}
+		}
+		select {
+		case <-ticker.C:
+			// Retry as GetWatch() operates on a snapshot. It is possible by
+			// the time we called GetWatch(), we have an outdated snapshot.
+			// Retry up to 3 times before declaring endpoint regeneration
+			// failed. The regeneration controller will retry again.
+			fmt.Printf("chris debug: regeneratePolicy retrying fetch: %+v\n", securityIdentity)
+			retries++
+		case <-watch:
+		}
+	}
+	selectorPolicy = computeResult.NewPolicy
+	// TODO: Still need to figure out what to do with OldPolicy.
+	result.policyRevision = computeResult.Revision
+	err = computeResult.Err
+	e.getLogger().Info(
+		"Retrieved identity policy from statedb",
+		logfields.PolicyRevision, result.policyRevision,
+	)
+
+	if selectorPolicy == nil {
 		datapathRegenCtxt.policyResult = result
-		return nil
+		return err
 	}
 
 	// Add new redirects before Consume() so that all required proxy ports are available for it.
@@ -691,6 +740,19 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 					logfields.PolicyRevision, fromRev,
 				)
 			} else {
+				// TODO: We can hit this case when for example a change occurs
+				// in policy update and a CEC occur (one after the other, most
+				// likely) where both of these operations bump the policy
+				// revision. Let's say we were at 1 and then policy change
+				// bumps to 2 and then CEC bumps to 3. We warn when we detect
+				// this case and the endpoint has not been updated or has been
+				// queued to regenerate to get to revision 3 most likely
+				// because the CEC change does not actually affect this
+				// endpoint.
+				//
+				// Ignoring the policy revision here may cause fetching from
+				// the policy computer to be stuck in the loop waiting for the
+				// selectorPolicy to have the matching revision.
 				e.getLogger().Warn(
 					"Endpoint missed a policy revision; triggering regeneration",
 					logfields.PolicyRevision, fromRev,
@@ -707,6 +769,9 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 			return
 		}
 	}
+
+	// TODO: Everything seems to be working as expected. Resolve all TODOs and
+	// do some more tests.
 
 	// Policy change affected this endpoint's identity; queue regeneration
 	regenMetadata := &regeneration.ExternalRegenerationMetadata{
@@ -853,6 +918,7 @@ func (e *Endpoint) InitialPolicyComputedLocked() {
 // Must be called with both endpoint mutex and buildMutex not held.
 // The returned 'release' function must also be called with both mutexed not held.
 func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (error, func()) {
+	fmt.Printf("chris debug: ComputeInitialPolicy for %v\n", e.SecurityIdentity)
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
