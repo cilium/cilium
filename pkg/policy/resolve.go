@@ -167,6 +167,12 @@ type SelectorPolicy interface {
 
 	// GetEgressNamedPorts iterates named ports for the given identities
 	GetEgressNamedPorts(name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) pkgTypes.NidPortSeq
+
+	AddHold() bool
+	ReleaseHold()
+	Detach()
+	Supersede()
+	GetRevision() uint64
 }
 
 type NamedPortsGetter interface {
@@ -303,6 +309,27 @@ func newSelectorPolicy(selectorCache *SelectorCache) *selectorPolicy {
 	}
 }
 
+func (p *selectorPolicy) AddHold() bool {
+	if p == nil {
+		return false
+	}
+	return p.L4Policy.addHold()
+}
+
+func (p *selectorPolicy) ReleaseHold() {
+	if p == nil {
+		return
+	}
+	p.L4Policy.releaseHold(p.SelectorCache)
+}
+
+func (p *selectorPolicy) Supersede() {
+	if p == nil {
+		return
+	}
+	p.L4Policy.supersede(p.SelectorCache, 0)
+}
+
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be fowarded.
 func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
@@ -312,7 +339,14 @@ func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
 // removeUser removes a user from the L4Policy so the EndpointPolicy
 // can be freed when not needed any more
 func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
-	p.L4Policy.removeUser(user)
+	p.L4Policy.removeUser(user, p.SelectorCache)
+}
+
+func (p *selectorPolicy) Detach() {
+	if p == nil {
+		return
+	}
+	p.detach(true, 0)
 }
 
 // detach releases resources held by a selectorPolicy to enable
@@ -322,7 +356,11 @@ func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
 // It ensures that detach does not call a regeneration trigger on
 // the same endpoint that initiated a selector policy update.
 func (p *selectorPolicy) detach(isDelete bool, endpointID uint64) {
-	p.L4Policy.detach(p.SelectorCache, isDelete, endpointID)
+	if isDelete {
+		p.L4Policy.detach(p.SelectorCache)
+	} else {
+		p.L4Policy.supersede(p.SelectorCache, endpointID)
+	}
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts
@@ -573,6 +611,13 @@ func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolic
 			p.L4Policy.Egress.forEachRedirectFilter(yield)
 		}
 	}
+}
+
+func (p *selectorPolicy) GetRevision() uint64 {
+	if p == nil {
+		return 0
+	}
+	return p.Revision
 }
 
 func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, PerSelectorPolicyTuple) bool) bool {
