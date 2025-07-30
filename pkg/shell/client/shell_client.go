@@ -136,77 +136,75 @@ func interactiveShell() {
 	}
 	printShellGreeting(console)
 
-	for {
-		// Try to dial the shell.sock. Since it takes a moment for the server to come up and this
-		// is meant for interactive use we'll try to be helpful and retry the dialing until
-		// server comes up.
-		conn, err := dialShell(console)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-			os.Exit(1)
-		}
-
-		stop := make(chan struct{})
-
-		go func() {
-			select {
-			case <-stop:
-			case <-sigs:
-				// On interrupt close the connection.
-				conn.Close()
-			}
-		}()
-
-		bio := bufio.NewReader(conn)
-
-		// Read commands from the console and send them to the server for execution.
-		// Stop on errors reading from the connection and redial. This allows interrupting
-		// long running commands with ctrl-c.
-		closed := false
-		for !closed {
-			line, err := console.ReadLine()
-			if err != nil {
-				close(stop)
-				return
-			}
-
-			// Send the command to the server.
-			if _, err = fmt.Fprintln(conn, line); err != nil {
-				close(stop)
-				return
-			}
-
-			// Pipe the response to the console until a line ends with the end
-			// marker (<<end>>).
-			for {
-				lineBytes, isPrefix, err := bio.ReadLine()
-				if err != nil {
-					// Connection closed!
-					closed = true
-					break
-				}
-				line := string(lineBytes)
-
-				if line == "[stdout]" || line == "[stderr]" {
-					// Commands that write to "stdout" instead of the log show the [stdout] as
-					// the first line. This is useful information in tests, but not useful in
-					// the shell, so just skip this.
-					continue
-				}
-
-				line, ended := strings.CutSuffix(line, endMarker)
-				if isPrefix {
-					fmt.Fprint(console, line)
-				} else {
-					fmt.Fprintln(console, line)
-				}
-				if ended {
-					break
-				}
-			}
-		}
-		close(stop)
+	// Try to dial the shell.sock. Since it takes a moment for the server to come up and this
+	// is meant for interactive use we'll try to be helpful and retry the dialing until
+	// server comes up.
+	conn, err := dialShell(console)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		os.Exit(1)
 	}
+	stop := make(chan struct{})
+
+	go func() {
+		select {
+		case <-stop:
+		case <-sigs:
+			// On interrupt close the connection.
+			conn.Close()
+		}
+	}()
+
+	bio := bufio.NewReader(conn)
+
+	// Read commands from the console and send them to the server for execution.
+	// Stop on errors reading from the connection and redial. This allows interrupting
+	// long running commands with ctrl-c.
+	closed := false
+	for !closed {
+		line, err := console.ReadLine()
+		if err != nil {
+			close(stop)
+			return
+		}
+
+		// Send the command to the server.
+		if _, err = fmt.Fprintln(conn, line); err != nil {
+			close(stop)
+			return
+		}
+
+		// Pipe the response to the console until a line ends with the end
+		// marker (<<end>>).
+		for {
+			lineBytes, isPrefix, err := bio.ReadLine()
+			if err != nil {
+				// Connection closed!
+				closed = true
+				break
+			}
+			line := string(lineBytes)
+
+			if line == "[stdout]" || line == "[stderr]" {
+				// Commands that write to "stdout" instead of the log show the [stdout] as
+				// the first line. This is useful information in tests, but not useful in
+				// the shell, so just skip this.
+				continue
+			}
+
+			line, ended := strings.CutSuffix(line, endMarker)
+			if isPrefix {
+				fmt.Fprint(console, line)
+			} else {
+				fmt.Fprintln(console, line)
+			}
+			if ended {
+				break
+			}
+		}
+	}
+	close(stop)
+
 }
 
 func printShellGreeting(term *term.Terminal) {
