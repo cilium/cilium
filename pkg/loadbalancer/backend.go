@@ -54,12 +54,11 @@ type BackendParams struct {
 	// zero value to mean that the backend is healthy.
 	Unhealthy bool
 
-	// UnhealthyUpdatedAt is the timestamp for when [Unhealthy] was last updated. Zero
-	// value if never updated.
-	UnhealthyUpdatedAt time.Time
+	// UnhealthyUpdatedAt is the timestamp for when [Unhealthy] was last updated.
+	UnhealthyUpdatedAt *time.Time
 }
 
-const maxBackendParamsSize = 128
+const maxBackendParamsSize = 110
 
 // Assert on the size of [BackendParams] to keep changes to it at check.
 // If you're adding more fields to [BackendParams] and they're most of the time
