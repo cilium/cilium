@@ -7,20 +7,28 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"iter"
+	"log/slog"
 	"math/rand/v2"
 	"slices"
 	"sort"
 	"strconv"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/testutils"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -644,4 +652,191 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 			}
 		}
 	})
+}
+
+// TestHoldCountRealCodePath validates that holdCount prevents premature detachment
+// when multiple endpoints share a selectorPolicy through DistillPolicy.
+func TestHoldCountRealCodePath(t *testing.T) {
+	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	repo.revision.Store(1)
+	cache := repo.policyCache
+
+	ep1 := testutils.NewTestEndpoint(t)
+	identity1 := ep1.GetSecurityIdentity()
+
+	cache.insert(identity1)
+
+	policy, _, _, err := cache.updateSelectorPolicy(identity1, ep1.Id)
+	require.NoError(t, err)
+	require.NotNil(t, policy)
+
+	require.Equal(t, 0, policy.L4Policy.holdCount, "policy should have no holds after updateSelectorPolicy")
+
+	logger := hivetest.Logger(t)
+	existingOwner := newTestPolicyOwner(100, logger)
+
+	held := policy.AddHold()
+	require.True(t, held, "AddHold should succeed on live policy")
+	require.Equal(t, 1, policy.L4Policy.holdCount, "hold should be added")
+
+	existingPolicy := policy.DistillPolicy(logger, existingOwner, nil)
+
+	require.Equal(t, 0, policy.L4Policy.holdCount, "hold should be released after DistillPolicy")
+	require.Len(t, policy.L4Policy.users, 1, "should have 1 user")
+
+	ownerA := newTestPolicyOwner(200, logger)
+	ownerB := newTestPolicyOwner(300, logger)
+
+	require.True(t, policy.AddHold())
+	require.True(t, policy.AddHold())
+	require.Equal(t, 2, policy.L4Policy.holdCount)
+
+	policyA := policy.DistillPolicy(logger, ownerA, nil)
+	require.NotNil(t, policyA)
+	require.Equal(t, 1, policy.L4Policy.holdCount, "one hold should remain for B")
+	require.Len(t, policy.L4Policy.users, 2, "should have existing user + A")
+
+	require.NotSame(t, existingPolicy, policyA, "each endpoint should have its own EndpointPolicy")
+	require.NotSame(t, existingOwner.PreviousMapState(), ownerA.PreviousMapState(), "each endpoint should have its own MapState")
+
+	policy.removeUser(existingPolicy)
+	require.Equal(t, 1, policy.L4Policy.holdCount, "B's hold still outstanding")
+	require.Len(t, policy.L4Policy.users, 1, "should have only A")
+
+	policy.removeUser(policyA)
+
+	// B's outstanding hold prevents detachment even though users is empty.
+	require.Equal(t, 1, policy.L4Policy.holdCount)
+	require.NotNil(t, policy.L4Policy.users)
+	require.Empty(t, policy.L4Policy.users)
+
+	policyB := policy.DistillPolicy(logger, ownerB, nil)
+	require.NotNil(t, policyB)
+	require.NotSame(t, policyB, policyA, "B should have its own EndpointPolicy")
+	require.NotSame(t, ownerB.PreviousMapState(), ownerA.PreviousMapState(), "B should have its own MapState")
+
+	require.Equal(t, 0, policy.L4Policy.holdCount, "B's hold released after DistillPolicy")
+	require.NotNil(t, policy.L4Policy.users, "policy should not be detached")
+	require.Len(t, policy.L4Policy.users, 1, "B should have registered successfully")
+}
+
+// TestAddHoldRejectsDetachedPolicy verifies AddHold returns false on a policy
+// that was detached by MaybeDetach, preventing the regen loop where DistillPolicy
+// fires RegenerateIfAlive on a dead policy.
+func TestAddHoldRejectsDetachedPolicy(t *testing.T) {
+	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	repo.revision.Store(1)
+	cache := repo.policyCache
+	logger := hivetest.Logger(t)
+
+	ep := testutils.NewTestEndpoint(t)
+	identity := ep.GetSecurityIdentity()
+	cache.insert(identity)
+
+	repo.mutex.RLock()
+	P, _, _, err := cache.updateSelectorPolicy(identity, 0)
+	repo.mutex.RUnlock()
+	require.NoError(t, err)
+	require.NotNil(t, P.L4Policy.users, "P should be live")
+
+	repo.BumpRevision()
+	repo.mutex.RLock()
+	Q, old, _, err := cache.updateSelectorPolicy(identity, 0)
+	repo.mutex.RUnlock()
+	require.NoError(t, err)
+	require.Same(t, P, old)
+	require.NotSame(t, P, Q)
+
+	old.MaybeDetach()
+	require.Nil(t, P.L4Policy.users, "P should be detached")
+
+	// Endpoint tries to use stale (detached) P.
+	regenOwner := newRegenTrackingOwner(100, logger)
+	held := P.AddHold()
+	if held {
+		P.DistillPolicy(logger, regenOwner, nil)
+	}
+
+	require.False(t, held, "AddHold must reject detached policy")
+	require.Never(t, func() bool {
+		return regenOwner.regenCount.Load() > 0
+	}, 200*time.Millisecond, 10*time.Millisecond,
+		"RegenerateIfAlive must not fire on detached policy")
+
+	// Live policy Q works normally.
+	held = Q.AddHold()
+	require.True(t, held)
+
+	safeOwner := newRegenTrackingOwner(200, logger)
+	epPolicy := Q.DistillPolicy(logger, safeOwner, nil)
+	require.NotNil(t, epPolicy)
+	require.Len(t, Q.L4Policy.users, 1, "endpoint registered on Q")
+	require.Equal(t, int32(0), safeOwner.regenCount.Load(),
+		"no spurious regen when using live policy")
+}
+
+// testPolicyOwner provides a PolicyOwner implementation for tests that need
+// per-endpoint state (logger, previousState).
+type testPolicyOwner struct {
+	id            uint64
+	previousState *MapState
+	logger        *slog.Logger
+}
+
+func newTestPolicyOwner(id uint64, logger *slog.Logger) *testPolicyOwner {
+	return &testPolicyOwner{
+		id:            id,
+		previousState: &MapState{},
+		logger:        logger,
+	}
+}
+
+func (t *testPolicyOwner) GetID() uint64 { return t.id }
+
+func (t *testPolicyOwner) GetNamedPort(ingress bool, name string, proto u8proto.U8proto, _ iter.Seq[identity.NumericIdentity]) uint16 {
+	return 0
+}
+
+func (t *testPolicyOwner) PolicyDebug(msg string, attrs ...any) {
+	if t.logger != nil {
+		t.logger.Debug(msg, attrs...)
+	}
+}
+
+func (t *testPolicyOwner) IsHost() bool { return false }
+
+func (t *testPolicyOwner) PreviousMapState() *MapState {
+	return t.previousState
+}
+
+func (t *testPolicyOwner) RegenerateIfAlive(meta *regeneration.ExternalRegenerationMetadata) <-chan bool {
+	ch := make(chan bool, 1)
+	ch <- false
+	close(ch)
+	return ch
+}
+
+// regenTrackingOwner extends testPolicyOwner with an atomic regen counter
+// to detect when RegenerateIfAlive is fired (the regen loop trigger).
+type regenTrackingOwner struct {
+	testPolicyOwner
+	regenCount atomic.Int32
+}
+
+func newRegenTrackingOwner(id uint64, logger *slog.Logger) *regenTrackingOwner {
+	return &regenTrackingOwner{
+		testPolicyOwner: testPolicyOwner{
+			id:            id,
+			previousState: &MapState{},
+			logger:        logger,
+		},
+	}
+}
+
+func (t *regenTrackingOwner) RegenerateIfAlive(meta *regeneration.ExternalRegenerationMetadata) <-chan bool {
+	t.regenCount.Add(1)
+	ch := make(chan bool, 1)
+	ch <- false
+	close(ch)
+	return ch
 }
