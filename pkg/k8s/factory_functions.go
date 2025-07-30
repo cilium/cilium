@@ -6,13 +6,10 @@ package k8s
 import (
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 )
@@ -26,92 +23,6 @@ func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]stri
 		}
 	}
 	return true
-}
-
-func ConvertToK8sV1ServicePorts(slimPorts []slim_corev1.ServicePort) []v1.ServicePort {
-	if slimPorts == nil {
-		return nil
-	}
-
-	ports := make([]v1.ServicePort, 0, len(slimPorts))
-	for _, port := range slimPorts {
-		ports = append(ports,
-			v1.ServicePort{
-				Name:     port.Name,
-				Protocol: v1.Protocol(port.Protocol),
-				Port:     port.Port,
-				NodePort: port.NodePort,
-			},
-		)
-	}
-	return ports
-}
-
-func ConvertToK8sV1ServiceAffinityConfig(saCfg *slim_corev1.SessionAffinityConfig) *v1.SessionAffinityConfig {
-	if saCfg == nil {
-		return nil
-	}
-
-	if saCfg.ClientIP == nil {
-		return &v1.SessionAffinityConfig{}
-	}
-
-	return &v1.SessionAffinityConfig{
-		ClientIP: &v1.ClientIPConfig{
-			TimeoutSeconds: saCfg.ClientIP.TimeoutSeconds,
-		},
-	}
-}
-
-func ConvertToK8sV1LoadBalancerIngress(slimLBIngs []slim_corev1.LoadBalancerIngress) []v1.LoadBalancerIngress {
-	if slimLBIngs == nil {
-		return nil
-	}
-
-	lbIngs := make([]v1.LoadBalancerIngress, 0, len(slimLBIngs))
-	for _, lbIng := range slimLBIngs {
-		var ports []v1.PortStatus
-		for _, port := range lbIng.Ports {
-			ports = append(ports, v1.PortStatus{
-				Port:     port.Port,
-				Protocol: v1.Protocol(port.Protocol),
-				Error:    port.Error,
-			})
-		}
-		lbIngs = append(lbIngs,
-			v1.LoadBalancerIngress{
-				IP:       lbIng.IP,
-				Hostname: lbIng.Hostname,
-				Ports:    ports,
-			},
-		)
-	}
-	return lbIngs
-}
-
-func ConvertToNetworkV1IngressLoadBalancerIngress(slimLBIngs []slim_corev1.LoadBalancerIngress) []networkingv1.IngressLoadBalancerIngress {
-	if slimLBIngs == nil {
-		return nil
-	}
-
-	ingLBIngs := make([]networkingv1.IngressLoadBalancerIngress, 0, len(slimLBIngs))
-	for _, lbIng := range slimLBIngs {
-		ports := make([]networkingv1.IngressPortStatus, 0, len(lbIng.Ports))
-		for _, port := range lbIng.Ports {
-			ports = append(ports, networkingv1.IngressPortStatus{
-				Port:     port.Port,
-				Protocol: v1.Protocol(port.Protocol),
-				Error:    port.Error,
-			})
-		}
-		ingLBIngs = append(ingLBIngs,
-			networkingv1.IngressLoadBalancerIngress{
-				IP:       lbIng.IP,
-				Hostname: lbIng.Hostname,
-				Ports:    ports,
-			})
-	}
-	return ingLBIngs
 }
 
 // TransformToCCNP transforms a *cilium_v2.CiliumClusterwideNetworkPolicy into a
@@ -205,49 +116,6 @@ func TransformToCNP(obj any) (any, error) {
 	default:
 		return nil, fmt.Errorf("unknown object type %T", concreteObj)
 	}
-}
-
-func convertToAddress(v1Addrs []v1.NodeAddress) []slim_corev1.NodeAddress {
-	if v1Addrs == nil {
-		return nil
-	}
-
-	addrs := make([]slim_corev1.NodeAddress, 0, len(v1Addrs))
-	for _, addr := range v1Addrs {
-		addrs = append(
-			addrs,
-			slim_corev1.NodeAddress{
-				Type:    slim_corev1.NodeAddressType(addr.Type),
-				Address: addr.Address,
-			},
-		)
-	}
-	return addrs
-}
-
-func convertToTaints(v1Taints []v1.Taint) []slim_corev1.Taint {
-	if v1Taints == nil {
-		return nil
-	}
-
-	taints := make([]slim_corev1.Taint, 0, len(v1Taints))
-	for _, taint := range v1Taints {
-		var ta *slim_metav1.Time
-		if taint.TimeAdded != nil {
-			t := slim_metav1.NewTime(taint.TimeAdded.Time)
-			ta = &t
-		}
-		taints = append(
-			taints,
-			slim_corev1.Taint{
-				Key:       taint.Key,
-				Value:     taint.Value,
-				Effect:    slim_corev1.TaintEffect(taint.Effect),
-				TimeAdded: ta,
-			},
-		)
-	}
-	return taints
 }
 
 // TransformToCiliumEndpoint transforms a *cilium_v2.CiliumEndpoint into a
