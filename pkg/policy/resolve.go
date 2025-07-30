@@ -346,21 +346,7 @@ func (p *selectorPolicy) Detach() {
 	if p == nil {
 		return
 	}
-	p.detach(true, 0)
-}
-
-// detach releases resources held by a selectorPolicy to enable
-// successful eventual GC.  Note that the selectorPolicy itself if not
-// modified in any way, so that it can be used concurrently.
-// The endpointID argument is only necessary if isDelete is false.
-// It ensures that detach does not call a regeneration trigger on
-// the same endpoint that initiated a selector policy update.
-func (p *selectorPolicy) detach(isDelete bool, endpointID uint64) {
-	if isDelete {
-		p.L4Policy.detach(p.SelectorCache)
-	} else {
-		p.L4Policy.supersede(p.SelectorCache, endpointID)
-	}
+	p.L4Policy.detach(p.SelectorCache)
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts

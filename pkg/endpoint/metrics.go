@@ -54,7 +54,7 @@ type regenerationStatistics struct {
 	waitingForPolicyRepository spanstat.SpanStat
 	waitingForCTClean          spanstat.SpanStat
 	policyCalculation          spanstat.SpanStat
-	selectorPolicyCalculation  spanstat.SpanStat
+	waitForPolicyCompute       spanstat.SpanStat
 	endpointPolicyCalculation  spanstat.SpanStat
 	proxyConfiguration         spanstat.SpanStat
 	proxyPolicyCalculation     spanstat.SpanStat
@@ -98,7 +98,7 @@ func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 		"waitingForCTClean":          &s.waitingForCTClean,
 		"policyCalculation":          &s.policyCalculation,
 		"proxyConfiguration":         &s.proxyConfiguration,
-		"selectorPolicyCalculation":  &s.selectorPolicyCalculation,
+		"waitForPolicyCompute":       &s.waitForPolicyCompute,
 		"endpointPolicyCalculation":  &s.endpointPolicyCalculation,
 		"proxyPolicyCalculation":     &s.proxyPolicyCalculation,
 		"proxyWaitForAck":            &s.proxyWaitForAck,
@@ -114,11 +114,6 @@ func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 // used by PolicyRepository.GetSelectorPolicy
 func (s *regenerationStatistics) WaitingForPolicyRepository() *spanstat.SpanStat {
 	return &s.waitingForPolicyRepository
-}
-
-// used by PolicyRepository.GetSelectorPolicy
-func (s *regenerationStatistics) SelectorPolicyCalculation() *spanstat.SpanStat {
-	return &s.selectorPolicyCalculation
 }
 
 // endpointPolicyStatusMap is a map to store the endpoint id and the policy

@@ -89,15 +89,10 @@ func newProxyUpdaterMock(t testing.TB, namedPort uint16) *test.ProxyUpdaterMock 
 
 type dummyPolicyStats struct {
 	waitingForPolicyRepository spanstat.SpanStat
-	policyCalculation          spanstat.SpanStat
 }
 
 func (s *dummyPolicyStats) WaitingForPolicyRepository() *spanstat.SpanStat {
 	return &s.waitingForPolicyRepository
-}
-
-func (s *dummyPolicyStats) SelectorPolicyCalculation() *spanstat.SpanStat {
-	return &s.policyCalculation
 }
 
 var PortRuleHTTP1 = &api.PortRuleHTTP{
