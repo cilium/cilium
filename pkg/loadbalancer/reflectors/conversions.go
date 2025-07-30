@@ -425,16 +425,20 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 				if be.Terminating {
 					state = loadbalancer.BackendStateTerminating
 				}
-				be := loadbalancer.BackendParams{
+				bep := loadbalancer.BackendParams{
 					Address:   l3n4Addr,
 					NodeName:  be.NodeName,
 					PortNames: portNames,
 					Weight:    loadbalancer.DefaultBackendWeight,
-					Zone:      be.Zone,
-					ForZones:  be.HintsForZones,
 					State:     state,
 				}
-				if !yield(be) {
+				if be.Zone != "" {
+					bep.Zone = &loadbalancer.BackendZone{
+						Zone:     be.Zone,
+						ForZones: be.HintsForZones,
+					}
+				}
+				if !yield(bep) {
 					break
 				}
 			}
