@@ -16,6 +16,7 @@ import (
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 
 	"github.com/cilium/hive/cell"
@@ -37,6 +38,7 @@ type EndpointParams struct {
 	MonitorAgent        monitoragent.Agent
 	PolicyMapFactory    policymap.Factory
 	PolicyRepo          policy.PolicyRepository
+	PolicyFetcher       compute.PolicyRecomputer
 	Allocator           cache.IdentityAllocator
 	CTMapGC             ctmap.GCRunner
 	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer

@@ -27,7 +27,7 @@ import (
 )
 
 func (s *EndpointSuite) createEndpointParams(tb testing.TB) EndpointParams {
-	return createEndpointParams(tb, s.orchestrator, s.repo)
+	return createEndpointParams(tb, s.orchestrator, s.repo, s.fetcher)
 }
 
 func (s *EndpointSuite) createEndpoints(t testing.TB) ([]*Endpoint, map[uint16]*Endpoint) {
@@ -137,11 +137,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	p := s.createEndpointParams(t)
-	p.Logger = logger
-	p.Orchestrator = s.orchestrator
-	p.PolicyRepo = s.repo
-	eps, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: p}, tmpDir, epsNames)
+	eps, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: s.createEndpointParams(t)}, tmpDir, epsNames)
 	require.Len(t, eps, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
@@ -204,11 +200,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 		ep.DirectoryPath(), ep.NextDirectoryPath(),
 	}
 
-	p := s.createEndpointParams(t)
-	p.Logger = logger
-	p.Orchestrator = s.orchestrator
-	p.PolicyRepo = s.repo
-	epResult, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: p}, tmpDir, epNames)
+	epResult, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: s.createEndpointParams(t)}, tmpDir, epNames)
 	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
@@ -261,11 +253,7 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	}
 
 	for b.Loop() {
-		p := s.createEndpointParams(b)
-		p.Logger = logger
-		p.Orchestrator = s.orchestrator
-		p.PolicyRepo = s.repo
-		eps, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: p}, tmpDir, epsNames)
+		eps, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: s.createEndpointParams(b)}, tmpDir, epsNames)
 		require.Len(b, eps, len(epsWanted))
 	}
 }

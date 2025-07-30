@@ -19,6 +19,7 @@ import (
 )
 
 func TestPolicyLog(t *testing.T) {
+	setupEndpointSuite(t)
 	logger := hivetest.Logger(t)
 	logPath := filepath.Join(option.Config.StateDir, "endpoint-policy.log")
 	f, err := os.Create(logPath)
@@ -27,8 +28,7 @@ func TestPolicyLog(t *testing.T) {
 	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
 
 	model := newTestEndpointModel(12345, StateReady)
-	p := createTestEndpointParams(t)
-	p.PolicyRepo = do.repo
+	p := createEndpointParams(t, nil, do.repo, do.fetcher)
 	ep, err := NewEndpointFromChangeModel(p, nil, nil, model, f)
 	require.NoError(t, err)
 
