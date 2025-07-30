@@ -24,7 +24,6 @@ to learn how to level up through the project.
  * [Gilberto Bertin] (Isovalent)
  * [Glib Smaga] (Isovalent)
  * [Hemanth Malla] (Microsoft)
- * [Ian Vernon]
  * [Jarno Rajahalme] (Isovalent)
  * [Joe Stringer] (Isovalent)
  * [John Fastabend] (Isovalent)
@@ -63,6 +62,7 @@ We would like to acknowledge previous committers and their huge contributions to
  * [Beatriz Martínez] (Isovalent)
  * [Dan Wendlandt] (Isovalent)
  * [Eloy Coto] (Red Hat)
+ * [Ian Vernon]
  * [Ilya Dmitrichenko] (Docker)
  * [Michal Rostecki] (Anza)
  * [Ray Bejjani]
