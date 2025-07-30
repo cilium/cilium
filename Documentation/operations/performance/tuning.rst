@@ -447,10 +447,21 @@ should consider increasing the aggregation interval or rate limiting events.
 Increase Aggregation Interval
 -----------------------------
 
-By default Cilium generates a tracing event for send packets only on every new
-connection, any time a packet contains TCP flags that have not been previously
-seen for the packet direction, and on average once per ``monitor-aggregation-interval``,
-which defaults to 5 seconds.
+By default Cilium generates tracing events according to the configured
+``monitor-aggregation`` level. For packet events, Cilium generates a tracing
+event for send packets only on every new connection, any time a packet contains
+TCP flags that have not been previously seen for the packet direction, and on
+average once per ``monitor-aggregation-interval``, which defaults to 5 seconds.
+When socket load-balancing is enabled, the same aggregation levels apply to
+socket translation events (for example, pre/post reverse translation):
+
+- ``none``: emit all socket trace events
+- ``lowest``/``low``: suppress reverse-direction (recv) socket traces
+- ``medium``/``maximum``: emit socket trace events only for connect system calls
+
+When aggregation is enabled (>= ``lowest``), socket trace emission is aligned
+to ``monitor-aggregation-interval`` using a strict cadence of approximately one
+trace per interval for active flows.
 
 Depending on your network traffic patterns, the re-emitting of trace events per
 aggregation interval can make up a large part of the total events. Increasing the
