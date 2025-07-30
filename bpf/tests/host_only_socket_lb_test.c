@@ -91,14 +91,14 @@ int test1_check(__maybe_unused struct xdp_md *ctx)
 
 	/* If netns is not the host, then xlate should be skipped. */
 	addr.user_port = DST_PORT;
-	ret = __sock4_xlate_fwd(&addr, &addr, false);
+	ret = __sock4_xlate_fwd(&addr, &addr, false, true);
 	assert(addr.user_ip4 == v4_svc_one);
 	assert(addr.user_port == DST_PORT);
 	assert(ret == -ENXIO);
 
 	/* If netns is host, then xlate should happen. */
 	addr.user_port = DST_PORT_HOSTNS; /* see my_get_netns_cookie */
-	ret = __sock4_xlate_fwd(&addr, &addr, false);
+	ret = __sock4_xlate_fwd(&addr, &addr, false, true);
 	test_log("xlate_fwd: %d", ret);
 	test_log("ip %lx", addr.user_ip4);
 	test_log("port %d", addr.user_port);
