@@ -5,10 +5,12 @@ package compute
 
 import (
 	"log/slog"
+	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -67,4 +69,34 @@ type Params struct {
 
 	Repo      policy.PolicyRepository
 	IDManager identitymanager.IDManager
+}
+
+func InstantiateCellForTesting(tb testing.TB, logger *slog.Logger, id, desc string, repo policy.PolicyRepository, idmgr identitymanager.IDManager) PolicyRecomputer {
+	tb.Helper()
+
+	var pc PolicyRecomputer
+
+	hive.New(
+		cell.Module(id, desc,
+			cell.Invoke(
+				func(c_ PolicyRecomputer) error {
+					pc = c_
+					return nil
+				},
+			),
+
+			cell.ProvidePrivate(func() policy.PolicyRepository { return repo }),
+			cell.ProvidePrivate(func() identitymanager.IDManager { return idmgr }),
+
+			cell.Provide(
+				func(params Params) PolicyRecomputer {
+					return NewIdentityPolicyComputer(params)
+				},
+			),
+			cell.Provide(NewPolicyComputationTable),
+			cell.Provide(statedb.RWTable[Result].ToTable),
+		),
+	).Populate(logger)
+
+	return pc
 }

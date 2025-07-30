@@ -5,7 +5,6 @@ package policycell
 
 import (
 	"context"
-	"log/slog"
 	"net/netip"
 	"testing"
 
@@ -14,12 +13,14 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	policyutils "github.com/cilium/cilium/pkg/policy/utils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -93,11 +94,17 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		},
 	}
 
+	logger := hivetest.Logger(t)
+	idmgr := identitymanager.NewIDManager(logger)
+	repo := policy.NewPolicyRepository(logger, ids, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
+	polComputer := compute.InstantiateCellForTesting(t, logger, "policy-cell", "TestAddReplaceRemoveRule", repo, idmgr)
+
 	pi := &policyImporter{
-		log:  slog.Default(),
-		repo: policy.NewPolicyRepository(hivetest.Logger(t), ids, nil, nil, nil, testpolicy.NewPolicyMetricsNoop()),
-		epm:  epm,
-		ipc:  ipc,
+		log:      logger,
+		repo:     repo,
+		computer: polComputer,
+		epm:      epm,
+		ipc:      ipc,
 
 		q: make(chan *policytypes.PolicyUpdate, 10),
 
