@@ -23,7 +23,7 @@ import (
 func TestGetCiliumEndpointStatus(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), nil, &models.EndpointChangeRequest{
+	e, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, s.fetcher, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), nil, &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
 			IPV4: "192.168.1.100",
 			IPV6: "f00d::a10:0:0:abcd",
@@ -67,7 +67,7 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), nil, &models.EndpointChangeRequest{
+	e, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, s.fetcher, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), nil, &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
 			IPV4: "192.168.1.100",
 			IPV6: "f00d::a10:0:0:abcd",
