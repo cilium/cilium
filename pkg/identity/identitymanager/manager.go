@@ -15,6 +15,8 @@ import (
 
 type IDManager interface {
 	Add(identity *identity.Identity)
+	Get(*identity.NumericIdentity) *identity.Identity
+	GetAll() []*identity.Identity
 	GetIdentityModels() []*models.IdentityEndpoints
 	Remove(identity *identity.Identity)
 	RemoveAll()
@@ -156,6 +158,35 @@ func (idm *IdentityManager) remove(identity *identity.Identity) {
 		}
 	}
 
+}
+
+// Get returns the full identity based on the numeric identity. The returned
+// identity is a pointer to a live object; do not modify!
+func (idm *IdentityManager) Get(id *identity.NumericIdentity) *identity.Identity {
+	if id == nil {
+		return nil
+	}
+
+	idm.mutex.RLock()
+	defer idm.mutex.RUnlock()
+
+	idd, exists := idm.identities[*id]
+	if !exists {
+		return nil
+	}
+	return idd.identity
+}
+
+// GetAll returns all identities from the manager. The returned slices contains
+// identities that are pointers to a live objects; do not modify!
+func (idm *IdentityManager) GetAll() []*identity.Identity {
+	idm.mutex.RLock()
+	defer idm.mutex.RUnlock()
+	ids := make([]*identity.Identity, 0, len(idm.identities))
+	for _, v := range idm.identities {
+		ids = append(ids, v.identity)
+	}
+	return ids
 }
 
 // GetIdentityModels returns the API representation of the IdentityManager.
