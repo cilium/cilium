@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container/cache"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -206,7 +207,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 			for _, port := range svc.Spec.Ports {
 				fe := loadbalancer.FrontendParams{
 					Type:        loadbalancer.SVCTypeClusterIP,
-					PortName:    loadbalancer.FEPortName(port.Name),
+					PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
 					ServiceName: name,
 					ServicePort: uint16(port.Port),
 				}
@@ -248,7 +249,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 
 						fe := loadbalancer.FrontendParams{
 							Type:        loadbalancer.SVCTypeNodePort,
-							PortName:    loadbalancer.FEPortName(port.Name),
+							PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
 							ServiceName: name,
 							ServicePort: uint16(port.Port),
 						}
@@ -303,7 +304,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 					for _, port := range svc.Spec.Ports {
 						fe := loadbalancer.FrontendParams{
 							Type:        loadbalancer.SVCTypeLoadBalancer,
-							PortName:    loadbalancer.FEPortName(port.Name),
+							PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
 							ServiceName: name,
 							ServicePort: uint16(port.Port),
 						}
@@ -340,7 +341,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 			for _, port := range svc.Spec.Ports {
 				fe := loadbalancer.FrontendParams{
 					Type:        loadbalancer.SVCTypeExternalIPs,
-					PortName:    loadbalancer.FEPortName(port.Name),
+					PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
 					ServiceName: name,
 					ServicePort: uint16(port.Port),
 				}
