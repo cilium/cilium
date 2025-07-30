@@ -5,6 +5,7 @@ package policycell
 
 import (
 	"context"
+	"fmt"
 	"iter"
 	"log/slog"
 	"net/netip"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/agent"
 	monitorapi "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -43,6 +45,7 @@ type policyImporterParams struct {
 	Config   Config
 
 	Repo            policy.PolicyRepository
+	PolicyComputer  compute.PolicyRecomputer
 	EndpointManager endpointmanager.EndpointManager
 	IPCache         IPCacher
 	MonitorAgent    agent.Agent
@@ -51,6 +54,7 @@ type policyImporterParams struct {
 type policyImporter struct {
 	log          *slog.Logger
 	repo         policy.PolicyRepository
+	computer     compute.PolicyRecomputer
 	epm          epmanager
 	ipc          IPCacher
 	monitorAgent agent.Agent
@@ -81,6 +85,7 @@ func newPolicyImporter(cfg policyImporterParams) PolicyImporter {
 	i := &policyImporter{
 		log:          cfg.Log,
 		repo:         cfg.Repo,
+		computer:     cfg.PolicyComputer,
 		epm:          cfg.EndpointManager,
 		ipc:          cfg.IPCache,
 		monitorAgent: cfg.MonitorAgent,
@@ -317,6 +322,8 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 	// Unaffected endpoints can merely have their policy revision set.
 	i.log.Debug("Policy repository updates complete, triggering endpoint updates",
 		logfields.PolicyRevision, endRevision)
+	fmt.Printf("chris debug: policyImporter calling UpdatePolicy: %v\n", idsToRegen)
+	i.computer.UpdatePolicy(*idsToRegen, startRevision, endRevision)
 	if i.epm != nil {
 		i.epm.UpdatePolicy(idsToRegen, startRevision, endRevision)
 	}
