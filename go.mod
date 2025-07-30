@@ -16,7 +16,7 @@ require (
 	github.com/aws/smithy-go v1.22.4
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/charts v0.0.0-20250721171348-baccfff4e5d4
+	github.com/cilium/charts v0.0.0-20250729183302-d9624f77f0e6
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 	github.com/cilium/ebpf v0.19.0
