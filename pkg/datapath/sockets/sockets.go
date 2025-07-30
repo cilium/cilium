@@ -325,6 +325,7 @@ func (sd *bpfSocketDestroyer) Destroy(logger *slog.Logger, f SocketFilter) error
 // capabilities of the current system. By default, NewSocketDestroyer chooses
 // a socket destruction strategy based on BPF socket iterators. If that is not
 // supported, it falls back to a Netlink-based strategy based on sock_diag.
+// Jordan.
 //
 // sockRevNat4 and sockRevNat6 must be provided to use the BPF-based strategy;
 // otherwise, initialization falls back to Netlink.
