@@ -9,37 +9,19 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/testutils"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 func TestWriteInformationalComments(t *testing.T) {
-	logger := hivetest.Logger(t)
 	s := setupEndpointSuite(t)
 
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	p := EndpointParams{
-		Logger:           logger,
-		EPBuildQueue:     &MockEndpointBuildQueue{},
-		Orchestrator:     s.orchestrator,
-		PolicyRepo:       s.repo,
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeTypes.IPsecConfig{},
-		WgConfig:         fakeTypes.WireguardConfig{},
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-	}
-	e, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
+	p := createEndpointParams(t, s.orchestrator, s.repo, s.fetcher)
+	e, err := NewEndpointFromChangeModel(p, nil, &FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
 	e.Start(uint16(model.ID))
@@ -53,25 +35,13 @@ func TestWriteInformationalComments(t *testing.T) {
 type writeFunc func(io.Writer) error
 
 func BenchmarkWriteHeaderfile(b *testing.B) {
-	logger := hivetest.Logger(b)
 	testutils.IntegrationTest(b)
 
 	s := setupEndpointSuite(b)
 
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	p := EndpointParams{
-		Logger:           logger,
-		EPBuildQueue:     &MockEndpointBuildQueue{},
-		Orchestrator:     s.orchestrator,
-		PolicyRepo:       s.repo,
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeTypes.IPsecConfig{},
-		WgConfig:         fakeTypes.WireguardConfig{},
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-	}
-	e, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
+	p := createEndpointParams(b, s.orchestrator, s.repo, s.fetcher)
+	e, err := NewEndpointFromChangeModel(p, nil, &FakeEndpointProxy{}, model, nil)
 	require.NoError(b, err)
 
 	e.Start(uint16(model.ID))

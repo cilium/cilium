@@ -57,6 +57,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -168,7 +169,8 @@ type Endpoint struct {
 
 	epBuildQueue EndpointBuildQueue
 
-	policyRepo policy.PolicyRepository
+	policyRepo    policy.PolicyRepository
+	policyFetcher compute.PolicyRecomputer
 
 	// namedPortsGetter can get the ipcache.IPCache object.
 	namedPortsGetter NamedPortsGetter
@@ -642,10 +644,11 @@ func createEndpoint(
 		wgConfig:           p.WgConfig,
 		ipsecConfig:        p.IPSecConfig,
 		lxcMap:             p.LxcMap,
+		localNodeStore:     p.LocalNodeStore,
 		policyMapFactory:   p.PolicyMapFactory,
 		policyRepo:         p.PolicyRepo,
+		policyFetcher:      p.PolicyFetcher,
 		namedPortsGetter:   p.NamedPortsGetter,
-		localNodeStore:     p.LocalNodeStore,
 		ID:                 ID,
 		createdAt:          time.Now(),
 		proxy:              proxy,
@@ -744,7 +747,6 @@ func CreateIngressEndpoint(p EndpointParams,
 func CreateHostEndpoint(p EndpointParams,
 	dnsRulesAPI DNSRulesAPI, proxy EndpointProxy,
 	policyDebugLog io.Writer) (*Endpoint, error) {
-
 	iface, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return nil, err
@@ -982,14 +984,15 @@ func ParseEndpoint(p EndpointParams,
 		wgConfig:         p.WgConfig,
 		ipsecConfig:      p.IPSecConfig,
 		lxcMap:           p.LxcMap,
+		localNodeStore:   p.LocalNodeStore,
 		policyMapFactory: p.PolicyMapFactory,
 		namedPortsGetter: p.NamedPortsGetter,
 		policyRepo:       p.PolicyRepo,
+		policyFetcher:    p.PolicyFetcher,
 		proxy:            proxy,
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
 		kvstoreSyncher:   p.KVStoreSynchronizer,
-		localNodeStore:   p.LocalNodeStore,
 	}
 
 	if err := ep.UnmarshalJSON(epJSON); err != nil {
@@ -2094,8 +2097,8 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 	e.getLogger().Debug(
 		"Refreshing labels of endpoint",
 		logfields.SourceFilter, sourceFilter,
-		logfields.IdentityLabels, map[string]labels.Label(identityLabels),
-		logfields.InfoLabels, map[string]labels.Label(infoLabels),
+		logfields.IdentityLabels, identityLabels,
+		logfields.InfoLabels, infoLabels,
 	)
 
 	if err := e.lockAlive(); err != nil {
@@ -2154,7 +2157,7 @@ func (e *Endpoint) UpdateLabelsFrom(oldLbls, newLbls map[string]string, source s
 
 	e.getLogger().Debug(
 		"Updated endpoint with new labels",
-		logfields.Labels, map[string]labels.Label(newIdtyLabels),
+		logfields.Labels, newIdtyLabels,
 	)
 	return nil
 }
@@ -2358,6 +2361,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 		}
 	}
 
+	// Unconditionally force policy recomputation after a new identity has been
+	// assigned.
+	e.forcePolicyComputation()
+
 	readyToRegenerate := false
 	regenMetadata := &regeneration.ExternalRegenerationMetadata{
 		Reason:            regeneration.ReasonLabelsUpdate,
@@ -2376,10 +2383,6 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	if e.ID != 0 {
 		readyToRegenerate = e.setRegenerateStateLocked(regenMetadata)
 	}
-
-	// Unconditionally force policy recomputation after a new identity has been
-	// assigned.
-	e.forcePolicyComputation()
 
 	// Trigger the sync-to-k8s-ciliumendpoint controller to sync the new
 	// endpoint's identity.
