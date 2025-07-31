@@ -78,17 +78,6 @@ func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) (loadbalancer.
 	return loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode), nil
 }
 
-func getAnnotationServiceLoadBalancingAlgorithm(svc *slim_corev1.Service) (loadbalancer.SVCLoadBalancingAlgorithm, error) {
-	if value, ok := annotation.Get(svc, annotation.ServiceLoadBalancingAlgorithm); ok {
-		val := loadbalancer.ToSVCLoadBalancingAlgorithm(strings.ToLower(value))
-		if val != loadbalancer.SVCLoadBalancingAlgorithmUndef {
-			return val, nil
-		}
-		return loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg), fmt.Errorf("Value %q is not supported for %q", val, annotation.ServiceLoadBalancingAlgorithm)
-	}
-	return loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg), nil
-}
-
 func getTopologyAware(svc *slim_corev1.Service) bool {
 	return getAnnotationTopologyAwareHints(svc) ||
 		(svc.Spec.TrafficDistribution != nil &&
@@ -284,15 +273,21 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		}
 	}
 
-	svcInfo.LoadBalancerAlgorithm = loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg)
 	if option.Config.LoadBalancerAlgorithmAnnotation {
-		var err error
-
-		svcInfo.LoadBalancerAlgorithm, err = getAnnotationServiceLoadBalancingAlgorithm(svc)
-		if err != nil {
-			scopedLog.WithError(err).Warnf("Ignoring %q annotation, applying global configuration: %v",
-				annotation.ServiceLoadBalancingAlgorithm, svcInfo.LoadBalancerAlgorithm)
+		if value, ok := annotation.Get(svc, annotation.ServiceLoadBalancingAlgorithm); ok {
+			algo := loadbalancer.ToSVCLoadBalancingAlgorithm(strings.ToLower(value))
+			if algo == loadbalancer.SVCLoadBalancingAlgorithmUndef {
+				scopedLog.Warnf("Value %q is not supported for %q annotation, not setting any algorithm",
+					value, annotation.ServiceLoadBalancingAlgorithm)
+				svcInfo.LoadBalancerAlgorithm = loadbalancer.SVCLoadBalancingAlgorithmUndef
+			} else {
+				svcInfo.LoadBalancerAlgorithm = algo
+			}
+		} else {
+			svcInfo.LoadBalancerAlgorithm = loadbalancer.SVCLoadBalancingAlgorithmUndef
 		}
+	} else {
+		svcInfo.LoadBalancerAlgorithm = loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg)
 	}
 
 	if svc.Spec.SessionAffinity == slim_corev1.ServiceAffinityClientIP {
