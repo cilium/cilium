@@ -20,6 +20,8 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/kvstore"
+	ciliumMetrics "github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestAPIServerK8sDisabled(t *testing.T) {
@@ -32,6 +34,10 @@ func TestAPIServerK8sDisabled(t *testing.T) {
 	var testSrv Server
 
 	hive := hive.New(
+		cell.Provide(ciliumMetrics.NewRegistry),
+		cell.Provide(func() (*option.DaemonConfig, ciliumMetrics.RegistryConfig) {
+			return option.Config, ciliumMetrics.RegistryConfig{}
+		}),
 		k8sClient.FakeClientCell(),
 		cell.Invoke(func(cs *k8sClient.FakeClientset) {
 			cs.Disable()
@@ -100,6 +106,10 @@ func TestAPIServerK8sEnabled(t *testing.T) {
 	var testSrv Server
 
 	hive := hive.New(
+		cell.Provide(ciliumMetrics.NewRegistry),
+		cell.Provide(func() (*option.DaemonConfig, ciliumMetrics.RegistryConfig) {
+			return option.Config, ciliumMetrics.RegistryConfig{}
+		}),
 		k8sClient.FakeClientCell(),
 		kvstore.Cell(kvstore.DisabledBackendName),
 

@@ -21,7 +21,9 @@ import (
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/hive"
 	cellMetric "github.com/cilium/cilium/pkg/metrics"
+	ciliumMetrics "github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
@@ -35,7 +37,10 @@ func TestMetricsHandlerWithoutMetrics(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	hive := hive.New(
-		operatorMetrics.Cell,
+		cell.Provide(ciliumMetrics.NewRegistry),
+		cell.Provide(func() (*option.DaemonConfig, ciliumMetrics.RegistryConfig) {
+			return option.Config, ciliumMetrics.RegistryConfig{}
+		}),
 		cell.Provide(func() operatorMetrics.SharedConfig {
 			return operatorMetrics.SharedConfig{
 				EnableMetrics: false,
@@ -68,7 +73,7 @@ func TestMetricsHandlerWithoutMetrics(t *testing.T) {
 		t.Fatalf("expected http status code %d, got %d", http.StatusOK, rr.Result().StatusCode)
 	}
 
-	body, err := safeio.ReadAllLimit(rr.Result().Body, safeio.KB)
+	body, err := safeio.ReadAllLimit(rr.Result().Body, safeio.MB)
 	if err != nil {
 		t.Fatalf("error while reading response body: %s", err)
 	}
@@ -104,6 +109,10 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 				EnableMetrics: true,
 			}
 		}),
+		cell.Provide(func() *option.DaemonConfig {
+			return option.Config
+		}),
+
 		cellMetric.Metric(newTestMetrics),
 
 		MetricsHandlerCell,
