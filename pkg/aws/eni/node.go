@@ -662,7 +662,6 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 
 	// An ec2 instance has at least one ENI attached, no ENI found implies instance not found.
 	if enis == 0 {
-		scopedLog.Warn("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
 		return nil, stats, fmt.Errorf("unable to retrieve ENIs")
 	}
 
