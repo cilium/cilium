@@ -17,6 +17,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -86,6 +87,8 @@ type IPMasqMap interface {
 
 // IPMasqAgent represents a state of the ip-masq-agent
 type IPMasqAgent struct {
+	lock lock.Mutex
+
 	logger                 *slog.Logger
 	configPath             string
 	masqLinkLocalIPv4      bool
@@ -113,6 +116,9 @@ func NewIPMasqAgent(logger *slog.Logger, configPath string, ipMasqMap IPMasqMap)
 // Start starts the ip-masq-agent goroutine which tracks the config file and
 // updates the BPF map accordingly.
 func (a *IPMasqAgent) Start() error {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("failed to create fsnotify watcher: %w", err)
@@ -130,7 +136,7 @@ func (a *IPMasqAgent) Start() error {
 	if err := a.restore(); err != nil {
 		a.logger.Warn("Failed to restore", logfields.Error, err)
 	}
-	if err := a.Update(); err != nil {
+	if err := a.update(); err != nil {
 		a.logger.Warn("Failed to update", logfields.Error, err)
 	}
 
@@ -175,8 +181,14 @@ func (a *IPMasqAgent) Stop() {
 	a.watcher.Close()
 }
 
-// Update updates the ipmasq BPF map entries with ones from the config file.
 func (a *IPMasqAgent) Update() error {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	return a.update()
+}
+
+// Update updates the ipmasq BPF map entries with ones from the config file.
+func (a *IPMasqAgent) update() error {
 	isEmpty, err := a.readConfig()
 	if err != nil {
 		return err
