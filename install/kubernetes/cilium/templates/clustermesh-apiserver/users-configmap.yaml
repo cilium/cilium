@@ -21,7 +21,7 @@ metadata:
 data:
   users.yaml: |
     users:
-    {{- range .Values.clustermesh.config.clusters }}
+    {{- range (include "clustermesh-clusters" . | fromJson) }}
     - name: remote-{{ .name }}
       role: remote
     {{- end }}
