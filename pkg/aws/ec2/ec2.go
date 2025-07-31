@@ -215,7 +215,7 @@ func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamType
 	result := make([]string, 0, int(maxResults))
 	input := &ec2.DescribeNetworkInterfacesInput{
 		Filters:    NewTagsFilter(tags),
-		MaxResults: aws.Int32(maxResults),
+		MaxResults: aws.Int32(defaults.ENIMaxResultsPerApiCall),
 	}
 	for _, subnetFilter := range c.subnetsFilters {
 		if aws.ToString(subnetFilter.Name) == "subnet-id" {
