@@ -223,7 +223,7 @@ func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamType
 		}
 	}
 	if operatorOption.Config.AWSPaginationEnabled {
-		input.MaxResults = aws.Int32(maxResults)
+		input.MaxResults = aws.Int32(defaults.ENIMaxResultsPerApiCall)
 	}
 
 	input.Filters = append(input.Filters, ec2_types.Filter{
