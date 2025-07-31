@@ -16,7 +16,7 @@ type AnyTable struct {
 }
 
 func (t AnyTable) NumObjects(txn ReadTxn) int {
-	indexTxn := txn.getTxn().mustIndexReadTxn(t.Meta, PrimaryIndexPos)
+	indexTxn := txn.mustIndexReadTxn(t.Meta, PrimaryIndexPos)
 	return indexTxn.Len()
 }
 
@@ -26,7 +26,7 @@ func (t AnyTable) All(txn ReadTxn) iter.Seq2[any, Revision] {
 }
 
 func (t AnyTable) AllWatch(txn ReadTxn) (iter.Seq2[any, Revision], <-chan struct{}) {
-	indexTxn := txn.getTxn().mustIndexReadTxn(t.Meta, PrimaryIndexPos)
+	indexTxn := txn.mustIndexReadTxn(t.Meta, PrimaryIndexPos)
 	return partSeq[any](indexTxn.Iterator()), indexTxn.RootWatch()
 }
 
@@ -128,7 +128,7 @@ func (t AnyTable) queryIndex(txn ReadTxn, index string, key string) (indexReadTx
 	if err != nil {
 		return indexReadTxn{}, nil, err
 	}
-	itxn, err := txn.getTxn().indexReadTxn(t.Meta, indexer.pos)
+	itxn, err := txn.indexReadTxn(t.Meta, indexer.pos)
 	return itxn, rawKey, err
 }
 
