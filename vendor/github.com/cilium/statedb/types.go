@@ -249,11 +249,13 @@ type tableInternal interface {
 	secondary() map[string]anyIndexer      // Secondary indexers (if any)
 	sortableMutex() internal.SortableMutex // The sortable mutex for locking the table for writing
 	anyChanges(txn WriteTxn) (anyChangeIterator, error)
-	proto() any                             // Returns the zero value of 'Obj', e.g. the prototype
+	typeName() string                       // Returns the 'Obj' type as string
 	unmarshalYAML(data []byte) (any, error) // Unmarshal the data into 'Obj'
 	numDeletedObjects(txn ReadTxn) int      // Number of objects in graveyard
 	acquired(*writeTxn)
 	getAcquiredInfo() string
+	tableHeader() []string
+	tableRowAny(any) []string
 }
 
 type ReadTxn interface {
@@ -397,7 +399,7 @@ type Indexer[Obj any] interface {
 }
 
 // TableWritable is a constraint for objects that implement tabular
-// pretty-printing. Used in "cilium-dbg statedb" sub-commands.
+// pretty-printing. Used by the "db" script commands to render a table.
 type TableWritable interface {
 	// TableHeader returns the header columns that are independent of the
 	// object.

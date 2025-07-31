@@ -287,12 +287,9 @@ const (
 )
 
 func NewServicesTable(cfg Config, db *statedb.DB) (statedb.RWTable[*Service], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		ServiceTableName,
 		serviceNameIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }

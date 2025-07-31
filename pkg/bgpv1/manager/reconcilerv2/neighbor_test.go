@@ -791,21 +791,13 @@ func setupStateDB(routes []*tables.Route) (*statedb.DB, error) {
 	if len(routes) == 0 {
 		return db, nil
 	}
-	routeTable, err := tables.NewRouteTable()
+	routeTable, err := tables.NewRouteTable(db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create default gateway table: %w", err)
 	}
-	deviceTable, err := tables.NewDeviceTable()
+	deviceTable, err := tables.NewDeviceTable(db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create device table: %w", err)
-	}
-	err = db.RegisterTable(routeTable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to register default gateway table: %w", err)
-	}
-	err = db.RegisterTable(deviceTable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to register device table: %w", err)
 	}
 	txn := db.WriteTxn(routeTable, deviceTable)
 	for _, r := range routes {

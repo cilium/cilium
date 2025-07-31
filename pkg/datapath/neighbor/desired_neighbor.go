@@ -80,7 +80,7 @@ func (dn *DesiredNeighbor) TableRow() []string {
 	return []string{
 		dn.IP.String(),
 		fmt.Sprintf("%d", dn.IfIndex),
-		string(dn.Status.Kind),
+		dn.Status.Kind.String(),
 	}
 }
 
@@ -97,13 +97,9 @@ var (
 )
 
 func newDesiredNeighborTable(db *statedb.DB) (statedb.RWTable[*DesiredNeighbor], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		"desired-neighbors",
 		DesiredNeighborIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return tbl, db.RegisterTable(tbl)
 }

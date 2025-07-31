@@ -1073,8 +1073,8 @@ func TestBPFOps(t *testing.T) {
 
 	// Insert node addrs used for NodePort/HostPort
 	db := statedb.New()
-	nodeAddrs, _ := tables.NewNodeAddressTable()
-	require.NoError(t, db.RegisterTable(nodeAddrs))
+	nodeAddrs, err := tables.NewNodeAddressTable(db)
+	require.NoError(t, err)
 	wtxn := db.WriteTxn(nodeAddrs)
 	for _, n := range nodePortAddrs {
 		na := tables.NodeAddress{

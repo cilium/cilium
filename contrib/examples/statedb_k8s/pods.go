@@ -33,14 +33,21 @@ var (
 
 // NewPodTable creates the pod table and registers it.
 func NewPodTable(db *statedb.DB) (statedb.RWTable[*v1.Pod], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTableAny(
+		db,
 		PodTableName,
+		podTableHeader,
+		podTableRow,
 		podNameIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
+}
+
+func podTableHeader() []string {
+	return []string{"Namespace", "Name"}
+}
+
+func podTableRow(pod *v1.Pod) []string {
+	return []string{pod.Namespace, pod.Name}
 }
 
 // PodListerWatcher is the lister watcher for pod objects. This is separately

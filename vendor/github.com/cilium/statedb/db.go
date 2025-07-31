@@ -137,45 +137,24 @@ func New(options ...Option) *DB {
 	return db
 }
 
-// RegisterTable registers a table to the database:
-//
-//	func NewMyTable() statedb.RWTable[MyTable] { ... }
-//	cell.Provide(NewMyTable),
-//	cell.Invoke(statedb.RegisterTable[MyTable]),
-func RegisterTable[Obj any](db *DB, table RWTable[Obj]) error {
-	return db.RegisterTable(table)
-}
-
-// RegisterTable registers a table to the database.
-func (db *DB) RegisterTable(table TableMeta, tables ...TableMeta) error {
+func (db *DB) registerTable(table TableMeta) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	root := slices.Clone(*db.root.Load())
 
-	if err := db.registerTable(table, &root); err != nil {
-		return err
-	}
-	for _, t := range tables {
-		if err := db.registerTable(t, &root); err != nil {
-			return err
-		}
-	}
-	db.root.Store(&root)
-	return nil
-}
-
-func (db *DB) registerTable(table TableMeta, root *dbRoot) error {
 	name := table.Name()
-	for _, t := range *root {
+	for _, t := range root {
 		if t.meta.Name() == name {
 			return tableError(name, ErrDuplicateTable)
 		}
 	}
 
-	pos := len(*root)
+	pos := len(root)
 	table.setTablePos(pos)
-	*root = append(*root, table.tableEntry())
+	root = append(root, table.tableEntry())
+
+	db.root.Store(&root)
 	return nil
 }
 

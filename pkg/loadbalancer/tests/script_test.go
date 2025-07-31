@@ -112,7 +112,6 @@ func TestScript(t *testing.T) {
 						return uhive.NewScriptCmds(testCommands{w, lns, ops, waitFn}.cmds())
 					},
 				),
-				cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 
 				lbcell.Cell,
 			)
