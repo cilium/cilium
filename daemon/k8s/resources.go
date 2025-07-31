@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -49,9 +50,9 @@ var (
 		"Agent Kubernetes local node resources",
 
 		cell.Provide(
-			func(lc cell.Lifecycle, cs client.Clientset) (LocalNodeResource, error) {
+			func(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (LocalNodeResource, error) {
 				return k8s.NodeResource(
-					lc, cs,
+					lc, cs, mp,
 					func(opts *metav1.ListOptions) {
 						opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
 					},

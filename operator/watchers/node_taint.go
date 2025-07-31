@@ -492,7 +492,7 @@ func HandleNodeTolerationAndTaints(wg *sync.WaitGroup, clientset k8sClient.Clien
 		SetCiliumIsUpCondition: option.Config.SetCiliumIsUpCondition,
 	}
 
-	nodesInit(wg, clientset.Slim(), stopCh, logger)
+	nodesInit(wg, clientset.Slim(), stopCh, nil)
 	// ciliumPodWatcher blocks waiting for cache sync.
 	// we need to do it before starting worker threads
 	// so checkAndMarkNode has cilium-pod information.
