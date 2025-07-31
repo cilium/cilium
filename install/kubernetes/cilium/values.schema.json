@@ -1448,7 +1448,10 @@
           "properties": {
             "clusters": {
               "items": {},
-              "type": "array"
+              "type": [
+                "object",
+                "array"
+              ]
             },
             "domain": {
               "type": "string"
