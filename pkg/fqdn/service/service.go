@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -90,10 +91,38 @@ type policyRules struct {
 	SelPol   policy.SelectorPolicy
 }
 
+// TableHeader implements statedb.TableWritable.
+func (p policyRules) TableHeader() []string {
+	return []string{"Identity"}
+}
+
+// TableRow implements statedb.TableWritable.
+func (p policyRules) TableRow() []string {
+	return []string{p.Identity.String()}
+}
+
+var _ statedb.TableWritable = policyRules{}
+
 type identityToIPs struct {
 	Identity identity.NumericIdentity
 	IPs      part.Set[netip.Prefix]
 }
+
+// TableHeader implements statedb.TableWritable.
+func (i identityToIPs) TableHeader() []string {
+	return []string{"Identity", "IPs"}
+}
+
+// TableRow implements statedb.TableWritable.
+func (i identityToIPs) TableRow() []string {
+	ips := make([]string, 0, i.IPs.Len())
+	for p := range i.IPs.All() {
+		ips = append(ips, p.String())
+	}
+	return []string{i.Identity.String(), strings.Join(ips, ", ")}
+}
+
+var _ statedb.TableWritable = identityToIPs{}
 
 const (
 	PolicyRulesTableName   = "policy-rules"
@@ -232,34 +261,20 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 
 // newPolicyRulesTable creates a new table for storing the policy rules and registers it with the database.
 func newPolicyRulesTable(db *statedb.DB) (statedb.RWTable[policyRules], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		PolicyRulesTableName,
 		idIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	err = db.RegisterTable(tbl)
-	if err != nil {
-		return nil, fmt.Errorf("failed to register table %s: %w", PolicyRulesTableName, err)
-	}
-	return tbl, nil
 }
 
 // newIdentityToIPsTable creates a new table for storing the identity to IP mapping and registers it with the database.
 func newIdentityToIPsTable(db *statedb.DB) (statedb.RWTable[identityToIPs], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		IdentityToIPsTableName,
 		idIndexIdentityToIP,
 	)
-	if err != nil {
-		return nil, err
-	}
-	err = db.RegisterTable(tbl)
-	if err != nil {
-		return nil, fmt.Errorf("failed to register table identity-to-ip: %w", err)
-	}
-	return tbl, nil
 }
 
 // NewServer creates a new FQDNDataServer which is used to handle the Standalone DNS Proxy grpc service

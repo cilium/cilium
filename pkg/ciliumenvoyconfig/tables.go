@@ -122,15 +122,12 @@ var (
 )
 
 func NewCECTable(db *statedb.DB) (statedb.RWTable[*CEC], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		CECTableName,
 		cecNameIndex,
 		cecServiceIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 type EnvoyResourceOrigin string
@@ -310,9 +307,9 @@ func (r *EnvoyResource) TableRow() []string {
 		r.showListeners(),
 		r.showEndpoints(),
 		r.showReferences(),
-		string(r.Status.Kind),
+		r.Status.Kind.String(),
 		duration.HumanDuration(time.Since(r.Status.UpdatedAt)),
-		r.Status.Error,
+		r.Status.GetError(),
 	}
 }
 
@@ -346,13 +343,10 @@ var (
 )
 
 func NewEnvoyResourcesTable(db *statedb.DB) (statedb.RWTable[*EnvoyResource], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		EnvoyResourcesTableName,
 		envoyResourceNameIndex,
 		envoyResourceOriginIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }

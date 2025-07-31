@@ -28,7 +28,6 @@ var Cell = cell.Module(
 		newThrottleMap,
 	),
 	cell.Invoke(
-		statedb.RegisterTable[Edt],
 		registerReconciler,
 		bpf.RegisterTablePressureMetricsJob[Edt, throttleMap],
 	),

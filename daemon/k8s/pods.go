@@ -109,14 +109,11 @@ func PodByName(namespace, name string) statedb.Query[LocalPod] {
 }
 
 func NewPodTable(db *statedb.DB) (statedb.RWTable[LocalPod], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		PodTableName,
 		PodNameIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 func podReflectorConfig(cs client.Clientset, pods statedb.RWTable[LocalPod]) k8s.ReflectorConfig[LocalPod] {

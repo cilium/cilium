@@ -130,9 +130,6 @@ func fixture(t *testing.T, c *Config) (
 		),
 
 		cell.Invoke(
-			// Register the devices table, required for it to work.
-			statedb.RegisterTable[*tables.Device],
-
 			func(dbParam *statedb.DB, devicesParam statedb.RWTable[*tables.Device], procParam *processor) {
 				db = dbParam
 				devices = devicesParam

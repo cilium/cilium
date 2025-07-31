@@ -67,8 +67,9 @@ var (
 	}
 )
 
-func NewRouteTable() (statedb.RWTable[*Route], error) {
+func NewRouteTable(db *statedb.DB) (statedb.RWTable[*Route], error) {
 	return statedb.NewTable(
+		db,
 		"routes",
 		RouteIDIndex,
 		RouteLinkIndex,

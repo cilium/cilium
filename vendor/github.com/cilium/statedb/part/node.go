@@ -254,7 +254,7 @@ func (n *header[T]) printTree(level int) {
 		panic("unknown node kind")
 	}
 	if leaf := n.getLeaf(); leaf != nil {
-		fmt.Printf(" %x -> %v (L:%p W:%p)", leaf.key, leaf.value, leaf, leaf.watch)
+		fmt.Printf(" %x -> %v (L:%p W:%p)", leaf.fullKey(), leaf.value, leaf, leaf.watch)
 	}
 	fmt.Printf(" (N:%p, W:%p)\n", n, n.watch)
 
@@ -440,12 +440,21 @@ func (n *header[T]) remove(idx int) {
 
 type leaf[T any] struct {
 	header[T]
-	value T
-	key   []byte
+	value  T
+	keyLen uint16
+	keyP   *byte // the full key
+}
+
+func (l *leaf[T]) fullKey() []byte {
+	return unsafe.Slice(l.keyP, l.keyLen)
 }
 
 func newLeaf[T any](o options, prefix, key []byte, value T) *leaf[T] {
-	leaf := &leaf[T]{key: key, value: value}
+	var keyP *byte
+	if len(key) > 0 {
+		keyP = &key[0]
+	}
+	leaf := &leaf[T]{keyLen: uint16(len(key)), keyP: keyP, value: value}
 	leaf.setPrefix(prefix)
 	leaf.setKind(nodeKindLeaf)
 

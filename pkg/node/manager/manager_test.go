@@ -1004,7 +1004,6 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 		}),
 		cell.Provide(tables.NewDeviceTable),                   // Provide statedb.RWTable[*tables.Device]
 		cell.Provide(statedb.RWTable[*tables.Device].ToTable), // Provide statedb.Table[*tables.Device] from RW table
-		cell.Invoke(statedb.RegisterTable[*tables.Device]),
 		cell.Module("node_manager", "Node Manager", cell.Provide(New)),
 		cell.Invoke(fn),
 	)

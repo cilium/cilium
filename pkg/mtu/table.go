@@ -23,8 +23,9 @@ var (
 	}
 )
 
-func NewMTUTable() (statedb.RWTable[RouteMTU], error) {
+func NewMTUTable(db *statedb.DB) (statedb.RWTable[RouteMTU], error) {
 	return statedb.NewTable(
+		db,
 		"mtu",
 		MTURouteIndex,
 	)
