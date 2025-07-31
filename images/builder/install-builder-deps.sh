@@ -15,6 +15,8 @@ packages=(
   iptables
   kmod
   ca-certificates
+  python3-jinja2
+  python3-scapy
 )
 
 export DEBIAN_FRONTEND=noninteractive
