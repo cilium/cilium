@@ -214,8 +214,13 @@ func DetectEKSClusterName(ctx context.Context, cfg aws.Config) (string, error) {
 func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error) {
 	result := make([]string, 0, int(maxResults))
 	input := &ec2.DescribeNetworkInterfacesInput{
-		Filters:    append(NewTagsFilter(tags), c.subnetsFilters...),
+		Filters:    NewTagsFilter(tags),
 		MaxResults: aws.Int32(maxResults),
+	}
+	for _, subnetFilter := range c.subnetsFilters {
+		if aws.ToString(subnetFilter.Name) == "subnet-id" {
+			input.Filters = append(input.Filters, subnetFilter)
+		}
 	}
 
 	input.Filters = append(input.Filters, ec2_types.Filter{
