@@ -26,10 +26,6 @@ func FuzzResolvePolicy(f *testing.F) {
 			return
 		}
 		r.EndpointSelector = endpointSelectorA // force the endpoint selector to one that will select, so we definitely evaluate policy
-		err = r.Sanitize()
-		if err != nil {
-			return
-		}
 
 		td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
 		td.repo.mustAdd(r)

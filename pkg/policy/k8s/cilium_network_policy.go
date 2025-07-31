@@ -9,6 +9,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
+	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
@@ -156,7 +157,7 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 		}
 	}
 	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
-		Rules:               rules,
+		Rules:               k8sCiliumUtils.RulesToPolicyEntries(rules),
 		Source:              source.CustomResource,
 		ProcessingStartTime: initialRecvTime,
 		Resource:            resourceID,
