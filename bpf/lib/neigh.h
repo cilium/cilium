@@ -9,7 +9,6 @@
 #include "common.h"
 #include "eth.h"
 
-#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV6)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, union v6addr);	/* ipv6 addr */
@@ -19,6 +18,7 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_nodeport_neigh6 __section_maps_btf;
 
+#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV6)
 static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
 {
 	union macaddr smac = {}, *mac;
@@ -53,7 +53,6 @@ neigh_lookup_ip6(const union v6addr *addr __maybe_unused)
 }
 #endif /* ENABLE_NODEPORT && ENABLE_IPV6 */
 
-#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV4)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, __be32);		/* ipv4 addr */
@@ -63,6 +62,7 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_nodeport_neigh4 __section_maps_btf;
 
+#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV4)
 static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)
 {
 	union macaddr smac = {}, *mac;
