@@ -175,6 +175,12 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	ds.OnSendNotification = ds.d.SendNotification
 	ds.OnGetCIDRPrefixLengths = nil
 
+	// Ensure that the identity allocator is synchronized before starting the
+	// actual tests, to prevent flakes caused by the goroutine started by
+	// [(*CachingIdentityAllocator).InitIdentityAllocator] still lingering
+	// around when the Hive gets stopped.
+	ds.d.identityAllocator.WaitForInitialGlobalIdentities(tb.Context())
+
 	// Reset the most common endpoint states before each test.
 	for _, s := range []string{
 		string(models.EndpointStateReady),
