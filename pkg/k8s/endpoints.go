@@ -208,11 +208,7 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
 
 			for _, port := range sub.Ports {
 				lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				if port.Name != "" {
-					backend.Ports[lbPort] = append(backend.Ports[lbPort], port.Name)
-				} else {
-					backend.Ports[lbPort] = nil
-				}
+				backend.Ports[lbPort] = append(backend.Ports[lbPort], port.Name)
 			}
 		}
 	}
@@ -302,11 +298,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 			for _, port := range ep.Ports {
 				name, lbPort, ok := parseEndpointPortV1Beta1(port)
 				if ok {
-					if name != "" {
-						backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
-					} else {
-						backend.Ports[lbPort] = nil
-					}
+					backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
 				}
 			}
 		}
@@ -437,11 +429,7 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 			for _, port := range ep.Ports {
 				name, lbPort, ok := parseEndpointPortV1(port)
 				if ok {
-					if name != "" {
-						backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
-					} else {
-						backend.Ports[lbPort] = nil
-					}
+					backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
 				}
 			}
 			if sub.Hints != nil && (*sub.Hints).ForZones != nil {
