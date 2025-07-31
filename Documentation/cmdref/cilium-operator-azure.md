@@ -115,6 +115,7 @@ cilium-operator-azure [flags]
       --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
       --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc:8081")
       --mesh-auth-spire-server-connection-timeout duration   SPIRE server connection timeout. (default 10s)
+      --metrics-sampling-interval duration                   Set the internal metrics sampling interval (default 5m0s)
       --nodes-gc-interval duration                           GC interval for CiliumNodes (default 5m0s)
       --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
       --operator-k8s-client-burst int                        Burst value allowed for the K8s client (default 200)
