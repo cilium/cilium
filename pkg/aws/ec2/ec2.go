@@ -241,10 +241,10 @@ func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamType
 			return nil, err
 		}
 		for _, eni := range output.NetworkInterfaces {
+			if len(result) >= int(maxResults) {
+				return result, nil
+			}
 			result = append(result, aws.ToString(eni.NetworkInterfaceId))
-		}
-		if len(result) >= int(maxResults) {
-			break
 		}
 	}
 	return result, nil
