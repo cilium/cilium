@@ -59,19 +59,19 @@ var resourcesCell = cell.Module(
 	"Kubernetes Pod and Service resources",
 
 	cell.Provide(
-		func(lc cell.Lifecycle, c client.Clientset) resource.Resource[*corev1.Pod] {
+		func(lc cell.Lifecycle, c client.Clientset, mp workqueue.MetricsProvider) resource.Resource[*corev1.Pod] {
 			if !c.IsEnabled() {
 				return nil
 			}
 			lw := utils.ListerWatcherFromTyped[*corev1.PodList](c.CoreV1().Pods(""))
-			return resource.New[*corev1.Pod](lc, lw, resource.WithMetric("Pod"))
+			return resource.New[*corev1.Pod](lc, lw, mp, resource.WithMetric("Pod"))
 		},
-		func(lc cell.Lifecycle, c client.Clientset) resource.Resource[*corev1.Service] {
+		func(lc cell.Lifecycle, c client.Clientset, mp workqueue.MetricsProvider) resource.Resource[*corev1.Service] {
 			if !c.IsEnabled() {
 				return nil
 			}
 			lw := utils.ListerWatcherFromTyped[*corev1.ServiceList](c.CoreV1().Services(""))
-			return resource.New[*corev1.Service](lc, lw, resource.WithMetric("Service"))
+			return resource.New[*corev1.Service](lc, lw, mp, resource.WithMetric("Service"))
 		},
 	),
 )
