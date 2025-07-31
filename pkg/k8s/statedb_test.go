@@ -40,14 +40,17 @@ var nodeNameIndex = statedb.Index[*corev1.Node, string]{
 }
 
 func newNodeTable(db *statedb.DB) (statedb.RWTable[*corev1.Node], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTableAny(
+		db,
 		"nodes",
+		func() []string {
+			return []string{"Name"}
+		},
+		func(node *corev1.Node) []string {
+			return []string{node.Name}
+		},
 		nodeNameIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 func ExampleRegisterReflector() {
@@ -114,6 +117,18 @@ type testObject struct {
 	Transform string
 }
 
+// TableHeader implements statedb.TableWritable.
+func (t *testObject) TableHeader() []string {
+	return []string{"Name", "Status"}
+}
+
+// TableRow implements statedb.TableWritable.
+func (t *testObject) TableRow() []string {
+	return []string{t.Name, t.Status}
+}
+
+var _ statedb.TableWritable = &testObject{}
+
 func (t *testObject) DeepCopy() *testObject {
 	t2 := *t
 	return &t2
@@ -131,14 +146,11 @@ var (
 )
 
 func newTestTable(db *statedb.DB) (statedb.RWTable[*testObject], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		"test",
 		testNameIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 type reflectorTestParams struct {
@@ -410,7 +422,9 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 }
 
 func TestStateDBReflector_jobName(t *testing.T) {
+	db := statedb.New()
 	tbl, _ := statedb.NewTable(
+		db,
 		"node",
 		testNameIndex,
 	)

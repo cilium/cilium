@@ -87,43 +87,19 @@ func TestPrivilegedScript(t *testing.T) {
 			}
 		}
 
-		// Create the route and device tables
-		routeTable, err := tables.NewRouteTable()
-		require.NoError(t, err)
-
-		deviceTable, err := tables.NewDeviceTable()
-		require.NoError(t, err)
-
-		// Create a cell that registers the tables with the StateDB
-		registerTablesCell := cell.Module(
-			"register-tables",
-			"Registers the route and device tables with the StateDB",
-			cell.Invoke(func(db *statedb.DB) {
-				err := db.RegisterTable(routeTable)
-				require.NoError(t, err)
-
-				err = db.RegisterTable(deviceTable)
-				require.NoError(t, err)
-			}),
-		)
 		h := ciliumhive.New(
 			k8sClient.FakeClientCell(),
 			daemonk8s.ResourcesCell,
 			metrics.Cell,
 			bgpv1.Cell,
 
-			// Register the tables with the StateDB
-			registerTablesCell,
-
-			// Provide the route table
-			cell.Provide(func() statedb.Table[*tables.Route] {
-				return routeTable.ToTable()
-			}),
-
-			// Provide the device table
-			cell.Provide(func() statedb.Table[*tables.Device] {
-				return deviceTable.ToTable()
-			}),
+			// Provide route and device tables
+			cell.Provide(
+				tables.NewRouteTable,
+				tables.NewDeviceTable,
+				statedb.RWTable[*tables.Route].ToTable,  // Table[*Route]
+				statedb.RWTable[*tables.Device].ToTable, // Table[*Device]
+			),
 
 			cell.Provide(func() *option.DaemonConfig {
 				// BGP Manager uses the global variable option.Config so we need to set it there as well

@@ -78,7 +78,6 @@ func newReconcilingSysctl(
 	fs afero.Fs,
 	_ reconciler.Reconciler[*tables.Sysctl], // needed to enforce the correct hive ordering
 ) Sysctl {
-	db.RegisterTable(settings)
 	return &reconcilingSysctl{db, settings, fs, cfg.ProcFs}
 }
 
@@ -342,7 +341,7 @@ func (sysctl *reconcilingSysctl) waitForReconciliation(name []string) error {
 				return nil
 			}
 			if obj.Status.Kind == reconciler.StatusKindError {
-				err = errors.New(obj.Status.Error)
+				err = errors.New(obj.Status.GetError())
 			}
 		}
 	}

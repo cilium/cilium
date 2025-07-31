@@ -185,8 +185,6 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			),
 
 			cell.Invoke(
-				statedb.RegisterTable[tables.NodeAddress],
-				statedb.RegisterTable[*tables.Device],
 				func(a types.WireguardAgent, n *nodediscovery.NodeDiscovery, s *node.LocalNodeStore, u nodeManager.NodeManager, i *ipcache.IPCache, c k8sSynced.CacheStatus) {
 					wgAgent = a.(*Agent)
 					nodeDiscovery = n

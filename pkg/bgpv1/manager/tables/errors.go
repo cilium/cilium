@@ -83,8 +83,9 @@ var (
 	}
 )
 
-func NewBGPReconcileErrorTable() (statedb.RWTable[*BGPReconcileError], error) {
+func NewBGPReconcileErrorTable(db *statedb.DB) (statedb.RWTable[*BGPReconcileError], error) {
 	return statedb.NewTable(
+		db,
 		"bgp-reconcile-errors",
 		BGPReconcileErrorIndex,
 		BGPReconcileErrorInstance,

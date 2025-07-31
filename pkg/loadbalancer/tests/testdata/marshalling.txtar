@@ -20,7 +20,7 @@ db/show services -f json -o services-actual.json
 cmp services-actual.json services-expected.json
 db/show frontends -f json -o frontends-actual.json
 sed '"updated-at":.*' '"updated-at": <redacted>,' frontends-actual.json
-sed '"id":.*' '"id": <redacted>' frontends-actual.json
+sed '"id":.*' '"id": <redacted>,' frontends-actual.json
 cmp frontends-actual.json frontends-expected.json
 db/show backends -f json -o backends-actual.json
 cmp backends-actual.json backends-expected.json
@@ -82,9 +82,9 @@ Address              Instances
   "PortName": "http",
   "ServicePort": 80,
   "Status": {
-    "kind": "Done",
     "updated-at": <redacted>,
-    "id": <redacted>
+    "id": <redacted>,
+    "kind": "Done"
   },
   "Backends": [
     {
@@ -112,9 +112,9 @@ Address              Instances
   "PortName": "http",
   "ServicePort": 80,
   "Status": {
-    "kind": "Done",
     "updated-at": <redacted>,
-    "id": <redacted>
+    "id": <redacted>,
+    "kind": "Done"
   },
   "Backends": [
     {
@@ -215,9 +215,9 @@ frontendparams:
     portname: http
     serviceport: 80
 status:
-    kind: Done
     updated-at: <redacted>
     id: <redacted>
+    kind: Done
 backends:
     - address: 10.244.1.1:8080/TCP
       portnames:
@@ -240,9 +240,9 @@ frontendparams:
     portname: http
     serviceport: 80
 status:
-    kind: Done
     updated-at: <redacted>
     id: <redacted>
+    kind: Done
 backends:
     - address: '[2002::2]:8080/TCP'
       portnames:

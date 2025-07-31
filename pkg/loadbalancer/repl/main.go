@@ -106,6 +106,5 @@ var Hive = hive.New(
 			return &cfg
 		},
 	),
-	cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 	lbcell.Cell,
 )

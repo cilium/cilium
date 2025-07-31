@@ -137,13 +137,9 @@ func (t AnyTable) Changes(txn WriteTxn) (anyChangeIterator, error) {
 }
 
 func (t AnyTable) TableHeader() []string {
-	zero := t.Meta.proto()
-	if tw, ok := zero.(TableWritable); ok {
-		return tw.TableHeader()
-	}
-	return nil
+	return t.Meta.tableHeader()
 }
 
-func (t AnyTable) Proto() any {
-	return t.Meta.proto()
+func (t AnyTable) TableRow(obj any) []string {
+	return t.Meta.tableRowAny(obj)
 }

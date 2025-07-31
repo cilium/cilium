@@ -93,14 +93,11 @@ func NewNamespaceTableAndReflector(jg job.Group, db *statedb.DB, cs client.Clien
 }
 
 func NewNamespaceTable(db *statedb.DB) (statedb.RWTable[Namespace], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		NamespaceTableName,
 		NamespaceIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 func namespaceReflectorConfig(cs client.Clientset, namespaces statedb.RWTable[Namespace]) k8s.ReflectorConfig[Namespace] {

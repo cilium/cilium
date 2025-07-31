@@ -117,9 +117,9 @@ func (fe *Frontend) TableRow() []string {
 		string(fe.PortName),
 		showBackends(fe.Backends),
 		redirectTo,
-		string(fe.Status.Kind),
+		fe.Status.Kind.String(),
 		duration.HumanDuration(time.Since(fe.Status.UpdatedAt)),
-		fe.Status.Error,
+		fe.Status.GetError(),
 	}
 }
 
@@ -241,13 +241,10 @@ const (
 )
 
 func NewFrontendsTable(cfg Config, db *statedb.DB) (statedb.RWTable[*Frontend], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		FrontendTableName,
 		frontendAddressIndex,
 		frontendServiceIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }

@@ -25,7 +25,7 @@ var Cell = cell.Module(
 	"mtu",
 	"MTU discovery",
 
-	cell.ProvidePrivate(newTable),
+	cell.ProvidePrivate(NewMTUTable),
 	cell.Provide(
 		statedb.RWTable[RouteMTU].ToTable,
 		newForCell,
@@ -39,19 +39,6 @@ type MTU interface {
 	GetRouteMTU() int
 	GetRoutePostEncryptMTU() int
 	IsEnableRouteMTUForCNIChaining() bool
-}
-
-func newTable(db *statedb.DB) (statedb.RWTable[RouteMTU], error) {
-	tbl, err := NewMTUTable()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := db.RegisterTable(tbl); err != nil {
-		return nil, err
-	}
-
-	return tbl, nil
 }
 
 type mtuParams struct {

@@ -62,16 +62,13 @@ var (
 )
 
 func NewLRPTable(db *statedb.DB) (statedb.RWTable[*LocalRedirectPolicy], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		LRPTableName,
 		lrpIDIndex,
 		lrpServiceIndex,
 		lrpAddressIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 type lrpListerWatcher cache.ListerWatcher

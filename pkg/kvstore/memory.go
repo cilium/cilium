@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -18,13 +19,11 @@ import (
 
 func NewInMemoryClient(db *statedb.DB, clusterName string) Client {
 	table, err := statedb.NewTable(
+		db,
 		"kvstore-"+clusterName,
 		inMemoryKeyIndex,
 	)
 	if err != nil {
-		panic(err)
-	}
-	if err := db.RegisterTable(table); err != nil {
 		panic(err)
 	}
 	return &inMemoryClient{
@@ -38,6 +37,37 @@ type inMemoryObject struct {
 	key   string
 	value []byte
 }
+
+// TableHeader implements statedb.TableWritable.
+func (i inMemoryObject) TableHeader() []string {
+	return []string{
+		"Key",
+		"Value",
+	}
+}
+
+// TableRow implements statedb.TableWritable.
+func (i inMemoryObject) TableRow() []string {
+	valueIsAscii := true
+	for _, b := range i.value {
+		if b > unicode.MaxASCII {
+			valueIsAscii = false
+			break
+		}
+	}
+	var value string
+	if valueIsAscii {
+		value = string(i.value)
+	} else {
+		value = fmt.Sprintf("0x%x", i.value)
+	}
+	return []string{
+		i.key,
+		value,
+	}
+}
+
+var _ statedb.TableWritable = inMemoryObject{}
 
 var (
 	inMemoryKeyIndex = statedb.Index[inMemoryObject, string]{

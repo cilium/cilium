@@ -95,6 +95,7 @@ var (
 // Return the read-only table for consumption, and the [ForwardableIPManager] for modification.
 func newForwardableIPTable(db *statedb.DB, config *CommonConfig) (*ForwardableIPManager, statedb.Table[*ForwardableIP], error) {
 	tbl, err := statedb.NewTable(
+		db,
 		"forwardable-ip",
 		ForwardableIPIndex,
 	)
@@ -107,8 +108,7 @@ func newForwardableIPTable(db *statedb.DB, config *CommonConfig) (*ForwardableIP
 			table:  tbl,
 			config: config,
 		},
-		tbl,
-		db.RegisterTable(tbl)
+		tbl, nil
 }
 
 // ForwardableIPManager manages modification of the ForwardableIP table.

@@ -57,7 +57,6 @@ func newFixture(t testing.TB) *fixture {
 	hive.New(
 		cell.Provide(tables.NewL2AnnounceTable),
 		cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], h_ cell.Health, j job.Registry, jg_ job.Group) {
-			d.RegisterTable(t)
 			db = d
 			tbl = t
 			jr = j
@@ -1119,9 +1118,7 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 	h := hive.New(
 		Cell,
 		cell.Provide(tables.NewL2AnnounceTable),
-		cell.Invoke(statedb.RegisterTable[*tables.L2AnnounceEntry]),
 		cell.Provide(tables.NewDeviceTable, statedb.RWTable[*tables.Device].ToTable),
-		cell.Invoke(statedb.RegisterTable[*tables.Device]),
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
 				EnableL2Announcements: true,

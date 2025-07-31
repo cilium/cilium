@@ -57,11 +57,8 @@ type statedbObjectTracker struct {
 }
 
 func newStateDBObjectTracker(db *statedb.DB, log *slog.Logger) (*statedbObjectTracker, error) {
-	tbl, err := statedb.NewTable("k8s-object-tracker", objectIndex)
+	tbl, err := statedb.NewTable(db, "k8s-object-tracker", objectIndex)
 	if err != nil {
-		return nil, err
-	}
-	if err := db.RegisterTable(tbl); err != nil {
 		return nil, err
 	}
 	return &statedbObjectTracker{

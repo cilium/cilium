@@ -106,7 +106,6 @@ func TestScript(t *testing.T) {
 					return &loadbalancer.TestConfig{}
 				},
 			),
-			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 
 			// cecResourceParser and its friends.
 			cell.Group(

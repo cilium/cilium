@@ -75,8 +75,9 @@ var (
 	}
 )
 
-func NewNeighborTable() (statedb.RWTable[*Neighbor], error) {
+func NewNeighborTable(db *statedb.DB) (statedb.RWTable[*Neighbor], error) {
 	return statedb.NewTable(
+		db,
 		"neighbors",
 		NeighborIDIndex,
 		NeighborLinkIndex,

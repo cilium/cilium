@@ -14,7 +14,7 @@ cmp actual.json cec-expected.json
 
 db/show envoy-resources --format=json --out=actual.json
 sed '"updated-at":.*' '"updated-at": <redacted>,' actual.json
-sed '"id":.*' '"id": <redacted>' actual.json
+sed '"id":.*' '"id": <redacted>,' actual.json
 cmp actual.json envoy-resources-expected.json
 
 ##### 
@@ -182,9 +182,9 @@ spec:
     "Name": "echo"
   },
   "Status": {
-    "kind": "Done",
     "updated-at": <redacted>,
-    "id": <redacted>
+    "id": <redacted>,
+    "kind": "Done"
   },
   "Resources": {
     "Listeners": null,
@@ -266,9 +266,9 @@ spec:
     "Name": "envoy-lb-listener"
   },
   "Status": {
-    "kind": "Done",
     "updated-at": <redacted>,
-    "id": <redacted>
+    "id": <redacted>,
+    "kind": "Done"
   },
   "Resources": {
     "Listeners": [

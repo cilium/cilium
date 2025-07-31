@@ -52,7 +52,6 @@ func TestDirectRoutingDevice(t *testing.T) {
 		),
 		DirectRoutingDeviceCell,
 		cell.Invoke(
-			statedb.RegisterTable[*Device],
 			func(db_ *statedb.DB, table statedb.RWTable[*Device], dev DirectRoutingDevice) {
 				db = db_
 				devicesTable = table
@@ -183,7 +182,6 @@ func TestDirectRoutingDevice_withConfig(t *testing.T) {
 				),
 				DirectRoutingDeviceCell,
 				cell.Invoke(
-					statedb.RegisterTable[*Device],
 					func(db_ *statedb.DB, table_ statedb.RWTable[*Device], dev DirectRoutingDevice) {
 						db = db_
 						devicesTable = table_

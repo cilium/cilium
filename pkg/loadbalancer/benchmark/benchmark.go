@@ -451,7 +451,7 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 				if fe.PortName != loadbalancer.FEPortName(want.Spec.Ports[0].Name) {
 					err = errors.Join(err, fmt.Errorf("Incorrect port name for frontend #%06d, got %v, want %v", i, fe.PortName, loadbalancer.FEPortName(want.Spec.Ports[0].Name)))
 				}
-				if fe.Status.Kind != "Done" {
+				if fe.Status.Kind != reconciler.StatusKindDone {
 					err = errors.Join(err, fmt.Errorf("Incorrect status for frontend #%06d, got %v, want %v", i, fe.Status.Kind, "Done"))
 				}
 				backends := slices.Collect(statedb.ToSeq(iter.Seq2[loadbalancer.BackendParams, statedb.Revision](fe.Backends)))
@@ -594,7 +594,6 @@ func testHive(maps lbmaps.LBMaps,
 				source.NewSources,
 			),
 			cell.Invoke(func(db *statedb.DB, nodeAddrs statedb.RWTable[tables.NodeAddress]) {
-				db.RegisterTable(nodeAddrs)
 				txn := db.WriteTxn(nodeAddrs)
 
 				for _, addr := range nodePortAddrs {

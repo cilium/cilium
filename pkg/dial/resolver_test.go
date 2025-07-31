@@ -192,8 +192,6 @@ func TestServiceBackendResolver(t *testing.T) {
 			func() kpr.KPRConfig { return kpr.KPRConfig{} },
 		),
 
-		cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
-
 		cell.Invoke(func(wr_ *writer.Writer, resolver_ *ServiceBackendResolver) {
 			wr = wr_
 			resolver = resolver_

@@ -84,13 +84,7 @@ func TestWaitForReconciliation(t *testing.T) {
 	)
 
 	hive := hive.New(
-		cell.Provide(func(db *statedb.DB) (statedb.RWTable[*tables.Sysctl], statedb.Index[*tables.Sysctl, reconciler.StatusKind], error) {
-			return tables.NewSysctlTable(db)
-		}),
-		cell.Invoke(func(db *statedb.DB, settings statedb.RWTable[*tables.Sysctl]) {
-			db.RegisterTable(settings)
-		}),
-
+		cell.Provide(tables.NewSysctlTable),
 		cell.Invoke(func(statedb *statedb.DB, tb statedb.RWTable[*tables.Sysctl]) {
 			db = statedb
 			settings = tb

@@ -318,13 +318,10 @@ var (
 )
 
 func NewBackendsTable(db *statedb.DB) (statedb.RWTable[*Backend], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		BackendTableName,
 		backendAddrIndex,
 		backendServiceIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }

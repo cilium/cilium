@@ -29,6 +29,7 @@ var (
 
 func NewSysctlTable(db *statedb.DB) (statedb.RWTable[*Sysctl], statedb.Index[*Sysctl, reconciler.StatusKind], error) {
 	tbl, err := statedb.NewTable(
+		db,
 		SysctlTableName,
 		SysctlNameIndex,
 		SysctlStatusIndex,

@@ -112,7 +112,6 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 				f.reconciler = out.Reconciler.(*StatusReconciler)
 				f.reconciler.reconcileInterval = 100 * time.Millisecond
 			}),
-		cell.Invoke(statedb.RegisterTable[*tables.BGPReconcileError]),
 		cell.Invoke(func(db *statedb.DB, table statedb.RWTable[*tables.BGPReconcileError]) {
 			f.db = db
 			f.reconcileErrTbl = table

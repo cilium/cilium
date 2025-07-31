@@ -73,12 +73,9 @@ var (
 )
 
 func NewBandwidthQDiscTable(db *statedb.DB) (statedb.RWTable[*BandwidthQDisc], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		BandwidthQDiscTableName,
 		BandwidthQDiscIndex,
 	)
-	if err == nil {
-		err = db.RegisterTable(tbl)
-	}
-	return tbl, err
 }

@@ -44,7 +44,6 @@ func TestCell(t *testing.T) {
 				return &option.DaemonConfig{}
 			},
 		),
-		cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 	)
 	require.NoError(t, h.Populate(hivetest.Logger(t)))
 }

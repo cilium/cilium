@@ -48,7 +48,6 @@ func newFixture(t testing.TB) *fixture {
 		),
 
 		cell.Invoke(
-			statedb.RegisterTable[*tables.L2AnnounceEntry],
 			func(d *statedb.DB, lc cell.Lifecycle, h cell.Health, t statedb.RWTable[*tables.L2AnnounceEntry], j job.Group) {
 				db = d
 				tbl = t

@@ -31,6 +31,18 @@ type TestObject struct {
 	Status reconciler.Status
 }
 
+// TableHeader implements statedb.TableWritable.
+func (o *TestObject) TableHeader() []string {
+	return nil
+}
+
+// TableRow implements statedb.TableWritable.
+func (o *TestObject) TableRow() []string {
+	return nil
+}
+
+var _ statedb.TableWritable = &TestObject{}
+
 func (o *TestObject) BinaryKey() encoding.BinaryMarshaler {
 	return StructBinaryMarshaler{&o.Key}
 }
@@ -161,23 +173,30 @@ func TestPrivilegedMapOps_ReconcilerExample(t *testing.T) {
 		FromKey: index.Uint32,
 		Unique:  true,
 	}
-	table, err := statedb.NewTable("example", keyIndex)
-	require.NoError(t, err, "NewTable")
 
 	// Create the map operations and the reconciler configuration.
 	ops := NewMapOps[*TestObject](exampleMap)
 
 	// Setup and start a hive to run the reconciler.
-	var db *statedb.DB
+	var (
+		db    *statedb.DB
+		table statedb.RWTable[*TestObject]
+	)
 	h := hive.New(
 		cell.Module(
 			"example",
 			"Example",
 
+			cell.Provide(
+				func(db *statedb.DB) (statedb.RWTable[*TestObject], error) {
+					return statedb.NewTable(db, "example", keyIndex)
+				},
+			),
+
 			cell.Invoke(
-				func(db_ *statedb.DB) error {
+				func(db_ *statedb.DB, table_ statedb.RWTable[*TestObject]) {
 					db = db_
-					return db.RegisterTable(table)
+					table = table_
 				},
 			),
 			cell.Invoke(

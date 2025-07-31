@@ -32,14 +32,17 @@ var (
 )
 
 func newNodesTable(db *statedb.DB) (statedb.RWTable[*corev1.Node], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTableAny(
+		db,
 		"nodes",
+		func() []string {
+			return []string{"Name"}
+		},
+		func(node *corev1.Node) []string {
+			return []string{node.Name}
+		},
 		nodeNameIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 func TestStateDBTableEventStream(t *testing.T) {

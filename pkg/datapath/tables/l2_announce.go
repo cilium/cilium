@@ -69,8 +69,9 @@ var (
 	}
 )
 
-func NewL2AnnounceTable() (statedb.RWTable[*L2AnnounceEntry], error) {
+func NewL2AnnounceTable(db *statedb.DB) (statedb.RWTable[*L2AnnounceEntry], error) {
 	return statedb.NewTable(
+		db,
 		"l2-announce",
 		L2AnnounceIDIndex,
 		L2AnnounceOriginIndex,
