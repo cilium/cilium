@@ -22,6 +22,8 @@
 #include "events.h"
 #include "ratelimit.h"
 #include "sock.h"
+#include "time.h"
+#include "trace.h"
 
 /* L4 protocol for the trace event */
 enum l4_protocol {
@@ -86,12 +88,13 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
 	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
+		.topup_interval_ns = CT_REPORT_INTERVAL * NSEC_PER_SEC,
 	};
 
-	if (EVENTS_MAP_RATE_LIMIT > 0) {
-		settings.bucket_size = EVENTS_MAP_BURST_LIMIT;
-		settings.tokens_per_topup = EVENTS_MAP_RATE_LIMIT;
+	/* Rate limit socket traces when monitor aggregation is enabled */
+	if (MONITOR_AGGREGATION != TRACE_AGGREGATE_NONE) {
+		settings.bucket_size = 10;
+		settings.tokens_per_topup = 1;
 		if (!ratelimit_check_and_take(&rkey, &settings))
 			return;
 	}
@@ -121,12 +124,13 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
 	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
+		.topup_interval_ns = CT_REPORT_INTERVAL * NSEC_PER_SEC,
 	};
 
-	if (EVENTS_MAP_RATE_LIMIT > 0) {
-		settings.bucket_size = EVENTS_MAP_BURST_LIMIT;
-		settings.tokens_per_topup = EVENTS_MAP_RATE_LIMIT;
+	/* Rate limit socket traces when monitor aggregation is enabled */
+	if (MONITOR_AGGREGATION != TRACE_AGGREGATE_NONE) {
+		settings.bucket_size = 10;
+		settings.tokens_per_topup = 1;
 		if (!ratelimit_check_and_take(&rkey, &settings))
 			return;
 	}
