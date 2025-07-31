@@ -61,11 +61,11 @@ func newDiffStoreFixture() *DiffStoreFixture {
 
 	// Construct a new Hive with faked out dependency cells.
 	fixture.hive = hive.New(
-		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*slimv1.Service] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset, mp workqueue.MetricsProvider) resource.Resource[*slimv1.Service] {
 			return resource.New[*slimv1.Service](
 				lc, utils.ListerWatcherFromTyped[*slimv1.ServiceList](
 					c.Slim().CoreV1().Services(""),
-				),
+				), mp,
 			)
 		}),
 

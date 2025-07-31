@@ -5,6 +5,7 @@ package bgpv2
 
 import (
 	"github.com/cilium/hive/cell"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -23,7 +24,7 @@ var Cell = cell.Module(
 	metrics.Metric(NewBGPOperatorMetrics),
 )
 
-func newSecretResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*slim_core_v1.Secret] {
+func newSecretResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig, mp workqueue.MetricsProvider) resource.Resource[*slim_core_v1.Secret] {
 	// Secret is only used for status reporting (MissingAuthSecret condition)
 	if !c.IsEnabled() || !dc.BGPControlPlaneEnabled() || !dc.EnableBGPControlPlaneStatusReport {
 		return nil
@@ -34,5 +35,5 @@ func newSecretResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonC
 	return resource.New[*slim_core_v1.Secret](
 		lc, utils.ListerWatcherFromTyped[*slim_core_v1.SecretList](
 			c.Slim().CoreV1().Secrets(dc.BGPSecretsNamespace),
-		))
+		), mp)
 }
