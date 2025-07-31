@@ -1,7 +1,7 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:4937e8fe8e0fff555165689e9d938c69a14e6811@sha256:c6aa742eaff3e312f5ec6c7e75ff0b260ed77a288dee976bf68e920cafd5d341
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:529cad62107c9af1996eb29ea35ecf4e42319a3f@sha256:a45fdb1618d8236db53e090d0cd9e5200d563bb7264294793c1540412485e938
 ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:6501cd00b0b2f455c147e61a40c0d40c600b9115@sha256:1e81ada908cefffd45d2e2b83750927ddfe18e02b06bc63d8a54f2f054a6b430
 #
 # cilium-envoy from github.com/cilium/proxy
