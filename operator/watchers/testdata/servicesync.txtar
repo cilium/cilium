@@ -73,7 +73,7 @@ k8s/update service.yaml
 kvstore/list -o json cilium/state/services services.actual
 * empty services.actual
 
-# 10. Toggle the global annotation back. The shared annotation is not neeeded.
+# 10. Toggle the global annotation back. The shared annotation is not needed.
 # Service should be added again.
 sed 'service.cilium.io/shared: "true"' 'placeholder: "true"' service.yaml
 sed 'service.cilium.io/global: "false"' 'service.cilium.io/global: "true"' service.yaml
@@ -90,6 +90,21 @@ k8s/update service.yaml
 # Wait for synchronization
 kvstore/list -o json cilium/state/services services.actual
 * empty services.actual
+
+# 12. Validate the export of services with unnamed ports.
+sed 'service.cilium.io/shared: "false"' 'service.cilium.io/shared: "true"' service.yaml
+sed http "" service.yaml
+sed http "" endpointslice.yaml
+
+k8s/update service.yaml
+k8s/update endpointslice.yaml
+
+cp services-4.expected services-5.expected
+sed http '' services-5.expected
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* cmp services.actual services-5.expected
 
 # ----
 

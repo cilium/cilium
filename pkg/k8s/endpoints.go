@@ -287,11 +287,7 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 			for _, port := range ep.Ports {
 				name, lbPort, ok := parseEndpointPortV1(port)
 				if ok {
-					if name != "" {
-						backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
-					} else {
-						backend.Ports[lbPort] = nil
-					}
+					backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
 				}
 			}
 			if sub.Hints != nil && (*sub.Hints).ForZones != nil {
