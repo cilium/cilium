@@ -76,7 +76,7 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 // serviceProxyNameLabel label will then be mirrored to endpoint slices for services with that label.
 // We also ignore Kubernetes endpoints coming from other clusters in the Cilium clustermesh here as
 // Cilium does not rely on mirrored Kubernetes EndpointSlice for any of its functionalities.
-func GetEndpointSliceListOptionsModifier() (func(options *v1meta.ListOptions), error) {
+func GetEndpointSliceListOptionsModifier(enableHeadlessServiceWatch bool) (func(options *v1meta.ListOptions), error) {
 	nonRemoteEndpointSelector, err := labels.NewRequirement(discoveryv1.LabelManagedBy, selection.NotEquals, []string{EndpointSliceMeshControllerName})
 	if err != nil {
 		return nil, err
@@ -84,6 +84,15 @@ func GetEndpointSliceListOptionsModifier() (func(options *v1meta.ListOptions), e
 
 	labelSelector := labels.NewSelector()
 	labelSelector = labelSelector.Add(*nonRemoteEndpointSelector)
+
+	if !enableHeadlessServiceWatch {
+		nonHeadlessServiceSelector, err := labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
+
+		if err != nil {
+			return nil, err
+		}
+		labelSelector = labelSelector.Add(*nonHeadlessServiceSelector)
+	}
 
 	return func(options *v1meta.ListOptions) {
 		options.LabelSelector = labelSelector.String()
@@ -98,7 +107,7 @@ func GetEndpointSliceListOptionsModifier() (func(options *v1meta.ListOptions), e
 // handle services that match our service proxy name. If the service proxy name for Cilium
 // is an empty string, we assume that Cilium is the default service handler in which case
 // we select all services that don't have the above mentioned label.
-func GetServiceAndEndpointListOptionsModifier(k8sServiceProxy string) (func(options *v1meta.ListOptions), error) {
+func GetServiceAndEndpointListOptionsModifier(k8sServiceProxy string, enableHeadlessServiceWatch bool) (func(options *v1meta.ListOptions), error) {
 	var (
 		serviceNameSelector *labels.Requirement
 		err                 error
@@ -118,6 +127,15 @@ func GetServiceAndEndpointListOptionsModifier(k8sServiceProxy string) (func(opti
 
 	labelSelector := labels.NewSelector()
 	labelSelector = labelSelector.Add(*serviceNameSelector)
+
+	if !enableHeadlessServiceWatch {
+		nonHeadlessServiceSelector, err := labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
+
+		if err != nil {
+			return nil, err
+		}
+		labelSelector = labelSelector.Add(*nonHeadlessServiceSelector)
+	}
 
 	return func(options *v1meta.ListOptions) {
 		options.LabelSelector = labelSelector.String()

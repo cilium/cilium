@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 
@@ -30,8 +31,13 @@ var (
 		"Agent Kubernetes resources",
 
 		cell.Config(k8s.DefaultConfig),
+		cell.Config(HeadlessServiceWatchConfig{}),
 		LocalNodeCell,
 		cell.Provide(
+			func(cfg k8s.Config, headlessSvcWatchConfig HeadlessServiceWatchConfig) k8s.Config {
+				cfg.EnableHeadlessServiceWatch = headlessSvcWatchConfig.EnableGatewayAPI || headlessSvcWatchConfig.EnableIngressController
+				return cfg
+			},
 			k8s.ServiceResource,
 			k8s.EndpointsResource,
 			k8s.NetworkPolicyResource,
@@ -68,6 +74,16 @@ var (
 		),
 	)
 )
+
+type HeadlessServiceWatchConfig struct {
+	EnableIngressController bool
+	EnableGatewayAPI        bool
+}
+
+func (r HeadlessServiceWatchConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("enable-ingress-controller", false, "Enables Envoy secret sync for Ingress controller related TLS secrets")
+	flags.Bool("enable-gateway-api", false, "Enables Envoy secret sync for Gateway API related TLS secrets")
+}
 
 // LocalNodeResource is a resource.Resource[*slim_corev1.Node] but one which will only stream updates for the node object
 // associated with the node we are currently running on.

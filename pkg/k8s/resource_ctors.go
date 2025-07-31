@@ -41,11 +41,18 @@ type Config struct {
 	// the label is not present. For more details -
 	// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/2447-Make-kube-proxy-service-abstraction-optional
 	K8sServiceProxyName string
+
+	// EnableHeadlessServiceWatch controls whether watches for Headless Services and
+	// Headless Services Endpoint Slices are enabled. Disabling the watch when
+	// features depending on it are not used reduces the load on apiserver in clusters
+	// with headless services.
+	EnableHeadlessServiceWatch bool
 }
 
 // DefaultConfig represents the default k8s resources config values.
 var DefaultConfig = Config{
-	K8sServiceProxyName: "",
+	K8sServiceProxyName:        "",
+	EnableHeadlessServiceWatch: true,
 }
 
 const (
@@ -96,7 +103,7 @@ func ServiceResource(lc cell.Lifecycle, cfg Config, cs client.Clientset, opts ..
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	optsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(cfg.K8sServiceProxyName)
+	optsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(cfg.K8sServiceProxyName, cfg.EnableHeadlessServiceWatch)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +307,7 @@ func EndpointsResourceWithIndexers(logger *slog.Logger, lc cell.Lifecycle, cfg C
 		return nil, nil
 	}
 
-	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier()
+	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier(cfg.EnableHeadlessServiceWatch)
 	if err != nil {
 		return nil, err
 	}
