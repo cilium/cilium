@@ -798,9 +798,16 @@ lb6_select_backend_id(struct __ctx_buff *ctx, struct lb6_key *key,
 	case LB_SELECTION_RANDOM:
 		return lb6_select_backend_id_random(ctx, key, tuple, svc);
 	default:
-		return 0;
+#if LB_SELECTION == LB_SELECTION_RANDOM
+		return lb6_select_backend_id_random(ctx, key, tuple, svc);
+#elif LB_SELECTION == LB_SELECTION_MAGLEV
+		return lb6_select_backend_id_maglev(ctx, key, tuple, svc);
+#else
+# error "Invalid load balancer backend selection algorithm!"
+#endif /* LB_SELECTION */
 	}
 }
+
 #elif LB_SELECTION == LB_SELECTION_RANDOM
 # define lb6_select_backend_id	lb6_select_backend_id_random
 #elif LB_SELECTION == LB_SELECTION_MAGLEV
@@ -1532,7 +1539,13 @@ lb4_select_backend_id(struct __ctx_buff *ctx, struct lb4_key *key,
 	case LB_SELECTION_RANDOM:
 		return lb4_select_backend_id_random(ctx, key, tuple, svc);
 	default:
-		return 0;
+#if LB_SELECTION == LB_SELECTION_RANDOM
+		return lb4_select_backend_id_random(ctx, key, tuple, svc);
+#elif LB_SELECTION == LB_SELECTION_MAGLEV
+		return lb4_select_backend_id_maglev(ctx, key, tuple, svc);
+#else
+# error "Invalid load balancer backend selection algorithm!"
+#endif /* LB_SELECTION */
 	}
 }
 #elif LB_SELECTION == LB_SELECTION_RANDOM
