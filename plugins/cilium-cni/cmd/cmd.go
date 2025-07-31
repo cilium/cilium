@@ -915,6 +915,27 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 
 	ns, err := netns.OpenPinned(args.Netns)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// We are not returning an error if the network namespace does not exist.
+			// In that case, we assume that the interface has already been deleted.
+			// Reference https://github.com/kubernetes/kubernetes/issues/133081
+			scopedLogger.Warn(
+				"Unable to open network namespace, will not delete interface",
+				logfields.Error, fmt.Errorf("namespace %s no longer exist: %w", args.Netns, err),
+				logfields.Interface, args.IfName,
+				logfields.NetNamespace, args.Netns,
+			)
+			return nil
+		}
+		// If we cannot open the network namespace, we cannot delete the interface.
+		// This is a fatal error, as we cannot proceed with the deletion.
+		// We return an error to indicate that the deletion failed.
+		scopedLogger.Warn(
+			"Unable to open network namespace, will not delete interface",
+			logfields.Error, fmt.Errorf("opening netns pinned at %s: %w", args.Netns, err),
+			logfields.Interface, args.IfName,
+			logfields.NetNamespace, args.Netns,
+		)
 		return fmt.Errorf("opening netns pinned at %s: %w", args.Netns, err)
 	}
 	defer ns.Close()
