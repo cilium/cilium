@@ -5,6 +5,7 @@
 set -eu
 
 EXCLUDED_DIRS=(
+    "bpf/tests/bpfbench"
     "cilium-health/responder"
     "contrib/examples/statedb"
     "contrib/examples/statedb_k8s"
