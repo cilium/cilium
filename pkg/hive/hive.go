@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -75,6 +76,10 @@ func New(cells ...cell.Cell) *Hive {
 				return reg.NewGroup(h, lc, job.WithLogger(l))
 			},
 		),
+
+		// Provides workqueue metrics provider, used by all k8s resource constructors. This will
+		// also be needed by a very large number of tests so we choose to include it by default.
+		watcherMetrics.Cell,
 	)
 
 	// Scope logging and health by module ID.

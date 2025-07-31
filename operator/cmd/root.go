@@ -47,7 +47,6 @@ import (
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
-	"github.com/cilium/cilium/operator/pkg/workqueuemetrics"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
@@ -240,7 +239,6 @@ var (
 			endpointslicesync.Cell,
 			mcsapi.Cell,
 			locksweeper.Cell,
-			workqueuemetrics.Cell,
 			legacyCell,
 
 			// When running in kvstore mode, the start hook of the identity GC
@@ -689,7 +687,7 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 
 		if operatorOption.Config.NodesGCInterval != 0 {
 			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore,
-				operatorOption.Config.NodesGCInterval, watcherLogger)
+				operatorOption.Config.NodesGCInterval, watcherLogger, legacy.workqueueMetricsProvider)
 		}
 	}
 

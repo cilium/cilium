@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/workqueue"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
@@ -25,7 +26,7 @@ import (
 )
 
 // ServiceExportResource builds the Resource[ServiceExport] object.
-func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) resource.Resource[*mcsapiv1alpha1.ServiceExport] {
+func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) resource.Resource[*mcsapiv1alpha1.ServiceExport] {
 	if !cs.IsEnabled() {
 		return nil
 	}
@@ -34,7 +35,7 @@ func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(
 		utils.ListerWatcherFromTyped(cs.MulticlusterV1alpha1().ServiceExports("")),
 		opts...,
 	)
-	return resource.New[*mcsapiv1alpha1.ServiceExport](lc, lw, resource.WithMetric("ServiceExport"))
+	return resource.New[*mcsapiv1alpha1.ServiceExport](lc, lw, mp, resource.WithMetric("ServiceExport"))
 }
 
 // ServiceExportSyncCallback represents a callback that, if provided, is executed

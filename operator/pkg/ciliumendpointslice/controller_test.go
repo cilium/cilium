@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/operator/k8s"
 	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
@@ -44,7 +43,6 @@ func TestRegisterController(t *testing.T) {
 			}
 		}),
 		metrics.Metric(NewMetrics),
-		cell.Provide(func() workqueue.MetricsProvider { return nil }),
 		cell.Invoke(func(p params) error {
 			registerController(p)
 			return nil
@@ -98,7 +96,6 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 			}
 		}),
 		metrics.Metric(NewMetrics),
-		cell.Provide(func() workqueue.MetricsProvider { return nil }),
 		cell.Invoke(func(p params) error {
 			registerController(p)
 			return nil
