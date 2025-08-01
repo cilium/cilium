@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -110,6 +111,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 	var services resource.Resource[*slim_corev1.Service]
 	var serviceExports resource.Resource[*mcsapiv1alpha1.ServiceExport]
 	hive := hive.New(
+		watcherMetrics.Cell,
 		k8sFakeClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Provide(ServiceExportResource),

@@ -33,6 +33,7 @@ import (
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 )
 
 const testTimeout = time.Minute
@@ -302,6 +303,7 @@ func TestResource_RepeatedDelete(t *testing.T) {
 	defer cancel()
 
 	hive := hive.New(
+		watcherMetrics.Cell,
 		cell.Provide(
 			func(lc cell.Lifecycle, mp workqueue.MetricsProvider) resource.Resource[*corev1.Node] {
 				return resource.New[*corev1.Node](lc, &lw, nil)

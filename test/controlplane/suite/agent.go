@@ -27,6 +27,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -69,6 +70,7 @@ func (h *agentHandle) tearDown() {
 
 func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraCell cell.Cell) {
 	h.hive = hive.New(
+		watcherMetrics.Cell,
 		// Extra cell from the test case. Here as the first cell so it can
 		// insert lifecycle hooks before anything else.
 		extraCell,
