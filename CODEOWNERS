@@ -509,6 +509,7 @@ Makefile* @cilium/build
 /pkg/cleanup/ @cilium/sig-agent
 /pkg/client @cilium/api
 /pkg/clustermesh @cilium/sig-clustermesh
+/pkg/clustermesh/*/metrics* @cilium/metrics @cilium/sig-clustermesh
 /pkg/cmdref @cilium/cli
 /pkg/command/ @cilium/cli
 /pkg/common/ @cilium/sig-agent
