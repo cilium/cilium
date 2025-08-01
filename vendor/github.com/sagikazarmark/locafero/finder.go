@@ -1,4 +1,4 @@
-// Package finder looks for files and directories in an {fs.Fs} filesystem.
+// Package locafero looks for files and directories in an {fs.Fs} filesystem.
 package locafero
 
 import (
@@ -101,7 +101,12 @@ func (f Finder) Find(fsys afero.Fs) ([]string, error) {
 	return results, nil
 }
 
-func globWalkSearch(fsys afero.Fs, searchPath string, searchName string, searchType FileType) ([]string, error) {
+func globWalkSearch(
+	fsys afero.Fs,
+	searchPath string,
+	searchName string,
+	searchType FileType,
+) ([]string, error) {
 	var results []string
 
 	err := afero.Walk(fsys, searchPath, func(p string, fileInfo fs.FileInfo, err error) error {
@@ -145,7 +150,12 @@ func globWalkSearch(fsys afero.Fs, searchPath string, searchName string, searchT
 	return results, nil
 }
 
-func statSearch(fsys afero.Fs, searchPath string, searchName string, searchType FileType) ([]string, error) {
+func statSearch(
+	fsys afero.Fs,
+	searchPath string,
+	searchName string,
+	searchType FileType,
+) ([]string, error) {
 	filePath := filepath.Join(searchPath, searchName)
 
 	fileInfo, err := fsys.Stat(filePath)
