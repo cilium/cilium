@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 type k8sCiliumEndpointsWatcherParams struct {
@@ -40,6 +41,7 @@ type k8sCiliumEndpointsWatcherParams struct {
 	EndpointManager endpointmanager.EndpointManager
 	PolicyUpdater   *policy.Updater
 	IPCache         *ipcache.IPCache
+	WgConfig        wgTypes.WireguardConfig
 }
 
 func newK8sCiliumEndpointsWatcher(params k8sCiliumEndpointsWatcherParams) *K8sCiliumEndpointsWatcher {
@@ -51,6 +53,7 @@ func newK8sCiliumEndpointsWatcher(params k8sCiliumEndpointsWatcherParams) *K8sCi
 		endpointManager:   params.EndpointManager,
 		policyManager:     params.PolicyUpdater,
 		ipcache:           params.IPCache,
+		wgConfig:          params.WgConfig,
 	}
 }
 
@@ -68,6 +71,7 @@ type K8sCiliumEndpointsWatcher struct {
 	endpointManager endpointManager
 	policyManager   policyManager
 	ipcache         ipcacheManager
+	wgConfig        wgTypes.WireguardConfig
 
 	resources agentK8s.Resources
 }
@@ -155,7 +159,7 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 	}
 
 	// default to the standard key
-	encryptionKey := node.GetEndpointEncryptKeyIndex(k.logger)
+	encryptionKey := node.GetEndpointEncryptKeyIndex(k.logger, k.wgConfig)
 
 	id := identity.ReservedIdentityUnmanaged
 	if endpoint.Identity != nil {

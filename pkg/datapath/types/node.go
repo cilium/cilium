@@ -162,6 +162,10 @@ type LocalNodeConfiguration struct {
 	// allocation CIDR IPs into Cilium endpoints.
 	EnableLocalNodeRoute bool
 
+	// EnableWireguard is used to check if we need to attach to the native
+	// device and to cilium_wg0.
+	EnableWireguard bool
+
 	// EnableIPSec enables IPSec routes
 	EnableIPSec bool
 

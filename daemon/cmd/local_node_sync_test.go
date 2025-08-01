@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
@@ -113,9 +112,8 @@ func TestLocalNodeSync(t *testing.T) {
 		sync = newLocalNodeSynchronizer(localNodeSynchronizerParams{
 			Logger: hivetest.Logger(t),
 			Config: &option.DaemonConfig{
-				IPv4NodeAddr:               "1.2.3.4",
-				IPv6NodeAddr:               "fd00::1",
-				NodeEncryptionOptOutLabels: k8sLabels.Nothing(),
+				IPv4NodeAddr: "1.2.3.4",
+				IPv6NodeAddr: "fd00::1",
 			},
 			K8sLocalNode: fln,
 			K8sCiliumLocalNode: &mockResource[*v2.CiliumNode]{
@@ -171,7 +169,6 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 				EnableIPv6:                   true,
 				EnableHealthChecking:         true,
 				EnableEndpointHealthChecking: true,
-				NodeEncryptionOptOutLabels:   k8sLabels.NewSelector(),
 			},
 			K8sLocalNode: &mockResource[*slim_corev1.Node]{
 				items: []resource.Event[*slim_corev1.Node]{
@@ -312,9 +309,8 @@ func testNodeDeletion(t *testing.T, nodeEvent resource.Event[*slim_corev1.Node])
 	sync := newLocalNodeSynchronizer(localNodeSynchronizerParams{
 		Logger: hivetest.Logger(t),
 		Config: &option.DaemonConfig{
-			IPv4NodeAddr:               "1.2.3.4",
-			IPv6NodeAddr:               "fd00::1",
-			NodeEncryptionOptOutLabels: k8sLabels.Nothing(),
+			IPv4NodeAddr: "1.2.3.4",
+			IPv6NodeAddr: "fd00::1",
 		},
 		K8sLocalNode: fakeNode,
 		K8sCiliumLocalNode: &mockResource[*v2.CiliumNode]{

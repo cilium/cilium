@@ -27,6 +27,7 @@ import (
 	k8s2 "github.com/cilium/cilium/pkg/policy/k8s"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var (
@@ -92,6 +93,7 @@ type featuresParams struct {
 	BigTCP              types.BigTCPConfig
 	L2PodAnnouncement   gneigh.L2PodAnnouncementConfig
 	DynamicConfigSource dynamicconfig.ConfigSource
+	WgConfig            wgTypes.WireguardConfig
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.EncapProtocol {

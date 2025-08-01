@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // Cell provides the NodeManager, which manages information about Cilium nodes
@@ -94,9 +95,10 @@ func newAllNodeManager(in struct {
 	JobGroup    job.Group
 	DB          *statedb.DB
 	Devices     statedb.Table[*tables.Device]
+	WGConfig    wgTypes.WireguardConfig
 },
 ) (NodeManager, error) {
-	mngr, err := New(in.Logger, option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices)
+	mngr, err := New(in.Logger, option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig)
 	if err != nil {
 		return nil, err
 	}
