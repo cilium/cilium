@@ -31,6 +31,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
@@ -67,7 +68,6 @@ func TestScript(t *testing.T) {
 	scripttest.Test(t,
 		ctx,
 		func(t testing.TB, args []string) *script.Engine {
-
 			var opts []hivetest.LogOption
 			if *debug {
 				opts = append(opts, hivetest.LogLevel(slog.LevelDebug))
@@ -76,6 +76,7 @@ func TestScript(t *testing.T) {
 			log := hivetest.Logger(t, opts...)
 
 			h := hive.New(
+				watcherMetrics.Cell,
 				k8sClient.FakeClientCell(),
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -32,6 +33,7 @@ func TestRegisterController(t *testing.T) {
 	)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	hive := hive.New(
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Provide(func() SharedConfig {
@@ -70,6 +72,7 @@ func TestRegisterControllerOnce(t *testing.T) {
 	)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	hive := hive.New(
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Provide(func() SharedConfig {
@@ -108,6 +111,7 @@ func TestRegisterControllerWithCRDDisabled(t *testing.T) {
 	)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	hive := hive.New(
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),

@@ -22,6 +22,7 @@ import (
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -93,6 +94,7 @@ func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, dc *
 	f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor("*", watchReactorFn)
 
 	f.hive = hive.New(
+		watcherMetrics.Cell,
 		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*v2.CiliumBGPClusterConfig] {
 			return resource.New[*v2.CiliumBGPClusterConfig](
 				lc, utils.ListerWatcherFromTyped[*v2.CiliumBGPClusterConfigList](

@@ -24,6 +24,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 )
 
 // Configure a generous timeout to prevent flakes when running in a noisy CI environment.
@@ -45,6 +46,7 @@ func TestServiceResolver(t *testing.T) {
 	)
 
 	h := hive.New(
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 
 		ServiceResolverCell,

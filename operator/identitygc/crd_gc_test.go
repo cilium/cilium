@@ -18,6 +18,7 @@ import (
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -25,6 +26,7 @@ func TestUsedIdentitiesInCESs(t *testing.T) {
 	var fakeClient *k8sClient.FakeClientset
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	hive := hive.New(
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Invoke(func(c *k8sClient.FakeClientset, ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) error {

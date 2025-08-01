@@ -19,6 +19,7 @@ import (
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -30,6 +31,7 @@ func TestReconcileCreate(t *testing.T) {
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
@@ -89,6 +91,7 @@ func TestReconcileUpdate(t *testing.T) {
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
@@ -154,6 +157,7 @@ func TestReconcileDelete(t *testing.T) {
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
@@ -213,6 +217,7 @@ func TestReconcileNoop(t *testing.T) {
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),

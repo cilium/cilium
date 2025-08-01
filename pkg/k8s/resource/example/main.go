@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/workerpool"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"

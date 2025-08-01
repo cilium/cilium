@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -90,6 +91,7 @@ func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusRep
 
 	hive := hive.New(
 		cell.Module("test", "test",
+			watcherMetrics.Cell,
 			cell.Provide(
 				k8sClient.NewFakeClientset,
 				newSecretResource,
