@@ -46,7 +46,9 @@ RUN \
       git \
       libc6-dev \
       make \
-      ccache && \
+      ccache \
+      python3-scapy \
+      python3-jinja2 && \
     apt-get purge --auto-remove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
