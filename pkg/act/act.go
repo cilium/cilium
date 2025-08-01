@@ -253,14 +253,16 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 		return
 	}
 
+	labelValues := []string{"", ""}
+	copy(labelValues, entry.labelValues)
 	opened, closed := uint64(value.Opened), uint64(value.Closed)
 	if opened == entry.opened && closed == entry.closed && entry.newFailed == 0 {
 		if entry.updated.IsZero() {
 			// New and inactive entry.
 			return
 		}
-		n := a.metrics.New.WithLabelValues(entry.labelValues...)
-		f := a.metrics.Failed.WithLabelValues(entry.labelValues...)
+		n := a.metrics.New.WithLabelValues(labelValues...)
+		f := a.metrics.Failed.WithLabelValues(labelValues...)
 		if n.Get()+f.Get() > 0 {
 			// Reset published metrics only once.
 			n.Set(0)
@@ -283,7 +285,7 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 	}
 
 	entry.failed += entry.newFailed
-	a.metrics.Failed.WithLabelValues(entry.labelValues...).Set(float64(entry.newFailed))
+	a.metrics.Failed.WithLabelValues(labelValues...).Set(float64(entry.newFailed))
 	if entry.newFailed > 0 {
 		a.src.SaveFailed(key, entry.failed)
 	}
@@ -296,10 +298,10 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 		)
 		opened = closed + entry.failed
 	}
-	a.metrics.Active.WithLabelValues(entry.labelValues...).Set(float64(active))
+	a.metrics.Active.WithLabelValues(labelValues...).Set(float64(active))
 
 	new := opened - entry.opened
-	a.metrics.New.WithLabelValues(entry.labelValues...).Set(float64(new))
+	a.metrics.New.WithLabelValues(labelValues...).Set(float64(new))
 
 	entry.opened = opened
 	entry.closed = closed
@@ -322,9 +324,11 @@ func (a *ACT) update(ctx context.Context) error {
 
 func (a *ACT) dropEntry(zone uint8, svc uint16) {
 	entry := a.tracker[zone][svc]
-	a.metrics.New.DeleteLabelValues(entry.labelValues...)
-	a.metrics.Active.DeleteLabelValues(entry.labelValues...)
-	a.metrics.Failed.DeleteLabelValues(entry.labelValues...)
+	labelValues := []string{"", ""}
+	copy(labelValues, entry.labelValues)
+	a.metrics.New.DeleteLabelValues(labelValues...)
+	a.metrics.Active.DeleteLabelValues(labelValues...)
+	a.metrics.Failed.DeleteLabelValues(labelValues...)
 
 	delete(a.tracker[zone], svc)
 }
