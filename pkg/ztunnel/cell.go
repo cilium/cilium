@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ztunnel/xds"
+	"github.com/cilium/cilium/pkg/ztunnel/zds"
 )
 
 // Cell starts an xDS server scoped specifically for zTunnel integration.
@@ -21,6 +22,9 @@ var Cell = cell.Module(
 	cell.Provide(newZTunnelXDSServer),
 	cell.Config(Config{}),
 	cell.Invoke(func(*xds.Server) {}),
+
+	// ZDS server for ztunnel
+	zds.Cell,
 )
 
 type Config struct {

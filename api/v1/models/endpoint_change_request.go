@@ -34,6 +34,9 @@ type EndpointChangeRequest struct {
 	// Name assigned to container
 	ContainerName string `json:"container-name,omitempty"`
 
+	// Path of Container Netns
+	ContainerNetnsPath string `json:"container-netns-path,omitempty"`
+
 	// datapath configuration
 	DatapathConfiguration *EndpointDatapathConfiguration `json:"datapath-configuration,omitempty"`
 
