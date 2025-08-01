@@ -17,11 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/version"
-	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 type GetDebuginfoHandler struct {
@@ -29,7 +28,7 @@ type GetDebuginfoHandler struct {
 	policyRepo      policy.PolicyRepository
 	db              *statedb.DB
 	frontends       statedb.Table[*loadbalancer.Frontend]
-	wireguardAgent  *wireguard.Agent
+	wireguardAgent  wgTypes.WireguardAgent
 
 	statusCollector status.StatusCollector
 
@@ -69,7 +68,7 @@ func (h *GetDebuginfoHandler) Handle(params restapi.GetDebuginfoParams) middlewa
 		)
 
 	dr.Encryption = &models.DebugInfoEncryption{}
-	if option.Config.EnableWireguard {
+	if h.wireguardAgent.Enabled() {
 		if wgStatus, err := h.wireguardAgent.Status(true); err == nil {
 			dr.Encryption.Wireguard = wgStatus
 		}
