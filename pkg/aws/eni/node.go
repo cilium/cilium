@@ -958,7 +958,7 @@ func (n *Node) getEffectiveIPLimits(eni *eniTypes.ENI, limits int) (leftoverPref
 
 // findSubnetInSameRouteTableWithNodeSubnet returns the subnet with the most addresses
 // that is in the same route table as the node's subnet to make sure the pod traffic
-// leaving secondary interfaces will be routed as the primary interface.
+// leaving secondary interfaces is routed in the same way as the primary interface.
 func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
@@ -975,15 +975,13 @@ func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 
 	for _, routeTable := range n.manager.routeTables {
 		if _, ok := routeTable.Subnets[nodeSubnetID]; ok && routeTable.VirtualNetworkID == n.k8sObj.Spec.ENI.VpcID {
-			for _, subnetID := range n.k8sObj.Spec.ENI.SubnetIDs {
+			for subnetID := range routeTable.Subnets {
 				if subnetID == nodeSubnetID {
 					continue
 				}
-				if _, ok := routeTable.Subnets[subnetID]; ok {
-					subnet := n.manager.subnets[subnetID]
-					if bestSubnet == nil || subnet.AvailableAddresses > bestSubnet.AvailableAddresses {
-						bestSubnet = subnet
-					}
+				subnet := n.manager.subnets[subnetID]
+				if (bestSubnet == nil || subnet.AvailableAddresses > bestSubnet.AvailableAddresses) && subnet.AvailabilityZone == n.k8sObj.Spec.ENI.AvailabilityZone {
+					bestSubnet = subnet
 				}
 			}
 		}
@@ -993,7 +991,7 @@ func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 }
 
 // checkSubnetInSameRouteTableWithNodeSubnet checks if the given subnet is in the same route table as the node's subnet
-// to make sure the pod traffic leaving secondary interfaces will be routed as the primary interface.
+// to make sure the pod traffic leaving secondary interfaces is routed in the same way as the primary interface.
 func (n *Node) checkSubnetInSameRouteTableWithNodeSubnet(subnet *ipamTypes.Subnet) bool {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
