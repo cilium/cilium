@@ -147,7 +147,7 @@ func newAgent(p params) *Agent {
 
 // Start implements cell.HookInterface.
 func (a *Agent) Start(cell.HookContext) error {
-	if !a.config.EnableWireguard {
+	if !a.Enabled() {
 		// Delete WireGuard device from previous run (if such exists)
 		link.DeleteByName(types.IfaceName)
 		return nil
@@ -187,7 +187,7 @@ func (a *Agent) Start(cell.HookContext) error {
 
 // Stop implements cell.HookInterface.
 func (a *Agent) Stop(cell.HookContext) error {
-	if !a.config.EnableWireguard {
+	if !a.Enabled() {
 		return nil
 	}
 
@@ -200,6 +200,11 @@ func (a *Agent) Stop(cell.HookContext) error {
 // Name implements datapath.NodeHandler.
 func (a *Agent) Name() string {
 	return "wireguard-agent"
+}
+
+// Returns true when enabled. Implements [types.WireguardAgent].
+func (a *Agent) Enabled() bool {
+	return a.config.EnableWireguard
 }
 
 // needsIPCache returns true if the agent should subscribe to IPCache events.
@@ -813,7 +818,7 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 // If withPeers is true, then the details about each connected peer are
 // are populated as well.
 func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
-	if !a.config.EnableWireguard {
+	if !a.Enabled() {
 		return nil, nil
 	}
 
