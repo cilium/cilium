@@ -60,6 +60,7 @@ var Cell = cell.Module(
 		func() types.IPsecKeyCustodian { return &ipsecKeyCustodian{} },
 		func() mtu.MTU { return &fakeTypes.MTU{} },
 		func() wgTypes.WireguardAgent { return &fakeTypes.WireguardAgent{} },
+		func() wgTypes.WireguardConfig { return &fakeTypes.WireguardConfig{} },
 		func() types.Loader { return &fakeTypes.FakeLoader{} },
 		func() types.Orchestrator { return &fakeTypes.FakeOrchestrator{} },
 		loader.NewCompilationLock,

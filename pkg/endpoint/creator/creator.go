@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/time"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var launchTime = 30 * time.Second
@@ -63,6 +64,7 @@ type endpointCreator struct {
 	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
 	// information about endpoints.
 	kvstoreSyncher *ipcache.IPIdentitySynchronizer
+	wgConfig       wgTypes.WireguardConfig
 }
 
 var _ EndpointCreator = &endpointCreator{}
@@ -88,6 +90,7 @@ type endpointManagerParams struct {
 	Allocator           cache.IdentityAllocator
 	CTMapGC             ctmap.GCRunner
 	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
+	WgConfig            wgTypes.WireguardConfig
 }
 
 func newEndpointCreator(p endpointManagerParams) EndpointCreator {
@@ -110,6 +113,7 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
 		kvstoreSyncher:   p.KVStoreSynchronizer,
+		wgConfig:         p.WgConfig,
 	}
 }
 
@@ -134,6 +138,7 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 		c.ctMapGC,
 		c.kvstoreSyncher,
 		base,
+		c.wgConfig,
 	)
 }
 
@@ -157,6 +162,7 @@ func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, erro
 		c.ctMapGC,
 		c.kvstoreSyncher,
 		epJSON,
+		c.wgConfig,
 	)
 }
 
@@ -179,6 +185,7 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 		c.allocator,
 		c.ctMapGC,
 		c.kvstoreSyncher,
+		c.wgConfig,
 	)
 	if err != nil {
 		return err
@@ -212,6 +219,7 @@ func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 		c.allocator,
 		c.ctMapGC,
 		c.kvstoreSyncher,
+		c.wgConfig,
 	)
 	if err != nil {
 		return err
