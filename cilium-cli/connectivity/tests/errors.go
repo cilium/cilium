@@ -157,10 +157,18 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				// Do not check for container restarts for Cilium v1.16 and earlier.
 				ignore := n.ciliumVersion.LT(semver.MustParse("1.17.0"))
 
-				// Ignore Cilium operator restarts for the moment, as they can
-				// legitimately happen in case it loses the leader election due
-				// to temporary control plane blips.
-				ignore = ignore || container == "cilium-operator"
+				// Check for legitimate cilium-operator restart patterns
+				if container == "cilium-operator" && restarts > 0 {
+					var prevLogs bytes.Buffer
+					err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, prevOpts, &prevLogs)
+					if err != nil {
+						a.Logf("Warning: Could not retrieve previous logs to check for legitimate operator restart patterns: %s", err)
+					} else if hasLegitimateOperatorRestartPatterns(prevLogs.Bytes()) {
+						// Ignore the restart count, but still verify there are no error logs in previous logs
+						ignore = true
+						n.checkErrorsInLogs(id, prevLogs.Bytes(), a, &prevOpts)
+					}
+				}
 
 				// The hubble relay container can currently be restarted by the
 				// startup probe if it fails to connect to Cilium. However, this
@@ -418,7 +426,7 @@ const (
 	failedToReleaseLock    stringMatcher = "Failed to release lock:"
 	previouslyUsedCIDR     stringMatcher = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
 	klogLeaderElectionFail stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
-	nilDetailsForService   stringMatcher = "retrieved nil details for Service"                                         // from: https://github.com/cilium/cilium/issues/35595
+	nilDetailsForService stringMatcher = "retrieved nil details for Service" // from: https://github.com/cilium/cilium/issues/35595
 
 	cantEnableJIT               stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.
 	delMissingService           stringMatcher = "Deleting no longer present service"                                     // cf. https://github.com/cilium/cilium/issues/29679
@@ -480,3 +488,10 @@ var (
 	// ccgAlphaResourceDeprecation is the same as bgpAlphaResourceDeprecation but for the CiliumCIDRGroup.
 	ccgAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumCIDRGroup is deprecated`)}
 )
+
+// hasLegitimateOperatorRestartPatterns returns true only for intentional, benign
+// operator restarts. Today, this is identified by the informational log message
+// "Leader election lost" emitted during leader handover.
+func hasLegitimateOperatorRestartPatterns(logs []byte) bool {
+	return strings.Contains(string(logs), "Leader election lost")
+}
