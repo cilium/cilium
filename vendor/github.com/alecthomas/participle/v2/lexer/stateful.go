@@ -49,7 +49,7 @@ func (r *Rule) UnmarshalJSON(data []byte) error {
 	}
 	err = json.Unmarshal(jrule.Action, &jaction)
 	if err != nil {
-		return fmt.Errorf("could not unmarshal action %q: %w", string(jrule.Action), err)
+		return fmt.Errorf("lexer: could not unmarshal action %q: %w", string(jrule.Action), err)
 	}
 	var action Action
 	switch jaction.Kind {
@@ -73,7 +73,7 @@ func (r *Rule) UnmarshalJSON(data []byte) error {
 		action = actual
 	case "":
 	default:
-		return fmt.Errorf("unknown action %q", jaction.Kind)
+		return fmt.Errorf("lexer: unknown action %q", jaction.Kind)
 	}
 	r.Action = action
 	return nil
@@ -87,12 +87,12 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 	if r.Action != nil {
 		actionData, err := json.Marshal(r.Action)
 		if err != nil {
-			return nil, fmt.Errorf("failed to map action: %w", err)
+			return nil, fmt.Errorf("lexer: failed to map action: %w", err)
 		}
 		jaction := map[string]interface{}{}
 		err = json.Unmarshal(actionData, &jaction)
 		if err != nil {
-			return nil, fmt.Errorf("failed to map action: %w", err)
+			return nil, fmt.Errorf("lexer: failed to map action: %w", err)
 		}
 		switch r.Action.(type) {
 		case nil:
@@ -103,7 +103,7 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 		case include:
 			jaction["kind"] = "include"
 		default:
-			return nil, fmt.Errorf("unsupported action %T", r.Action)
+			return nil, fmt.Errorf("lexer: unsupported action %T", r.Action)
 		}
 		actionJSON, err := json.Marshal(jaction)
 		if err != nil {
@@ -183,7 +183,7 @@ func (p ActionPush) applyAction(lexer *StatefulLexer, groups []string) error {
 
 func (p ActionPush) validate(rules Rules) error {
 	if _, ok := rules[p.State]; !ok {
-		return fmt.Errorf("push to unknown state %q", p.State)
+		return fmt.Errorf("lexer: push to unknown state %q", p.State)
 	}
 	return nil
 }
@@ -207,7 +207,7 @@ func (i include) applyAction(lexer *StatefulLexer, groups []string) error {
 func (i include) applyRules(state string, rule int, rules compiledRules) error {
 	includedRules, ok := rules[i.State]
 	if !ok {
-		return fmt.Errorf("invalid include state %q", i.State)
+		return fmt.Errorf("lexer: invalid include state %q", i.State)
 	}
 	clone := make([]compiledRule, len(includedRules))
 	copy(clone, includedRules)
@@ -245,7 +245,7 @@ func New(rules Rules) (*StatefulDefinition, error) {
 		for i, rule := range set {
 			if validate, ok := rule.Action.(validatingRule); ok {
 				if err := validate.validate(rules); err != nil {
-					return nil, fmt.Errorf("invalid action for rule %q: %w", rule.Name, err)
+					return nil, fmt.Errorf("lexer: invalid action for rule %q: %w", rule.Name, err)
 				}
 			}
 			pattern := "^(?:" + rule.Pattern + ")"
@@ -257,7 +257,7 @@ func New(rules Rules) (*StatefulDefinition, error) {
 			if match == nil || len(match[1])%2 == 0 {
 				re, err = regexp.Compile(pattern)
 				if err != nil {
-					return nil, fmt.Errorf("%s.%d: %s", key, i, err)
+					return nil, fmt.Errorf("lexer: %s.%d: %s", key, i, err)
 				}
 			}
 			compiled[key] = append(compiled[key], compiledRule{
@@ -272,7 +272,7 @@ restart:
 		for i, rule := range rules {
 			if action, ok := rule.Action.(RulesAction); ok {
 				if err := action.applyRules(state, i, compiled); err != nil {
-					return nil, fmt.Errorf("%s.%d: %s", state, i, err)
+					return nil, fmt.Errorf("lexer: %s.%d: %s", state, i, err)
 				}
 				goto restart
 			}
@@ -291,7 +291,7 @@ restart:
 	for _, key := range keys {
 		for i, rule := range compiled[key] {
 			if dup, ok := duplicates[rule.Name]; ok && rule.Pattern != dup.Pattern {
-				panic(fmt.Sprintf("duplicate key %q with different patterns %q != %q", rule.Name, rule.Pattern, dup.Pattern))
+				panic(fmt.Sprintf("lexer: duplicate key %q with different patterns %q != %q", rule.Name, rule.Pattern, dup.Pattern))
 			}
 			duplicates[rule.Name] = rule
 			compiled[key][i] = rule
@@ -382,7 +382,7 @@ next:
 			}
 			re, err := l.getPattern(candidate)
 			if err != nil {
-				return Token{}, errorf(l.pos, "rule %q: %s", candidate.Name, err)
+				return Token{}, errorf(l.pos, "lexer: rule %q: %s", candidate.Name, err)
 			}
 			m = re.FindStringSubmatchIndex(l.data)
 			if m != nil && (match == nil || m[1] > match[1]) {
@@ -398,7 +398,7 @@ next:
 			if len(sample) > 16 {
 				sample = append(sample[:16], []rune("...")...)
 			}
-			return Token{}, errorf(l.pos, "invalid input text %q", string(sample))
+			return Token{}, errorf(l.pos, "lexer: invalid input text %q", string(sample))
 		}
 
 		if rule.Action != nil {
@@ -407,10 +407,10 @@ next:
 				groups = append(groups, l.data[match[i]:match[i+1]])
 			}
 			if err := rule.Action.applyAction(l, groups); err != nil {
-				return Token{}, errorf(l.pos, "rule %q: %s", rule.Name, err)
+				return Token{}, errorf(l.pos, "lexer: rule %q: %s", rule.Name, err)
 			}
 		} else if match[0] == match[1] {
-			return Token{}, errorf(l.pos, "rule %q did not match any input", rule.Name)
+			return Token{}, errorf(l.pos, "lexer: rule %q did not match any input", rule.Name)
 		}
 
 		span := l.data[match[0]:match[1]]
