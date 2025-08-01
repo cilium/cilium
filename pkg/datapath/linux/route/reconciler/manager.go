@@ -113,20 +113,34 @@ type Initializer struct {
 }
 
 func (m *DesiredRouteManager) RegisterInitializer(name string) Initializer {
+	txn := m.db.WriteTxn(m.tbl)
+	defer txn.Commit()
+
 	return Initializer{
-		initialized: m.tbl.RegisterInitializer(m.db.WriteTxn(m.tbl), name),
+		initialized: m.tbl.RegisterInitializer(txn, name),
 	}
 }
 
 func (m *DesiredRouteManager) FinalizeInitializer(initializer Initializer) {
 	if initializer.initialized != nil {
-		initializer.initialized(m.db.WriteTxn(m.tbl))
+		txn := m.db.WriteTxn(m.tbl)
+		defer txn.Commit()
+		initializer.initialized(txn)
 	}
 }
 
-func (m *DesiredRouteManager) UpsertRoutes(route DesiredRoute) error {
+func (m *DesiredRouteManager) UpsertRoute(route DesiredRoute) error {
 	txn := m.db.WriteTxn(m.tbl)
 	defer txn.Abort()
+
+	if route.Owner == nil {
+		return fmt.Errorf("route must have an owner")
+	}
+
+	// When not specified, the route should be added to the main table.
+	if route.Table == 0 {
+		route.Table = TableMain
+	}
 
 	// By default, any new route we add is not selected and does not have to be reconciled.
 	// The [selectRoutes] method will select the best route for each prefix+table.
@@ -145,17 +159,26 @@ func (m *DesiredRouteManager) UpsertRoutes(route DesiredRoute) error {
 	return nil
 }
 
-func (m *DesiredRouteManager) UpsertRoutesWait(route DesiredRoute) error {
-	if err := m.UpsertRoutes(route); err != nil {
+func (m *DesiredRouteManager) UpsertRouteWait(route DesiredRoute) error {
+	if err := m.UpsertRoute(route); err != nil {
 		return nil
 	}
 
 	return m.waitForReconciliation(route.GetFullKey())
 }
 
-func (m *DesiredRouteManager) DeleteRoutes(route DesiredRoute) error {
+func (m *DesiredRouteManager) DeleteRoute(route DesiredRoute) error {
 	txn := m.db.WriteTxn(m.tbl)
 	defer txn.Abort()
+
+	if route.Owner == nil {
+		return fmt.Errorf("route must have an owner")
+	}
+
+	// When not specified, the route should be added to the main table.
+	if route.Table == 0 {
+		route.Table = TableMain
+	}
 
 	if _, _, err := m.tbl.Delete(txn, &route); err != nil {
 		return err
@@ -195,7 +218,7 @@ func (m *DesiredRouteManager) waitForReconciliation(routeKey DesiredRouteKey) er
 				return nil
 			}
 			if obj.status.Kind == reconciler.StatusKindError {
-				err = errors.New(obj.status.Error)
+				err = errors.New(obj.status.GetError())
 			}
 		}
 	}
