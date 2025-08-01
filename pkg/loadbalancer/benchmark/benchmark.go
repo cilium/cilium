@@ -442,8 +442,8 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 					err = errors.Join(err, fmt.Errorf("Incorrect name for frontend #%06d, got %q, want %q", i, fe.ServiceName.Name(), want.Name))
 				}
 				wantIP, _ := netip.ParseAddr(want.Spec.ClusterIP)
-				if fe.Address.AddrCluster.Addr() != wantIP {
-					err = errors.Join(err, fmt.Errorf("Incorrect address for frontend #%06d, got %v, want %v", i, fe.Address.AddrCluster.Addr(), wantIP))
+				if fe.Address.Addr() != wantIP {
+					err = errors.Join(err, fmt.Errorf("Incorrect address for frontend #%06d, got %v, want %v", i, fe.Address.Addr(), wantIP))
 				}
 				if fe.Type != loadbalancer.SVCType(want.Spec.Type) {
 					err = errors.Join(err, fmt.Errorf("Incorrect service type for frontend #%06d, got %v, want %v", i, fe.Type, loadbalancer.SVCType(want.Spec.Type)))
@@ -456,8 +456,8 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 				}
 				backends := slices.Collect(statedb.ToSeq(iter.Seq2[loadbalancer.BackendParams, statedb.Revision](fe.Backends)))
 				for wantAddr := range epSlices[i].Backends { // There is only one element in this map.
-					if backends[0].Address.AddrCluster != wantAddr {
-						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, backends[0].Address.AddrCluster, wantAddr))
+					if backends[0].Address.AddrCluster() != wantAddr {
+						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, backends[0].Address.AddrCluster(), wantAddr))
 					}
 				}
 
@@ -474,15 +474,15 @@ func checkTables(db *statedb.DB, writer *writer.Writer, svcs []*slim_corev1.Serv
 			for be := range writer.Backends().All(txn) {
 				want := epSlices[i]
 				for wantAddr, wantBe := range want.Backends { // There is only one element in this map.
-					if be.Address.AddrCluster != wantAddr {
-						err = errors.Join(err, fmt.Errorf("Incorrect address for backend #%06d, got %v, want %v", i, be.Address.AddrCluster, wantAddr))
+					if be.Address.AddrCluster() != wantAddr {
+						err = errors.Join(err, fmt.Errorf("Incorrect address for backend #%06d, got %v, want %v", i, be.Address.AddrCluster(), wantAddr))
 					}
 					for wantPort := range wantBe.Ports { // There is only one element in this map.
-						if be.Address.Port != wantPort.Port {
-							err = errors.Join(err, fmt.Errorf("Incorrect port for backend #%06d, got %v, want %v", i, be.Address.Port, wantPort.Port))
+						if be.Address.Port() != wantPort.Port {
+							err = errors.Join(err, fmt.Errorf("Incorrect port for backend #%06d, got %v, want %v", i, be.Address.Port(), wantPort.Port))
 						}
-						if be.Address.Protocol != wantPort.Protocol {
-							err = errors.Join(err, fmt.Errorf("Incorrect protocol for backend #%06d, got %v, want %v", i, be.Address.Protocol, wantPort.Protocol))
+						if be.Address.Protocol() != wantPort.Protocol {
+							err = errors.Join(err, fmt.Errorf("Incorrect protocol for backend #%06d, got %v, want %v", i, be.Address.Protocol(), wantPort.Protocol))
 						}
 					}
 				}

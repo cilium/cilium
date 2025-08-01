@@ -4,12 +4,10 @@
 package client
 
 import (
-	"context"
 	_ "embed"
 	"fmt"
 	"log/slog"
 
-	"golang.org/x/sync/errgroup"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -199,21 +197,19 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 // CreateCustomResourceDefinitions creates our CRD objects in the Kubernetes
 // cluster.
 func CreateCustomResourceDefinitions(logger *slog.Logger, clientset apiextensionsclient.Interface) error {
-	g, _ := errgroup.WithContext(context.Background())
-
 	crds := CustomResourceDefinitionList()
 
 	for _, r := range synced.AllCiliumCRDResourceNames() {
 		if crd, ok := crds[r]; ok {
-			g.Go(func() error {
-				return createCRD(logger, crd.Name, crd.FullName)(clientset)
-			})
+			if err := createCRD(logger, crd.Name, crd.FullName)(clientset); err != nil {
+				return err
+			}
 		} else {
 			logging.Fatal(logger, fmt.Sprintf("Unknown resource %s. Please update pkg/k8s/apis/cilium.io/client to understand this type.", r))
 		}
 	}
 
-	return g.Wait()
+	return nil
 }
 
 var (

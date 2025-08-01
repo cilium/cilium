@@ -76,12 +76,7 @@ Address              Instances
 }
 -- frontends-expected.json --
 {
-  "Address": {
-    "AddrCluster": "10.96.50.104",
-    "Protocol": "TCP",
-    "Port": 80,
-    "Scope": 0
-  },
+  "Address": "10.96.50.104:80/TCP",
   "Type": "ClusterIP",
   "ServiceName": "test/echo",
   "PortName": "http",
@@ -93,12 +88,7 @@ Address              Instances
   },
   "Backends": [
     {
-      "Address": {
-        "AddrCluster": "10.244.1.1",
-        "Protocol": "TCP",
-        "Port": 8080,
-        "Scope": 0
-      },
+      "Address": "10.244.1.1:8080/TCP",
       "PortNames": [
         "http"
       ],
@@ -117,12 +107,7 @@ Address              Instances
   "RedirectTo": null
 }
 {
-  "Address": {
-    "AddrCluster": "2001::1",
-    "Protocol": "TCP",
-    "Port": 80,
-    "Scope": 0
-  },
+  "Address": "[2001::1]:80/TCP",
   "Type": "ClusterIP",
   "ServiceName": "test/echo",
   "PortName": "http",
@@ -134,12 +119,7 @@ Address              Instances
   },
   "Backends": [
     {
-      "Address": {
-        "AddrCluster": "2002::2",
-        "Protocol": "TCP",
-        "Port": 8080,
-        "Scope": 0
-      },
+      "Address": "[2002::2]:8080/TCP",
       "PortNames": [
         "http"
       ],
@@ -159,12 +139,7 @@ Address              Instances
 }
 -- backends-expected.json --
 {
-  "Address": {
-    "AddrCluster": "10.244.1.1",
-    "Protocol": "TCP",
-    "Port": 8080,
-    "Scope": 0
-  },
+  "Address": "10.244.1.1:8080/TCP",
   "Instances": [
     {
       "k": {
@@ -172,12 +147,7 @@ Address              Instances
         "SourcePriority": 4
       },
       "v": {
-        "Address": {
-          "AddrCluster": {},
-          "Protocol": "TCP",
-          "Port": 8080,
-          "Scope": 0
-        },
+        "Address": "10.244.1.1:8080/TCP",
         "PortNames": [
           "http"
         ],
@@ -195,12 +165,7 @@ Address              Instances
   ]
 }
 {
-  "Address": {
-    "AddrCluster": "2002::2",
-    "Protocol": "TCP",
-    "Port": 8080,
-    "Scope": 0
-  },
+  "Address": "[2002::2]:8080/TCP",
   "Instances": [
     {
       "k": {
@@ -208,12 +173,7 @@ Address              Instances
         "SourcePriority": 4
       },
       "v": {
-        "Address": {
-          "AddrCluster": {},
-          "Protocol": "TCP",
-          "Port": 8080,
-          "Scope": 0
-        },
+        "Address": "[2002::2]:8080/TCP",
         "PortNames": [
           "http"
         ],

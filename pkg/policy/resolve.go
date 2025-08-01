@@ -252,9 +252,7 @@ func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, RuleMeta, bool) {
 // CopyMapStateFrom copies the policy map entries from m.
 func (p *EndpointPolicy) CopyMapStateFrom(m MapStateMap) {
 	for key, entry := range m {
-		p.policyMapState.entries[key] = mapStateEntry{
-			MapStateEntry: entry,
-		}
+		p.policyMapState.entries[key] = NewMapStateEntry(entry)
 	}
 }
 

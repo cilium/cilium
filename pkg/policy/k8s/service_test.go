@@ -98,7 +98,11 @@ func (sf *servicesFixture) upsertService(name loadbalancer.ServiceName, lbls, se
 		sf.backends.Delete(wtxn, be)
 	}
 	for _, addrCluster := range backendAddrs {
-		addr := loadbalancer.L3n4Addr{AddrCluster: addrCluster}
+		addr := loadbalancer.NewL3n4Addr(
+			loadbalancer.TCP,
+			addrCluster,
+			0,
+			loadbalancer.ScopeExternal)
 		be := &loadbalancer.Backend{
 			Address: addr,
 		}
