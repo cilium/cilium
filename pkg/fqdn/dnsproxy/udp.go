@@ -4,13 +4,13 @@
 package dnsproxy
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 	"strconv"
 	"sync"
 	"syscall"
@@ -204,34 +204,26 @@ func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 	// Must give the UDP header to get the source port right.
 	// Reuse the msg buffer, figure out if golang can do gatter-scather IO
 	// with raw sockets?
-	l := len(b)
-	bb := bytes.NewBuffer(s.m[:0])
-	binary.Write(bb, binary.BigEndian, uint16(s.laddr.Port))
-	binary.Write(bb, binary.BigEndian, uint16(s.raddr.Port))
-	binary.Write(bb, binary.BigEndian, uint16(8+l))
-	binary.Write(bb, binary.BigEndian, uint16(0)) // checksum
-	bb.Write(b)
-	buf := bb.Bytes()
-
+	sz := 8 + len(b)
+	buf := slices.Grow(s.m[:0], sz)[:sz]
+	binary.BigEndian.PutUint16(buf[0:2], uint16(s.laddr.Port))
+	binary.BigEndian.PutUint16(buf[2:4], uint16(s.raddr.Port))
+	binary.BigEndian.PutUint16(buf[4:6], uint16(sz))
+	binary.BigEndian.PutUint16(buf[6:8], uint16(0)) // checksum
 	// A UDP checksum is required for IPv6
 	if s.raddr.IP.To4() == nil {
 		// Compute the UDP the checksum
 		binary.BigEndian.PutUint16(buf[6:8], computeIPv6Checksum(s.laddr.IP, s.raddr.IP, buf))
 	}
+	copy(buf[8:], b)
 
-	var n int
-	var err error
-	dst := net.IPAddr{
-		IP: s.raddr.IP,
-	}
-
-	n, _, err = s.f.rawResponseConn.WriteMsgIP(buf, s.controlMessage(s.laddr), &dst)
+	n, _, err := s.f.rawResponseConn.WriteMsgIP(buf, s.controlMessage(s.laddr), &net.IPAddr{IP: s.raddr.IP})
 	if err != nil {
 		s.logger.Warn("WriteMsgIP failed", logfields.Error, err)
 	} else {
 		s.logger.Debug("dnsproxy: Wrote DNS response",
 			logfields.WrittenBytes, n-8,
-			logfields.TotalBytes, l,
+			logfields.TotalBytes, sz-8,
 			logfields.Source, s.laddr,
 			logfields.Destination, s.raddr,
 		)
