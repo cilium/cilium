@@ -307,9 +307,11 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 			a.Debugf("retrying command %s due to inconclusive results", cmdStr)
 			continue
 		} else if err != nil {
+			// Log the output, errOutput and error only if the command failed.
+			a.Debugf("Command %q output: %s errOutput: %s err: %s", cmdStr, a.cmdOutput, errOutput.String(), err.Error())
 			exitCode, _ := a.extractExitCode(err)
 			if exitCode == ExitInvalidCode {
-				a.Debugf("retrying command %s to to command execution error", cmdStr)
+				a.Debugf("retrying command %s due to command execution error", cmdStr)
 				continue
 			}
 		}
