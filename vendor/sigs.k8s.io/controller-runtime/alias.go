@@ -77,12 +77,18 @@ var (
 	// If --kubeconfig is set, will use the kubeconfig file at that location.  Otherwise will assume running
 	// in cluster and use the cluster provided kubeconfig.
 	//
+	// The returned `*rest.Config` has client-side ratelimting disabled as we can rely on API priority and
+	// fairness. Set its QPS to a value equal or bigger than 0 to re-enable it.
+	//
 	// Will log an error and exit if there is an error creating the rest.Config.
 	GetConfigOrDie = config.GetConfigOrDie
 
 	// GetConfig creates a *rest.Config for talking to a Kubernetes apiserver.
 	// If --kubeconfig is set, will use the kubeconfig file at that location.  Otherwise will assume running
 	// in cluster and use the cluster provided kubeconfig.
+	//
+	// The returned `*rest.Config` has client-side ratelimting disabled as we can rely on API priority and
+	// fairness. Set its QPS to a value equal or bigger than 0 to re-enable it.
 	//
 	// Config precedence
 	//
