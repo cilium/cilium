@@ -175,6 +175,9 @@ type manager struct {
 
 	// custom mutator function to enrich prefixCluster(s) from node objects.
 	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
+
+	// wireguard configuration used when calling endpointEncryptionKey.
+	wgConfig types.WireguardConfig
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -271,6 +274,7 @@ func New(
 	jobGroup job.Group,
 	db *statedb.DB,
 	devices statedb.Table[*tables.Device],
+	wgCfg types.WireguardConfig,
 ) (*manager, error) {
 	if ipsetFilter == nil {
 		ipsetFilter = func(*nodeTypes.Node) bool { return false }
@@ -294,6 +298,7 @@ func New(
 		db:                     db,
 		devices:                devices,
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
+		wgConfig:               wgCfg,
 	}
 
 	return m, nil
@@ -596,7 +601,7 @@ func (m *manager) nodeAddressHasEncryptKey() bool {
 // With IPSec (or no encryption), the node's encryption key index and the
 // encryption key of the endpoint on that node are the same.
 func (m *manager) endpointEncryptionKey(n *nodeTypes.Node) ipcacheTypes.EncryptKey {
-	if m.conf.EnableWireguard {
+	if m.wgConfig.Enabled() {
 		return ipcacheTypes.EncryptKey(types.StaticEncryptKey)
 	}
 

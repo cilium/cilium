@@ -250,7 +250,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if option.Config.EnableWireguard {
+	if cfg.EnableWireguard {
 		cDefinesMap["ENABLE_WIREGUARD"] = "1"
 		ifindex, err := link.GetIfIndex(wgtypes.IfaceName)
 		if err != nil {

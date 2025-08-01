@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/safeio"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // initKubeProxyReplacementOptions will grok the global config and determine
@@ -41,7 +42,7 @@ import (
 //
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
-func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) error {
+func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig) error {
 	if !kprCfg.EnableNodePort {
 		option.Config.EnableHostLegacyRouting = true
 	}
@@ -92,7 +93,7 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		}
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
-			option.Config.EnableWireguard && option.Config.EncryptNode {
+			wgCfg.Enabled() && option.Config.EncryptNode {
 			logger.Warn(
 				fmt.Sprintf(
 					"With %s: %s and %s, %s enabled, N/S Loadbalancer traffic won't be encrypted "+

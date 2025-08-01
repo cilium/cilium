@@ -36,7 +36,7 @@ func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
 	option.Config.IPv6ServiceRange = "auto"
 
 	h, _ := cell.NewSimpleHealth()
-	nm, err := New(logger, fakeConfig, tunnel.Config{}, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil)
+	nm, err := New(logger, fakeConfig, tunnel.Config{}, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
 	require.NoError(tb, err)
 
 	g := &GetNodesSuite{

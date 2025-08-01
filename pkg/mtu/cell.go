@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var Cell = cell.Module(
@@ -68,6 +69,7 @@ type mtuParams struct {
 	Log             *slog.Logger
 	DaemonConfig    *option.DaemonConfig
 	LocalCiliumNode k8s.LocalCiliumNodeResource
+	WgConfig        wgTypes.WireguardConfig
 
 	Config Config
 }
@@ -96,7 +98,7 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 				p.IPsec.AuthKeySize(),
 				option.Config.EnableIPSec,
 				p.TunnelConfig.ShouldAdaptMTU(),
-				option.Config.EnableWireguard,
+				p.WgConfig.Enabled(),
 				tunnelOverIPv6,
 			)
 

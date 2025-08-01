@@ -184,7 +184,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	// the code below, specific to EncryptInterface. Specifically, we will load
 	// bpf_host code in reloadHostDatapath onto the physical devices as selected
 	// by configuration.
-	if !option.Config.EnableIPSec || option.Config.AreDevicesRequired(lnc.KPRConfig) {
+	if !option.Config.EnableIPSec || option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard) {
 		return nil
 	}
 
@@ -289,7 +289,7 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 }
 
 func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration) (err error) {
-	if !option.Config.EnableWireguard {
+	if !lnc.EnableWireguard {
 		cleanCallsMaps("cilium_calls_wireguard*")
 		return
 	}

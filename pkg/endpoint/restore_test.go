@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -65,7 +66,7 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 	identity.Sanitize()
 
 	model := newTestEndpointModel(int(id), StateReady)
-	ep, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model)
+	ep, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{})
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -288,7 +289,7 @@ type fakeParser struct {
 }
 
 func (f *fakeParser) ParseEndpoint(epJSON []byte) (*Endpoint, error) {
-	return ParseEndpoint(f.logger, nil, nil, nil, f.orchestrator, nil, nil, nil, nil, nil, nil, f.policyRepo, nil, nil, nil, nil, nil, epJSON)
+	return ParseEndpoint(f.logger, nil, nil, nil, f.orchestrator, nil, nil, nil, nil, nil, nil, f.policyRepo, nil, nil, nil, nil, nil, epJSON, fakeTypes.WireguardConfig{})
 }
 
 var _ EndpointParser = &fakeParser{}

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
@@ -36,7 +37,7 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 			"k8s:name=probe",
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-	})
+	}, fakeTypes.WireguardConfig{})
 	require.NoError(t, err)
 
 	status := e.GetCiliumEndpointStatus()

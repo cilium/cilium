@@ -528,11 +528,11 @@ func GetIngressIPv6(logger *slog.Logger) net.IP {
 // Note that the key index returned by this function is only valid for _endpoints_
 // of the local node. If you want to obtain the key index of the local node itself,
 // access the `EncryptionKey` field via the LocalNodeStore.
-func GetEndpointEncryptKeyIndex(logger *slog.Logger) uint8 {
+func GetEndpointEncryptKeyIndex(logger *slog.Logger, wgCfg wgTypes.WireguardConfig) uint8 {
 	switch {
 	case option.Config.EnableIPSec:
 		return getLocalNode(logger).EncryptionKey
-	case option.Config.EnableWireguard:
+	case wgCfg.Enabled():
 		return wgTypes.StaticEncryptKey
 
 	}

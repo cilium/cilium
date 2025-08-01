@@ -10,17 +10,26 @@ import (
 )
 
 var (
-	_ wgTypes.WireguardAgent = (*WireguardAgent)(nil)
+	_ wgTypes.WireguardAgent  = (*WireguardAgent)(nil)
+	_ wgTypes.WireguardConfig = (*WireguardConfig)(nil)
 )
 
 type WireguardAgent struct {
-	EnableWireguard bool
+	config WireguardConfig
 }
 
 func (fwa *WireguardAgent) Enabled() bool {
-	return fwa.EnableWireguard
+	return fwa.config.Enabled()
 }
 
 func (fwa *WireguardAgent) Status(withPeers bool) (*models.WireguardStatus, error) {
 	return nil, nil
+}
+
+type WireguardConfig struct {
+	EnableWireguard bool
+}
+
+func (fwc WireguardConfig) Enabled() bool {
+	return fwc.EnableWireguard
 }
