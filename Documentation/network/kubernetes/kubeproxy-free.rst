@@ -767,6 +767,12 @@ switch to SNAT instead.
 A Helm example configuration in a kube-proxy-free environment with DSR enabled in
 annotation mode with SNAT default would look as follows:
 
+.. note::
+
+   When using annotation-based DSR mode (``bpf.lbModeAnnotation=true``), you must 
+   explicitly specify the ``loadBalancer.dsrDispatch`` parameter to define how DSR 
+   packets are dispatched to backends. Valid options are ``opt``, ``ipip``, or ``geneve``.
+
 .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
@@ -774,6 +780,21 @@ annotation mode with SNAT default would look as follows:
         --set routingMode=native \\
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=snat \\
+        --set loadBalancer.dsrDispatch=geneve \\
+        --set bpf.lbModeAnnotation=true \\
+        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServicePort=${API_SERVER_PORT}
+
+For environments where Geneve encapsulation is not suitable, IPIP can be used instead:
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set routingMode=native \\
+        --set kubeProxyReplacement=true \\
+        --set loadBalancer.mode=snat \\
+        --set loadBalancer.dsrDispatch=ipip \\
         --set bpf.lbModeAnnotation=true \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
