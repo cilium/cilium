@@ -361,7 +361,7 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 
 	ip := ipIDPair.PrefixString()
 	if ip == "<nil>" {
-		iw.log.Debug("Ignoring entry with nil IP")
+		iw.log.Warn("Ignoring entry with nil IP")
 		return
 	}
 
