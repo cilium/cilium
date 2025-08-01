@@ -24,6 +24,7 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -103,12 +104,13 @@ type DevicesConfig struct {
 type devicesControllerParams struct {
 	cell.In
 
-	Config        DevicesConfig
-	Log           *slog.Logger
-	DB            *statedb.DB
-	DeviceTable   statedb.RWTable[*tables.Device]
-	RouteTable    statedb.RWTable[*tables.Route]
-	NeighborTable statedb.RWTable[*tables.Neighbor]
+	Config              DevicesConfig
+	Log                 *slog.Logger
+	DB                  *statedb.DB
+	DeviceTable         statedb.RWTable[*tables.Device]
+	RouteTable          statedb.RWTable[*tables.Route]
+	NeighborTable       statedb.RWTable[*tables.Neighbor]
+	DesiredRouteManager *reconciler.DesiredRouteManager
 
 	// netlinkFuncs is optional and used by tests to verify error handling behavior.
 	NetlinkFuncs *netlinkFuncs `optional:"true"`
@@ -498,6 +500,22 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 						)
 					}
 				}
+
+				// refresh routes in DesiredRoute table
+				key := reconciler.DesiredRouteKey{
+					Table:    reconciler.TableID(u.Table),
+					Prefix:   ipnetToPrefix(u.Family, u.Dst),
+					Priority: uint32(u.Priority),
+				}
+				if err := dc.params.DesiredRouteManager.RefreshRoutes(key); err != nil {
+					dc.log.Warn("Failed to refresh managed route after netlink update",
+						logfields.Error, err,
+						logfields.Table, key.Table,
+						logfields.Prefix, key.Prefix,
+						logfields.Priority, key.Priority,
+					)
+				}
+
 			case netlink.NeighUpdate:
 				if dc.deadLinkIndexes.Has(u.LinkIndex) {
 					// Ignore neighbor updates for a device that has been removed
@@ -573,7 +591,13 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 			for r := range routes {
 				dc.params.RouteTable.Delete(txn, r)
 			}
-
+			if err := dc.params.DesiredRouteManager.DeleteRoutesForRemovedDevice(d.Index); err != nil {
+				dc.log.Warn("Failed to remove desired routes after device deletion",
+					logfields.Error, err,
+					logfields.Device, d.Name,
+					logfields.LinkIndex, d.Index,
+				)
+			}
 			// Remove all neighbors for the device. For a deleted device netlink does not
 			// always send complete set of neighbor delete messages.
 			neighbors := dc.params.NeighborTable.List(txn, tables.NeighborLinkIndex.Query(d.Index))

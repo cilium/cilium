@@ -260,6 +260,20 @@ var (
 		},
 		Unique: false,
 	}
+
+	DesiredRouteTableDeviceIndex = statedb.Index[*DesiredRoute, int]{
+		Name: "device",
+		FromObject: func(obj *DesiredRoute) index.KeySet {
+			if obj.Device == nil {
+				return index.NewKeySet()
+			}
+			return index.NewKeySet(index.Int(obj.Device.Index))
+		},
+		FromKey: func(key int) index.Key {
+			return index.Int(key)
+		},
+		Unique: false,
+	}
 )
 
 func newDesiredRouteTable(db *statedb.DB) (statedb.RWTable[*DesiredRoute], error) {
@@ -267,6 +281,7 @@ func newDesiredRouteTable(db *statedb.DB) (statedb.RWTable[*DesiredRoute], error
 		"desired-routes",
 		DesiredRouteIndex,
 		DesiredRouteTablePrefixIndex,
+		DesiredRouteTableDeviceIndex,
 	)
 	if err != nil {
 		return nil, err

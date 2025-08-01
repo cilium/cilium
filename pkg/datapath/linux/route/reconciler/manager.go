@@ -241,3 +241,45 @@ func (m *DesiredRouteManager) selectRoutes(txn statedb.WriteTxn, key DesiredRout
 
 	return nil
 }
+
+func (m *DesiredRouteManager) RefreshRoutes(key DesiredRouteKey) error {
+	txn := m.db.WriteTxn(m.tbl)
+	defer txn.Abort()
+
+	for route := range statedb.ToSeq(m.tbl.List(txn, DesiredRouteTablePrefixIndex.Query(key))) {
+		updRoute := route.Clone()
+		updRoute.SetStatus(reconciler.StatusRefreshing())
+		if _, _, err := m.tbl.Insert(txn, updRoute); err != nil {
+			return err
+		}
+	}
+
+	// no need to select routes again here: since no new desired routes have been
+	// added the previous selection is still valid.
+
+	txn.Commit()
+	return nil
+}
+
+func (m *DesiredRouteManager) DeleteRoutesForRemovedDevice(device int) error {
+	// Link index is a positive integer that starts at one
+	if device <= 0 {
+		return nil
+	}
+
+	txn := m.db.WriteTxn(m.tbl)
+	defer txn.Abort()
+
+	for route := range statedb.ToSeq(m.tbl.List(txn, DesiredRouteTableDeviceIndex.Query(device))) {
+		if _, _, err := m.tbl.Delete(txn, route); err != nil {
+			return err
+		}
+		if err := m.selectRoutes(txn, route.GetOwnerlessKey()); err != nil {
+			return err
+		}
+	}
+
+	txn.Commit()
+
+	return nil
+}
