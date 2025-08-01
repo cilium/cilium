@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net"
 	"net/netip"
@@ -58,6 +59,7 @@ type DNSProxyTestSuite struct {
 	dnsServer    *dns.Server
 	proxy        *DNSProxy
 	restoring    bool
+	logger       *slog.Logger
 }
 
 func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
@@ -65,6 +67,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	logger := hivetest.Logger(tb)
 
 	s := &DNSProxyTestSuite{}
+	s.logger = logger
 
 	// Add these identities
 	wg := &sync.WaitGroup{}
@@ -93,16 +96,6 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	}
 	proxy := NewDNSProxy(dnsProxyConfig,
 		s,
-		func(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
-			if s.restoring {
-				return nil, false, fmt.Errorf("No EPs available when restoring")
-			}
-			model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-			ep, err := endpoint.NewEndpointFromChangeModel(tb.Context(), logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{})
-			ep.Start(uint16(model.ID))
-			tb.Cleanup(ep.Stop)
-			return ep, false, err
-		},
 		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
 			return nil
 		},
@@ -170,6 +163,17 @@ func (s *DNSProxyTestSuite) LookupByIdentity(nid identity.NumericIdentity) []str
 	default:
 		return nil
 	}
+}
+
+func (s *DNSProxyTestSuite) LookupRegisteredEndpoint(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
+	if s.restoring {
+		return nil, false, fmt.Errorf("No EPs available when restoring")
+	}
+	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
+	ep, err := endpoint.NewEndpointFromChangeModel(context.TODO(), s.logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(s.logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{})
+	ep.Start(uint16(model.ID))
+	defer ep.Stop()
+	return ep, false, err
 }
 
 func setupServer(tb testing.TB) (dnsServer *dns.Server) {
