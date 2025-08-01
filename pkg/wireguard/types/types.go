@@ -4,6 +4,8 @@
 // Common WireGuard types and constants
 package types
 
+import "github.com/cilium/cilium/api/v1/models"
+
 const (
 	// ListenPort is the port on which the WireGuard tunnel device listens on
 	ListenPort = 51871
@@ -15,3 +17,9 @@ const (
 	// want to enable WireGuard encryption
 	StaticEncryptKey = uint8(0xFF)
 )
+
+// WireguardAgent exports the Enabled and Status commands from the agent.
+type WireguardAgent interface {
+	Enabled() bool
+	Status(withPeers bool) (*models.WireguardStatus, error)
+}
