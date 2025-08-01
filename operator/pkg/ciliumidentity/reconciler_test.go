@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -53,6 +54,7 @@ func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reco
 	var fakeClient *k8sClient.FakeClientset
 
 	h := hive.New(
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Invoke(func(

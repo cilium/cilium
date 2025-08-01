@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
@@ -23,6 +24,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 )
 
 const (
@@ -61,6 +63,7 @@ func newDiffStoreFixture() *DiffStoreFixture {
 
 	// Construct a new Hive with faked out dependency cells.
 	fixture.hive = hive.New(
+		watcherMetrics.Cell,
 		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset, mp workqueue.MetricsProvider) resource.Resource[*slimv1.Service] {
 			return resource.New[*slimv1.Service](
 				lc, utils.ListerWatcherFromTyped[*slimv1.ServiceList](

@@ -30,6 +30,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
@@ -94,6 +95,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	var services resource.Resource[*slim_corev1.Service]
 	logger := hivetest.Logger(t)
 	hive := hive.New(
+		watcherMetrics.Cell,
 		k8sFakeClient.FakeClientCell(),
 		cell.Provide(agentk8s.ServiceResource),
 		k8s.ResourcesCell,

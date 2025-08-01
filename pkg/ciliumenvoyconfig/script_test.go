@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
@@ -72,6 +73,7 @@ func TestScript(t *testing.T) {
 		var lns *node.LocalNodeStore
 
 		h := hive.New(
+			watcherMetrics.Cell,
 			k8sClient.FakeClientCell(),
 			synced.Cell,
 			daemonk8s.ResourcesCell,

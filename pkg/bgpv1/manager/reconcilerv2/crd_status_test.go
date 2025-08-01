@@ -29,6 +29,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -88,6 +89,7 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 	}
 
 	f.hive = hive.New(
+		watcherMetrics.Cell,
 		daemon_k8s.LocalNodeCell,
 		cell.Provide(
 			func() *option.DaemonConfig {
@@ -342,6 +344,7 @@ func TestDisableStatusReport(t *testing.T) {
 
 	var cs k8sClient.Clientset
 	hive := hive.New(
+		watcherMetrics.Cell,
 		daemon_k8s.LocalNodeCell,
 		cell.Provide(
 			func() *option.DaemonConfig {
