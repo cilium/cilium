@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -71,12 +72,14 @@ func TestPrivilegedScript(t *testing.T) {
 	setup := func(t testing.TB, args []string) *script.Engine {
 		var err error
 		var bgpMgr agent.BGPRouterManager
+		var routeConfig reconcilerv2.RoutesConfig
 
 		// parse the shebang arguments in the script
 		flags := pflag.NewFlagSet("test-flags", pflag.ContinueOnError)
 		peeringIPs := flags.StringSlice(testPeeringIPsFlag, nil, "List of IPs used for peering in the test")
 		ipam := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
+		bgpNoEndpointsRoutable := flags.Bool(option.BGPNoEndpointsRoutable, true, "")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
 		if *probeTCPMD5 {
@@ -114,6 +117,13 @@ func TestPrivilegedScript(t *testing.T) {
 
 			// Register the tables with the StateDB
 			registerTablesCell,
+
+			cell.Provide(func() reconcilerv2.RoutesConfig {
+				routeConfig = reconcilerv2.RoutesConfig{
+					BGPNoEndpointsRoutable: *bgpNoEndpointsRoutable,
+				}
+				return routeConfig
+			}),
 
 			// Provide the route table
 			cell.Provide(func() statedb.Table[*tables.Route] {
