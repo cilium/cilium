@@ -562,7 +562,7 @@ func TestParseService(t *testing.T) {
 		SourceRangesPolicy:       loadbalancer.SVCSourceRangesPolicyAllow,
 		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
 		Annotations:              map[string]string{"service.kubernetes.io/topology-aware-hints": "auto"},
-		LoadBalancerAlgorithm:    loadbalancer.SVCLoadBalancingAlgorithmMaglev,
+		LoadBalancerAlgorithm:    loadbalancer.SVCLoadBalancingAlgorithmUndef,
 	}, svc)
 
 	objMeta.Annotations[annotation.ServiceLoadBalancingAlgorithm] = option.NodePortAlgRandom
@@ -1422,6 +1422,87 @@ func TestParseServiceIDFrom(t *testing.T) {
 			if got := ParseServiceIDFrom(tt.args.dn); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ParseServiceIDFrom() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestParseServiceLoadBalancerAlgorithm(t *testing.T) {
+	objMeta := slim_metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+	}
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: objMeta,
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Type:      slim_corev1.ServiceTypeClusterIP,
+		},
+	}
+
+	oldLbAlgAnnotation := option.Config.LoadBalancerAlgorithmAnnotation
+	oldNodePortAlg := option.Config.NodePortAlg
+	defer func() {
+		option.Config.LoadBalancerAlgorithmAnnotation = oldLbAlgAnnotation
+		option.Config.NodePortAlg = oldNodePortAlg
+	}()
+
+	tests := []struct {
+		name                          string
+		annotations                   map[string]string
+		lbAlgAnnotationEnabled        bool
+		globalAlg                     string
+		expectedLoadBalancerAlgorithm loadbalancer.SVCLoadBalancingAlgorithm
+	}{
+		{
+			name:                          "annotations disabled, global default",
+			annotations:                   map[string]string{},
+			lbAlgAnnotationEnabled:        false,
+			globalAlg:                     option.NodePortAlgRandom,
+			expectedLoadBalancerAlgorithm: loadbalancer.SVCLoadBalancingAlgorithmRandom,
+		},
+		{
+			name:                          "annotations enabled, no annotation",
+			annotations:                   map[string]string{},
+			lbAlgAnnotationEnabled:        true,
+			globalAlg:                     option.NodePortAlgRandom,
+			expectedLoadBalancerAlgorithm: loadbalancer.SVCLoadBalancingAlgorithmUndef,
+		},
+		{
+			name: "annotations enabled, with random annotation",
+			annotations: map[string]string{
+				annotation.ServiceLoadBalancingAlgorithm: "random",
+			},
+			lbAlgAnnotationEnabled:        true,
+			globalAlg:                     option.NodePortAlgMaglev,
+			expectedLoadBalancerAlgorithm: loadbalancer.SVCLoadBalancingAlgorithmRandom,
+		},
+		{
+			name: "annotations enabled, with maglev annotation",
+			annotations: map[string]string{
+				annotation.ServiceLoadBalancingAlgorithm: "maglev",
+			},
+			lbAlgAnnotationEnabled:        true,
+			globalAlg:                     option.NodePortAlgRandom,
+			expectedLoadBalancerAlgorithm: loadbalancer.SVCLoadBalancingAlgorithmMaglev,
+		},
+		{
+			name: "annotations enabled, with invalid annotation",
+			annotations: map[string]string{
+				annotation.ServiceLoadBalancingAlgorithm: "invalid",
+			},
+			lbAlgAnnotationEnabled:        true,
+			globalAlg:                     option.NodePortAlgRandom,
+			expectedLoadBalancerAlgorithm: loadbalancer.SVCLoadBalancingAlgorithmUndef,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			option.Config.LoadBalancerAlgorithmAnnotation = tt.lbAlgAnnotationEnabled
+			option.Config.NodePortAlg = tt.globalAlg
+			k8sSvc.ObjectMeta.Annotations = tt.annotations
+			_, svc := ParseService(k8sSvc, nil)
+			require.Equal(t, tt.expectedLoadBalancerAlgorithm, svc.LoadBalancerAlgorithm)
 		})
 	}
 }
