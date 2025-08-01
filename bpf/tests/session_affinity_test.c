@@ -43,6 +43,7 @@ struct {
 #define FRONTEND_IP IPV4(10, 0, 1, 1)
 #define BACKEND_IP1 IPV4(10, 0, 2, 1)
 #define BACKEND_IP2 IPV4(10, 0, 3, 1)
+#define SERVICE_PROTO IPPROTO_TCP
 #define FRONTEND_PORT bpf_htons(80)
 #define BACKEND_PORT bpf_htons(8080)
 #define REV_NAT_INDEX 123
@@ -72,6 +73,7 @@ static __always_inline int craft_packet(struct __ctx_buff *ctx)
 
 	iph->saddr = CLIENT_IP;
 	iph->daddr = FRONTEND_IP;
+	iph->protocol = SERVICE_PROTO;
 
 	tcph = pktgen__push_default_tcphdr(&builder);
 	if (!tcph)
@@ -91,6 +93,7 @@ static __always_inline int craft_packet(struct __ctx_buff *ctx)
 #define SVC_KEY_VALUE(_beslot, _beid, _scope)				\
 	{								\
 		.key = {.address = FRONTEND_IP,				\
+			.proto = SERVICE_PROTO, \
 			.dport = FRONTEND_PORT,				\
 			.scope = (_scope),				\
 			.backend_slot = (_beslot)},			\
@@ -107,7 +110,7 @@ static __always_inline int craft_packet(struct __ctx_buff *ctx)
 		.key = (_beid),			\
 		.value = {.address = (_beip),	\
 			  .port = BACKEND_PORT, \
-			  .proto = IPPROTO_TCP},\
+			  .proto = SERVICE_PROTO },\
 	}
 
 SETUP("xdp", "session_affinity")
