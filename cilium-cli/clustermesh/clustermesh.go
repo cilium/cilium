@@ -1176,14 +1176,15 @@ func (k *K8sClusterMesh) validateCAMatch(aiLocal, aiRemote *accessInformation) (
 
 // ClusterState holds the state during the processing of remote clusters.
 type ClusterState struct {
-	localOldClusters       []map[string]any               // current clustermesh section of helm values
-	localNewClusters       []map[string]any               // new clustermesh section of helm values
+	localOldClusters       map[string]any                 // current clustermesh section of helm values
+	localNewClusters       map[string]any                 // new clustermesh section of helm values
 	localHelmValues        map[string]any                 // localOldClusters + localNewClusters => local helm values generated
 	remoteHelmValuesMesh   map[string]map[string]any      // helm values for all remote cluster in mesh mode
 	remoteHelmValuesBD     map[string]map[string]any      // helm values for all remote cluster bidirectional mode
 	remoteClients          map[string]*k8s.Client         // Map of remoteClients to apply remoteHelmValuesMesh or remoteHelmValuesBD
-	remoteOldClustersAll   map[string][]map[string]any    // current clustermesh sections of helm values for remote clusters
+	remoteOldClustersAll   map[string]map[string]any      // current clustermesh sections of helm values for remote clusters
 	remoteHelmValuesDelete map[*k8s.Client]map[string]any // helm values for all remote clusters to disconnect
+	remoteNewClusterName   string                         // local cluster name to add to remote clusters
 	remoteNewCluster       map[string]any                 // local cluster to add to remote clusters
 	remoteClusterNames     []string                       // names of remote clusters for displaying logs
 	remoteClusterNamesAi   []string                       // names of remote clusters for remove sections
@@ -1193,7 +1194,7 @@ func processLocalClient(localRelease *release.Release) (*ClusterState, error) {
 	state := &ClusterState{}
 	var err error
 
-	state.localOldClusters, err = getOldClusters(localRelease.Config)
+	state.localOldClusters, err = getClustersFromValues(localRelease.Config)
 	if err != nil {
 		return state, err
 	}
@@ -1222,8 +1223,11 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 	}
 
 	// Expand those values to include the clustermesh configuration
-	newCluster := getCluster(aiRemote, !match)
-	state.localNewClusters = append(state.localNewClusters, newCluster)
+	newClusterName, newCluster := getCluster(aiRemote, !match)
+	if state.localNewClusters == nil {
+		state.localNewClusters = make(map[string]any)
+	}
+	state.localNewClusters[newClusterName] = newCluster
 
 	// Get existing helm values for the remote cluster
 	remoteRelease, err := getRelease(remoteClient, k.params)
@@ -1232,17 +1236,17 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 		return err
 	}
 
-	remoteOldClusters, err := getOldClusters(remoteRelease.Config)
+	remoteOldClusters, err := getClustersFromValues(remoteRelease.Config)
 	if err != nil {
 		return err
 	}
 	if state.remoteOldClustersAll == nil {
-		state.remoteOldClustersAll = make(map[string][]map[string]any)
+		state.remoteOldClustersAll = make(map[string]map[string]any)
 	}
 	state.remoteOldClustersAll[aiRemote.ClusterName] = remoteOldClusters
 
-	state.remoteNewCluster = getCluster(aiLocal, !match)
-	remoteHelmValues, err := mergeClusters(remoteOldClusters, []map[string]any{state.remoteNewCluster}, "")
+	state.remoteNewClusterName, state.remoteNewCluster = getCluster(aiLocal, !match)
+	remoteHelmValues, err := mergeClusters(remoteOldClusters, map[string]any{state.remoteNewClusterName: state.remoteNewCluster}, "")
 	if err != nil {
 		return err
 	}
@@ -1278,7 +1282,11 @@ func processRemoteHelmValuesMesh(state *ClusterState) error {
 	if state.remoteHelmValuesMesh == nil {
 		state.remoteHelmValuesMesh = make(map[string]map[string]any)
 	}
-	remoteNewClusters := append(state.localNewClusters, state.remoteNewCluster)
+	remoteNewClusters := maps.Clone(state.localNewClusters)
+	if remoteNewClusters == nil {
+		remoteNewClusters = make(map[string]any)
+	}
+	remoteNewClusters[state.remoteNewClusterName] = state.remoteNewCluster
 	for aiClusterName, remoteOldClusters := range state.remoteOldClustersAll {
 		remoteHelmValues, err := mergeClusters(remoteOldClusters, remoteNewClusters, aiClusterName)
 		if err != nil {
@@ -1301,7 +1309,39 @@ func (k *K8sClusterMesh) connectLocalWithHelm(ctx context.Context, localClient *
 	return k.helmUpgrade(ctx, localClient, state.localHelmValues)
 }
 
+func convertToListClusterMeshValues(values map[string]any) map[string]any {
+	c, found, _ := unstructured.NestedFieldNoCopy(values, "clustermesh", "config", "clusters")
+	if !found || c == nil {
+		c = map[string]any{}
+	}
+	clusterList := []any{}
+	clusterMap := c.(map[string]any)
+	for clusterName, clusterRaw := range clusterMap {
+		cluster := clusterRaw.(map[string]any)
+		cluster["name"] = clusterName
+		clusterList = append(clusterList, cluster)
+	}
+
+	enabledRaw, found, _ := unstructured.NestedFieldNoCopy(values, "clustermesh", "config", "enabled")
+	if !found || enabledRaw == nil {
+		enabledRaw = false
+	}
+	enabled := enabledRaw.(bool)
+
+	return map[string]any{
+		"clustermesh": map[string]any{
+			"config": map[string]any{
+				"enabled":  enabled,
+				"clusters": clusterList,
+			},
+		},
+	}
+}
+
 func (k *K8sClusterMesh) helmUpgrade(ctx context.Context, client *k8s.Client, values map[string]any) error {
+	// Force output to list for now. This could be improved later to prefer the dict
+	// format if Cilium is running >= 1.20
+	values = convertToListClusterMeshValues(values)
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:   k.params.Namespace,
 		Name:        k.params.HelmReleaseName,
@@ -1602,36 +1642,61 @@ func (k *K8sClusterMesh) displayDisconnectedCompleteMessage(localClient *k8s.Cli
 	}
 }
 
-func getOldClusters(values map[string]any) ([]map[string]any, error) {
+func getEnabledClusters(clusters map[string]any) (map[string]any, error) {
+	for _, clusterAny := range clusters {
+		if _, ok := clusterAny.(map[string]any); !ok {
+			return nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
+		}
+	}
+	maps.DeleteFunc(clusters, func(name string, clusterAny any) bool {
+		cluster := clusterAny.(map[string]any)
+		enabled, ok := cluster["enabled"]
+		return ok && enabled == false
+	})
+	return clusters, nil
+}
+
+func getClustersFromValues(values map[string]any) (map[string]any, error) {
 	// get current clusters config slice, if it exists
 	c, found, err := unstructured.NestedFieldCopy(values, "clustermesh", "config", "clusters")
 	if err != nil {
 		return nil, fmt.Errorf("existing clustermesh.config is invalid")
 	}
 	if !found || c == nil {
-		c = []any{}
+		c = map[string]any{}
 	}
 
-	// parse the existing config slice
-	oldClusters := make([]map[string]any, 0)
-	cs, ok := c.([]any)
+	// parse map style values
+	clusterMap, ok := c.(map[string]any)
+	if ok {
+		return getEnabledClusters(clusterMap)
+	}
+
+	// Parse array style values
+	clusterSlice, ok := c.([]any)
+	clusters := make(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("existing clustermesh.config.clusters array is invalid")
+		return nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
 	}
-	for _, m := range cs {
-		cluster, ok := m.(map[string]any)
+	for _, clusterRaw := range clusterSlice {
+		cluster, ok := clusterRaw.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("existing clustermesh.config.clusters array is invalid")
+			return nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
 		}
-		oldClusters = append(oldClusters, cluster)
+		if _, ok := cluster["name"]; !ok {
+			return nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
+		}
+
+		clusterName := cluster["name"].(string)
+		delete(cluster, "name")
+		clusters[clusterName] = cluster
 	}
 
-	return oldClusters, nil
+	return getEnabledClusters(clusters)
 }
 
-func getCluster(ai *accessInformation, configTLS bool) map[string]any {
+func getCluster(ai *accessInformation, configTLS bool) (string, map[string]any) {
 	remoteCluster := map[string]any{
-		"name": ai.ClusterName,
 		"ips":  []string{ai.ServiceIPs[0]},
 		"port": ai.ServicePort,
 	}
@@ -1648,30 +1713,17 @@ func getCluster(ai *accessInformation, configTLS bool) map[string]any {
 		}
 	}
 
-	return remoteCluster
+	return ai.ClusterName, remoteCluster
 }
 
 func mergeClusters(
-	oldClusters []map[string]any, newClusters []map[string]any, exceptCluster string) (map[string]any, error) {
-	clusters := map[string]map[string]any{}
-	for _, c := range oldClusters {
-		name, ok := c["name"].(string)
-		if !ok {
-			return nil, fmt.Errorf("existing clustermesh.config.clusters array is invalid")
-		}
-		clusters[name] = c
-	}
-	for _, c := range newClusters {
-		if c["name"].(string) != exceptCluster {
-			clusters[c["name"].(string)] = c
-		}
-	}
+	existingClusters map[string]any, newClusters map[string]any, exceptCluster string,
+) (map[string]any, error) {
+	outputClusters := maps.Clone(existingClusters)
+	newClusters = maps.Clone(newClusters)
+	delete(newClusters, exceptCluster)
 
-	outputClusters := make([]map[string]any, 0)
-	for _, v := range clusters {
-		outputClusters = append(outputClusters, v)
-	}
-
+	maps.Copy(outputClusters, newClusters)
 	newValues := map[string]any{
 		"clustermesh": map[string]any{
 			"config": map[string]any{
@@ -1684,37 +1736,19 @@ func mergeClusters(
 }
 
 func removeFromClustermeshConfig(values map[string]any, clusterNames []string) (map[string]any, error) {
-	// get current clusters config slice, if it exists
-	c, found, err := unstructured.NestedFieldCopy(values, "clustermesh", "config", "clusters")
+	clusters, err := getClustersFromValues(values)
 	if err != nil {
-		return nil, fmt.Errorf("existing clustermesh.config is invalid")
+		return nil, err
 	}
-	if !found || c == nil {
-		c = []any{}
-	}
-
-	cs, ok := c.([]any)
-	if !ok {
-		return nil, fmt.Errorf("existing clustermesh.config.clusters array is invalid")
-	}
-	outputClusters := make([]map[string]any, 0, len(cs))
-	for _, m := range cs {
-		cluster, ok := m.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("existing clustermesh.config.clusters map is invalid")
-		}
-		name, ok := cluster["name"].(string)
-		if ok && slices.Contains(clusterNames, name) {
-			continue
-		}
-		outputClusters = append(outputClusters, cluster)
-	}
+	maps.DeleteFunc(clusters, func(name string, _ any) bool {
+		return slices.Contains(clusterNames, name)
+	})
 
 	newValues := map[string]any{
 		"clustermesh": map[string]any{
 			"config": map[string]any{
 				"enabled":  true,
-				"clusters": outputClusters,
+				"clusters": clusters,
 			},
 		},
 	}
