@@ -12,11 +12,11 @@ var Cell = cell.Module(
 	"route-reconciler",
 	"Reconciles desired routes to the Linux kernel routing table",
 	TableCell,
-	cell.Provide(newDesiredRouteManager),
 	cell.Invoke(registerReconciler),
 )
 
 var TableCell = cell.Group(
+	cell.Provide(newDesiredRouteManager),
 	cell.ProvidePrivate(newDesiredRouteTable),
 	cell.Provide(statedb.RWTable[*DesiredRoute].ToTable),
 )

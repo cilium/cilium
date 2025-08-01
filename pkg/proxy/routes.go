@@ -4,19 +4,22 @@
 package proxy
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
+	"net/netip"
 	"syscall"
 
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -32,29 +35,18 @@ var (
 		Table:    linux_defaults.RouteTableToProxy,
 		Protocol: linux_defaults.RTProto,
 	}
-
-	// Default IPv4 route for local delivery.
-	route4 = route.Route{
-		Table:  linux_defaults.RouteTableToProxy,
-		Type:   route.RTN_LOCAL,
-		Local:  net.IPv4zero,
-		Device: "lo",
-		Proto:  linux_defaults.RTProto,
-	}
-
-	// Default IPv6 route for local delivery.
-	route6 = route.Route{
-		Table:  linux_defaults.RouteTableToProxy,
-		Type:   route.RTN_LOCAL,
-		Local:  net.IPv6zero,
-		Device: "lo",
-		Proto:  linux_defaults.RTProto,
-	}
 )
 
 // ReinstallRoutingRules ensures the presence of routing rules and tables needed
-// to route packets to and from the L7 proxy.
-func ReinstallRoutingRules(logger *slog.Logger, localNode node.LocalNode, mtu int) error {
+// to route packets to and from the L7 proxy. Or removes rules if the proxy is disabled.
+func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int) error {
+	defer p.routeManager.FinalizeInitializer(p.routeInitializer)
+
+	localNode, err := p.localNodeStore.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve local node: %w", err)
+	}
+
 	fromIngressProxy, fromEgressProxy := requireFromProxyRoutes()
 
 	// Use the provided mtu (RouteMTU) only with both ingress and egress proxy.
@@ -62,31 +54,42 @@ func ReinstallRoutingRules(logger *slog.Logger, localNode node.LocalNode, mtu in
 		mtu = 0
 	}
 
-	if option.Config.EnableIPv4 {
-		if err := installToProxyRoutesIPv4(logger); err != nil {
+	rxn := p.db.ReadTxn()
+	hostDevice, _, hostDeviceFound := p.devices.Get(rxn, tables.DeviceNameIndex.Query(defaults.HostDevice))
+	lo, _, loFound := p.devices.Get(rxn, tables.DeviceNameIndex.Query("lo"))
+
+	if option.Config.EnableIPv4 && p.enabled {
+		if !loFound {
+			return fmt.Errorf("failed to get loopback device")
+		}
+		if err := installToProxyRoutesIPv4(lo, p.routeManager, p.routeOwner); err != nil {
 			return err
 		}
 
 		if fromIngressProxy || fromEgressProxy {
-			if err := installFromProxyRoutesIPv4(logger, localNode.GetCiliumInternalIP(false), defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
+			if !hostDeviceFound {
+				return fmt.Errorf("failed to get host device %s", defaults.HostDevice)
+			}
+			internalIP, _ := netipx.FromStdIP(localNode.GetCiliumInternalIP(false))
+			if err := installFromProxyRoutesIPv4(p.routeManager, p.routeOwner, internalIP, hostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
 				return err
 			}
 		} else {
-			if err := removeFromProxyRoutesIPv4(); err != nil {
+			if err := removeFromProxyRulesIPv4(); err != nil {
 				return err
 			}
 		}
 	} else {
-		if err := removeToProxyRoutesIPv4(); err != nil {
+		if err := removeToProxyRulesIPv4(); err != nil {
 			return err
 		}
-		if err := removeFromProxyRoutesIPv4(); err != nil {
+		if err := removeFromProxyRulesIPv4(); err != nil {
 			return err
 		}
 	}
 
-	if option.Config.EnableIPv6 {
-		if err := installToProxyRoutesIPv6(logger); err != nil {
+	if option.Config.EnableIPv6 && p.enabled {
+		if err := installToProxyRulesIPv6(lo, p.routeManager, p.routeOwner); err != nil {
 			return err
 		}
 
@@ -95,19 +98,23 @@ func ReinstallRoutingRules(logger *slog.Logger, localNode node.LocalNode, mtu in
 			if err != nil {
 				return err
 			}
-			if err := installFromProxyRoutesIPv6(logger, ipv6, defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
+			if !hostDeviceFound {
+				return fmt.Errorf("failed to get host device %s", defaults.HostDevice)
+			}
+			netIP, _ := netipx.FromStdIP(ipv6)
+			if err := installFromProxyRoutesIPv6(p.routeOwner, p.routeManager, netIP, hostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
 				return err
 			}
 		} else {
-			if err := removeFromProxyRoutesIPv6(); err != nil {
+			if err := removeFromProxyRulesIPv6(); err != nil {
 				return err
 			}
 		}
 	} else {
-		if err := removeToProxyRoutesIPv6(); err != nil {
+		if err := removeToProxyRulesIPv6(); err != nil {
 			return err
 		}
-		if err := removeFromProxyRoutesIPv6(); err != nil {
+		if err := removeFromProxyRulesIPv6(); err != nil {
 			return err
 		}
 	}
@@ -138,8 +145,16 @@ func getCiliumNetIPv6() (net.IP, error) {
 
 // installToProxyRoutesIPv4 configures routes and rules needed to redirect ingress
 // packets to the proxy.
-func installToProxyRoutesIPv4(logger *slog.Logger) error {
-	if err := route.Upsert(logger, route4); err != nil {
+func installToProxyRoutesIPv4(loDevice *tables.Device, routeManager *reconciler.DesiredRouteManager, routeOwner *reconciler.RouteOwner) error {
+	route4 := reconciler.DesiredRoute{
+		Owner:  routeOwner,
+		Table:  linux_defaults.RouteTableToProxy,
+		Type:   reconciler.RTN_LOCAL,
+		Src:    netip.AddrFrom4([4]byte{}),
+		Device: loDevice,
+	}
+
+	if err := routeManager.UpsertRouteWait(route4); err != nil {
 		return fmt.Errorf("inserting ipv4 proxy route %v: %w", route4, err)
 	}
 	if err := route.ReplaceRule(toProxyRule); err != nil {
@@ -149,22 +164,27 @@ func installToProxyRoutesIPv4(logger *slog.Logger) error {
 	return nil
 }
 
-// removeToProxyRoutesIPv4 ensures routes and rules for proxy traffic are removed.
-func removeToProxyRoutesIPv4() error {
+// removeToProxyRulesIPv4 ensures routes and rules for proxy traffic are removed.
+func removeToProxyRulesIPv4() error {
 	if err := route.DeleteRule(netlink.FAMILY_V4, toProxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
 		return fmt.Errorf("removing ipv4 proxy routing rule: %w", err)
-	}
-	if err := route.DeleteRouteTable(linux_defaults.RouteTableToProxy, netlink.FAMILY_V4); err != nil {
-		return fmt.Errorf("removing ipv4 proxy route table: %w", err)
 	}
 
 	return nil
 }
 
-// installToProxyRoutesIPv6 configures routes and rules needed to redirect ingress
+// installToProxyRulesIPv6 configures routes and rules needed to redirect ingress
 // packets to the proxy.
-func installToProxyRoutesIPv6(logger *slog.Logger) error {
-	if err := route.Upsert(logger, route6); err != nil {
+func installToProxyRulesIPv6(loDevice *tables.Device, routeManager *reconciler.DesiredRouteManager, routeOwner *reconciler.RouteOwner) error {
+	route6 := reconciler.DesiredRoute{
+		Owner:  routeOwner,
+		Table:  linux_defaults.RouteTableToProxy,
+		Type:   route.RTN_LOCAL,
+		Src:    netip.AddrFrom16([16]byte{}),
+		Device: loDevice,
+	}
+
+	if err := routeManager.UpsertRouteWait(route6); err != nil {
 		return fmt.Errorf("inserting ipv6 proxy route %v: %w", route6, err)
 	}
 	if err := route.ReplaceRuleIPv6(toProxyRule); err != nil {
@@ -174,15 +194,12 @@ func installToProxyRoutesIPv6(logger *slog.Logger) error {
 	return nil
 }
 
-// removeToProxyRoutesIPv6 ensures routes and rules for proxy traffic are removed.
-func removeToProxyRoutesIPv6() error {
+// removeToProxyRulesIPv6 ensures routes and rules for proxy traffic are removed.
+func removeToProxyRulesIPv6() error {
 	if err := route.DeleteRule(netlink.FAMILY_V6, toProxyRule); err != nil {
 		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
 			return fmt.Errorf("removing ipv6 proxy routing rule: %w", err)
 		}
-	}
-	if err := route.DeleteRouteTable(linux_defaults.RouteTableToProxy, netlink.FAMILY_V6); err != nil {
-		return fmt.Errorf("removing ipv6 proxy route table: %w", err)
 	}
 
 	return nil
@@ -210,23 +227,30 @@ var (
 
 // installFromProxyRoutesIPv4 configures routes and rules needed to redirect ingress
 // packets from the proxy.
-func installFromProxyRoutesIPv4(logger *slog.Logger, ipv4 net.IP, device string, fromIngressProxy, fromEgressProxy bool, mtu int) error {
-	fromProxyToCiliumHostRoute4 := route.Route{
-		Table: linux_defaults.RouteTableFromProxy,
-		Prefix: net.IPNet{
-			IP:   ipv4,
-			Mask: net.CIDRMask(32, 32),
-		},
+func installFromProxyRoutesIPv4(
+	routeManager *reconciler.DesiredRouteManager,
+	routeOwner *reconciler.RouteOwner,
+	ipv4 netip.Addr,
+	device *tables.Device,
+	fromIngressProxy, fromEgressProxy bool,
+	mtu int,
+) error {
+	prefix, _ := ipv4.Prefix(ipv4.BitLen())
+	fromProxyToCiliumHostRoute4 := reconciler.DesiredRoute{
+		Owner:  routeOwner,
+		Table:  linux_defaults.RouteTableFromProxy,
+		Prefix: prefix,
+
 		Device: device,
 		Type:   route.RTN_LOCAL,
-		Proto:  linux_defaults.RTProto,
 	}
-	fromProxyDefaultRoute4 := route.Route{
-		Table:   linux_defaults.RouteTableFromProxy,
-		Nexthop: &ipv4,
+	fromProxyDefaultRoute4 := reconciler.DesiredRoute{
+		Owner: routeOwner,
+		Table: linux_defaults.RouteTableFromProxy,
+
+		Nexthop: ipv4,
 		Device:  device,
-		Proto:   linux_defaults.RTProto,
-		MTU:     mtu,
+		MTU:     uint32(mtu),
 	}
 
 	if fromIngressProxy {
@@ -239,26 +263,23 @@ func installFromProxyRoutesIPv4(logger *slog.Logger, ipv4 net.IP, device string,
 			return fmt.Errorf("inserting ipv4 from egress proxy routing rule %v: %w", fromEgressProxyRule, err)
 		}
 	}
-	if err := route.Upsert(logger, fromProxyToCiliumHostRoute4); err != nil {
+	if err := routeManager.UpsertRouteWait(fromProxyToCiliumHostRoute4); err != nil {
 		return fmt.Errorf("inserting ipv4 from proxy to cilium_host route %v: %w", fromProxyToCiliumHostRoute4, err)
 	}
-	if err := route.Upsert(logger, fromProxyDefaultRoute4); err != nil {
+	if err := routeManager.UpsertRouteWait(fromProxyDefaultRoute4); err != nil {
 		return fmt.Errorf("inserting ipv4 from proxy default route %v: %w", fromProxyDefaultRoute4, err)
 	}
 
 	return nil
 }
 
-// removeFromProxyRoutesIPv4 ensures routes and rules for traffic from the proxy are removed.
-func removeFromProxyRoutesIPv4() error {
+// removeFromProxyRulesIPv4 ensures routes and rules for traffic from the proxy are removed.
+func removeFromProxyRulesIPv4() error {
 	if err := route.DeleteRule(netlink.FAMILY_V4, fromIngressProxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
 		return fmt.Errorf("removing ipv4 from ingress proxy routing rule: %w", err)
 	}
 	if err := route.DeleteRule(netlink.FAMILY_V4, fromEgressProxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
 		return fmt.Errorf("removing ipv4 from egress proxy routing rule: %w", err)
-	}
-	if err := route.DeleteRouteTable(linux_defaults.RouteTableFromProxy, netlink.FAMILY_V4); err != nil {
-		return fmt.Errorf("removing ipv4 from proxy route table: %w", err)
 	}
 
 	return nil
@@ -266,23 +287,30 @@ func removeFromProxyRoutesIPv4() error {
 
 // installFromProxyRoutesIPv6 configures routes and rules needed to redirect ingress
 // packets from the proxy.
-func installFromProxyRoutesIPv6(logger *slog.Logger, ipv6 net.IP, device string, fromIngressProxy, fromEgressProxy bool, mtu int) error {
-	fromProxyToCiliumHostRoute6 := route.Route{
-		Table: linux_defaults.RouteTableFromProxy,
-		Prefix: net.IPNet{
-			IP:   ipv6,
-			Mask: net.CIDRMask(128, 128),
-		},
+func installFromProxyRoutesIPv6(
+	routeOwner *reconciler.RouteOwner,
+	routeManager *reconciler.DesiredRouteManager,
+	ipv6 netip.Addr,
+	device *tables.Device,
+	fromIngressProxy, fromEgressProxy bool,
+	mtu int,
+) error {
+	prefix, _ := ipv6.Prefix(ipv6.BitLen())
+	fromProxyToCiliumHostRoute6 := reconciler.DesiredRoute{
+		Owner:  routeOwner,
+		Table:  linux_defaults.RouteTableFromProxy,
+		Prefix: prefix,
+
 		Device: device,
-		Proto:  linux_defaults.RTProto,
 	}
 
-	fromProxyDefaultRoute6 := route.Route{
-		Table:   linux_defaults.RouteTableFromProxy,
-		Nexthop: &ipv6,
+	fromProxyDefaultRoute6 := reconciler.DesiredRoute{
+		Owner: routeOwner,
+		Table: linux_defaults.RouteTableFromProxy,
+
+		Nexthop: ipv6,
 		Device:  device,
-		Proto:   linux_defaults.RTProto,
-		MTU:     mtu,
+		MTU:     uint32(mtu),
 	}
 
 	if fromIngressProxy {
@@ -295,18 +323,18 @@ func installFromProxyRoutesIPv6(logger *slog.Logger, ipv6 net.IP, device string,
 			return fmt.Errorf("inserting ipv6 from egress proxy routing rule %v: %w", fromEgressProxyRule, err)
 		}
 	}
-	if err := route.Upsert(logger, fromProxyToCiliumHostRoute6); err != nil {
+	if err := routeManager.UpsertRouteWait(fromProxyToCiliumHostRoute6); err != nil {
 		return fmt.Errorf("inserting ipv6 from proxy to cilium_host route %v: %w", fromProxyToCiliumHostRoute6, err)
 	}
-	if err := route.Upsert(logger, fromProxyDefaultRoute6); err != nil {
+	if err := routeManager.UpsertRouteWait(fromProxyDefaultRoute6); err != nil {
 		return fmt.Errorf("inserting ipv6 from proxy default route %v: %w", fromProxyDefaultRoute6, err)
 	}
 
 	return nil
 }
 
-// removeFromProxyRoutesIPv6 ensures routes and rules for traffic from the proxy are removed.
-func removeFromProxyRoutesIPv6() error {
+// removeFromProxyRulesIPv6 ensures routes and rules for traffic from the proxy are removed.
+func removeFromProxyRulesIPv6() error {
 	if err := route.DeleteRule(netlink.FAMILY_V6, fromIngressProxyRule); err != nil {
 		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
 			return fmt.Errorf("removing ipv6 from ingress proxy routing rule: %w", err)
@@ -316,9 +344,6 @@ func removeFromProxyRoutesIPv6() error {
 		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
 			return fmt.Errorf("removing ipv6 from egress proxy routing rule: %w", err)
 		}
-	}
-	if err := route.DeleteRouteTable(linux_defaults.RouteTableFromProxy, netlink.FAMILY_V6); err != nil {
-		return fmt.Errorf("removing ipv6 from proxy route table: %w", err)
 	}
 
 	return nil

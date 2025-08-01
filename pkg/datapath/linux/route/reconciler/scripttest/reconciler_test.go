@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package reconciler
+package scripttest
 
 import (
 	"fmt"
@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/option"
@@ -44,14 +45,16 @@ func TestPrivilegedScript(t *testing.T) {
 			require.NoError(t, err, "LockThreadAndInitialize")
 
 			var (
-				drm    *DesiredRouteManager
+				db     *statedb.DB
+				drm    *reconciler.DesiredRouteManager
 				devTbl statedb.Table[*tables.Device]
 			)
 			h := ciliumhive.New(
-				Cell,
+				reconciler.Cell,
 				linux.DevicesControllerCell,
 				cell.Provide(func() *option.DaemonConfig { return &option.DaemonConfig{} }),
-				cell.Invoke(func(m *DesiredRouteManager, devices statedb.Table[*tables.Device]) {
+				cell.Invoke(func(d *statedb.DB, m *reconciler.DesiredRouteManager, devices statedb.Table[*tables.Device]) {
+					db = d
 					drm = m
 					devTbl = devices
 				}),
@@ -63,7 +66,7 @@ func TestPrivilegedScript(t *testing.T) {
 
 			maps.Insert(cmds, maps.All(nsManager.Commands()))
 			maps.Insert(cmds, maps.All(script.DefaultCmds()))
-			maps.Insert(cmds, maps.All(testDesiredRouteCmds(drm, devTbl)))
+			maps.Insert(cmds, maps.All(testDesiredRouteCmds(db, drm, devTbl)))
 
 			e := &script.Engine{
 				Cmds: cmds,
@@ -72,7 +75,7 @@ func TestPrivilegedScript(t *testing.T) {
 		}, []string{"PATH=" + os.Getenv("PATH")}, "testdata/*.txtar")
 }
 
-func testDesiredRouteCmds(drm *DesiredRouteManager, devTbl statedb.Table[*tables.Device]) map[string]script.Cmd {
+func testDesiredRouteCmds(db *statedb.DB, drm *reconciler.DesiredRouteManager, devTbl statedb.Table[*tables.Device]) map[string]script.Cmd {
 	return map[string]script.Cmd{
 		"add-owner": script.Command(script.CmdUsage{
 			Summary: "Adds a new route owner",
@@ -87,7 +90,7 @@ func testDesiredRouteCmds(drm *DesiredRouteManager, devTbl statedb.Table[*tables
 				return nil, fmt.Errorf("invalid admin distance %q: %w", args[1], err)
 			}
 
-			if _, err := drm.RegisterOwner(args[0], AdminDistance(ad)); err != nil {
+			if _, err := drm.RegisterOwner(args[0], reconciler.AdminDistance(ad)); err != nil {
 				return nil, fmt.Errorf("failed to register owner %q: %w", args, err)
 			}
 			return nil, nil
@@ -111,8 +114,8 @@ func testDesiredRouteCmds(drm *DesiredRouteManager, devTbl statedb.Table[*tables
 			}
 
 			type desiredRoute struct {
-				Owner         *RouteOwner
-				Table         TableID
+				Owner         *reconciler.RouteOwner
+				Table         reconciler.TableID
 				Prefix        netip.Prefix
 				Priority      uint32
 				Nexthop       netip.Addr
@@ -120,8 +123,8 @@ func testDesiredRouteCmds(drm *DesiredRouteManager, devTbl statedb.Table[*tables
 				Device        string
 				DeviceIfIndex int `yaml:"deviceIfIndex"`
 				MTU           uint32
-				Scope         Scope
-				Type          Type
+				Scope         reconciler.Scope
+				Type          reconciler.Type
 			}
 
 			var route desiredRoute
@@ -139,7 +142,7 @@ func testDesiredRouteCmds(drm *DesiredRouteManager, devTbl statedb.Table[*tables
 				}
 
 				var found bool
-				dev, _, found = devTbl.Get(drm.db.ReadTxn(), q)
+				dev, _, found = devTbl.Get(db.ReadTxn(), q)
 				if !found {
 					if route.Device != "" {
 						return nil, fmt.Errorf("device %q not found", route.Device)
@@ -149,7 +152,7 @@ func testDesiredRouteCmds(drm *DesiredRouteManager, devTbl statedb.Table[*tables
 				}
 			}
 
-			if err := drm.UpsertRoutes(DesiredRoute{
+			if err := drm.UpsertRoute(reconciler.DesiredRoute{
 				Owner:    owner,
 				Table:    route.Table,
 				Prefix:   route.Prefix,

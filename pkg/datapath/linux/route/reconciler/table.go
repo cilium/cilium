@@ -263,14 +263,10 @@ var (
 )
 
 func newDesiredRouteTable(db *statedb.DB) (statedb.RWTable[*DesiredRoute], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		"desired-routes",
 		DesiredRouteIndex,
 		DesiredRouteTablePrefixIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return tbl, db.RegisterTable(tbl)
 }

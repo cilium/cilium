@@ -8,8 +8,12 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -34,6 +38,8 @@ const (
 
 // Proxy maintains state about redirects
 type Proxy struct {
+	enabled bool
+
 	// mutex is the lock required when modifying any proxy datastructure
 	mutex lock.RWMutex
 
@@ -51,31 +57,44 @@ type Proxy struct {
 
 	// proxyPorts manages proxy port allocation
 	proxyPorts *proxyports.ProxyPorts
+
+	db               *statedb.DB
+	devices          statedb.Table[*tables.Device]
+	routeOwner       *reconciler.RouteOwner
+	routeInitializer reconciler.Initializer
+	routeManager     *reconciler.DesiredRouteManager
 }
 
 func createProxy(
+	enabled bool,
 	logger *slog.Logger,
 	localNodeStore *node.LocalNodeStore,
 	proxyPorts *proxyports.ProxyPorts,
 	envoyIntegration *envoyProxyIntegration,
 	dnsIntegration *dnsProxyIntegration,
-) *Proxy {
+	db *statedb.DB,
+	devices statedb.Table[*tables.Device],
+	routeManager *reconciler.DesiredRouteManager,
+) (*Proxy, error) {
+	routeOwner, err := routeManager.RegisterOwner("proxy", reconciler.AdminDistanceDefault)
+	if err != nil {
+		return nil, fmt.Errorf("unable to register route owner: %w", err)
+	}
+
 	return &Proxy{
+		enabled:          enabled,
 		logger:           logger,
 		localNodeStore:   localNodeStore,
 		redirects:        make(map[string]RedirectImplementation),
 		envoyIntegration: envoyIntegration,
 		dnsIntegration:   dnsIntegration,
 		proxyPorts:       proxyPorts,
-	}
-}
-
-func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int) error {
-	ln, err := p.localNodeStore.Get(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve local node: %w", err)
-	}
-	return ReinstallRoutingRules(p.logger, ln, mtu)
+		db:               db,
+		devices:          devices,
+		routeOwner:       routeOwner,
+		routeInitializer: routeManager.RegisterInitializer("proxy"),
+		routeManager:     routeManager,
+	}, nil
 }
 
 func (p *Proxy) GetListenerProxyPort(listener string) uint16 {

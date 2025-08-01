@@ -98,6 +98,8 @@ type Params struct {
 	ConfigWriter       datapath.ConfigWriter
 	NodeConfigNotifier *manager.NodeConfigNotifier
 	RouteManager       *routeReconciler.DesiredRouteManager
+	DB                 *statedb.DB
+	Devices            statedb.Table[*tables.Device]
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -116,6 +118,9 @@ func newLoader(p Params) *loader {
 		configWriter:       p.ConfigWriter,
 		nodeConfigNotifier: p.NodeConfigNotifier,
 		routeManager:       p.RouteManager,
+
+		db:      p.DB,
+		devices: p.Devices,
 	}
 }
 
@@ -130,7 +135,7 @@ func upsertEndpointRoute(logger *slog.Logger, db *statedb.DB, devices statedb.Ta
 		return fmt.Errorf("device %d not found for endpoint %s", ep.GetIfIndex(), ep.StringID())
 	}
 
-	return rm.UpsertRoutes(routeReconciler.DesiredRoute{
+	return rm.UpsertRoute(routeReconciler.DesiredRoute{
 		Owner:  owner,
 		Prefix: ip,
 		Table:  routeReconciler.TableMain,
@@ -142,7 +147,11 @@ func upsertEndpointRoute(logger *slog.Logger, db *statedb.DB, devices statedb.Ta
 
 func removeEndpointRoute(ep datapath.Endpoint, rm *routeReconciler.DesiredRouteManager) error {
 	owner, err := rm.GetOwner("endpoint/" + ep.StringID())
-	if !errors.Is(err, routeReconciler.ErrOwnerDoesNotExist) {
+	if err != nil {
+		if errors.Is(err, routeReconciler.ErrOwnerDoesNotExist) {
+			return nil
+		}
+
 		return fmt.Errorf("getting route owner for endpoint %s: %w", ep.StringID(), err)
 	}
 

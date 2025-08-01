@@ -8,12 +8,15 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	"github.com/cilium/cilium/pkg/time"
@@ -22,6 +25,13 @@ import (
 )
 
 func proxyForTest(t *testing.T) (*Proxy, func()) {
+	var drm *reconciler.DesiredRouteManager
+	hive.New(
+		reconciler.TableCell,
+		cell.Invoke(func(m *reconciler.DesiredRouteManager) {
+			drm = m
+		}),
+	).Populate(hivetest.Logger(t))
 	fakeIPTablesManager := &datapath.FakeIptablesManager{}
 	ppConfig := proxyports.ProxyPortsConfig{
 		ProxyPortrangeMin:          10000,
@@ -29,7 +39,8 @@ func proxyForTest(t *testing.T) (*Proxy, func()) {
 		RestoredProxyPortsAgeLimit: 0,
 	}
 	pp := proxyports.NewProxyPorts(hivetest.Logger(t), ppConfig, fakeIPTablesManager)
-	p := createProxy(hivetest.Logger(t), nil, pp, nil, nil)
+	p, err := createProxy(true, hivetest.Logger(t), nil, pp, nil, nil, nil, nil, drm)
+	require.NoError(t, err)
 	triggerDone := make(chan struct{})
 	p.proxyPorts.Trigger, _ = trigger.NewTrigger(trigger.Parameters{
 		MinInterval:  10 * time.Second,
