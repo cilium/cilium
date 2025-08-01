@@ -54,7 +54,7 @@ func (d *Daemon) startKubeProxyHealthzHTTPService(addr string) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/healthz", kubeproxyHealthzHandler{d: d, svc: d.svc})
+	mux.Handle("/healthz", kubeproxyHealthzHandler{d: d, svc: d.svc, localNode: d.nodeLocalStore})
 
 	srv := &http.Server{
 		Addr:    addr,
