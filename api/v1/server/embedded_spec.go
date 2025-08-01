@@ -1845,6 +1845,15 @@ func init() {
         }
       }
     },
+    "BgpCapabilities": {
+      "description": "Represents the BGP capabilities.",
+      "properties": {
+        "capabilities": {
+          "description": "Base64-encoded BGP capabilities details",
+          "type": "string"
+        }
+      }
+    },
     "BgpFamily": {
       "description": "Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path",
       "properties": {
@@ -1963,6 +1972,13 @@ func init() {
           "description": "Local AS Number",
           "type": "integer"
         },
+        "local-capabilities": {
+          "description": "Capabilities announced by the local peer",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpCapabilities"
+          }
+        },
         "peer-address": {
           "description": "IP Address of peer",
           "type": "string"
@@ -1976,6 +1992,13 @@ func init() {
           "type": "integer",
           "maximum": 65535,
           "minimum": 1
+        },
+        "remote-capabilities": {
+          "description": "Capabilities announced by the remote peer",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpCapabilities"
+          }
         },
         "session-state": {
           "description": "BGP peer operational state as described here\nhttps://www.rfc-editor.org/rfc/rfc4271#section-8.2.2\n",
@@ -7455,6 +7478,15 @@ func init() {
         }
       }
     },
+    "BgpCapabilities": {
+      "description": "Represents the BGP capabilities.",
+      "properties": {
+        "capabilities": {
+          "description": "Base64-encoded BGP capabilities details",
+          "type": "string"
+        }
+      }
+    },
     "BgpFamily": {
       "description": "Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path",
       "properties": {
@@ -7573,6 +7605,13 @@ func init() {
           "description": "Local AS Number",
           "type": "integer"
         },
+        "local-capabilities": {
+          "description": "Capabilities announced by the local peer",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpCapabilities"
+          }
+        },
         "peer-address": {
           "description": "IP Address of peer",
           "type": "string"
@@ -7586,6 +7625,13 @@ func init() {
           "type": "integer",
           "maximum": 65535,
           "minimum": 1
+        },
+        "remote-capabilities": {
+          "description": "Capabilities announced by the remote peer",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpCapabilities"
+          }
         },
         "session-state": {
           "description": "BGP peer operational state as described here\nhttps://www.rfc-editor.org/rfc/rfc4271#section-8.2.2\n",
