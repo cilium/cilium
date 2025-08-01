@@ -999,10 +999,19 @@ func (ct *ConnectivityTest) CurlCommandWithOutput(peer TestPeer, ipFam features.
 		"curl", "--silent", "--fail", "--show-error",
 	}
 
-	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
+	connectTimeout := ct.params.ConnectTimeout.Seconds()
+	requestTimeout := ct.params.RequestTimeout.Seconds()
+
+	// For IPv6 connections, increase timeouts as they can be slower to establish
+	if ipFam == features.IPFamilyV6 {
+		connectTimeout = connectTimeout * 1.5 // 50% more time for IPv6
+		requestTimeout = requestTimeout * 1.2 // 20% more time for request
+	}
+
+	if connectTimeout > 0.0 {
 		cmd = append(cmd, "--connect-timeout", strconv.FormatFloat(connectTimeout, 'f', -1, 64))
 	}
-	if requestTimeout := ct.params.RequestTimeout.Seconds(); requestTimeout > 0.0 {
+	if requestTimeout > 0.0 {
 		cmd = append(cmd, "--max-time", strconv.FormatFloat(requestTimeout, 'f', -1, 64))
 	}
 	if ct.params.CurlInsecure {
