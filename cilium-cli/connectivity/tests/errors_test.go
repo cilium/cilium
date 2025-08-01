@@ -94,7 +94,7 @@ time=2025-04-08T14:27:09Z level=error msg="bar" serviceID=2 source=/go/src/githu
 		},
 	} {
 		s := NoErrorsInLogs(tt.version, tt.levels, "one.one.one.one", "k8s.io").(*noErrorsInLogs)
-		fails, example := s.findUniqueFailures([]byte(errs))
+		fails, example, _ := s.findUniqueFailures([]byte(errs))
 		assert.Len(t, fails, tt.wantLen)
 		for wantMsg, wantCount := range tt.wantLogsCount {
 			assert.Contains(t, fails, wantMsg)
@@ -224,5 +224,92 @@ func TestComputeExpectedDropReasons(t *testing.T) {
 				t.Errorf("Expected filter of length %d, but got: %v", expectedLength, result)
 			}
 		})
+	}
+}
+
+func TestHasLegitimateOperatorRestartPatterns(t *testing.T) {
+	tests := []struct {
+		name     string
+		logs     string
+		expected bool
+	}{
+		{
+			name:     "legitimate leader election lost",
+			logs:     `time=2025-01-01T10:00:00Z level=info msg="Leader election lost" operator-id=test-123`,
+			expected: true,
+		},
+		{
+			name: "legitimate leader election lost with other logs",
+			logs: `time=2025-01-01T09:59:59Z level=info msg="Some other message"
+time=2025-01-01T10:00:00Z level=info msg="Leader election lost" operator-id=test-123
+time=2025-01-01T10:00:01Z level=info msg="Shutting down"`,
+			expected: true,
+		},
+		{
+			name: "no legitimate patterns",
+			logs: `time=2025-01-01T10:00:00Z level=error msg="Some random error"
+time=2025-01-01T10:00:01Z level=info msg="Container restarting"`,
+			expected: false,
+		},
+		{
+			name: "error patterns that are not restart causes",
+			logs: `time=2025-01-01T10:00:00Z level=error msg="Failed to update lock: connection timeout"
+time=2025-01-01T10:00:01Z level=error msg="Failed to release lock: network error"`,
+			expected: false,
+		},
+		{
+			name:     "empty logs",
+			logs:     ``,
+			expected: false,
+		},
+		{
+			name:     "partial match should trigger",
+			logs:     `time=2025-01-01T10:00:00Z level=info msg="Leader election lost connection but recovered"`,
+			expected: true, // This will match because it contains "Leader election lost"
+		},
+		{
+			name:     "case sensitive matching",
+			logs:     `time=2025-01-01T10:00:00Z level=info msg="leader election lost"`,
+			expected: false, // Should not match due to case sensitivity
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasLegitimateOperatorRestartPatterns([]byte(tt.logs))
+			if result != tt.expected {
+				t.Errorf("hasLegitimateOperatorRestartPatterns() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+// Ensure that the presence of "Leader election lost" does not suppress
+// detection of actual error log lines.
+func TestLeaderElectionLostDoesNotSuppressErrorDetection(t *testing.T) {
+	s := NoErrorsInLogs(semver.MustParse("1.17.0"), []string{defaults.LogLevelError}, "one.one.one.one", "k8s.io").(*noErrorsInLogs)
+
+	logs := `time=2025-01-01T10:00:00Z level=info msg="Leader election lost" module=operator
+time=2025-01-01T10:00:01Z level=error msg="bar" source=/go/src/github.com/cilium/cilium/pkg/datapath/linux/node.go:189`
+
+	failures, _, _ := s.findUniqueFailures([]byte(logs))
+	if len(failures) == 0 {
+		t.Fatalf("expected error detection to trigger despite 'Leader election lost' in logs")
+	}
+	if _, ok := failures["bar"]; !ok {
+		t.Fatalf("expected to detect error message 'bar' in failures, got: %v", failures)
+	}
+}
+
+// Ensure that logs containing only the informational leader election message
+// do not produce errors.
+func TestLeaderElectionLostAloneIsNotAnError(t *testing.T) {
+	s := NoErrorsInLogs(semver.MustParse("1.17.0"), []string{defaults.LogLevelError}, "one.one.one.one", "k8s.io").(*noErrorsInLogs)
+
+	logs := `time=2025-01-01T10:00:00Z level=info msg="Leader election lost" module=operator`
+
+	failures, _, _ := s.findUniqueFailures([]byte(logs))
+	if len(failures) != 0 {
+		t.Fatalf("did not expect failures for only 'Leader election lost', got: %v", failures)
 	}
 }
