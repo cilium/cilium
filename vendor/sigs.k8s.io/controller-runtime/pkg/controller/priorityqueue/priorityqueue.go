@@ -156,7 +156,7 @@ func (w *priorityqueue[T]) AddWithOpts(o AddOpts, items ...T) {
 			w.items[key] = item
 			w.queue.ReplaceOrInsert(item)
 			if item.ReadyAt == nil {
-				w.metrics.add(key)
+				w.metrics.add(key, item.Priority)
 			}
 			w.addedCounter++
 			continue
@@ -166,12 +166,16 @@ func (w *priorityqueue[T]) AddWithOpts(o AddOpts, items ...T) {
 		// will affect the order - Just delete and re-add.
 		item, _ := w.queue.Delete(w.items[key])
 		if o.Priority > item.Priority {
+			// Update depth metric only if the item in the queue was already added to the depth metric.
+			if item.ReadyAt == nil || w.becameReady.Has(key) {
+				w.metrics.updateDepthWithPriorityMetric(item.Priority, o.Priority)
+			}
 			item.Priority = o.Priority
 		}
 
 		if item.ReadyAt != nil && (readyAt == nil || readyAt.Before(*item.ReadyAt)) {
 			if readyAt == nil && !w.becameReady.Has(key) {
-				w.metrics.add(key)
+				w.metrics.add(key, item.Priority)
 			}
 			item.ReadyAt = readyAt
 		}
@@ -223,7 +227,7 @@ func (w *priorityqueue[T]) spin() {
 						return false
 					}
 					if !w.becameReady.Has(item.Key) {
-						w.metrics.add(item.Key)
+						w.metrics.add(item.Key, item.Priority)
 						w.becameReady.Insert(item.Key)
 					}
 				}
@@ -239,7 +243,7 @@ func (w *priorityqueue[T]) spin() {
 					return true
 				}
 
-				w.metrics.get(item.Key)
+				w.metrics.get(item.Key, item.Priority)
 				w.locked.Insert(item.Key)
 				w.waiters.Add(-1)
 				delete(w.items, item.Key)

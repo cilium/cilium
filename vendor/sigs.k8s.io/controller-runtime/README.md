@@ -53,6 +53,7 @@ Compatible k8s.io/*, client-go and minimum Go versions can be looked up in our [
 
 |          | k8s.io/*, client-go | minimum Go version |
 |----------|:-------------------:|:------------------:|
+| CR v0.21 |        v0.33        |        1.24        |
 | CR v0.20 |        v0.32        |        1.23        |
 | CR v0.19 |        v0.31        |        1.22        |
 | CR v0.18 |        v0.30        |        1.22        |
@@ -67,9 +68,6 @@ See [FAQ.md](FAQ.md)
 ## Community, discussion, contribution, and support
 
 Learn how to engage with the Kubernetes community on the [community page](http://kubernetes.io/community/).
-
-controller-runtime is a subproject of the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) project
-in sig apimachinery.
 
 You can reach the maintainers of this project at:
 
