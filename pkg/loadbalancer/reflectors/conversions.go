@@ -403,6 +403,15 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 					continue
 				}
 
+				// Filter out the unnamed port, if present
+				if idx := slices.Index(portNames, ""); idx != -1 {
+					if len(portNames) == 1 {
+						portNames = nil
+					} else {
+						portNames = slices.Concat(portNames[:idx], portNames[idx+1:])
+					}
+				}
+
 				state := loadbalancer.BackendStateActive
 				if be.Terminating {
 					state = loadbalancer.BackendStateTerminating
