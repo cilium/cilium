@@ -102,6 +102,10 @@ jobs:
         run: |
           cd src/github.com/cilium/cilium
           make precheck
+      - name: Custom linters
+        run: |
+          cd src/github.com/cilium/cilium
+          make custom-lint
 
   generate-api:
     runs-on: ubuntu-24.04

@@ -674,6 +674,7 @@ Makefile* @cilium/build
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
 /tools/dpgen @cilium/loader
+/tools/metricslint @cilium/metrics
 /tools/ @cilium/contributing
 /USERS.md @cilium/community
 /go.sum @cilium/vendor
