@@ -33,7 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
-	wg "github.com/cilium/cilium/pkg/wireguard/agent"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // Cell provides a fake version of the datapath cell.
@@ -59,7 +59,7 @@ var Cell = cell.Module(
 		func() types.BandwidthManager { return &fakeTypes.BandwidthManager{} },
 		func() types.IPsecKeyCustodian { return &ipsecKeyCustodian{} },
 		func() mtu.MTU { return &fakeTypes.MTU{} },
-		func() *wg.Agent { return nil },
+		func() wgTypes.WireguardAgent { return &fakeTypes.WireguardAgent{} },
 		func() types.Loader { return &fakeTypes.FakeLoader{} },
 		func() types.Orchestrator { return &fakeTypes.FakeOrchestrator{} },
 		loader.NewCompilationLock,
