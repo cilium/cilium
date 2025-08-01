@@ -500,6 +500,20 @@ func (s *Spec) TypeByName(name string, typ interface{}) error {
 	return nil
 }
 
+// LoadSplitSpec loads split BTF from the given file.
+//
+// Types from base are used to resolve references in the split BTF.
+// The returned Spec only contains types from the split BTF, not from the base.
+func LoadSplitSpec(file string, base *Spec) (*Spec, error) {
+	fh, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer fh.Close()
+
+	return LoadSplitSpecFromReader(fh, base)
+}
+
 // LoadSplitSpecFromReader loads split BTF from a reader.
 //
 // Types from base are used to resolve references in the split BTF.
