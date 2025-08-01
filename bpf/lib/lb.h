@@ -650,17 +650,7 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 static __always_inline
 struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 {
-	struct lb6_service *svc;
-
-	svc = map_lookup_elem(&cilium_lb6_services_v2, key);
-
-	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != IPPROTO_ANY) {
-		key->proto = IPPROTO_ANY;
-		svc = map_lookup_elem(&cilium_lb6_services_v2, key);
-	}
-
-	return svc;
+	return map_lookup_elem(&cilium_lb6_services_v2, key);
 }
 
 static __always_inline
@@ -1372,17 +1362,7 @@ lb4_to_lb6_service(const struct lb4_service *svc __maybe_unused)
 static __always_inline
 struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 {
-	struct lb4_service *svc;
-
-	svc = map_lookup_elem(&cilium_lb4_services_v2, key);
-
-	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != IPPROTO_ANY) {
-		key->proto = IPPROTO_ANY;
-		svc = map_lookup_elem(&cilium_lb4_services_v2, key);
-	}
-
-	return svc;
+	return map_lookup_elem(&cilium_lb4_services_v2, key);
 }
 
 static __always_inline
