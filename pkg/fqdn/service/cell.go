@@ -39,7 +39,7 @@ type serverParams struct {
 	cell.In
 
 	Logger             *slog.Logger
-	EndpointManager    endpointmanager.EndpointManager
+	EndpointsLookup    endpointmanager.EndpointsLookup
 	DNSRequestHandler  messagehandler.DNSMessageHandler
 	IPCache            *ipcache.IPCache
 	JobGroup           job.Group
@@ -68,6 +68,7 @@ func newServer(params serverParams) *FQDNDataServer {
 		return srv
 	}
 
+	srv.enabled = true
 	params.IPCache.AddListener(srv)
 
 	params.JobGroup.Add(job.OneShot("sdp-grpc-server", srv.ListenAndServe,
