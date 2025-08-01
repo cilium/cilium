@@ -332,6 +332,8 @@ tool (
 	github.com/cilium/linters
 	github.com/gogo/protobuf/gogoproto
 	golang.org/x/tools/cmd/goimports
+	golang.org/x/tools/go/analysis/analysistest
+	golang.org/x/tools/go/analysis/singlechecker
 	k8s.io/code-generator
 	k8s.io/code-generator/cmd/client-gen
 	k8s.io/code-generator/cmd/go-to-protobuf
