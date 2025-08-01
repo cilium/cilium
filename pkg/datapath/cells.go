@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/datapath/vtep"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps"
@@ -154,6 +155,9 @@ var Cell = cell.Module(
 	// Provides the desired route table, and a reconciler that installs these desired routes
 	// into the Linux kernel routing table.
 	routeReconciler.Cell,
+
+	// Provides VXLAN Tunnel Endpoint (VTEP) functionality.
+	vtep.Cell,
 )
 
 func newWireguardAgent(rootLogger *slog.Logger, lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Health, registry job.Registry, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) *wg.Agent {
