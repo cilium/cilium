@@ -75,6 +75,8 @@ var ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease ex
 // aborted, and should not be logged as an error.
 var ErrOperationAbortedByInterceptor = errors.New("operation aborted")
 
+var ErrEtcdTimeout error = errors.New("etcd client timeout exceeded")
+
 type etcdModule struct {
 	opts backendOptions
 }
@@ -296,7 +298,7 @@ func etcdClientDebugLevel(logger *slog.Logger) zapcore.Level {
 // Hint tries to improve the error message displayed to te user.
 func Hint(err error) error {
 	if errors.Is(err, context.DeadlineExceeded) {
-		return fmt.Errorf("etcd client timeout exceeded")
+		return ErrEtcdTimeout
 	}
 	return err
 }
