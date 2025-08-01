@@ -113,11 +113,9 @@ func GetUnrecognizedFormats(schema *spec.Schema, compatibilityVersion *version.V
 		return unrecognizedFormats
 	}
 
-	if len(schema.Type) == 1 && schema.Type[0] == "string" {
-		normalized := strings.ReplaceAll(schema.Format, "-", "") // go-openapi default format name normalization
-		if !supportedFormatsAtVersion(compatibilityVersion).supported.Has(normalized) {
-			unrecognizedFormats = append(unrecognizedFormats, schema.Format)
-		}
+	normalized := strings.ReplaceAll(schema.Format, "-", "") // go-openapi default format name normalization
+	if !supportedFormatsAtVersion(compatibilityVersion).supported.Has(normalized) {
+		unrecognizedFormats = append(unrecognizedFormats, schema.Format)
 	}
 
 	return unrecognizedFormats
