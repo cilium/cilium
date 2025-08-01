@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -14,11 +13,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -32,8 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
-	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -243,126 +236,6 @@ func (d *Daemon) initMaps() error {
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
 		lxcmap.LXCMap(d.metricsRegistry).DeleteAll()
-	}
-
-	return nil
-}
-
-func syncVTEP(logger *slog.Logger, registry *metrics.Registry) func(context.Context) error {
-	return func(context.Context) error {
-		if option.Config.EnableVTEP {
-			err := setupVTEPMapping(logger, registry)
-			if err != nil {
-				return err
-			}
-			err = setupRouteToVtepCidr(logger)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-}
-
-func setupVTEPMapping(logger *slog.Logger, registry *metrics.Registry) error {
-	for i, ep := range option.Config.VtepEndpoints {
-		logger.Debug(
-			"Updating vtep map entry for VTEP",
-			logfields.IPAddr, ep,
-		)
-
-		err := vtep.UpdateVTEPMapping(logger, registry, option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
-		if err != nil {
-			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
-		}
-	}
-	return nil
-}
-
-func setupRouteToVtepCidr(logger *slog.Logger) error {
-	routeCidrs := []*cidr.CIDR{}
-
-	filter := &netlink.Route{
-		Table: linux_defaults.RouteTableVtep,
-	}
-
-	routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, filter, netlink.RT_FILTER_TABLE)
-	if err != nil {
-		return fmt.Errorf("failed to list routes: %w", err)
-	}
-	for _, rt := range routes {
-		rtCIDR, err := cidr.ParseCIDR(rt.Dst.String())
-		if err != nil {
-			return fmt.Errorf("Invalid VTEP Route CIDR: %w", err)
-		}
-		routeCidrs = append(routeCidrs, rtCIDR)
-	}
-
-	addedVtepRoutes, removedVtepRoutes := cidr.DiffCIDRLists(routeCidrs, option.Config.VtepCIDRs)
-	vtepMTU := mtu.EthernetMTU - mtu.TunnelOverheadIPv4
-
-	if option.Config.EnableL7Proxy {
-		for _, prefix := range addedVtepRoutes {
-			ip4 := prefix.IP.To4()
-			if ip4 == nil {
-				return fmt.Errorf("Invalid VTEP CIDR IPv4 address: %v", ip4)
-			}
-			r := route.Route{
-				Device: defaults.HostDevice,
-				Prefix: *prefix.IPNet,
-				Scope:  netlink.SCOPE_LINK,
-				MTU:    vtepMTU,
-				Table:  linux_defaults.RouteTableVtep,
-			}
-			if err := route.Upsert(logger, r); err != nil {
-				return fmt.Errorf("Update VTEP CIDR route error: %w", err)
-			}
-			logger.Info(
-				"VTEP route added",
-				logfields.IPAddr, r.Prefix,
-			)
-
-			rule := route.Rule{
-				Priority: linux_defaults.RulePriorityVtep,
-				To:       prefix.IPNet,
-				Table:    linux_defaults.RouteTableVtep,
-			}
-			if err := route.ReplaceRule(rule); err != nil {
-				return fmt.Errorf("Update VTEP CIDR rule error: %w", err)
-			}
-		}
-	} else {
-		removedVtepRoutes = routeCidrs
-	}
-
-	for _, prefix := range removedVtepRoutes {
-		ip4 := prefix.IP.To4()
-		if ip4 == nil {
-			return fmt.Errorf("Invalid VTEP CIDR IPv4 address: %v", ip4)
-		}
-		r := route.Route{
-			Device: defaults.HostDevice,
-			Prefix: *prefix.IPNet,
-			Scope:  netlink.SCOPE_LINK,
-			MTU:    vtepMTU,
-			Table:  linux_defaults.RouteTableVtep,
-		}
-		if err := route.Delete(r); err != nil {
-			return fmt.Errorf("Delete VTEP CIDR route error: %w", err)
-		}
-		logger.Info(
-			"VTEP route removed",
-			logfields.IPAddr, r.Prefix,
-		)
-
-		rule := route.Rule{
-			Priority: linux_defaults.RulePriorityVtep,
-			To:       prefix.IPNet,
-			Table:    linux_defaults.RouteTableVtep,
-		}
-		if err := route.DeleteRule(netlink.FAMILY_V4, rule); err != nil {
-			return fmt.Errorf("Delete VTEP CIDR rule error: %w", err)
-		}
 	}
 
 	return nil

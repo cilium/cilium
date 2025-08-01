@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/datapath/vtep"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -149,6 +150,9 @@ var Cell = cell.Module(
 	// Provides the desired route table, and a reconciler that installs these desired routes
 	// into the Linux kernel routing table.
 	routeReconciler.Cell,
+
+	// Provides VXLAN Tunnel Endpoint (VTEP) functionality.
+	vtep.Cell,
 )
 
 func initDatapath(rootLogger *slog.Logger, lifecycle cell.Lifecycle) {
