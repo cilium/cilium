@@ -11,6 +11,8 @@
 #undef QUIET_CT
 
 #include "pktgen.h"
+#include "scapy.h"
+#include "../lib/hexdump.h"
 
 /* Enable code paths under test */
 #define ENABLE_IPV4
@@ -40,41 +42,17 @@ struct {
  *                 +-------------------------------------------------------------------+
  */
 
-static volatile const __u8 mac_bcast[] =   {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-
 static __always_inline int build_packet(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	volatile const __u8 *src = mac_one;
-	volatile const __u8 *dst = mac_bcast;
-	struct ethhdr *l2;
-	struct arphdreth *l3;
-
-	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
+	BUF_DECL(ARP_REQ, l2_announce_arp_req);
+	BUILDER_PUSH_BUF(builder, ARP_REQ);
 
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
-
-	/* Push ARP header */
-	l3 = pktgen__push_default_arphdr_ethernet(&builder);
-
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->ar_op = bpf_htons(ARPOP_REQUEST);
-	memcpy(l3->ar_sha, (__u8 *)mac_one, ETH_ALEN);
-	l3->ar_sip = v4_ext_one;
-	memcpy(l3->ar_tha, (__u8 *)mac_bcast, ETH_ALEN);
-	l3->ar_tip = v4_svc_one;
-
-	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
+
+	HEXDUMP("build_packet", ctx);
 
 	return 0;
 }
@@ -102,8 +80,6 @@ int l2_announcement_arp_no_entry_check(__maybe_unused const struct __ctx_buff *c
 	void *data;
 	void *data_end;
 	__u32 *status_code;
-	struct ethhdr *l2;
-	struct arphdreth *l3;
 
 	test_init();
 
@@ -114,28 +90,16 @@ int l2_announcement_arp_no_entry_check(__maybe_unused const struct __ctx_buff *c
 		test_fatal("status code out of bounds");
 
 	status_code = data;
+	HEXDUMP_OFF("no_entry", ctx, sizeof(*status_code));
 
-	/* The program should pass unknown ARP messages to the stack */
 	assert(*status_code == TC_ACT_OK);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds");
-
-	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
-
-	if ((void *)l3 + sizeof(struct arphdreth) > data_end)
-		test_fatal("l3 out of bounds");
-
-	assert(memcmp(l2->h_source, (__u8 *)mac_one, ETH_ALEN) == 0);
-	assert(memcmp(l2->h_dest, (__u8 *)mac_bcast, ETH_ALEN) == 0);
-	assert(l3->ar_op == bpf_htons(ARPOP_REQUEST));
-	assert(l3->ar_sip == v4_ext_one);
-	assert(l3->ar_tip == v4_svc_one);
-	assert(memcmp(l3->ar_sha, (__u8 *)mac_one, ETH_ALEN) == 0);
-	assert(memcmp(l3->ar_tha, (__u8 *)mac_bcast, ETH_ALEN) == 0);
-
+	BUF_DECL(EXPECTED_ARP_REQ, l2_announce_arp_req);
+	ASSERT_CTX_BUF_OFF("arp_req_no_entry_untouched", "Ether", ctx,
+			   sizeof(__u32), EXPECTED_ARP_REQ,
+			   sizeof(BUF(EXPECTED_ARP_REQ)));
 	test_finish();
+
 }
 
 PKTGEN("tc", "1_happy_path")
@@ -171,8 +135,6 @@ int l2_announcement_arp_happy_path_check(__maybe_unused const struct __ctx_buff 
 	void *data;
 	void *data_end;
 	__u32 *status_code;
-	struct ethhdr *l2;
-	struct arphdreth *l3;
 
 	test_init();
 
@@ -184,24 +146,21 @@ int l2_announcement_arp_happy_path_check(__maybe_unused const struct __ctx_buff 
 
 	status_code = data;
 
+	HEXDUMP_OFF("happy_path", ctx, sizeof(*status_code));
+
 	assert(*status_code == TC_ACT_REDIRECT);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds");
+	BUF_DECL(EXPECTED_ARP_REP, l2_announce_arp_reply);
 
-	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+	ASSERT_CTX_BUF_OFF("arp_rep_ok", "Ether", ctx, sizeof(__u32),
+			   EXPECTED_ARP_REP, sizeof(BUF(EXPECTED_ARP_REP)));
 
-	if ((void *)l3 + sizeof(struct arphdreth) > data_end)
-		test_fatal("l3 out of bounds");
-
-	assert(memcmp(l2->h_source, (__u8 *)mac_two, ETH_ALEN) == 0);
-	assert(memcmp(l2->h_dest, (__u8 *)mac_one, ETH_ALEN) == 0);
-	assert(l3->ar_op == bpf_htons(ARPOP_REPLY));
-	assert(l3->ar_sip == v4_svc_one);
-	assert(l3->ar_tip == v4_ext_one);
-	assert(memcmp(l3->ar_sha, (__u8 *)mac_two, ETH_ALEN) == 0);
-	assert(memcmp(l3->ar_tha, (__u8 *)mac_one, ETH_ALEN) == 0);
-
+	HEXDUMP_OFF2("happy_path_arp_only", ARP, ctx,
+		     sizeof(__u32) + sizeof(struct ethhdr));
+	BUF_DECL(EXPECTED_ARP_REP_ONLY, l2_announce_arp_reply_only);
+	ASSERT_CTX_BUF_OFF("arp_rep_only_ok", "ARP", ctx,
+			   sizeof(__u32) + sizeof(struct ethhdr),
+			   EXPECTED_ARP_REP_ONLY,
+			   sizeof(BUF(EXPECTED_ARP_REP_ONLY)));
 	test_finish();
 }
