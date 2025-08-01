@@ -141,7 +141,13 @@ func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress 
 }
 
 func (p *Proxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
-	p.dnsIntegration.sdpPolicyUpdater.UpdatePolicyRules(rules, true)
+	if p.dnsIntegration.sdpPolicyUpdater != nil {
+		p.dnsIntegration.sdpPolicyUpdater.UpdatePolicyRules(rules, true)
+	}
+}
+
+func (p *Proxy) IsSDPEnabled() bool {
+	return p.dnsIntegration != nil && p.dnsIntegration.sdpPolicyUpdater != nil && p.dnsIntegration.sdpPolicyUpdater.IsEnabled()
 }
 
 func (p *Proxy) createNewRedirect(

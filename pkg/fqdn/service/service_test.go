@@ -249,8 +249,8 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 	hive.AddConfigOverride(
 		h,
 		func(cfg *FQDNConfig) {
-			cfg.EnableStandaloneDNSProxy = true
-			cfg.StandaloneDNSProxyServerPort = 40045
+			cfg.EnableStandaloneDNSProxy = enableStandaloneDNSProxy
+			cfg.StandaloneDNSProxyServerPort = standaloneDNSProxyServerPort
 		})
 	tlog := hivetest.Logger(t)
 	if err := h.Start(tlog, t.Context()); err != nil {
@@ -457,5 +457,69 @@ func TestHandleIPUpsert(t *testing.T) {
 	data := server.identityToIPsTable.All(server.db.ReadTxn())
 	for d := range data {
 		t.Fatalf("Expected no data in identityToIPsTable, but found: %v", d)
+	}
+}
+
+// TestIsEnabled tests the IsEnabled method of FQDNDataServer
+func TestIsEnabled(t *testing.T) {
+	tests := map[string]struct {
+		enableL7Proxy                bool
+		enableStandaloneDNSProxy     bool
+		standaloneDNSProxyServerPort int
+		toFQDNsProxyPort             int
+		expectedEnabled              bool
+	}{
+		"Standalone DNS proxy enabled with valid configuration": {
+			enableL7Proxy:                true,
+			enableStandaloneDNSProxy:     true,
+			standaloneDNSProxyServerPort: 40045,
+			toFQDNsProxyPort:             40046,
+			expectedEnabled:              true,
+		},
+		"Standalone DNS proxy disabled": {
+			enableL7Proxy:                true,
+			enableStandaloneDNSProxy:     false,
+			standaloneDNSProxyServerPort: 40045,
+			toFQDNsProxyPort:             40046,
+			expectedEnabled:              false,
+		},
+		"L7 proxy disabled": {
+			enableL7Proxy:                false,
+			enableStandaloneDNSProxy:     true,
+			standaloneDNSProxyServerPort: 40045,
+			toFQDNsProxyPort:             40046,
+			expectedEnabled:              false,
+		},
+		"Invalid standalone DNS proxy server port": {
+			enableL7Proxy:                true,
+			enableStandaloneDNSProxy:     true,
+			standaloneDNSProxyServerPort: 0,
+			toFQDNsProxyPort:             40046,
+			expectedEnabled:              false,
+		},
+		"Invalid ToFQDNs proxy port": {
+			enableL7Proxy:                true,
+			enableStandaloneDNSProxy:     true,
+			standaloneDNSProxyServerPort: 40045,
+			toFQDNsProxyPort:             0,
+			expectedEnabled:              false,
+		},
+	}
+
+	for scenario, tt := range tests {
+		t.Run(scenario, func(t *testing.T) {
+			buffer := 1024 * 1024
+			lis := bufconn.Listen(buffer)
+
+			_, server := setupServer(t, tt.toFQDNsProxyPort, tt.enableL7Proxy, tt.enableStandaloneDNSProxy, tt.standaloneDNSProxyServerPort, lis)
+
+			if tt.expectedEnabled {
+				require.NotNil(t, server)
+				require.Equal(t, tt.expectedEnabled, server.IsEnabled())
+
+			} else {
+				require.Nil(t, server)
+			}
+		})
 	}
 }
