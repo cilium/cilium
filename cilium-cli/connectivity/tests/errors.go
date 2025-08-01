@@ -52,7 +52,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
-		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService}
+		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService, leaderElectionLost}
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
 	}
@@ -157,10 +157,16 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				// Do not check for container restarts for Cilium v1.16 and earlier.
 				ignore := n.ciliumVersion.LT(semver.MustParse("1.17.0"))
 
-				// Ignore Cilium operator restarts for the moment, as they can
-				// legitimately happen in case it loses the leader election due
-				// to temporary control plane blips.
-				ignore = ignore || container == "cilium-operator"
+				// Check for legitimate cilium-operator restart patterns
+				if container == "cilium-operator" && restarts > 0 {
+					var logs bytes.Buffer
+					err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs)
+					if err == nil {
+						if hasLegitimateOperatorRestartPatterns(logs.Bytes()) {
+							ignore = true
+						}
+					}
+				}
 
 				// The hubble relay container can currently be restarted by the
 				// startup probe if it fails to connect to Cilium. However, this
@@ -418,6 +424,7 @@ const (
 	failedToReleaseLock    stringMatcher = "Failed to release lock:"
 	previouslyUsedCIDR     stringMatcher = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
 	klogLeaderElectionFail stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
+	leaderElectionLost     stringMatcher = "Leader election lost"                                                      // from: https://github.com/cilium/cilium/issues/40858
 	nilDetailsForService   stringMatcher = "retrieved nil details for Service"                                         // from: https://github.com/cilium/cilium/issues/35595
 
 	cantEnableJIT               stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.
@@ -480,3 +487,22 @@ var (
 	// ccgAlphaResourceDeprecation is the same as bgpAlphaResourceDeprecation but for the CiliumCIDRGroup.
 	ccgAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumCIDRGroup is deprecated`)}
 )
+
+// hasLegitimateOperatorRestartPatterns checks if the operator logs contain patterns
+// that indicate legitimate restart scenarios like leader election failures.
+func hasLegitimateOperatorRestartPatterns(logs []byte) bool {
+	logStr := string(logs)
+	legitimatePatterns := []logMatcher{
+		leaderElectionLost,
+		failedToUpdateLock,
+		failedToReleaseLock,
+		klogLeaderElectionFail,
+	}
+
+	for _, pattern := range legitimatePatterns {
+		if pattern.IsMatch(logStr) {
+			return true
+		}
+	}
+	return false
+}
