@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"sync"
 	"syscall"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -21,7 +23,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	dpTunnel "github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -57,6 +61,7 @@ type linuxNodeHandler struct {
 	datapathConfig    DatapathConfiguration
 	nodes             map[nodeTypes.Identity]*nodeTypes.Node
 	ipsecUpdateNeeded map[nodeTypes.Identity]bool
+	localNodeID       nodeTypes.Identity
 
 	nodeMap nodemap.MapV2
 	// Pool of available IDs for nodes.
@@ -72,6 +77,11 @@ type linuxNodeHandler struct {
 	enableEncapsulation func(node *nodeTypes.Node) bool
 
 	kprCfg kpr.KPRConfig
+
+	db                  *statedb.DB
+	desiredRouteManager *reconciler.DesiredRouteManager
+	desiredRoutes       statedb.Table[*reconciler.DesiredRoute]
+	devicesTable        statedb.Table[*tables.Device]
 }
 
 var (
@@ -90,13 +100,17 @@ func NewNodeHandler(
 	nodeManager manager.NodeManager,
 	nodeConfigNotifier *manager.NodeConfigNotifier,
 	kprCfg kpr.KPRConfig,
+	db *statedb.DB,
+	desiredRouteManager *reconciler.DesiredRouteManager,
+	desiredRoutes statedb.Table[*reconciler.DesiredRoute],
+	devicesTable statedb.Table[*tables.Device],
 ) (datapath.NodeHandler, datapath.NodeIDHandler) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg)
+	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, db, desiredRouteManager, desiredRoutes, devicesTable)
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
@@ -118,6 +132,10 @@ func newNodeHandler(
 	datapathConfig DatapathConfiguration,
 	nodeMap nodemap.MapV2,
 	kprCfg kpr.KPRConfig,
+	db *statedb.DB,
+	desiredRouteManager *reconciler.DesiredRouteManager,
+	desiredRoutes statedb.Table[*reconciler.DesiredRoute],
+	devicesTable statedb.Table[*tables.Device],
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                  log,
@@ -131,6 +149,10 @@ func newNodeHandler(
 		ipsecMetricCollector: ipsec.NewXFRMCollector(log),
 		ipsecUpdateNeeded:    map[nodeTypes.Identity]bool{},
 		kprCfg:               kprCfg,
+		db:                   db,
+		desiredRouteManager:  desiredRouteManager,
+		desiredRoutes:        desiredRoutes,
+		devicesTable:         devicesTable,
 	}
 }
 
@@ -327,33 +349,33 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) err
 // Example:
 // 10.10.0.0/24 via 10.10.0.1 dev cilium_host src 10.10.0.1
 // f00d::a0a:0:0:0/112 via f00d::a0a:0:0:1 dev cilium_host src fd04::11 metric 1024 pref medium
-func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bool) (route.Route, error) {
+func (n *linuxNodeHandler) createNodeRouteSpec(owner *reconciler.RouteOwner, hostDevice *tables.Device, prefix *cidr.CIDR, isLocalNode bool) (reconciler.DesiredRoute, error) {
 	var (
-		local   net.IP
-		nexthop *net.IP
+		local   netip.Addr
+		nexthop netip.Addr
 		mtu     int
 	)
+
 	if prefix.IP.To4() != nil {
 		if n.nodeConfig.CiliumInternalIPv4 == nil {
-			return route.Route{}, fmt.Errorf("IPv4 router address unavailable")
+			return reconciler.DesiredRoute{}, fmt.Errorf("IPv4 router address unavailable")
 		}
 
-		local = n.nodeConfig.CiliumInternalIPv4
-		nexthop = &local
+		local, _ = netip.AddrFromSlice(n.nodeConfig.CiliumInternalIPv4)
+		nexthop = local
 	} else {
 		if n.nodeConfig.CiliumInternalIPv6 == nil {
-			return route.Route{}, fmt.Errorf("IPv6 router address unavailable")
+			return reconciler.DesiredRoute{}, fmt.Errorf("IPv6 router address unavailable")
 		}
 
 		if n.nodeConfig.NodeIPv6 == nil {
-			return route.Route{}, fmt.Errorf("external IPv6 address unavailable")
+			return reconciler.DesiredRoute{}, fmt.Errorf("external IPv6 address unavailable")
 		}
 
 		// For ipv6, kernel will reject "ip r a $cidr via $ipv6_cilium_host dev cilium_host"
 		// with "Error: Gateway can not be a local address". Instead, we have to remove "via"
 		// as "ip r a $cidr dev cilium_host" to make it work.
-		nexthop = nil
-		local = n.nodeConfig.CiliumInternalIPv6
+		local, _ = netip.AddrFromSlice(n.nodeConfig.CiliumInternalIPv6)
 	}
 
 	if !isLocalNode {
@@ -361,85 +383,121 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 	}
 
 	// The default routing table accounts for encryption overhead for encrypt-node traffic
-	return route.Route{
-		Nexthop:  nexthop,
-		Local:    local,
-		Device:   n.datapathConfig.HostDevice,
-		Prefix:   *prefix.IPNet,
-		MTU:      mtu,
-		Priority: option.Config.RouteMetric,
-		Proto:    linux_defaults.RTProto,
+	return reconciler.DesiredRoute{
+		Owner:    owner,
+		Prefix:   prefixFromCIDR(prefix),
+		Priority: uint32(option.Config.RouteMetric),
+
+		Nexthop: nexthop,
+		Src:     local,
+		Device:  hostDevice,
+		MTU:     uint32(mtu),
 	}, nil
 }
 
-func (n *linuxNodeHandler) lookupNodeRoute(prefix *cidr.CIDR, isLocalNode bool) (*route.Route, error) {
-	if prefix == nil {
-		return nil, nil
+func prefixFromCIDR(cidr *cidr.CIDR) netip.Prefix {
+	if cidr == nil {
+		return netip.Prefix{}
 	}
-
-	routeSpec, err := n.createNodeRouteSpec(prefix, isLocalNode)
-	if err != nil {
-		return nil, err
-	}
-
-	return route.Lookup(routeSpec)
+	addr, _ := netip.AddrFromSlice(cidr.IPNet.IP)
+	prefixLen, _ := cidr.IPNet.Mask.Size()
+	return netip.PrefixFrom(addr, prefixLen)
 }
 
-func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabled bool, isLocalNode bool) error {
-	if prefix == nil || !addressFamilyEnabled {
-		return nil
-	}
+// func (n *linuxNodeHandler) lookupNodeRoute(prefix *cidr.CIDR, isLocalNode bool) (*route.Route, error) {
+// 	if prefix == nil {
+// 		return nil, nil
+// 	}
 
-	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode)
-	if err != nil {
-		return err
-	}
-	if err := route.Upsert(n.log, nodeRoute); err != nil {
-		n.log.Warn("Unable to update route",
-			append(nodeRoute.LogAttrs(), logfields.Error, err)...)
-		return err
-	}
+// 	routeSpec, err := n.createNodeRouteSpec(prefix, isLocalNode)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return nil
-}
+// 	return route.Lookup(routeSpec)
+// }
 
-func (n *linuxNodeHandler) deleteNodeRoute(prefix *cidr.CIDR, isLocalNode bool) error {
-	if prefix == nil {
-		return nil
-	}
+// func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabled bool, isLocalNode bool) error {
+// 	if prefix == nil || !addressFamilyEnabled {
+// 		return nil
+// 	}
 
-	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode)
-	if err != nil {
-		return err
-	}
-	if err := route.Delete(nodeRoute); err != nil {
-		n.log.Warn("Unable to delete route",
-			append(nodeRoute.LogAttrs(), logfields.Error, err)...)
-		return err
-	}
+// 	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if err := route.Upsert(n.log, nodeRoute); err != nil {
+// 		n.log.Warn("Unable to update route",
+// 			append(nodeRoute.LogAttrs(), logfields.Error, err)...)
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
+
+// func (n *linuxNodeHandler) deleteNodeRoute(prefix *cidr.CIDR, isLocalNode bool) error {
+// 	if prefix == nil {
+// 		return nil
+// 	}
+
+// 	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if err := route.Delete(nodeRoute); err != nil {
+// 		n.log.Warn("Unable to delete route",
+// 			append(nodeRoute.LogAttrs(), logfields.Error, err)...)
+// 		return err
+// 	}
+
+// 	return nil
+// }
 
 func (n *linuxNodeHandler) familyEnabled(c *cidr.CIDR) bool {
 	return (c.IP.To4() != nil && n.nodeConfig.EnableIPv4) || (c.IP.To4() == nil && n.nodeConfig.EnableIPv6)
 }
 
-func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []*cidr.CIDR, isLocalNode bool) error {
+func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(nodeID string, old, new []*cidr.CIDR, isLocalNode bool) error {
+	owner, err := n.desiredRouteManager.GetOrRegisterOwner("node-"+nodeID, reconciler.AdminDistanceDefault)
+	if err != nil {
+		return fmt.Errorf("failed to get or register route owner for node %q: %w", nodeID, err)
+	}
+
+	hostDevice, _, found := n.devicesTable.Get(n.db.ReadTxn(), tables.DeviceNameIndex.Query(n.datapathConfig.HostDevice))
+	if !found {
+		return fmt.Errorf("host device %q not found in devices table", n.datapathConfig.HostDevice)
+	}
+
 	var errs error
-	addedAuxRoutes, removedAuxRoutes := cidr.DiffCIDRLists(old, new)
-	for _, prefix := range addedAuxRoutes {
-		if prefix != nil {
-			if err := n.updateNodeRoute(prefix, n.familyEnabled(prefix), isLocalNode); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("failed to add aux route %q: %w", prefix, err))
-			}
+	addedRoutes, removedRoutes := cidr.DiffCIDRLists(old, new)
+	for _, prefix := range addedRoutes {
+		if prefix == nil || !n.familyEnabled(prefix) {
+			continue
+		}
+
+		nodeRoute, err := n.createNodeRouteSpec(owner, hostDevice, prefix, isLocalNode)
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to create node route spec for %q: %w", prefix, err))
+			continue
+		}
+
+		err = n.desiredRouteManager.UpsertRoutes(nodeRoute)
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to upsert node route %q: %w", prefix, err))
+			continue
 		}
 	}
-	for _, prefix := range removedAuxRoutes {
-		if rt, _ := n.lookupNodeRoute(prefix, isLocalNode); rt != nil {
-			if err := n.deleteNodeRoute(prefix, isLocalNode); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("failed to remove aux route %q: %w", prefix, err))
-			}
+	for _, prefix := range removedRoutes {
+		nodeRoute, err := n.createNodeRouteSpec(owner, hostDevice, prefix, isLocalNode)
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to create node route spec for %q: %w", prefix, err))
+			continue
+		}
+
+		err = n.desiredRouteManager.DeleteRoutes(nodeRoute)
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to delete node route %q: %w", prefix, err))
+			continue
 		}
 	}
 	return errs
@@ -506,12 +564,13 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 
 	// Local node update
 	if newNode.IsLocal() {
+		n.localNodeID = newNode.Identity()
 		isLocalNode = true
 		if n.nodeConfig.EnableLocalNodeRoute {
-			if err := n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode); err != nil {
+			if err := n.updateOrRemoveNodeRoutes(newNode.Identity().String(), oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to enable local node route: update ipv4 routes: %w", err))
 			}
-			if err := n.updateOrRemoveNodeRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode); err != nil {
+			if err := n.updateOrRemoveNodeRoutes(newNode.Identity().String(), oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to enable local node route: update ipv6 routes: %w", err))
 			}
 		}
@@ -538,27 +597,40 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.enableEncapsulation(newNode) {
-		if err := n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode); err != nil {
+		if err := n.updateOrRemoveNodeRoutes(newNode.Identity().String(), oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to enable encapsulation: single cluster routes: ipv4: %w", err))
 		}
-		if err := n.updateOrRemoveNodeRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode); err != nil {
+		if err := n.updateOrRemoveNodeRoutes(newNode.Identity().String(), oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to enable encapsulation: single cluster routes: ipv6: %w", err))
 		}
 
 		return errs
 	} else if firstAddition {
+		owner, err := n.desiredRouteManager.GetOrRegisterOwner("node-"+newNode.Identity().String(), reconciler.AdminDistanceDefault)
+		if err != nil {
+			return fmt.Errorf("failed to get or register route owner for node %q: %w", nodeID, err)
+		}
+
 		for _, ipv4AllocCIDR := range newAllIP4AllocCidrs {
-			if rt, _ := n.lookupNodeRoute(ipv4AllocCIDR, isLocalNode); rt != nil {
-				if err := n.deleteNodeRoute(ipv4AllocCIDR, isLocalNode); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to apply initial sync (no encapsulation): delete ipv4 route: %w", err))
-				}
+			err = n.desiredRouteManager.DeleteRoutes(reconciler.DesiredRoute{
+				Owner:    owner,
+				Prefix:   prefixFromCIDR(ipv4AllocCIDR),
+				Priority: uint32(option.Config.RouteMetric),
+			})
+			if err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to delete node route %q: %w", ipv4AllocCIDR, err))
+				continue
 			}
 		}
 		for _, ipv6AllocCIDR := range newAllIP6AllocCidrs {
-			if rt, _ := n.lookupNodeRoute(ipv6AllocCIDR, isLocalNode); rt != nil {
-				if err := n.deleteNodeRoute(ipv6AllocCIDR, isLocalNode); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to apply initial sync (no encapsulation): delete ipv6 route: %w", err))
-				}
+			err = n.desiredRouteManager.DeleteRoutes(reconciler.DesiredRoute{
+				Owner:    owner,
+				Prefix:   prefixFromCIDR(ipv6AllocCIDR),
+				Priority: uint32(option.Config.RouteMetric),
+			})
+			if err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to delete node route %q: %w", ipv6AllocCIDR, err))
+				continue
 			}
 		}
 	}
@@ -592,45 +664,9 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 		return nil
 	}
 
-	oldIP4 := oldNode.GetNodeIP(false)
-	oldIP6 := oldNode.GetNodeIP(true)
-
-	oldAllIP4AllocCidrs := oldNode.GetIPv4AllocCIDRs()
-	oldAllIP6AllocCidrs := oldNode.GetIPv6AllocCIDRs()
-
 	var errs error
-	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(oldNode) {
-		if n.nodeConfig.EnableIPv4 {
-			for _, cidr := range oldAllIP4AllocCidrs {
-				if err := n.deleteDirectRoute(cidr, oldIP4); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
-				}
-			}
-		}
-		if n.nodeConfig.EnableIPv6 {
-			for _, cidr := range oldAllIP6AllocCidrs {
-				if err := n.deleteDirectRoute(cidr, oldIP6); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
-				}
-			}
-		}
-	}
-
-	if n.enableEncapsulation(oldNode) {
-		if n.nodeConfig.EnableIPv4 {
-			for _, cidr := range oldAllIP4AllocCidrs {
-				if err := n.deleteNodeRoute(cidr, false); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv4: %w", err))
-				}
-			}
-		}
-		if n.nodeConfig.EnableIPv6 {
-			for _, cidr := range oldAllIP6AllocCidrs {
-				if err := n.deleteNodeRoute(cidr, false); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv6: %w", err))
-				}
-			}
-		}
+	if owner, err := n.desiredRouteManager.GetOwner("node-" + oldNode.Identity().String()); err == nil {
+		n.desiredRouteManager.RemoveOwner(owner)
 	}
 
 	if n.nodeConfig.EnableIPSec {
@@ -697,7 +733,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		n.enableEncapsulation = func(*nodeTypes.Node) bool { return n.nodeConfig.EnableEncapsulation }
 	}
 
-	if err := n.updateOrRemoveNodeRoutes(prevConfig.AuxiliaryPrefixes, newConfig.AuxiliaryPrefixes, true); err != nil {
+	if err := n.updateOrRemoveNodeRoutes(n.localNodeID.String(), prevConfig.AuxiliaryPrefixes, newConfig.AuxiliaryPrefixes, true); err != nil {
 		return fmt.Errorf("failed to update or remove node routes: %w", err)
 	}
 
