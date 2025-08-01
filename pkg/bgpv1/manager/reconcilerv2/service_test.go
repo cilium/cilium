@@ -26,6 +26,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type Aggregation struct {
@@ -636,6 +637,27 @@ var (
 		},
 	}
 
+	eps1RedSvc2 = &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-2",
+			Namespace: "non-default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceName: loadbalancer.NewServiceName(
+				redSvcKey.Namespace, redSvcKey.Name+"2",
+			),
+			EndpointSliceName: "svc-2",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+			cmtypes.MustParseAddrCluster("2001:db8:1000::1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+
 	eps1LocalTerminating = &k8s.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "svc-1",
@@ -725,6 +747,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			name:           "Service (LB) with advertisement( empty )",
 			peerConfig:     []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:       []*slim_corev1.Service{redLBSvc},
+			endpoints:      []*k8s.Endpoints{eps1Mixed},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         ResourceAFPathsMap{},
@@ -741,6 +764,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			name:       "Service (LB) with advertisement(LB) - mismatch labels",
 			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:   []*slim_corev1.Service{redLBSvc},
+			endpoints:  []*k8s.Endpoints{eps1Mixed},
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
@@ -763,6 +787,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			name:       "Service (LB) with advertisement(LB) - matching labels (eTP=cluster)",
 			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:   []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
+			endpoints:  []*k8s.Endpoints{eps1Mixed},
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -799,6 +824,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			name:       "Service (LB) with advertisement(LB) and routes aggregation - matching labels (eTP=cluster, iTP=local)",
 			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:   []*slim_corev1.Service{svcWithITP(redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster), slim_corev1.ServiceInternalTrafficPolicyLocal)},
+			endpoints:  []*k8s.Endpoints{eps1Mixed},
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector, aggregation)),
 			},
@@ -1004,6 +1030,9 @@ func Test_ServiceLBReconciler(t *testing.T) {
 					}),
 				SvcDiffStore: store.InitFakeDiffStore[*slim_corev1.Service](tt.services),
 				EPDiffStore:  store.InitFakeDiffStore[*k8s.Endpoints](tt.endpoints),
+				RoutesConfig: RoutesConfig{
+					BGPNoEndpointsRoutable: option.Config.BGPNoEndpointsRoutable,
+				},
 			}
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -1065,6 +1094,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			name:       "Service (External) with advertisement(External) - mismatch labels",
 			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:   []*slim_corev1.Service{redExternalSvc},
+			endpoints:  []*k8s.Endpoints{eps1Mixed},
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
@@ -1087,6 +1117,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			name:       "Service (External) with advertisement(External) - matching labels (eTP=cluster)",
 			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:   []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
+			endpoints:  []*k8s.Endpoints{eps1Mixed},
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -1123,6 +1154,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			name:       "Service (External) with advertisement(External) and routes aggregation - matching labels (eTP=cluster, iTP=local)",
 			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:   []*slim_corev1.Service{svcWithITP(redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster), slim_corev1.ServiceInternalTrafficPolicyLocal)},
+			endpoints:  []*k8s.Endpoints{eps1Mixed},
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector, aggregation)),
 			},
@@ -1293,6 +1325,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			name:       "Service (External) with overlapping advertisement(External) - matching labels (eTP=cluster)",
 			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:   []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
+			endpoints:  []*k8s.Endpoints{eps1Remote},
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(
 					externalSvcAdvertWithSelectorAttributes(redSvcSelector, redPeer65001BgpAttributes),
@@ -1438,6 +1471,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			name:       "Service (Cluster) with advertisement(Cluster) - mismatch labels",
 			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:   []*slim_corev1.Service{redClusterSvc},
+			endpoints:  []*k8s.Endpoints{eps1Mixed},
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
@@ -1460,6 +1494,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			name:       "Service (Cluster) with advertisement(Cluster) - matching labels (iTP=cluster)",
 			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:   []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyCluster)},
+			endpoints:  []*k8s.Endpoints{eps1Mixed},
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
@@ -1496,6 +1531,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			name:       "Service (Cluster) with advertisement(Cluster) and routes aggregation - matching labels (iTP=cluster)",
 			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:   []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyCluster)},
+			endpoints:  []*k8s.Endpoints{eps1Mixed},
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector, aggregation)),
 			},
@@ -1666,6 +1702,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			name:       "Service (Cluster) with overlapping advertisement(Cluster) - matching labels (iTP=cluster)",
 			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:   []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyCluster)},
+			endpoints:  []*k8s.Endpoints{eps1Remote},
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(
 					clusterIPSvcAdvertWithSelectorAttributes(redSvcSelector, redPeer65001BgpAttributes),
@@ -1810,7 +1847,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			},
 		},
 		{
-			name: "Add service (Cluster, External) with advertisement(Cluster) - matching labels",
+			name: "Add service (Cluster, External) and endpoints with advertisement(Cluster) - matching labels",
 			upsertAdverts: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(v2.BGPAdvertisement{
 					AdvertisementType: v2.BGPServiceAdvert,
@@ -1827,6 +1864,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				}),
 			},
 			upsertServices: []*slim_corev1.Service{redExternalAndClusterSvc},
+			upsertEPs:      []*k8s.Endpoints{eps1Remote},
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Only cluster IPs are advertised
 				ServicePaths: ResourceAFPathsMap{
@@ -1973,7 +2011,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 					slim_corev1.ServiceInternalTrafficPolicyLocal),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				// Both cluster and external IPs are withdrawn, since traffic policy is local and there are no endpoints.
+				// Both cluster and external IPs are withdrawn, since traffic policy is local and there are only remote endpoints.
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
@@ -2205,6 +2243,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 		upsertServices   []*slim_corev1.Service
 		deletetServices  []*slim_corev1.Service
 		upsertEPs        []*k8s.Endpoints
+		deleteEPs        []*k8s.Endpoints
 		expectedMetadata ServiceReconcilerMetadata
 	}{
 		{
@@ -2225,6 +2264,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				}),
 			},
 			upsertServices: []*slim_corev1.Service{redLBSvc},
+			upsertEPs:      []*k8s.Endpoints{eps1Local},
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -2279,8 +2319,51 @@ func Test_ServiceVIPSharing(t *testing.T) {
 			},
 		},
 		{
+			name:      "Remove endpoints from service 1 (LoadBalancer)",
+			deleteEPs: []*k8s.Endpoints{eps1Local},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServicePaths:         ResourceAFPathsMap{},
+				ServiceRoutePolicies: ResourceRoutePolicyMap{},
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
+							{
+								AdvertisementType: v2.BGPServiceAdvert,
+								Service: &v2.BGPServiceOptions{
+									Addresses: []v2.BGPServiceAddressType{v2.BGPLoadBalancerIPAddr},
+								},
+								Selector: redSvcSelector,
+								Attributes: &v2.BGPAttributes{
+									Communities: &v2.BGPCommunities{
+										Standard:  []v2.BGPStandardCommunity{"65535:65281"},
+										WellKnown: []v2.BGPWellKnownCommunity{"no-export"},
+									},
+								},
+							},
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v2.BGPAdvertisement{
+							{
+								AdvertisementType: v2.BGPServiceAdvert,
+								Service: &v2.BGPServiceOptions{
+									Addresses: []v2.BGPServiceAddressType{v2.BGPLoadBalancerIPAddr},
+								},
+								Selector: redSvcSelector,
+								Attributes: &v2.BGPAttributes{
+									Communities: &v2.BGPCommunities{
+										Standard:  []v2.BGPStandardCommunity{"65535:65281"},
+										WellKnown: []v2.BGPWellKnownCommunity{"no-export"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:           "Add service 2 (LoadBalancer) with the same VIP",
 			upsertServices: []*slim_corev1.Service{redLBSvc2()},
+			upsertEPs:      []*k8s.Endpoints{eps1Local, eps1RedSvc2},
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -2554,6 +2637,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 			epStore.Upsert(ep)
 		}
 
+		for _, ep := range tt.deleteEPs {
+			epStore.Delete(ep)
+		}
+
 		err := svcReconciler.Reconcile(context.Background(), ReconcileParams{
 			BGPInstance:   testBGPInstance,
 			DesiredConfig: testBGPInstanceConfig,
@@ -2612,6 +2699,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 				}),
 			},
 			upsertServices: []*slim_corev1.Service{redLBSvc},
+			upsertEPs:      []*k8s.Endpoints{eps1Local},
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
