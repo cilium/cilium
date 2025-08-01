@@ -23,3 +23,9 @@ type WireguardAgent interface {
 	Enabled() bool
 	Status(withPeers bool) (*models.WireguardStatus, error)
 }
+
+// WireguardConfig exports the Enabled method rather than the whole config.
+// This is useful when the whole agent is not needed. See [WireguardAgent] otherwise.
+type WireguardConfig interface {
+	Enabled() bool
+}

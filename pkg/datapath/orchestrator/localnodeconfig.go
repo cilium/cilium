@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -53,6 +54,7 @@ func newLocalNodeConfig(
 	kprCfg kpr.KPRConfig,
 	maglevConfig maglev.Config,
 	mtuTbl statedb.Table[mtu.RouteMTU],
+	wgCfg wgTypes.WireguardConfig,
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -80,7 +82,7 @@ func newLocalNodeConfig(
 
 	watchChans := []<-chan struct{}{devsWatch, addrsWatch, mtuWatch}
 	var directRoutingDevice *tables.Device
-	if option.Config.DirectRoutingDeviceRequired(kprCfg) {
+	if option.Config.DirectRoutingDeviceRequired(kprCfg, wgCfg.Enabled()) {
 		drd, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
 		if drd == nil {
 			return datapath.LocalNodeConfiguration{}, nil, errors.New("direct routing device required but not configured")
@@ -115,6 +117,7 @@ func newLocalNodeConfig(
 		EnableAutoDirectRouting:      config.EnableAutoDirectRouting,
 		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
 		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
+		EnableWireguard:              wgCfg.Enabled(),
 		EnableIPSec:                  config.EnableIPSec,
 		EnableIPSecEncryptedOverlay:  config.EnableIPSecEncryptedOverlay,
 		EncryptNode:                  config.EncryptNode,
