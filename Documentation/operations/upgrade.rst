@@ -522,19 +522,43 @@ Rollout Instructions
 ~~~~~~~~~~~~~~~~~~~~
 
 #. Re-deploy first the Operator and then the Agents with ``--identity-allocation-mode=doublewrite-readkvstore``.
+
+  Helm value is ``identityAllocationMode``. A full command example:
+
+  .. code-block:: shell-session
+
+      helm upgrade -i -n kube-system cilium-cee isovalent/cilium --version 1.17.6 --reuse-values --set identityAllocationMode=doublewrite-readkvstore.
+
+  The configured mode should be visible in the configmap as well as on the Agent itself:
+
+  .. code-block:: shell-session
+  
+  cilium config -a | grep -i identitya
+  IdentityAllocationMode            : doublewrite-readkvstore
+
 #. Monitor the Operator metrics and logs to ensure that all identities have converged between the KVStore and CRDs. The relevant metrics emitted by the Operator are:
 
    * ``cilium_operator_identity_crd_total_count`` and ``cilium_operator_identity_kvstore_total_count`` report the total number of identities in CRDs and KVStore respectively.
    * ``cilium_operator_identity_crd_only_count`` and ``cilium_operator_identity_kvstore_only_count`` report the number of
      identities that are only in CRDs or only in the KVStore respectively, to help detect inconsistencies.
 
-   In case further investigation is needed, the Operator logs will contain detailed information about the discrepancies between KVStore and CRD identities.
+   In case further investigation is needed, the Operator logs will contain detailed information about the discrepancies between KVStore and CRD identities. Example:
+
+  .. code-block:: shell-session
+  
+  time=2025-08-01T15:40:42Z level=info msg="Detected differences between CRD and KVStore identities" module=enterprise-operator.operator.operator-controlplane.leader-lifecycle.double-write-metric-reporter crd_identity_count=14 kvstore_identity_count=4 only_in_crd_count=10 only_in_kvstore_count=0 only_in_crd_sample="[20479 20897 22677 33309 39519]" only_in_kvstore_sample=[]
+
+   You can observe KVStore identities on the Agents through ``cilium identity list`` and CRD identities through ``kubectl get ciliumidentities.cilium.io -o yaml``.
+
    Note that Garbage Collection for KVStore identities and CRD identities happens at slightly different times, so it is possible to see discrepancies in the metrics
-   for certain periods of time, depending on ``--identity-gc-interval`` and ``--identity-heartbeat-timeout`` settings.
-#. Once all identities have converged, re-deploy the Operator and the Agents with ``--identity-allocation-mode=doublewrite-readcrd``.
+   for certain periods of time, depending on ``--identity-gc-interval`` and ``--identity-heartbeat-timeout`` settings. 
+
+#. Once all identities have converged, re-deploy the Operator and the Agents with ``--identity-allocation-mode=doublewrite-readcrd``, Helm value ``identityAllocationMode=doublewrite-readcrd``.
    This will cause Cilium to read identities only from CRDs, but continue to write them to the KVStore.
-#. Once you are ready to decommission the KVStore, re-deploy first the Agents and then the Operator with ``--identity-allocation-mode=crd``.
+
+#. Once you are ready to decommission the KVStore, re-deploy first the Agents and then the Operator with ``--identity-allocation-mode=crd``, Helm value ``identityAllocationMode=crd``.
    This will make Cilium read and write identities only to CRDs.
+
 #. You can now decommission the KVStore.
 
 .. _change_policy_default_local_cluster:
