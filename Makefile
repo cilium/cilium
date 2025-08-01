@@ -404,6 +404,12 @@ govet: ## Run govet on Go source files in the repository.
 	@$(ECHO_CHECK) vetting all packages...
 	$(QUIET) $(GO_VET) ./...
 
+.PHONY: custom-lint
+custom-lint: ## Run extra local linters
+	$(ECHO_CHECK) metricslint
+	$(QUIET)$(MAKE) -C tools/metricslint
+	$(QUIET)tools/metricslint/metricslint ./...
+
 golangci-lint: ## Run golangci-lint
 ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION:v%=%),$(GOLANGCILINT_VERSION)))
 	@$(ECHO_CHECK) golangci-lint $(GOLANGCI_LINT_ARGS)
@@ -415,7 +421,8 @@ endif
 golangci-lint-fix: ## Run golangci-lint to automatically fix warnings
 	$(QUIET)$(MAKE) golangci-lint GOLANGCI_LINT_ARGS="--fix"
 
-lint: golangci-lint
+.PHONY: lint
+lint: golangci-lint custom-lint
 
 lint-fix: golangci-lint-fix
 
