@@ -13,20 +13,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-type IPCache interface {
-	// LookupSecIDByIP is a provided callback that returns the IP's security ID
-	// from the ipcache.
-	LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool)
-
-	// LookupByIdentity is a provided callback that returns the IPs of a given security ID.
-	LookupByIdentity(nid identity.NumericIdentity) []string
-}
 
 // LookupEndpointIDByIPFunc is a provided callback that returns the endpoint ID
 // as a uint16.
