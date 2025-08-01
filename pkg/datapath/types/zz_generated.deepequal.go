@@ -177,6 +177,23 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.DeriveMasqIPAddrFromDevice != other.DeriveMasqIPAddrFromDevice {
 		return false
 	}
+	if ((in.DeriveMasqIPAddrFromDeviceMapping != nil) && (other.DeriveMasqIPAddrFromDeviceMapping != nil)) || ((in.DeriveMasqIPAddrFromDeviceMapping == nil) != (other.DeriveMasqIPAddrFromDeviceMapping == nil)) {
+		in, other := &in.DeriveMasqIPAddrFromDeviceMapping, &other.DeriveMasqIPAddrFromDeviceMapping
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if in.HostEndpointID != other.HostEndpointID {
 		return false
 	}
