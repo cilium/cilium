@@ -171,6 +171,7 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 	}
 
 	if endpoint.Networking == nil || endpoint.Networking.NodeIP == "" {
+		k.logger.Warn("NodeIP not available", logfields.Identity, id)
 		// When upgrading from an older version, the nodeIP may
 		// not be available yet in the CiliumEndpoint and we
 		// have to wait for it to be propagated
@@ -194,6 +195,11 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 	for _, port := range endpoint.NamedPorts {
 		p, err := u8proto.ParseProtocol(port.Protocol)
 		if err != nil {
+			k.logger.Error(
+				"Parsing named port protocol failed",
+				logfields.Error, err,
+				logfields.CEPName, endpoint.GetName(),
+			)
 			continue
 		}
 		k8sMeta.NamedPorts[port.Name] = ciliumTypes.PortProto{
