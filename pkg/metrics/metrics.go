@@ -223,6 +223,9 @@ const (
 	// LabelTargetCluster is the label for target cluster name
 	LabelTargetCluster = "target_cluster"
 
+	// LabelLeaderElectionName is the name of leader election
+	LabelLeaderElectionName = "name"
+
 	// Rule label is a label for a L7 rule name.
 	LabelL7Rule = "rule"
 
