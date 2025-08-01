@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/fqdn/lookup"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -67,15 +68,9 @@ type DNSProxy struct {
 	// the port specified in cfg.
 	BindPort uint16
 
-	// ipcache exposes information about IP addresses and identities
-	ipcache IPCache
-
-	// LookupRegisteredEndpoint is a provided callback that returns the endpoint ID
-	// as a uint16.
-	// Note: this is a little pointless since this proxy is in-process but it is
-	// intended to allow us to switch to an external proxy process by forcing the
-	// design now.
-	LookupRegisteredEndpoint LookupEndpointIDByIPFunc
+	// proxyLookupHandler is used to look up endpoints and their associated
+	// security identities.
+	proxyLookupHandler lookup.ProxyLookupHandler
 
 	// NotifyOnDNSMsg is a provided callback by which the proxy can emit DNS
 	// response data. It is intended to wire into a DNS cache and a
@@ -310,7 +305,7 @@ func (p *DNSProxy) GetRules(version *versioned.VersionHandle, endpointID uint16)
 		Loop:
 			for _, nid := range nids {
 				// Note: p.RLock must not be held during this call to IPCache
-				nidIPs := p.ipcache.LookupByIdentity(nid)
+				nidIPs := p.proxyLookupHandler.LookupByIdentity(nid)
 				p.RLock()
 				for _, ip := range nidIPs {
 					rip, err := restore.ParseRuleIPOrCIDR(ip)
@@ -608,13 +603,12 @@ type DNSProxyConfig struct {
 // addresses.
 // port is the port to bind to for both UDP and TCP. 0 causes the kernel to
 // select a free port.
-func NewDNSProxy(dnsProxyConfig DNSProxyConfig, ipc IPCache, lookupEPFunc LookupEndpointIDByIPFunc, notifyFunc NotifyOnDNSMsgFunc) *DNSProxy {
+func NewDNSProxy(dnsProxyConfig DNSProxyConfig, proxyLookupHandler lookup.ProxyLookupHandler, notifyFunc NotifyOnDNSMsgFunc) *DNSProxy {
 
 	p := &DNSProxy{
 		logger:                   dnsProxyConfig.Logger,
 		cfg:                      dnsProxyConfig,
-		ipcache:                  ipc,
-		LookupRegisteredEndpoint: lookupEPFunc,
+		proxyLookupHandler:       proxyLookupHandler,
 		NotifyOnDNSMsg:           notifyFunc,
 		logLimiter:               logging.NewLimiter(10*time.Second, 1),
 		lookupTargetDNSServer:    lookupTargetDNSServer,
@@ -741,7 +735,7 @@ func shutdownServers(logger *slog.Logger, dnsServers []*dns.Server) {
 
 // LookupEndpointByIP wraps LookupRegisteredEndpoint by falling back to an restored EP, if available
 func (p *DNSProxy) LookupEndpointByIP(ip netip.Addr) (endpoint *endpoint.Endpoint, isHost bool, err error) {
-	if endpoint, isHost, err = p.LookupRegisteredEndpoint(ip); err != nil {
+	if endpoint, isHost, err = p.proxyLookupHandler.LookupRegisteredEndpoint(ip); err != nil {
 		// Check restored endpoints
 		var found bool
 		if endpoint, found = p.restoredEPs[ip]; found {
@@ -1002,7 +996,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	// Ignore invalid IP - getter will handle invalid value.
 	targetServerID := identity.GetWorldIdentityFromIP(targetServer.Addr())
-	if serverSecID, exists := p.ipcache.LookupSecIDByIP(targetServer.Addr()); !exists {
+	if serverSecID, exists := p.proxyLookupHandler.LookupSecIDByIP(targetServer.Addr()); !exists {
 		scopedLog.Debug(
 			"cannot find server ip in ipcache, defaulting to WORLD",
 			logfields.Server, targetServer.Addr(),
