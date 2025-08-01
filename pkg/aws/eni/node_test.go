@@ -53,13 +53,14 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 			Subnets: map[string]struct{}{
 				"subnet-1": {},
 				"subnet-2": {},
+				"subnet-3": {},
 			},
 		},
 		"rt-2": &ipamTypes.RouteTable{
 			ID:               "rt-2",
 			VirtualNetworkID: "vpc-2",
 			Subnets: map[string]struct{}{
-				"subnet-3": {},
+				"subnet-4": {},
 			},
 		},
 	}
@@ -68,9 +69,9 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 		k8sObj: &v2.CiliumNode{
 			Spec: v2.NodeSpec{
 				ENI: types.ENISpec{
-					VpcID:        "vpc-1",
-					NodeSubnetID: "subnet-1",
-					SubnetIDs:    []string{"subnet-1", "subnet-2", "subnet-3"},
+					VpcID:            "vpc-1",
+					NodeSubnetID:     "subnet-1",
+					AvailabilityZone: "us-east-1a",
 				},
 			},
 		},
@@ -79,14 +80,22 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 				"subnet-1": {
 					ID:                 "subnet-1",
 					AvailableAddresses: 10,
+					AvailabilityZone:   "us-east-1a",
 				},
 				"subnet-2": {
 					ID:                 "subnet-2",
 					AvailableAddresses: 20,
+					AvailabilityZone:   "us-east-1a",
 				},
 				"subnet-3": {
 					ID:                 "subnet-3",
+					AvailableAddresses: 25,
+					AvailabilityZone:   "us-east-1b",
+				},
+				"subnet-4": {
+					ID:                 "subnet-4",
 					AvailableAddresses: 15,
+					AvailabilityZone:   "us-east-1a",
 				},
 			},
 			routeTables: routeTableMap,
