@@ -20,8 +20,14 @@
 #ifndef EFAULT
 # define EFAULT		14
 #endif
+#ifndef EEXIST
+# define EEXIST		17
+#endif
 #ifndef EINVAL
 # define EINVAL		22
+#endif
+#ifndef EDEADLK
+# define EDEADLK	35
 #endif
 #ifndef ENOTSUP
 # define ENOTSUP	95
@@ -37,6 +43,9 @@
 #endif
 #ifndef ENOTCONN
 # define ENOTCONN	107
+#endif
+#ifndef ETIMEDOUT
+# define ETIMEDOUT	110
 #endif
 #ifndef ECONNREFUSED
 # define ECONNREFUSED	111
