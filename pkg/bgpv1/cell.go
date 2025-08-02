@@ -91,6 +91,9 @@ var Cell = cell.Module(
 	// Provides the reconcilers used by the route manager to update the config
 	reconciler.ConfigReconcilers,
 
+	cell.ProvidePrivate(func() reconcilerv2.RoutesConfig {
+		return reconcilerv2.RoutesConfig{BGPNoEndpointsRoutable: option.Config.BGPNoEndpointsRoutable}
+	}),
 	// BGP v2 reconcilers
 	reconcilerv2.ConfigReconcilers,
 

@@ -992,6 +992,9 @@ const (
 	// EnableBGPControlPlaneStatusReport enables BGP Control Plane CRD status reporting
 	EnableBGPControlPlaneStatusReport = "enable-bgp-control-plane-status-report"
 
+	// BGPNoEndpointsRoutable enables advertising of services with 0 endpoints
+	BGPNoEndpointsRoutable = "bgp-no-endpoints-routable"
+
 	// BGP router-id allocation mode
 	BGPRouterIDAllocationMode = "bgp-router-id-allocation-mode"
 
@@ -1925,6 +1928,9 @@ type DaemonConfig struct {
 
 	// Enables BGP control plane status reporting.
 	EnableBGPControlPlaneStatusReport bool
+
+	// Enables advertising of routes when service has 0 endpoints
+	BGPNoEndpointsRoutable bool
 
 	// BGPRouterIDAllocationMode is the mode to allocate the BGP router-id.
 	BGPRouterIDAllocationMode string
@@ -3023,6 +3029,9 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	// Enable BGP control plane features
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
+
+	// Enable
+	c.BGPNoEndpointsRoutable = vp.GetBool(BGPNoEndpointsRoutable)
 
 	// Enable BGP control plane status reporting
 	c.EnableBGPControlPlaneStatusReport = vp.GetBool(EnableBGPControlPlaneStatusReport)
