@@ -104,6 +104,8 @@ type Clientset interface {
 
 	// RestConfig returns the deep copy of rest configuration.
 	RestConfig() *rest.Config
+
+	RestartAllConnections()
 }
 
 // compositeClientset implements the Clientset using real clients.
@@ -121,6 +123,7 @@ type compositeClientset struct {
 	slim              *SlimClientset
 	config            Config
 	logger            *slog.Logger
+	closeAllConnsCore func()
 	closeAllConns     func()
 	restConfigManager *restConfigManager
 }
@@ -163,7 +166,7 @@ func newClientsetForUserAgent(params compositeClientsetParams, name string) (Cli
 	}
 	rc := client.restConfigManager.getConfig()
 
-	defaultCloseAllConns := params.setDialer(rc)
+	client.closeAllConnsCore = params.setDialer(rc)
 
 	httpClient, err := rest.HTTPClientFor(rc)
 	if err != nil {
@@ -173,7 +176,7 @@ func newClientsetForUserAgent(params compositeClientsetParams, name string) (Cli
 	// We are implementing the same logic as Kubelet, see
 	// https://github.com/kubernetes/kubernetes/blob/v1.24.0-beta.0/cmd/kubelet/app/server.go#L852.
 	if s := os.Getenv("DISABLE_HTTP2"); len(s) > 0 {
-		client.closeAllConns = defaultCloseAllConns
+		client.closeAllConns = client.closeAllConnsCore
 	} else {
 		client.closeAllConns = func() {
 			utilnet.CloseIdleConnectionsFor(rc.Transport)
@@ -218,6 +221,11 @@ func newClientsetForUserAgent(params compositeClientsetParams, name string) (Cli
 	})
 
 	return &client, client.restConfigManager, nil
+}
+
+func (c *compositeClientset) RestartAllConnections() {
+	c.logger.Info("Closing all active connections")
+	c.closeAllConnsCore()
 }
 
 func (c *compositeClientset) Slim() slim_clientset.Interface {
@@ -370,13 +378,10 @@ func (p *compositeClientsetParams) setDialer(restConfig *rest.Config) func() {
 	if p.ConfigureK8sClientsetDialer != nil {
 		p.ConfigureK8sClientsetDialer.ConfigureK8sClientsetDialer(innerDialer)
 	}
-
-	ctx := innerDialer.DialContext
-	if cfg.K8sClientConnectionTimeout == 0 || cfg.K8sClientConnectionKeepAlive == 0 {
-		restConfig.Dial = ctx
-		return func() {}
-	}
-	dialer := connrotation.NewDialer(ctx)
+	dialer := connrotation.NewDialer(func(ctx context.Context, network, address string) (net.Conn, error) {
+		p.Logger.Info("Dialing", logfields.Address, address)
+		return innerDialer.DialContext(ctx, network, address)
+	})
 	restConfig.Dial = dialer.DialContext
 	return dialer.CloseAll
 }

@@ -293,6 +293,18 @@ stop:
 			} else {
 				close(req.updated)
 			}
+		case req, ok := <-params.sync:
+			if !ok {
+				break stop
+			}
+
+			if firstInit {
+				// first init not yet completed
+				updatedChs = append(updatedChs, req.updated)
+				continue
+			} else {
+				close(req.updated)
+			}
 		case <-refresher.C():
 			stateChanged = true
 		case <-ticker.C():
@@ -350,6 +362,8 @@ stop:
 	for range params.addNoTrackPod {
 	}
 	for range params.delNoTrackPod {
+	}
+	for range params.sync {
 	}
 
 	return nil

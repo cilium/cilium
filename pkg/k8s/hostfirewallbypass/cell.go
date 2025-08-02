@@ -15,7 +15,7 @@ var Cell = cell.Module(
 	"Kubernetes host firewall bypass",
 
 	cell.Config(Params{
-		EnableK8sHostFirewallBypass: false,
+		EnableK8sHostFirewallBypass: true,
 	}),
 	cell.Provide(NewK8sHostFirewallBypass),
 )
