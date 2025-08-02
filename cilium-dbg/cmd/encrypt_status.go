@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os/exec"
 	"reflect"
@@ -21,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
@@ -58,7 +60,7 @@ var encryptDumpXfrmCmd = &cobra.Command{
 This command exists solely to facilitate structured XFRM state collection for integration tests.
 It is not intended for general user interaction.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		states, err := ipsec.DumpXfrmStates()
+		states, err := dumpXfrmStates()
 		if err != nil {
 			Fatalf("Unable to get XFRM states: %s", err)
 		}
@@ -75,6 +77,57 @@ func init() {
 	EncryptCmd.AddCommand(encryptDumpXfrmCmd)
 	command.AddOutputOption(encryptStatusCmd)
 	command.AddOutputOption(encryptDumpXfrmCmd)
+}
+
+// dumpXfrmStates extracts XFRM state information using netlink
+func dumpXfrmStates() ([]types.XfrmStateInfo, error) {
+	states, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list XFRM states: %w", err)
+	}
+
+	var result []types.XfrmStateInfo
+	for _, state := range states {
+		// Only include Cilium-managed states (reqid 1)
+		if state.Reqid != 1 {
+			continue
+		}
+
+		xfrmState := types.XfrmStateInfo{
+			Src:   state.Src.String(),
+			Dst:   state.Dst.String(),
+			SPI:   uint32(state.Spi),
+			ReqID: uint32(state.Reqid),
+		}
+
+		// Extract authentication algorithm and key
+		if state.Auth != nil {
+			xfrmState.AuthAlg = state.Auth.Name
+			if len(state.Auth.Key) > 0 {
+				xfrmState.AuthKey = hex.EncodeToString(state.Auth.Key)
+			}
+		}
+
+		// Extract encryption algorithm and key
+		if state.Crypt != nil {
+			xfrmState.CryptAlg = state.Crypt.Name
+			if len(state.Crypt.Key) > 0 {
+				xfrmState.CryptKey = hex.EncodeToString(state.Crypt.Key)
+			}
+		}
+
+		// Extract AEAD algorithm and key
+		if state.Aead != nil {
+			xfrmState.AeadAlg = state.Aead.Name
+			if len(state.Aead.Key) > 0 {
+				xfrmState.AeadKey = hex.EncodeToString(state.Aead.Key)
+			}
+		}
+
+		result = append(result, xfrmState)
+	}
+
+	return result, nil
 }
 
 func getEncryptionStatus() (models.EncryptionStatus, error) {

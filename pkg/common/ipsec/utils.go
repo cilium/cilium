@@ -4,82 +4,13 @@
 package ipsec
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
-
-// XfrmStateInfo represents the key information from an XFRM state
-// This struct is used for JSON serialization of XFRM state information
-// and is shared between cilium-dbg and cilium-cli for consistency
-type XfrmStateInfo struct {
-	Src      string `json:"src"`
-	Dst      string `json:"dst"`
-	SPI      uint32 `json:"spi"`
-	ReqID    uint32 `json:"reqid"`
-	AuthAlg  string `json:"auth_alg,omitempty"`
-	AuthKey  string `json:"auth_key,omitempty"`
-	CryptAlg string `json:"crypt_alg,omitempty"`
-	CryptKey string `json:"crypt_key,omitempty"`
-	AeadAlg  string `json:"aead_alg,omitempty"`
-	AeadKey  string `json:"aead_key,omitempty"`
-}
-
-// DumpXfrmStates extracts XFRM state information using netlink
-func DumpXfrmStates() ([]XfrmStateInfo, error) {
-	states, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list XFRM states: %w", err)
-	}
-
-	var result []XfrmStateInfo
-	for _, state := range states {
-		// Only include Cilium-managed states (reqid 1)
-		if state.Reqid != 1 {
-			continue
-		}
-
-		xfrmState := XfrmStateInfo{
-			Src:   state.Src.String(),
-			Dst:   state.Dst.String(),
-			SPI:   uint32(state.Spi),
-			ReqID: uint32(state.Reqid),
-		}
-
-		// Extract authentication algorithm and key
-		if state.Auth != nil {
-			xfrmState.AuthAlg = state.Auth.Name
-			if len(state.Auth.Key) > 0 {
-				xfrmState.AuthKey = hex.EncodeToString(state.Auth.Key)
-			}
-		}
-
-		// Extract encryption algorithm and key
-		if state.Crypt != nil {
-			xfrmState.CryptAlg = state.Crypt.Name
-			if len(state.Crypt.Key) > 0 {
-				xfrmState.CryptKey = hex.EncodeToString(state.Crypt.Key)
-			}
-		}
-
-		// Extract AEAD algorithm and key
-		if state.Aead != nil {
-			xfrmState.AeadAlg = state.Aead.Name
-			if len(state.Aead.Key) > 0 {
-				xfrmState.AeadKey = hex.EncodeToString(state.Aead.Key)
-			}
-		}
-
-		result = append(result, xfrmState)
-	}
-
-	return result, nil
-}
 
 const (
 	maskStateDir = 0xf00
