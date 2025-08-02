@@ -51,9 +51,30 @@ var encryptStatusCmd = &cobra.Command{
 	},
 }
 
+var encryptDumpXfrmCmd = &cobra.Command{
+	Use:   "dump-xfrm",
+	Short: "Dump structured XFRM states for test facilitation (internal use only)",
+	Long: `Dump structured XFRM states for test facilitation.
+This command exists solely to facilitate structured XFRM state collection for integration tests.
+It is not intended for general user interaction.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		states, err := ipsec.DumpXfrmStates()
+		if err != nil {
+			Fatalf("Unable to get XFRM states: %s", err)
+		}
+		if command.OutputOption() {
+			if err := command.PrintOutput(states); err != nil {
+				Fatalf("Unable to generate %s output: %s", command.OutputOptionString(), err)
+			}
+		}
+	},
+}
+
 func init() {
 	EncryptCmd.AddCommand(encryptStatusCmd)
+	EncryptCmd.AddCommand(encryptDumpXfrmCmd)
 	command.AddOutputOption(encryptStatusCmd)
+	command.AddOutputOption(encryptDumpXfrmCmd)
 }
 
 func getEncryptionStatus() (models.EncryptionStatus, error) {
