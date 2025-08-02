@@ -4,12 +4,16 @@
 package hostfirewallbypass
 
 import (
+	"context"
 	"net"
 	"syscall"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/client"
 )
@@ -44,4 +48,36 @@ func setProxyEgressMark(network, address string, c syscall.RawConn) error {
 		return err
 	}
 	return soerr
+}
+
+// Restarts established clientset connections once datapath is set up
+// (in some circumstances they flake)
+func RestartClientset(in struct {
+	cell.In
+
+	JobGroup        job.Group
+	Config          Params
+	ClientSet       client.Clientset
+	IptablesManager types.IptablesManager
+	Orchestrator    types.Orchestrator
+}) {
+	if in.Config.EnableK8sHostFirewallBypass && in.ClientSet.IsEnabled() {
+		in.JobGroup.Add(job.OneShot("restart-clientset", func(ctx context.Context, health cell.Health) error {
+			ipt := in.IptablesManager.Initialized()
+			dtp := in.Orchestrator.DatapathInitialized()
+			var iptInit, dtpInit bool
+			for !iptInit || !dtpInit {
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-ipt:
+					iptInit = true
+				case <-dtp:
+					dtpInit = true
+				}
+			}
+			in.ClientSet.RestartAllConnections()
+			return nil
+		}))
+	}
 }
