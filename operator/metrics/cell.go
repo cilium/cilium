@@ -6,6 +6,8 @@ package metrics
 import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 const (
@@ -21,7 +23,18 @@ var Cell = cell.Module(
 	"Operator Metrics",
 
 	cell.Config(defaultConfig),
-	cell.Invoke(registerMetricsManager),
+	// RegistryConfig implements the config type for the agent Cell,
+	// however the operator has a different flag name for this the
+	// server address flag so we configure this ourselves.
+	cell.Provide(func(conf Config) metrics.RegistryConfig {
+		return metrics.RegistryConfig{
+			PrometheusServeAddr: conf.OperatorPrometheusServeAddr,
+		}
+	}),
+	// Note: [metrics.OperatorCell] provides a bare-bones registry that
+	// has not been initialized yet.
+	metrics.OperatorCell,
+	cell.Invoke(initializeMetrics),
 )
 
 // Config contains the configuration for the operator-metrics cell.

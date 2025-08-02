@@ -11,7 +11,6 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 
-	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	openapi "github.com/cilium/cilium/pkg/alibabacloud/api"
 	"github.com/cilium/cilium/pkg/alibabacloud/eni"
@@ -40,13 +39,13 @@ type AllocatorAlibabaCloud struct {
 
 // Init sets up ENI limits based on given options
 // Credential ref https://github.com/aliyun/alibaba-cloud-sdk-go/blob/master/docs/2-Client-EN.md
-func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger) error {
+func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger, reg *metrics.Registry) error {
 	a.rootLogger = logger
 	a.logger = logger.With(subsysLogAttr...)
 	var aMetrics openapi.MetricsAPI
 
 	if operatorOption.Config.EnableMetrics {
-		aMetrics = apiMetrics.NewPrometheusMetrics(metrics.Namespace, "alibabacloud", operatorMetrics.Registry)
+		aMetrics = apiMetrics.NewPrometheusMetrics(metrics.Namespace, "alibabacloud", reg)
 	} else {
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}
@@ -94,13 +93,13 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger) e
 // Start kicks off ENI allocation, the initial connection to AlibabaCloud
 // APIs is done in a blocking manner. Provided this is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
+func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, reg *metrics.Registry) (allocator.NodeEventHandler, error) {
 	var iMetrics ipam.MetricsAPI
 
 	a.logger.Info("Starting AlibabaCloud ENI allocator...")
 
 	if operatorOption.Config.EnableMetrics {
-		iMetrics = ipamMetrics.NewPrometheusMetrics(metrics.Namespace, operatorMetrics.Registry)
+		iMetrics = ipamMetrics.NewPrometheusMetrics(metrics.Namespace, reg)
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}

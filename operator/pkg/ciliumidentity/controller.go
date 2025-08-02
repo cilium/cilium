@@ -22,6 +22,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -168,7 +169,10 @@ func (c *Controller) initializeQueues() {
 
 	c.resourceQueue = workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.NewTypedItemExponentialFailureRateLimiter[QueuedItem](defaultSyncBackOff, maxSyncBackOff),
-		workqueue.TypedRateLimitingQueueConfig[QueuedItem]{Name: "ciliumidentity_resource"})
+		workqueue.TypedRateLimitingQueueConfig[QueuedItem]{
+			Name:            "ciliumidentity_resource",
+			MetricsProvider: metrics.MetricsProvider,
+		})
 }
 
 // startEventProcessing starts the event processing loop for the Controller.

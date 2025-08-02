@@ -13,6 +13,7 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
 
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -53,7 +54,8 @@ func (twq *tableWorkQueue[T]) Observe(ctx context.Context, next func(Event[T]), 
 	wq := workqueue.NewTypedRateLimitingQueueWithConfig[tableWorkQueueItem](
 		workqueue.DefaultTypedControllerRateLimiter[tableWorkQueueItem](),
 		workqueue.TypedRateLimitingQueueConfig[tableWorkQueueItem]{
-			Name: fmt.Sprintf("%T", zero),
+			Name:            fmt.Sprintf("%T", zero),
+			MetricsProvider: watcherMetrics.MetricsProvider,
 		},
 	)
 
