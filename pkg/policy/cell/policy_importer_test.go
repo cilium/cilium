@@ -9,14 +9,18 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -28,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
@@ -71,6 +76,37 @@ func (ipc *fakeipcache) WaitForRevision(ctx context.Context, rev uint64) error {
 	return nil
 }
 
+func instantiatePolicyComputerCell(t *testing.T, logger *slog.Logger, repo policy.PolicyRepository) compute.PolicyRecomputer {
+	t.Helper()
+
+	var pc compute.PolicyRecomputer
+
+	hive.New(
+		cell.Module("endpoint-policy_test", "TestIncrementalUpdatesDuringPolicyGeneration",
+			cell.Invoke(
+				func(c_ compute.PolicyRecomputer) error {
+					pc = c_
+					return nil
+				},
+			),
+
+			cell.ProvidePrivate(func() policy.PolicyRepository { return repo }),
+			identitymanager.Cell,
+
+			cell.Provide(
+				func(params compute.Params) compute.PolicyRecomputer {
+					return compute.NewIdentityPolicyRecomputer(params)
+				},
+			),
+			cell.Provide(compute.NewPolicyComputationTable),
+			cell.Invoke(statedb.RegisterTable[compute.Result]),
+			cell.Provide(statedb.RWTable[compute.Result].ToTable),
+		),
+	).Populate(logger)
+
+	return pc
+}
+
 func TestAddReplaceRemoveRule(t *testing.T) {
 	resource := ipcachetypes.ResourceID("resourceid")
 	epm := &fakeEPM{}
@@ -100,11 +136,16 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		},
 	}
 
+	logger := hivetest.Logger(t)
+	repo := policy.NewPolicyRepository(logger, ids, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	polComputer := instantiatePolicyComputerCell(t, logger, repo)
+
 	pi := &policyImporter{
-		log:  slog.Default(),
-		repo: policy.NewPolicyRepository(hivetest.Logger(t), ids, nil, nil, nil, testpolicy.NewPolicyMetricsNoop()),
-		epm:  epm,
-		ipc:  ipc,
+		log:      logger,
+		repo:     repo,
+		computer: polComputer,
+		epm:      epm,
+		ipc:      ipc,
 
 		q: make(chan *policytypes.PolicyUpdate, 10),
 
@@ -503,9 +544,11 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				return
 			}
 
+			logger := hivetest.Logger(t)
 			pi := &policyImporter{
-				log:  slog.Default(),
-				repo: args.repo,
+				log:      logger,
+				repo:     args.repo,
+				computer: instantiatePolicyComputerCell(t, logger, args.repo),
 			}
 
 			pi.processUpdates(context.Background(), []*policytypes.PolicyUpdate{{

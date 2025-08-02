@@ -12,16 +12,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
@@ -44,8 +49,33 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	defer policy.SetPolicyEnabled(pe)
 
 	idcache := make(identity.IdentityMap, testfactor)
+	logger := hivetest.Logger(t)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
-	repo := policy.NewPolicyRepository(hivetest.Logger(t), fakeAllocator.GetIdentityCache(), nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, fakeAllocator.GetIdentityCache(), nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+
+	var polComputer compute.PolicyRecomputer
+	assert.NoError(t, hive.New(
+		cell.Module("endpoint-policy_test", "TestIncrementalUpdatesDuringPolicyGeneration",
+			cell.Invoke(
+				func(c_ compute.PolicyRecomputer) error {
+					polComputer = c_
+					return nil
+				},
+			),
+
+			cell.ProvidePrivate(func() policy.PolicyRepository { return repo }),
+			identitymanager.Cell,
+
+			cell.Provide(
+				func(params compute.Params) compute.PolicyRecomputer {
+					return compute.NewIdentityPolicyRecomputer(params)
+				},
+			),
+			cell.Provide(compute.NewPolicyComputationTable),
+			cell.Invoke(statedb.RegisterTable[compute.Result]),
+			cell.Provide(statedb.RWTable[compute.Result].ToTable),
+		),
+	).Populate(logger))
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
 		t.Helper()
@@ -72,6 +102,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	ep := Endpoint{
 		SecurityIdentity: podID,
 		policyRepo:       repo,
+		policyFetcher:    polComputer,
 		desiredPolicy:    policy.NewEndpointPolicy(hivetest.Logger(t), repo),
 	}
 	ep.UpdateLogger(nil)
@@ -107,6 +138,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	}
 
 	repo.MustAddList(api.Rules{egressDenyRule})
+	computePolicyForEPAndWait(t, &ep, polComputer)
 
 	// Track all IDs we allocate so we can validate later that we never miss any
 	checkMutex := lock.Mutex{}
@@ -174,4 +206,13 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 			break
 		}
 	}
+}
+
+func computePolicyForEPAndWait(t *testing.T, ep *Endpoint, fetcher compute.PolicyRecomputer) {
+	t.Helper()
+
+	computedPolicyCh, err := fetcher.RecomputeIdentityPolicy(ep.SecurityIdentity)
+	assert.NoError(t, err)
+	assert.NotNil(t, computedPolicyCh)
+	<-computedPolicyCh
 }
