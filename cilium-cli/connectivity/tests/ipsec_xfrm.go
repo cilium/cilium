@@ -9,11 +9,13 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/common/ipsec"
 )
 
 const (
@@ -128,4 +130,170 @@ func (n *noIPsecXfrmErrors) loadIPsecXfrmErrors(t *check.Test) map[string]string
 		t.Fatalf("Failed to unmarshal JSON test result file: %s", err)
 	}
 	return xfrmErrors
+}
+
+// validateKeysWith validates that two XFRM states have matching keys
+// representing the same tunnel. Returns an error if keys don't match.
+func validateKeysWith(state1, state2 ipsec.XfrmStateInfo) error {
+	if state1.AuthKey != "" && state2.AuthKey != "" && state1.AuthKey != state2.AuthKey {
+		return fmt.Errorf("authentication keys mismatch: %s vs %s", state1.AuthKey, state2.AuthKey)
+	}
+	if state1.CryptKey != "" && state2.CryptKey != "" && state1.CryptKey != state2.CryptKey {
+		return fmt.Errorf("encryption keys mismatch: %s vs %s", state1.CryptKey, state2.CryptKey)
+	}
+	if state1.AeadKey != "" && state2.AeadKey != "" && state1.AeadKey != state2.AeadKey {
+		return fmt.Errorf("AEAD keys mismatch: %s vs %s", state1.AeadKey, state2.AeadKey)
+	}
+	return nil
+}
+
+// IPsecKeyDerivationValidation creates a test scenario that validates
+// IPsec key derivation by ensuring derived keys are the same on two nodes
+// for a given tunnel
+func IPsecKeyDerivationValidation() check.Scenario {
+	return &ipsecKeyDerivationTest{
+		ScenarioBase: check.NewScenarioBase(),
+	}
+}
+
+type ipsecKeyDerivationTest struct {
+	check.ScenarioBase
+}
+
+func (t *ipsecKeyDerivationTest) Name() string {
+	return "ipsec-key-derivation-validation"
+}
+
+func (t *ipsecKeyDerivationTest) Run(ctx context.Context, testContext *check.Test) {
+	ct := testContext.Context()
+
+	ciliumPods := ct.CiliumPods()
+	if len(ciliumPods) < 2 {
+		testContext.Fatalf("Not enough cilium pods for multi-node key derivation test (have %d, need 2)", len(ciliumPods))
+		return
+	}
+
+	testContext.Log("Starting IPsec key derivation validation test")
+
+	// Get XFRM states from all nodes
+	nodeStates := make(map[string][]ipsec.XfrmStateInfo)
+	for _, pod := range ciliumPods {
+		hostIP := pod.Pod.Status.HostIP
+		states, err := t.getXfrmStates(ctx, testContext, pod)
+		if err != nil {
+			testContext.Fatalf("Failed to get XFRM states from node %s: %v", hostIP, err)
+		}
+		nodeStates[hostIP] = states
+		testContext.Debugf("Found %d XFRM states on node %s", len(states), hostIP)
+	}
+
+	// Validate key derivation across nodes
+	t.validateKeyDerivation(testContext, nodeStates)
+}
+
+// getXfrmStates extracts XFRM state information from a cilium pod using netlink
+func (t *ipsecKeyDerivationTest) getXfrmStates(ctx context.Context, testContext *check.Test, pod check.Pod) ([]ipsec.XfrmStateInfo, error) {
+	cmd := []string{"cilium-dbg", "encrypt", "dump-xfrm", "--output", "json"}
+
+	result, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute cilium-dbg encrypt dump-xfrm: %w", err)
+	}
+
+	var states []ipsec.XfrmStateInfo
+	if err := json.Unmarshal(result.Bytes(), &states); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal XFRM states JSON: %w", err)
+	}
+
+	return states, nil
+}
+
+// validateKeyDerivation validates that keys are correctly derived and consistent across nodes
+func (t *ipsecKeyDerivationTest) validateKeyDerivation(testContext *check.Test, nodeStates map[string][]ipsec.XfrmStateInfo) {
+	nodeIPs := make([]string, 0, len(nodeStates))
+	for nodeIP := range nodeStates {
+		nodeIPs = append(nodeIPs, nodeIP)
+	}
+
+	validationCount := 0
+
+	// Compare states between every pair of nodes
+	for i := 0; i < len(nodeIPs); i++ {
+		for j := i + 1; j < len(nodeIPs); j++ {
+			node1IP := nodeIPs[i]
+			node2IP := nodeIPs[j]
+
+			node1States := nodeStates[node1IP]
+			node2States := nodeStates[node2IP]
+
+			testContext.Debugf("Validating key derivation between nodes %s and %s", node1IP, node2IP)
+
+			// Index node2 states by src->dst:spi for efficient lookup
+			node2Index := make(map[string]ipsec.XfrmStateInfo)
+			for _, state := range node2States {
+				key := state.Src + "->" + state.Dst + ":" + strconv.FormatUint(uint64(state.SPI), 10)
+				node2Index[key] = state
+			}
+
+			// Find and validate matching tunnel states
+			matchingPairs := false
+			for _, state1 := range node1States {
+				key := state1.Src + "->" + state1.Dst + ":" + strconv.FormatUint(uint64(state1.SPI), 10)
+				if state2, exists := node2Index[key]; exists {
+					t.validateTunnelKeyPair(testContext, state1, state2, node1IP, node2IP)
+					matchingPairs = true
+					validationCount++
+				}
+			}
+
+			if !matchingPairs {
+				testContext.Fatalf("No matching tunnels found between nodes %s and %s", node1IP, node2IP)
+			}
+
+			// Validate bidirectional tunnels
+			t.validateBidirectionalTunnels(testContext, node1States, node2States, node1IP, node2IP)
+		}
+	}
+
+	if validationCount == 0 {
+		testContext.Fatalf("No tunnel key pairs found for validation")
+	}
+
+	testContext.Logf("Successfully validated %d tunnel key pairs", validationCount)
+}
+
+// validateTunnelKeyPair validates that two XFRM states have matching keys
+func (t *ipsecKeyDerivationTest) validateTunnelKeyPair(testContext *check.Test, state1, state2 ipsec.XfrmStateInfo, node1IP, node2IP string) {
+	if err := validateKeysWith(state1, state2); err != nil {
+		testContext.Fatalf("Key validation failed for tunnel %s->%s between nodes %s and %s: %v",
+			state1.Src, state1.Dst, node1IP, node2IP, err)
+	}
+}
+
+// validateBidirectionalTunnels ensures that for every tunnel direction, the reverse direction also exists
+func (t *ipsecKeyDerivationTest) validateBidirectionalTunnels(testContext *check.Test, node1States, node2States []ipsec.XfrmStateInfo, node1IP, node2IP string) {
+	// Check bidirectional tunnels on node1
+	t.validateNodeBidirectionalTunnels(testContext, node1States, node1IP)
+
+	// Check bidirectional tunnels on node2
+	t.validateNodeBidirectionalTunnels(testContext, node2States, node2IP)
+}
+
+// validateNodeBidirectionalTunnels validates that all tunnel directions have their reverse counterparts on a single node
+func (t *ipsecKeyDerivationTest) validateNodeBidirectionalTunnels(testContext *check.Test, nodeStates []ipsec.XfrmStateInfo, nodeIP string) {
+	// Create a map of all tunnel directions present
+	tunnelDirections := make(map[string]bool)
+	for _, state := range nodeStates {
+		direction := state.Src + "->" + state.Dst
+		tunnelDirections[direction] = true
+	}
+
+	// Check that for every direction, the reverse direction also exists
+	for _, state := range nodeStates {
+		direction := state.Src + "->" + state.Dst
+		reverseDirection := state.Dst + "->" + state.Src
+		if !tunnelDirections[reverseDirection] {
+			testContext.Fatalf("Bidirectional tunnel validation failed on node %s: direction %s exists but reverse direction %s does not", nodeIP, direction, reverseDirection)
+		}
+	}
 }
