@@ -59,7 +59,7 @@ func newTroubleshootDialer(w io.Writer, disabled bool) kvstore.EtcdDbgDialer {
 
 	dialer := &troubleshootDialer{
 		cs:    cs,
-		cache: make(map[types.NamespacedName]tdCacheEntry),
+		cache: make(map[types.NamespacedName]string),
 	}
 
 	logger := slog.New(slog.DiscardHandler)
@@ -69,13 +69,8 @@ func newTroubleshootDialer(w io.Writer, disabled bool) kvstore.EtcdDbgDialer {
 
 type troubleshootDialer struct {
 	cs    kubernetes.Interface
-	cache map[types.NamespacedName]tdCacheEntry
+	cache map[types.NamespacedName]string
 	dial  func(ctx context.Context, addr string) (conn net.Conn, e error)
-}
-
-type tdCacheEntry struct {
-	resolved string
-	err      error
 }
 
 func (td *troubleshootDialer) DialContext(ctx context.Context, addr string) (conn net.Conn, e error) {
@@ -86,8 +81,8 @@ func (td *troubleshootDialer) LookupIP(ctx context.Context, hostname string) ([]
 	// Let's mimic the same behavior of the dialer returned by k8s.CreateCustomDialer,
 	// that is try to first resolve the hostname as a service, and then fallback to
 	// the system resolver.
-	addr, err := td.Resolve(ctx, hostname)
-	if err != nil {
+	addr := td.resolve(ctx, hostname)
+	if addr == hostname {
 		return net.DefaultResolver.LookupIP(ctx, "ip", hostname)
 	}
 
@@ -99,26 +94,30 @@ func (td *troubleshootDialer) LookupIP(ctx context.Context, hostname string) ([]
 	return []net.IP{parsed}, nil
 }
 
-func (td *troubleshootDialer) Resolve(ctx context.Context, hostname string) (resolved string, err error) {
-	nsname, err := dial.ServiceURLToNamespacedName(hostname)
+func (td *troubleshootDialer) Resolve(ctx context.Context, host, port string) (string, string) {
+	return td.resolve(ctx, host), port
+}
+
+func (td *troubleshootDialer) resolve(ctx context.Context, host string) (resolved string) {
+	nsname, err := dial.ServiceURLToNamespacedName(host)
 	if err != nil {
-		return "", err
+		return host
 	}
 
 	if entry, ok := td.cache[nsname]; ok {
-		return entry.resolved, entry.err
+		return entry
 	}
 
-	defer func() { td.cache[nsname] = tdCacheEntry{resolved, err} }()
+	defer func() { td.cache[nsname] = resolved }()
 
 	svc, err := td.cs.CoreV1().Services(nsname.Namespace).Get(ctx, nsname.Name, metav1.GetOptions{})
 	if err != nil {
-		return "", err
+		return host
 	}
 
 	if _, err := netip.ParseAddr(svc.Spec.ClusterIP); err != nil {
-		return "", fmt.Errorf("cannot parse ClusterIP address: %w", err)
+		return host
 	}
 
-	return svc.Spec.ClusterIP, nil
+	return svc.Spec.ClusterIP
 }

@@ -45,8 +45,8 @@ type Configuration struct {
 	// ClusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	ClusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
 
-	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
-	ServiceResolver *dial.ServiceResolver
+	// Resolvers, if provided, are used to create a custom dialer to connect to etcd.
+	Resolvers []dial.Resolver
 
 	// Metrics holds the different clustermesh metrics.
 	Metrics Metrics
@@ -143,12 +143,7 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		configPath:                   path,
 		clusterSizeDependantInterval: cm.conf.ClusterSizeDependantInterval,
 
-		resolvers: func() []dial.Resolver {
-			if cm.conf.ServiceResolver != nil {
-				return []dial.Resolver{cm.conf.ServiceResolver}
-			}
-			return nil
-		}(),
+		resolvers: cm.conf.Resolvers,
 
 		controllers:                    controller.NewManager(),
 		remoteConnectionControllerName: fmt.Sprintf("remote-etcd-%s", name),

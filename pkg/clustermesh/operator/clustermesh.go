@@ -19,6 +19,7 @@ import (
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -112,8 +113,13 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 		ClusterInfo:         params.ClusterInfo,
 		RemoteClientFactory: params.RemoteClientFactory,
 		NewRemoteCluster:    cm.newRemoteCluster,
-		ServiceResolver:     params.ServiceResolver,
-		Metrics:             params.CommonMetrics,
+		Resolvers: func() (out []dial.Resolver) {
+			if params.ServiceResolver != nil {
+				out = append(out, params.ServiceResolver)
+			}
+			return out
+		}(),
+		Metrics: params.CommonMetrics,
 	})
 
 	lc.Append(cm.common)
