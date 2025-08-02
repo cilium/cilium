@@ -135,7 +135,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.healthPort }}
+            port: health
             scheme: HTTP
             httpHeaders:
             - name: "brief"
@@ -155,7 +155,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.healthPort }}
+            port: health
             scheme: HTTP
             httpHeaders:
             - name: "brief"
@@ -178,7 +178,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.healthPort }}
+            port: health
             scheme: HTTP
             httpHeaders:
             - name: "brief"
@@ -251,8 +251,12 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
-        {{- if or .Values.prometheus.enabled (or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled) }}
         ports:
+        - name: health
+          containerPort: {{ .Values.healthPort }}
+          hostPort: {{ .Values.healthPort }}
+          protocol: TCP
+        {{- if or .Values.prometheus.enabled (or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled) }}
         - name: peer-service
           containerPort: {{ .Values.hubble.peerService.targetPort }}
           hostPort: {{ .Values.hubble.peerService.targetPort }}
