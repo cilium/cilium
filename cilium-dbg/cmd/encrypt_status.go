@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os/exec"
 	"reflect"
@@ -51,9 +52,30 @@ var encryptStatusCmd = &cobra.Command{
 	},
 }
 
+var encryptDumpXfrmCmd = &cobra.Command{
+	Use:   "dump-xfrm",
+	Short: "Dump structured XFRM states for test facilitation (internal use only)",
+	Long: `Dump structured XFRM states for test facilitation.
+This command exists solely to facilitate structured XFRM state collection for integration tests.
+It is not intended for general user interaction.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		states, err := ipsec.DumpXfrmStates()
+		if err != nil {
+			Fatalf("Unable to get XFRM states: %s", err)
+		}
+		if command.OutputOption() {
+			if err := command.PrintOutput(states); err != nil {
+				Fatalf("Unable to generate %s output: %s", command.OutputOptionString(), err)
+			}
+		}
+	},
+}
+
 func init() {
 	EncryptCmd.AddCommand(encryptStatusCmd)
+	EncryptCmd.AddCommand(encryptDumpXfrmCmd)
 	command.AddOutputOption(encryptStatusCmd)
+	command.AddOutputOption(encryptDumpXfrmCmd)
 }
 
 func getEncryptionStatus() (models.EncryptionStatus, error) {
@@ -105,6 +127,69 @@ func dumpIPsecStatus() (models.EncryptionStatus, error) {
 	status.Ipsec.ErrorCount = errCount
 	status.Ipsec.XfrmErrors = errMap
 	return status, nil
+}
+
+type XfrmStateInfo struct {
+	Src      string `json:"src"`
+	Dst      string `json:"dst"`
+	SPI      uint32 `json:"spi"`
+	ReqID    uint32 `json:"reqid"`
+	AuthAlg  string `json:"auth_alg,omitempty"`
+	AuthKey  string `json:"auth_key,omitempty"`
+	CryptAlg string `json:"crypt_alg,omitempty"`
+	CryptKey string `json:"crypt_key,omitempty"`
+	AeadAlg  string `json:"aead_alg,omitempty"`
+	AeadKey  string `json:"aead_key,omitempty"`
+}
+
+func dumpXfrmStates() ([]XfrmStateInfo, error) {
+	states, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list XFRM states: %w", err)
+	}
+
+	var result []XfrmStateInfo
+	for _, state := range states {
+		// Only include Cilium-managed states (reqid 1)
+		if state.Reqid != 1 {
+			continue
+		}
+
+		xfrmState := XfrmStateInfo{
+			Src:   state.Src.String(),
+			Dst:   state.Dst.String(),
+			SPI:   uint32(state.Spi),
+			ReqID: uint32(state.Reqid),
+		}
+
+		// Extract authentication algorithm and key
+		if state.Auth != nil {
+			xfrmState.AuthAlg = state.Auth.Name
+			if len(state.Auth.Key) > 0 {
+				xfrmState.AuthKey = hex.EncodeToString(state.Auth.Key)
+			}
+		}
+
+		// Extract encryption algorithm and key
+		if state.Crypt != nil {
+			xfrmState.CryptAlg = state.Crypt.Name
+			if len(state.Crypt.Key) > 0 {
+				xfrmState.CryptKey = hex.EncodeToString(state.Crypt.Key)
+			}
+		}
+
+		// Extract AEAD algorithm and key
+		if state.Aead != nil {
+			xfrmState.AeadAlg = state.Aead.Name
+			if len(state.Aead.Key) > 0 {
+				xfrmState.AeadKey = hex.EncodeToString(state.Aead.Key)
+			}
+		}
+
+		result = append(result, xfrmState)
+	}
+
+	return result, nil
 }
 
 func dumpWireGuardStatus(p *models.EncryptionStatus) models.EncryptionStatus {
