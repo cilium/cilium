@@ -29,17 +29,21 @@ type ArtifactWorkflowRun struct {
 //
 // GitHub API docs: https://docs.github.com/rest/actions/artifacts
 type Artifact struct {
-	ID                 *int64               `json:"id,omitempty"`
-	NodeID             *string              `json:"node_id,omitempty"`
-	Name               *string              `json:"name,omitempty"`
-	SizeInBytes        *int64               `json:"size_in_bytes,omitempty"`
-	URL                *string              `json:"url,omitempty"`
-	ArchiveDownloadURL *string              `json:"archive_download_url,omitempty"`
-	Expired            *bool                `json:"expired,omitempty"`
-	CreatedAt          *Timestamp           `json:"created_at,omitempty"`
-	UpdatedAt          *Timestamp           `json:"updated_at,omitempty"`
-	ExpiresAt          *Timestamp           `json:"expires_at,omitempty"`
-	WorkflowRun        *ArtifactWorkflowRun `json:"workflow_run,omitempty"`
+	ID                 *int64     `json:"id,omitempty"`
+	NodeID             *string    `json:"node_id,omitempty"`
+	Name               *string    `json:"name,omitempty"`
+	SizeInBytes        *int64     `json:"size_in_bytes,omitempty"`
+	URL                *string    `json:"url,omitempty"`
+	ArchiveDownloadURL *string    `json:"archive_download_url,omitempty"`
+	Expired            *bool      `json:"expired,omitempty"`
+	CreatedAt          *Timestamp `json:"created_at,omitempty"`
+	UpdatedAt          *Timestamp `json:"updated_at,omitempty"`
+	ExpiresAt          *Timestamp `json:"expires_at,omitempty"`
+	// Digest is the SHA256 digest of the artifact.
+	// This field will only be populated on artifacts uploaded with upload-artifact v4 or newer.
+	// For older versions, this field will be null.
+	Digest      *string              `json:"digest,omitempty"`
+	WorkflowRun *ArtifactWorkflowRun `json:"workflow_run,omitempty"`
 }
 
 // ArtifactList represents a list of GitHub artifacts.

@@ -136,7 +136,7 @@ type PullRequestLinks struct {
 }
 
 // IssueType represents the type of issue.
-// For now it shows up when receiveing an Issue event.
+// For now it shows up when receiving an Issue event.
 type IssueType struct {
 	ID          *int64     `json:"id,omitempty"`
 	NodeID      *string    `json:"node_id,omitempty"`

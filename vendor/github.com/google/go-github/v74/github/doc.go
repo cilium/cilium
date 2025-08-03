@@ -8,7 +8,7 @@ Package github provides a client for using the GitHub API.
 
 Usage:
 
-	import "github.com/google/go-github/v73/github"	// with go modules enabled (GO111MODULE=on or outside GOPATH)
+	import "github.com/google/go-github/v74/github"	// with go modules enabled (GO111MODULE=on or outside GOPATH)
 	import "github.com/google/go-github/github"     // with go modules disabled
 
 Construct a new GitHub client, then use the various services on the client to
@@ -32,7 +32,7 @@ the structure of the GitHub API documentation at
 https://docs.github.com/rest .
 
 NOTE: Using the [context] package, one can easily
-pass cancelation signals and deadlines to various services of the client for
+pass cancellation signals and deadlines to various services of the client for
 handling a request. In case there is no context available, then [context.Background]
 can be used as a starting point.
 
@@ -144,7 +144,7 @@ rate limit, as well as help speed up your application. go-github does not
 handle conditional requests directly, but is instead designed to work with a
 caching [http.Transport].
 
-Typically, an RFC 7234 compliant HTTP cache such as https://github.com/gregjones/httpcache
+Typically, an RFC 9111 compliant HTTP cache such as https://github.com/bartventer/httpcache
 is recommended. Alternatively, the https://github.com/bored-engineer/github-conditional-http-transport
 package relies on (undocumented) GitHub specific cache logic and is
 recommended when making requests using short-lived credentials such as a

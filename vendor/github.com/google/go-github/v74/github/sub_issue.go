@@ -49,8 +49,8 @@ type SubIssueRequest struct {
 // GitHub API docs: https://docs.github.com/rest/issues/sub-issues#remove-sub-issue
 //
 //meta:operation DELETE /repos/{owner}/{repo}/issues/{issue_number}/sub_issue
-func (s *SubIssueService) Remove(ctx context.Context, owner, repo string, subIssueNumber int64, subIssue SubIssueRequest) (*SubIssue, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/issues/%v/sub_issues", owner, repo, subIssueNumber)
+func (s *SubIssueService) Remove(ctx context.Context, owner, repo string, issueNumber int64, subIssue SubIssueRequest) (*SubIssue, *Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/issues/%v/sub_issue", owner, repo, issueNumber)
 
 	req, err := s.client.NewRequest("DELETE", u, subIssue)
 	if err != nil {
