@@ -385,7 +385,7 @@
       // Disable major updates for go-github as those require updating import paths
       "enabled": false,
       "matchPackageNames": [
-        "github.com/google/go-github",
+        "github.com/google/go-github/v*",
       ],
       "matchUpdateTypes": [
         "major",
