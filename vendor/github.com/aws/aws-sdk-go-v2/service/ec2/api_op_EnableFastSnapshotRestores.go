@@ -15,8 +15,7 @@ import (
 // Availability Zones.
 //
 // You get the full benefit of fast snapshot restores after they enter the enabled
-// state. To get the current state of fast snapshot restores, use DescribeFastSnapshotRestores. To disable
-// fast snapshot restores, use DisableFastSnapshotRestores.
+// state.
 //
 // For more information, see [Amazon EBS fast snapshot restore] in the Amazon EBS User Guide.
 //
@@ -161,6 +160,36 @@ func (c *Client) addOperationEnableFastSnapshotRestoresMiddlewares(stack *middle
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

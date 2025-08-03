@@ -107,6 +107,12 @@ type TerminateInstancesInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// Forces the instances to terminate. The instance will first attempt a graceful
+	// shutdown, which includes flushing file system caches and metadata. If the
+	// graceful shutdown fails to complete within the timeout period, the instance
+	// shuts down forcibly without flushing the file system caches and metadata.
+	Force *bool
+
 	// Specifies whether to bypass the graceful OS shutdown process when the instance
 	// is terminated.
 	//
@@ -213,6 +219,36 @@ func (c *Client) addOperationTerminateInstancesMiddlewares(stack *middleware.Sta
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

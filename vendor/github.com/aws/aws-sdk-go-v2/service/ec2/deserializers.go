@@ -129706,6 +129706,19 @@ func awsEc2query_deserializeDocumentRoute(v **types.Route, decoder smithyxml.Nod
 				sv.InstanceOwnerId = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("ipAddress", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.IpAddress = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("localGatewayId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {

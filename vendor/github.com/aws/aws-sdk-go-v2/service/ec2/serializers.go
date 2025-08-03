@@ -80860,6 +80860,11 @@ func awsEc2query_serializeOpDocumentTerminateInstancesInput(v *TerminateInstance
 		objectKey.Boolean(*v.DryRun)
 	}
 
+	if v.Force != nil {
+		objectKey := object.Key("Force")
+		objectKey.Boolean(*v.Force)
+	}
+
 	if v.InstanceIds != nil {
 		objectKey := object.FlatKey("InstanceId")
 		if err := awsEc2query_serializeDocumentInstanceIdStringList(v.InstanceIds, objectKey); err != nil {

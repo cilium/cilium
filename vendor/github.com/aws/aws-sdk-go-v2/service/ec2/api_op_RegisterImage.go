@@ -15,10 +15,6 @@ import (
 // registering the AMI is the final step in the creation process. For more
 // information about creating AMIs, see [Create an AMI from a snapshot]and [Create an instance-store backed AMI] in the Amazon EC2 User Guide.
 //
-// For Amazon EBS-backed instances, CreateImage creates and registers the AMI in a single
-// request, so you don't have to register the AMI yourself. We recommend that you
-// always use CreateImageunless you have a specific reason to use RegisterImage.
-//
 // If needed, you can deregister an AMI at any time. Any modifications you make to
 // an AMI backed by an instance store volume invalidates its registration. If you
 // make changes to an image, deregister the previous image and register the new
@@ -48,16 +44,16 @@ import (
 // PlatformDetails field on the new AMI. If the field is empty or doesn't match the
 // expected operating system code (for example, Windows, RedHat, SUSE, or SQL), the
 // AMI creation was unsuccessful, and you should discard the AMI and instead create
-// the AMI from an instance using CreateImage. For more information, see [Create an AMI from an instance] in the Amazon EC2
-// User Guide.
+// the AMI from an instance. For more information, see [Create an AMI from an instance]in the Amazon EC2 User
+// Guide.
 //
 // If you purchase a Reserved Instance to apply to an On-Demand Instance that was
 // launched from an AMI with a billing product code, make sure that the Reserved
 // Instance has the matching billing product code. If you purchase a Reserved
-// Instance without the matching billing product code, the Reserved Instance will
-// not be applied to the On-Demand Instance. For information about how to obtain
-// the platform details and billing information of an AMI, see [Understand AMI billing information]in the Amazon EC2
-// User Guide.
+// Instance without the matching billing product code, the Reserved Instance is not
+// applied to the On-Demand Instance. For information about how to obtain the
+// platform details and billing information of an AMI, see [Understand AMI billing information]in the Amazon EC2 User
+// Guide.
 //
 // [Use encryption with EBS-backed AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIEncryption.html
 // [Understand AMI billing information]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-billing-info.html
@@ -319,6 +315,36 @@ func (c *Client) addOperationRegisterImageMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {
