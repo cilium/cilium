@@ -16,6 +16,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /datapath-plugin
 
 FROM ubuntu:22.04 AS release
 
+RUN apt update && apt install -y curl
 COPY --from=build /datapath-plugin /datapath-plugin
 
 ENTRYPOINT ["/datapath-plugin"]

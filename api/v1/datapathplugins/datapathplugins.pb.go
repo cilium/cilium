@@ -250,6 +250,9 @@ func (x *AttachmentPoint) GetDeviceName() string {
 type EndpointConfig struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	K8SNamespace  string                 `protobuf:"bytes,2,opt,name=k8s_namespace,json=k8sNamespace,proto3" json:"k8s_namespace,omitempty"`
+	K8SPodName    string                 `protobuf:"bytes,3,opt,name=k8s_pod_name,json=k8sPodName,proto3" json:"k8s_pod_name,omitempty"`
+	ContainerName string                 `protobuf:"bytes,4,opt,name=container_name,json=containerName,proto3" json:"container_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -289,6 +292,27 @@ func (x *EndpointConfig) GetId() uint64 {
 		return x.Id
 	}
 	return 0
+}
+
+func (x *EndpointConfig) GetK8SNamespace() string {
+	if x != nil {
+		return x.K8SNamespace
+	}
+	return ""
+}
+
+func (x *EndpointConfig) GetK8SPodName() string {
+	if x != nil {
+		return x.K8SPodName
+	}
+	return ""
+}
+
+func (x *EndpointConfig) GetContainerName() string {
+	if x != nil {
+		return x.ContainerName
+	}
+	return ""
 }
 
 type LocalNodeConfig struct {
@@ -503,9 +527,13 @@ const file_datapathplugins_datapathplugins_proto_rawDesc = "" +
 	"\tdirection\x18\x01 \x01(\x0e2\x0f.peer.DirectionR\tdirection\x12$\n" +
 	"\x06anchor\x18\x02 \x01(\x0e2\f.peer.AnchorR\x06anchor\x12\x1f\n" +
 	"\vdevice_name\x18\x03 \x01(\tR\n" +
-	"deviceName\" \n" +
+	"deviceName\"\x8e\x01\n" +
 	"\x0eEndpointConfig\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x04R\x02id\"\x11\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x12#\n" +
+	"\rk8s_namespace\x18\x02 \x01(\tR\fk8sNamespace\x12 \n" +
+	"\fk8s_pod_name\x18\x03 \x01(\tR\n" +
+	"k8sPodName\x12%\n" +
+	"\x0econtainer_name\x18\x04 \x01(\tR\rcontainerName\"\x11\n" +
 	"\x0fLocalNodeConfig\"7\n" +
 	"\x04Maps\x12/\n" +
 	"\x14cilium_return_map_id\x18\x01 \x01(\rR\x11ciliumReturnMapId\"\xae\x02\n" +

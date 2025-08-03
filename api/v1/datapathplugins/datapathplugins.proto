@@ -45,6 +45,9 @@ message AttachmentPoint {
 
 message EndpointConfig {
     uint64 id = 1;
+    string k8s_namespace = 2;
+    string k8s_pod_name = 3;
+    string container_name = 4;
 }
 
 message LocalNodeConfig {

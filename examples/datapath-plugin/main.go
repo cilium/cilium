@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
+	"net/http/httputil"
 	"os"
 	"path/filepath"
-	"time"
+	"syscall"
 
 	"github.com/cilium/cilium/api/v1/datapathplugins"
 
@@ -21,31 +23,96 @@ import (
 	"google.golang.org/grpc"
 )
 
+var (
+	bpffsPinPath        = flag.String("bpffs-pin-path", "", "Parent directory for BPF program and map pins")
+	unixSocketPath      = flag.String("unix-socket-path", "", "UNIX socket to listen on")
+	httpProxyListenPort = flag.Int("http-proxy-listen-port", 8080, "Listen port for the HTTP proxy server")
+	clientPodName       = flag.String("client-pod-name", "", "Name of the pod whose traffic we want to proxy")
+)
+
 func main() {
-	bpffsPinPath := flag.String("bpffs-pin-path", "", "Parent directory for BPF program and map pins")
-	unixSocketPath := flag.String("unix-socket-path", "", "UNIX socket to listen on")
 	flag.Parse()
 
 	logger := slog.Default()
+
+	go func() {
+		logger.Info("Starting http proxy server",
+			"port", *httpProxyListenPort,
+		)
+		err := runTProxyServer(logger)
+		logger.Error("Proxy server stopped", "error", err)
+
+		if err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}()
+
 	logger.Info("Starting plugin server",
 		"listen-path", *unixSocketPath,
 		"pin-path", *bpffsPinPath,
+		"client-pod-name", *clientPodName,
 	)
-	err := runServer(logger, *unixSocketPath, *bpffsPinPath)
-	logger.Error("Plugin server stopped",
-		"error", err,
-	)
+	err := runDatapathPluginServer(logger)
+	logger.Error("Plugin server stopped", "error", err)
 
 	if err != nil {
-		time.Sleep(2 * time.Minute)
-
 		os.Exit(1)
 	}
 }
 
-func runServer(logger *slog.Logger, sockPath string, pinDir string) error {
+func runTProxyServer(logger *slog.Logger) error {
+	http.Handle("/", &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			logger.Info("In",
+				"method", pr.In.Method,
+				"host", pr.In.Host,
+				"url", pr.In.URL.String(),
+			)
+			pr.Out.Header.Set("My-Special-Header", "1")
+			pr.Out.URL = pr.In.URL
+			pr.Out.URL.Scheme = "http"
+			pr.Out.URL.Host = pr.In.Host
+			// pr.Out.URL, _ = url.Parse(pr.In.URL.String())
+			// pr.Out.URL.Host = fmt.Sprint(pr.In.Context().Value(http.LocalAddrContextKey))
+			logger.Info("Out",
+				"method", pr.Out.Method,
+				"host", pr.Out.Host,
+				"url", pr.Out.URL.String(),
+			)
+		},
+	})
 
-	addr, err := net.ResolveUnixAddr("unix", sockPath)
+	lc := net.ListenConfig{
+		Control: func(network string, address string, c syscall.RawConn) error {
+			var sockOptErr error
+			var fn = func(s uintptr) {
+				logger.Info("Set sockopt")
+				sockOptErr = syscall.SetsockoptInt(int(s), syscall.SOL_IP, syscall.IP_TRANSPARENT, 1)
+			}
+			if err := c.Control(fn); err != nil {
+				return fmt.Errorf("calling control: %w", err)
+			}
+			if sockOptErr != nil {
+				return fmt.Errorf("configuring socket: %w", sockOptErr)
+			}
+
+			return nil
+		},
+	}
+	logger.Info("Start listener")
+	listener, err := lc.Listen(context.Background(), "tcp4", fmt.Sprintf(":%d", *httpProxyListenPort))
+	if err != nil {
+		return fmt.Errorf("starting listener: %w", err)
+	}
+
+	logger.Info("Start serving")
+	return http.Serve(listener, nil)
+}
+
+func runDatapathPluginServer(logger *slog.Logger) error {
+	os.Remove(*unixSocketPath)
+	addr, err := net.ResolveUnixAddr("unix", *unixSocketPath)
 	if err != nil {
 		return fmt.Errorf("resolving address: %w", err)
 	}
@@ -54,7 +121,7 @@ func runServer(logger *slog.Logger, sockPath string, pinDir string) error {
 		return fmt.Errorf("starting listener: %w", err)
 	}
 
-	dps, err := newDatapathPluginServer(logger, pinDir)
+	dps, err := newDatapathPluginServer(logger)
 	if err != nil {
 		return fmt.Errorf("creating server: %w", err)
 	}
@@ -67,17 +134,19 @@ func runServer(logger *slog.Logger, sockPath string, pinDir string) error {
 
 type datapathPluginServer struct {
 	logger *slog.Logger
-	pinDir string
 }
 
-func newDatapathPluginServer(logger *slog.Logger, pinDir string) (*datapathPluginServer, error) {
+func newDatapathPluginServer(logger *slog.Logger) (*datapathPluginServer, error) {
 	s := &datapathPluginServer{
 		logger: logger,
-		pinDir: pinDir,
 	}
 
-	if err := s.ensurePinDirs(); err != nil {
-		return nil, fmt.Errorf("ensuring pin dirs: %w", err)
+	if err := mkdirBPF(s.GlobalsPinDir()); err != nil {
+		return nil, fmt.Errorf("ensuring pin dir %s: %w", s.GlobalsPinDir(), err)
+	}
+
+	if err := mkdirBPF(s.ProgramsPinDir()); err != nil {
+		return nil, fmt.Errorf("ensuring pin dir %s: %w", s.ProgramsPinDir(), err)
 	}
 
 	return s, nil
@@ -85,16 +154,6 @@ func newDatapathPluginServer(logger *slog.Logger, pinDir string) (*datapathPlugi
 
 func (s *datapathPluginServer) LoadSKBProgram(ctx context.Context, req *datapathplugins.LoadSKBProgramRequest) (*datapathplugins.LoadSKBProgramResponse, error) {
 	s.logger.Info("LoadSKBProgram()", "request", req)
-
-	var dir uint32
-	switch req.AttachmentPoint.Direction {
-	case datapathplugins.Direction_INGRESS:
-		dir = 0
-	case datapathplugins.Direction_EGRESS:
-		dir = 1
-	default:
-		return nil, fmt.Errorf("invalid direction: %w", req.AttachmentPoint.Direction)
-	}
 
 	var mapReplacements map[string]*ebpf.Map
 	switch req.AttachmentPoint.Anchor {
@@ -114,6 +173,13 @@ func (s *datapathPluginServer) LoadSKBProgram(ctx context.Context, req *datapath
 		return nil, fmt.Errorf("invalid anchor: %w", req.AttachmentPoint.Anchor)
 	}
 
+	if req.DeviceType != datapathplugins.DeviceType_LXC ||
+		req.AttachmentPoint.Anchor != datapathplugins.Anchor_AFTER ||
+		req.AttachmentPoint.Direction != datapathplugins.Direction_INGRESS ||
+		req.EndpointConfig.K8SPodName != *clientPodName {
+		return &datapathplugins.LoadSKBProgramResponse{}, nil
+	}
+
 	pluginSpec, err := loadPlugin()
 	if err != nil {
 		return nil, fmt.Errorf("loading demo spec: %w", err)
@@ -126,6 +192,10 @@ func (s *datapathPluginServer) LoadSKBProgram(ctx context.Context, req *datapath
 		},
 		MapReplacements: mapReplacements,
 	})
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		fmt.Fprintf(os.Stderr, "Verifier error: %+v\n", ve)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("loading collection: %w", err)
 	}
@@ -135,42 +205,15 @@ func (s *datapathPluginServer) LoadSKBProgram(ctx context.Context, req *datapath
 		return nil, fmt.Errorf("assigning objects: %w", err)
 	}
 
-	if err := objs.pluginVariables.Direction.Set(dir); err != nil {
-		return nil, fmt.Errorf("configuring direction: %w", err)
-	}
-
-	if err := objs.pluginVariables.EndpointId.Set(req.EndpointConfig.Id); err != nil {
-		return nil, fmt.Errorf("configuring endpoint id: %w", err)
-	}
-
-	var prog *ebpf.Program
-
-	switch req.DeviceType {
-	case datapathplugins.DeviceType_CILIUM_HOST:
-		switch req.AttachmentPoint.Anchor {
-		case datapathplugins.Anchor_BEFORE:
-			prog = objs.pluginPrograms.BeforeCiliumHost
-		case datapathplugins.Anchor_AFTER:
-			prog = objs.pluginPrograms.AfterCiliumHost
-		}
-	case datapathplugins.DeviceType_LXC:
-		switch req.AttachmentPoint.Anchor {
-		case datapathplugins.Anchor_BEFORE:
-			prog = objs.pluginPrograms.BeforeCiliumLxc
-		case datapathplugins.Anchor_AFTER:
-			prog = objs.pluginPrograms.AfterCiliumLxc
-		}
-	}
-
-	if prog == nil {
-		return &datapathplugins.LoadSKBProgramResponse{}, nil
+	if err := objs.pluginVariables.ProxyPort.Set(uint16(*httpProxyListenPort)); err != nil {
+		return nil, fmt.Errorf("configuring proxy port: %w", err)
 	}
 
 	pinPath := s.ProgramPinPath(req.AttachmentPoint)
 	if err := os.Remove(pinPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("unpinning program from %s: %w", pinPath, err)
 	}
-	if err := prog.Pin(pinPath); err != nil {
+	if err := objs.pluginPrograms.FromClient.Pin(pinPath); err != nil {
 		return nil, fmt.Errorf("pinning program to %s: %w", pinPath, err)
 	}
 
@@ -180,23 +223,11 @@ func (s *datapathPluginServer) LoadSKBProgram(ctx context.Context, req *datapath
 }
 
 func (s *datapathPluginServer) GlobalsPinDir() string {
-	return filepath.Join(s.pinDir, "globals")
+	return filepath.Join(*bpffsPinPath, "globals")
 }
 
 func (s *datapathPluginServer) ProgramsPinDir() string {
-	return filepath.Join(s.pinDir, "programs")
-}
-
-func (s *datapathPluginServer) ensurePinDirs() error {
-	if err := mkdirBPF(s.GlobalsPinDir()); err != nil {
-		return fmt.Errorf("ensuring pin dir %s: %w", s.GlobalsPinDir(), err)
-	}
-
-	if err := mkdirBPF(s.ProgramsPinDir()); err != nil {
-		return fmt.Errorf("ensuring pin dir %s: %w", s.ProgramsPinDir(), err)
-	}
-
-	return nil
+	return filepath.Join(*bpffsPinPath, "programs")
 }
 
 func (s *datapathPluginServer) ProgramPinPath(ap *datapathplugins.AttachmentPoint) string {

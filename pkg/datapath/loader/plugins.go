@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/datapathplugins"
+	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
 	"github.com/cilium/cilium/pkg/datapath/plugins"
 	cilebpf "github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -40,9 +41,9 @@ type datapathPluginManager struct {
 }
 
 func newDatapathPluginManager(logger *slog.Logger, pluginClient plugins.Client) (DatapathPluginManager, error) {
-	var exitMapSpecs exitsMapSpecs
+	var exitMapSpecs bpfgen.ExitsMapSpecs
 
-	exitSpecs, err := loadExits()
+	exitSpecs, err := bpfgen.LoadExits()
 	if err != nil {
 		return nil, fmt.Errorf("loading exit specs: %w", err)
 	}

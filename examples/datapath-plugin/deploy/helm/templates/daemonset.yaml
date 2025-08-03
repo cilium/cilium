@@ -36,6 +36,7 @@ spec:
         args:
         - --bpffs-pin-path=/sys/fs/bpf/datapath-plugin
         - --unix-socket-path=/var/run/cilium/datapath-plugin.sock
+        - --client-pod-name=datapath-plugin-example-client
         securityContext:
           privileged: true
           # capabilities: # TODO probably

@@ -1,0 +1,26 @@
+{{- define "cilium.image" -}}
+{{- $digest := (.useDigest | default false) | ternary (printf "@%s" .digest) "" -}}
+{{- $tag := .tag | default "" | eq "" | ternary "" (printf ":%s" .tag) -}}
+{{- if .override -}}
+{{- printf "%s" .override -}}
+{{- else -}}
+{{- printf "%s%s%s" .repository $tag $digest -}}
+{{- end -}}
+{{- end -}}
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: datapath-plugin-example-client
+spec:
+  containers:
+  - name: curl
+    image: {{ include "cilium.image" .Values.image | quote }}
+    imagePullPolicy: {{ .Values.image.pullPolicy }}
+    command: ["/bin/sh", "-c"]
+    args:
+    - while true; do
+        curl http://example.com;
+        sleep 5;
+      done
+  restartPolicy: Always

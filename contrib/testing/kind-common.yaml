@@ -11,11 +11,16 @@ operator:
 ipam:
   mode: kubernetes
 ipv6:
-  enabled: true
+  enabled: false
 ipv4:
   enabled: true
 bpf:
   monitorAggregation: none
+  hostLegacyRouting: true
+routingMode: native
+ipv4NativeRoutingCIDR: 10.244.0.0/16
+enableIPv4Masquerade: true
+autoDirectNodeRoutes: true
 livenessProbe:
   failureThreshold: 9999
 readinessProbe:

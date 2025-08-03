@@ -54,10 +54,7 @@ type pluginSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type pluginProgramSpecs struct {
-	AfterCiliumHost  *ebpf.ProgramSpec `ebpf:"after_cilium_host"`
-	AfterCiliumLxc   *ebpf.ProgramSpec `ebpf:"after_cilium_lxc"`
-	BeforeCiliumHost *ebpf.ProgramSpec `ebpf:"before_cilium_host"`
-	BeforeCiliumLxc  *ebpf.ProgramSpec `ebpf:"before_cilium_lxc"`
+	FromClient *ebpf.ProgramSpec `ebpf:"from_client"`
 }
 
 // pluginMapSpecs contains maps before they are loaded into the kernel.
@@ -71,8 +68,7 @@ type pluginMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type pluginVariableSpecs struct {
-	Direction  *ebpf.VariableSpec `ebpf:"direction"`
-	EndpointId *ebpf.VariableSpec `ebpf:"endpoint_id"`
+	ProxyPort *ebpf.VariableSpec `ebpf:"proxy_port"`
 }
 
 // pluginObjects contains all objects after they have been loaded into the kernel.
@@ -108,26 +104,19 @@ func (m *pluginMaps) Close() error {
 //
 // It can be passed to loadPluginObjects or ebpf.CollectionSpec.LoadAndAssign.
 type pluginVariables struct {
-	Direction  *ebpf.Variable `ebpf:"direction"`
-	EndpointId *ebpf.Variable `ebpf:"endpoint_id"`
+	ProxyPort *ebpf.Variable `ebpf:"proxy_port"`
 }
 
 // pluginPrograms contains all programs after they have been loaded into the kernel.
 //
 // It can be passed to loadPluginObjects or ebpf.CollectionSpec.LoadAndAssign.
 type pluginPrograms struct {
-	AfterCiliumHost  *ebpf.Program `ebpf:"after_cilium_host"`
-	AfterCiliumLxc   *ebpf.Program `ebpf:"after_cilium_lxc"`
-	BeforeCiliumHost *ebpf.Program `ebpf:"before_cilium_host"`
-	BeforeCiliumLxc  *ebpf.Program `ebpf:"before_cilium_lxc"`
+	FromClient *ebpf.Program `ebpf:"from_client"`
 }
 
 func (p *pluginPrograms) Close() error {
 	return _PluginClose(
-		p.AfterCiliumHost,
-		p.AfterCiliumLxc,
-		p.BeforeCiliumHost,
-		p.BeforeCiliumLxc,
+		p.FromClient,
 	)
 }
 

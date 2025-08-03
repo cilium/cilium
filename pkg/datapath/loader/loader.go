@@ -868,6 +868,9 @@ func loadPluginSKBPrograms(ctx context.Context, logger *slog.Logger, pluginManag
 
 	if ep != nil {
 		req.EndpointConfig.Id = ep.GetID()
+		req.EndpointConfig.K8SNamespace = ep.GetK8sNamespace()
+		req.EndpointConfig.K8SPodName = ep.GetK8sPodName()
+		req.EndpointConfig.ContainerName = ep.GetContainerName()
 	}
 
 	switch parent {

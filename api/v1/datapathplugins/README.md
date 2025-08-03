@@ -54,6 +54,9 @@ AttachmentPoint is a unique identifier for a program.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | id | [uint64](#uint64) |  |  |
+| k8s_namespace | [string](#string) |  |  |
+| k8s_pod_name | [string](#string) |  |  |
+| container_name | [string](#string) |  |  |
 
 
 
