@@ -58,12 +58,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
+	"golang.org/x/term"
 )
 
 // An Engine stores the configuration for executing a set of scripts.
@@ -149,6 +152,9 @@ type CmdUsage struct {
 	// If RegexpArgs is nil, all arguments are assumed not to be regular
 	// expressions.
 	RegexpArgs func(rawArgs ...string) []int
+
+	AutocompleteArgs func(state *State, before []string, cur string) []string
+	AutocompleteFlag func(state *State, args []string, flag, cur string) []string
 }
 
 // A Cond is a condition deciding whether a command should be run.
@@ -457,6 +463,163 @@ func (e *Engine) ExecuteLine(s *State, line string, log io.Writer) (err error) {
 	return nil
 }
 
+type autocomplateState struct {
+	suggestions []string
+	current     int
+	pos         int
+}
+
+func (s *autocomplateState) reset() {
+	s.suggestions = s.suggestions[:0]
+	s.current = 0
+	s.pos = -1
+}
+
+func (e *Engine) Autocomplete(terminal *term.Terminal, state *State) func(line string, pos int, key rune) (newLine string, newPos int, ok bool) {
+	var s autocomplateState
+	s.reset()
+	return func(line string, pos int, key rune) (newLine string, newPos int, ok bool) {
+		return e.autocomplete(terminal, state, &s, line, pos, key)
+	}
+}
+
+func (e *Engine) autocomplete(terminal *term.Terminal, engineState *State, state *autocomplateState, line string, pos int, key rune) (newLine string, newPos int, ok bool) {
+	switch key {
+	case '\t':
+		// fallthrough, run the rest of the function
+	default:
+		// Reset state when typing something
+		state.reset()
+		return "", 0, false
+	}
+
+	if state.pos == -1 {
+		state.pos = pos
+	}
+
+	// We do not get triggered for every modification of the line, for example on
+	// backspace. So if we get triggered and the line is shorter than the stored
+	// position, we reset the position to the end of the line.
+	if state.pos > len(line) {
+		state.pos = len(line)
+	}
+
+	cmdIn, err := parse("<stdin>", 0, line[:state.pos])
+	if err != nil {
+		fmt.Fprintln(terminal, err.Error())
+		return "", 0, false
+	}
+
+	if cmdIn == nil {
+		state.suggestions = slices.Sorted(maps.Keys(e.Cmds))
+	} else {
+		inCmd := len(cmdIn.rawArgs) == 0 && line[state.pos-1:state.pos] != " "
+
+		cmd, found := e.Cmds[cmdIn.name]
+		// If the currently typed out command is not found or when we do not have a space
+		// after the command yet.
+		if inCmd {
+			state.suggestions = make([]string, 0)
+			for name := range e.Cmds {
+				if strings.HasPrefix(name, cmdIn.name) {
+					state.suggestions = append(state.suggestions, name)
+				}
+			}
+		} else {
+			// We are in arguments/flags, but the command is not found. No autocompletion.
+			if !found {
+				state.suggestions = nil
+				return "", 0, false
+			}
+
+			argsCB := cmd.Usage().AutocompleteArgs
+			flagsCB := cmd.Usage().AutocompleteFlag
+			if argsCB == nil && flagsCB == nil {
+				return "", 0, false // No autocompletion for this command.
+			}
+
+			if len(cmdIn.rawArgs) == 0 {
+				if argsCB == nil {
+					return "", 0, false // No autocompletion for this command.
+				}
+
+				state.suggestions = nil
+				for _, suggestion := range argsCB(engineState, nil, "") {
+					state.suggestions = append(state.suggestions, line[:state.pos]+suggestion)
+				}
+
+			} else {
+				fs := pflag.NewFlagSet(cmdIn.name, pflag.ContinueOnError)
+				if cmd.Usage().Flags != nil {
+					cmd.Usage().Flags(fs)
+				}
+
+				argOrFlags := autocompleteParse(line[:state.pos], fs)
+				if len(argOrFlags) == 0 {
+					return "", 0, false // No autocompletion for this command.
+				}
+				// Remove command name
+				argOrFlags = argOrFlags[1:]
+
+				var before []string
+				for i := 0; i < len(argOrFlags)-1; i++ {
+					if argOrFlags[i].arg != "" {
+						before = append(before, argOrFlags[i].arg)
+					}
+				}
+
+				last := argOrFlags[len(argOrFlags)-1]
+				if last.argOrFlag == 1 {
+					if flagsCB == nil {
+						return "", 0, false // No autocompletion for this command.
+					}
+
+					// Cursor is in a flag value
+					if last.hasValue {
+						state.suggestions = nil
+						for _, suggestion := range flagsCB(engineState, before, last.flagName, last.flagValue) {
+							state.suggestions = append(state.suggestions, line[:state.pos-len(last.flagValue)]+suggestion)
+						}
+					} else {
+						// If the current input is not a valid flag name
+						if fs.Lookup(last.flagName) == nil {
+							state.suggestions = nil
+							fs.VisitAll(func(f *pflag.Flag) {
+								if last.flagName == "" || strings.HasPrefix(f.Name, last.flagName) {
+									state.suggestions = append(state.suggestions, line[:state.pos-len(last.flagName)]+f.Name)
+								}
+							})
+						}
+					}
+				} else {
+					if argsCB == nil {
+						return "", 0, false // No autocompletion for this command.
+					}
+
+					state.suggestions = nil
+
+					for _, suggestion := range argsCB(engineState, before, last.arg) {
+						state.suggestions = append(state.suggestions, line[:state.pos-len(last.arg)]+suggestion)
+					}
+				}
+			}
+		}
+	}
+
+	if len(state.suggestions) == 0 {
+		return "", 0, false
+	}
+
+	if state.current >= len(state.suggestions) {
+		state.current = 0 // Reset to the first suggestion.
+	}
+
+	suggestion := state.suggestions[state.current]
+	state.current++
+
+	return suggestion, len(suggestion), true
+}
+
 // A command is a complete command parsed from a script.
 type command struct {
 	file       string
@@ -671,6 +834,74 @@ func quoteArgs(args []string) string {
 	return b.String()
 }
 
+type argOrFlag struct {
+	argOrFlag byte // 0 for arg, 1 for flag
+	arg       string
+	flagName  string
+	hasValue  bool
+	flagValue string
+}
+
+func autocompleteParse(line string, fs *pflag.FlagSet) []argOrFlag {
+	args := strings.Split(line, " ")
+	argOrFlags := make([]argOrFlag, 0, len(args))
+	var cur argOrFlag
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
+		// Handle `--flag value`, where `--flag` is in [flagName] and `value` in [arg]
+		if cur.flagName != "" {
+			argOrFlags = append(argOrFlags, argOrFlag{
+				argOrFlag: 1,
+				flagName:  cur.flagName,
+				hasValue:  true,
+				flagValue: arg,
+			})
+			cur = argOrFlag{}
+			continue
+		}
+
+		// Check if [arg] is a flag (`--flag`)
+		if strings.HasPrefix(arg, "--") {
+			name := strings.TrimPrefix(arg, "--")
+
+			// If key-value pair (`--flag=value`), split it
+			if name, value, cut := strings.Cut(name, "="); cut {
+				argOrFlags = append(argOrFlags, argOrFlag{
+					argOrFlag: 1,
+					flagName:  name,
+					hasValue:  true,
+					flagValue: value,
+				})
+				continue
+			}
+
+			// Check if the flag type consumes a value. For example a string flag will treat
+			// `--flag value` as a flag with a value, while a bool flag will not.
+			// It will treat it as a flag set to true and an argument `value`.
+			if flag := fs.Lookup(name); flag != nil {
+				switch flag.Value.Type() {
+				case "bool":
+					argOrFlags = append(argOrFlags, argOrFlag{argOrFlag: 1, flagName: name})
+					continue
+				}
+			}
+
+			cur.argOrFlag = 1
+			cur.flagName = name
+			continue
+		}
+
+		argOrFlags = append(argOrFlags, argOrFlag{arg: arg})
+	}
+
+	if cur.argOrFlag == 1 {
+		argOrFlags = append(argOrFlags, cur)
+	}
+
+	return argOrFlags
+}
+
 func (e *Engine) conditionsActive(s *State, conds []condition) (bool, error) {
 	for _, cond := range conds {
 		var impl Cond
@@ -722,6 +953,7 @@ func (e *Engine) runCommand(s *State, cmd *command, impl Cmd) error {
 	fs := pflag.NewFlagSet(cmd.name, pflag.ContinueOnError)
 	fs.Usage = func() {} // Don't automatically handle error
 	fs.SetOutput(s.logOut)
+	autocomplete := fs.String("autocomplete", "", "")
 	if usage.Flags != nil {
 		usage.Flags(fs)
 	}
@@ -744,6 +976,66 @@ func (e *Engine) runCommand(s *State, cmd *command, impl Cmd) error {
 	} else {
 		cmd.args = fs.Args()
 		s.Flags = fs
+	}
+
+	if fs.Changed("autocomplete") {
+		if usage.AutocompleteArgs == nil && usage.AutocompleteFlag == nil {
+			return nil
+		}
+
+		fs := pflag.NewFlagSet(cmd.name, pflag.ContinueOnError)
+		if usage.Flags != nil {
+			usage.Flags(fs)
+		}
+
+		argOrFlags := autocompleteParse(*autocomplete, fs)
+		if len(argOrFlags) == 0 {
+			return nil
+		}
+
+		var before []string
+		for i := 0; i < len(argOrFlags)-1; i++ {
+			if argOrFlags[i].arg != "" {
+				before = append(before, argOrFlags[i].arg)
+			}
+		}
+
+		var suggestions []string
+		last := argOrFlags[len(argOrFlags)-1]
+		if last.argOrFlag == 1 {
+			if usage.AutocompleteFlag == nil {
+				return nil
+			}
+
+			// Cursor is in a flag value
+			if last.hasValue {
+				for _, suggestion := range usage.AutocompleteFlag(s, before, last.flagName, last.flagValue) {
+					suggestions = append(suggestions, cmd.name+" "+(*autocomplete)[:len(*autocomplete)-len(last.flagValue)]+suggestion)
+				}
+			} else {
+				// If the current input is not a valid flag name
+				if fs.Lookup(last.flagName) == nil {
+					fs.VisitAll(func(f *pflag.Flag) {
+						if last.flagName == "" || strings.HasPrefix(f.Name, last.flagName) {
+							suggestions = append(suggestions, cmd.name+" "+(*autocomplete)[:len(*autocomplete)-len(last.flagName)]+f.Name)
+						}
+					})
+				}
+			}
+		} else {
+			if usage.AutocompleteArgs == nil {
+				return nil
+			}
+
+			for _, suggestion := range usage.AutocompleteArgs(s, before, last.arg) {
+				suggestions = append(suggestions, cmd.name+" "+(*autocomplete)[:len(*autocomplete)-len(last.arg)]+suggestion)
+			}
+		}
+
+		s.stdout = strings.Join(suggestions, "\n") + "\n"
+		s.Logf("[stdout]\n%s", s.stdout)
+
+		return nil
 	}
 
 	wait, runErr := impl.Run(s, cmd.args...)

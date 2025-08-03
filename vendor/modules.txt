@@ -245,7 +245,7 @@ github.com/chai2010/gettext-go
 github.com/chai2010/gettext-go/mo
 github.com/chai2010/gettext-go/plural
 github.com/chai2010/gettext-go/po
-# github.com/cilium/charts v0.0.0-20250729183302-d9624f77f0e6
+# github.com/cilium/charts v0.0.0-20250731160311-35ab4afc4691
 ## explicit; go 1.17
 github.com/cilium/charts
 # github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
@@ -295,8 +295,8 @@ github.com/cilium/endpointslice-controller/util/endpointslice
 # github.com/cilium/fake v0.7.0
 ## explicit; go 1.22
 github.com/cilium/fake
-# github.com/cilium/hive v0.0.0-20250611195437-5a5dacdfb354
-## explicit; go 1.21.3
+# github.com/cilium/hive v0.0.0-20250731144630-28e7a35ed227
+## explicit; go 1.23.0
 github.com/cilium/hive
 github.com/cilium/hive/cell
 github.com/cilium/hive/hivetest
@@ -478,10 +478,10 @@ github.com/eapache/queue
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
 github.com/emicklei/go-restful/v3/log
-# github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250726235758-896bd55d3690
+# github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250730150711-3e244ce327ba
 ## explicit; go 1.23.0
 github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/mysql_proxy/v3
-# github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250726235758-896bd55d3690
+# github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250730150711-3e244ce327ba
 ## explicit; go 1.23.0
 github.com/envoyproxy/go-control-plane/envoy/admin/v3
 github.com/envoyproxy/go-control-plane/envoy/annotations
@@ -962,9 +962,9 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/go-github/v73 v73.0.0
+# github.com/google/go-github/v74 v74.0.0
 ## explicit; go 1.23.0
-github.com/google/go-github/v73/github
+github.com/google/go-github/v74/github
 # github.com/google/go-licenses v1.6.1-0.20230903011517-706b9c60edd4
 ## explicit; go 1.19
 github.com/google/go-licenses/internal/third_party/pkgsite/derrors
@@ -993,7 +993,7 @@ github.com/google/shlex
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/gopacket/gopacket v1.3.2-0.20250721223119-be3fffa73cab
+# github.com/gopacket/gopacket v1.4.0
 ## explicit; go 1.23.0
 github.com/gopacket/gopacket
 github.com/gopacket/gopacket/layers
@@ -1309,8 +1309,8 @@ github.com/pmezard/go-difflib/difflib
 # github.com/prometheus-community/pro-bing v0.7.0
 ## explicit; go 1.23.0
 github.com/prometheus-community/pro-bing
-# github.com/prometheus/client_golang v1.22.0
-## explicit; go 1.22
+# github.com/prometheus/client_golang v1.23.0
+## explicit; go 1.23.0
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil/header
 github.com/prometheus/client_golang/prometheus
@@ -1484,7 +1484,7 @@ github.com/zmap/zlint/v3/lints/etsi
 github.com/zmap/zlint/v3/lints/mozilla
 github.com/zmap/zlint/v3/lints/rfc
 github.com/zmap/zlint/v3/util
-# go.etcd.io/etcd/api/v3 v3.6.2
+# go.etcd.io/etcd/api/v3 v3.6.4
 ## explicit; go 1.23.0
 go.etcd.io/etcd/api/v3/authpb
 go.etcd.io/etcd/api/v3/etcdserverpb
@@ -1493,7 +1493,7 @@ go.etcd.io/etcd/api/v3/mvccpb
 go.etcd.io/etcd/api/v3/v3rpc/rpctypes
 go.etcd.io/etcd/api/v3/version
 go.etcd.io/etcd/api/v3/versionpb
-# go.etcd.io/etcd/client/pkg/v3 v3.6.2
+# go.etcd.io/etcd/client/pkg/v3 v3.6.4
 ## explicit; go 1.23.0
 go.etcd.io/etcd/client/pkg/v3/fileutil
 go.etcd.io/etcd/client/pkg/v3/logutil
@@ -1502,7 +1502,7 @@ go.etcd.io/etcd/client/pkg/v3/tlsutil
 go.etcd.io/etcd/client/pkg/v3/transport
 go.etcd.io/etcd/client/pkg/v3/types
 go.etcd.io/etcd/client/pkg/v3/verify
-# go.etcd.io/etcd/client/v3 v3.6.2
+# go.etcd.io/etcd/client/v3 v3.6.4
 ## explicit; go 1.23.0
 go.etcd.io/etcd/client/v3
 go.etcd.io/etcd/client/v3/concurrency
@@ -1799,10 +1799,10 @@ gomodules.xyz/jsonpatch/v2
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20250721164621-a45f3dfb1074
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20250728155136-f173205681a0
 ## explicit; go 1.23.0
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.73.0
+# google.golang.org/grpc v1.74.2
 ## explicit; go 1.23.0
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -2839,7 +2839,7 @@ sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/scheme
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake
-# sigs.k8s.io/mcs-api/controllers v0.0.0-20250715173623-20de0ebd811c
+# sigs.k8s.io/mcs-api/controllers v0.0.0-20250731081715-a807ec696257
 ## explicit; go 1.23.0
 sigs.k8s.io/mcs-api/controllers
 # sigs.k8s.io/randfill v1.0.0

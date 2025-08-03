@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	Version = "v73.0.0"
+	Version = "v74.0.0"
 
 	defaultAPIVersion = "2022-11-28"
 	defaultBaseURL    = "https://api.github.com/"
@@ -170,6 +170,11 @@ type Client struct {
 
 	// User agent used when communicating with the GitHub API.
 	UserAgent string
+
+	// DisableRateLimitCheck stops the client checking for rate limits or tracking
+	// them. This is different to setting BypassRateLimitCheck in the context,
+	// as that still tracks the rate limits.
+	DisableRateLimitCheck bool
 
 	rateMu                  sync.Mutex
 	rateLimits              [Categories]Rate // Rate limits for the client as determined by the most recent API calls.
@@ -409,7 +414,7 @@ func (c *Client) initialize() {
 	c.clientIgnoreRedirects.Transport = c.client.Transport
 	c.clientIgnoreRedirects.Timeout = c.client.Timeout
 	c.clientIgnoreRedirects.Jar = c.client.Jar
-	c.clientIgnoreRedirects.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+	c.clientIgnoreRedirects.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
 	if c.BaseURL == nil {
@@ -850,21 +855,26 @@ func (c *Client) bareDo(ctx context.Context, caller *http.Client, req *http.Requ
 
 	req = withContext(ctx, req)
 
-	rateLimitCategory := GetRateLimitCategory(req.Method, req.URL.Path)
+	rateLimitCategory := CoreCategory
 
-	if bypass := ctx.Value(BypassRateLimitCheck); bypass == nil {
-		// If we've hit rate limit, don't make further requests before Reset time.
-		if err := c.checkRateLimitBeforeDo(req, rateLimitCategory); err != nil {
-			return &Response{
-				Response: err.Response,
-				Rate:     err.Rate,
-			}, err
-		}
-		// If we've hit a secondary rate limit, don't make further requests before Retry After.
-		if err := c.checkSecondaryRateLimitBeforeDo(req); err != nil {
-			return &Response{
-				Response: err.Response,
-			}, err
+	if !c.DisableRateLimitCheck {
+		rateLimitCategory = GetRateLimitCategory(req.Method, req.URL.Path)
+
+		if bypass := ctx.Value(BypassRateLimitCheck); bypass == nil {
+			// If we've hit rate limit, don't make further requests before Reset time.
+			if err := c.checkRateLimitBeforeDo(req, rateLimitCategory); err != nil {
+				return &Response{
+					Response: err.Response,
+					Rate:     err.Rate,
+				}, err
+			}
+
+			// If we've hit a secondary rate limit, don't make further requests before Retry After.
+			if err := c.checkSecondaryRateLimitBeforeDo(req); err != nil {
+				return &Response{
+					Response: err.Response,
+				}, err
+			}
 		}
 	}
 
@@ -894,9 +904,10 @@ func (c *Client) bareDo(ctx context.Context, caller *http.Client, req *http.Requ
 		return response, err
 	}
 
-	// Don't update the rate limits if this was a cached response.
-	// X-From-Cache is set by https://github.com/gregjones/httpcache
-	if response.Header.Get("X-From-Cache") == "" {
+	// Don't update the rate limits if the client has rate limits disabled or if
+	// this was a cached response. The X-From-Cache is set by
+	// https://github.com/bartventer/httpcache if it's enabled.
+	if !c.DisableRateLimitCheck && response.Header.Get("X-From-Cache") == "" {
 		c.rateMu.Lock()
 		c.rateLimits[rateLimitCategory] = response.Rate
 		c.rateMu.Unlock()
@@ -1586,8 +1597,8 @@ that need to use a higher rate limit associated with your OAuth application.
 This will add the client id and secret as a base64-encoded string in the format
 ClientID:ClientSecret and apply it as an "Authorization": "Basic" header.
 
-See https://docs.github.com/rest/#unauthenticated-rate-limited-requests for
-more information.
+See https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api#primary-rate-limit-for-oauth-apps
+for more information.
 */
 type UnauthenticatedRateLimitedTransport struct {
 	// ClientID is the GitHub OAuth client ID of the current application, which
