@@ -1,5 +1,11 @@
 # Release History
 
+## 1.18.2 (2025-07-31)
+
+### Bugs Fixed
+
+* Fixed a case in which `BearerTokenPolicy` didn't ensure an authentication error is non-retriable
+
 ## 1.18.1 (2025-07-10)
 
 ### Bugs Fixed
