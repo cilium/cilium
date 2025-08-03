@@ -173,6 +173,8 @@ func RunRepl(h *Hive, in *os.File, out *os.File, prompt string) {
 	s := newState()
 
 	for {
+		terminal.AutoCompleteCallback = e.Autocomplete(terminal, s)
+
 		line, err := terminal.ReadLine()
 		if err != nil {
 			if errors.Is(err, io.EOF) {

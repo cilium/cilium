@@ -345,7 +345,7 @@ func (s *ChecksService) ReRequestCheckRun(ctx context.Context, owner, repo strin
 // ListCheckSuiteOptions represents parameters to list check suites.
 type ListCheckSuiteOptions struct {
 	CheckName *string `url:"check_name,omitempty"` // Filters checks suites by the name of the check run.
-	AppID     *int    `url:"app_id,omitempty"`     // Filters check suites by GitHub App id.
+	AppID     *int64  `url:"app_id,omitempty"`     // Filters check suites by GitHub App id.
 
 	ListOptions
 }

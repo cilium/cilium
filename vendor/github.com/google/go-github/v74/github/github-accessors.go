@@ -934,6 +934,14 @@ func (a *Artifact) GetCreatedAt() Timestamp {
 	return *a.CreatedAt
 }
 
+// GetDigest returns the Digest field if it's non-nil, zero value otherwise.
+func (a *Artifact) GetDigest() string {
+	if a == nil || a.Digest == nil {
+		return ""
+	}
+	return *a.Digest
+}
+
 // GetExpired returns the Expired field if it's non-nil, zero value otherwise.
 func (a *Artifact) GetExpired() bool {
 	if a == nil || a.Expired == nil {
@@ -1614,6 +1622,14 @@ func (b *Branch) GetProtection() *Protection {
 	return b.Protection
 }
 
+// GetProtectionURL returns the ProtectionURL field if it's non-nil, zero value otherwise.
+func (b *Branch) GetProtectionURL() string {
+	if b == nil || b.ProtectionURL == nil {
+		return ""
+	}
+	return *b.ProtectionURL
+}
+
 // GetCommit returns the Commit field.
 func (b *BranchCommit) GetCommit() *Commit {
 	if b == nil {
@@ -1860,6 +1876,14 @@ func (b *BranchProtectionRule) GetRequiredStatusChecksEnforcementLevel() string 
 		return ""
 	}
 	return *b.RequiredStatusChecksEnforcementLevel
+}
+
+// GetRequireLastPushApproval returns the RequireLastPushApproval field if it's non-nil, zero value otherwise.
+func (b *BranchProtectionRule) GetRequireLastPushApproval() bool {
+	if b == nil || b.RequireLastPushApproval == nil {
+		return false
+	}
+	return *b.RequireLastPushApproval
 }
 
 // GetSignatureRequirementEnforcementLevel returns the SignatureRequirementEnforcementLevel field if it's non-nil, zero value otherwise.
@@ -13295,7 +13319,7 @@ func (l *ListCheckRunsResults) GetTotal() int {
 }
 
 // GetAppID returns the AppID field if it's non-nil, zero value otherwise.
-func (l *ListCheckSuiteOptions) GetAppID() int {
+func (l *ListCheckSuiteOptions) GetAppID() int64 {
 	if l == nil || l.AppID == nil {
 		return 0
 	}
@@ -13452,6 +13476,38 @@ func (l *ListRunnersOptions) GetName() string {
 		return ""
 	}
 	return *l.Name
+}
+
+// GetCount returns the Count field if it's non-nil, zero value otherwise.
+func (l *ListSCIMProvisionedGroupsForEnterpriseOptions) GetCount() int {
+	if l == nil || l.Count == nil {
+		return 0
+	}
+	return *l.Count
+}
+
+// GetExcludedAttributes returns the ExcludedAttributes field if it's non-nil, zero value otherwise.
+func (l *ListSCIMProvisionedGroupsForEnterpriseOptions) GetExcludedAttributes() string {
+	if l == nil || l.ExcludedAttributes == nil {
+		return ""
+	}
+	return *l.ExcludedAttributes
+}
+
+// GetFilter returns the Filter field if it's non-nil, zero value otherwise.
+func (l *ListSCIMProvisionedGroupsForEnterpriseOptions) GetFilter() string {
+	if l == nil || l.Filter == nil {
+		return ""
+	}
+	return *l.Filter
+}
+
+// GetStartIndex returns the StartIndex field if it's non-nil, zero value otherwise.
+func (l *ListSCIMProvisionedGroupsForEnterpriseOptions) GetStartIndex() int {
+	if l == nil || l.StartIndex == nil {
+		return 0
+	}
+	return *l.StartIndex
 }
 
 // GetCount returns the Count field if it's non-nil, zero value otherwise.
@@ -18566,6 +18622,14 @@ func (p *ProtectionChanges) GetRequiredStatusChecksEnforcementLevel() *RequiredS
 	return p.RequiredStatusChecksEnforcementLevel
 }
 
+// GetRequireLastPushApproval returns the RequireLastPushApproval field.
+func (p *ProtectionChanges) GetRequireLastPushApproval() *RequireLastPushApprovalChanges {
+	if p == nil {
+		return nil
+	}
+	return p.RequireLastPushApproval
+}
+
 // GetSignatureRequirementEnforcementLevel returns the SignatureRequirementEnforcementLevel field.
 func (p *ProtectionChanges) GetSignatureRequirementEnforcementLevel() *SignatureRequirementEnforcementLevelChanges {
 	if p == nil {
@@ -20996,6 +21060,14 @@ func (r *ReleaseAsset) GetCreatedAt() Timestamp {
 		return Timestamp{}
 	}
 	return *r.CreatedAt
+}
+
+// GetDigest returns the Digest field if it's non-nil, zero value otherwise.
+func (r *ReleaseAsset) GetDigest() string {
+	if r == nil || r.Digest == nil {
+		return ""
+	}
+	return *r.Digest
 }
 
 // GetDownloadCount returns the DownloadCount field if it's non-nil, zero value otherwise.
@@ -23988,6 +24060,14 @@ func (r *RequiredStatusChecksRuleParameters) GetDoNotEnforceOnCreate() bool {
 		return false
 	}
 	return *r.DoNotEnforceOnCreate
+}
+
+// GetFrom returns the From field if it's non-nil, zero value otherwise.
+func (r *RequireLastPushApprovalChanges) GetFrom() bool {
+	if r == nil || r.From == nil {
+		return false
+	}
+	return *r.From
 }
 
 // GetNodeID returns the NodeID field if it's non-nil, zero value otherwise.
@@ -27540,6 +27620,126 @@ func (u *UpdateRunnerGroupRequest) GetVisibility() string {
 		return ""
 	}
 	return *u.Visibility
+}
+
+// GetDate returns the Date field if it's non-nil, zero value otherwise.
+func (u *UsageItem) GetDate() string {
+	if u == nil || u.Date == nil {
+		return ""
+	}
+	return *u.Date
+}
+
+// GetDiscountAmount returns the DiscountAmount field.
+func (u *UsageItem) GetDiscountAmount() *float64 {
+	if u == nil {
+		return nil
+	}
+	return u.DiscountAmount
+}
+
+// GetGrossAmount returns the GrossAmount field.
+func (u *UsageItem) GetGrossAmount() *float64 {
+	if u == nil {
+		return nil
+	}
+	return u.GrossAmount
+}
+
+// GetNetAmount returns the NetAmount field.
+func (u *UsageItem) GetNetAmount() *float64 {
+	if u == nil {
+		return nil
+	}
+	return u.NetAmount
+}
+
+// GetOrganizationName returns the OrganizationName field if it's non-nil, zero value otherwise.
+func (u *UsageItem) GetOrganizationName() string {
+	if u == nil || u.OrganizationName == nil {
+		return ""
+	}
+	return *u.OrganizationName
+}
+
+// GetPricePerUnit returns the PricePerUnit field.
+func (u *UsageItem) GetPricePerUnit() *float64 {
+	if u == nil {
+		return nil
+	}
+	return u.PricePerUnit
+}
+
+// GetProduct returns the Product field if it's non-nil, zero value otherwise.
+func (u *UsageItem) GetProduct() string {
+	if u == nil || u.Product == nil {
+		return ""
+	}
+	return *u.Product
+}
+
+// GetQuantity returns the Quantity field.
+func (u *UsageItem) GetQuantity() *float64 {
+	if u == nil {
+		return nil
+	}
+	return u.Quantity
+}
+
+// GetRepositoryName returns the RepositoryName field if it's non-nil, zero value otherwise.
+func (u *UsageItem) GetRepositoryName() string {
+	if u == nil || u.RepositoryName == nil {
+		return ""
+	}
+	return *u.RepositoryName
+}
+
+// GetSKU returns the SKU field if it's non-nil, zero value otherwise.
+func (u *UsageItem) GetSKU() string {
+	if u == nil || u.SKU == nil {
+		return ""
+	}
+	return *u.SKU
+}
+
+// GetUnitType returns the UnitType field if it's non-nil, zero value otherwise.
+func (u *UsageItem) GetUnitType() string {
+	if u == nil || u.UnitType == nil {
+		return ""
+	}
+	return *u.UnitType
+}
+
+// GetDay returns the Day field if it's non-nil, zero value otherwise.
+func (u *UsageReportOptions) GetDay() int {
+	if u == nil || u.Day == nil {
+		return 0
+	}
+	return *u.Day
+}
+
+// GetHour returns the Hour field if it's non-nil, zero value otherwise.
+func (u *UsageReportOptions) GetHour() int {
+	if u == nil || u.Hour == nil {
+		return 0
+	}
+	return *u.Hour
+}
+
+// GetMonth returns the Month field if it's non-nil, zero value otherwise.
+func (u *UsageReportOptions) GetMonth() int {
+	if u == nil || u.Month == nil {
+		return 0
+	}
+	return *u.Month
+}
+
+// GetYear returns the Year field if it's non-nil, zero value otherwise.
+func (u *UsageReportOptions) GetYear() int {
+	if u == nil || u.Year == nil {
+		return 0
+	}
+	return *u.Year
 }
 
 // GetAssignment returns the Assignment field if it's non-nil, zero value otherwise.

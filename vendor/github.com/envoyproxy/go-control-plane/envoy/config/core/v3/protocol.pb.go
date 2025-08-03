@@ -222,7 +222,7 @@ type QuicProtocolOptions struct {
 	// stop the flow of data to the stream buffers.
 	InitialStreamWindowSize *wrapperspb.UInt32Value `protobuf:"bytes,2,opt,name=initial_stream_window_size,json=initialStreamWindowSize,proto3" json:"initial_stream_window_size,omitempty"`
 	// Similar to “initial_stream_window_size“, but for connection-level
-	// flow-control. Valid values rage from 1 to 25165824 (24MB, maximum supported by QUICHE) and defaults
+	// flow-control. Valid values range from 1 to 25165824 (24MB, maximum supported by QUICHE) and defaults
 	// to 25165824 (24 * 1024 * 1024).
 	//
 	// .. note::

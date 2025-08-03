@@ -63,6 +63,46 @@ type AdvancedSecurityCommittersBreakdown struct {
 	LastPushedDate *string `json:"last_pushed_date,omitempty"`
 }
 
+// UsageReportOptions specifies optional parameters for the enhanced billing platform usage report.
+type UsageReportOptions struct {
+	// If specified, only return results for a single year. The value of year is an integer with four digits representing a year. For example, 2025.
+	// Default value is the current year.
+	Year *int `url:"year,omitempty"`
+
+	// If specified, only return results for a single month. The value of month is an integer between 1 and 12.
+	// If no year is specified the default year is used.
+	Month *int `url:"month,omitempty"`
+
+	// If specified, only return results for a single day. The value of day is an integer between 1 and 31.
+	// If no year or month is specified, the default year and month are used.
+	Day *int `url:"day,omitempty"`
+
+	// If specified, only return results for a single hour. The value of hour is an integer between 0 and 23.
+	// If no year, month, or day is specified, the default year, month, and day are used.
+	Hour *int `url:"hour,omitempty"`
+}
+
+// UsageItem represents a single usage item in the enhanced billing platform report.
+type UsageItem struct {
+	Date           *string  `json:"date"`
+	Product        *string  `json:"product"`
+	SKU            *string  `json:"sku"`
+	Quantity       *float64 `json:"quantity"`
+	UnitType       *string  `json:"unitType"`
+	PricePerUnit   *float64 `json:"pricePerUnit"`
+	GrossAmount    *float64 `json:"grossAmount"`
+	DiscountAmount *float64 `json:"discountAmount"`
+	NetAmount      *float64 `json:"netAmount"`
+	RepositoryName *string  `json:"repositoryName,omitempty"`
+	// Organization name is only used for organization-level reports.
+	OrganizationName *string `json:"organizationName,omitempty"`
+}
+
+// UsageReport represents the enhanced billing platform usage report response.
+type UsageReport struct {
+	UsageItems []*UsageItem `json:"usageItems,omitempty"`
+}
+
 // GetActionsBillingOrg returns the summary of the free and paid GitHub Actions minutes used for an Org.
 //
 // GitHub API docs: https://docs.github.com/rest/billing/billing#get-github-actions-billing-for-an-organization
@@ -215,4 +255,60 @@ func (s *BillingService) GetStorageBillingUser(ctx context.Context, user string)
 	}
 
 	return storageUserBilling, resp, nil
+}
+
+// GetUsageReportOrg returns a report of the total usage for an organization using the enhanced billing platform.
+//
+// Note: This endpoint is only available to organizations with access to the enhanced billing platform.
+//
+// GitHub API docs: https://docs.github.com/rest/billing/enhanced-billing#get-billing-usage-report-for-an-organization
+//
+//meta:operation GET /organizations/{org}/settings/billing/usage
+func (s *BillingService) GetUsageReportOrg(ctx context.Context, org string, opts *UsageReportOptions) (*UsageReport, *Response, error) {
+	u := fmt.Sprintf("organizations/%v/settings/billing/usage", org)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	usageReport := new(UsageReport)
+	resp, err := s.client.Do(ctx, req, usageReport)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return usageReport, resp, nil
+}
+
+// GetUsageReportUser returns a report of the total usage for a user using the enhanced billing platform.
+//
+// Note: This endpoint is only available to users with access to the enhanced billing platform.
+//
+// GitHub API docs: https://docs.github.com/rest/billing/enhanced-billing#get-billing-usage-report-for-a-user
+//
+//meta:operation GET /users/{username}/settings/billing/usage
+func (s *BillingService) GetUsageReportUser(ctx context.Context, user string, opts *UsageReportOptions) (*UsageReport, *Response, error) {
+	u := fmt.Sprintf("users/%v/settings/billing/usage", user)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	usageReport := new(UsageReport)
+	resp, err := s.client.Do(ctx, req, usageReport)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return usageReport, resp, nil
 }
