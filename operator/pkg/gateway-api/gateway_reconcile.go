@@ -542,7 +542,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 
 		if !isValid {
 			conds = append(conds,
-				gatewayListenerProgrammedCondition(gw, false, "Listener not valid"),
+				gatewayListenerInvalidRouteKinds(gw, "Invalid Route Kinds"),
 				gatewayListenerAcceptedCondition(gw, false, "Listener not valid"),
 				metav1.Condition{
 					Type:               string(gatewayv1.ListenerConditionResolvedRefs),
