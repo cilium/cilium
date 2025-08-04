@@ -975,9 +975,19 @@ func (e *etcdClient) statusChecker() {
 		lastHeartbeat := e.lastHeartbeat
 		e.RWMutex.RUnlock()
 
-		if heartbeatDelta := time.Since(lastHeartbeat); heartbeatDelta > 2*HeartbeatWriteInterval {
-			recordQuorumError("no event received")
-			quorumError = fmt.Errorf("%s since last heartbeat update has been received", heartbeatDelta)
+		// If we don't check the endpoint status of Etcd nor quorum,
+		// we can check if the last heartbeat was received from operator.
+		// This check is only performed for Clustermesh clients,
+		// but not for the main KVStore connections.
+		// For Clustermesh clients it's better to disconnect from the remote KVStore
+		// in case of operator failure, as it no longer updates global service state.
+		// This is not the case for the main KVStore connection, as it is not actually
+		// required to have operational operator to function properly.
+		if e.extraOptions.NoEndpointStatusChecks && e.extraOptions.NoLockQuorumCheck {
+			if heartbeatDelta := time.Since(lastHeartbeat); heartbeatDelta > 2*HeartbeatWriteInterval {
+				recordQuorumError("no event received")
+				quorumError = fmt.Errorf("%s since last heartbeat update has been received", heartbeatDelta)
+			}
 		}
 
 		endpoints := e.client.Endpoints()
