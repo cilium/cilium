@@ -863,6 +863,15 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+lvh-version: \"(?<currentValue>.*)\""
       ]
+    },
+    {
+      "fileMatch": [".github/workflows/.*\\.ya?ml$"],
+      "matchStrings": [
+        "['\"]ubuntu-(?<currentValue>[0-9]{2}\\.[0-9]{2})['\"]"
+      ],
+      "datasourceTemplate": "github-runners",
+      "depNameTemplate": "ubuntu",
+      "packageNameTemplate": "ubuntu"
     }
   ]
 }
