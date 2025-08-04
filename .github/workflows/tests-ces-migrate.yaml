@@ -112,6 +112,10 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+
       - name: Set up job variables
         id: vars
         run: |
@@ -120,6 +124,10 @@ jobs:
           else
             SHA="${{ github.sha }}"
           fi
+
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
+
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Create kind cluster
@@ -194,6 +202,7 @@ jobs:
         with:
           job-name: ces-enable
           full-test: 'true'
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Features tested
         uses: ./.github/actions/feature-status
