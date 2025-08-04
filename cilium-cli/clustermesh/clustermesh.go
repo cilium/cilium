@@ -1227,6 +1227,9 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 	if state.localNewClusters == nil {
 		state.localNewClusters = make(map[string]any)
 	}
+	if _, ok := state.localNewClusters[newClusterName]; ok {
+		return fmt.Errorf("Multiple remote clusters have the same name '%s'", newClusterName)
+	}
 	state.localNewClusters[newClusterName] = newCluster
 
 	// Get existing helm values for the remote cluster
