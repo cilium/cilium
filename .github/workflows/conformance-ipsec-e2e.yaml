@@ -368,6 +368,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: ${{ env.job_name }}-${{ matrix.name }}-post-rotate
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for tests
         uses: ./.github/actions/bpftrace/start
