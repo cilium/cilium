@@ -304,8 +304,11 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 				Group: initialGlobalIdentitiesControllerGroup,
 				DoFunc: func(ctx context.Context) (err error) {
 					err = e.allocator.WaitForInitialGlobalIdentities(ctx)
-					if err != nil {
+					switch {
+					case err != nil && !errors.Is(err, context.Canceled):
 						e.getLogger().Warn("Failed while waiting for initial global identities", logfields.Error, err)
+						fallthrough
+					case err != nil:
 						return err
 					}
 					close(gotInitialGlobalIdentities)
