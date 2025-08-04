@@ -31,6 +31,11 @@ k8s/delete service.yaml
 * db/empty services frontends backends
 * lb/maps-empty
 
+# Check that LoadBalancer IPs with IPMode other than VIP are skipped. 
+sed '#ipMode:' 'ipMode:' service.yaml
+k8s/add service.yaml endpointslice.yaml
+db/cmp frontends frontends_ipmode_proxy.table
+
 #####
 
 -- addrv4.yaml --
@@ -58,6 +63,11 @@ Address               Type         ServiceName   PortName   Status  Backends
 0.0.0.0:30781/TCP     NodePort     test/echo     http       Done        
 10.96.50.104:80/TCP   ClusterIP    test/echo     http       Done        
 172.16.1.1:80/TCP     LoadBalancer test/echo     http       Done
+
+-- frontends_ipmode_proxy.table --
+Address               Type         ServiceName   PortName   Status  Backends
+0.0.0.0:30781/TCP     NodePort     test/echo     http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
+10.96.50.104:80/TCP   ClusterIP    test/echo     http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
 
 -- backends.table --
 Address             Instances            NodeName
@@ -116,6 +126,7 @@ status:
   loadBalancer:
     ingress:
     - ip: 172.16.1.1
+      #ipMode: Proxy
 
 -- endpointslice.yaml --
 apiVersion: discovery.k8s.io/v1
