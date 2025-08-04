@@ -657,20 +657,40 @@ static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 				       const bool scope_switch)
 {
-	__u8 orig_proto = key->proto;
 	struct lb6_service *svc;
 
 	key->backend_slot = 0;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb6_lookup_service(key);
-	if (!svc)
+	if (!svc) {
+		__u8 orig_proto = key->proto;
+		__u16 orig_dport = key->dport;
+
+		key->dport = LB_SVC_WILDCARD_DPORT;
+		key->proto = LB_SVC_WILDCARD_PROTO;
+
+		svc = __lb6_lookup_service(key);
+
+		/* If wildcard lookup was successful, we return the wildcard service while
+		 * leaving the modified dport/proto values in the key. A wildcard service
+		 * entry will have no backends and so caller should trigger a drop.
+		 */
+		if (svc)
+			return svc;
+
+		key->dport = orig_dport;
+		key->proto = orig_proto;
+
+		/* If we have no external scope for this, it's safe to return NULL here
+		 * because there can't be an internal scope. (For now.)
+		 */
 		return NULL;
+	}
 
 	if (!scope_switch || !lb6_svc_is_two_scopes(svc))
 		return svc;
 
-	key->proto = orig_proto;
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb6_lookup_service(key);
 }
@@ -1369,20 +1389,40 @@ static __always_inline
 struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 				       const bool scope_switch)
 {
-	__u8 orig_proto = key->proto;
 	struct lb4_service *svc;
 
 	key->backend_slot = 0;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb4_lookup_service(key);
-	if (!svc)
+	if (!svc) {
+		__u8 orig_proto = key->proto;
+		__u16 orig_dport = key->dport;
+
+		key->dport = LB_SVC_WILDCARD_DPORT;
+		key->proto = LB_SVC_WILDCARD_PROTO;
+
+		svc = __lb4_lookup_service(key);
+
+		/* If wildcard lookup was successful, we return the wildcard service while
+		 * leaving the modified dport/proto values in the key. A wildcard service
+		 * entry will have no backends and so caller should trigger a drop.
+		 */
+		if (svc)
+			return svc;
+
+		key->dport = orig_dport;
+		key->proto = orig_proto;
+
+		/* If we have no external scope for this, it's safe to return NULL here
+		 * because there can't be an internal scope. (For now.)
+		 */
 		return NULL;
+	}
 
 	if (!scope_switch || !lb4_svc_is_two_scopes(svc))
 		return svc;
 
-	key->proto = orig_proto;
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb4_lookup_service(key);
 }
