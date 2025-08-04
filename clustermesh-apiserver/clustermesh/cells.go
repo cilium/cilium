@@ -30,6 +30,7 @@ var Cell = cell.Module(
 	"clustermesh",
 	"Cilium ClusterMesh",
 
+	cell.Config(operator.ClusterMeshConfig{}),
 	cell.Config(operator.MCSAPIConfig{}),
 
 	pprof.Cell(pprofConfig),
@@ -67,6 +68,14 @@ var Cell = cell.Module(
 var Synchronization = cell.Module(
 	"clustermesh-synchronization",
 	"Synchronize information from Kubernetes to KVStore",
+
+	// Namespace watcher for tracking global namespaces
+	cell.Group(
+		cell.Provide(
+			newNamespaceWatcherConfig,
+			RegisterNamespaceWatcher,
+		),
+	),
 
 	cell.Group(
 		cell.Provide(
@@ -139,4 +148,19 @@ var pprofConfig = pprof.Config{
 	Pprof:        false,
 	PprofAddress: option.PprofAddress,
 	PprofPort:    option.PprofPortClusterMesh,
+}
+
+type namespaceWatcherConfigParams struct {
+	cell.In
+	// Add a simple configuration for the namespace watcher
+}
+
+type ClusterMeshConfig struct {
+	// ClusterMeshDefaultGlobalNamespace determines the default behavior for namespaces
+	ClusterMeshDefaultGlobalNamespace bool
+}
+
+func newNamespaceWatcherConfig(params namespaceWatcherConfigParams) NamespaceWatcherConfig {
+	// Default to local namespaces when filtering is active
+	return NamespaceWatcherConfig{DefaultGlobalNamespace: false}
 }

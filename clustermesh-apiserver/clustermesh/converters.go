@@ -31,6 +31,25 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
+// NamespaceFilter provides filtering capabilities based on global namespaces.
+type NamespaceFilter interface {
+	// ShouldExport returns true if a resource in the given namespace should be exported.
+	ShouldExport(namespace string) bool
+}
+
+// globalNamespaceFilter implements NamespaceFilter using a GlobalNamespaceTracker.
+type globalNamespaceFilter struct {
+	tracker GlobalNamespaceTracker
+}
+
+func NewGlobalNamespaceFilter(tracker GlobalNamespaceTracker) NamespaceFilter {
+	return &globalNamespaceFilter{tracker: tracker}
+}
+
+func (f *globalNamespaceFilter) ShouldExport(namespace string) bool {
+	return f.tracker.IsGlobalNamespace(namespace)
+}
+
 // noneIter is a zero-length [Seq].
 func noneIter[T any](func(T) bool) {}
 
@@ -134,10 +153,14 @@ func newCiliumIdentityOptions() Options[*cilium_api_v2.CiliumIdentity] {
 }
 
 // CiliumIdentityConverter implements Converter[*cilium_api_v2.CiliumIdentity]
-type CiliumIdentityConverter struct{ logger *slog.Logger }
+type CiliumIdentityConverter struct{ 
+	logger   *slog.Logger 
+	nsFilter NamespaceFilter
+}
 
-func newCiliumIdentityConverter(logger *slog.Logger) Converter[*cilium_api_v2.CiliumIdentity] {
-	return &CiliumIdentityConverter{logger: logger}
+func newCiliumIdentityConverter(logger *slog.Logger, tracker GlobalNamespaceTracker) Converter[*cilium_api_v2.CiliumIdentity] {
+	nsFilter := NewGlobalNamespaceFilter(tracker)
+	return &CiliumIdentityConverter{logger: logger, nsFilter: nsFilter}
 }
 
 func (ic *CiliumIdentityConverter) Convert(event resource.Event[*cilium_api_v2.CiliumIdentity]) (upserts iter.Seq[store.Key], deletes iter.Seq[store.NamedKey]) {
@@ -157,6 +180,14 @@ func (ic *CiliumIdentityConverter) Convert(event resource.Event[*cilium_api_v2.C
 		return noneIter[store.Key], noneIter[store.NamedKey]
 	}
 
+	// Check if identity belongs to a global namespace
+	if namespace, exists := identity.SecurityLabels["io.kubernetes.pod.namespace"]; exists {
+		if !ic.nsFilter.ShouldExport(namespace) {
+			// Identity belongs to a non-global namespace, don't export
+			return noneIter[store.Key], noneIter[store.NamedKey]
+		}
+	}
+
 	lbls := labels.Map2Labels(identity.SecurityLabels, "").SortedList()
 	kv := store.NewKVPair(identity.Name, string(lbls))
 	return singleIter[store.Key](kv), noneIter[store.NamedKey]
@@ -173,12 +204,20 @@ func newCiliumEndpointOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[*type
 	}
 }
 
-func newCiliumEndpointConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo) Converter[*types.CiliumEndpoint] {
-	return NewCachedCoverter(ciliumEndpointMapper)
+func newCiliumEndpointConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo, tracker GlobalNamespaceTracker) Converter[*types.CiliumEndpoint] {
+	nsFilter := NewGlobalNamespaceFilter(tracker)
+	return NewCachedCoverter(func(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
+		return ciliumEndpointMapper(endpoint, nsFilter)
+	})
 }
 
-func ciliumEndpointMapper(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
+func ciliumEndpointMapper(endpoint *types.CiliumEndpoint, nsFilter NamespaceFilter) iter.Seq[store.Key] {
 	return func(yield func(store.Key) bool) {
+		// Only export endpoints from global namespaces
+		if !nsFilter.ShouldExport(endpoint.Namespace) {
+			return
+		}
+
 		if n := endpoint.Networking; n != nil {
 			for _, address := range n.Addressing {
 				for _, ip := range []string{address.IPV4, address.IPV6} {
@@ -218,12 +257,20 @@ func newCiliumEndpointSliceOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[
 	}
 }
 
-func newCiliumEndpointSliceConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo) Converter[*cilium_api_v2a1.CiliumEndpointSlice] {
-	return NewCachedCoverter(ciliumEndpointSliceMapper)
+func newCiliumEndpointSliceConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo, tracker GlobalNamespaceTracker) Converter[*cilium_api_v2a1.CiliumEndpointSlice] {
+	nsFilter := NewGlobalNamespaceFilter(tracker)
+	return NewCachedCoverter(func(endpointslice *cilium_api_v2a1.CiliumEndpointSlice) iter.Seq[store.Key] {
+		return ciliumEndpointSliceMapper(endpointslice, nsFilter)
+	})
 }
 
-func ciliumEndpointSliceMapper(endpointslice *cilium_api_v2a1.CiliumEndpointSlice) iter.Seq[store.Key] {
+func ciliumEndpointSliceMapper(endpointslice *cilium_api_v2a1.CiliumEndpointSlice, nsFilter NamespaceFilter) iter.Seq[store.Key] {
 	return func(yield func(store.Key) bool) {
+		// Only export endpoint slices from global namespaces
+		if !nsFilter.ShouldExport(endpointslice.Namespace) {
+			return
+		}
+
 		for _, endpoint := range endpointslice.Endpoints {
 			if n := endpoint.Networking; n != nil {
 				for _, address := range n.Addressing {
