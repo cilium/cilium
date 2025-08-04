@@ -37,6 +37,7 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	clientset_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -175,6 +176,7 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 	// Construct a new Hive with mocked out dependency cells.
 	f.cells = []cell.Cell{
 		cell.Config(k8sPkg.DefaultConfig),
+		cell.Provide(func() loadbalancer.Config { return loadbalancer.DefaultConfig }),
 
 		cell.Provide(k8sPkg.DefaultServiceWatchConfig),
 
@@ -203,13 +205,16 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 			return f.fakeClientSet
 		}),
 
-		// Provide route and device tables
+		// Provide statedb tables
 		cell.Provide(
 			tables.NewRouteTable,
 			tables.NewDeviceTable,
-			statedb.RWTable[*tables.Route].ToTable,  // Table[*Route]
-			statedb.RWTable[*tables.Device].ToTable, // Table[*Device]
+			loadbalancer.NewFrontendsTable,
+			statedb.RWTable[*tables.Route].ToTable,          // Table[*Route]
+			statedb.RWTable[*tables.Device].ToTable,         // Table[*Device]
+			statedb.RWTable[*loadbalancer.Frontend].ToTable, // Table[*loadbalancer.Frontend]]
 		),
+
 		// daemon config
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
