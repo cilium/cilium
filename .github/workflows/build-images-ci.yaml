@@ -66,15 +66,6 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
-      - name: Setup docker volumes into /mnt
-        # This allows us to make use of all available disk.
-        shell: bash
-        run: |
-          sudo systemctl stop docker
-          sudo mv /var/lib/docker/volumes /mnt/docker-volumes
-          sudo ln -s /mnt/docker-volumes /var/lib/docker/volumes
-          sudo systemctl start docker
-
       - name: Check for disk usage and cleanup /mnt
         shell: bash
         run: |
