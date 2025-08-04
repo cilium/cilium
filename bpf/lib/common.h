@@ -827,7 +827,15 @@ struct ct_entry {
 	__u32 last_rx_report;
 };
 
-#define IPPROTO_ANY	0	/* For service lookup with ANY L4 protocol */
+/* We previously tolerated services with no specified L4 protocol (IPPROTO_ANY).
+ *
+ * This was deprecated, and we now re-purpose IPPROTO_ANY such that when combined with
+ * a zero L4 Destination Port, we can encode a wild-card service entry. This informs
+ * the data path to drop flows towards IPs we know about, but on services we don't.
+ */
+#define IPPROTO_ANY	0
+#define LB_SVC_WILDCARD_PROTO IPPROTO_ANY
+#define LB_SVC_WILDCARD_DPORT 0
 
 struct lb6_key {
 	union v6addr address;	/* Service virtual IPv6 address */
