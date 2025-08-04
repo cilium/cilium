@@ -4,6 +4,7 @@
 package gneigh
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -39,6 +40,14 @@ func (fs *fakeSender) SendArp(iface Interface, ip netip.Addr) error {
 func (fs *fakeSender) SendNd(iface Interface, ip netip.Addr) error {
 	// Not used in this test
 	return nil
+}
+
+func (fs *fakeSender) NewArpSender(iface Interface) (ArpSender, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (fs *fakeSender) NewNdSender(iface Interface) (NdSender, error) {
+	return nil, errors.New("not implemented")
 }
 
 // InterfaceByIndex get Interface by ifindex
