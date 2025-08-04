@@ -279,7 +279,6 @@ jobs:
         id: e2e_config
         uses: ./.github/actions/cli-test-config
         with:
-          external-target: google.com.
           hubble: false
           include-unsafe-tests: true
           test-concurrency: 5
