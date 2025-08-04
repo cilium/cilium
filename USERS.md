@@ -116,6 +116,12 @@ Users (Alphabetically)
       U: Hubble for Visibility, Cilium as Mesh between Services
       L: https://www.ayedo.de/
 
+    * N: Batumbu
+      D: Batumbu uses Cilium as the CNI in all GKE clusters, using its cluster mesh feature to connect clusters within the same environment.
+      U: CNI, Cluster Mesh, Hubble, NetworkPolicy
+      Q: @gustysap
+      L: https://batumbu.id/
+
     * N: Back Market
       D: Back Market is using Cilium as CNI in all their clusters and environments (kOps + EKS in AWS)
       U: CNI, Network Policies, Transparent Encryption (WG), Hubble
