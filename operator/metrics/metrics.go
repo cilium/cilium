@@ -93,7 +93,7 @@ func registerMetricsManager(p params) {
 	// Unregister default Go collector that is added by default by the controller-runtime library.
 	// This is necessary to be able to register a Go collector with additional runtime metrics
 	// without any clashes with the existing Go collector.
-	Registry.Unregister(collectors.NewGoCollector())
+	Registry.Unregister(collectors.NewGoCollector(collectors.WithGoCollectorRuntimeMetrics(collectors.MetricsAll)))
 
 	Registry.MustRegister(collectors.NewGoCollector(
 		collectors.WithGoCollectorRuntimeMetrics(
