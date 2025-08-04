@@ -52,7 +52,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
-		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService, leaderElectionLost}
+		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService}
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
 	}
@@ -160,8 +160,10 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				// Check for legitimate cilium-operator restart patterns
 				if container == "cilium-operator" && restarts > 0 {
 					var logs bytes.Buffer
-					err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs)
-					if err == nil {
+					err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, prevOpts, &logs)
+					if err != nil {
+						a.Logf("Warning: Could not retrieve previous logs to check for legitimate operator restart patterns: %s", err)
+					} else {
 						if hasLegitimateOperatorRestartPatterns(logs.Bytes()) {
 							ignore = true
 						}
@@ -424,7 +426,6 @@ const (
 	failedToReleaseLock    stringMatcher = "Failed to release lock:"
 	previouslyUsedCIDR     stringMatcher = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
 	klogLeaderElectionFail stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
-	leaderElectionLost     stringMatcher = "Leader election lost"                                                      // from: https://github.com/cilium/cilium/issues/40858
 	nilDetailsForService   stringMatcher = "retrieved nil details for Service"                                         // from: https://github.com/cilium/cilium/issues/35595
 
 	cantEnableJIT               stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.
@@ -492,17 +493,7 @@ var (
 // that indicate legitimate restart scenarios like leader election failures.
 func hasLegitimateOperatorRestartPatterns(logs []byte) bool {
 	logStr := string(logs)
-	legitimatePatterns := []logMatcher{
-		leaderElectionLost,
-		failedToUpdateLock,
-		failedToReleaseLock,
-		klogLeaderElectionFail,
-	}
-
-	for _, pattern := range legitimatePatterns {
-		if pattern.IsMatch(logStr) {
-			return true
-		}
-	}
-	return false
+	// Only "Leader election lost" indicates an intentional restart
+	// Other patterns like "Failed to update lock" are error conditions, not restart causes
+	return strings.Contains(logStr, "Leader election lost")
 }
