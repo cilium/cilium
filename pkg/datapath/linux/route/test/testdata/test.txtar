@@ -27,6 +27,20 @@ sleep 1s
 db/show desired-routes
 exec ip r show table all
 
+exec ip r del 10.2.3.4 dev veth1 proto kernel
+
+sleep 1s
+
+# the deleted route should be added again
+exec ip r get 10.2.3.4 dev veth1
+
+link/del veth1
+
+sleep 1s
+
+# route for 10.2.3.4 should now go through device veth0
+exec ip r get 10.2.3.4 dev veth0
+
 -- route1.yaml --
 table: main
 prefix: "10.2.3.4/32"
