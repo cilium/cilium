@@ -262,6 +262,7 @@ test_result_cursor = 0;
 #define PKTGEN(progtype, name) __section(progtype "/test/" name "/pktgen")
 #define SETUP(progtype, name) __section(progtype "/test/" name "/setup")
 #define CHECK(progtype, name) __section(progtype "/test/" name "/check")
+#define BENCH(progtype, name) __section(progtype "/test/" name "/bench")
 
 /* Asserts that the sum of per-cpu metrics map slots for a key equals count */
 #define assert_metrics_count(key, count) \
