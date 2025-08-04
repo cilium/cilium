@@ -44,7 +44,7 @@ jobs:
     # Skip this workflow for branches that are created by renovate and event type is pull_request_target
     if: ${{ ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
-    timeout-minutes: 45
+    timeout-minutes: 60
     environment: ${{ inputs.environment || 'release-base-images' }}
     runs-on: ubuntu-24.04
     steps:
