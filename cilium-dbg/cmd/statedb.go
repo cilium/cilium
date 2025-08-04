@@ -17,33 +17,6 @@ import (
 
 var StatedbCmd = &cobra.Command{
 	Use:   "statedb",
-	Short: "Inspect StateDB (deprecated)",
-	Run: func(cmd *cobra.Command, args []string) {
-		Fatalf(`This command has been deprecated and will be removed in the next Cilium release.
-
-StateDB tables can now be inspected via the Cilium shell:
-
-$ cilium-dbg shell
-cilium> help db
-(shows help for 'db' command)
-
-cilium> db
-(shows all registered tables)
-
-cilium> db/show health
-(shows contents of health table)
-
-$ cilium-dbg shell -- db/show health
-(shows contents of health table)
-
-$ cilium-dbg shell -- db/show -format=json health
-(shows contents as JSON)
-`)
-	},
-}
-
-var statedbDumpCmd = &cobra.Command{
-	Use:   "dump",
 	Short: "Dump StateDB contents as JSON",
 	Run: func(cmd *cobra.Command, args []string) {
 		transport, err := clientPkg.NewTransport("")
@@ -61,9 +34,6 @@ var statedbDumpCmd = &cobra.Command{
 }
 
 func init() {
-	StatedbCmd.AddCommand(
-		statedbDumpCmd,
-	)
 	RootCmd.AddCommand(StatedbCmd)
 }
 

@@ -2,7 +2,7 @@
 
 ## cilium-dbg statedb
 
-Inspect StateDB (deprecated)
+Dump StateDB contents as JSON
 
 ```
 cilium-dbg statedb [flags]
@@ -27,5 +27,4 @@ cilium-dbg statedb [flags]
 ### SEE ALSO
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
-* [cilium-dbg statedb dump](cilium-dbg_statedb_dump.md)	 - Dump StateDB contents as JSON
 
