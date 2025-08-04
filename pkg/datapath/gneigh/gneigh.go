@@ -11,6 +11,7 @@ import (
 	"github.com/mdlayher/arp"
 	"github.com/mdlayher/ethernet"
 	"github.com/mdlayher/ndp"
+	"github.com/mdlayher/packet"
 	"github.com/vishvananda/netlink"
 )
 
@@ -40,7 +41,8 @@ func (s *sender) SendArp(iface Interface, ip netip.Addr) error {
 		return fmt.Errorf("failed to send gratuitous ARP packet. Address is v6 %s", ip)
 	}
 
-	arpClient, err := arp.Dial(iface.iface)
+	// We do not use [arp.Dial] as it strictly requires the iface to be assigned an IPv4 address.
+	arpClient, err := packet.Listen(iface.iface, packet.Raw, int(ethernet.EtherTypeARP), nil)
 	if err != nil {
 		return fmt.Errorf("failed to open ARP socket: %w", err)
 	}
@@ -51,7 +53,24 @@ func (s *sender) SendArp(iface Interface, ip netip.Addr) error {
 		return fmt.Errorf("failed to craft gratuitous ARP packet: %w", err)
 	}
 
-	err = arpClient.WriteTo(arp, ethernet.Broadcast)
+	pb, err := arp.MarshalBinary()
+	if err != nil {
+		return fmt.Errorf("failed to marshal gratuitous ARP packet: %w", err)
+	}
+
+	f := &ethernet.Frame{
+		Destination: ethernet.Broadcast,
+		Source:      arp.SenderHardwareAddr,
+		EtherType:   ethernet.EtherTypeARP,
+		Payload:     pb,
+	}
+
+	fb, err := f.MarshalBinary()
+	if err != nil {
+		return fmt.Errorf("failed to marshal gratuitous ARP packet: %w", err)
+	}
+
+	_, err = arpClient.WriteTo(fb, &packet.Addr{HardwareAddr: ethernet.Broadcast})
 	if err != nil {
 		return fmt.Errorf("failed to send gratuitous ARP packet: %w", err)
 	}
