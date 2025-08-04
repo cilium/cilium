@@ -13,6 +13,8 @@ import (
 	"github.com/mdlayher/ndp"
 	"github.com/mdlayher/packet"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/net/bpf"
+	"golang.org/x/net/ipv6"
 )
 
 type Sender interface {
@@ -62,9 +64,21 @@ type Interface struct {
 
 type sender struct{}
 
+// arpDropAllFilter filters out all packets, as we are only interested in
+// sending gARPs, not receiving anything.
+var arpDropAllFilter = packet.Config{
+	Filter: []bpf.RawInstruction{
+		func() bpf.RawInstruction {
+			// [RetConstant.Assemble] never returns a non-nil error.
+			ins, _ := bpf.RetConstant{Val: 0 /* discard the packet */}.Assemble()
+			return ins
+		}(),
+	},
+}
+
 func (s *sender) NewArpSender(iface Interface) (ArpSender, error) {
 	// We do not use [arp.Dial] as it strictly requires the iface to be assigned an IPv4 address.
-	cl, err := packet.Listen(iface.iface, packet.Raw, int(ethernet.EtherTypeARP), nil)
+	cl, err := packet.Listen(iface.iface, packet.Raw, int(ethernet.EtherTypeARP), &arpDropAllFilter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open ARP socket: %w", err)
 	}
@@ -85,10 +99,21 @@ func (s *sender) SendArp(iface Interface, ip netip.Addr) error {
 	return cl.Send(ip)
 }
 
+// icmpDropAllFilter filters out all packets, as we are only interested in
+// sending gNDs, not receiving anything.
+var icmpDropAllFilter = func() (filter ipv6.ICMPFilter) {
+	filter.SetAll(true)
+	return filter
+}()
+
 func (s *sender) NewNdSender(iface Interface) (NdSender, error) {
 	cl, _, err := ndp.Listen(iface.iface, ndp.LinkLocal)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open ND socket: %w", err)
+	}
+
+	if err := cl.SetICMPFilter(&icmpDropAllFilter); err != nil {
+		return nil, fmt.Errorf("failed to configure ICMP filter: %w", err)
 	}
 
 	return &ndSender{
