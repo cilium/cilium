@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/revert"
@@ -133,8 +134,9 @@ func (r *RedirectSuiteProxy) GetListenerProxyPort(listener string) uint16 {
 
 // DummyOwner implements pkg/endpoint/regeneration/Owner. Used for unit testing.
 type DummyOwner struct {
-	repo  policy.PolicyRepository
-	idmgr identitymanager.IDManager
+	repo    policy.PolicyRepository
+	fetcher compute.PolicyRecomputer
+	idmgr   identitymanager.IDManager
 }
 
 // GetNodeSuffix does nothing.
@@ -163,7 +165,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	logger := hivetest.Logger(t)
 	model := newTestEndpointModel(12345, StateRegenerating)
 	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
-	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), kvstoreSync, model)
+	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.do.repo, s.do.fetcher, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), kvstoreSync, model)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
