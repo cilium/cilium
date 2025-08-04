@@ -281,7 +281,8 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		// LoadBalancer
 		if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer && expType.CanExpose(slim_corev1.ServiceTypeLoadBalancer) {
 			for _, ip := range svc.Status.LoadBalancer.Ingress {
-				if ip.IP == "" {
+				if ip.IP == "" ||
+					(ip.IPMode != nil && *ip.IPMode != slim_corev1.LoadBalancerIPModeVIP) /* KEP-1860, skip non-VIP */ {
 					continue
 				}
 
