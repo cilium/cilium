@@ -48,7 +48,7 @@ func (s *sender) SendArp(iface Interface, ip netip.Addr) error {
 	}
 	defer arpClient.Close()
 
-	arp, err := arp.NewPacket(arp.OperationReply, iface.iface.HardwareAddr, ip, ethernet.Broadcast, ip)
+	arp, err := arp.NewPacket(arp.OperationRequest, iface.iface.HardwareAddr, ip, ethernet.Broadcast, ip)
 	if err != nil {
 		return fmt.Errorf("failed to craft gratuitous ARP packet: %w", err)
 	}
