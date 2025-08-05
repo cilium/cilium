@@ -32,16 +32,9 @@ func TestMergeClusters(t *testing.T) {
 				},
 			},
 			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"enabled": true,
-						"clusters": map[string]any{
-							"c3": map[string]any{
-								"ips":  []string{"172.19.0.6"},
-								"port": "32379",
-							},
-						},
-					},
+				"c3": map[string]any{
+					"ips":  []string{"172.19.0.6"},
+					"port": "32379",
 				},
 			},
 		},
@@ -62,24 +55,17 @@ func TestMergeClusters(t *testing.T) {
 				},
 			},
 			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"enabled": true,
-						"clusters": map[string]any{
-							"c3": map[string]any{
-								"ips":  []string{"172.19.0.6"},
-								"port": "32379",
-							},
-							"c2": map[string]any{
-								"ips":  []string{"172.19.0.7"},
-								"port": "32379",
-							},
-							"c1": map[string]any{
-								"ips":  []string{"172.19.0.8"},
-								"port": "32379",
-							},
-						},
-					},
+				"c3": map[string]any{
+					"ips":  []string{"172.19.0.6"},
+					"port": "32379",
+				},
+				"c2": map[string]any{
+					"ips":  []string{"172.19.0.7"},
+					"port": "32379",
+				},
+				"c1": map[string]any{
+					"ips":  []string{"172.19.0.8"},
+					"port": "32379",
 				},
 			},
 		},
@@ -105,28 +91,21 @@ func TestMergeClusters(t *testing.T) {
 				},
 			},
 			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"enabled": true,
-						"clusters": map[string]any{
-							"c2": map[string]any{
-								"ips":  []string{"172.19.0.5"},
-								"port": "32379",
-							},
-							"c1": map[string]any{
-								"ips":  []string{"172.19.0.4"},
-								"port": "32379",
-							},
-							"c3": map[string]any{
-								"ips":  []string{"172.19.0.6"},
-								"port": "32379",
-							},
-							"c4": map[string]any{
-								"ips":  []string{"172.19.0.7"},
-								"port": "32379",
-							},
-						},
-					},
+				"c2": map[string]any{
+					"ips":  []string{"172.19.0.5"},
+					"port": "32379",
+				},
+				"c1": map[string]any{
+					"ips":  []string{"172.19.0.4"},
+					"port": "32379",
+				},
+				"c3": map[string]any{
+					"ips":  []string{"172.19.0.6"},
+					"port": "32379",
+				},
+				"c4": map[string]any{
+					"ips":  []string{"172.19.0.7"},
+					"port": "32379",
 				},
 			},
 		},
@@ -152,24 +131,17 @@ func TestMergeClusters(t *testing.T) {
 				},
 			},
 			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"enabled": true,
-						"clusters": map[string]any{
-							"c3": map[string]any{
-								"ips":  []string{"172.19.0.6"},
-								"port": "32379",
-							},
-							"c2": map[string]any{
-								"ips":  []string{"172.19.0.5"},
-								"port": "32379",
-							},
-							"c1": map[string]any{
-								"ips":  []string{"172.19.0.4"},
-								"port": "32379",
-							},
-						},
-					},
+				"c3": map[string]any{
+					"ips":  []string{"172.19.0.6"},
+					"port": "32379",
+				},
+				"c2": map[string]any{
+					"ips":  []string{"172.19.0.5"},
+					"port": "32379",
+				},
+				"c1": map[string]any{
+					"ips":  []string{"172.19.0.4"},
+					"port": "32379",
 				},
 			},
 		},
@@ -199,28 +171,21 @@ func TestMergeClusters(t *testing.T) {
 				},
 			},
 			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"enabled": true,
-						"clusters": map[string]any{
-							"c3": map[string]any{
-								"ips":  []string{"172.19.0.6"},
-								"port": "32379",
-							},
-							"c2": map[string]any{
-								"ips":  []string{"172.19.0.5"},
-								"port": "32379",
-							},
-							"c1": map[string]any{
-								"ips":  []string{"172.19.0.4"},
-								"port": "32379",
-							},
-							"c4": map[string]any{
-								"ips":  []string{"172.19.0.7"},
-								"port": "32379",
-							},
-						},
-					},
+				"c3": map[string]any{
+					"ips":  []string{"172.19.0.6"},
+					"port": "32379",
+				},
+				"c2": map[string]any{
+					"ips":  []string{"172.19.0.5"},
+					"port": "32379",
+				},
+				"c1": map[string]any{
+					"ips":  []string{"172.19.0.4"},
+					"port": "32379",
+				},
+				"c4": map[string]any{
+					"ips":  []string{"172.19.0.7"},
+					"port": "32379",
 				},
 			},
 		},
@@ -251,28 +216,21 @@ func TestMergeClusters(t *testing.T) {
 			},
 			exceptCluster: "c4",
 			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"enabled": true,
-						"clusters": map[string]any{
-							"c3": map[string]any{
-								"ips":  []string{"172.19.0.6"},
-								"port": "32379",
-							},
-							"c2": map[string]any{
-								"ips":  []string{"172.19.0.5"},
-								"port": "32379",
-							},
-							"c1": map[string]any{
-								"ips":  []string{"172.19.0.4"},
-								"port": "32379",
-							},
-							"c5": map[string]any{
-								"ips":  []string{"172.19.0.8"},
-								"port": "32379",
-							},
-						},
-					},
+				"c3": map[string]any{
+					"ips":  []string{"172.19.0.6"},
+					"port": "32379",
+				},
+				"c2": map[string]any{
+					"ips":  []string{"172.19.0.5"},
+					"port": "32379",
+				},
+				"c1": map[string]any{
+					"ips":  []string{"172.19.0.4"},
+					"port": "32379",
+				},
+				"c5": map[string]any{
+					"ips":  []string{"172.19.0.8"},
+					"port": "32379",
 				},
 			},
 		},
@@ -303,24 +261,17 @@ func TestMergeClusters(t *testing.T) {
 			},
 			exceptCluster: "c4",
 			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"enabled": true,
-						"clusters": map[string]any{
-							"c3": map[string]any{
-								"ips":  []string{"172.19.0.6"},
-								"port": "32379",
-							},
-							"c2": map[string]any{
-								"ips":  []string{"172.19.0.5"},
-								"port": "32379",
-							},
-							"c1": map[string]any{
-								"ips":  []string{"172.19.0.4"},
-								"port": "32379",
-							},
-						},
-					},
+				"c3": map[string]any{
+					"ips":  []string{"172.19.0.6"},
+					"port": "32379",
+				},
+				"c2": map[string]any{
+					"ips":  []string{"172.19.0.5"},
+					"port": "32379",
+				},
+				"c1": map[string]any{
+					"ips":  []string{"172.19.0.4"},
+					"port": "32379",
 				},
 			},
 		},
@@ -351,28 +302,21 @@ func TestMergeClusters(t *testing.T) {
 			},
 			exceptCluster: "c2",
 			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"enabled": true,
-						"clusters": map[string]any{
-							"c3": map[string]any{
-								"ips":  []string{"172.19.0.6"},
-								"port": "32379",
-							},
-							"c2": map[string]any{
-								"ips":  []string{"172.19.0.5"},
-								"port": "32379",
-							},
-							"c1": map[string]any{
-								"ips":  []string{"172.19.0.4"},
-								"port": "32379",
-							},
-							"c4": map[string]any{
-								"ips":  []string{"172.19.0.7"},
-								"port": "32379",
-							},
-						},
-					},
+				"c3": map[string]any{
+					"ips":  []string{"172.19.0.6"},
+					"port": "32379",
+				},
+				"c2": map[string]any{
+					"ips":  []string{"172.19.0.5"},
+					"port": "32379",
+				},
+				"c1": map[string]any{
+					"ips":  []string{"172.19.0.4"},
+					"port": "32379",
+				},
+				"c4": map[string]any{
+					"ips":  []string{"172.19.0.7"},
+					"port": "32379",
 				},
 			},
 		},
@@ -400,14 +344,7 @@ func TestRemoveFromClustermeshConfig(t *testing.T) {
 	}{
 		"missing": {
 			clusters: []string{"test1", "test2"},
-			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"clusters": map[string]any{},
-						"enabled":  true,
-					},
-				},
-			},
+			e:        map[string]any{},
 		},
 		"empty": {
 			clusters: []string{"c1", "c2"},
@@ -418,14 +355,7 @@ func TestRemoveFromClustermeshConfig(t *testing.T) {
 					},
 				},
 			},
-			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"clusters": map[string]any{},
-						"enabled":  true,
-					},
-				},
-			},
+			e: map[string]any{},
 		},
 		"connected": {
 			clusters: []string{"c1", "c2"},
@@ -450,15 +380,9 @@ func TestRemoveFromClustermeshConfig(t *testing.T) {
 				},
 			},
 			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"clusters": map[string]any{
-							"c3": map[string]any{
-								"ips":  []any{"172.19.0.6"},
-								"port": "32379",
-							},
-						}, "enabled": true,
-					},
+				"c3": map[string]any{
+					"ips":  []any{"172.19.0.6"},
+					"port": "32379",
 				},
 			},
 		},
@@ -481,15 +405,9 @@ func TestRemoveFromClustermeshConfig(t *testing.T) {
 				},
 			},
 			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"clusters": map[string]any{
-							"c2": map[string]any{
-								"ips":  []any{"172.19.0.4"},
-								"port": "32379",
-							},
-						}, "enabled": true,
-					},
+				"c2": map[string]any{
+					"ips":  []any{"172.19.0.4"},
+					"port": "32379",
 				},
 			},
 		},
@@ -512,20 +430,13 @@ func TestRemoveFromClustermeshConfig(t *testing.T) {
 				},
 			},
 			e: map[string]any{
-				"clustermesh": map[string]any{
-					"config": map[string]any{
-						"clusters": map[string]any{
-							"c3": map[string]any{
-								"ips":  []any{"172.19.0.6"},
-								"port": "32379",
-							},
-							"c2": map[string]any{
-								"ips":  []any{"172.19.0.4"},
-								"port": "32379",
-							},
-						},
-						"enabled": true,
-					},
+				"c3": map[string]any{
+					"ips":  []any{"172.19.0.6"},
+					"port": "32379",
+				},
+				"c2": map[string]any{
+					"ips":  []any{"172.19.0.4"},
+					"port": "32379",
 				},
 			},
 		},
