@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"net"
+	"math/rand/v2"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -1512,23 +1511,20 @@ func BenchmarkManyCIDREntries(b *testing.B) {
 
 // generateUniqueCIDRs generates a specified number of unique CIDRs.
 func generateUniqueCIDRs(n int) []cmtypes.PrefixCluster {
-	rand.Seed(time.Now().UnixNano())
-
 	unique := sets.New[cmtypes.PrefixCluster]()
 	for unique.Len() < n {
 		// Generate a random IP address
-		ip := net.IPv4(
-			byte(rand.Intn(256)),
-			byte(rand.Intn(256)),
-			byte(rand.Intn(256)),
-			byte(rand.Intn(256)),
-		)
+		addr := netip.AddrFrom4([4]byte{
+			byte(rand.IntN(256)),
+			byte(rand.IntN(256)),
+			byte(rand.IntN(256)),
+			byte(rand.IntN(256)),
+		})
 
 		// Generate a random subnet mask (between 16 and 31)
-		cidr := ip.String() + "/" + strconv.Itoa(rand.Intn(15)+17)
-		unique = unique.Insert(cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix(cidr)))
+		prefix := netip.PrefixFrom(addr, rand.IntN(15)+17)
+		unique = unique.Insert(cmtypes.NewLocalPrefixCluster(prefix))
 	}
-
 	return slices.Collect(maps.Keys(unique))
 }
 
