@@ -1191,7 +1191,17 @@ type ClusterState struct {
 }
 
 func processLocalClient(localRelease *release.Release) (*ClusterState, error) {
-	state := &ClusterState{}
+	state := &ClusterState{
+		localOldClusters:       make(map[string]any),
+		localNewClusters:       make(map[string]any),
+		localHelmValues:        make(map[string]any),
+		remoteHelmValuesMesh:   make(map[string]map[string]any),
+		remoteHelmValuesBD:     make(map[string]map[string]any),
+		remoteClients:          make(map[string]*k8s.Client),
+		remoteOldClustersAll:   make(map[string]map[string]any),
+		remoteHelmValuesDelete: make(map[*k8s.Client]map[string]any),
+		remoteNewCluster:       make(map[string]any),
+	}
 	var err error
 
 	state.localOldClusters, err = getClustersFromValues(localRelease.Config)
@@ -1224,9 +1234,6 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 
 	// Expand those values to include the clustermesh configuration
 	newClusterName, newCluster := getCluster(aiRemote, !match)
-	if state.localNewClusters == nil {
-		state.localNewClusters = make(map[string]any)
-	}
 	if _, ok := state.localNewClusters[newClusterName]; ok {
 		return fmt.Errorf("Multiple remote clusters have the same name '%s'", newClusterName)
 	}
@@ -1243,9 +1250,6 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 	if err != nil {
 		return err
 	}
-	if state.remoteOldClustersAll == nil {
-		state.remoteOldClustersAll = make(map[string]map[string]any)
-	}
 	state.remoteOldClustersAll[aiRemote.ClusterName] = remoteOldClusters
 
 	state.remoteNewClusterName, state.remoteNewCluster = getCluster(aiLocal, !match)
@@ -1253,14 +1257,8 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 	if err != nil {
 		return err
 	}
-	if state.remoteHelmValuesBD == nil {
-		state.remoteHelmValuesBD = make(map[string]map[string]any)
-	}
 	state.remoteHelmValuesBD[aiRemote.ClusterName] = remoteHelmValues
 
-	if state.remoteClients == nil {
-		state.remoteClients = make(map[string]*k8s.Client)
-	}
 	state.remoteClients[aiRemote.ClusterName] = remoteClient
 	return nil
 }
@@ -1282,13 +1280,7 @@ func (k *K8sClusterMesh) processRemoteClients(ctx context.Context, remoteClients
 }
 
 func processRemoteHelmValuesMesh(state *ClusterState) error {
-	if state.remoteHelmValuesMesh == nil {
-		state.remoteHelmValuesMesh = make(map[string]map[string]any)
-	}
 	remoteNewClusters := maps.Clone(state.localNewClusters)
-	if remoteNewClusters == nil {
-		remoteNewClusters = make(map[string]any)
-	}
 	remoteNewClusters[state.remoteNewClusterName] = state.remoteNewCluster
 	for aiClusterName, remoteOldClusters := range state.remoteOldClustersAll {
 		remoteHelmValues, err := mergeClusters(remoteOldClusters, remoteNewClusters, aiClusterName)
@@ -1532,9 +1524,6 @@ func (k *K8sClusterMesh) retrieveRemoteHelmValues(ctx context.Context, remoteCli
 		remoteHelmValues, err := removeFromClustermeshConfig(remoteRelease.Config, remoteClusterNames)
 		if err != nil {
 			return err
-		}
-		if state.remoteHelmValuesDelete == nil {
-			state.remoteHelmValuesDelete = make(map[*k8s.Client]map[string]any)
 		}
 		state.remoteHelmValuesDelete[remoteClient] = remoteHelmValues
 		state.remoteClusterNames = append(state.remoteClusterNames, remoteClient.ClusterName())
