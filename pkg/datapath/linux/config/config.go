@@ -146,9 +146,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableIPv4 {
 		ipv4GW := cfg.CiliumInternalIPv4
-		ipv4Range := cfg.AllocCIDRIPv4
 		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4GW))
-		cDefinesMap["IPV4_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(ipv4Range.Mask)))
 
 		if option.Config.EnableIPv4FragmentsTracking {
 			cDefinesMap["ENABLE_IPV4_FRAGMENTS"] = "1"
