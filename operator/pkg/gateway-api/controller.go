@@ -38,6 +38,12 @@ const (
 	// Indexes Gateways and records if the Gateway is relevant for Cilium.
 	implementationGatewayIndex = "implementationGatewayIndex"
 
+	// Indexes TLSRoutes by all the backend Services referenced in the object.
+	backendServiceTLSRouteIndex = "backendServiceTLSRouteIndex"
+
+	// Indexes TLSRoutes by all the Gateway parents referenced in the object.
+	gatewayTLSRouteIndex = "gatewayTLSRouteIndex"
+
 	// Indexes GAMMA HTTPRoutes by all the GAMMA parents of that HTTPRoute.
 	// This is then be used by the Service reconciler to only retrieve any HTTPRoutes that have that specific
 	// Service as a parent.
