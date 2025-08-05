@@ -1,10 +1,5 @@
-// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
-
-#include <bpf/ctx/skb.h>
-#include <bpf/api.h>
-#include "common.h"
-#include "pktgen.h"
 
 #define ENABLE_SCTP
 #define ENABLE_IPV4
@@ -23,10 +18,24 @@
 #include <lib/nat.h>
 #include <lib/time.h>
 
-#include "bpf_nat_tuples.h"
+#include <bpf/helpers.h>
+#include <bpf/ctx/skb.h>
+#include <bpf/api.h>
+#include "common.h"
+#include "pktgen.h"
 
-#include "lib/endpoint.h"
-#include "lib/ipcache.h"
+#include <bpf/ctx/skb.h>
+#include <bpf/api.h>
+#include <bpf/config/node.h>
+
+#define DEBUG
+
+#include <lib/dbg.h>
+#include <lib/eps.h>
+#include <lib/nat.h>
+#include <lib/time.h>
+
+#include "bpf_nat_tuples.h"
 
 #define NODE_ONE { .addr = v6_node_one_addr }
 #define EXT_IP { .addr = v6_ext_node_one_addr }
@@ -94,14 +103,14 @@ struct {
  */
 __always_inline int gen_pmtu_pkt(struct pktgen *builder, int l4_type)
 {
-	struct ethhdr *l2;
-	struct ipv6hdr *outer_l3;
-	struct ipv6hdr *inner_l3;
-	struct icmp6hdr *l4;
-	struct tcphdr *inner_l4;
+	struct ethhdr *l2 = NULL;
+	struct ipv6hdr *outer_l3 = NULL;
+	struct ipv6hdr *inner_l3 = NULL;
+	struct icmp6hdr *l4 = NULL;
+	struct tcphdr *inner_l4 = NULL;
 	struct udphdr *inner_l4_udp = NULL; /* compiler complains if this isn't init to null? */
-	struct sctphdr *inner_l4_sctp;
-	void *data;
+	struct sctphdr *inner_l4_sctp = NULL;
+	void *data = NULL;
 
 	l2 = pktgen__push_ethhdr(builder);
 	if (!l2)
@@ -161,6 +170,67 @@ __always_inline int gen_pmtu_pkt(struct pktgen *builder, int l4_type)
 	return TEST_PASS;
 }
 
+int snat_v6_insert_ct_nat(__u8 proto)
+{
+	struct ipv6_nat_entry entry = {
+		.to_daddr = POD_IP,
+	};
+	entry.to_sport = 0;
+	entry.to_dport = 20;
+	struct ipv6_ct_tuple tuple = {
+		.daddr   = NODE_ONE,
+		.saddr   = EXT_IP,
+		.dport   = 30001, /* SNAT remapped port */
+		.sport   = 1234,
+		.nexthdr = proto,
+		.flags = TUPLE_F_IN,
+	};
+	return map_update_elem(&cilium_snat_v6_external, &tuple, &entry, BPF_ANY);
+}
+
+int do_icmp6_pkt_too_big_check(const struct __ctx_buff *ctx)
+{
+	struct ipv6hdr *l3 = NULL;
+	struct ipv6hdr *inner_l3 = NULL;
+	void *l4 = NULL;
+	void *data = (void *)(long)ctx->data;
+	void *data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
+		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr) +
+		2 * sizeof(__u16) > data_end)
+		return TEST_FAIL;
+
+	l3 = (struct ipv6hdr *)(data + sizeof(__u32) + sizeof(struct ethhdr));
+	if (memcmp(&l3->daddr, (void *)v6_pod_one, 16) > 0)
+		return TEST_FAIL;
+
+	if (memcmp(&l3->saddr, (void *)v6_ext_node_one, 16) > 0)
+		return TEST_FAIL;
+
+	if (l3->nexthdr != IPPROTO_ICMPV6)
+		return TEST_FAIL;
+
+	inner_l3 = (struct ipv6hdr *)(data + sizeof(__u32) +
+		sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
+		sizeof(struct icmp6hdr));
+
+	if (memcmp(&inner_l3->daddr, (void *)v6_ext_node_one, 16) > 0)
+		return TEST_FAIL;
+
+	if (memcmp(&inner_l3->saddr, (void *)v6_pod_one, 16) > 0)
+		return TEST_FAIL;
+
+	l4 = (void *)(data + sizeof(__u32) +
+		sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
+		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr));
+	if (*((__u16 *)l4) != 20)
+		return TEST_FAIL;
+	if (*((__u16 *)(l4 + sizeof(__u16))) != 1234)
+		return TEST_FAIL;
+	return 0;
+}
+
 PKTGEN("tc", "snat_v6_tcp_pmtu")
 int snat_v6_pmtu_pktgen(struct __ctx_buff *ctx)
 {
@@ -176,20 +246,8 @@ SETUP("tc", "snat_v6_tcp_pmtu")
 int snat_v6_pmtu_setup(struct __ctx_buff *ctx)
 {
 	int ret;
-	struct ipv6_nat_entry entry = {
-		.to_daddr = POD_IP,
-	};
-	entry.to_sport = 0;
-	entry.to_dport = 20;
-	struct ipv6_ct_tuple tuple = {
-		.daddr   = NODE_ONE,
-		.saddr   = EXT_IP,
-		.dport   = 30001, /* SNAT remapped port */
-		.sport   = 1234,
-		.nexthdr = IPPROTO_TCP,
-		.flags = TUPLE_F_IN,
-	};
-	ret = map_update_elem(&cilium_snat_v6_external, &tuple, &entry, BPF_ANY);
+
+	ret = snat_v6_insert_ct_nat(IPPROTO_TCP);
 	if (ret < 0)
 		return TEST_FAIL;
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
@@ -200,32 +258,7 @@ CHECK("tc", "snat_v6_tcp_pmtu")
 int snat_v6_pmtu_check(const struct __ctx_buff *ctx)
 {
 	test_init();
-	struct ipv6hdr *l3;
-	struct ipv6hdr *inner_l3;
-	struct tcphdr *l4;
-	void *data = (void *)(long)ctx->data;
-	void *data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct tcphdr) > data_end)
-		test_fatal("status code + eth + ipv6 out of bounds");
-
-	l3 = (struct ipv6hdr *)(data + sizeof(__u32) + sizeof(struct ethhdr));
-
-	assert(memcmp(&l3->daddr, (void *)v6_pod_one, 16) == 0);
-	assert(memcmp(&l3->saddr, (void *)v6_ext_node_one, 16) == 0);
-	assert(l3->nexthdr == IPPROTO_ICMPV6);
-
-	inner_l3 = (struct ipv6hdr *)(data + sizeof(__u32) + sizeof(struct ethhdr)
-		+ sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr));
-	assert(memcmp(&inner_l3->daddr, (void *)v6_ext_node_one, 16) == 0);
-	assert(memcmp(&inner_l3->saddr, (void *)v6_pod_one, 16) == 0);
-	l4 = (struct tcphdr *)(data + sizeof(__u32) + sizeof(struct ethhdr)
-		+ sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr));
-	assert(l4->dest == 1234);
-	assert(l4->source == 20); /* should be remapped entry.dport value. */
-
+	assert(do_icmp6_pkt_too_big_check(ctx) == 0);
 	test_finish();
 
 	return 0;
@@ -246,20 +279,8 @@ SETUP("tc", "snat_v6_udp_pmtu")
 int snat_v6_pmtu_udp_setup(struct __ctx_buff *ctx)
 {
 	int ret;
-	struct ipv6_nat_entry entry = {
-		.to_daddr = POD_IP,
-	};
-	entry.to_sport = 0;
-	entry.to_dport = 20;
-	struct ipv6_ct_tuple tuple = {
-		.daddr   = NODE_ONE,
-		.saddr   = EXT_IP,
-		.dport   = 30001, /* SNAT remapped port */
-		.sport   = 1234,
-		.nexthdr = IPPROTO_UDP,
-		.flags = TUPLE_F_IN,
-	};
-	ret = map_update_elem(&cilium_snat_v6_external, &tuple, &entry, BPF_ANY);
+
+	ret = snat_v6_insert_ct_nat(IPPROTO_UDP);
 	if (ret < 0)
 		return TEST_FAIL;
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
@@ -270,33 +291,7 @@ CHECK("tc", "snat_v6_udp_pmtu")
 int snat_v6_pmtu_udp_check(const struct __ctx_buff *ctx)
 {
 	test_init();
-	struct ipv6hdr *l3;
-	struct ipv6hdr *inner_l3;
-	struct udphdr *l4;
-	void *data = (void *)(long)ctx->data;
-	void *data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct udphdr) > data_end)
-		test_fatal("status code + eth + ipv6 out of bounds");
-
-	l3 = (struct ipv6hdr *)(data + sizeof(__u32) + sizeof(struct ethhdr));
-	assert(memcmp(&l3->daddr, (void *)v6_pod_one, 16) == 0);
-	assert(memcmp(&l3->saddr, (void *)v6_ext_node_one, 16) == 0);
-	assert(l3->nexthdr == IPPROTO_ICMPV6);
-
-	inner_l3 = (struct ipv6hdr *)(data + sizeof(__u32) +
-		sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct icmp6hdr));
-	assert(memcmp(&inner_l3->daddr, (void *)v6_ext_node_one, 16) == 0);
-	assert(memcmp(&inner_l3->saddr, (void *)v6_pod_one, 16) == 0);
-	l4 = (struct udphdr *)(data + sizeof(__u32) +
-		sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr));
-	assert(l4->dest == 1234);
-	assert(l4->source == 20); /* should be remapped entry.dport value. */
-
+	assert(do_icmp6_pkt_too_big_check(ctx) == 0);
 	test_finish();
 
 	return 0;
