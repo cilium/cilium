@@ -28,6 +28,7 @@ var (
 		"Clustermesh-apiserver Kubernetes resources",
 
 		cell.Config(k8s.DefaultConfig),
+		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Config(DefaultCiliumEndpointSliceConfig),
 
 		cell.Provide(

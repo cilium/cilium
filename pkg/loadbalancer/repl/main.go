@@ -13,6 +13,7 @@ import (
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -87,6 +88,7 @@ var Hive = hive.New(
 	node.LocalNodeStoreTestCell,
 	metrics.Cell,
 	cell.Config(loadbalancer.TestConfig{}),
+	cell.Config(envoyCfg.SecretSyncConfig{}),
 	cell.Provide(source.NewSources),
 	cell.Provide(
 		tables.NewNodeAddressTable,
