@@ -6,11 +6,13 @@ package observer
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func Test_LocalNodeWatcher(t *testing.T) {
@@ -27,6 +29,7 @@ func Test_LocalNodeWatcher(t *testing.T) {
 				"topology.kubernetes.io/zone":   "us-west-2d",
 			},
 		},
+		Local: &node.LocalNodeInfo{},
 	}
 	localNodeLabelSlice := []string{
 		"kubernetes.io/arch=amd64",
@@ -44,6 +47,7 @@ func Test_LocalNodeWatcher(t *testing.T) {
 				"kubernetes.io/hostname": "kind-kind",
 			},
 		},
+		Local: &node.LocalNodeInfo{},
 	}
 	updatedNodeLabelSlice := []string{
 		"kubernetes.io/arch=arm64",
@@ -73,11 +77,19 @@ func Test_LocalNodeWatcher(t *testing.T) {
 		store.Update(func(ln *node.LocalNode) {
 			*ln = updatedNode
 		})
-		var flow flowpb.Flow
-		stop, err := watcher.OnDecodedFlow(ctx, &flow)
-		require.False(t, stop)
-		require.NoError(t, err)
-		require.Equal(t, updatedNodeLabelSlice, flow.GetNodeLabels())
+		require.EventuallyWithT(
+			t,
+			func(c *assert.CollectT) {
+				var flow flowpb.Flow
+				stop, err := watcher.OnDecodedFlow(ctx, &flow)
+				if assert.False(c, stop) {
+					assert.NoError(c, err)
+					assert.Equal(c, updatedNodeLabelSlice, flow.GetNodeLabels(), "node labels mismatch")
+				}
+			},
+			10*time.Second,
+			10*time.Millisecond,
+		)
 	})
 
 	t.Run("complete", func(t *testing.T) {

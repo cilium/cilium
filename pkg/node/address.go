@@ -194,13 +194,13 @@ func clone(ip net.IP) net.IP {
 
 // GetServiceLoopbackIPv4 returns the service loopback IPv4 address of this node.
 func GetServiceLoopbackIPv4(logger *slog.Logger) net.IP {
-	return getLocalNode(logger).ServiceLoopbackIPv4
+	return getLocalNode(logger).Local.ServiceLoopbackIPv4
 }
 
 // SetIPv4Loopback sets the service loopback IPv4 address of this node.
 func SetServiceLoopbackIPv4(ip net.IP) {
 	localNode.Update(func(n *LocalNode) {
-		n.ServiceLoopbackIPv4 = ip
+		n.Local.ServiceLoopbackIPv4 = ip
 	})
 }
 
@@ -249,7 +249,7 @@ func GetInternalIPv6(logger *slog.Logger) net.IP {
 // running on this node.
 func GetCiliumEndpointNodeIP(logger *slog.Logger) string {
 	n := getLocalNode(logger)
-	if option.Config.EnableIPv4 && n.UnderlayProtocol == tunnel.IPv4 {
+	if option.Config.EnableIPv4 && n.Local.UnderlayProtocol == tunnel.IPv4 {
 		return GetIPv4(logger).String()
 	}
 	return GetIPv6(logger).String()
@@ -470,7 +470,7 @@ func SetIPsecKeyIdentity(id uint8) {
 }
 
 func GetOptOutNodeEncryption(logger *slog.Logger) bool {
-	return getLocalNode(logger).OptOutNodeEncryption
+	return getLocalNode(logger).Local.OptOutNodeEncryption
 }
 
 // SetEndpointHealthIPv4 sets the IPv4 cilium-health endpoint address.
