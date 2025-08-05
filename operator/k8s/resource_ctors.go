@@ -135,7 +135,7 @@ func LBIPPoolsResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.Metr
 
 const ServiceIndex = "service"
 
-func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*k8s.Endpoints], error) {
+func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg k8s.ConfigParams, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*k8s.Endpoints], error) {
 	return k8s.EndpointsResourceWithIndexers(
 		logger,
 		lc,
