@@ -1156,6 +1156,8 @@ const (
 
 	HTTPRoute = "httpRoute"
 
+	TLSRoute = "tlsRoute"
+
 	Secret = "secret"
 
 	Nodes = "nodes"

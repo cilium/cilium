@@ -67,18 +67,50 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 // SetupWithManager sets up the controller with the Manager.
 // The reconciler will be triggered by Gateway, or any cilium-managed GatewayClass events
 func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Determine which optional CRDs are enabled
+	var tlsRouteEnabled, serviceImportEnabled bool
+
+	for _, gvk := range r.installedCRDs {
+		switch gvk.Kind {
+		case helpers.TLSRouteKind:
+			tlsRouteEnabled = true
+		case helpers.ServiceImportKind:
+			serviceImportEnabled = true
+		}
+	}
+
+	// Add field indexes for HTTPRoutes
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		backendServiceHTTPRouteIndex:       indexers.GenerateIndexerHTTPRouteByBackendService(r.Client, r.logger),
-		backendServiceImportHTTPRouteIndex: indexers.IndexHTTPRouteByBackendServiceImport,
-		gatewayHTTPRouteIndex:              indexers.IndexHTTPRouteByGateway,
+		backendServiceHTTPRouteIndex: indexers.GenerateIndexerHTTPRouteByBackendService(r.Client, r.logger),
+		gatewayHTTPRouteIndex:        indexers.IndexHTTPRouteByGateway,
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
 		}
 	}
 
+	// Only index HTTPRoute by ServiceImport if ServiceImport is enabled
+	if serviceImportEnabled {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, backendServiceImportHTTPRouteIndex, indexers.IndexHTTPRouteByBackendServiceImport); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", backendServiceImportHTTPRouteIndex, err)
+		}
+	}
+
+	// Index Gateways by implementation (ie `cilium`)
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, implementationGatewayIndex, indexers.GenerateIndexerGatewayByImplementation(r.Client, controllerName)); err != nil {
 		return fmt.Errorf("failed to setup field indexer %q: %w", implementationGatewayIndex, err)
+	}
+
+	// Add indexes for TLSRoutes
+	if tlsRouteEnabled {
+		for indexName, indexerFunc := range map[string]client.IndexerFunc{
+			backendServiceTLSRouteIndex: indexers.GenerateIndexerTLSRoutebyBackendService(r.Client, r.logger),
+			gatewayTLSRouteIndex:        indexers.IndexTLSRouteByGateway,
+		} {
+			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, indexName, indexerFunc); err != nil {
+				return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+			}
+		}
 	}
 
 	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, controllerName, r.logger)
@@ -111,18 +143,16 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&corev1.Endpoints{})
 
-	for _, gvk := range r.installedCRDs {
-		switch gvk.Kind {
-		case helpers.TLSRouteKind:
-			// Watch TLSRoute linked to Gateway
-			gatewayBuilder = gatewayBuilder.Watches(&gatewayv1alpha2.TLSRoute{}, r.enqueueRequestForOwningTLSRoute(r.logger))
-		}
+	if tlsRouteEnabled {
+		// Watch TLSRoute linked to Gateway
+		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1alpha2.TLSRoute{}, r.enqueueRequestForOwningTLSRoute(r.logger))
 	}
 
-	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
+	if serviceImportEnabled {
 		// Watch for changes to Backend Service Imports
 		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1alpha1.ServiceImport{}, r.enqueueRequestForBackendServiceImport())
 	}
+
 	return gatewayBuilder.Complete(r)
 }
 
@@ -224,6 +254,16 @@ func (r *gatewayReconciler) enqueueRequestForBackendService() handler.EventHandl
 			return []reconcile.Request{}
 		}
 
+		// Then, fetch all TLSRoutes that reference this service, using the backendServiceIndex
+		tlsrList := &gatewayv1alpha2.TLSRouteList{}
+
+		if err := r.Client.List(ctx, tlsrList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(backendServiceTLSRouteIndex, client.ObjectKeyFromObject(o).String()),
+		}); err != nil {
+			scopedLog.Error("Failed to get related HTTPRoutes", logfields.Error, err)
+			return []reconcile.Request{}
+		}
+
 		// Fetch all the Cilium-relevant Gateways using the implementationGatewayIndex.
 		gwList := &gatewayv1.GatewayList{}
 		if err := r.Client.List(ctx, gwList, &client.ListOptions{
@@ -254,6 +294,22 @@ func (r *gatewayReconciler) enqueueRequestForBackendService() handler.EventHandl
 				parentFullName := types.NamespacedName{
 					Name:      string(parent.Name),
 					Namespace: helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace),
+				}
+				if _, found := allCiliumGatewaysSet[parentFullName.String()]; found {
+					reconcileRequests[reconcile.Request{NamespacedName: parentFullName}] = struct{}{}
+				}
+			}
+		}
+
+		// iterate through the TLSRoutes, return a reconcile.Request for each Gateways that is relevant.
+		for _, tlsr := range tlsrList.Items {
+			for _, parent := range tlsr.Spec.ParentRefs {
+				if !helpers.IsGateway(parent) {
+					continue
+				}
+				parentFullName := types.NamespacedName{
+					Name:      string(parent.Name),
+					Namespace: helpers.NamespaceDerefOr(parent.Namespace, tlsr.Namespace),
 				}
 				if _, found := allCiliumGatewaysSet[parentFullName.String()]; found {
 					reconcileRequests[reconcile.Request{NamespacedName: parentFullName}] = struct{}{}

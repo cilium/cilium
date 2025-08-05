@@ -99,7 +99,9 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	tlsRouteList := &gatewayv1alpha2.TLSRouteList{}
 	if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
-		if err := r.Client.List(ctx, tlsRouteList); err != nil {
+		if err := r.Client.List(ctx, tlsRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(gatewayTLSRouteIndex, client.ObjectKeyFromObject(original).String()),
+		}); err != nil {
 			scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes", logfields.Error, err)
 			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 		}
@@ -135,6 +137,14 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err := r.setHTTPRouteStatuses(scopedLog, ctx, httpRouteList, grants); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update HTTPRoute Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
+	}
+
+	// Run the TLSRoute route checks here and update the status accordingly.
+	if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
+		if err := r.setTLSRouteStatuses(scopedLog, ctx, original, tlsRouteList, grants); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to update HTTPRoute Status", logfields.Error, err)
+			return controllerruntime.Fail(err)
+		}
 	}
 
 	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items)
@@ -782,6 +792,40 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 	return nil
 }
 
+func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx context.Context, gateway *gatewayv1.Gateway, tlsRoutes *gatewayv1alpha2.TLSRouteList, grants *gatewayv1beta1.ReferenceGrantList) error {
+	scopedLog.Debug("Updating TLSRoute statuses for Gateway", numRoutes, len(tlsRoutes.Items))
+	for tlsRouteIndex, original := range tlsRoutes.Items {
+
+		tlsr := original.DeepCopy()
+
+		// input for the validators
+		// The validators will mutate the HTTPRoute as required, setting its status correctly.
+		i := &routechecks.TLSRouteInput{
+			Ctx:      ctx,
+			Logger:   scopedLog.With(logfields.Resource, tlsr),
+			Client:   r.Client,
+			Grants:   grants,
+			TLSRoute: tlsr,
+		}
+
+		if err := r.runCommonRouteChecks(i, tlsr.Spec.ParentRefs, tlsr.Namespace); err != nil {
+			return r.handleTLSRouteReconcileErrorWithStatus(ctx, scopedLog, err, tlsr, &original)
+		}
+
+		// Route-specific checks will go in here separately if required.
+
+		// Checks finished, apply the status to the actual objects.
+		if err := r.updateTLSRouteStatus(ctx, scopedLog, &original, tlsr); err != nil {
+			return fmt.Errorf("failed to update HTTPRoute status: %w", err)
+		}
+
+		// Update the cached copy with the same status changes to prevent re-fetching from client cache.
+		tlsRoutes.Items[tlsRouteIndex].Status = tlsr.Status
+	}
+
+	return nil
+}
+
 func (r *gatewayReconciler) handleHTTPRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1.HTTPRoute, modified *gatewayv1.HTTPRoute) error {
 	if err := r.updateHTTPRouteStatus(ctx, scopedLog, original, modified); err != nil {
 		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
@@ -797,5 +841,23 @@ func (r *gatewayReconciler) updateHTTPRouteStatus(ctx context.Context, scopedLog
 		return nil
 	}
 	scopedLog.DebugContext(ctx, "Updating HTTPRoute status", httpRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
+	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *gatewayReconciler) handleTLSRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1alpha2.TLSRoute, modified *gatewayv1alpha2.TLSRoute) error {
+	if err := r.updateTLSRouteStatus(ctx, scopedLog, original, modified); err != nil {
+		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
+	}
+	return nil
+}
+
+func (r *gatewayReconciler) updateTLSRouteStatus(ctx context.Context, scopedLog *slog.Logger, original *gatewayv1alpha2.TLSRoute, new *gatewayv1alpha2.TLSRoute) error {
+	oldStatus := original.Status.DeepCopy()
+	newStatus := new.Status.DeepCopy()
+
+	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
+		return nil
+	}
+	scopedLog.Debug("Updating TLSRoute status", tlsRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
 }
