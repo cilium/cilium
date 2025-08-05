@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -99,6 +100,8 @@ type Daemon struct {
 
 	endpointCreator endpointcreator.EndpointCreator
 	endpointManager endpointmanager.EndpointManager
+
+	endpointAPIFence endpointapi.Fence
 
 	endpointRestoreComplete       chan struct{}
 	endpointInitialPolicyComplete chan struct{}
@@ -310,6 +313,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		lbConfig:          params.LBConfig,
 		kprCfg:            params.KPRConfig,
 		ciliumHealth:      params.CiliumHealth,
+		endpointAPIFence:  params.EndpointAPIFence,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
