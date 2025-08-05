@@ -930,6 +930,7 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 		// We are not returning an error as this is very unlikely to be recoverable
 	}
 
+	scopedLogger.Debug("CNI DEL processing complete")
 	return nil
 }
 
