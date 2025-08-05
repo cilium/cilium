@@ -208,6 +208,12 @@ Update the existing rule to only allow ingress access to mutually authenticated 
 Verify Mutual Authentication
 ============================
 
+Start by enabling debug level:
+
+.. code-block:: shell-session
+
+    cilium config set debug true
+
 Re-try your connectivity tests. They should give similar results as before:
 
 .. code-block:: shell-session
@@ -218,12 +224,6 @@ Re-try your connectivity tests. They should give similar results as before:
     Access denied
 
 Verify that mutual authentication has happened by accessing the logs on the agent. 
-
-Start by enabling debug level:
-
-.. code-block:: shell-session
-
-    cilium config set debug true
 
 Examine the logs on the Cilium agent located in the same node as the *echo* Pod. 
 For brevity, you can search for some specific log messages by label:
