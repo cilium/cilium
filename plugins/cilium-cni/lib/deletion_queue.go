@@ -108,6 +108,7 @@ func (dc *DeletionFallbackClient) tryQueueLock() error {
 
 	err = lf.Lock(ctx, false) // get the shared lock
 	if err != nil {
+		lf.Close()
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	dc.lockfile = lf
