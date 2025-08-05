@@ -87,6 +87,7 @@
   "allowedPostUpgradeCommands": [
     "^make -C install/kubernetes$",
     "^make -C Documentation update-helm-values$",
+    "^make -C Documentation update-cmdref$",
     "^make generate-k8s-api$",
     "^make manifests$",
     "^make GO='contrib/scripts/builder.sh go' generate-apis$"
@@ -558,6 +559,20 @@
           "install/kubernetes/cilium/README.md",
           "install/kubernetes/cilium/values.yaml",
           "Documentation/helm-values.rst"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "matchFiles": [
+        "cilium-cli/defaults/defaults.go"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C Documentation update-cmdref"
+        ],
+        "fileFilters": [
+          "Documentation/cmdref/cilium_connectivity_test.md"
         ],
         "executionMode": "update"
       }
