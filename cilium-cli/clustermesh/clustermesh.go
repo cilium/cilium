@@ -43,6 +43,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -1346,7 +1347,17 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 		return err
 	}
 
-	err = setClustersInValues(release, client, convertClustersToListClusterMesh(clusters))
+	var clustersRaw any
+	clustersRaw = clusters
+
+	version, err := versioncheck.Version(release.Chart.Metadata.Version)
+	if err != nil {
+		return fmt.Errorf("Failed to parse Helm chart version %s on cluster %s: %w", release.Chart.Metadata.Version, client.ClusterName(), err)
+	}
+	if versioncheck.MustCompile("<1.20.0")(version) {
+		clustersRaw = convertClustersToListClusterMesh(clusters)
+	}
+	err = setClustersInValues(release, client, clustersRaw)
 	if err != nil {
 		return err
 	}
