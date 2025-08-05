@@ -43,6 +43,14 @@ type Config struct {
 	K8sServiceProxyName string
 }
 
+type WatchConfig struct {
+	// EnableHeadlessServiceWatch controls whether watches for Headless Services and
+	// Headless Services Endpoint Slices are enabled. Disabling the watch when
+	// features depending on it are not used reduces the load on apiserver in clusters
+	// with headless services.
+	EnableHeadlessServiceWatch bool
+}
+
 // DefaultConfig represents the default k8s resources config values.
 var DefaultConfig = Config{
 	K8sServiceProxyName: "",
@@ -91,12 +99,29 @@ type CiliumResourceParams struct {
 	CRDSyncPromise promise.Promise[synced.CRDSync] `optional:"true"`
 }
 
+type ConfigParams struct {
+	cell.In
+
+	Config      Config
+	WatchConfig *WatchConfig `optional:"true"`
+}
+
+func resolveConfig(cfg ConfigParams) (config Config, headlessServiceWatchEnabled bool) {
+	if cfg.WatchConfig == nil {
+		return cfg.Config, true
+	}
+	return cfg.Config, cfg.WatchConfig.EnableHeadlessServiceWatch
+}
+
 // ServiceResource builds the Resource[Service] object.
-func ServiceResource(lc cell.Lifecycle, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Service], error) {
+func ServiceResource(lc cell.Lifecycle, cfg ConfigParams, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Service], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	optsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(cfg.K8sServiceProxyName)
+
+	config, headlessServiceWatchEnabled := resolveConfig(cfg)
+
+	optsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(config.K8sServiceProxyName, headlessServiceWatchEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -280,16 +305,18 @@ func CiliumBGPPeerConfigResource(params CiliumResourceParams, opts ...func(*meta
 	return resource.New[*cilium_api_v2.CiliumBGPPeerConfig](params.Lifecycle, lw, resource.WithMetric("CiliumBGPPeerConfig"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
-func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
+func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg ConfigParams, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
 	return EndpointsResourceWithIndexers(logger, lc, cfg, cs, nil, opts...)
 }
 
-func EndpointsResourceWithIndexers(logger *slog.Logger, lc cell.Lifecycle, cfg Config, cs client.Clientset, indexers cache.Indexers, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
+func EndpointsResourceWithIndexers(logger *slog.Logger, lc cell.Lifecycle, cfg ConfigParams, cs client.Clientset, indexers cache.Indexers, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 
-	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier()
+	_, headlessServiceWatchEnabled := resolveConfig(cfg)
+
+	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier(headlessServiceWatchEnabled)
 	if err != nil {
 		return nil, err
 	}

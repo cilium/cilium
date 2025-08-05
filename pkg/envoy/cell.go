@@ -42,7 +42,7 @@ var Cell = cell.Module(
 	metrics.Metric(xds.NewXDSMetric),
 
 	cell.Config(ProxyConfig{}),
-	cell.Config(secretSyncConfig{}),
+	cell.Config(SecretSyncConfig{}),
 	cell.Provide(newEnvoyXDSServer),
 	cell.Provide(newEnvoyAdminClient),
 	cell.Provide(envoypolicy.NewEnvoyL7RulesTranslator),
@@ -115,7 +115,7 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 		"If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.")
 }
 
-type secretSyncConfig struct {
+type SecretSyncConfig struct {
 	EnvoySecretsNamespace string
 
 	EnableIngressController bool
@@ -125,7 +125,7 @@ type secretSyncConfig struct {
 	GatewayAPISecretsNamespace string
 }
 
-func (r secretSyncConfig) Flags(flags *pflag.FlagSet) {
+func (r SecretSyncConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("envoy-secrets-namespace", r.EnvoySecretsNamespace, "EnvoySecretsNamespace is the namespace having secrets used by CEC")
 	flags.Bool("enable-ingress-controller", false, "Enables Envoy secret sync for Ingress controller related TLS secrets")
 	flags.String("ingress-secrets-namespace", r.IngressSecretsNamespace, "IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller")
@@ -359,7 +359,7 @@ type syncerParams struct {
 
 	K8sClientset client.Clientset
 
-	Config        secretSyncConfig
+	Config        SecretSyncConfig
 	XdsServer     XDSServer
 	SecretManager certificatemanager.SecretManager
 }
