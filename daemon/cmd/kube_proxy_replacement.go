@@ -152,9 +152,6 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 				option.InstallNoConntrackIptRules, option.EnableBPFMasquerade)
 		}
 	}
-	if option.Config.BPFSocketLBHostnsOnly {
-		option.Config.EnableSocketLBTracing = false
-	}
 
 	if !kprCfg.EnableSocketLB {
 		option.Config.EnableSocketLBTracing = false
