@@ -17,3 +17,12 @@ func (t noIpsecXfrmErrors) build(ct *check.ConnectivityTest, _ map[string]string
 		WithFeatureRequirements(features.RequireMode(features.EncryptionPod, "ipsec")).
 		WithScenarios(tests.NoIPsecXfrmErrors(ct.Params().ExpectedXFRMErrors))
 }
+
+type ipsecKeyDerivation struct{}
+
+func (t ipsecKeyDerivation) build(ct *check.ConnectivityTest, _ map[string]string) {
+	newTest("ipsec-key-derivation-validation", ct).
+		WithCondition(func() bool { return !ct.Params().SingleNode }).
+		WithFeatureRequirements(features.RequireMode(features.EncryptionPod, "ipsec")).
+		WithScenarios(tests.IPsecKeyDerivationValidation())
+}
