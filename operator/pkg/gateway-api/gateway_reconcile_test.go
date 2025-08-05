@@ -200,8 +200,8 @@ func Test_Conformance(t *testing.T) {
 			name: "httproute-invalid-serviceimport-no-crd", gateway: []types.NamespacedName{gatewaySameNamespace},
 			disableServiceImport: true,
 		},
-		{name: "tlsroute-invalid-reference-grant", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "tlsroute-simple-same-namespace", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "tlsroute-invalid-reference-grant", gateway: []types.NamespacedName{{Name: "gateway-tlsroute-referencegrant", Namespace: "gateway-conformance-infra"}}},
+		{name: "tlsroute-simple-same-namespace", gateway: []types.NamespacedName{{Name: "gateway-tlsroute", Namespace: "gateway-conformance-infra"}}},
 	}
 
 	for _, tt := range tests {
@@ -229,7 +229,7 @@ func Test_Conformance(t *testing.T) {
 
 					// Add any required indexes here
 					clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, gatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
-
+					clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, gatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
 					c := clientBuilder.Build()
 
 					r := &gatewayReconciler{
@@ -243,6 +243,12 @@ func Test_Conformance(t *testing.T) {
 					err := c.List(t.Context(), hrList)
 					require.NoError(t, err)
 					filterList := filterHTTPRoute(hrList, gw.Name, gw.Namespace)
+
+					// Reconcile all related TLSRoute objects
+					tlsrList := &gatewayv1alpha2.TLSRouteList{}
+					err = c.List(t.Context(), tlsrList)
+					require.NoError(t, err)
+					filterTLSRouteList := filterTLSRoute(tlsrList, gw.Name, gw.Namespace)
 
 					// Reconcile the gateway under test
 					result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gw})
@@ -265,6 +271,15 @@ func Test_Conformance(t *testing.T) {
 						expectedHR := &gatewayv1.HTTPRoute{}
 						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
 						require.Empty(t, cmp.Diff(expectedHR, actualHR, cmpIgnoreFields...))
+					}
+
+					for _, tlsr := range filterTLSRouteList {
+						actualTLSR := &gatewayv1alpha2.TLSRoute{}
+						err = c.Get(t.Context(), client.ObjectKeyFromObject(&tlsr), actualTLSR)
+						require.NoError(t, err, "error getting TLSRoute %s/%s: %v", tlsr.Namespace, tlsr.Name, err)
+						expectedTLSR := &gatewayv1alpha2.TLSRoute{}
+						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tlsroute-%s.yaml", tt.name, tlsr.Name), expectedTLSR)
+						require.Empty(t, cmp.Diff(expectedTLSR, actualTLSR, cmpIgnoreFields...))
 					}
 
 					if !tt.wantErr {
@@ -291,6 +306,22 @@ func filterHTTPRoute(hrList *gatewayv1.HTTPRouteList, gatewayName string, namesp
 				if string(parentRef.Name) == gatewayName &&
 					((parentRef.Namespace == nil && hr.Namespace == namespace) || string(*parentRef.Namespace) == namespace) {
 					filterList = append(filterList, hr)
+					break
+				}
+			}
+		}
+	}
+	return filterList
+}
+
+func filterTLSRoute(tlsrList *gatewayv1alpha2.TLSRouteList, gatewayName string, namespace string) []gatewayv1alpha2.TLSRoute {
+	var filterList []gatewayv1alpha2.TLSRoute
+	for _, tlsr := range tlsrList.Items {
+		if len(tlsr.Spec.CommonRouteSpec.ParentRefs) > 0 {
+			for _, parentRef := range tlsr.Spec.CommonRouteSpec.ParentRefs {
+				if string(parentRef.Name) == gatewayName &&
+					((parentRef.Namespace == nil && tlsr.Namespace == namespace) || string(*parentRef.Namespace) == namespace) {
+					filterList = append(filterList, tlsr)
 					break
 				}
 			}

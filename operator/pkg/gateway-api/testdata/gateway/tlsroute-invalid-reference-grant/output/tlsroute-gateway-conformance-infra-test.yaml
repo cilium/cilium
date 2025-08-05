@@ -1,0 +1,32 @@
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: gateway-conformance-infra-test
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-tlsroute-referencegrant
+  hostnames:
+    - abc.example.com
+  rules:
+    - backendRefs:
+        - name: tls-backend
+          namespace: gateway-conformance-app-backend
+          port: 443
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2025-08-15T00:36:04Z"
+          message: Accepted HTTPRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-08-15T00:36:04Z"
+          message: Cross namespace references are not allowed
+          reason: RefNotPermitted
+          status: "False"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: gateway-tlsroute-referencegrant
