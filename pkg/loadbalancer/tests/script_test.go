@@ -27,6 +27,7 @@ import (
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
@@ -78,6 +79,7 @@ func TestScript(t *testing.T) {
 				k8sClient.FakeClientCell(),
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
+				cell.Config(envoyCfg.SecretSyncConfig{}),
 
 				cell.Config(loadbalancer.TestConfig{
 					// By default 10% of the time the LBMap operations fail

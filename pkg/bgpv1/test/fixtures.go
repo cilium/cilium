@@ -176,6 +176,8 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 	f.cells = []cell.Cell{
 		cell.Config(k8sPkg.DefaultConfig),
 
+		cell.Provide(k8sPkg.DefaultServiceWatchConfig),
+
 		// service
 		cell.Provide(k8sPkg.ServiceResource),
 

@@ -2571,6 +2571,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 				EnableBGPControlPlane: true,
 			}
 		}),
+		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Config(k8s.DefaultConfig),
 		cell.Provide(
 			k8s.ServiceResource,
@@ -2710,6 +2711,7 @@ func TestLBIPAMRestartOnFullPool(t *testing.T) {
 			return &option.DaemonConfig{}
 		}),
 		cell.Config(k8s.DefaultConfig),
+		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Provide(
 			k8s.ServiceResource,
 			operator_k8s.LBIPPoolsResource,
@@ -2808,6 +2810,7 @@ func TestLBIPAMRestartOnFullPool(t *testing.T) {
 			return &option.DaemonConfig{}
 		}),
 		cell.Config(k8s.DefaultConfig),
+		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Provide(
 			k8s.ServiceResource,
 			operator_k8s.LBIPPoolsResource,
