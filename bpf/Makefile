@@ -172,7 +172,7 @@ endif
 
 include ./Makefile.bpf
 
-.PHONY: all bpf_all build_all subdirs install clean generate gen_compile_commands
+.PHONY: all bpf_all build_all subdirs install clean generate gen_compile_commands check-alignment
 
 all: bpf_all
 
@@ -190,6 +190,10 @@ testdata:
 generate: $(BPF)
 	$(GO) generate ../pkg/datapath/config
 	BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" $(GO) generate ../pkg/datapath/bpf
+
+check-alignment: bpf_alignchecker.o
+	@$(ECHO_CHECK) "Running alignment checker..."
+	$(QUIET) $(GO) run $(CURDIR)/../tools/alignchecker/main.go $(CURDIR)/bpf_alignchecker.o
 
 $(BPF_SIMPLE): %.o: %.c
 	@$(ECHO_CC)
