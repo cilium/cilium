@@ -171,13 +171,13 @@ var (
 		// renovate: datasource=docker
 		"ConnectivityCheckJSONMockImage": "quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603",
 		// renovate: datasource=docker
-		"ConnectivityDNSTestServerImage": "registry.k8s.io/coredns/coredns:v1.12.0@sha256:40384aa1f5ea6bfdc77997d243aec73da05f27aed0c5e9d65bfa98933c519d97",
+		"ConnectivityDNSTestServerImage": "registry.k8s.io/coredns/coredns:v1.12.2@sha256:af8c8d35a5d184b386c4a6d1a012c8b218d40d1376474c7d071bb6c07201f47d",
 		// renovate: datasource=docker
 		"ConnectivityTestConnDisruptImage": "quay.io/cilium/test-connection-disruption:v0.0.16@sha256:e8e3257b2c89543dc49a2d820f2d2d69c1fe60eaf1036fc1f1f7375bad8e6232",
 		// renovate: datasource=docker
-		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb",
+		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.4.1@sha256:97a281a1473cae1f762ceab87cbcc53a2e102053877421e8b4606422aae45442",
 		// renovate: datasource=docker
-		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.1@sha256:e899028c84c1a1e65bb14821b0802a683a2cffbff96c9ac02ff1d9cbb03f64e6",
+		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.3@sha256:10648ef7279a34318c856502639c7a35cd23690d91a22077e6801217825d0817",
 	}
 
 	ConnectivityCheckOptionalImagesTest = map[string]string{
