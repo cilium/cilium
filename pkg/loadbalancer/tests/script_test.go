@@ -85,7 +85,7 @@ func TestScript(t *testing.T) {
 				}),
 				metrics.Cell,
 				maglev.Cell,
-				node.LocalNodeStoreCell,
+				node.LocalNodeStoreTestCell,
 				cell.Provide(
 					func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
