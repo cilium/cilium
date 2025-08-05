@@ -197,7 +197,7 @@ func Hint(err error) error {
 	if strings.Contains(err.Error(), defaults.SockPath) {
 		return fmt.Errorf("%s\nIs the agent running?", e)
 	}
-	return fmt.Errorf("%s", e)
+	return err
 }
 
 func timeSince(since time.Time) string {
