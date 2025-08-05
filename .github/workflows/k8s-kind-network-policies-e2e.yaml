@@ -215,6 +215,7 @@ jobs:
             echo "cilium-agent($p) has $num file descriptors open"
             if [ "$num" -gt "500" ]; then
               echo "cilium-agent($p) has more than 500 file descriptors (potential leak)"
+              sudo lsof -p $p
               exit 1
             fi
           done
