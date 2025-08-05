@@ -45,7 +45,7 @@ builder-info: ## Print information about the docker builder that will be used fo
 	@echo "Using Docker Buildx builder \"$(DOCKER_BUILDER)\" with build flags \"$(DOCKER_FLAGS)\"."
 
 # Generic rule for augmented .dockerignore files.
-GIT_IGNORE_FILES := $(shell find . -not -path "./vendor*" -name .gitignore -print)
+GIT_IGNORE_FILES := $(shell find . -not -path "./vendor*" -name .gitignore | awk -F/ '{ print NF, $$0 }' | sort -n | cut -d" " -f2-)
 .PRECIOUS: %.dockerignore
 %.dockerignore: $(GIT_IGNORE_FILES) Makefile.docker
 	@-mkdir -p $(dir $@)
