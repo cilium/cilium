@@ -1030,7 +1030,7 @@ int __nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir)
 
 	if (ret == CTX_ACT_OK) {
 		if (is_defined(IS_BPF_LXC)) {
-			ret = DROP_NAT_NO_MAPPING;
+			ret = DROP_CUSTOM_13;
 			goto drop;
 		}
 
@@ -1094,7 +1094,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		     * up to the host and revisiting this later if
 		     * needed.
 		     */
-		    ret == DROP_NAT_NO_MAPPING) {
+		    ret <= DROP_CUSTOM_1) {
 			/* In case of no mapping, recircle back to
 			 * main path. SNAT is very expensive in terms
 			 * of instructions and
@@ -2341,7 +2341,7 @@ int tail_nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx)
 		 * the packet *must* be redirected.
 		 */
 		if (is_defined(IS_BPF_LXC)) {
-			ret = DROP_NAT_NO_MAPPING;
+			ret = DROP_CUSTOM_14;
 			goto drop_err;
 		}
 
@@ -2385,7 +2385,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		     * to the host and revisiting this later if
 		     * needed.
 		     */
-		    ret == DROP_NAT_NO_MAPPING) {
+		    ret <= DROP_CUSTOM_1) {
 			/* In case of no mapping, recircle back to
 			 * main path. SNAT is very expensive in terms
 			 * of instructions and
