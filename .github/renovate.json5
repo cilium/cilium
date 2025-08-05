@@ -96,11 +96,17 @@
   "packageRules": [
     {
       "matchPackageNames": [
+        "bufbuild/buf", // Protocol buffer toolkit
+        "docker.io/alpine/socat", // Alpine socat package
+        "docker.io/library/busybox", // Official busybox image
         "go", // golang version directive upgrade in go.mod
         "google/cloud-sdk", // google cloud-sdk official package name
         "grpc-ecosystem/grpc-health-probe", // Grpc ecosystem
         "kindest/node", // official kindest images
         "kubernetes-sigs/kind", // official kind dependencies
+        "quay.io/cilium/cilium-envoy", // Cilium's Envoy proxy
+        "quay.io/frrouting/frr", // FRRouting package
+        "registry.k8s.io/coredns/coredns", // CoreDNS official image
         "renovatebot/github-action", // Renovate's GH action
         "renovatebot/renovate", // Renovate's bot name
       ],
