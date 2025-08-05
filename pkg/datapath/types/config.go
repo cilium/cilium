@@ -103,9 +103,9 @@ type ConfigWriter interface {
 // packet sent from a local endpoint to an IP address belonging to the CIDR
 // should not be SNAT'd.
 func RemoteSNATDstAddrExclusionCIDRv4(localNode node.LocalNode) *cidr.CIDR {
-	if localNode.IPv4NativeRoutingCIDR != nil {
+	if localNode.Local.IPv4NativeRoutingCIDR != nil {
 		// ipv4-native-routing-cidr is set or has been autodetected, so use it
-		return localNode.IPv4NativeRoutingCIDR
+		return localNode.Local.IPv4NativeRoutingCIDR
 	}
 
 	return localNode.IPv4AllocCIDR
@@ -115,9 +115,9 @@ func RemoteSNATDstAddrExclusionCIDRv4(localNode node.LocalNode) *cidr.CIDR {
 // packet sent from a local endpoint to an IP address belonging to the CIDR
 // should not be SNAT'd.
 func RemoteSNATDstAddrExclusionCIDRv6(localNode node.LocalNode) *cidr.CIDR {
-	if localNode.IPv6NativeRoutingCIDR != nil {
+	if localNode.Local.IPv6NativeRoutingCIDR != nil {
 		// ipv6-native-routing-cidr is set or has been autodetected, so use it
-		return localNode.IPv6NativeRoutingCIDR
+		return localNode.Local.IPv6NativeRoutingCIDR
 	}
 
 	return localNode.IPv6AllocCIDR
