@@ -74,7 +74,7 @@ func TestScript(t *testing.T) {
 
 				lbcell.Cell,
 
-				node.LocalNodeStoreCell,
+				node.LocalNodeStoreTestCell,
 				maglev.Cell,
 				cell.Provide(
 					source.NewSources,

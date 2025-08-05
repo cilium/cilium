@@ -117,7 +117,7 @@ func TestKubeproxyHealthzHandler(t *testing.T) {
 
 			mockNode := &mockLocalNodeStore{
 				node: &node.LocalNode{
-					IsBeingDeleted: tc.nodeIsBeingDeleted,
+					Local: &node.LocalNodeInfo{IsBeingDeleted: tc.nodeIsBeingDeleted},
 				},
 				returnError: tc.nodeStoreReturnErr,
 			}
