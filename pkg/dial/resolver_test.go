@@ -60,6 +60,7 @@ func TestServiceResolver(t *testing.T) {
 		ServiceResolverCell,
 
 		cell.Config(k8s.DefaultConfig),
+		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Provide(k8s.ServiceResource),
 
 		cell.Invoke(func(cl_ *k8sClient.FakeClientset, resolver_ *ServiceResolver) {
