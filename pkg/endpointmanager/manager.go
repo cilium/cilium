@@ -654,6 +654,21 @@ func (mgr *endpointManager) TriggerRegenerateAllEndpoints() {
 	mgr.policyUpdateCallback(&sync.WaitGroup{}, nil, false)
 }
 
+// RegenerateAllForPolicy regenerates all endpoints against the given policy
+// revision. Each endpoint's regeneration blocks until the compute cell has
+// published the SelectorPolicy for its identity at waitFor, ensuring
+// endpoints pick up the new policy instead of the stale one.
+func (mgr *endpointManager) RegenerateAllForPolicy(waitFor uint64) {
+	go mgr.RegenerateAllEndpoints(&regeneration.ExternalRegenerationMetadata{
+		Reason:                  regeneration.ReasonPolicyUpdate,
+		Message:                 "policy rules updated",
+		RegenerationLevel:       regeneration.RegenerateWithoutDatapath,
+		PolicyRevisionToWaitFor: waitFor,
+	})
+
+	mgr.policyUpdateCallback(&sync.WaitGroup{}, nil, false)
+}
+
 // OverrideEndpointOpts applies the given options to all endpoints.
 func (mgr *endpointManager) OverrideEndpointOpts(om option.OptionMap) {
 	for _, ep := range mgr.GetEndpoints() {

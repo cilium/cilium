@@ -169,6 +169,10 @@ func (*MockEndpointManager) TriggerRegenerateAllEndpoints() {
 	panic("MockEndpointManager.TriggerRegenerateAllEndpoints not implemented")
 }
 
+func (*MockEndpointManager) RegenerateAllForPolicy(waitFor uint64) {
+	panic("MockEndpointManager.RegenerateAllForPolicy not implemented")
+}
+
 func (*MockEndpointManager) WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
 	panic("MockEndpointManager.WaitForEndpointsAtPolicyRev not implemented")
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -43,6 +44,7 @@ type identityAllocatorParams struct {
 	Log              *slog.Logger
 	Registry         job.Registry
 	PolicyRepository policy.PolicyRepository
+	PolicyComputer   compute.PolicyRecomputer
 	EPManager        endpointmanager.EndpointManager
 	Health           cell.Health
 	Metrics          *identityUpdaterMetrics
@@ -55,6 +57,7 @@ type identityAllocatorParams struct {
 type identityUpdater struct {
 	logger    *slog.Logger
 	policy    policy.PolicyRepository
+	computer  compute.PolicyRecomputer
 	epmanager endpointmanager.EndpointManager
 
 	identityHandlers []identity.UpdateIdentities
@@ -83,6 +86,7 @@ func newIdentityUpdater(params identityAllocatorParams) IdentityUpdater {
 	i := &identityUpdater{
 		logger:    params.Log,
 		policy:    params.PolicyRepository,
+		computer:  params.PolicyComputer,
 		epmanager: params.EPManager,
 		pending: batch{
 			done: make(chan struct{}),
@@ -230,8 +234,9 @@ func (i *identityUpdater) doUpdatePolicyMaps(ctx context.Context) error {
 	// We mutated a selector, we must regenerate.
 	if q.forcePolicyRegen {
 		i.logger.Info("Incremental policy update mutated identities. Forcing policy recalculation.")
-		i.policy.BumpRevision()
-		i.epmanager.TriggerRegenerateAllEndpoints()
+		rev := i.policy.BumpRevision()
+		i.computer.RecomputeIdentityPolicyForAllIdentities(rev)
+		i.epmanager.RegenerateAllForPolicy(rev)
 	}
 
 	// inform waiters that the in-flight batch is done.
