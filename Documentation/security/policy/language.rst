@@ -878,7 +878,7 @@ While communicating on this port, the only API endpoints allowed will be ``GET
 Kafka (beta)
 ------------
 
-.. include:: ../../beta.rst
+.. include:: ../../deprecated.rst
 
 PortRuleKafka is a list of Kafka protocol constraints. All fields are optional,
 if all fields are empty or missing, the rule will match all Kafka messages.
