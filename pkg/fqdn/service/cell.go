@@ -47,7 +47,7 @@ type serverParams struct {
 	DaemonConfig       *option.DaemonConfig
 	DefaultListener    listenConfig
 	DB                 *statedb.DB
-	PolicyRulesTable   statedb.RWTable[policyRules]
+	PolicyRulesTable   statedb.RWTable[PolicyRules]
 	IdentityToIPsTable statedb.RWTable[identityToIPs]
 }
 

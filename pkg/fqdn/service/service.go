@@ -53,7 +53,7 @@ type FQDNDataServer struct {
 
 	// policyRulesTable is the table used to store the policy rules
 	// Changes to this table are used to send the current state of the DNS rules to the client
-	policyRulesTable statedb.RWTable[policyRules]
+	policyRulesTable statedb.RWTable[PolicyRules]
 
 	// updateOnDNSMsg is a function to update the DNS message in the cilium agent on receiving the FQDN mapping
 	updateOnDNSMsg messagehandler.DNSMessageHandler
@@ -86,22 +86,22 @@ type FQDNDataServer struct {
 	enabled bool
 }
 
-type policyRules struct {
+type PolicyRules struct {
 	Identity identity.NumericIdentity
 	SelPol   policy.SelectorPolicy
 }
 
 // TableHeader implements statedb.TableWritable.
-func (p policyRules) TableHeader() []string {
+func (p PolicyRules) TableHeader() []string {
 	return []string{"Identity"}
 }
 
 // TableRow implements statedb.TableWritable.
-func (p policyRules) TableRow() []string {
+func (p PolicyRules) TableRow() []string {
 	return []string{p.Identity.String()}
 }
 
-var _ statedb.TableWritable = policyRules{}
+var _ statedb.TableWritable = PolicyRules{}
 
 type identityToIPs struct {
 	Identity identity.NumericIdentity
@@ -130,9 +130,9 @@ const (
 )
 
 var (
-	idIndex = statedb.Index[policyRules, identity.NumericIdentity]{
+	PolicyRulesIndex = statedb.Index[PolicyRules, identity.NumericIdentity]{
 		Name: "id",
-		FromObject: func(e policyRules) index.KeySet {
+		FromObject: func(e PolicyRules) index.KeySet {
 			return index.NewKeySet(index.Uint32(e.Identity.Uint32()))
 		},
 		FromKey: func(key identity.NumericIdentity) index.Key {
@@ -239,7 +239,7 @@ func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateS
 // sendAndRecvAckForDNSPolicies sends the current state of the DNS policies to the client
 // and waits for the ACK from the client.
 // Note: this method is sending constant test data on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
-func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamPolicyStateServer, rules iter.Seq2[policyRules, statedb.Revision]) error {
+func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamPolicyStateServer, rules iter.Seq2[PolicyRules, statedb.Revision]) error {
 	requestID := uuid.New().String()
 	policyState := &pb.PolicyState{
 		RequestId: requestID,
@@ -260,11 +260,11 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 }
 
 // newPolicyRulesTable creates a new table for storing the policy rules and registers it with the database.
-func newPolicyRulesTable(db *statedb.DB) (statedb.RWTable[policyRules], error) {
+func newPolicyRulesTable(db *statedb.DB) (statedb.RWTable[PolicyRules], error) {
 	return statedb.NewTable(
 		db,
 		PolicyRulesTableName,
-		idIndex,
+		PolicyRulesIndex,
 	)
 }
 
@@ -402,7 +402,7 @@ func (s *FQDNDataServer) UpdatePolicyRules(policies map[identity.NumericIdentity
 	wtxn := s.db.WriteTxn(s.policyRulesTable)
 	defer wtxn.Abort()
 	for id, selPol := range policies {
-		_, _, err := s.policyRulesTable.Insert(wtxn, policyRules{
+		_, _, err := s.policyRulesTable.Insert(wtxn, PolicyRules{
 			Identity: id,
 			SelPol:   selPol,
 		})
