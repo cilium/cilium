@@ -432,9 +432,27 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 					}
 				}
 
-				state := loadbalancer.BackendStateActive
-				if be.Terminating {
+				var state loadbalancer.BackendState
+				switch {
+				case be.Conditions.IsReady():
+					// A backend that is ready (regardless of serving and terminating) is considered
+					// active. We may see backends that are ready+terminating if 'PublishNotReadyAddresses'
+					// is true. While it would be more logical to set this as terminating, we're following
+					// kube-proxy here and considering it as an active backend and not ignoring it even when
+					// other active backends are available.
+					state = loadbalancer.BackendStateActive
+				case be.Conditions.IsTerminating() && !be.Conditions.IsServing():
+					// A backend that is terminating and not serving should not be used for load-balancing
+					// even if it's the only backend.
+					state = loadbalancer.BackendStateTerminatingNotServing
+				case be.Conditions.IsTerminating():
+					// A backend that is terminating and serving can still be used for new connections
+					// when no active backends are available.
 					state = loadbalancer.BackendStateTerminating
+				default:
+					// In all other cases we mark the backend as quarantined. Existing connections
+					// are not disrupted until the backend is actually deleted.
+					state = loadbalancer.BackendStateQuarantined
 				}
 				bep := loadbalancer.BackendParams{
 					Address:   l3n4Addr,
