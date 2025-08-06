@@ -72,8 +72,8 @@ var (
 	)
 )
 
-func provideK8sWatchConfig(envoyCfg envoy.SecretSyncConfig) *k8s.WatchConfig {
-	return &k8s.WatchConfig{
+func provideK8sWatchConfig(envoyCfg envoy.SecretSyncConfig) k8s.ServiceWatchConfig {
+	return k8s.ServiceWatchConfig{
 		EnableHeadlessServiceWatch: envoyCfg.EnableGatewayAPI || envoyCfg.EnableIngressController,
 	}
 }

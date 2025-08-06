@@ -79,6 +79,7 @@ func TestScript(t *testing.T) {
 			metrics.Cell,
 			maglev.Cell,
 			cell.Config(CECConfig{}),
+			cell.Config(envoy.SecretSyncConfig{}),
 			cell.Config(envoy.ProxyConfig{}),
 
 			lbcell.Cell,

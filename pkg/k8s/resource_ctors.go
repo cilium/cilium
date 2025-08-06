@@ -43,7 +43,7 @@ type Config struct {
 	K8sServiceProxyName string
 }
 
-type WatchConfig struct {
+type ServiceWatchConfig struct {
 	// EnableHeadlessServiceWatch controls whether watches for Headless Services and
 	// Headless Services Endpoint Slices are enabled. Disabling the watch when
 	// features depending on it are not used reduces the load on apiserver in clusters
@@ -56,6 +56,10 @@ var DefaultConfig = Config{
 	K8sServiceProxyName: "",
 }
 
+var defaultServiceWatchConfig = ServiceWatchConfig{
+	EnableHeadlessServiceWatch: true,
+}
+
 const (
 	NamespaceIndex = "namespace"
 	ByKeyIndex     = "by-key-index"
@@ -64,6 +68,10 @@ const (
 // Flags implements the cell.Flagger interface.
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String("k8s-service-proxy-name", def.K8sServiceProxyName, "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
+}
+
+func DefaultServiceWatchConfig() ServiceWatchConfig {
+	return defaultServiceWatchConfig
 }
 
 // namespaceIndexFunc is an IndexFunc that indexes Namespace of Kubernetes
@@ -103,14 +111,7 @@ type ConfigParams struct {
 	cell.In
 
 	Config      Config
-	WatchConfig *WatchConfig `optional:"true"`
-}
-
-func resolveConfig(cfg ConfigParams) (config Config, headlessServiceWatchEnabled bool) {
-	if cfg.WatchConfig == nil {
-		return cfg.Config, true
-	}
-	return cfg.Config, cfg.WatchConfig.EnableHeadlessServiceWatch
+	WatchConfig ServiceWatchConfig
 }
 
 // ServiceResource builds the Resource[Service] object.
@@ -119,9 +120,7 @@ func ServiceResource(lc cell.Lifecycle, cfg ConfigParams, cs client.Clientset, o
 		return nil, nil
 	}
 
-	config, headlessServiceWatchEnabled := resolveConfig(cfg)
-
-	optsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(config.K8sServiceProxyName, headlessServiceWatchEnabled)
+	optsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(cfg.Config.K8sServiceProxyName, cfg.WatchConfig.EnableHeadlessServiceWatch)
 	if err != nil {
 		return nil, err
 	}
@@ -314,9 +313,7 @@ func EndpointsResourceWithIndexers(logger *slog.Logger, lc cell.Lifecycle, cfg C
 		return nil, nil
 	}
 
-	_, headlessServiceWatchEnabled := resolveConfig(cfg)
-
-	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier(headlessServiceWatchEnabled)
+	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier(cfg.WatchConfig.EnableHeadlessServiceWatch)
 	if err != nil {
 		return nil, err
 	}
