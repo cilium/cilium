@@ -14,7 +14,7 @@ def parse_asserts(filename: str) -> List[Dict]:
     Parses asserts in the log file.
 
     Expected assert log format:
-       '... bpf_trace_printk: (file):(linenum) assert '(assert_name)' FAILED! (Got|Expected) ... : pkt_hex \((first_layer)\)[(bytes)]'
+       '... bpf_trace_printk: (file):(linenum) assert '(assert_name)' FAILED! (Got|Expected) ... : pkt_hex ((first_layer))[(bytes)]'
     Example:
        'bpftest.test-1515316 [001] b..11 102260.946507: bpf_trace_printk: tc_l2_announcement.c:164 assert 'arp_rep_only_ok' FAILED! Got (ctx): pkt_hex ARP[0001080006040002133713371337ac100a01deadbeefdeef6e000b01]'
 

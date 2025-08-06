@@ -13,7 +13,7 @@ def parse_pkts(filename: str) -> List[Dict]:
     Parses packet hexdump log entries in the trace_pipe log.
 
     Expected hexdump log format:
-       '(context) pkt_hex \((first_layer)\)[(bytes)]'
+       '(context) pkt_hex ((first_layer))[(bytes)]'
     Example:
        'bpftest.test-1515316 [001] b..11 102260.946440: bpf_trace_printk: tc_l2_announcement.c:93 no_entry: pkt_hex Ether[ffffffffffffdeadbeefdeef08060001080006040001deadbeefdeef6e000b01ffffffffffffac100a01]'
 
