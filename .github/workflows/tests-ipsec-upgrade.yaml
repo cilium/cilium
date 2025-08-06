@@ -284,21 +284,21 @@ jobs:
         id: vars-conn
         run: |
           EXTRA_CLI_FLAGS=(
-            "\"--external-target=${{ steps.lvh-kind.outputs.external_target_name }}\""
-            "\"--external-other-target=${{ steps.lvh-kind.outputs.other_external_target_name }}\""
-            "\"--external-cidr=${{ steps.lvh-kind.outputs.ipv4_external_cidr }}\""
-            "\"--external-cidrv6=${{ steps.lvh-kind.outputs.ipv6_external_cidr }}\""
-            "\"--external-ip=${{ steps.lvh-kind.outputs.ipv4_external_target }}\""
-            "\"--external-ipv6=${{ steps.lvh-kind.outputs.ipv6_external_target }}\""
-            "\"--external-other-ip=${{ steps.lvh-kind.outputs.ipv4_other_external_target }}\""
-            "\"--external-other-ipv6=${{ steps.lvh-kind.outputs.ipv6_other_external_target }}\""
-            "\"--external-target-ca-namespace=external-target-secrets\""
-            "\"--external-target-ca-name=custom-ca\""
-            "\"--external-target-ipv6-capable\""
+            "--external-target=${{ steps.lvh-kind.outputs.external_target_name }}"
+            "--external-other-target=${{ steps.lvh-kind.outputs.other_external_target_name }}"
+            "--external-cidr=${{ steps.lvh-kind.outputs.ipv4_external_cidr }}"
+            "--external-cidrv6=${{ steps.lvh-kind.outputs.ipv6_external_cidr }}"
+            "--external-ip=${{ steps.lvh-kind.outputs.ipv4_external_target }}"
+            "--external-ipv6=${{ steps.lvh-kind.outputs.ipv6_external_target }}"
+            "--external-other-ip=${{ steps.lvh-kind.outputs.ipv4_other_external_target }}"
+            "--external-other-ipv6=${{ steps.lvh-kind.outputs.ipv6_other_external_target }}"
+            "--external-target-ca-namespace=external-target-secrets"
+            "--external-target-ca-name=custom-ca"
+            "--external-target-ipv6-capable"
           )
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
-                                      ${EXTRA_CLI_FLAGS[*]}"
+                                      ${EXTRA_CLI_FLAGS[*]@Q}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
 
