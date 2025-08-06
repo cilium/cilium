@@ -4,6 +4,8 @@
 package builder
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
@@ -16,11 +18,11 @@ func (t egressGateway) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("seq-egress-gateway", ct).
 		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
 		WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
-			Name:            "cegp-sample-client",
+			Name:            fmt.Sprintf("cegp-sample-client-%d", ct.Params().TestNamespaceIndex),
 			PodSelectorKind: "client",
 		}).
 		WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
-			Name:            "cegp-sample-echo",
+			Name:            fmt.Sprintf("cegp-sample-echo-%d", ct.Params().TestNamespaceIndex),
 			PodSelectorKind: "echo",
 		}).
 		WithIPRoutesFromOutsideToPodCIDRs().
