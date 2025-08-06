@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
+	"github.com/cilium/cilium/pkg/policy/compute"
 )
 
 var policyAPICell = cell.Module(
@@ -28,8 +29,9 @@ type policyAPIHandlerParams struct {
 
 	Log *slog.Logger
 
-	Repo     policy.PolicyRepository
-	Importer policycell.PolicyImporter
+	Repo           policy.PolicyRepository
+	PolicyComputer compute.PolicyRecomputer
+	Importer       policycell.PolicyImporter
 }
 
 type policyAPIHandlers struct {
