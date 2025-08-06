@@ -138,6 +138,17 @@ func (e *Endpoint) UpdateLogger(fields map[string]any) {
 	e.logger.Store(baseLoggerWithSubsys)
 }
 
+type PanickingHandler struct {
+	*slog.TextHandler
+}
+
+func (ph *PanickingHandler) Handle(ctx context.Context, r slog.Record) error {
+	if err := ph.TextHandler.Handle(ctx, r); err != nil {
+		panic(err)
+	}
+	return nil
+}
+
 // Only to be called from UpdateLogger() above
 func (e *Endpoint) updatePolicyLogger(fields map[string]any) {
 	policyLogger := e.policyLogger.Load()
@@ -163,10 +174,10 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]any) {
 			LocalTime:  true,
 			Compress:   true,
 		}
-		baseLogger := slog.New(slog.NewTextHandler(lumberjackLogger, &slog.HandlerOptions{
+		baseLogger := slog.New(&PanickingHandler{slog.NewTextHandler(lumberjackLogger, &slog.HandlerOptions{
 			Level:       slog.LevelDebug,
 			ReplaceAttr: logging.ReplaceAttrFn,
-		}))
+		})})
 		e.basePolicyLogger.Store(baseLogger)
 
 		policyLogger = baseLogger
