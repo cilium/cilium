@@ -41,7 +41,7 @@ type BackendAddress struct {
 	Protocol string `json:"protocol,omitempty"`
 
 	// State of the backend for load-balancing service traffic
-	// Enum: ["active","terminating","quarantined","maintenance"]
+	// Enum: ["active","terminating","terminating-not-serving","quarantined","maintenance"]
 	State string `json:"state,omitempty"`
 
 	// Backend weight
@@ -82,7 +82,7 @@ var backendAddressTypeStatePropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["active","terminating","quarantined","maintenance"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["active","terminating","terminating-not-serving","quarantined","maintenance"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -97,6 +97,9 @@ const (
 
 	// BackendAddressStateTerminating captures enum value "terminating"
 	BackendAddressStateTerminating string = "terminating"
+
+	// BackendAddressStateTerminatingDashNotDashServing captures enum value "terminating-not-serving"
+	BackendAddressStateTerminatingDashNotDashServing string = "terminating-not-serving"
 
 	// BackendAddressStateQuarantined captures enum value "quarantined"
 	BackendAddressStateQuarantined string = "quarantined"

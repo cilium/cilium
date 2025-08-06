@@ -122,7 +122,8 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -138,8 +139,8 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName:    "node1",
-				Terminating: true,
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionTerminating,
 			},
 		},
 	}
@@ -155,7 +156,8 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -171,10 +173,12 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -190,7 +194,8 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -206,7 +211,8 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -222,10 +228,12 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -825,7 +833,8 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -841,7 +850,8 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -857,10 +867,12 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -876,7 +888,8 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -892,7 +905,8 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -908,7 +922,8 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
 				NodeName: "node2",
@@ -1468,7 +1483,8 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -1484,7 +1500,8 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -1500,10 +1517,12 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -1519,7 +1538,8 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -1535,7 +1555,8 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -1551,10 +1572,12 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -2063,14 +2086,16 @@ func TestEPUpdateOnly(t *testing.T) {
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
 	eps1IPv4LocalUpdated := eps1IPv4Local.DeepCopy()
 	eps1IPv4LocalUpdated.Backends = map[cmtypes.AddrCluster]*k8s.Backend{
 		cmtypes.MustParseAddrCluster("10.0.0.1"): {
-			NodeName: "node2",
+			NodeName:   "node2",
+			Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 		},
 	}
 

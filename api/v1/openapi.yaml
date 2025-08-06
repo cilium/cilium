@@ -2924,6 +2924,7 @@ definitions:
         enum:
           - active
           - terminating
+          - terminating-not-serving
           - quarantined
           - maintenance
       preferred:
