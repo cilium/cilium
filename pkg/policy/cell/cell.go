@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -119,6 +120,7 @@ type policyUpdaterParams struct {
 
 	Logger           *slog.Logger
 	PolicyRepository policy.PolicyRepository
+	PolicyComputer   compute.PolicyRecomputer
 	EndpointManager  endpointmanager.EndpointManager
 }
 
@@ -126,7 +128,5 @@ func newPolicyUpdater(params policyUpdaterParams) *policy.Updater {
 	// policyUpdater: forces policy recalculation on all endpoints.
 	// Called for various events, such as named port changes
 	// or certain identity updates.
-	policyUpdater := policy.NewUpdater(params.Logger, params.PolicyRepository, params.EndpointManager)
-
-	return policyUpdater
+	return policy.NewUpdater(params.Logger, params.PolicyRepository, params.PolicyComputer, params.EndpointManager)
 }
