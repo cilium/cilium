@@ -64,6 +64,9 @@ type Configuration struct {
 	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
 	ServiceResolver *dial.ServiceResolver
 
+	// ServiceBackendResolver, if not nil, is used to perform service to backend resolution.
+	ServiceBackendResolver *dial.ServiceBackendResolver
+
 	// IPCacheWatcherExtraOpts returns extra options for watching ipcache entries.
 	IPCacheWatcherExtraOpts IPCacheWatcherOptsFn `optional:"true"`
 
@@ -146,7 +149,16 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 		ClusterInfo:                  c.ClusterInfo,
 		RemoteClientFactory:          c.RemoteClientFactory,
 		ClusterSizeDependantInterval: c.ClusterSizeDependantInterval,
-		ServiceResolver:              c.ServiceResolver,
+
+		Resolvers: func() (out []dial.Resolver) {
+			if c.ServiceResolver != nil {
+				out = append(out, c.ServiceResolver)
+			}
+			if c.ServiceBackendResolver != nil {
+				out = append(out, c.ServiceBackendResolver)
+			}
+			return out
+		}(),
 
 		NewRemoteCluster: cm.NewRemoteCluster,
 

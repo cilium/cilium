@@ -202,6 +202,7 @@ jobs:
             --set=clustermesh.maxConnectedClusters=${{ matrix.max-connected-clusters }} \
             --set=clustermesh.config.enabled=true \
             --set=extraConfig.clustermesh-sync-timeout=10m \
+            --set=extraConfig.lb-init-wait-timeout=4m \
             --set=clustermesh.apiserver.readinessProbe.periodSeconds=1 \
             --set=clustermesh.apiserver.kvstoremesh.readinessProbe.periodSeconds=1 \
             --set=clustermesh.apiserver.updateStrategy.rollingUpdate.maxSurge=1 `# Use surge update strategy to enable clients to failover` \
@@ -650,11 +651,18 @@ jobs:
 
       # Perform an additional "stress" test, scaling the clustermesh-apiservers in both clusters
       # to zero replicas, and restarting all agents. Existing connections should not be disrupted.
+      # One exception to this is represented by Cilium being in charge of handling NodePort
+      # traffic, as the simultaneous restart of the clustermesh-apiserver pods in both clusters
+      # after rolling out all agents can lead to a circular dependency, as service reconciliation
+      # needs to wait on clustermesh synchronization, which requires the clustermesh-apiserver
+      # service to be reconciled to include the new backends.
       - name: Scale the clustermesh-apiserver replicas to 0
         if: ${{ !matrix.external-kvstore }}
         run: |
           kubectl --context ${{ env.contextName1 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
-          kubectl --context ${{ env.contextName2 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
+          if [ "${{ matrix.kube-proxy }}" != "none" ]; then
+            kubectl --context ${{ env.contextName2 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
+          fi
 
       - name: Rollout Cilium agents in both clusters
         run: |

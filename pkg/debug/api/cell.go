@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/status"
-	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // Cell provides the Debug-Info API handler
@@ -35,7 +35,7 @@ type debugAPIHandlerParams struct {
 	Frontends       statedb.Table[*loadbalancer.Frontend]
 	EndpointManager endpointmanager.EndpointManager
 	PolicyRepo      policy.PolicyRepository
-	WireguardAgent  *wireguard.Agent
+	WireguardAgent  wgTypes.WireguardAgent
 
 	StatusCollector status.StatusCollector
 	CellSettings    cellSettings

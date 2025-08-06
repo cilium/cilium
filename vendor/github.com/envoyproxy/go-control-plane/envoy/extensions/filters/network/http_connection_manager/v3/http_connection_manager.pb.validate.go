@@ -1777,17 +1777,6 @@ func (m *Rds) validate(all bool) error {
 
 	var errors []error
 
-	if m.GetConfigSource() == nil {
-		err := RdsValidationError{
-			field:  "ConfigSource",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if all {
 		switch v := interface{}(m.GetConfigSource()).(type) {
 		case interface{ ValidateAll() error }:

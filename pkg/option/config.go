@@ -30,7 +30,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -373,10 +372,6 @@ const (
 	// CMDRef is the path to cmdref output directory
 	CMDRef = "cmdref"
 
-	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
-	// for each FQDN selector in endpoint's restored DNS rules
-	DNSMaxIPsPerRestoredRule = "dns-max-ips-per-restored-rule"
-
 	// DNSPolicyUnloadOnShutdown is the name of the dns-policy-unload-on-shutdown option.
 	DNSPolicyUnloadOnShutdown = "dns-policy-unload-on-shutdown"
 
@@ -403,18 +398,9 @@ const (
 	// The file is not re-read after agent start.
 	ToFQDNsPreCache = "tofqdns-pre-cache"
 
-	// ToFQDNsEnableDNSCompression allows the DNS proxy to compress responses to
-	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
-	ToFQDNsEnableDNSCompression = "tofqdns-enable-dns-compression"
-
 	// DNSProxyConcurrencyLimit limits parallel processing of DNS messages in
 	// DNS proxy at any given point in time.
 	DNSProxyConcurrencyLimit = "dnsproxy-concurrency-limit"
-
-	// DNSProxyConcurrencyProcessingGracePeriod is the amount of grace time to
-	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
-	// been reached.
-	DNSProxyConcurrencyProcessingGracePeriod = "dnsproxy-concurrency-processing-grace-period"
 
 	// DNSProxyLockCount is the array size containing mutexes which protect
 	// against parallel handling of DNS response IPs.
@@ -721,12 +707,6 @@ const (
 	// useful for testing purposes in local containerized cluster.
 	BootIDFilename = "boot-id-file"
 
-	// EnableWireguard is the name of the option to enable WireGuard
-	EnableWireguard = "enable-wireguard"
-
-	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
-	WireguardTrackAllIPsFallback = "wireguard-track-all-ips-fallback"
-
 	// EnableL2Announcements is the name of the option to enable l2 announcements
 	EnableL2Announcements = "enable-l2-announcements"
 
@@ -749,12 +729,6 @@ const (
 	// This is required when tunneling is used
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
 	EncryptionStrictModeAllowRemoteNodeIdentities = "encryption-strict-mode-allow-remote-node-identities"
-
-	// WireguardPersistentKeepalive controls Wireguard PersistentKeepalive option. Set 0 to disable.
-	WireguardPersistentKeepalive = "wireguard-persistent-keepalive"
-
-	// NodeEncryptionOptOutLabels is the name of the option for the node-to-node encryption opt-out labels
-	NodeEncryptionOptOutLabels = "node-encryption-opt-out-labels"
 
 	// KVstoreLeaseTTL is the time-to-live for lease in kvstore.
 	KVstoreLeaseTTL = "kvstore-lease-ttl"
@@ -1442,14 +1416,8 @@ type DaemonConfig struct {
 	// BootIDFile is the file containing the boot ID of the node
 	BootIDFile string
 
-	// EnableWireguard enables Wireguard encryption
-	EnableWireguard bool
-
 	// EnableEncryptionStrictMode enables strict mode for encryption
 	EnableEncryptionStrictMode bool
-
-	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
-	WireguardTrackAllIPsFallback bool
 
 	// EncryptionStrictModeCIDR is the CIDR to use for strict mode
 	EncryptionStrictModeCIDR netip.Prefix
@@ -1458,9 +1426,6 @@ type DaemonConfig struct {
 	// This is required when tunneling is used
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
 	EncryptionStrictModeAllowRemoteNodeIdentities bool
-
-	// WireguardPersistentKeepalive controls Wireguard PersistentKeepalive option.
-	WireguardPersistentKeepalive time.Duration
 
 	// EnableL2Announcements enables L2 announcement of service IPs
 	EnableL2Announcements bool
@@ -1471,16 +1436,6 @@ type DaemonConfig struct {
 	L2AnnouncerRenewDeadline time.Duration
 	// L2AnnouncerRetryPeriod, on renew failure, retry after X amount of time.
 	L2AnnouncerRetryPeriod time.Duration
-
-	// NodeEncryptionOptOutLabels contains the label selectors for nodes opting out of
-	// node-to-node encryption
-	// This field ignored when marshalling to JSON in DaemonConfig.StoreInFile,
-	// because a k8sLabels.Selector cannot be unmarshalled from JSON. The
-	// string is stored in NodeEncryptionOptOutLabelsString instead.
-	NodeEncryptionOptOutLabels k8sLabels.Selector `json:"-"`
-	// NodeEncryptionOptOutLabelsString is the string is used to construct
-	// the label selector in the above field.
-	NodeEncryptionOptOutLabelsString string
 
 	// CLI options
 
@@ -1537,10 +1492,6 @@ type DaemonConfig struct {
 	Version                string
 	ToFQDNsMinTTL          int
 
-	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
-	// for each FQDN selector in endpoint's restored DNS rules
-	DNSMaxIPsPerRestoredRule int
-
 	// DNSPolicyUnloadOnShutdown defines whether DNS policy rules should be unloaded on
 	// graceful shutdown.
 	DNSPolicyUnloadOnShutdown bool
@@ -1579,18 +1530,9 @@ type DaemonConfig struct {
 	// Path to a file with DNS cache data to preload on startup
 	ToFQDNsPreCache string
 
-	// ToFQDNsEnableDNSCompression allows the DNS proxy to compress responses to
-	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
-	ToFQDNsEnableDNSCompression bool
-
 	// DNSProxyConcurrencyLimit limits parallel processing of DNS messages in
 	// DNS proxy at any given point in time.
 	DNSProxyConcurrencyLimit int
-
-	// DNSProxyConcurrencyProcessingGracePeriod is the amount of grace time to
-	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
-	// been reached.
-	DNSProxyConcurrencyProcessingGracePeriod time.Duration
 
 	// DNSProxyEnableTransparentMode enables transparent mode for the DNS proxy.
 	DNSProxyEnableTransparentMode bool
@@ -2035,7 +1977,6 @@ var (
 		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
 		EnableSCTP:                      defaults.EnableSCTP,
 		EnableL7Proxy:                   defaults.EnableL7Proxy,
-		DNSMaxIPsPerRestoredRule:        defaults.DNSMaxIPsPerRestoredRule,
 		ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
 		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
 		CiliumIdentityMaxJitter:         defaults.CiliumIdentityMaxJitter,
@@ -2132,15 +2073,15 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
-func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig) bool {
-	return kprCfg.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
+func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
+	return kprCfg.EnableNodePort || c.EnableHostFirewall || wireguardEnabled ||
 		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSec
 }
 
 // NeedIngressOnWireGuardDevice returns true if the agent needs to attach
 // cil_from_wireguard on the Ingress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedIngressOnWireGuardDevice(kprCfg kpr.KPRConfig) bool {
-	if !c.EnableWireguard {
+func (c *DaemonConfig) NeedIngressOnWireGuardDevice(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
+	if !wireguardEnabled {
 		return false
 	}
 
@@ -2168,8 +2109,8 @@ func (c *DaemonConfig) NeedIngressOnWireGuardDevice(kprCfg kpr.KPRConfig) bool {
 
 // NeedEgressOnWireGuardDevice returns true if the agent needs to attach
 // cil_to_wireguard on the Egress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kprCfg kpr.KPRConfig) bool {
-	if !c.EnableWireguard {
+func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
+	if !wireguardEnabled {
 		return false
 	}
 
@@ -2313,7 +2254,7 @@ func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
 
 // DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
 // the current configuration.
-func (c *DaemonConfig) DirectRoutingDeviceRequired(kprCfg kpr.KPRConfig) bool {
+func (c *DaemonConfig) DirectRoutingDeviceRequired(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
 	// BPF NodePort and BPF Host Routing are using the direct routing device now.
 	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
 	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
@@ -2323,7 +2264,7 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired(kprCfg kpr.KPRConfig) bool {
 		return true
 	}
 
-	return kprCfg.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard
+	return kprCfg.EnableNodePort || BPFHostRoutingEnabled || wireguardEnabled
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -2598,13 +2539,10 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableSCTP = vp.GetBool(EnableSCTPName)
 	c.IPv6MCastDevice = vp.GetString(IPv6MCastDevice)
 	c.EnableIPSec = vp.GetBool(EnableIPSecName)
-	c.EnableWireguard = vp.GetBool(EnableWireguard)
-	c.WireguardTrackAllIPsFallback = vp.GetBool(WireguardTrackAllIPsFallback)
 	c.EnableL2Announcements = vp.GetBool(EnableL2Announcements)
 	c.L2AnnouncerLeaseDuration = vp.GetDuration(L2AnnouncerLeaseDuration)
 	c.L2AnnouncerRenewDeadline = vp.GetDuration(L2AnnouncerRenewDeadline)
 	c.L2AnnouncerRetryPeriod = vp.GetDuration(L2AnnouncerRetryPeriod)
-	c.WireguardPersistentKeepalive = vp.GetDuration(WireguardPersistentKeepalive)
 	c.EnableXDPPrefilter = vp.GetBool(EnableXDPPrefilter)
 	c.EnableTCX = vp.GetBool(EnableTCX)
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
@@ -2827,7 +2765,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableIdentityMark = vp.GetBool(EnableIdentityMark)
 
 	// toFQDNs options
-	c.DNSMaxIPsPerRestoredRule = vp.GetInt(DNSMaxIPsPerRestoredRule)
 	c.DNSPolicyUnloadOnShutdown = vp.GetBool(DNSPolicyUnloadOnShutdown)
 	c.FQDNRegexCompileLRUSize = vp.GetUint(FQDNRegexCompileLRUSize)
 	c.ToFQDNsMaxIPsPerHost = vp.GetInt(ToFQDNsMaxIPsPerHost)
@@ -2845,11 +2782,9 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	}
 	c.ToFQDNsProxyPort = vp.GetInt(ToFQDNsProxyPort)
 	c.ToFQDNsPreCache = vp.GetString(ToFQDNsPreCache)
-	c.ToFQDNsEnableDNSCompression = vp.GetBool(ToFQDNsEnableDNSCompression)
 	c.ToFQDNsIdleConnectionGracePeriod = vp.GetDuration(ToFQDNsIdleConnectionGracePeriod)
 	c.FQDNProxyResponseMaxDelay = vp.GetDuration(FQDNProxyResponseMaxDelay)
 	c.DNSProxyConcurrencyLimit = vp.GetInt(DNSProxyConcurrencyLimit)
-	c.DNSProxyConcurrencyProcessingGracePeriod = vp.GetDuration(DNSProxyConcurrencyProcessingGracePeriod)
 	c.DNSProxyEnableTransparentMode = vp.GetBool(DNSProxyEnableTransparentMode)
 	c.DNSProxyInsecureSkipTransparentModeCheck = vp.GetBool(DNSProxyInsecureSkipTransparentModeCheck)
 	c.DNSProxyLockCount = vp.GetInt(DNSProxyLockCount)
@@ -2935,13 +2870,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", BPFMapEventBuffers, err))
 	} else {
 		parseBPFMapEventConfigs(c.bpfMapEventConfigs, m)
-	}
-
-	c.NodeEncryptionOptOutLabelsString = vp.GetString(NodeEncryptionOptOutLabels)
-	if sel, err := k8sLabels.Parse(c.NodeEncryptionOptOutLabelsString); err != nil {
-		logging.Fatal(logger, fmt.Sprintf("unable to parse label selector %s: %s", NodeEncryptionOptOutLabels, err))
-	} else {
-		c.NodeEncryptionOptOutLabels = sel
 	}
 
 	if err := c.parseExcludedLocalAddresses(vp.GetStringSlice(ExcludeLocalAddress)); err != nil {

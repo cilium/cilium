@@ -73,7 +73,7 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 		Identity:            getEndpointIdentity(identitymodel.CreateModel(e.SecurityIdentity)),
 		Networking:          getEndpointNetworking(logger, e.getModelNetworkingRLocked()),
 		State:               compressEndpointState(e.getModelCurrentStateRLocked()),
-		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetEndpointEncryptKeyIndex(logger))},
+		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetEndpointEncryptKeyIndex(logger, e.wgConfig))},
 		NamedPorts:          e.getNamedPortsModel(),
 	}
 

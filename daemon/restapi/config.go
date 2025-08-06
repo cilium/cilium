@@ -75,6 +75,7 @@ type configModifyApiHandlerParams struct {
 	BigTCPConfig    *bigtcp.Configuration
 	TunnelConfig    tunnel.Config
 	BandwidthConfig datapath.BandwidthConfig
+	WgConfig        wgTypes.WireguardConfig
 
 	EventHandler *ConfigModifyEventHandler
 }
@@ -99,6 +100,7 @@ func newConfigModifyApiHandler(params configModifyApiHandlerParams) configModify
 			bigTCPConfig:    params.BigTCPConfig,
 			tunnelConfig:    params.TunnelConfig,
 			bandwidthConfig: params.BandwidthConfig,
+			wgConfig:        params.WgConfig,
 		},
 		PatchConfigHandler: &patchConfigHandler{
 			logger:       params.Logger,
@@ -343,6 +345,7 @@ type getConfigHandler struct {
 	bigTCPConfig    *bigtcp.Configuration
 	tunnelConfig    tunnel.Config
 	bandwidthConfig datapath.BandwidthConfig
+	wgConfig        wgTypes.WireguardConfig
 }
 
 func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.Responder {
@@ -431,7 +434,7 @@ func (h *getConfigHandler) getIPLocalReservedPorts() string {
 	// range and thus may conflict with the ephemeral source port of DNS clients
 	// in the container network namespace.
 	var ports []string
-	if option.Config.EnableWireguard {
+	if h.wgConfig.Enabled() {
 		ports = append(ports, strconv.Itoa(wgTypes.ListenPort))
 	}
 

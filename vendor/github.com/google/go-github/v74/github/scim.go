@@ -108,6 +108,26 @@ type ListSCIMProvisionedIdentitiesOptions struct {
 	Filter *string `url:"filter,omitempty"`
 }
 
+// ListSCIMProvisionedGroupsForEnterpriseOptions represents options for ListSCIMProvisionedGroupsForEnterprise.
+//
+// GitHub API docs: https://docs.github.com/en/enterprise-cloud@latest/rest/enterprise-admin/scim#list-provisioned-scim-groups-for-an-enterprise--parameters
+type ListSCIMProvisionedGroupsForEnterpriseOptions struct {
+	// Filter specifies the matching results to return.
+	// Multiple filters are not supported. Possible filters are externalId, id, and displayName.
+	// For example: ?filter=externalId eq "9138790-10932-109120392-12321".
+	// (Optional.)
+	Filter *string `url:"filter,omitempty"`
+	// ExcludedAttributes excludes the specified attribute from being returned in the results.
+	// Using this parameter can speed up response time. (Optional.)
+	ExcludedAttributes *string `url:"excludedAttributes,omitempty"`
+	// StartIndex used for pagination: the starting index of the first result to return when paginating through values. (Optional.)
+	// Default: 1.
+	StartIndex *int `url:"startIndex,omitempty"`
+	// Count used for pagination: the number of results to return per page. (Optional.)
+	// Default: 30.
+	Count *int `url:"count,omitempty"`
+}
+
 // ListSCIMProvisionedIdentities lists SCIM provisioned identities.
 //
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/scim/scim#list-scim-provisioned-identities
@@ -252,8 +272,12 @@ func (s *SCIMService) DeleteSCIMUserFromOrg(ctx context.Context, org, scimUserID
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/enterprise-admin/scim#list-provisioned-scim-groups-for-an-enterprise
 //
 //meta:operation GET /scim/v2/enterprises/{enterprise}/Groups
-func (s *SCIMService) ListSCIMProvisionedGroupsForEnterprise(ctx context.Context, enterprise string, opts *ListSCIMProvisionedIdentitiesOptions) (*SCIMProvisionedGroups, *Response, error) {
+func (s *SCIMService) ListSCIMProvisionedGroupsForEnterprise(ctx context.Context, enterprise string, opts *ListSCIMProvisionedGroupsForEnterpriseOptions) (*SCIMProvisionedGroups, *Response, error) {
 	u := fmt.Sprintf("scim/v2/enterprises/%v/Groups", enterprise)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {

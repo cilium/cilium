@@ -87,6 +87,7 @@
   "allowedPostUpgradeCommands": [
     "^make -C install/kubernetes$",
     "^make -C Documentation update-helm-values$",
+    "^make -C Documentation update-cmdref$",
     "^make generate-k8s-api$",
     "^make manifests$",
     "^make GO='contrib/scripts/builder.sh go' generate-apis$"
@@ -95,11 +96,17 @@
   "packageRules": [
     {
       "matchPackageNames": [
+        "bufbuild/buf", // Protocol buffer toolkit
+        "docker.io/alpine/socat", // Alpine socat package
+        "docker.io/library/busybox", // Official busybox image
         "go", // golang version directive upgrade in go.mod
         "google/cloud-sdk", // google cloud-sdk official package name
         "grpc-ecosystem/grpc-health-probe", // Grpc ecosystem
         "kindest/node", // official kindest images
         "kubernetes-sigs/kind", // official kind dependencies
+        "quay.io/cilium/cilium-envoy", // Cilium's Envoy proxy
+        "quay.io/frrouting/frr", // FRRouting package
+        "registry.k8s.io/coredns/coredns", // CoreDNS official image
         "renovatebot/github-action", // Renovate's GH action
         "renovatebot/renovate", // Renovate's bot name
       ],
@@ -563,6 +570,20 @@
       }
     },
     {
+      "matchFiles": [
+        "cilium-cli/defaults/defaults.go"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C Documentation update-cmdref"
+        ],
+        "fileFilters": [
+          "Documentation/cmdref/cilium_connectivity_test.md"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
       enabled: false,
       matchDepPatterns: [
         // k8s dependencies will be updated manually along with tests
@@ -863,6 +884,15 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+lvh-version: \"(?<currentValue>.*)\""
       ]
+    },
+    {
+      "fileMatch": [".github/workflows/.*\\.ya?ml$"],
+      "matchStrings": [
+        "['\"]ubuntu-(?<currentValue>[0-9]{2}\\.[0-9]{2})['\"]"
+      ],
+      "datasourceTemplate": "github-runners",
+      "depNameTemplate": "ubuntu",
+      "packageNameTemplate": "ubuntu"
     }
   ]
 }
