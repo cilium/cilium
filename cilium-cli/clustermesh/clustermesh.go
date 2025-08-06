@@ -1354,7 +1354,7 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 	if err != nil {
 		return fmt.Errorf("Failed to parse Helm chart version %s on cluster %s: %w", release.Chart.Metadata.Version, client.ClusterName(), err)
 	}
-	if versioncheck.MustCompile("<1.20.0")(version) {
+	if versioncheck.MustCompile("<1.19.0")(version) {
 		clustersRaw = convertClustersToListClusterMesh(clusters)
 	}
 	err = setClustersInValues(release, client, clustersRaw)
