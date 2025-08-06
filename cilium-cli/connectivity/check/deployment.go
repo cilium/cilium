@@ -742,7 +742,12 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					ct.Failf("%s deployment is not ready: %s", clientDeploy, err)
 				}
 			}
-			if err := WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(),
+
+			testPods := append(
+				slices.Collect(maps.Values(ct.ClientPods())),
+				slices.Collect(maps.Values(ct.EchoPods()))...)
+
+			if err := WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods,
 				func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
 					return ct.GetConnDisruptEgressPolicyEntries(ctx, ciliumPod)
 				}, func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
