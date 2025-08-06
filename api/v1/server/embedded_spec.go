@@ -1824,6 +1824,7 @@ func init() {
           "enum": [
             "active",
             "terminating",
+            "terminating-not-serving",
             "quarantined",
             "maintenance"
           ]
@@ -7452,6 +7453,7 @@ func init() {
           "enum": [
             "active",
             "terminating",
+            "terminating-not-serving",
             "quarantined",
             "maintenance"
           ]
