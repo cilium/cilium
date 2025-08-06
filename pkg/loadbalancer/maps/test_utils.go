@@ -5,13 +5,13 @@ package maps
 
 import (
 	"fmt"
-	"net"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -36,13 +36,13 @@ func sanitizeID[Num numeric](n Num, sanitize bool) string {
 }
 
 // DumpLBMaps the load-balancing maps into a concise format for assertions in tests.
-func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(net.IP, uint16) string) (out []MapDump) {
+func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(types.AddrCluster, uint16) string) (out []MapDump) {
 	out = []string{}
 
 	if customizeAddr == nil {
-		customizeAddr = func(addr net.IP, port uint16) (s string) {
+		customizeAddr = func(addr types.AddrCluster, port uint16) (s string) {
 			s = addr.String()
-			if addr.To4() == nil {
+			if !addr.Is4() {
 				s = "[" + s + "]"
 			}
 			return fmt.Sprintf("%s:%d", s, port)
@@ -66,7 +66,7 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(net.IP, uint
 	svcCB := func(svcKey ServiceKey, svcValue ServiceValue) {
 		svcKey = svcKey.ToHost()
 		svcValue = svcValue.ToHost()
-		addr := svcKey.GetAddress()
+		addr := types.MustAddrClusterFromIP(svcKey.GetAddress())
 		addrS := customizeAddr(addr, svcKey.GetPort())
 		addrS += "/" + loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
 		if svcKey.GetScope() == loadbalancer.ScopeInternal {
@@ -112,10 +112,10 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(net.IP, uint
 
 		switch v := revValue.(type) {
 		case *RevNat4Value:
-			addr = customizeAddr(v.Address.IP(), v.Port)
+			addr = customizeAddr(types.MustAddrClusterFromIP(v.Address.IP()), v.Port)
 
 		case *RevNat6Value:
-			addr = customizeAddr(v.Address.IP(), v.Port)
+			addr = customizeAddr(types.MustAddrClusterFromIP(v.Address.IP()), v.Port)
 		}
 
 		out = append(out, fmt.Sprintf("REV: ID=%s ADDR=%s",

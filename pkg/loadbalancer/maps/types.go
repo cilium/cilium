@@ -488,10 +488,7 @@ type BackendValue interface {
 	bpf.MapValue
 
 	// Get backend address
-	GetAddress() net.IP
-
-	// Get backend IP + clusterID
-	GetIPCluster() cmtypes.AddrCluster
+	GetAddress() cmtypes.AddrCluster
 
 	// Get backend port
 	GetPort() uint16
@@ -581,8 +578,7 @@ func (v *Backend4ValueV3) String() string {
 
 func (b *Backend4ValueV3) New() bpf.MapValue { return &Backend4ValueV3{} }
 
-func (b *Backend4ValueV3) GetAddress() net.IP { return b.Address.IP() }
-func (b *Backend4ValueV3) GetIPCluster() cmtypes.AddrCluster {
+func (b *Backend4ValueV3) GetAddress() cmtypes.AddrCluster {
 	return cmtypes.AddrClusterFrom(b.Address.Addr(), uint32(b.ClusterID))
 }
 func (b *Backend4ValueV3) GetPort() uint16    { return b.Port }
@@ -684,8 +680,7 @@ func (v *Backend6ValueV3) String() string {
 
 func (v *Backend6ValueV3) New() bpf.MapValue { return &Backend6ValueV3{} }
 
-func (b *Backend6ValueV3) GetAddress() net.IP { return b.Address.IP() }
-func (b *Backend6ValueV3) GetIPCluster() cmtypes.AddrCluster {
+func (b *Backend6ValueV3) GetAddress() cmtypes.AddrCluster {
 	return cmtypes.AddrClusterFrom(b.Address.Addr(), uint32(b.ClusterID))
 }
 func (b *Backend6ValueV3) GetPort() uint16    { return b.Port }

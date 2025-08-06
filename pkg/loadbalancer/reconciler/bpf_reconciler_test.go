@@ -6,7 +6,6 @@ package reconciler
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -89,6 +88,14 @@ var (
 	}
 )
 
+func withClusterID(be loadbalancer.L3n4Addr, clusterID uint32) loadbalancer.L3n4Addr {
+	return loadbalancer.NewL3n4Addr(
+		be.Protocol(),
+		types.AddrClusterFrom(be.AddrCluster().Addr(), clusterID),
+		be.Port(), be.Scope(),
+	)
+}
+
 func parseAddrPort(s string) loadbalancer.L3n4Addr {
 	addrS, portS, found := strings.Cut(s, "]:")
 	if found {
@@ -111,9 +118,9 @@ func parseAddrPort(s string) loadbalancer.L3n4Addr {
 }
 
 func dumpLBMapsWithReplace(lbmaps maps.LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []maps.MapDump) {
-	replaceAddr := func(addr net.IP, port uint16) (s string) {
+	replaceAddr := func(addr types.AddrCluster, port uint16) (s string) {
 		s = addr.String()
-		if addr.To4() == nil {
+		if !addr.Is4() {
 			s = "[" + s + "]"
 		}
 		s = fmt.Sprintf("%s:%d", s, port)
@@ -282,6 +289,33 @@ var clusterIPTestCases = []testCase{
 			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 			"SVC: ID=1 ADDR=<auto>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 			"SVC: ID=1 ADDR=<auto>/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+		},
+		nil,
+	),
+
+	newTestCase(
+		"ClusterIP_add_backends_with_cluster_id",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = autoAddr
+			be1, be2, be3, be4 :=
+				newTestBackend(backend1, loadbalancer.BackendStateActive),
+				newTestBackend(backend2, loadbalancer.BackendStateActive),
+				newTestBackend(withClusterID(backend2, 10), loadbalancer.BackendStateActive),
+				newTestBackend(withClusterID(backend2, 20), loadbalancer.BackendStateActive)
+			return false, []loadbalancer.Backend{be1, be2, be3, be4}
+		},
+		[]maps.MapDump{
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"BE: ID=2 ADDR=10.1.0.2:80/TCP STATE=active",
+			"BE: ID=3 ADDR=10.1.0.2@10:80/TCP STATE=active",
+			"BE: ID=4 ADDR=10.1.0.2@20:80/TCP STATE=active",
+			"REV: ID=1 ADDR=<auto>",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=4 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=3 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=4 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 		},
 		nil,
 	),
