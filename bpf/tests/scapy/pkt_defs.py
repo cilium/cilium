@@ -41,14 +41,20 @@ v4_svc_loopback = "10.245.255.31"
 v4_all = "0.0.0.0"
 
 # IPv6 addresses for pods in the cluster
-v6_pod_one   = "fd:04:0:0:0:0:0:0:0:0:0:0:0:0:0:1"
-v6_pod_two   = "fd:04:0:0:0:0:0:0:0:0:0:0:0:0:0:2"
-v6_pod_three = "fd:04:0:0:0:0:0:0:0:0:0:0:0:0:0:3"
+v6_pod_one   = "fd04::1"
+v6_pod_two   = "fd04::2"
+v6_pod_three = "fd04::3"
 
 # IPv6 addresses for nodes in the cluster
-v6_node_one   = "fd:05:0:0:0:0:0:0:0:0:0:0:0:0:0:1"
-v6_node_two   = "fd:05:0:0:0:0:0:0:0:0:0:0:0:0:0:2"
-v6_node_three = "fd:05:0:0:0:0:0:0:0:0:0:0:0:0:0:3"
+v6_node_one   = "fd05::1"
+v6_node_two   = "fd05::2"
+v6_node_three = "fd05::3"
+
+# IPv6 addresses for services in the cluster
+v6_svc_one    = "fd10::1"
+
+# External IPv6 addrs
+v6_ext_node_one = "2001::1"
 
 # Source port to be used by a client
 tcp_src_one   = 22330
