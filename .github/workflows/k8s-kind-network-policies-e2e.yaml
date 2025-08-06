@@ -194,6 +194,7 @@ jobs:
           export KUBERNETES_CONFORMANCE_TEST='y'
           export E2E_REPORT_DIR=${PWD}/_artifacts
           /usr/local/bin/ginkgo --nodes=10                \
+            --seed=1754416678 \
             --focus="(Netpol|NetworkPolicy)"     \
             --skip="${SKIP_FLAG}" \
             /usr/local/bin/e2e.test                       \
