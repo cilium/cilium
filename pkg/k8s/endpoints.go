@@ -155,9 +155,9 @@ func (e *Endpoints) String() string {
 }
 
 // newEndpoints returns a new Endpoints
-func newEndpoints() *Endpoints {
+func newEndpoints(initialBackendsSize int) *Endpoints {
 	return &Endpoints{
-		Backends: map[cmtypes.AddrCluster]*Backend{},
+		Backends: make(map[cmtypes.AddrCluster]*Backend, initialBackendsSize),
 	}
 }
 
@@ -189,11 +189,18 @@ func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 	}
 }
 
+const logfieldTerminating = "terminating"
+
 // ParseEndpointSliceV1 parses a Kubernetes EndpointSlice resource.
 // It reads ready and terminating state of endpoints in the EndpointSlice to
 // return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
 func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSlice) *Endpoints {
-	endpoints := newEndpoints()
+	// Precalculate the number of backends we'll add to pre-allocate enough room in the backends map.
+	backendCount := 0
+	for _, sub := range ep.Endpoints {
+		backendCount += len(sub.Addresses)
+	}
+	endpoints := newEndpoints(backendCount)
 	endpoints.ObjectMeta = ep.ObjectMeta
 	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
 
@@ -207,7 +214,16 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 		logfields.LenEndpoints, len(ep.Endpoints),
 		logfields.Name, ep.Name,
 	)
-	for _, sub := range ep.Endpoints {
+
+	// Parse the ports shared by all the backends.
+	ports := make(map[loadbalancer.L4Addr][]string, len(ep.Ports))
+	for _, port := range ep.Ports {
+		if name, lbPort, ok := parseEndpointPortV1(port); ok {
+			ports[lbPort] = append(ports[lbPort], name)
+		}
+	}
+
+	for i, sub := range ep.Endpoints {
 		// ready indicates that this endpoint is prepared to receive traffic,
 		// according to whatever system is managing the endpoint. A nil value
 		// indicates an unknown state. In most cases consumers should interpret this
@@ -229,7 +245,6 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 
 		// if is not Ready allow endpoints that are Serving and Terminating
 		if !isReady {
-
 			// filter not Serving endpoints since those can not receive traffic
 			if !isServing {
 				logger.Debug(
@@ -240,71 +255,65 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 			}
 		}
 
+		// Construct the backend configuration shared by all the addresses in this slice.
+		backend := &Backend{
+			Ports:       ports,
+			Terminating: !isReady && isServing && isTerminating,
+		}
+
+		if sub.NodeName != nil {
+			backend.NodeName = *sub.NodeName
+		} else {
+			if nodeName, ok := sub.DeprecatedTopology[corev1.LabelHostname]; ok {
+				backend.NodeName = nodeName
+			}
+		}
+
+		if sub.Hostname != nil {
+			backend.Hostname = *sub.Hostname
+		}
+		if sub.Zone != nil {
+			backend.Zone = *sub.Zone
+		} else if zoneName, ok := sub.DeprecatedTopology[corev1.LabelTopologyZone]; ok {
+			backend.Zone = zoneName
+		}
+
+		if sub.Hints != nil && (*sub.Hints).ForZones != nil {
+			hints := (*sub.Hints).ForZones
+			backend.HintsForZones = make([]string, len(hints))
+			for i, hint := range hints {
+				backend.HintsForZones[i] = hint.Name
+			}
+		}
+
+		// Add reference to the backend configuration for each of the addresses.
 		for _, addr := range sub.Addresses {
 			addrCluster, err := cmtypes.ParseAddrCluster(addr)
 			if err != nil {
 				logger.Info(
-					"Unable to parse address for EndpointSlices",
+					"Unable to parse address in EndpointSlice",
 					logfields.Error, err,
 					logfields.Address, addr,
 					logfields.Name, ep.Name,
 				)
 				continue
 			}
-
-			backend, ok := endpoints.Backends[addrCluster]
-			if !ok {
-				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
-				endpoints.Backends[addrCluster] = backend
-				if sub.NodeName != nil {
-					backend.NodeName = *sub.NodeName
-				} else {
-					if nodeName, ok := sub.DeprecatedTopology[corev1.LabelHostname]; ok {
-						backend.NodeName = nodeName
-					}
-				}
-				if sub.Hostname != nil {
-					backend.Hostname = *sub.Hostname
-				}
-				if sub.Zone != nil {
-					backend.Zone = *sub.Zone
-				} else if zoneName, ok := sub.DeprecatedTopology[corev1.LabelTopologyZone]; ok {
-					backend.Zone = zoneName
-				}
-				// If is not ready check if is serving and terminating
-				if !isReady &&
-					isServing && isTerminating {
-					logger.Debug(
-						"Endpoint address on EndpointSlice is Terminating",
-						logfields.Address, addr,
-						logfields.Name, ep.Name,
-					)
-					backend.Terminating = true
-					metrics.TerminatingEndpointsEvents.Inc()
-				}
-			}
-
-			for _, port := range ep.Ports {
-				name, lbPort, ok := parseEndpointPortV1(port)
-				if ok {
-					backend.Ports[lbPort] = append(backend.Ports[lbPort], name)
-				}
-			}
-			if sub.Hints != nil && (*sub.Hints).ForZones != nil {
-				hints := (*sub.Hints).ForZones
-				backend.HintsForZones = make([]string, len(hints))
-				for i, hint := range hints {
-					backend.HintsForZones[i] = hint.Name
-				}
-			}
+			endpoints.Backends[addrCluster] = backend
 		}
+
+		if backend.Terminating {
+			metrics.TerminatingEndpointsEvents.Inc()
+		}
+
+		logger.Debug("Processed endpoint",
+			logfields.Index, i,
+			logfields.Name, ep.Name,
+			logfields.Addresses, sub.Addresses,
+			logfields.Backend, backend,
+			logfieldTerminating, backend.Terminating,
+		)
 	}
 
-	logger.Debug(
-		"EndpointSlice has backends",
-		logfields.LenBackends, len(endpoints.Backends),
-		logfields.Name, ep.Name,
-	)
 	return endpoints
 }
 
