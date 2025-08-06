@@ -22,8 +22,28 @@ on:
       - main
       - ft/main/**
       - 'renovate/main-**'
-    paths-ignore:
-      - 'Documentation/**'
+    paths:
+      - '.github/actions/**'
+      - '.github/kind-config*.yaml'
+      - '.github/workflows/**'
+      - 'api/**'
+      - 'bpf/**'
+      - 'cilium-cli/**'
+      - 'cilium-dbg/**'
+      - 'cilium-health/**'
+      - 'daemon/**'
+      - 'hubble/**'
+      - 'hubble-relay/**'
+      - 'images/**'
+      - 'install/**'
+      - 'operator/**'
+      - 'pkg/**'
+      - 'plugins/**'
+      - 'proxylib/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile*'
+      - 'VERSION'
   # Run every 8 hours
   schedule:
     - cron:  '0 3/8 * * *'

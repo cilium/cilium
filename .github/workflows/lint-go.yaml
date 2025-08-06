@@ -2,11 +2,38 @@ name: Go Related Checks
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request: {}
+  pull_request:
+    paths-ignore:
+      - '*.md'
+      - '*.rst'
+      - '*.toml'
+      - '*.yml'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE/**'
+      - '.github/renovate.json5'
+      - 'Documentation/**'
+      - 'examples/**'
+      - 'AUTHORS'
+      - 'CODEOWNERS'
+      - 'LICENSE'
   push:
     branches:
       - main
       - ft/main/**
+    paths-ignore:
+      - '*.md'
+      - '*.rst'
+      - '*.toml'
+      - '*.yml'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE/**'
+      - '.github/renovate.json5'
+      - 'Documentation/**'
+      - 'examples/**'
+      - 'AUTHORS'
+      - 'CODEOWNERS'
+      - 'LICENSE'
+
   # Add this workflow to be triggered by merge queue events
   merge_group:
 

@@ -4,6 +4,8 @@ name: K8s Network Policy E2E tests
 on:
   pull_request:
     paths-ignore:
+      - '*.md'
+      - '.github/renovate.json5'
       - 'Documentation/**'
       - 'test/**'
   push:
@@ -11,6 +13,8 @@ on:
       - main
       - ft/main/**
     paths-ignore:
+      - '*.md'
+      - '.github/renovate.json5'
       - 'Documentation/**'
       - 'test/**'
   # Run every 8 hours

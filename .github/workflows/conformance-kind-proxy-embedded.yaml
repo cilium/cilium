@@ -3,16 +3,54 @@ name: Conformance Kind Envoy Embedded
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
   pull_request:
-    paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
+    paths:
+      - '.github/actions/**'
+      - '.github/kind-config*.yaml'
+      - '.github/workflows/**'
+      - 'api/**'
+      - 'bpf/**'
+      - 'cilium-cli/**'
+      - 'cilium-dbg/**'
+      - 'cilium-health/**'
+      - 'daemon/**'
+      - 'hubble/**'
+      - 'hubble-relay/**'
+      - 'images/**'
+      - 'install/**'
+      - 'operator/**'
+      - 'pkg/**'
+      - 'plugins/**'
+      - 'proxylib/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile*'
+      - 'VERSION'
   push:
     branches:
       - main
       - ft/main/**
-    paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
+    paths:
+      - '.github/actions/**'
+      - '.github/kind-config*.yaml'
+      - '.github/workflows/**'
+      - 'api/**'
+      - 'bpf/**'
+      - 'cilium-cli/**'
+      - 'cilium-dbg/**'
+      - 'cilium-health/**'
+      - 'daemon/**'
+      - 'hubble/**'
+      - 'hubble-relay/**'
+      - 'images/**'
+      - 'install/**'
+      - 'operator/**'
+      - 'pkg/**'
+      - 'plugins/**'
+      - 'proxylib/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile*'
+      - 'VERSION'
 
 permissions: read-all
 
