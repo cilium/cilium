@@ -1337,7 +1337,7 @@ func (ops *BPFOps) sortedBackends(fe *loadbalancer.Frontend) []backendWithRevisi
 		case a.State > b.State:
 			return false
 		default:
-			switch a.Address.Addr().Compare(b.Address.Addr()) {
+			switch a.Address.AddrCluster().Compare(b.Address.AddrCluster()) {
 			case -1:
 				return true
 			case 0:
