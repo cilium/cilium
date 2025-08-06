@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"maps"
 	"net"
 	"slices"
 
@@ -164,8 +165,10 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 	if ipv6Enabled && egressGatewayNodeInternalIPv6 == nil {
 		t.Fatal("Cannot get IPv6 egress gateway node internal IP")
 	}
-
-	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+	testPods := append(
+		slices.Collect(maps.Values(ct.ClientPods())),
+		slices.Collect(maps.Values(ct.EchoPods()))...)
+	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
 		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		egressIP := "0.0.0.0"
@@ -453,8 +456,10 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 		}
 		return assignGatewayNode(epUID, sortedGatewayNodes)
 	}
-
-	err = check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+	testPods := append(
+		slices.Collect(maps.Values(ct.ClientPods())),
+		slices.Collect(maps.Values(ct.EchoPods()))...)
+	err = check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
 		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		for _, client := range ct.ClientPods() {
@@ -673,7 +678,10 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		t.Fatal("Cannot get egress gateway node internal IPv6")
 	}
 
-	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+	testPods := append(
+		slices.Collect(maps.Values(ct.ClientPods())),
+		slices.Collect(maps.Values(ct.EchoPods()))...)
+	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
 		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		egressIP := "0.0.0.0"
