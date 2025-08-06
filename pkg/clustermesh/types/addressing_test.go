@@ -132,7 +132,7 @@ func TestAddrCluster_Equal(t *testing.T) {
 	}
 }
 
-func TestAddrCluster_Less(t *testing.T) {
+func TestAddrCluster_Compare_Less(t *testing.T) {
 	type fields struct {
 		addr      netip.Addr
 		clusterID uint32
@@ -141,39 +141,45 @@ func TestAddrCluster_Less(t *testing.T) {
 		ac1 AddrCluster
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   bool
+		name     string
+		fields   fields
+		args     args
+		wantCmp  int
+		wantLess bool
 	}{
 		{
 			"same IP and same ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1},
 			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1}},
+			0,
 			false,
 		},
 		{
 			"larger IP and same ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1},
 			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.2"), clusterID: 1}},
+			-1,
 			true,
 		},
 		{
 			"smaller IP and smaller ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.2"), clusterID: 1},
 			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1}},
+			1,
 			false,
 		},
 		{
 			"same IP and larger ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1},
 			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 2}},
+			-1,
 			true,
 		},
 		{
 			"same IP and smaller ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 2},
 			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1}},
+			1,
 			false,
 		},
 	}
@@ -183,8 +189,11 @@ func TestAddrCluster_Less(t *testing.T) {
 				addr:      tt.fields.addr,
 				clusterID: tt.fields.clusterID,
 			}
-			if got := ac0.Less(tt.args.ac1); got != tt.want {
-				t.Errorf("AddrCluster.Less() = %v, want %v", got, tt.want)
+			if got := ac0.Compare(tt.args.ac1); got != tt.wantCmp {
+				t.Errorf("AddrCluster.Compare() = %v, want %v", got, tt.wantCmp)
+			}
+			if got := ac0.Less(tt.args.ac1); got != tt.wantLess {
+				t.Errorf("AddrCluster.Less() = %v, want %v", got, tt.wantLess)
 			}
 		})
 	}
