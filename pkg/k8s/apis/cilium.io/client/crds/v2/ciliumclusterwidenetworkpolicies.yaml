@@ -888,7 +888,9 @@ spec:
                                   type: object
                                 type: array
                               kafka:
-                                description: Kafka-specific rules.
+                                description: |-
+                                  Kafka-specific rules.
+                                  Deprecated: This beta feature is deprecated and will be removed in a future release.
                                 items:
                                   description: |-
                                     PortRule is a list of Kafka protocol constraints. All fields are
@@ -2743,7 +2745,9 @@ spec:
                                   type: object
                                 type: array
                               kafka:
-                                description: Kafka-specific rules.
+                                description: |-
+                                  Kafka-specific rules.
+                                  Deprecated: This beta feature is deprecated and will be removed in a future release.
                                 items:
                                   description: |-
                                     PortRule is a list of Kafka protocol constraints. All fields are
@@ -4396,7 +4400,9 @@ spec:
                                     type: object
                                   type: array
                                 kafka:
-                                  description: Kafka-specific rules.
+                                  description: |-
+                                    Kafka-specific rules.
+                                    Deprecated: This beta feature is deprecated and will be removed in a future release.
                                   items:
                                     description: |-
                                       PortRule is a list of Kafka protocol constraints. All fields are
@@ -6253,7 +6259,9 @@ spec:
                                     type: object
                                   type: array
                                 kafka:
-                                  description: Kafka-specific rules.
+                                  description: |-
+                                    Kafka-specific rules.
+                                    Deprecated: This beta feature is deprecated and will be removed in a future release.
                                   items:
                                     description: |-
                                       PortRule is a list of Kafka protocol constraints. All fields are

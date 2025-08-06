@@ -289,6 +289,7 @@ type L7Rules struct {
 	HTTP []PortRuleHTTP `json:"http,omitempty"`
 
 	// Kafka-specific rules.
+	// Deprecated: This beta feature is deprecated and will be removed in a future release.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:OneOf
