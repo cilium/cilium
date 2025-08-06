@@ -266,7 +266,7 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 	}
 
 	newEmptyEndpoints := func() *Endpoints {
-		eps := newEndpoints()
+		eps := newEndpoints(0)
 		eps.ObjectMeta = meta
 		eps.EndpointSliceID = sliceID
 		return eps
