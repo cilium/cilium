@@ -185,6 +185,12 @@ type bpfOpsParams struct {
 	NodeAddresses  statedb.Table[tables.NodeAddress]
 }
 
+const (
+	logfieldActiveCount      = "active-count"
+	logfieldTerminatingCount = "terminating-count"
+	logfieldInactiveCount    = "inactive-count"
+)
+
 func newBPFOps(p bpfOpsParams) *BPFOps {
 	ops := &BPFOps{
 		cfg:       p.Config,
@@ -873,7 +879,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 		if ops.needsUpdate(be.Address, be.Revision) {
 			ops.log.Debug("Update backend",
-				logfields.Backend, be,
+				logfields.Backend, be.BackendParams,
 				logfields.ID, beID,
 				logfields.Address, be.Address,
 			)
@@ -1016,7 +1022,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		logfields.Type, fe.Type,
 		logfields.ProxyRedirect, fe.Service.ProxyRedirect,
 		logfields.Address, fe.Address,
-		logfields.Count, backendCount)
+		logfields.Count, backendCount,
+		logfieldActiveCount, activeCount,
+		logfieldTerminatingCount, terminatingCount,
+		logfieldInactiveCount, inactiveCount)
 	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
