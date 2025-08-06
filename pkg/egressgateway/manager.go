@@ -50,15 +50,28 @@ var (
 	EgressIPNotFoundIPv4 = netip.IPv4Unspecified()
 
 	// IPv6 special values
+	// GatewayNotFoundIPv6 is a special IP value used as gatewayIP in the BPF policy
+	// map to indicate no gateway was found for the given policy
+	GatewayNotFoundIPv6 = netip.IPv6Unspecified()
+	// ExcludedCIDRIPv6 is a special IP value used as gatewayIP in the BPF policy map
+	// to indicate the entry is for an excluded CIDR and should skip egress gateway
+	ExcludedCIDRIPv6 = netip.MustParseAddr("::1")
 	// EgressIPNotFoundIPv6 is a special IP value used as egressIP in the BPF policy map
 	// to indicate no egressIP was found for the given policy
 	EgressIPNotFoundIPv6 = netip.IPv6Unspecified()
 )
 
+// Log field constants
+const (
+	logReasonFlag = "reasonFlag"
+	logReason     = "reasonText"
+	logFlagName   = "flagName"
+)
+
 // Cell provides a [Manager] for consumption with hive.
 var Cell = cell.Module(
 	"egressgateway",
-	"Egress Gateway allows originating traffic from specific IPv4 addresses",
+	"Egress Gateway allows originating traffic from specific IP addresses",
 	cell.Config(defaultConfig),
 	cell.Provide(NewEgressGatewayManager),
 	cell.Provide(newPolicyResource),
@@ -97,6 +110,14 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("egress-gateway-reconciliation-trigger-interval", def.EgressGatewayReconciliationTriggerInterval, "Time between triggers of egress gateway state reconciliations")
 }
 
+// IPFamilySupport tracks whether IPv4 and/or IPv6 egress gateway policies are supported
+// Dual-stack environments will have both IPv4 and IPv6 fields set to true, allowing
+// for egress gateway policies with either IPv4 or IPv6 CIDRs or a mix of both.
+type IPFamilySupport struct {
+	IPv4 bool // Whether IPv4 egress gateway policies are supported
+	IPv6 bool // Whether IPv6 egress gateway policies are supported
+}
+
 // The egressgateway manager stores the internal data tracking the node, policy,
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
 // egress bpf policy map accordingly.
@@ -108,6 +129,9 @@ type Manager struct {
 	// allCachesSynced is true when all k8s objects we depend on have had
 	// their initial state synced.
 	allCachesSynced bool
+
+	// ipFamilySupport tracks which IP families are supported for egress gateway policies
+	ipFamilySupport IPFamilySupport
 
 	// nodes stores nodes sorted by their name. The entries are sorted
 	// to ensure consistent gateway selection across all agents.
@@ -199,21 +223,19 @@ func NewEgressGatewayManager(p Params) (out struct {
 		return out, errors.New("egress gateway is not supported in combination with the CiliumEndpointSlice feature")
 	}
 
-	// TODO: refactor config checks for both ipv4 and ipv6, and derive whether the environment supports egress gateway policies for either protocol
-	// We need to make sure that ipv4/v6 only environments only create the necessary resources and don't fail if unneeded features are missing.
-	if !dcfg.EnableIPv4Masquerade || !dcfg.EnableBPFMasquerade {
-		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+	// Check which IP families are supported for egress gateway policies
+	ipFamilySupport, err := determineIPFamilySupport(dcfg, p.TunnelConfig, p.Logger)
+	if err != nil {
+		return out, err
 	}
 
-	if p.TunnelConfig.UnderlayProtocol() != tunnel.IPv4 {
-		return out, errors.New("egress gateway requires an IPv4 underlay")
+	// Ensure at least one IP family is supported
+	if !ipFamilySupport.IPv4 && !ipFamilySupport.IPv6 {
+		return out, errors.New("egress gateway requires at least one supported IP family (IPv4 or IPv6). " +
+			"Make sure masquerading is enabled with BPF implementation.")
 	}
 
-	if !dcfg.EnableIPv6Masquerade {
-		p.Logger.Info(fmt.Sprintf("egress gateway ipv6 policies require --%s=\"true\"", option.EnableIPv6Masquerade))
-	}
-
-	out.Manager, err = newEgressGatewayManager(p)
+	out.Manager, err = newEgressGatewayManager(p, ipFamilySupport)
 	if err != nil {
 		return out, err
 	}
@@ -225,9 +247,10 @@ func NewEgressGatewayManager(p Params) (out struct {
 	return out, nil
 }
 
-func newEgressGatewayManager(p Params) (*Manager, error) {
+func newEgressGatewayManager(p Params, ipFamilySupport IPFamilySupport) (*Manager, error) {
 	manager := &Manager{
 		logger:                        p.Logger,
+		ipFamilySupport:               ipFamilySupport,
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
@@ -411,6 +434,16 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 
 	manager.Lock()
 	defer manager.Unlock()
+
+	// Validate that the policy only uses supported IP families
+	if err := manager.validatePolicyAgainstSupportedFamilies(config); err != nil {
+		manager.logger.Warn(
+			"Failed to validate CiliumEgressGatewayPolicy",
+			logfields.Error, err,
+			logfields.CiliumEgressGatewayPolicyName, policy.Name,
+		)
+		return err
+	}
 
 	if _, ok := manager.policyConfigs[config.id]; !ok {
 		manager.logger.Debug(
@@ -597,6 +630,11 @@ func (manager *Manager) regenerateGatewayConfigs() {
 }
 
 func (manager *Manager) relaxRPFilter() error {
+	// rp_filter is an IPv4-specific setting, so we only need to do this if IPv4 is supported
+	if !manager.ipFamilySupport.IPv4 {
+		return nil
+	}
+
 	var sysSettings []tables.Sysctl
 	ifSet := make(map[string]struct{})
 
@@ -626,7 +664,7 @@ func (manager *Manager) relaxRPFilter() error {
 }
 
 func (manager *Manager) updateEgressRules4() {
-	if manager.policyMap4 == nil {
+	if manager.policyMap4 == nil || !manager.ipFamilySupport.IPv4 {
 		return
 	}
 
@@ -705,7 +743,7 @@ func (manager *Manager) updateEgressRules4() {
 }
 
 func (manager *Manager) updateEgressRules6() {
-	if manager.policyMap6 == nil {
+	if manager.policyMap6 == nil || !manager.ipFamilySupport.IPv6 {
 		return
 	}
 
@@ -734,7 +772,7 @@ func (manager *Manager) updateEgressRules6() {
 
 		gatewayIP := gwc.gatewayIP
 		if excludedCIDR {
-			gatewayIP = ExcludedCIDRIPv4
+			gatewayIP = ExcludedCIDRIPv6
 		}
 
 		if policyPresent && policyVal.Match(gwc.egressIP6, gatewayIP) {
@@ -782,6 +820,104 @@ func (manager *Manager) updateEgressRules6() {
 	}
 }
 
+// determineIPFamilySupport checks the daemon configuration and tunnel configuration
+// to determine which IP families (IPv4, IPv6) are supported for egress gateway policies.
+// It returns an IPFamilySupport structure indicating which families are supported.
+// In dual-stack environments, both IPv4 and IPv6 can be supported simultaneously.
+func determineIPFamilySupport(dcfg *option.DaemonConfig, tunnelConfig tunnel.Config, logger *slog.Logger) (IPFamilySupport, error) {
+	var support IPFamilySupport
+
+	// Check for IPv4 support
+	if dcfg.EnableIPv4 {
+		ipv4Requirements := []struct {
+			condition bool
+			reason    string
+			flag      string
+		}{
+			{condition: dcfg.EnableIPv4Masquerade, reason: "IPv4 masquerading is not enabled", flag: option.EnableIPv4Masquerade},
+			{condition: dcfg.EnableBPFMasquerade, reason: "BPF masquerading is not enabled", flag: option.EnableBPFMasquerade},
+		}
+
+		ipv4Supported := true
+		for _, req := range ipv4Requirements {
+			if !req.condition {
+				ipv4Supported = false
+				if req.flag != "" {
+					logger.Info("IPv4 egress gateway policies requirement not met",
+						logReason, req.reason,
+						logFlagName, req.flag)
+				} else {
+					logger.Info("IPv4 egress gateway policies requirement not met",
+						logReason, req.reason)
+				}
+			}
+		}
+
+		// Check tunnel configuration for IPv4
+		if tunnelConfig.UnderlayProtocol() != tunnel.IPv4 {
+			ipv4Supported = false
+			logger.Info("IPv4 egress gateway policies requirement not met",
+				logReason, "tunnel underlay protocol is not IPv4")
+		}
+
+		support.IPv4 = ipv4Supported
+		if ipv4Supported {
+			logger.Info("IPv4 egress gateway policies are enabled")
+		}
+	} else {
+		logger.Info("IPv4 egress gateway policies are disabled because IPv4 is not enabled",
+			logFlagName, option.EnableIPv4Name)
+	}
+
+	// Check for IPv6 support
+	if dcfg.EnableIPv6 {
+		ipv6Requirements := []struct {
+			condition bool
+			reason    string
+			flag      string
+		}{
+			{condition: dcfg.EnableIPv6Masquerade, reason: "IPv6 masquerading is not enabled", flag: option.EnableIPv6Masquerade},
+			{condition: dcfg.EnableBPFMasquerade, reason: "BPF masquerading is not enabled", flag: option.EnableBPFMasquerade},
+		}
+
+		ipv6Supported := true
+		for _, req := range ipv6Requirements {
+			if !req.condition {
+				ipv6Supported = false
+				if req.flag != "" {
+					logger.Info("IPv6 egress gateway policies requirement not met",
+						logReason, req.reason,
+						logFlagName, req.flag)
+				} else {
+					logger.Info("IPv6 egress gateway policies requirement not met",
+						logReason, req.reason)
+				}
+			}
+		}
+
+		support.IPv6 = ipv6Supported
+		if ipv6Supported {
+			logger.Info("IPv6 egress gateway policies are enabled")
+		}
+	} else {
+		logger.Info("IPv6 egress gateway policies are disabled because IPv6 is not enabled",
+			logFlagName, option.EnableIPv6Name)
+	}
+
+	// Log a summary of the IP family support for egress gateway
+	if support.IPv4 && support.IPv6 {
+		logger.Info("Egress gateway is enabled for dual-stack (IPv4 and IPv6)")
+	} else if support.IPv4 {
+		logger.Info("Egress gateway is enabled for IPv4 only")
+	} else if support.IPv6 {
+		logger.Info("Egress gateway is enabled for IPv6 only")
+	} else {
+		logger.Info("Egress gateway is not enabled for any IP family")
+	}
+
+	return support, nil
+}
+
 // reconcileLocked is responsible for reconciling the state of the manager (i.e. the
 // desired state) with the actual state of the node (egress policy map entries).
 //
@@ -821,12 +957,56 @@ func (manager *Manager) reconcileLocked() {
 		}
 	}
 
-	// Update the content of the BPF maps.
-	manager.updateEgressRules4()
-	manager.updateEgressRules6()
+	// Update the content of the BPF maps based on supported IP families
+	if manager.ipFamilySupport.IPv4 {
+		manager.updateEgressRules4()
+	}
+
+	if manager.ipFamilySupport.IPv6 {
+		manager.updateEgressRules6()
+	}
 
 	// clear the events bitmap
 	manager.eventsBitmap = 0
 
 	manager.reconciliationEventsCount.Add(1)
+}
+
+// validatePolicyAgainstSupportedFamilies checks if the policy's destination CIDRs
+// are compatible with the supported IP families. Returns an error if any CIDR
+// uses an unsupported IP family.
+func (manager *Manager) validatePolicyAgainstSupportedFamilies(config *PolicyConfig) error {
+	// Check if the policy has IPv4 CIDRs but IPv4 is not supported
+	if !manager.ipFamilySupport.IPv4 {
+		for _, cidr := range config.dstCIDRs {
+			if cidr.Addr().Is4() {
+				return fmt.Errorf("policy %q contains IPv4 CIDR %q but IPv4 egress gateway is not supported with current configuration",
+					config.id, cidr.String())
+			}
+		}
+		for _, cidr := range config.excludedCIDRs {
+			if cidr.Addr().Is4() {
+				return fmt.Errorf("policy %q contains IPv4 excluded CIDR %q but IPv4 egress gateway is not supported with current configuration",
+					config.id, cidr.String())
+			}
+		}
+	}
+
+	// Check if the policy has IPv6 CIDRs but IPv6 is not supported
+	if !manager.ipFamilySupport.IPv6 {
+		for _, cidr := range config.dstCIDRs {
+			if cidr.Addr().Is6() {
+				return fmt.Errorf("policy %q contains IPv6 CIDR %q but IPv6 egress gateway is not supported with current configuration",
+					config.id, cidr.String())
+			}
+		}
+		for _, cidr := range config.excludedCIDRs {
+			if cidr.Addr().Is6() {
+				return fmt.Errorf("policy %q contains IPv6 excluded CIDR %q but IPv6 egress gateway is not supported with current configuration",
+					config.id, cidr.String())
+			}
+		}
+	}
+
+	return nil
 }
