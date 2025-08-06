@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -36,8 +37,9 @@ type policyAPIHandlerParams struct {
 
 	Log *slog.Logger
 
-	Repo     policy.PolicyRepository
-	Importer policycell.PolicyImporter
+	Repo           policy.PolicyRepository
+	PolicyComputer compute.PolicyRecomputer
+	Importer       policycell.PolicyImporter
 }
 
 type policyAPIHandlers struct {
