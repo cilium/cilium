@@ -21,7 +21,7 @@ runs:
       shell: bash
       run: |
         ${{ inputs.cilium-cli }} features status -o markdown --output-file="feature-status.md"
-        ${{ inputs.cilium-cli }} features status -o json --output-file="${{ inputs.json-filename }}.json"
+        ${{ inputs.cilium-cli }} features status -o json --output-file="features-tested-${{ inputs.json-filename }}.json"
 
     - name: Report summary for features enabled on the agent
       if: ${{ always() }}
