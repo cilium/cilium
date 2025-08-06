@@ -77,9 +77,9 @@ __snat_lookup(const void *map, const void *tuple)
 }
 
 static __always_inline __maybe_unused int
-__snat_create(const void *map, const void *tuple, const void *state)
+__snat_create(const void *map, const void *tuple, const void *state, bool noexist)
 {
-	return map_update_elem(map, tuple, state, BPF_NOEXIST);
+	return map_update_elem(map, tuple, state, noexist ? BPF_NOEXIST : BPF_ANY);
 }
 
 static __always_inline __maybe_unused int
@@ -244,7 +244,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 		rtuple.dport = bpf_htons(port);
 
 		/* Try to create a RevSNAT entry. */
-		if (__snat_create(map, &rtuple, &rstate) == 0)
+		if (__snat_create(map, &rtuple, &rstate, true) == 0)
 			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
@@ -270,7 +270,7 @@ create_nat_entry:
 	ostate->common.created = rstate.common.created;
 
 	/* Create the SNAT entry. We just created the RevSNAT entry. */
-	ret = __snat_create(map, otuple, ostate);
+	ret = __snat_create(map, otuple, ostate, false);
 	if (ret < 0) {
 		map_delete_elem(map, &rtuple); /* rollback */
 		if (ext_err)
@@ -352,7 +352,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 				rstate.to_dport = tuple->sport;
 				rstate.common.needs_ct = needs_ct;
 				rstate.common.created = bpf_mono_now();
-				ret = __snat_create(map, &rtuple, &rstate);
+				ret = __snat_create(map, &rtuple, &rstate, false);
 				if (ret < 0) {
 					if (ext_err)
 						*ext_err = (__s8)ret;
@@ -424,7 +424,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			ostate.common.needs_ct = (*state)->common.needs_ct;
 			ostate.common.created = bpf_mono_now();
 
-			ret = __snat_create(map, &otuple, &ostate);
+			ret = __snat_create(map, &otuple, &ostate, false);
 			if (ret < 0)
 				return DROP_NAT_NO_MAPPING;
 		}
@@ -1293,7 +1293,7 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		rtuple.dport = bpf_htons(port);
 
-		if (__snat_create(&cilium_snat_v6_external, &rtuple, &rstate) == 0)
+		if (__snat_create(&cilium_snat_v6_external, &rtuple, &rstate, true) == 0)
 			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
@@ -1317,7 +1317,7 @@ create_nat_entry:
 	ostate->to_sport = rtuple.dport;
 	ostate->common.created = rstate.common.created;
 
-	ret = __snat_create(&cilium_snat_v6_external, otuple, ostate);
+	ret = __snat_create(&cilium_snat_v6_external, otuple, ostate, false);
 	if (ret < 0) {
 		map_delete_elem(&cilium_snat_v6_external, &rtuple); /* rollback */
 		if (ext_err)
@@ -1391,7 +1391,8 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 				rstate.to_dport = tuple->sport;
 				rstate.common.needs_ct = needs_ct;
 				rstate.common.created = bpf_mono_now();
-				ret = __snat_create(&cilium_snat_v6_external, &rtuple, &rstate);
+				ret = __snat_create(&cilium_snat_v6_external, &rtuple, &rstate,
+						    false);
 				if (ret < 0) {
 					if (ext_err)
 						*ext_err = (__s8)ret;
@@ -1450,7 +1451,7 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			ostate.common.needs_ct = (*state)->common.needs_ct;
 			ostate.common.created = bpf_mono_now();
 
-			ret = __snat_create(&cilium_snat_v6_external, &otuple, &ostate);
+			ret = __snat_create(&cilium_snat_v6_external, &otuple, &ostate, false);
 			if (ret < 0)
 				return DROP_NAT_NO_MAPPING;
 		}
