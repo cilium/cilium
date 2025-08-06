@@ -4,6 +4,8 @@
 package builder
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
@@ -17,12 +19,12 @@ func (t egressGatewayMultigateway) build(ct *check.ConnectivityTest, _ map[strin
 		WithCiliumVersion(">=1.18.0").
 		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
 		WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
-			Name:            "cegp-sample-client",
+			Name:            fmt.Sprintf("cegp-sample-client-%d", ct.Params().TestNamespaceIndex),
 			PodSelectorKind: "client",
 			Multigateway:    true,
 		}).
 		WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
-			Name:            "cegp-sample-echo",
+			Name:            fmt.Sprintf("cegp-sample-echo-%d", ct.Params().TestNamespaceIndex),
 			PodSelectorKind: "echo",
 			Multigateway:    true,
 		}).
