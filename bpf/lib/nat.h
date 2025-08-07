@@ -1808,6 +1808,8 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, fraginfo_t fr
 					 l4_off, target, trace, ext_err);
 	if (ret < 0)
 		return ret;
+	if (!state)
+		return DROP_NAT_NO_MAPPING;
 
 	ret = snat_v6_rewrite_headers(ctx, tuple->nexthdr, ETH_HLEN,
 				      ipfrag_has_l4_header(fraginfo), l4_off,
