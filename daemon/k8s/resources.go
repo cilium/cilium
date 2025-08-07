@@ -72,6 +72,12 @@ var (
 	)
 )
 
+// provideK8sWatchConfig creates k8s.ServiceWatchConfig with headless service watch
+// enabled only if features relying on it (Gateway API, Ingress) are enabled.
+//
+// This reduces the load on apiserver in clusters that use headless services
+// and don't use Ingress nor Gateway.
+// See: https://github.com/cilium/cilium/issues/40763
 func provideK8sWatchConfig(envoyCfg envoy.SecretSyncConfig) k8s.ServiceWatchConfig {
 	return k8s.ServiceWatchConfig{
 		EnableHeadlessServiceWatch: envoyCfg.EnableGatewayAPI || envoyCfg.EnableIngressController,

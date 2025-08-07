@@ -45,9 +45,8 @@ type Config struct {
 
 type ServiceWatchConfig struct {
 	// EnableHeadlessServiceWatch controls whether watches for Headless Services and
-	// Headless Services Endpoint Slices are enabled. Disabling the watch when
-	// features depending on it are not used reduces the load on apiserver in clusters
-	// with headless services.
+	// Headless Services Endpoint Slices are enabled. Disabling the watch reduces
+	// the load on apiserver in clusters with headless services.
 	EnableHeadlessServiceWatch bool
 }
 
