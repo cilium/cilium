@@ -602,6 +602,13 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
 					},
 				}
+				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
+					},
+					Terminating: true,
+				}
 				return svcEP
 			},
 		},
@@ -752,6 +759,20 @@ func Test_parseK8sEPSlicev1(t *testing.T) {
 			},
 			setupWanted: func() *Endpoints {
 				svcEP := newEmptyEndpoints()
+				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
+					},
+					Terminating: true,
+				}
+				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.2")] = &Backend{
+					Ports: map[loadbalancer.L4Addr][]string{
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8080): {"http-test-svc"},
+						loadbalancer.NewL4Addr(loadbalancer.TCP, 8081): {"http-test-svc-2"},
+					},
+					Terminating: true,
+				}
 				return svcEP
 			},
 		},
