@@ -49,7 +49,7 @@ int test_builtin_memcmp_large(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();
 
-	/* ./builtin_gen memcmp 72 > builtin_memcmp_large.h */
+	/* ./builtin_gen memcmp 128 > builtin_memcmp_large.h */
 	#include "builtin_memcmp_large.h"
 
 	test_finish();
