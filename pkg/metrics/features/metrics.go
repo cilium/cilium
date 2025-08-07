@@ -426,6 +426,17 @@ func NewMetrics(withDefaults bool) Metrics {
 					)
 				}(),
 			},
+			{
+				Name: "strict_mode_enabled", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						"true",
+						"false",
+					)
+				}(),
+			},
 		}),
 
 		ACLBKubeProxyReplacementEnabled: metric.NewGauge(metric.GaugeOpts{
@@ -1018,19 +1029,21 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		m.NPCIDRPoliciesToNodes.WithLabelValues(mode).Add(1)
 	}
 
+	strictMode := "false"
+	if config.EnableEncryptionStrictMode {
+		strictMode = "true"
+	}
+
+	node2nodeEnabled := "false"
+	if config.EncryptNode {
+		node2nodeEnabled = "true"
+	}
+
 	if config.EnableIPSec {
-		if config.EncryptNode {
-			m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncIPSec, "true").Add(1)
-		} else {
-			m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncIPSec, "false").Add(1)
-		}
+		m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncIPSec, node2nodeEnabled, strictMode).Add(1)
 	}
 	if config.EnableWireguard {
-		if config.EncryptNode {
-			m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncWireGuard, "true").Add(1)
-		} else {
-			m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncWireGuard, "false").Add(1)
-		}
+		m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncWireGuard, node2nodeEnabled, strictMode).Add(1)
 	}
 
 	if kprCfg.KubeProxyReplacement == option.KubeProxyReplacementTrue {
