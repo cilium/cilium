@@ -56,7 +56,7 @@ var (
 	keysSameSpiDat = []byte("7 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n7 digest_null \"\" cipher_null \"\"\n")
 )
 
-func TestLoadKeysNoFile(t *testing.T) {
+func TestPrivilegedLoadKeysNoFile(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	_, _, err := LoadIPSecKeysFile(log, path)
@@ -93,7 +93,7 @@ func TestInvalidLoadKeys(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestLoadKeys(t *testing.T) {
+func TestPrivilegedLoadKeys(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	testCases := [][]byte{keysDat, keysNullDat, keysAeadDat, keysAeadDat256}
@@ -107,7 +107,7 @@ func TestLoadKeys(t *testing.T) {
 	}
 }
 
-func TestLoadKeysLenChange(t *testing.T) {
+func TestPrivilegedLoadKeysLenChange(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	keys := bytes.NewReader(append(keysDat, keysNullDat...))
@@ -115,7 +115,7 @@ func TestLoadKeysLenChange(t *testing.T) {
 	require.ErrorContains(t, err, "invalid key rotation: key length must not change")
 }
 
-func TestLoadKeysSameSPI(t *testing.T) {
+func TestPrivilegedLoadKeysSameSPI(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	keys := bytes.NewReader(keysSameSpiDat)
@@ -123,7 +123,7 @@ func TestLoadKeysSameSPI(t *testing.T) {
 	require.ErrorContains(t, err, "invalid SPI: changing IPSec keys requires incrementing the key id")
 }
 
-func TestParseSPI(t *testing.T) {
+func TestPrivilegedParseSPI(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	testCases := []struct {
