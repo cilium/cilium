@@ -457,7 +457,7 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig Depreca
 }
 
 var DefaultUserConfig = UserConfig{
-	RetryBackoffMin:           50 * time.Millisecond,
+	RetryBackoffMin:           time.Second,
 	RetryBackoffMax:           time.Minute,
 	LBMapEntries:              DefaultLBMapMaxEntries,
 	LBPressureMetricsInterval: 5 * time.Minute,
