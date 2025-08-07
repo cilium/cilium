@@ -23,11 +23,20 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+type ciliumClient interface {
+	EndpointDeleteMany(*models.EndpointBatchDeleteRequest) error
+}
+
+type newCiliumClientFn func(time.Duration) (ciliumClient, error)
+
 type DeletionFallbackClient struct {
 	logger *slog.Logger
-	cli    *client.Client
+	cli    ciliumClient
 
-	lockfile *lockfile.Lockfile
+	deleteQueueDir      string
+	deleteQueueLockfile string
+
+	newCiliumClientFn newCiliumClientFn
 }
 
 // the timeout for connecting and obtaining the lock
@@ -42,10 +51,19 @@ var (
 	ErrClientFailure = errors.New("client failed")
 )
 
+func newCiliumClient(timeout time.Duration) (ciliumClient, error) {
+	return client.NewDefaultClientWithTimeout(timeout)
+}
+
 // NewDeletionFallbackClient creates a new deletion client.
 func NewDeletionFallbackClient(logger *slog.Logger) *DeletionFallbackClient {
 	return &DeletionFallbackClient{
 		logger: logger,
+
+		deleteQueueDir:      defaults.DeleteQueueDir,
+		deleteQueueLockfile: defaults.DeleteQueueLockfile,
+
+		newCiliumClientFn: newCiliumClient,
 	}
 }
 
@@ -54,7 +72,7 @@ func (dc *DeletionFallbackClient) tryConnect() error {
 		return nil
 	}
 
-	c, err := client.NewDefaultClientWithTimeout(timeoutSeconds * time.Second)
+	c, err := dc.newCiliumClientFn(timeoutSeconds * time.Second)
 	if err != nil {
 		return err
 	}
@@ -62,22 +80,22 @@ func (dc *DeletionFallbackClient) tryConnect() error {
 	return nil
 }
 
-func (dc *DeletionFallbackClient) tryQueueLock() error {
+func (dc *DeletionFallbackClient) tryQueueLock() (*lockfile.Lockfile, error) {
 	dc.logger.Debug(
 		"Attempting to acquire deletion queue lock",
-		logfields.Path, defaults.DeleteQueueLockfile,
+		logfields.Path, dc.deleteQueueLockfile,
 	)
 	startTime := time.Now()
 
 	// Ensure deletion queue directory exists, obtain shared lock
-	err := os.MkdirAll(defaults.DeleteQueueDir, 0755)
+	err := os.MkdirAll(dc.deleteQueueDir, 0755)
 	if err != nil {
-		return fmt.Errorf("failed to create deletion queue directory %s: %w", defaults.DeleteQueueDir, err)
+		return nil, fmt.Errorf("failed to create deletion queue directory %s: %w", dc.deleteQueueDir, err)
 	}
 
-	lf, err := lockfile.NewLockfile(defaults.DeleteQueueLockfile)
+	lf, err := lockfile.NewLockfile(dc.deleteQueueLockfile)
 	if err != nil {
-		return fmt.Errorf("failed to open lockfile %s: %w", defaults.DeleteQueueLockfile, err)
+		return nil, fmt.Errorf("failed to open lockfile %s: %w", dc.deleteQueueLockfile, err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutSeconds*time.Second)
@@ -86,14 +104,13 @@ func (dc *DeletionFallbackClient) tryQueueLock() error {
 	err = lf.Lock(ctx, false) // get the shared lock
 	if err != nil {
 		lf.Close()
-		return fmt.Errorf("failed to acquire lock: %w", err)
+		return nil, fmt.Errorf("failed to acquire lock: %w", err)
 	}
 
 	dc.logger.Debug("Deletion Queue lock acquired",
-		logfields.Path, defaults.DeleteQueueLockfile,
+		logfields.Path, dc.deleteQueueLockfile,
 		logfields.Duration, time.Since(startTime))
-	dc.lockfile = lf
-	return nil
+	return lf, nil
 }
 
 // EndpointDeleteMany deletes multiple endpoints based on the endpoint deletion request,
@@ -121,11 +138,11 @@ func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDe
 		logfields.Error, err,
 	)
 
-	err = dc.tryQueueLock()
+	lf, err := dc.tryQueueLock()
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrClientFailure, err)
 	}
-	defer dc.lockfile.Unlock()
+	defer lf.Unlock()
 
 	// We have the lock now, we can retry deleting the endpoints.
 	fallback, err = dc.deleteEndpointsBatch(req)
@@ -186,24 +203,24 @@ func (dc *DeletionFallbackClient) enqueueDeletionRequestLocked(req *models.Endpo
 	// long time. To guard against long agent startup times (when it empties the
 	// queue), limit us to 256 queued deletions. If this does, indeed, overflow,
 	// then the kubelet will get the failure and eventually retry deletion.
-	files, err := os.ReadDir(defaults.DeleteQueueDir)
+	files, err := os.ReadDir(dc.deleteQueueDir)
 	if err != nil {
 		dc.logger.Error(
 			"Failed to list deletion queue directory",
 			logfields.Error, err,
-			logfields.Path, defaults.DeleteQueueDir,
+			logfields.Path, dc.deleteQueueDir,
 		)
 		return err
 	}
 	if len(files) > maxDeletionFiles {
-		return fmt.Errorf("deletion queue directory %s has too many entries; aborting", defaults.DeleteQueueDir)
+		return fmt.Errorf("deletion queue directory %s has too many entries; aborting", dc.deleteQueueDir)
 	}
 
 	// hash endpoint id for a random filename
 	h := sha256.New()
 	h.Write(contents)
 	filename := fmt.Sprintf("%x.delete", h.Sum(nil))
-	path := filepath.Join(defaults.DeleteQueueDir, filename)
+	path := filepath.Join(dc.deleteQueueDir, filename)
 
 	err = os.WriteFile(path, contents, 0644)
 	if err != nil {
