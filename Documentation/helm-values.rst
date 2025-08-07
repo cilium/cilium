@@ -909,7 +909,7 @@
      - object
      - ``{"clusters":[],"domain":"mesh.cilium.io","enabled":false}``
    * - :spelling:ignore:`clustermesh.config.clusters`
-     - List of clusters to be peered in the mesh.
+     - Clusters to be peered in the mesh. @schema type: [object, array] @schema
      - list
      - ``[]``
    * - :spelling:ignore:`clustermesh.config.domain`
