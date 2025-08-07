@@ -16,6 +16,7 @@ type mockFeaturesParams struct {
 	LBIPAMEnabled            bool
 	LoadBalancerL7           string
 	NodeIPAMEnabled          bool
+	K8sVersionString         string
 }
 
 func (p mockFeaturesParams) IsIngressControllerEnabled() bool {
@@ -32,6 +33,10 @@ func (p mockFeaturesParams) GetLoadBalancerL7() string {
 
 func (p mockFeaturesParams) IsNodeIPAMEnabled() bool {
 	return p.NodeIPAMEnabled
+}
+
+func (p mockFeaturesParams) K8sVersion() string {
+	return p.K8sVersionString
 }
 
 func TestUpdateGatewayAPI(t *testing.T) {
@@ -205,6 +210,37 @@ func TestUpdateNodeIPAMEnabled(t *testing.T) {
 
 			counterValue := metrics.ACLBNodeIPAMEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableNodeIPAMEnabled, counterValue)
+		})
+	}
+}
+
+func TestUpdateKubernetesVersion(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected float64
+	}{
+		{
+			name:     "Kubernetes version metric",
+			expected: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.OperatorConfig{}
+
+			params := mockFeaturesParams{
+				K8sVersionString: "1.31.0",
+			}
+
+			metrics.update(params, config)
+
+			counter, err := metrics.CPKubernetesVersion.GetMetricWithLabelValues("1.31.0")
+			assert.NoError(t, err)
+
+			counterValue := counter.Get()
+			assert.Equal(t, float64(1), counterValue, "Expected version %s to be incremented", "1.31.0")
 		})
 	}
 }
