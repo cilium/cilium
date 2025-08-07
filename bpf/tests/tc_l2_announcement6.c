@@ -16,6 +16,7 @@
 #undef QUIET_CT
 
 #include "pktgen.h"
+#include "scapy.h"
 
 /* Enable code paths under test */
 #define ENABLE_IPV6
@@ -56,44 +57,14 @@ struct icmp6_opthdr {
 static __always_inline int build_packet(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	volatile const __u8 *src = mac_one;
-	union macaddr dst;
-	struct icmp6hdr *l4;
-	void *data;
-	struct icmp6_opthdr llsrc_opt;
-	__u8 ll_mac[] = {0x1, 0x1, 0x1, 0x1, 0x1, 0x1};
 
 	pktgen__init(&builder, ctx);
 
-	ipv6_sol_mc_mac_set((union v6addr *)v6_svc_one, &dst);
-
-	l4 = pktgen__push_ipv6_icmp6_packet(&builder, (__u8 *)src,
-					    (__u8 *)&dst,
-					    (__u8 *)v6_ext_node_one,
-					    (__u8 *)v6_svc_one,
-					    ICMP6_NS_MSG_TYPE);
-	if (!l4)
-		return TEST_ERROR;
-
-	l4->icmp6_router = 0;
-	l4->icmp6_solicited = 1;
-	l4->icmp6_override = 0;
-	l4->icmp6_ndiscreserved = 0;
-
-	data = pktgen__push_data(&builder, (__u8 *)v6_svc_one, V6_ALEN);
-	if (!data)
-		return TEST_ERROR;
-
-	/* LLSRC opt */
-	llsrc_opt.type = 0x1;
-	llsrc_opt.length = 0x1;
-	memcpy((__u8 *)&llsrc_opt.llsrc_mac, (__u8 *)ll_mac, ETH_ALEN);
-	data = pktgen__push_data(&builder, (__u8 *)&llsrc_opt,
-				 sizeof(llsrc_opt));
-	if (!data)
-		return TEST_ERROR;
+	BUF_DECL(L2_ANNOUNCE6_NS, l2_announce6_ns);
+	BUILDER_PUSH_BUF(builder, L2_ANNOUNCE6_NS);
 
 	pktgen__finish(&builder);
+
 	return 0;
 }
 
@@ -118,13 +89,6 @@ int l2_announcement_nd_no_entry_check(const struct __ctx_buff *ctx)
 	void *data;
 	void *data_end;
 	__u32 *status_code;
-	struct ethhdr *l2;
-	union macaddr dst;
-	struct ipv6hdr *l3;
-	struct icmp6hdr *icmp;
-	void *target_addr, *opt;
-	struct icmp6_opthdr llsrc_opt;
-	__u8 ll_mac[] = {0x1, 0x1, 0x1, 0x1, 0x1, 0x1};
 
 	test_init();
 
@@ -136,52 +100,14 @@ int l2_announcement_nd_no_entry_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
-	/* The program should pass unknown ND messages to the stack */
 	assert(*status_code == TC_ACT_OK);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds");
+	BUF_DECL(L2_ANNOUNCE6_NS2, l2_announce6_ns);
 
-	ipv6_sol_mc_mac_set((union v6addr *)v6_svc_one, &dst);
-	assert(memcmp(l2->h_source, (__u8 *)mac_one, ETH_ALEN) == 0);
-	assert(memcmp(l2->h_dest, (__u8 *)&dst, ETH_ALEN) == 0);
-
-	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
-	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
-		test_fatal("l3 out of bounds");
-
-	assert(memcmp(&l3->saddr, (void *)v6_ext_node_one, V6_ALEN) == 0);
-	assert(memcmp(&l3->daddr, (void *)v6_svc_one, V6_ALEN) == 0);
-	assert(l3->nexthdr == NEXTHDR_ICMP);
-
-	icmp = (void *)l3 + sizeof(struct ipv6hdr);
-	if ((void *)icmp + sizeof(struct icmp6hdr) > data_end)
-		test_fatal("icmp out of bounds");
-
-	assert(icmp->icmp6_type == ICMP6_NS_MSG_TYPE);
-	assert(icmp->icmp6_code == 0);
-
-	assert(icmp->icmp6_router == 0);
-	assert(icmp->icmp6_solicited == 1);
-	assert(icmp->icmp6_override == 0);
-	assert(icmp->icmp6_ndiscreserved == 0);
-
-	target_addr = (void *)icmp + sizeof(struct icmp6hdr);
-	if (target_addr + V6_ALEN > data_end)
-		test_fatal("Target addr out of bounds");
-
-	assert(memcmp(target_addr, (__u8 *)v6_svc_one, V6_ALEN) == 0);
-
-	/* Link layer address option */
-	opt = target_addr + V6_ALEN;
-	if (opt + sizeof(llsrc_opt) > data_end)
-		test_fatal("llsrc_opt addr out of bounds");
-
-	llsrc_opt.type = 0x1;
-	llsrc_opt.length = 0x1;
-	memcpy((__u8 *)&llsrc_opt.llsrc_mac, (__u8 *)ll_mac, ETH_ALEN);
-	assert(memcmp(opt, (__u8 *)&llsrc_opt, sizeof(llsrc_opt)) == 0);
+	ASSERT_CTX_BUF_OFF("tc_l2announce6_ns_no_entry_untouched",
+			   "Ether", ctx,
+			   sizeof(__u32), L2_ANNOUNCE6_NS2,
+			   sizeof(BUF(L2_ANNOUNCE6_NS2)));
 
 	test_finish();
 }
@@ -216,65 +142,25 @@ int l2_announcement_nd_happy_path_check(const struct __ctx_buff *ctx)
 	void *data;
 	void *data_end;
 	__u32 *status_code;
-	struct ethhdr *l2;
-	struct ipv6hdr *l3;
-	struct icmp6hdr *icmp;
-	void *target_addr;
-	struct icmp6_opthdr *opt;
-	struct icmp6_opthdr llsrc_opt;
 
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
 
 	if (data + sizeof(__u32) > data_end)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
+
 	assert(*status_code == TC_ACT_REDIRECT);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds");
+	BUF_DECL(L2_ANNOUNCE6_NA, l2_announce6_na);
 
-	assert(memcmp(l2->h_source, (__u8 *)mac_two, ETH_ALEN) == 0);
-	assert(memcmp(l2->h_dest, (__u8 *)mac_one, ETH_ALEN) == 0);
-
-	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
-	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
-		test_fatal("l3 out of bounds");
-
-	assert(memcmp(&l3->saddr, (void *)&v6_svc_one, V6_ALEN) == 0);
-	assert(memcmp(&l3->daddr, (void *)&v6_ext_node_one, V6_ALEN) == 0);
-	assert(l3->nexthdr == NEXTHDR_ICMP);
-
-	icmp = (void *)l3 + sizeof(struct ipv6hdr);
-	if ((void *)icmp + sizeof(struct icmp6hdr) > data_end)
-		test_fatal("icmp out of bounds");
-
-	assert(icmp->icmp6_type == ICMP6_NA_MSG_TYPE);
-	assert(icmp->icmp6_code == 0);
-
-	assert(icmp->icmp6_router == 0);
-	assert(icmp->icmp6_solicited == 1);
-	assert(icmp->icmp6_override == 1);
-	assert(icmp->icmp6_ndiscreserved == 0);
-
-	target_addr = (void *)icmp + sizeof(struct icmp6hdr);
-	if (target_addr + V6_ALEN > data_end)
-		test_fatal("Target addr out of bounds");
-
-	assert(memcmp(target_addr, (__u8 *)v6_svc_one, V6_ALEN) == 0);
-
-	/* Link layer address option */
-	opt = (struct icmp6_opthdr *)(target_addr + V6_ALEN);
-	if ((void *)opt + sizeof(llsrc_opt) > data_end)
-		test_fatal("llsrc_opt addr out of bounds");
-
-	assert(opt->type == 0x2);
-	assert(opt->length == 0x1);
-	assert(memcmp((void *)mac_two, (void *)opt->llsrc_mac, ETH_ALEN) == 0);
+	ASSERT_CTX_BUF_OFF("tc_l2announce2_entry_found_na",
+			   "Ether", ctx,
+			   sizeof(__u32), L2_ANNOUNCE6_NA,
+			   sizeof(BUF(L2_ANNOUNCE6_NA)));
 
 	test_finish();
 }
