@@ -71,6 +71,9 @@ type IptablesManager interface {
 
 	// See comments for InstallNoTrackRules.
 	RemoveNoTrackRules(ip netip.Addr, port uint16)
+
+	// Returns a channel that is closed when initial reconciliation completes.
+	Initialized() <-chan struct{}
 }
 
 // CompilationLock is a interface over a mutex, it is used by both the loader, daemon

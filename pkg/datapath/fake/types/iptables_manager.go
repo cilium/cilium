@@ -35,3 +35,9 @@ func (m *FakeIptablesManager) InstallNoTrackRules(ip netip.Addr, port uint16) {
 
 func (m *FakeIptablesManager) RemoveNoTrackRules(ip netip.Addr, port uint16) {
 }
+
+func (m *FakeIptablesManager) Initialized() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}

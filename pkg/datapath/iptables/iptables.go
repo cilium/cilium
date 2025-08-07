@@ -287,6 +287,7 @@ type reconcilerParams struct {
 	proxies        chan reconciliationRequest[proxyInfo]
 	addNoTrackPod  chan reconciliationRequest[noTrackPodInfo]
 	delNoTrackPod  chan reconciliationRequest[noTrackPodInfo]
+	sync           chan reconciliationRequest[struct{}]
 }
 
 type params struct {
@@ -322,6 +323,7 @@ func newIptablesManager(p params) datapath.IptablesManager {
 			proxies:        make(chan reconciliationRequest[proxyInfo]),
 			addNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
 			delNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
+			sync:           make(chan reconciliationRequest[struct{}]),
 		},
 		haveIp6tables:    true,
 		cniConfigManager: p.CNIConfigManager,
@@ -472,6 +474,7 @@ func (m *Manager) Stop(ctx cell.HookContext) error {
 	close(m.reconcilerParams.proxies)
 	close(m.reconcilerParams.addNoTrackPod)
 	close(m.reconcilerParams.delNoTrackPod)
+	close(m.reconcilerParams.sync)
 	return nil
 }
 
@@ -1002,6 +1005,12 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
 	}
 	return err
+}
+
+func (m *Manager) Initialized() <-chan struct{} {
+	reconciled := make(chan struct{})
+	m.reconcilerParams.sync <- reconciliationRequest[struct{}]{struct{}{}, reconciled}
+	return reconciled
 }
 
 // InstallNoTrackRules is explicitly called when a pod has valid "policy.cilium.io/no-track-port" annotation.
