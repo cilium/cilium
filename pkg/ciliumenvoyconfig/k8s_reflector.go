@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -67,17 +68,24 @@ func registerCECK8sReflector(
 	p *CECResourceParser,
 	crdSync promise.Promise[synced.CRDSync],
 	apiGroups *synced.APIGroups,
-	nodeLabels *nodeLabels,
 	log *slog.Logger,
 	lws listerWatchers,
 	g job.Group,
 	db *statedb.DB,
 	tbl statedb.RWTable[*CEC],
+	nodes statedb.Table[*node.LocalNode],
 ) error {
 	if !dcfg.EnableL7Proxy || !dcfg.EnableEnvoyConfig {
 		return nil
 	}
 	if lws.cec == nil {
+		return nil
+	}
+
+	getLocalNodeLabels := func(txn statedb.ReadTxn) map[string]string {
+		if node, _, found := nodes.Get(txn, node.LocalNodeQuery); found {
+			return node.Labels
+		}
 		return nil
 	}
 
@@ -111,7 +119,8 @@ func registerCECK8sReflector(
 					logfields.Error, err)
 				return nil, false
 			}
-			selectsLocalNode = selector.Matches(labels.Set(nodeLabels.Load()))
+			localNodeLabels := getLocalNodeLabels(txn)
+			selectsLocalNode = selector.Matches(labels.Set(localNodeLabels))
 		}
 
 		resources, err := p.ParseResources(

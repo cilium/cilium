@@ -50,7 +50,6 @@ var (
 		cell.ProvidePrivate(
 			NewCECTable,
 			NewEnvoyResourcesTable,
-			newNodeLabels,
 			cecListerWatchers,
 		),
 		cell.Provide(
@@ -59,6 +58,7 @@ var (
 		cell.Invoke(
 			registerCECK8sReflector,
 			registerEnvoyReconciler,
+			registerNodeLabelController,
 		),
 	)
 )
