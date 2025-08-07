@@ -25,10 +25,11 @@ type Metrics struct {
 	CPIdentityAllocation          metric.Vec[metric.Gauge]
 	CPCiliumEndpointSlicesEnabled metric.Gauge
 
-	DPMode         metric.Vec[metric.Gauge]
-	DPChaining     metric.Vec[metric.Gauge]
-	DPIP           metric.Vec[metric.Gauge]
-	DPDeviceConfig metric.Vec[metric.Gauge]
+	DPMode           metric.Vec[metric.Gauge]
+	DPChaining       metric.Vec[metric.Gauge]
+	DPIP             metric.Vec[metric.Gauge]
+	DPDeviceConfig   metric.Vec[metric.Gauge]
+	DPEndpointRoutes metric.Gauge
 
 	NPHostFirewallEnabled        metric.Gauge
 	NPLocalRedirectPolicyEnabled metric.Gauge
@@ -335,6 +336,13 @@ func NewMetrics(withDefaults bool) Metrics {
 					)
 				}(),
 			},
+		}),
+
+		DPEndpointRoutes: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Endpoint Routes enabled in the datapath",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemDP,
+			Name:      "endpoint_routes_enabled",
 		}),
 
 		NPHostFirewallEnabled: metric.NewGauge(metric.GaugeOpts{
@@ -956,6 +964,10 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	deviceMode := config.DatapathMode
 	m.DPDeviceConfig.WithLabelValues(deviceMode).Add(1)
+
+	if config.EnableEndpointRoutes {
+		m.DPEndpointRoutes.Add(1)
+	}
 
 	if config.EnableHostFirewall {
 		m.NPHostFirewallEnabled.Add(1)
