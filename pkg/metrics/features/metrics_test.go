@@ -667,21 +667,25 @@ func TestUpdateEncryptionMode(t *testing.T) {
 		enableIPSec               bool
 		enableWireguard           bool
 		enableNode2NodeEncryption bool
+		enableStrictMode          bool
 
 		expectEncryptionMode      string
 		expectNode2NodeEncryption string
+		expectStrictMode          string
 	}{
 		{
 			name:                      "IPSec enabled",
 			enableIPSec:               true,
 			expectEncryptionMode:      advConnNetEncIPSec,
 			expectNode2NodeEncryption: "false",
+			expectStrictMode:          "false",
 		},
 		{
 			name:                      "IPSec disabled",
 			enableIPSec:               false,
 			expectEncryptionMode:      "",
 			expectNode2NodeEncryption: "",
+			expectStrictMode:          "",
 		},
 		{
 			name:                      "IPSec enabled w/ node2node",
@@ -689,12 +693,31 @@ func TestUpdateEncryptionMode(t *testing.T) {
 			enableNode2NodeEncryption: true,
 			expectEncryptionMode:      advConnNetEncIPSec,
 			expectNode2NodeEncryption: "true",
+			expectStrictMode:          "false",
+		},
+		{
+			name:                      "IPSec enabled w/ strict mode",
+			enableIPSec:               true,
+			enableStrictMode:          true,
+			expectEncryptionMode:      advConnNetEncIPSec,
+			expectNode2NodeEncryption: "false",
+			expectStrictMode:          "true",
+		},
+		{
+			name:                      "IPSec enabled w/ node2node and strict mode",
+			enableIPSec:               true,
+			enableNode2NodeEncryption: true,
+			enableStrictMode:          true,
+			expectEncryptionMode:      advConnNetEncIPSec,
+			expectNode2NodeEncryption: "true",
+			expectStrictMode:          "true",
 		},
 		{
 			name:                      "Wireguard enabled",
 			enableWireguard:           true,
 			expectEncryptionMode:      advConnNetEncWireGuard,
 			expectNode2NodeEncryption: "false",
+			expectStrictMode:          "false",
 		},
 		{
 			name:                      "Wireguard enabled w/ node2node",
@@ -702,6 +725,24 @@ func TestUpdateEncryptionMode(t *testing.T) {
 			enableNode2NodeEncryption: true,
 			expectEncryptionMode:      advConnNetEncWireGuard,
 			expectNode2NodeEncryption: "true",
+			expectStrictMode:          "false",
+		},
+		{
+			name:                      "Wireguard enabled w/ strict mode",
+			enableWireguard:           true,
+			enableStrictMode:          true,
+			expectEncryptionMode:      advConnNetEncWireGuard,
+			expectNode2NodeEncryption: "false",
+			expectStrictMode:          "true",
+		},
+		{
+			name:                      "Wireguard enabled w/ node2node and strict mode",
+			enableWireguard:           true,
+			enableNode2NodeEncryption: true,
+			enableStrictMode:          true,
+			expectEncryptionMode:      advConnNetEncWireGuard,
+			expectNode2NodeEncryption: "true",
+			expectStrictMode:          "true",
 		},
 	}
 
@@ -709,16 +750,17 @@ func TestUpdateEncryptionMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metrics := NewMetrics(true)
 			config := &option.DaemonConfig{
-				IPAM:                   defaultIPAMModes[0],
-				EnableIPv4:             true,
-				IdentityAllocationMode: defaultIdentityAllocationModes[0],
-				DatapathMode:           defaultDeviceModes[0],
-				NodePortMode:           defaultNodePortModes[0],
-				NodePortAlg:            defaultNodePortModeAlgorithms[0],
-				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
-				EnableIPSec:            tt.enableIPSec,
-				EnableWireguard:        tt.enableWireguard,
-				EncryptNode:            tt.enableNode2NodeEncryption,
+				IPAM:                       defaultIPAMModes[0],
+				EnableIPv4:                 true,
+				IdentityAllocationMode:     defaultIdentityAllocationModes[0],
+				DatapathMode:               defaultDeviceModes[0],
+				NodePortMode:               defaultNodePortModes[0],
+				NodePortAlg:                defaultNodePortModeAlgorithms[0],
+				NodePortAcceleration:       defaultNodePortModeAccelerations[0],
+				EnableIPSec:                tt.enableIPSec,
+				EnableWireguard:            tt.enableWireguard,
+				EncryptNode:                tt.enableNode2NodeEncryption,
+				EnableEncryptionStrictMode: tt.enableStrictMode,
 			}
 
 			params := mockFeaturesParams{
@@ -730,14 +772,18 @@ func TestUpdateEncryptionMode(t *testing.T) {
 			// Check that only the expected mode's counter is incremented
 			for _, encMode := range defaultEncryptionModes {
 				for _, node2node := range []string{"true", "false"} {
-					counter, err := metrics.ACLBTransparentEncryption.GetMetricWithLabelValues(encMode, node2node)
-					assert.NoError(t, err)
+					for _, strictMode := range []string{"true", "false"} {
+						counter, err := metrics.ACLBTransparentEncryption.GetMetricWithLabelValues(encMode, node2node, strictMode)
+						assert.NoError(t, err)
 
-					counterValue := counter.Get()
-					if encMode == tt.expectEncryptionMode && node2node == tt.expectNode2NodeEncryption {
-						assert.Equal(t, float64(1), counterValue, "Expected mode %s to be incremented", encMode)
-					} else {
-						assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", encMode)
+						counterValue := counter.Get()
+						if encMode == tt.expectEncryptionMode &&
+							node2node == tt.expectNode2NodeEncryption &&
+							strictMode == tt.expectStrictMode {
+							assert.Equal(t, float64(1), counterValue, "Expected mode %s with node2node=%s and strict=%s to be incremented", encMode, node2node, strictMode)
+						} else {
+							assert.Equal(t, float64(0), counterValue, "Expected mode %s with node2node=%s and strict=%s to remain at 0", encMode, node2node, strictMode)
+						}
 					}
 				}
 			}
