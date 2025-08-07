@@ -38,52 +38,22 @@ const timeoutSeconds = 10
 const maxDeletionFiles = 256
 
 var (
-	errServiceUnavailable = errors.New("cilium api not available")
+	// Indicates a non-recoverable error for DeletionFallbackClient.
+	ErrClientFailure = errors.New("client failed")
 )
 
-// NewDeletionFallbackClient creates a client that will either issue an EndpointDelete
-// request via the api, *or* queue one in a temporary directory.
-// To prevent race conditions, the logic is:
-// 1. Try and connect to the socket. if that succeeds, done
-// 2. Otherwise, take a shared lock on the delete queue directory
-// 3. Once we get the lock, check to see if the socket now exists
-// 4. If it exists, drop the lock and use the api
-func NewDeletionFallbackClient(logger *slog.Logger) (*DeletionFallbackClient, error) {
-	dc := &DeletionFallbackClient{
+// NewDeletionFallbackClient creates a new deletion client.
+func NewDeletionFallbackClient(logger *slog.Logger) *DeletionFallbackClient {
+	return &DeletionFallbackClient{
 		logger: logger,
 	}
-
-	// Try and connect (the usual case)
-	err := dc.tryConnect()
-	if err == nil {
-		return dc, nil
-	}
-	dc.logger.Warn(
-		"Failed to connect to agent socket",
-		logfields.Error, err,
-		logfields.Socket, client.DefaultSockPath(),
-	)
-
-	// We failed to connect: get the queue lock
-	if err := dc.tryQueueLock(); err != nil {
-		return nil, fmt.Errorf("failed to acquire deletion queue: %w", err)
-	}
-
-	// We have the queue lock; try and connect again
-	// just in case the agent finished starting up while we were waiting
-	if err := dc.tryConnect(); err == nil {
-		dc.logger.Info("Successfully connected to API on second try.")
-		// hey, it's back up!
-		dc.unlockQueue()
-		return dc, nil
-	}
-
-	// We have the lockfile, but no valid client
-	dc.logger.Info("Agent is down, falling back to deletion queue directory")
-	return dc, nil
 }
 
 func (dc *DeletionFallbackClient) tryConnect() error {
+	if dc.cli != nil {
+		return nil
+	}
+
 	c, err := client.NewDefaultClientWithTimeout(timeoutSeconds * time.Second)
 	if err != nil {
 		return err
@@ -125,64 +95,75 @@ func (dc *DeletionFallbackClient) tryQueueLock() error {
 	return nil
 }
 
-func (dc *DeletionFallbackClient) unlockQueue() {
-	if dc.lockfile != nil {
-		dc.lockfile.Unlock()
-		dc.lockfile = nil
-	}
-}
-
 // EndpointDeleteMany deletes multiple endpoints based on the endpoint deletion request,
 // either by directly accessing the API or dropping in a queued-deletion file.
+//
+// To prevent race conditions, the logic is:
+// 1. Try and connect to the socket and request deletion. if that succeeds, done.
+// 2. Otherwise, take a shared lock on the delete queue directory.
+// 3. Once we have the lock, check again to see if the deletion request succeeds.
+// 4. Persist the request to offline queue in case of failure.
+//
+// Endpoint Deletion handled by this method returns two types of errors:
+// 1. Delete request processing errors propagated from cilium-agent(eg. NotFound, Invalid)
+// 2. Client failure indicating a non-recoverable error(eg. when deletion queue locking during fallback fails)
 func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDeleteRequest) error {
-	if dc.lockfile != nil {
-		return dc.enqueueDeletionRequestLocked(req)
-	}
-
-	// If lock was not acquired, we have a valid client.
-	err := dc.deleteEndpointsBatch(req)
-	if err == nil || !errors.Is(err, errServiceUnavailable) {
-		// Propagate the error if its not related to service unavailability.
+	fallback, err := dc.deleteEndpointsBatch(req)
+	if err == nil || !fallback {
 		return err
 	}
 
 	// If the Endpoint Deletion request to cilium-agent failed, fallback to
 	// queuing the deletion.
-	dc.logger.Debug("Failed to delete Endpoints batch, ServiceUnvailable",
+	dc.logger.Debug("Failed to delete Endpoints batch",
 		logfields.Request, req,
 		logfields.Error, err,
 	)
 
-	if err := dc.tryQueueLock(); err != nil {
-		return fmt.Errorf("failed to acquire deletion queue lock: %w", err)
+	err = dc.tryQueueLock()
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrClientFailure, err)
 	}
-	defer dc.unlockQueue()
+	defer dc.lockfile.Unlock()
 
-	// We have the lock, we can retry deleting the endpoints.
-	err = dc.deleteEndpointsBatch(req)
+	// We have the lock now, we can retry deleting the endpoints.
+	fallback, err = dc.deleteEndpointsBatch(req)
 
 	// Only enqueue the Deletion request if the failure is API server related, so cilium-agent
-	// can retry when DeletionQueue is replayed.
-	if errors.Is(err, errServiceUnavailable) {
-		return dc.enqueueDeletionRequestLocked(req)
+	// can process the request when DeletionQueue is replayed.
+	if fallback {
+		err = dc.enqueueDeletionRequestLocked(req)
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrClientFailure, err)
+		}
 	}
 
 	return err
 }
 
-func (dc *DeletionFallbackClient) deleteEndpointsBatch(req *models.EndpointBatchDeleteRequest) error {
+// deleteEndpointsBatch attempts to connect to cilium api and request endpoint deletion for the provided
+// request. If either the connection fails or Endpoint API is not available, this method returns true
+// indicating the caller to attempt fallback logic.
+func (dc *DeletionFallbackClient) deleteEndpointsBatch(req *models.EndpointBatchDeleteRequest) (bool, error) {
+	if err := dc.tryConnect(); err != nil {
+		// Failed to setup cilium client.
+		return true, err
+	}
+
 	err := dc.cli.EndpointDeleteMany(req)
 	if err != nil {
 		status, ok := err.(runtime.ClientResponseStatus)
 		if !ok || !status.IsCode(http.StatusServiceUnavailable) {
 			// Propagate unhandled server side Endpoint delete errors.
-			return err
+			return false, err
 		}
 
-		return errServiceUnavailable
+		// Endpoint API is unavailable.
+		return true, err
 	}
 
-	return nil
+	// Endpoint deleted successfully.
+	return false, nil
 }
 
 // enqueueDeletionRequestLocked enqueues the encoded endpoint deletion request into the
