@@ -77,3 +77,13 @@ default_data = "Should not change!!"
 
 l2_announce_arp_req = Ether(dst=mac_bcast, src=mac_one)/ARP(op="who-has", psrc=v4_ext_one, pdst=v4_svc_one, hwsrc=mac_one, hwdst=mac_bcast)
 l2_announce_arp_reply = Ether(dst=mac_one, src=mac_two)/ARP(op="is-at", psrc=v4_svc_one, pdst=v4_ext_one, hwsrc=mac_two, hwdst=mac_one)
+
+## L2 announce (v6)
+l2_announce6_ns = Ether(dst='33:33:ff:00:00:01', src=mac_one)/                 \
+                  IPv6(src=v6_ext_node_one, dst=v6_svc_one, hlim=255)/         \
+                  ICMPv6ND_NS(tgt=v6_svc_one)/                                 \
+                  ICMPv6NDOptSrcLLAddr(lladdr='01:01:01:01:01:01')
+l2_announce6_na = Ether(dst=mac_one, src=mac_two)/                             \
+                  IPv6(src=v6_svc_one, dst=v6_ext_node_one, hlim=255)/         \
+                  ICMPv6ND_NA(R=0, S=1, O=1, tgt=v6_svc_one)/                  \
+                  ICMPv6NDOptDstLLAddr(lladdr=mac_two)
