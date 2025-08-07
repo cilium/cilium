@@ -86,6 +86,7 @@ func New(cells ...cell.Cell) *Hive {
 	modulePrivateProviders := []cell.ModulePrivateProvider{
 		jobGroupProvider,
 	}
+
 	return upstream.NewWithOptions(
 		upstream.Options{
 			EnvPrefix:              "CILIUM_",
