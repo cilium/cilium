@@ -30,7 +30,31 @@ runs:
         CILIUM_INSTALL_DEFAULTS="--chart-directory=${{ inputs.chart-dir }} \
           --helm-set=debug.enabled=true \
           --helm-set=debug.verbose=envoy \
-          --helm-set=hubble.relay.retryTimeout=5s"
+          --helm-set=hubble.relay.retryTimeout=5s \
+          --set-string=extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
+          --set-string=extraEnv[0].value=true \
+          --set-string=extraEnv[1].name=CILIUM_INVALID_METRIC_VALUE_DETECTOR \
+          --set-string=extraEnv[1].value=true \
+          --set-string=extraEnv[2].name=CILIUM_SLOG_DUP_ATTR_DETECTOR \
+          --set-string=extraEnv[2].value=true \
+          --set-string=operator.extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
+          --set-string=operator.extraEnv[0].value=true \
+          --set-string=operator.extraEnv[1].name=CILIUM_INVALID_METRIC_VALUE_DETECTOR \
+          --set-string=operator.extraEnv[1].value=true \
+          --set-string=operator.extraEnv[2].name=CILIUM_SLOG_DUP_ATTR_DETECTOR \
+          --set-string=operator.extraEnv[2].value=true \
+          --set-string=clustermesh.apiserver.extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
+          --set-string=clustermesh.apiserver.extraEnv[0].value=true \
+          --set-string=clustermesh.apiserver.extraEnv[1].name=CILIUM_INVALID_METRIC_VALUE_DETECTOR \
+          --set-string=clustermesh.apiserver.extraEnv[1].value=true \
+          --set-string=clustermesh.apiserver.extraEnv[2].name=CILIUM_SLOG_DUP_ATTR_DETECTOR \
+          --set-string=clustermesh.apiserver.extraEnv[2].value=true \
+          --set-string=hubble.relay.extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
+          --set-string=hubble.relay.extraEnv[0].value=true \
+          --set-string=hubble.relay.extraEnv[1].name=CILIUM_INVALID_METRIC_VALUE_DETECTOR \
+          --set-string=hubble.relay.extraEnv[1].value=true \
+          --set-string=hubble.relay.extraEnv[2].name=CILIUM_SLOG_DUP_ATTR_DETECTOR \
+          --set-string=hubble.relay.extraEnv[2].value=true"
 
         # only add SHA to the image tags if it was set
         if [ -n "${SHA}" ]; then
