@@ -864,10 +864,7 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 	}
 	scopedLogger = buildLogAttrsWithCNIArgs(scopedLogger, cniArgs)
 
-	c, err := lib.NewDeletionFallbackClient(scopedLogger)
-	if err != nil {
-		return fmt.Errorf("unable to connect to Cilium agent: %w", err)
-	}
+	c := lib.NewDeletionFallbackClient(scopedLogger)
 
 	// If this is a chained plugin, then "delegate" to the special chaining mode and be done.
 	// Note: DEL always has PrevResult set, so that doesn't tell us if we're chained. Given
@@ -894,6 +891,11 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 
 	req := &models.EndpointBatchDeleteRequest{ContainerID: args.ContainerID}
 	if err := c.EndpointDeleteMany(req); err != nil {
+		if errors.Is(err, lib.ErrClientFailure) {
+			scopedLogger.Error("Failed to delete endpoint", logfields.Error, err)
+			return err
+		}
+
 		// EndpointDeleteMany returns an error in the following scenarios:
 		// DeleteEndpointInvalid: Invalid delete parameters, no need to retry
 		// DeleteEndpointNotFound: No need to retry
