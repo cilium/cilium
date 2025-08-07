@@ -1,7 +1,7 @@
 package config
 
 import (
-	"time"
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/spf13/pflag"
 )

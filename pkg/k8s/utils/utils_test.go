@@ -6,6 +6,7 @@ package utils
 import (
 	"context"
 	"reflect"
+	"sort"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +20,37 @@ import (
 )
 
 func TestServiceProxyName(t *testing.T) {
-	const enableHeadlessServiceWatch = true
+	tests := []struct {
+		name                       string
+		enableHeadlessServiceWatch bool
+		k8sServiceProxy            string
+		want                       []string
+	}{
+		{
+			name:                       "Headless Service Watch is enabled, proxy is foo",
+			enableHeadlessServiceWatch: true,
+			k8sServiceProxy:            "foo",
+			want:                       []string{"test-svc-1", "test-svc-4"},
+		},
+		{
+			name:                       "Headless Service Watch is enabled, no proxy",
+			enableHeadlessServiceWatch: true,
+			k8sServiceProxy:            "",
+			want:                       []string{"test-svc-3", "test-svc-5"},
+		},
+		{
+			name:                       "Headless Service Watch is disabled, proxy is foo",
+			enableHeadlessServiceWatch: false,
+			k8sServiceProxy:            "foo",
+			want:                       []string{"test-svc-1"},
+		},
+		{
+			name:                       "Headless Service Watch is disabled, no proxy",
+			enableHeadlessServiceWatch: false,
+			k8sServiceProxy:            "",
+			want:                       []string{"test-svc-3"},
+		},
+	}
 
 	client := fake.NewSimpleClientset()
 
@@ -38,41 +69,68 @@ func TestServiceProxyName(t *testing.T) {
 	svc3 := &corev1.Service{ObjectMeta: metav1.ObjectMeta{
 		Name: "test-svc-3",
 	}}
+	svc4 := &corev1.Service{ObjectMeta: metav1.ObjectMeta{
+		Name: "test-svc-4",
+		Labels: map[string]string{
+			serviceProxyNameLabel:    "foo",
+			corev1.IsHeadlessService: "",
+		},
+	}}
+	svc5 := &corev1.Service{ObjectMeta: metav1.ObjectMeta{
+		Name: "test-svc-5",
+		Labels: map[string]string{
+			corev1.IsHeadlessService: "",
+		},
+	}}
 
-	for _, svc := range []*corev1.Service{svc1, svc2, svc3} {
+	for _, svc := range []*corev1.Service{svc1, svc2, svc3, svc4, svc5} {
 		_, err := client.CoreV1().Services("test-ns").Create(context.TODO(), svc, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatalf("Failed to create svc %v: %s", svc, err)
 		}
 	}
 
-	// Should return only test-svc-1 which has the service-proxy-name=foo
-	optMod, _ := GetServiceAndEndpointListOptionsModifier("foo", enableHeadlessServiceWatch)
-	options := metav1.ListOptions{}
-	optMod(&options)
-	svcs, err := client.CoreV1().Services("test-ns").List(context.TODO(), options)
-	if err != nil {
-		t.Fatalf("Failed to list services: %s", err)
-	}
-	if len(svcs.Items) != 1 || svcs.Items[0].ObjectMeta.Name != "test-svc-1" {
-		t.Fatalf("Expected test-svc-1, retrieved: %v", svcs)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			optMod, _ := GetServiceAndEndpointListOptionsModifier(tt.k8sServiceProxy, tt.enableHeadlessServiceWatch)
+			options := metav1.ListOptions{}
+			optMod(&options)
+			svcs, err := client.CoreV1().Services("test-ns").List(context.TODO(), options)
+			if err != nil {
+				t.Fatalf("Failed to list services: %s", err)
+			}
 
-	// Should return only test-svc-3 which doesn't have any service-proxy-name
-	optMod, _ = GetServiceAndEndpointListOptionsModifier("", enableHeadlessServiceWatch)
-	options = metav1.ListOptions{}
-	optMod(&options)
-	svcs, err = client.CoreV1().Services("test-ns").List(context.TODO(), options)
-	if err != nil {
-		t.Fatalf("Failed to list services: %s", err)
-	}
-	if len(svcs.Items) != 1 || svcs.Items[0].ObjectMeta.Name != "test-svc-3" {
-		t.Fatalf("Expected test-svc-3, retrieved: %v", svcs)
+			got := make([]string, len(svcs.Items))
+			for i, svc := range svcs.Items {
+				got[i] = svc.ObjectMeta.Name
+			}
+			sort.Strings(got)
+			sort.Strings(tt.want)
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("Expected %v, retrieved: %v", tt.want, got)
+			}
+		})
 	}
 }
 
-func TestEndpointsSlices(t *testing.T) {
-	const enableHeadlessServiceWatch = true
+func TestEndpointSlices(t *testing.T) {
+	tests := []struct {
+		name                       string
+		enableHeadlessServiceWatch bool
+		want                       []string
+	}{
+		{
+			name:                       "Headless Service Watch is enabled",
+			enableHeadlessServiceWatch: true,
+			want:                       []string{"test-svc-1", "test-svc-3"},
+		},
+		{
+			name:                       "Headless Service Watch is disabled",
+			enableHeadlessServiceWatch: false,
+			want:                       []string{"test-svc-1"},
+		},
+	}
 
 	client := fake.NewSimpleClientset()
 	meta1 := &metav1.ObjectMeta{
@@ -85,45 +143,21 @@ func TestEndpointsSlices(t *testing.T) {
 			discoveryv1.LabelManagedBy: EndpointSliceMeshControllerName,
 		},
 	}
-	for _, meta := range []*metav1.ObjectMeta{meta1, meta2} {
-		ep := &corev1.Endpoints{ObjectMeta: *meta}
-		_, err := client.CoreV1().Endpoints("test-ns").Create(context.TODO(), ep, metav1.CreateOptions{})
-		if err != nil {
-			t.Fatalf("Failed to create endpoint %v: %s", ep, err)
-		}
-		epSlice := &discoveryv1.EndpointSlice{ObjectMeta: *meta}
-		_, err = client.DiscoveryV1().EndpointSlices("test-ns").Create(context.TODO(), epSlice, metav1.CreateOptions{})
-		if err != nil {
-			t.Fatalf("Failed to create endpoint slice %v: %s", ep, err)
-		}
-	}
-
-	// Should return only test-svc-1, since test-svc-2 is managed by the endpoint slice mesh controller
-	optMod, _ := GetEndpointSliceListOptionsModifier(enableHeadlessServiceWatch)
-	options := metav1.ListOptions{}
-	optMod(&options)
-	epSlices, err := client.DiscoveryV1().EndpointSlices("test-ns").List(context.TODO(), options)
-	if err != nil {
-		t.Fatalf("Failed to list services: %s", err)
-	}
-	if len(epSlices.Items) != 1 || epSlices.Items[0].ObjectMeta.Name != "test-svc-1" {
-		t.Fatalf("Expected test-svc-1, retrieved: %v", epSlices)
-	}
-}
-func TestServiceEndpointsAndSlices(t *testing.T) {
-	const enableHeadlessServiceWatch = false
-	client := fake.NewSimpleClientset()
-	meta1 := &metav1.ObjectMeta{
-		Name:   "test-svc-1",
-		Labels: map[string]string{},
-	}
-	meta2 := &metav1.ObjectMeta{
-		Name: "test-svc-2",
+	meta3 := &metav1.ObjectMeta{
+		Name: "test-svc-3",
 		Labels: map[string]string{
 			corev1.IsHeadlessService: "",
 		},
 	}
-	for _, meta := range []*metav1.ObjectMeta{meta1, meta2} {
+	meta4 := &metav1.ObjectMeta{
+		Name: "test-svc-4",
+		Labels: map[string]string{
+			corev1.IsHeadlessService:   "",
+			discoveryv1.LabelManagedBy: EndpointSliceMeshControllerName,
+		},
+	}
+
+	for _, meta := range []*metav1.ObjectMeta{meta1, meta2, meta3, meta4} {
 		ep := &corev1.Endpoints{ObjectMeta: *meta}
 		_, err := client.CoreV1().Endpoints("test-ns").Create(context.TODO(), ep, metav1.CreateOptions{})
 		if err != nil {
@@ -136,27 +170,27 @@ func TestServiceEndpointsAndSlices(t *testing.T) {
 		}
 	}
 
-	// Should return only test-svc-1, since test-svc-2 is headless
-	optMod, _ := GetServiceAndEndpointListOptionsModifier("", enableHeadlessServiceWatch)
-	options := metav1.ListOptions{}
-	optMod(&options)
-	eps, err := client.CoreV1().Endpoints("test-ns").List(context.TODO(), options)
-	if err != nil {
-		t.Fatalf("Failed to list services: %s", err)
-	}
-	if len(eps.Items) != 1 || eps.Items[0].ObjectMeta.Name != "test-svc-1" {
-		t.Fatalf("Expected test-svc-1, retrieved: %v", eps)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			optMod, _ := GetEndpointSliceListOptionsModifier(tt.enableHeadlessServiceWatch)
+			options := metav1.ListOptions{}
+			optMod(&options)
+			epSlices, err := client.DiscoveryV1().EndpointSlices("test-ns").List(context.TODO(), options)
+			if err != nil {
+				t.Fatalf("Failed to list services: %s", err)
+			}
 
-	optMod, _ = GetEndpointSliceListOptionsModifier(enableHeadlessServiceWatch)
-	options = metav1.ListOptions{}
-	optMod(&options)
-	epSlices, err := client.DiscoveryV1().EndpointSlices("test-ns").List(context.TODO(), options)
-	if err != nil {
-		t.Fatalf("Failed to list services: %s", err)
-	}
-	if len(epSlices.Items) != 1 || epSlices.Items[0].ObjectMeta.Name != "test-svc-1" {
-		t.Fatalf("Expected test-svc-1, retrieved: %v", epSlices)
+			got := make([]string, len(epSlices.Items))
+			for i, epSlice := range epSlices.Items {
+				got[i] = epSlice.ObjectMeta.Name
+			}
+			sort.Strings(got)
+			sort.Strings(tt.want)
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("Expected %v, retrieved: %v", tt.want, got)
+			}
+		})
 	}
 }
 
