@@ -126,12 +126,12 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			cell.Config(envoyCfg.SecretSyncConfig{}),
 			k8sClient.FakeClientCell(),
 			kvstore.Cell(kvstore.DisabledBackendName),
+			node.LocalNodeStoreTestCell,
 
 			cell.Provide(
 				newWireguardAgent,
 				newWireguardConfig,
 
-				node.NewTestLocalNodeStore,
 				regeneration.NewFence,
 				tables.NewDeviceTable,
 				tables.NewNodeAddressTable,
