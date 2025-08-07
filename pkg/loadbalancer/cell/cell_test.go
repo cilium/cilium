@@ -13,7 +13,7 @@ import (
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/envoy"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -31,7 +31,7 @@ func TestCell(t *testing.T) {
 	h := hive.New(
 		k8sClient.FakeClientCell(),
 		daemonk8s.ResourcesCell,
-		cell.Config(envoy.SecretSyncConfig{}),
+		cell.Config(envoyCfg.SecretSyncConfig{}),
 		daemonk8s.TablesCell,
 		maglev.Cell,
 		node.LocalNodeStoreCell,

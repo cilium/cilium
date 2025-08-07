@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dial"
-	"github.com/cilium/cilium/pkg/envoy"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -89,7 +89,7 @@ func TestScript(t *testing.T) {
 		h := hive.New(
 			k8sClient.FakeClientCell(),
 			daemonk8s.ResourcesCell,
-			cell.Config(envoy.SecretSyncConfig{}),
+			cell.Config(envoyCfg.SecretSyncConfig{}),
 			daemonk8s.TablesCell,
 			lbcell.Cell,
 

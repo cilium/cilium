@@ -26,7 +26,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/envoy"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -1128,7 +1128,7 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 				EnableL2Announcements: true,
 			}
 		}),
-		cell.Config(envoy.SecretSyncConfig{}),
+		cell.Config(envoyCfg.SecretSyncConfig{}),
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Invoke(func(_ *L2Announcer) {}),

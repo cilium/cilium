@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/envoy"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -121,7 +121,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			writer.Cell,
 			ipset.Cell,
 			k8s.ResourcesCell,
-			cell.Config(envoy.SecretSyncConfig{}),
+			cell.Config(envoyCfg.SecretSyncConfig{}),
 			k8sClient.FakeClientCell(),
 			kvstore.Cell(kvstore.DisabledBackendName),
 

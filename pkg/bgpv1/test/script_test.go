@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/envoy"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -110,7 +110,7 @@ func TestPrivilegedScript(t *testing.T) {
 		h := ciliumhive.New(
 			k8sClient.FakeClientCell(),
 			daemonk8s.ResourcesCell,
-			cell.Config(envoy.SecretSyncConfig{}),
+			cell.Config(envoyCfg.SecretSyncConfig{}),
 
 			metrics.Cell,
 			bgpv1.Cell,
