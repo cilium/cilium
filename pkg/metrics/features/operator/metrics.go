@@ -15,10 +15,13 @@ type Metrics struct {
 	ACLBIPAMEnabled                     metric.Gauge
 	ACLBL7AwareTrafficManagementEnabled metric.Gauge
 	ACLBNodeIPAMEnabled                 metric.Gauge
+
+	CPKubernetesVersion metric.Vec[metric.Gauge]
 }
 
 const (
 	subsystemACLB = "feature_adv_connect_and_lb"
+	subsystemCP   = "feature_controlplane"
 )
 
 // NewMetrics returns all feature metrics. If 'withDefaults' is set, then
@@ -59,6 +62,17 @@ func NewMetrics(withDefaults bool) Metrics {
 			Help:      "Node IPAM enabled on the operator",
 			Name:      "node_ipam_enabled",
 		}),
+
+		CPKubernetesVersion: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemCP,
+			Help:      "Kubernetes version detected by the operator",
+			Name:      "kubernetes_version",
+		}, metric.Labels{
+			{
+				Name: "version",
+			},
+		}),
 	}
 }
 
@@ -81,5 +95,8 @@ func (m Metrics) update(params enabledFeatures, config *option.OperatorConfig) {
 	}
 	if params.IsNodeIPAMEnabled() {
 		m.ACLBNodeIPAMEnabled.Add(1)
+	}
+	if k8sVersionStr := params.K8sVersion(); k8sVersionStr != "" {
+		m.CPKubernetesVersion.WithLabelValues(k8sVersionStr).Add(1)
 	}
 }
