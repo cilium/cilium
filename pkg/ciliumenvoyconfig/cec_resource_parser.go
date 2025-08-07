@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	"github.com/cilium/statedb"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -72,8 +73,9 @@ type parserParams struct {
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
-	PortAllocator  PortAllocator
-	LocalNodeStore *node.LocalNodeStore
+	PortAllocator PortAllocator
+	DB            *statedb.DB
+	Nodes         statedb.Table[*node.LocalNode]
 
 	CecConfig   CECConfig
 	EnvoyConfig envoyCfg.ProxyConfig
@@ -91,9 +93,9 @@ func newCECResourceParser(params parserParams) *CECResourceParser {
 	// It's assumed that these don't change.
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			localNode, err := params.LocalNodeStore.Get(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to get LocalNodeStore: %w", err)
+			localNode, _, found := params.Nodes.Get(params.DB.ReadTxn(), node.LocalNodeQuery)
+			if !found {
+				return fmt.Errorf("BUG: failed to get local node")
 			}
 
 			parser.ingressIPv4 = localNode.IPv4IngressIP
