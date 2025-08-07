@@ -129,6 +129,15 @@ var (
 		"extraEnv[3].name":       "CILIUM_SLOG_DUP_ATTR_DETECTOR",
 		"extraEnv[3].value":      "'true'",
 
+		"operator.extraEnv[0].name":  "KUBE_CACHE_MUTATION_DETECTOR",
+		"operator.extraEnv[0].value": "'true'",
+		"operator.extraEnv[1].name":  "CILIUM_FEATURE_METRICS_WITH_DEFAULTS",
+		"operator.extraEnv[1].value": "'true'",
+		"operator.extraEnv[2].name":  "CILIUM_INVALID_METRIC_VALUE_DETECTOR",
+		"operator.extraEnv[2].value": "'true'",
+		"operator.extraEnv[3].name":  "CILIUM_SLOG_DUP_ATTR_DETECTOR",
+		"operator.extraEnv[3].value": "'true'",
+
 		// We need CNP node status to know when a policy is being enforced
 		"ipv4NativeRoutingCIDR": IPv4NativeRoutingCIDR,
 		"ipv6NativeRoutingCIDR": IPv6NativeRoutingCIDR,
