@@ -26,7 +26,7 @@ func setup(tb testing.TB) {
 	ClusterOuterMapNameTestOverride("test")
 }
 
-func BenchmarkPerClusterCTMapUpdate(b *testing.B) {
+func BenchmarkPrivilegedPerClusterCTMapUpdate(b *testing.B) {
 
 	setup(b)
 
@@ -46,7 +46,7 @@ func BenchmarkPerClusterCTMapUpdate(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkPerClusterCTMapLookup(b *testing.B) {
+func BenchmarkPrivilegedPerClusterCTMapLookup(b *testing.B) {
 
 	setup(b)
 

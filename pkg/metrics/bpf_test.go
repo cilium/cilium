@@ -46,7 +46,7 @@ func TestPrivilegedGetBPFUsage(t *testing.T) {
 	assert.NotEqualValues(t, 0, usage.mapBytes)
 }
 
-func BenchmarkGetBPFUsage(b *testing.B) {
+func BenchmarkPrivilegedGetBPFUsage(b *testing.B) {
 	testutils.PrivilegedTest(b)
 	b.ReportAllocs()
 
