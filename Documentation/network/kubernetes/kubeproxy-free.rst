@@ -603,6 +603,9 @@ the extra hop, meaning, backends reply by using the service IP/port as a source.
 
 Another advantage in DSR mode is that the client's source IP is preserved, so policy
 can match on it at the backend node. In the SNAT mode this is not possible.
+
+When you deploy Cilium as a kube proxy replacement and Cilium Service Mesh at the same time, the client's source IP is not preserved when Service Mesh forwards the traffic to a backend service. See :ref:`ingress_reference` for more details.
+
 Given a specific backend can be used by multiple services, the backends need to be
 made aware of the service IP/port which they need to reply with. Cilium encodes this
 information into the packet (using one of the dispatch mechanisms described below),
