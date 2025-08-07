@@ -19,36 +19,36 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-func TestServiceProxyName(t *testing.T) {
+func TestServiceAndEndpoints(t *testing.T) {
 	tests := []struct {
-		name                       string
-		enableHeadlessServiceWatch bool
-		k8sServiceProxy            string
-		want                       []string
+		name                    string
+		includeHeadlessServices bool
+		k8sServiceProxy         string
+		want                    []string
 	}{
 		{
-			name:                       "Headless Service Watch is enabled, proxy is foo",
-			enableHeadlessServiceWatch: true,
-			k8sServiceProxy:            "foo",
-			want:                       []string{"test-svc-1", "test-svc-4"},
+			name:                    "Headless services are included, proxy is foo",
+			includeHeadlessServices: true,
+			k8sServiceProxy:         "foo",
+			want:                    []string{"test-svc-1", "test-svc-4"},
 		},
 		{
-			name:                       "Headless Service Watch is enabled, no proxy",
-			enableHeadlessServiceWatch: true,
-			k8sServiceProxy:            "",
-			want:                       []string{"test-svc-3", "test-svc-5"},
+			name:                    "Headless services are included, no proxy",
+			includeHeadlessServices: true,
+			k8sServiceProxy:         "",
+			want:                    []string{"test-svc-3", "test-svc-5"},
 		},
 		{
-			name:                       "Headless Service Watch is disabled, proxy is foo",
-			enableHeadlessServiceWatch: false,
-			k8sServiceProxy:            "foo",
-			want:                       []string{"test-svc-1"},
+			name:                    "Headless services are excluded, proxy is foo",
+			includeHeadlessServices: false,
+			k8sServiceProxy:         "foo",
+			want:                    []string{"test-svc-1"},
 		},
 		{
-			name:                       "Headless Service Watch is disabled, no proxy",
-			enableHeadlessServiceWatch: false,
-			k8sServiceProxy:            "",
-			want:                       []string{"test-svc-3"},
+			name:                    "Headless services are excluded, no proxy",
+			includeHeadlessServices: false,
+			k8sServiceProxy:         "",
+			want:                    []string{"test-svc-3"},
 		},
 	}
 
@@ -92,7 +92,7 @@ func TestServiceProxyName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			optMod, _ := GetServiceAndEndpointListOptionsModifier(tt.k8sServiceProxy, tt.enableHeadlessServiceWatch)
+			optMod, _ := GetServiceAndEndpointListOptionsModifier(tt.k8sServiceProxy, tt.includeHeadlessServices)
 			options := metav1.ListOptions{}
 			optMod(&options)
 			svcs, err := client.CoreV1().Services("test-ns").List(context.TODO(), options)
@@ -116,19 +116,19 @@ func TestServiceProxyName(t *testing.T) {
 
 func TestEndpointSlices(t *testing.T) {
 	tests := []struct {
-		name                       string
-		enableHeadlessServiceWatch bool
-		want                       []string
+		name                    string
+		includeHeadlessServices bool
+		want                    []string
 	}{
 		{
-			name:                       "Headless Service Watch is enabled",
-			enableHeadlessServiceWatch: true,
-			want:                       []string{"test-svc-1", "test-svc-3"},
+			name:                    "Headless services are included",
+			includeHeadlessServices: true,
+			want:                    []string{"test-svc-1", "test-svc-3"},
 		},
 		{
-			name:                       "Headless Service Watch is disabled",
-			enableHeadlessServiceWatch: false,
-			want:                       []string{"test-svc-1"},
+			name:                    "Headless services are excluded",
+			includeHeadlessServices: false,
+			want:                    []string{"test-svc-1"},
 		},
 	}
 
@@ -172,7 +172,7 @@ func TestEndpointSlices(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			optMod, _ := GetEndpointSliceListOptionsModifier(tt.enableHeadlessServiceWatch)
+			optMod, _ := GetEndpointSliceListOptionsModifier(tt.includeHeadlessServices)
 			options := metav1.ListOptions{}
 			optMod(&options)
 			epSlices, err := client.DiscoveryV1().EndpointSlices("test-ns").List(context.TODO(), options)
