@@ -269,7 +269,7 @@ func BenchmarkCompileOnly(b *testing.B) {
 
 // BenchmarkReplaceDatapath compiles the datapath program, then benchmarks only
 // the loading of the program into the kernel.
-func BenchmarkReplaceDatapath(b *testing.B) {
+func BenchmarkPrivilegedReplaceDatapath(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
