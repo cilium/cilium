@@ -36,21 +36,10 @@ int test_builtin_memcmp(__maybe_unused struct __ctx_buff *ctx)
 
 	int i;
 
-	for (i = 0; i < 70; i++) {
-		/* ./builtin_gen memcmp 32 > builtin_memcmp.h */
+	for (i = 0; i < BUILTIN_MEMCMP_RUNS; ++i) {
+		/* ./builtin_gen memcmp 128 > builtin_memcmp.h */
 		#include "builtin_memcmp.h"
 	}
-
-	test_finish();
-}
-
-CHECK("tc", "builtin_memcmp_large")
-int test_builtin_memcmp_large(__maybe_unused struct __ctx_buff *ctx)
-{
-	test_init();
-
-	/* ./builtin_gen memcmp 128 > builtin_memcmp_large.h */
-	#include "builtin_memcmp_large.h"
 
 	test_finish();
 }
