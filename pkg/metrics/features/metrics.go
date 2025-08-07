@@ -365,9 +365,7 @@ func NewMetrics(withDefaults bool) Metrics {
 			Name:      "kernel_version",
 		}, metric.Labels{
 			{
-				Name: "version", Values: func() metric.Values {
-					return nil
-				}(),
+				Name: "version",
 			},
 		}),
 
