@@ -674,7 +674,7 @@ func TestWriter_SetSelectBackends(t *testing.T) {
 	var beAddr loadbalancer.L3n4Addr
 	beAddr.ParseFromString("2.0.0.1:80/TCP")
 
-	w.SetSelectBackendsFunc(func(bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, fe *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
+	w.SetSelectBackendsFunc(func(_ statedb.ReadTxn, bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, fe *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
 		require.NotNil(t, bes)
 		require.NotNil(t, svc)
 		require.NotNil(t, fe)
