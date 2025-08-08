@@ -111,15 +111,16 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 		logfields.CiliumNetworkPolicyName, pol.Name,
 	)
 
+	newPol := pol.DeepCopy()
+
 	var errs error
-	if pol.Spec != nil {
-		errs = errors.Join(errs, pol.Spec.Sanitize())
+	if newPol.Spec != nil {
+		errs = errors.Join(errs, newPol.Spec.Sanitize())
 	}
-	for _, r := range pol.Specs {
+	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Sanitize())
 	}
 
-	newPol := pol.DeepCopy()
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
 	if newPol.Status.DeepEqual(&pol.Status) {
 		return nil
@@ -161,15 +162,16 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 		logfields.CiliumClusterwideNetworkPolicyName, pol.Name,
 	)
 
+	newPol := pol.DeepCopy()
+
 	var errs error
-	if pol.Spec != nil {
-		errs = errors.Join(errs, pol.Spec.Sanitize())
+	if newPol.Spec != nil {
+		errs = errors.Join(errs, newPol.Spec.Sanitize())
 	}
-	for _, r := range pol.Specs {
+	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Sanitize())
 	}
 
-	newPol := pol.DeepCopy()
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
 	if newPol.Status.DeepEqual(&pol.Status) {
 		return nil
