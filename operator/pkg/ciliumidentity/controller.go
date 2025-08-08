@@ -129,7 +129,8 @@ func registerController(p params) {
 }
 
 func (c *Controller) Start(ctx cell.HookContext) error {
-	c.logger.InfoContext(ctx, "Starting CID controller Operator")
+	c.logger.InfoContext(ctx, "Starting CID controller Operator",
+		logfields.CESFeatureEnabled, c.cesEnabled)
 	defer utilruntime.HandleCrash()
 
 	// The Cilium Identity (CID) controller running in cilium-operator is
