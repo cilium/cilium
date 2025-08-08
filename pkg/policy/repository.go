@@ -5,12 +5,18 @@ package policy
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"maps"
+	"os"
+	"strconv"
 	"sync/atomic"
 
+	"github.com/cilium/hive/script"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/stream"
+	"github.com/davecgh/go-spew/spew"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -21,6 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -616,4 +624,89 @@ func (p *Repository) GetPolicySnapshot() map[identity.NumericIdentity]SelectorPo
 
 func (p *Repository) PolicyCacheObservable() stream.Observable[PolicyCacheChange] {
 	return p.policyCache
+}
+
+func RepositoryScriptCmds(p *Repository) map[string]script.Cmd {
+	return map[string]script.Cmd{
+		"policyrepo/list": script.Command(
+			script.CmdUsage{
+				Summary: "List all policies in the policy repository",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					policies := p.GetRulesList()
+					return string(policies.Policy), "", nil
+				}, nil
+			},
+		),
+		"policyrepo/selectorcache": script.Command(
+			script.CmdUsage{
+				Summary: "List all policies in the policy repository",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					model := p.GetSelectorCache().GetModel()
+					return spew.Sprint(model), "", nil
+				}, nil
+			},
+		),
+		"policyrepo/add": script.Command(
+			script.CmdUsage{
+				Summary: "Add a policy to the policy repository",
+				Args:    "'policy'",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					file := []string(args)[0]
+
+					b, err := os.ReadFile(s.Path(file))
+					if err != nil {
+						b, err = os.ReadFile(file)
+					}
+					if err != nil {
+						return "", "", fmt.Errorf("failed to read %s: %w", file, err)
+					}
+					obj, _, err := testutils.DecodeObjectGVK(b)
+					if err != nil {
+						return "", "", fmt.Errorf("decode: %w", err)
+					}
+					robj, _ := testutils.DecodeObject(b)
+					objMeta, err := meta.Accessor(obj)
+					if err != nil {
+						return "", "", fmt.Errorf("accessor: %w", err)
+					}
+
+					var (
+						rules api.Rules
+						rev   uint64
+					)
+					if objMeta.GetNamespace() == "" {
+						ccnp := robj.(*v2.CiliumClusterwideNetworkPolicy)
+						rules, err = ccnp.Parse(p.logger, "")
+						if err != nil {
+							return "", "", fmt.Errorf("ccnp parse: %w", err)
+						}
+					} else {
+						cnp := robj.(*v2.CiliumNetworkPolicy)
+						rules, err = cnp.Parse(p.logger, "")
+						if err != nil {
+							return "", "", fmt.Errorf("cnp parse: %w", err)
+						}
+					}
+					_, rev = p.MustAddList(rules)
+					return fmt.Sprintf("Added rules, revision=%d\n", rev), "", nil
+				}, nil
+			},
+		),
+		"policyrepo/bump-revision": script.Command(
+			script.CmdUsage{
+				Summary: "Bump revision of the policy repository",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					return "Bumped revision to " + strconv.FormatUint(p.BumpRevision(), 10) + "\n", "", nil
+				}, nil
+			},
+		),
+	}
 }
