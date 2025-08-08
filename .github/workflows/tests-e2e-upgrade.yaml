@@ -698,12 +698,12 @@ jobs:
             kubectl rollout status -n $ns deploy/lrp-backend
           done
 
-      - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
-        shell: bash
+      - name: Setup Cilium CLI flags
+        id: cli-flags
         run: |
           EXTRA=()
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA+=("--secondary-network-iface=eth1")
+            EXTRA+=("\"--secondary-network-iface=eth1\"")
           fi
 
           # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
@@ -713,14 +713,24 @@ jobs:
           # always go through the correct gateway
           EXTRA+=("--expected-drop-reasons=+No egress gateway found")
 
-          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --include-conn-disrupt-test \
+          echo flags="--include-unsafe-tests \
+            --collect-sysdump-on-failure \
             --flush-ct \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            "${EXTRA[@]}"
+            --sysdump-hubble-flows-count=1000000 \
+            --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
+            --junit-file \"cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml\" \
+            --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
+            ${EXTRA[@]}" >> $GITHUB_OUTPUT
+
+      - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
+        shell: bash
+        run: |
+          ./cilium-cli connectivity test \
+            --include-conn-disrupt-test \
+            --test "no-interrupted-connections" \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            ${{ steps.cli-flags.outputs.flags }}
 
           # --flush-ct interrupts the flows, so we need to set up again.
           ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
@@ -749,26 +759,9 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          EXTRA=()
-          if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA+=("--secondary-network-iface=eth1")
-          fi
-
-          # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
-          # sending traffic while the egressgw policy map is still being populated.
-          #
-          # The actual connectivity test will ensure that the map is in sync with the policy and that egressgw traffic
-          # always go through the correct gateway
-          EXTRA+=("--expected-drop-reasons=+No egress gateway found")
-
-          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          ./cilium-cli connectivity test \
             --include-conn-disrupt-test \
-            --flush-ct \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            "${EXTRA[@]}"
+            ${{ steps.cli-flags.outputs.flags }}
 
       - name: Features tested after downgrade
         uses: ./.github/actions/feature-status
