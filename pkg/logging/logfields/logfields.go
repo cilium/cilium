@@ -1809,4 +1809,7 @@ const (
 	Rate = "rate"
 
 	KPRConfiguration = "kprConfiguration"
+
+	// CESFeatureEnabled indicates whether CiliumEndpointSlice feature is enabled.
+	CESFeatureEnabled = "cesEnabled"
 )
