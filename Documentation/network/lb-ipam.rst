@@ -84,12 +84,6 @@ since these only have 1 or 2 IPs respectively.
 This setting only applies to blocks specified with ``.spec.blocks[].cidr`` and not to
 blocks specified with ``.spec.blocks[].start`` and ``.spec.blocks[].stop``.
 
-.. warning::
-
-  In v1.15, ``.spec.allowFirstLastIPs`` defaults to ``No``. This has changed to
-  ``Yes`` in v1.16. Please set this field explicitly if you rely on the field
-  being set to ``No``.
-
 Service Selectors
 -----------------
 
