@@ -106,7 +106,7 @@ type reflectorParams struct {
 	ExtConfig              loadbalancer.ExternalConfig
 	HaveNetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 	TestConfig             *loadbalancer.TestConfig `optional:"true"`
-	LocalNodeStore         *node.LocalNodeStore
+	Nodes                  statedb.Table[*node.LocalNode]
 	SVCMetrics             SVCMetrics `optional:"true"`
 }
 
@@ -239,7 +239,8 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			initServices(txn)
 
 		case resource.Upsert:
-			svc, fes := convertService(p.Config, p.ExtConfig, p.Log, p.LocalNodeStore, obj, source.Kubernetes)
+			localNode, _, _ := p.Nodes.Get(txn, node.LocalNodeQuery)
+			svc, fes := convertService(p.Config, p.ExtConfig, p.Log, localNode, obj, source.Kubernetes)
 			if svc == nil {
 				// The service should not be provisioned on this agent. Try to delete if it was previously.
 				name := loadbalancer.NewServiceName(obj.Namespace, obj.Name)

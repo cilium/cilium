@@ -4,19 +4,18 @@
 package writer
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"iter"
 	"slices"
 	"strings"
-	"sync/atomic"
 	"text/tabwriter"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/part"
 	"github.com/cilium/statedb/reconciler"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -32,14 +31,13 @@ type Writer struct {
 	config loadbalancer.Config
 
 	nodeName string
-	nodeZone atomic.Pointer[string]
 
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
 	svcs      statedb.RWTable[*loadbalancer.Service]
 	fes       statedb.RWTable[*loadbalancer.Frontend]
 	bes       statedb.RWTable[*loadbalancer.Backend]
-	lns       *node.LocalNodeStore
+	nodes     statedb.Table[*node.LocalNode]
 
 	sourcePriorities map[source.Source]uint8 // The smaller the int, the more preferred the source. Use via sourcePriority().
 
@@ -48,7 +46,7 @@ type Writer struct {
 	extCfg *loadbalancer.ExternalConfig
 }
 
-type SelectBackendsFunc = func(iter.Seq2[loadbalancer.BackendParams, statedb.Revision], *loadbalancer.Service, *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision]
+type SelectBackendsFunc = func(statedb.ReadTxn, iter.Seq2[loadbalancer.BackendParams, statedb.Revision], *loadbalancer.Service, *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision]
 
 // Backends for the local cluster are associated with ID 0, regardless of the real cluster id.
 const LocalClusterID = 0
@@ -56,13 +54,13 @@ const LocalClusterID = 0
 type writerParams struct {
 	cell.In
 
-	Config         loadbalancer.Config
-	DB             *statedb.DB
-	NodeAddresses  statedb.Table[tables.NodeAddress]
-	Services       statedb.RWTable[*loadbalancer.Service]
-	Frontends      statedb.RWTable[*loadbalancer.Frontend]
-	Backends       statedb.RWTable[*loadbalancer.Backend]
-	LocalNodeStore *node.LocalNodeStore
+	Config        loadbalancer.Config
+	DB            *statedb.DB
+	NodeAddresses statedb.Table[tables.NodeAddress]
+	Services      statedb.RWTable[*loadbalancer.Service]
+	Frontends     statedb.RWTable[*loadbalancer.Frontend]
+	Backends      statedb.RWTable[*loadbalancer.Backend]
+	Nodes         statedb.Table[*node.LocalNode]
 
 	SourcePriorities source.Sources
 
@@ -81,7 +79,7 @@ func NewWriter(p writerParams) (*Writer, error) {
 		bes:              p.Backends,
 		fes:              p.Frontends,
 		svcs:             p.Services,
-		lns:              p.LocalNodeStore,
+		nodes:            p.Nodes,
 		nodeAddrs:        p.NodeAddresses,
 		sourcePriorities: priorityMapFromSlice(p.SourcePriorities),
 		extCfg:           &p.ExtCfg,
@@ -96,8 +94,8 @@ func (w *Writer) SetSelectBackendsFunc(fn SelectBackendsFunc) {
 
 // SelectBackends filters backends associated with [svc]. If [optionalFrontend] is non-nil, then backends are further filtered
 // by frontend IP family, protocol and port name.
-func (w *Writer) SelectBackends(bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
-	return w.selectBackendsFunc(bes, svc, optionalFrontend)
+func (w *Writer) SelectBackends(txn statedb.ReadTxn, bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
+	return w.selectBackendsFunc(txn, bes, svc, optionalFrontend)
 }
 
 // BackendsForService returns all backends associated with a given service without any filtering.
@@ -176,35 +174,6 @@ type WriteTxn struct {
 func (w *Writer) WriteTxn(extraTables ...statedb.TableMeta) WriteTxn {
 	return WriteTxn{
 		w.db.WriteTxn(w.svcs, append(extraTables, w.bes, w.fes)...),
-	}
-}
-
-func (w *Writer) updateZone(zone string) {
-	// Grab a write transaction before updating [w.nodeZone]
-	// to make sure there's no changes to the tables while we
-	// refresh the frontends.
-	txn := w.WriteTxn()
-	defer txn.Abort()
-
-	if zone == "" {
-		w.nodeZone.Store(nil)
-	} else {
-		w.nodeZone.Store(&zone)
-	}
-
-	// Refresh all frontends associated with topology-aware services
-	// as the backend selection might change.
-	updated := false
-	for fe := range w.fes.All(txn) {
-		if fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
-			fe = fe.Clone()
-			w.refreshFrontend(txn, fe)
-			w.fes.Insert(txn, fe)
-			updated = true
-		}
-	}
-	if updated {
-		txn.Commit()
 	}
 }
 
@@ -349,7 +318,7 @@ func (w *Writer) refreshFrontend(txn statedb.ReadTxn, fe *loadbalancer.Frontend)
 		}
 	}
 	bes, _ := w.BackendsForService(txn, svc.Name)
-	fe.Backends = loadbalancer.BackendsSeq2(w.SelectBackends(bes, svc, fe))
+	fe.Backends = loadbalancer.BackendsSeq2(w.SelectBackends(txn, bes, svc, fe))
 }
 
 func (w *Writer) RefreshFrontends(txn WriteTxn, name loadbalancer.ServiceName) error {
@@ -363,7 +332,7 @@ func (w *Writer) RefreshFrontends(txn WriteTxn, name loadbalancer.ServiceName) e
 	return nil
 }
 
-func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, fe *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
+func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, fe *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
 	onlyLocal := false
 	ipv4, ipv6 := true, true
 	isLocalProxyDelegation := func(loadbalancer.L3n4Addr) bool { return true }
@@ -380,8 +349,7 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 		// For proxy delegation we will consider backends that have a node IP as their
 		// address as "local" when external traffic policy is set to local.
 		if svc.GetProxyDelegation() != loadbalancer.SVCProxyDelegationNone {
-			node, err := w.lns.Get(context.Background())
-			if err == nil {
+			if node, _, found := w.nodes.Get(txn, node.LocalNodeQuery); found {
 				isLocalProxyDelegation = func(addr loadbalancer.L3n4Addr) bool {
 					return node.IsNodeIP(addr.Addr()) != ""
 				}
@@ -389,7 +357,16 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 		}
 	}
 
+	var thisZone *string
+	if node, _, found := w.nodes.Get(txn, node.LocalNodeQuery); found {
+		if zone := node.Labels[corev1.LabelTopologyZone]; zone != "" {
+			thisZone = &zone
+		}
+	}
+
 	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
+		// NOTE: [txn] is no longer valid here. Use it outside this closure.
+
 		for be, rev := range bes {
 			if fe != nil && fe.Address.Protocol() != be.Address.Protocol() {
 				continue
@@ -413,7 +390,6 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 				if w.config.EnableServiceTopology &&
 					fe.RedirectTo == nil &&
 					fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
-					thisZone := w.nodeZone.Load()
 					if be.Zone != nil && len(be.Zone.ForZones) > 0 && thisZone != nil {
 						// Topology-aware routing is enabled. Only use this backend if it is selected for this zone.
 						if !slices.Contains(be.Zone.ForZones, *thisZone) {
