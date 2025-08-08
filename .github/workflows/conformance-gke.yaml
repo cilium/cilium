@@ -365,6 +365,10 @@ jobs:
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})"
 
+      - name: Wait for it
+        run: |
+          end_time=$((SECONDS+1200)); until [ $SECONDS -ge $end_time ]; do sleep 10; echo "10 seconds have passed."; done
+
       - name: Run common post steps
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
