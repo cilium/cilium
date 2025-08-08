@@ -251,17 +251,19 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
-        {{- if or .Values.prometheus.enabled (or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled) }}
         ports:
+        {{- if .Values.hubble.enabled }}
         - name: peer-service
           containerPort: {{ .Values.hubble.peerService.targetPort }}
           hostPort: {{ .Values.hubble.peerService.targetPort }}
           protocol: TCP
+        {{- end }}
         {{- if .Values.prometheus.enabled }}
         - name: prometheus
           containerPort: {{ .Values.prometheus.port }}
           hostPort: {{ .Values.prometheus.port }}
           protocol: TCP
+        {{- end }}
         {{- if and .Values.envoy.prometheus.enabled (not $envoyDS) }}
         - name: envoy-metrics
           containerPort: {{ .Values.envoy.prometheus.port }}
@@ -274,13 +276,11 @@ spec:
           hostPort: {{ .Values.envoy.debug.admin.port }}
           protocol: TCP
         {{- end }}
-        {{- end }}
         {{- if or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled }}
         - name: hubble-metrics
           containerPort: {{ .Values.hubble.metrics.port }}
           hostPort: {{ .Values.hubble.metrics.port }}
           protocol: TCP
-        {{- end }}
         {{- end }}
         securityContext:
           {{- if .Values.securityContext.privileged }}
