@@ -1166,15 +1166,18 @@ func (m *manager) NodeSync() {
 	// that both sources call NodeSync at some point. Ensure we only run this
 	// pruning operation once.
 	m.nodePruneOnce.Do(func() {
-		m.pruneNodes(false)
+		m.pruneClusterNodes()
 	})
 }
 
+// MeshNodeSync signals the manager that the initial nodes listing from
+// clustermesh has been completed. This allows the manager to initiate the
+// deletion of possible stale meshed nodes.
 func (m *manager) MeshNodeSync() {
-	m.pruneNodes(true)
+	m.pruneMeshedNodes()
 }
 
-func (m *manager) pruneNodes(includeMeshed bool) {
+func (m *manager) pruneClusterNodes() {
 	m.mutex.Lock()
 	if len(m.restoredNodes) == 0 {
 		m.mutex.Unlock()
@@ -1185,21 +1188,28 @@ func (m *manager) pruneNodes(includeMeshed bool) {
 		delete(m.restoredNodes, id)
 	}
 
-	if len(m.restoredNodes) > 0 {
+	toDelete := make([]*nodeTypes.Node, 0, len(m.restoredNodes))
+	for _, n := range m.restoredNodes {
+		if n.Cluster == m.conf.ClusterName {
+			toDelete = append(toDelete, n)
+		}
+	}
+
+	if len(toDelete) > 0 {
 		if m.logger.Enabled(context.Background(), slog.LevelDebug) {
-			printableNodes := make([]string, 0, len(m.restoredNodes))
-			for ni := range m.restoredNodes {
-				printableNodes = append(printableNodes, ni.String())
+			printableNodes := make([]string, 0, len(toDelete))
+			for _, n := range toDelete {
+				printableNodes = append(printableNodes, n.Identity().String())
 			}
 			m.logger.Debug(
-				"Deleting stale nodes",
-				logfields.LenStaleNodes, len(m.restoredNodes),
+				"Deleting stale cluster nodes",
+				logfields.LenStaleNodes, len(toDelete),
 				logfields.StaleNodes, printableNodes,
 			)
 		} else {
 			m.logger.Info(
-				"Deleting stale nodes",
-				logfields.LenStaleNodes, len(m.restoredNodes),
+				"Deleting stale cluster nodes",
+				logfields.LenStaleNodes, len(toDelete),
 			)
 		}
 	}
@@ -1207,11 +1217,55 @@ func (m *manager) pruneNodes(includeMeshed bool) {
 
 	// Delete nodes now considered stale. Can't hold the mutex as
 	// NodeDeleted also acquires it.
-	for id, n := range m.restoredNodes {
-		if n.Cluster == m.conf.ClusterName || includeMeshed {
-			m.NodeDeleted(*n)
-			delete(m.restoredNodes, id)
+	for _, n := range toDelete {
+		m.NodeDeleted(*n)
+		delete(m.restoredNodes, n.Identity())
+	}
+}
+
+func (m *manager) pruneMeshedNodes() {
+	m.mutex.Lock()
+	if len(m.restoredNodes) == 0 {
+		m.mutex.Unlock()
+		return
+	}
+	// Live nodes should not be pruned.
+	for id := range m.nodes {
+		delete(m.restoredNodes, id)
+	}
+
+	toDelete := make([]*nodeTypes.Node, 0, len(m.restoredNodes))
+	for _, n := range m.restoredNodes {
+		if n.Cluster != m.conf.ClusterName {
+			toDelete = append(toDelete, n)
 		}
+	}
+
+	if len(toDelete) > 0 {
+		if m.logger.Enabled(context.Background(), slog.LevelDebug) {
+			printableNodes := make([]string, 0, len(toDelete))
+			for _, n := range toDelete {
+				printableNodes = append(printableNodes, n.Identity().String())
+			}
+			m.logger.Debug(
+				"Deleting stale meshed nodes",
+				logfields.LenStaleNodes, len(toDelete),
+				logfields.StaleNodes, printableNodes,
+			)
+		} else {
+			m.logger.Info(
+				"Deleting stale meshed nodes",
+				logfields.LenStaleNodes, len(toDelete),
+			)
+		}
+	}
+	m.mutex.Unlock()
+
+	// Delete nodes now considered stale. Can't hold the mutex as
+	// NodeDeleted also acquires it.
+	for _, n := range toDelete {
+		m.NodeDeleted(*n)
+		delete(m.restoredNodes, n.Identity())
 	}
 }
 
