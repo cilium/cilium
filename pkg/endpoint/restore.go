@@ -566,7 +566,7 @@ func (ep *Endpoint) MarshalJSON() ([]byte, error) {
 func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ID = r.ID
 	ep.createdAt = time.Now()
-	ep.InitialEnvoyPolicyComputed = make(chan struct{})
+	ep.initialEnvoyPolicyComputed = make(chan struct{})
 	ep.containerName.Store(&r.ContainerName)
 	ep.containerID.Store(&r.ContainerID)
 	ep.dockerNetworkID = r.DockerNetworkID
