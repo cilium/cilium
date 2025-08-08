@@ -23,6 +23,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"istio.io/api/security/v1alpha1"
 
+	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -39,9 +41,17 @@ const (
 	// caCertPath is the root certificate trust anchor for issued client
 	// certificates.
 	caCertPath = "/etc/ztunnel/ca-root.crt"
+
+	// xdsTypeURLAddress is the Aggregated Discovery Service (ADS) type URL
+	// signaling a subscription to workload and services.
+	xdsTypeURLAddress = "type.googleapis.com/istio.workload.Address"
+	// xdsTypeURLAuthorization is the type URL signaling a subscription to
+	// authorization policies.
+	xdsTypeURLAuthorization = "type.googleapis.com/istio.security.Authorization"
 )
 
 var _ v1alpha1.IstioCertificateServiceServer = (*Server)(nil)
+var _ v3.AggregatedDiscoveryServiceServer = (*Server)(nil)
 
 // Server is a private implemenation of xDS for use with the stand-alone
 // zTunnel proxy.
@@ -60,6 +70,7 @@ type Server struct {
 	caCertPEM string
 	caKey     *rsa.PrivateKey
 	v1alpha1.UnimplementedIstioCertificateServiceServer
+	v3.UnimplementedAggregatedDiscoveryServiceServer
 }
 
 func newServer(log *slog.Logger, epManager endpointmanager.EndpointManager) (*Server, error) {
@@ -177,6 +188,7 @@ func (x *Server) Serve() error {
 	x.g = grpc.NewServer(grpc.Creds(creds))
 
 	v1alpha1.RegisterIstioCertificateServiceServer(x.g, x)
+	v3.RegisterAggregatedDiscoveryServiceServer(x.g, x)
 
 	x.l, err = net.Listen("tcp", "127.0.0.1:15012")
 	if err != nil {
@@ -300,4 +312,46 @@ func (x *Server) CreateCertificate(ctx context.Context, csr *v1alpha1.IstioCerti
 		},
 	}
 	return resp, nil
+}
+
+func (x *Server) StreamAggregatedResources(stream v3.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	x.log.Debug("received StreamAggregatedResources request")
+	return fmt.Errorf("unimplemented")
+}
+
+// DeltaAggregatedResources is a bidi stream initialization method. zTunnel
+// receives Workload, Service, and Authorization policy events via this stream.
+//
+// This handler runs in its own goroutine.
+//
+// When zTunnel connects to our xDS server this method is invoked to initialize
+// a gRPC stream. The method's lifespan is directly tied to the gRPC stream and
+// the stream will close when this method returns.
+//
+// We create a StreamProcessor structure to handle the interaction between
+// Cilium and the zTunnel proxy.
+func (x *Server) DeltaAggregatedResources(stream v3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+	x.log.Debug("received DeltaAggregatedResources request")
+
+	// check out stream context, just incase the client immediately closed it,
+	// we won't do any work in that case.
+	if stream.Context().Err() != nil {
+		x.log.Info("stream context immediately canceld, aborting stream initialization")
+		return stream.Context().Err()
+	}
+
+	params := StreamProcessorParams{
+		Stream:            stream,
+		StreamRecv:        make(chan *v3.DeltaDiscoveryRequest, 1),
+		EndpointEventRecv: make(chan *EndpointEvent, 1024),
+		EndpointManager:   x.epManager,
+		Log:               x.log,
+	}
+
+	x.log.Debug("begin processing DeltaAggregatedResources stream")
+	sp := NewStreamProcessor(&params)
+	// blocks until stream's context is killed.
+	sp.Start()
+
+	return stream.Context().Err()
 }
