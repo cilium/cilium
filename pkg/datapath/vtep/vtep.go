@@ -108,7 +108,7 @@ func (vtep *vtepSync) syncVTEPRoutesAndRules(ctx context.Context, health cell.He
 
 		var errs error
 		for _, vtepCidr := range option.Config.VtepCIDRs {
-			err := vtep.routeManager.UpsertRoutesWait(reconciler.DesiredRoute{
+			err := vtep.routeManager.UpsertRouteWait(reconciler.DesiredRoute{
 				Owner:  vtep.owner,
 				Prefix: vtepCidr,
 				Device: hostDev,

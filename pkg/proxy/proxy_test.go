@@ -29,7 +29,8 @@ func proxyForTest(t *testing.T) (*Proxy, func()) {
 		RestoredProxyPortsAgeLimit: 0,
 	}
 	pp := proxyports.NewProxyPorts(hivetest.Logger(t), ppConfig, fakeIPTablesManager)
-	p := createProxy(hivetest.Logger(t), nil, pp, nil, nil)
+	p, err := createProxy(true, hivetest.Logger(t), nil, pp, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
 	triggerDone := make(chan struct{})
 	p.proxyPorts.Trigger, _ = trigger.NewTrigger(trigger.Parameters{
 		MinInterval:  10 * time.Second,

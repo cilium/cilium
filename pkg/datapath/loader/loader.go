@@ -130,7 +130,7 @@ func upsertEndpointRoute(logger *slog.Logger, db *statedb.DB, devices statedb.Ta
 		return fmt.Errorf("device %d not found for endpoint %s", ep.GetIfIndex(), ep.StringID())
 	}
 
-	return rm.UpsertRoutes(routeReconciler.DesiredRoute{
+	return rm.UpsertRoute(routeReconciler.DesiredRoute{
 		Owner:  owner,
 		Prefix: ip,
 		Table:  routeReconciler.TableMain,
