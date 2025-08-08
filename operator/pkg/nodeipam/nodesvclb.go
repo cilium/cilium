@@ -69,8 +69,7 @@ func (r *nodeSvcLBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *nodeSvcLBReconciler) enqueueRequestForEndpointSlice() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := r.Logger.WithFields(logrus.Fields{
-			logfields.Controller: "node-service-lb",
-			logfields.Resource:   client.ObjectKeyFromObject(o),
+			logfields.Resource: client.ObjectKeyFromObject(o),
 		})
 		epSlice, ok := o.(*discoveryv1.EndpointSlice)
 		if !ok {
@@ -94,8 +93,7 @@ func (r *nodeSvcLBReconciler) enqueueRequestForEndpointSlice() handler.EventHand
 func (r *nodeSvcLBReconciler) enqueueRequestForNode() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := r.Logger.WithFields(logrus.Fields{
-			logfields.Controller: "node-service-lb",
-			logfields.Resource:   client.ObjectKeyFromObject(o),
+			logfields.Resource: client.ObjectKeyFromObject(o),
 		})
 
 		node, ok := o.(*corev1.Node)
@@ -129,8 +127,7 @@ func (r *nodeSvcLBReconciler) enqueueRequestForNode() handler.EventHandler {
 
 func (r *nodeSvcLBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	scopedLog := r.Logger.WithFields(logrus.Fields{
-		logfields.Controller: "node-service-lb",
-		logfields.Resource:   req.NamespacedName,
+		logfields.Resource: req.NamespacedName,
 	})
 	scopedLog.Info("Reconciling Service")
 
@@ -205,8 +202,7 @@ func (r *nodeSvcLBReconciler) getEndpointSliceNodeNames(ctx context.Context, svc
 // getRelevantNodes gets all the nodes candidates for seletion by nodeipam
 func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.Service) ([]corev1.Node, error) {
 	scopedLog := r.Logger.WithFields(logrus.Fields{
-		logfields.Controller: "node-service-lb",
-		logfields.Resource:   client.ObjectKeyFromObject(svc),
+		logfields.Resource: client.ObjectKeyFromObject(svc),
 	})
 
 	endpointSliceNames, err := r.getEndpointSliceNodeNames(ctx, svc)
