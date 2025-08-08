@@ -304,3 +304,12 @@ admin:
   address:
     pipe:
       path: "/var/run/cilium/envoy/sockets/admin.sock"
+layered_runtime:
+  layers:
+  - name: static_layer
+    {{- with .Values.envoy.runtime }}
+    static_layer:
+      {{- toYaml . | nindent 6 }}
+    {{- else }}
+    static_layer: {}
+    {{- end }}
