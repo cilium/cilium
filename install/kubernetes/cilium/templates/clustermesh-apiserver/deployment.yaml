@@ -222,6 +222,9 @@ spec:
               name: cilium-config
               key: enable-k8s-endpoint-slice
               optional: true
+        {{- with .Values.clustermesh.apiserver.extraEnv }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
         readinessProbe:
           httpGet:
             path: /readyz
@@ -229,9 +232,6 @@ spec:
           {{- with .Values.clustermesh.apiserver.readinessProbe }}
           {{- toYaml . | trim | nindent 10 }}
           {{- end }}
-        {{- with .Values.clustermesh.apiserver.extraEnv }}
-        {{- toYaml . | trim | nindent 8 }}
-        {{- end }}
         ports:
         - name: apiserv-health
           containerPort: {{ .Values.clustermesh.apiserver.healthPort }}
