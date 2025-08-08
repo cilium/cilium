@@ -70,12 +70,14 @@ func CreatePatch(a, b []byte) ([]Operation, error) {
 	}
 	var aI interface{}
 	var bI interface{}
-	err := json.Unmarshal(a, &aI)
-	if err != nil {
+	aDec := json.NewDecoder(bytes.NewReader(a))
+	aDec.UseNumber()
+	if err := aDec.Decode(&aI); err != nil {
 		return nil, errBadJSONDoc
 	}
-	err = json.Unmarshal(b, &bI)
-	if err != nil {
+	bDec := json.NewDecoder(bytes.NewReader(b))
+	bDec.UseNumber()
+	if err := bDec.Decode(&bI); err != nil {
 		return nil, errBadJSONDoc
 	}
 	return handleValues(aI, bI, "", []Operation{})
@@ -91,6 +93,11 @@ func matchesValue(av, bv interface{}) bool {
 	switch at := av.(type) {
 	case string:
 		bt, ok := bv.(string)
+		if ok && bt == at {
+			return true
+		}
+	case json.Number:
+		bt, ok := bv.(json.Number)
 		if ok && bt == at {
 			return true
 		}
@@ -212,7 +219,7 @@ func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation,
 		if err != nil {
 			return nil, err
 		}
-	case string, float64, bool:
+	case string, float64, bool, json.Number:
 		if !matchesValue(av, bv) {
 			patch = append(patch, NewOperation("replace", p, bv))
 		}
