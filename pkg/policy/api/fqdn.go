@@ -67,6 +67,8 @@ type FQDNSelector struct {
 	MatchPattern string `json:"matchPattern,omitempty"`
 }
 
+func (s FQDNSelector) IsEndpointSelectorInterface() {}
+
 func (s *FQDNSelector) String() string {
 	const m = "MatchName: "
 	const mm = ", MatchPattern: "
