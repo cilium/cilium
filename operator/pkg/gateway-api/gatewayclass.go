@@ -67,7 +67,6 @@ func (r *gatewayClassReconciler) enqueueRequestForCiliumGatewayClassConfig() han
 func (r *gatewayClassReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := r.logger.With(
-			logfields.Controller, gatewayClass,
 			logfields.Resource, client.ObjectKeyFromObject(o),
 		)
 		list := &gatewayv1.GatewayClassList{}

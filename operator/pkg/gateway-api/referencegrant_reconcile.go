@@ -19,7 +19,6 @@ import (
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *referenceGrantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	scopedLog := r.logger.With(
-		logfields.Controller, referenceGrant,
 		logfields.Resource, req.NamespacedName,
 	)
 
