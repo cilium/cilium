@@ -754,6 +754,19 @@ func (m *Manager) installStaticProxyRules() error {
 			return err
 		}
 
+		// No conntrack for proxy forward traffic that is heading to cilium_host
+		if option.Config.EnableIPSec {
+			if err := ip6tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", defaults.HostDevice,
+				"-m", "mark", "--mark", matchProxyForward,
+				"-m", "comment", "--comment", "cilium: NOTRACK for proxy forward traffic",
+				"-j", "CT", "--notrack"}); err != nil {
+				return err
+			}
+		}
+
 		// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
 		// Matching needs to be the same as for the NOTRACK rule above.
 		if err := ip6tables.runProg([]string{
