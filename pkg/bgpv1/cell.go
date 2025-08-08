@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
@@ -102,8 +101,6 @@ var Cell = cell.Module(
 		func(*agent.Controller) {},
 		// Register the bgp_metrics collector
 		bgp_metrics.RegisterCollector,
-		// Register statedb tables
-		statedb.RegisterTable[*tables.BGPReconcileError],
 	),
 
 	metrics.Metric(manager.NewBGPManagerMetrics),

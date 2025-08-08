@@ -49,14 +49,9 @@ var (
 )
 
 func newTablesPrivate(db *statedb.DB) (statedb.RWTable[types.Status], error) {
-	statusTable, err := statedb.NewTable(TableName,
+	return statedb.NewTable(
+		db,
+		TableName,
 		PrimaryIndex,
 		LevelIndex)
-	if err != nil {
-		return nil, err
-	}
-	if err := db.RegisterTable(statusTable); err != nil {
-		return nil, err
-	}
-	return statusTable, nil
 }

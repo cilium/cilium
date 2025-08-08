@@ -169,8 +169,9 @@ var (
 	)
 )
 
-func NewNodeAddressTable() (statedb.RWTable[NodeAddress], error) {
+func NewNodeAddressTable(db *statedb.DB) (statedb.RWTable[NodeAddress], error) {
 	return statedb.NewTable(
+		db,
 		NodeAddressTableName,
 		NodeAddressIndex,
 		NodeAddressDeviceNameIndex,
@@ -231,10 +232,6 @@ type nodeAddressController struct {
 // that depends on Table[NodeAddress] and allows it to populate it before
 // it is accessed.
 func newNodeAddressController(p nodeAddressControllerParams) (tbl statedb.Table[NodeAddress], err error) {
-	if err := p.DB.RegisterTable(p.NodeAddresses); err != nil {
-		return nil, err
-	}
-
 	n := nodeAddressController{nodeAddressControllerParams: p}
 	n.register()
 	return n.NodeAddresses, nil

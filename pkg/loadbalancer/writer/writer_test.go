@@ -56,7 +56,6 @@ func fixture(t testing.TB) (p testParams) {
 			source.NewSources,
 			func() kpr.KPRConfig { return kpr.KPRConfig{} },
 		),
-		cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 		cell.Invoke(func(p_ testParams) { p = p_ }),
 	)
 

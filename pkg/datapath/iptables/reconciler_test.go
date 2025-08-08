@@ -56,7 +56,6 @@ func TestReconciliationLoop(t *testing.T) {
 			db = db_
 			devices = devices_
 			store = store_
-			db.RegisterTable(devices_)
 			health = health_.NewScope("iptables-reconciler-test")
 			params = &reconcilerParams{
 				clock:          clock,

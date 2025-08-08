@@ -19,7 +19,7 @@ type Example struct {
 }
 
 // TableHeader defines how cilium-dbg displays the header
-func (e *Example) TableHeader() []string {
+func (e Example) TableHeader() []string {
 	return []string{
 		"ID",
 		"CreatedAt",
@@ -27,7 +27,7 @@ func (e *Example) TableHeader() []string {
 }
 
 // TableRow defines how cilium-dbg displays a row
-func (e *Example) TableRow() []string {
+func (e Example) TableRow() []string {
 	return []string{
 		strconv.FormatUint(e.ID, 10),
 		e.CreatedAt.String(),
@@ -58,14 +58,11 @@ var (
 
 // NewExampleTable creates the table and registers it.
 func NewExampleTable(db *statedb.DB) (statedb.RWTable[Example], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		TableName,
 		idIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 // Cell provides the Table[Example] and registers a controller to populate

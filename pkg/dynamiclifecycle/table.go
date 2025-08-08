@@ -122,15 +122,12 @@ func newDynamicFeature(name DynamicFeatureName, deps []DynamicFeatureName, hooks
 
 func newDynamicFeatureTable(p tableParams) (statedb.RWTable[*DynamicFeature], error) {
 	tbl, err := statedb.NewTable(
+		p.DB,
 		TableName,
 		featureIndex,
 	)
 	if err != nil {
 		return nil, err
-	}
-
-	if err := p.DB.RegisterTable(tbl); err != nil {
-		return tbl, err
 	}
 
 	if err := initializeTable(p, tbl); err != nil {

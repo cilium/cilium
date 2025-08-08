@@ -102,7 +102,6 @@ func TestScript(t *testing.T) {
 						return &fakeSkipLBMap{}
 					},
 				),
-				cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 			)
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)

@@ -378,8 +378,7 @@ func TestOpsPruneEnabled(t *testing.T) {
 	fakeLogger := slog.New(slog.DiscardHandler)
 
 	db := statedb.New()
-	table, _ := statedb.NewTable("ipsets", tables.IPSetEntryIndex)
-	require.NoError(t, db.RegisterTable(table))
+	table, _ := statedb.NewTable(db, "ipsets", tables.IPSetEntryIndex)
 
 	txn := db.WriteTxn(table)
 	table.Insert(txn, &tables.IPSetEntry{

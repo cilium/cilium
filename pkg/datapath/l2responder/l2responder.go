@@ -40,8 +40,6 @@ var Cell = cell.Module(
 		tables.NewL2AnnounceTable,
 		statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
 	),
-	cell.Invoke(statedb.RegisterTable[*tables.L2AnnounceEntry]),
-
 	cell.Invoke(NewL2ResponderReconciler),
 	cell.Provide(newNeighborNetlink),
 )

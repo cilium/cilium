@@ -49,11 +49,6 @@ var DevicesControllerCell = cell.Module(
 		tables.NewRouteTable,
 		tables.NewNeighborTable,
 	),
-	cell.Invoke(
-		statedb.RegisterTable[*tables.Device],
-		statedb.RegisterTable[*tables.Route],
-		statedb.RegisterTable[*tables.Neighbor],
-	),
 
 	cell.Provide(
 		newDevicesController,

@@ -84,8 +84,9 @@ func NewEdt(endpointID uint16, direction uint8, bytesPerSecond uint64, prio uint
 	}
 }
 
-func NewEdtTable() (statedb.RWTable[Edt], error) {
+func NewEdtTable(db *statedb.DB) (statedb.RWTable[Edt], error) {
 	return statedb.NewTable(
+		db,
 		EdtTableName,
 		EdtIDIndex,
 	)

@@ -86,12 +86,6 @@ var Cell = cell.Module(
 	datapath.NodeAddressingCell,
 	tables.DirectRoutingDeviceCell,
 
-	cell.Invoke(
-		statedb.RegisterTable[*tables.Device],
-		statedb.RegisterTable[*tables.L2AnnounceEntry],
-		statedb.RegisterTable[*tables.Route],
-	),
-
 	tunnel.Cell,
 	cell.Provide(fakeDevices),
 	link.Cell,

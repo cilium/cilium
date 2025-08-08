@@ -75,16 +75,12 @@ func (d DynamicConfig) TableRow() []string {
 }
 
 func NewConfigTable(db *statedb.DB) (statedb.RWTable[DynamicConfig], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		TableName,
 		keyIndex,
 		keyNameIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return tbl, db.RegisterTable(tbl)
 }
 
 func RegisterConfigMapReflector(jobGroup job.Group, db *statedb.DB, rcs []k8s.ReflectorConfig[DynamicConfig], c Config) error {

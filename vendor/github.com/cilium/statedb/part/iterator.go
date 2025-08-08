@@ -48,7 +48,7 @@ func (it *Iterator[T]) Next() (key []byte, value T, ok bool) {
 			it.next = append(it.next, node.children())
 		}
 		if leaf := node.getLeaf(); leaf != nil {
-			key = leaf.key
+			key = leaf.fullKey()
 			value = leaf.value
 			ok = true
 			return

@@ -45,14 +45,11 @@ var IPSetEntryIndex = statedb.Index[*IPSetEntry, IPSetEntryKey]{
 }
 
 func NewIPSetTable(db *statedb.DB) (statedb.RWTable[*IPSetEntry], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		IPSetsTableName,
 		IPSetEntryIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 func (s *IPSetEntry) TableHeader() []string {

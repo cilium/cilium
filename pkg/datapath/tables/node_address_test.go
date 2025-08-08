@@ -807,8 +807,6 @@ func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*
 			devices = d
 			nodeAddrs = na
 			localNodeStore = lns
-			db.RegisterTable(d)
-			db.RegisterTable(r)
 		}),
 
 		// option.DaemonConfig needed for AddressMaxScope. This flag will move into NodeAddressConfig
@@ -1101,9 +1099,6 @@ func TestNodeAddressFromRoute(t *testing.T) {
 					devices = d
 					routes = r
 					nodeAddrs = na
-
-					db.RegisterTable(d)
-					db.RegisterTable(r)
 				}),
 			)
 

@@ -103,8 +103,6 @@ func TestScript(t *testing.T) {
 						}
 					},
 				),
-
-				cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 			)
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
