@@ -21,8 +21,7 @@ import (
 func EnqueueTLSSecrets(c client.Client, logger logrus.FieldLogger) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		scopedLog := logger.WithFields(logrus.Fields{
-			logfields.Controller: "secrets",
-			logfields.Resource:   obj.GetName(),
+			logfields.Resource: obj.GetName(),
 		})
 
 		gw, ok := obj.(*gatewayv1.Gateway)
