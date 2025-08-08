@@ -1988,8 +1988,9 @@ helm.sh/helm/v3/pkg/uploader
 # istio.io/api v1.26.2
 ## explicit; go 1.23.0
 istio.io/api/security/v1alpha1
-# istio.io/istio v0.0.0-20250730222203-330cf4295361
+# istio.io/istio v0.0.0-20250804181122-c5fdc78b0741
 ## explicit; go 1.24.0
+istio.io/istio/pkg/workloadapi
 istio.io/istio/pkg/zdsapi
 # k8s.io/api v0.34.0-rc.1
 ## explicit; go 1.24.0
