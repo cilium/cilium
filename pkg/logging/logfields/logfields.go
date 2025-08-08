@@ -1795,4 +1795,7 @@ const (
 	Matcher = "matcher"
 
 	ParentResource = "parentResource"
+
+	// CESFeatureEnabled indicates whether CiliumEndpointSlice feature is enabled.
+	CESFeatureEnabled = "cesEnabled"
 )
