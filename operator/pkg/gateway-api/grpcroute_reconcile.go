@@ -30,7 +30,9 @@ import (
 // the resource is valid and accepted. The Accepted resources will be then included
 // in parent Gateway for further processing.
 func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := r.logger.With(logfields.Controller, grpcRoute, logfields.Resource, req.NamespacedName)
+	scopedLog := r.logger.With(
+		logfields.Resource, req.NamespacedName,
+	)
 	scopedLog.Info("Reconciling GRPCRoute")
 
 	// Fetch the GRPCRoute instance
