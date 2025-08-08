@@ -331,6 +331,9 @@ func (l *labelSet) namesToValues() map[string]map[string]struct{} {
 func (l *labelSet) checkLabels(labels prometheus.Labels) error {
 	for name, value := range labels {
 		if lvs, ok := l.namesToValues()[name]; ok {
+			if len(lvs) == 0 {
+				continue
+			}
 			if _, ok := lvs[value]; !ok {
 				return fmt.Errorf("unexpected label vector value for label %q: value %q not defined in label range %v",
 					name, value, maps.Keys(lvs))
@@ -347,6 +350,9 @@ func (l *labelSet) checkLabelValues(lvs []string) error {
 		return fmt.Errorf("unexpected label vector length: expected %d, got %d", len(l.lbls), len(lvs))
 	}
 	for i, label := range l.lbls {
+		if len(label.Values) == 0 {
+			continue
+		}
 		if _, ok := label.Values[lvs[i]]; !ok {
 			return fmt.Errorf("unexpected label vector value for label %q: value %q not defined in label range %v",
 				label.Name, lvs[i], maps.Keys(label.Values))
