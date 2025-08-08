@@ -92,7 +92,6 @@ func (r *gammaReconciler) enqueueAll() handler.MapFunc {
 	// Services; each ReferenceGrant update will trigger reconciliation of _all_ Services.
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := r.logger.With(
-			logfields.Controller, gamma,
 			logfields.Resource, client.ObjectKeyFromObject(o),
 		)
 		list := &corev1.ServiceList{}
@@ -150,7 +149,6 @@ func getGammaReconcileRequestsForRoute(ctx context.Context, c client.Client, obj
 	var reqs []reconcile.Request
 
 	scopedLog := logger.With(
-		logfields.Controller, gamma,
 		logfields.Resource, types.NamespacedName{
 			Namespace: object.GetNamespace(),
 			Name:      object.GetName(),

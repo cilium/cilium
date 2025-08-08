@@ -111,7 +111,6 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 			Name:      obj.GetName(),
 		}
 		scopedLog := logger.With(
-			logfields.Controller, "secrets",
 			logfields.Resource, objName,
 		)
 
@@ -153,7 +152,6 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 
 func IsReferencedByCiliumNetworkPolicy(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool {
 	scopedLog := logger.With(
-		logfields.Controller, "netpol-cnp-secretsync",
 		logfields.Resource, obj.GetName(),
 	)
 
@@ -198,7 +196,6 @@ func IsReferencedByCiliumNetworkPolicy(ctx context.Context, c client.Client, log
 
 func IsReferencedByCiliumClusterwideNetworkPolicy(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool {
 	scopedLog := logger.With(
-		logfields.Controller, "netpol-ccnp-secretsync",
 		logfields.Resource, obj.GetName(),
 	)
 

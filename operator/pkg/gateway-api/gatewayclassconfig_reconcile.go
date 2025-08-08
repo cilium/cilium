@@ -20,7 +20,6 @@ import (
 
 func (r *gatewayClassConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (reconcile.Result, error) {
 	scopedLog := r.logger.With(
-		logfields.Controller, "gatewayclassconfig",
 		logfields.Resource, req.NamespacedName,
 	)
 
@@ -34,7 +33,7 @@ func (r *gatewayClassConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 	gwcc := original.DeepCopy()
 
-	//TODO: Add validations if required for the GatewayClassConfig, especially with Cilium configuration
+	// TODO: Add validations if required for the GatewayClassConfig, especially with Cilium configuration
 	setGatewayClassConfigAccepted(gwcc, true)
 
 	if err := r.ensureStatus(ctx, gwcc, original); err != nil {
