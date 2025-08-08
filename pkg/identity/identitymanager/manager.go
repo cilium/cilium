@@ -5,6 +5,10 @@ package identitymanager
 
 import (
 	"log/slog"
+	"strconv"
+	"strings"
+
+	"github.com/cilium/hive/script"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
@@ -229,4 +233,33 @@ type IdentitiesModel []*models.IdentityEndpoints
 // in index `j`
 func (s IdentitiesModel) Less(i, j int) bool {
 	return s[i].Identity.ID < s[j].Identity.ID
+}
+
+func ScriptCmds(idm *IdentityManager) map[string]script.Cmd {
+	return map[string]script.Cmd{
+		"idm/list": script.Command(
+			script.CmdUsage{
+				Summary: "List all identities in the identity manager",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				var sb strings.Builder
+				models := idm.GetIdentityModels()
+				sb.WriteRune('[')
+				for _, m := range models {
+					sb.WriteString(strconv.FormatInt(m.Identity.ID, 10))
+					sb.WriteRune(' ')
+					sb.WriteRune('{')
+					sb.WriteString(strings.Join([]string(m.Identity.Labels), ","))
+					sb.WriteRune('}')
+					sb.WriteRune(' ')
+				}
+				sb.WriteRune(']')
+				sb.WriteRune('\n')
+
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					return sb.String(), "", nil
+				}, nil
+			},
+		),
+	}
 }
