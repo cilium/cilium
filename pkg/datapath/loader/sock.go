@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/btf"
 )
 
 const (
@@ -59,6 +60,15 @@ func LoadSockTerm(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfgen.So
 		m.MaxEntries = sockRevNat6.MaxEntries()
 		mapReplacements[maps.SockRevNat6MapName] = sockRevNat6
 	}
+
+	// Since the programs use the bpf_sock_destroy() kfunc, the loader
+	// parses and caches BTF from vmlinux on the first go to be reused
+	// by subsequent program loads. For now, only bpf_sock_term uses kfuncs,
+	// and we only load this at the start, so flush this cache after loading
+	// is done to avoid holding onto an extra ~15MB of memory.
+	//
+	// See GH-37907 for discussion
+	defer btf.FlushKernelSpec()
 
 	// We can't assign directly to a sock_termObjects, since some maps and
 	// programs may be missing.
