@@ -732,6 +732,17 @@ func (m *Manager) installStaticProxyRules() error {
 			return err
 		}
 
+		// No conntrack for proxy return traffic that is heading to lxc+
+		if err := ip6tables.runProg([]string{
+			"-t", "raw",
+			"-A", ciliumOutputRawChain,
+			"-o", "lxc+",
+			"-m", "mark", "--mark", matchProxyReply,
+			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+			"-j", "CT", "--notrack"}); err != nil {
+			return err
+		}
+
 		// No conntrack for proxy return traffic that is heading to cilium_host
 		if err := ip6tables.runProg([]string{
 			"-t", "raw",
@@ -743,13 +754,37 @@ func (m *Manager) installStaticProxyRules() error {
 			return err
 		}
 
+		// No conntrack for proxy forward traffic that is heading to cilium_host
+		if option.Config.EnableIPSec {
+			if err := ip6tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", defaults.HostDevice,
+				"-m", "mark", "--mark", matchProxyForward,
+				"-m", "comment", "--comment", "cilium: NOTRACK for proxy forward traffic",
+				"-j", "CT", "--notrack"}); err != nil {
+				return err
+			}
+		}
+
 		// No conntrack for proxy upstream traffic that is heading to lxc+
 		if err := ip6tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
 			"-o", "lxc+",
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+			"-m", "mark", "--mark", matchL7ProxyUpstream,
+			"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
+			"-j", "CT", "--notrack"}); err != nil {
+			return err
+		}
+
+		// No conntrack for proxy upstream traffic that is heading to cilium_host
+		if err := ip6tables.runProg([]string{
+			"-t", "raw",
+			"-A", ciliumOutputRawChain,
+			"-o", defaults.HostDevice,
+			"-m", "mark", "--mark", matchL7ProxyUpstream,
+			"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
 			"-j", "CT", "--notrack"}); err != nil {
 			return err
 		}
