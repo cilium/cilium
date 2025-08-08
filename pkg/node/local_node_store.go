@@ -5,48 +5,17 @@ package node
 
 import (
 	"context"
-	"io"
+	"errors"
 	"log/slog"
-	"net"
-	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	k8stypes "k8s.io/apimachinery/pkg/types"
 
-	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 )
-
-// +deepequal-gen=true
-type LocalNode struct {
-	// +deepequal-gen=false
-	Logger *slog.Logger
-
-	types.Node
-	// OptOutNodeEncryption will make the local node opt-out of node-to-node
-	// encryption
-	OptOutNodeEncryption bool
-	// Unique identifier of the Kubernetes node, used to construct the
-	// corresponding owner reference.
-	UID k8stypes.UID
-	// ID of the node assigned by the cloud provider.
-	ProviderID string
-	// v4 CIDR in which pod IPs are routable
-	IPv4NativeRoutingCIDR *cidr.CIDR
-	// v6 CIDR in which pod IPs are routable
-	IPv6NativeRoutingCIDR *cidr.CIDR
-	// ServiceLoopbackIPv4 is the source address used for SNAT when a Pod talks to
-	// itself through a Service.
-	ServiceLoopbackIPv4 net.IP
-	// IsBeingDeleted indicates that the local node is being deleted.
-	IsBeingDeleted bool
-	// UnderlayProtocol is the IP family of our underlay.
-	UnderlayProtocol tunnel.UnderlayProtocol
-}
 
 // LocalNodeSynchronizer specifies how to build, and keep synchronized the local
 // node object.
@@ -62,6 +31,11 @@ var LocalNodeStoreCell = cell.Module(
 	"local-node-store",
 	"Provides LocalNodeStore for observing and updating local node info",
 
+	cell.Provide(
+		NewLocalNodeTable,
+		statedb.RWTable[*LocalNode].ToTable,
+	),
+
 	cell.Provide(NewLocalNodeStore),
 )
 
@@ -72,113 +46,75 @@ type LocalNodeStoreParams struct {
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 	Sync      LocalNodeSynchronizer `optional:"true"`
+	DB        *statedb.DB
+	Nodes     statedb.RWTable[*LocalNode]
+	Jobs      job.Group
 }
 
 // LocalNodeStore is the canonical owner for the local node object and provides
 // a reactive API for observing and updating the state.
 type LocalNodeStore struct {
-	// Changes to the local node are observable.
-	stream.Observable[LocalNode]
-
-	// mu is the main LocalNodeStore mutex, which protects the access to the
-	// different fields during all operations. getMu, instead, is a separate
-	// mutex which is used to guard updates of the value field, as well as its
-	// access by the Get() method. The reason for using two separate mutexes
-	// being that we don't want Get() to be blocked while calling emit, as
-	// that synchronously calls into all subscribers, which is a potentially
-	// expensive operation, and a possible source of deadlocks (e.g., one of
-	// the subscribers needs to acquire another mutex, which is held by a
-	// separate goroutine trying to call LocalNodeStore.Get()). In addition,
-	// getMu also guards the complete field, as it is used by Get() to
-	// determine that the LocalNodeStore was stopped. When both mu and getMu
-	// are to be acquired together, mu shall be always acquired first.
-	mu    lock.Mutex
-	getMu lock.RWMutex
-
-	value    LocalNode
-	hasValue <-chan struct{}
-	emit     func(LocalNode)
-	complete func(error)
-}
-
-func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
-	src, emit, complete := stream.Multicast[LocalNode](stream.EmitLatest)
-	emit(mockNode)
-	return &LocalNodeStore{
-		Observable: src,
-		emit:       emit,
-		complete:   complete,
-		value:      mockNode,
-		hasValue: func() <-chan struct{} {
-			ch := make(chan struct{})
-			close(ch)
-			return ch
-		}(),
-	}
+	db    *statedb.DB
+	nodes statedb.RWTable[*LocalNode]
 }
 
 func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
-	src, emit, complete := stream.Multicast[LocalNode](stream.EmitLatest)
-	hasValue := make(chan struct{})
 
-	s := &LocalNodeStore{
-		Observable: src,
-		value: LocalNode{
-			Logger: params.Logger,
-			Node: types.Node{
-				// Explicitly initialize the labels and annotations maps, so that
-				// we don't need to always check for nil values.
-				Labels:      make(map[string]string),
-				Annotations: make(map[string]string),
-				Source:      source.Unspec,
-			}},
-		hasValue: hasValue,
+	initNode := &LocalNode{
+		Node: types.Node{
+			// Explicitly initialize the labels and annotations maps, so that
+			// we don't need to always check for nil values.
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
+			Source:      source.Unspec,
+		},
+		Local: &LocalNodeInfo{},
 	}
 
-	bctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
+	var initDone func(statedb.WriteTxn)
+	wtxn := params.DB.WriteTxn(params.Nodes)
+	if params.Sync != nil {
+		// Register an initializer if a LocalNodeSynchronizer is given
+		initDone = params.Nodes.RegisterInitializer(wtxn, "LocalNodeSynchronizer")
+	} else {
+		// No synchronizer, insert the initial node immediately.
+		params.Nodes.Insert(wtxn, initNode)
+	}
+	wtxn.Commit()
+
+	s := &LocalNodeStore{params.DB, params.Nodes}
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			s.mu.Lock()
-			defer s.mu.Unlock()
 			if params.Sync != nil {
-				if err := params.Sync.InitLocalNode(ctx, &s.value); err != nil {
+				wtxn := params.DB.WriteTxn(params.Nodes)
+				err := params.Sync.InitLocalNode(ctx, initNode)
+				params.Nodes.Insert(wtxn, initNode)
+				initDone(wtxn)
+				wtxn.Commit()
+
+				if err != nil {
 					return err
 				}
 
 				// Start the synchronization process in background
-				wg.Add(1)
-				go func() {
-					params.Sync.SyncLocalNode(bctx, s)
-					wg.Done()
-				}()
+				params.Jobs.Add(
+					job.OneShot(
+						"sync-local-node",
+						func(ctx context.Context, _ cell.Health) error {
+							params.Sync.SyncLocalNode(ctx, s)
+							return nil
+						},
+					))
 			}
 
 			// Set the global variable still used by getters
 			// and setters in address.go. We're setting it in Start
 			// to catch uses of it before it's initialized.
 			localNode = s
-
-			s.emit = emit
-			s.complete = complete
-			emit(s.value)
-			close(hasValue)
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
-			// Stop the synchronization process (no-op if it had not been started)
-			cancel()
-			wg.Wait()
-
-			s.mu.Lock()
-			s.complete(nil)
-			s.getMu.Lock()
-			s.complete = nil
-			s.emit = nil
-			s.getMu.Unlock()
-			s.mu.Unlock()
-
 			localNode = nil
 			return nil
 		},
@@ -187,40 +123,67 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 	return s, nil
 }
 
+// Observe changes to the local node state.
+func (s *LocalNodeStore) Observe(ctx context.Context, next func(LocalNode), complete func(error)) {
+	stream.Map(
+		stream.Filter(
+			statedb.Observable(s.db, s.nodes),
+			// Only care about non-deleted local nodes. The local node is never deleted.
+			func(ev statedb.Change[*LocalNode]) bool {
+				return !ev.Deleted && ev.Object != nil && ev.Object.Local != nil
+			},
+		),
+		func(ev statedb.Change[*LocalNode]) LocalNode {
+			return *ev.Object
+		},
+	).Observe(ctx, next, complete)
+}
+
 // Get retrieves the current local node. Use Get() only for inspecting the state,
 // e.g. in API handlers. Do not assume the value does not change over time.
 // Blocks until the store has been initialized.
 func (s *LocalNodeStore) Get(ctx context.Context) (LocalNode, error) {
+	_, initWatch := s.nodes.Initialized(s.db.ReadTxn())
 	select {
-	case <-s.hasValue:
-		s.getMu.RLock()
-		defer s.getMu.RUnlock()
-
-		if s.complete == nil {
-			// Return EOF when the LocalNodeStore is stopped, to preserve the
-			// same behavior of stream.First[LocalNode].
-			return LocalNode{}, io.EOF
-		}
-
-		return s.value, nil
-
+	case <-initWatch:
 	case <-ctx.Done():
 		return LocalNode{}, ctx.Err()
 	}
+
+	ln, _, found := s.nodes.Get(s.db.ReadTxn(), LocalNodeQuery)
+	if !found {
+		return LocalNode{}, errors.New("Local node not found")
+	}
+	return *ln, nil
 }
 
-// Update modifies the local node with a mutator. The updated value
-// is passed to observers. Calling LocalNodeStore.Get() from the
-// mutation function is forbidden, and would result in a deadlock.
+// Update modifies the local node with a mutator.
 func (s *LocalNodeStore) Update(update func(*LocalNode)) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.getMu.Lock()
-	update(&s.value)
-	s.getMu.Unlock()
-
-	if s.emit != nil {
-		s.emit(s.value)
+	txn := s.db.WriteTxn(s.nodes)
+	defer txn.Commit()
+	ln, _, found := s.nodes.Get(txn, LocalNodeQuery)
+	if !found {
+		panic("BUG: No local node exists")
 	}
+	ln = ln.DeepCopy()
+	update(ln)
+	if ln.Local == nil {
+		panic("BUG: Updated LocalNode has nil Local")
+	}
+	s.nodes.Insert(txn, ln)
+}
+
+func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
+	db := statedb.New()
+	tbl, err := NewLocalNodeTable(db)
+	if err != nil {
+		panic(err)
+	}
+	if mockNode.Local == nil {
+		mockNode.Local = &LocalNodeInfo{}
+	}
+	txn := db.WriteTxn(tbl)
+	tbl.Insert(txn, &mockNode)
+	txn.Commit()
+	return &LocalNodeStore{db, tbl}
 }
