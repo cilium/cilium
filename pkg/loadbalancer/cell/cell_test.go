@@ -29,7 +29,6 @@ func TestCell(t *testing.T) {
 
 	h := hive.New(
 		k8sClient.FakeClientCell(),
-		daemonk8s.ResourcesCell,
 		daemonk8s.TablesCell,
 		maglev.Cell,
 		node.LocalNodeStoreCell,

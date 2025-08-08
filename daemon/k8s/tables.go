@@ -4,23 +4,28 @@
 package k8s
 
 import (
+	"github.com/cilium/cilium/pkg/k8s"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 )
 
-// TablesCell provides a set of StateDB tables for common Kubernetes objects.
-// The tables are populated with the StateDB k8s reflector (pkg/k8s/statedb.go).
-//
-// NOTE: When adding new k8s tables make sure to provide and register from a
-// single provider to ensure reflector starts before anyone depending on the table.
-// See [NewPodTableAndReflector] for example.
+// TablesCell provides the statedb tables for Kubernetes objects.
+// It's a private cell that can be imported by other cells in this package.
 var TablesCell = cell.Module(
 	"k8s-tables",
-	"StateDB tables of Kubernetes objects",
+	"statedb tables for Kubernetes objects",
 
+	SvcEPTablesCell,
 	PodTableCell,
 	NamespaceTableCell,
+
+	cell.Provide(
+		statedb.RWTable[*slim_corev1.Service].ToTable,
+		statedb.RWTable[*k8s.Endpoints].ToTable,
+		statedb.RWTable[LocalPod].ToTable,
+	),
 )
 
 // reflectorName to use in [k8s.ReflectorConfig]. This is the name that appears

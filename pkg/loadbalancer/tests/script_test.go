@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/k8s"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
@@ -77,8 +79,13 @@ func TestScript(t *testing.T) {
 
 			h := hive.New(
 				k8sClient.FakeClientCell(),
-				daemonk8s.ResourcesCell,
-				daemonk8s.TablesCell,
+				daemonk8s.SvcEPTablesCell,
+				daemonk8s.PodTableCell,
+				cell.Provide(
+					statedb.RWTable[*slim_corev1.Service].ToTable,
+					statedb.RWTable[*k8s.Endpoints].ToTable,
+					statedb.RWTable[daemonk8s.LocalPod].ToTable,
+				),
 
 				cell.Config(loadbalancer.TestConfig{
 					// By default 10% of the time the LBMap operations fail
@@ -155,7 +162,8 @@ func TestScript(t *testing.T) {
 		},
 		[]string{
 			/* empty environment */
-		}, "testdata/*.txtar")
+		},
+		"testdata/*.txtar")
 }
 
 type testCommands struct {
