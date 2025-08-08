@@ -37,7 +37,6 @@ import (
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	scopedLog := r.logger.With(
-		logfields.Controller, gamma,
 		logfields.Resource, req.NamespacedName,
 	)
 
