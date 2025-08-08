@@ -388,6 +388,31 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 		}
 	}
 
+	// Check whether the [BackendParams.ForZones] hints should be consulted when
+	// selecting a backend.
+	checkZoneHints := false
+	thisZone := w.nodeZone.Load()
+	if w.config.EnableServiceTopology &&
+		thisZone != nil &&
+		fe != nil && fe.RedirectTo == nil &&
+		fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
+		// Topology-aware routing enabled. See if we can find any backends fitting
+		// for our zone. If we don't find any we fall back to default behaviour.
+		// https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/#safeguards
+		candidatesFound, missingHints := false, false
+		for be := range bes {
+			if len(be.ForZones) > 0 {
+				if !candidatesFound && slices.Contains(be.ForZones, *thisZone) {
+					candidatesFound = true
+				}
+			} else {
+				missingHints = true
+				break
+			}
+		}
+		checkZoneHints = candidatesFound && !missingHints
+	}
+
 	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
 		for be, rev := range bes {
 			if fe != nil && fe.Address.Protocol() != be.Address.Protocol() {
@@ -408,18 +433,10 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 					continue
 				}
 			}
+			if checkZoneHints && !slices.Contains(be.ForZones, *thisZone) {
+				continue
+			}
 			if fe != nil {
-				if w.config.EnableServiceTopology &&
-					fe.RedirectTo == nil &&
-					fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
-					thisZone := w.nodeZone.Load()
-					if len(be.ForZones) > 0 && thisZone != nil {
-						// Topology-aware routing is enabled. Only use this backend if it is selected for this zone.
-						if !slices.Contains(be.ForZones, *thisZone) {
-							continue
-						}
-					}
-				}
 				if fe.PortName != "" {
 					// A backend with specific port name requested. Look up what this backend
 					// is called for this service.

@@ -16,29 +16,43 @@ db/cmp services services.table
 k8s/add endpointslice.yaml endpointslice2.yaml
 
 # With zone set to 'foo' and topology-awareness enabled, we should
-# only select backen 10.244.1.1.
+# only select backend 10.244.1.1 which has 'foo' in its ForZones.
 db/cmp backends backends.table 
-db/cmp frontends frontends.table
+db/cmp frontends frontends-foo.table
 
 # Move the node to a different zone which won't match ForZones.
+# Now we'll fall back to selecting all backends.
+# (safeguard #5 at https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/#safeguards)
 test/set-node-labels topology.kubernetes.io/zone=baz
-db/cmp frontends frontends-no-backends.table
+db/cmp frontends frontends-all.table
 
 # Move to another zone which isn't backend's own zone but mentioned in
 # ForZones.
 test/set-node-labels topology.kubernetes.io/zone=bar
-db/cmp frontends frontends.table
+db/cmp frontends frontends-foo.table
 
-# Remove the topology-mode annotation. Both backends should now be selected.
+# Remove the zone hints from one of the endpointslices. We'll again
+# fall back to selecting all backends.
+# (safeguard #4 at https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/#safeguards)
+cp endpointslice2.yaml endpointslice2-no-hints.yaml
+sed 'forZones:' 'notForZones:' endpointslice2-no-hints.yaml
+k8s/update endpointslice2-no-hints.yaml
+db/cmp frontends frontends-all.table
+
+# Revert back to selecting backends with foo zone.
+k8s/update endpointslice2.yaml
+db/cmp frontends frontends-foo.table
+
+# Remove the topology-mode annotation. All backends should now be selected.
 sed 'topology-mode' 'topology-nope' service.yaml
 k8s/update service.yaml
-db/cmp frontends frontends-no-topo.table
+db/cmp frontends frontends-all.table
 
 # Set 'trafficDistribution' and check that this results in identical behavior
 # to topology-mode.
 sed '#trafficD' 'trafficD' service.yaml
 k8s/update service.yaml
-db/cmp frontends frontends.table
+db/cmp frontends frontends-foo.table
 
 #####
 
@@ -46,15 +60,15 @@ db/cmp frontends frontends.table
 Name        Source   PortNames  TrafficPolicy  Flags
 test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferClose
 
--- frontends.table --
+-- frontends-foo.table --
 Address               Type        ServiceName   PortName   Status  Backends
 10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP
 
--- frontends-no-backends.table --
+-- frontends-none.table --
 Address               Type        ServiceName   PortName   Status   Backends
 10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done
 
--- frontends-no-topo.table --
+-- frontends-all.table --
 Address               Type        ServiceName   PortName   Status  Backends
 10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP, 10.244.2.1:80/TCP
 
