@@ -112,7 +112,6 @@ func (r *grpcRouteReconciler) getBackendServiceForGRPCRoute(rawObj client.Object
 			backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
 			if err != nil {
 				r.logger.Error("Failed to get backend service name",
-					logfields.Controller, "grpcRoute",
 					logfields.Resource, client.ObjectKeyFromObject(rawObj),
 					logfields.Error, err,
 				)
@@ -175,7 +174,9 @@ func (r *grpcRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
 
 func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, grpcRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		list := &gatewayv1.GRPCRouteList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{
@@ -202,7 +203,9 @@ func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 
 func (r *grpcRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, grpcRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		list := &gatewayv1.GRPCRouteList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{}); err != nil {

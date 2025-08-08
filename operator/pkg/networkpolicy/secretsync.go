@@ -110,7 +110,9 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 			Namespace: obj.GetNamespace(),
 			Name:      obj.GetName(),
 		}
-		scopedLog = scopedLog.With("networkPolicyObject", objName)
+		scopedLog = scopedLog.With(
+			logfields.Resource, objName,
+		)
 		var specs []*api.Rule
 
 		switch o := obj.(type) {
@@ -148,7 +150,9 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 }
 
 func IsReferencedByCiliumNetworkPolicy(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool {
-	scopedLog := logger.With(logfields.Controller, "netpol-cnp-secretsync", logfields.Resource, obj.GetName())
+	scopedLog := logger.With(
+		logfields.Resource, obj.GetName(),
+	)
 
 	secretName := types.NamespacedName{
 		Namespace: obj.GetNamespace(),
@@ -190,7 +194,9 @@ func IsReferencedByCiliumNetworkPolicy(ctx context.Context, c client.Client, log
 }
 
 func IsReferencedByCiliumClusterwideNetworkPolicy(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool {
-	scopedLog := logger.With(logfields.Controller, "netpol-ccnp-secretsync", logfields.Resource, obj.GetName())
+	scopedLog := logger.With(
+		logfields.Resource, obj.GetName(),
+	)
 
 	secretName := types.NamespacedName{
 		Namespace: obj.GetNamespace(),

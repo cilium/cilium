@@ -212,7 +212,9 @@ func (r *httpRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
 
 func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, httpRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{
@@ -239,7 +241,9 @@ func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 
 func (r *httpRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.Controller, httpRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.logger.With(
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{}); err != nil {
