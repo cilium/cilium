@@ -165,21 +165,11 @@ jobs:
 
       - name: Run L7 related connectivity test
         run: |
-          cilium connectivity test --test="l7|sni|check-log-errors" \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --curl-parallel 3 \
-            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --junit-file "cilium-junits/${{ env.job_name }}-without-secret-sync.xml" \
             --junit-property github_job_step="Run connectivity test with secret sync disabled" \
-            --external-target=${{ steps.external_targets.outputs.external_target_name }} \
-            --external-other-target=${{ steps.external_targets.outputs.other_external_target_name }} \
-            --external-cidr=${{ steps.external_network.outputs.ipv4_external_cidr }} \
-            --external-cidrv6=${{ steps.external_network.outputs.ipv6_external_cidr }} \
-            --external-ip=${{ steps.external_network.outputs.ipv4_external_target }} \
-            --external-ipv6=${{ steps.external_network.outputs.ipv6_external_target }} \
-            --external-other-ip=${{ steps.external_network.outputs.ipv4_other_external_target }} \
-            --external-other-ipv6=${{ steps.external_network.outputs.ipv6_other_external_target }} \
-            --external-target-ca-namespace=external-target-secrets --external-target-ca-name=custom-ca \
-            --external-target-ipv6-capable
+            --test="l7|sni|check-log-errors"
 
       - name: Features tested
         uses: ./.github/actions/feature-status
