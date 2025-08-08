@@ -1349,24 +1349,38 @@ func TestNodeIpset(t *testing.T) {
 // Tests that the node manager calls delete on nodes to be pruned.
 func TestNodesStartupPruning(t *testing.T) {
 	logger := hivetest.Logger(t)
-	n1 := nodeTypes.Node{Name: "node1", Cluster: "c1", IPAddresses: []nodeTypes.Address{
+	c1Node1 := nodeTypes.Node{Name: "c1-node1", Cluster: "c1", IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
 			IP:   net.ParseIP("10.0.0.1"),
 		},
 	}}
 
-	n2 := nodeTypes.Node{Name: "node2", Cluster: "c1", IPAddresses: []nodeTypes.Address{
+	c1Node2 := nodeTypes.Node{Name: "c1-node2", Cluster: "c1", IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
 			IP:   net.ParseIP("10.0.0.2"),
 		},
 	}}
 
-	n3 := nodeTypes.Node{Name: "node3", Cluster: "c2", IPAddresses: []nodeTypes.Address{
+	c1StaleNode := nodeTypes.Node{Name: "c1-node3", Cluster: "c1", IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
 			IP:   net.ParseIP("10.0.0.3"),
+		},
+	}}
+
+	c2Node1 := nodeTypes.Node{Name: "c2-node1", Cluster: "c2", IPAddresses: []nodeTypes.Address{
+		{
+			Type: addressing.NodeInternalIP,
+			IP:   net.ParseIP("10.0.0.4"),
+		},
+	}}
+
+	c2StaleNode := nodeTypes.Node{Name: "c2-node2", Cluster: "c2", IPAddresses: []nodeTypes.Address{
+		{
+			Type: addressing.NodeInternalIP,
+			IP:   net.ParseIP("10.0.0.5"),
 		},
 	}}
 
@@ -1380,11 +1394,12 @@ func TestNodesStartupPruning(t *testing.T) {
 		os.Remove(path)
 	})
 	e := json.NewEncoder(nf)
-	require.NoError(t, e.Encode([]nodeTypes.Node{n3, n2, n1}))
+	require.NoError(t, e.Encode([]nodeTypes.Node{
+		c2StaleNode, c2Node1, c1StaleNode, c1Node2, c1Node1}))
 	require.NoError(t, nf.Sync())
 	require.NoError(t, nf.Close())
 
-	checkNodeFileMatches := func(path string, node nodeTypes.Node) {
+	checkNodeFileMatches := func(path string, nodes ...nodeTypes.Node) {
 		// Wait until the file exists. The node deletion triggers the write, hence
 		// this shouldn't take long.
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -1397,12 +1412,11 @@ func TestNodesStartupPruning(t *testing.T) {
 		})
 		var nl []nodeTypes.Node
 		assert.NoError(t, json.NewDecoder(nwf).Decode(&nl))
-		assert.Len(t, nl, 1)
-		assert.Equal(t, node, nl[0])
+		assert.ElementsMatch(t, nodes, nl)
 		require.NoError(t, os.Remove(path))
 	}
 
-	// Create a node manager and add only node1.
+	// Create a node manager and add only c1-node1 (local).
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
 	dp.EnableNodeDeleteEvent = true
@@ -1416,40 +1430,50 @@ func TestNodesStartupPruning(t *testing.T) {
 		mngr.Stop(context.TODO())
 	})
 	mngr.Subscribe(dp)
-	mngr.NodeUpdated(n1)
+	mngr.NodeUpdated(c1Node1)
 
-	// Load the nodes from disk and initiate pruning. This should prune node 2
-	// (since it's present in the file but not in our current view).
+	// Load the nodes from disk.
 	mngr.restoreNodeCheckpoint()
 	require.NoError(t, mngr.initNodeCheckpointer(time.Microsecond))
 	// We remove our test file here to be able to tell once the nodemanager has
 	// written one itself.
 	require.NoError(t, os.Remove(path))
-	// Declare cluster nodes synced (but not clustermesh nodes)
-	mngr.NodeSync()
 
-	select {
-	case dn := <-dp.NodeDeleteEvent:
-		n2r := n2
-		n2r.Source = source.Restored
-		assert.Equal(t, n2r, dn, "should have deleted node 2 and (with source=Restored)")
-	case <-time.After(time.Second * 5):
-		t.Fatal("should have received a node deletion event for node 2")
-	}
-
-	checkNodeFileMatches(path, n1)
-
-	// Allow pruning the clustermesh node.
+	// Simulate clustermesh initial sync before cluster nodes are finished listing.
+	// Add c2-node1 and declare clustermesh nodes synced (but not cluster nodes).
+	// This should prune c2-node2 (since it's present in the file but not in our
+	// current view).
+	// Restored cluster nodes should not be pruned yet.
+	mngr.NodeUpdated(c2Node1)
 	mngr.MeshNodeSync()
 
 	select {
 	case dn := <-dp.NodeDeleteEvent:
-		n3r := n3
-		n3r.Source = source.Restored
-		assert.Equal(t, n3r, dn, "should have deleted node 3 and (with source=Restored)")
+		expectedNode := c2StaleNode
+		expectedNode.Source = source.Restored
+		assert.Equal(t, expectedNode, dn, "should have deleted stale node c2-node2 (with source=Restored)")
 	case <-time.After(time.Second * 5):
-		t.Fatal("should have received a node deletion event for node 3")
+		t.Fatal("should have received a node deletion event for stale node c2-node2")
 	}
 
-	checkNodeFileMatches(path, n1)
+	// Checkpoint should have c1-node1 (local) and c2-node1 (meshed).
+	checkNodeFileMatches(path, c1Node1, c2Node1)
+
+	// Simulate cluster initial listing.
+	// Add c1-node2 and declare cluster nodes synced.
+	// This should prune c1-node3 (since it's present in the file but not in our
+	// current view).
+	mngr.NodeUpdated(c1Node2)
+	mngr.NodeSync()
+
+	select {
+	case dn := <-dp.NodeDeleteEvent:
+		expectedNode := c1StaleNode
+		expectedNode.Source = source.Restored
+		assert.Equal(t, expectedNode, dn, "should have deleted stale node c1-node3 (with source=Restored)")
+	case <-time.After(time.Second * 5):
+		t.Fatal("should have received a node deletion event for stale node c1-node3")
+	}
+
+	checkNodeFileMatches(path, c1Node1, c1Node2, c2Node1)
 }
