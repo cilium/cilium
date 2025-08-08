@@ -30,7 +30,7 @@ func (ev *EndpointRegenerationEvent) Handle(res chan any) {
 	// Compute policy on the first regeneration before acquiring the build permit in
 	// QueueEndpointBuild below
 	select {
-	case <-e.InitialEnvoyPolicyComputed:
+	case <-e.initialEnvoyPolicyComputed:
 		// Already done
 	default:
 		err, release := e.ComputeInitialPolicy(regenContext)
