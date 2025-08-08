@@ -414,7 +414,6 @@ int NAME(struct __ctx_buff *ctx)						\
 	return ret;								\
 }
 
-#ifdef ENABLE_CUSTOM_CALLS
 /* Private per-EP map for tail calls to user-defined programs. When custom calls
  * are enabled, a map named cilium_calls_custom_XXXXX will be pinned to bpffs
  * when loading the endpoint program.
@@ -432,6 +431,7 @@ struct {
 #define CUSTOM_CALLS_IDX_IPV6_INGRESS	2
 #define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
 
+#ifdef ENABLE_CUSTOM_CALLS
 /* Encode return value and identity into cb buffer. This is used before
  * executing tail calls to custom programs. "ret" is the return value supposed
  * to be returned to the kernel, needed by the callee to preserve the datapath
@@ -458,7 +458,6 @@ encode_custom_prog_meta(struct __ctx_buff *ctx, int ret, __u32 identity)
 }
 #endif
 
-#ifdef ENABLE_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);
@@ -466,6 +465,7 @@ struct {
 	__uint(max_entries, 1);
 } cilium_tail_call_buffer6 __section_maps_btf;
 
+#ifdef ENABLE_IPV6
 /* Handle egress IPv6 traffic from a container after service translation has been done
  * either at the socket level or by the caller.
  * In the case of the caller doing the service translation it passes in state via CB,
@@ -888,7 +888,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);
@@ -896,6 +895,7 @@ struct {
 	__uint(max_entries, 1);
 } cilium_tail_call_buffer4 __section_maps_btf;
 
+#ifdef ENABLE_IPV4
 /* Handle egress IPv4 traffic from a container after service translation has been done
  * either at the socket level or by the caller.
  * In the case of the caller doing the service translation it passes in state via CB,

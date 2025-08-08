@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -45,6 +46,9 @@ type cachedSpec struct {
 
 	// The compiled and parsed spec. May be nil if no compilation has happened yet.
 	spec *ebpf.CollectionSpec
+
+	// The path to the compiled object file, if it exists.
+	path string
 }
 
 func newObjectCache(logger *slog.Logger, c datapath.ConfigWriter, workingDir string) *objectCache {
@@ -200,6 +204,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 	}
 
 	if obj.spec != nil {
+		o.logger.Debug("Using cached BPF template", logfields.Object, obj.path)
 		return obj.spec.Copy(), hash, nil
 	}
 
@@ -219,9 +224,22 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 		return nil, "", err
 	}
 
+	obj.path = path
+
 	obj.spec, err = bpf.LoadCollectionSpec(o.logger, path)
 	if err != nil {
 		return nil, "", fmt.Errorf("load eBPF ELF %s: %w", path, err)
+	}
+
+	// Precompute the Blocks for each ProgramSpec in the CollectionSpec so
+	// downstream callers don't need to compute them again. This is expensive to
+	// run, so do it only once per compilation. Control flow isn't expected to
+	// be changed after compilation.
+	for name, prog := range obj.spec.Programs {
+		if _, err := analyze.MakeBlocks(prog.Instructions); err != nil {
+			return nil, "", fmt.Errorf("making Blocks for ProgramSpec %s: %w", name, err)
+		}
+		o.logger.Debug("Precomputed Blocks", logfields.Object, name)
 	}
 
 	return obj.spec.Copy(), hash, nil
