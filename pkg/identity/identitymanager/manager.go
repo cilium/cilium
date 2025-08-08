@@ -4,11 +4,18 @@
 package identitymanager
 
 import (
+	"fmt"
 	"log/slog"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/cilium/hive/script"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/model"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -222,4 +229,96 @@ type IdentitiesModel []*models.IdentityEndpoints
 // in index `j`
 func (s IdentitiesModel) Less(i, j int) bool {
 	return s[i].Identity.ID < s[j].Identity.ID
+}
+
+func ScriptCmds(idm *IdentityManager) map[string]script.Cmd {
+	return map[string]script.Cmd{
+		"idm/list": script.Command(
+			script.CmdUsage{
+				Summary: "List all policies in the policy repository",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				var sb strings.Builder
+				models := idm.GetIdentityModels()
+				sb.WriteRune('[')
+				for _, m := range models {
+					sb.WriteString(strconv.FormatInt(m.Identity.ID, 10))
+					sb.WriteRune(' ')
+					sb.WriteRune('{')
+					sb.WriteString(strings.Join([]string(m.Identity.Labels), ","))
+					sb.WriteRune('}')
+					sb.WriteRune(' ')
+				}
+				sb.WriteRune(']')
+				sb.WriteRune('\n')
+
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					return sb.String(), "", nil
+				}, nil
+			},
+		),
+		"idm/add": script.Command(
+			script.CmdUsage{
+				Summary: "List all policies in the policy repository",
+				Args:    "number labels",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					allArgs := []string(args)
+					num, err := strconv.Atoi(allArgs[0])
+					if err != nil {
+						return "", "", fmt.Errorf("atoi: %w", err)
+					}
+					lstr := allArgs[1]
+
+					var labelArr []labels.Label
+					for s := range strings.SplitSeq(lstr, ",") {
+						labelArr = append(labelArr, labels.ParseLabel(s))
+					}
+
+					idm.Add(&identity.Identity{
+						ID:         identity.NumericIdentity(num),
+						Labels:     labels.FromSlice(labelArr),
+						LabelArray: labels.LabelArray(labelArr),
+					})
+					return "", "", nil
+				}, nil
+			},
+		),
+		"idm/add-from-stdout": script.Command(
+			script.CmdUsage{
+				Summary: "Add identity with the given labels and numeric value from stdout",
+				Args:    "labels",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				var wait script.WaitFunc
+
+				lines := slices.Collect(strings.Lines(s.Stdout()))
+				if len(lines) != 1 {
+					return wait, fmt.Errorf("expected stdout to contain only one line but got %v, see usage details", len(lines))
+				}
+
+				num, err := strconv.Atoi(strings.Trim(lines[0], "\n"))
+				if err != nil {
+					return wait, fmt.Errorf("atoi: %w", err)
+				}
+
+				lstr := []string(args)[0]
+				var labelArr []labels.Label
+				for _, s := range strings.Split(lstr, ",") {
+					labelArr = append(labelArr, labels.ParseLabel(s))
+				}
+
+				idm.Add(&identity.Identity{
+					ID:         identity.NumericIdentity(num),
+					Labels:     labels.FromSlice(labelArr),
+					LabelArray: labels.LabelArray(labelArr),
+				})
+				wait = func(s *script.State) (stdout string, stderr string, err error) {
+					return "", "", nil
+				}
+				return wait, nil
+			},
+		),
+	}
 }
