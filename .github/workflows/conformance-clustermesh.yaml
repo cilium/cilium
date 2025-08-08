@@ -327,6 +327,7 @@ jobs:
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --flow-validation=disabled \
             --multi-cluster=${{ env.contextName2 }} \
             --external-target=google.com. \

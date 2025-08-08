@@ -214,8 +214,9 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --helm-set kubeProxyReplacement=true"
           fi
 
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
-            --external-target amazon.com."
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --collect-sysdump-on-failure --external-target amazon.com."
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
@@ -376,6 +377,7 @@ jobs:
         if: ${{ matrix.ipsec == true }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
+          job-name: ${{ env.job_name }}-${{ matrix.version }}-post-rotate
           full-test: 'false'
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
