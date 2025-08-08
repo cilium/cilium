@@ -767,6 +767,28 @@ func (m *Manager) installStaticProxyRules() error {
 			}
 		}
 
+		// No conntrack for proxy upstream traffic that is heading to lxc+
+		if err := ip6tables.runProg([]string{
+			"-t", "raw",
+			"-A", ciliumOutputRawChain,
+			"-o", "lxc+",
+			"-m", "mark", "--mark", matchL7ProxyUpstream,
+			"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
+			"-j", "CT", "--notrack"}); err != nil {
+			return err
+		}
+
+		// No conntrack for proxy upstream traffic that is heading to cilium_host
+		if err := ip6tables.runProg([]string{
+			"-t", "raw",
+			"-A", ciliumOutputRawChain,
+			"-o", defaults.HostDevice,
+			"-m", "mark", "--mark", matchL7ProxyUpstream,
+			"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
+			"-j", "CT", "--notrack"}); err != nil {
+			return err
+		}
+
 		// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
 		// Matching needs to be the same as for the NOTRACK rule above.
 		if err := ip6tables.runProg([]string{
