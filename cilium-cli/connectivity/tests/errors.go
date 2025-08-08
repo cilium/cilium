@@ -157,10 +157,18 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				// Do not check for container restarts for Cilium v1.16 and earlier.
 				ignore := n.ciliumVersion.LT(semver.MustParse("1.17.0"))
 
-				// Ignore Cilium operator restarts for the moment, as they can
-				// legitimately happen in case it loses the leader election due
-				// to temporary control plane blips.
-				ignore = ignore || container == "cilium-operator"
+				// Check for legitimate cilium-operator restart patterns
+				if container == "cilium-operator" && restarts > 0 {
+					var logs bytes.Buffer
+					err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, prevOpts, &logs)
+					if err != nil {
+						a.Logf("Warning: Could not retrieve previous logs to check for legitimate operator restart patterns: %s", err)
+					} else {
+						if hasLegitimateOperatorRestartPatterns(logs.Bytes()) {
+							ignore = true
+						}
+					}
+				}
 
 				// The hubble relay container can currently be restarted by the
 				// startup probe if it fails to connect to Cilium. However, this
@@ -482,3 +490,12 @@ var (
 	// https://github.com/cilium/cilium/issues/39370 needs investigation.
 	linkNotFound = regexMatcher{regexp.MustCompile(`retrieving device .+\: Link not found`)}
 )
+
+// hasLegitimateOperatorRestartPatterns checks if the operator logs contain patterns
+// that indicate legitimate restart scenarios like leader election failures.
+func hasLegitimateOperatorRestartPatterns(logs []byte) bool {
+	logStr := string(logs)
+	// Only "Leader election lost" indicates an intentional restart
+	// Other patterns like "Failed to update lock" are error conditions, not restart causes
+	return strings.Contains(logStr, "Leader election lost")
+}

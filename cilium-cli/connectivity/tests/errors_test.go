@@ -226,3 +226,60 @@ func TestComputeExpectedDropReasons(t *testing.T) {
 		})
 	}
 }
+
+func TestHasLegitimateOperatorRestartPatterns(t *testing.T) {
+	tests := []struct {
+		name     string
+		logs     string
+		expected bool
+	}{
+		{
+			name:     "legitimate leader election lost",
+			logs:     `time=2025-01-01T10:00:00Z level=info msg="Leader election lost" operator-id=test-123`,
+			expected: true,
+		},
+		{
+			name: "legitimate leader election lost with other logs",
+			logs: `time=2025-01-01T09:59:59Z level=info msg="Some other message"
+time=2025-01-01T10:00:00Z level=info msg="Leader election lost" operator-id=test-123
+time=2025-01-01T10:00:01Z level=info msg="Shutting down"`,
+			expected: true,
+		},
+		{
+			name: "no legitimate patterns",
+			logs: `time=2025-01-01T10:00:00Z level=error msg="Some random error"
+time=2025-01-01T10:00:01Z level=info msg="Container restarting"`,
+			expected: false,
+		},
+		{
+			name: "error patterns that are not restart causes",
+			logs: `time=2025-01-01T10:00:00Z level=error msg="Failed to update lock: connection timeout"
+time=2025-01-01T10:00:01Z level=error msg="Failed to release lock: network error"`,
+			expected: false,
+		},
+		{
+			name:     "empty logs",
+			logs:     ``,
+			expected: false,
+		},
+		{
+			name:     "partial match should trigger",
+			logs:     `time=2025-01-01T10:00:00Z level=info msg="Leader election lost connection but recovered"`,
+			expected: true, // This will match because it contains "Leader election lost"
+		},
+		{
+			name:     "case sensitive matching",
+			logs:     `time=2025-01-01T10:00:00Z level=info msg="leader election lost"`,
+			expected: false, // Should not match due to case sensitivity
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasLegitimateOperatorRestartPatterns([]byte(tt.logs))
+			if result != tt.expected {
+				t.Errorf("hasLegitimateOperatorRestartPatterns() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
