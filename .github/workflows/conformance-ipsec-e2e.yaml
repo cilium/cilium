@@ -158,7 +158,18 @@ jobs:
           else
             SHA="${{ github.sha }}"
           fi
+
+          EXTRA_CLI_FLAGS=()
+
+          CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
+                                      --collect-sysdump-on-failure \
+                                      --sysdump-hubble-flows-count=1000000 \
+                                      --sysdump-hubble-flows-timeout=5m \
+                                      --flush-ct \
+                                      ${EXTRA_CLI_FLAGS[*]}"
+
           echo sha=${SHA} >> $GITHUB_OUTPUT
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Derive Cilium installation config and junit type
         id: cilium-config
@@ -281,12 +292,10 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+          ./cilium-cli connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --flush-ct
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})"
 
       - name: Features tested
         uses: ./.github/actions/feature-status
@@ -334,12 +343,10 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+          ./cilium-cli connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --flush-ct
+            --junit-file "cilium-junits/${{ env.job_name }}-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }}) (post-rotate)"
 
       - name: Features tested
         uses: ./.github/actions/feature-status
