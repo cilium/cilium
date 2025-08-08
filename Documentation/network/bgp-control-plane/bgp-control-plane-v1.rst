@@ -667,17 +667,6 @@ Configure graceful restart on per-neighbor basis, as follows:
            enabled: true           # <-- enable graceful restart
            restartTimeSeconds: 120 # <-- set RestartTime
 
-.. warning::
-
-   When enabled, graceful restart capability is advertised for IPv4 and IPv6
-   address families by default. From v1.15, we have a known issue where Cilium
-   takes long time (approximately 300s) to restart route advertisement after
-   graceful restart when Cilium advertises both IPv4 and IPv6 address families,
-   but a remote peer advertises only one of them. You can work around this
-   issue by aligning the address families advertised by Cilium and remote with
-   the `families field <bgp-control-plane-address-families_>`_. You can track
-   `#30367 <https://github.com/cilium/cilium/issues/30367/>`_ for updates.
-
 Optionally, you can use the ``RestartTime`` parameter. ``RestartTime`` is the time
 advertised to the peer within which Cilium BGP control plane is expected to re-establish
 the BGP session after a restart. On expiration of ``RestartTime``, the peer removes
