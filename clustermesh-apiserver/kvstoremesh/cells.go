@@ -27,18 +27,28 @@ var Cell = cell.Module(
 
 	APIServerCell,
 
-	kvstoremesh.Cell,
+	WithLeaderLifecycle(
+		kvstoremesh.Cell,
 
-	cell.Provide(func(kmConfig kvstoremesh.Config) heartbeat.Config {
-		return heartbeat.Config{
-			EnableHeartBeat: kmConfig.EnableHeartBeat,
-		}
-	}),
-	heartbeat.Cell,
+		cell.Provide(func(kmConfig kvstoremesh.Config) heartbeat.Config {
+			return heartbeat.Config{
+				EnableHeartBeat: kmConfig.EnableHeartBeat,
+			}
+		}),
+		heartbeat.Cell,
 
-	cell.Invoke(kvstoremesh.RegisterSyncWaiter),
+		cell.Invoke(func(*kvstoremesh.KVStoreMesh) {}),
+	),
 
-	cell.Invoke(func(*kvstoremesh.KVStoreMesh) {}),
+	// This needs to be the last in the list, so that the start hook responsible
+	// for leader election is guaranteed to be executed last, when
+	// all the previous ones have already completed. Otherwise, cells within
+	// the "WithLeaderLifecycle" scope may be incorrectly started too early,
+	// given that "registerLeaderElectionHooks" does not depend on all of their
+	// individual dependencies outside of that scope.
+	cell.Invoke(
+		registerLeaderElectionHooks,
+	),
 )
 
 var pprofConfig = pprof.Config{

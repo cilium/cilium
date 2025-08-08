@@ -75,6 +75,8 @@ var ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease ex
 // aborted, and should not be logged as an error.
 var ErrOperationAbortedByInterceptor = errors.New("operation aborted")
 
+var ErrEtcdTimeout error = errors.New("etcd client timeout exceeded")
+
 type etcdModule struct {
 	opts backendOptions
 }
@@ -296,7 +298,7 @@ func etcdClientDebugLevel(logger *slog.Logger) zapcore.Level {
 // Hint tries to improve the error message displayed to te user.
 func Hint(err error) error {
 	if errors.Is(err, context.DeadlineExceeded) {
-		return fmt.Errorf("etcd client timeout exceeded")
+		return ErrEtcdTimeout
 	}
 	return err
 }
@@ -335,7 +337,8 @@ type etcdClient struct {
 
 	lastHeartbeat time.Time
 
-	leaseExpiredObservers lock.Map[string, func(string)]
+	leaseExpiredObservers     lock.Map[string, func(string)]
+	lockLeaseExpiredObservers lock.Map[string, func(string)]
 
 	// logger is the scoped logger associated with this client
 	logger *slog.Logger
@@ -502,7 +505,7 @@ func connectEtcdClient(ctx context.Context, logger *slog.Logger, errChan chan er
 
 	leaseTTL := cmp.Or(opts.LeaseTTL, defaults.KVstoreLeaseTTL)
 	ec.leaseManager = newEtcdLeaseManager(ec.logger, c, leaseTTL, etcdMaxKeysPerLease, ec.expiredLeaseObserver)
-	ec.lockLeaseManager = newEtcdLeaseManager(ec.logger, c, defaults.LockLeaseTTL, etcdMaxKeysPerLease, nil)
+	ec.lockLeaseManager = newEtcdLeaseManager(ec.logger, c, defaults.LockLeaseTTL, etcdMaxKeysPerLease, ec.expiredLockLeaseObserver)
 
 	go ec.asyncConnectEtcdClient(errChan)
 
@@ -613,11 +616,6 @@ func (e *etcdClient) newExpBackoffRateLimiter(name string) backoff.Exponential {
 }
 
 func (e *etcdClient) LockPath(ctx context.Context, path string) (locker KVLocker, err error) {
-	// Create the context first, so that the timeout also accounts for the time
-	// possibly required to acquire a new session (if not already established).
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
 	session, err := e.lockLeaseManager.GetSession(ctx, path)
 	if err != nil {
 		return nil, Hint(err)
@@ -1605,6 +1603,26 @@ func (e *etcdClient) RegisterLeaseExpiredObserver(prefix string, fn func(key str
 
 func (e *etcdClient) expiredLeaseObserver(key string) {
 	e.leaseExpiredObservers.Range(func(prefix string, fn func(string)) bool {
+		if strings.HasPrefix(key, prefix) {
+			fn(key)
+		}
+		return true
+	})
+}
+
+// RegisterLockLeaseExpiredObserver registers a function which is executed when
+// the lease associated with a key having the given prefix is detected as expired.
+// If the function is nil, the previous observer (if any) is unregistered.
+func (e *etcdClient) RegisterLockLeaseExpiredObserver(prefix string, fn func(key string)) {
+	if fn == nil {
+		e.lockLeaseExpiredObservers.Delete(prefix)
+	} else {
+		e.lockLeaseExpiredObservers.Store(prefix, fn)
+	}
+}
+
+func (e *etcdClient) expiredLockLeaseObserver(key string) {
+	e.lockLeaseExpiredObservers.Range(func(prefix string, fn func(string)) bool {
 		if strings.HasPrefix(key, prefix) {
 			fn(key)
 		}
