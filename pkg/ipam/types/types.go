@@ -439,6 +439,9 @@ type VirtualNetwork struct {
 
 	// IPv6CIDRs is the list of IPv6 CIDR ranges associated with the VPC
 	IPv6CIDRs []string
+
+	// PeeredCIDRs is the list of IPv4 CIDR ranges from peered VPCs
+	PeeredCIDRs []string
 }
 
 // VirtualNetworkMap indexes virtual networks by their ID

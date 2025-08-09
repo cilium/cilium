@@ -1324,6 +1324,10 @@
      - Enable use of per endpoint routes instead of routing via the cilium_host interface.
      - bool
      - ``false``
+   * - :spelling:ignore:`eni.awsAutoDetectPeeredVPCs`
+     - Enable auto-detection of peered VPC CIDRs (useful for excluding them from masquerading)
+     - bool
+     - ``false``
    * - :spelling:ignore:`eni.awsEnablePrefixDelegation`
      - Enable ENI prefix delegation
      - bool

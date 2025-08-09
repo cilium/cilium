@@ -276,4 +276,7 @@ type AwsVPC struct {
 
 	// CIDRs is the list of CIDR ranges associated with the VPC
 	CIDRs []string `json:"cidrs,omitempty"`
+
+	// PeeredCIDRs is the list of IPv4 CIDR ranges from peered VPCs
+	PeeredCIDRs []string `json:"peered-cidrs,omitempty"`
 }

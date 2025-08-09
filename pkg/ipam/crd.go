@@ -777,6 +777,8 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				if a.conf.IPv4NativeRoutingCIDR != nil {
 					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR.String())
 				}
+				// Add auto-detected peered VPCs
+				result.CIDRs = append(result.CIDRs, eni.VPC.PeeredCIDRs...)
 				// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
 				// Note that the resulting ip rules will not be dynamically regenerated if the
 				// ip-masq-agent configuration changes.

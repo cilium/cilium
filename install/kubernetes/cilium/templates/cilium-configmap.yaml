@@ -595,6 +595,9 @@ data:
 {{ if .Values.eni.gcTags }}
   eni-gc-tags: {{ .Values.eni.gcTags | toRawJson | quote }}
 {{- end }}
+{{- if .Values.eni.awsAutoDetectPeeredVPCs }}
+  aws-auto-detect-peered-vpcs: "true"
+{{- end }}
 
 {{- if .Values.azure.enabled }}
   enable-endpoint-routes: "true"

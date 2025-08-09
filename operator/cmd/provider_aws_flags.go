@@ -53,5 +53,8 @@ func (hook *awsFlagsHooks) RegisterProviderFlag(cmd *cobra.Command, vp *viper.Vi
 	flags.Bool(operatorOption.AWSPaginationEnabled, true, "Enable pagination for AWS EC2 API requests. The default page size is 1000 items.")
 	option.BindEnv(vp, operatorOption.AWSPaginationEnabled)
 
+	flags.Bool(operatorOption.AWSAutoDetectPeeredVPCs, false, "Enable auto-detection of peered VPC CIDRs (useful for excluding them from masquerading)")
+	option.BindEnv(vp, operatorOption.AWSAutoDetectPeeredVPCs)
+
 	vp.BindPFlags(flags)
 }

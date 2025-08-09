@@ -448,6 +448,11 @@ func (in *VirtualNetwork) DeepCopyInto(out *VirtualNetwork) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.PeeredCIDRs != nil {
+		in, out := &in.PeeredCIDRs, &out.PeeredCIDRs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

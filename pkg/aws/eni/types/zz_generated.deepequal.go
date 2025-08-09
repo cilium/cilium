@@ -55,6 +55,23 @@ func (in *AwsVPC) DeepEqual(other *AwsVPC) bool {
 		}
 	}
 
+	if ((in.PeeredCIDRs != nil) && (other.PeeredCIDRs != nil)) || ((in.PeeredCIDRs == nil) != (other.PeeredCIDRs == nil)) {
+		in, other := &in.PeeredCIDRs, &other.PeeredCIDRs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	return true
 }
 
