@@ -65,6 +65,12 @@ type clusterMeshParams struct {
 type ClusterMeshConfig struct {
 	// ClusterMeshEnableEndpointSync enables the EndpointSlice Cluster Mesh synchronization
 	ClusterMeshEnableEndpointSync bool `mapstructure:"clustermesh-enable-endpoint-sync"`
+
+	// ClusterMeshDefaultGlobalNamespace determines the default behavior for namespaces
+	// when namespace-based filtering is active (i.e., when at least one namespace is annotated).
+	// When true, namespaces are global by default unless annotated with clustermesh.cilium.io/global=false.
+	// When false, namespaces are local by default unless annotated with clustermesh.cilium.io/global=true.
+	ClusterMeshDefaultGlobalNamespace bool `mapstructure:"clustermesh-default-global-namespace"`
 }
 
 // Flags adds the flags used by ClientConfig.
@@ -73,6 +79,12 @@ func (cfg ClusterMeshConfig) Flags(flags *pflag.FlagSet) {
 		"clustermesh-enable-endpoint-sync",
 		cfg.ClusterMeshEnableEndpointSync,
 		"Whether or not the endpoint slice cluster mesh synchronization is enabled.",
+	)
+	flags.Bool(
+		"clustermesh-default-global-namespace",
+		cfg.ClusterMeshDefaultGlobalNamespace,
+		"Determines default behavior for namespaces when filtering is active. "+
+			"When true, namespaces are global by default. When false, namespaces are local by default.",
 	)
 }
 

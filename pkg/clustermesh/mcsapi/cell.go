@@ -133,6 +133,7 @@ func registerMCSAPIController(params mcsAPIParams) error {
 	svcImportReconciler := newMCSAPIServiceImportReconciler(
 		params.CtrlRuntimeManager, params.Logger, params.ClusterInfo.Name,
 		params.ClusterMesh.GlobalServiceExports(), remoteClusterServiceSource,
+		params.Cfg.ClusterMeshDefaultGlobalNamespace,
 	)
 
 	params.JobGroup.Add(job.OneShot("mcsapi-main", func(ctx context.Context, health cell.Health) error {
