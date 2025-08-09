@@ -18,6 +18,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -71,6 +72,7 @@ func TestUsersManagement(t *testing.T) {
 	require.NoError(t, os.WriteFile(cfgPath, []byte(users1), 0600))
 
 	hive := hive.New(
+		watcherMetrics.Cell,
 		cell.Provide(func() UsersManagementConfig {
 			return UsersManagementConfig{
 				ClusterUsersEnabled:    true,

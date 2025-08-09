@@ -31,6 +31,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -129,6 +130,7 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 			},
 			func() *server.Server { return nil },
 		),
+		watcherMetrics.Cell,
 		fakeDatapath.Cell,
 		neighbor.ForwardableIPCell,
 		cell.Provide(neighbor.NewCommonTestConfig(true, false)),

@@ -28,6 +28,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -72,6 +73,7 @@ func TestScript(t *testing.T) {
 		storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 
 		h := hive.New(
+			watcherMetrics.Cell,
 			k8sClient.FakeClientCell(),
 			cell.Provide(k8s.ServiceResource),
 			operatorK8s.ResourcesCell,

@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
@@ -362,6 +363,8 @@ type syncerParams struct {
 	Config        secretSyncConfig
 	XdsServer     XDSServer
 	SecretManager certificatemanager.SecretManager
+
+	MetricsProvider workqueue.MetricsProvider
 }
 
 func registerSecretSyncer(params syncerParams) error {
@@ -409,14 +412,14 @@ func registerSecretSyncer(params syncerParams) error {
 		jobGroup.Add(job.Observer(
 			shortener.ShortenK8sResourceName(fmt.Sprintf("k8s-secrets-resource-events-%s", ns)),
 			secretSyncer.handleSecretEvent,
-			newK8sSecretResource(params.Lifecycle, params.K8sClientset, ns),
+			newK8sSecretResource(params.Lifecycle, params.K8sClientset, params.MetricsProvider, ns),
 		))
 	}
 
 	return nil
 }
 
-func newK8sSecretResource(lc cell.Lifecycle, cs client.Clientset, namespace string) resource.Resource[*slim_corev1.Secret] {
+func newK8sSecretResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, namespace string) resource.Resource[*slim_corev1.Secret] {
 	if !cs.IsEnabled() {
 		return nil
 	}
@@ -424,5 +427,5 @@ func newK8sSecretResource(lc cell.Lifecycle, cs client.Clientset, namespace stri
 		utils.ListerWatcherFromTyped[*slim_corev1.SecretList](cs.Slim().CoreV1().Secrets(namespace)),
 	)
 
-	return resource.New[*slim_corev1.Secret](lc, lw, resource.WithMetric("Secret"))
+	return resource.New[*slim_corev1.Secret](lc, lw, mp, resource.WithMetric("Secret"))
 }

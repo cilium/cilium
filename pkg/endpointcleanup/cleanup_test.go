@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -148,6 +149,7 @@ func TestGC(t *testing.T) {
 			)
 
 			hive := hive.New(
+				watcherMetrics.Cell,
 				k8sFakeClient.FakeClientCell(),
 				k8s.ResourcesCell,
 				cell.ProvidePrivate(func() localEndpointCache {

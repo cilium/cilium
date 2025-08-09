@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/client-go/util/workqueue"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -51,14 +52,15 @@ var Cell = cell.Module(
 	cell.Invoke(func(*L2Announcer) {}), // register and start L2 announcer
 )
 
-func l2AnnouncementPolicyResource(lc cell.Lifecycle, cs k8sClient.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy], error) {
+func l2AnnouncementPolicyResource(lc cell.Lifecycle, cs k8sClient.Clientset,
+	mp workqueue.MetricsProvider) (resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherFromTyped(
 		cs.CiliumV2alpha1().CiliumL2AnnouncementPolicies(),
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy](lc, lw, resource.WithMetric("CiliumL2AnnouncementPolicy")), nil
+	return resource.New[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy](lc, lw, mp, resource.WithMetric("CiliumL2AnnouncementPolicy")), nil
 }
 
 type l2AnnouncerParams struct {

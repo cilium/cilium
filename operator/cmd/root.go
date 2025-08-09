@@ -689,7 +689,7 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 
 		if operatorOption.Config.NodesGCInterval != 0 {
 			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore,
-				operatorOption.Config.NodesGCInterval, watcherLogger)
+				operatorOption.Config.NodesGCInterval, watcherLogger, legacy.workqueueMetricsProvider)
 		}
 	}
 

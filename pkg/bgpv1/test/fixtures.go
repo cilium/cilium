@@ -210,7 +210,7 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 			store := resource.New[*cilium_api_v2.CiliumNode](
 				lc, utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](
 					c.CiliumV2().CiliumNodes(),
-				),
+				), nil,
 			)
 			f.ciliumNode = store
 			return store

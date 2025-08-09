@@ -24,7 +24,6 @@ import (
 
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/k8s/synced"
-	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -137,11 +136,13 @@ type Resource[T k8sRuntime.Object] interface {
 //	}
 //
 // See also pkg/k8s/resource/example/main.go for a runnable example.
-func New[T k8sRuntime.Object](lc cell.Lifecycle, lw cache.ListerWatcher, opts ...ResourceOption) Resource[T] {
+func New[T k8sRuntime.Object](lc cell.Lifecycle, lw cache.ListerWatcher, mp workqueue.MetricsProvider,
+	opts ...ResourceOption) Resource[T] {
 	r := &resource[T]{
-		subscribers: make(map[uint64]*subscriber[T]),
-		needed:      make(chan struct{}, 1),
-		lw:          lw,
+		subscribers:     make(map[uint64]*subscriber[T]),
+		needed:          make(chan struct{}, 1),
+		lw:              lw,
+		metricsProvider: mp,
 	}
 	r.opts.sourceObj = func() k8sRuntime.Object {
 		var obj T
@@ -239,6 +240,8 @@ type resource[T k8sRuntime.Object] struct {
 
 	storePromise  promise.Promise[Store[T]]
 	storeResolver promise.Resolver[Store[T]]
+
+	metricsProvider workqueue.MetricsProvider
 }
 
 var _ Resource[*corev1.Node] = &resource[*corev1.Node]{}
@@ -417,7 +420,7 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		wq: workqueue.NewTypedRateLimitingQueueWithConfig[WorkItem](options.rateLimiter,
 			workqueue.TypedRateLimitingQueueConfig[WorkItem]{
 				Name:            r.resourceName(),
-				MetricsProvider: watcherMetrics.MetricsProvider,
+				MetricsProvider: r.metricsProvider,
 			}),
 	}
 

@@ -22,6 +22,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -39,6 +40,7 @@ func TestIdentitiesGC(t *testing.T) {
 	var authIdentityClient authIdentity.Provider
 
 	hive := hive.New(
+		watcherMetrics.Cell,
 		cell.Config(cmtypes.DefaultClusterInfo),
 		metrics.Metric(NewMetrics),
 

@@ -341,6 +341,16 @@ Removed Metrics
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
+The following metrics previously had instances (i.e. for some watcher K8s resource type labels) under `workqueue_`.
+In this release any such metrics have been renamed and combined into the correct metric name prefixed with `cilium_operator_`.
+
+* `workqueue_adds_total` has been renamed and combined into to `cilium_operator_workqueue_adds_total`.
+* `workqueue_depth` has been renamed and combined into `cilium_operator_workqueue_adds_total`.
+* `workqueue_longest_running_processor_seconds` has been renamed and combined into `cilium_operator_workqueue_longest_running_processor_seconds`.
+* `workqueue_queue_duration_seconds` has been renamed and combined into `cilium_operator_workqueue_queue_duration_seconds`.
+* `workqueue_retries_total` has been renamed and combined into `cilium_operator_workqueue_retries_total`.
+* `workqueue_unfinished_work_seconds` has been renamed and combined into `cilium_operator_workqueue_unfinished_work_seconds`.
+* `workqueue_work_duration_seconds` has been renamed and combined into `cilium_operator_workqueue_work_duration_seconds`.
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~

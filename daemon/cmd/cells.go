@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/hostfirewallbypass"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -158,6 +159,9 @@ var (
 
 		// Cilium Agent Healthz endpoints (agent, kubeproxy, ...)
 		healthz.Cell,
+
+		// Provides workqueue metrics provider, used by all k8s resource constructors.
+		watcherMetrics.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
