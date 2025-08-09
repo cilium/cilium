@@ -150,6 +150,10 @@ func (b *BGPResourceManager) initializeJobs() {
 			}
 
 			b.logger.Info("BGPv2 control plane operator started")
+			// restore router IDs for all nodes
+			if err := b.restoreRouterIDs(); err != nil {
+				return err
+			}
 
 			return b.Run(ctx)
 		}),

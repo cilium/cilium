@@ -1019,14 +1019,22 @@ RouterID
 --------
 
 There is ``bgpControlPlane.routerIDAllocation.mode`` Helm chart value, which stipulates how the 
-Router ID is allocated. Currently, only ``default`` is supported. In ``default`` mode,
-when Cilium runs on an IPv4 single-stack or a dual-stack, the BGP Control Plane can use the IPv4 address
-assigned to the node as the BGP Router ID because the Router ID is 32 bit-long, and we can rely on the uniqueness
-of the IPv4 address to make the Router ID unique. When running in an IPv6 single-stack, the lower 32 bits
-of MAC address of ``cilium_host`` interface are used as Router ID. If the auto assignment of
-the Router ID is not desired, the administrator needs to manually define it.
+Router ID is allocated. Currently, ``default`` and ``ip-pool`` are supported. The default allocation mode
+is ``default``.
 
-In order to configure custom Router ID, you can set ``routerID`` field in an IPv4 address format.
+In ``default`` mode, when Cilium runs on an IPv4 single-stack or a dual-stack, the BGP Control Plane 
+can use the IPv4 address assigned to the node as the BGP Router ID because the Router ID is 32 bit-long, 
+and we can rely on the uniqueness of the IPv4 address to make the Router ID unique. When running in an IPv6 single-stack, 
+the lower 32 bits of MAC address of ``cilium_host`` interface are used as Router ID. 
+
+In ``ip-pool`` mode, you must provide an IPv4 IP pool like ``10.0.0.0/24`` to Cilium through the helm value 
+``bgpControlPlane.routerIDAllocation.ipPool``. Cilium will then assign Router IDs to BGP instances from this configured pool.
+
+If the auto assignment of the Router ID is not desired, you must manually define it.
+In order to configure custom Router ID, you can set ``routerID`` field in an IPv4 address format. In ``default`` mode, 
+you can manually set any Router ID, and Cilium does not validate it. In ``ip-pool`` mode, if the Router ID is within the pool range, 
+you must ensure it does not conflict with others. If the Router ID is outside the pool, you can set it freely.
+
 
 Listening Port
 --------------
