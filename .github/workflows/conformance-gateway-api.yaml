@@ -205,6 +205,12 @@ jobs:
           # renovate: datasource=github-releases depName=mfridman/tparse
           go install github.com/mfridman/tparse@28967170dce4f9f13de77ec857f7aed4c4294a5f # v0.12.3 (main) with -progress
 
+      - name: Install go-junit-report
+        timeout-minutes: 15
+        run: |
+          # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+          go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@4cdc5c96cb4e406fccf943536b5bfcae7a0fb826 # v2.3.1
+
       - name: Install Gateway API CRDs
         run: |
           gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
@@ -284,10 +290,12 @@ jobs:
       - name: Run Gateway API conformance test
         timeout-minutes: 30
         run: |
-          KIND_NET_CIDR=$(docker network inspect kind -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
+          mkdir -p cilium-junits
+          JUNIT_PATH="cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - gateway-conformance.xml"
+          KIND_NET_CIDR="$(docker network inspect kind -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')"
           echo "KIND_NET_CIDR: $KIND_NET_CIDR"
-          GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.206@")
-          GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.216@")
+          GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES="$(echo "${KIND_NET_CIDR}" | sed "s@0.0/16@255.206@")"
+          GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES="$(echo "${KIND_NET_CIDR}" | sed "s@0.0/16@255.216@")"
           echo "GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES: $GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES"
           echo "GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES: $GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES"
           if [ "${{ matrix.conformance-profile }}" == "true" ]; then
@@ -311,6 +319,9 @@ jobs:
               -test.run "TestConformance" \
               -test.timeout=29m \
               -json \
+            | tee \
+              >(go-junit-report -parser gojson -code-owners="${CILIUM_CLI_CODE_OWNERS_PATHS}" -code-owners-prefix github.com/cilium/cilium/ -out "${JUNIT_PATH}") \
+              >(go run ./tools/testowners --code-owners="${CILIUM_CLI_CODE_OWNERS_PATHS}") \
             | tparse -progress
           else
             GATEWAY_API_CONFORMANCE_TESTS=1 \
@@ -327,6 +338,9 @@ jobs:
               -test.timeout=29m \
               -test.skip "${{ steps.vars.outputs.skipped_tests }}" \
               -json \
+            | tee \
+              >(go-junit-report -parser gojson -code-owners="${CILIUM_CLI_CODE_OWNERS_PATHS}" -code-owners-prefix github.com/cilium/cilium/ -out "${JUNIT_PATH}") \
+              >(go run ./tools/testowners --code-owners="${CILIUM_CLI_CODE_OWNERS_PATHS}") \
             | tparse -progress
           fi
 
