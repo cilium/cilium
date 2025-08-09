@@ -549,9 +549,7 @@ Once the node is known, the troubleshooting steps are as follows:
 1. Find the Cilium pod on the node experiencing the problematic policymap
    pressure and obtain a shell via ``kubectl exec``.
 2. Use ``cilium policy selectors`` to get an overview of which selectors are
-   selecting many identities. The output of this command as of Cilium v1.15
-   additionally displays the namespace and name of the policy resource of each
-   selector.
+   selecting many identities.
 3. The type of selector tells you what sort of policy rule could be having an
    impact. The three existing types of selectors are explained below, each with
    specific steps depending on the selector. See the steps below corresponding

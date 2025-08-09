@@ -298,9 +298,6 @@ Masquerading
 
 Load-balancing
    ClusterIP load-balancing will be performed using eBPF for all version of GKE.
-   Starting with >= GKE v1.15 or when running a Linux kernel >= 4.19, all
-   NodePort/ExternalIP/HostPort will be performed using a eBPF implementation as
-   well.
 
 Policy enforcement & visibility
    All NetworkPolicy enforcement and visibility is provided using eBPF.
