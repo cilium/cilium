@@ -246,7 +246,8 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 
 static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full,
-					     const bool udp_only)
+					     const bool udp_only,
+					     const bool is_connect __maybe_unused)
 {
 	union lb4_affinity_client_id id;
 	const bool in_hostns = ctx_in_hostns(ctx_full, &id.client_cookie);
@@ -291,7 +292,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -EHOSTUNREACH;
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_FWD, dst_ip,
-				bpf_ntohs(dst_port));
+			bpf_ntohs(dst_port), is_connect);
 
 	/* Do not perform service translation for these services
 	 * in case of E/W traffic, but rather let the fabric
@@ -394,7 +395,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
 
 	send_trace_sock_notify4(ctx_full, XLATE_POST_DIRECTION_FWD, backend->address,
-				bpf_ntohs(backend->port));
+			bpf_ntohs(backend->port), is_connect);
 
 #ifdef ENABLE_L7_LB
 out:
@@ -421,7 +422,7 @@ int cil_sock4_connect(struct bpf_sock_addr *ctx)
 		return SYS_PROCEED;
 #endif /* ENABLE_HEALTH_CHECK */
 
-	err = __sock4_xlate_fwd(ctx, ctx, false);
+    err = __sock4_xlate_fwd(ctx, ctx, false, true);
 	if (err == -EHOSTUNREACH || err == -ENOMEM) {
 		try_set_retval(err);
 		return SYS_REJECT;
@@ -551,7 +552,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 	};
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_REV, dst_ip,
-				bpf_ntohs(dst_port));
+			bpf_ntohs(dst_port), false);
 	val = map_lookup_elem(&cilium_lb4_reverse_sk, &key);
 	if (val) {
 		struct lb4_service *svc;
@@ -580,7 +581,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 		ctx->user_ip4 = val->address;
 		ctx_set_port(ctx, val->port);
 		send_trace_sock_notify4(ctx_full, XLATE_POST_DIRECTION_REV, val->address,
-					bpf_ntohs(val->port));
+				bpf_ntohs(val->port), false);
 		return 0;
 	}
 
@@ -592,7 +593,7 @@ int cil_sock4_sendmsg(struct bpf_sock_addr *ctx)
 {
 	int err;
 
-	err = __sock4_xlate_fwd(ctx, ctx, true);
+    err = __sock4_xlate_fwd(ctx, ctx, true, false);
 	if (err == -EHOSTUNREACH || err == -ENOMEM) {
 		try_set_retval(err);
 		return SYS_REJECT;
@@ -808,7 +809,7 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 	fake_ctx.user_ip4  = addr6.p4;
 	fake_ctx.user_port = ctx_dst_port(ctx);
 
-	ret = __sock4_xlate_fwd(&fake_ctx, ctx, udp_only);
+    ret = __sock4_xlate_fwd(&fake_ctx, ctx, udp_only, !udp_only);
 	if (ret < 0)
 		return ret;
 
@@ -972,7 +973,8 @@ int cil_sock6_pre_bind(struct bpf_sock_addr *ctx)
 #endif /* ENABLE_HEALTH_CHECK */
 
 static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
-					     const bool udp_only)
+					     const bool udp_only,
+					     const bool is_connect __maybe_unused)
 {
 #ifdef ENABLE_IPV6
 	union lb6_affinity_client_id id;
@@ -1015,7 +1017,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -EHOSTUNREACH;
 
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_FWD, &key.address,
-				bpf_ntohs(dst_port));
+			bpf_ntohs(dst_port), is_connect);
 
 	if (lb6_svc_is_l7_punt_proxy(svc))
 		return SYS_PROCEED;
@@ -1081,7 +1083,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		lb6_update_affinity_by_netns(svc, &id, backend_id);
 
 	send_trace_sock_notify6(ctx, XLATE_POST_DIRECTION_FWD, &backend->address,
-				bpf_ntohs(backend->port));
+			bpf_ntohs(backend->port), is_connect);
 
 #ifdef ENABLE_L7_LB
 out:
@@ -1111,7 +1113,7 @@ int cil_sock6_connect(struct bpf_sock_addr *ctx)
 		return SYS_PROCEED;
 #endif /* ENABLE_HEALTH_CHECK */
 
-	err = __sock6_xlate_fwd(ctx, false);
+    err = __sock6_xlate_fwd(ctx, false, true);
 	if (err == -EHOSTUNREACH || err == -ENOMEM) {
 		try_set_retval(err);
 		return SYS_REJECT;
@@ -1163,7 +1165,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 	ctx_get_v6_address(ctx, &key.address);
 
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_REV, &key.address,
-				bpf_ntohs(dst_port));
+			bpf_ntohs(dst_port), false);
 
 	val = map_lookup_elem(&cilium_lb6_reverse_sk, &key);
 	if (val) {
@@ -1193,7 +1195,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 		ctx_set_v6_address(ctx, &val->address);
 		ctx_set_port(ctx, val->port);
 		send_trace_sock_notify6(ctx, XLATE_POST_DIRECTION_REV, &val->address,
-					bpf_ntohs(val->port));
+				bpf_ntohs(val->port), false);
 		return 0;
 	}
 #endif /* ENABLE_IPV6 */
@@ -1206,7 +1208,7 @@ int cil_sock6_sendmsg(struct bpf_sock_addr *ctx)
 {
 	int err;
 
-	err = __sock6_xlate_fwd(ctx, true);
+    err = __sock6_xlate_fwd(ctx, true, false);
 	if (err == -EHOSTUNREACH || err == -ENOMEM) {
 		try_set_retval(err);
 		return SYS_REJECT;
