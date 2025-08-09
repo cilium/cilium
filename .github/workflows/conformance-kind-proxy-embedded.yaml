@@ -73,6 +73,18 @@ jobs:
           ipv6_external_target: ${{ steps.external_network.outputs.ipv6_external_target }}
           ipv6_other_external_target: ${{ steps.external_network.outputs.ipv6_other_external_target }}
 
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+        with:
+          hubble: false
+          include-unsafe-tests: true
+          test-concurrency: 5
+          external-target: ${{ steps.external_targets.outputs.external_target_name }}
+          external-cidr: ${{ steps.external_network.outputs.ipv4_external_cidr }}
+          external-ip: ${{ steps.external_network.outputs.ipv4_external_target }}
+          external-other-ip: ${{ steps.external_network.outputs.ipv4_other_external_target }}
+
       - name: Set up job variables
         id: vars
         run: |
@@ -88,17 +100,10 @@ jobs:
             --helm-set=envoy.enabled=false \
             --helm-set=ipv6.enabled=true \
             --wait=false"
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --test-concurrency=5 \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --hubble=false --collect-sysdump-on-failure \
-            --external-target=${{ steps.external_targets.outputs.external_target_name }} \
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
             --external-other-target=${{ steps.external_targets.outputs.other_external_target_name }} \
-            --external-cidr=${{ steps.external_network.outputs.ipv4_external_cidr }} \
             --external-cidrv6=${{ steps.external_network.outputs.ipv6_external_cidr }} \
-            --external-ip=${{ steps.external_network.outputs.ipv4_external_target }} \
             --external-ipv6=${{ steps.external_network.outputs.ipv6_external_target }} \
-            --external-other-ip=${{ steps.external_network.outputs.ipv4_other_external_target }} \
             --external-other-ipv6=${{ steps.external_network.outputs.ipv6_other_external_target }} \
             --external-target-ca-namespace=external-target-secrets --external-target-ca-name=custom-ca \
             --external-target-ipv6-capable"

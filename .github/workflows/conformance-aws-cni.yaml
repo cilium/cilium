@@ -198,6 +198,15 @@ jobs:
           image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
 
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+        with:
+          external-target: 'amazon.com.'
+          hubble: false
+          test-concurrency: 3
+          tests: '!fqdn,!l7' # L7 policies are not supported in chaining mode.
+
       - name: Set up job variables
         id: vars
         run: |
@@ -229,12 +238,8 @@ jobs:
                                       --helm-set=cni.enableRouteMTUForCNIChaining=true"
           fi
 
-          # L7 policies are not supported in chaining mode.
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --test-concurrency=3 \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --hubble=false --collect-sysdump-on-failure --test '!fqdn,!l7' \
-            --external-target amazon.com. --external-ip 1.0.0.1 --external-other-ip 1.1.1.1"
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
+
           # shellcheck disable=SC2046
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           # shellcheck disable=SC2046

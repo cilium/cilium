@@ -157,6 +157,10 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+
       - name: Set up job variables
         id: vars
         run: |
@@ -199,6 +203,9 @@ jobs:
             CONCURRENT_CONNECTIVITY_TESTS="!(seq-.*|pod-to-world.*|pod-to-cidr)"
           fi
           echo concurrent_connectivity_tests=${CONCURRENT_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
+
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Checkout pull request branch (NOT TRUSTED)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -393,6 +400,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-precheck
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run sequential tests after upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -400,6 +408,7 @@ jobs:
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-sequential
           tests: ${{ steps.vars.outputs.sequential_connectivity_tests }}
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent tests after upgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -408,6 +417,7 @@ jobs:
           job-name: cilium-upgrade-${{ matrix.name }}-concurrent
           tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Assert that no unencrypted packets are leaked during Cilium upgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -450,6 +460,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-precheck
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run sequential tests after downgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -457,6 +468,7 @@ jobs:
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-sequential
           tests: ${{ steps.vars.outputs.sequential_connectivity_tests }}
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent tests after downgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -465,6 +477,7 @@ jobs:
           job-name: cilium-downgrade-${{ matrix.name }}-concurrent
           tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Assert that no unencrypted packets are leaked during Cilium downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
