@@ -835,13 +835,22 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	return done
 }
 
-// InitialPolicyComputedLocked marks computation of the initial Envoy policy done.
-// Endpoint lock must be held so that the channel is never closed twice.
-func (e *Endpoint) InitialPolicyComputedLocked() {
+// Wait for initial policy blocks till the initial policy for the endpoint is computed
+// or the endpoint is stopped.
+func (e *Endpoint) WaitForInitialPolicy() {
 	select {
-	case <-e.InitialEnvoyPolicyComputed:
+	case <-e.initialEnvoyPolicyComputed:
+	case <-e.aliveCtx.Done():
+	}
+}
+
+// initialPolicyComputedLocked marks computation of the initial Envoy policy done.
+// Endpoint lock must be held so that the channel is never closed twice.
+func (e *Endpoint) initialPolicyComputedLocked() {
+	select {
+	case <-e.initialEnvoyPolicyComputed:
 	default:
-		close(e.InitialEnvoyPolicyComputed)
+		close(e.initialEnvoyPolicyComputed)
 	}
 }
 
@@ -922,7 +931,7 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 	}
 
 	// Signal computation of the initial Envoy policy if not done yet
-	e.InitialPolicyComputedLocked()
+	e.initialPolicyComputedLocked()
 
 	return nil, release
 }
