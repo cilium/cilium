@@ -1436,7 +1436,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodePodCIDRsChurnIPSec(t *testing.T) 
 	}
 }
 
-func BenchmarkAll(b *testing.B) {
+func BenchmarkPrivilegedAll(b *testing.B) {
 	for _, tt := range []string{"IPv4", "IPv6", "dual"} {
 		b.Run(tt, func(b *testing.B) {
 			b.Run("BenchmarkNodeUpdate", func(b *testing.B) {

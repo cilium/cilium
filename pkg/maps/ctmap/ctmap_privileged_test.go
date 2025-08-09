@@ -55,7 +55,7 @@ func BenchmarkMapBatchLookup(b *testing.B) {
 	}
 }
 
-func Benchmark_MapUpdate(b *testing.B) {
+func BenchmarkPrivileged_MapUpdate(b *testing.B) {
 	setupCTMap(b)
 
 	m := newMap(MapNameTCP4Global+"_test", mapTypeIPv4TCPGlobal)
@@ -841,15 +841,15 @@ func populateFakeDataCTMap4(tb testing.TB, m CtMap, size int) map[*CtKey4Global]
 	return cache
 }
 
-func BenchmarkCtGcTcpXL(t *testing.B) {
+func BenchmarkPrivilegedCtGcTcpXL(t *testing.B) {
 	benchmarkCtGc(t, 1<<24) // max size
 }
 
-func BenchmarkCtGcTcpL(t *testing.B) {
+func BenchmarkPrivilegedCtGcTcpL(t *testing.B) {
 	benchmarkCtGc(t, 1<<22)
 }
 
-func BenchmarkCtGcTcpM(t *testing.B) {
+func BenchmarkPrivilegedCtGcTcpM(t *testing.B) {
 	benchmarkCtGc(t, 1<<17)
 }
 
