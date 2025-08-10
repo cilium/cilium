@@ -15831,6 +15831,9 @@ type RequestLaunchTemplateData struct {
 	// Deprecated.
 	//
 	// Amazon Elastic Graphics reached end of life on January 8, 2024.
+	//
+	// Deprecated: Specifying Elastic Graphics accelerators is no longer supported on
+	// the RunInstances API.
 	ElasticGpuSpecifications []ElasticGpuSpecification
 
 	// Amazon Elastic Inference is no longer available.
@@ -15840,6 +15843,9 @@ type RequestLaunchTemplateData struct {
 	// instances to accelerate your Deep Learning (DL) inference workloads.
 	//
 	// You cannot specify accelerators from different generations in the same request.
+	//
+	// Deprecated: Specifying Elastic Inference accelerators is no longer supported on
+	// the RunInstances API.
 	ElasticInferenceAccelerators []LaunchTemplateElasticInferenceAccelerator
 
 	// Indicates whether the instance is enabled for Amazon Web Services Nitro

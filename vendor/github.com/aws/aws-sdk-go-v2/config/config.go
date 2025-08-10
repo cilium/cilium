@@ -91,6 +91,8 @@ var defaultAWSConfigResolvers = []awsConfigResolver{
 	resolveResponseChecksumValidation,
 
 	resolveInterceptors,
+
+	resolveAuthSchemePreference,
 }
 
 // A Config represents a generic configuration value or set of values. This type
