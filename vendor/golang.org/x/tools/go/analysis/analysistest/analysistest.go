@@ -575,7 +575,7 @@ func check(t Testing, gopath string, act *checker.Action) {
 	files := act.Package.OtherFiles
 
 	// Hack: these two analyzers need to extract expectations from
-	// all configurations, so include the files are are usually
+	// all configurations, so include the files are usually
 	// ignored. (This was previously a hack in the respective
 	// analyzers' tests.)
 	if act.Analyzer.Name == "buildtag" || act.Analyzer.Name == "directive" {
