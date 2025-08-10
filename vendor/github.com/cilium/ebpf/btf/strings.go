@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-// stringTable is contains a sequence of null-terminated strings.
+// stringTable contains a sequence of null-terminated strings.
 //
 // It is safe for concurrent use.
 type stringTable struct {
@@ -28,6 +28,15 @@ type sizedReader interface {
 }
 
 func readStringTable(r sizedReader, base *stringTable) (*stringTable, error) {
+	bytes := make([]byte, r.Size())
+	if _, err := io.ReadFull(r, bytes); err != nil {
+		return nil, err
+	}
+
+	return newStringTable(bytes, base)
+}
+
+func newStringTable(bytes []byte, base *stringTable) (*stringTable, error) {
 	// When parsing split BTF's string table, the first entry offset is derived
 	// from the last entry offset of the base BTF.
 	firstStringOffset := uint32(0)
@@ -35,21 +44,14 @@ func readStringTable(r sizedReader, base *stringTable) (*stringTable, error) {
 		firstStringOffset = uint32(len(base.bytes))
 	}
 
-	bytes := make([]byte, r.Size())
-	if _, err := io.ReadFull(r, bytes); err != nil {
-		return nil, err
-	}
+	if len(bytes) > 0 {
+		if bytes[len(bytes)-1] != 0 {
+			return nil, errors.New("string table isn't null terminated")
+		}
 
-	if len(bytes) == 0 {
-		return nil, errors.New("string table is empty")
-	}
-
-	if bytes[len(bytes)-1] != 0 {
-		return nil, errors.New("string table isn't null terminated")
-	}
-
-	if firstStringOffset == 0 && bytes[0] != 0 {
-		return nil, errors.New("first item in string table is non-empty")
+		if firstStringOffset == 0 && bytes[0] != 0 {
+			return nil, errors.New("first item in string table is non-empty")
+		}
 	}
 
 	return &stringTable{base: base, bytes: bytes}, nil
