@@ -40,7 +40,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-logr/logr v1.4.3
-	github.com/go-openapi/errors v0.22.1
+	github.com/go-openapi/errors v0.22.2
 	github.com/go-openapi/loads v0.22.0
 	github.com/go-openapi/runtime v0.28.0
 	github.com/go-openapi/spec v0.21.0
