@@ -60,9 +60,9 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.24.5
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 532.0.0
+  gcloud_version: 533.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  cmapisrv_mock_ref: 79b62757cbccec717ecdb1395505434f24242616
+  cmapisrv_mock_ref: e32304f6dde0d160da3548e653f295424775462b
 
   test_name: scale-clustermesh
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -134,7 +134,7 @@ jobs:
           export_environment_variables: true
 
       - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@6a7c903a70c8625ed6700fa299f5ddb4ca6022e9 # v2.1.5
+        uses: google-github-actions/setup-gcloud@cb1e50a9932213ecece00a606661ae9ca44f3397 # v2.2.0
         with:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
