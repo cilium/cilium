@@ -196,6 +196,9 @@ type Config struct {
 
 	// Registry of HTTP interceptors.
 	Interceptors smithyhttp.InterceptorRegistry
+
+	// Priority list of preferred auth scheme IDs.
+	AuthSchemePreference []string
 }
 
 // NewConfig returns a new Config pointer that can be chained with builder

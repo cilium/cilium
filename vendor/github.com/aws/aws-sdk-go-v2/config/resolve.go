@@ -422,3 +422,10 @@ func resolveInterceptors(ctx context.Context, cfg *aws.Config, configs configs) 
 	}
 	return nil
 }
+
+func resolveAuthSchemePreference(ctx context.Context, cfg *aws.Config, configs configs) error {
+	if pref, ok := getAuthSchemePreference(ctx, configs); ok {
+		cfg.AuthSchemePreference = pref
+	}
+	return nil
+}
