@@ -44,6 +44,12 @@ const (
 	// Indexes TLSRoutes by all the Gateway parents referenced in the object.
 	gatewayTLSRouteIndex = "gatewayTLSRouteIndex"
 
+	// Indexes GRPCRoutes by all the backend Services referenced in the object.
+	backendServiceGRPCRouteIndex = "backendServiceGRPCRouteIndex"
+
+	// Indexes GRPCRoutes by all the Gateway parents referenced in the object.
+	gatewayGRPCRouteIndex = "gatewayGRPCRouteIndex"
+
 	// Indexes GAMMA HTTPRoutes by all the GAMMA parents of that HTTPRoute.
 	// This is then be used by the Service reconciler to only retrieve any HTTPRoutes that have that specific
 	// Service as a parent.

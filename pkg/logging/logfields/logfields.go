@@ -1155,6 +1155,8 @@ const (
 
 	TLSRoute = "tlsRoute"
 
+	GRPCRoute = "grpcRoute"
+
 	Secret = "secret"
 
 	Nodes = "nodes"
