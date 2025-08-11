@@ -1989,7 +1989,7 @@
      - bool
      - ``true``
    * - :spelling:ignore:`hubble.redact.kafka.apiKey`
-     - Enables redacting Kafka's API key. Example:    redact:     enabled: true     kafka:       apiKey: true  You can specify the options from the helm CLI:    --set hubble.redact.enabled="true"   --set hubble.redact.kafka.apiKey="true"
+     - Enables redacting Kafka's API key (deprecated, will be removed in v1.19). Example:    redact:     enabled: true     kafka:       apiKey: true  You can specify the options from the helm CLI:    --set hubble.redact.enabled="true"   --set hubble.redact.kafka.apiKey="true"
      - bool
      - ``true``
    * - :spelling:ignore:`hubble.relay.affinity`

@@ -1417,7 +1417,7 @@ hubble:
         #   --set hubble.redact.http.headers.deny="Authorization,Proxy-Authorization"
         deny: []
     kafka:
-      # -- Enables redacting Kafka's API key.
+      # -- Enables redacting Kafka's API key (deprecated, will be removed in v1.19).
       # Example:
       #
       #   redact:
