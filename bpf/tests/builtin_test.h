@@ -58,8 +58,8 @@ static __always_inline bool __corrupt_mem(void *d, __u32 len)
 	 */
 	asm volatile("%0 += %1" : "+r"(d8) : "r"(pos));
 
-	if (corrupted)
-		++*d8;
+	*d8 += corrupted;
+
 	return corrupted;
 }
 
