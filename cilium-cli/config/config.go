@@ -103,6 +103,11 @@ func (k *K8sConfig) restartPodsUponConfigChange(ctx context.Context, params Para
 		return fmt.Errorf("⚠️  unable to restart Cilium pods: %w", err)
 	}
 
+	if err := k.client.DeletePodCollection(ctx, params.Namespace,
+		metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.OperatorPodSelector}); err != nil {
+		return fmt.Errorf("⚠️  unable to restart Cilium Operator pods: %w", err)
+	}
+
 	fmt.Println("♻️  Restarted Cilium pods")
 
 	return nil
