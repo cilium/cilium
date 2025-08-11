@@ -562,7 +562,7 @@ Message for L7 flow, which roughly corresponds to Cilium&#39;s accesslog [LogRec
 | latency_ns | [uint64](#uint64) |  | Latency of the response |
 | dns | [DNS](#flow-DNS) |  |  |
 | http | [HTTP](#flow-HTTP) |  |  |
-| kafka | [Kafka](#flow-Kafka) |  |  |
+| kafka | [Kafka](#flow-Kafka) |  | **Deprecated.**  |
 
 
 
