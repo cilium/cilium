@@ -22,6 +22,15 @@ dnsPolicy: {{ .Values.dnsPolicy }}
 {{- end }}
 
 {{/*
+Allow packagers to add extra volumes to cilium-operator.
+*/}}
+{{- define "cilium-operator.volumes.extra" }}
+{{- end }}
+
+{{- define "cilium-operator.volumeMounts.extra" }}
+{{- end }}
+
+{{/*
 Intentionally empty to allow downstream chart packagers to add extra
 containers to hubble-relay without having to modify the deployment manifest
 directly.

@@ -258,6 +258,7 @@ spec:
         {{- with .Values.operator.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- include "cilium-operator.volumeMounts.extra" . | nindent 8 }}
         {{- with .Values.operator.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
@@ -421,4 +422,5 @@ spec:
                 path: local-etcd-client-ca.crt
           {{- end }}
       {{- end }}
+      {{- include "cilium-operator.volumes.extra" . | nindent 6 }}
 {{- end }}
