@@ -255,7 +255,7 @@ message Layer7 {
     oneof record {
         DNS dns = 100;
         HTTP http = 101;
-        Kafka kafka = 102;
+        Kafka kafka = 102 [deprecated = true];
     }
 }
 
@@ -709,6 +709,7 @@ message HTTP {
 
 // L7 information for Kafka flows. It corresponds to Cilium's [accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229) type.
 message Kafka {
+    option deprecated = true;
     int32 error_code = 1;
     int32 api_version = 2;
     string api_key = 3;
