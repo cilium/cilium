@@ -53,6 +53,13 @@ func TestCacheManagement(t *testing.T) {
 	deleted := cache.delete(identity)
 	require.False(t, deleted)
 
+	// Insert directly to cache and delete the entry.
+	csp := cache.lookupOrCreate(identity)
+	require.NotNil(t, csp)
+	require.Nil(t, csp.getPolicy())
+	removed := cache.delete(identity)
+	require.True(t, removed)
+
 	// Insert identity twice. Should be the same policy.
 	policy1, updated, err := cache.updateSelectorPolicy(identity, ep1.Id)
 	require.NoError(t, err)
