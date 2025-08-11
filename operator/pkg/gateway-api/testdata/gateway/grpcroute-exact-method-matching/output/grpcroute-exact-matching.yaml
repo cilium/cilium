@@ -1,0 +1,39 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: exact-matching
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - matches:
+        - method:
+            service: gateway_api_conformance.echo_basic.grpcecho.GrpcEcho
+            method: Echo
+      backendRefs:
+        - name: grpc-infra-backend-v1
+          port: 8080
+    - matches:
+        - method:
+            service: gateway_api_conformance.echo_basic.grpcecho.GrpcEcho
+            method: EchoTwo
+      backendRefs:
+        - name: grpc-infra-backend-v2
+          port: 8080
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Accepted HTTPRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Service reference is valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: same-namespace

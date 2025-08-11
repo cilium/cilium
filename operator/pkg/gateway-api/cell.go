@@ -277,7 +277,6 @@ func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Transla
 		newGatewayReconciler(mgr, translator, logger, installedCRDs),
 		newReferenceGrantReconciler(mgr, logger),
 		newGammaReconciler(mgr, translator, logger),
-		newGRPCRouteReconciler(mgr, logger),
 		newGatewayClassConfigReconciler(mgr, logger),
 	}
 
