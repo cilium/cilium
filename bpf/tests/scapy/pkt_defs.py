@@ -103,7 +103,11 @@ l2_announce6_ns = Ether(dst=l2_announce6_ns_mmac, src=mac_one)/                \
                   IPv6(src=v6_ext_node_one, dst=l2_announce6_ns_ma, hlim=255)/ \
                   ICMPv6ND_NS(tgt=v6_svc_one)/                                 \
                   ICMPv6NDOptSrcLLAddr(lladdr=mac_one)
-
+l2_announce6_targeted_ns =                                                     \
+                  Ether(dst=mac_two, src=mac_one) /                            \
+                  IPv6(src=v6_ext_node_one, dst=v6_svc_one, hlim=255) /        \
+                  ICMPv6ND_NS(tgt=v6_svc_one) /                                \
+                  ICMPv6NDOptSrcLLAddr(lladdr=mac_one)
 l2_announce6_na = Ether(dst=mac_one, src=mac_two)/                             \
                   IPv6(src=v6_svc_one, dst=v6_ext_node_one, hlim=255)/         \
                   ICMPv6ND_NA(R=0, S=1, O=1, tgt=v6_svc_one)/                  \
