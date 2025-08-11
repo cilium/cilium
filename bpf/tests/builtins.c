@@ -55,6 +55,11 @@ int test_builtin_memcmp_large(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
+/**
+ * Note the test is intentionally split in I and II due to a CLANG
+ * bug (possibly out of jump labels), see commit history and
+ * PR#41017 for more details.
+ */
 CHECK("tc", "builtin_memmove")
 int test_builtin_memmove(__maybe_unused struct __ctx_buff *ctx)
 {
@@ -63,9 +68,19 @@ int test_builtin_memmove(__maybe_unused struct __ctx_buff *ctx)
 	/* ./builtin_gen memmove1 128  > builtin_memmove.h */
 	/* ./builtin_gen memmove2 128 >> builtin_memmove.h */
 	/* ./builtin_gen memmove3 128 >> builtin_memmove.h */
-	/* ./builtin_gen memmove4 128 >> builtin_memmove.h */
-	/* ./builtin_gen memmove5 128 >> builtin_memmove.h */
 	#include "builtin_memmove.h"
+
+	test_finish();
+}
+
+CHECK("tc", "builtin_memmove2")
+int test_builtin_memmove2(__maybe_unused struct __ctx_buff *ctx)
+{
+	test_init();
+
+	/* ./builtin_gen memmove4 128 > builtin_memmove2.h */
+	/* ./builtin_gen memmove5 128 >> builtin_memmove2.h */
+	#include "builtin_memmove2.h"
 
 	test_finish();
 }
