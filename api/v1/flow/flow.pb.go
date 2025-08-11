@@ -2156,6 +2156,7 @@ func (x *Layer7) GetHttp() *HTTP {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in flow/flow.proto.
 func (x *Layer7) GetKafka() *Kafka {
 	if x != nil {
 		if x, ok := x.Record.(*Layer7_Kafka); ok {
@@ -2178,6 +2179,7 @@ type Layer7_Http struct {
 }
 
 type Layer7_Kafka struct {
+	// Deprecated: Marked as deprecated in flow/flow.proto.
 	Kafka *Kafka `protobuf:"bytes,102,opt,name=kafka,proto3,oneof"`
 }
 
@@ -3860,6 +3862,8 @@ func (x *HTTP) GetHeaders() []*HTTPHeader {
 }
 
 // L7 information for Kafka flows. It corresponds to Cilium's [accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229) type.
+//
+// Deprecated: Marked as deprecated in flow/flow.proto.
 type Kafka struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ErrorCode     int32                  `protobuf:"varint,1,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`
@@ -5194,15 +5198,15 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x04SCTP\x18\x05 \x01(\v2\n" +
 	".flow.SCTPH\x00R\x04SCTPB\n" +
 	"\n" +
-	"\bprotocol\"\xbd\x01\n" +
+	"\bprotocol\"\xc1\x01\n" +
 	"\x06Layer7\x12$\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x10.flow.L7FlowTypeR\x04type\x12\x1d\n" +
 	"\n" +
 	"latency_ns\x18\x02 \x01(\x04R\tlatencyNs\x12\x1d\n" +
 	"\x03dns\x18d \x01(\v2\t.flow.DNSH\x00R\x03dns\x12 \n" +
 	"\x04http\x18e \x01(\v2\n" +
-	".flow.HTTPH\x00R\x04http\x12#\n" +
-	"\x05kafka\x18f \x01(\v2\v.flow.KafkaH\x00R\x05kafkaB\b\n" +
+	".flow.HTTPH\x00R\x04http\x12'\n" +
+	"\x05kafka\x18f \x01(\v2\v.flow.KafkaB\x02\x18\x01H\x00R\x05kafkaB\b\n" +
 	"\x06record\"9\n" +
 	"\fTraceContext\x12)\n" +
 	"\x06parent\x18\x01 \x01(\v2\x11.flow.TraceParentR\x06parent\"(\n" +
@@ -5350,7 +5354,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x06method\x18\x02 \x01(\tR\x06method\x12\x10\n" +
 	"\x03url\x18\x03 \x01(\tR\x03url\x12\x1a\n" +
 	"\bprotocol\x18\x04 \x01(\tR\bprotocol\x12*\n" +
-	"\aheaders\x18\x05 \x03(\v2\x10.flow.HTTPHeaderR\aheaders\"\x9d\x01\n" +
+	"\aheaders\x18\x05 \x03(\v2\x10.flow.HTTPHeaderR\aheaders\"\xa1\x01\n" +
 	"\x05Kafka\x12\x1d\n" +
 	"\n" +
 	"error_code\x18\x01 \x01(\x05R\terrorCode\x12\x1f\n" +
@@ -5358,7 +5362,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"apiVersion\x12\x17\n" +
 	"\aapi_key\x18\x03 \x01(\tR\x06apiKey\x12%\n" +
 	"\x0ecorrelation_id\x18\x04 \x01(\x05R\rcorrelationId\x12\x14\n" +
-	"\x05topic\x18\x05 \x01(\tR\x05topic\";\n" +
+	"\x05topic\x18\x05 \x01(\tR\x05topic:\x02\x18\x01\";\n" +
 	"\aService\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"L\n" +

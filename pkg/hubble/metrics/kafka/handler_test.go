@@ -111,13 +111,13 @@ func Test_kafkaHandler_ProcessFlow(t *testing.T) {
 		},
 	})
 	requestsExpected := `
-        # HELP hubble_kafka_requests_total Count of Kafka requests
+        # HELP hubble_kafka_requests_total Count of Kafka requests (deprecated)
         # TYPE hubble_kafka_requests_total counter
 	      hubble_kafka_requests_total{api_key="test-api-key", destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",error_code="0",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",topic="test-topic"} 1
 	`
 	assert.NoError(t, testutil.CollectAndCompare(handler.(*kafkaHandler).requests, strings.NewReader(requestsExpected)))
 	durationExpected := `
-        # HELP hubble_kafka_request_duration_seconds Quantiles of HTTP request duration in seconds
+        # HELP hubble_kafka_request_duration_seconds Quantiles of HTTP request duration in seconds (deprecated)
         # TYPE hubble_kafka_request_duration_seconds histogram
         hubble_kafka_request_duration_seconds_bucket{api_key="test-api-key",destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",topic="test-topic",le="0.005"} 0
         hubble_kafka_request_duration_seconds_bucket{api_key="test-api-key",destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",topic="test-topic",le="0.01"} 0
