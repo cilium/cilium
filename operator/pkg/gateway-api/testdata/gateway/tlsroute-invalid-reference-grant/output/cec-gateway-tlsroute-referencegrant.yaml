@@ -7,7 +7,7 @@ metadata:
   name: cilium-gateway-gateway-tlsroute-referencegrant
   namespace: gateway-conformance-infra
   ownerReferences:
-    - apiVersion: gateway.networking.k8s.io/v1beta1
+    - apiVersion: gateway.networking.k8s.io/v1
       controller: true
       kind: Gateway
       name: gateway-tlsroute-referencegrant
