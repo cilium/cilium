@@ -544,6 +544,10 @@ func setOptionsDefaults(options Options) Options {
 		options.Logger = log.Log
 	}
 
+	if options.Controller.Logger.GetSink() == nil {
+		options.Controller.Logger = options.Logger
+	}
+
 	if options.BaseContext == nil {
 		options.BaseContext = defaultBaseContext
 	}
