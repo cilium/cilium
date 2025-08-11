@@ -23,7 +23,7 @@ int test_builtin_memcpy(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();
 
-	/* ./builtin_gen memcpy 96 > builtin_memcpy.h */
+	/* ./builtin_gen memcpy 128 > builtin_memcpy.h */
 	#include "builtin_memcpy.h"
 
 	test_finish();
