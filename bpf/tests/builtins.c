@@ -12,7 +12,7 @@ int test_builtin_memzero(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();
 
-	/* ./builtin_gen memzero 96 > builtin_memzero.h */
+	/* ./builtin_gen memzero 128 > builtin_memzero.h */
 	#include "builtin_memzero.h"
 
 	test_finish();
