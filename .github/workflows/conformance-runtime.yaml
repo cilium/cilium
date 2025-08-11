@@ -418,8 +418,9 @@ jobs:
             go${{ env.go-version}} install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
             # Use go cache and module cache from the host that is shared with the VM.
             mkdir -p /go-caches
-            tar --use-compress-program=zstd -xpf /host/go-build-cache.tar.zst --same-owner -C /go-caches || true
-            tar --use-compress-program=zstd -xpf /host/go-mod-cache.tar.zst --same-owner -C /go-caches || true
+            # TODO: re-enable go caches below once images with larger disk size from https://github.com/cilium/little-vm-helper-images/pull/960 are in use
+            # tar --use-compress-program=zstd -xpf /host/go-build-cache.tar.zst --same-owner -C /go-caches || true
+            # tar --use-compress-program=zstd -xpf /host/go-mod-cache.tar.zst --same-owner -C /go-caches || true
             ls -la /go-caches/go-build || true
 
       - name: Privileged unit tests
