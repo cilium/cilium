@@ -317,6 +317,10 @@ Helm Options
 ~~~~~~~~~~~~
 * The Helm option ``clustermesh.enableMCSAPISupport`` has been deprecated in favor of ``clustermesh.mcsapi.enabled``
   and will be removed in Cilium 1.20.
+* The Helm option ``clustermesh.config.clusters`` now support a new format based on a dict
+  in addition to the previous list format. The new format is recommended for users installing
+  Cilium ClusterMesh without Cilium CLI and could allow you to organize your clusters definition
+  in multiple Helm value files. See the Cilium Helm chart documentation or value file for more details.
 
 
 Agent Options

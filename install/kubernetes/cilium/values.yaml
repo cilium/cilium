@@ -3287,23 +3287,50 @@ clustermesh:
     # This is used in the case cluster addresses are not provided
     # and IPs are used.
     domain: mesh.cilium.io
-    # -- List of clusters to be peered in the mesh.
+    # -- Clusters to be peered in the mesh.
+    # @schema
+    # type: [object, array]
+    # @schema
     clusters: []
+    # You can use a dict of clusters (recommended):
     # clusters:
-    # # -- Name of the cluster
+    #   # -- Name of the cluster
+    #   cluster1:
+    #     # -- Whether to enable this cluster in the mesh. Optional, defaults to true.
+    #     enabled: true
+    #     # -- Address of the cluster, use this if you created DNS records for
+    #     # the cluster Clustermesh API server.
+    #     address: cluster1.mesh.cilium.io
+    #     # -- Port of the cluster Clustermesh API server.
+    #     port: 2379
+    #     # -- IPs of the cluster Clustermesh API server, use multiple ones when
+    #     # you have multiple IPs to access the Clustermesh API server.
+    #     ips:
+    #     - 172.18.255.201
+    #     # -- base64 encoded PEM values for the cluster client certificate, private key and certificate authority.
+    #     # These fields can (and should) be omitted in case the CA is shared across clusters. In that case, the
+    #     # "remote" private key and certificate available in the local cluster are automatically used instead.
+    #     tls:
+    #       cert: ""
+    #       key: ""
+    #       caCert: ""
+    #
+    # Or alternatively you can use a list of clusters:
+    # clusters:
+    #   # -- Name of the cluster
     # - name: cluster1
-    # # -- Address of the cluster, use this if you created DNS records for
-    # # the cluster Clustermesh API server.
+    #   # -- Address of the cluster, use this if you created DNS records for
+    #   # the cluster Clustermesh API server.
     #   address: cluster1.mesh.cilium.io
-    # # -- Port of the cluster Clustermesh API server.
+    #   # -- Port of the cluster Clustermesh API server.
     #   port: 2379
-    # # -- IPs of the cluster Clustermesh API server, use multiple ones when
-    # # you have multiple IPs to access the Clustermesh API server.
+    #   # -- IPs of the cluster Clustermesh API server, use multiple ones when
+    #   # you have multiple IPs to access the Clustermesh API server.
     #   ips:
     #   - 172.18.255.201
-    # # -- base64 encoded PEM values for the cluster client certificate, private key and certificate authority.
-    # # These fields can (and should) be omitted in case the CA is shared across clusters. In that case, the
-    # # "remote" private key and certificate available in the local cluster are automatically used instead.
+    #   # -- base64 encoded PEM values for the cluster client certificate, private key and certificate authority.
+    #   # These fields can (and should) be omitted in case the CA is shared across clusters. In that case, the
+    #   # "remote" private key and certificate available in the local cluster are automatically used instead.
     #   tls:
     #     cert: ""
     #     key: ""
