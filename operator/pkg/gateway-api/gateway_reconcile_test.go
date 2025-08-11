@@ -28,12 +28,6 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
-var (
-	gatewaySameNamespace          = types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
-	gatewaySameNamespaceWithHTTPS = types.NamespacedName{Name: "same-namespace-with-https-listener", Namespace: "gateway-conformance-infra"}
-	gatewayBackendNamespace       = types.NamespacedName{Name: "backend-namespaces", Namespace: "gateway-conformance-infra"}
-)
-
 func Test_Conformance(t *testing.T) {
 	logger := hivetest.Logger(t)
 	cecTranslator := translation.NewCECTranslator(translation.Config{
@@ -53,161 +47,171 @@ func Test_Conformance(t *testing.T) {
 		},
 	})
 
+	type gwDetails struct {
+		FullName types.NamespacedName
+		wantErr  bool
+	}
+
+	var (
+		gatewaySameNamespace          = gwDetails{FullName: types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}}
+		gatewaySameNamespaceWithHTTPS = gwDetails{FullName: types.NamespacedName{Name: "same-namespace-with-https-listener", Namespace: "gateway-conformance-infra"}}
+		gatewayBackendNamespace       = gwDetails{FullName: types.NamespacedName{Name: "backend-namespaces", Namespace: "gateway-conformance-infra"}}
+	)
+
 	tests := []struct {
 		name                 string
-		gateway              []types.NamespacedName
+		gateway              []gwDetails
 		disableServiceImport bool
 		wantErr              bool
 	}{
 		{
 			name: "gateway-http-listener-isolation",
-			gateway: []types.NamespacedName{
-				{Name: "http-listener-isolation", Namespace: "gateway-conformance-infra"},
-				{Name: "http-listener-isolation-with-hostname-intersection", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "http-listener-isolation", Namespace: "gateway-conformance-infra"}},
+				{FullName: types.NamespacedName{Name: "http-listener-isolation-with-hostname-intersection", Namespace: "gateway-conformance-infra"}},
 			},
 		},
 		{
 			name:    "gateway-infrastructure",
-			gateway: []types.NamespacedName{{Name: "gateway-with-infrastructure-metadata", Namespace: "gateway-conformance-infra"}},
+			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-with-infrastructure-metadata", Namespace: "gateway-conformance-infra"}}},
 		},
 		{
 			name: "gateway-invalid-route-kind",
-			gateway: []types.NamespacedName{
-				{Name: "gateway-only-invalid-route-kind", Namespace: "gateway-conformance-infra"},
-				{Name: "gateway-supported-and-invalid-route-kind", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-only-invalid-route-kind", Namespace: "gateway-conformance-infra"}, wantErr: true},
+				{FullName: types.NamespacedName{Name: "gateway-supported-and-invalid-route-kind", Namespace: "gateway-conformance-infra"}},
 			},
 		},
 		{
 			name: "gateway-invalid-tls-configuration",
-			gateway: []types.NamespacedName{
-				{Name: "gateway-certificate-nonexistent-secret", Namespace: "gateway-conformance-infra"},
-				{Name: "gateway-certificate-unsupported-group", Namespace: "gateway-conformance-infra"},
-				{Name: "gateway-certificate-unsupported-kind", Namespace: "gateway-conformance-infra"},
-				{Name: "gateway-certificate-malformed-secret", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-certificate-nonexistent-secret", Namespace: "gateway-conformance-infra"}, wantErr: true},
+				{FullName: types.NamespacedName{Name: "gateway-certificate-unsupported-group", Namespace: "gateway-conformance-infra"}, wantErr: true},
+				{FullName: types.NamespacedName{Name: "gateway-certificate-unsupported-kind", Namespace: "gateway-conformance-infra"}, wantErr: true},
+				{FullName: types.NamespacedName{Name: "gateway-certificate-malformed-secret", Namespace: "gateway-conformance-infra"}, wantErr: true},
 			},
 		},
 		{
 			name: "gateway-modify-listeners",
-			gateway: []types.NamespacedName{
-				{Name: "gateway-add-listener", Namespace: "gateway-conformance-infra"},
-				{Name: "gateway-remove-listener", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-add-listener", Namespace: "gateway-conformance-infra"}, wantErr: true},
+				{FullName: types.NamespacedName{Name: "gateway-remove-listener", Namespace: "gateway-conformance-infra"}},
 			},
 		},
 		{
 			name: "gateway-observed-generation-bump",
-			gateway: []types.NamespacedName{
-				{Name: "gateway-observed-generation-bump", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-observed-generation-bump", Namespace: "gateway-conformance-infra"}},
 			},
 		},
 		{
 			name: "gateway-secret-invalid-reference-grant",
-			gateway: []types.NamespacedName{
-				{Name: "gateway-secret-invalid-reference-grant", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-secret-invalid-reference-grant", Namespace: "gateway-conformance-infra"}, wantErr: true},
 			},
 		},
 		{
 			name: "gateway-secret-missing-reference-grant",
-			gateway: []types.NamespacedName{
-				{Name: "gateway-secret-missing-reference-grant", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-secret-missing-reference-grant", Namespace: "gateway-conformance-infra"}, wantErr: true},
 			},
 		},
 		// gateway-secret-reference-grant-all-in-namespace
 		{
 			name: "gateway-secret-reference-grant-all-in-namespace",
-			gateway: []types.NamespacedName{
-				{Name: "gateway-secret-reference-grant-all-in-namespace", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-secret-reference-grant-all-in-namespace", Namespace: "gateway-conformance-infra"}},
 			},
 		},
 		{
 			name: "gateway-secret-reference-grant-specific",
-			gateway: []types.NamespacedName{
-				{Name: "gateway-secret-reference-grant-specific", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-secret-reference-grant-specific", Namespace: "gateway-conformance-infra"}},
 			},
 		},
 		{
 			name: "gateway-static-addresses",
-			gateway: []types.NamespacedName{
-				{Name: "gateway-static-addresses", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-static-addresses", Namespace: "gateway-conformance-infra"}},
 			},
 		},
 		{
 			name: "gateway-static-addresses",
-			gateway: []types.NamespacedName{
-				{Name: "gateway-static-addresses-invalid", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-static-addresses-invalid", Namespace: "gateway-conformance-infra"}, wantErr: true},
 			},
-			wantErr: true,
 		},
 		{
 			name: "gateway-with-attached-routes",
-			gateway: []types.NamespacedName{
-				{Name: "gateway-with-one-attached-route", Namespace: "gateway-conformance-infra"},
-				{Name: "gateway-with-two-attached-routes", Namespace: "gateway-conformance-infra"},
-				{Name: "unresolved-gateway-with-one-attached-unresolved-route", Namespace: "gateway-conformance-infra"},
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-with-one-attached-route", Namespace: "gateway-conformance-infra"}},
+				{FullName: types.NamespacedName{Name: "gateway-with-two-attached-routes", Namespace: "gateway-conformance-infra"}},
+				{FullName: types.NamespacedName{Name: "unresolved-gateway-with-one-attached-unresolved-route", Namespace: "gateway-conformance-infra"}, wantErr: true},
 			},
 		},
-		{name: "grpcroute-exact-method-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "grpcroute-header-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "grpcroute-listener-hostname-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-backend-protocol-h2c", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-backend-protocol-websocket", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-cross-namespace", gateway: []types.NamespacedName{gatewayBackendNamespace}},
+		{name: "grpcroute-exact-method-matching", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "grpcroute-header-matching", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "grpcroute-listener-hostname-matching", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "grpcroute-listener-hostname-matching", Namespace: "gateway-conformance-infra"}}}},
+		{name: "httproute-backend-protocol-h2c", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-backend-protocol-websocket", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-cross-namespace", gateway: []gwDetails{gatewayBackendNamespace}},
 		{
 			name:    "httproute-disallowed-kind",
-			gateway: []types.NamespacedName{{Name: "tlsroutes-only", Namespace: "gateway-conformance-infra"}},
+			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "tlsroutes-only", Namespace: "gateway-conformance-infra"}}},
 		},
-		{name: "httproute-exact-path-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-header-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-hostname-intersection", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-https-listener", gateway: []types.NamespacedName{gatewaySameNamespaceWithHTTPS}},
-		{name: "httproute-invalid-backendref-unknown-kind", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-invalid-backendref-missing-service-port", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-invalid-backendref-missing-serviceimport-port", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-invalid-cross-namespace-backend-ref", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-invalid-cross-namespace-parent-ref", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-invalid-nonexistent-backendref", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-invalid-parentref-not-matching-listener-port", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-invalid-parentref-not-matching-section-name", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-invalid-parentref-section-name-not-matching-port", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-invalid-reference-grant", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-listener-hostname-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-listener-port-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-matching-across-routes", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-method-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-observed-generation-bump", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-partially-invalid-via-invalid-reference-grant", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-path-match-order", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-query-param-matching", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-redirect-host-and-status", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-redirect-path", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-redirect-port", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-redirect-port-and-scheme", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-redirect-scheme", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-reference-grant", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-request-header-modifier", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-request-header-modifier-backend-weights", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-request-mirror", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-request-multiple-mirrors", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-request-percentage-mirror", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-response-header-modifier", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-timeout-backend-request", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-timeout-request", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-weight", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-service-types", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-invalid-parentref-types", gateway: []types.NamespacedName{gatewaySameNamespace}},
-		{name: "httproute-serviceimport-backend", gateway: []types.NamespacedName{gatewaySameNamespace}},
+		{name: "httproute-exact-path-matching", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-header-matching", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-hostname-intersection", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-https-listener", gateway: []gwDetails{gatewaySameNamespaceWithHTTPS}},
+		{name: "httproute-invalid-backendref-unknown-kind", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-invalid-backendref-missing-service-port", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-invalid-backendref-missing-serviceimport-port", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-invalid-cross-namespace-backend-ref", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-invalid-cross-namespace-parent-ref", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-invalid-nonexistent-backendref", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-invalid-parentref-not-matching-listener-port", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-invalid-parentref-not-matching-section-name", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-invalid-parentref-section-name-not-matching-port", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-invalid-reference-grant", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-listener-hostname-matching", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-listener-port-matching", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-matching", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-matching-across-routes", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-method-matching", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-observed-generation-bump", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-partially-invalid-via-invalid-reference-grant", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-path-match-order", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-query-param-matching", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-redirect-host-and-status", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-redirect-path", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-redirect-port", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-redirect-port-and-scheme", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-redirect-scheme", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-reference-grant", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-request-header-modifier", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-request-header-modifier-backend-weights", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-request-mirror", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-request-multiple-mirrors", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-request-percentage-mirror", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-response-header-modifier", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-timeout-backend-request", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-timeout-request", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-weight", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-service-types", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-invalid-parentref-types", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-serviceimport-backend", gateway: []gwDetails{gatewaySameNamespace}},
 		{
-			name: "httproute-invalid-serviceimport-no-crd", gateway: []types.NamespacedName{gatewaySameNamespace},
+			name: "httproute-invalid-serviceimport-no-crd", gateway: []gwDetails{gatewaySameNamespace},
 			disableServiceImport: true,
 		},
-		{name: "tlsroute-invalid-reference-grant", gateway: []types.NamespacedName{{Name: "gateway-tlsroute-referencegrant", Namespace: "gateway-conformance-infra"}}},
-		{name: "tlsroute-simple-same-namespace", gateway: []types.NamespacedName{{Name: "gateway-tlsroute", Namespace: "gateway-conformance-infra"}}},
+		{name: "tlsroute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute-referencegrant", Namespace: "gateway-conformance-infra"}}}},
+		{name: "tlsroute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute", Namespace: "gateway-conformance-infra"}}}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, gw := range tt.gateway {
-				t.Run(gw.Name, func(t *testing.T) {
+			for _, gwDetail := range tt.gateway {
+				t.Run(gwDetail.FullName.Name, func(t *testing.T) {
 					base := readInputDir(t, "testdata/gateway/base")
 					input := readInputDir(t, fmt.Sprintf("testdata/gateway/%s/input", tt.name))
 
@@ -229,7 +233,9 @@ func Test_Conformance(t *testing.T) {
 
 					// Add any required indexes here
 					clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, gatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
+					clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, gatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
 					clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, gatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
+
 					c := clientBuilder.Build()
 
 					r := &gatewayReconciler{
@@ -242,25 +248,31 @@ func Test_Conformance(t *testing.T) {
 					hrList := &gatewayv1.HTTPRouteList{}
 					err := c.List(t.Context(), hrList)
 					require.NoError(t, err)
-					filterList := filterHTTPRoute(hrList, gw.Name, gw.Namespace)
+					filterList := filterHTTPRoute(hrList, gwDetail.FullName.Name, gwDetail.FullName.Namespace)
 
 					// Reconcile all related TLSRoute objects
 					tlsrList := &gatewayv1alpha2.TLSRouteList{}
 					err = c.List(t.Context(), tlsrList)
 					require.NoError(t, err)
-					filterTLSRouteList := filterTLSRoute(tlsrList, gw.Name, gw.Namespace)
+					filterTLSRouteList := filterTLSRoute(tlsrList, gwDetail.FullName.Name, gwDetail.FullName.Namespace)
+
+					// Reconcile all related GRPCRoute objects
+					grpcrList := &gatewayv1.GRPCRouteList{}
+					err = c.List(t.Context(), grpcrList)
+					require.NoError(t, err)
+					filterGRPCRouteList := filterGRPCRoute(grpcrList, gwDetail.FullName.Name, gwDetail.FullName.Namespace)
 
 					// Reconcile the gateway under test
-					result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gw})
-					require.Equal(t, tt.wantErr, err != nil)
+					result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gwDetail.FullName})
+					require.Equal(t, gwDetail.wantErr, err != nil, "Got an unexpected reconciliation error")
 					require.Equal(t, ctrl.Result{}, result)
 
 					// Checking the output for Gateway
 					actualGateway := &gatewayv1.Gateway{}
-					err = c.Get(t.Context(), gw, actualGateway)
+					err = c.Get(t.Context(), gwDetail.FullName, actualGateway)
 					require.NoError(t, err)
 					expectedGateway := &gatewayv1.Gateway{}
-					readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", tt.name, gw.Name), expectedGateway)
+					readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", tt.name, gwDetail.FullName.Name), expectedGateway)
 					require.Empty(t, cmp.Diff(expectedGateway, actualGateway, cmpIgnoreFields...))
 
 					// Checking the output for related HTTPRoute objects
@@ -282,12 +294,22 @@ func Test_Conformance(t *testing.T) {
 						require.Empty(t, cmp.Diff(expectedTLSR, actualTLSR, cmpIgnoreFields...))
 					}
 
-					if !tt.wantErr {
+					for _, grpcr := range filterGRPCRouteList {
+						actualGRPCR := &gatewayv1.GRPCRoute{}
+						err = c.Get(t.Context(), client.ObjectKeyFromObject(&grpcr), actualGRPCR)
+						require.NoError(t, err, "error getting GRPCRoute %s/%s: %v", grpcr.Namespace, grpcr.Name, err)
+						expectedGRPCR := &gatewayv1.GRPCRoute{}
+						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)
+						require.Empty(t, cmp.Diff(expectedGRPCR, actualGRPCR, cmpIgnoreFields...))
+					}
+
+					if !gwDetail.wantErr {
 						// Checking the output for CiliumEnvoyConfig
 						actualCEC := &ciliumv2.CiliumEnvoyConfig{}
-						err = c.Get(t.Context(), client.ObjectKey{Namespace: gw.Namespace, Name: "cilium-gateway-" + gw.Name}, actualCEC)
+						err = c.Get(t.Context(), client.ObjectKey{Namespace: gwDetail.FullName.Namespace, Name: "cilium-gateway-" + gwDetail.FullName.Name}, actualCEC)
+						require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
 						expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
-						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/cec-%s.yaml", tt.name, gw.Name), expectedCEC)
+						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/cec-%s.yaml", tt.name, gwDetail.FullName.Name), expectedCEC)
 
 						require.NoError(t, err)
 						require.Empty(t, cmp.Diff(expectedCEC, actualCEC, protocmp.Transform()))
@@ -322,6 +344,22 @@ func filterTLSRoute(tlsrList *gatewayv1alpha2.TLSRouteList, gatewayName string, 
 				if string(parentRef.Name) == gatewayName &&
 					((parentRef.Namespace == nil && tlsr.Namespace == namespace) || string(*parentRef.Namespace) == namespace) {
 					filterList = append(filterList, tlsr)
+					break
+				}
+			}
+		}
+	}
+	return filterList
+}
+
+func filterGRPCRoute(hrList *gatewayv1.GRPCRouteList, gatewayName string, namespace string) []gatewayv1.GRPCRoute {
+	var filterList []gatewayv1.GRPCRoute
+	for _, grpcr := range hrList.Items {
+		if len(grpcr.Spec.CommonRouteSpec.ParentRefs) > 0 {
+			for _, parentRef := range grpcr.Spec.CommonRouteSpec.ParentRefs {
+				if string(parentRef.Name) == gatewayName &&
+					((parentRef.Namespace == nil && grpcr.Namespace == namespace) || string(*parentRef.Namespace) == namespace) {
+					filterList = append(filterList, grpcr)
 					break
 				}
 			}
@@ -420,13 +458,6 @@ hEKCKf/N3gE1oMrTxVzUDQ==
 			name: "invalid first block",
 			args: args{
 				b: append([]byte("invalid block"), key...),
-			},
-			want: false,
-		},
-		{
-			name: "invalid subsequent block",
-			args: args{
-				b: append(keyAndCert, []byte("invalid block")...),
 			},
 			want: false,
 		},
