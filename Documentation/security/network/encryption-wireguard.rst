@@ -294,6 +294,14 @@ options:
 
   Egress Gateway replies are not encrypted when XDP Acceleration is enabled.
 
+.. error::
+    Cilium does not support intra-node pod-to-pod encryption. Traffic between
+    pods on the same node is never encrypted, regardless of whether node-to-node
+    encryption is enabled or not.
+    If your goal is to encrypt all traffic between pods, regardless of whether
+    they run on the same or different nodes, for compliance reasons this will likely
+    not be sufficient.
+
 Which traffic is encrypted
 ==========================
 
