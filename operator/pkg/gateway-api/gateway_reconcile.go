@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -91,7 +92,9 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	grpcRouteList := &gatewayv1.GRPCRouteList{}
-	if err := r.Client.List(ctx, grpcRouteList); err != nil {
+	if err := r.Client.List(ctx, grpcRouteList, &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(gatewayGRPCRouteIndex, client.ObjectKeyFromObject(original).String()),
+	}); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to list GRPCRoutes", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
@@ -140,10 +143,16 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Run the TLSRoute route checks here and update the status accordingly.
 	if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
-		if err := r.setTLSRouteStatuses(scopedLog, ctx, original, tlsRouteList, grants); err != nil {
+		if err := r.setTLSRouteStatuses(scopedLog, ctx, tlsRouteList, grants); err != nil {
 			scopedLog.ErrorContext(ctx, "Unable to update HTTPRoute Status", logfields.Error, err)
 			return controllerruntime.Fail(err)
 		}
+	}
+
+	// Run the GRPCRoute route checks here and update the status accordingly.
+	if err := r.setGRPCRouteStatuses(scopedLog, ctx, grpcRouteList, grants); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to update GRPCRoute Status", logfields.Error, err)
+		return controllerruntime.Fail(err)
 	}
 
 	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items)
@@ -162,9 +171,18 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ReferenceGrants:    grants.Items,
 	})
 
-	if err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList); err != nil {
+	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList)
+	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to set listener status", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to set listener status", gatewayv1.GatewayReasonNoResources)
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to set listener status", gatewayv1.GatewayReasonListenersNotValid)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	}
+	if !validListener {
+		err := fmt.Errorf("No Accepted Listeners for Gateway")
+		scopedLog.ErrorContext(ctx, "No Accepted Listeners for Gateway", logfields.Error, err)
+		setGatewayAccepted(gw, false, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 	setGatewayAccepted(gw, true, "Gateway successfully scheduled", gatewayv1.GatewayReasonAccepted)
@@ -174,47 +192,51 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to translate resources", gatewayv1.GatewayReasonNoResources)
-
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to translate resources", gatewayv1.GatewayReasonListenersNotValid)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 	if err = r.verifyGatewayStaticAddresses(gw); err != nil {
-		scopedLog.ErrorContext(ctx, "The gateway static address is not yet supported", logfields.Error, err)
-		setGatewayAccepted(gw, false, "The gateway static address is not yet supported", gatewayv1.GatewayReasonUnsupportedAddress)
-		setGatewayProgrammed(gw, false, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+		scopedLog.ErrorContext(ctx, "Unsupported Gateway address", logfields.Error, err)
+		setGatewayAccepted(gw, false, "Unsupported Gateway address, "+err.Error(), gatewayv1.GatewayReasonUnsupportedAddress)
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 	if err = r.ensureService(ctx, svc); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to create Service", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to create Service resource", gatewayv1.GatewayReasonNoResources)
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to create Service resource", gatewayv1.GatewayReasonNoResources)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	if err = r.ensureEndpoints(ctx, ep); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to ensure Endpoints resource", gatewayv1.GatewayReasonNoResources)
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to create Endpoints resource", gatewayv1.GatewayReasonNoResources)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to ensure CEC resource", gatewayv1.GatewayReasonNoResources)
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to create CEC resource", gatewayv1.GatewayReasonNoResources)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
+
+	setGatewayProgrammed(gw, metav1.ConditionFalse, "Gateway waiting for address", gatewayv1.GatewayReasonAddressNotAssigned)
 
 	// Step 4: Update the status of the Gateway
 	if err = r.setAddressStatus(ctx, gw); err != nil {
 		scopedLog.ErrorContext(ctx, "Address is not ready", logfields.Error, err)
-		setGatewayProgrammed(gw, false, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, "+err.Error(), gatewayv1.GatewayReasonAddressNotAssigned)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	if err = r.setStaticAddressStatus(ctx, gw); err != nil {
 		scopedLog.ErrorContext(ctx, "StaticAddress can't be used", logfields.Error, err)
-		setGatewayProgrammed(gw, false, "StaticAddress can't be used", gatewayv1.GatewayReasonAddressNotUsable)
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "StaticAddress can't be used", gatewayv1.GatewayReasonAddressNotUsable)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	setGatewayProgrammed(gw, true, "Gateway successfully reconciled", gatewayv1.GatewayReasonProgrammed)
 	if err := r.updateStatus(ctx, original, gw); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update Gateway status: %w", err)
 	}
@@ -296,6 +318,19 @@ func (r *gatewayReconciler) filterGRPCRoutesByGateway(ctx context.Context, gw *g
 
 func (r *gatewayReconciler) filterHTTPRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
 	var filtered []gatewayv1.HTTPRoute
+	for _, route := range routes {
+		if isAttachable(ctx, gw, &route, route.Status.Parents) &&
+			isAllowed(ctx, r.Client, gw, &route, r.logger) &&
+			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
+			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *gatewayReconciler) filterGRPCRoutesByListener(ctx context.Context, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routes []gatewayv1.GRPCRoute) []gatewayv1.GRPCRoute {
+	var filtered []gatewayv1.GRPCRoute
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) &&
 			isAllowed(ctx, r.Client, gw, &route, r.logger) &&
@@ -392,6 +427,7 @@ func isAttachable(_ context.Context, gw *gatewayv1.Gateway, route metav1.Object,
 }
 
 func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
+	r.logger.InfoContext(ctx, "Checking address status for Gateway", logfields.Resource, client.ObjectKeyFromObject(gw).String())
 	svcList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, svcList, client.MatchingLabels{
 		owningGatewayLabel: shortener.ShortenK8sResourceName(gw.GetName()),
@@ -426,6 +462,33 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 		}
 	}
 
+	if len(addresses) > 0 {
+		r.logger.InfoContext(ctx, "At least one valid address, marking gateway programmed", logfields.Resource, client.ObjectKeyFromObject(gw).String())
+		setGatewayProgrammed(gw, metav1.ConditionTrue, "Gateway Programmed", gatewayv1.GatewayReasonProgrammed)
+		for _, l := range gw.Status.Listeners {
+			// Is Listener Accepted?
+			accepted := false
+
+			for _, cond := range l.Conditions {
+				if cond.Type == string(gatewayv1.GatewayConditionAccepted) {
+					if cond.Status == metav1.ConditionTrue {
+						accepted = true
+						break
+					}
+				}
+			}
+			if accepted {
+				l.Conditions = merge(l.Conditions, metav1.Condition{
+					Type:               string(gatewayv1.ListenerConditionProgrammed),
+					Status:             metav1.ConditionTrue,
+					Reason:             string(gatewayv1.ListenerReasonProgrammed),
+					Message:            "Listener Programmed",
+					ObservedGeneration: gw.Generation,
+					LastTransitionTime: metav1.Now(),
+				})
+			}
+		}
+	}
 	gw.Status.Addresses = addresses
 	return nil
 }
@@ -465,52 +528,51 @@ func (r *gatewayReconciler) setStaticAddressStatus(ctx context.Context, gw *gate
 	return nil
 }
 
-func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1.Gateway, httpRoutes *gatewayv1.HTTPRouteList, tlsRoutes *gatewayv1alpha2.TLSRouteList) error {
+func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1.Gateway, httpRoutes *gatewayv1.HTTPRouteList, tlsRoutes *gatewayv1alpha2.TLSRouteList, grpcRoutes *gatewayv1.GRPCRouteList) (bool, error) {
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
-		return fmt.Errorf("failed to retrieve reference grants: %w", err)
+		return false, fmt.Errorf("failed to retrieve reference grants: %w", err)
 	}
 
+	// Keep track of if there is at least one Valid Listener; if not, the Gateway cannot be Accepted.
+	oneValidListener := false
 	for _, l := range gw.Spec.Listeners {
 		isValid := true
+		var invalidMessages []string
 
-		// SupportedKinds is a required field, so we can't declare it as nil.
+		var conds []metav1.Condition
+
+		allSupported := getSupportedRouteKinds(l.Protocol)
+		if allSupported == nil {
+			invalidMessages = append(invalidMessages, "Unsupported Listener Protocol.")
+			isValid = false
+		}
 		supportedKinds := []gatewayv1.RouteGroupKind{}
-		invalidRouteKinds := false
-		protoGroup, protoKind := getSupportedGroupKind(l.Protocol)
 
-		if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) != 0 {
-			for _, k := range l.AllowedRoutes.Kinds {
-				if groupDerefOr(k.Group, gatewayv1.GroupName) == string(*protoGroup) &&
-					k.Kind == protoKind {
-					supportedKinds = append(supportedKinds, k)
-				} else {
-					invalidRouteKinds = true
+		if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
+			for _, supported := range allSupported {
+				for _, allowed := range l.AllowedRoutes.Kinds {
+					if supported.Kind == allowed.Kind &&
+						groupDerefOr(allowed.Group, gatewayv1.GroupName) == string(*supported.Group) {
+						supportedKinds = append(supportedKinds, supported)
+						break
+					}
 				}
 			}
-		} else {
-			g, k := getSupportedGroupKind(l.Protocol)
-			supportedKinds = []gatewayv1.RouteGroupKind{
-				{
-					Group: g,
-					Kind:  k,
-				},
+
+			// Add ResolvedRefs if not all explicitly allowed kinds are actually supported
+			if len(supportedKinds) != len(l.AllowedRoutes.Kinds) {
+				conds = merge(conds, gatewayListenerInvalidRouteKinds(gw, "Unsupported Route Kinds in allowedRoutes.kinds"))
 			}
-		}
-		var conds []metav1.Condition
-		if invalidRouteKinds {
-			conds = append(conds, gatewayListenerInvalidRouteKinds(gw, "Invalid Route Kinds"))
-			isValid = false
+
+			if len(supportedKinds) == 0 {
+				invalidMessages = append(invalidMessages, "None of the Allowed Route Kinds are supported.")
+				isValid = false
+			}
 		} else {
-			conds = append(conds, gatewayListenerProgrammedCondition(gw, true, "Listener Programmed"))
-			conds = append(conds, gatewayListenerAcceptedCondition(gw, true, "Listener Accepted"))
-			conds = append(conds, metav1.Condition{
-				Type:               string(gatewayv1.ListenerConditionResolvedRefs),
-				Status:             metav1.ConditionTrue,
-				Reason:             string(gatewayv1.ListenerReasonResolvedRefs),
-				Message:            "Resolved Refs",
-				LastTransitionTime: metav1.Now(),
-			})
+			// If there are no Kinds specified in AllowedRoutes, then supportedKinds should contain
+			// all the supported Kinds for that Protocol.
+			supportedKinds = allSupported
 		}
 
 		if l.TLS != nil {
@@ -523,6 +585,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 						Message:            "Invalid CertificateRef",
 						LastTransitionTime: metav1.Now(),
 					})
+					invalidMessages = append(invalidMessages, "Invalid CertificateRef, must be a Secret.")
 					isValid = false
 					break
 				}
@@ -535,11 +598,15 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 						Message:            "CertificateRef is not permitted",
 						LastTransitionTime: metav1.Now(),
 					})
+					invalidMessages = append(invalidMessages, "Invalid CertificateRef, not permitted.")
 					isValid = false
 					break
 				}
 
 				if err := validateTLSSecret(ctx, r.Client, helpers.NamespaceDerefOr(cert.Namespace, gw.GetNamespace()), string(cert.Name)); err != nil {
+					r.logger.InfoContext(ctx, "Found an invalid TLS Secret",
+						logfields.Error, err.Error(),
+						logfields.Resource, client.ObjectKeyFromObject(gw).String())
 					conds = merge(conds, metav1.Condition{
 						Type:               string(gatewayv1.ListenerConditionResolvedRefs),
 						Status:             metav1.ConditionFalse,
@@ -547,6 +614,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 						Message:            "Invalid CertificateRef",
 						LastTransitionTime: metav1.Now(),
 					})
+					invalidMessages = append(invalidMessages, "Invalid CertificateRef, "+err.Error())
 					isValid = false
 					break
 				}
@@ -554,17 +622,30 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		}
 
 		if !isValid {
-			conds = merge(conds, metav1.Condition{
-				Type:               string(gatewayv1.ListenerConditionProgrammed),
-				Status:             metav1.ConditionFalse,
-				Reason:             string(gatewayv1.ListenerReasonInvalid),
-				Message:            "Invalid CertificateRef",
-				LastTransitionTime: metav1.Now(),
-			})
+			conds = merge(conds,
+				gatewayListenerAcceptedCondition(gw, false, "Listener not valid. "+strings.Join(invalidMessages, " ")),
+				gatewayListenerProgrammedCondition(gw, false, "Address not ready yet"))
+		} else {
+			// There's at least one Accepted listener, so the Gateway can also be Accepted.
+			oneValidListener = true
+			// If ResolvedRefs is not already present, add a successful one.
+			if !helpers.IsConditionPresent(conds, string(gatewayv1.ListenerConditionResolvedRefs)) {
+				conds = merge(conds, metav1.Condition{
+					Type:               string(gatewayv1.ListenerConditionResolvedRefs),
+					Status:             metav1.ConditionTrue,
+					Reason:             string(gatewayv1.ListenerReasonResolvedRefs),
+					Message:            "Resolved Refs",
+					ObservedGeneration: gw.GetGeneration(),
+					LastTransitionTime: metav1.Now(),
+				})
+			}
+			conds = merge(conds,
+				gatewayListenerAcceptedCondition(gw, true, "Listener Accepted"),
+				gatewayListenerProgrammedCondition(gw, false, "Address not ready yet"))
 		}
-
 		var attachedRoutes int32
 		attachedRoutes += int32(len(r.filterHTTPRoutesByListener(ctx, gw, &l, httpRoutes.Items)))
+		attachedRoutes += int32(len(r.filterGRPCRoutesByListener(ctx, gw, &l, grpcRoutes.Items)))
 		attachedRoutes += int32(len(r.filterTLSRoutesByListener(ctx, gw, &l, tlsRoutes.Items)))
 
 		found := false
@@ -598,7 +679,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		}
 	}
 	gw.Status.Listeners = newListenersStatus
-	return nil
+	return oneValidListener, nil
 }
 
 func validateTLSSecret(ctx context.Context, c client.Client, namespace, name string) error {
@@ -611,16 +692,17 @@ func validateTLSSecret(ctx context.Context, c client.Client, namespace, name str
 	}
 
 	if !isValidPemFormat(secret.Data[corev1.TLSCertKey]) {
-		return fmt.Errorf("invalid certificate")
+		return fmt.Errorf("PEM format error in TLS Certificate")
 	}
 
 	if !isValidPemFormat(secret.Data[corev1.TLSPrivateKeyKey]) {
-		return fmt.Errorf("invalid private key")
+		return fmt.Errorf("PEM format error in TLS Key")
 	}
 	return nil
 }
 
-// isValidPemFormat checks if the given byte array is a valid PEM format.
+// isValidPemFormat checks if the given byte array contains at least one valid PEM
+// formatted object, either certificate or key.
 // This function is not intended to be used for validating the actual
 // content of the PEM block.
 func isValidPemFormat(b []byte) bool {
@@ -635,7 +717,11 @@ func isValidPemFormat(b []byte) bool {
 	if len(rest) == 0 {
 		return true
 	}
-	return isValidPemFormat(rest)
+
+	// We don't check the value of `rest` because
+	// Envoy will be able to parse the file as long as there
+	// is at least one valid certificate.
+	return true
 }
 
 func (r *gatewayReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.Gateway, modified *gatewayv1.Gateway) (ctrl.Result, error) {
@@ -790,7 +876,7 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 	return nil
 }
 
-func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx context.Context, gateway *gatewayv1.Gateway, tlsRoutes *gatewayv1alpha2.TLSRouteList, grants *gatewayv1beta1.ReferenceGrantList) error {
+func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx context.Context, tlsRoutes *gatewayv1alpha2.TLSRouteList, grants *gatewayv1beta1.ReferenceGrantList) error {
 	scopedLog.Debug("Updating TLSRoute statuses for Gateway", numRoutes, len(tlsRoutes.Items))
 	for tlsRouteIndex, original := range tlsRoutes.Items {
 
@@ -819,6 +905,40 @@ func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx cont
 
 		// Update the cached copy with the same status changes to prevent re-fetching from client cache.
 		tlsRoutes.Items[tlsRouteIndex].Status = tlsr.Status
+	}
+
+	return nil
+}
+
+func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx context.Context, grpcRoutes *gatewayv1.GRPCRouteList, grants *gatewayv1beta1.ReferenceGrantList) error {
+	scopedLog.Debug("Updating GRPCRoute statuses for Gateway", numRoutes, len(grpcRoutes.Items))
+	for grpcRouteIndex, original := range grpcRoutes.Items {
+
+		grpcr := original.DeepCopy()
+
+		// input for the validators
+		// The validators will mutate the HTTPRoute as required, setting its status correctly.
+		i := &routechecks.GRPCRouteInput{
+			Ctx:       ctx,
+			Logger:    scopedLog.With(logfields.Resource, grpcr),
+			Client:    r.Client,
+			Grants:    grants,
+			GRPCRoute: grpcr,
+		}
+
+		if err := r.runCommonRouteChecks(i, grpcr.Spec.ParentRefs, grpcr.Namespace); err != nil {
+			return r.handleGRPCRouteReconcileErrorWithStatus(ctx, scopedLog, err, grpcr, &original)
+		}
+
+		// Route-specific checks will go in here separately if required.
+
+		// Checks finished, apply the status to the actual objects.
+		if err := r.updateGRPCRouteStatus(ctx, scopedLog, &original, grpcr); err != nil {
+			return fmt.Errorf("failed to update HTTPRoute status: %w", err)
+		}
+
+		// Update the cached copy with the same status changes to prevent re-fetching from client cache.
+		grpcRoutes.Items[grpcRouteIndex].Status = grpcr.Status
 	}
 
 	return nil
@@ -857,5 +977,23 @@ func (r *gatewayReconciler) updateTLSRouteStatus(ctx context.Context, scopedLog 
 		return nil
 	}
 	scopedLog.Debug("Updating TLSRoute status", tlsRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
+	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *gatewayReconciler) handleGRPCRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1.GRPCRoute, modified *gatewayv1.GRPCRoute) error {
+	if err := r.updateGRPCRouteStatus(ctx, scopedLog, original, modified); err != nil {
+		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
+	}
+	return nil
+}
+
+func (r *gatewayReconciler) updateGRPCRouteStatus(ctx context.Context, scopedLog *slog.Logger, original *gatewayv1.GRPCRoute, new *gatewayv1.GRPCRoute) error {
+	oldStatus := original.Status.DeepCopy()
+	newStatus := new.Status.DeepCopy()
+
+	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
+		return nil
+	}
+	scopedLog.Debug("Updating GRPCRoute status", tlsRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
 }
