@@ -54,14 +54,19 @@ struct icmp6_opthdr {
  *                 +-------------------------------------------------------------------+
  */
 
-static __always_inline int build_packet(struct __ctx_buff *ctx)
+static __always_inline int build_packet(struct __ctx_buff *ctx, bool targeted)
 {
 	struct pktgen builder;
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(L2_ANNOUNCE6_NS, l2_announce6_ns);
-	BUILDER_PUSH_BUF(builder, L2_ANNOUNCE6_NS);
+	if (targeted) {
+		BUF_DECL(L2_ANNOUNCE6_NS_TAR, l2_announce6_targeted_ns);
+		BUILDER_PUSH_BUF(builder, L2_ANNOUNCE6_NS_TAR);
+	} else {
+		BUF_DECL(L2_ANNOUNCE6_NS, l2_announce6_ns);
+		BUILDER_PUSH_BUF(builder, L2_ANNOUNCE6_NS);
+	}
 
 	pktgen__finish(&builder);
 
@@ -71,7 +76,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 PKTGEN("tc", "0_no_entry")
 int l2_announcement_nd_no_entry_pktgen(struct __ctx_buff *ctx)
 {
-	return build_packet(ctx);
+	return build_packet(ctx, false);
 }
 
 SETUP("tc", "0_no_entry")
@@ -112,14 +117,57 @@ int l2_announcement_nd_no_entry_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "1_happy_path")
-int l2_announcement_nd_happy_path_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "0_no_entry_targeted")
+int l2_announcement_nd_no_entry_tar_pktgen(struct __ctx_buff *ctx)
 {
-	return build_packet(ctx);
+	return build_packet(ctx, true);
 }
 
-SETUP("tc", "1_happy_path")
-int l2_announcement_nd_happy_path_setup(struct __ctx_buff *ctx)
+SETUP("tc", "0_no_entry_targeted")
+int l2_announcement_nd_no_entry_tar_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, 0);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "0_no_entry_targeted")
+int l2_announcement_nd_no_entry_tar_check(const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == TC_ACT_OK);
+
+	BUF_DECL(L2_ANNOUNCE6_NS_TAR2, l2_announce6_targeted_ns);
+
+	ASSERT_CTX_BUF_OFF("tc_l2announce6_ns_tar_no_entry_untouched",
+			   "Ether", ctx,
+			   sizeof(__u32), L2_ANNOUNCE6_NS_TAR2,
+			   sizeof(BUF(L2_ANNOUNCE6_NS_TAR2)));
+
+	test_finish();
+}
+
+PKTGEN("tc", "1_ok")
+int l2_announcement_nd_ok_pktgen(struct __ctx_buff *ctx)
+{
+	return build_packet(ctx, false);
+}
+
+int __l2_announcement_nd_ok_setup(struct __ctx_buff *ctx)
 {
 	struct l2_responder_v6_key key;
 	struct l2_responder_stats value = {0};
@@ -136,8 +184,14 @@ int l2_announcement_nd_happy_path_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "1_happy_path")
-int l2_announcement_nd_happy_path_check(const struct __ctx_buff *ctx)
+SETUP("tc", "1_ok")
+int l2_announcement_nd_ok_setup(struct __ctx_buff *ctx)
+{
+	return __l2_announcement_nd_ok_setup(ctx);
+}
+
+CHECK("tc", "1_ok")
+int l2_announcement_nd_ok_check(const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -161,6 +215,47 @@ int l2_announcement_nd_happy_path_check(const struct __ctx_buff *ctx)
 			   "Ether", ctx,
 			   sizeof(__u32), L2_ANNOUNCE6_NA,
 			   sizeof(BUF(L2_ANNOUNCE6_NA)));
+
+	test_finish();
+}
+
+PKTGEN("tc", "1_ok_targeted")
+int l2_announcement_nd_ok_tar_pktgen(struct __ctx_buff *ctx)
+{
+	return build_packet(ctx, true);
+}
+
+SETUP("tc", "1_ok_targeted")
+int l2_announcement_nd_ok_tar_setup(struct __ctx_buff *ctx)
+{
+	return __l2_announcement_nd_ok_setup(ctx);
+}
+
+CHECK("tc", "1_ok_targeted")
+int l2_announcement_nd_ok_tar_check(const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == TC_ACT_REDIRECT);
+
+	BUF_DECL(L2_ANNOUNCE6_NA_TAR, l2_announce6_na);
+
+	ASSERT_CTX_BUF_OFF("tc_l2announce2_tar_entry_found_na",
+			   "Ether", ctx,
+			   sizeof(__u32), L2_ANNOUNCE6_NA_TAR,
+			   sizeof(BUF(L2_ANNOUNCE6_NA_TAR)));
 
 	test_finish();
 }
