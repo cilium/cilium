@@ -60,11 +60,11 @@ int test_builtin_memmove(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();
 
-	/* ./builtin_gen memmove1 96  > builtin_memmove.h */
-	/* ./builtin_gen memmove2 96 >> builtin_memmove.h */
-	/* ./builtin_gen memmove3 96 >> builtin_memmove.h */
-	/* ./builtin_gen memmove4 96 >> builtin_memmove.h */
-	/* ./builtin_gen memmove5 96 >> builtin_memmove.h */
+	/* ./builtin_gen memmove1 128  > builtin_memmove.h */
+	/* ./builtin_gen memmove2 128 >> builtin_memmove.h */
+	/* ./builtin_gen memmove3 128 >> builtin_memmove.h */
+	/* ./builtin_gen memmove4 128 >> builtin_memmove.h */
+	/* ./builtin_gen memmove5 128 >> builtin_memmove.h */
 	#include "builtin_memmove.h"
 
 	test_finish();
