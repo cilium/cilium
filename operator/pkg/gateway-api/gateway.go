@@ -113,6 +113,16 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}
 	}
 
+	// Add field indexes for GRPCRoutes
+	for indexName, indexerFunc := range map[string]client.IndexerFunc{
+		backendServiceGRPCRouteIndex: indexers.GenerateIndexerGRPCRoutebyBackendService(r.Client, r.logger),
+		gatewayGRPCRouteIndex:        indexers.IndexGRPCRouteByGateway,
+	} {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexName, indexerFunc); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+		}
+	}
+
 	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, controllerName, r.logger)
 	gatewayBuilder := ctrl.NewControllerManagedBy(mgr).
 		// Watch its own resource
@@ -264,6 +274,14 @@ func (r *gatewayReconciler) enqueueRequestForBackendService() handler.EventHandl
 			return []reconcile.Request{}
 		}
 
+		grpcRouteList := &gatewayv1.GRPCRouteList{}
+		if err := r.Client.List(ctx, grpcRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(backendServiceGRPCRouteIndex, client.ObjectKeyFromObject(o).String()),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list GRPCRoutes", logfields.Error, err)
+			return []reconcile.Request{}
+		}
+
 		// Fetch all the Cilium-relevant Gateways using the implementationGatewayIndex.
 		gwList := &gatewayv1.GatewayList{}
 		if err := r.Client.List(ctx, gwList, &client.ListOptions{
@@ -285,41 +303,40 @@ func (r *gatewayReconciler) enqueueRequestForBackendService() handler.EventHandl
 			allCiliumGatewaysSet[gwFullName.String()] = struct{}{}
 		}
 
-		// iterate through the HTTPRoutes, return a reconcile.Request for each Gateways that is relevant.
+		// iterate through the HTTPRoutes, update reconcileRequests for each Gateway that is relevant.
 		for _, hr := range hrList.Items {
-			for _, parent := range hr.Spec.ParentRefs {
-				if !helpers.IsGateway(parent) {
-					continue
-				}
-				parentFullName := types.NamespacedName{
-					Name:      string(parent.Name),
-					Namespace: helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace),
-				}
-				if _, found := allCiliumGatewaysSet[parentFullName.String()]; found {
-					reconcileRequests[reconcile.Request{NamespacedName: parentFullName}] = struct{}{}
-				}
-			}
+			updateReconcileRequestsForParentRefs(hr.Spec.ParentRefs, hr.Namespace, allCiliumGatewaysSet, reconcileRequests)
 		}
 
-		// iterate through the TLSRoutes, return a reconcile.Request for each Gateways that is relevant.
+		// iterate through the TLSRoutes, update reconcileRequests for each Gateway that is relevant.
 		for _, tlsr := range tlsrList.Items {
-			for _, parent := range tlsr.Spec.ParentRefs {
-				if !helpers.IsGateway(parent) {
-					continue
-				}
-				parentFullName := types.NamespacedName{
-					Name:      string(parent.Name),
-					Namespace: helpers.NamespaceDerefOr(parent.Namespace, tlsr.Namespace),
-				}
-				if _, found := allCiliumGatewaysSet[parentFullName.String()]; found {
-					reconcileRequests[reconcile.Request{NamespacedName: parentFullName}] = struct{}{}
-				}
-			}
+			updateReconcileRequestsForParentRefs(tlsr.Spec.ParentRefs, tlsr.Namespace, allCiliumGatewaysSet, reconcileRequests)
+		}
+
+		// iterate through the TLSRoutes, update reconcileRequests for each Gateway that is relevant.
+		for _, grpcr := range grpcRouteList.Items {
+			updateReconcileRequestsForParentRefs(grpcr.Spec.ParentRefs, grpcr.Namespace, allCiliumGatewaysSet, reconcileRequests)
 		}
 
 		// return the keys of the set, since that's the actual reconcile.Requests.
 		return slices.Collect(maps.Keys(reconcileRequests))
 	})
+}
+
+// updateReconcileRequestsForParentRefs mutates the passed reconcile.Request set to add all
+func updateReconcileRequestsForParentRefs(parentRefs []gatewayv1.ParentReference, ns string, allGatewaysSet map[string]struct{}, rrSet map[reconcile.Request]struct{}) {
+	for _, parent := range parentRefs {
+		if !helpers.IsGateway(parent) {
+			continue
+		}
+		parentFullName := types.NamespacedName{
+			Name:      string(parent.Name),
+			Namespace: helpers.NamespaceDerefOr(parent.Namespace, ns),
+		}
+		if _, found := allGatewaysSet[parentFullName.String()]; found {
+			rrSet[reconcile.Request{NamespacedName: parentFullName}] = struct{}{}
+		}
+	}
 }
 
 // enqueueRequestForBackendServiceImport makes sure that Gateways are reconciled

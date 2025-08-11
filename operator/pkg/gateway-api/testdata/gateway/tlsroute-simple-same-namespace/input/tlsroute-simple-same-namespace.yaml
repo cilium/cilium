@@ -5,16 +5,16 @@ metadata:
   namespace: gateway-conformance-infra
 spec:
   parentRefs:
-  - name: gateway-tlsroute
-    namespace: gateway-conformance-infra
+    - name: gateway-tlsroute
+      namespace: gateway-conformance-infra
   hostnames:
-  - abc.example.com
+    - abc.example.com
   rules:
-  - backendRefs:
-    - name: tls-backend
-      port: 443
+    - backendRefs:
+        - name: tls-backend
+          port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway-tlsroute
@@ -22,14 +22,14 @@ metadata:
 spec:
   gatewayClassName: cilium
   listeners:
-  - name: https
-    port: 443
-    protocol: TLS
-    hostname: "*.example.com"
-    allowedRoutes:
-      namespaces:
-        from: Same
-      kinds:
-      - kind: TLSRoute
-    tls:
-      mode: Passthrough
+    - name: https
+      port: 443
+      protocol: TLS
+      hostname: "*.example.com"
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+      tls:
+        mode: Passthrough
