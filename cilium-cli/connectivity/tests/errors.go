@@ -52,7 +52,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
-		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService, linkNotFound}
+		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService}
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
 	}
@@ -70,7 +70,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
 		envoyExternalTargetTLSWarning, envoyExternalOtherTargetTLSWarning, ciliumNodeConfigDeprecation,
 		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation, ccgAlphaResourceDeprecation,
-		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn, linkNotFound}
+		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn}
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -479,6 +479,4 @@ var (
 	bgpAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumBGP\w+ is deprecated`)}
 	// ccgAlphaResourceDeprecation is the same as bgpAlphaResourceDeprecation but for the CiliumCIDRGroup.
 	ccgAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumCIDRGroup is deprecated`)}
-	// https://github.com/cilium/cilium/issues/39370 needs investigation.
-	linkNotFound = regexMatcher{regexp.MustCompile(`retrieving device .+\: Link not found`)}
 )
