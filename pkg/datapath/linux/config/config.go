@@ -341,10 +341,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			// always runs with "hostNetwork: true".
 			cDefinesMap["HOST_NETNS_COOKIE"] = fmt.Sprintf("%d", cookie)
 		}
-
-		if option.Config.BGPNoEndpointsRoutable {
-			cDefinesMap["NO_ENDPOINTS_ROUTABLE"] = "1"
-		}
 	}
 
 	if option.Config.EnableLocalRedirectPolicy {
