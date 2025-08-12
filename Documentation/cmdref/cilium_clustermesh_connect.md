@@ -16,6 +16,7 @@ cilium clustermesh connect [flags]
       --destination-endpoint strings   IP of ClusterMesh service of destination cluster
   -h, --help                           help for connect
       --parallel int                   Number of parallel connection of destination cluster (default 1)
+      --prefer-external-ips            Whether to prefer external IPs for contacting nodes in remote clusters
       --source-endpoint strings        IP of ClusterMesh service of source cluster
 ```
 

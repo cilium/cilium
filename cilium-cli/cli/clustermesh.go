@@ -219,6 +219,7 @@ func newCmdClusterMeshPolicyDefaultClusterInspect() *cobra.Command {
 func addCommonConnectFlags(cmd *cobra.Command, params *clustermesh.Parameters) {
 	cmd.Flags().StringVar(&params.ConnectionMode, "connection-mode", defaults.ClusterMeshConnectionModeBidirectional,
 		fmt.Sprintf("Connection mode: %s, %s or %s", defaults.ClusterMeshConnectionModeUnicast, defaults.ClusterMeshConnectionModeBidirectional, defaults.ClusterMeshConnectionModeMesh))
+	cmd.Flags().BoolVar(&params.PreferExternalIPs, "prefer-external-ips", false, "Whether to prefer external IPs for contacting nodes in remote clusters")
 	cmd.Flags().StringSliceVar(&params.DestinationContext, "destination-context", []string{}, "Comma separated list of Kubernetes configuration contexts of destination cluster")
 	cmd.Flags().StringSliceVar(&params.DestinationEndpoints, "destination-endpoint", []string{}, "IP of ClusterMesh service of destination cluster")
 	cmd.Flags().StringSliceVar(&params.SourceEndpoints, "source-endpoint", []string{}, "IP of ClusterMesh service of source cluster")
