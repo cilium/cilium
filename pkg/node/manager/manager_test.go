@@ -1479,6 +1479,9 @@ func TestNodesStartupPruning(t *testing.T) {
 		}
 
 		checkNodeFileMatches(t, stateDir, c1Node1, c1Node2, c2Node1)
+
+		assert.Equal(t, float64(2), mngr.metrics.EventsReceived.WithLabelValues("delete", string(source.Restored)).Get())
+		assert.Equal(t, float64(3), mngr.metrics.NumNodes.Get())
 	})
 
 	t.Run("meshed nodes synced first", func(t *testing.T) {
@@ -1522,5 +1525,8 @@ func TestNodesStartupPruning(t *testing.T) {
 		}
 
 		checkNodeFileMatches(t, stateDir, c1Node1, c1Node2, c2Node1)
+
+		assert.Equal(t, float64(2), mngr.metrics.EventsReceived.WithLabelValues("delete", string(source.Restored)).Get())
+		assert.Equal(t, float64(3), mngr.metrics.NumNodes.Get())
 	})
 }

@@ -1111,13 +1111,14 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		return
 	}
 
-	// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
 	if n.Source != source.Restored {
+		// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
 		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
 		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil, nil)
-	}
 
-	m.metrics.NumNodes.Dec()
+		// We only need to decrement for nodes we've accounted for.
+		m.metrics.NumNodes.Dec()
+	}
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
