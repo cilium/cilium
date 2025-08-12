@@ -8,6 +8,7 @@
 
 #define ENABLE_SCTP
 #define ENABLE_IPV4
+#define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #include <bpf/config/node.h>
 
@@ -24,6 +25,13 @@
 #define IP_HOST     2
 #define IP_ROUTER   3
 #define IP_WORLD    4
+
+#define SRC_PORT 6000
+#define DST_PORT 80
+#define SRC_IPV6 v6_pod_one
+#define DST_IPV6 v6_pod_two
+#define NODEPORT_IPV6 v6_node_one
+#define NODEPORT_NAT_PORT tcp_src_two
 
 static char pkt[100];
 
@@ -1300,6 +1308,37 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 		assert(retries_100percent[i] <= retries_100percent[5]);
 
 	test_finish();
+}
+
+CHECK("tc", "nat6_port_collision_retries")
+int test_nat6_port_collision_retries(struct __ctx_buff *ctx)
+{
+    struct ipv6_ct_tuple otuple = {
+        .nexthdr = IPPROTO_TCP,
+        .flags = TUPLE_F_OUT,
+        .saddr = *((union v6addr *)SRC_IPV6),
+        .sport = SRC_PORT,
+        .daddr = *((union v6addr *)DST_IPV6),
+        .dport = DST_PORT,
+    };
+    struct ipv6_nat_target target = {
+        .addr = *((union v6addr *)NODEPORT_IPV6),
+        .max_port = __bpf_ntohs(NODEPORT_NAT_PORT) + 1,
+    };
+
+    struct ipv6_nat_entry state;
+
+	struct ipv6_nat_entry nat_entry = {
+		.to_sport = SRC_PORT,
+	};
+	ipv6_addr_copy(&nat_entry.to_saddr, &target.daddr);
+
+    // Add an entry in the snat map so that a new source port will be selected.
+	map_update_elem(&cilium_snat_v6_external, &otuple, &nat_entry, BPF_ANY);
+
+    snat_v6_new_mapping(ctx, &otuple, &state, &target, true, NULL);
+
+    return 0;
 }
 
 BPF_LICENSE("Dual BSD/GPL");
