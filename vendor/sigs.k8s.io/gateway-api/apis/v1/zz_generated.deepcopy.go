@@ -910,6 +910,11 @@ func (in *HTTPCORSFilter) DeepCopyInto(out *HTTPCORSFilter) {
 		*out = make([]AbsoluteURI, len(*in))
 		copy(*out, *in)
 	}
+	if in.AllowCredentials != nil {
+		in, out := &in.AllowCredentials, &out.AllowCredentials
+		*out = new(bool)
+		**out = **in
+	}
 	if in.AllowMethods != nil {
 		in, out := &in.AllowMethods, &out.AllowMethods
 		*out = make([]HTTPMethodWithWildcard, len(*in))

@@ -36,13 +36,16 @@ import (
 // BackendTLSPolicy provides a way to configure how a Gateway
 // connects to a Backend via TLS.
 type BackendTLSPolicy struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the desired state of BackendTLSPolicy.
+	// +required
 	Spec BackendTLSPolicySpec `json:"spec"`
 
 	// Status defines the current state of BackendTLSPolicy.
+	// +optional
 	Status v1alpha2.PolicyStatus `json:"status,omitempty"`
 }
 
@@ -77,6 +80,8 @@ type BackendTLSPolicySpec struct {
 	//
 	// Support: Implementation-specific for any other resource
 	//
+	// +required
+	// +listType=atomic
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=16
 	// +kubebuilder:validation:XValidation:message="sectionName must be specified when targetRefs includes 2 or more references to the same target",rule="self.all(p1, self.all(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name ? ((!has(p1.sectionName) || p1.sectionName == '') == (!has(p2.sectionName) || p2.sectionName == '')) : true))"
@@ -84,6 +89,7 @@ type BackendTLSPolicySpec struct {
 	TargetRefs []v1alpha2.LocalPolicyTargetReferenceWithSectionName `json:"targetRefs"`
 
 	// Validation contains backend TLS validation configuration.
+	// +required
 	Validation BackendTLSPolicyValidation `json:"validation"`
 
 	// Options are a list of key/value pairs to enable extended TLS
@@ -128,8 +134,9 @@ type BackendTLSPolicyValidation struct {
 	// Support: Implementation-specific (More than one reference, or other kinds
 	// of resources).
 	//
-	// +kubebuilder:validation:MaxItems=8
 	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=8
 	CACertificateRefs []v1.LocalObjectReference `json:"caCertificateRefs,omitempty"`
 
 	// WellKnownCACertificates specifies whether system CA certificates may be used in
@@ -145,6 +152,7 @@ type BackendTLSPolicyValidation struct {
 	// Support: Implementation-specific
 	//
 	// +optional
+	// +listType=atomic
 	WellKnownCACertificates *WellKnownCACertificatesType `json:"wellKnownCACertificates,omitempty"`
 
 	// Hostname is used for two purposes in the connection between Gateways and
@@ -152,10 +160,10 @@ type BackendTLSPolicyValidation struct {
 	//
 	// 1. Hostname MUST be used as the SNI to connect to the backend (RFC 6066).
 	// 2. Hostname MUST be used for authentication and MUST match the certificate served by the matching backend, unless SubjectAltNames is specified.
-	//    authentication and MUST match the certificate served by the matching
-	//    backend.
 	//
 	// Support: Core
+	//
+	// +required
 	Hostname v1.PreciseHostname `json:"hostname"`
 
 	// SubjectAltNames contains one or more Subject Alternative Names.
@@ -165,6 +173,7 @@ type BackendTLSPolicyValidation struct {
 	// Support: Extended
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=5
 	SubjectAltNames []SubjectAltName `json:"subjectAltNames,omitempty"`
 }
@@ -178,6 +187,8 @@ type SubjectAltName struct {
 	// Type determines the format of the Subject Alternative Name. Always required.
 	//
 	// Support: Core
+	//
+	// +required
 	Type SubjectAltNameType `json:"type"`
 
 	// Hostname contains Subject Alternative Name specified in DNS name format.

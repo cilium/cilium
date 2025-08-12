@@ -40,9 +40,6 @@ type ParentReference = v1.ParentReference
 type CommonRouteSpec = v1.CommonRouteSpec
 
 // PortNumber defines a network port.
-//
-// +kubebuilder:validation:Minimum=1
-// +kubebuilder:validation:Maximum=65535
 type PortNumber = v1.PortNumber
 
 // BackendRef defines how a Route should forward a request to a Kubernetes
