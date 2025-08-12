@@ -206,6 +206,8 @@ jobs:
           # RuntimeAgentPolicies Tests EntityNone as a deny-all
           - focus: "agent"
             cliFocus: "RuntimeAgent"
+            # TODO: not updated by by renovate, investigate why the tests fail on newer images
+            lvhImage: "6.12-20241218.004849"
 
           ###
           # RuntimeDatapathMonitorTest With Sample Containers checks container ids match monitor output
@@ -216,6 +218,12 @@ jobs:
           # RuntimeDatapathMonitorTest With Sample Containers delivers the same information to multiple monitors
           - focus: "datapath"
             cliFocus: "RuntimeDatapathMonitorTest"
+            # TODO: not updated by by renovate, investigate why the tests fail on newer images
+            lvhImage: "6.12-20241218.004849"
+
+          - focus: "privileged"
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            lvhImage: "6.12-20250807.134150"
 
     timeout-minutes: 50
     steps:
@@ -260,8 +268,7 @@ jobs:
         with:
           test-name: runtime-tests
           install-dependencies: true
-          # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          image-version: "6.12-20241218.004849"
+          image-version: "${{ matrix.lvhImage }}"
           host-mount: ./
           images-folder-parent: "/tmp"
           cpu: 4
