@@ -464,7 +464,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: features-tested-${{ matrix.focus }}
-          path: features-tested-${{ env.job_name }}*.json
+          path: features-tested-*
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
