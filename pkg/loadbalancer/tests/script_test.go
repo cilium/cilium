@@ -67,7 +67,6 @@ func TestScript(t *testing.T) {
 	scripttest.Test(t,
 		ctx,
 		func(t testing.TB, args []string) *script.Engine {
-
 			var opts []hivetest.LogOption
 			if *debug {
 				opts = append(opts, hivetest.LogLevel(slog.LevelDebug))
@@ -167,12 +166,13 @@ type testCommands struct {
 
 func (tc testCommands) cmds() map[string]script.Cmd {
 	return map[string]script.Cmd{
-		"test/update-backend-health": tc.updateHealth(),
-		"test/bpfops-reset":          tc.opsReset(),
-		"test/bpfops-summary":        tc.opsSummary(),
-		"test/set-node-labels":       tc.setNodeLabels(),
-		"test/set-node-ip":           tc.setNodeIP(),
-		"test/init-wait":             tc.initWait(),
+		"test/update-backend-health":        tc.updateHealth(),
+		"test/bpfops-reset":                 tc.opsReset(),
+		"test/bpfops-summary":               tc.opsSummary(),
+		"test/set-node-labels":              tc.setNodeLabels(),
+		"test/set-node-ip":                  tc.setNodeIP(),
+		"test/set-is-service-healthchecked": tc.setIsServiceHealthChecked(),
+		"test/init-wait":                    tc.initWait(),
 	}
 }
 
@@ -268,11 +268,25 @@ func (tc testCommands) setNodeIP() script.Cmd {
 		})
 }
 
+func (tc testCommands) setIsServiceHealthChecked() script.Cmd {
+	return script.Command(
+		script.CmdUsage{Summary: "Set isIServiceHealthChecked that reports services as being healthchecked based on the presence of the given annotation", Args: "annotation"},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 1 {
+				return nil, fmt.Errorf("%w: expected 'annotation'", script.ErrUsage)
+			}
+
+			tc.w.SetIsServiceHealthCheckedFunc(func(svc *loadbalancer.Service) bool {
+				return svc.Annotations != nil && svc.Annotations[args[0]] != ""
+			})
+			return nil, nil
+		})
+}
+
 func (tc testCommands) initWait() script.Cmd {
 	return script.Command(
 		script.CmdUsage{Summary: "Wait for InitWaitFunc() to return"},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			return nil, tc.waitFn(s.Context())
 		})
-
 }
