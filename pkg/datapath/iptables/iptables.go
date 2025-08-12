@@ -266,7 +266,6 @@ type Manager struct {
 
 	cfg       Config
 	sharedCfg SharedConfig
-	tunnelCfg tunnel.Config
 
 	argsInit  *lock.StoppableWaitGroup
 	startDone lock.DoneFunc
@@ -317,7 +316,6 @@ func newIptablesManager(p params) datapath.IptablesManager {
 		sysctl:    p.Sysctl,
 		cfg:       p.Cfg,
 		sharedCfg: p.SharedCfg,
-		tunnelCfg: p.TunnelCfg,
 		argsInit:  lock.NewStoppableWaitGroup(),
 		reconcilerParams: reconcilerParams{
 			clock:          clock.RealClock{},
@@ -595,7 +593,7 @@ func (m *Manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, 
 }
 
 func (m *Manager) installTunnelNoTrackRules(ip4tables, ip6tables runnable) error {
-	port := m.tunnelCfg.Port()
+	port := m.sharedCfg.TunnelPort
 
 	if !m.sharedCfg.TunnelingEnabled || port == 0 {
 		return nil

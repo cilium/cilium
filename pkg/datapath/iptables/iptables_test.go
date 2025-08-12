@@ -8,8 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -797,14 +795,14 @@ func TestAllEgressMasqueradeCmds(t *testing.T) {
 	}
 }
 
-func testTunnelNoTrackRulesTunnelingEnabled(t *testing.T, protocol tunnel.EncapProtocol, port int) {
+func testTunnelNoTrackRulesTunnelingEnabled(t *testing.T, port uint16) {
 	mockManager := &Manager{
 		sharedCfg: SharedConfig{
 			EnableIPv4:       true,
 			EnableIPv6:       true,
 			TunnelingEnabled: true,
+			TunnelPort:       port,
 		},
-		tunnelCfg: tunnel.NewTestConfig(protocol),
 	}
 
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
@@ -831,11 +829,11 @@ func testTunnelNoTrackRulesTunnelingEnabled(t *testing.T, protocol tunnel.EncapP
 }
 
 func TestTunnelVxlanNoTrackRulesTunnelingEnabled(t *testing.T) {
-	testTunnelNoTrackRulesTunnelingEnabled(t, tunnel.VXLAN, 8472)
+	testTunnelNoTrackRulesTunnelingEnabled(t, 8472)
 }
 
 func TestTunnelGeneveNoTrackRulesTunnelingEnabled(t *testing.T) {
-	testTunnelNoTrackRulesTunnelingEnabled(t, tunnel.Geneve, 6081)
+	testTunnelNoTrackRulesTunnelingEnabled(t, 6081)
 }
 
 func TestTunnelNoTrackRulesTunnelingDisabled(t *testing.T) {
@@ -845,7 +843,6 @@ func TestTunnelNoTrackRulesTunnelingDisabled(t *testing.T) {
 			EnableIPv6:       true,
 			TunnelingEnabled: false,
 		},
-		tunnelCfg: tunnel.NewTestConfig(tunnel.Disabled),
 	}
 
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
