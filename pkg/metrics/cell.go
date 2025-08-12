@@ -18,7 +18,6 @@ import (
 var Cell = cell.Module("metrics", "Metrics",
 	// Provide registry to hive, but also invoke if case no cells decide to use as dependency
 	cell.Provide(NewAgentRegistry),
-	Metric(NewLegacyMetrics),
 	cell.Config(defaultRegistryConfig),
 	cell.Config(defaultSamplerConfig),
 	cell.Provide(
@@ -32,6 +31,7 @@ var Cell = cell.Module("metrics", "Metrics",
 // and without pulling in the legacy metrics.
 var AgentCell = cell.Group(
 	Cell,
+	Metric(NewLegacyMetrics),
 	cell.Invoke(
 		func(logger *slog.Logger, reg *Registry) {
 			// Register the agent status and BPF metrics.
