@@ -37,6 +37,7 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	clientset_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -179,6 +180,8 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 	deviceTable, err := tables.NewDeviceTable()
 	require.NoError(t, err)
 
+	var frontendsTable statedb.RWTable[*loadbalancer.Frontend]
+
 	// Create a cell that registers the tables with the StateDB
 	registerTablesCell := cell.Module(
 		"register-tables",
@@ -188,6 +191,9 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 			require.NoError(t, err)
 
 			err = db.RegisterTable(deviceTable)
+			require.NoError(t, err)
+
+			frontendsTable, err = loadbalancer.NewFrontendsTable(loadbalancer.DefaultConfig, db)
 			require.NoError(t, err)
 		}),
 	)
@@ -224,15 +230,17 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 		// Register the tables with the StateDB
 		registerTablesCell,
 
-		// Provide route table
+		// Provide statedb tables
 		cell.Provide(func() statedb.Table[*tables.Route] {
 			return routeTable.ToTable()
 		}),
-
-		// Provide device table
 		cell.Provide(func() statedb.Table[*tables.Device] {
 			return deviceTable.ToTable()
 		}),
+		cell.Provide(func() statedb.Table[*loadbalancer.Frontend] {
+			return frontendsTable.ToTable()
+		}),
+
 		// daemon config
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
