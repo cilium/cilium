@@ -35,8 +35,8 @@ This guide explains how to achieve this.
 
 .. note::
 
-    This guide shows how to install Cilium on Rancher-managed Custom Clusters, 
-    however, this method also applies to clusters created with the providers such as VMware vSphere.
+    This guide shows how to install Cilium on Rancher-managed Custom Clusters.
+    However, this method also applies to clusters created with providers such as VMware vSphere.
 
 Prerequisites
 =============
@@ -65,8 +65,8 @@ In the same ``Basics`` section, expand ``Container Network`` drop down list and 
 Go through the other configuration options and configure the ones that are
 relevant for your setup.
 
-Add ``HelmChart`` manifests to install Cilium using RKE2 built-in Helm Operator. 
-Go to ``Additional Manifests`` section and paste the following YAML. Add relevant values for your Cilium installation.
+Add ``HelmChart`` manifests to install Cilium using the RKE2 built-in Helm Operator. 
+Go to the ``Additional Manifests`` section and paste the following YAML. Add relevant values for your Cilium installation.
 
 .. code-block:: yaml
 
@@ -102,9 +102,9 @@ Click the ``Edit as YAML`` box at the bottom of the page.
 The cluster configuration will open in an editor within the window.
 
 Within the ``Cluster`` Custom Resource (``provisioning.cattle.io/v1``), 
-verify rkeConfig section. It should consist of the manifests that you added to the ``Additional Manifests`` section.
+verify the ``rkeConfig`` section. It should consist of the manifests that you added to the ``Additional Manifests`` section.
 
-If you like to disable the default kube-proxy and your Cilium configuration enables Kube-Proxy Replacement as described here: :ref:`Cilium without Kube-Proxy<kubeproxy-free>`, check the ``spec.rkeConfig.machineGlobalConfig`` section and set
+If you like to disable the default kube-proxy and your Cilium configuration enables :ref:`Kube-Proxy Replacement <kubeproxy-free>`, check the ``spec.rkeConfig.machineGlobalConfig`` section and set
 ``spec.rkeConfig.machineGlobalConfig.disable-kube-proxy`` to ``true``.
 
 .. image:: images/rancher_config_yaml.png
@@ -125,7 +125,7 @@ not what you want for multi-node clusters.
 
 A few seconds after you added at least a single node, you should see the new node(s)
 in the ``Machines`` tab. Cilium CNI will be installed during the cluster bootstrap process 
-by Helm Operator, which creates a job that will install Cilium on the cluster.
+by Helm Operator, which creates a Kubernetes Job that will install Cilium on the cluster.
 
 After a few minutes, you should see that the node changed to the ``Ready`` status:
 
@@ -143,12 +143,12 @@ Back in the Rancher UI, you should see that the cluster changed to the healthy
 .. image:: images/rancher_cluster_created.png
 
 That's it! You can now work with this cluster as if you had installed the CNI using the default Rancher method. 
-You can scale the cluster up or down, add or remove nodes, etc.
+You can scale the cluster up or down, add or remove nodes, and so on.
 
 Verify Cilium Installation
 ==========================================
 
-After installation, the Cilium repository and release will be tracked by Rancher. You can manage the Cilium lifecycle
+After the installation, the Cilium repository and Helm release will be tracked by Rancher. You can manage the Cilium lifecycle
 using the Rancher UI. To verify that Cilium is installed, check the Cilium app in the Rancher UI.
 
 Navigate to ``<your-cluster>`` -> ``Apps`` -> ``Installed Apps``. From the top drop-down menu, select
@@ -156,11 +156,11 @@ Navigate to ``<your-cluster>`` -> ``Apps`` -> ``Installed Apps``. From the top d
 
 .. image:: images/rancher_cluster_cilium_app.png
 
-Cilium helm repository has been added to Rancher within the ``Additional Manifests`` section.
+The Cilium Helm repository has been added to Rancher within the ``Additional Manifests`` section.
 
 .. image:: images/rancher_cilium_repo.png
   
-Once the new cilium version will be availble, you will now see a small hint on this app entry
+Once the new Cilium version will be available, you will now see a small hint on this app entry
 when there's a new Cilium version released. You can then upgrade directly via Rancher UI.
 
 .. image:: images/rancher_cluster_cilium_app_upgrade.png
