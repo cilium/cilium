@@ -91,7 +91,6 @@ func testDistribution(t *testing.T, suite *suite.ConformanceTestSuite, gwAddr st
 		g               errgroup.Group
 		seenMutex       sync.Mutex
 		seen            = make(map[string]float64, 3 /* number of backends */)
-		req             = http.MakeRequest(t, &expected, gwAddr, "HTTP", "http")
 		expectedWeights = map[string]float64{
 			"infra-backend-v1": 0.7,
 			"infra-backend-v2": 0.3,
@@ -101,11 +100,16 @@ func testDistribution(t *testing.T, suite *suite.ConformanceTestSuite, gwAddr st
 	g.SetLimit(concurrentRequests)
 	for i := 0.0; i < totalRequests; i++ {
 		g.Go(func() error {
+			uniqueExpected := expected
+			if err := http.AddEntropy(&uniqueExpected); err != nil {
+				return fmt.Errorf("error adding entropy: %w", err)
+			}
+			req := http.MakeRequest(t, &uniqueExpected, gwAddr, "HTTP", "http")
 			cReq, cRes, err := roundTripper.CaptureRoundTrip(req)
 			if err != nil {
 				return fmt.Errorf("failed to roundtrip request: %w", err)
 			}
-			if err := http.CompareRequest(t, &req, cReq, cRes, expected); err != nil {
+			if err := http.CompareRoundTrip(t, &req, cReq, cRes, expected); err != nil {
 				return fmt.Errorf("response expectation failed for request: %w", err)
 			}
 

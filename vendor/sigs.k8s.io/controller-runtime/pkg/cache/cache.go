@@ -113,6 +113,10 @@ type Informer interface {
 	// the handler again and an error if the handler cannot be added.
 	AddEventHandlerWithResyncPeriod(handler toolscache.ResourceEventHandler, resyncPeriod time.Duration) (toolscache.ResourceEventHandlerRegistration, error)
 
+	// AddEventHandlerWithOptions is a variant of AddEventHandlerWithResyncPeriod where
+	// all optional parameters are passed in as a struct.
+	AddEventHandlerWithOptions(handler toolscache.ResourceEventHandler, options toolscache.HandlerOptions) (toolscache.ResourceEventHandlerRegistration, error)
+
 	// RemoveEventHandler removes a previously added event handler given by
 	// its registration handle.
 	// This function is guaranteed to be idempotent and thread-safe.
@@ -207,11 +211,11 @@ type Options struct {
 	// to reduce the caches memory usage.
 	DefaultTransform toolscache.TransformFunc
 
-	// DefaultWatchErrorHandler will be used to the WatchErrorHandler which is called
+	// DefaultWatchErrorHandler will be used to set the WatchErrorHandler which is called
 	// whenever ListAndWatch drops the connection with an error.
 	//
 	// After calling this handler, the informer will backoff and retry.
-	DefaultWatchErrorHandler toolscache.WatchErrorHandler
+	DefaultWatchErrorHandler toolscache.WatchErrorHandlerWithContext
 
 	// DefaultUnsafeDisableDeepCopy is the default for UnsafeDisableDeepCopy
 	// for everything that doesn't specify this.

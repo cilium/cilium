@@ -38,12 +38,15 @@ const (
 // the policy attachment documentation for Gateway API.
 type LocalPolicyTargetReference struct {
 	// Group is the group of the target resource.
+	// +required
 	Group Group `json:"group"`
 
 	// Kind is kind of the target resource.
+	// +required
 	Kind Kind `json:"kind"`
 
 	// Name is the name of the target resource.
+	// +required
 	Name ObjectName `json:"name"`
 }
 
@@ -55,12 +58,15 @@ type LocalPolicyTargetReference struct {
 // documentation for Gateway API.
 type NamespacedPolicyTargetReference struct {
 	// Group is the group of the target resource.
+	// +required
 	Group Group `json:"group"`
 
 	// Kind is kind of the target resource.
+	// +required
 	Kind Kind `json:"kind"`
 
 	// Name is the name of the target resource.
+	// +required
 	Name ObjectName `json:"name"`
 
 	// Namespace is the namespace of the referent. When unspecified, the local
@@ -174,6 +180,7 @@ const (
 type PolicyAncestorStatus struct {
 	// AncestorRef corresponds with a ParentRef in the spec that this
 	// PolicyAncestorStatus struct describes the status of.
+	// +required
 	AncestorRef ParentReference `json:"ancestorRef"`
 
 	// ControllerName is a domain/path string that indicates the name of the
@@ -189,10 +196,12 @@ type PolicyAncestorStatus struct {
 	// Controllers MUST populate this field when writing status. Controllers should ensure that
 	// entries to status populated with their ControllerName are cleaned up when they are no
 	// longer necessary.
+	// +required
 	ControllerName GatewayController `json:"controllerName"`
 
 	// Conditions describes the status of the Policy with respect to the given Ancestor.
 	//
+	// +required
 	// +listType=map
 	// +listMapKey=type
 	// +kubebuilder:validation:MinItems=1
@@ -233,6 +242,8 @@ type PolicyStatus struct {
 	// additional Gateways would be able to reference the Service targeted by
 	// the BackendTLSPolicy.
 	//
+	// +required
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
 	Ancestors []PolicyAncestorStatus `json:"ancestors"`
 }

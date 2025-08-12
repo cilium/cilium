@@ -86,6 +86,7 @@ type ParentReference struct {
 	// Name is the name of the referent.
 	//
 	// Support: Core
+	// +required
 	Name ObjectName `json:"name"`
 
 	// SectionName is the name of a section within the target resource. In the
@@ -148,6 +149,9 @@ type ParentReference struct {
 	// Support: Extended
 	//
 	// +optional
+	//
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
 	Port *PortNumber `json:"port,omitempty"`
 }
 
@@ -218,6 +222,7 @@ type CommonRouteSpec struct {
 	// </gateway:experimental:description>
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=32
 	// <gateway:standard:validation:XValidation:message="sectionName must be specified when parentRefs includes 2 or more references to the same parent",rule="self.all(p1, self.all(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__) || p1.__namespace__ == '') && (!has(p2.__namespace__) || p2.__namespace__ == '')) || (has(p1.__namespace__) && has(p2.__namespace__) && p1.__namespace__ == p2.__namespace__ )) ? ((!has(p1.sectionName) || p1.sectionName == '') == (!has(p2.sectionName) || p2.sectionName == '')) : true))">
 	// <gateway:standard:validation:XValidation:message="sectionName must be unique when parentRefs includes 2 or more references to the same parent",rule="self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__) || p1.__namespace__ == '') && (!has(p2.__namespace__) || p2.__namespace__ == '')) || (has(p1.__namespace__) && has(p2.__namespace__) && p1.__namespace__ == p2.__namespace__ )) && (((!has(p1.sectionName) || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName == '')) || (has(p1.sectionName) && has(p2.sectionName) && p1.sectionName == p2.sectionName))))">
@@ -227,9 +232,6 @@ type CommonRouteSpec struct {
 }
 
 // PortNumber defines a network port.
-//
-// +kubebuilder:validation:Minimum=1
-// +kubebuilder:validation:Maximum=65535
 type PortNumber int32
 
 // BackendRef defines how a Route should forward a request to a Kubernetes
@@ -436,6 +438,7 @@ const (
 type RouteParentStatus struct {
 	// ParentRef corresponds with a ParentRef in the spec that this
 	// RouteParentStatus struct describes the status of.
+	// +required
 	ParentRef ParentReference `json:"parentRef"`
 
 	// ControllerName is a domain/path string that indicates the name of the
@@ -451,6 +454,7 @@ type RouteParentStatus struct {
 	// Controllers MUST populate this field when writing status. Controllers should ensure that
 	// entries to status populated with their ControllerName are cleaned up when they are no
 	// longer necessary.
+	// +required
 	ControllerName GatewayController `json:"controllerName"`
 
 	// Conditions describes the status of the route with respect to the Gateway.
@@ -477,6 +481,7 @@ type RouteParentStatus struct {
 	// +listMapKey=type
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=8
+	// +required
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -498,6 +503,8 @@ type RouteStatus struct {
 	// A maximum of 32 Gateways will be represented in this list. An empty list
 	// means the route has not been attached to any Gateway.
 	//
+	// +required
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=32
 	Parents []RouteParentStatus `json:"parents"`
 }
@@ -764,11 +771,6 @@ type HeaderName string
 // +kubebuilder:validation:Pattern=`^([0-9]{1,5}(h|m|s|ms)){1,4}$`
 type Duration string
 
-// TrueField is a boolean value that can only be set to true
-//
-// +kubebuilder:validation:Enum=true
-type TrueField bool
-
 const (
 	// A textual representation of a numeric IP address. IPv4
 	// addresses must be in dotted-decimal form. IPv6 addresses
@@ -918,6 +920,7 @@ const (
 // +kubebuilder:validation:XValidation:message="numerator must be less than or equal to denominator",rule="self.numerator <= self.denominator"
 type Fraction struct {
 	// +kubebuilder:validation:Minimum=0
+	// +required
 	Numerator int32 `json:"numerator"`
 
 	// +optional
