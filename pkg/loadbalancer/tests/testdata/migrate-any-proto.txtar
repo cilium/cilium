@@ -22,6 +22,10 @@ k8s/delete service.yaml endpointslice.yaml
 * db/empty services frontends backends
 * lb/maps-empty
 
+# Force a prune to make sure it won't run while we restore
+# data.
+lb/prune
+
 # Restore with protocol changed to ANY.
 lb/maps-restore --any-proto
 
