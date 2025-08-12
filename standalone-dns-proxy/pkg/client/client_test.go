@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/identity"
 )
 
@@ -36,9 +37,9 @@ func TestNewDNSRulesTable(t *testing.T) {
 
 	// Test table insertion and retrieval
 	txn := db.WriteTxn(table)
-	dnsRule := DNSRules{
+	dnsRule := service.PolicyRules{
 		Identity: identity.NumericIdentity(100),
-		Rules:    []string{"example.com", "test.com"},
+		SelPol:   nil,
 	}
 	_, _, err = table.Insert(txn, dnsRule)
 	require.NoError(t, err)
@@ -46,10 +47,10 @@ func TestNewDNSRulesTable(t *testing.T) {
 
 	// Read back the data
 	rtxn := db.ReadTxn()
-	rule, _, found := table.Get(rtxn, idIndex.Query(identity.NumericIdentity(100)))
+	rule, _, found := table.Get(rtxn, service.PolicyRulesIndex.Query(identity.NumericIdentity(100)))
 	require.True(t, found)
 	require.Equal(t, identity.NumericIdentity(100), rule.Identity)
-	require.Equal(t, []string{"example.com", "test.com"}, rule.Rules)
+	require.Nil(t, rule.SelPol)
 }
 
 // Note: In the future PRs, the test case will be updated to actually check the ip<>identity mapping scenarios.

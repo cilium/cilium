@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
@@ -31,7 +32,7 @@ type StandaloneDNSProxy struct {
 
 	// dnsRulesTable is the table that holds DNS rules received from the Cilium agent
 	// It is used by the DNS proxy to enforce DNS policies
-	dnsRulesTable statedb.RWTable[client.DNSRules]
+	dnsRulesTable statedb.RWTable[service.PolicyRules]
 	db            *statedb.DB
 	jobGroup      job.Group
 }
@@ -75,46 +76,32 @@ func (sdp *StandaloneDNSProxy) StartStandaloneDNSProxy() error {
 
 // WatchDNSRulesTable watches the DNS rules table for changes and updates the DNS proxy accordingly
 func (sdp *StandaloneDNSProxy) WatchDNSRulesTable(ctx context.Context, _ cell.Health) error {
-	watchDNSRulesErrs := make(chan error)
-	go func() {
-		defer close(watchDNSRulesErrs)
-		// Watch for changes in the DNS rules table
-		limiter := rate.NewLimiter(time.Second, 1)
-		defer limiter.Stop()
+	limiter := rate.NewLimiter(time.Second, 1)
+	defer limiter.Stop()
 
-		rulesWatch := func() <-chan struct{} {
-			ch := make(chan struct{})
-			close(ch)
-			return ch
-		}()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-rulesWatch:
-				_, newWatch := sdp.dnsRulesTable.AllWatch(sdp.db.ReadTxn())
-				// Update the DNS proxy with the latest rules, this comment is a placeholder for the actual implementation
-				rulesWatch = newWatch
-			}
-			// Limit the rate at which we send the full snapshots
-			if err := limiter.Wait(ctx); err != nil {
-				sdp.logger.Error("Failed to wait for rate limiter", logfields.Error, err)
-				watchDNSRulesErrs <- err
-				return
-			}
-		}
+	rulesWatch := func() <-chan struct{} {
+		ch := make(chan struct{})
+		close(ch)
+		return ch
 	}()
 
-	select {
-	case err := <-watchDNSRulesErrs:
-		return err
-	case <-ctx.Done():
-		sdp.logger.Info("Stopping DNS rules table watcher")
-		<-watchDNSRulesErrs
-		return nil
-	}
+	for {
+		select {
+		case <-ctx.Done():
+			sdp.logger.Info("Stopping DNS rules table watcher")
+			return nil
+		case <-rulesWatch:
+			_, newWatch := sdp.dnsRulesTable.AllWatch(sdp.db.ReadTxn())
+			// Update the DNS proxy with the latest rules
+			rulesWatch = newWatch
+		}
 
+		// Limit the rate at which we send the full snapshots
+		if err := limiter.Wait(ctx); err != nil {
+			sdp.logger.Error("Failed to wait for rate limiter", logfields.Error, err)
+			return err
+		}
+	}
 }
 
 // StopStandaloneDNSProxy stops the standalone DNS proxy and cleanup resources

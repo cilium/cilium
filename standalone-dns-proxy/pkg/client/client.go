@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/statedb/index"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/identity"
 )
 
@@ -20,31 +21,12 @@ const (
 	IPtoIdentityTableName = "sdp-ip-to-identity"
 )
 
-// DNSRules represents the DNS rules for a specific identity.
-// Note: This is a placeholder for the actual DNS rules structure. The actual structure will be implemented in future PRs.
-type DNSRules struct {
-	Identity identity.NumericIdentity
-	Rules    []string
-}
-
 type IPtoIdentity struct {
 	IP       netip.Addr
 	Identity identity.NumericIdentity
 }
 
 var (
-	idIndex = statedb.Index[DNSRules, identity.NumericIdentity]{
-		Name: "id",
-		FromObject: func(e DNSRules) index.KeySet {
-			return index.NewKeySet(index.Uint32(e.Identity.Uint32()))
-		},
-		FromKey: func(key identity.NumericIdentity) index.Key {
-			return index.Uint32(key.Uint32())
-		},
-		FromString: index.Uint32String,
-		Unique:     true,
-	}
-
 	idIPToIdentityIndex = statedb.Index[IPtoIdentity, netip.Addr]{
 		Name: "ip",
 		FromObject: func(e IPtoIdentity) index.KeySet {
@@ -57,19 +39,6 @@ var (
 		Unique:     true,
 	}
 )
-
-// TableHeader implements the TableWritable interface for DNSRules
-func (p DNSRules) TableHeader() []string {
-	return []string{
-		"Identity",
-		"DNS Rules",
-	}
-}
-
-// TableRow implements the TableWritable interface for DNSRules
-func (p DNSRules) TableRow() []string {
-	return p.Rules
-}
 
 func (i IPtoIdentity) TableHeader() []string {
 	return []string{
@@ -137,11 +106,11 @@ func (c *GRPCClient) NotifyOnMsg() error {
 // This table will be used to store the DNS rules for the standalone DNS proxy.
 // The standalone DNS proxy will use this table to retrieve the DNS rules and update the DNS proxy with the
 // latest rules received from the Cilium agent.
-func newDNSRulesTable(db *statedb.DB) (statedb.RWTable[DNSRules], error) {
+func newDNSRulesTable(db *statedb.DB) (statedb.RWTable[service.PolicyRules], error) {
 	return statedb.NewTable(
 		db,
 		DNSRulesTableName,
-		idIndex,
+		service.PolicyRulesIndex,
 	)
 }
 
