@@ -94,7 +94,7 @@ volatile const __u8 v6_node_two[] = v6_node_two_addr;
 volatile const __u8 v6_node_three[] = v6_node_three_addr;
 
 /* IPv6 addresses for services in the cluster */
-#define v6_svc_one_addr {0xfd, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+#define v6_svc_one_addr {0xfd, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 
 volatile const __u8 v6_svc_one[] = v6_svc_one_addr;
 
