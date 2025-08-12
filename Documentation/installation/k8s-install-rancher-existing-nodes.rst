@@ -146,7 +146,7 @@ That's it! You can now work with this cluster as if you had installed the CNI us
 You can scale the cluster up or down, add or remove nodes, and so on.
 
 Verify Cilium Installation
-==========================================
+==================
 
 After the installation, the Cilium repository and Helm release will be tracked by Rancher. You can manage the Cilium lifecycle
 using the Rancher UI. To verify that Cilium is installed, check the Cilium app in the Rancher UI.
