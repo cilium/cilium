@@ -43,12 +43,15 @@ type Writer struct {
 
 	sourcePriorities map[source.Source]uint8 // The smaller the int, the more preferred the source. Use via sourcePriority().
 
-	selectBackendsFunc SelectBackendsFunc
+	selectBackendsFunc         SelectBackendsFunc
+	isServiceHealthCheckedFunc IsServiceHealthCheckedFunc
 
 	extCfg *loadbalancer.ExternalConfig
 }
 
 type SelectBackendsFunc = func(iter.Seq2[loadbalancer.BackendParams, statedb.Revision], *loadbalancer.Service, *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision]
+
+type IsServiceHealthCheckedFunc = func(*loadbalancer.Service) bool
 
 // Backends for the local cluster are associated with ID 0, regardless of the real cluster id.
 const LocalClusterID = 0
@@ -94,9 +97,38 @@ func (w *Writer) SetSelectBackendsFunc(fn SelectBackendsFunc) {
 	w.selectBackendsFunc = fn
 }
 
+func (w *Writer) SetIsServiceHealthCheckedFunc(fn IsServiceHealthCheckedFunc) {
+	w.isServiceHealthCheckedFunc = fn
+}
+
 // SelectBackends filters backends associated with [svc]. If [optionalFrontend] is non-nil, then backends are further filtered
 // by frontend IP family, protocol and port name.
 func (w *Writer) SelectBackends(bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
+	selectedBackends := w.selectBackendsFunc(bes, svc, optionalFrontend)
+
+	// return all selected backends for services that should not be health checked
+	if w.isServiceHealthCheckedFunc == nil || !w.isServiceHealthCheckedFunc(svc) {
+		return selectedBackends
+	}
+
+	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
+		for be, rev := range selectedBackends {
+
+			// filter backends that haven't been health checked yet
+			if be.State == loadbalancer.BackendStateActive && be.UnhealthyUpdatedAt == nil {
+				continue
+			}
+
+			if !yield(be, rev) {
+				return
+			}
+		}
+	}
+}
+
+// SelectBackendsForHealthChecking filters backends associated with [svc]. If [optionalFrontend] is non-nil, then backends are further filtered
+// by frontend IP family, protocol and port name.
+func (w *Writer) SelectBackendsForHealthChecking(bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
 	return w.selectBackendsFunc(bes, svc, optionalFrontend)
 }
 
@@ -350,6 +382,7 @@ func (w *Writer) refreshFrontend(txn statedb.ReadTxn, fe *loadbalancer.Frontend)
 	}
 	bes, _ := w.BackendsForService(txn, svc.Name)
 	fe.Backends = loadbalancer.BackendsSeq2(w.SelectBackends(bes, svc, fe))
+	fe.HealthCheckBackends = loadbalancer.BackendsSeq2(w.SelectBackendsForHealthChecking(bes, svc, fe))
 }
 
 func (w *Writer) RefreshFrontends(txn WriteTxn, name loadbalancer.ServiceName) error {

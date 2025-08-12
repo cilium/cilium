@@ -102,6 +102,22 @@ Address              Instances
       "UnhealthyUpdatedAt": null
     }
   ],
+  "HealthCheckBackends": [
+    {
+      "Address": "10.244.1.1:8080/TCP",
+      "PortNames": [
+        "http"
+      ],
+      "Weight": 100,
+      "NodeName": "nodeport-worker",
+      "Zone": null,
+      "ClusterID": 0,
+      "Source": "k8s",
+      "State": 0,
+      "Unhealthy": false,
+      "UnhealthyUpdatedAt": null
+    }
+  ],
   "ID": 1,
   "RedirectTo": null
 }
@@ -117,6 +133,22 @@ Address              Instances
     "kind": "Done"
   },
   "Backends": [
+    {
+      "Address": "[2002::2]:8080/TCP",
+      "PortNames": [
+        "http"
+      ],
+      "Weight": 100,
+      "NodeName": "nodeport-worker",
+      "Zone": null,
+      "ClusterID": 0,
+      "Source": "k8s",
+      "State": 0,
+      "Unhealthy": false,
+      "UnhealthyUpdatedAt": null
+    }
+  ],
+  "HealthCheckBackends": [
     {
       "Address": "[2002::2]:8080/TCP",
       "PortNames": [
@@ -230,6 +262,18 @@ backends:
       state: 0
       unhealthy: false
       unhealthyupdatedat: null
+healthcheckbackends:
+    - address: 10.244.1.1:8080/TCP
+      portnames:
+        - http
+      weight: 100
+      nodename: nodeport-worker
+      zone: null
+      clusterid: 0
+      source: k8s
+      state: 0
+      unhealthy: false
+      unhealthyupdatedat: null
 id: 1
 redirectto: null
 ---
@@ -244,6 +288,18 @@ status:
     id: <redacted>
     kind: Done
 backends:
+    - address: '[2002::2]:8080/TCP'
+      portnames:
+        - http
+      weight: 100
+      nodename: nodeport-worker
+      zone: null
+      clusterid: 0
+      source: k8s
+      state: 0
+      unhealthy: false
+      unhealthyupdatedat: null
+healthcheckbackends:
     - address: '[2002::2]:8080/TCP'
       portnames:
         - http
