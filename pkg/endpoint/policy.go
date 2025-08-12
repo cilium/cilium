@@ -682,7 +682,7 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 	// bump the policy revision directly (as long as we didn't miss an update somehow).
 	if !idsToRegen.Has(secID) {
 		if e.policyRevision < fromRev {
-			if e.state == StateWaitingToRegenerate {
+			if e.state == StateWaitingToRegenerate || e.state == StateRestoring {
 				// We can log this at less severity since a regeneration was already queued.
 				// This can happen if two policy updates come in quick succession, with the first
 				// affecting this endpoint and the second not.
