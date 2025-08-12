@@ -16,7 +16,6 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -43,8 +42,8 @@ type policyImporterParams struct {
 	Config   Config
 
 	Repo            policy.PolicyRepository
-	EndpointManager endpointmanager.EndpointManager
-	IPCache         *ipcache.IPCache
+	EndpointManager epmanager
+	IPCache         ipcacher
 	MonitorAgent    agent.Agent
 }
 
