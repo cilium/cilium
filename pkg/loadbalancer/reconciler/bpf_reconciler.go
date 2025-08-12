@@ -122,6 +122,7 @@ type BPFOps struct {
 	extCfg        loadbalancer.ExternalConfig
 	maglev        *maglev.Maglev
 	lastUpdatedAt atomic.Pointer[time.Time]
+	pruneCount    atomic.Int32
 
 	serviceIDAlloc     idAllocator[loadbalancer.ServiceID]
 	restoredServiceIDs map[loadbalancer.L3n4Addr]loadbalancer.ServiceID
@@ -645,6 +646,7 @@ func (ops *BPFOps) pruneMaglev() error {
 
 // Prune implements reconciler.Operations.
 func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*loadbalancer.Frontend, statedb.Revision]) error {
+	defer func() { ops.pruneCount.Add(1) }()
 	ops.log.Debug("Pruning")
 	return errors.Join(
 		ops.pruneRestoredIDs(),
