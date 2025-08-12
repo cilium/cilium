@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -40,7 +41,7 @@ func NewDedicatedIngressTranslator(log *slog.Logger, cecTranslator translation.C
 	}
 }
 
-func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
+func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *discoveryv1.EndpointSlice, error) {
 	if m == nil || (len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0) {
 		return nil, nil, nil, fmt.Errorf("model source can't be empty")
 	}
@@ -79,7 +80,7 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 
 	dedicatedService := d.getService(sourceResource, modelService, tlsOnly)
 
-	return cec, dedicatedService, getEndpoints(sourceResource), err
+	return cec, dedicatedService, getEndpointSlice(sourceResource), err
 }
 
 func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedResource, service *model.Service, tlsOnly bool) *corev1.Service {
@@ -156,8 +157,8 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 	}
 }
 
-func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
-	return &corev1.Endpoints{
+func getEndpointSlice(resource model.FullyQualifiedResource) *discoveryv1.EndpointSlice {
+	return &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name),
 			Namespace: resource.Namespace,
@@ -172,13 +173,18 @@ func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
 				},
 			},
 		},
-		Subsets: []corev1.EndpointSubset{
+		AddressType: discoveryv1.AddressTypeIPv4,
+		Endpoints: []discoveryv1.Endpoint{
 			{
 				// This dummy endpoint is required as agent refuses to push service entry
 				// to the lb map when the service has no backends.
 				// Related github issue https://github.com/cilium/cilium/issues/19262
-				Addresses: []corev1.EndpointAddress{{IP: "192.192.192.192"}}, // dummy
-				Ports:     []corev1.EndpointPort{{Port: 9999}},               // dummy
+				Addresses: []string{"192.192.192.192"}, // dummy
+			},
+		},
+		Ports: []discoveryv1.EndpointPort{
+			{
+				Port: ptr.To[int32](9999), // dummy
 			},
 		},
 	}

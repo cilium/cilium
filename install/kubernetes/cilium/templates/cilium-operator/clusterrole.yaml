@@ -114,6 +114,20 @@ rules:
   - delete
   - patch
 {{- end }}
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+- apiGroups:
+  - "discovery.k8s.io"
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+{{- end }}
 {{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
 - apiGroups:
   - ""

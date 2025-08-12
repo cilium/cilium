@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -42,7 +43,7 @@ func NewTranslator(cecTranslator translation.CECTranslator, cfg translation.Conf
 	}
 }
 
-func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
+func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *discoveryv1.EndpointSlice, error) {
 	listeners := m.GetListeners()
 	if len(listeners) == 0 || len(listeners[0].GetSources()) == 0 {
 		return nil, nil, nil, fmt.Errorf("model source can't be empty")
@@ -100,10 +101,10 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 		return nil, nil, nil, err
 	}
 
-	ep := t.desiredEndpoints(source, allLabels, allAnnotations)
+	eps := t.desiredEndpointSlice(source, allLabels, allAnnotations)
 	lbSvc := t.desiredService(listeners[0].GetService(), source, ports, allLabels, allAnnotations)
 
-	return cec, lbSvc, ep, err
+	return cec, lbSvc, eps, err
 }
 
 func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *model.FullyQualifiedResource,
@@ -299,13 +300,13 @@ func (t *gatewayAPITranslator) toTrafficDistribution(params *model.Service) *str
 	return params.TrafficDistribution
 }
 
-func (t *gatewayAPITranslator) desiredEndpoints(owner *model.FullyQualifiedResource, labels, annotations map[string]string) *corev1.Endpoints {
+func (t *gatewayAPITranslator) desiredEndpointSlice(owner *model.FullyQualifiedResource, labels, annotations map[string]string) *discoveryv1.EndpointSlice {
 	if owner == nil {
 		return nil
 	}
 	shortedName := shortener.ShortenK8sResourceName(owner.Name)
 
-	return &corev1.Endpoints{
+	return &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shortener.ShortenK8sResourceName(ciliumGatewayPrefix + owner.Name),
 			Namespace: owner.Namespace,
@@ -324,13 +325,18 @@ func (t *gatewayAPITranslator) desiredEndpoints(owner *model.FullyQualifiedResou
 				},
 			},
 		},
-		Subsets: []corev1.EndpointSubset{
+		AddressType: discoveryv1.AddressTypeIPv4,
+		Endpoints: []discoveryv1.Endpoint{
 			{
 				// This dummy endpoint is required as agent refuses to push service entry
 				// to the lb map when the service has no backends.
 				// Related github issue https://github.com/cilium/cilium/issues/19262
-				Addresses: []corev1.EndpointAddress{{IP: "192.192.192.192"}}, // dummy
-				Ports:     []corev1.EndpointPort{{Port: 9999}},               // dummy
+				Addresses: []string{"192.192.192.192"}, // dummy
+			},
+		},
+		Ports: []discoveryv1.EndpointPort{
+			{
+				Port: ptr.To[int32](9999), // dummy
 			},
 		},
 	}
