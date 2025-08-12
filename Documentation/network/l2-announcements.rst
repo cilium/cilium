@@ -75,9 +75,6 @@ Prerequisites
 * All devices on which L2 Aware LB will be announced should be enabled and included in the 
   ``--devices`` flag or ``devices`` Helm option if explicitly set, see :ref:`NodePort Devices`.
 
-* The ``externalIPs.enabled=true`` Helm option must be set, if usage of externalIPs
-  is desired. Otherwise service load balancing for external IPs is disabled.
-
 Limitations
 ###########
 
