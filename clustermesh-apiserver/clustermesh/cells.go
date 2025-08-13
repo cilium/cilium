@@ -5,6 +5,8 @@ package clustermesh
 
 import (
 	"errors"
+	"os"
+	"strconv"
 
 	"github.com/cilium/hive/cell"
 
@@ -67,6 +69,14 @@ var Cell = cell.Module(
 var Synchronization = cell.Module(
 	"clustermesh-synchronization",
 	"Synchronize information from Kubernetes to KVStore",
+
+	// Namespace watcher for tracking global namespaces
+	cell.Group(
+		cell.Provide(
+			newNamespaceWatcherConfig,
+			RegisterNamespaceWatcher,
+		),
+	),
 
 	cell.Group(
 		cell.Provide(
@@ -139,4 +149,20 @@ var pprofConfig = pprof.Config{
 	Pprof:        false,
 	PprofAddress: option.PprofAddress,
 	PprofPort:    option.PprofPortClusterMesh,
+}
+
+type namespaceWatcherConfigParams struct {
+	cell.In
+}
+
+func newNamespaceWatcherConfig(params namespaceWatcherConfigParams) NamespaceWatcherConfig {
+	// Read the configuration from environment variable following the same pattern as cluster-id
+	defaultGlobal := false // Default to false for security
+	if envVal := os.Getenv("CLUSTERMESH_DEFAULT_GLOBAL_NAMESPACE"); envVal != "" {
+		if parsed, err := strconv.ParseBool(envVal); err == nil {
+			defaultGlobal = parsed
+		}
+	}
+	
+	return NamespaceWatcherConfig{DefaultGlobalNamespace: defaultGlobal}
 }
