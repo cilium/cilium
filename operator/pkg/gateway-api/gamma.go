@@ -180,7 +180,7 @@ func getGammaReconcileRequestsForRoute(ctx context.Context, c client.Client, obj
 
 		scopedLog.Info("Enqueued GAMMA Service for Route",
 			logfields.K8sNamespace, ns,
-			logfields.Resource, parent.Name,
+			logfields.ParentResource, parent.Name,
 			logfields.Route, object.GetName())
 
 		reqs = append(reqs, reconcile.Request{
