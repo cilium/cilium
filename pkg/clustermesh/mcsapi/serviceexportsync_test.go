@@ -162,67 +162,75 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		Namespace:               "default",
 		ExportCreationTimestamp: exportTime,
 	}))
-	go (&serviceExportSync{
-		logger:         hivetest.Logger(t),
-		clusterName:    clusterName,
-		enabled:        true,
-		store:          kvs,
-		serviceExports: serviceExports,
-		services:       services,
-	}).loop(ctx)
 
-	t.Run("Test basic case", func(t *testing.T) {
-		name := "basic"
-		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
-			v, err := client.Get(ctx, storeKey)
-			assert.NoError(c, err)
-			mcsAPISvcSpec := types.MCSAPIServiceSpec{}
-			assert.NoError(c, mcsAPISvcSpec.Unmarshal("", v))
-			assert.Equal(c, name, mcsAPISvcSpec.Name)
-			assert.Equal(c, "default", mcsAPISvcSpec.Namespace)
-			assert.Equal(c, "cluster1", mcsAPISvcSpec.Cluster)
-			assert.Len(c, mcsAPISvcSpec.Ports, 1)
-			if len(mcsAPISvcSpec.Ports) == 1 {
-				assert.Equal(c, "my-port-1", mcsAPISvcSpec.Ports[0].Name)
-			}
-			assert.Equal(c, map[string]string{"my-annotation": "test"}, mcsAPISvcSpec.Annotations)
-			assert.Equal(c, map[string]string{"my-label": "test"}, mcsAPISvcSpec.Labels)
-			assert.True(c, exportTime.Equal(&mcsAPISvcSpec.ExportCreationTimestamp), "Export time should be equal")
-			assert.Equal(c, mcsapiv1alpha1.ClusterSetIP, mcsAPISvcSpec.Type)
-		}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
-	})
+	testBasicSync := func() {
+		sync := &serviceExportSync{
+			logger:         hivetest.Logger(t),
+			clusterName:    clusterName,
+			enabled:        true,
+			store:          kvs,
+			serviceExports: serviceExports,
+			services:       services,
+		}
+		go sync.loop(ctx)
 
-	t.Run("Test headless case", func(t *testing.T) {
-		name := "headless"
-		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
-			v, err := client.Get(ctx, storeKey)
-			assert.NoError(c, err)
-			mcsAPISvcSpec := types.MCSAPIServiceSpec{}
-			assert.NoError(c, mcsAPISvcSpec.Unmarshal("", v))
-			assert.True(c, exportTime.Equal(&mcsAPISvcSpec.ExportCreationTimestamp), "Export time should be equal")
-			assert.Equal(c, mcsapiv1alpha1.Headless, mcsAPISvcSpec.Type)
-		}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
-	})
+		t.Run("Test basic case", func(t *testing.T) {
+			name := "basic"
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
+				v, err := client.Get(ctx, storeKey)
+				assert.NoError(c, err)
+				mcsAPISvcSpec := types.MCSAPIServiceSpec{}
+				assert.NoError(c, mcsAPISvcSpec.Unmarshal("", v))
+				assert.Equal(c, name, mcsAPISvcSpec.Name)
+				assert.Equal(c, "default", mcsAPISvcSpec.Namespace)
+				assert.Equal(c, "cluster1", mcsAPISvcSpec.Cluster)
+				assert.Len(c, mcsAPISvcSpec.Ports, 1)
+				if len(mcsAPISvcSpec.Ports) == 1 {
+					assert.Equal(c, "my-port-1", mcsAPISvcSpec.Ports[0].Name)
+				}
+				assert.Equal(c, map[string]string{"my-annotation": "test"}, mcsAPISvcSpec.Annotations)
+				assert.Equal(c, map[string]string{"my-label": "test"}, mcsAPISvcSpec.Labels)
+				assert.True(c, exportTime.Equal(&mcsAPISvcSpec.ExportCreationTimestamp), "Export time should be equal")
+				assert.Equal(c, mcsapiv1alpha1.ClusterSetIP, mcsAPISvcSpec.Type)
+			}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
+		})
 
-	t.Run("Test remove service", func(t *testing.T) {
-		name := "remove-service"
-		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
-			v, err := client.Get(ctx, storeKey)
-			assert.NoError(c, err)
-			assert.Empty(c, string(v))
-		}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
-	})
+		t.Run("Test headless case", func(t *testing.T) {
+			name := "headless"
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
+				v, err := client.Get(ctx, storeKey)
+				assert.NoError(c, err)
+				mcsAPISvcSpec := types.MCSAPIServiceSpec{}
+				assert.NoError(c, mcsAPISvcSpec.Unmarshal("", v))
+				assert.True(c, exportTime.Equal(&mcsAPISvcSpec.ExportCreationTimestamp), "Export time should be equal")
+				assert.Equal(c, mcsapiv1alpha1.Headless, mcsAPISvcSpec.Type)
+			}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
+		})
 
-	t.Run("Test remove service export", func(t *testing.T) {
-		name := "remove-service-export"
-		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
-			v, err := client.Get(ctx, storeKey)
-			assert.NoError(c, err)
-			assert.Empty(c, string(v))
-		}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
-	})
+		t.Run("Test remove service", func(t *testing.T) {
+			name := "remove-service"
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
+				v, err := client.Get(ctx, storeKey)
+				assert.NoError(c, err)
+				assert.Empty(c, string(v))
+			}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
+		})
+
+		t.Run("Test remove service export", func(t *testing.T) {
+			name := "remove-service-export"
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				storeKey := "cilium/state/serviceexports/v1/cluster1/default/" + name
+				v, err := client.Get(ctx, storeKey)
+				assert.NoError(c, err)
+				assert.Empty(c, string(v))
+			}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
+		})
+	}
+
+	// Run basic sync test
+	testBasicSync()
 }
+

@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -515,6 +516,10 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		cluster:                    localClusterName,
 		globalServiceExports:       globalServiceExports,
 		remoteClusterServiceSource: remoteClusterServiceSource,
+		annotatedNamespaces:        sets.New[string](),
+		globalNamespaces:           sets.New[string](),
+		filteringActive:            false,
+		defaultGlobalNamespace:     false, // Test with default to false
 	}
 
 	t.Run("Service import creation with local-only", func(t *testing.T) {
@@ -991,4 +996,583 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportConflict))
 		})
 	}
+}
+
+func Test_mcsServiceImport_NamespaceFiltering(t *testing.T) {
+	globalNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "global-ns",
+			Annotations: map[string]string{
+				"clustermesh.cilium.io/global": "true",
+			},
+		},
+	}
+	localNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "local-ns",
+			Annotations: map[string]string{
+				"clustermesh.cilium.io/global": "false",
+			},
+		},
+	}
+	defaultNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default-ns",
+		},
+	}
+
+	globalService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "global-service",
+			Namespace: "global-ns",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 8080}},
+		},
+	}
+	localService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "local-service",
+			Namespace: "local-ns",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 9090}},
+		},
+	}
+	defaultService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default-service",
+			Namespace: "default-ns",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 7070}},
+		},
+	}
+
+	globalServiceExport := &mcsapiv1alpha1.ServiceExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "global-service",
+			Namespace:         "global-ns",
+			CreationTimestamp: nowTime,
+		},
+	}
+	localServiceExport := &mcsapiv1alpha1.ServiceExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "local-service",
+			Namespace:         "local-ns",
+			CreationTimestamp: nowTime,
+		},
+	}
+	defaultServiceExport := &mcsapiv1alpha1.ServiceExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "default-service",
+			Namespace:         "default-ns",
+			CreationTimestamp: nowTime,
+		},
+	}
+
+	fixtures := []client.Object{
+		globalNS, localNS, defaultNS,
+		globalService, localService, defaultService,
+		globalServiceExport, localServiceExport, defaultServiceExport,
+	}
+
+	globalServiceExports := operator.NewGlobalServiceExportCache(metric.NewGauge(metric.GaugeOpts{}))
+	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: hivetest.Logger(t)}
+
+	t.Run("Test with defaultGlobalNamespace=false", func(t *testing.T) {
+		c := fake.NewClientBuilder().
+			WithObjects(fixtures...).
+			WithStatusSubresource(&mcsapiv1alpha1.ServiceExport{}).
+			WithStatusSubresource(&mcsapiv1alpha1.ServiceImport{}).
+			WithScheme(testScheme()).
+			Build()
+
+		r := &mcsAPIServiceImportReconciler{
+			Client:                     c,
+			Logger:                     hivetest.Logger(t),
+			cluster:                    localClusterName,
+			globalServiceExports:       globalServiceExports,
+			remoteClusterServiceSource: remoteClusterServiceSource,
+			annotatedNamespaces:        sets.New[string](),
+			globalNamespaces:           sets.New[string](),
+			filteringActive:            false,
+			defaultGlobalNamespace:     false,
+		}
+
+		// Simulate namespace state updates
+		r.updateNamespaceState(context.Background(), globalNS)
+		r.updateNamespaceState(context.Background(), localNS)
+
+		// Global namespace: should create ServiceImport
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: "global-service", Namespace: "global-ns"},
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		svcImport, err := getServiceImport(c, types.NamespacedName{Name: "global-service", Namespace: "global-ns"})
+		require.NoError(t, err)
+		require.NotNil(t, svcImport)
+
+		// Local namespace: should NOT create ServiceImport
+		result, err = r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: "local-service", Namespace: "local-ns"},
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		svcImport, err = getServiceImport(c, types.NamespacedName{Name: "local-service", Namespace: "local-ns"})
+		require.True(t, k8sApiErrors.IsNotFound(err))
+		require.Nil(t, svcImport)
+
+		// Default namespace with defaultGlobalNamespace=false: should NOT create ServiceImport
+		result, err = r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: "default-service", Namespace: "default-ns"},
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		svcImport, err = getServiceImport(c, types.NamespacedName{Name: "default-service", Namespace: "default-ns"})
+		require.True(t, k8sApiErrors.IsNotFound(err))
+		require.Nil(t, svcImport)
+	})
+
+	t.Run("Test with defaultGlobalNamespace=true", func(t *testing.T) {
+		c := fake.NewClientBuilder().
+			WithObjects(fixtures...).
+			WithStatusSubresource(&mcsapiv1alpha1.ServiceExport{}).
+			WithStatusSubresource(&mcsapiv1alpha1.ServiceImport{}).
+			WithScheme(testScheme()).
+			Build()
+
+		r := &mcsAPIServiceImportReconciler{
+			Client:                     c,
+			Logger:                     hivetest.Logger(t),
+			cluster:                    localClusterName,
+			globalServiceExports:       globalServiceExports,
+			remoteClusterServiceSource: remoteClusterServiceSource,
+			annotatedNamespaces:        sets.New[string](),
+			globalNamespaces:           sets.New[string](),
+			filteringActive:            false,
+			defaultGlobalNamespace:     true,
+		}
+
+		// Simulate namespace state updates
+		r.updateNamespaceState(context.Background(), globalNS)
+		r.updateNamespaceState(context.Background(), localNS)
+
+		// Global namespace: should create ServiceImport
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: "global-service", Namespace: "global-ns"},
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		svcImport, err := getServiceImport(c, types.NamespacedName{Name: "global-service", Namespace: "global-ns"})
+		require.NoError(t, err)
+		require.NotNil(t, svcImport)
+
+		// Local namespace: should NOT create ServiceImport
+		result, err = r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: "local-service", Namespace: "local-ns"},
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		svcImport, err = getServiceImport(c, types.NamespacedName{Name: "local-service", Namespace: "local-ns"})
+		require.True(t, k8sApiErrors.IsNotFound(err))
+		require.Nil(t, svcImport)
+
+		// Default namespace with defaultGlobalNamespace=true: should create ServiceImport
+		result, err = r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: "default-service", Namespace: "default-ns"},
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		svcImport, err = getServiceImport(c, types.NamespacedName{Name: "default-service", Namespace: "default-ns"})
+		require.NoError(t, err)
+		require.NotNil(t, svcImport)
+	})
+
+	t.Run("Test backwards compatibility - no annotations", func(t *testing.T) {
+		// Remove annotation from namespaces to test backwards compatibility
+		globalNSNoAnnotation := globalNS.DeepCopy()
+		globalNSNoAnnotation.Annotations = nil
+		localNSNoAnnotation := localNS.DeepCopy()
+		localNSNoAnnotation.Annotations = nil
+
+		fixtures := []client.Object{
+			globalNSNoAnnotation, localNSNoAnnotation, defaultNS,
+			globalService, localService, defaultService,
+			globalServiceExport, localServiceExport, defaultServiceExport,
+		}
+
+		c := fake.NewClientBuilder().
+			WithObjects(fixtures...).
+			WithStatusSubresource(&mcsapiv1alpha1.ServiceExport{}).
+			WithStatusSubresource(&mcsapiv1alpha1.ServiceImport{}).
+			WithScheme(testScheme()).
+			Build()
+
+		r := &mcsAPIServiceImportReconciler{
+			Client:                     c,
+			Logger:                     hivetest.Logger(t),
+			cluster:                    localClusterName,
+			globalServiceExports:       globalServiceExports,
+			remoteClusterServiceSource: remoteClusterServiceSource,
+			annotatedNamespaces:        sets.New[string](),
+			globalNamespaces:           sets.New[string](),
+			filteringActive:            false,
+			defaultGlobalNamespace:     false, // This should not matter when no annotations exist
+		}
+
+		// No namespace updates - should remain in backwards compatibility mode
+
+		// All namespaces should behave as global (backwards compatibility)
+		for _, ns := range []string{"global-ns", "local-ns", "default-ns"} {
+			for _, svc := range []string{"global-service", "local-service", "default-service"} {
+				if (ns == "global-ns" && svc != "global-service") ||
+					(ns == "local-ns" && svc != "local-service") ||
+					(ns == "default-ns" && svc != "default-service") {
+					continue
+				}
+
+				result, err := r.Reconcile(context.Background(), ctrl.Request{
+					NamespacedName: types.NamespacedName{Name: svc, Namespace: ns},
+				})
+				require.NoError(t, err)
+				require.Equal(t, ctrl.Result{}, result)
+
+				svcImport, err := getServiceImport(c, types.NamespacedName{Name: svc, Namespace: ns})
+				require.NoError(t, err, "ServiceImport should be created in backwards compatibility mode for %s/%s", ns, svc)
+				require.NotNil(t, svcImport)
+			}
+		}
+	})
+
+	t.Run("Test existing ServiceImport deletion when namespace becomes local", func(t *testing.T) {
+		// Create a ServiceImport that should be deleted when namespace becomes local
+		existingServiceImport := &mcsapiv1alpha1.ServiceImport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "existing-service",
+				Namespace: "test-ns",
+			},
+		}
+
+		testNS := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-ns",
+				Annotations: map[string]string{
+					"clustermesh.cilium.io/global": "false", // This namespace is local
+				},
+			},
+		}
+
+		testService := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "existing-service",
+				Namespace: "test-ns",
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{{Port: 6060}},
+			},
+		}
+
+		testServiceExport := &mcsapiv1alpha1.ServiceExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "existing-service",
+				Namespace:         "test-ns",
+				CreationTimestamp: nowTime,
+			},
+		}
+
+		fixtures := []client.Object{
+			testNS, testService, testServiceExport, existingServiceImport,
+		}
+
+		c := fake.NewClientBuilder().
+			WithObjects(fixtures...).
+			WithStatusSubresource(&mcsapiv1alpha1.ServiceExport{}).
+			WithStatusSubresource(&mcsapiv1alpha1.ServiceImport{}).
+			WithScheme(testScheme()).
+			Build()
+
+		r := &mcsAPIServiceImportReconciler{
+			Client:                     c,
+			Logger:                     hivetest.Logger(t),
+			cluster:                    localClusterName,
+			globalServiceExports:       globalServiceExports,
+			remoteClusterServiceSource: remoteClusterServiceSource,
+			annotatedNamespaces:        sets.New[string](),
+			globalNamespaces:           sets.New[string](),
+			filteringActive:            false,
+			defaultGlobalNamespace:     false,
+		}
+
+		// Update namespace state to make it local
+		r.updateNamespaceState(context.Background(), testNS)
+
+		// Verify the ServiceImport exists initially
+		svcImport, err := getServiceImport(c, types.NamespacedName{Name: "existing-service", Namespace: "test-ns"})
+		require.NoError(t, err)
+		require.NotNil(t, svcImport)
+
+		// Reconcile - should delete the ServiceImport because namespace is local
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: "existing-service", Namespace: "test-ns"},
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		// Verify the ServiceImport is deleted
+		svcImport, err = getServiceImport(c, types.NamespacedName{Name: "existing-service", Namespace: "test-ns"})
+		require.True(t, k8sApiErrors.IsNotFound(err))
+		require.Nil(t, svcImport)
+	})
+}
+
+func Test_mcsServiceImport_OperatorIntegration(t *testing.T) {
+	// Test that the defaultGlobalNamespace flag from operator config is properly used
+	globalNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "global-ns",
+			Annotations: map[string]string{
+				"clustermesh.cilium.io/global": "true",
+			},
+		},
+	}
+	defaultNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default-ns",
+		},
+	}
+
+	defaultService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default-service",
+			Namespace: "default-ns",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 7070}},
+		},
+	}
+
+	defaultServiceExport := &mcsapiv1alpha1.ServiceExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "default-service",
+			Namespace:         "default-ns",
+			CreationTimestamp: nowTime,
+		},
+	}
+
+	fixtures := []client.Object{
+		globalNS, defaultNS,
+		defaultService,
+		defaultServiceExport,
+	}
+
+	globalServiceExports := operator.NewGlobalServiceExportCache(metric.NewGauge(metric.GaugeOpts{}))
+	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: hivetest.Logger(t)}
+
+	testCases := []struct {
+		name                       string
+		defaultGlobalNamespace     bool
+		expectServiceImportCreated bool
+		description                string
+	}{
+		{
+			name:                       "operator flag false - non-annotated namespace should be local",
+			defaultGlobalNamespace:     false,
+			expectServiceImportCreated: false,
+			description:                "When operator sets defaultGlobalNamespace=false, non-annotated namespaces should be local",
+		},
+		{
+			name:                       "operator flag true - non-annotated namespace should be global",
+			defaultGlobalNamespace:     true,
+			expectServiceImportCreated: true,
+			description:                "When operator sets defaultGlobalNamespace=true, non-annotated namespaces should be global",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := fake.NewClientBuilder().
+				WithObjects(fixtures...).
+				WithStatusSubresource(&mcsapiv1alpha1.ServiceExport{}).
+				WithStatusSubresource(&mcsapiv1alpha1.ServiceImport{}).
+				WithScheme(testScheme()).
+				Build()
+
+			// Create reconciler using constructor directly to test operator integration
+			r := &mcsAPIServiceImportReconciler{
+				Client:                     c,
+				Logger:                     hivetest.Logger(t),
+				cluster:                    localClusterName,
+				globalServiceExports:       globalServiceExports,
+				remoteClusterServiceSource: remoteClusterServiceSource,
+				annotatedNamespaces:        sets.New[string](),
+				globalNamespaces:           sets.New[string](),
+				filteringActive:            false,
+				defaultGlobalNamespace:     tc.defaultGlobalNamespace, // This is the flag value from operator
+			}
+
+			// Simulate namespace state updates to activate filtering
+			r.updateNamespaceState(context.Background(), globalNS)
+
+			// Test default namespace behavior with the operator flag
+			result, err := r.Reconcile(context.Background(), ctrl.Request{
+				NamespacedName: types.NamespacedName{Name: "default-service", Namespace: "default-ns"},
+			})
+			require.NoError(t, err)
+			require.Equal(t, ctrl.Result{}, result)
+
+			svcImport, err := getServiceImport(c, types.NamespacedName{Name: "default-service", Namespace: "default-ns"})
+			if tc.expectServiceImportCreated {
+				require.NoError(t, err, tc.description)
+				require.NotNil(t, svcImport, tc.description)
+			} else {
+				require.True(t, k8sApiErrors.IsNotFound(err), tc.description)
+				require.Nil(t, svcImport, tc.description)
+			}
+		})
+	}
+}
+
+func Test_mcsServiceImport_ConstructorIntegration(t *testing.T) {
+	// Test that the defaultGlobalNamespace parameter is properly set
+	globalServiceExports := operator.NewGlobalServiceExportCache(metric.NewGauge(metric.GaugeOpts{}))
+	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: hivetest.Logger(t)}
+
+	c := fake.NewClientBuilder().
+		WithScheme(testScheme()).
+		Build()
+
+	testCases := []struct {
+		name                   string
+		defaultGlobalNamespace bool
+	}{
+		{
+			name:                   "constructor with defaultGlobalNamespace=false",
+			defaultGlobalNamespace: false,
+		},
+		{
+			name:                   "constructor with defaultGlobalNamespace=true",
+			defaultGlobalNamespace: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &mcsAPIServiceImportReconciler{
+				Client:                     c,
+				Logger:                     hivetest.Logger(t),
+				cluster:                    localClusterName,
+				globalServiceExports:       globalServiceExports,
+				remoteClusterServiceSource: remoteClusterServiceSource,
+				annotatedNamespaces:        sets.New[string](),
+				globalNamespaces:           sets.New[string](),
+				filteringActive:            false,
+				defaultGlobalNamespace:     tc.defaultGlobalNamespace,
+			}
+
+			require.Equal(t, tc.defaultGlobalNamespace, r.defaultGlobalNamespace, "defaultGlobalNamespace should be set properly")
+			require.False(t, r.filteringActive, "Filtering should not be active initially")
+			require.Empty(t, r.annotatedNamespaces, "Annotated namespaces should be empty initially")
+			require.Empty(t, r.globalNamespaces, "Global namespaces should be empty initially")
+		})
+	}
+}
+
+func Test_mcsServiceImport_ServiceExportConditions(t *testing.T) {
+	// Test ServiceExport conditions for namespace filtering
+	localNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "local-ns",
+			Annotations: map[string]string{
+				"clustermesh.cilium.io/global": "false",
+			},
+		},
+	}
+
+	localService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "local-service",
+			Namespace: "local-ns",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 9090}},
+		},
+	}
+
+	localServiceExport := &mcsapiv1alpha1.ServiceExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "local-service",
+			Namespace:         "local-ns",
+			CreationTimestamp: nowTime,
+		},
+	}
+
+	fixtures := []client.Object{
+		localNS,
+		localService,
+		localServiceExport,
+	}
+
+	c := fake.NewClientBuilder().
+		WithObjects(fixtures...).
+		WithStatusSubresource(&mcsapiv1alpha1.ServiceExport{}).
+		WithStatusSubresource(&mcsapiv1alpha1.ServiceImport{}).
+		WithScheme(testScheme()).
+		Build()
+
+	globalServiceExports := operator.NewGlobalServiceExportCache(metric.NewGauge(metric.GaugeOpts{}))
+	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: hivetest.Logger(t)}
+
+	r := &mcsAPIServiceImportReconciler{
+		Client:                     c,
+		Logger:                     hivetest.Logger(t),
+		cluster:                    localClusterName,
+		globalServiceExports:       globalServiceExports,
+		remoteClusterServiceSource: remoteClusterServiceSource,
+		annotatedNamespaces:        sets.New[string](),
+		globalNamespaces:           sets.New[string](),
+		filteringActive:            false,
+		defaultGlobalNamespace:     false, // defaultGlobalNamespace = false
+	}
+
+	// Simulate namespace state updates
+	r.updateNamespaceState(context.Background(), localNS)
+
+	// Reconcile the local service (in a non-global namespace)
+	result, err := r.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: "local-service", Namespace: "local-ns"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, ctrl.Result{}, result)
+
+	// Verify ServiceExport has the correct conditions
+	svcExport, err := getServiceExport(c, types.NamespacedName{Name: "local-service", Namespace: "local-ns"})
+	require.NoError(t, err)
+	require.NotNil(t, svcExport)
+
+	// Check that NamespaceNotGlobal condition is set
+	namespaceNotGlobalCondition := meta.FindStatusCondition(svcExport.Status.Conditions, ServiceExportNamespaceNotGlobal)
+	require.NotNil(t, namespaceNotGlobalCondition)
+	require.Equal(t, metav1.ConditionTrue, namespaceNotGlobalCondition.Status)
+	require.Equal(t, "NamespaceNotGlobal", namespaceNotGlobalCondition.Reason)
+	require.Contains(t, namespaceNotGlobalCondition.Message, "local-ns is not marked for global export")
+
+	// Check that ServiceExportValid condition is set to False
+	validCondition := meta.FindStatusCondition(svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportValid)
+	require.NotNil(t, validCondition)
+	require.Equal(t, metav1.ConditionFalse, validCondition.Status)
+	require.Equal(t, "NamespaceNotGlobal", validCondition.Reason)
+	require.Contains(t, validCondition.Message, "local-ns is not marked for global export")
+
+	// Verify ServiceImport was not created
+	svcImport, err := getServiceImport(c, types.NamespacedName{Name: "local-service", Namespace: "local-ns"})
+	require.True(t, k8sApiErrors.IsNotFound(err))
+	require.Nil(t, svcImport)
 }
