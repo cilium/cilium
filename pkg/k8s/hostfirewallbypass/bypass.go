@@ -16,8 +16,11 @@ import (
 
 type k8sHostFirewallBypass struct{}
 
-func NewK8sHostFirewallBypass(config Params) client.ConfigureK8sClientsetDialer {
-	if config.EnableK8sHostFirewallBypass {
+func NewK8sHostFirewallBypass(params Params) client.ConfigureK8sClientsetDialer {
+	if params.DaemonConfig != nil && !params.DaemonConfig.EnableHostFirewall {
+		return nil
+	}
+	if params.LocalConfig.EnableK8sHostFirewallBypass {
 		return &k8sHostFirewallBypass{}
 	} else {
 		return nil
