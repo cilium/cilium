@@ -773,6 +773,10 @@ data:
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
 
+{{- if hasKey .Values "enableNoServiceEndpointsRoutable" }}
+  enable-no-service-endpoints-routable: {{ .Values.enableNoServiceEndpointsRoutable | quote }}
+{{- end }}
+
 {{- if $socketLB }}
 {{- if hasKey $socketLB "enabled" }}
   bpf-lb-sock: {{ $socketLB.enabled | quote }}
