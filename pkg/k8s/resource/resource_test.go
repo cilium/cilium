@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +32,7 @@ import (
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 const testTimeout = time.Minute
@@ -43,11 +43,8 @@ func TestMain(m *testing.M) {
 		// missing Event.Done() calls.
 		runtime.GC()
 	}
-	goleak.VerifyTestMain(m,
-		goleak.Cleanup(cleanup),
-		// Delaying workqueues used by resource.Resource[T].Events leaks this waitingLoop goroutine.
-		// It does stop when shutting down but is not guaranteed to before we actually exit.
-		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop"),
+	testutils.GoleakVerifyTestMain(m,
+		testutils.GoleakCleanup(cleanup),
 	)
 }
 

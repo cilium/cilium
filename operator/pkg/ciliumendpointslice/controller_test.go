@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/goleak"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
 
@@ -28,13 +27,8 @@ import (
 )
 
 func TestRegisterController(t *testing.T) {
-	defer goleak.VerifyNone(
-		t,
-		// To ignore goroutine started by the workqueue. It reports metrics
-		// on unfinished work with default tick period of 0.5s - it terminates
-		// no longer than 0.5s after the workqueue is stopped.
-		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Typed[...]).updateUnfinishedWorkLoop"),
-	)
+	defer testutils.GoleakVerifyNone(t)
+
 	var fakeClient k8sClient.Clientset
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
@@ -82,12 +76,12 @@ func TestRegisterController(t *testing.T) {
 }
 
 func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// To ignore goroutine started by the workqueue. It reports metrics
 		// on unfinished work with default tick period of 0.5s - it terminates
 		// no longer than 0.5s after the workqueue is stopped.
-		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop"),
+		testutils.GoleakIgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop"),
 	)
 	var fakeClient k8sClient.Clientset
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]

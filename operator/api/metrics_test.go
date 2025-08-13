@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/go-openapi/runtime"
-	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/api/v1/operator/models"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
@@ -25,13 +24,14 @@ import (
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/safeio"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestMetricsHandlerWithoutMetrics(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go init function
-		goleak.IgnoreTopFunction("time.Sleep"),
+		testutils.GoleakIgnoreTopFunction("time.Sleep"),
 	)
 
 	rr := httptest.NewRecorder()
@@ -94,10 +94,10 @@ func TestMetricsHandlerWithoutMetrics(t *testing.T) {
 }
 
 func TestMetricsHandlerWithMetrics(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go init function
-		goleak.IgnoreTopFunction("time.Sleep"),
+		testutils.GoleakIgnoreTopFunction("time.Sleep"),
 	)
 
 	rr := httptest.NewRecorder()

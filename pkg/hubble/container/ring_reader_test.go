@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/goleak"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestRingReader_Previous(t *testing.T) {
@@ -199,12 +199,12 @@ func TestRingReader_NextLost(t *testing.T) {
 }
 
 func TestRingReader_NextFollow(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// ignore goroutines started by the redirect we do from klog to logrus
-		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("io.(*pipe).read"))
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("io.(*pipe).read"))
 	ring := NewRing(Capacity15)
 	for i := range 15 {
 		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
@@ -277,12 +277,12 @@ func TestRingReader_NextFollow(t *testing.T) {
 }
 
 func TestRingReader_NextFollow_WithEmptyRing(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// ignore goroutines started by the redirect we do from klog to logrus
-		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("io.(*pipe).read"))
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("io.(*pipe).read"))
 	ring := NewRing(Capacity15)
 	reader := NewRingReader(ring, ring.LastWriteParallel())
 	ctx, cancel := context.WithCancel(t.Context())

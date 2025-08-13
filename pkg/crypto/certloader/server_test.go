@@ -11,7 +11,8 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/goleak"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestNewWatchedServerConfigErrors(t *testing.T) {
@@ -29,7 +30,7 @@ func TestNewWatchedServerConfigErrors(t *testing.T) {
 
 func TestWatchedServerConfigIsMutualTLS(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -77,7 +78,7 @@ func TestWatchedServerConfigIsMutualTLS(t *testing.T) {
 
 func TestFutureWatchedServerConfig(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -107,7 +108,7 @@ func TestFutureWatchedServerConfig(t *testing.T) {
 
 func TestNewWatchedServerConfig(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -147,7 +148,7 @@ func TestNewWatchedServerConfig(t *testing.T) {
 
 func TestWatchedServerConfigRotation(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
