@@ -195,26 +195,6 @@
                                   },
                                   "key": {
                                     "type": "string"
-                                  }
-                                }
-                              },
-                              {
-                                "properties": {
-                                  "effect": {
-                                    "type": "string"
-                                  },
-                                  "key": {
-                                    "type": "string"
-                                  }
-                                }
-                              },
-                              {
-                                "properties": {
-                                  "effect": {
-                                    "type": "string"
-                                  },
-                                  "key": {
-                                    "type": "string"
                                   },
                                   "value": {
                                     "type": "string"
@@ -792,19 +772,6 @@
         "rateLimits": {
           "items": {
             "anyOf": [
-              {
-                "properties": {
-                  "burst": {
-                    "type": "integer"
-                  },
-                  "limit": {
-                    "type": "integer"
-                  },
-                  "nodes": {
-                    "type": "integer"
-                  }
-                }
-              },
               {
                 "properties": {
                   "burst": {
@@ -2380,9 +2347,6 @@
                     "anyOf": [
                       {
                         "type": "string"
-                      },
-                      {
-                        "type": "string"
                       }
                     ]
                   },
@@ -2655,9 +2619,6 @@
             "reasons": {
               "items": {
                 "anyOf": [
-                  {
-                    "type": "string"
-                  },
                   {
                     "type": "string"
                   }
@@ -3877,18 +3838,6 @@
             "anyOf": [
               {
                 "type": "string"
-              },
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
               }
             ]
           },
@@ -4482,18 +4431,6 @@
                     "anyOf": [
                       {
                         "type": "string"
-                      },
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "string"
                       }
                     ]
                   },
@@ -4882,26 +4819,6 @@
                     "type": "string"
                   }
                 }
-              },
-              {
-                "properties": {
-                  "key": {
-                    "type": "string"
-                  },
-                  "operator": {
-                    "type": "string"
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "key": {
-                    "type": "string"
-                  },
-                  "operator": {
-                    "type": "string"
-                  }
-                }
               }
             ]
           },
@@ -5238,12 +5155,6 @@
         "controllerGroupMetrics": {
           "items": {
             "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              },
               {
                 "type": "string"
               }
