@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -46,6 +47,8 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 	if !kprCfg.EnableNodePort {
 		option.Config.EnableHostLegacyRouting = true
 	}
+	logArgs := kprConfigToSlogArgs(kprCfg)
+	logger.Info("kube-proxy replacement starting with the following config", logArgs...)
 
 	if kprCfg.EnableNodePort {
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
@@ -469,4 +472,17 @@ func checkNodePortAndEphemeralPortRanges(lbConfig loadbalancer.Config, sysctl sy
 	}
 
 	return nil
+}
+
+// kprConfigToSlogArgs converts the KPRConfig struct to a slice of slog arguments.
+func kprConfigToSlogArgs(kprCfg kpr.KPRConfig) []any {
+	v := reflect.ValueOf(kprCfg)
+	numFields := v.NumField()
+	args := make([]any, numFields*2)
+
+	for i := 0; i < numFields; i++ {
+		args[i*2] = v.Type().Field(i).Name
+		args[i*2+1] = v.Field(i).Interface()
+	}
+	return args
 }
