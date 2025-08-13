@@ -30,6 +30,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -49,9 +51,10 @@ const (
 	testLinkName         = "cilium-bgp-test"
 
 	// test arguments
-	testPeeringIPsFlag = "test-peering-ips"
-	ipamFlag           = "ipam"
-	probeTCPMD5Flag    = "probe-tcp-md5"
+	testPeeringIPsFlag         = "test-peering-ips"
+	bgpNoEndpointsRoutableFlag = "bgp-no-endpoints-routable"
+	ipamFlag                   = "ipam"
+	probeTCPMD5Flag            = "probe-tcp-md5"
 )
 
 func TestPrivilegedScript(t *testing.T) {
@@ -78,6 +81,7 @@ func TestPrivilegedScript(t *testing.T) {
 		peeringIPs := flags.StringSlice(testPeeringIPsFlag, nil, "List of IPs used for peering in the test")
 		ipam := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
+		noEndpointsRoutable := flags.Bool(bgpNoEndpointsRoutableFlag, true, "")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
 		if *probeTCPMD5 {
@@ -95,6 +99,7 @@ func TestPrivilegedScript(t *testing.T) {
 
 			metrics.Cell,
 			bgpv1.Cell,
+			svcrouteconfig.Cell,
 
 			// Provide route and device tables
 			cell.Provide(
@@ -123,6 +128,12 @@ func TestPrivilegedScript(t *testing.T) {
 				m.(*manager.BGPRouterManager).DestroyRouterOnStop(true) // fully destroy GoBGP server on Stop()
 			}),
 		)
+
+		hive.AddConfigOverride(
+			h,
+			func(cfg *svcrouteconfig.RoutesConfig) {
+				cfg.EnableNoServiceEndpointsRoutable = *noEndpointsRoutable
+			})
 
 		hiveLog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelInfo))
 		t.Cleanup(func() {
