@@ -38,12 +38,12 @@ func (t podToIngressService) build(ct *check.ConnectivityTest, templates map[str
 		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithCiliumPolicy(denyAllIngressPolicyYAML).
 		WithCiliumPolicy(allowIngressIdentityPolicyYAML).
-		WithScenarios(tests.PodToIngress())
+		WithScenarios(tests.PodToIngress(tests.WithRetryCondition(tests.WithRetryAll())))
 
 	newTest("pod-to-ingress-service-deny-all", ct).
 		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithCiliumPolicy(denyAllIngressPolicyYAML).
-		WithScenarios(tests.PodToIngress()).
+		WithScenarios(tests.PodToIngress(tests.WithRetryCondition(tests.WithRetryAll()))).
 		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
@@ -51,7 +51,7 @@ func (t podToIngressService) build(ct *check.ConnectivityTest, templates map[str
 	newTest("pod-to-ingress-service-deny-backend-service", ct).
 		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithCiliumPolicy(denyIngressBackendPolicyYAML).
-		WithScenarios(tests.PodToIngress()).
+		WithScenarios(tests.PodToIngress(tests.WithRetryCondition(tests.WithRetryAll()))).
 		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
@@ -59,7 +59,7 @@ func (t podToIngressService) build(ct *check.ConnectivityTest, templates map[str
 	newTest("pod-to-ingress-service-deny-ingress-identity", ct).
 		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithCiliumPolicy(denyIngressIdentityPolicyYAML).
-		WithScenarios(tests.PodToIngress()).
+		WithScenarios(tests.PodToIngress(tests.WithRetryCondition(tests.WithRetryAll()))).
 		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
@@ -69,7 +69,7 @@ func (t podToIngressService) build(ct *check.ConnectivityTest, templates map[str
 		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithCiliumPolicy(denyIngressSourceEgressOtherNodePolicyYML).
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
-		WithScenarios(tests.PodToIngress()).
+		WithScenarios(tests.PodToIngress(tests.WithRetryCondition(tests.WithRetryAll()))).
 		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
 			if strings.Contains(a.Destination().Name(), "cilium-ingress-same-node") {
 				return check.ResultOK, check.ResultOK
