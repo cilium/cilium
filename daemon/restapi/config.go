@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/trigger"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
+	ztunnel "github.com/cilium/cilium/pkg/ztunnel/config"
 )
 
 const (
@@ -76,6 +77,7 @@ type configModifyApiHandlerParams struct {
 	TunnelConfig    tunnel.Config
 	BandwidthConfig datapath.BandwidthConfig
 	WgConfig        wgTypes.WireguardConfig
+	ZtunnelConfig   ztunnel.Config
 
 	EventHandler *ConfigModifyEventHandler
 }
@@ -101,6 +103,7 @@ func newConfigModifyApiHandler(params configModifyApiHandlerParams) configModify
 			tunnelConfig:    params.TunnelConfig,
 			bandwidthConfig: params.BandwidthConfig,
 			wgConfig:        params.WgConfig,
+			ztunnelConfig:   params.ZtunnelConfig,
 		},
 		PatchConfigHandler: &patchConfigHandler{
 			logger:       params.Logger,
@@ -346,6 +349,7 @@ type getConfigHandler struct {
 	tunnelConfig    tunnel.Config
 	bandwidthConfig datapath.BandwidthConfig
 	wgConfig        wgTypes.WireguardConfig
+	ztunnelConfig   ztunnel.Config
 }
 
 func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.Responder {
@@ -391,6 +395,7 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		DeviceMTU:                    int64(h.mtuConfig.GetDeviceMTU()),
 		RouteMTU:                     int64(h.mtuConfig.GetRouteMTU()),
 		EnableRouteMTUForCNIChaining: h.mtuConfig.IsEnableRouteMTUForCNIChaining(),
+		EnableZTunnel:                h.ztunnelConfig.EnableZTunnel,
 		DatapathMode:                 models.DatapathMode(option.Config.DatapathMode),
 		IpamMode:                     option.Config.IPAM,
 		Masquerade:                   option.Config.MasqueradingEnabled(),
