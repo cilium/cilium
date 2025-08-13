@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
+	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
@@ -33,6 +34,10 @@ func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
 	}
 
 	node.SupportsFibLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil
+	if lnc.EnableWireguard {
+		node.WgIfindex = lnc.WireguardIfIndex
+		node.WgPort = wgtypes.ListenPort
+	}
 
 	return node
 }
