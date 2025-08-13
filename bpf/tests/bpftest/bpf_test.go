@@ -64,6 +64,8 @@ func (w *testLogWriter) Write(p []byte) (n int, err error) {
 }
 
 func TestBPF(t *testing.T) {
+	ranTests := 0
+
 	if testPath == nil || *testPath == "" {
 		t.Skip("Set -bpf-test-path to run BPF tests")
 	}
@@ -113,6 +115,12 @@ func TestBPF(t *testing.T) {
 				}
 			}
 		})
+
+		ranTests++
+	}
+
+	if ranTests == 0 {
+		t.Fatal("no BPF programs found to test. Check --bpf-test-path and --test filter.")
 	}
 
 	if *testCoverageReport != "" {
