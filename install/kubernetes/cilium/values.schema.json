@@ -1820,6 +1820,9 @@
     "enableMasqueradeRouteSource": {
       "type": "boolean"
     },
+    "enableNoServiceEndpointsRoutable": {
+      "type": "boolean"
+    },
     "enableNonDefaultDenyPolicies": {
       "type": "boolean"
     },
