@@ -11,18 +11,14 @@ GO="$(which go 2> /dev/null || :)"
 USER_OPTION=()
 USER_PATH="/root"
 
-if [[ "$(uname -s)" == "Darwin" ]]; then
-    USER_PATH="/tmp"
-fi
-
 if [ -z "${RUN_AS_ROOT:-}" ]; then
 	USER_OPTION=(--user "$(id -u):$(id -g)")
-    USER_PATH="$HOME"
+    USER_PATH="/home/ubuntu"
 fi
 
 MOUNT_GOCACHE_DIR=()
 if [ -n "${GO}" ]; then
-	MOUNT_GOCACHE_DIR=(-v "$(go env GOCACHE):$(go env GOCACHE)")
+	MOUNT_GOCACHE_DIR=(-v "$(go env GOCACHE):$USER_PATH/.cache/go-build")
 fi
 
 if [ -n "${BUILDER_GOCACHE_DIR:-}" ]; then
@@ -31,7 +27,7 @@ fi
 
 MOUNT_GOMODCACHE_DIR=()
 if [ -n "${GO}" ]; then
-	MOUNT_GOMODCACHE_DIR=(-v "$(go env GOMODCACHE):$(go env GOMODCACHE)")
+	MOUNT_GOMODCACHE_DIR=(-v "$(go env GOMODCACHE):/go/pkg/mod")
 fi
 
 if [ -n "${BUILDER_GOMODCACHE_DIR:-}" ]; then
@@ -39,10 +35,11 @@ if [ -n "${BUILDER_GOMODCACHE_DIR:-}" ]; then
 fi
 
 MOUNT_CCACHE_DIR=()
-if [ -z "${BUILDER_CCACHE_DIR:-}" ]; then
-	MOUNT_CCACHE_DIR=(-v "${USER_PATH}/.ccache:${USER_PATH}/.ccache")
-else
-	MOUNT_CCACHE_DIR=(-v "${BUILDER_CCACHE_DIR}:${USER_PATH}/.ccache")
+LOCAL_CCACHE_DIR=$(ccache -k cache_dir 2> /dev/null || :)
+if [ -n "${BUILDER_CCACHE_DIR:-}" ]; then
+	MOUNT_CCACHE_DIR=(-v "$BUILDER_CCACHE_DIR:$USER_PATH/.cache/ccache")
+elif [ -d "$LOCAL_CCACHE_DIR" ]; then
+	MOUNT_CCACHE_DIR=(-v "$LOCAL_CCACHE_DIR:$USER_PATH/.cache/ccache")
 fi
 
 docker run --rm \
