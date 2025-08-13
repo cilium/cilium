@@ -10,11 +10,23 @@ on:
         options:
           - 2-prepare-release
           - 4-post-release
+          - 5-publish-helm
       version:
         description: 'Which version are you releasing? (e.g. vX.Y.Z[-(pre|rc).W])'
         required: true
         type: string
         default: vX.Y.Z
+
+  workflow_call:
+    inputs:
+      step:
+        description: 'Which step do you want to (re-)run?'
+        required: true
+        type: string
+      version:
+        description: 'Which version are you releasing? (e.g. vX.Y.Z[-(pre|rc).W])'
+        required: true
+        type: string
 
 permissions:
   # To be able to access the repository with `actions/checkout`
@@ -58,6 +70,16 @@ jobs:
       - name: Move release source code to upper directory
         run: mv release ../
 
+      - name: Checkout helm chart
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          repository: cilium/charts
+          path: "./cilium-charts"
+
+      - name: Move helm charts to upper directory
+        run: mv cilium-charts ../charts
+
       - name: Checkout cilium source code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -86,8 +108,67 @@ jobs:
           ./release start \
             --force \
             --release-tool-dir "$(pwd)" \
+            --charts-repo-dir "$(pwd)/../charts" \
             --repo-dir "$(pwd)/../cilium" \
             --repo ${{ github.repository }} \
             --target-version ${{ github.event.inputs.version }} \
             --steps ${{ github.event.inputs.step }} \
             --exclude-labels "cilium-cli-exclusive"
+
+      - name: Wait for helm chart PR checks and merge
+        if: ${{ github.event.inputs.step == '5' || github.event.inputs.step == '5-publish-helm' }}
+        shell: bash
+        env:
+          GITHUB_TOKEN: "${{ steps.get_token.outputs.app_token }}"
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          echo "🔄 Waiting for helm chart PR checks and merging for version $VERSION"
+
+          # Get the current user
+          USER=$(gh api user --jq '.login')
+          echo "Using user: $USER"
+
+          # Find the PR for this release
+          BRANCH="pr/prepare-$VERSION"
+          echo "Looking for PR from branch: $BRANCH"
+
+          # Wait for PR to exist (in case it was just created)
+          MAX_WAIT=300  # 5 minutes
+          WAIT_TIME=0
+          PR_NUMBER=""
+
+          while [ $WAIT_TIME -lt $MAX_WAIT ]; do
+            PR_NUMBER=$(gh pr list --repo cilium/charts --head "$USER:$BRANCH" --state open --json number --jq '.[0].number // empty')
+            if [ -n "$PR_NUMBER" ]; then
+              echo "Found PR #$PR_NUMBER"
+              break
+            fi
+            echo "Waiting for PR to be created..."
+            sleep 10
+            WAIT_TIME=$((WAIT_TIME + 10))
+          done
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "❌ No PR found for branch $BRANCH after waiting $MAX_WAIT seconds"
+            exit 1
+          fi
+
+          # Wait for checks to complete
+          echo "⏳ Waiting for PR checks to complete..."
+          if ! gh pr checks $PR_NUMBER --repo cilium/charts --fail-fast --required --watch; then
+            echo "❌ PR #$PR_NUMBER has failed checks"
+            echo "📋 Failed workflow details:"
+            gh pr checks $PR_NUMBER --repo cilium/charts --json name,state,link | jq -r '.[] | select(.state == "FAILURE") | "  - \(.name): \(.state) (\(.link // "No URL"))"'
+            exit 1
+          fi
+
+          echo "✅ All required checks passed for PR #$PR_NUMBER"
+
+          # Merge the PR
+          echo "Merging PR #$PR_NUMBER..."
+          if gh pr merge $PR_NUMBER --repo cilium/charts --merge --delete-branch; then
+            echo "✅ Successfully merged PR #$PR_NUMBER"
+          else
+            echo "❌ Failed to merge PR #$PR_NUMBER"
+            exit 1
+          fi
