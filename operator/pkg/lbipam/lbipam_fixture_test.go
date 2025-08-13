@@ -33,6 +33,7 @@ const (
 	serviceAUID = types.UID("b801e1cf-9e71-455c-9bc8-52c0575c22bd")
 	serviceBUID = types.UID("b415933e-524c-4f83-8493-de2157fc736f")
 	serviceCUID = types.UID("8d820ef0-d640-497a-bc67-b05190bddee6")
+	serviceDUID = types.UID("66666666-6666-6666-6666-666666666666")
 )
 
 type fakeIPPoolClient struct {

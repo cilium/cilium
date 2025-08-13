@@ -11,6 +11,7 @@ import (
 	"time"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
@@ -1892,6 +1893,175 @@ func TestRangeDelete(t *testing.T) {
 
 	if !strings.HasPrefix(svcA.Status.LoadBalancer.Ingress[0].IP, "10.0.20") {
 		t.Error("Expected new ingress to be in the 10.0.20.0/24 range")
+	}
+}
+
+// TestPoolUpdate tests that updating a pool with widened CIDRs and selector will not reallocate
+// existing services, but will allow new services to be allocated from the new CIDRs.
+func TestPoolUpdate(t *testing.T) {
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
+	fixture := mkTestFixture(t, true, true)
+	poolA.Spec.ServiceSelector = &slim_meta_v1.LabelSelector{
+		MatchLabels: map[string]string{
+			"color": "blue",
+		},
+	}
+	fixture.UpsertPool(t, poolA)
+
+	svcBlue := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-a",
+			Namespace: "default",
+			UID:       serviceAUID,
+			Labels: map[string]string{
+				"color": "blue",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+		},
+	}
+	svcRed := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-b",
+			Namespace: "default",
+			UID:       serviceBUID,
+			Labels: map[string]string{
+				"color": "red",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+		},
+	}
+	fixture.UpsertSvc(t, svcBlue)
+	fixture.UpsertSvc(t, svcRed)
+	svcBlue = fixture.GetSvc("default", "service-a")
+	svcRed = fixture.GetSvc("default", "service-b")
+
+	if len(svcBlue.Status.LoadBalancer.Ingress) != 1 {
+		t.Fatal("Expected service to receive exactly one ingress IP")
+	}
+	assignedBlueIP := svcBlue.Status.LoadBalancer.Ingress[0].IP
+
+	if len(svcRed.Status.LoadBalancer.Ingress) != 0 {
+		t.Error("Expected service to not receive ingress IP")
+	}
+
+	poolA = fixture.GetPool("pool-a")
+	// Extend the CIDR, this should not have any effect on the existing service.
+	if len(poolA.Spec.Blocks) == 0 {
+		t.Error("Expected pool to have at least one block")
+	}
+	poolA.Spec.Blocks[0].Cidr = "10.0.10.0/23"
+	fixture.UpsertPool(t, poolA)
+
+	svcBlue = fixture.GetSvc("default", "service-a")
+	svcRed = fixture.GetSvc("default", "service-b")
+
+	if len(svcBlue.Status.LoadBalancer.Ingress) != 1 {
+		t.Fatal("Expected service to receive exactly one ingress IP")
+	}
+	if svcBlue.Status.LoadBalancer.Ingress[0].IP != assignedBlueIP {
+		t.Error("Expected service to keep the same IP")
+	}
+	if len(svcRed.Status.LoadBalancer.Ingress) != 0 {
+		t.Error("Expected service to not receive ingress IP")
+	}
+
+	poolA = fixture.GetPool("pool-a")
+	// Move back poolA to have previous CIDR, but extend the Selector
+	// to match both blue and red services.
+	poolA.Spec.Blocks[0].Cidr = "10.0.10.0/24"
+	poolA.Spec.ServiceSelector = &slim_meta_v1.LabelSelector{
+		MatchExpressions: []slim_meta_v1.LabelSelectorRequirement{
+			{
+				Key:      "color",
+				Operator: slim_meta_v1.LabelSelectorOpIn,
+				Values:   []string{"red", "blue"},
+			},
+		},
+	}
+	fixture.UpsertPool(t, poolA)
+	svcBlue = fixture.GetSvc("default", "service-a")
+	svcRed = fixture.GetSvc("default", "service-b")
+
+	if len(svcBlue.Status.LoadBalancer.Ingress) != 1 {
+		t.Fatal("Expected service to receive exactly one ingress IP")
+	}
+	if svcBlue.Status.LoadBalancer.Ingress[0].IP != assignedBlueIP {
+		t.Error("Expected service to keep the same IP")
+	}
+	if len(svcRed.Status.LoadBalancer.Ingress) != 1 {
+		t.Error("Expected service to receive exactly one ingress IP")
+	}
+}
+
+// TestPoolExtendWithPendingServices tests that extending a pool by lowering the low end or range.
+// with pending services will not cause existing service to be reallocated, but will allow
+// new services to be allocated from the new range.
+func TestPoolExtendWithPendingServices(t *testing.T) {
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/31"})
+	fixture := mkTestFixture(t, true, true)
+	fixture.UpsertPool(t, poolA)
+	// This CIDR should allow for 2 IPs, so let's create 3 services and extend it.
+	createAndValidateService := func(name string, uid types.UID, validateAssigned bool) *slim_core_v1.Service {
+		svc := &slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+				UID:       uid,
+			},
+			Spec: slim_core_v1.ServiceSpec{
+				Type: slim_core_v1.ServiceTypeLoadBalancer,
+			},
+		}
+		fixture.UpsertSvc(t, svc)
+		svc = fixture.GetSvc("default", name)
+		if validateAssigned {
+			if len(svc.Status.LoadBalancer.Ingress) != 1 {
+				t.Fatalf("Expected service %s to receive exactly one ingress IP", name)
+			}
+		} else {
+			if len(svc.Status.LoadBalancer.Ingress) != 0 {
+				t.Fatalf("Expected service %s to not receive ingress IP", name)
+			}
+		}
+		return svc
+	}
+	svcAAssignedIP := createAndValidateService("service-a", serviceAUID, true).Status.LoadBalancer.Ingress[0].IP
+	svcBAssignedIP := createAndValidateService("service-b", serviceBUID, true).Status.LoadBalancer.Ingress[0].IP
+	createAndValidateService("service-c", serviceCUID, false)
+	createAndValidateService("service-d", serviceDUID, false)
+
+	poolA = fixture.GetPool("pool-a")
+	// Extend the CIDR, this should allow for 2 more IPs,
+	if len(poolA.Spec.Blocks) == 0 {
+		t.Error("Expected pool to have at least one block")
+	}
+	poolA.Spec.Blocks[0].Cidr = "10.0.10.0/29"
+	fixture.UpsertPool(t, poolA)
+	svcAUpdated := fixture.GetSvc("default", "service-a")
+	svcBUpdated := fixture.GetSvc("default", "service-b")
+	svcCUpdated := fixture.GetSvc("default", "service-c")
+	svcDUpdated := fixture.GetSvc("default", "service-d")
+	if len(svcAUpdated.Status.LoadBalancer.Ingress) != 1 {
+		t.Fatal("Expected service A to still have one ingress IP")
+	}
+	if svcAUpdated.Status.LoadBalancer.Ingress[0].IP != svcAAssignedIP {
+		t.Error("Expected service A to keep the same IP")
+	}
+	if len(svcBUpdated.Status.LoadBalancer.Ingress) != 1 {
+		t.Fatal("Expected service B to still have one ingress IP")
+	}
+	if svcBUpdated.Status.LoadBalancer.Ingress[0].IP != svcBAssignedIP {
+		t.Error("Expected service B to keep the same IP")
+	}
+	if len(svcCUpdated.Status.LoadBalancer.Ingress) != 1 {
+		t.Error("Expected service C to receive exactly one ingress IP")
+	}
+	if len(svcDUpdated.Status.LoadBalancer.Ingress) != 1 {
+		t.Error("Expected service D to receive exactly one ingress IP")
 	}
 }
 

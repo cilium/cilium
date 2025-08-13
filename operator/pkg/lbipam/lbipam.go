@@ -1567,13 +1567,19 @@ func (ipam *LBIPAM) revalidateAllServices(ctx context.Context) error {
 
 		return nil
 	}
-	for _, sv := range ipam.serviceStore.unsatisfied {
+
+	// We want to first revalidate all satisfied services.
+	// This helps in case when pool's CIDR was widened
+	// and we have unsatisfied services that match this pool.
+	// In this case, we want to revalidate satisfied services first,
+	// so that we can reallocate the same IPs from the newly widened CIDR.
+	for _, sv := range ipam.serviceStore.satisfied {
 		if err := revalidate(sv); err != nil {
 			return fmt.Errorf("revalidate: %w", err)
 		}
 	}
 
-	for _, sv := range ipam.serviceStore.satisfied {
+	for _, sv := range ipam.serviceStore.unsatisfied {
 		if err := revalidate(sv); err != nil {
 			return fmt.Errorf("revalidate: %w", err)
 		}
