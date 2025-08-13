@@ -79,12 +79,12 @@ jobs:
         run: |
           TMP_DIR=$(mktemp -d)
           # Test binaries
-          curl -L https://dl.k8s.io/${{ env.KIND_K8S_VERSION }}/kubernetes-test-linux-amd64.tar.gz -o ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz
+          curl -L https://dl.k8s.io/v1.34.0-rc.1/kubernetes-test-linux-amd64.tar.gz -o ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz
           tar -xvzf ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz \
             --directory ${TMP_DIR} \
             --strip-components=3 kubernetes/test/bin/ginkgo kubernetes/test/bin/e2e.test
           # kubectl
-          curl -L https://dl.k8s.io/${{ env.KIND_K8S_VERSION }}/bin/linux/amd64/kubectl -o ${TMP_DIR}/kubectl
+          curl -L https://dl.k8s.io/v1.34.0-rc.1/bin/linux/amd64/kubectl -o ${TMP_DIR}/kubectl
           # kind
           curl -Lo ${TMP_DIR}/kind https://kind.sigs.k8s.io/dl/${{ env.KIND_VERSION }}/kind-linux-amd64
           # Install
