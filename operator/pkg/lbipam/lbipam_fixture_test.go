@@ -215,7 +215,7 @@ func (nf *newFixture) UpsertSvc(t *testing.T, svc *slim_core_v1.Service) {
 				t.Fatal(err)
 			}
 		},
-	})
+	}, false)
 }
 
 func (nf *newFixture) DeleteSvc(t *testing.T, svc *slim_core_v1.Service) {
@@ -230,7 +230,7 @@ func (nf *newFixture) DeleteSvc(t *testing.T, svc *slim_core_v1.Service) {
 				t.Fatal(err)
 			}
 		},
-	})
+	}, false)
 }
 
 func (nf *newFixture) GetSvc(namespace, name string) *slim_core_v1.Service {
