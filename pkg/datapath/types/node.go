@@ -171,6 +171,9 @@ type LocalNodeConfiguration struct {
 	// device and to cilium_wg0.
 	EnableWireguard bool
 
+	// Index of the cilium_wg0 interface if enabled.
+	WireguardIfIndex uint32
+
 	// EnableIPSec enables IPSec routes
 	EnableIPSec bool
 

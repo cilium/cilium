@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -210,6 +211,11 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 
+	if lnc.EnableWireguard {
+		cfg.WgIfindex = lnc.WireguardIfIndex
+		cfg.WgPort = wgtypes.ListenPort
+	}
+
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
@@ -352,6 +358,11 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 
+	if lnc.EnableWireguard {
+		cfg.WgIfindex = lnc.WireguardIfIndex
+		cfg.WgPort = wgtypes.ListenPort
+	}
+
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
@@ -430,6 +441,11 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	cfg.InterfaceIfindex = uint32(ifindex)
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
+
+	if lnc.EnableWireguard {
+		cfg.WgIfindex = lnc.WireguardIfIndex
+		cfg.WgPort = wgtypes.ListenPort
+	}
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.

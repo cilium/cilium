@@ -110,7 +110,7 @@ type orchestratorParams struct {
 	LBConfig            loadbalancer.Config
 	KPRConfig           kpr.KPRConfig
 	MaglevConfig        maglev.Config
-	WgConfig            wgTypes.WireguardConfig
+	WgAgent             wgTypes.WireguardAgent
 	IPsecConfig         datapath.IPsecConfig
 }
 
@@ -212,7 +212,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.KPRConfig,
 			o.params.MaglevConfig,
 			o.params.MTU,
-			o.params.WgConfig,
+			o.params.WgAgent,
 			o.params.IPsecConfig,
 		)
 		if err != nil {
