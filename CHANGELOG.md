@@ -1,5 +1,60 @@
 # Changelog
 
+## v1.16.13
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add `kernel_version`, `endpoint_routes_enabled`, `strict_mode_enabled` and `kubernetes_version` feature metrics. (Backport PR cilium/cilium#41073, Upstream PR cilium/cilium#41003, @aanm)
+
+**Bugfixes:**
+* bgp: Use private fork of the GoBGP to fix BGP MD5 auth (Backport PR cilium/cilium#40579, Upstream PR cilium/cilium#40566, @YutaroHayakawa)
+* Helm: Correct seccompProfile for cilium-agent pods (Backport PR cilium/cilium#40579, Upstream PR cilium/cilium#40476, @jcpunk)
+* install/kubernetes: fix clustermesh-apiserver extraEnv (Backport PR cilium/cilium#41073, Upstream PR cilium/cilium#41021, @aanm)
+
+**CI Changes:**
+* .github/actions: only upload files with features-tested prefix (Backport PR cilium/cilium#40989, Upstream PR cilium/cilium#40975, @aanm)
+* [v1.16] .github: Remove use of cosign attest --recursive (cilium/cilium#40700, @YutaroHayakawa)
+* [v1.16] ci: Revert build_commits runner to ubuntu-22.04 (cilium/cilium#40867, @rastislavs)
+* ci: conformance-eks token extended to 8h (Backport PR cilium/cilium#40579, Upstream PR cilium/cilium#40474, @mathpl)
+* ci: more powerful runners for go linting (Backport PR cilium/cilium#40764, Upstream PR cilium/cilium#40582, @mathpl)
+* Fix GKE cluster creation failures when branch names exceed 63-byte label limit by implementing automatic truncation with hash-based uniqueness preservation. (Backport PR cilium/cilium#40851, Upstream PR cilium/cilium#40725, @pillai-ashwin)
+* spire: Fix unreliable test (Backport PR cilium/cilium#40663, Upstream PR cilium/cilium#40561, @joestringer)
+
+**Misc Changes:**
+* .github/workflows: bump build-images-base timeout to 60 minutes (Backport PR cilium/cilium#40989, Upstream PR cilium/cilium#40919, @aanm)
+* .github: fix removal of all files in /mnt (Backport PR cilium/cilium#40851, Upstream PR cilium/cilium#40818, @aanm)
+* .github: fix upload artifacts for features.json (cilium/cilium#41089, @aanm)
+* .github: remove all contents of /mnt in build images CI (Backport PR cilium/cilium#40851, Upstream PR cilium/cilium#40814, @aanm)
+* chore(deps): update actions/download-artifact action to v5 (v1.16) (cilium/cilium#41061, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#40750, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#40909, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#41062, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#40747, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#40985, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.6 (v1.16) (cilium/cilium#40906, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/little-vm-helper to v0.0.26 (v1.16) (cilium/cilium#40647, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v31.1 (v1.16) (cilium/cilium#40749, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.24.5 (v1.16) (cilium/cilium#40748, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.6 (v1.16) (cilium/cilium#40995, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.33.6-1753919866-df8077dbd3932edccb59f1c5c70e01f2c1f63741 (v1.16) (cilium/cilium#40907, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#40674, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#40908, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#41060, @cilium-renovate[bot])
+* ci: add/change runner labels (Backport PR cilium/cilium#40989, Upstream PR cilium/cilium#40972, @Artyop)
+* daemon/test: explicitly wait for identities synchronization (Backport PR cilium/cilium#40851, Upstream PR cilium/cilium#40811, @giorio94)
+* doc:monitor: clarify direction traced with default aggregation level (Backport PR cilium/cilium#40580, Upstream PR cilium/cilium#40398, @smagnani96)
+* docs: Add missing IPAM modes to configuration page (Backport PR cilium/cilium#40663, Upstream PR cilium/cilium#40540, @RayyanSeliya)
+* docs: Add warning about changing an IP pool (Backport PR cilium/cilium#40663, Upstream PR cilium/cilium#40567, @sorrison)
+* docs: Extend Hubble Performance Tuning Documentation (Backport PR cilium/cilium#40580, Upstream PR cilium/cilium#34665, @glrf)
+* docs: remove l7 EnableDefaultDeny callout (Backport PR cilium/cilium#40579, Upstream PR cilium/cilium#40441, @squeed)
+* policy: redact sensitive tls context properties for logging (Backport PR cilium/cilium#40579, Upstream PR cilium/cilium#40417, @fristonio)
+
+**Other Changes:**
+* images: update cilium-{runtime,builder} (cilium/cilium#40840, @aanm)
+* install: Update image digests for v1.16.12 (cilium/cilium#40545, @cilium-release-bot[bot])
+
 ## v1.16.12
 
 Summary of Changes
