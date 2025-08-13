@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -34,6 +33,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type fixture struct {
@@ -1110,7 +1110,7 @@ func TestDelService(t *testing.T) {
 
 // This tests affirms that the L2 announcer behaves as expected during it lifecycle, shutting down cleanly
 func TestL2AnnouncerLifecycle(t *testing.T) {
-	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+	defer testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
 
 	startCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()

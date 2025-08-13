@@ -13,15 +13,15 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestCell(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	// create directory structure and config inputs
@@ -84,7 +84,7 @@ func TestCell(t *testing.T) {
 
 func TestCellConfigError(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	// init hive
@@ -130,7 +130,7 @@ func TestCellConfigError(t *testing.T) {
 
 func TestCellShutdown(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	// create directory structure and config inputs
@@ -189,7 +189,7 @@ func TestCellShutdown(t *testing.T) {
 
 func TestCellDisabled(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	ctx := t.Context()

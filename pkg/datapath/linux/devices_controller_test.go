@@ -28,7 +28,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"
-	"go.uber.org/goleak"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -38,15 +37,15 @@ import (
 
 func devicesControllerTestSetup(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(
+		testutils.GoleakVerifyNone(
 			t,
-			goleak.IgnoreCurrent(),
+			testutils.GoleakIgnoreCurrent(),
 			// Ignore loop() and the netlink goroutines. These are left behind as netlink library has a bug
 			// that causes it to be stuck in Recvfrom even after stop channel closes.
 			// This is fixed by https://github.com/vishvananda/netlink/pull/793, but that has not been merged.
 			// These goroutines will terminate after any route or address update.
-			goleak.IgnoreTopFunction("github.com/cilium/cilium/pkg/datapath/linux.(*devicesController).loop"),
-			goleak.IgnoreTopFunction("syscall.Syscall6"), // Recvfrom
+			testutils.GoleakIgnoreTopFunction("github.com/cilium/cilium/pkg/datapath/linux.(*devicesController).loop"),
+			testutils.GoleakIgnoreTopFunction("syscall.Syscall6"), // Recvfrom
 		)
 	})
 }

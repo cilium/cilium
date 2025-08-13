@@ -15,10 +15,10 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -74,7 +74,7 @@ func TestFullPath(t *testing.T) {
 }
 
 func TestWaitForReconciliation(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	const paramName = "fake-parameter"
 
@@ -121,7 +121,7 @@ func TestWaitForReconciliation(t *testing.T) {
 }
 
 func TestSysctl(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	settings := [][]string{
 		{"net", "ipv4", "ip_forward"},
@@ -220,7 +220,7 @@ func TestSysctl(t *testing.T) {
 }
 
 func TestSysctlIgnoreErr(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	parameter := tables.Sysctl{Name: []string{"net", "core", "bpf_jit_enable"}, Val: "1", IgnoreErr: true}
 

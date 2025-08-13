@@ -12,13 +12,13 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/goleak"
 
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 var errMock = errors.New("error")
@@ -94,7 +94,7 @@ func TestGetSetClusterConfig(t *testing.T) {
 }
 
 func TestEnforceClusterConfig(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	// Configure a short run interval for testing purposes
 	defer func(orig time.Duration) { runInterval = orig }(runInterval)

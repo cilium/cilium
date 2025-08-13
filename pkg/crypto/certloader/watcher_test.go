@@ -11,7 +11,8 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/goleak"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestNewWatcherError(t *testing.T) {
@@ -25,7 +26,7 @@ func TestNewWatcherError(t *testing.T) {
 
 func TestNewWatcher(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -53,7 +54,7 @@ func TestNewWatcher(t *testing.T) {
 
 func TestRotation(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -96,7 +97,7 @@ func TestRotation(t *testing.T) {
 
 func TestFutureWatcherImmediately(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -127,7 +128,7 @@ func TestFutureWatcherImmediately(t *testing.T) {
 
 func TestFutureWatcher(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -169,7 +170,7 @@ func TestFutureWatcher(t *testing.T) {
 
 func TestFutureWatcherShutdownBeforeReady(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -193,7 +194,7 @@ func TestFutureWatcherShutdownBeforeReady(t *testing.T) {
 
 func TestKubernetesMount(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble := k8sDirectories(t)
