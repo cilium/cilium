@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -156,7 +157,7 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]any) {
 			}
 		}
 		lumberjackLogger := &lumberjack.Logger{
-			Filename:   filepath.Join(option.Config.StateDir, "endpoint-policy.log"),
+			Filename:   filepath.Join(option.Config.StateDir, fmt.Sprintf("endpoint-%d-policy.log", e.GetID())),
 			MaxSize:    maxSize,
 			MaxBackups: maxBackups,
 			MaxAge:     28, // days
