@@ -11,12 +11,13 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/goleak"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestWatchedClientConfigIsMutualTLS(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -78,7 +79,7 @@ func TestWatchedClientConfigIsMutualTLS(t *testing.T) {
 
 func TestFutureWatchedClientConfig(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -108,7 +109,7 @@ func TestFutureWatchedClientConfig(t *testing.T) {
 
 func TestNewWatchedClientConfig(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -145,7 +146,7 @@ func TestNewWatchedClientConfig(t *testing.T) {
 
 func TestNewWatchedClientConfigWithoutClientCert(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
@@ -173,7 +174,7 @@ func TestNewWatchedClientConfigWithoutClientCert(t *testing.T) {
 
 func TestWatchedClientConfigRotation(t *testing.T) {
 	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	dir, hubble, relay := directories(t)
