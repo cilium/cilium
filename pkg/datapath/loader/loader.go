@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 const (
@@ -83,6 +84,7 @@ type loader struct {
 	compilationLock    datapath.CompilationLock
 	configWriter       datapath.ConfigWriter
 	nodeConfigNotifier *manager.NodeConfigNotifier
+	svcRouteConfig     svcrouteconfig.RoutesConfig
 }
 
 type Params struct {
@@ -94,6 +96,7 @@ type Params struct {
 	CompilationLock    datapath.CompilationLock
 	ConfigWriter       datapath.ConfigWriter
 	NodeConfigNotifier *manager.NodeConfigNotifier
+	ServiceRouteConfig svcrouteconfig.RoutesConfig
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -111,6 +114,7 @@ func newLoader(p Params) *loader {
 		compilationLock:    p.CompilationLock,
 		configWriter:       p.ConfigWriter,
 		nodeConfigNotifier: p.NodeConfigNotifier,
+		svcRouteConfig:     p.ServiceRouteConfig,
 	}
 }
 

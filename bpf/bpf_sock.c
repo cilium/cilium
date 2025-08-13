@@ -5,6 +5,7 @@
 #include <bpf/api.h>
 
 #include <bpf/config/node.h>
+#include <bpf/config/sock.h>
 #include <netdev_config.h>
 
 #define SKIP_CALLS_MAP	1
@@ -284,8 +285,18 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		svc = sock4_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
 		return -ENXIO;
-	if (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc))
-		return -EHOSTUNREACH;
+	if (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc)) {
+		/* Drop packet when service has no endpoints when this flag is enabled (default) */
+		if (CONFIG(enable_no_service_endpoints_routable))
+			return -EHOSTUNREACH;
+		/* Also drop the packet when eTP/iTP is set to Local, allow otherwise. */
+		if ((lb4_svc_is_external(svc) && (svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE)) ||
+		    (!lb4_svc_is_external(svc) &&
+		    (svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE))) {
+			return -EHOSTUNREACH;
+		}
+		return 0;
+	}
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_FWD, dst_ip,
 				bpf_ntohs(dst_port), is_connect);
@@ -994,8 +1005,18 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		svc = sock6_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
 		return sock6_xlate_v4_in_v6(ctx, udp_only, is_connect);
-	if (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc))
-		return -EHOSTUNREACH;
+	if (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc)) {
+		/* Drop packet when service has no endpoints when this flag is enabled (default) */
+		if (CONFIG(enable_no_service_endpoints_routable))
+			return -EHOSTUNREACH;
+		/* Also drop the packet when eTP/iTP is set to Local, allow otherwise. */
+		if ((lb6_svc_is_external(svc) && (svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE)) ||
+		    (!lb6_svc_is_external(svc) &&
+		    (svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE))) {
+			return -EHOSTUNREACH;
+		}
+		return 0;
+	}
 
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_FWD, &key.address,
 				bpf_ntohs(dst_port), is_connect);
