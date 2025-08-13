@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	cniInvoke "github.com/containernetworking/cni/pkg/invoke"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -44,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/netns"
+	ztunnelInpod "github.com/cilium/cilium/pkg/ztunnel/iptables"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/awscni"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/azure"
@@ -822,6 +824,15 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			Mac:     macAddrStr,
 			Sandbox: args.Netns,
 		})
+
+		if conf.EnableZTunnel && !strings.Contains(ep.K8sPodName, "ztunnel") {
+			if err = ns.Do(func() error {
+				return ztunnelInpod.CreateInPodRules(scopedLogger, ipv4IsEnabled(ipam), ipv6IsEnabled(ipam))
+			}); err != nil {
+				return fmt.Errorf("unable to setup iptable rules for ztunnel inpod mode: %w", err)
+			}
+		}
+
 		scopedLogger.Debug(
 			"Endpoint successfully created",
 			logfields.Error, err,
