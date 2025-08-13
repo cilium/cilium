@@ -1256,6 +1256,10 @@
      - Enables masquerading to the source of the route for traffic leaving the node from endpoints.
      - bool
      - ``false``
+   * - :spelling:ignore:`enableNoServiceEndpointsRoutable`
+     - Enable routing to a service that has zero endpoints
+     - bool
+     - ``true``
    * - :spelling:ignore:`enableNonDefaultDenyPolicies`
      - Enable Non-Default-Deny policies
      - bool
