@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	ciliumoption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -47,8 +48,9 @@ type ServiceReconcilerIn struct {
 	DaemonConfig *ciliumoption.DaemonConfig
 	Signaler     *signaler.BGPCPSignaler
 
-	DB        *statedb.DB
-	Frontends statedb.Table[*loadbalancer.Frontend]
+	DB           *statedb.DB
+	Frontends    statedb.Table[*loadbalancer.Frontend]
+	RoutesConfig svcrouteconfig.RoutesConfig
 }
 
 type ServiceReconciler struct {
@@ -59,6 +61,7 @@ type ServiceReconciler struct {
 	db                           *statedb.DB
 	frontends                    statedb.Table[*loadbalancer.Frontend]
 	metadata                     map[string]ServiceReconcilerMetadata
+	routesConfig                 svcrouteconfig.RoutesConfig
 }
 
 // ServiceReconcilerMetadata holds per-instance reconciler state.
@@ -82,6 +85,7 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 		db:                           in.DB,
 		frontends:                    in.Frontends,
 		metadata:                     make(map[string]ServiceReconcilerMetadata),
+		routesConfig:                 in.RoutesConfig,
 	}
 	in.JobGroup.Add(
 		job.OneShot("frontend-events", r.processFrontendEvents),
@@ -367,13 +371,19 @@ func (r *ServiceReconciler) updateServiceAdvertisementsMetadata(p ReconcileParam
 	r.setMetadata(p.BGPInstance, serviceMetadata)
 }
 
-func hasLocalBackends(p ReconcileParams, fe *loadbalancer.Frontend) bool {
+// hasBackends loops through Frontend backends and returns:
+// 1) true, false - backends > 0, no local backend
+// 2) true, true - backends > 0, at least 1 local backend
+// 3) false, false - no backends, no local backend
+func hasBackends(p ReconcileParams, fe *loadbalancer.Frontend) (hasBackends, hasLocalBackends bool) {
 	for backend := range fe.Backends {
+		hasBackends = true
 		if backend.NodeName == p.CiliumNode.Name && backend.State == loadbalancer.BackendStateActive {
-			return true
+			hasLocalBackends = true
+			return
 		}
 	}
-	return false
+	return
 }
 
 func (r *ServiceReconciler) fullReconciliationServiceList(p ReconcileParams) (toReconcile []*loadbalancer.Service, toWithdraw []loadbalancer.ServiceName, rx statedb.ReadTxn, err error) {
@@ -436,7 +446,6 @@ func (r *ServiceReconciler) diffReconciliationServiceList(p ReconcileParams) (to
 }
 
 func (r *ServiceReconciler) getDesiredPaths(p ReconcileParams, desiredPeerAdverts PeerAdvertisements, toReconcile []*loadbalancer.Service, toWithdraw []loadbalancer.ServiceName, rx statedb.ReadTxn) (ResourceAFPathsMap, error) {
-
 	desiredServiceAFPaths := make(ResourceAFPathsMap)
 	for _, svc := range toReconcile {
 		key := resource.Key{Name: svc.Name.Name(), Namespace: svc.Name.Namespace()}
@@ -543,8 +552,10 @@ func (r *ServiceReconciler) getExternalIPPaths(p ReconcileParams, frontends []*l
 		if fe.Type != loadbalancer.SVCTypeExternalIPs {
 			continue
 		}
-		// Ignore externalTrafficPolicy == Local && no local EPs.
-		if fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends(p, fe) {
+
+		hasBackends, hasLocalBackends := hasBackends(p, fe)
+		// Ignore externalTrafficPolicy == Local && no local EPs or ignore when there are no backends and EnableNoServiceEndpointsRoutable == false.
+		if (fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends) || (!r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends) {
 			continue
 		}
 
@@ -566,8 +577,10 @@ func (r *ServiceReconciler) getClusterIPPaths(p ReconcileParams, frontends []*lo
 		if fe.Type != loadbalancer.SVCTypeClusterIP {
 			continue
 		}
-		// Ignore internalTrafficPolicy == Local && no local EPs.
-		if fe.Service.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends(p, fe) {
+
+		hasBackends, hasLocalBackends := hasBackends(p, fe)
+		// Ignore internalTrafficPolicy == Local && no local EPs or ignore when there are no backends and EnableNoServiceEndpointsRoutable == false.
+		if fe.Service.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends || (!r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends) {
 			continue
 		}
 
@@ -594,8 +607,10 @@ func (r *ServiceReconciler) getLoadBalancerIPPaths(p ReconcileParams, svc *loadb
 		if fe.Type != loadbalancer.SVCTypeLoadBalancer {
 			continue
 		}
-		// Ignore externalTrafficPolicy == Local && no local EPs.
-		if fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends(p, fe) {
+
+		hasBackends, hasLocalBackends := hasBackends(p, fe)
+		// Ignore externalTrafficPolicy == Local && no local EPs or ignore when there are no backends and EnableNoServiceEndpointsRoutable == false.
+		if (fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends) || (!r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends) {
 			continue
 		}
 
