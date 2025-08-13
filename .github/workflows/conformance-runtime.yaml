@@ -274,7 +274,7 @@ jobs:
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
           lvh-version: "v0.0.26"
-          mem: 12G
+          mem: 14G
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.focus }} Ginkgo build from GitHub
