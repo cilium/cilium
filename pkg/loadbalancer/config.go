@@ -320,7 +320,7 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Duration("lb-pressure-metrics-interval", def.LBPressureMetricsInterval, "Interval for reporting pressure metrics for load-balancing BPF maps. 0 disables reporting.")
 	flags.MarkHidden("lb-pressure-metrics-interval")
 
-	flags.Bool("lb-sock-terminate-all-protos", false, "Enable terminating connections to deleted service backends for both TCP and UDP")
+	flags.Bool("lb-sock-terminate-all-protos", true, "Enable terminating connections to deleted service backends for both TCP and UDP")
 	flags.MarkHidden("lb-sock-terminate-all-protos")
 
 	flags.Bool(EnableServiceTopologyName, def.EnableServiceTopology, "Enable support for service topology aware hints")
@@ -479,7 +479,7 @@ var DefaultUserConfig = UserConfig{
 	LBSockRevNatEntries: 0, // Probes for suitable size if zero
 
 	LBSourceRangeAllTypes:    false,
-	LBSockTerminateAllProtos: false,
+	LBSockTerminateAllProtos: true,
 
 	NodePortRange: []string{},
 	LBAlgorithm:   LBAlgorithmRandom,
