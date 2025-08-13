@@ -56,6 +56,9 @@ type DaemonConfigurationStatus struct {
 	// Enable route MTU for pod netns when CNI chaining is used
 	EnableRouteMTUForCNIChaining bool `json:"enableRouteMTUForCNIChaining,omitempty"`
 
+	// Enable ztunnel as encryption infrastructure
+	EnableZTunnel bool `json:"enableZTunnel,omitempty"`
+
 	// Immutable configuration (read-only)
 	Immutable ConfigurationMap `json:"immutable,omitempty"`
 
