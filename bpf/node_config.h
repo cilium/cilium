@@ -191,8 +191,6 @@
 #endif
 
 #ifdef ENABLE_WIREGUARD
-# define WG_IFINDEX	42
-# define WG_PORT    51871
 # ifdef ENCRYPTION_STRICT_MODE
 #  define STRICT_IPV4_NET	0
 #  define STRICT_IPV4_NET_SIZE	8
