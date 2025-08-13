@@ -466,11 +466,17 @@ Service Losing All Backends
 
 If all service backends are gone due to an outage or a configuration mistake, BGP
 Control Plane behaves differently depending on the Service's
-``externalTrafficPolicy``. When the ``externalTrafficPolicy`` is set to
-``Cluster``, the Service's VIP remains advertised from all nodes selected by the
-``CiliumBGPPeeringPolicy`` or ``CiliumBGPClusterConfig``. When the ``externalTrafficPolicy``
-is set to ``Local``, the advertisement stops entirely because the Service's VIP is only advertised
-from the node where the Service backends are running.
+``externalTrafficPolicy`` and ``--enable-no-service-endpoints-routable`` flag.
+
+When the ``externalTrafficPolicy`` is set to ``Cluster``, then the
+Service's VIP remains advertised from all nodes selected by the
+``CiliumBGPPeeringPolicy`` or ``CiliumBGPClusterConfig`` **only** when
+``--enable-no-service-endpoints-routable`` is true (the default). If the flag is
+set to ``false`` then Service's VIP is withdrawn.
+
+When the ``externalTrafficPolicy`` is set to ``Local``, the advertisement stops
+entirely because the Service's VIP is only advertised from the node where the
+Service backends are running no matter on the value of ``--enable-no-service-endpoints-routable``.
 
 Mitigation
 ''''''''''

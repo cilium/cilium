@@ -1155,6 +1155,8 @@ healthCheckICMPFailureThreshold: 3
 hostFirewall:
   # -- Enables the enforcement of host policies in the eBPF datapath.
   enabled: false
+# -- Enable routing to a service that has zero endpoints
+enableNoServiceEndpointsRoutable: true
 # -- Configure socket LB
 socketLB:
   # -- Enable socket LB
