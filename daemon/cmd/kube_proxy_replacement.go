@@ -46,6 +46,8 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 	if !kprCfg.EnableNodePort {
 		option.Config.EnableHostLegacyRouting = true
 	}
+	logger.Info("kube-proxy replacement starting with the following config",
+		logfields.KPRConfiguration, kprCfg)
 
 	if kprCfg.EnableNodePort {
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
