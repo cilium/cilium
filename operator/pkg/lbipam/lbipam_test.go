@@ -6,6 +6,7 @@ package lbipam
 import (
 	"net"
 	"net/netip"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -22,9 +23,11 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
+
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/option"
@@ -2554,7 +2557,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 	}
 
 	var (
-		fakeClientset *k8sClient.FakeClientset
+		fakeClientset *k8sFakeClient.FakeClientset
 		counters      *testCounters
 	)
 	testHive := hive.New(
@@ -2562,7 +2565,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 		Cell,
 
 		// Dependencies
-		k8sClient.FakeClientCell(),
+		k8sFakeClient.FakeClientCell(),
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
 				EnableBGPControlPlane: true,
@@ -2580,7 +2583,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 		}),
 		cell.Invoke(func(
 			tc *testCounters,
-			cf *k8sClient.FakeClientset,
+			cf *k8sFakeClient.FakeClientset,
 		) {
 			counters = tc
 			fakeClientset = cf
@@ -2686,4 +2689,167 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 	require.Never(t, func() bool {
 		return counters.serviceEvents.Load() > curServiceEvents
 	}, 3*time.Second, 100*time.Millisecond)
+}
+
+func TestLBIPAMRestartOnFullPool(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	var (
+		fakeClientset *k8sFakeClient.FakeClientset
+		counters      *testCounters
+	)
+	testHive := hive.New(
+		// Cell under test
+		Cell,
+
+		// Dependencies
+		k8sFakeClient.FakeClientCell(),
+		cell.Provide(func() *option.DaemonConfig {
+			return &option.DaemonConfig{}
+		}),
+		cell.Config(k8s.DefaultConfig),
+		cell.Provide(
+			k8s.ServiceResource,
+			operator_k8s.LBIPPoolsResource,
+		),
+
+		// Expose cells for testing
+		cell.Provide(func() *testCounters {
+			return &testCounters{}
+		}),
+		cell.Invoke(func(
+			tc *testCounters,
+			cf *k8sFakeClient.FakeClientset,
+			lb *LBIPAM,
+		) {
+			counters = tc
+			fakeClientset = cf
+		}),
+	)
+
+	tlog := hivetest.Logger(t)
+	err := testHive.Start(tlog, t.Context())
+	require.NoError(t, err)
+
+	fakeK8s := fakeClientset.SlimFakeClientset.CoreV1()
+	fakePools := fakeClientset.CiliumFakeClientset.CiliumV2().CiliumLoadBalancerIPPools()
+	_, err = fakePools.Create(t.Context(), &cilium_api_v2.CiliumLoadBalancerIPPool{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "pool-a",
+		},
+		Spec: cilium_api_v2.CiliumLoadBalancerIPPoolSpec{
+			Blocks: []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
+				{
+					Cidr: "10.0.0.0/29",
+				},
+			},
+		},
+	}, meta_v1.CreateOptions{})
+	require.NoError(t, err)
+
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		// We should now finish initializing
+		assert.Equal(collect, int64(1), counters.initialized.Load())
+	}, 5*time.Second, 100*time.Millisecond)
+
+	// Create N services
+	N := 16
+	for i := 0; i < N; i++ {
+		_, err = fakeK8s.Services("default").Create(t.Context(), &slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
+				Name: "service" + strconv.Itoa(i),
+			},
+			Spec: slim_core_v1.ServiceSpec{
+				Type: slim_core_v1.ServiceTypeLoadBalancer,
+			},
+		}, meta_v1.CreateOptions{})
+		require.NoError(t, err)
+	}
+
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		// We should now finish initializing
+		assert.Equal(collect, int64(1), counters.initialized.Load())
+		// Processed the pool event
+		assert.LessOrEqual(collect, int64(1), counters.poolEvents.Load())
+		// And the service events (each service is process twice)
+		assert.Equal(collect, int64(N*2), counters.serviceEvents.Load())
+	}, 5*time.Second, 100*time.Millisecond)
+
+	previousIPs := []string{}
+	for i := 0; i < N; i++ {
+		svc, err := fakeK8s.Services("default").Get(t.Context(), "service"+strconv.Itoa(i), meta_v1.GetOptions{})
+		require.NoError(t, err)
+		t.Log("service", i, "ingress", svc.Status.LoadBalancer.Ingress)
+		if i < N/2 {
+			// First N/2 services should get an IP
+			require.Len(t, svc.Status.LoadBalancer.Ingress, 1)
+			previousIPs = append(previousIPs, svc.Status.LoadBalancer.Ingress[0].IP)
+		} else {
+			// Last N/2 services should not get an IP, as the pool is full
+			require.Empty(t, svc.Status.LoadBalancer.Ingress)
+		}
+	}
+	require.Equal(t, int64(0), counters.restarted.Load())
+
+	err = testHive.Stop(tlog, t.Context())
+	require.NoError(t, err)
+	// We only reuse the same clientset to retain state.
+	testRestartedHive := hive.New(
+		Cell,
+
+		// Dependencies
+		cell.Provide(func() k8sClient.Clientset {
+			// We are reusing previous clientset!
+			return fakeClientset
+		}),
+		cell.Provide(func() *option.DaemonConfig {
+			return &option.DaemonConfig{}
+		}),
+		cell.Config(k8s.DefaultConfig),
+		cell.Provide(
+			k8s.ServiceResource,
+			operator_k8s.LBIPPoolsResource,
+		),
+
+		// Expose cells for testing
+		cell.Provide(func() *testCounters {
+			return &testCounters{}
+		}),
+		cell.Invoke(func(
+			tc *testCounters,
+		) {
+			counters = tc
+		}),
+	)
+	err = testRestartedHive.Start(tlog, t.Context())
+	require.NoError(t, err)
+
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		// We should now finish initializing
+		assert.Equal(collect, int64(1), counters.initialized.Load())
+		// And the service events
+		assert.Equal(collect, int64(N), counters.serviceEvents.Load())
+	}, 5*time.Second, 100*time.Millisecond)
+
+	for i := 0; i < N; i++ {
+		svc, err := fakeK8s.Services("default").Get(t.Context(), "service"+strconv.Itoa(i), meta_v1.GetOptions{})
+		require.NoError(t, err)
+		t.Log("service", i, "ingress", svc.Status.LoadBalancer.Ingress)
+	}
+
+	// The same services should still have IPs
+	for i := 0; i < N; i++ {
+		svc, err := fakeK8s.Services("default").Get(t.Context(), "service"+strconv.Itoa(i), meta_v1.GetOptions{})
+		require.NoError(t, err)
+		if i < N/2 {
+			// First N/2 services should get an IP
+			require.Len(t, svc.Status.LoadBalancer.Ingress, 1)
+			require.Equal(t, previousIPs[i], svc.Status.LoadBalancer.Ingress[0].IP)
+		} else {
+			// Last N/2 services should not get an IP, as the pool is full
+			require.Empty(t, svc.Status.LoadBalancer.Ingress)
+		}
+	}
 }

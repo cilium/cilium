@@ -177,7 +177,7 @@ func (ipam *LBIPAM) Run(ctx context.Context, health cell.Health) {
 				svcChan = nil
 				continue
 			}
-			ipam.handleServiceEvent(ctx, event)
+			ipam.handleServiceEvent(ctx, event, false)
 		}
 	}
 }
@@ -223,8 +223,8 @@ func (ipam *LBIPAM) initialize(
 	svcChan := ipam.svcResource.Events(ctx, eventsOpts)
 	for event := range svcChan {
 		if event.Kind == resource.Sync {
-			if err := ipam.satisfyServices(ctx); err != nil {
-				ipam.logger.ErrorContext(ctx, "Error while satisfying services", logfields.Error, err)
+			if err := ipam.revalidateAllServices(ctx); err != nil {
+				ipam.logger.ErrorContext(ctx, "Error while revalidating services", logfields.Error, err)
 				// Keep retrying the handling of the sync event until we succeed.
 				event.Done(err)
 				continue
@@ -237,7 +237,7 @@ func (ipam *LBIPAM) initialize(
 			event.Done(nil)
 			break
 		} else {
-			ipam.handleServiceEvent(ctx, event)
+			ipam.handleServiceEvent(ctx, event, true)
 		}
 	}
 
@@ -246,7 +246,9 @@ func (ipam *LBIPAM) initialize(
 
 func (ipam *LBIPAM) handlePoolEvent(ctx context.Context, event resource.Event[*cilium_api_v2.CiliumLoadBalancerIPPool]) {
 	if ipam.testCounters != nil {
-		ipam.testCounters.poolEvents.Add(1)
+		defer func() {
+			ipam.testCounters.poolEvents.Add(1)
+		}()
 	}
 
 	var err error
@@ -267,21 +269,23 @@ func (ipam *LBIPAM) handlePoolEvent(ctx context.Context, event resource.Event[*c
 	event.Done(err)
 }
 
-func (ipam *LBIPAM) handleServiceEvent(ctx context.Context, event resource.Event[*slim_core_v1.Service]) {
+func (ipam *LBIPAM) handleServiceEvent(ctx context.Context, event resource.Event[*slim_core_v1.Service], init bool) {
 	if ipam.testCounters != nil {
-		ipam.testCounters.serviceEvents.Add(1)
+		defer func() {
+			ipam.testCounters.serviceEvents.Add(1)
+		}()
 	}
 
 	var err error
 	switch event.Kind {
 	case resource.Upsert:
-		err = ipam.svcOnUpsert(ctx, event.Object)
+		err = ipam.svcOnUpsert(ctx, event.Object, init)
 		if err != nil {
 			ipam.logger.ErrorContext(ctx, "service upsert failed", logfields.Error, err)
 			err = fmt.Errorf("svcOnUpsert: %w", err)
 		}
 	case resource.Delete:
-		err = ipam.svcOnDelete(ctx, event.Object)
+		err = ipam.svcOnDelete(ctx, event.Object, init)
 		if err != nil {
 			ipam.logger.ErrorContext(ctx, "service delete failed", logfields.Error, err)
 			err = fmt.Errorf("svcOnDelete: %w", err)
@@ -364,16 +368,22 @@ func (ipam *LBIPAM) poolOnDelete(ctx context.Context, pool *cilium_api_v2.Cilium
 	return nil
 }
 
-func (ipam *LBIPAM) svcOnUpsert(ctx context.Context, svc *slim_core_v1.Service) error {
+func (ipam *LBIPAM) svcOnUpsert(ctx context.Context, svc *slim_core_v1.Service, init bool) error {
 	if ipam.metrics.EventProcessingTime.IsEnabled() {
 		defer func(start time.Time) {
 			ipam.metrics.EventProcessingTime.WithLabelValues("upsert", "service").Observe(time.Since(start).Seconds())
 		}(time.Now())
 	}
 
-	err := ipam.handleUpsertService(ctx, svc)
+	err := ipam.handleUpsertService(ctx, svc, init)
 	if err != nil {
 		return fmt.Errorf("handleUpsertService: %w", err)
+	}
+
+	if init {
+		// No need to satisfy or update on init,
+		// it will happen later after full sync
+		return nil
 	}
 
 	err = ipam.satisfyAndUpdateCounts(ctx)
@@ -384,7 +394,7 @@ func (ipam *LBIPAM) svcOnUpsert(ctx context.Context, svc *slim_core_v1.Service) 
 	return nil
 }
 
-func (ipam *LBIPAM) svcOnDelete(ctx context.Context, svc *slim_core_v1.Service) error {
+func (ipam *LBIPAM) svcOnDelete(ctx context.Context, svc *slim_core_v1.Service, init bool) error {
 	if ipam.metrics.EventProcessingTime.IsEnabled() {
 		defer func(start time.Time) {
 			ipam.metrics.EventProcessingTime.WithLabelValues("delete", "service").Observe(time.Since(start).Seconds())
@@ -395,6 +405,11 @@ func (ipam *LBIPAM) svcOnDelete(ctx context.Context, svc *slim_core_v1.Service) 
 
 	ipam.handleDeletedService(svc)
 
+	if init {
+		// No need to satisfy or update on init,
+		// it will happen later after full sync
+		return nil
+	}
 	err := ipam.satisfyAndUpdateCounts(ctx)
 	if err != nil {
 		return fmt.Errorf("satisfyAndUpdateCounts: %w", err)
@@ -420,7 +435,7 @@ func (ipam *LBIPAM) satisfyAndUpdateCounts(ctx context.Context) error {
 // handleUpsertService updates the service view in the service store, it removes any allocation and ingress that
 // do not belong on the service and will move the service to the satisfied or unsatisfied service view store depending
 // on if the service requests are satisfied or not.
-func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.Service) error {
+func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.Service, init bool) error {
 	key := resource.NewKey(svc)
 
 	// Ignore services which are not meant for us
@@ -434,7 +449,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 		// we were responsible before, but not anymore
 
 		// Release allocations and other references as if the service was deleted
-		if err := ipam.svcOnDelete(ctx, svc); err != nil {
+		if err := ipam.svcOnDelete(ctx, svc, init); err != nil {
 			return fmt.Errorf("svcOnDelete: %w", err)
 		}
 
@@ -453,6 +468,13 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 	// We are responsible for this service.
 
 	sv := ipam.serviceViewFromService(key, svc)
+
+	if init {
+		// No need to satisfy or update on init,
+		// it will happen later after full sync
+		ipam.serviceStore.Upsert(sv)
+		return nil
+	}
 
 	// Remove any allocation that are no longer valid due to a change in the service spec
 	err := ipam.stripInvalidAllocations(sv)
