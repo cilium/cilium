@@ -15,7 +15,7 @@
 package compiler
 
 import (
-	yaml "go.yaml.in/yaml/v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // Context contains state of the compiler as it traverses a document.

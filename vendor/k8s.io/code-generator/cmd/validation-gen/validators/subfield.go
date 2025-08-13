@@ -20,8 +20,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/code-generator/cmd/validation-gen/util"
-	"k8s.io/gengo/v2/codetags"
 	"k8s.io/gengo/v2/types"
 )
 
@@ -55,28 +53,30 @@ var (
 	validateSubfield = types.Name{Package: libValidationPkg, Name: "Subfield"}
 )
 
-func (stv subfieldTagValidator) GetValidations(context Context, tag codetags.Tag) (Validations, error) {
-	args := tag.Args
-	// This tag can apply to value and pointer fields, as well as typedefs
-	// (which should never be pointers). We need to check the concrete type.
-	t := util.NonPointer(util.NativeType(context.Type))
+func (stv subfieldTagValidator) GetValidations(context Context, args []string, payload string) (Validations, error) {
+	t := realType(context.Type)
 	if t.Kind != types.Struct {
 		return Validations{}, fmt.Errorf("can only be used on struct types")
 	}
-	subname := args[0].Value
-	submemb := util.GetMemberByJSON(t, subname)
+	if len(args) != 1 {
+		return Validations{}, fmt.Errorf("requires exactly one arg")
+	}
+	subname := args[0]
+	submemb := getMemberByJSON(t, subname)
 	if submemb == nil {
 		return Validations{}, fmt.Errorf("no field for json name %q", subname)
 	}
+
 	result := Validations{}
+
+	fakeComments := []string{payload}
 	subContext := Context{
-		Scope:      ScopeField,
-		Type:       submemb.Type,
-		ParentPath: context.Path,
-		Member:     submemb,
-		Path:       context.Path.Child(subname),
+		Scope:  ScopeField,
+		Type:   submemb.Type,
+		Parent: t,
+		Path:   context.Path.Child(subname),
 	}
-	if validations, err := stv.validator.ExtractValidations(subContext, *tag.ValueTag); err != nil {
+	if validations, err := stv.validator.ExtractValidations(subContext, fakeComments); err != nil {
 		return Validations{}, err
 	} else {
 		if len(validations.Variables) > 0 {
@@ -85,12 +85,12 @@ func (stv subfieldTagValidator) GetValidations(context Context, tag codetags.Tag
 
 		for _, vfn := range validations.Functions {
 			nilableStructType := context.Type
-			if !util.IsNilableType(nilableStructType) {
+			if !isNilableType(nilableStructType) {
 				nilableStructType = types.PointerTo(nilableStructType)
 			}
 			nilableFieldType := submemb.Type
 			fieldExprPrefix := ""
-			if !util.IsNilableType(nilableFieldType) {
+			if !isNilableType(nilableFieldType) {
 				nilableFieldType = types.PointerTo(nilableFieldType)
 				fieldExprPrefix = "&"
 			}
@@ -115,16 +115,12 @@ func (stv subfieldTagValidator) Docs() TagDoc {
 		Description: "Declares a validation for a subfield of a struct.",
 		Args: []TagArgDoc{{
 			Description: "<field-json-name>",
-			Type:        codetags.ArgTypeString,
-			Required:    true,
 		}},
 		Docs: "The named subfield must be a direct field of the struct, or of an embedded struct.",
 		Payloads: []TagPayloadDoc{{
 			Description: "<validation-tag>",
 			Docs:        "The tag to evaluate for the subfield.",
 		}},
-		PayloadsType:     codetags.ValueTypeTag,
-		PayloadsRequired: true,
 	}
 	return doc
 }

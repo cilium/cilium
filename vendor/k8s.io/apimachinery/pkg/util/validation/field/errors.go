@@ -17,8 +17,8 @@ limitations under the License.
 package field
 
 import (
-	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -72,43 +72,45 @@ var omitValue = OmitValueType{}
 // for building nice-looking higher-level error reporting.
 func (e *Error) ErrorBody() string {
 	var s string
-	switch e.Type {
-	case ErrorTypeRequired, ErrorTypeForbidden, ErrorTypeTooLong, ErrorTypeInternal:
+	switch {
+	case e.Type == ErrorTypeRequired:
 		s = e.Type.String()
-	case ErrorTypeInvalid, ErrorTypeTypeInvalid, ErrorTypeNotSupported,
-		ErrorTypeNotFound, ErrorTypeDuplicate, ErrorTypeTooMany:
-		if e.BadValue == omitValue {
-			s = e.Type.String()
-			break
+	case e.Type == ErrorTypeForbidden:
+		s = e.Type.String()
+	case e.Type == ErrorTypeTooLong:
+		s = e.Type.String()
+	case e.Type == ErrorTypeInternal:
+		s = e.Type.String()
+	case e.BadValue == omitValue:
+		s = e.Type.String()
+	default:
+		value := e.BadValue
+		valueType := reflect.TypeOf(value)
+		if value == nil || valueType == nil {
+			value = "null"
+		} else if valueType.Kind() == reflect.Pointer {
+			if reflectValue := reflect.ValueOf(value); reflectValue.IsNil() {
+				value = "null"
+			} else {
+				value = reflectValue.Elem().Interface()
+			}
 		}
-		switch t := e.BadValue.(type) {
+		switch t := value.(type) {
 		case int64, int32, float64, float32, bool:
 			// use simple printer for simple types
-			s = fmt.Sprintf("%s: %v", e.Type, t)
+			s = fmt.Sprintf("%s: %v", e.Type, value)
 		case string:
 			s = fmt.Sprintf("%s: %q", e.Type, t)
+		case fmt.Stringer:
+			// anything that defines String() is better than raw struct
+			s = fmt.Sprintf("%s: %s", e.Type, t.String())
 		default:
-			// use more complex techniques to render more complex types
-			valstr := ""
-			jb, err := json.Marshal(e.BadValue)
-			if err == nil {
-				// best case
-				valstr = string(jb)
-			} else if stringer, ok := e.BadValue.(fmt.Stringer); ok {
-				// anything that defines String() is better than raw struct
-				valstr = stringer.String()
-			} else {
-				// worst case - fallback to raw struct
-				// TODO: internal types have panic guards against json.Marshalling to prevent
-				// accidental use of internal types in external serialized form.  For now, use
-				// %#v, although it would be better to show a more expressive output in the future
-				valstr = fmt.Sprintf("%#v", e.BadValue)
-			}
-			s = fmt.Sprintf("%s: %s", e.Type, valstr)
+			// fallback to raw struct
+			// TODO: internal types have panic guards against json.Marshalling to prevent
+			// accidental use of internal types in external serialized form.  For now, use
+			// %#v, although it would be better to show a more expressive output in the future
+			s = fmt.Sprintf("%s: %#v", e.Type, value)
 		}
-	default:
-		internal := InternalError(nil, fmt.Errorf("unhandled error code: %s: please report this", e.Type))
-		s = internal.ErrorBody()
 	}
 	if len(e.Detail) != 0 {
 		s += fmt.Sprintf(": %s", e.Detail)
@@ -195,7 +197,7 @@ func (t ErrorType) String() string {
 	case ErrorTypeTypeInvalid:
 		return "Invalid value"
 	default:
-		return fmt.Sprintf("<unknown error %q>", string(t))
+		panic(fmt.Sprintf("unrecognized validation error: %q", string(t)))
 	}
 }
 
@@ -256,14 +258,10 @@ func Forbidden(field *Path, detail string) *Error {
 // the given value is too long.  This is similar to Invalid, but the returned
 // error will not include the too-long value. If maxLength is negative, it will
 // be included in the message.  The value argument is not used.
-func TooLong(field *Path, _ interface{}, maxLength int) *Error {
+func TooLong(field *Path, value interface{}, maxLength int) *Error {
 	var msg string
 	if maxLength >= 0 {
-		bs := "bytes"
-		if maxLength == 1 {
-			bs = "byte"
-		}
-		msg = fmt.Sprintf("may not be more than %d %s", maxLength, bs)
+		msg = fmt.Sprintf("may not be more than %d bytes", maxLength)
 	} else {
 		msg = "value is too long"
 	}
@@ -283,11 +281,7 @@ func TooMany(field *Path, actualQuantity, maxQuantity int) *Error {
 	var msg string
 
 	if maxQuantity >= 0 {
-		is := "items"
-		if maxQuantity == 1 {
-			is = "item"
-		}
-		msg = fmt.Sprintf("must have at most %d %s", maxQuantity, is)
+		msg = fmt.Sprintf("must have at most %d items", maxQuantity)
 	} else {
 		msg = "has too many items"
 	}

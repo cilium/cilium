@@ -21,8 +21,6 @@ import (
 	"strconv"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/code-generator/cmd/validation-gen/util"
-	"k8s.io/gengo/v2/codetags"
 	"k8s.io/gengo/v2/types"
 )
 
@@ -54,16 +52,14 @@ var (
 	minimumValidator = types.Name{Package: libValidationPkg, Name: "Minimum"}
 )
 
-func (minimumTagValidator) GetValidations(context Context, tag codetags.Tag) (Validations, error) {
+func (minimumTagValidator) GetValidations(context Context, _ []string, payload string) (Validations, error) {
 	var result Validations
 
-	// This tag can apply to value and pointer fields, as well as typedefs
-	// (which should never be pointers). We need to check the concrete type.
-	if t := util.NonPointer(util.NativeType(context.Type)); !types.IsInteger(t) {
+	if t := realType(context.Type); !types.IsInteger(t) {
 		return result, fmt.Errorf("can only be used on integer types (%s)", rootTypeString(context.Type, t))
 	}
 
-	intVal, err := strconv.Atoi(tag.Value)
+	intVal, err := strconv.Atoi(payload)
 	if err != nil {
 		return result, fmt.Errorf("failed to parse tag payload as int: %w", err)
 	}
@@ -80,7 +76,5 @@ func (mtv minimumTagValidator) Docs() TagDoc {
 			Description: "<integer>",
 			Docs:        "This field must be greater than or equal to x.",
 		}},
-		PayloadsType:     codetags.ValueTypeInt,
-		PayloadsRequired: true,
 	}
 }

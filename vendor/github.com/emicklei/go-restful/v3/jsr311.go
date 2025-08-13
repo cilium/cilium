@@ -65,7 +65,7 @@ func (RouterJSR311) extractParams(pathExpr *pathExpression, matches []string) ma
 	return params
 }
 
-// https://download.oracle.com/otndocs/jcp/jaxrs-1.1-mrel-eval-oth-JSpec/
+// http://jsr311.java.net/nonav/releases/1.1/spec/spec3.html#x3-360003.7.2
 func (r RouterJSR311) detectRoute(routes []Route, httpRequest *http.Request) (*Route, error) {
 	candidates := make([]*Route, 0, 8)
 	for i, each := range routes {
@@ -126,7 +126,9 @@ func (r RouterJSR311) detectRoute(routes []Route, httpRequest *http.Request) (*R
 		if trace {
 			traceLogger.Printf("no Route found (from %d) that matches HTTP Content-Type: %s\n", len(previous), contentType)
 		}
-		return nil, NewError(http.StatusUnsupportedMediaType, "415: Unsupported Media Type")
+		if httpRequest.ContentLength > 0 {
+			return nil, NewError(http.StatusUnsupportedMediaType, "415: Unsupported Media Type")
+		}
 	}
 
 	// accept
@@ -149,9 +151,20 @@ func (r RouterJSR311) detectRoute(routes []Route, httpRequest *http.Request) (*R
 		for _, candidate := range previous {
 			available = append(available, candidate.Produces...)
 		}
+		// if POST,PUT,PATCH without body
+		method, length := httpRequest.Method, httpRequest.Header.Get("Content-Length")
+		if (method == http.MethodPost ||
+			method == http.MethodPut ||
+			method == http.MethodPatch) && (length == "" || length == "0") {
+			return nil, NewError(
+				http.StatusUnsupportedMediaType,
+				fmt.Sprintf("415: Unsupported Media Type\n\nAvailable representations: %s", strings.Join(available, ", ")),
+			)
+		}
 		return nil, NewError(
 			http.StatusNotAcceptable,
-			fmt.Sprintf("406: Not Acceptable\n\nAvailable representations: %s", strings.Join(available, ", ")))
+			fmt.Sprintf("406: Not Acceptable\n\nAvailable representations: %s", strings.Join(available, ", ")),
+		)
 	}
 	// return r.bestMatchByMedia(outputMediaOk, contentType, accept), nil
 	return candidates[0], nil
