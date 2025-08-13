@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"strconv"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -41,7 +43,6 @@ type mcsAPIParams struct {
 	cell.In
 
 	ClusterMesh operator.ClusterMesh
-	Cfg         operator.ClusterMeshConfig
 	CfgMCSAPI   operator.MCSAPIConfig
 
 	// ClusterInfo is the id/name of the local cluster.
@@ -134,12 +135,21 @@ func registerMCSAPIController(params mcsAPIParams) error {
 
 	params.Logger.Info("Multi-Cluster Services API support enabled")
 
+	// Read the configuration from environment variable following the same pattern as cluster-id
+	defaultGlobal := false // Default to false for security
+	if envVal := os.Getenv("CLUSTERMESH_DEFAULT_GLOBAL_NAMESPACE"); envVal != "" {
+		if parsed, err := strconv.ParseBool(envVal); err == nil {
+			defaultGlobal = parsed
+		}
+	}
+
 	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: params.Logger}
 	params.ClusterMesh.RegisterClusterServiceExportUpdateHook(remoteClusterServiceSource.onClusterServiceExportEvent)
 	params.ClusterMesh.RegisterClusterServiceExportDeleteHook(remoteClusterServiceSource.onClusterServiceExportEvent)
 	svcImportReconciler := newMCSAPIServiceImportReconciler(
 		params.CtrlRuntimeManager, params.Logger, params.ClusterInfo.Name,
 		params.ClusterMesh.GlobalServiceExports(), remoteClusterServiceSource,
+		defaultGlobal,
 	)
 
 	params.JobGroup.Add(job.OneShot("mcsapi-main", func(ctx context.Context, health cell.Health) error {

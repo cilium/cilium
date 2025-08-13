@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,6 +28,7 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -34,6 +36,9 @@ import (
 
 const (
 	conditionTypeReady = "Ready"
+	// ServiceExportNamespaceNotGlobal indicates that the namespace containing the ServiceExport
+	// is not marked for global export via the clustermesh.cilium.io/global annotation
+	ServiceExportNamespaceNotGlobal = "NamespaceNotGlobal"
 )
 
 // mcsAPIServiceImportReconciler is a controller that automatically creates
@@ -47,16 +52,63 @@ type mcsAPIServiceImportReconciler struct {
 	cluster                    string
 	globalServiceExports       *operator.GlobalServiceExportCache
 	remoteClusterServiceSource *remoteClusterServiceExportSource
+
+	// Namespace filtering configuration
+	annotatedNamespaces    sets.Set[string] // Namespaces with clustermesh.cilium.io/global annotation
+	globalNamespaces       sets.Set[string] // Namespaces marked as global (clustermesh.cilium.io/global=true)
+	filteringActive        bool             // True when at least one namespace has the annotation
+	defaultGlobalNamespace bool             // Default behavior for non-annotated namespaces when filtering is active
 }
 
-func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource) *mcsAPIServiceImportReconciler {
+func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource, defaultGlobalNamespace bool) *mcsAPIServiceImportReconciler {
 	return &mcsAPIServiceImportReconciler{
 		Client:                     mgr.GetClient(),
 		Logger:                     logger,
 		cluster:                    cluster,
 		globalServiceExports:       globalServiceExports,
 		remoteClusterServiceSource: remoteClusterServiceSource,
+		annotatedNamespaces:        sets.New[string](),
+		globalNamespaces:           sets.New[string](),
+		filteringActive:            false,
+		defaultGlobalNamespace:     defaultGlobalNamespace,
 	}
+}
+
+// isGlobalNamespace returns true if the given namespace should be exported globally
+func (r *mcsAPIServiceImportReconciler) isGlobalNamespace(namespace string) bool {
+	// If namespace-based filtering is not active (no annotated namespaces),
+	// all namespaces are global for backwards compatibility
+	if !r.filteringActive {
+		return true
+	}
+
+	// If the namespace is explicitly annotated, use the annotation value
+	if r.annotatedNamespaces.Has(namespace) {
+		return r.globalNamespaces.Has(namespace)
+	}
+
+	// For non-annotated namespaces when filtering is active, use the default behavior
+	return r.defaultGlobalNamespace
+}
+
+// updateNamespaceState updates the namespace tracking state based on a namespace object
+func (r *mcsAPIServiceImportReconciler) updateNamespaceState(ctx context.Context, ns *corev1.Namespace) {
+	annotationValue, hasAnnotation := annotation.Get(ns, "clustermesh.cilium.io/global")
+
+	if hasAnnotation {
+		r.annotatedNamespaces.Insert(ns.Name)
+		if annotationValue == "true" {
+			r.globalNamespaces.Insert(ns.Name)
+		} else {
+			r.globalNamespaces.Delete(ns.Name)
+		}
+	} else {
+		r.annotatedNamespaces.Delete(ns.Name)
+		r.globalNamespaces.Delete(ns.Name)
+	}
+
+	// Update filtering active status
+	r.filteringActive = r.annotatedNamespaces.Len() > 0
 }
 
 func (r *mcsAPIServiceImportReconciler) getSvcExport(ctx context.Context, req ctrl.Request) (*mcsapiv1alpha1.ServiceExport, error) {
@@ -99,6 +151,16 @@ func (r *mcsAPIServiceImportReconciler) doesNamespaceExist(ctx context.Context, 
 		return false, client.IgnoreNotFound(err)
 	}
 	return true, nil
+}
+
+func (r *mcsAPIServiceImportReconciler) getNamespace(ctx context.Context, namespaceName string) (*corev1.Namespace, error) {
+	var ns corev1.Namespace
+	key := types.NamespacedName{Name: namespaceName}
+
+	if err := r.Client.Get(ctx, key, &ns); err != nil {
+		return nil, client.IgnoreNotFound(err)
+	}
+	return &ns, nil
 }
 
 func fromServiceToMCSAPIServiceSpec(svc *corev1.Service, cluster string, svcExport *mcsapiv1alpha1.ServiceExport) *mcsapitypes.MCSAPIServiceSpec {
@@ -359,8 +421,44 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 		return controllerruntime.Fail(err)
 	}
 
+	// Check if namespace is global before processing
+	isNamespaceGlobal := r.isGlobalNamespace(req.Namespace)
+	
 	svcExportByCluster := r.globalServiceExports.GetServiceExportByCluster(req.NamespacedName)
 	if len(svcExportByCluster) == 0 && svcExport == nil {
+		if svcImportExists {
+			return controllerruntime.Fail(r.Client.Delete(ctx, svcImport))
+		}
+		return controllerruntime.Success()
+	}
+
+	// If namespace is not global, set ServiceExport conditions and delete ServiceImport
+	if !isNamespaceGlobal {
+		if svcExport != nil {
+			changedCondition := meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
+				Type:    ServiceExportNamespaceNotGlobal,
+				Status:  metav1.ConditionTrue,
+				Reason:  "NamespaceNotGlobal",
+				Message: fmt.Sprintf("Namespace %s is not marked for global export with clustermesh.cilium.io/global annotation", req.Namespace),
+			})
+			changedCondition = meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
+				Type:    mcsapiv1alpha1.ServiceExportValid,
+				Status:  metav1.ConditionFalse,
+				Reason:  "NamespaceNotGlobal",
+				Message: fmt.Sprintf("Namespace %s is not marked for global export", req.Namespace),
+			}) || changedCondition
+			changedCondition = meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
+				Type:   conditionTypeReady,
+				Status: metav1.ConditionFalse,
+				Reason: "NamespaceNotGlobal",
+			}) || changedCondition
+			if changedCondition {
+				if err := r.Client.Status().Update(ctx, svcExport); err != nil {
+					return controllerruntime.Fail(err)
+				}
+			}
+		}
+		// Delete existing ServiceImport if namespace is not global
 		if svcImportExists {
 			return controllerruntime.Fail(r.Client.Delete(ctx, svcImport))
 		}
@@ -414,12 +512,15 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 	mergedPorts, conflictMsg := mergePorts(orderedSvcExports)
 
 	if svcExport != nil {
-		changedCondition := meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
+		// At this point we know the namespace is global, so remove any namespace-related conditions
+		// and set valid condition if no conflicts
+		changedCondition := meta.RemoveStatusCondition(&svcExport.Status.Conditions, ServiceExportNamespaceNotGlobal)
+		changedCondition = meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
 			Type:    mcsapiv1alpha1.ServiceExportValid,
 			Status:  metav1.ConditionTrue,
 			Reason:  mcsapiv1alpha1.ServiceExportValid,
 			Message: "Service is Valid for export",
-		})
+		}) || changedCondition
 
 		if conflictMsg == "" {
 			conflictMsg = checkConflictExport(orderedSvcExports)
@@ -510,8 +611,13 @@ func (r *mcsAPIServiceImportReconciler) SetupWithManager(mgr ctrl.Manager) error
 		Watches(&mcsapiv1alpha1.ServiceExport{}, &handler.EnqueueRequestForObject{}).
 		// Watch for changes to Services
 		Watches(&corev1.Service{}, &handler.EnqueueRequestForObject{}).
-		// Watch for changes to Namespace to requeue remote service exports
+		// Watch for changes to Namespace to requeue remote service exports and update filtering state
 		Watches(&corev1.Namespace{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
+			// Update namespace filtering state
+			if ns, ok := obj.(*corev1.Namespace); ok {
+				r.updateNamespaceState(ctx, ns)
+			}
+
 			requests := []ctrl.Request{}
 			for _, name := range r.globalServiceExports.GetServiceExportsName(obj.GetName()) {
 				requests = append(requests, ctrl.Request{
