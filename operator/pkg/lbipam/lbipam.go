@@ -305,6 +305,11 @@ func (ipam *LBIPAM) poolOnUpsert(ctx context.Context, pool *cilium_api_v2.Cilium
 		// Spec hasn't changed, nothing to do
 		if existingPool.Spec.DeepEqual(&pool.Spec) {
 			return nil
+		} else {
+			ipam.logger.Info("Updated Pool spec",
+				logfields.PoolName, pool.GetName(),
+				logfields.PoolOldSpec, existingPool.Spec,
+				logfields.PoolNewSpec, pool.Spec)
 		}
 
 		err = ipam.handlePoolModified(ctx, pool)
@@ -677,6 +682,11 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 				return statusModified, fmt.Errorf("findRangeOfIP: %w", err)
 			}
 			if lbRange == nil {
+				ipam.logger.Warn(
+					"Current IP does not belong to any matching range, deferring to regular allocation logic",
+					logfields.IPAddr, ip,
+					logfields.ServiceName, sv.Key,
+				)
 				continue
 			}
 
@@ -684,7 +694,12 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 			err = lbRange.alloc.Alloc(ip, serviceViews)
 			if err != nil {
 				if errors.Is(err, ipalloc.ErrInUse) {
-					// The IP is already allocated, defer to regular allocation logic to deterime
+					ipam.logger.Warn(
+						"Current IP is already allocated by another service, deferring to regular allocation logic",
+						logfields.IPAddr, ingress.IP,
+						logfields.ServiceName, sv.Key,
+					)
+					// The IP is already allocated, defer to regular allocation logic to determine
 					// if this service can share the allocation.
 					continue
 				}
