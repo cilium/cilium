@@ -1807,4 +1807,6 @@ const (
 	Fraction = "fraction"
 
 	Rate = "rate"
+
+	KPRConfiguration = "kprConfiguration"
 )
