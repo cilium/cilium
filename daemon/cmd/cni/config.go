@@ -342,7 +342,7 @@ func (c *cniConfigManager) setupCNIConfFile() (err error) {
 		)
 	} else {
 		if err != nil && !os.IsNotExist(err) {
-			c.logger.Debug(
+			c.logger.Info(
 				"Failed to read existing CNI configuration file",
 				logfields.Error, err,
 				logfields.Destination, dest,
@@ -354,7 +354,6 @@ func (c *cniConfigManager) setupCNIConfFile() (err error) {
 		}
 		c.logger.Info(
 			"Wrote CNI configuration file",
-			logfields.Error, err,
 			logfields.Destination, dest,
 		)
 	}
