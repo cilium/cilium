@@ -35,7 +35,7 @@ To run the tests in your local environment, execute the following command from t
 
 To run a single test, specify its name without extension. For example:
 
-    $ make run_bpf_tests BPF_TEST_FILE="xdp_nodeport_lb4_nat_lb"
+    $ make run_bpf_tests BPF_TEST="xdp_nodeport_lb4_nat_lb"
 
 Writing tests
 =============
