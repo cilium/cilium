@@ -686,7 +686,7 @@ Below is an example where there is one network policy that needs to be updated:
 
 .. code-block:: shell-session
 
-    $ cilium clustermesh prepare-policy-default-local-cluster --all-namespaces
+    $ cilium clustermesh inspect-policy-default-local-cluster --all-namespaces
 
     ⚠️ CiliumNetworkPolicy 0/1
             ⚠️ default/allow-from-bar
