@@ -470,7 +470,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		if err := compileWithOptions(ctx, l.logger, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
 			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)
 		}
-		if err := socketlb.Enable(l.logger, l.sysctl, lnc.KPRConfig); err != nil {
+		if err := socketlb.Enable(l.logger, l.sysctl, lnc.KPRConfig, l.svcRouteConfig); err != nil {
 			return err
 		}
 	} else {
