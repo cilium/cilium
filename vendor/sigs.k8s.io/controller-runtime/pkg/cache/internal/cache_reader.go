@@ -174,13 +174,7 @@ func (c *CacheReader) List(_ context.Context, out client.ObjectList, opts ...cli
 		}
 		runtimeObjs = append(runtimeObjs, outObj)
 	}
-
-	if err := apimeta.SetList(out, runtimeObjs); err != nil {
-		return err
-	}
-
-	out.SetContinue("continue-not-supported")
-	return nil
+	return apimeta.SetList(out, runtimeObjs)
 }
 
 func byIndexes(indexer cache.Indexer, requires fields.Requirements, namespace string) ([]interface{}, error) {

@@ -21,9 +21,6 @@ type Filter struct {
 	// Args are the arguments to the executable
 	Args []string `yaml:"args,omitempty"`
 
-	// Env is exposed to the environment
-	Env []string `yaml:"env,omitempty"`
-
 	// WorkingDir is the working directory that the executable
 	// should run in
 	WorkingDir string
@@ -38,7 +35,6 @@ func (c *Filter) Filter(nodes []*yaml.RNode) ([]*yaml.RNode, error) {
 
 func (c *Filter) Run(reader io.Reader, writer io.Writer) error {
 	cmd := exec.Command(c.Path, c.Args...) //nolint:gosec
-	cmd.Env = append(os.Environ(), c.Env...)
 	cmd.Stdin = reader
 	cmd.Stdout = writer
 	cmd.Stderr = os.Stderr

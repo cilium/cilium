@@ -26,7 +26,6 @@ import (
 	"k8s.io/code-generator/cmd/client-gen/generators/util"
 	clientgentypes "k8s.io/code-generator/cmd/client-gen/types"
 	"k8s.io/code-generator/cmd/lister-gen/args"
-	genutil "k8s.io/code-generator/pkg/util"
 	"k8s.io/gengo/v2"
 	"k8s.io/gengo/v2/generator"
 	"k8s.io/gengo/v2/namer"
@@ -102,12 +101,8 @@ func GetTargets(context *generator.Context, args *args.Args) []generator.Target 
 		// If there's a comment of the form "// +groupName=somegroup" or
 		// "// +groupName=somegroup.foo.bar.io", use the first field (somegroup) as the name of the
 		// group when generating.
-		override, err := genutil.ExtractCommentTagsWithoutArguments("+", []string{"groupName"}, p.Comments)
-		if err != nil {
-			klog.Fatalf("error extracting groupName tags: %v", err)
-		}
-		if override["groupName"] != nil {
-			gv.Group = clientgentypes.Group(strings.SplitN(override["groupName"][0], ".", 2)[0])
+		if override := gengo.ExtractCommentTags("+", p.Comments)["groupName"]; override != nil {
+			gv.Group = clientgentypes.Group(strings.SplitN(override[0], ".", 2)[0])
 		}
 
 		var typesToGenerate []*types.Type

@@ -24,7 +24,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"k8s.io/gengo/v2/codetags"
+	"k8s.io/gengo/v2"
 	"k8s.io/gengo/v2/generator"
 )
 
@@ -42,8 +42,7 @@ type registry struct {
 	tagValidators map[string]TagValidator // keyed by tagname
 	tagIndex      []string                // all tag names
 
-	typeValidators  []TypeValidator
-	fieldValidators []FieldValidator
+	typeValidators []TypeValidator
 }
 
 func (reg *registry) addTagValidator(tv TagValidator) {
@@ -72,17 +71,6 @@ func (reg *registry) addTypeValidator(tv TypeValidator) {
 	globalRegistry.typeValidators = append(globalRegistry.typeValidators, tv)
 }
 
-func (reg *registry) addFieldValidator(fv FieldValidator) {
-	if reg.initialized.Load() {
-		panic("registry was modified after init")
-	}
-
-	reg.lock.Lock()
-	defer reg.lock.Unlock()
-
-	globalRegistry.fieldValidators = append(globalRegistry.fieldValidators, fv)
-}
-
 func (reg *registry) init(c *generator.Context) {
 	if reg.initialized.Load() {
 		panic("registry.init() was called twice")
@@ -109,30 +97,7 @@ func (reg *registry) init(c *generator.Context) {
 		return cmp.Compare(a.Name(), b.Name())
 	})
 
-	for _, fv := range reg.fieldValidators {
-		fv.Init(cfg)
-	}
-	slices.SortFunc(reg.fieldValidators, func(a, b FieldValidator) int {
-		return cmp.Compare(a.Name(), b.Name())
-	})
-
 	reg.initialized.Store(true)
-}
-
-func (reg *registry) ExtractTags(_ Context, comments []string) ([]codetags.Tag, error) {
-	extracted := codetags.Extract("+", comments)
-	var tags []codetags.Tag
-	for tagName, lines := range extracted {
-		if !slices.Contains(reg.tagIndex, tagName) {
-			continue
-		}
-		t, err := codetags.ParseAll(lines)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse tags: %w: %s", err, lines)
-		}
-		tags = append(tags, t...)
-	}
-	return tags, nil
 }
 
 // ExtractValidations considers the given context (e.g. a type definition) and
@@ -141,27 +106,32 @@ func (reg *registry) ExtractTags(_ Context, comments []string) ([]codetags.Tag, 
 // found in the associated comment block.  Any matching validators produce zero
 // or more validations, which will later be rendered by the code-generation
 // logic.
-func (reg *registry) ExtractValidations(context Context, tags ...codetags.Tag) (Validations, error) {
+func (reg *registry) ExtractValidations(context Context, comments []string) (Validations, error) {
 	if !reg.initialized.Load() {
 		panic("registry.init() was not called")
 	}
+
 	validations := Validations{}
 
-	// Run tag-validators first.
+	// Extract tags and run matching tag-validators first.
+	tags, err := gengo.ExtractFunctionStyleCommentTags("+", reg.tagIndex, comments)
+	if err != nil {
+		return Validations{}, fmt.Errorf("failed to parse tags: %w", err)
+	}
 	phases := reg.sortTagsIntoPhases(tags)
-	for _, tags := range phases {
-		for _, tag := range tags {
-			tv := reg.tagValidators[tag.Name]
+	for _, idx := range phases {
+		for _, tag := range idx {
+			vals := tags[tag]
+			tv := reg.tagValidators[tag]
 			if scopes := tv.ValidScopes(); !scopes.Has(context.Scope) && !scopes.Has(ScopeAny) {
 				return Validations{}, fmt.Errorf("tag %q cannot be specified on %s", tv.TagName(), context.Scope)
 			}
-			if err := typeCheck(tag, tv.Docs()); err != nil {
-				return Validations{}, fmt.Errorf("tag %q: %w", tv.TagName(), err)
-			}
-			if theseValidations, err := tv.GetValidations(context, tag); err != nil {
-				return Validations{}, fmt.Errorf("tag %q: %w", tv.TagName(), err)
-			} else {
-				validations.Add(theseValidations)
+			for _, val := range vals { // tags may have multiple values
+				if theseValidations, err := tv.GetValidations(context, val.Args, val.Value); err != nil {
+					return Validations{}, fmt.Errorf("tag %q: %w", tv.TagName(), err)
+				} else {
+					validations.Add(theseValidations)
+				}
 			}
 		}
 	}
@@ -178,22 +148,10 @@ func (reg *registry) ExtractValidations(context Context, tags ...codetags.Tag) (
 		}
 	}
 
-	// Run field-validators after tag and type validators are done.
-	if context.Scope == ScopeField {
-		// Run all field-validators.
-		for _, fv := range reg.fieldValidators {
-			if theseValidations, err := fv.GetValidations(context); err != nil {
-				return Validations{}, fmt.Errorf("field validator %q: %w", fv.Name(), err)
-			} else {
-				validations.Add(theseValidations)
-			}
-		}
-	}
-
 	return validations, nil
 }
 
-func (reg *registry) sortTagsIntoPhases(tags []codetags.Tag) [][]codetags.Tag {
+func (reg *registry) sortTagsIntoPhases(tags map[string][]gengo.Tag) [][]string {
 	// First sort all tags by their name, so the final output is deterministic.
 	//
 	// It makes more sense to sort here, rather than when emitting because:
@@ -217,24 +175,24 @@ func (reg *registry) sortTagsIntoPhases(tags []codetags.Tag) [][]codetags.Tag {
 	// "k8s:validateFalse".  All of the records within each of those is
 	// relatively ordered, so the result here would be to put "ifOptionEnabled"
 	// before "validateFalse" (lexicographical is better than random).
-	sortedTags := make([]codetags.Tag, len(tags))
-	copy(sortedTags, tags)
-	slices.SortFunc(sortedTags, func(a, b codetags.Tag) int {
-		return cmp.Compare(a.Name, b.Name)
-	})
+	sortedTags := []string{}
+	for tag := range tags {
+		sortedTags = append(sortedTags, tag)
+	}
+	sort.Strings(sortedTags)
 
 	// Now split them into phases.
-	phase0 := []codetags.Tag{} // regular tags
-	phase1 := []codetags.Tag{} // "late" tags
+	phase0 := []string{} // regular tags
+	phase1 := []string{} // "late" tags
 	for _, tn := range sortedTags {
-		tv := reg.tagValidators[tn.Name]
+		tv := reg.tagValidators[tn]
 		if _, ok := tv.(LateTagValidator); ok {
 			phase1 = append(phase1, tn)
 		} else {
 			phase0 = append(phase0, tn)
 		}
 	}
-	return [][]codetags.Tag{phase0, phase1}
+	return [][]string{phase0, phase1}
 }
 
 // Docs returns documentation for each tag in this registry.
@@ -247,37 +205,27 @@ func (reg *registry) Docs() []TagDoc {
 	return result
 }
 
-// RegisterTagValidator must be called for TagValidator to be used by
-// validation-gen. See TagValidator for more information.
+// RegisterTagValidator must be called by any validator which wants to run when
+// a specific tag is found.
 func RegisterTagValidator(tv TagValidator) {
 	globalRegistry.addTagValidator(tv)
 }
 
-// RegisterTypeValidator must be called for a TypeValidator to be used by
-// validation-gen. See TypeValidator for more information.
+// RegisterTypeValidator must be called by any validator which wants to run
+// against every type definition.
 func RegisterTypeValidator(tv TypeValidator) {
 	globalRegistry.addTypeValidator(tv)
 }
 
-// RegisterFieldValidator must be called for a FieldValidator to be used by
-// validation-gen. See FieldValidator for more information.
-func RegisterFieldValidator(fv FieldValidator) {
-	globalRegistry.addFieldValidator(fv)
-}
-
 // Validator represents an aggregation of validator plugins.
 type Validator interface {
-
-	// ExtractTags extracts Tags from comment lines.
-	ExtractTags(context Context, comments []string) ([]codetags.Tag, error)
-
 	// ExtractValidations considers the given context (e.g. a type definition) and
 	// evaluates registered validators.  This includes type validators (which run
 	// against all types) and tag validators which run only if a specific tag is
 	// found in the associated comment block.  Any matching validators produce zero
 	// or more validations, which will later be rendered by the code-generation
 	// logic.
-	ExtractValidations(context Context, Tags ...codetags.Tag) (Validations, error)
+	ExtractValidations(context Context, comments []string) (Validations, error)
 
 	// Docs returns documentation for each known tag.
 	Docs() []TagDoc

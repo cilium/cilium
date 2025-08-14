@@ -22,21 +22,17 @@ import (
 	"fmt"
 	"sync"
 
-	toolscache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
 	internal "sigs.k8s.io/controller-runtime/pkg/internal/source"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
-
-var logInformer = logf.RuntimeLog.WithName("source").WithName("Informer")
 
 // Source is a source of events (e.g. Create, Update, Delete operations on Kubernetes Objects, Webhook callbacks, etc)
 // which should be processed by event.EventHandlers to enqueue reconcile.Requests.
@@ -286,9 +282,7 @@ func (is *Informer) Start(ctx context.Context, queue workqueue.TypedRateLimiting
 		return errors.New("must specify Informer.Handler")
 	}
 
-	_, err := is.Informer.AddEventHandlerWithOptions(internal.NewEventHandler(ctx, queue, is.Handler, is.Predicates), toolscache.HandlerOptions{
-		Logger: &logInformer,
-	})
+	_, err := is.Informer.AddEventHandler(internal.NewEventHandler(ctx, queue, is.Handler, is.Predicates).HandlerFuncs())
 	if err != nil {
 		return err
 	}

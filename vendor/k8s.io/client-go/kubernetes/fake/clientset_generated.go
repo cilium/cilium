@@ -96,6 +96,8 @@ import (
 	fakeflowcontrolv1beta3 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3/fake"
 	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
 	fakenetworkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1/fake"
+	networkingv1alpha1 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1"
+	fakenetworkingv1alpha1 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1/fake"
 	networkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	fakenetworkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1/fake"
 	nodev1 "k8s.io/client-go/kubernetes/typed/node/v1"
@@ -114,8 +116,6 @@ import (
 	fakerbacv1alpha1 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1/fake"
 	rbacv1beta1 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
 	fakerbacv1beta1 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1/fake"
-	resourcev1 "k8s.io/client-go/kubernetes/typed/resource/v1"
-	fakeresourcev1 "k8s.io/client-go/kubernetes/typed/resource/v1/fake"
 	resourcev1alpha3 "k8s.io/client-go/kubernetes/typed/resource/v1alpha3"
 	fakeresourcev1alpha3 "k8s.io/client-go/kubernetes/typed/resource/v1alpha3/fake"
 	resourcev1beta1 "k8s.io/client-go/kubernetes/typed/resource/v1beta1"
@@ -213,8 +213,8 @@ func NewClientset(objects ...runtime.Object) *Clientset {
 	cs.AddReactor("*", "*", testing.ObjectReaction(o))
 	cs.AddWatchReactor("*", func(action testing.Action) (handled bool, ret watch.Interface, err error) {
 		var opts metav1.ListOptions
-		if watchAction, ok := action.(testing.WatchActionImpl); ok {
-			opts = watchAction.ListOptions
+		if watchActcion, ok := action.(testing.WatchActionImpl); ok {
+			opts = watchActcion.ListOptions
 		}
 		gvr := action.GetResource()
 		ns := action.GetNamespace()
@@ -408,6 +408,11 @@ func (c *Clientset) NetworkingV1() networkingv1.NetworkingV1Interface {
 	return &fakenetworkingv1.FakeNetworkingV1{Fake: &c.Fake}
 }
 
+// NetworkingV1alpha1 retrieves the NetworkingV1alpha1Client
+func (c *Clientset) NetworkingV1alpha1() networkingv1alpha1.NetworkingV1alpha1Interface {
+	return &fakenetworkingv1alpha1.FakeNetworkingV1alpha1{Fake: &c.Fake}
+}
+
 // NetworkingV1beta1 retrieves the NetworkingV1beta1Client
 func (c *Clientset) NetworkingV1beta1() networkingv1beta1.NetworkingV1beta1Interface {
 	return &fakenetworkingv1beta1.FakeNetworkingV1beta1{Fake: &c.Fake}
@@ -451,11 +456,6 @@ func (c *Clientset) RbacV1beta1() rbacv1beta1.RbacV1beta1Interface {
 // RbacV1alpha1 retrieves the RbacV1alpha1Client
 func (c *Clientset) RbacV1alpha1() rbacv1alpha1.RbacV1alpha1Interface {
 	return &fakerbacv1alpha1.FakeRbacV1alpha1{Fake: &c.Fake}
-}
-
-// ResourceV1 retrieves the ResourceV1Client
-func (c *Clientset) ResourceV1() resourcev1.ResourceV1Interface {
-	return &fakeresourcev1.FakeResourceV1{Fake: &c.Fake}
 }
 
 // ResourceV1beta2 retrieves the ResourceV1beta2Client
