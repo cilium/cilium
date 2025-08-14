@@ -204,6 +204,12 @@ jobs:
           # renovate: datasource=github-releases depName=mfridman/tparse
           go install github.com/mfridman/tparse@28967170dce4f9f13de77ec857f7aed4c4294a5f # v0.12.3 (main) with -progress
 
+      - name: Install go-junit-report
+        timeout-minutes: 15
+        run: |
+          # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+          go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@4cdc5c96cb4e406fccf943536b5bfcae7a0fb826 # v2.3.1
+
       - name: Install Gateway API CRDs
         run: |
           gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
@@ -296,6 +302,11 @@ jobs:
           else
             GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --exempt-features \"${{ steps.vars.outputs.exempt-features }}\" -test.skip \"${{ steps.vars.outputs.skipped_tests }}\""
           fi
+          # Create JUnit output directory and enable owner attribution
+          mkdir -p cilium-junits
+          LOG_CODEOWNERS=1 \
+          JUNIT_PATH="cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - gateway-conformance.xml" \
+          CODEOWNERS_PATH="${CILIUM_CLI_CODE_OWNERS_PATHS}" \
           GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES="$GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES" \
           GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES="$GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES" \
           GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS" \
