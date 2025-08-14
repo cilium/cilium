@@ -148,7 +148,9 @@ func registerClientsetValidator(lc cell.Lifecycle, client k8sClient.Clientset) {
 }
 
 var pprofConfig = pprof.Config{
-	Pprof:        false,
-	PprofAddress: option.PprofAddress,
-	PprofPort:    option.PprofPortClusterMesh,
+	Pprof:                     false,
+	PprofAddress:              option.PprofAddress,
+	PprofPort:                 option.PprofPortClusterMesh,
+	PprofMutexProfileFraction: 0,
+	PprofBlockProfileRate:     0,
 }

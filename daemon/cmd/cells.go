@@ -376,9 +376,11 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.
 }
 
 var pprofConfig = pprof.Config{
-	Pprof:        false,
-	PprofAddress: option.PprofAddressAgent,
-	PprofPort:    option.PprofPortAgent,
+	Pprof:                     false,
+	PprofAddress:              option.PprofAddressAgent,
+	PprofPort:                 option.PprofPortAgent,
+	PprofMutexProfileFraction: 0,
+	PprofBlockProfileRate:     0,
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups

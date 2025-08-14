@@ -43,6 +43,8 @@ clustermesh-apiserver clustermesh [flags]
       --max-connected-clusters uint32                Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
       --pprof                                        Enable serving pprof debugging API
       --pprof-address string                         Address that pprof listens on (default "localhost")
+      --pprof-block-profile-rate int                 Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+      --pprof-mutex-profile-fraction int             Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --pprof-port uint16                            Port that pprof listens on (default 6063)
       --prometheus-serve-addr string                 Address to serve Prometheus metrics
 ```
