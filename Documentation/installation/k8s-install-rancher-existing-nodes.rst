@@ -98,6 +98,25 @@ Go to the ``Additional Manifests`` section and paste the following YAML. Add rel
 
 .. image:: images/rancher_additional_manifests.png
 
+.. note::
+
+    ``k8sServiceHost`` should be set to ``127.0.0.1`` and ``k8sServicePort`` to ``6443``. Cilium Agent running on control plane nodes will use local address for communication with Kubernetes API process.
+    On Control Plane nodes you can verify this by running:
+
+    .. code-block:: shell-session
+
+      $ sudo ss -tulpn | grep 6443
+      tcp   LISTEN 0      4096                 *:6443             *:*    users:(("kube-apiserver",pid=124481,fd=3))
+
+
+    While On worker nodes, Cilium Agent will use the local address to communicate with ``rke2`` process, which is listening on port ``6443``. The process ``rke2`` proxies requests to the Kubernetes API server running on the Control Plane node(s):
+
+    .. code-block:: shell-session
+      
+      $ sudo ss -tulpn | grep 6443
+      tcp   LISTEN 0      4096         127.0.0.1:6443       0.0.0.0:*    users:(("rke2",pid=113574,fd=8)) 
+
+
 Click the ``Edit as YAML`` box at the bottom of the page.
 The cluster configuration will open in an editor within the window.
 
