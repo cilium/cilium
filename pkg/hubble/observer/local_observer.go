@@ -8,13 +8,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync/atomic"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
@@ -332,8 +335,32 @@ func (s *LocalObserverServer) GetFlows(
 		mask.Alloc(flow.ProtoReflect())
 	}
 
+	lostEventCounter := newLostEventCounter()
+	lostEventSendLast := time.Now()
+
 nextEvent:
 	for {
+		// If we reached the lost event send interval, send lost events if any.
+		now := time.Now()
+		if lostEventSendLast.Add(s.opts.LostEventSendInterval).Before(now) {
+			lostEvents := lostEventCounter.Clear()
+			if len(lostEvents) > 0 {
+				lostEventSendLast = now
+				for _, lostEvent := range lostEvents {
+					resp := &observerpb.GetFlowsResponse{
+						Time:     timestamppb.New(now),
+						NodeName: nodeTypes.GetAbsoluteNodeName(),
+						ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
+							LostEvents: lostEvent,
+						},
+					}
+					if err = server.Send(resp); err != nil {
+						return err
+					}
+				}
+			}
+		}
+
 		e, err := eventsReader.Next(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -375,13 +402,7 @@ nextEvent:
 			// when a query asks for 20 events, then lost events should not be
 			// accounted for as they are not events per se but an indication
 			// that some event was lost).
-			resp = &observerpb.GetFlowsResponse{
-				Time:     e.Timestamp,
-				NodeName: nodeTypes.GetAbsoluteNodeName(),
-				ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
-					LostEvents: ev,
-				},
-			}
+			lostEventCounter.Increment(ev, e.Timestamp.AsTime())
 		}
 
 		if resp == nil {
@@ -557,15 +578,23 @@ var (
 	_ genericRequest = (*observerpb.GetDebugEventsRequest)(nil)
 )
 
-// eventsReader reads flows using a RingReader. It applies the GetFlows request
+// eventsReader reads events using a RingReader. It applies the request
 // criteria (blacklist, whitelist, follow, ...) before returning events.
 type eventsReader struct {
-	ringReader           *container.RingReader
+	ringReader *container.RingReader
+
+	// request criteria
 	whitelist, blacklist filters.FilterFuncs
 	maxEvents            uint64
 	follow, timeRange    bool
-	eventCount           uint64
 	since, until         *time.Time
+
+	// eventCount is updated by the reader user to keep track of how many
+	// successful reads happened. This is because the reader does not know
+	// the underlying Event type the user is looking for. When maxEvents is
+	// non-zero, we use this counter to infer when the limit is reached from
+	// Next() and return io.EOF.
+	eventCount uint64
 }
 
 // newEventsReader creates a new eventsReader that uses the given RingReader to
@@ -791,4 +820,70 @@ func getFlowRate(ring *container.Ring, at time.Time) (float64, error) {
 		count++
 	}
 	return float64(count) / at.Sub(since).Seconds(), nil
+}
+
+type lostEventKey struct {
+	source flowpb.LostEventSource
+	cpu    int32
+}
+
+type lostEventValue struct {
+	count uint64
+	first time.Time
+	last  time.Time
+}
+
+// lostEventCounter is a simple counter for lost events. It keeps track of
+// the number of lost events and time range per source and CPU.
+type lostEventCounter struct {
+	m map[lostEventKey]*lostEventValue
+}
+
+// newLostEventCounter creates a new lostEventCounter.
+func newLostEventCounter() *lostEventCounter {
+	return &lostEventCounter{
+		m: make(map[lostEventKey]*lostEventValue),
+	}
+}
+
+// Increment increments the lost event counter for the given event.
+func (c *lostEventCounter) Increment(ev *flowpb.LostEvent, ts time.Time) {
+	cpu := int32(-1) // -1 means no CPU information
+	if ev.GetCpu() != nil {
+		cpu = ev.GetCpu().GetValue()
+	}
+	key := lostEventKey{source: ev.GetSource(), cpu: cpu}
+	if v, ok := c.m[key]; ok {
+		v.count++
+		v.last = ts
+	} else {
+		c.m[key] = &lostEventValue{count: 1, first: ts, last: ts}
+	}
+}
+
+// Clear clears the lost event counter and returns a slice of LostEvent, if any.
+func (c *lostEventCounter) Clear() []*observerpb.LostEvent {
+	if len(c.m) == 0 {
+		return nil
+	}
+	lostEvents := slices.Collect(c.iter())
+	c.m = make(map[lostEventKey]*lostEventValue)
+	return lostEvents
+}
+
+func (c *lostEventCounter) iter() iter.Seq[*observerpb.LostEvent] {
+	return func(yield func(*observerpb.LostEvent) bool) {
+		for key, value := range c.m {
+			var cpu *wrapperspb.Int32Value
+			if key.cpu != -1 {
+				cpu = wrapperspb.Int32(key.cpu)
+			}
+			yield(&observerpb.LostEvent{
+				Source:        key.source,
+				Cpu:           cpu,
+				NumEventsLost: value.count,
+				// TODO: add timestamp range to LostEvent
+			})
+		}
+	}
 }
