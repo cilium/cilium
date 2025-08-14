@@ -182,12 +182,12 @@ func (wss *wqSyncStore) UpsertKey(_ context.Context, k Key) error {
 	key := k.GetKeyName()
 	value, err := k.Marshal()
 	if err != nil {
-		return fmt.Errorf("failed marshaling key %q: %w", k, err)
+		return fmt.Errorf("failed marshaling key %q: %w", key, err)
 	}
 
 	prevValue, loaded := wss.state.Swap(key, value)
 	if loaded && bytes.Equal(prevValue, value) {
-		wss.log.Debug("ignoring upsert request for already up-to-date key", logfields.Key, k)
+		wss.log.Debug("ignoring upsert request for already up-to-date key", logfields.Key, key)
 	} else {
 		if !wss.synced.Load() {
 			wss.pendingSync.Store(key, struct{}{})
