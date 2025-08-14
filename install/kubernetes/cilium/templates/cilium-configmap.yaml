@@ -860,12 +860,16 @@ data:
   pprof: {{ .Values.pprof.enabled | quote }}
   pprof-address: {{ .Values.pprof.address | quote }}
   pprof-port: {{ .Values.pprof.port | quote }}
+  pprof-mutex-profile-fraction: {{ .Values.pprof.mutexProfileFraction | quote }}
+  pprof-block-profile-rate: {{ .Values.pprof.blockProfileRate | quote }}
 {{- end }}
 
 {{- if .Values.operator.pprof.enabled }}
   operator-pprof: {{ .Values.operator.pprof.enabled | quote }}
   operator-pprof-address: {{ .Values.operator.pprof.address | quote }}
   operator-pprof-port: {{ .Values.operator.pprof.port | quote }}
+  operator-pprof-mutex-profile-fraction: {{ .Values.operator.pprof.mutexProfileFraction | quote }}
+  operator-pprof-block-profile-rate: {{ .Values.operator.pprof.blockProfileRate | quote }}
 {{- end }}
 
 {{- if .Values.logSystemLoad }}

@@ -42,7 +42,9 @@ var Cell = cell.Module(
 )
 
 var pprofConfig = pprof.Config{
-	Pprof:        false,
-	PprofAddress: option.PprofAddress,
-	PprofPort:    option.PprofPortKVStoreMesh,
+	Pprof:                     false,
+	PprofAddress:              option.PprofAddress,
+	PprofPort:                 option.PprofPortKVStoreMesh,
+	PprofMutexProfileFraction: 0,
+	PprofBlockProfileRate:     0,
 }

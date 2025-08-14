@@ -33,6 +33,8 @@ clustermesh-apiserver kvstoremesh hive [flags]
       --per-cluster-ready-timeout duration           Remote clusters will be disregarded for readiness checks if a connection cannot be established within this duration (default 15s)
       --pprof                                        Enable serving pprof debugging API
       --pprof-address string                         Address that pprof listens on (default "localhost")
+      --pprof-block-profile-rate int                 Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+      --pprof-mutex-profile-fraction int             Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --pprof-port uint16                            Port that pprof listens on (default 6064)
       --prometheus-serve-addr string                 Address to serve Prometheus metrics
 ```

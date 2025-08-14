@@ -1795,4 +1795,8 @@ const (
 	Matcher = "matcher"
 
 	ParentResource = "parentResource"
+
+	Fraction = "fraction"
+
+	Rate = "rate"
 )

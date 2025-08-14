@@ -126,6 +126,8 @@ cilium-operator-aws [flags]
       --operator-k8s-client-qps float32                      Queries per second limit for the K8s client (default 100)
       --operator-pprof                                       Enable serving pprof debugging API
       --operator-pprof-address string                        Address that pprof listens on (default "localhost")
+      --operator-pprof-block-profile-rate int                Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+      --operator-pprof-mutex-profile-fraction int            Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
       --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
       --parallel-alloc-workers int                           Maximum number of parallel IPAM workers (default 50)
