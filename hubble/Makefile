@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Authors of Hubble
 
+.DEFAULT_GOAL := all
+
 CURR_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
 
 include $(CURR_DIR)/../Makefile.defs
@@ -11,7 +13,7 @@ TARGET := hubble
 
 all: $(TARGET)
 
-.PHONY: all $(TARGET) release local-release clean
+.PHONY: all $(TARGET) release local-release clean install
 
 
 SUBDIRS_HUBBLE_CLI := .
@@ -62,5 +64,20 @@ local-release: clean
 		rm -r release/$$OS; \
 	done;
 
+install: install-binary install-bash-completion-only
+
+install-binary:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+
+install-bash-completion: $(TARGET) install-bash-completion-only
+
+install-bash-completion-only:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(CONFDIR)/bash_completion.d
+	./$(TARGET) completion bash > $(TARGET)_bash_completion
+	$(QUIET)$(INSTALL) -m 0644 -T $(TARGET)_bash_completion $(DESTDIR)$(CONFDIR)/bash_completion.d/$(TARGET)
+
 clean:
-	rm -f $(TARGET)
+	@$(ECHO_CLEAN)
+	-$(QUIET)rm -f $(TARGET)
+	$(QUIET)$(GO_CLEAN)
