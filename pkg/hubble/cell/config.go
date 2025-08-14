@@ -29,6 +29,9 @@ type config struct {
 	// MonitorEvents specifies Cilium monitor events for Hubble to observe. By
 	// default, Hubble observes all monitor events.
 	MonitorEvents []string `mapstructure:"hubble-monitor-events"`
+	// LostEventSendInterval specifies the interval at which lost events are
+	// sent from the Observer server, if any.
+	LostEventSendInterval time.Duration `mapstructure:"hubble-lost-event-send-interval"`
 
 	// SocketPath specifies the UNIX domain socket for Hubble server to listen
 	// to.
@@ -53,9 +56,10 @@ type config struct {
 var defaultConfig = config{
 	EnableHubble: false,
 	// Hubble internals (parser, ringbuffer) configuration
-	EventBufferCapacity: observeroption.Default.MaxFlows.AsInt(),
-	EventQueueSize:      0, // see getDefaultMonitorQueueSize()
-	MonitorEvents:       []string{},
+	EventBufferCapacity:   observeroption.Default.MaxFlows.AsInt(),
+	EventQueueSize:        0, // see getDefaultMonitorQueueSize()
+	MonitorEvents:         []string{},
+	LostEventSendInterval: hubbleDefaults.LostEventSendInterval,
 	// Hubble local server configuration
 	SocketPath: hubbleDefaults.SocketPath,
 	// Hubble TCP server configuration
@@ -78,6 +82,7 @@ func (def config) Flags(flags *pflag.FlagSet) {
 			strings.Join(monitorAPI.AllMessageTypeNames(), " "),
 		),
 	)
+	flags.Duration("hubble-lost-event-send-interval", def.LostEventSendInterval, "Interval at which lost events are sent from the Observer server, if any.")
 	// Hubble local server configuration
 	flags.String("hubble-socket-path", def.SocketPath, "Set hubble's socket path to listen for connections")
 	// Hubble TCP server configuration
