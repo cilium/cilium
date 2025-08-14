@@ -550,8 +550,20 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"dev-docker-operator-*-image-debug","Build platform specific cilium-operator debug images(alibabacloud, aws, azure, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 
-.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder
+.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder gateway-api-conformance
 force :;
+
+gateway-api-conformance: ## Run Gateway API conformance tests.
+	@$(ECHO_CHECK) running Gateway API conformance tests...
+	GATEWAY_API_CONFORMANCE_TESTS=1 \
+	GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES} \
+	GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES} \
+	$(GO) test -p 4 -v ./operator/pkg/gateway-api \
+		$(GATEWAY_TEST_FLAGS) \
+		-test.run "TestConformance" \
+		-test.timeout=29m \
+		-json \
+	| tparse -progress
 
 BPF_TEST_FILE ?= ""
 BPF_TEST_DUMP_CTX ?= ""
