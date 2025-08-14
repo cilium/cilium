@@ -17,7 +17,7 @@ import (
 func TestPolicyMapPressure(t *testing.T) {
 	assert := assert.New(t)
 	policyMapPressureMinInterval = 0
-	p := newPolicyMapPressure(hivetest.Logger(t), nil)
+	p := newPolicyMapPressure(hivetest.Logger(t), nil, 0)
 	p.gauge = &fakeGauge{}
 	assert.Equal(float64(0), p.gauge.(*fakeGauge).Load())
 	p.Update(endpoint.PolicyMapPressureEvent{
