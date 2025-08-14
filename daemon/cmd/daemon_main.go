@@ -582,8 +582,12 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.ExternalEnvoyProxy, false, "whether the Envoy is deployed externally in form of a DaemonSet or not")
 	option.BindEnv(vp, option.ExternalEnvoyProxy)
 
-	flags.String(option.RoutingMode, defaults.RoutingMode, fmt.Sprintf("Routing mode (%q or %q)", option.RoutingModeNative, option.RoutingModeTunnel))
+	flags.String(option.RoutingMode, defaults.RoutingMode, fmt.Sprintf("Routing mode (%q, %q or %q)",
+		option.RoutingModeNative, option.RoutingModeTunnel, option.RoutingModeHybrid))
 	option.BindEnv(vp, option.RoutingMode)
+
+	flags.String(option.SubnetTopologyFilePath, "", "Path to the subnet topology file")
+	option.BindEnv(vp, option.SubnetTopologyFilePath)
 
 	flags.String(option.ServiceNoBackendResponse, defaults.ServiceNoBackendResponse, "Response to traffic for a service without backends")
 	option.BindEnv(vp, option.ServiceNoBackendResponse)
@@ -1126,7 +1130,12 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, "Option "+option.EnableRemoteNodeMasquerade+" requires BPF masquerade to be enabled ("+option.EnableBPFMasquerade+")")
 	}
 
-	if option.Config.TunnelingEnabled() && option.Config.EnableAutoDirectRouting {
+	if option.Config.SubnetTopologyFilePath != "" && option.Config.RoutingMode != option.RoutingModeHybrid {
+		logging.Fatal(logger, fmt.Sprintf("Cannot specify %s without %s routing mode.", option.SubnetTopologyFilePath, option.RoutingModeHybrid))
+	}
+
+	// AutoDirectRouting can work in hybrid mode?
+	if option.Config.IsRoutingModeTunnel() && option.Config.EnableAutoDirectRouting {
 		logging.Fatal(logger, fmt.Sprintf("%s cannot be used with tunneling. Packets must be routed through the tunnel device.", option.EnableAutoDirectRoutingName))
 	}
 
@@ -1152,7 +1161,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 
 	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
 		// TODO(weil0ng): add a proper check for ipam in PR# 15429.
-		if option.Config.TunnelingEnabled() {
+		if option.Config.IsRoutingModeTunnel() {
 			logging.Fatal(logger, fmt.Sprintf("Cannot specify %s or %s in tunnel mode.", option.LocalRouterIPv4, option.LocalRouterIPv6))
 		}
 		if !option.Config.EnableEndpointRoutes {
@@ -1180,7 +1189,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		)
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMENI && option.Config.TunnelingEnabled() {
+	if option.Config.IPAM == ipamOption.IPAMENI && option.Config.IsRoutingModeTunnel() {
 		logging.Fatal(logger, fmt.Sprintf("Cannot specify IPAM mode %s in tunnel mode.", option.Config.IPAM))
 	}
 
