@@ -89,7 +89,7 @@ var (
 // the k8s reflector. These are combined to ensure any dependency on Table[LocalPod]
 // will start after the reflector, ensuring that Start hooks can wait for the table
 // to initialize.
-func NewPodTableAndReflector(jg job.Group, db *statedb.DB, cs client.Clientset) (statedb.Table[LocalPod], error) {
+func NewPodTableAndReflector(jg job.Group, db *statedb.DB, cs client.Clientset) (statedb.RWTable[LocalPod], error) {
 	pods, err := NewPodTable(db)
 	if err != nil {
 		return nil, err

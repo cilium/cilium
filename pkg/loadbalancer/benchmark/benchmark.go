@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/cilium/stream"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
@@ -103,23 +102,14 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		maps = lbmaps.NewFakeLBMaps()
 	}
 
-	services := make(chan resource.Event[*slim_corev1.Service], 1000)
-	services <- resource.Event[*slim_corev1.Service]{
-		Kind: resource.Sync,
-		Done: func(error) {},
-	}
-	endpoints := make(chan resource.Event[*k8s.Endpoints], 1000)
-	endpoints <- resource.Event[*k8s.Endpoints]{
-		Kind: resource.Sync,
-		Done: func(error) {},
-	}
-
 	var (
-		writer *writer.Writer
-		db     *statedb.DB
-		bo     *lbreconciler.BPFOps
+		writer  *writer.Writer
+		db      *statedb.DB
+		bo      *lbreconciler.BPFOps
+		svcsTbl statedb.RWTable[*slim_corev1.Service]
+		epsTbl  statedb.RWTable[*k8s.Endpoints]
 	)
-	h := testHive(maps, services, endpoints, &writer, &db, &bo)
+	h := testHive(maps, &writer, &db, &bo, &svcsTbl, &epsTbl)
 
 	if err := h.Start(log, context.TODO()); err != nil {
 		panic(err)
@@ -143,12 +133,14 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		// Feed in all the test objects
 		//
 		fmt.Printf("Iteration %d: upsert ", i)
+		wtxn := db.WriteTxn(svcsTbl, epsTbl)
 		for _, slice := range epSlices {
-			endpoints <- upsertEvent(slice)
+			epsTbl.Insert(wtxn, slice)
 		}
 		for _, svc := range svcs {
-			services <- upsertEvent(svc)
+			svcsTbl.Insert(wtxn, svc)
 		}
+		wtxn.Commit()
 
 		fmt.Print("wait ")
 		nextRevision := statedb.Revision(0)
@@ -183,13 +175,15 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		//
 		// Feed in deletions of all objects.
 		//
+		wtxn = db.WriteTxn(svcsTbl, epsTbl)
 		for _, svc := range svcs {
-			services <- deleteEvent(svc)
+			svcsTbl.Delete(wtxn, svc)
 		}
 
 		for _, slice := range epSlices {
-			endpoints <- deleteEvent(slice)
+			epsTbl.Delete(wtxn, slice)
 		}
+		wtxn.Commit()
 
 		fmt.Printf("wait ")
 		// Tables and maps should now be empty.
@@ -518,11 +512,11 @@ var (
 )
 
 func testHive(maps lbmaps.LBMaps,
-	services chan resource.Event[*slim_corev1.Service],
-	endpoints chan resource.Event[*k8s.Endpoints],
 	writerPtr **writer.Writer,
 	db **statedb.DB,
 	bo **lbreconciler.BPFOps,
+	svcsTbl *statedb.RWTable[*slim_corev1.Service],
+	epsTbl *statedb.RWTable[*k8s.Endpoints],
 ) *hive.Hive {
 	extConfig := loadbalancer.ExternalConfig{
 		ZoneMapper: &option.DaemonConfig{},
@@ -536,6 +530,20 @@ func testHive(maps lbmaps.LBMaps,
 			"Test module",
 
 			k8sClient.FakeClientCell(),
+
+			cell.Provide(
+				// Provide the service and endpoints tables, but without the reflector that
+				// would populate them from a real kubernetes.
+				daemonk8s.NewServiceTable,
+				daemonk8s.NewEndpointsTable,
+				statedb.RWTable[*slim_corev1.Service].ToTable,
+				statedb.RWTable[*k8s.Endpoints].ToTable,
+
+				// Provide an empty pod table. The LB services & endpoints reflector has
+				// a dependency on it.
+				daemonk8s.NewPodTable,
+				statedb.RWTable[daemonk8s.LocalPod].ToTable,
+			),
 			node.LocalNodeStoreCell,
 
 			cell.Provide(
@@ -547,13 +555,6 @@ func testHive(maps lbmaps.LBMaps,
 					}
 				},
 				func() loadbalancer.ExternalConfig { return extConfig },
-
-				func() reflectors.StreamsOut {
-					return reflectors.StreamsOut{
-						ServicesStream:  stream.FromChannel(services),
-						EndpointsStream: stream.FromChannel(endpoints),
-					}
-				},
 
 				func(lc cell.Lifecycle) lbmaps.LBMaps {
 					if rm, ok := maps.(*lbmaps.BPFLBMaps); ok {
@@ -568,12 +569,18 @@ func testHive(maps lbmaps.LBMaps,
 				},
 			),
 
-			daemonk8s.PodTableCell,
-
-			cell.Invoke(func(db_ *statedb.DB, w *writer.Writer, bo_ *lbreconciler.BPFOps) {
+			cell.Invoke(func(
+				db_ *statedb.DB,
+				w *writer.Writer,
+				bo_ *lbreconciler.BPFOps,
+				svcsTbl_ statedb.RWTable[*slim_corev1.Service],
+				epsTbl_ statedb.RWTable[*k8s.Endpoints],
+			) {
 				*db = db_
 				*writerPtr = w
 				*bo = bo_
+				*svcsTbl = svcsTbl_
+				*epsTbl = epsTbl_
 			}),
 
 			// Provides [Writer] API and the load-balancing tables.

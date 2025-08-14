@@ -10,6 +10,8 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -92,6 +94,8 @@ type CiliumResourceParams struct {
 }
 
 // ServiceResource builds the Resource[Service] object.
+//
+// Deprecated: Use ServiceTable instead.
 func ServiceResource(lc cell.Lifecycle, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Service], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
@@ -112,6 +116,30 @@ func ServiceResource(lc cell.Lifecycle, cfg Config, cs client.Clientset, opts ..
 		resource.WithMetric("Service"),
 		resource.WithIndexers(indexers),
 	), nil
+}
+
+func ServiceTable(jobGroup job.Group, db *statedb.DB, cs client.Clientset, cfg Config) error {
+	if !cs.IsEnabled() {
+		return nil
+	}
+	optsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(cfg.K8sServiceProxyName)
+	if err != nil {
+		return err
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](cs.Slim().CoreV1().Services("")),
+		optsModifier,
+	)
+	return RegisterReflector(
+		jobGroup,
+		db,
+		ReflectorConfig[*slim_corev1.Service]{
+			Name:          "k8s-services",
+			Table:         servicesTable,
+			ListerWatcher: lw,
+			MetricScope:   "Service",
+		},
+	)
 }
 
 func NodeResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Node], error) {

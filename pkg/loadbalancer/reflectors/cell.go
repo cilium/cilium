@@ -12,7 +12,7 @@ var Cell = cell.Module(
 	"Reflects external state to load-balancing tables",
 
 	// Reflects Kubernetes Services and Endpoint(Slices) to load-balancing tables
-	K8sReflectorCell,
+	cell.Invoke(RegisterK8sReflector),
 
 	// Reflects state to load-balancing tables from a local file specified with
 	// '--lb-state-file'.
