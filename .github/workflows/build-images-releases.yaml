@@ -123,30 +123,23 @@ jobs:
             CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             OPERATOR_VARIANT=${{ matrix.name }}
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
-
-      - name: Sign Container Image
-        run: |
-          if [ "${{ env.PUSH_TO_DOCKER_HUB }}" == "true" ]; then
-            cosign sign -y docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
-          fi
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
-
-      - name: Generate SBOM
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+      - name: Generate SBOM, Sign Images, and Attach Attestations
+        uses: ./.github/actions/cosign
         with:
-          artifact-name: sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
-          upload-release-assets: false
+          image: "quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}"
+          image_tag: "quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}"
+          sbom_name: "${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
+          upload_sbom_release_assets: 'false'
 
-      - name: Attach SBOM attestation to container image
-        run: |
-          if [ "${{ env.PUSH_TO_DOCKER_HUB }}" == "true" ]; then
-            cosign attest -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
-          fi
-          cosign attest -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
+      - name: Generate SBOM, Sign Images, and Attach Attestations
+        if: ${{ env.PUSH_TO_DOCKER_HUB == 'true' }}
+        uses: ./.github/actions/cosign
+        with:
+          image: "docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}"
+          sbom_name: "${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
+          generate_sbom: 'false'
+          install_cosign: 'false'
+          upload_sbom_release_assets: 'false'
 
       - name: Image Release Digest
         shell: bash
