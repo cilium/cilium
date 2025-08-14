@@ -102,6 +102,9 @@ ifneq ($(V),0)
 	GOTEST_FORMATTER_FLAGS += -follow
 endif
 ifneq ($(LOG_CODEOWNERS),)
+	# In CI environments with LOG_CODEOWNERS, always use -follow to ensure
+	# build errors are visible (GitHub issue #41158)
+	GOTEST_FORMATTER_FLAGS += -follow
 ifneq ($(shell command -v go-junit-report),)
 	JUNIT_PATH ?= junit_results.xml
 	GOTEST_FORMATTER = tee \
@@ -111,16 +114,14 @@ ifneq ($(shell command -v go-junit-report),)
 			-out "$(JUNIT_PATH)") \
 		>($(GO) run $(ROOT_DIR)/tools/testowners \
 			--code-owners=$(CODEOWNERS_PATH)) \
-		>(tparse $(GOTEST_FORMATTER_FLAGS)) \
-		>$(GO_TEST_OUT) \
-		| cat
+		/dev/stdout \
+		| tparse $(GOTEST_FORMATTER_FLAGS)
 else
 	GOTEST_FORMATTER = tee \
 		>($(GO) run $(ROOT_DIR)/tools/testowners \
 			--code-owners=$(CODEOWNERS_PATH)) \
-		>(tparse $(GOTEST_FORMATTER_FLAGS)) \
-		>$(GO_TEST_OUT) \
-		| cat
+		/dev/stdout \
+		| tparse $(GOTEST_FORMATTER_FLAGS)
 endif
 else
 	GOTEST_FORMATTER = tparse $(GOTEST_FORMATTER_FLAGS)
