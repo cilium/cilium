@@ -327,9 +327,11 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/egress_gateway.go @cilium/egress-gateway
 /cilium-cli/connectivity/builder/egress_gateway_excluded_cidrs.go @cilium/egress-gateway
 /cilium-cli/connectivity/builder/egress_gateway_with_l7_policy.go @cilium/egress-gateway
+/cilium-cli/connectivity/builder/l7_lb.go @cilium/sig-servicemesh
 /cilium-cli/connectivity/builder/local_redirect_policy.go @cilium/sig-lb
 /cilium-cli/connectivity/builder/no_ipsec_xfrm_errors.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/node_to_node_encryption.go @cilium/sig-encryption
+/cilium-cli/connectivity/builder/pod_to_ingress_service.go @cilium/sig-servicemesh
 /cilium-cli/connectivity/builder/pod_to_pod_encryption.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/pod_to_pod_encryption_v2.go @cilium/sig-encryption
 /cilium-cli/connectivity/perf/** @cilium/sig-scalability
