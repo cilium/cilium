@@ -575,12 +575,11 @@ gateway-api-conformance: ## Run Gateway API conformance tests.
 	GATEWAY_API_CONFORMANCE_TESTS=1 \
 	GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES} \
 	GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES} \
-	$(GO) test -p 4 -v ./operator/pkg/gateway-api \
+	$(GO_TEST) $(GO_TEST_FLAGS) -p 4 -v ./operator/pkg/gateway-api \
 		$(GATEWAY_TEST_FLAGS) \
 		-test.run "TestConformance" \
 		-test.timeout=29m \
-		-json \
-	| tparse -progress
+	| $(GOTEST_FORMATTER)
 
 BPF_TEST ?= ""
 BPF_TEST_DUMP_CTX ?= ""
