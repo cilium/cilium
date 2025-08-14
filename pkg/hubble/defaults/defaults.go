@@ -3,7 +3,11 @@
 
 package defaults
 
-import ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
+import (
+	"time"
+
+	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
+)
 
 const (
 	// ServerPort is the default port for hubble server when a provided
@@ -30,4 +34,9 @@ const (
 	// SocketPath is the path to the UNIX domain socket exposing the Hubble API
 	// to clients locally.
 	SocketPath = ciliumDefaults.RuntimePath + "/hubble.sock"
+
+	// LostEventSendInterval is the default interval at which lost events are sent
+	// from the Observer server, if any. The default of 1s matches Hubble
+	// Relay's SortBufferDrainTimeout.
+	LostEventSendInterval = 1 * time.Second
 )

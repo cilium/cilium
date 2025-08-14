@@ -29,12 +29,12 @@ type Observer interface {
 
 // consumer implements monitorConsumer.MonitorConsumer
 type consumer struct {
-	uuider        *bufuuid.Generator
-	observer      Observer
-	numEventsLost uint64
-	lostLock      lock.Mutex
-	logLimiter    logging.Limiter
+	uuider   *bufuuid.Generator
+	observer Observer
 
+	lostLock               lock.Mutex
+	numEventsLost          uint64
+	logLimiter             logging.Limiter
 	cachedLostNotification *observerTypes.MonitorEvent
 
 	metricLostPerfEvents     prometheus.Counter
@@ -44,10 +44,9 @@ type consumer struct {
 // NewConsumer returns an initialized pointer to consumer.
 func NewConsumer(observer Observer) monitorConsumer.MonitorConsumer {
 	mc := &consumer{
-		uuider:        bufuuid.New(),
-		observer:      observer,
-		numEventsLost: 0,
-		logLimiter:    logging.NewLimiter(30*time.Second, 1),
+		uuider:     bufuuid.New(),
+		observer:   observer,
+		logLimiter: logging.NewLimiter(30*time.Second, 1),
 
 		metricLostPerfEvents: metrics.LostEvents.WithLabelValues(
 			strings.ToLower(flowpb.LostEventSource_PERF_EVENT_RING_BUFFER.String())),
