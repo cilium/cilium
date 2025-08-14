@@ -124,6 +124,7 @@ cilium-agent hive [flags]
       --hubble-export-file-path stdout                            Filepath to write Hubble events to. By specifying stdout the flows are logged instead of written to a rotated file.
       --hubble-flowlogs-config-path string                        Filepath with configuration of hubble flowlogs
       --hubble-listen-address string                              An additional address for Hubble server to listen to, e.g. ":4244"
+      --hubble-lost-event-send-interval duration                  Interval at which lost events are sent from the Observer server, if any. (default 1s)
       --hubble-metrics string                                     List of Hubble metrics to enable.
       --hubble-metrics-server string                              Address to serve Hubble metrics on.
       --hubble-metrics-server-enable-tls                          Run the Hubble metrics server on the given listen address with TLS.

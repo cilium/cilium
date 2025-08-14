@@ -243,6 +243,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	observerOpts = append(observerOpts,
 		observeroption.WithMaxFlows(maxFlows),
 		observeroption.WithMonitorBuffer(h.config.EventQueueSize),
+		observeroption.WithLostEventSendInterval(h.config.LostEventSendInterval),
 	)
 
 	// register exporters

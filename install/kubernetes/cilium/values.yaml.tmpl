@@ -1233,6 +1233,9 @@ hubble:
   #   2047, 4095, 8191, 16383, 32767, 65535
   # eventBufferCapacity: "4095"
 
+  # -- The interval at which Hubble will send out lost events from the Observer server, if any.
+  # lostEventSendInterval: 1s
+
   # -- Hubble metrics configuration.
   # See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics
   # for more comprehensive documentation about Hubble metrics.
@@ -2157,7 +2160,7 @@ localRedirectPolicy: false
 localRedirectPolicies:
   # -- Enable local redirect policies.
   enabled: false
-  
+
   # -- Limit the allowed addresses in Address Matcher rule of
   # Local Redirect Policies to the given CIDRs.
   # @schema@
@@ -2933,7 +2936,7 @@ operator:
   # @schema
   # type: [null, array]
   # @schema
-  tolerations: 
+  tolerations:
     - key: "node-role.kubernetes.io/control-plane"
       operator: Exists
     - key: "node-role.kubernetes.io/master" #deprecated
