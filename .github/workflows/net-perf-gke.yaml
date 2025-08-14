@@ -197,8 +197,15 @@ jobs:
 
           CILIUM_INSTALL_DEFAULTS+=" ${{ env.CILIUM_INSTALL_NET_PERF_EXTRA_ARGS }}"
 
+          NODE_TAINTS="ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute"
+
+          if [ "${{ matrix.mode }}" = "baseline" ] ; then
+            NODE_TAINTS=""
+          fi
+
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
+          echo node_taints=${NODE_TAINTS} >> $GITHUB_OUTPUT
 
       - name: Set up gcloud credentials
         id: 'auth'
@@ -225,29 +232,12 @@ jobs:
 
       - name: Create GKE cluster
         id: create-cluster
-        run: |
-          if [ "${{ matrix.mode }}" = "baseline" ] ; then
-            TAINTS=""
-          else
-            TAINTS="--node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute"
-          fi
-          gcloud container clusters create ${{ env.clusterName }}-${{ matrix.index }} \
-            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
-            --zone ${{ env.gcp_zone }} \
-            --release-channel=stable \
-            --enable-ip-alias \
-            --create-subnetwork="range=/26" \
-            --cluster-ipv4-cidr="/21" \
-            --services-ipv4-cidr="/24" \
-            --image-type COS_CONTAINERD \
-            --num-nodes 2 \
-            --machine-type n2-standard-2 \
-            --disk-type pd-standard \
-            --disk-size 20GB \
-            ${TAINTS}
-
-          native_cidr="$(gcloud container clusters describe ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }} --format 'value(clusterIpv4Cidr)')"
-          echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
+        uses: ./.github/actions/setup-gke-cluster
+        with:
+          cluster-name: ${{ env.clusterName }}-${{ matrix.index }}
+          zone: ${{ env.gcp_zone }}
+          node-taints: ${{ steps.vars.outputs.node_taints }}
+          labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
 
       - name: Create ESP allow firewall rule
         if: ${{ matrix.name == 'tunnel-ipsec' }}
