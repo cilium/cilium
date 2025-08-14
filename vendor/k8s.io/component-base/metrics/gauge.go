@@ -143,22 +143,20 @@ func (v *GaugeVec) WithLabelValuesChecked(lvs ...string) (GaugeMetric, error) {
 		}
 		return noop, errNotRegistered // return no-op gauge
 	}
-
-	// Initialize label allow lists if not already initialized
-	v.initializeLabelAllowListsOnce.Do(func() {
-		allowListLock.RLock()
-		if allowList, ok := labelValueAllowLists[v.FQName()]; ok {
-			v.LabelValueAllowLists = allowList
-		}
-		allowListLock.RUnlock()
-	})
-
-	// Constrain label values to allowed values
 	if v.LabelValueAllowLists != nil {
 		v.LabelValueAllowLists.ConstrainToAllowedList(v.originalLabels, lvs)
+	} else {
+		v.initializeLabelAllowListsOnce.Do(func() {
+			allowListLock.RLock()
+			if allowList, ok := labelValueAllowLists[v.FQName()]; ok {
+				v.LabelValueAllowLists = allowList
+				allowList.ConstrainToAllowedList(v.originalLabels, lvs)
+			}
+			allowListLock.RUnlock()
+		})
 	}
-
-	return v.GetMetricWithLabelValues(lvs...)
+	elt, err := v.GaugeVec.GetMetricWithLabelValues(lvs...)
+	return elt, err
 }
 
 // Default Prometheus Vec behavior is that member extraction results in creation of a new element
@@ -191,22 +189,20 @@ func (v *GaugeVec) WithChecked(labels map[string]string) (GaugeMetric, error) {
 		}
 		return noop, errNotRegistered // return no-op gauge
 	}
-
-	// Initialize label allow lists if not already initialized
-	v.initializeLabelAllowListsOnce.Do(func() {
-		allowListLock.RLock()
-		if allowList, ok := labelValueAllowLists[v.FQName()]; ok {
-			v.LabelValueAllowLists = allowList
-		}
-		allowListLock.RUnlock()
-	})
-
-	// Constrain label map to allowed values
 	if v.LabelValueAllowLists != nil {
 		v.LabelValueAllowLists.ConstrainLabelMap(labels)
+	} else {
+		v.initializeLabelAllowListsOnce.Do(func() {
+			allowListLock.RLock()
+			if allowList, ok := labelValueAllowLists[v.FQName()]; ok {
+				v.LabelValueAllowLists = allowList
+				allowList.ConstrainLabelMap(labels)
+			}
+			allowListLock.RUnlock()
+		})
 	}
-
-	return v.GetMetricWith(labels)
+	elt, err := v.GaugeVec.GetMetricWith(labels)
+	return elt, err
 }
 
 // With returns the GaugeMetric for the given Labels map (the label names

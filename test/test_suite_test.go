@@ -30,7 +30,7 @@ import (
 var (
 	log             = logrus.New()
 	DefaultSettings = map[string]string{
-		"K8S_VERSION": "1.34",
+		"K8S_VERSION": "1.33",
 	}
 	commandsLogFileName = "cmds.log"
 )

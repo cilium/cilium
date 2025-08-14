@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"k8s.io/gengo/v2/types"
@@ -31,34 +30,30 @@ import (
 type linter struct {
 	linted map[*types.Type]bool
 	rules  []lintRule
-	// lintErrors is all the errors, grouped by type, that occurred during the
-	// linting process.
-	lintErrors map[*types.Type][]error
+	// lintErrors is a list of errors that occurred during the linting process.
+	// lintErrors would be in the format:
+	// field <field_name>: <lint broken message>
+	// type <type_name>: <lint broken message>
+	lintErrors []error
 }
 
-// lintRule is a function that validates a slice of comments.
-// It returns a string as an error message if the comments are invalid,
-// and an error there is an error happened during the linting process.
-type lintRule func(comments []string) (string, error)
+var defaultRules = []lintRule{
+	ruleOptionalAndRequired,
+	ruleRequiredAndDefault,
+}
 
-func (l *linter) AddError(t *types.Type, field, msg string) {
-	var err error
-	if field == "" {
-		err = fmt.Errorf("%s", msg)
-	} else {
-		err = fmt.Errorf("field %s: %s", field, msg)
-	}
-	l.lintErrors[t] = append(l.lintErrors[t], err)
+func (l *linter) AddError(field, msg string) {
+	l.lintErrors = append(l.lintErrors, fmt.Errorf("%s: %s", field, msg))
 }
 
 func newLinter(rules ...lintRule) *linter {
 	if len(rules) == 0 {
-		rules = defaultLintRules
+		rules = defaultRules
 	}
 	return &linter{
 		linted:     make(map[*types.Type]bool),
 		rules:      rules,
-		lintErrors: map[*types.Type][]error{},
+		lintErrors: []error{},
 	}
 }
 
@@ -75,7 +70,7 @@ func (l *linter) lintType(t *types.Type) error {
 			return err
 		}
 		for _, lintErr := range lintErrs {
-			l.AddError(t, "", lintErr)
+			l.AddError("type "+t.Name.String(), lintErr)
 		}
 	}
 	switch t.Kind {
@@ -93,7 +88,7 @@ func (l *linter) lintType(t *types.Type) error {
 				return err
 			}
 			for _, lintErr := range lintErrs {
-				l.AddError(t, member.Name, lintErr)
+				l.AddError("type "+t.Name.String(), lintErr)
 			}
 			if err := l.lintType(member.Type); err != nil {
 				return err
@@ -116,6 +111,11 @@ func (l *linter) lintType(t *types.Type) error {
 	return nil
 }
 
+// lintRule is a function that validates a slice of comments.
+// It returns a string as an error message if the comments are invalid,
+// and an error there is an error happened during the linting process.
+type lintRule func(comments []string) (string, error)
+
 // lintComments runs all registered rules on a slice of comments.
 func (l *linter) lintComments(comments []string) ([]string, error) {
 	var lintErrs []string
@@ -130,29 +130,31 @@ func (l *linter) lintComments(comments []string) ([]string, error) {
 	return lintErrs, nil
 }
 
-// conflictingTagsRule creates a lintRule which checks for conflicting tags.
-func conflictingTagsRule(msg string, tags ...string) lintRule {
+// conflictingTagsRule checks for conflicting tags in a slice of comments.
+func conflictingTagsRule(comments []string, tags ...string) (string, error) {
 	if len(tags) < 2 {
-		panic("conflictingTagsRule: at least 2 tags must be specified")
+		return "", fmt.Errorf("at least two tags must be provided")
 	}
+	tagCount := make(map[string]bool)
+	for _, comment := range comments {
+		for _, tag := range tags {
+			if strings.HasPrefix(comment, tag) {
+				tagCount[tag] = true
+			}
+		}
+	}
+	if len(tagCount) > 1 {
+		return fmt.Sprintf("conflicting tags: {%s}", strings.Join(tags, ", ")), nil
+	}
+	return "", nil
+}
 
-	return func(comments []string) (string, error) {
-		found := make(map[string]bool)
-		for _, comment := range comments {
-			for _, tag := range tags {
-				if strings.HasPrefix(comment, tag) {
-					found[tag] = true
-				}
-			}
-		}
-		if len(found) > 1 {
-			keys := make([]string, 0, len(found))
-			for k := range found {
-				keys = append(keys, k)
-			}
-			sort.Strings(keys)
-			return fmt.Sprintf("conflicting tags: {%s}: %s", strings.Join(keys, ", "), msg), nil
-		}
-		return "", nil
-	}
+// ruleOptionalAndRequired checks for conflicting tags +k8s:optional and +k8s:required in a slice of comments.
+func ruleOptionalAndRequired(comments []string) (string, error) {
+	return conflictingTagsRule(comments, "+k8s:optional", "+k8s:required")
+}
+
+// ruleRequiredAndDefault checks for conflicting tags +k8s:required and +default in a slice of comments.
+func ruleRequiredAndDefault(comments []string) (string, error) {
+	return conflictingTagsRule(comments, "+k8s:required", "+default")
 }

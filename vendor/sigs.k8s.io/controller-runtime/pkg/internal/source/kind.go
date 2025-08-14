@@ -10,17 +10,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	toolscache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
-
-var logKind = logf.RuntimeLog.WithName("source").WithName("Kind")
 
 // Kind is used to provide a source of events originating inside the cluster from Watches (e.g. Pod Create).
 type Kind[object client.Object, request comparable] struct {
@@ -72,12 +68,12 @@ func (ks *Kind[object, request]) Start(ctx context.Context, queue workqueue.Type
 				kindMatchErr := &meta.NoKindMatchError{}
 				switch {
 				case errors.As(lastErr, &kindMatchErr):
-					logKind.Error(lastErr, "if kind is a CRD, it should be installed before calling Start",
+					log.Error(lastErr, "if kind is a CRD, it should be installed before calling Start",
 						"kind", kindMatchErr.GroupKind)
 				case runtime.IsNotRegisteredError(lastErr):
-					logKind.Error(lastErr, "kind must be registered to the Scheme")
+					log.Error(lastErr, "kind must be registered to the Scheme")
 				default:
-					logKind.Error(lastErr, "failed to get informer from cache")
+					log.Error(lastErr, "failed to get informer from cache")
 				}
 				return false, nil // Retry.
 			}
@@ -91,9 +87,7 @@ func (ks *Kind[object, request]) Start(ctx context.Context, queue workqueue.Type
 			return
 		}
 
-		_, err := i.AddEventHandlerWithOptions(NewEventHandler(ctx, queue, ks.Handler, ks.Predicates), toolscache.HandlerOptions{
-			Logger: &logKind,
-		})
+		_, err := i.AddEventHandler(NewEventHandler(ctx, queue, ks.Handler, ks.Predicates).HandlerFuncs())
 		if err != nil {
 			ks.startedErr <- err
 			return

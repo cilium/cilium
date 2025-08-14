@@ -25,8 +25,7 @@ import (
 // DeviceCapacityApplyConfiguration represents a declarative configuration of the DeviceCapacity type for use
 // with apply.
 type DeviceCapacityApplyConfiguration struct {
-	Value         *resource.Quantity                       `json:"value,omitempty"`
-	RequestPolicy *CapacityRequestPolicyApplyConfiguration `json:"requestPolicy,omitempty"`
+	Value *resource.Quantity `json:"value,omitempty"`
 }
 
 // DeviceCapacityApplyConfiguration constructs a declarative configuration of the DeviceCapacity type for use with
@@ -40,13 +39,5 @@ func DeviceCapacity() *DeviceCapacityApplyConfiguration {
 // If called multiple times, the Value field is set to the value of the last call.
 func (b *DeviceCapacityApplyConfiguration) WithValue(value resource.Quantity) *DeviceCapacityApplyConfiguration {
 	b.Value = &value
-	return b
-}
-
-// WithRequestPolicy sets the RequestPolicy field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the RequestPolicy field is set to the value of the last call.
-func (b *DeviceCapacityApplyConfiguration) WithRequestPolicy(value *CapacityRequestPolicyApplyConfiguration) *DeviceCapacityApplyConfiguration {
-	b.RequestPolicy = value
 	return b
 }

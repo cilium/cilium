@@ -61,9 +61,6 @@ func RegisterFlags(fs *flag.FlagSet) {
 // If --kubeconfig is set, will use the kubeconfig file at that location.  Otherwise will assume running
 // in cluster and use the cluster provided kubeconfig.
 //
-// The returned `*rest.Config` has client-side ratelimting disabled as we can rely on API priority and
-// fairness. Set its QPS to a value equal or bigger than 0 to re-enable it.
-//
 // It also applies saner defaults for QPS and burst based on the Kubernetes
 // controller manager defaults (20 QPS, 30 burst)
 //
@@ -84,9 +81,6 @@ func GetConfig() (*rest.Config, error) {
 // If --kubeconfig is set, will use the kubeconfig file at that location.  Otherwise will assume running
 // in cluster and use the cluster provided kubeconfig.
 //
-// The returned `*rest.Config` has client-side ratelimting disabled as we can rely on API priority and
-// fairness. Set its QPS to a value equal or bigger than 0 to re-enable it.
-//
 // It also applies saner defaults for QPS and burst based on the Kubernetes
 // controller manager defaults (20 QPS, 30 burst)
 //
@@ -105,9 +99,10 @@ func GetConfigWithContext(context string) (*rest.Config, error) {
 		return nil, err
 	}
 	if cfg.QPS == 0.0 {
-		// Disable client-side ratelimer by default, we can rely on
-		// API priority and fairness
-		cfg.QPS = -1
+		cfg.QPS = 20.0
+	}
+	if cfg.Burst == 0 {
+		cfg.Burst = 30
 	}
 	return cfg, nil
 }
@@ -174,9 +169,6 @@ func loadConfigWithContext(apiServerURL string, loader clientcmd.ClientConfigLoa
 // GetConfigOrDie creates a *rest.Config for talking to a Kubernetes apiserver.
 // If --kubeconfig is set, will use the kubeconfig file at that location.  Otherwise will assume running
 // in cluster and use the cluster provided kubeconfig.
-//
-// The returned `*rest.Config` has client-side ratelimting disabled as we can rely on API priority and
-// fairness. Set its QPS to a value equal or bigger than 0 to re-enable it.
 //
 // Will log an error and exit if there is an error creating the rest.Config.
 func GetConfigOrDie() *rest.Config {

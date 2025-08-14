@@ -6,7 +6,6 @@ import (
 
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/clock"
-	"sigs.k8s.io/controller-runtime/pkg/internal/metrics"
 )
 
 // This file is mostly a copy of unexported code from
@@ -15,9 +14,8 @@ import (
 // The only two differences are the addition of mapLock in defaultQueueMetrics and converging retryMetrics into queueMetrics.
 
 type queueMetrics[T comparable] interface {
-	add(item T, priority int)
-	get(item T, priority int)
-	updateDepthWithPriorityMetric(oldPriority, newPriority int)
+	add(item T)
+	get(item T)
 	done(item T)
 	updateUnfinishedWork()
 	retry()
@@ -27,9 +25,9 @@ func newQueueMetrics[T comparable](mp workqueue.MetricsProvider, name string, cl
 	if len(name) == 0 {
 		return noMetrics[T]{}
 	}
-
-	dqm := &defaultQueueMetrics[T]{
+	return &defaultQueueMetrics[T]{
 		clock:                   clock,
+		depth:                   mp.NewDepthMetric(name),
 		adds:                    mp.NewAddsMetric(name),
 		latency:                 mp.NewLatencyMetric(name),
 		workDuration:            mp.NewWorkDurationMetric(name),
@@ -39,13 +37,6 @@ func newQueueMetrics[T comparable](mp workqueue.MetricsProvider, name string, cl
 		processingStartTimes:    map[T]time.Time{},
 		retries:                 mp.NewRetriesMetric(name),
 	}
-
-	if mpp, ok := mp.(metrics.MetricsProviderWithPriority); ok {
-		dqm.depthWithPriority = mpp.NewDepthMetricWithPriority(name)
-	} else {
-		dqm.depth = mp.NewDepthMetric(name)
-	}
-	return dqm
 }
 
 // defaultQueueMetrics expects the caller to lock before setting any metrics.
@@ -53,8 +44,7 @@ type defaultQueueMetrics[T comparable] struct {
 	clock clock.Clock
 
 	// current depth of a workqueue
-	depth             workqueue.GaugeMetric
-	depthWithPriority metrics.DepthMetricWithPriority
+	depth workqueue.GaugeMetric
 	// total number of adds handled by a workqueue
 	adds workqueue.CounterMetric
 	// how long an item stays in a workqueue
@@ -74,17 +64,13 @@ type defaultQueueMetrics[T comparable] struct {
 }
 
 // add is called for ready items only
-func (m *defaultQueueMetrics[T]) add(item T, priority int) {
+func (m *defaultQueueMetrics[T]) add(item T) {
 	if m == nil {
 		return
 	}
 
 	m.adds.Inc()
-	if m.depthWithPriority != nil {
-		m.depthWithPriority.Inc(priority)
-	} else {
-		m.depth.Inc()
-	}
+	m.depth.Inc()
 
 	m.mapLock.Lock()
 	defer m.mapLock.Unlock()
@@ -94,16 +80,12 @@ func (m *defaultQueueMetrics[T]) add(item T, priority int) {
 	}
 }
 
-func (m *defaultQueueMetrics[T]) get(item T, priority int) {
+func (m *defaultQueueMetrics[T]) get(item T) {
 	if m == nil {
 		return
 	}
 
-	if m.depthWithPriority != nil {
-		m.depthWithPriority.Dec(priority)
-	} else {
-		m.depth.Dec()
-	}
+	m.depth.Dec()
 
 	m.mapLock.Lock()
 	defer m.mapLock.Unlock()
@@ -112,13 +94,6 @@ func (m *defaultQueueMetrics[T]) get(item T, priority int) {
 	if startTime, exists := m.addTimes[item]; exists {
 		m.latency.Observe(m.sinceInSeconds(startTime))
 		delete(m.addTimes, item)
-	}
-}
-
-func (m *defaultQueueMetrics[T]) updateDepthWithPriorityMetric(oldPriority, newPriority int) {
-	if m.depthWithPriority != nil {
-		m.depthWithPriority.Dec(oldPriority)
-		m.depthWithPriority.Inc(newPriority)
 	}
 }
 
@@ -164,9 +139,8 @@ func (m *defaultQueueMetrics[T]) retry() {
 
 type noMetrics[T any] struct{}
 
-func (noMetrics[T]) add(item T, priority int)                                   {}
-func (noMetrics[T]) get(item T, priority int)                                   {}
-func (noMetrics[T]) updateDepthWithPriorityMetric(oldPriority, newPriority int) {}
-func (noMetrics[T]) done(item T)                                                {}
-func (noMetrics[T]) updateUnfinishedWork()                                      {}
-func (noMetrics[T]) retry()                                                     {}
+func (noMetrics[T]) add(item T)            {}
+func (noMetrics[T]) get(item T)            {}
+func (noMetrics[T]) done(item T)           {}
+func (noMetrics[T]) updateUnfinishedWork() {}
+func (noMetrics[T]) retry()                {}

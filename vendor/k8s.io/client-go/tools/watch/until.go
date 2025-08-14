@@ -86,7 +86,7 @@ func UntilWithoutRetry(ctx context.Context, watcher watch.Interface, conditions 
 				}
 
 			case <-ctx.Done():
-				return lastEvent, wait.ErrorInterrupted(nil)
+				return lastEvent, wait.ErrWaitTimeout
 			}
 		}
 	}

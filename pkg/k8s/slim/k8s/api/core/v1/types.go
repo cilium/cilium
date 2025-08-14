@@ -276,6 +276,7 @@ type Taint struct {
 	// Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
 	Effect TaintEffect `json:"effect" protobuf:"bytes,3,opt,name=effect,casttype=TaintEffect"`
 	// TimeAdded represents the time at which the taint was added.
+	// It is only written for NoExecute taints.
 	// +optional
 	TimeAdded *slim_metav1.Time `json:"timeAdded,omitempty" protobuf:"bytes,4,opt,name=timeAdded"`
 }
@@ -353,9 +354,7 @@ type PodSpec struct {
 	// +optional
 	NodeName string `json:"nodeName,omitempty" protobuf:"bytes,10,opt,name=nodeName"`
 	// Host networking requested for this pod. Use the host's network namespace.
-	// When using HostNetwork you should specify ports so the scheduler is aware.
-	// When `hostNetwork` is true, specified `hostPort` fields in port definitions must match `containerPort`,
-	// and unspecified `hostPort` fields in port definitions are defaulted to match `containerPort`.
+	// If this option is set, the ports that will be used must be specified.
 	// Default to false.
 	// +k8s:conversion-gen=false
 	// +optional

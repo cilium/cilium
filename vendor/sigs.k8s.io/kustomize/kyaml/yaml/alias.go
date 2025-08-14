@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"io"
 
-	yaml "go.yaml.in/yaml/v3"
+	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 const (

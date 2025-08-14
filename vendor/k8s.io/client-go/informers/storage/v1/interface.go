@@ -34,8 +34,6 @@ type Interface interface {
 	StorageClasses() StorageClassInformer
 	// VolumeAttachments returns a VolumeAttachmentInformer.
 	VolumeAttachments() VolumeAttachmentInformer
-	// VolumeAttributesClasses returns a VolumeAttributesClassInformer.
-	VolumeAttributesClasses() VolumeAttributesClassInformer
 }
 
 type version struct {
@@ -72,9 +70,4 @@ func (v *version) StorageClasses() StorageClassInformer {
 // VolumeAttachments returns a VolumeAttachmentInformer.
 func (v *version) VolumeAttachments() VolumeAttachmentInformer {
 	return &volumeAttachmentInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// VolumeAttributesClasses returns a VolumeAttributesClassInformer.
-func (v *version) VolumeAttributesClasses() VolumeAttributesClassInformer {
-	return &volumeAttributesClassInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

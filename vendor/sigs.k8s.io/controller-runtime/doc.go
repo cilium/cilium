@@ -87,7 +87,7 @@ limitations under the License.
 // during writes (nor does it promise sequential create/get coherence), and code
 // should not assume a get immediately following a create/update will return
 // the updated resource. Caches may also have indexes, which can be created via
-// a FieldIndexer (pkg/client) obtained from the manager.  Indexes can be used to
+// a FieldIndexer (pkg/client) obtained from the manager.  Indexes can used to
 // quickly and easily look up all objects with certain fields set.  Reconcilers
 // may retrieve event recorders (pkg/recorder) to emit events using the
 // manager.

@@ -54,5 +54,5 @@ type streamCreator interface {
 }
 
 type streamProtocolHandler interface {
-	stream(conn streamCreator, ready chan<- struct{}) error
+	stream(conn streamCreator) error
 }

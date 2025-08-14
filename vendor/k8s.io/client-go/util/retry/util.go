@@ -59,7 +59,7 @@ func OnError(backoff wait.Backoff, retriable func(error) bool, fn func() error) 
 			return false, err
 		}
 	})
-	if wait.Interrupted(err) {
+	if err == wait.ErrWaitTimeout {
 		err = lastErr
 	}
 	return err

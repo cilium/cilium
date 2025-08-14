@@ -29,7 +29,6 @@ import (
 	"k8s.io/code-generator/cmd/client-gen/generators/util"
 	clientgentypes "k8s.io/code-generator/cmd/client-gen/types"
 	codegennamer "k8s.io/code-generator/pkg/namer"
-	genutil "k8s.io/code-generator/pkg/util"
 	"k8s.io/gengo/v2"
 	"k8s.io/gengo/v2/generator"
 	"k8s.io/gengo/v2/namer"
@@ -276,18 +275,14 @@ NextGroup:
 // first field (somegroup) as the name of the group in Go code, e.g. as the func name in a clientset.
 //
 // If the first field of the groupName is not unique within the clientset, use "// +groupName=unique
-func applyGroupOverrides(universe types.Universe, args *args.Args) error {
+func applyGroupOverrides(universe types.Universe, args *args.Args) {
 	// Create a map from "old GV" to "new GV" so we know what changes we need to make.
 	changes := make(map[clientgentypes.GroupVersion]clientgentypes.GroupVersion)
 	for gv, inputDir := range args.GroupVersionPackages() {
 		p := universe.Package(inputDir)
-		override, err := genutil.ExtractCommentTagsWithoutArguments("+", []string{"groupName"}, p.Comments)
-		if err != nil {
-			return fmt.Errorf("cannot extract groupName tags: %w", err)
-		}
-		if override["groupName"] != nil {
+		if override := gengo.ExtractCommentTags("+", p.Comments)["groupName"]; override != nil {
 			newGV := clientgentypes.GroupVersion{
-				Group:   clientgentypes.Group(override["groupName"][0]),
+				Group:   clientgentypes.Group(override[0]),
 				Version: gv.Version,
 			}
 			changes[gv] = newGV
@@ -315,7 +310,6 @@ func applyGroupOverrides(universe types.Universe, args *args.Args) error {
 		}
 	}
 	args.Groups = newGroups
-	return nil
 }
 
 // Because we try to assemble inputs from an input-base and a set of
@@ -359,9 +353,7 @@ func GetTargets(context *generator.Context, args *args.Args) []generator.Target 
 	if err := sanitizePackagePaths(context, args); err != nil {
 		klog.Fatalf("cannot sanitize inputs: %v", err)
 	}
-	if err := applyGroupOverrides(context.Universe, args); err != nil {
-		klog.Fatalf("cannot apply group overrides: %v", err)
-	}
+	applyGroupOverrides(context.Universe, args)
 
 	gvToTypes := map[clientgentypes.GroupVersion][]*types.Type{}
 	groupGoNames := make(map[clientgentypes.GroupVersion]string)
@@ -371,12 +363,8 @@ func GetTargets(context *generator.Context, args *args.Args) []generator.Target 
 		// If there's a comment of the form "// +groupGoName=SomeUniqueShortName", use that as
 		// the Go group identifier in CamelCase. It defaults
 		groupGoNames[gv] = namer.IC(strings.Split(gv.Group.NonEmpty(), ".")[0])
-		override, err := genutil.ExtractCommentTagsWithoutArguments("+", []string{"groupGoName"}, p.Comments)
-		if err != nil {
-			klog.Fatalf("cannot extract groupGoName tags: %v", err)
-		}
-		if override["groupGoName"] != nil {
-			groupGoNames[gv] = namer.IC(override["groupGoName"][0])
+		if override := gengo.ExtractCommentTags("+", p.Comments)["groupGoName"]; override != nil {
+			groupGoNames[gv] = namer.IC(override[0])
 		}
 
 		for n, t := range p.Types {
