@@ -138,6 +138,19 @@ rules:
   - get
   - list
   - watch
+{{- if eq .Values.encryption.type "ztunnel" }}
+# ZTunnel DaemonSet management permissions
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+{{- end }}
 - apiGroups:
   - cilium.io
   resources:
