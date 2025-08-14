@@ -1288,6 +1288,10 @@ data:
   unmanaged-pod-watcher-interval: "0"
 {{- end }}
 
+{{- if ne .Values.operator.unmanagedPodWatcher.selector nil }}
+  pod-restart-selector: {{ .Values.operator.unmanagedPodWatcher.selector }}
+{{- end }}
+
 {{- if .Values.dnsProxy }}
   {{- if hasKey .Values.dnsProxy "enableTransparentMode" }}
   # explicit setting gets precedence
