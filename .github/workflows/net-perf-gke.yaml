@@ -239,8 +239,17 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=wireguard"
           fi
 
+          CILIUM_INSTALL_DEFAULTS+=" ${{ env.CILIUM_INSTALL_NET_PERF_EXTRA_ARGS }}"
+
+          NODE_TAINTS="ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute"
+
+          if [ "${{ matrix.mode }}" = "baseline" ] ; then
+            NODE_TAINTS=""
+          fi
+
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
+          echo node_taints=${NODE_TAINTS} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@e875161a362b9092ff3e1110eccf52a9fdb17c0a # v0.18.9
@@ -273,21 +282,13 @@ jobs:
           gcloud info
 
       - name: Create GKE cluster
-        run: |
-          gcloud container clusters create ${{ env.clusterName }}-${{ matrix.index }} \
-            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
-            --zone ${{ env.gcp_zone }} \
-            --cluster-version ${{ env.k8s_version }} \
-            --enable-ip-alias \
-            --create-subnetwork="range=/26" \
-            --cluster-ipv4-cidr="/21" \
-            --services-ipv4-cidr="/24" \
-            --image-type COS_CONTAINERD \
-            --num-nodes 2 \
-            --machine-type n2-standard-2 \
-            --disk-type pd-standard \
-            --disk-size 20GB \
-            --node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute
+        id: create-cluster
+        uses: ./.github/actions/setup-gke-cluster
+        with:
+          cluster-name: ${{ env.clusterName }}-${{ matrix.index }}
+          zone: ${{ env.gcp_zone }}
+          node-taints: ${{ steps.vars.outputs.node_taints }}
+          labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
 
       - name: Get cluster credentials
         run: |
