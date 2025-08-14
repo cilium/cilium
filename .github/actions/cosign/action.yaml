@@ -22,6 +22,14 @@ inputs:
     description: 'Upload SBOM as a release asset'
     required: false
     default: 'true'
+  max_attempts:
+    description: 'Maximum number of retry attempts'
+    required: false
+    default: '5'
+  initial_delay:
+    description: 'Initial delay in seconds before first retry'
+    required: false
+    default: '10'
 
 runs:
   using: 'composite'
@@ -42,11 +50,62 @@ runs:
     - name: Sign Container Image
       shell: bash
       run: |
-        cosign sign -y "${{ inputs.image }}"
+        # Function to retry cosign signing with exponential backoff
+        sign_with_retry() {
+          local image="$1"
+          local max_attempts=${{ inputs.max_attempts }}
+          local delay=${{ inputs.initial_delay }}
+
+          for attempt in $(seq 1 $max_attempts); do
+            echo "Attempt $attempt/$max_attempts: Signing $image"
+            if cosign sign -y "$image"; then
+              echo "Successfully signed $image"
+              return 0
+            else
+              echo "Failed to sign $image (attempt $attempt/$max_attempts)"
+              if [ $attempt -lt $max_attempts ]; then
+                echo "Waiting ${delay}s before retry..."
+                sleep $delay
+                delay=$((delay * 2))  # Exponential backoff
+              fi
+            fi
+          done
+
+          echo "ERROR: Failed to sign $image after $max_attempts attempts"
+          return 1
+        }
+
+        sign_with_retry "${{ inputs.image }}"
 
     - name: Attach SBOM Attestation
       shell: bash
       run: |
+        # Function to retry cosign attestation with exponential backoff
+        attest_with_retry() {
+          local predicate="$1"
+          local image="$2"
+          local max_attempts=${{ inputs.max_attempts }}
+          local delay=${{ inputs.initial_delay }}
+
+          for attempt in $(seq 1 $max_attempts); do
+            echo "Attempt $attempt/$max_attempts: Attesting $image with $predicate"
+            if cosign attest -y --predicate "$predicate" --type spdxjson "$image"; then
+              echo "Successfully attested $image"
+              return 0
+            else
+              echo "Failed to attest $image (attempt $attempt/$max_attempts)"
+              if [ $attempt -lt $max_attempts ]; then
+                echo "Waiting ${delay}s before retry..."
+                sleep $delay
+                delay=$((delay * 2))  # Exponential backoff
+              fi
+            fi
+          done
+
+          echo "ERROR: Failed to attest $image after $max_attempts attempts"
+          return 1
+        }
+
         image="${{ inputs.image }}"
         sbom_file="./sbom_${{ inputs.sbom_name }}.spdx.json"
-        cosign attest -y --predicate "${sbom_file}" --type spdxjson "${image}"
+        attest_with_retry "${sbom_file}" "${image}"
