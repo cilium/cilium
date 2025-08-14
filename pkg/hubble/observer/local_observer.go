@@ -289,12 +289,12 @@ func (s *LocalObserverServer) GetFlows(
 	start := time.Now()
 	ring := s.GetRingBuffer()
 
-	i := uint64(0)
+	eventCount := uint64(0)
 	if log.Enabled(context.Background(), slog.LevelDebug) {
 		defer func() {
 			log.Debug(
 				"GetFlows finished",
-				logfields.NumberOfFlows, i,
+				logfields.NumberOfFlows, eventCount,
 				logfields.BufferSize, ring.Cap(),
 				logfields.Whitelist, logFilters(req.Whitelist),
 				logfields.Blacklist, logFilters(req.Blacklist),
@@ -333,7 +333,7 @@ func (s *LocalObserverServer) GetFlows(
 	}
 
 nextEvent:
-	for ; ; i++ {
+	for {
 		e, err := eventsReader.Next(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -346,6 +346,7 @@ nextEvent:
 
 		switch ev := e.Event.(type) {
 		case *flowpb.Flow:
+			eventCount++
 			eventsReader.eventCount++
 			for _, f := range s.opts.OnFlowDelivery {
 				stop, err := f.OnFlowDelivery(ctx, ev)
@@ -412,12 +413,12 @@ func (s *LocalObserverServer) GetAgentEvents(
 	log := s.GetLogger()
 	ring := s.GetRingBuffer()
 
-	i := uint64(0)
+	eventCount := uint64(0)
 	if log.Enabled(context.Background(), slog.LevelDebug) {
 		defer func() {
 			log.Debug(
 				"GetAgentEvents finished",
-				logfields.NumberOfAgentEvents, i,
+				logfields.NumberOfAgentEvents, eventCount,
 				logfields.BufferSize, ring.Cap(),
 				logfields.Took, time.Since(start),
 			)
@@ -437,7 +438,7 @@ func (s *LocalObserverServer) GetAgentEvents(
 		return err
 	}
 
-	for ; ; i++ {
+	for {
 		e, err := eventsReader.Next(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -448,6 +449,7 @@ func (s *LocalObserverServer) GetAgentEvents(
 
 		switch ev := e.Event.(type) {
 		case *flowpb.AgentEvent:
+			eventCount++
 			eventsReader.eventCount++
 			resp := &observerpb.GetAgentEventsResponse{
 				Time:       e.Timestamp,
@@ -480,12 +482,12 @@ func (s *LocalObserverServer) GetDebugEvents(
 	log := s.GetLogger()
 	ring := s.GetRingBuffer()
 
-	i := uint64(0)
+	eventCount := uint64(0)
 	if log.Enabled(context.Background(), slog.LevelDebug) {
 		defer func() {
 			log.Debug(
 				"GetDebugEvents finished",
-				logfields.NumberOfDebugEvents, i,
+				logfields.NumberOfDebugEvents, eventCount,
 				logfields.BufferSize, ring.Cap(),
 				logfields.Took, time.Since(start),
 			)
@@ -505,7 +507,7 @@ func (s *LocalObserverServer) GetDebugEvents(
 		return err
 	}
 
-	for ; ; i++ {
+	for {
 		e, err := eventsReader.Next(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -516,6 +518,7 @@ func (s *LocalObserverServer) GetDebugEvents(
 
 		switch ev := e.Event.(type) {
 		case *flowpb.DebugEvent:
+			eventCount++
 			eventsReader.eventCount++
 			resp := &observerpb.GetDebugEventsResponse{
 				Time:       e.Timestamp,
