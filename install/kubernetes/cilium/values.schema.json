@@ -4931,6 +4931,12 @@
             },
             "restart": {
               "type": "boolean"
+            },
+            "selector": {
+              "type": [
+                "null",
+                "string"
+              ]
             }
           },
           "type": "object"

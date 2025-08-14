@@ -3176,6 +3176,10 @@
      - Restart any pod that are not managed by Cilium.
      - bool
      - ``true``
+   * - :spelling:ignore:`operator.unmanagedPodWatcher.selector`
+     - Selector for pods that should be restarted when not managed by Cilium. If not set, defaults to built-in selector "k8s-app=kube-dns". Set to empty string to select all pods. @schema type: [null, string] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`operator.updateStrategy`
      - cilium-operator update strategy
      - object
