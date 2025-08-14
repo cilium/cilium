@@ -152,6 +152,10 @@ func (s *serializer) encode(mode modes.EncMode, obj runtime.Object, w io.Writer)
 		v = u.UnstructuredContent()
 	}
 
+	if err := modes.RejectCustomMarshalers(v); err != nil {
+		return err
+	}
+
 	if _, err := w.Write(selfDescribedCBOR); err != nil {
 		return err
 	}
@@ -266,6 +270,8 @@ func (s *serializer) unmarshal(data []byte, into interface{}) (strict, lax error
 			}
 		}()
 		into = &content
+	} else if err := modes.RejectCustomMarshalers(into); err != nil {
+		return nil, err
 	}
 
 	if !s.options.strict {

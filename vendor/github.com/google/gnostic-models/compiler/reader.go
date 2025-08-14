@@ -24,7 +24,7 @@ import (
 	"strings"
 	"sync"
 
-	yaml "go.yaml.in/yaml/v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 var verboseReader = false

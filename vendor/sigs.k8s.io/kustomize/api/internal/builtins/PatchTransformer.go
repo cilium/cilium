@@ -56,9 +56,8 @@ func (p *PatchTransformerPlugin) Config(h *resmap.PluginHelpers, c []byte) error
 	patchesSM, errSM := h.ResmapFactory().RF().SliceFromBytes([]byte(p.patchText))
 	patchesJson, errJson := jsonPatchFromBytes([]byte(p.patchText))
 
-	if ((errSM == nil && errJson == nil) ||
-		(patchesSM != nil && patchesJson != nil)) &&
-		(len(patchesSM) > 0 && len(patchesJson) > 0) {
+	if (errSM == nil && errJson == nil) ||
+		(patchesSM != nil && patchesJson != nil) {
 		return fmt.Errorf(
 			"illegally qualifies as both an SM and JSON patch: %s",
 			p.patchSource)

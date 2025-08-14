@@ -29,11 +29,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"sigs.k8s.io/structured-merge-diff/v6/value"
-
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/util/json"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"sigs.k8s.io/structured-merge-diff/v4/value"
 
 	"k8s.io/klog/v2"
 )
@@ -54,7 +53,6 @@ type fieldInfo struct {
 	name      string
 	nameValue reflect.Value
 	omitempty bool
-	omitzero  func(dv reflect.Value) bool
 }
 
 type fieldsCacheMap map[structField]*fieldInfo
@@ -378,24 +376,19 @@ func fieldInfoFromField(structType reflect.Type, field int) *fieldInfo {
 	typeField := structType.Field(field)
 	jsonTag := typeField.Tag.Get("json")
 	if len(jsonTag) == 0 {
-		if !typeField.Anonymous {
-			// match stdlib behavior for naming fields that don't specify a json tag name
+		// Make the first character lowercase.
+		if typeField.Name == "" {
 			info.name = typeField.Name
+		} else {
+			info.name = strings.ToLower(typeField.Name[:1]) + typeField.Name[1:]
 		}
 	} else {
 		items := strings.Split(jsonTag, ",")
 		info.name = items[0]
-		if len(info.name) == 0 && !typeField.Anonymous {
-			// match stdlib behavior for naming fields that don't specify a json tag name
-			info.name = typeField.Name
-		}
-
 		for i := range items {
-			if i > 0 && items[i] == "omitempty" {
+			if items[i] == "omitempty" {
 				info.omitempty = true
-			}
-			if i > 0 && items[i] == "omitzero" {
-				info.omitzero = value.OmitZeroFunc(typeField.Type)
+				break
 			}
 		}
 	}
@@ -782,7 +775,7 @@ func pointerToUnstructured(sv, dv reflect.Value) error {
 	return toUnstructured(sv.Elem(), dv)
 }
 
-func isEmpty(v reflect.Value) bool {
+func isZero(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Array, reflect.String:
 		return v.Len() == 0
@@ -823,12 +816,8 @@ func structToUnstructured(sv, dv reflect.Value) error {
 			// This field should be skipped.
 			continue
 		}
-		if fieldInfo.omitempty && isEmpty(fv) {
+		if fieldInfo.omitempty && isZero(fv) {
 			// omitempty fields should be ignored.
-			continue
-		}
-		if fieldInfo.omitzero != nil && fieldInfo.omitzero(fv) {
-			// omitzero fields should be ignored
 			continue
 		}
 		if len(fieldInfo.name) == 0 {

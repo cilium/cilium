@@ -35,7 +35,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"k8s.io/utils/ptr"
+	utilpointer "k8s.io/utils/pointer"
 )
 
 const (
@@ -414,8 +414,8 @@ func (f *ConfigFlags) AddFlags(flags *pflag.FlagSet) {
 
 // WithDeprecatedPasswordFlag enables the username and password config flags
 func (f *ConfigFlags) WithDeprecatedPasswordFlag() *ConfigFlags {
-	f.Username = ptr.To("")
-	f.Password = ptr.To("")
+	f.Username = utilpointer.String("")
+	f.Password = utilpointer.String("")
 	return f
 }
 
@@ -451,22 +451,22 @@ func NewConfigFlags(usePersistentConfig bool) *ConfigFlags {
 
 	return &ConfigFlags{
 		Insecure:   &insecure,
-		Timeout:    ptr.To("0"),
-		KubeConfig: ptr.To(""),
+		Timeout:    utilpointer.String("0"),
+		KubeConfig: utilpointer.String(""),
 
-		CacheDir:           ptr.To(getDefaultCacheDir()),
-		ClusterName:        ptr.To(""),
-		AuthInfoName:       ptr.To(""),
-		Context:            ptr.To(""),
-		Namespace:          ptr.To(""),
-		APIServer:          ptr.To(""),
-		TLSServerName:      ptr.To(""),
-		CertFile:           ptr.To(""),
-		KeyFile:            ptr.To(""),
-		CAFile:             ptr.To(""),
-		BearerToken:        ptr.To(""),
-		Impersonate:        ptr.To(""),
-		ImpersonateUID:     ptr.To(""),
+		CacheDir:           utilpointer.String(getDefaultCacheDir()),
+		ClusterName:        utilpointer.String(""),
+		AuthInfoName:       utilpointer.String(""),
+		Context:            utilpointer.String(""),
+		Namespace:          utilpointer.String(""),
+		APIServer:          utilpointer.String(""),
+		TLSServerName:      utilpointer.String(""),
+		CertFile:           utilpointer.String(""),
+		KeyFile:            utilpointer.String(""),
+		CAFile:             utilpointer.String(""),
+		BearerToken:        utilpointer.String(""),
+		Impersonate:        utilpointer.String(""),
+		ImpersonateUID:     utilpointer.String(""),
 		ImpersonateGroup:   &impersonateGroup,
 		DisableCompression: &disableCompression,
 

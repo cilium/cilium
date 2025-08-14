@@ -37,19 +37,17 @@ import (
 
 // WebhookBuilder builds a Webhook.
 type WebhookBuilder struct {
-	apiType                   runtime.Object
-	customDefaulter           admission.CustomDefaulter
-	customDefaulterOpts       []admission.DefaulterOption
-	customValidator           admission.CustomValidator
-	customPath                string
-	customValidatorCustomPath string
-	customDefaulterCustomPath string
-	gvk                       schema.GroupVersionKind
-	mgr                       manager.Manager
-	config                    *rest.Config
-	recoverPanic              *bool
-	logConstructor            func(base logr.Logger, req *admission.Request) logr.Logger
-	err                       error
+	apiType             runtime.Object
+	customDefaulter     admission.CustomDefaulter
+	customDefaulterOpts []admission.DefaulterOption
+	customValidator     admission.CustomValidator
+	customPath          string
+	gvk                 schema.GroupVersionKind
+	mgr                 manager.Manager
+	config              *rest.Config
+	recoverPanic        *bool
+	logConstructor      func(base logr.Logger, req *admission.Request) logr.Logger
+	err                 error
 }
 
 // WebhookManagedBy returns a new webhook builder.
@@ -98,22 +96,8 @@ func (blder *WebhookBuilder) RecoverPanic(recoverPanic bool) *WebhookBuilder {
 }
 
 // WithCustomPath overrides the webhook's default path by the customPath
-// Deprecated: WithCustomPath should not be used anymore.
-// Please use WithValidatorCustomPath or WithDefaulterCustomPath instead.
 func (blder *WebhookBuilder) WithCustomPath(customPath string) *WebhookBuilder {
 	blder.customPath = customPath
-	return blder
-}
-
-// WithValidatorCustomPath overrides the path of the Validator.
-func (blder *WebhookBuilder) WithValidatorCustomPath(customPath string) *WebhookBuilder {
-	blder.customValidatorCustomPath = customPath
-	return blder
-}
-
-// WithDefaulterCustomPath overrides the path of the Defaulter.
-func (blder *WebhookBuilder) WithDefaulterCustomPath(customPath string) *WebhookBuilder {
-	blder.customDefaulterCustomPath = customPath
 	return blder
 }
 
@@ -155,10 +139,6 @@ func (blder *WebhookBuilder) setLogConstructor() {
 	}
 }
 
-func (blder *WebhookBuilder) isThereCustomPathConflict() bool {
-	return (blder.customPath != "" && blder.customDefaulter != nil && blder.customValidator != nil) || (blder.customPath != "" && blder.customDefaulterCustomPath != "") || (blder.customPath != "" && blder.customValidatorCustomPath != "")
-}
-
 func (blder *WebhookBuilder) registerWebhooks() error {
 	typ, err := blder.getType()
 	if err != nil {
@@ -168,17 +148,6 @@ func (blder *WebhookBuilder) registerWebhooks() error {
 	blder.gvk, err = apiutil.GVKForObject(typ, blder.mgr.GetScheme())
 	if err != nil {
 		return err
-	}
-
-	if blder.isThereCustomPathConflict() {
-		return errors.New("only one of CustomDefaulter or CustomValidator should be set when using WithCustomPath. Otherwise, WithDefaulterCustomPath() and WithValidatorCustomPath() should be used")
-	}
-	if blder.customPath != "" {
-		// isThereCustomPathConflict() already checks for potential conflicts.
-		// Since we are sure that only one of customDefaulter or customValidator will be used,
-		// we can set both customDefaulterCustomPath and validatingCustomPath.
-		blder.customDefaulterCustomPath = blder.customPath
-		blder.customValidatorCustomPath = blder.customPath
 	}
 
 	// Register webhook(s) for type
@@ -205,8 +174,8 @@ func (blder *WebhookBuilder) registerDefaultingWebhook() error {
 	if mwh != nil {
 		mwh.LogConstructor = blder.logConstructor
 		path := generateMutatePath(blder.gvk)
-		if blder.customDefaulterCustomPath != "" {
-			generatedCustomPath, err := generateCustomPath(blder.customDefaulterCustomPath)
+		if blder.customPath != "" {
+			generatedCustomPath, err := generateCustomPath(blder.customPath)
 			if err != nil {
 				return err
 			}
@@ -243,8 +212,8 @@ func (blder *WebhookBuilder) registerValidatingWebhook() error {
 	if vwh != nil {
 		vwh.LogConstructor = blder.logConstructor
 		path := generateValidatePath(blder.gvk)
-		if blder.customValidatorCustomPath != "" {
-			generatedCustomPath, err := generateCustomPath(blder.customValidatorCustomPath)
+		if blder.customPath != "" {
+			generatedCustomPath, err := generateCustomPath(blder.customPath)
 			if err != nil {
 				return err
 			}

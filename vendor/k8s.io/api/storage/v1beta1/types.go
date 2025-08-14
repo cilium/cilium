@@ -236,7 +236,7 @@ type VolumeError struct {
 
 	// errorCode is a numeric gRPC code representing the error encountered during Attach or Detach operations.
 	//
-	// This is an optional, beta field that requires the MutableCSINodeAllocatableCount feature gate being enabled to be set.
+	// This is an optional, alpha field that requires the MutableCSINodeAllocatableCount feature gate being enabled to be set.
 	//
 	// +featureGate=MutableCSINodeAllocatableCount
 	// +optional
@@ -302,7 +302,8 @@ type CSIDriverSpec struct {
 	// and waits until the volume is attached before proceeding to mounting.
 	// The CSI external-attacher coordinates with CSI volume driver and updates
 	// the volumeattachment status when the attach operation is complete.
-	// If the value is specified to false, the attach operation will be skipped.
+	// If the CSIDriverRegistry feature gate is enabled and the value is
+	// specified to false, the attach operation will be skipped.
 	// Otherwise the attach operation will be called.
 	//
 	// This field is immutable.
@@ -449,7 +450,7 @@ type CSIDriverSpec struct {
 	// occur (neither periodic nor upon detecting capacity-related failures), and the
 	// allocatable.count remains static. The minimum allowed value for this field is 10 seconds.
 	//
-	// This is a beta feature and requires the MutableCSINodeAllocatableCount feature gate to be enabled.
+	// This is an alpha feature and requires the MutableCSINodeAllocatableCount feature gate to be enabled.
 	//
 	// This field is mutable.
 	//
@@ -739,8 +740,6 @@ type CSIStorageCapacityList struct {
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:prerelease-lifecycle-gen:introduced=1.31
-// +k8s:prerelease-lifecycle-gen:deprecated=1.34
-// +k8s:prerelease-lifecycle-gen:replacement=storage.k8s.io,v1,VolumeAttributesClass
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // VolumeAttributesClass represents a specification of mutable volume attributes
@@ -775,8 +774,6 @@ type VolumeAttributesClass struct {
 }
 
 // +k8s:prerelease-lifecycle-gen:introduced=1.31
-// +k8s:prerelease-lifecycle-gen:deprecated=1.34
-// +k8s:prerelease-lifecycle-gen:replacement=storage.k8s.io,v1,VolumeAttributesClassList
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // VolumeAttributesClassList is a collection of VolumeAttributesClass objects.

@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"strconv"
 
-	yaml "go.yaml.in/yaml/v3"
+	"gopkg.in/yaml.v3"
 )
 
 // This is a global map of all known Schemas.

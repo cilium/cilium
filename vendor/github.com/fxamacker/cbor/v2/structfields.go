@@ -18,11 +18,9 @@ type field struct {
 	typ                reflect.Type
 	ef                 encodeFunc
 	ief                isEmptyFunc
-	izf                isZeroFunc
 	typInfo            *typeInfo // used to decoder to reuse type info
 	tagged             bool      // used to choose dominant field (at the same level tagged fields dominate untagged fields)
 	omitEmpty          bool      // used to skip empty field
-	omitZero           bool      // used to skip zero field
 	keyAsInt           bool      // used to encode/decode field name as int
 }
 
@@ -159,7 +157,7 @@ func appendFields(
 		f := t.Field(i)
 
 		ft := f.Type
-		for ft.Kind() == reflect.Pointer {
+		for ft.Kind() == reflect.Ptr {
 			ft = ft.Elem()
 		}
 
@@ -167,11 +165,9 @@ func appendFields(
 			continue
 		}
 
-		cborTag := true
 		tag := f.Tag.Get("cbor")
 		if tag == "" {
 			tag = f.Tag.Get("json")
-			cborTag = false
 		}
 		if tag == "-" {
 			continue
@@ -181,7 +177,7 @@ func appendFields(
 
 		// Parse field tag options
 		var tagFieldName string
-		var omitempty, omitzero, keyasint bool
+		var omitempty, keyasint bool
 		for j := 0; tag != ""; j++ {
 			var token string
 			idx := strings.IndexByte(tag, ',')
@@ -196,10 +192,6 @@ func appendFields(
 				switch token {
 				case "omitempty":
 					omitempty = true
-				case "omitzero":
-					if cborTag || jsonStdlibSupportsOmitzero {
-						omitzero = true
-					}
 				case "keyasint":
 					keyasint = true
 				}
@@ -221,7 +213,6 @@ func appendFields(
 				idx:       fIdx,
 				typ:       f.Type,
 				omitEmpty: omitempty,
-				omitZero:  omitzero,
 				keyAsInt:  keyasint,
 				tagged:    tagged})
 		} else {
@@ -239,7 +230,8 @@ func appendFields(
 // a nonexportable anonymous field of struct type.
 // Nonexportable anonymous field of struct type can contain exportable fields.
 func isFieldExportable(f reflect.StructField, fk reflect.Kind) bool { //nolint:gocritic // ignore hugeParam
-	return f.IsExported() || (f.Anonymous && fk == reflect.Struct)
+	exportable := f.PkgPath == ""
+	return exportable || (f.Anonymous && fk == reflect.Struct)
 }
 
 type embeddedFieldNullPtrFunc func(reflect.Value) (reflect.Value, error)
@@ -252,7 +244,7 @@ func getFieldValue(v reflect.Value, idx []int, f embeddedFieldNullPtrFunc) (fv r
 		fv = fv.Field(n)
 
 		if i < len(idx)-1 {
-			if fv.Kind() == reflect.Pointer && fv.Type().Elem().Kind() == reflect.Struct {
+			if fv.Kind() == reflect.Ptr && fv.Type().Elem().Kind() == reflect.Struct {
 				if fv.IsNil() {
 					// Null pointer to embedded struct field
 					fv, err = f(fv)

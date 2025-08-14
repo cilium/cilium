@@ -24,7 +24,6 @@ import (
 )
 
 // MessageCountMap contains occurrence for each error message.
-// Deprecated: Not used anymore in the k8s.io codebase, use `errors.Join` instead.
 type MessageCountMap map[string]int
 
 // Aggregate represents an object that contains multiple errors, but does not
@@ -200,7 +199,6 @@ func Flatten(agg Aggregate) Aggregate {
 }
 
 // CreateAggregateFromMessageCountMap converts MessageCountMap Aggregate
-// Deprecated: Not used anymore in the k8s.io codebase, use `errors.Join` instead.
 func CreateAggregateFromMessageCountMap(m MessageCountMap) Aggregate {
 	if m == nil {
 		return nil

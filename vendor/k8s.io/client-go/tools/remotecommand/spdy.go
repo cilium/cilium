@@ -157,11 +157,7 @@ func (e *spdyStreamExecutor) StreamWithContext(ctx context.Context, options Stre
 				panicChan <- p
 			}
 		}()
-
-		// The SPDY executor does not need to synchronize stream creation, so we pass a nil
-		// ready channel. The underlying spdystream library handles stream multiplexing
-		// without a race condition.
-		errorChan <- streamer.stream(conn, nil)
+		errorChan <- streamer.stream(conn)
 	}()
 
 	select {
