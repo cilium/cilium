@@ -25,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	genutil "k8s.io/code-generator/pkg/util"
 	"k8s.io/gengo/v2"
 	"k8s.io/gengo/v2/generator"
 	"k8s.io/gengo/v2/namer"
@@ -81,20 +80,17 @@ func (g *genProtoIDL) Namers(c *generator.Context) namer.NameSystems {
 
 // Filter ignores types that are identified as not exportable.
 func (g *genProtoIDL) Filter(c *generator.Context, t *types.Type) bool {
-	tags, err := genutil.ExtractCommentTagsWithoutArguments("+", []string{"protobuf"}, t.CommentLines)
-	if err != nil {
-		klog.Fatalf(`Error extracting tag "protobuf": %v`, err)
-	}
-	if tags["protobuf"] != nil {
-		if tags["protobuf"][0] == "false" {
+	tagVals := gengo.ExtractCommentTags("+", t.CommentLines)["protobuf"]
+	if tagVals != nil {
+		if tagVals[0] == "false" {
 			// Type specified "false".
 			return false
 		}
-		if tags["protobuf"][0] == "true" {
+		if tagVals[0] == "true" {
 			// Type specified "true".
 			return true
 		}
-		klog.Fatalf(`Comment tag "protobuf" must be true or false, found: %q`, tags["protobuf"][0])
+		klog.Fatalf(`Comment tag "protobuf" must be true or false, found: %q`, tagVals[0])
 	}
 	if !g.generateAll {
 		// We're not generating everything.

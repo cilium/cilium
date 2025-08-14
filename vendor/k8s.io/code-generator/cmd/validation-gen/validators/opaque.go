@@ -16,10 +16,7 @@ limitations under the License.
 
 package validators
 
-import (
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/gengo/v2/codetags"
-)
+import "k8s.io/apimachinery/pkg/util/sets"
 
 const (
 	opaqueTypeTagName = "k8s:opaqueType"
@@ -41,7 +38,7 @@ func (opaqueTypeTagValidator) ValidScopes() sets.Set[Scope] {
 	return sets.New(ScopeAny)
 }
 
-func (opaqueTypeTagValidator) GetValidations(_ Context, _ codetags.Tag) (Validations, error) {
+func (opaqueTypeTagValidator) GetValidations(context Context, _ []string, _ string) (Validations, error) {
 	return Validations{OpaqueType: true}, nil
 }
 

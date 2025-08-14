@@ -18,7 +18,6 @@ package metrics
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -31,11 +30,8 @@ var (
 	// of processing admission requests.
 	RequestLatency = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:                            "controller_runtime_webhook_latency_seconds",
-			Help:                            "Histogram of the latency of processing admission requests",
-			NativeHistogramBucketFactor:     1.1,
-			NativeHistogramMaxBucketNumber:  100,
-			NativeHistogramMinResetDuration: 1 * time.Hour,
+			Name: "controller_runtime_webhook_latency_seconds",
+			Help: "Histogram of the latency of processing admission requests",
 		},
 		[]string{"webhook"},
 	)
