@@ -289,20 +289,6 @@ func (s *LocalObserverServer) GetFlows(
 	start := time.Now()
 	ring := s.GetRingBuffer()
 
-	i := uint64(0)
-	if log.Enabled(context.Background(), slog.LevelDebug) {
-		defer func() {
-			log.Debug(
-				"GetFlows finished",
-				logfields.NumberOfFlows, i,
-				logfields.BufferSize, ring.Cap(),
-				logfields.Whitelist, logFilters(req.Whitelist),
-				logfields.Blacklist, logFilters(req.Blacklist),
-				logfields.Took, time.Since(start),
-			)
-		}()
-	}
-
 	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -314,6 +300,19 @@ func (s *LocalObserverServer) GetFlows(
 	eventsReader, err := newEventsReader(ringReader, req, log, whitelist, blacklist)
 	if err != nil {
 		return err
+	}
+
+	if log.Enabled(context.Background(), slog.LevelDebug) {
+		defer func() {
+			log.Debug(
+				"GetFlows finished",
+				logfields.NumberOfFlows, eventsReader.eventCount,
+				logfields.BufferSize, ring.Cap(),
+				logfields.Whitelist, logFilters(req.Whitelist),
+				logfields.Blacklist, logFilters(req.Blacklist),
+				logfields.Took, time.Since(start),
+			)
+		}()
 	}
 
 	fm := req.GetFieldMask()
@@ -329,7 +328,7 @@ func (s *LocalObserverServer) GetFlows(
 	}
 
 nextEvent:
-	for ; ; i++ {
+	for {
 		e, err := eventsReader.Next(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -408,18 +407,6 @@ func (s *LocalObserverServer) GetAgentEvents(
 	log := s.GetLogger()
 	ring := s.GetRingBuffer()
 
-	i := uint64(0)
-	if log.Enabled(context.Background(), slog.LevelDebug) {
-		defer func() {
-			log.Debug(
-				"GetAgentEvents finished",
-				logfields.NumberOfAgentEvents, i,
-				logfields.BufferSize, ring.Cap(),
-				logfields.Took, time.Since(start),
-			)
-		}()
-	}
-
 	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -433,7 +420,18 @@ func (s *LocalObserverServer) GetAgentEvents(
 		return err
 	}
 
-	for ; ; i++ {
+	if log.Enabled(context.Background(), slog.LevelDebug) {
+		defer func() {
+			log.Debug(
+				"GetAgentEvents finished",
+				logfields.NumberOfAgentEvents, eventsReader.eventCount,
+				logfields.BufferSize, ring.Cap(),
+				logfields.Took, time.Since(start),
+			)
+		}()
+	}
+
+	for {
 		e, err := eventsReader.Next(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -476,18 +474,6 @@ func (s *LocalObserverServer) GetDebugEvents(
 	log := s.GetLogger()
 	ring := s.GetRingBuffer()
 
-	i := uint64(0)
-	if log.Enabled(context.Background(), slog.LevelDebug) {
-		defer func() {
-			log.Debug(
-				"GetDebugEvents finished",
-				logfields.NumberOfDebugEvents, i,
-				logfields.BufferSize, ring.Cap(),
-				logfields.Took, time.Since(start),
-			)
-		}()
-	}
-
 	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -501,7 +487,18 @@ func (s *LocalObserverServer) GetDebugEvents(
 		return err
 	}
 
-	for ; ; i++ {
+	if log.Enabled(context.Background(), slog.LevelDebug) {
+		defer func() {
+			log.Debug(
+				"GetDebugEvents finished",
+				logfields.NumberOfDebugEvents, eventsReader.eventCount,
+				logfields.BufferSize, ring.Cap(),
+				logfields.Took, time.Since(start),
+			)
+		}()
+	}
+
+	for {
 		e, err := eventsReader.Next(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
