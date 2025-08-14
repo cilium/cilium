@@ -5,6 +5,7 @@ package observeroption
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
@@ -13,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Server gives access to the Hubble server
@@ -23,8 +25,9 @@ type Server interface {
 
 // Options stores all the configurations values for the hubble server.
 type Options struct {
-	MaxFlows      container.Capacity // max number of flows that can be stored in the ring buffer
-	MonitorBuffer int                // buffer size for monitor payload
+	MaxFlows              container.Capacity // max number of flows that can be stored in the ring buffer
+	MonitorBuffer         int                // buffer size for monitor payload
+	LostEventSendInterval time.Duration      // interval at which lost events are sent from the Observer server, if any
 
 	OnServerInit   []OnServerInit          // invoked when the hubble server is initialized
 	OnMonitorEvent []OnMonitorEvent        // invoked before an event is decoded
@@ -134,6 +137,17 @@ func WithMonitorBuffer(size int) Option {
 func WithMaxFlows(capacity container.Capacity) Option {
 	return func(o *Options) error {
 		o.MaxFlows = capacity
+		return nil
+	}
+}
+
+// WithLostEventSendInterval sets the interval at which lost events are sent.
+func WithLostEventSendInterval(interval time.Duration) Option {
+	return func(o *Options) error {
+		if interval <= 0 {
+			return errors.New("lost event send interval must be greater than 0")
+		}
+		o.LostEventSendInterval = interval
 		return nil
 	}
 }
