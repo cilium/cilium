@@ -1,0 +1,52 @@
+name: 'Generate SBOM and Sign with Cosign'
+description: 'Generate SBOM, sign container images, and attach SBOM attestations'
+inputs:
+  image:
+    description: 'Container image to sign (format: "quay.io/org/image@digest")'
+    required: true
+  image_tag:
+    description: 'Container image tag for SBOM generation (format: "quay.io/org/image:tag")'
+    required: false
+  sbom_name:
+    description: 'Name for the SBOM artifact and file (e.g., "cilium_v1.2.3")'
+    required: true
+  generate_sbom:
+    description: 'Generate SBOM'
+    required: false
+    default: 'true'
+  install_cosign:
+    description: 'Whether to install cosign (set to false if already installed)'
+    required: false
+    default: 'true'
+  upload_sbom_release_assets:
+    description: 'Upload SBOM as a release asset'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Cosign
+      if: ${{ inputs.install_cosign == 'true' }}
+      uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+
+    - name: Generate SBOM
+      if: ${{ inputs.generate_sbom == 'true' }}
+      uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+      with:
+        artifact-name: sbom_${{ inputs.sbom_name }}.spdx.json
+        output-file: ./sbom_${{ inputs.sbom_name }}.spdx.json
+        image: ${{ inputs.image_tag }}
+        upload-release-assets: ${{ inputs.upload_sbom_release_assets  }}
+
+    - name: Sign Container Image
+      shell: bash
+      run: |
+        cosign sign -y "${{ inputs.image }}"
+
+    - name: Attach SBOM Attestation
+      shell: bash
+      run: |
+        image="${{ inputs.image }}"
+        sbom_file="./sbom_${{ inputs.sbom_name }}.spdx.json"
+        cosign attest -y --predicate "${sbom_file}" --type spdxjson "${image}"
