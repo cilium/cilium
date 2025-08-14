@@ -2817,8 +2817,12 @@ underlayProtocol: ""
 #   - ""
 #   - native
 #   - tunnel
+#   - hybrid
 # @default -- `"tunnel"`
-routingMode: ""
+routingMode: "hybrid"
+# -- Subnet topology path.
+subnetTopologyFilePath: "/var/lib/cilium/subnet/subnet-topology"
+subnetTopologyConfigmapName: "subnet-topology"
 # -- Configure VXLAN and Geneve tunnel port.
 # @default -- Port 8472 for VXLAN, Port 6081 for Geneve
 tunnelPort: 0
