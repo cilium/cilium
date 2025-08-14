@@ -195,6 +195,15 @@ else ifeq ($(CROSS_ARCH),amd64)
     CGO_CC = CC=x86_64-linux-gnu-gcc
 endif
 
+ifneq ($(GOARCH),)
+    CGO_CC += GOARCH=$(GOARCH)
+endif
+
+ifneq ($(GOOS),)
+    CGO_CC += GOOS=$(GOOS)
+endif
+
+
 ifneq ($(GOEXPERIMENT),)
     GO_BUILD = GOEXPERIMENT=$(GOEXPERIMENT) CGO_ENABLED=$(CGO_ENABLED) $(CGO_CC) $(GO) build
 else
