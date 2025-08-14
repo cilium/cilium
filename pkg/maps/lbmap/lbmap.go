@@ -444,6 +444,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 	revNatValueMap := map[uint16]RevNatValue{}
 	inconsistentServiceKeys := []ServiceKey{}
+	wildcardServiceKeys := []ServiceKey{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(BackendKey)
@@ -465,8 +466,15 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		revNatValue := svcKey.RevNatValue().String()
 		val, found := revNatValueMap[serviceID]
 		if !found {
-			errors = append(errors, fmt.Errorf("revNat %d not found", serviceID))
-			inconsistentServiceKeys = append(inconsistentServiceKeys, svcKey)
+			if svcKey.GetPort() == 0 && svcKey.GetProtocol() == 0 {
+				// If we are downgrading from a newer version, it's possible there
+				// are wildcard service entries in eBPF maps that we do not support.
+				// We want to just delete these quietly.
+				wildcardServiceKeys = append(wildcardServiceKeys, svcKey)
+			} else {
+				errors = append(errors, fmt.Errorf("revNat %d not found", serviceID))
+				inconsistentServiceKeys = append(inconsistentServiceKeys, svcKey)
+			}
 			return
 		} else if valueStr := val.String(); valueStr != revNatValue {
 			errors = append(errors, fmt.Errorf("inconsistent service %s and revNat %s found",
@@ -528,6 +536,13 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		err = Service6MapV2.DumpWithCallback(parseSVCEntries)
 		if err != nil {
 			errors = append(errors, err)
+		}
+	}
+
+	for _, svcKey := range wildcardServiceKeys {
+		if err := deleteServiceLocked(svcKey); err != nil {
+			log.WithField(logfields.ServiceKey, svcKey).
+				WithError(err).Warn("Unable to delete wildcard service entry from BPF map")
 		}
 	}
 
