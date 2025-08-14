@@ -9,6 +9,8 @@ const (
 )
 
 // Shared config for all ZTunnel module's cells.
+// Note: The operator reads EnableZTunnel directly from the ConfigMap,
+// while the agent uses this Config struct for dependency injection.
 type Config struct {
 	EnableZTunnel bool
 	ZDSUnixAddr   string `mapstructure:"ztunnel-zds-unix-addr"`

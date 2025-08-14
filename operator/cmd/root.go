@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/operator/pkg/workqueuemetrics"
+	"github.com/cilium/cilium/operator/pkg/ztunnel"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
@@ -300,6 +301,9 @@ var (
 
 			// Cilium L7 LoadBalancing with Envoy.
 			ciliumenvoyconfig.Cell,
+
+			// ZTunnel DaemonSet controller manages ztunnel proxy DaemonSet.
+			ztunnel.Cell,
 
 			// Informational policy validation.
 			networkpolicy.Cell,
