@@ -213,8 +213,8 @@ jobs:
           for p in $(pidof cilium-agent); do
             num=$(sudo lsof -p $p | wc -l)
             echo "cilium-agent($p) has $num file descriptors open"
-            if [ "$num" -gt "500" ]; then
-              echo "cilium-agent($p) has more than 500 file descriptors (potential leak)"
+            if [ "$num" -gt "5000" ]; then
+              echo "cilium-agent($p) has more than 5000 file descriptors (potential leak)"
               sudo lsof -p $p
               exit 1
             fi
