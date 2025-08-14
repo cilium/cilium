@@ -257,22 +257,15 @@ jobs:
           gcloud info
 
       - name: Create GKE cluster
-        run: |
-          gcloud container clusters create ${{ env.clusterName }}-${{ matrix.config.index }} \
-            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
-            --zone ${{ matrix.k8s.zone }} \
-            --cluster-version ${{ matrix.k8s.version }} \
-            --enable-ip-alias \
-            --create-subnetwork="range=/26" \
-            --cluster-ipv4-cidr="/21" \
-            --services-ipv4-cidr="/24" \
-            --image-type COS_CONTAINERD \
-            --num-nodes ${{ matrix.config.nodes || 2 }} \
-            --machine-type e2-custom-2-4096 \
-            --disk-type pd-standard \
-            --disk-size 20GB \
-            --node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute \
-            --no-enable-insecure-kubelet-readonly-port
+        id: create-cluster
+        uses: ./.github/actions/setup-gke-cluster
+        with:
+          cluster-name: ${{ env.clusterName }}-${{ matrix.config.index }}
+          zone: ${{ matrix.k8s.zone }}
+          cluster-version: ${{ matrix.k8s.version }}
+          nodes: ${{ matrix.config.nodes || 2 }}
+          machine-type: e2-custom-2-4096
+          labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
 
       - name: Get cluster credentials
         run: |
