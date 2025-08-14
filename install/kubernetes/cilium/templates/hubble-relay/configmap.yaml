@@ -29,6 +29,8 @@ data:
     pprof: {{ .Values.hubble.relay.pprof.enabled | quote }}
     pprof-address: {{ .Values.hubble.relay.pprof.address | quote }}
     pprof-port: {{ .Values.hubble.relay.pprof.port | quote }}
+    pprof-mutex-profile-fraction: {{ .Values.hubble.relay.pprof.mutexProfileFraction | quote }}
+    pprof-block-profile-rate: {{ .Values.hubble.relay.pprof.blockProfileRate | quote }}
     {{- end }}
     {{- if .Values.hubble.relay.prometheus.enabled }}
     metrics-listen-address: ":{{ .Values.hubble.relay.prometheus.port }}"

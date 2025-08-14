@@ -311,6 +311,15 @@ const (
 	// pprofPort is the port that the pprof listens on
 	pprofPort = "operator-pprof-port"
 
+	// pprofMutexProfileFraction is the flag to enable mutex contention profiling and set the fraction of sampled events.
+	// Set to 1 to sample all events.
+	pprofMutexProfileFraction = "operator-pprof-mutex-profile-fraction"
+
+	// pprofBlockProfileRate is the flag to enable goroutine blocking profiling and set the rate of sampled events in nanoseconds.
+	// Set to 1 to sample all events.
+	// This setting is not recommended for production due to performance overhead.
+	pprofBlockProfileRate = "operator-pprof-block-profile-rate"
+
 	k8sClientQps = "operator-k8s-client-qps"
 
 	k8sClientBurst = "operator-k8s-client-burst"
@@ -328,22 +337,28 @@ var defaultOperatorPprofConfig = operatorPprofConfig{
 // To reuse the same cell, we need a different config type to map the same fields
 // to the operator-specific pprof flag names.
 type operatorPprofConfig struct {
-	OperatorPprof        bool
-	OperatorPprofAddress string
-	OperatorPprofPort    uint16
+	OperatorPprof                     bool
+	OperatorPprofAddress              string
+	OperatorPprofPort                 uint16
+	OperatorPprofMutexProfileFraction int
+	OperatorPprofBlockProfileRate     int
 }
 
 func (def operatorPprofConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(pprofOperator, def.OperatorPprof, "Enable serving pprof debugging API")
 	flags.String(pprofAddress, def.OperatorPprofAddress, "Address that pprof listens on")
 	flags.Uint16(pprofPort, def.OperatorPprofPort, "Port that pprof listens on")
+	flags.Int(pprofMutexProfileFraction, def.OperatorPprofMutexProfileFraction, "Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)")
+	flags.Int(pprofBlockProfileRate, def.OperatorPprofBlockProfileRate, "Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])")
 }
 
 func (def operatorPprofConfig) Config() pprof.Config {
 	return pprof.Config{
-		Pprof:        def.OperatorPprof,
-		PprofAddress: def.OperatorPprofAddress,
-		PprofPort:    def.OperatorPprofPort,
+		Pprof:                     def.OperatorPprof,
+		PprofAddress:              def.OperatorPprofAddress,
+		PprofPort:                 def.OperatorPprofPort,
+		PprofBlockProfileRate:     def.OperatorPprofBlockProfileRate,
+		PprofMutexProfileFraction: def.OperatorPprofMutexProfileFraction,
 	}
 }
 

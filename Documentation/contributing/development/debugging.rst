@@ -485,6 +485,11 @@ For example:
     $ # Deadlock detection during integration tests:
     $ make LOCKDEBUG=1 integration-tests
 
+Moreover, you can enable mutex contention and blocked goroutine profiling with ``pprof`` (see below for more ``pprof`` examples).
+These features can be enabled with the ``--pprof-block-profile-rate`` and ``--pprof-mutex-profile-fraction`` flags. Note that the block profiler
+is `not recommended <https://github.com/DataDog/go-profiler-notes/blob/65dd611ec7b225a8c843a284f755e3cfe0593176/guide/README.md#block-profiler-limitations>`_
+for production due to performance overhead.
+
 CPU Profiling and Memory Leaks
 ------------------------------
 

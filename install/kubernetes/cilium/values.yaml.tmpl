@@ -1733,6 +1733,10 @@ hubble:
       address: localhost
       # -- Configure pprof listen port for hubble-relay
       port: 6062
+      # -- Enable mutex contention profiling for hubble-relay and set the fraction of sampled events (set to 1 to sample all events)
+      mutexProfileFraction: 0
+      # -- Enable goroutine blocking profiling for hubble-relay and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+      blockProfileRate: 0
   ui:
     # -- Whether to enable the Hubble UI.
     enabled: false
@@ -2336,6 +2340,10 @@ pprof:
   address: localhost
   # -- Configure pprof listen port for cilium-agent
   port: 6060
+  # -- Enable mutex contention profiling for cilium-agent and set the fraction of sampled events (set to 1 to sample all events)
+  mutexProfileFraction: 0
+  # -- Enable goroutine blocking profiling for cilium-agent and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+  blockProfileRate: 0
 # -- Configure prometheus metrics on the configured port at /metrics
 prometheus:
   metricsService: false
@@ -3013,6 +3021,10 @@ operator:
     address: localhost
     # -- Configure pprof listen port for cilium-operator
     port: 6061
+    # -- Enable mutex contention profiling for cilium-operator and set the fraction of sampled events (set to 1 to sample all events)
+    mutexProfileFraction: 0
+    # -- Enable goroutine blocking profiling for cilium-operator and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+    blockProfileRate: 0
   # -- Enable prometheus metrics for cilium-operator on the configured port at
   # /metrics
   prometheus:
