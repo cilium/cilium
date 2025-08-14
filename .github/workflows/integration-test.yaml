@@ -170,31 +170,43 @@ jobs:
             ${{ runner.os }}-go-integration-test-cache-${{ runner.arch }}-
             ${{ runner.os }}-go-integration-test-cache-
 
-      - name: Set clang directory
-        id: set_clang_dir
-        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+      - name: Set build directories
+        id: set_build_dirs
+        run: |
+          echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+          echo "go_cache=$HOME/go/.cache/go-build" >> $GITHUB_OUTPUT
+          echo "go_mod_cache=$HOME/go/.cache/pkg" >> $GITHUB_OUTPUT
+          echo "go_tmp_dir=$HOME/go/tmp" >> $GITHUB_OUTPUT
 
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@a7a1a882e2d06ebe05d5bb97c3e1f8c984ae96fc # v2.0.7
         with:
           version: "19.1.7"
-          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
+          directory: ${{ steps.set_build_dirs.outputs.clang_dir }}
 
       - name: Create cache directories if they don't exist
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
         env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
+          GOCACHE: ${{ steps.set_build_dirs.outputs.go_cache }}
+          GOMODCACHE: ${{ steps.set_build_dirs.outputs.go_mod_cache }}
+          GOTMPDIR: ${{ steps.set_build_dirs.outputs.go_tmp_dir }}
         shell: bash
         run: |
           mkdir -p "${GOCACHE}"
           mkdir -p "${GOMODCACHE}"
 
+      - name: Create temp directories if they don't exist
+        env:
+          GOTMPDIR: ${{ steps.set_build_dirs.outputs.go_tmp_dir }}
+        shell: bash
+        run: |
+          mkdir -p "${GOTMPDIR}"
+
       - name: Prepare environment
         timeout-minutes: 15
         env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
+          GOCACHE: ${{ steps.set_build_dirs.outputs.go_cache }}
+          GOMODCACHE: ${{ steps.set_build_dirs.outputs.go_mod_cache }}
         shell: bash
         run: |
           # renovate: datasource=github-releases depName=mfridman/tparse
@@ -206,8 +218,10 @@ jobs:
         id: run-tests
         timeout-minutes: 60
         env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
+          GOCACHE: ${{ steps.set_build_dirs.outputs.go_cache }}
+          GOMODCACHE: ${{ steps.set_build_dirs.outputs.go_mod_cache }}
+          GOTMPDIR: ${{ steps.set_build_dirs.outputs.go_tmp_dir }}
+          TMPDIR: ${{ steps.set_build_dirs.outputs.go_tmp_dir }}
         run: |
           export V=0
           export DOCKER_BUILD_FLAGS=--quiet
