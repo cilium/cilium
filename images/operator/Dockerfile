@@ -6,7 +6,7 @@
 ARG BASE_IMAGE=scratch
 ARG GOLANG_IMAGE=docker.io/library/golang:1.24.6@sha256:2c89c41fb9efc3807029b59af69645867cfe978d2b877d475be0d72f6c6ce6f6
 ARG ALPINE_IMAGE=docker.io/library/alpine:3.22.1@sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:b494635b66b736d9f2703ffda65d32d37f1ebee0@sha256:af90825056018377932cbd81850643a5c8d7fef97e76bc935004e9a4c093fa14
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:7e14f138c92736afb4f7e723ed0fc964ac98af08@sha256:c1086561cd2d16521e3bb3de903128823e0533f86a394b94edaaefdfe96b05fa
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -63,14 +63,9 @@ RUN for f in $(find /tmp/debug -type f -name '*.debug' -not -name 'debug-wrapper
 FROM --platform=${BUILDPLATFORM} ${ALPINE_IMAGE} AS certs
 RUN apk --update add ca-certificates
 
-# BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
-# Represents the plataform where the build is happening, do not mix with
-# TARGETARCH
-FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS gops
+FROM ${GOLANG_IMAGE} AS gops
 
-# build-gops.sh will build both archs at the same time
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
-RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/go/pkg \
@@ -84,7 +79,7 @@ ARG TARGETARCH
 ARG OPERATOR_VARIANT
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
+COPY --from=gops /out /
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/cilium-${OPERATOR_VARIANT} /usr/bin/cilium-${OPERATOR_VARIANT}
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
 WORKDIR /

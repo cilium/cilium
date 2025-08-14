@@ -15,16 +15,18 @@ FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} AS bpftool-dist
 FROM ${CILIUM_IPTABLES_IMAGE} AS iptables-dist
 
-FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS gops-cni-builder
+FROM ${GOLANG_IMAGE} AS go-builder
 
-RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu
-
-# build-gops.sh will build both archs at the same time
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
+    --mount=target=/root/.cache,type=cache \
+    --mount=target=/go/pkg/mod,type=cache \
     ./build-gops.sh
-# download-cni.sh will build both archs at the same time
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+
+ARG TARGETARCH
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
+    --mount=target=/root/.cache,type=cache \
+    --mount=target=/go/pkg/mod,type=cache \
     ./download-cni.sh
 
 FROM ${UBUNTU_IMAGE} AS rootfs
@@ -50,10 +52,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
 
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
 COPY --from=bpftool-dist /usr/local/bin/bpftool /usr/local/bin/bpftool
-
-ARG TARGETPLATFORM
-COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/loopback /cni/loopback
-COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/gops /bin/gops
+COPY --from=go-builder /out /
 
 FROM ${TESTER_IMAGE} AS test
 COPY --from=rootfs / /
