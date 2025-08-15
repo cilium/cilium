@@ -156,6 +156,9 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 
 	// delete CIDR set for CIDRs not present in the new CIDRs
 	for i, oldCIDR := range cidrSets {
+		if oldCIDR == nil {
+			continue
+		}
 		exists := slices.ContainsFunc(newCIDRs, oldCIDR.IsClusterCIDR)
 		if !exists {
 			cidrSets[i] = nil
