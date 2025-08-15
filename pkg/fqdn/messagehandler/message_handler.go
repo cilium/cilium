@@ -117,11 +117,14 @@ func (h *dnsMessageHandler) OnQuery(
 	epIPPort string,
 	serverID identity.NumericIdentity,
 	serverAddrPort netip.AddrPort,
-	msg *dns.Msg,
+	query *dns.Msg,
 	protocol string,
 	stat *dnsproxy.ProxyRequestContext,
 ) error {
-	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, msg, protocol, true, stat)
+	if query.Response {
+		return fmt.Errorf("expected query, got response")
+	}
+	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, query, protocol, true, stat)
 }
 
 func (h *dnsMessageHandler) OnResponse(
@@ -130,11 +133,14 @@ func (h *dnsMessageHandler) OnResponse(
 	epIPPort string,
 	serverID identity.NumericIdentity,
 	serverAddrPort netip.AddrPort,
-	msg *dns.Msg,
+	response *dns.Msg,
 	protocol string,
 	stat *dnsproxy.ProxyRequestContext,
 ) error {
-	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, msg, protocol, true, stat)
+	if !response.Response {
+		return fmt.Errorf("expected response, got query")
+	}
+	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, response, protocol, true, stat)
 }
 
 // EndMetric ends the span stats for this transaction and updates metrics.
