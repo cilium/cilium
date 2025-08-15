@@ -278,13 +278,8 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	 * HostPort services.
 	 */
 	svc = lb4_lookup_service(&key, true);
-	if (!svc) {
-		/* Restore the original key's protocol as lb4_lookup_service
-		 * has overwritten it.
-		 */
-		lb4_key_set_protocol(&key, protocol);
+	if (!svc)
 		svc = sock4_wildcard_lookup_full(&key, in_hostns);
-	}
 	if (!svc)
 		return -ENXIO;
 	if (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc))
@@ -451,11 +446,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 		/* Perform a wildcard lookup for the case where the caller
 		 * tries to bind to loopback or an address with host identity
 		 * (without remote hosts).
-		 *
-		 * Restore the original key's protocol as lb4_lookup_service
-		 * has overwritten it.
 		 */
-		lb4_key_set_protocol(&key, protocol);
 		svc = sock4_wildcard_lookup(&key, false, false, true);
 	}
 
@@ -563,10 +554,6 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 
 		svc = lb4_lookup_service(&svc_key, true);
 		if (!svc) {
-			/* Restore the original key's protocol as lb4_lookup_service
-			 * has overwritten it.
-			 */
-			lb4_key_set_protocol(&svc_key, protocol);
 			svc = sock4_wildcard_lookup_full(&svc_key,
 						ctx_in_hostns(ctx_full, NULL));
 		}
@@ -860,10 +847,6 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 
 	svc = lb6_lookup_service(&key, true);
 	if (!svc) {
-		/* Restore the original key's protocol as lb6_lookup_service
-		 * has overwritten it.
-		 */
-		lb6_key_set_protocol(&key, protocol);
 		svc = sock6_wildcard_lookup(&key, false, false, true);
 		if (!svc)
 			return sock6_post_bind_v4_in_v6(ctx);
@@ -1002,13 +985,8 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	memcpy(&orig_key, &key, sizeof(key));
 
 	svc = lb6_lookup_service(&key, true);
-	if (!svc) {
-		/* Restore the original key's protocol as lb6_lookup_service
-		 * has overwritten it.
-		 */
-		lb6_key_set_protocol(&key, protocol);
+	if (!svc)
 		svc = sock6_wildcard_lookup_full(&key, in_hostns);
-	}
 	if (!svc)
 		return sock6_xlate_v4_in_v6(ctx, udp_only);
 	if (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc))
@@ -1176,10 +1154,6 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 
 		svc = lb6_lookup_service(&svc_key, true);
 		if (!svc) {
-			/* Restore the original key's protocol as lb6_lookup_service
-			 * has overwritten it.
-			 */
-			lb6_key_set_protocol(&svc_key, protocol);
 			svc = sock6_wildcard_lookup_full(&svc_key,
 						ctx_in_hostns(ctx, NULL));
 		}
