@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -1266,6 +1267,89 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
 		}
 	}
+}
+
+func Test_ConvertCEPToCoreCEP(t *testing.T) {
+	cep := &v2.CiliumEndpoint{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-endpoint",
+		},
+		Status: v2.EndpointStatus{
+			Identity: &v2.EndpointIdentity{
+				ID: 1234,
+			},
+			Networking: &v2.EndpointNetworking{
+				Addressing: []*v2.AddressPair{
+					{
+						IPV4: "10.0.0.1",
+						IPV6: "fd00::1",
+					},
+				},
+				NodeIP: "192.168.1.1",
+			},
+			Encryption: v2.EncryptionSpec{
+				Key: 42,
+			},
+			NamedPorts: []*models.Port{
+				{
+					Name:     "http",
+					Port:     8080,
+					Protocol: "TCP",
+				},
+			},
+			ServiceAccount: "test-service-account",
+		},
+	}
+
+	coreCEP := ConvertCEPToCoreCEP(cep)
+
+	require.Equal(t, "test-endpoint", coreCEP.Name)
+	require.Equal(t, int64(1234), coreCEP.IdentityID)
+	require.Equal(t, "test-service-account", coreCEP.ServiceAccount)
+	require.Equal(t, v2.EncryptionSpec{Key: 42}, coreCEP.Encryption)
+	require.NotNil(t, coreCEP.Networking)
+	require.Equal(t, "192.168.1.1", coreCEP.Networking.NodeIP)
+	require.Len(t, coreCEP.NamedPorts, 1)
+	require.Equal(t, "http", coreCEP.NamedPorts[0].Name)
+}
+
+func Test_ConvertCoreCiliumEndpointToTypesCiliumEndpoint(t *testing.T) {
+	coreCEP := &cilium_v2a1.CoreCiliumEndpoint{
+		Name:       "test-endpoint",
+		IdentityID: 5678,
+		Networking: &v2.EndpointNetworking{
+			Addressing: []*v2.AddressPair{
+				{
+					IPV4: "10.0.0.2",
+					IPV6: "fd00::2",
+				},
+			},
+			NodeIP: "192.168.1.2",
+		},
+		Encryption: v2.EncryptionSpec{
+			Key: 99,
+		},
+		NamedPorts: []*models.Port{
+			{
+				Name:     "grpc",
+				Port:     9090,
+				Protocol: "TCP",
+			},
+		},
+		ServiceAccount: "test-service-account",
+	}
+
+	typesCEP := ConvertCoreCiliumEndpointToTypesCiliumEndpoint(coreCEP, "test-namespace")
+
+	require.Equal(t, "test-endpoint", typesCEP.Name)
+	require.Equal(t, "test-namespace", typesCEP.Namespace)
+	require.Equal(t, int64(5678), typesCEP.Identity.ID)
+	require.Equal(t, "test-service-account", typesCEP.ServiceAccount)
+	require.Equal(t, v2.EncryptionSpec{Key: 99}, *typesCEP.Encryption)
+	require.NotNil(t, typesCEP.Networking)
+	require.Equal(t, "192.168.1.2", typesCEP.Networking.NodeIP)
+	require.Len(t, typesCEP.NamedPorts, 1)
+	require.Equal(t, "grpc", typesCEP.NamedPorts[0].Name)
 }
 
 func Test_AnnotationsEqual(t *testing.T) {
