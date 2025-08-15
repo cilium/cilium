@@ -43,6 +43,7 @@ endpoints:
 - encryption: {}
   id: 199472
   name: foo-001
+  service-account: default
   networking:
     addressing:
     - ipv4: 10.244.1.79
@@ -52,6 +53,7 @@ endpoints:
     key: 5
   id: 199475
   name: foo-002
+  service-account: default
   networking:
     addressing:
     - ipv4: 10.244.2.74
@@ -60,6 +62,7 @@ endpoints:
 - encryption: {}
   id: 199475
   name: foo-003
+  service-account: default
   networking:
     addressing:
     - ipv4: 10.244.2.91
@@ -76,6 +79,7 @@ endpoints:
 - encryption: {}
   id: 199477
   name: foo-001
+  service-account: default
   networking:
     addressing:
     - ipv4: 10.244.2.15
@@ -84,6 +88,7 @@ endpoints:
 - encryption: {}
   id: 199481
   name: foo-009
+  service-account: default
   networking:
     addressing:
     - ipv4: 10.244.2.91
@@ -100,6 +105,7 @@ endpoints:
 - encryption: {}
   id: 199494
   name: foo-004
+  service-account: default
   networking:
     addressing:
     - ipv4: 10.244.2.78
@@ -116,6 +122,7 @@ endpoints:
 - encryption: {}
   id: 199494
   name: foo-005
+  service-account: default
   networking:
     addressing:
     - ipv4: 10.244.2.120
@@ -136,7 +143,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-001"
+  "K8sPodName": "foo-001",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/10.244.2.74
 {
@@ -147,7 +155,8 @@ namespace: fred
   "Key": 5,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-002"
+  "K8sPodName": "foo-002",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/10.244.2.78
 {
@@ -158,7 +167,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "fred",
-  "K8sPodName": "foo-004"
+  "K8sPodName": "foo-004",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/10.244.2.91
 {
@@ -169,7 +179,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-003"
+  "K8sPodName": "foo-003",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:1::d643
 {
@@ -180,7 +191,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-001"
+  "K8sPodName": "foo-001",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::9182
 {
@@ -191,7 +203,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "fred",
-  "K8sPodName": "foo-004"
+  "K8sPodName": "foo-004",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e024
 {
@@ -202,7 +215,8 @@ namespace: fred
   "Key": 5,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-002"
+  "K8sPodName": "foo-002",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b4
 {
@@ -213,7 +227,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-003"
+  "K8sPodName": "foo-003",
+  "K8sServiceAccount": "default"
 }
 -- ips-1+2-v2.expected --
 # cilium/state/ip/v1/default/10.244.2.15
@@ -225,7 +240,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-001"
+  "K8sPodName": "foo-001",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/10.244.2.78
 {
@@ -236,7 +252,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "fred",
-  "K8sPodName": "foo-004"
+  "K8sPodName": "foo-004",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/10.244.2.91
 {
@@ -247,7 +264,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-009"
+  "K8sPodName": "foo-009",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::9182
 {
@@ -258,7 +276,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "fred",
-  "K8sPodName": "foo-004"
+  "K8sPodName": "foo-004",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::d615
 {
@@ -269,7 +288,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-001"
+  "K8sPodName": "foo-001",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b3
 {
@@ -280,7 +300,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-009"
+  "K8sPodName": "foo-009",
+  "K8sServiceAccount": "default"
 }
 -- ips-1+2+3.expected --
 # cilium/state/ip/v1/default/10.244.2.120
@@ -292,7 +313,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "fred",
-  "K8sPodName": "foo-005"
+  "K8sPodName": "foo-005",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/10.244.2.15
 {
@@ -303,7 +325,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-001"
+  "K8sPodName": "foo-001",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/10.244.2.78
 {
@@ -314,7 +337,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "fred",
-  "K8sPodName": "foo-004"
+  "K8sPodName": "foo-004",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/10.244.2.91
 {
@@ -325,7 +349,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-009"
+  "K8sPodName": "foo-009",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::5e16
 {
@@ -336,7 +361,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "fred",
-  "K8sPodName": "foo-005"
+  "K8sPodName": "foo-005",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::9182
 {
@@ -347,7 +373,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "fred",
-  "K8sPodName": "foo-004"
+  "K8sPodName": "foo-004",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::d615
 {
@@ -358,7 +385,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-001"
+  "K8sPodName": "foo-001",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b3
 {
@@ -369,7 +397,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-009"
+  "K8sPodName": "foo-009",
+  "K8sServiceAccount": "default"
 }
 -- ips-1+3.expected --
 # cilium/state/ip/v1/default/10.244.2.120
@@ -381,7 +410,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "fred",
-  "K8sPodName": "foo-005"
+  "K8sPodName": "foo-005",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/10.244.2.15
 {
@@ -392,7 +422,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-001"
+  "K8sPodName": "foo-001",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/10.244.2.91
 {
@@ -403,7 +434,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-009"
+  "K8sPodName": "foo-009",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::5e16
 {
@@ -414,7 +446,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "fred",
-  "K8sPodName": "foo-005"
+  "K8sPodName": "foo-005",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::d615
 {
@@ -425,7 +458,8 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-001"
+  "K8sPodName": "foo-001",
+  "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b3
 {
@@ -436,5 +470,6 @@ namespace: fred
   "Key": 0,
   "Metadata": "",
   "K8sNamespace": "qux",
-  "K8sPodName": "foo-009"
+  "K8sPodName": "foo-009",
+  "K8sServiceAccount": "default"
 }
