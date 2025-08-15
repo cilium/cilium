@@ -225,29 +225,13 @@ jobs:
 
       - name: Create GKE cluster
         id: create-cluster
-        run: |
-          if [ "${{ matrix.mode }}" = "baseline" ] ; then
-            TAINTS=""
-          else
-            TAINTS="--node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute"
-          fi
-          gcloud container clusters create ${{ env.clusterName }}-${{ matrix.index }} \
-            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
-            --zone ${{ env.gcp_zone }} \
-            --release-channel=stable \
-            --enable-ip-alias \
-            --create-subnetwork="range=/26" \
-            --cluster-ipv4-cidr="/21" \
-            --services-ipv4-cidr="/24" \
-            --image-type COS_CONTAINERD \
-            --num-nodes 2 \
-            --machine-type n2-standard-2 \
-            --disk-type pd-standard \
-            --disk-size 20GB \
-            ${TAINTS}
-
-          native_cidr="$(gcloud container clusters describe ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }} --format 'value(clusterIpv4Cidr)')"
-          echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
+        uses: ./.github/actions/setup-gke-cluster
+        with:
+          cluster-name: ${{ env.clusterName }}-${{ matrix.index }}
+          zone: ${{ env.gcp_zone }}
+          mode: baseline
+          machine-type: n2-standard-2
+          labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
 
       - name: Create ESP allow firewall rule
         if: ${{ matrix.name == 'tunnel-ipsec' }}
