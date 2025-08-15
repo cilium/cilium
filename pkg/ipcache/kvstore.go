@@ -63,13 +63,25 @@ func NewIPIdentitySynchronizer(logger *slog.Logger, client kvstore.Client) *IPId
 	return &IPIdentitySynchronizer{logger: logger, client: client}
 }
 
+// UpsertParams provides a structured set of parameters for IPIdentitySynchronizer.Upsert.
+type UpsertParams struct {
+	IP                netip.Addr
+	HostIP            netip.Addr
+	ID                identity.NumericIdentity
+	Key               uint8
+	Metadata          string
+	K8sNamespace      string
+	K8sPodName        string
+	K8sServiceAccount string
+	NPM               types.NamedPortMap
+}
+
 // Upsert updates / inserts the provided IP->Identity mapping into the kvstore.
-func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Addr, ID identity.NumericIdentity, key uint8,
-	metadata, k8sNamespace, k8sPodName string, npm types.NamedPortMap) error {
+func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, params *UpsertParams) error {
 
 	// Sort named ports into a slice
-	namedPorts := make([]identity.NamedPort, 0, len(npm))
-	for name, value := range npm {
+	namedPorts := make([]identity.NamedPort, 0, len(params.NPM))
+	for name, value := range params.NPM {
 		namedPorts = append(namedPorts, identity.NamedPort{
 			Name:     name,
 			Port:     value.Port,
@@ -80,16 +92,17 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Ad
 		return namedPorts[i].Name < namedPorts[j].Name
 	})
 
-	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
+	ipKey := path.Join(IPIdentitiesPath, AddressSpace, params.IP.String())
 	ipIDPair := identity.IPIdentityPair{
-		IP:           IP.AsSlice(),
-		ID:           ID,
-		Metadata:     metadata,
-		HostIP:       hostIP.AsSlice(),
-		Key:          key,
-		K8sNamespace: k8sNamespace,
-		K8sPodName:   k8sPodName,
-		NamedPorts:   namedPorts,
+		IP:                params.IP.AsSlice(),
+		ID:                params.ID,
+		Metadata:          params.Metadata,
+		HostIP:            params.HostIP.AsSlice(),
+		Key:               params.Key,
+		K8sNamespace:      params.K8sNamespace,
+		K8sPodName:        params.K8sPodName,
+		K8sServiceAccount: params.K8sServiceAccount,
+		NamedPorts:        namedPorts,
 	}
 
 	marshaledIPIDPair, err := json.Marshal(ipIDPair)
