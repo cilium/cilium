@@ -27,9 +27,11 @@
 
 static char pkt[100];
 
-__always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
+__always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress, bool rfc4884)
 {
 	void *orig = dst;
+	void *inner_l4_start;
+	void *icmp_ptr;
 
 	struct ethhdr l2 = {
 		.h_source = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
@@ -65,6 +67,7 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 		},
 	};
 	memcpy(dst, &icmphdr, sizeof(struct icmphdr));
+	icmp_ptr = dst;
 	dst += sizeof(struct icmphdr);
 
 	/* Embedded packet is referring the original packet that triggers the
@@ -85,10 +88,11 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 	memcpy(dst, &inner_l3, sizeof(struct iphdr));
 	dst += sizeof(struct iphdr);
 
-	__u16 sport = 32768, dport = 80;
+	inner_l4_start = dst;
+	__u16 sport = 32768, dport = rfc4884 ? 80 : 78;
 
 	if (egress) {
-		sport = 79;
+		sport = rfc4884 ? 79 : 77;
 		dport = error_hdr == IPPROTO_SCTP ? 32767 : 3030;
 	}
 
@@ -98,8 +102,12 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 			.source = bpf_htons(sport),
 			.dest = bpf_htons(dport),
 		};
-		memcpy(dst, &inner_l4, sizeof(struct tcphdr));
-		dst += sizeof(struct tcphdr);
+		{
+			__u64 l4_size =  rfc4884 ? sizeof(struct tcphdr) : 8;
+
+			memcpy(dst, &inner_l4, l4_size);
+			dst += l4_size;
+		}
 	}
 		break;
 	case IPPROTO_UDP: {
@@ -138,13 +146,23 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 	}
 		break;
 	}
+	/* account for any content longer than 64 bits of the original data datagram
+	 * in accordance with RFC 4884
+	 */
+	if (rfc4884 && (dst - inner_l4_start > 8)) {
+		__u8 extra_words = (__u8)(dst - inner_l4_start - 8 + 3) / 4;
+
+		memcpy(icmp_ptr + offsetof(struct icmphdr, un.frag.__unused) + 1,
+		       &extra_words, 1);
+	}
+
 	return (int)(dst - orig);
 }
 
 CHECK("tc", "nat4_icmp_error_tcp")
 int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 {
-	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_TCP, false);
+	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_TCP, false, true);
 	{
 		void *data = (void *)(long)ctx->data;
 		void *data_end = (void *)(long)ctx->data_end;
@@ -255,10 +273,128 @@ int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
+CHECK("tc", "nat4_icmp_error_tcp_rfc1191")
+int test_nat4_icmp_error_tcp_rfc1191(__maybe_unused struct __ctx_buff *ctx)
+{
+	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_TCP, false, false);
+	{
+		void *data = (void *)(long)ctx->data;
+		void *data_end = (void *)(long)ctx->data_end;
+
+		if (data + pkt_size > data_end)
+			return TEST_ERROR;
+
+		memcpy(data, pkt, pkt_size);
+	}
+
+	test_init();
+	/* The test is validating that the function snat_v4_rev_nat()
+	 * will rev-nat the ICMP Unreach error need to fragment to the
+	 * correct endpoint.  Also, to be valid, the embedded packet
+	 * should be NATed as-well, meaning that the source addr of
+	 * the original packet will be switched from IP_HOST to
+	 * IP_ENDPOINT, Also for TCP/UDP the dest port and ICMP the
+	 * identifier.
+	 *
+	 * This test is validating the TCP case.
+	 */
+
+	int ret;
+
+	/* As a pre-requist we intruct the NAT table
+	 * to simulate an ingress packet sent by
+	 * endpoint to the world.
+	 */
+	struct ipv4_ct_tuple tuple = {
+		.nexthdr = IPPROTO_TCP,
+		.saddr = bpf_htonl(IP_ENDPOINT),
+		.daddr = bpf_htonl(IP_WORLD),
+		.sport = bpf_htons(3030),
+		.dport = bpf_htons(78),
+		.flags = 0,
+	};
+	struct ipv4_nat_target target = {
+		.addr = bpf_htonl(IP_HOST),
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MIN_NAT,
+	};
+	struct ipv4_nat_entry state;
+	struct trace_ctx trace;
+	void *map;
+
+	map = get_cluster_snat_map_v4(target.cluster_id);
+	assert(map);
+
+	ret = snat_v4_new_mapping(ctx, map, &tuple, &state, &target,
+				  false, NULL);
+	assert(ret == 0);
+
+	/* This is the entry-point of the test, calling
+	 * snat_v4_rev_nat().
+	 */
+	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
+	assert(ret == 0);
+
+	__u16 proto;
+	void *data;
+	void *data_end;
+
+	int l3_off;
+	int l4_off;
+	struct iphdr *ip4;
+	struct icmphdr icmphdr __align_stack_8;
+
+	assert(validate_ethertype(ctx, &proto));
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+	if (data + pkt_size > data_end)
+		test_fatal("packet shrank");
+
+	/* Validating outer headers */
+	assert(ip4->protocol == IPPROTO_ICMP);
+	assert(ip4->saddr == bpf_htonl(IP_ROUTER));
+	assert(ip4->daddr == bpf_htonl(IP_ENDPOINT));
+
+	l3_off = ETH_HLEN;
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+	if (ctx_load_bytes(ctx, l4_off, &icmphdr, sizeof(icmphdr)) < 0)
+		test_fatal("can't load icmp headers");
+	assert(icmphdr.type == ICMP_DEST_UNREACH);
+	assert(icmphdr.code == ICMP_FRAG_NEEDED);
+
+	/* Validating inner headers */
+	int in_l3_off;
+	int in_l4_off;
+	struct iphdr in_ip4;
+	struct {
+		__be16 sport;
+		__be16 dport;
+	} in_l4hdr;
+
+	in_l3_off = l4_off + sizeof(icmphdr);
+	if (ctx_load_bytes(ctx, in_l3_off, &in_ip4,
+			   sizeof(in_ip4)) < 0)
+		test_fatal("can't load embedded ip headers");
+	assert(in_ip4.protocol == IPPROTO_TCP);
+	assert(in_ip4.saddr == bpf_htonl(IP_ENDPOINT));
+	assert(in_ip4.daddr == bpf_htonl(IP_WORLD));
+
+	in_l4_off = in_l3_off + ipv4_hdrlen(&in_ip4);
+	if (ctx_load_bytes(ctx, in_l4_off, &in_l4hdr, sizeof(in_l4hdr)) < 0)
+		test_fatal("can't load embedded l4 headers");
+	/* A minimal RFC 1191 packet without RFC 4884 length extension
+	 * won't get NAT for the inner L4 the ports since the NAT engine
+	 * can't fix the checksum.
+	 */
+	assert(in_l4hdr.sport == bpf_htons(32768));
+	assert(in_l4hdr.dport == bpf_htons(78));
+
+	test_finish();
+}
+
 CHECK("tc", "nat4_icmp_error_udp")
 int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 {
-	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_UDP, false);
+	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_UDP, false, true);
 	{
 		void *data = (void *)(long)ctx->data;
 		void *data_end = (void *)(long)ctx->data_end;
@@ -372,7 +508,7 @@ int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 CHECK("tc", "nat4_icmp_error_icmp")
 int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 {
-	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_ICMP, false);
+	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_ICMP, false, true);
 	{
 		void *data = (void *)(long)ctx->data;
 		void *data_end = (void *)(long)ctx->data_end;
@@ -481,7 +617,7 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 CHECK("tc", "nat4_icmp_error_sctp")
 int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 {
-	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_SCTP, false);
+	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_SCTP, false, true);
 	{
 		void *data = (void *)(long)ctx->data;
 		void *data_end = (void *)(long)ctx->data_end;
@@ -539,7 +675,7 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 CHECK("tc", "nat4_icmp_error_tcp_egress")
 int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 {
-	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_TCP, true);
+	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_TCP, true, true);
 	{
 		void *data = (void *)(long)ctx->data;
 		void *data_end = (void *)(long)ctx->data_end;
@@ -655,10 +791,133 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
+CHECK("tc", "nat4_icmp_error_tcp_egress_rfc1191")
+int test_nat4_icmp_error_tcp_egress_rfc1191(__maybe_unused struct __ctx_buff *ctx)
+{
+	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_TCP, true, false);
+	{
+		void *data = (void *)(long)ctx->data;
+		void *data_end = (void *)(long)ctx->data_end;
+
+		if (data + pkt_size > data_end)
+			return TEST_ERROR;
+
+		memcpy(data, pkt, pkt_size);
+	}
+
+	test_init();
+	/* The test is validating that the function snat_v4_nat()
+	 * will nat the ICMP Unreach error need to fragment to the
+	 * correct source.  Also, to be valid, the embedded packet
+	 * should be NATed as-well, meaning that the dest addr of
+	 * the original packet will be switched from IP_ENDPOINT to
+	 * IP_HOST, Also for TCP/UDP the dest port and ICMP the
+	 * identifier.
+	 *
+	 * This test is validating the TCP case.
+	 */
+
+	int ret;
+
+	/* As a pre-requist we intruct the NAT table
+	 * to simulate an egress packet sent by
+	 * endpoint to the world.
+	 */
+	struct ipv4_ct_tuple tuple = {
+		.nexthdr = IPPROTO_TCP,
+		.saddr = bpf_htonl(IP_ENDPOINT),
+		.daddr = bpf_htonl(IP_WORLD),
+		.sport = bpf_htons(3030),
+		.dport = bpf_htons(77),
+		.flags = 0,
+	};
+	struct ipv4_nat_target target = {
+		.addr = bpf_htonl(IP_HOST),
+		.min_port = NODEPORT_PORT_MIN_NAT - 1,
+		.max_port = NODEPORT_PORT_MIN_NAT - 1,
+	};
+	struct ipv4_nat_entry state;
+	void *map;
+
+	map = get_cluster_snat_map_v4(target.cluster_id);
+	assert(map);
+
+	ret = snat_v4_new_mapping(ctx, map, &tuple, &state, &target,
+				  false, NULL);
+	assert(ret == 0);
+
+	struct ipv4_ct_tuple icmp_tuple = {};
+	struct trace_ctx trace;
+	void *data, *data_end;
+	struct iphdr *ip4;
+	int l4_off;
+
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &icmp_tuple);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+	/* This is the entry-point of the test, calling
+	 * snat_v4_nat().
+	 */
+	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+			  l4_off, &target, &trace, NULL);
+	assert(ret == 0);
+
+	__u16 proto;
+	int l3_off;
+	struct icmphdr icmphdr __align_stack_8;
+
+	assert(validate_ethertype(ctx, &proto));
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+	if (data + pkt_size > data_end)
+		test_fatal("packet shrank");
+
+	/* Validating outer headers */
+	assert(ip4->protocol == IPPROTO_ICMP);
+	assert(ip4->saddr == bpf_htonl(IP_HOST));
+	assert(ip4->daddr == bpf_htonl(IP_WORLD));
+
+	l3_off = ETH_HLEN;
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+	if (ctx_load_bytes(ctx, l4_off, &icmphdr, sizeof(icmphdr)) < 0)
+		test_fatal("can't load icmp headers");
+	assert(icmphdr.type == ICMP_DEST_UNREACH);
+	assert(icmphdr.code == ICMP_FRAG_NEEDED);
+
+	/* Validating inner headers */
+	int in_l3_off;
+	int in_l4_off;
+	struct iphdr in_ip4;
+	struct {
+		__be16 sport;
+		__be16 dport;
+	} in_l4hdr;
+
+	in_l3_off = l4_off + sizeof(icmphdr);
+	if (ctx_load_bytes(ctx, in_l3_off, &in_ip4,
+			   sizeof(in_ip4)) < 0)
+		test_fatal("can't load embedded ip headers");
+	assert(in_ip4.protocol == IPPROTO_TCP);
+	assert(in_ip4.saddr == bpf_htonl(IP_WORLD));
+	assert(in_ip4.daddr == bpf_htonl(IP_HOST));
+
+	in_l4_off = in_l3_off + ipv4_hdrlen(&in_ip4);
+	if (ctx_load_bytes(ctx, in_l4_off, &in_l4hdr, sizeof(in_l4hdr)) < 0)
+		test_fatal("can't load embedded l4 headers");
+	/* A minimal RFC 1191 packet without RFC 4884 length extension
+	 * won't get NAT for the inner L4 the ports since the NAT engine
+	 * can't fix the checksum.
+	 */
+	assert(in_l4hdr.sport == bpf_htons(77));
+	assert(in_l4hdr.dport == bpf_htons(3030));
+
+	test_finish();
+}
+
 CHECK("tc", "nat4_icmp_error_udp_egress")
 int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 {
-	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_UDP, true);
+	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_UDP, true, true);
 	{
 		void *data = (void *)(long)ctx->data;
 		void *data_end = (void *)(long)ctx->data_end;
@@ -777,7 +1036,7 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 CHECK("tc", "nat4_icmp_error_icmp_egress")
 int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 {
-	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_ICMP, true);
+	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_ICMP, true, true);
 	{
 		void *data = (void *)(long)ctx->data;
 		void *data_end = (void *)(long)ctx->data_end;
@@ -891,7 +1150,7 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 CHECK("tc", "nat4_icmp_error_sctp_egress")
 int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 {
-	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_SCTP, true);
+	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_SCTP, true, true);
 	{
 		void *data = (void *)(long)ctx->data;
 		void *data_end = (void *)(long)ctx->data_end;
