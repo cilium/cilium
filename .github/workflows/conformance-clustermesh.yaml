@@ -128,6 +128,7 @@ jobs:
             ciliumEndpointSlice: 'enabled'
             policy-default-local-cluster: true
             multipool-ipam: 'enabled'
+            prefer-external-ips: true
 
           - name: '2'
             tunnel: 'disabled'
@@ -142,6 +143,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: false
             multipool-ipam: 'disabled'
+            prefer-external-ips: true
 
           - name: '3'
             tunnel: 'disabled'
@@ -156,6 +158,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
             multipool-ipam: 'disabled'
+            prefer-external-ips: true
 
           # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
           # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters (#23917)
@@ -172,6 +175,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: false
             multipool-ipam: 'disabled'
+            prefer-external-ips: true
 
           - name: '5'
             tunnel: 'disabled'
@@ -184,6 +188,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
             multipool-ipam: 'disabled'
+            prefer-external-ips: true
 
           - name: '6'
             tunnel: 'vxlan'
@@ -198,6 +203,7 @@ jobs:
             ciliumEndpointSlice: 'enabled'
             policy-default-local-cluster: false
             multipool-ipam: 'enabled'
+            prefer-external-ips: true
 
           - name: '7'
             tunnel: 'geneve'
@@ -212,6 +218,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
             multipool-ipam: 'disabled'
+            prefer-external-ips: true
 
           - name: '8'
             tunnel: 'vxlan'
@@ -226,6 +233,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: false
             multipool-ipam: 'disabled'
+            prefer-external-ips: true
 
           - name: '9'
             tunnel: 'vxlan'
@@ -240,6 +248,7 @@ jobs:
             ciliumEndpointSlice: 'enabled'
             policy-default-local-cluster: true
             multipool-ipam: 'disabled'
+            prefer-external-ips: true
 
           - name: '10'
             tunnel: 'vxlan'
@@ -252,6 +261,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
             multipool-ipam: 'disabled'
+            prefer-external-ips: true
 
     steps:
       - name: Collect Workflow Telemetry
@@ -539,7 +549,9 @@ jobs:
           echo "cilium_install_clustermesh= \
             --set=clustermesh.config.enabled=true \
             --set clustermesh.config.clusters[0].name=${{ env.ciliumClusterName1 }} \
+            --set clustermesh.config.clusters[0].preferExternalIPs=${{ matrix.prefer-external-ips }} \
             --set clustermesh.config.clusters[1].name=${{ env.ciliumClusterName2 }} \
+            --set clustermesh.config.clusters[1].preferExternalIPs=${{ matrix.prefer-external-ips }} \
             ${{ steps.kvstore.outputs.cilium_install_clustermesh }} \
           " >> $GITHUB_OUTPUT
 
@@ -623,7 +635,7 @@ jobs:
       - name: Connect clusters
         if: matrix.mode != 'external'
         run: |
-          cilium --context ${{ env.contextName1 }} clustermesh connect --destination-context ${{ env.contextName2 }}
+          cilium --context ${{ env.contextName1 }} clustermesh connect --prefer-external-ips=${{ matrix.prefer-external-ips }} --destination-context ${{ env.contextName2 }}
 
       - name: Wait for cluster mesh status to be ready
         if: matrix.mode != 'external'
