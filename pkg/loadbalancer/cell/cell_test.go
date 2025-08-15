@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -28,6 +29,7 @@ import (
 func TestCell(t *testing.T) {
 
 	h := hive.New(
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 		daemonk8s.ResourcesCell,
 		daemonk8s.TablesCell,

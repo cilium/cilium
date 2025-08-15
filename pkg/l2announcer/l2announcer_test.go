@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -55,6 +56,7 @@ func newFixture(t testing.TB) *fixture {
 	)
 
 	hive.New(
+		watcherMetrics.Cell,
 		cell.Provide(tables.NewL2AnnounceTable),
 		cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], h_ cell.Health, j job.Registry, jg_ job.Group) {
 			db = d
@@ -1124,6 +1126,7 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 				EnableL2Announcements: true,
 			}
 		}),
+		watcherMetrics.Cell,
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		cell.Invoke(func(_ *L2Announcer) {}),

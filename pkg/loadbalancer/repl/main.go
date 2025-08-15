@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
@@ -80,6 +81,7 @@ func main() {
 }
 
 var Hive = hive.New(
+	watcherMetrics.Cell,
 	client.Cell,
 	daemonk8s.ResourcesCell,
 	daemonk8s.TablesCell,

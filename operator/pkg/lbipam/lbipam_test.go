@@ -30,6 +30,7 @@ import (
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -2588,6 +2589,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 			counters = tc
 			fakeClientset = cf
 		}),
+		watcherMetrics.Cell,
 	)
 
 	tlog := hivetest.Logger(t)
