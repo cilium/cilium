@@ -39,8 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
@@ -66,13 +64,14 @@ type hubbleIntegration struct {
 	endpointManager   endpointmanager.EndpointManager
 	ipcache           *ipcache.IPCache
 	cgroupManager     manager.CGroupManager
-	clientset         k8sClient.Clientset
-	k8sWatcher        *watchers.K8sWatcher
 	nodeManager       nodeManager.NodeManager
 	nodeLocalStore    *node.LocalNodeStore
 	monitorAgent      monitorAgent.Agent
 	tlsConfigPromise  tlsConfigPromise
 	exporters         []exporter.FlowLogExporter
+
+	// dropEventEmitter emits Kubernetes events for packet drops.
+	dropEventEmitter dropeventemitter.FlowProcessor
 
 	// payloadParser is used to decode monitor events into Hubble events.
 	payloadParser parser.Decoder
@@ -91,14 +90,13 @@ func new(
 	endpointManager endpointmanager.EndpointManager,
 	ipcache *ipcache.IPCache,
 	cgroupManager manager.CGroupManager,
-	clientset k8sClient.Clientset,
-	k8sWatcher *watchers.K8sWatcher,
 	nodeManager nodeManager.NodeManager,
 	nodeLocalStore *node.LocalNodeStore,
 	monitorAgent monitorAgent.Agent,
 	tlsConfigPromise tlsConfigPromise,
 	observerOptions []observeroption.Option,
 	exporterBuilders []*exportercell.FlowLogExporterBuilder,
+	dropEventEmitter dropeventemitter.FlowProcessor,
 	payloadParser parser.Decoder,
 	grpcMetrics *grpc_prometheus.ServerMetrics,
 	metricsFlowProcessor metrics.FlowProcessor,
@@ -121,8 +119,7 @@ func new(
 		endpointManager:      endpointManager,
 		ipcache:              ipcache,
 		cgroupManager:        cgroupManager,
-		clientset:            clientset,
-		k8sWatcher:           k8sWatcher,
+		dropEventEmitter:     dropEventEmitter,
 		nodeManager:          nodeManager,
 		nodeLocalStore:       nodeLocalStore,
 		monitorAgent:         monitorAgent,
@@ -219,23 +216,10 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		}
 	}
 
-	if h.config.EnableK8sDropEvents {
-		h.log.Info(
-			"Starting packet drop events emitter",
-			logfields.Interval, h.config.K8sDropEventsInterval,
-			logfields.Reasons, h.config.K8sDropEventsReasons,
-		)
-
-		dropEventEmitter := dropeventemitter.NewDropEventEmitter(
-			h.config.K8sDropEventsInterval,
-			h.config.K8sDropEventsReasons,
-			h.clientset,
-			h.k8sWatcher,
-		)
-
+	if h.dropEventEmitter != nil {
 		observerOpts = append(observerOpts,
 			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
-				err := dropEventEmitter.ProcessFlow(ctx, flow)
+				err := h.dropEventEmitter.ProcessFlow(ctx, flow)
 				if err != nil {
 					h.log.Error("Failed to ProcessFlow in drop events handler", logfields.Error, err)
 				}
