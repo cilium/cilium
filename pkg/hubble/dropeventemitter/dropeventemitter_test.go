@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/identity"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -48,8 +48,7 @@ func TestEndpointToString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := &DropEventEmitter{}
-			str := e.endpointToString(tt.ip, tt.endpoint)
+			str := endpointToString(tt.ip, tt.endpoint)
 			assert.Equal(t, str, tt.expect)
 		})
 	}
@@ -79,8 +78,7 @@ func TestL4protocolToString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := &DropEventEmitter{}
-			str := e.l4protocolToString(tt.l4)
+			str := l4protocolToString(tt.l4)
 			assert.Equal(t, str, tt.expect)
 		})
 	}
@@ -177,7 +175,7 @@ func TestProcessFlow(t *testing.T) {
 				Events:        make(chan string, 3),
 				IncludeObject: true,
 			}
-			e := &DropEventEmitter{
+			e := &dropEventEmitter{
 				reasons:    []string{"policy_denied"},
 				recorder:   fakeRecorder,
 				k8sWatcher: &fakeK8SWatcher{},
@@ -199,8 +197,7 @@ func TestProcessFlow(t *testing.T) {
 	}
 }
 
-type fakeK8SWatcher struct {
-}
+type fakeK8SWatcher struct{}
 
 func (k *fakeK8SWatcher) GetCachedNamespace(namespace string) (*slim_corev1.Namespace, error) {
 	return nil, nil
