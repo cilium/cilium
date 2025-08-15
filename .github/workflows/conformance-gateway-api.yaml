@@ -205,6 +205,12 @@ jobs:
           # renovate: datasource=github-releases depName=mfridman/tparse
           go install github.com/mfridman/tparse@28967170dce4f9f13de77ec857f7aed4c4294a5f # v0.12.3 (main) with -progress
 
+      - name: Install go-junit-report
+        timeout-minutes: 15
+        run: |
+          # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+          go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@4cdc5c96cb4e406fccf943536b5bfcae7a0fb826 # v2.3.1
+
       - name: Install Gateway API CRDs
         run: |
           gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
@@ -290,45 +296,22 @@ jobs:
           GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.216@")
           echo "GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES: $GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES"
           echo "GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES: $GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES"
+          # Build test flags based on matrix
+          GATEWAY_TEST_FLAGS="--gateway-class cilium --all-features --allow-crds-mismatch"
           if [ "${{ matrix.conformance-profile }}" == "true" ]; then
-            GATEWAY_API_CONFORMANCE_TESTS=1 \
-            GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES  \
-            GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES \
-            go test \
-              -p 4 \
-              -v ./operator/pkg/gateway-api \
-              --gateway-class cilium \
-              --all-features \
-              --skip-tests "${{ steps.vars.outputs.skipped_tests }}" \
-              --allow-crds-mismatch \
-              --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC \
-              --organization cilium \
-              --project cilium \
-              --url github.com/cilium/cilium \
-              --version main \
-              --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
-              --report-output report.yaml \
-              -test.run "TestConformance" \
-              -test.timeout=29m \
-              -json \
-            | tparse -progress
+            GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --skip-tests \"${{ steps.vars.outputs.skipped_tests }}\" --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC --organization cilium --project cilium --url github.com/cilium/cilium --version main --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md --report-output report.yaml"
           else
-            GATEWAY_API_CONFORMANCE_TESTS=1 \
-            GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES  \
-            GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES \
-            go test \
-              -p 4 \
-              -v ./operator/pkg/gateway-api \
-              --gateway-class cilium \
-              --all-features \
-              --exempt-features "${{ steps.vars.outputs.exempt-features }}" \
-              --allow-crds-mismatch \
-              -test.run "TestConformance" \
-              -test.timeout=29m \
-              -test.skip "${{ steps.vars.outputs.skipped_tests }}" \
-              -json \
-            | tparse -progress
+            GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --exempt-features \"${{ steps.vars.outputs.exempt-features }}\" -test.skip \"${{ steps.vars.outputs.skipped_tests }}\""
           fi
+          # Create JUnit output directory and enable owner attribution
+          mkdir -p cilium-junits
+          LOG_CODEOWNERS=1 \
+          JUNIT_PATH="cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - gateway-conformance.xml" \
+          CODEOWNERS_PATH="${CILIUM_CLI_CODE_OWNERS_PATHS}" \
+          GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES="$GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES" \
+          GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES="$GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES" \
+          GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS" \
+          make gateway-api-conformance
 
       - name: Run basic CLI tests (${{ join(matrix.*, ', ') }})
         shell: bash
