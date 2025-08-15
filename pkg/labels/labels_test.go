@@ -239,6 +239,8 @@ func TestLabel(t *testing.T) {
 	longLabel := `{"source": "kubernetes", "key": "io.kubernetes.pod.name", "value": "foo"}`
 	invLabel := `{"source": "kubernetes", "value": "foo"}`
 	shortLabel := `"web"`
+	emptySourceLabel := `{"key": "policy-comment", "value": "allow all traffic inside namespace"}`
+	explicitEmptySourceLabel := `{"source": "", "key": "policy-comment", "value": "allow all traffic inside namespace"}`
 
 	err := json.Unmarshal([]byte(longLabel), &label)
 	require.NoError(t, err)
@@ -254,6 +256,22 @@ func TestLabel(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, LabelSourceUnspec, label.Source)
 	require.Empty(t, label.Value)
+
+	// Test case for missing source field
+	label = Label{}
+	err = json.Unmarshal([]byte(emptySourceLabel), &label)
+	require.NoError(t, err)
+	require.Equal(t, LabelSourceUnspec, label.Source)
+	require.Equal(t, "policy-comment", label.Key)
+	require.Equal(t, "allow all traffic inside namespace", label.Value)
+
+	// Test case for explicitly empty source field
+	label = Label{}
+	err = json.Unmarshal([]byte(explicitEmptySourceLabel), &label)
+	require.NoError(t, err)
+	require.Equal(t, LabelSourceUnspec, label.Source)
+	require.Equal(t, "policy-comment", label.Key)
+	require.Equal(t, "allow all traffic inside namespace", label.Value)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(""), &label)
