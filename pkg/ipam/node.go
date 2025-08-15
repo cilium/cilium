@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"reflect"
 	"slices"
 	"sync/atomic"
 
@@ -20,6 +21,7 @@ import (
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -1047,7 +1049,16 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 	n.poolMaintenanceComplete()
 	n.recalculate(ctx)
 	if instanceMutated || err != nil {
-		n.instanceSync.Trigger()
+		// this is the temporary fix for ENI mode to avoid the sync from AWS getting the stale data since
+		// we would like to see if this can fix the CI issue for https://github.com/cilium/cilium/issues/36428
+		// based on the discussion here https://github.com/cilium/cilium/issues/36428#issuecomment-2813836153
+		// if so, we will change how alibaba and azure behavior like PR https://github.com/cilium/cilium/pull/37650
+		// and remove this instanceSync trigger sync from here completely.
+		// I have tested skip this trigger sync with draft PR https://github.com/cilium/cilium/pull/40760 for a few times
+		// and it seems to be working. we hope we can test this for 2-4 weeks so we can know if the CI issue got fixed.
+		if !reflect.DeepEqual(n.resource.Spec.ENI, eniTypes.ENISpec{}) {
+			n.instanceSync.Trigger()
+		}
 	}
 	return err
 }
