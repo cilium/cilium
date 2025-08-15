@@ -2571,6 +2571,7 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 				EnableBGPControlPlane: true,
 			}
 		}),
+		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Config(k8s.DefaultConfig),
 		cell.Provide(
 			k8s.ServiceResource,
