@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/api"
+	"github.com/cilium/cilium/pkg/bgpv1/config"
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
@@ -89,6 +90,9 @@ var Cell = cell.Module(
 
 	// Provides the reconcilers used by the route manager to update the config
 	reconciler.ConfigReconcilers,
+
+	// BGP route configuration
+	cell.Config(config.DefaultRoutesConfig),
 
 	// BGP v2 reconcilers
 	reconcilerv2.ConfigReconcilers,

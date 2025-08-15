@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
@@ -66,10 +67,15 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, kprCfg kpr.KPRConfig) err
 		return fmt.Errorf("failed to load collection spec for bpf_sock.o: %w", err)
 	}
 
+	cfg := config.NewBPFSocket()
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.BgpNoEndpointsRoutable = option.Config.BGPNoEndpointsRoutable
+
 	coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
+		Constants: cfg,
 	})
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {

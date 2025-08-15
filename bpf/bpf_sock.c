@@ -5,6 +5,7 @@
 #include <bpf/api.h>
 
 #include <bpf/config/node.h>
+#include <bpf/config/sock.h>
 #include <netdev_config.h>
 
 #define SKIP_CALLS_MAP	1
@@ -287,8 +288,19 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	}
 	if (!svc)
 		return -ENXIO;
-	if (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc))
-		return -EHOSTUNREACH;
+	if (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc)) {
+		/* Keep the default behavior */
+		if (CONFIG(bgp_no_endpoints_routable)) {
+			return -EHOSTUNREACH;
+		} else {
+			if ((lb4_svc_is_routable(svc) && (svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE)) ||
+			    (!lb4_svc_is_routable(svc) &&
+			    (svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE))) {
+				return -EHOSTUNREACH;
+			}
+			return 0;
+		}
+	}
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_FWD, dst_ip,
 				bpf_ntohs(dst_port));
@@ -1011,8 +1023,18 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	}
 	if (!svc)
 		return sock6_xlate_v4_in_v6(ctx, udp_only);
-	if (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc))
-		return -EHOSTUNREACH;
+	if (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc)) {
+		if (CONFIG(bgp_no_endpoints_routable)) {
+			return -EHOSTUNREACH;
+		} else {
+			if ((lb6_svc_is_routable(svc) && (svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE)) ||
+			    (!lb6_svc_is_routable(svc) &&
+			    (svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE))) {
+				return -EHOSTUNREACH;
+			}
+			return 0;
+		}
+	}
 
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_FWD, &key.address,
 				bpf_ntohs(dst_port));
