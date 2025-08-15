@@ -28,7 +28,17 @@ import (
 
 // Result contains the result of a Reconciler invocation.
 type Result struct {
-	// Requeue tells the Controller to requeue the reconcile key.  Defaults to false.
+	// Requeue tells the Controller to perform a ratelimited requeue
+	// using the workqueues ratelimiter. Defaults to false.
+	//
+	// This setting is deprecated as it causes confusion and there is
+	// no good reason to use it. When waiting for an external event to
+	// happen, either the duration until it is supposed to happen or an
+	// appropriate poll interval should be used, rather than an
+	// interval emitted by a ratelimiter whose purpose it is to control
+	// retry on error.
+	//
+	// Deprecated: Use `RequeueAfter` instead.
 	Requeue bool
 
 	// RequeueAfter if greater than 0, tells the Controller to requeue the reconcile key after the Duration.

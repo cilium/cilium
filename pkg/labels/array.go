@@ -177,6 +177,17 @@ func (ls LabelArray) Get(key string) string {
 	return ""
 }
 
+func (ls LabelArray) Lookup(label string) (value string, exists bool) {
+	// The label is submitted in the form of `source.key=value`
+	keyLabel := parseSelectLabel(label, '.')
+	for _, l := range ls {
+		if l.HasKey(&keyLabel) {
+			return l.Value, true
+		}
+	}
+	return "", false
+}
+
 // DeepCopy returns a deep copy of the labels.
 func (ls LabelArray) DeepCopy() LabelArray {
 	if ls == nil {
