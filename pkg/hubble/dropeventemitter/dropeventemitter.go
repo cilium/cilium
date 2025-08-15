@@ -23,13 +23,15 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type DropEventEmitter struct {
-	reasons    []string
-	recorder   record.EventRecorder
-	k8sWatcher watchers.CacheAccessK8SWatcher
+type dropEventEmitter struct {
+	broadcaster record.EventBroadcaster
+	recorder    record.EventRecorder
+	k8sWatcher  watchers.CacheAccessK8SWatcher
+
+	reasons []string
 }
 
-func NewDropEventEmitter(interval time.Duration, reasons []string, k8s client.Clientset, watcher watchers.CacheAccessK8SWatcher) *DropEventEmitter {
+func new(interval time.Duration, reasons []string, k8s client.Clientset, watcher watchers.CacheAccessK8SWatcher) *dropEventEmitter {
 	broadcaster := record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{
 		BurstSize:            1,
 		QPS:                  1 / float32(interval.Seconds()),
@@ -39,30 +41,35 @@ func NewDropEventEmitter(interval time.Duration, reasons []string, k8s client.Cl
 	})
 	broadcaster.StartRecordingToSink(&typedv1.EventSinkImpl{Interface: k8s.CoreV1().Events("")})
 
-	return &DropEventEmitter{
-		reasons:    reasons,
-		recorder:   broadcaster.NewRecorder(slimscheme.Scheme, v1.EventSource{Component: "cilium"}),
-		k8sWatcher: watcher,
+	return &dropEventEmitter{
+		broadcaster: broadcaster,
+		recorder:    broadcaster.NewRecorder(slimscheme.Scheme, v1.EventSource{Component: "cilium"}),
+		k8sWatcher:  watcher,
+		reasons:     reasons,
 	}
 }
 
-func (e *DropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+func (e *dropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
 	reason := strings.ToLower(flow.DropReasonDesc.String())
 
 	// Only handle packet drops due to policy related to a Pod
 	if flow.Verdict != flowpb.Verdict_DROPPED ||
 		!slices.Contains(e.reasons, reason) ||
-		(flow.TrafficDirection == flowpb.TrafficDirection_INGRESS &&
-			flow.Destination.PodName == "") ||
-		(flow.TrafficDirection == flowpb.TrafficDirection_EGRESS &&
-			flow.Source.PodName == "") {
+		(flow.TrafficDirection == flowpb.TrafficDirection_INGRESS && flow.Destination.PodName == "") ||
+		(flow.TrafficDirection == flowpb.TrafficDirection_EGRESS && flow.Source.PodName == "") {
 		return nil
 	}
 
 	if flow.TrafficDirection == flowpb.TrafficDirection_INGRESS {
 		message := "Incoming packet dropped (" + reason + ") from " +
-			e.endpointToString(flow.IP.Source, flow.Source) + " " +
-			e.l4protocolToString(flow.L4)
+			endpointToString(flow.IP.Source, flow.Source) + " " +
+			l4protocolToString(flow.L4)
 		e.recorder.Event(&slimv1.Pod{
 			TypeMeta: metaslimv1.TypeMeta{
 				Kind:       "Pod",
@@ -75,8 +82,8 @@ func (e *DropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) e
 		}, v1.EventTypeWarning, "PacketDrop", message)
 	} else {
 		message := "Outgoing packet dropped (" + reason + ") to " +
-			e.endpointToString(flow.IP.Destination, flow.Destination) + " " +
-			e.l4protocolToString(flow.L4)
+			endpointToString(flow.IP.Destination, flow.Destination) + " " +
+			l4protocolToString(flow.L4)
 
 		objMeta := metaslimv1.ObjectMeta{
 			Name:      flow.Source.PodName,
@@ -101,17 +108,21 @@ func (e *DropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) e
 	return nil
 }
 
-func (e *DropEventEmitter) endpointToString(ip string, endpoint *flowpb.Endpoint) string {
-	if endpoint.PodName != "" {
-		return endpoint.Namespace + "/" + endpoint.PodName + " (" + ip + ")"
-	} else if identity.NumericIdentity(endpoint.Identity).IsReservedIdentity() {
-		return identity.NumericIdentity(endpoint.Identity).String() + " (" + ip + ")"
-	} else {
-		return ip
-	}
+func (e *dropEventEmitter) Shutdown() {
+	e.broadcaster.Shutdown()
 }
 
-func (e *DropEventEmitter) l4protocolToString(l4 *flowpb.Layer4) string {
+func endpointToString(ip string, endpoint *flowpb.Endpoint) string {
+	if endpoint.PodName != "" {
+		return endpoint.Namespace + "/" + endpoint.PodName + " (" + ip + ")"
+	}
+	if identity.NumericIdentity(endpoint.Identity).IsReservedIdentity() {
+		return identity.NumericIdentity(endpoint.Identity).String() + " (" + ip + ")"
+	}
+	return ip
+}
+
+func l4protocolToString(l4 *flowpb.Layer4) string {
 	switch l4.Protocol.(type) {
 	case *flowpb.Layer4_TCP:
 		return "TCP/" + strconv.Itoa(int(l4.GetTCP().DestinationPort))
