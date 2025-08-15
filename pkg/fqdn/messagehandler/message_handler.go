@@ -49,7 +49,6 @@ type DNSMessageHandler interface {
 		serverAddrPort netip.AddrPort,
 		msg *dns.Msg,
 		protocol string,
-		allowed bool,
 		stat *dnsproxy.ProxyRequestContext,
 	) error
 
@@ -60,7 +59,6 @@ type DNSMessageHandler interface {
 		serverAddrPort netip.AddrPort,
 		msg *dns.Msg,
 		protocol string,
-		allowed bool,
 		stat *dnsproxy.ProxyRequestContext,
 	) error
 
@@ -121,10 +119,9 @@ func (h *dnsMessageHandler) OnQuery(
 	serverAddrPort netip.AddrPort,
 	msg *dns.Msg,
 	protocol string,
-	allowed bool,
 	stat *dnsproxy.ProxyRequestContext,
 ) error {
-	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, msg, protocol, allowed, stat)
+	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, msg, protocol, true, stat)
 }
 
 func (h *dnsMessageHandler) OnResponse(
@@ -135,10 +132,9 @@ func (h *dnsMessageHandler) OnResponse(
 	serverAddrPort netip.AddrPort,
 	msg *dns.Msg,
 	protocol string,
-	allowed bool,
 	stat *dnsproxy.ProxyRequestContext,
 ) error {
-	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, msg, protocol, allowed, stat)
+	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, msg, protocol, true, stat)
 }
 
 // EndMetric ends the span stats for this transaction and updates metrics.
