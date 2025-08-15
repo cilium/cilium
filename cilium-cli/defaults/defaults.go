@@ -169,7 +169,7 @@ var (
 		// renovate: datasource=docker
 		"ConnectivityCheckAlpineCurlImage": "quay.io/cilium/alpine-curl:v1.10.0@sha256:913e8c9f3d960dde03882defa0edd3a919d529c2eb167caa7f54194528bde364",
 		// renovate: datasource=docker
-		"ConnectivityCheckJSONMockImage": "quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603",
+		"ConnectivityCheckJSONMockImage": "quay.io/cilium/json-mock:v1.3.9@sha256:c98b26177a5a60020e5aa404896d55f0ab573d506f42acfb4aa4f5705a5c6f56",
 		// renovate: datasource=docker
 		"ConnectivityDNSTestServerImage": "registry.k8s.io/coredns/coredns:v1.12.2@sha256:af8c8d35a5d184b386c4a6d1a012c8b218d40d1376474c7d071bb6c07201f47d",
 		// renovate: datasource=docker
