@@ -395,7 +395,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				s.metrics.IncreaseNACK(typeURL)
 				// versions after lastAppliedVersion, upto and including lastReceivedVersion are NACKed
 				requestLog.Warn(
-					"NACK received for versions after %s and up to %s; waiting for a version update before sending again",
+					"NACK received for versions between the reported version up to the response nonce; waiting for a version update before sending again",
 					logfields.XDSDetail, detail,
 					logfields.Version, req.VersionInfo,
 					logfields.ResponseNonce, req.ResponseNonce,
