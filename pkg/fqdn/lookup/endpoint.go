@@ -17,7 +17,7 @@ import (
 )
 
 type ProxyLookupHandler interface {
-	// LookupSecIDByIP is a provided callback that returns the IP's security ID
+	// LookupSecIDByIP looks up the security ID for a given IP address
 	// from the ipcache.
 	LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool)
 
@@ -43,7 +43,7 @@ func (p *proxyLookupHandler) LookupRegisteredEndpoint(endpointAddr netip.Addr) (
 		return e, e.IsHost(), nil
 	}
 
-	localNode, err := p.localNodeStore.Get(context.TODO())
+	localNode, err := p.localNodeStore.Get(context.Background())
 	if err != nil {
 		return nil, true, fmt.Errorf("local node has not been initialized yet: %w", err)
 	}
@@ -56,7 +56,7 @@ func (p *proxyLookupHandler) LookupRegisteredEndpoint(endpointAddr netip.Addr) (
 		}
 	}
 
-	return nil, false, fmt.Errorf("cannot find endpoint with IP %s", endpointAddr)
+	return nil, false, fmt.Errorf("cannot find endpoint with IP %s", endpointAddr.String())
 }
 
 func (p *proxyLookupHandler) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {

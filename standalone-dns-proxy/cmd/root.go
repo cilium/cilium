@@ -10,13 +10,20 @@ import (
 	"os"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
+	"github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/standalone-dns-proxy/pkg/client"
+	"github.com/cilium/cilium/standalone-dns-proxy/pkg/lookup"
+	"github.com/cilium/cilium/standalone-dns-proxy/pkg/messagehandler"
 )
 
 var (
@@ -27,6 +34,18 @@ var (
 	StandaloneDNSProxyCell = cell.Module(
 		"standalone-dns-proxy",
 		"Provides the standalone DNS proxy functionality",
+
+		// includes the dns proxy
+		bootstrap.Cell,
+
+		// includes the gRPC client for communication with the cilium agent
+		client.Cell,
+
+		//includes the endpoint/identity lookup functionality needed by the DNS proxy
+		lookup.Cell,
+
+		// includes the message handler for receiving messages from the proxy and sending messages to the gRPC client which in turn sends them to the cilium agent
+		messagehandler.Cell,
 
 		cell.Provide(func() *option.DaemonConfig {
 			return option.Config
@@ -79,14 +98,19 @@ func Execute(cmd *cobra.Command) {
 type standaloneDNSProxyParams struct {
 	cell.In
 
-	Logger      *slog.Logger
-	AgentConfig *option.DaemonConfig
-	FQDNConfig  service.FQDNConfig
-	Lifecycle   cell.Lifecycle
+	Logger            *slog.Logger
+	AgentConfig       *option.DaemonConfig
+	FQDNConfig        service.FQDNConfig
+	Lifecycle         cell.Lifecycle
+	JobGroup          job.Group
+	ConnectionHandler client.ConnectionHandler
+	DNSProxier        proxy.DNSProxier
+	DNSRulesTable     statedb.RWTable[service.PolicyRules]
+	DB                *statedb.DB
 }
 
 func registerStandaloneDNSProxyHooks(params standaloneDNSProxyParams) error {
-	sdp := NewStandaloneDNSProxy(params.Logger, params.AgentConfig, params.FQDNConfig)
+	sdp := NewStandaloneDNSProxy(params)
 
 	if params.AgentConfig.EnableL7Proxy && params.FQDNConfig.EnableStandaloneDNSProxy {
 		sdp.logger.Info("Standalone DNS proxy is enabled")
