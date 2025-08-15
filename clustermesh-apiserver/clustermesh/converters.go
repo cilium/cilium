@@ -186,10 +186,11 @@ func ciliumEndpointMapper(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
 						continue
 					}
 					entry := identity.IPIdentityPair{
-						IP:           net.ParseIP(ip),
-						HostIP:       net.ParseIP(n.NodeIP),
-						K8sNamespace: endpoint.Namespace,
-						K8sPodName:   endpoint.Name,
+						IP:                net.ParseIP(ip),
+						HostIP:            net.ParseIP(n.NodeIP),
+						K8sNamespace:      endpoint.Namespace,
+						K8sPodName:        endpoint.Name,
+						K8sServiceAccount: endpoint.ServiceAccount,
 					}
 
 					if endpoint.Identity != nil {
@@ -233,12 +234,13 @@ func ciliumEndpointSliceMapper(endpointslice *cilium_api_v2a1.CiliumEndpointSlic
 						}
 
 						entry := identity.IPIdentityPair{
-							IP:           net.ParseIP(ip),
-							HostIP:       net.ParseIP(n.NodeIP),
-							K8sNamespace: endpointslice.Namespace,
-							K8sPodName:   endpoint.Name,
-							ID:           identity.NumericIdentity(endpoint.IdentityID),
-							Key:          uint8(endpoint.Encryption.Key),
+							IP:                net.ParseIP(ip),
+							HostIP:            net.ParseIP(n.NodeIP),
+							K8sNamespace:      endpointslice.Namespace,
+							K8sPodName:        endpoint.Name,
+							ID:                identity.NumericIdentity(endpoint.IdentityID),
+							Key:               uint8(endpoint.Encryption.Key),
+							K8sServiceAccount: endpoint.ServiceAccount,
 						}
 
 						if !yield(&entry) {
