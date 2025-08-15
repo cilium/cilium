@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	mockipc "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 func BenchmarkNotifyOnDNSMsg(b *testing.B) {
@@ -143,8 +142,8 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 				// parameter is only used in logging. Not using the endpoint's IP
 				// so we don't spend any time in the benchmark on converting from
 				// net.IP to string.
-				require.NoError(b, handler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsg, "udp", true, emptyPRCtx))
-				require.NoError(b, handler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsg, "udp", true, emptyPRCtx))
+				require.NoError(b, handler.OnResponse(ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsg, "udp", emptyPRCtx))
+				require.NoError(b, handler.OnResponse(ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsg, "udp", emptyPRCtx))
 			}()
 		}
 		wg.Wait()

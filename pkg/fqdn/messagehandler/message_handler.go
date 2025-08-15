@@ -70,21 +70,6 @@ type DNSMessageHandler interface {
 		err error,
 	) error
 
-	// NotifyOnDNSMsg handles DNS data when the in-agent DNS proxy sees a
-	// DNS message. It emits monitor events, proxy metrics and stores DNS
-	// data in the DNS cache. To update the DNS cache, it will call
-	// UpdateOnDNSMsg() if the DNS message is a response.
-	NotifyOnDNSMsg(lookupTime time.Time,
-		ep *endpoint.Endpoint,
-		epIPPort string,
-		serverID identity.NumericIdentity,
-		serverAddrPort netip.AddrPort,
-		msg *dns.Msg,
-		protocol string,
-		allowed bool,
-		stat *dnsproxy.ProxyRequestContext,
-	) error
-
 	// UpdateOnDNSMsg updates the DNS cache with the DNS message data.
 	// It is called when the DNS message is a response. It is called by
 	// NotifyOnDNSMsg() to update the DNS cache and standalone DNS
@@ -131,7 +116,7 @@ func (h *dnsMessageHandler) OnQuery(
 	if query.Response {
 		return fmt.Errorf("expected query, got response")
 	}
-	return h.NotifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, query, protocol, true, stat)
+	return h.notifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, query, protocol, true, stat)
 }
 
 func (h *dnsMessageHandler) OnResponse(
@@ -146,7 +131,7 @@ func (h *dnsMessageHandler) OnResponse(
 	if !response.Response {
 		return fmt.Errorf("expected response, got query")
 	}
-	return h.NotifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, response, protocol, true, stat)
+	return h.notifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, response, protocol, true, stat)
 }
 
 func (h *dnsMessageHandler) OnError(
@@ -160,7 +145,7 @@ func (h *dnsMessageHandler) OnError(
 	err error,
 ) error {
 	stat.Err = err
-	return h.NotifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, query, protocol, false, stat)
+	return h.notifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, query, protocol, false, stat)
 }
 
 // EndMetric ends the span stats for this transaction and updates metrics.
@@ -202,7 +187,7 @@ func endMetric(istat *dnsproxy.ProxyRequestContext, metricError string) {
 // epIPPort and serverAddrPort should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
-func (h *dnsMessageHandler) NotifyOnDNSMsg(
+func (h *dnsMessageHandler) notifyOnDNSMsg(
 	lookupTime time.Time,
 	ep *endpoint.Endpoint,
 	epIPPort string,
