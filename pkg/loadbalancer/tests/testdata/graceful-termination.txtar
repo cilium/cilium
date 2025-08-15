@@ -8,12 +8,10 @@ hive start
 
 # Start with two backends that are both active.
 cp endpointslice.yaml.tmpl endpointslice.yaml
-replace '$READY1' 'true' endpointslice.yaml
-replace '$SERVING1' 'true' endpointslice.yaml
 replace '$TERM1' 'false' endpointslice.yaml
-replace '$READY2' 'true' endpointslice.yaml
-replace '$SERVING2' 'true' endpointslice.yaml
+replace '$READY1' 'true' endpointslice.yaml
 replace '$TERM2' 'false' endpointslice.yaml
+replace '$READY2' 'true' endpointslice.yaml
 
 k8s/add service.yaml endpointslice.yaml
 db/cmp services services.table
@@ -27,12 +25,10 @@ lb/maps-dump lbmaps.actual
 # Set the first backend as terminating. The second backend
 # will now serve the traffic.
 cp endpointslice.yaml.tmpl endpointslice.yaml
-replace '$READY1' 'false' endpointslice.yaml
-replace '$SERVING1' 'true' endpointslice.yaml
 replace '$TERM1' 'true' endpointslice.yaml
-replace '$READY2' 'true' endpointslice.yaml
-replace '$SERVING2' 'true' endpointslice.yaml
+replace '$READY1' 'false' endpointslice.yaml
 replace '$TERM2' 'false' endpointslice.yaml
+replace '$READY2' 'true' endpointslice.yaml
 k8s/update endpointslice.yaml
 db/cmp backends backends-terminating1.table
 
@@ -44,12 +40,10 @@ lb/maps-dump lbmaps.actual
 # are now active backends the terminating backends are used
 # instead.
 cp endpointslice.yaml.tmpl endpointslice.yaml
-replace '$READY1' 'false' endpointslice.yaml
 replace '$TERM1' 'true' endpointslice.yaml
-replace '$SERVING1' 'true' endpointslice.yaml
-replace '$READY2' 'false' endpointslice.yaml
+replace '$READY1' 'false' endpointslice.yaml
 replace '$TERM2' 'true' endpointslice.yaml
-replace '$SERVING2' 'true' endpointslice.yaml
+replace '$READY2' 'false' endpointslice.yaml
 k8s/update endpointslice.yaml
 db/cmp frontends frontends-terminating2.table
 db/cmp backends backends-terminating2.table
@@ -57,43 +51,6 @@ db/cmp backends backends-terminating2.table
 # Check BPF maps
 lb/maps-dump lbmaps.actual
 * cmp lbmaps-terminating2.expected lbmaps.actual
-
-# Set the second backend as terminating AND not serving.
-# This now won't be used as a fallback.
-cp endpointslice.yaml.tmpl endpointslice.yaml
-replace '$READY1' 'false' endpointslice.yaml
-replace '$SERVING1' 'true' endpointslice.yaml
-replace '$TERM1' 'true' endpointslice.yaml
-replace '$READY2' 'false' endpointslice.yaml
-replace '$SERVING2' 'false' endpointslice.yaml
-replace '$TERM2' 'true' endpointslice.yaml
-k8s/update endpointslice.yaml
-db/cmp frontends frontends-terminating3.table
-db/cmp backends backends-terminating3.table
-
-# Check BPF maps
-lb/maps-dump lbmaps.actual
-* cmp lbmaps-terminating3.expected lbmaps.actual
-
-# Set the first backend as not serving and second as ready+terminating .
-# First backend will be quarantined. Existing connections to
-# it won't be affected as it's still in the backends BPF map.
-# The second backend will be just considered ready and its terminating
-# condition is ignored ("ready" overrides everything).
-cp endpointslice.yaml.tmpl endpointslice.yaml
-replace '$READY1' 'false' endpointslice.yaml
-replace '$SERVING1' 'false' endpointslice.yaml
-replace '$TERM1' 'false' endpointslice.yaml
-replace '$READY2' 'true' endpointslice.yaml
-replace '$SERVING2' 'false' endpointslice.yaml
-replace '$TERM2' 'true' endpointslice.yaml
-k8s/update endpointslice.yaml
-db/cmp frontends frontends-terminating4.table
-db/cmp backends backends-terminating4.table
-
-# Check BPF maps
-lb/maps-dump lbmaps.actual
-* cmp lbmaps-terminating4.expected lbmaps.actual
 
 # Cleanup
 k8s/delete service.yaml endpointslice.yaml
@@ -116,14 +73,6 @@ Address                 Type        ServiceName              Status  Backends
 Address                 Type        ServiceName              Status  Backends
 10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP, 10.244.0.113:8081/TCP
 
--- frontends-terminating3.table --
-Address                 Type        ServiceName              Status  Backends
-10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP, 10.244.0.113:8081/TCP
-
--- frontends-terminating4.table --
-Address                 Type        ServiceName              Status  Backends
-10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP, 10.244.0.113:8081/TCP
-
 -- backends.table --
 Address                 Instances                NodeName
 10.244.0.112:8081/TCP   test/graceful-term-svc   graceful-term-control-plane
@@ -138,16 +87,6 @@ Address                 Instances                              NodeName
 Address                 Instances                             NodeName
 10.244.0.112:8081/TCP   test/graceful-term-svc [terminating]  graceful-term-control-plane
 10.244.0.113:8081/TCP   test/graceful-term-svc [terminating]  graceful-term-control-plane
-
--- backends-terminating3.table --
-Address                 Instances                                         NodeName
-10.244.0.112:8081/TCP   test/graceful-term-svc [terminating]              graceful-term-control-plane
-10.244.0.113:8081/TCP   test/graceful-term-svc [terminating-not-serving]  graceful-term-control-plane
-
--- backends-terminating4.table --
-Address                 Instances                                         NodeName
-10.244.0.112:8081/TCP   test/graceful-term-svc [quarantined]              graceful-term-control-plane
-10.244.0.113:8081/TCP   test/graceful-term-svc                            graceful-term-control-plane
 
 -- service.yaml --
 apiVersion: v1
@@ -207,7 +146,7 @@ endpoints:
   - 10.244.0.112
   conditions:
     ready: $READY1
-    serving: $SERVING1
+    serving: true
     terminating: $TERM1
   nodeName: graceful-term-control-plane
   targetRef:
@@ -220,7 +159,7 @@ endpoints:
   - 10.244.0.113
   conditions:
     ready: $READY2
-    serving: $SERVING2
+    serving: true
     terminating: $TERM2
   nodeName: graceful-term-control-plane
   targetRef:
@@ -258,19 +197,3 @@ REV: ID=1 ADDR=10.96.116.33:8081
 SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP
 SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
 SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
--- lbmaps-terminating3.expected --
-BE: ID=1 ADDR=10.244.0.112:8081/TCP STATE=terminating
-BE: ID=2 ADDR=10.244.0.113:8081/TCP STATE=terminating
-MAGLEV: ID=1 INNER=[1(1021)]
-REV: ID=1 ADDR=10.96.116.33:8081
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=1 FLAGS=ClusterIP
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
--- lbmaps-terminating4.expected --
-BE: ID=1 ADDR=10.244.0.112:8081/TCP STATE=quarantined
-BE: ID=2 ADDR=10.244.0.113:8081/TCP STATE=active
-MAGLEV: ID=1 INNER=[2(1021)]
-REV: ID=1 ADDR=10.96.116.33:8081
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=1 FLAGS=ClusterIP
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP

@@ -1373,18 +1373,12 @@ Cilium's eBPF kube-proxy replacement supports graceful termination of service
 endpoint pods. The Cilium agent detects such terminating Pod events, and
 increments the metric ``k8s_terminating_endpoints_events_total``.
 
-When Cilium agent receives a Kubernetes update event that marks an endpoint as
-terminating Cilium will retain the datapath state necessary for existing connections.
-The terminating endpoint will be used as fallback for new connections only if
-1) no active endpoints exist for the service and 2) terminating endpoint has condition ``serving``
-(e.g. pod is still passing `readinessProbes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-readiness-probes>`_).
-
-If ``publishNotReadyAddresses`` is set on the Service the endpoints received by Cilium
-may have both the ``ready`` and ``terminating`` conditions set. In this case Cilium follows
-kube-proxy and uses these for new connections, ignoring the ``terminating`` condition.
-
-The endpoint state is fully removed when the agent receives a Kubernetes delete
-event for the endpoint. The `Kubernetes pod termination <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination>`_
+When Cilium agent receives a Kubernetes update event for a terminating endpoint,
+the datapath state for the endpoint is removed such that it won't service new
+connections, but the endpoint's active connections are able to terminate
+gracefully. The endpoint state is fully removed when the agent receives
+a Kubernetes delete event for the endpoint. The `Kubernetes
+pod termination <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination>`_
 documentation contains more background on the behavior and configuration using ``terminationGracePeriodSeconds``.
 There are some special cases, like zero disruption during rolling updates, that require to be able to send traffic
 to Terminating Pods that are still Serving traffic during the Terminating period, the Kubernetes blog
