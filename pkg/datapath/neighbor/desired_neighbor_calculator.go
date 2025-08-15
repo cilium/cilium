@@ -198,8 +198,9 @@ func (c *desiredNeighborCalculator) commitDesiredNeighbors(
 			// If the desired neighbor is not in the set of unique desired neighbors,
 			// delete it.
 			if _, ok := uniqueDesiredNeighbors[dn.DesiredNeighborKey]; !ok {
-				_, _, err := c.DesiredNeighborTable.Delete(tx, dn)
-				errs = errors.Join(errs, fmt.Errorf("failed to delete desired neighbor: %w", err))
+				if _, _, err := c.DesiredNeighborTable.Delete(tx, dn); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to delete desired neighbor: %w", err))
+				}
 			}
 		}
 	}
@@ -207,7 +208,7 @@ func (c *desiredNeighborCalculator) commitDesiredNeighbors(
 	for dnKey := range uniqueDesiredNeighbors {
 		// Insert the desired neighbor into the table if it doesn't exist.
 		// Do not modify the old entry if it exists.
-		_, _, err := c.DesiredNeighborTable.Modify(tx, &DesiredNeighbor{
+		if _, _, err := c.DesiredNeighborTable.Modify(tx, &DesiredNeighbor{
 			DesiredNeighborKey: dnKey,
 			Status:             reconciler.StatusPending(),
 		}, func(old *DesiredNeighbor, new *DesiredNeighbor) *DesiredNeighbor {
@@ -216,8 +217,9 @@ func (c *desiredNeighborCalculator) commitDesiredNeighbors(
 				DesiredNeighborKey: old.DesiredNeighborKey,
 				Status:             old.Status,
 			}
-		})
-		errs = errors.Join(errs, fmt.Errorf("failed to insert desired neighbor: %w", err))
+		}); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to insert desired neighbor: %w", err))
+		}
 	}
 
 	// If the forwardable IP table is initialized in the read transaction,
