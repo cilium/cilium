@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: echo-container
-        image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603 
+        image: quay.io/cilium/json-mock-ci:087fa82b3c88730953de8054e9ef9390f2d9895a@sha256:7a0acfd28c377242471ede3a21b06df276e11ab0bac6d337295b27c7cd3dada9
         livenessProbe:
           exec:
             command:

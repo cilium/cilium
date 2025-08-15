@@ -2,7 +2,7 @@ package connectivity_check
 
 // Default parameters for echo servers (may be overridden).
 _echoDeployment: {
-	_image:       "quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603"
+	_image:       "quay.io/cilium/json-mock-ci:087fa82b3c88730953de8054e9ef9390f2d9895a@sha256:7a0acfd28c377242471ede3a21b06df276e11ab0bac6d337295b27c7cd3dada9"
 	_probeTarget: *"localhost:8080" | string
 	_probePath:   ""
 }
