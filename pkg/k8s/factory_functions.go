@@ -147,9 +147,10 @@ func TransformToCiliumEndpoint(obj any) (any, error) {
 				enc := concreteObj.Status.Encryption
 				return &enc
 			}(),
-			Identity:   concreteObj.Status.Identity,
-			Networking: concreteObj.Status.Networking,
-			NamedPorts: concreteObj.Status.NamedPorts,
+			Identity:       concreteObj.Status.Identity,
+			Networking:     concreteObj.Status.Networking,
+			NamedPorts:     concreteObj.Status.NamedPorts,
+			ServiceAccount: concreteObj.Status.ServiceAccount,
 		}, nil
 	case *types.CiliumEndpoint:
 		return obj, nil
@@ -182,9 +183,10 @@ func TransformToCiliumEndpoint(obj any) (any, error) {
 					enc := ciliumEndpoint.Status.Encryption
 					return &enc
 				}(),
-				Identity:   ciliumEndpoint.Status.Identity,
-				Networking: ciliumEndpoint.Status.Networking,
-				NamedPorts: ciliumEndpoint.Status.NamedPorts,
+				Identity:       ciliumEndpoint.Status.Identity,
+				Networking:     ciliumEndpoint.Status.Networking,
+				NamedPorts:     ciliumEndpoint.Status.NamedPorts,
+				ServiceAccount: ciliumEndpoint.Status.ServiceAccount,
 			},
 		}, nil
 	default:
