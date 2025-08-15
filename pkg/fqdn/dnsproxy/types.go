@@ -20,6 +20,7 @@ import (
 
 type OnResponseFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext) error
 type OnQueryFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext) error
+type OnErrorFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext, error error) error
 
 // NotifyOnDNSMsgFunc handles propagating DNS response data
 // See DNSProxy.LookupEndpointIDByIP for usage.

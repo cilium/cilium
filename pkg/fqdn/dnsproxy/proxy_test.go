@@ -96,13 +96,13 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	}
 	proxy := NewDNSProxy(dnsProxyConfig,
 		s,
-		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
-			return nil
-		},
 		func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext) error {
 			return nil
 		},
 		func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext) error {
+			return nil
+		},
+		func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext, error error) error {
 			return nil
 		},
 	)

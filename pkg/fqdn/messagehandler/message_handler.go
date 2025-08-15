@@ -60,6 +60,16 @@ type DNSMessageHandler interface {
 		stat *dnsproxy.ProxyRequestContext,
 	) error
 
+	OnError(ep *endpoint.Endpoint,
+		epIPPort string,
+		serverID identity.NumericIdentity,
+		serverAddrPort netip.AddrPort,
+		msg *dns.Msg,
+		protocol string,
+		stat *dnsproxy.ProxyRequestContext,
+		err error,
+	) error
+
 	// NotifyOnDNSMsg handles DNS data when the in-agent DNS proxy sees a
 	// DNS message. It emits monitor events, proxy metrics and stores DNS
 	// data in the DNS cache. To update the DNS cache, it will call
@@ -137,6 +147,20 @@ func (h *dnsMessageHandler) OnResponse(
 		return fmt.Errorf("expected response, got query")
 	}
 	return h.NotifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, response, protocol, true, stat)
+}
+
+func (h *dnsMessageHandler) OnError(
+	ep *endpoint.Endpoint,
+	epIPPort string,
+	serverID identity.NumericIdentity,
+	serverAddrPort netip.AddrPort,
+	query *dns.Msg,
+	protocol string,
+	stat *dnsproxy.ProxyRequestContext,
+	err error,
+) error {
+	stat.Err = err
+	return h.NotifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, query, protocol, false, stat)
 }
 
 // EndMetric ends the span stats for this transaction and updates metrics.
