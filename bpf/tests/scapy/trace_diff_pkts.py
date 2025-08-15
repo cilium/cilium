@@ -46,6 +46,53 @@ def parse_asserts(filename: str) -> List[Dict]:
             asserts[name][kind.lower().strip()] = eval(s)
     return asserts
 
+def pkt_to_dict(pkt: Packet) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+    current_layer = pkt
+
+    current_layer_str = ""
+    while current_layer:
+        layer_name = current_layer.__class__.__name__
+        current_layer_str += f"[ {layer_name} ]"
+        for field_name, field_value in current_layer.fields.items():
+            key = f"{current_layer_str}.{field_name}"
+            result[key] = field_value
+        current_layer = current_layer.payload
+        if not isinstance(current_layer, Packet):
+            break
+
+    return result
+
+def diff_pkts(expected: Packet, got: Packet) -> None:
+    pkt1 = pkt_to_dict(expected)
+    pkt2 = pkt_to_dict(got)
+
+    remove = {}
+    add = {}
+
+    for key in pkt1:
+        if key in pkt2:
+            if pkt1[key] == pkt2[key]:
+                continue
+            else:
+                remove[key] = pkt1[key]
+                add[key] = pkt2[key]
+        else:
+            remove[key] = pkt1[key]
+    for key in pkt2:
+        if key in pkt1:
+            continue
+        add[key] = pkt2[key]
+
+    # Print diff
+    for key in remove:
+        print(f"  - {key}: {str(remove[key])}")
+        if key in add:
+            print(f"  + {key}: {str(add[key])}")
+            add.pop(key)
+    for key in add:
+            print(f"  + {key}: {str(add[key])}")
+
 def main():
     parser = argparse.ArgumentParser(description="Parse failed assertions from a trace_pipe log file.")
     parser.add_argument('filename', help="Log file to parse")
@@ -54,14 +101,19 @@ def main():
     asserts = parse_asserts(args.filename)
 
     for name, data in asserts.items():
-        print(f"=== Start {data['file']}:{data['linenum']} '{name}' ===")
-        print(f"--- Expected ---")
+        print(f"=== START {data['file']}:{data['linenum']} '{name}' ===")
+        print(f">>> Expected (len: {len(asserts[name]['expected'])} bytes) <<<")
         asserts[name]["expected"].show()
-        print(f"--- Got ---")
+        print(f">>> Got (len: {len(asserts[name]['got'])} bytes) <<<")
         asserts[name]["got"].show()
-        print(f"===  End  {data['file']}:{data['linenum']} '{name}' ===")
 
-        #TODO add a more specific diff (patch-style diff?)
+        # Show pseudo-diff
+        print(f">>> Diff <<<")
+        print(f"  --- a/pkt (Expected)")
+        print(f"  +++ b/pkt (Got)\n")
+
+        diff_pkts(asserts[name]["expected"], asserts[name]["got"])
+        print(f"\n=== END {data['file']}:{data['linenum']} '{name}' ===")
 
 if __name__ == "__main__":
     main()
