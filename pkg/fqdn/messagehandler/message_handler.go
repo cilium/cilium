@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/netip"
 	"strings"
 
@@ -37,7 +38,6 @@ const (
 
 	metricErrorTimeout = "timeout"
 	metricErrorProxy   = "proxyErr"
-	metricErrorDenied  = "denied"
 	metricErrorAllow   = "allow"
 )
 
@@ -264,43 +264,15 @@ func (h *dnsMessageHandler) OnResponse(
 	return nil
 }
 
-func (h *dnsMessageHandler) OnError(
-	ep *endpoint.Endpoint,
-	epIPPort string,
-	serverID identity.NumericIdentity,
-	serverAddrPort netip.AddrPort,
-	query *dns.Msg,
-	protocol string,
-	stat *dnsproxy.ProxyRequestContext,
-	err error,
-) error {
-	stat.Err = err
-	return h.notifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, query, protocol, false, stat)
-}
-
-// EndMetric ends the span stats for this transaction and updates metrics.
-func endMetric(istat *dnsproxy.ProxyRequestContext, metricError string) {
-	istat.ProcessingTime.End(true)
-	istat.TotalTime.End(true)
-	if errors.As(istat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(istat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
-		metrics.FQDNSemaphoreRejectedTotal.Inc()
+func isTimeout(err error) bool {
+	var neterr net.Error
+	if errors.As(err, &neterr) {
+		return neterr.Timeout()
 	}
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
-		istat.TotalTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstreamTime).Observe(
-		istat.UpstreamTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
-		istat.ProcessingTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
-		istat.SemaphoreAcquireTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyGenTime).Observe(
-		istat.PolicyGenerationTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
-		istat.PolicyCheckTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
-		istat.DataplaneTime.Total().Seconds())
+	return false
 }
 
+// FIXME: docs
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
 // events, proxy metrics and storing DNS data in the DNS cache. This may
 // result in rule generation.
@@ -317,37 +289,30 @@ func endMetric(istat *dnsproxy.ProxyRequestContext, metricError string) {
 // epIPPort and serverAddrPort should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
-func (h *dnsMessageHandler) notifyOnDNSMsg(
-	lookupTime time.Time,
+func (h *dnsMessageHandler) OnError(
 	ep *endpoint.Endpoint,
 	epIPPort string,
 	serverID identity.NumericIdentity,
 	serverAddrPort netip.AddrPort,
 	msg *dns.Msg,
 	protocol string,
-	allowed bool,
 	stat *dnsproxy.ProxyRequestContext,
+	err error,
 ) error {
+	stat.Err = err
+
 	var verdict accesslog.FlowVerdict
 	var reason string
 	metricError := metricErrorAllow
 	stat.ProcessingTime.Start()
 
-	switch {
-	case stat.IsTimeout():
+	if isTimeout(err) {
 		endMetric(stat, metricErrorTimeout)
 		return nil
-	case stat.Err != nil:
+	} else if err != nil {
 		metricError = metricErrorProxy
 		verdict = accesslog.VerdictError
-		reason = "Error: " + stat.Err.Error()
-	case allowed:
-		verdict = accesslog.VerdictForwarded
-		reason = "Allowed by policy"
-	case !allowed:
-		metricError = metricErrorDenied
-		verdict = accesslog.VerdictDenied
-		reason = "Denied by policy"
+		reason = "Error: " + err.Error()
 	}
 
 	if ep == nil {
@@ -394,7 +359,7 @@ func (h *dnsMessageHandler) notifyOnDNSMsg(
 	}
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-		h.UpdateOnDNSMsg(lookupTime, ep, qname, responseIPs, int(TTL), stat)
+		h.UpdateOnDNSMsg(time.Now(), ep, qname, responseIPs, int(TTL), stat)
 		endMetric(stat, metricError)
 	}
 
@@ -431,6 +396,29 @@ func (h *dnsMessageHandler) notifyOnDNSMsg(
 	h.proxyAccessLogger.Log(record)
 
 	return nil
+}
+
+// EndMetric ends the span stats for this transaction and updates metrics.
+func endMetric(istat *dnsproxy.ProxyRequestContext, metricError string) {
+	istat.ProcessingTime.End(true)
+	istat.TotalTime.End(true)
+	if errors.As(istat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(istat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
+		metrics.FQDNSemaphoreRejectedTotal.Inc()
+	}
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
+		istat.TotalTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstreamTime).Observe(
+		istat.UpstreamTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
+		istat.ProcessingTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
+		istat.SemaphoreAcquireTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyGenTime).Observe(
+		istat.PolicyGenerationTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
+		istat.PolicyCheckTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
+		istat.DataplaneTime.Total().Seconds())
 }
 
 func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) {
