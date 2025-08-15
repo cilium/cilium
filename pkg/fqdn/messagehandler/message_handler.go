@@ -291,25 +291,20 @@ func (h *dnsMessageHandler) OnError(
 	epIPPort string,
 	serverID identity.NumericIdentity,
 	serverAddrPort netip.AddrPort,
-	msg *dns.Msg,
+	query *dns.Msg,
 	protocol string,
 	stat *dnsproxy.ProxyRequestContext,
 	err error,
 ) error {
-	stat.Err = err
-
-	var verdict accesslog.FlowVerdict
-	var reason string
-	metricError := metricErrorAllow
 	stat.ProcessingTime.Start()
+	stat.Err = err
+	if query.Response {
+		return fmt.Errorf("error callback expected query, got response")
+	}
 
 	if isTimeout(err) {
 		endMetric(stat, metricErrorTimeout)
 		return nil
-	} else if err != nil {
-		metricError = metricErrorProxy
-		verdict = accesslog.VerdictError
-		reason = "Error: " + err.Error()
 	}
 
 	if ep == nil {
@@ -318,62 +313,45 @@ func (h *dnsMessageHandler) OnError(
 		// cache if we don't know that an endpoint asked for it (this is
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
-		endMetric(stat, metricError)
+		endMetric(stat, metricErrorProxy)
 		return dnsproxy.ErrDNSRequestNoEndpoint{}
 	}
 
-	// We determine the direction based on the DNS packet. The observation
-	// point is always Egress, however.
-	var flowType accesslog.FlowType
-	var addrInfo accesslog.AddressingInfo
-	serverAddrPortStr := serverAddrPort.String()
-	if msg.Response {
-		flowType = accesslog.TypeResponse
-		addrInfo.DstIPPort = epIPPort
-		addrInfo.DstEPID = ep.GetID()
-		// ignore error; log fields are best effort. Only returns error if endpoint
-		// is going away.
-		addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
-		addrInfo.SrcIPPort = serverAddrPortStr
-		addrInfo.SrcIdentity = serverID
-	} else {
-		flowType = accesslog.TypeRequest
-		addrInfo.SrcIPPort = epIPPort
-		addrInfo.SrcEPID = ep.GetID()
-		// ignore error; same reason as above.
-		addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
-		addrInfo.DstIPPort = serverAddrPortStr
-		addrInfo.DstIdentity = serverID
-	}
-
-	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := ExtractMsgDetails(msg)
+	qname, qTypes, err := ExtractQueryDetails(query)
 	if err != nil {
-		h.logger.Error("cannot extract DNS message details",
+		h.logger.Error("cannot extract DNS query details",
 			logfields.Error, err,
 			logfields.DNSName, qname,
 		)
-		return fmt.Errorf("failed to extract DNS message details: %w", err)
-	}
-
-	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-		h.UpdateOnDNSMsg(time.Now(), ep, qname, responseIPs, int(TTL), stat)
-		endMetric(stat, metricError)
+		return fmt.Errorf("failed to extract DNS query details: %w", err)
 	}
 
 	stat.ProcessingTime.End(true)
 
-	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), h.bindPort, false, !msg.Response, verdict)
+	verdict := accesslog.VerdictError
+	reason := "Error: " + err.Error()
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), h.bindPort, false, true, verdict)
 
-	// Ensure that there are no early returns from this function before the
-	// code below, otherwise the log record will not be made.
-	//
+	// ignore error; log fields are best effort. Only returns error if endpoint
+	// is going away.
+	epIdentity, _ := ep.GetSecurityIdentity()
+	// The observation point is always Egress.
+	addrInfo := accesslog.AddressingInfo{
+		SrcIPPort:      epIPPort,
+		SrcEPID:        ep.GetID(),
+		SrcSecIdentity: epIdentity,
+
+		DstIPPort:   serverAddrPort.String(),
+		DstIdentity: serverID,
+	}
+
 	// Restrict label enrichment time to 10ms; we don't want to block DNS
 	// requests because an identity isn't in the local cache yet.
 	logContext, lcncl := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer lcncl()
 
 	protoID := u8proto.ProtoIDs[strings.ToLower(protocol)]
-	record := h.proxyAccessLogger.NewLogRecord(flowType, false,
+	record := h.proxyAccessLogger.NewLogRecord(accesslog.TypeRequest, false,
 		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
 			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
 		},
@@ -381,13 +359,8 @@ func (h *dnsMessageHandler) OnError(
 		accesslog.LogTags.Addressing(logContext, addrInfo),
 		accesslog.LogTags.DNS(&accesslog.LogRecordDNS{
 			Query:             qname,
-			IPs:               responseIPs,
-			TTL:               TTL,
-			CNAMEs:            CNAMEs,
 			ObservationSource: stat.DataSource,
-			RCode:             rcode,
 			QTypes:            qTypes,
-			AnswerTypes:       recordTypes,
 		}),
 	)
 	h.proxyAccessLogger.Log(record)
