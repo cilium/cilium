@@ -49,6 +49,18 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.24.6
 
+      - name: Install helm
+        if: ${{ github.event.inputs.step == '5-publish-helm' }}
+        shell: bash
+        run: |
+          # We don't want renovate to update this version, because we want to
+          # use a specific version of helm for the release tool to avoid
+          # breaking the release process.
+          HELM_VERSION=v3.18.5
+          wget "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          tar -xf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          sudo mv ./linux-amd64/helm /usr/local/bin
+
       - name: Get token
         id: get_token
         uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
@@ -71,14 +83,23 @@ jobs:
         run: mv release ../
 
       - name: Checkout helm chart
+        if: ${{ github.event.inputs.step == '5-publish-helm' }}
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
           repository: cilium/charts
           path: "./cilium-charts"
 
-      - name: Move helm charts to upper directory
-        run: mv cilium-charts ../charts
+      - name: Set up charts repository git configuration
+        if: ${{ github.event.inputs.step == '5-publish-helm' }}
+        shell: bash
+        run: |
+          mv cilium-charts ../charts
+          cd ../charts
+          git config user.name "Cilium Release Bot"
+          git config user.email "noreply@cilium.io"
+          git remote set-url origin https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/cilium/charts.git
+          git remote set-head origin --auto
 
       - name: Checkout cilium source code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -116,17 +137,13 @@ jobs:
             --exclude-labels "cilium-cli-exclusive"
 
       - name: Wait for helm chart PR checks and merge
-        if: ${{ github.event.inputs.step == '5' || github.event.inputs.step == '5-publish-helm' }}
+        if: ${{ github.event.inputs.step == '5-publish-helm' }}
         shell: bash
         env:
           GITHUB_TOKEN: "${{ steps.get_token.outputs.app_token }}"
           VERSION: ${{ github.event.inputs.version }}
         run: |
           echo "🔄 Waiting for helm chart PR checks and merging for version $VERSION"
-
-          # Get the current user
-          USER=$(gh api user --jq '.login')
-          echo "Using user: $USER"
 
           # Find the PR for this release
           BRANCH="pr/prepare-$VERSION"
@@ -138,7 +155,7 @@ jobs:
           PR_NUMBER=""
 
           while [ $WAIT_TIME -lt $MAX_WAIT ]; do
-            PR_NUMBER=$(gh pr list --repo cilium/charts --head "$USER:$BRANCH" --state open --json number --jq '.[0].number // empty')
+            PR_NUMBER=$(gh pr list --repo cilium/charts --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
             if [ -n "$PR_NUMBER" ]; then
               echo "Found PR #$PR_NUMBER"
               break
@@ -150,11 +167,14 @@ jobs:
 
           if [ -z "$PR_NUMBER" ]; then
             echo "❌ No PR found for branch $BRANCH after waiting $MAX_WAIT seconds"
+            echo "Available PRs:"
+            gh pr list --repo cilium/charts --state open || echo "Failed to list PRs"
             exit 1
           fi
 
           # Wait for checks to complete
           echo "⏳ Waiting for PR checks to complete..."
+          sleep 30  # Initial wait to allow checks to start
           if ! gh pr checks $PR_NUMBER --repo cilium/charts --fail-fast --required --watch; then
             echo "❌ PR #$PR_NUMBER has failed checks"
             echo "📋 Failed workflow details:"
@@ -166,7 +186,7 @@ jobs:
 
           # Merge the PR
           echo "Merging PR #$PR_NUMBER..."
-          if gh pr merge $PR_NUMBER --repo cilium/charts --merge --delete-branch; then
+          if gh pr merge $PR_NUMBER --repo cilium/charts --rebase --delete-branch; then
             echo "✅ Successfully merged PR #$PR_NUMBER"
           else
             echo "❌ Failed to merge PR #$PR_NUMBER"
