@@ -46,6 +46,13 @@ func (in *CiliumEndpoint) deepEqual(other *CiliumEndpoint) bool {
 		}
 	}
 
+	if in.Namespace != other.Namespace {
+		return false
+	}
+	if in.ServiceAccount != other.ServiceAccount {
+		return false
+	}
+
 	return true
 }
 
