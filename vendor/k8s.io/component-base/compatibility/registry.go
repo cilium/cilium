@@ -17,6 +17,7 @@ limitations under the License.
 package compatibility
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/version"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/featuregate"
+	"k8s.io/component-base/metrics/prometheus/compatversion"
 	"k8s.io/klog/v2"
 )
 
@@ -89,6 +91,8 @@ type ComponentGlobalsRegistry interface {
 	// and cannot be set from cmd flags anymore.
 	// For a given component, its emulation version can only depend on one other component, no multiple dependency is allowed.
 	SetEmulationVersionMapping(fromComponent, toComponent string, f VersionMapping) error
+	// AddMetrics adds metrics for the emulation version of a component.
+	AddMetrics()
 }
 
 type componentGlobalsRegistry struct {
@@ -114,6 +118,16 @@ func NewComponentGlobalsRegistry() *componentGlobalsRegistry {
 		componentGlobals:       make(map[string]*ComponentGlobals),
 		emulationVersionConfig: nil,
 		featureGatesConfig:     nil,
+	}
+}
+
+func (r *componentGlobalsRegistry) AddMetrics() {
+	for name, globals := range r.componentGlobals {
+		effectiveVersion := globals.effectiveVersion
+		if effectiveVersion == nil {
+			continue
+		}
+		compatversion.RecordCompatVersionInfo(context.Background(), name, effectiveVersion.BinaryVersion().String(), effectiveVersion.EmulationVersion().String(), effectiveVersion.MinCompatibilityVersion().String())
 	}
 }
 
@@ -386,11 +400,30 @@ func (r *componentGlobalsRegistry) Validate() []error {
 	defer r.mutex.Unlock()
 	for _, globals := range r.componentGlobals {
 		errs = append(errs, globals.effectiveVersion.Validate()...)
+		var features map[featuregate.Feature]featuregate.FeatureSpec
 		if globals.featureGate != nil {
 			errs = append(errs, globals.featureGate.Validate()...)
+			features = globals.featureGate.GetAll()
+		}
+		binaryVersion := globals.effectiveVersion.BinaryVersion()
+		emulatedVersion := globals.effectiveVersion.EmulationVersion()
+		if binaryVersion.GreaterThan(emulatedVersion) {
+			if enabled := enabledAlphaFeatures(features, globals); len(enabled) != 0 {
+				klog.Warningf("component has alpha features enabled in emulated version, this is unsupported: features=%v", enabled)
+			}
 		}
 	}
 	return errs
+}
+
+func enabledAlphaFeatures(features map[featuregate.Feature]featuregate.FeatureSpec, globals *ComponentGlobals) []string {
+	var enabled []string
+	for feat, featSpec := range features {
+		if featSpec.PreRelease == featuregate.Alpha && globals.featureGate.Enabled(feat) {
+			enabled = append(enabled, string(feat))
+		}
+	}
+	return enabled
 }
 
 func (r *componentGlobalsRegistry) SetEmulationVersionMapping(fromComponent, toComponent string, f VersionMapping) error {

@@ -249,6 +249,10 @@ func (c *multiNamespaceCache) List(ctx context.Context, list client.ObjectList, 
 	listOpts := client.ListOptions{}
 	listOpts.ApplyOptions(opts)
 
+	if listOpts.Continue != "" {
+		return fmt.Errorf("continue list option is not supported by the cache")
+	}
+
 	isNamespaced, err := apiutil.IsObjectNamespaced(list, c.Scheme, c.RESTMapper)
 	if err != nil {
 		return err
@@ -275,10 +279,7 @@ func (c *multiNamespaceCache) List(ctx context.Context, list client.ObjectList, 
 		return err
 	}
 
-	allItems, err := apimeta.ExtractList(list)
-	if err != nil {
-		return err
-	}
+	allItems := []runtime.Object{}
 
 	limitSet := listOpts.Limit > 0
 
@@ -316,7 +317,12 @@ func (c *multiNamespaceCache) List(ctx context.Context, list client.ObjectList, 
 	}
 	listAccessor.SetResourceVersion(resourceVersion)
 
-	return apimeta.SetList(list, allItems)
+	if err := apimeta.SetList(list, allItems); err != nil {
+		return err
+	}
+
+	list.SetContinue("continue-not-supported")
+	return nil
 }
 
 // multiNamespaceInformer knows how to handle interacting with the underlying informer across multiple namespaces.
@@ -328,18 +334,11 @@ type handlerRegistration struct {
 	handles map[string]toolscache.ResourceEventHandlerRegistration
 }
 
-type syncer interface {
-	HasSynced() bool
-}
-
 // HasSynced asserts that the handler has been called for the full initial state of the informer.
-// This uses syncer to be compatible between client-go 1.27+ and older versions when the interface changed.
 func (h handlerRegistration) HasSynced() bool {
-	for _, reg := range h.handles {
-		if s, ok := reg.(syncer); ok {
-			if !s.HasSynced() {
-				return false
-			}
+	for _, h := range h.handles {
+		if !h.HasSynced() {
+			return false
 		}
 	}
 	return true
@@ -372,6 +371,23 @@ func (i *multiNamespaceInformer) AddEventHandlerWithResyncPeriod(handler toolsca
 
 	for ns, informer := range i.namespaceToInformer {
 		registration, err := informer.AddEventHandlerWithResyncPeriod(handler, resyncPeriod)
+		if err != nil {
+			return nil, err
+		}
+		handles.handles[ns] = registration
+	}
+
+	return handles, nil
+}
+
+// AddEventHandlerWithOptions adds the handler with options to each namespaced informer.
+func (i *multiNamespaceInformer) AddEventHandlerWithOptions(handler toolscache.ResourceEventHandler, options toolscache.HandlerOptions) (toolscache.ResourceEventHandlerRegistration, error) {
+	handles := handlerRegistration{
+		handles: make(map[string]toolscache.ResourceEventHandlerRegistration, len(i.namespaceToInformer)),
+	}
+
+	for ns, informer := range i.namespaceToInformer {
+		registration, err := informer.AddEventHandlerWithOptions(handler, options)
 		if err != nil {
 			return nil, err
 		}
