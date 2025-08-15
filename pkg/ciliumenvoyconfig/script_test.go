@@ -31,7 +31,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 
@@ -42,7 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
-	"github.com/cilium/cilium/pkg/k8s/testutils"
+	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -55,6 +54,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -62,9 +62,9 @@ var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
 	// Catch any leaked goroutines.
-	t.Cleanup(func() { goleak.VerifyNone(t) })
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
-	version.Force(testutils.DefaultVersion)
+	version.Force(k8sTestutils.DefaultVersion)
 	setup := func(t testing.TB, args []string) *script.Engine {
 		fakeEnvoy := &fakeEnvoySyncerAndPolicyTrigger{
 			store: resourceStore{},

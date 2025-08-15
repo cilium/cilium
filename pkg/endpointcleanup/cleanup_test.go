@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/goleak"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stesting "k8s.io/client-go/testing"
@@ -30,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 var testCESs = []cilium_v2a1.CiliumEndpointSlice{
@@ -132,12 +132,7 @@ func TestGC(t *testing.T) {
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			defer goleak.VerifyNone(
-				t,
-				// Delaying workqueues used by resource.Resource[T].Events leaks this waitingLoop goroutine.
-				// It does stop when shutting down but is not guaranteed to before we actually exit.
-				goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop"),
-			)
+			defer testutils.GoleakVerifyNone(t)
 
 			node.SetTestLocalNodeStore()
 			defer node.UnsetTestLocalNodeStore()

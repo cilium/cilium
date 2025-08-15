@@ -60,6 +60,10 @@ linters:
               recommendations:
                 - github.com/cilium/dns
               reason: use the cilium fork directly to avoid replace directives in go.mod, see https://github.com/cilium/cilium/pull/27582
+          - go.uber.org/goleak:
+              recommendations:
+                - github.com/cilium/cilium/pkg/testutils
+              reason: Use testutils.Goleak* instead for the shared default options.
           - gopkg.in/check.v1:
               recommendations:
                 - testing

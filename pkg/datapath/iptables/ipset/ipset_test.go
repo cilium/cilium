@@ -22,12 +22,12 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -44,7 +44,7 @@ Members:
 {{else}}{{end}}{{end}}`
 
 func TestManager(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	var mgr Manager
 
@@ -278,7 +278,7 @@ func TestManager(t *testing.T) {
 }
 
 func TestManagerNodeIpsetNotNeeded(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	ipsets := make(map[string]AddrSet) // mocked kernel IP sets
 	var mu lock.Mutex                  // protect the ipsets map
@@ -428,7 +428,7 @@ func TestOpsPruneEnabled(t *testing.T) {
 }
 
 func TestOpsRetry(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	var (
 		db    *statedb.DB

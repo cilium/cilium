@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
-	"go.uber.org/goleak"
 	"golang.org/x/sys/unix"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -129,7 +128,7 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 	require.NoError(t, h.Start(log, t.Context()), "Start")
 	t.Cleanup(func() {
 		require.NoError(t, h.Stop(log, context.Background()), "Stop")
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	// Add a backends and wait for the job to pick it up
@@ -294,7 +293,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 	require.NoError(t, h.Start(log, t.Context()), "Start")
 	t.Cleanup(func() {
 		require.NoError(t, h.Stop(log, context.Background()), "Stop")
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	namespaces := map[string]*netns.NetNS{

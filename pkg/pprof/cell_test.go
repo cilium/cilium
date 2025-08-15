@@ -12,13 +12,13 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestPprofDisabled(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	var testSrv Server
 
@@ -49,7 +49,7 @@ func TestPprofDisabled(t *testing.T) {
 }
 
 func TestPprofHandlers(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	var testSrv Server
 

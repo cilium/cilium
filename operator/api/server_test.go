@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/go-openapi/runtime/middleware"
-	"go.uber.org/goleak"
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	clrestapi "github.com/cilium/cilium/api/v1/operator/server/restapi/cluster"
@@ -22,13 +21,14 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	ciliumMetrics "github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestAPIServerK8sDisabled(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go init function
-		goleak.IgnoreTopFunction("time.Sleep"),
+		testutils.GoleakIgnoreTopFunction("time.Sleep"),
 	)
 
 	var testSrv Server
@@ -97,10 +97,10 @@ func TestAPIServerK8sDisabled(t *testing.T) {
 }
 
 func TestAPIServerK8sEnabled(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go init function
-		goleak.IgnoreTopFunction("time.Sleep"),
+		testutils.GoleakIgnoreTopFunction("time.Sleep"),
 	)
 
 	var testSrv Server

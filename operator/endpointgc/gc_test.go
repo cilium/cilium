@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sTesting "k8s.io/client-go/testing"
@@ -24,10 +23,11 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestRegisterController(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 	)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
@@ -65,7 +65,7 @@ func TestRegisterController(t *testing.T) {
 }
 
 func TestRegisterControllerOnce(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 	)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
@@ -103,7 +103,7 @@ func TestRegisterControllerOnce(t *testing.T) {
 }
 
 func TestRegisterControllerWithCRDDisabled(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 	)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]

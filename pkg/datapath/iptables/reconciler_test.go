@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/goleak"
 	"k8s.io/apimachinery/pkg/util/sets"
 	baseclocktest "k8s.io/utils/clock/testing"
 
@@ -27,11 +26,12 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 func TestReconciliationLoop(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	var (
 		clock   = baseclocktest.NewFakeClock(time.Now())

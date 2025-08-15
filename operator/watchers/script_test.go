@@ -19,19 +19,19 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
-	"github.com/cilium/cilium/pkg/k8s/testutils"
+	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -40,18 +40,13 @@ var debug = flag.Bool("debug", false, "Enable debug logging")
 func TestScript(t *testing.T) {
 	// Catch any leaked goroutines.
 	t.Cleanup(func() {
-		goleak.VerifyNone(t,
+		testutils.GoleakVerifyNone(t,
 			// Ignore goroutines possibly left by other tests.
-			goleak.IgnoreCurrent(),
-
-			// Ignore goroutine started by the workqueue. It reports metrics
-			// on unfinished work with default tick period of 0.5s - it terminates
-			// no longer than 0.5s after the workqueue is stopped.
-			goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop"),
+			testutils.GoleakIgnoreCurrent(),
 		)
 	})
 
-	version.Force(testutils.DefaultVersion)
+	version.Force(k8sTestutils.DefaultVersion)
 
 	var opts []hivetest.LogOption
 	if *debug {

@@ -11,20 +11,20 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 func TestBackendNeighborSync(t *testing.T) {
 	// Ignore all the currently running goroutines spawned
 	// by prior tests or by package init() functions.
-	goleakOpt := goleak.IgnoreCurrent()
-	t.Cleanup(func() { goleak.VerifyNone(t, goleakOpt) })
+	goleakOpt := testutils.GoleakIgnoreCurrent()
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t, goleakOpt) })
 
 	var (
 		db             *statedb.DB
