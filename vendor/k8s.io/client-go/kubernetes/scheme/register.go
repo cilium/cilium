@@ -54,7 +54,6 @@ import (
 	flowcontrolv1beta2 "k8s.io/api/flowcontrol/v1beta2"
 	flowcontrolv1beta3 "k8s.io/api/flowcontrol/v1beta3"
 	networkingv1 "k8s.io/api/networking/v1"
-	networkingv1alpha1 "k8s.io/api/networking/v1alpha1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	nodev1 "k8s.io/api/node/v1"
 	nodev1alpha1 "k8s.io/api/node/v1alpha1"
@@ -64,6 +63,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	rbacv1alpha1 "k8s.io/api/rbac/v1alpha1"
 	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
+	resourcev1 "k8s.io/api/resource/v1"
 	resourcev1alpha3 "k8s.io/api/resource/v1alpha3"
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	resourcev1beta2 "k8s.io/api/resource/v1beta2"
@@ -120,7 +120,6 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	flowcontrolv1beta2.AddToScheme,
 	flowcontrolv1beta3.AddToScheme,
 	networkingv1.AddToScheme,
-	networkingv1alpha1.AddToScheme,
 	networkingv1beta1.AddToScheme,
 	nodev1.AddToScheme,
 	nodev1alpha1.AddToScheme,
@@ -130,6 +129,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	rbacv1.AddToScheme,
 	rbacv1beta1.AddToScheme,
 	rbacv1alpha1.AddToScheme,
+	resourcev1.AddToScheme,
 	resourcev1beta2.AddToScheme,
 	resourcev1beta1.AddToScheme,
 	resourcev1alpha3.AddToScheme,
