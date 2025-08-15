@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
 	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	metricscell "github.com/cilium/cilium/pkg/hubble/metrics/cell"
@@ -23,8 +24,6 @@ import (
 	parsercell "github.com/cilium/cilium/pkg/hubble/parser/cell"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
@@ -52,6 +51,9 @@ var Cell = cell.Module(
 
 	// Metrics server and flow processor
 	metricscell.Cell,
+
+	// Drop event emitter flow processor
+	dropeventemitter.Cell,
 )
 
 // The core cell group, which contains the Hubble integration and the
@@ -73,8 +75,6 @@ type hubbleParams struct {
 	EndpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache
 	CGroupManager     manager.CGroupManager
-	Clientset         k8sClient.Clientset
-	K8sWatcher        *watchers.K8sWatcher
 	NodeManager       nodeManager.NodeManager
 	NodeLocalStore    *node.LocalNodeStore
 	MonitorAgent      monitorAgent.Agent
@@ -85,6 +85,8 @@ type hubbleParams struct {
 	// NOTE: ordering is not guaranteed, do not rely on it.
 	ObserverOptions  []observeroption.Option                `group:"hubble-observer-options"`
 	ExporterBuilders []*exportercell.FlowLogExporterBuilder `group:"hubble-exporter-builders"`
+
+	DropEventEmitter dropeventemitter.FlowProcessor
 
 	PayloadParser parser.Decoder
 
@@ -107,8 +109,6 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.EndpointManager,
 		params.IPCache,
 		params.CGroupManager,
-		params.Clientset,
-		params.K8sWatcher,
 		params.NodeManager,
 		params.NodeLocalStore,
 		params.MonitorAgent,
@@ -116,6 +116,7 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.TLSConfigPromise,
 		params.ObserverOptions,
 		params.ExporterBuilders,
+		params.DropEventEmitter,
 		params.PayloadParser,
 		params.GRPCMetrics,
 		params.MetricsFlowProcessor,
