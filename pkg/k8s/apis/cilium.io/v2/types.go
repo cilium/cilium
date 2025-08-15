@@ -85,6 +85,9 @@ type EndpointStatus struct {
 	State string `json:"state,omitempty"`
 
 	NamedPorts models.NamedPorts `json:"named-ports,omitempty"`
+
+	// ServiceAccount is the service account associated with the endpoint
+	ServiceAccount string `json:"service-account,omitempty"`
 }
 
 // +k8s:deepcopy-gen=false

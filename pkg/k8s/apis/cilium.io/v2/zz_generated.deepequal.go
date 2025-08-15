@@ -2079,6 +2079,10 @@ func (in *EndpointStatus) DeepEqual(other *EndpointStatus) bool {
 		}
 	}
 
+	if in.ServiceAccount != other.ServiceAccount {
+		return false
+	}
+
 	return true
 }
 
