@@ -125,7 +125,7 @@ func (s *Server) RestoreCompleted() {
 
 func getXDSRequestFields(req *envoy_service_discovery.DiscoveryRequest) []any {
 	return []any{
-		logfields.XDSAckedVersion, req.GetVersionInfo(),
+		logfields.Version, req.GetVersionInfo(),
 		logfields.XDSTypeURL, req.GetTypeUrl(),
 		logfields.XDSNonce, req.GetResponseNonce(),
 	}
@@ -397,8 +397,6 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				requestLog.Warn(
 					"NACK received for versions between the reported version up to the response nonce; waiting for a version update before sending again",
 					logfields.XDSDetail, detail,
-					logfields.Version, req.VersionInfo,
-					logfields.ResponseNonce, req.ResponseNonce,
 				)
 			}
 
