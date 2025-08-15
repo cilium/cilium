@@ -22,6 +22,10 @@ func (fwa *WireguardAgent) Enabled() bool {
 	return fwa.config.Enabled()
 }
 
+func (fwa *WireguardAgent) IfaceIndex() (uint32, error) {
+	return 0, nil
+}
+
 func (fwa *WireguardAgent) Status(withPeers bool) (*models.WireguardStatus, error) {
 	return nil, nil
 }

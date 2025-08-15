@@ -22,6 +22,7 @@ const (
 type WireguardAgent interface {
 	Enabled() bool
 	Status(withPeers bool) (*models.WireguardStatus, error)
+	IfaceIndex() (uint32, error)
 }
 
 // WireguardConfig exports the Enabled method rather than the whole config.
