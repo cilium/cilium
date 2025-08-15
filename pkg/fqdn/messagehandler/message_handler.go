@@ -141,6 +141,29 @@ func (h *dnsMessageHandler) OnResponse(
 	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, msg, protocol, allowed, stat)
 }
 
+// EndMetric ends the span stats for this transaction and updates metrics.
+func endMetric(istat *dnsproxy.ProxyRequestContext, metricError string) {
+	istat.ProcessingTime.End(true)
+	istat.TotalTime.End(true)
+	if errors.As(istat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(istat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
+		metrics.FQDNSemaphoreRejectedTotal.Inc()
+	}
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
+		istat.TotalTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstreamTime).Observe(
+		istat.UpstreamTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
+		istat.ProcessingTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
+		istat.SemaphoreAcquireTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyGenTime).Observe(
+		istat.PolicyGenerationTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
+		istat.PolicyCheckTime.Total().Seconds())
+	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
+		istat.DataplaneTime.Total().Seconds())
+}
+
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
 // events, proxy metrics and storing DNS data in the DNS cache. This may
 // result in rule generation.
@@ -168,38 +191,14 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	allowed bool,
 	stat *dnsproxy.ProxyRequestContext,
 ) error {
-	protoID := u8proto.ProtoIDs[strings.ToLower(protocol)]
 	var verdict accesslog.FlowVerdict
 	var reason string
 	metricError := metricErrorAllow
 	stat.ProcessingTime.Start()
 
-	endMetric := func() {
-		stat.ProcessingTime.End(true)
-		stat.TotalTime.End(true)
-		if errors.As(stat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
-			metrics.FQDNSemaphoreRejectedTotal.Inc()
-		}
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
-			stat.TotalTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstreamTime).Observe(
-			stat.UpstreamTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
-			stat.ProcessingTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
-			stat.SemaphoreAcquireTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyGenTime).Observe(
-			stat.PolicyGenerationTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
-			stat.PolicyCheckTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
-			stat.DataplaneTime.Total().Seconds())
-	}
-
 	switch {
 	case stat.IsTimeout():
-		metricError = metricErrorTimeout
-		endMetric()
+		endMetric(stat, metricErrorTimeout)
 		return nil
 	case stat.Err != nil:
 		metricError = metricErrorProxy
@@ -220,7 +219,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 		// cache if we don't know that an endpoint asked for it (this is
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
-		endMetric()
+		endMetric(stat, metricError)
 		return dnsproxy.ErrDNSRequestNoEndpoint{}
 	}
 
@@ -259,7 +258,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		h.UpdateOnDNSMsg(lookupTime, ep, qname, responseIPs, int(TTL), stat)
-		endMetric()
+		endMetric(stat, metricError)
 	}
 
 	stat.ProcessingTime.End(true)
@@ -273,6 +272,8 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	// requests because an identity isn't in the local cache yet.
 	logContext, lcncl := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer lcncl()
+
+	protoID := u8proto.ProtoIDs[strings.ToLower(protocol)]
 	record := h.proxyAccessLogger.NewLogRecord(flowType, false,
 		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
 			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
