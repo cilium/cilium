@@ -92,7 +92,6 @@ func (r *httpRouteReconciler) referencedBackendService(rawObj client.Object) []s
 				backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
 				if err != nil {
 					r.logger.Error("Failed to get backend service name",
-						logfields.Controller, logfields.HTTPRoute,
 						logfields.Resource, client.ObjectKeyFromObject(rawObj),
 						logfields.Error, err)
 					continue
@@ -212,7 +211,6 @@ func (r *httpRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
 func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := r.logger.With(
-			logfields.Controller, httpRoute,
 			logfields.Resource, client.ObjectKeyFromObject(o),
 		)
 		hrList := &gatewayv1.HTTPRouteList{}
@@ -242,7 +240,6 @@ func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 func (r *httpRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := r.logger.With(
-			logfields.Controller, httpRoute,
 			logfields.Resource, client.ObjectKeyFromObject(o),
 		)
 		hrList := &gatewayv1.HTTPRouteList{}

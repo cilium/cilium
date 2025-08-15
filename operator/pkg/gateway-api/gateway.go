@@ -108,7 +108,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *gatewayReconciler) enqueueRequestForOwningGatewayClass() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
 		scopedLog := r.logger.With(
-			logfields.Controller, gateway,
 			logfields.Resource, a.GetName(),
 		)
 		var reqs []reconcile.Request
@@ -144,7 +143,6 @@ func (r *gatewayReconciler) enqueueRequestForOwningGatewayClass() handler.EventH
 func (r *gatewayReconciler) enqueueRequestForOwningResource() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
 		scopedLog := r.logger.With(
-			logfields.Controller, "gateway",
 			logfields.Resource, a.GetName(),
 		)
 
@@ -213,7 +211,6 @@ func getReconcileRequestsForRoute(ctx context.Context, c client.Client, object m
 	var reqs []reconcile.Request
 
 	scopedLog := logger.With(
-		logfields.Controller, gateway,
 		logfields.Resource, types.NamespacedName{
 			Namespace: object.GetNamespace(),
 			Name:      object.GetName(),
@@ -303,7 +300,6 @@ func (r *gatewayReconciler) enqueueRequestForReferenceGrant() handler.EventHandl
 func (r *gatewayReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := r.logger.With(
-			logfields.Controller, gateway,
 			logfields.Resource, client.ObjectKeyFromObject(o),
 		)
 		list := &gatewayv1.GatewayList{}
