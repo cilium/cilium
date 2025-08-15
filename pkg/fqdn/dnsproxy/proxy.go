@@ -1138,9 +1138,10 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	response.Compress = p.EnableDNSCompression && shouldCompressResponse(request, response)
 	err = w.WriteMsg(response)
 	if err != nil {
+		// At this point we've already plumbed what we need to plumb and only
+		// failed at returning the response to the client. There's nothing left
+		// to do except logging - trying to send an error will likely also fail.
 		scopedLog.Error("Cannot forward proxied DNS response", logfields.Error, err)
-		serr := fmt.Errorf("Cannot forward proxied DNS response: %w", err)
-		p.OnError(ep, epIPPort, targetServerID, targetServer, response, protocol, &stat, serr)
 	} else {
 		p.Lock()
 		// Add the server to the set of used DNS servers. This set is never GCd, but is limited by set
