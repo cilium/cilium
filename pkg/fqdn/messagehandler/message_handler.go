@@ -188,10 +188,80 @@ func (h *dnsMessageHandler) OnResponse(
 	protocol string,
 	stat *dnsproxy.ProxyRequestContext,
 ) error {
+	stat.ProcessingTime.Start()
 	if !response.Response {
 		return fmt.Errorf("expected response, got query")
+	} else if ep == nil {
+		// This is a hard fail. We cannot proceed because record.Log requires a
+		// non-nil ep, and we also don't want to insert this data into the
+		// cache if we don't know that an endpoint asked for it (this is
+		// asserted via ep != nil here and msg.Response && msg.Rcode ==
+		// dns.RcodeSuccess below).
+		endMetric(stat, metricErrorAllow)
+		return dnsproxy.ErrDNSRequestNoEndpoint{}
 	}
-	return h.notifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, response, protocol, true, stat)
+
+	// The observation point is always Egress.
+	addrInfo := accesslog.AddressingInfo{
+		DstIPPort: epIPPort,
+		DstEPID:   ep.GetID(),
+
+		SrcIPPort:   serverAddrPort.String(),
+		SrcIdentity: serverID,
+	}
+	// ignore error; log fields are best effort. Only returns error if endpoint
+	// is going away.
+	addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
+
+	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(response)
+	if err != nil {
+		h.logger.Error("cannot extract DNS message details",
+			logfields.Error, err,
+			logfields.DNSName, qname,
+		)
+		return fmt.Errorf("failed to extract DNS message details: %w", err)
+	}
+
+	if response.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
+		h.UpdateOnDNSMsg(time.Now(), ep, qname, responseIPs, int(TTL), stat)
+		endMetric(stat, metricErrorAllow)
+	}
+
+	stat.ProcessingTime.End(true)
+
+	verdict := accesslog.VerdictForwarded
+	reason := "Allowed by policy"
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), h.bindPort, false, false, verdict)
+
+	// Ensure that there are no early returns from this function before the
+	// code below, otherwise the log record will not be made.
+	//
+	// Restrict label enrichment time to 10ms; we don't want to block DNS
+	// requests because an identity isn't in the local cache yet.
+	logContext, lcncl := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer lcncl()
+
+	protoID := u8proto.ProtoIDs[strings.ToLower(protocol)]
+	record := h.proxyAccessLogger.NewLogRecord(accesslog.TypeResponse, false,
+		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
+			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
+		},
+		accesslog.LogTags.Verdict(verdict, reason),
+		accesslog.LogTags.Addressing(logContext, addrInfo),
+		accesslog.LogTags.DNS(&accesslog.LogRecordDNS{
+			Query:             qname,
+			IPs:               responseIPs,
+			TTL:               TTL,
+			CNAMEs:            CNAMEs,
+			ObservationSource: stat.DataSource,
+			RCode:             rcode,
+			QTypes:            qTypes,
+			AnswerTypes:       recordTypes,
+		}),
+	)
+	h.proxyAccessLogger.Log(record)
+
+	return nil
 }
 
 func (h *dnsMessageHandler) OnError(
