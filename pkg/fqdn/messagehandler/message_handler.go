@@ -297,7 +297,6 @@ func (h *dnsMessageHandler) OnError(
 	err error,
 ) error {
 	stat.ProcessingTime.Start()
-	stat.Err = err
 	if query.Response {
 		return fmt.Errorf("error callback expected query, got response")
 	}
@@ -372,9 +371,6 @@ func (h *dnsMessageHandler) OnError(
 func endMetric(istat *dnsproxy.ProxyRequestContext, metricError string) {
 	istat.ProcessingTime.End(true)
 	istat.TotalTime.End(true)
-	if errors.As(istat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(istat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
-		metrics.FQDNSemaphoreRejectedTotal.Inc()
-	}
 	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
 		istat.TotalTime.Total().Seconds())
 	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstreamTime).Observe(

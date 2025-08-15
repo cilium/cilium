@@ -4,9 +4,7 @@
 package dnsproxy
 
 import (
-	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 
 	"github.com/cilium/dns"
@@ -81,15 +79,5 @@ type ProxyRequestContext struct {
 	PolicyGenerationTime spanstat.SpanStat
 	DataplaneTime        spanstat.SpanStat
 	Success              bool
-	Err                  error
 	DataSource           accesslog.DNSDataSource
-}
-
-// IsTimeout return true if the ProxyRequest timeout
-func (proxyStat *ProxyRequestContext) IsTimeout() bool {
-	var neterr net.Error
-	if errors.As(proxyStat.Err, &neterr) {
-		return neterr.Timeout()
-	}
-	return false
 }

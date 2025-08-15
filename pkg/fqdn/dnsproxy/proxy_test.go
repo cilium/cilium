@@ -1210,25 +1210,6 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	s.restoring = false
 }
 
-func TestProxyRequestContext_IsTimeout(t *testing.T) {
-	p := new(ProxyRequestContext)
-	p.Err = fmt.Errorf("sample err: %w", context.DeadlineExceeded)
-	require.True(t, p.IsTimeout())
-
-	// Assert that failing to wrap the error properly (by using '%w') causes
-	// IsTimeout() to return the wrong value.
-	//nolint:errorlint
-	p.Err = fmt.Errorf("sample err: %s", context.DeadlineExceeded)
-	require.False(t, p.IsTimeout())
-
-	p.Err = ErrFailedAcquireSemaphore{}
-	require.True(t, p.IsTimeout())
-	p.Err = ErrTimedOutAcquireSemaphore{
-		gracePeriod: 1 * time.Second,
-	}
-	require.True(t, p.IsTimeout())
-}
-
 type selectorMock struct {
 	key string
 }
