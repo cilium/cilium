@@ -42,8 +42,7 @@ const (
 )
 
 type DNSMessageHandler interface {
-	OnQuery(lookupTime time.Time,
-		ep *endpoint.Endpoint,
+	OnQuery(ep *endpoint.Endpoint,
 		epIPPort string,
 		serverID identity.NumericIdentity,
 		serverAddrPort netip.AddrPort,
@@ -52,8 +51,7 @@ type DNSMessageHandler interface {
 		stat *dnsproxy.ProxyRequestContext,
 	) error
 
-	OnResponse(lookupTime time.Time,
-		ep *endpoint.Endpoint,
+	OnResponse(ep *endpoint.Endpoint,
 		epIPPort string,
 		serverID identity.NumericIdentity,
 		serverAddrPort netip.AddrPort,
@@ -112,7 +110,6 @@ func (h *dnsMessageHandler) SetBindPort(port uint16) {
 }
 
 func (h *dnsMessageHandler) OnQuery(
-	lookupTime time.Time,
 	ep *endpoint.Endpoint,
 	epIPPort string,
 	serverID identity.NumericIdentity,
@@ -124,11 +121,10 @@ func (h *dnsMessageHandler) OnQuery(
 	if query.Response {
 		return fmt.Errorf("expected query, got response")
 	}
-	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, query, protocol, true, stat)
+	return h.NotifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, query, protocol, true, stat)
 }
 
 func (h *dnsMessageHandler) OnResponse(
-	lookupTime time.Time,
 	ep *endpoint.Endpoint,
 	epIPPort string,
 	serverID identity.NumericIdentity,
@@ -140,7 +136,7 @@ func (h *dnsMessageHandler) OnResponse(
 	if !response.Response {
 		return fmt.Errorf("expected response, got query")
 	}
-	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, response, protocol, true, stat)
+	return h.NotifyOnDNSMsg(time.Now(), ep, epIPPort, serverID, serverAddrPort, response, protocol, true, stat)
 }
 
 // EndMetric ends the span stats for this transaction and updates metrics.

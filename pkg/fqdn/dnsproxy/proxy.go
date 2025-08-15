@@ -1043,7 +1043,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	scopedLog.Debug("Forwarding DNS request for a name that is allowed")
-	if err := p.OnQuery(time.Now(), ep, epIPPort, targetServerID, targetServer, request, protocol, &stat); err != nil {
+	if err := p.OnQuery(ep, epIPPort, targetServerID, targetServer, request, protocol, &stat); err != nil {
 		scopedLog.Error("Failed to process DNS query", logfields.Error, err)
 		p.sendErrorResponse(scopedLog, w, request, false)
 		return
@@ -1126,7 +1126,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat.Success = true
 
 	scopedLog.Debug("Notifying with DNS response to original DNS query")
-	if err := p.OnResponse(time.Now(), ep, epIPPort, targetServerID, targetServer, response, protocol, &stat); err != nil {
+	if err := p.OnResponse(ep, epIPPort, targetServerID, targetServer, response, protocol, &stat); err != nil {
 		scopedLog.Error(
 			"Failed to process DNS response",
 			logfields.Error, err,
