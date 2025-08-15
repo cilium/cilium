@@ -5,13 +5,13 @@ package node_test
 
 import (
 	"context"
-	"slices"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/hive"
 	. "github.com/cilium/cilium/pkg/node"
@@ -76,7 +76,7 @@ func TestLocalNodeStore(t *testing.T) {
 	}
 
 	hive := hive.New(
-		cell.Provide(NewLocalNodeStore),
+		LocalNodeStoreCell,
 
 		cell.Provide(func() LocalNodeSynchronizer { return ts }),
 		cell.Invoke(observe),
@@ -98,9 +98,10 @@ func TestLocalNodeStore(t *testing.T) {
 		t.Fatalf("Failed to stop: %s", err)
 	}
 
-	if !slices.Equal(observed, expected) {
-		t.Fatalf("Unexpected values observed: %v, expected: %v", observed, expected)
-	}
+	// Observed should be an ordered subset of [expected] since some intermediate
+	// states may get skipped.
+	assert.NotEmpty(t, observed)
+	assert.Subset(t, expected, observed)
 }
 
 func BenchmarkLocalNodeStoreGet(b *testing.B) {

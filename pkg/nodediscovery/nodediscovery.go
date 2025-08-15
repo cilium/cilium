@@ -296,7 +296,7 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		APIVersion: "v1",
 		Kind:       "Node",
 		Name:       ln.Name,
-		UID:        ln.UID,
+		UID:        ln.Local.UID,
 	}}
 
 	nodeResource.ObjectMeta.Labels = ln.Labels
@@ -459,10 +459,10 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		nodeResource.Spec.ENI.NodeSubnetID = subnetID
 
 	case ipamOption.IPAMAzure:
-		if ln.ProviderID == "" {
+		if ln.Local.ProviderID == "" {
 			logging.Fatal(n.logger, "Spec.ProviderID in k8s node resource must be set for Azure IPAM")
 		}
-		if !strings.HasPrefix(ln.ProviderID, azureTypes.ProviderPrefix) {
+		if !strings.HasPrefix(ln.Local.ProviderID, azureTypes.ProviderPrefix) {
 			logging.Fatal(n.logger, fmt.Sprintf("Spec.ProviderID in k8s node resource must have prefix %s", azureTypes.ProviderPrefix))
 		}
 		// The Azure controller in Kubernetes creates a mix of upper
@@ -470,7 +470,7 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		// therefore not providing the exact representation of what is
 		// returned by the Azure API. Convert it to lower case for
 		// consistent results.
-		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(ln.ProviderID, azureTypes.ProviderPrefix))
+		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(ln.Local.ProviderID, azureTypes.ProviderPrefix))
 
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
 			if c.IPAM.MinAllocate != 0 {
