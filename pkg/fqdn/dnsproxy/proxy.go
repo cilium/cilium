@@ -79,6 +79,8 @@ type DNSProxy struct {
 	// intended to allow us to switch to an external proxy process by forcing the
 	// design now.
 	NotifyOnDNSMsg NotifyOnDNSMsgFunc
+	OnQuery        OnQueryFunc
+	OnResponse     OnResponseFunc
 
 	// DNSServers are the cilium/dns server instances.
 	// Depending on the configuration, these might be
@@ -603,13 +605,14 @@ type DNSProxyConfig struct {
 // addresses.
 // port is the port to bind to for both UDP and TCP. 0 causes the kernel to
 // select a free port.
-func NewDNSProxy(dnsProxyConfig DNSProxyConfig, proxyLookupHandler lookup.ProxyLookupHandler, notifyFunc NotifyOnDNSMsgFunc) *DNSProxy {
-
+func NewDNSProxy(dnsProxyConfig DNSProxyConfig, proxyLookupHandler lookup.ProxyLookupHandler, notifyFunc NotifyOnDNSMsgFunc, onQuery OnQueryFunc, onResponse OnResponseFunc) *DNSProxy {
 	p := &DNSProxy{
 		logger:                   dnsProxyConfig.Logger,
 		cfg:                      dnsProxyConfig,
 		proxyLookupHandler:       proxyLookupHandler,
 		NotifyOnDNSMsg:           notifyFunc,
+		OnQuery:                  onQuery,
+		OnResponse:               onResponse,
 		logLimiter:               logging.NewLimiter(10*time.Second, 1),
 		lookupTargetDNSServer:    lookupTargetDNSServer,
 		usedServers:              make(map[netip.Addr]struct{}),
@@ -1040,7 +1043,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	scopedLog.Debug("Forwarding DNS request for a name that is allowed")
-	if err := p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServer, request, protocol, true, &stat); err != nil {
+	if err := p.OnQuery(time.Now(), ep, epIPPort, targetServerID, targetServer, request, protocol, true, &stat); err != nil {
 		scopedLog.Error("Failed to process DNS query", logfields.Error, err)
 		p.sendErrorResponse(scopedLog, w, request, false)
 		return
@@ -1123,7 +1126,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat.Success = true
 
 	scopedLog.Debug("Notifying with DNS response to original DNS query")
-	if err := p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServer, response, protocol, true, &stat); err != nil {
+	if err := p.OnResponse(time.Now(), ep, epIPPort, targetServerID, targetServer, response, protocol, true, &stat); err != nil {
 		scopedLog.Error(
 			"Failed to process DNS response",
 			logfields.Error, err,

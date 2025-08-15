@@ -42,6 +42,28 @@ const (
 )
 
 type DNSMessageHandler interface {
+	OnQuery(lookupTime time.Time,
+		ep *endpoint.Endpoint,
+		epIPPort string,
+		serverID identity.NumericIdentity,
+		serverAddrPort netip.AddrPort,
+		msg *dns.Msg,
+		protocol string,
+		allowed bool,
+		stat *dnsproxy.ProxyRequestContext,
+	) error
+
+	OnResponse(lookupTime time.Time,
+		ep *endpoint.Endpoint,
+		epIPPort string,
+		serverID identity.NumericIdentity,
+		serverAddrPort netip.AddrPort,
+		msg *dns.Msg,
+		protocol string,
+		allowed bool,
+		stat *dnsproxy.ProxyRequestContext,
+	) error
+
 	// NotifyOnDNSMsg handles DNS data when the in-agent DNS proxy sees a
 	// DNS message. It emits monitor events, proxy metrics and stores DNS
 	// data in the DNS cache. To update the DNS cache, it will call
@@ -89,6 +111,34 @@ var _ DNSMessageHandler = &dnsMessageHandler{}
 // The bind port is ony used for proxy statistics.
 func (h *dnsMessageHandler) SetBindPort(port uint16) {
 	h.bindPort = port
+}
+
+func (h *dnsMessageHandler) OnQuery(
+	lookupTime time.Time,
+	ep *endpoint.Endpoint,
+	epIPPort string,
+	serverID identity.NumericIdentity,
+	serverAddrPort netip.AddrPort,
+	msg *dns.Msg,
+	protocol string,
+	allowed bool,
+	stat *dnsproxy.ProxyRequestContext,
+) error {
+	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, msg, protocol, allowed, stat)
+}
+
+func (h *dnsMessageHandler) OnResponse(
+	lookupTime time.Time,
+	ep *endpoint.Endpoint,
+	epIPPort string,
+	serverID identity.NumericIdentity,
+	serverAddrPort netip.AddrPort,
+	msg *dns.Msg,
+	protocol string,
+	allowed bool,
+	stat *dnsproxy.ProxyRequestContext,
+) error {
+	return h.NotifyOnDNSMsg(lookupTime, ep, epIPPort, serverID, serverAddrPort, msg, protocol, allowed, stat)
 }
 
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
