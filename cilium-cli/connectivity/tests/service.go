@@ -248,6 +248,11 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 			// Create the Action with the original svc as this will influence what the
 			// flow matcher looks for in the flow logs.
 			t.NewAction(s, name, pod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
+				// Wait for NodePort to be ready before testing connectivity
+				if err := check.WaitForNodePorts(ctx, a, *pod, addr.Address, svc); err != nil {
+					a.Debugf("NodePort %s:%d not ready, proceeding anyway: %v", addr.Address, np, err)
+				}
+
 				a.ExecInPod(ctx, a.CurlCommand(ep))
 
 				if validateFlows {
