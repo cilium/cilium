@@ -143,3 +143,12 @@ func AllMatch[T any](s []T, pred func(v T) bool) bool {
 	}
 	return true
 }
+
+// Reverse reverses the elements in the slice in place and returns the modified slice.
+// This function modifies the original slice and is more memory efficient than creating a new slice.
+func Reverse[S ~[]T, T any](s S) S {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+	return s
+}

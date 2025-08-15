@@ -504,3 +504,134 @@ func BenchmarkSubsetOf(b *testing.B) {
 		)
 	}
 }
+
+func TestReverse(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    []int
+		expected []int
+	}{
+		{
+			name:     "nil slice",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name:     "empty slice",
+			input:    []int{},
+			expected: []int{},
+		},
+		{
+			name:     "single element",
+			input:    []int{42},
+			expected: []int{42},
+		},
+		{
+			name:     "two elements",
+			input:    []int{1, 2},
+			expected: []int{2, 1},
+		},
+		{
+			name:     "odd number of elements",
+			input:    []int{1, 2, 3, 4, 5},
+			expected: []int{5, 4, 3, 2, 1},
+		},
+		{
+			name:     "even number of elements",
+			input:    []int{1, 2, 3, 4, 5, 6},
+			expected: []int{6, 5, 4, 3, 2, 1},
+		},
+		{
+			name:     "duplicate elements",
+			input:    []int{1, 2, 2, 3, 1},
+			expected: []int{1, 3, 2, 2, 1},
+		},
+		{
+			name:     "all same elements",
+			input:    []int{7, 7, 7, 7},
+			expected: []int{7, 7, 7, 7},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Handle nil slice case specially
+			if tc.input == nil {
+				result := Reverse(tc.input)
+				assert.Equal(t, tc.expected, result)
+				return
+			}
+			
+			// Make a copy to preserve original for comparison
+			inputCopy := make([]int, len(tc.input))
+			copy(inputCopy, tc.input)
+			
+			result := Reverse(inputCopy)
+			
+			// Verify the result matches expected
+			assert.Equal(t, tc.expected, result)
+			
+			// Verify the function modifies the slice in place
+			assert.Equal(t, tc.expected, inputCopy)
+			
+			// Verify that reversing twice gives back the original
+			if len(tc.input) > 0 {
+				doubleReversed := make([]int, len(tc.input))
+				copy(doubleReversed, tc.input)
+				doubleReversed = Reverse(Reverse(doubleReversed))
+				assert.Equal(t, tc.input, doubleReversed)
+			}
+		})
+	}
+}
+
+func TestReverseWithStrings(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "string slice",
+			input:    []string{"hello", "world", "test"},
+			expected: []string{"test", "world", "hello"},
+		},
+		{
+			name:     "empty strings",
+			input:    []string{"", "a", ""},
+			expected: []string{"", "a", ""},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			inputCopy := make([]string, len(tc.input))
+			copy(inputCopy, tc.input)
+			
+			result := Reverse(inputCopy)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func BenchmarkReverse(b *testing.B) {
+	sizes := []int{10, 100, 1000, 10000}
+	
+	for _, size := range sizes {
+		b.Run(fmt.Sprintf("size-%d", size), func(b *testing.B) {
+			// Create test data
+			data := make([]int, size)
+			for i := range data {
+				data[i] = i
+			}
+			
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				// Make a copy for each iteration to ensure consistent benchmarking
+				testData := make([]int, len(data))
+				copy(testData, data)
+				Reverse(testData)
+			}
+		})
+	}
+}
