@@ -474,7 +474,12 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("invalid Label: '%s' does not contain label key", data)
 		}
 
-		l.Source = aux.Source
+		// If source is empty, default to LabelSourceUnspec
+		if aux.Source == "" {
+			l.Source = LabelSourceUnspec
+		} else {
+			l.Source = aux.Source
+		}
 		l.Key = aux.Key
 		l.Value = aux.Value
 	}
