@@ -322,15 +322,7 @@ stop:
 
 			// Reset the timer so that it gets triggered again after fullReconciliationInterval,
 			// to avoid introducing unnecessary churn in case a full reconciliation was already
-			// triggered due to other reasons. The Stop and select steps can be dropped once
-			// switching to using go v1.23: https://go.dev/wiki/Go123Timer
-			if !refresher.Stop() {
-				select {
-				case <-ticker.C():
-				default:
-				}
-			}
-
+			// triggered due to other reasons.
 			refresher.Reset(fullReconciliationInterval)
 		}
 	}
