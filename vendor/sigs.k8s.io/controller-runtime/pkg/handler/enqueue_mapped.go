@@ -86,9 +86,8 @@ func (e *enqueueRequestsFromMapFunc[object, request]) Create(
 	reqs := map[request]empty{}
 
 	var lowPriority bool
-	if e.objectImplementsClientObject && isPriorityQueue(q) && !isNil(evt.Object) {
-		clientObjectEvent := event.CreateEvent{Object: any(evt.Object).(client.Object)}
-		if isObjectUnchanged(clientObjectEvent) {
+	if isPriorityQueue(q) && !isNil(evt.Object) {
+		if evt.IsInInitialList {
 			lowPriority = true
 		}
 	}
