@@ -8,11 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/netip"
 	"strings"
 
 	"github.com/cilium/dns"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -136,7 +138,7 @@ func (h *dnsMessageHandler) OnQuery(
 	// is going away.
 	addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
 
-	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(query)
+	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := ExtractMsgDetails(query)
 	if err != nil {
 		h.logger.Error("cannot extract DNS message details",
 			logfields.Error, err,
@@ -213,7 +215,7 @@ func (h *dnsMessageHandler) OnResponse(
 	// is going away.
 	addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
 
-	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(response)
+	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := ExtractMsgDetails(response)
 	if err != nil {
 		h.logger.Error("cannot extract DNS message details",
 			logfields.Error, err,
@@ -349,7 +351,7 @@ func (h *dnsMessageHandler) OnError(
 		addrInfo.DstIdentity = serverID
 	}
 
-	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
+	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := ExtractMsgDetails(msg)
 	if err != nil {
 		h.logger.Error("cannot extract DNS message details",
 			logfields.Error, err,
@@ -515,4 +517,66 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 		logfields.EndpointID, ep.GetID(),
 		logfields.DNSName, qname,
 	)
+}
+
+// ExtractMsgDetails extracts a canonical query name, any IPs in a response,
+// the lowest applicable TTL, rcode, anwer rr types and question types
+// When a CNAME is returned the chain is collapsed down, keeping the lowest TTL,
+// and CNAME targets are returned.
+func ExtractMsgDetails(msg *dns.Msg) (
+	qname string,
+	responseIPs []netip.Addr,
+	TTL uint32,
+	CNAMEs []string,
+	rcode int,
+	answerTypes []uint16,
+	qTypes []uint16,
+	err error,
+) {
+	if len(msg.Question) == 0 {
+		return "", nil, 0, nil, 0, nil, nil, errors.New("Invalid DNS message")
+	}
+	qname = strings.ToLower(string(msg.Question[0].Name))
+
+	TTL = math.MaxUint32 // a TTL must exist in the RRs
+
+	answerTypes = make([]uint16, 0, len(msg.Answer))
+	for _, ans := range msg.Answer {
+		// Handle A, AAAA and CNAME records by accumulating IPs and lowest TTL
+		switch ans := ans.(type) {
+		case *dns.A:
+			ip, ok := netipx.FromStdIP(ans.A)
+			if !ok {
+				return qname, nil, 0, nil, 0, nil, nil, errors.New("invalid IP in A record")
+			}
+			responseIPs = append(responseIPs, ip)
+			if TTL > ans.Hdr.Ttl {
+				TTL = ans.Hdr.Ttl
+			}
+		case *dns.AAAA:
+			ip, ok := netipx.FromStdIP(ans.AAAA)
+			if !ok {
+				return qname, nil, 0, nil, 0, nil, nil, errors.New("invalid IP in AAAA record")
+			}
+			responseIPs = append(responseIPs, ip)
+			if TTL > ans.Hdr.Ttl {
+				TTL = ans.Hdr.Ttl
+			}
+		case *dns.CNAME:
+			// We still track the TTL because the lowest TTL in the chain
+			// determines the valid caching time for the whole response.
+			if TTL > ans.Hdr.Ttl {
+				TTL = ans.Hdr.Ttl
+			}
+			CNAMEs = append(CNAMEs, ans.Target)
+		}
+		answerTypes = append(answerTypes, ans.Header().Rrtype)
+	}
+
+	qTypes = make([]uint16, 0, len(msg.Question))
+	for _, q := range msg.Question {
+		qTypes = append(qTypes, q.Qtype)
+	}
+
+	return qname, responseIPs, TTL, CNAMEs, msg.Rcode, answerTypes, qTypes, nil
 }

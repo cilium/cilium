@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/dns"
 	ciliumdns "github.com/cilium/dns"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
-	"github.com/cilium/cilium/pkg/fqdn/dns"
+	fqdndns "github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -40,11 +41,11 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 				Response: true,
 			},
 			Question: []ciliumdns.Question{{
-				Name: dns.FQDN("cilium.io"),
+				Name: fqdndns.FQDN("cilium.io"),
 			}},
 			Answer: []ciliumdns.RR{&ciliumdns.A{
 				Hdr: ciliumdns.RR_Header{
-					Name: dns.FQDN("cilium.io"),
+					Name: fqdndns.FQDN("cilium.io"),
 					Ttl:  3600,
 				},
 				A: net.ParseIP("192.0.2.3"),
@@ -56,11 +57,11 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 			},
 			Compress: false,
 			Question: []ciliumdns.Question{{
-				Name: dns.FQDN("ebpf.io"),
+				Name: fqdndns.FQDN("ebpf.io"),
 			}},
 			Answer: []ciliumdns.RR{&ciliumdns.A{
 				Hdr: ciliumdns.RR_Header{
-					Name: dns.FQDN("ebpf.io"),
+					Name: fqdndns.FQDN("ebpf.io"),
 					Ttl:  3600,
 				},
 				A: net.ParseIP("192.0.2.4"),
@@ -157,4 +158,197 @@ func (*noopNotifier) NewProxyLogRecord(l *accesslog.LogRecord) error { return ni
 type dummyInfoRegistry struct{}
 
 func (*dummyInfoRegistry) FillEndpointInfo(ctx context.Context, info *accesslog.EndpointInfo, addr netip.Addr) {
+}
+
+func TestExtractMsgDetails(t *testing.T) {
+	testCases := []struct {
+		msg     *dns.Msg
+		ttl     uint32
+		cnames  []string
+		wantErr bool
+	}{
+		// Invalid DNS message
+		{
+			msg:     &dns.Msg{},
+			ttl:     0,
+			cnames:  nil,
+			wantErr: true,
+		},
+		// A response, no CNAMEs
+		{
+			msg: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Response: true,
+				},
+				Question: []dns.Question{{
+					Name: fqdndns.FQDN("cilium.io"),
+				}},
+				Answer: []dns.RR{&dns.A{
+					Hdr: dns.RR_Header{
+						Name: fqdndns.FQDN("cilium.io"),
+						Ttl:  3600,
+					},
+					A: net.ParseIP("192.0.2.3"),
+				}},
+			},
+			ttl:     3600,
+			cnames:  nil,
+			wantErr: false,
+		},
+		// AAAA response, no CNAMEs, min TTL
+		{
+			msg: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Response: true,
+				},
+				Question: []dns.Question{{
+					Name: fqdndns.FQDN("cilium.io"),
+				}},
+				Answer: []dns.RR{
+					&dns.AAAA{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("cilium.io"),
+							Ttl:  3600,
+						},
+						AAAA: net.ParseIP("f00d::1"),
+					},
+					&dns.AAAA{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("cilium.io"),
+							Ttl:  1800,
+						},
+						AAAA: net.ParseIP("f00d::2"),
+					},
+				},
+			},
+			ttl:     1800,
+			cnames:  nil,
+			wantErr: false,
+		},
+		// A & CNAME (1 level) response, min TTL
+		{
+			msg: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Response: true,
+				},
+				Question: []dns.Question{{
+					Name: fqdndns.FQDN("foo.cilium.io"),
+				}},
+				Answer: []dns.RR{
+					&dns.CNAME{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("foo.cilium.io"),
+							Ttl:  1800,
+						},
+						Target: fqdndns.FQDN("bar.cilium.io"),
+					},
+					&dns.A{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("bar.cilium.io"),
+							Ttl:  3600,
+						},
+						A: net.ParseIP("192.168.0.2"),
+					},
+				},
+			},
+			ttl:     1800,
+			cnames:  []string{"bar.cilium.io."},
+			wantErr: false,
+		},
+		// AAAA & CNAME (3 levels) response, min TTL
+		{
+			msg: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Response: true,
+				},
+				Question: []dns.Question{{
+					Name: fqdndns.FQDN("foo.cilium.io"),
+				}},
+				Answer: []dns.RR{
+					&dns.CNAME{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("foo.cilium.io"),
+							Ttl:  7200,
+						},
+						Target: fqdndns.FQDN("foo1.cilium.io"),
+					},
+					&dns.CNAME{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("foo1.cilium.io"),
+							Ttl:  3600,
+						},
+						Target: fqdndns.FQDN("foo2.cilium.io"),
+					},
+					&dns.CNAME{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("foo2.cilium.io"),
+							Ttl:  7200,
+						},
+						Target: fqdndns.FQDN("foo3.cilium.io"),
+					},
+					&dns.AAAA{
+						Hdr: dns.RR_Header{
+							Name: fqdndns.FQDN("foo3.cilium.io"),
+							Ttl:  7200,
+						},
+						AAAA: net.ParseIP("f00d::1"),
+					},
+				},
+			},
+			ttl:     3600,
+			cnames:  []string{"foo1.cilium.io.", "foo2.cilium.io.", "foo3.cilium.io."},
+			wantErr: false,
+		},
+		// CNAME (subdomain) & A.
+
+		// Note: this is arguably a malformed response by the server, since the
+		// answer names don't match the query. However, servers send responses
+		// like this and clients accept them (and connect to the IP in the A
+		// record).
+		{
+			msg: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Response: true,
+				},
+				Question: []dns.Question{{
+					Name: fqdndns.FQDN("foo.cilium.io"),
+				}},
+				Answer: []dns.RR{
+					&dns.CNAME{
+						Hdr: dns.RR_Header{
+							Name:   fqdndns.FQDN("cilium.io"),
+							Rrtype: dns.TypeCNAME,
+							Class:  dns.ClassINET,
+							Ttl:    600,
+						},
+						Target: fqdndns.FQDN("bar.cilium.io."),
+					},
+					&dns.A{
+						Hdr: dns.RR_Header{
+							Name:   fqdndns.FQDN("bar.cilium.io"),
+							Rrtype: dns.TypeA,
+							Class:  dns.ClassINET,
+							Ttl:    700,
+						},
+						A: net.ParseIP("192.168.0.2"),
+					},
+				},
+			},
+			ttl:     600,
+			cnames:  []string{"bar.cilium.io."},
+			wantErr: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		_, _, ttl, cnames, _, _, _, err := ExtractMsgDetails(tc.msg)
+		if tc.wantErr {
+			require.Error(t, err)
+		} else {
+			require.NoError(t, err)
+		}
+
+		require.Equal(t, tc.ttl, ttl)
+		require.Equal(t, tc.cnames, cnames)
+	}
 }
