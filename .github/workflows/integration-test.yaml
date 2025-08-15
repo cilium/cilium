@@ -168,7 +168,6 @@ jobs:
           key: ${{ runner.os }}-go-integration-test-cache-${{ runner.arch }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-integration-test-cache-${{ runner.arch }}-
-            ${{ runner.os }}-go-integration-test-cache-
 
       - name: Set clang directory
         id: set_clang_dir
