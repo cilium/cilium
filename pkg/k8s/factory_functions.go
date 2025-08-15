@@ -208,11 +208,12 @@ func ConvertCEPToCoreCEP(cep *cilium_v2.CiliumEndpoint) *cilium_v2alpha1.CoreCil
 		identityID = cep.Status.Identity.ID
 	}
 	return &cilium_v2alpha1.CoreCiliumEndpoint{
-		Name:       cep.GetName(),
-		Networking: epNetworking,
-		Encryption: cep.Status.Encryption,
-		IdentityID: identityID,
-		NamedPorts: cep.Status.NamedPorts.DeepCopy(),
+		Name:           cep.GetName(),
+		Networking:     epNetworking,
+		Encryption:     cep.Status.Encryption,
+		IdentityID:     identityID,
+		NamedPorts:     cep.Status.NamedPorts.DeepCopy(),
+		ServiceAccount: cep.Status.ServiceAccount,
 	}
 }
 
@@ -230,7 +231,8 @@ func ConvertCoreCiliumEndpointToTypesCiliumEndpoint(ccep *cilium_v2alpha1.CoreCi
 		Identity: &cilium_v2.EndpointIdentity{
 			ID: ccep.IdentityID,
 		},
-		Networking: ccep.Networking,
-		NamedPorts: ccep.NamedPorts,
+		Networking:     ccep.Networking,
+		NamedPorts:     ccep.NamedPorts,
+		ServiceAccount: ccep.ServiceAccount,
 	}
 }

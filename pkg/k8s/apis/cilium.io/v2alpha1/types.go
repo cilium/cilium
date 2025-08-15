@@ -37,8 +37,10 @@ type CoreCiliumEndpoint struct {
 	// Encryption is the encryption configuration of the node
 
 	// +kubebuilder:validation:Optional
-	Encryption cilium_v2.EncryptionSpec `json:"encryption,omitempty"`
+	Encryption cilium_v2.EncryptionSpec `json:"encryption"`
 	NamedPorts models.NamedPorts        `json:"named-ports,omitempty"`
+	// ServiceAccount is the service account of the endpoint.
+	ServiceAccount string `json:"service-account,omitempty"`
 }
 
 // +genclient
