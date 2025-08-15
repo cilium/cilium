@@ -2246,13 +2246,13 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 
 	if wg != nil {
-		start := time.Now()
+		logArgs := []any{logfields.Duration, time.Since(time.Now())}
 		s.logger.Debug("UpdateEnvoyResources: Waiting for proxy updates to complete...")
 		err := wg.Wait()
-		s.logger.Debug("UpdateEnvoyResources: Finished waiting for proxy updates",
-			logfields.Duration, time.Since(start),
-			logfields.Error, err,
-		)
+		if err != nil {
+			logArgs = append(logArgs, logfields.Error, err)
+		}
+		s.logger.Debug("UpdateEnvoyResources: Finished waiting for proxy updates", logArgs...)
 
 		// revert all changes in case of failure
 		if err != nil {
@@ -2314,13 +2314,13 @@ func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 	}
 
 	if wg != nil {
-		start := time.Now()
+		logArgs := []any{logfields.Duration, time.Since(time.Now())}
 		s.logger.Debug("DeleteEnvoyResources: Waiting for proxy updates to complete...")
 		err := wg.Wait()
-		s.logger.Debug("DeleteEnvoyResources: Finished waiting for proxy updates",
-			logfields.Duration, time.Since(start),
-			logfields.Error, err,
-		)
+		if err != nil {
+			logArgs = append(logArgs, logfields.Error, err)
+		}
+		s.logger.Debug("DeleteEnvoyResources: Finished waiting for proxy updates", logArgs...)
 
 		// revert all changes in case of failure
 		if err != nil {
