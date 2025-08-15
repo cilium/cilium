@@ -5,6 +5,7 @@ package builder
 
 import (
 	_ "embed"
+	"fmt"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
@@ -30,11 +31,11 @@ func (t egressGatewayWithL7Policy) build(ct *check.ConnectivityTest, templates m
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]).  // DNS resolution only
 		WithCiliumPolicy(templates["clientEgressL7HTTPExternalYAML"]). // L7 allow policy with HTTP introspection
 		WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
-			Name:            "cegp-sample-client",
+			Name:            fmt.Sprintf("cegp-sample-client-%d", ct.Params().TestNamespaceIndex),
 			PodSelectorKind: "client",
 		}).
 		WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
-			Name:            "cegp-sample-echo",
+			Name:            fmt.Sprintf("cegp-sample-echo-%d", ct.Params().TestNamespaceIndex),
 			PodSelectorKind: "echo",
 		}).
 		WithIPRoutesFromOutsideToPodCIDRs().
