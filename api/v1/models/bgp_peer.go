@@ -62,6 +62,9 @@ type BgpPeer struct {
 	// Local AS Number
 	LocalAsn int64 `json:"local-asn,omitempty"`
 
+	// Capabilities announced by the local peer
+	LocalCapabilities []*BgpCapabilities `json:"local-capabilities"`
+
 	// IP Address of peer
 	PeerAddress string `json:"peer-address,omitempty"`
 
@@ -72,6 +75,9 @@ type BgpPeer struct {
 	// Maximum: 65535
 	// Minimum: 1
 	PeerPort int64 `json:"peer-port,omitempty"`
+
+	// Capabilities announced by the remote peer
+	RemoteCapabilities []*BgpCapabilities `json:"remote-capabilities"`
 
 	// BGP peer operational state as described here
 	// https://www.rfc-editor.org/rfc/rfc4271#section-8.2.2
@@ -97,7 +103,15 @@ func (m *BgpPeer) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
+	if err := m.validateLocalCapabilities(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validatePeerPort(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateRemoteCapabilities(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -152,6 +166,32 @@ func (m *BgpPeer) validateGracefulRestart(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *BgpPeer) validateLocalCapabilities(formats strfmt.Registry) error {
+	if swag.IsZero(m.LocalCapabilities) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.LocalCapabilities); i++ {
+		if swag.IsZero(m.LocalCapabilities[i]) { // not required
+			continue
+		}
+
+		if m.LocalCapabilities[i] != nil {
+			if err := m.LocalCapabilities[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("local-capabilities" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("local-capabilities" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 func (m *BgpPeer) validatePeerPort(formats strfmt.Registry) error {
 	if swag.IsZero(m.PeerPort) { // not required
 		return nil
@@ -168,6 +208,32 @@ func (m *BgpPeer) validatePeerPort(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *BgpPeer) validateRemoteCapabilities(formats strfmt.Registry) error {
+	if swag.IsZero(m.RemoteCapabilities) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.RemoteCapabilities); i++ {
+		if swag.IsZero(m.RemoteCapabilities[i]) { // not required
+			continue
+		}
+
+		if m.RemoteCapabilities[i] != nil {
+			if err := m.RemoteCapabilities[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("remote-capabilities" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("remote-capabilities" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 // ContextValidate validate this bgp peer based on the context it is used
 func (m *BgpPeer) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
@@ -177,6 +243,14 @@ func (m *BgpPeer) ContextValidate(ctx context.Context, formats strfmt.Registry) 
 	}
 
 	if err := m.contextValidateGracefulRestart(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateLocalCapabilities(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateRemoteCapabilities(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -227,6 +301,56 @@ func (m *BgpPeer) contextValidateGracefulRestart(ctx context.Context, formats st
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *BgpPeer) contextValidateLocalCapabilities(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.LocalCapabilities); i++ {
+
+		if m.LocalCapabilities[i] != nil {
+
+			if swag.IsZero(m.LocalCapabilities[i]) { // not required
+				return nil
+			}
+
+			if err := m.LocalCapabilities[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("local-capabilities" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("local-capabilities" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *BgpPeer) contextValidateRemoteCapabilities(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.RemoteCapabilities); i++ {
+
+		if m.RemoteCapabilities[i] != nil {
+
+			if swag.IsZero(m.RemoteCapabilities[i]) { // not required
+				return nil
+			}
+
+			if err := m.RemoteCapabilities[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("remote-capabilities" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("remote-capabilities" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
 	}
 
 	return nil
