@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
@@ -48,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
+	identityTestutils "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
@@ -168,8 +170,10 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 							},
 						},
 						IPCache: ipcache.NewIPCache(&ipcache.Configuration{
-							Context: ctx,
-							Logger:  hivetest.Logger(t),
+							Context:           ctx,
+							Logger:            hivetest.Logger(t),
+							IdentityAllocator: cache.NewNoopIdentityAllocator(log),
+							IdentityUpdater:   &identityTestutils.IdentityAllocatorOwnerMock{},
 						}),
 						K8SAPIGroups:          &k8sSynced.APIGroups{},
 						K8SResources:          &k8sSynced.Resources{},
