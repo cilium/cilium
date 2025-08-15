@@ -20,12 +20,12 @@ CiliumEndpointSlice
 This document describes CiliumEndpointSlices (CES), which enable batching of
 CiliumEndpoint (CEP) objects in the cluster to achieve better scalability.
 
-When enabled, Cilium Operator watches CEP objects and groups/batches slim versions
-of them into CES objects. Cilium Agent watches CES objects to learn about
-remote endpoints in this mode. API-server stress due to remote endpoint info
-propagation should be reduced in this case, allowing for better scalability,
-at the cost of potentially longer delay before identities of new endpoints are
-recognized throughout the cluster.
+When enabled, Cilium Operator watches Pod objects and groups/batches slim
+objects with their data called CoreCiliumEndpoints into CES objects. The Cilium 
+Agent watches CES objects to learn about remote endpoints in this mode. 
+API-server stress due to remote endpoint info propagation should be reduced in 
+this case, allowing for better scalability, at the cost of potentially longer 
+delay before identities of new endpoints are recognized throughout the cluster.
 
 .. note::
 
