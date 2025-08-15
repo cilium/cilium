@@ -138,13 +138,13 @@ func (h *dnsMessageHandler) OnQuery(
 	// is going away.
 	addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
 
-	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := ExtractMsgDetails(query)
+	qname, qTypes, err := ExtractQueryDetails(query)
 	if err != nil {
-		h.logger.Error("cannot extract DNS message details",
+		h.logger.Error("cannot extract DNS query details",
 			logfields.Error, err,
 			logfields.DNSName, qname,
 		)
-		return fmt.Errorf("failed to extract DNS message details: %w", err)
+		return fmt.Errorf("failed to extract DNS query details: %w", err)
 	}
 
 	stat.ProcessingTime.End(true)
@@ -167,13 +167,8 @@ func (h *dnsMessageHandler) OnQuery(
 		accesslog.LogTags.Addressing(logContext, addrInfo),
 		accesslog.LogTags.DNS(&accesslog.LogRecordDNS{
 			Query:             qname,
-			IPs:               responseIPs,
-			TTL:               TTL,
-			CNAMEs:            CNAMEs,
 			ObservationSource: stat.DataSource,
-			RCode:             rcode,
 			QTypes:            qTypes,
-			AnswerTypes:       recordTypes,
 		}),
 	)
 	h.proxyAccessLogger.Log(record)
@@ -517,6 +512,26 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 		logfields.EndpointID, ep.GetID(),
 		logfields.DNSName, qname,
 	)
+}
+
+// ExtractQueryDetails returns the canonical query name and all question types
+// or an error if the message couldn't be understood.
+func ExtractQueryDetails(msg *dns.Msg) (
+	qname string,
+	qTypes []uint16,
+	err error,
+) {
+	if len(msg.Question) == 0 {
+		return "", nil, errors.New("invalid DNS query")
+	}
+	qname = strings.ToLower(string(msg.Question[0].Name))
+
+	qTypes = make([]uint16, 0, len(msg.Question))
+	for _, q := range msg.Question {
+		qTypes = append(qTypes, q.Qtype)
+	}
+
+	return qname, qTypes, nil
 }
 
 // ExtractMsgDetails extracts a canonical query name, any IPs in a response,
