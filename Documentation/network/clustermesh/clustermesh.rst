@@ -29,9 +29,8 @@ Cluster Addressing Requirements
 * PodCIDR ranges in all clusters and all nodes must be non-conflicting and
   unique IP addresses.
 
-* Nodes in all clusters must have IP connectivity between each other using the 
-  configured InternalIP for each node. This requirement is typically met by establishing 
-  peering or VPN tunnels between the networks of the nodes of each cluster.
+* Nodes in all clusters must have IP connectivity between each other using the
+  configured InternalIP (or optionally ExternalIP) for each node.
 
 * The network between clusters must allow the inter-cluster communication. The
   exact ports are documented in the :ref:`firewall_requirements` section.
@@ -243,6 +242,12 @@ direction. The connection will automatically be established in both directions:
 .. code-block:: shell-session
 
     cilium clustermesh connect --context $CLUSTER1 --destination-context $CLUSTER2
+
+To route inter cluster traffic using the ExternalIPs of each nodes instead of
+the InternalIPs you can also add the ``prefer-external-ips`` option to the previous
+connect command. However, note that the datapath inter-cluster traffic is unencrypted
+by default even if you chose to use ExternalIPs unless you configure Cilium to
+encrypt the traffic using wireguard or IPSec.
 
 It may take a bit for the clusters to be connected. You can run ``cilium
 clustermesh status --wait`` to wait for the connection to be successful:
