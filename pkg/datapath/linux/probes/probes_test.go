@@ -105,3 +105,9 @@ func TestPrivilegedHaveNetkit(t *testing.T) {
 	testutils.SkipOnOldKernel(t, "6.7", "netkit bpf_link")
 	assert.NoError(t, HaveNetkit())
 }
+
+func TestPrivilegedHaveFibLookupSkipNeigh(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	testutils.SkipOnOldKernel(t, "6.6", "BPF_FIB_LOOKUP_SKIP_NEIGH")
+	assert.NoError(t, HaveFibLookupSkipNeigh())
+}

@@ -114,6 +114,18 @@ func CheckRequirements(log *slog.Logger) error {
 		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
 			return errors.New("Require support for bpf_redirect_peer() (Linux 5.10.0 or newer)")
 		}
+
+		if err := probes.HaveFibLookupSkipNeigh(); err != nil {
+			if errors.Is(err, ebpf.ErrNotSupported) {
+				log.Info("BPF_FIB_LOOKUP_SKIP_NEIGH is not supported; it will not be used",
+					logfields.Error, err,
+				)
+			} else {
+				log.Warn("Unable to determine if BPF_FIB_LOOKUP_SKIP_NEIGH is supported; it will not be used",
+					logfields.Error, err,
+				)
+			}
+		}
 	}
 	return nil
 }
