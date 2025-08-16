@@ -234,6 +234,10 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		ip.Encrypted = tn.IsEncrypted()
 	}
 
+	if tn != nil && tn.OrigPort != 0 {
+		decodeSNATedPort(l4, tn.OrigPort)
+	}
+
 	srcLabelID, dstLabelID := decodeSecurityIdentities(dn, tn, pvn)
 	datapathContext := common.DatapathContext{
 		SrcIP:                 srcIP,
@@ -795,4 +799,19 @@ func decodeProxyPort(dbg *monitor.DebugCapture, tn *monitor.TraceNotify) uint32 
 	}
 
 	return 0
+}
+
+func decodeSNATedPort(l4 *pb.Layer4, origPort uint16) {
+	switch proto := l4.Protocol.(type) {
+	case *pb.Layer4_TCP:
+		proto.TCP.SourceXlatedPort = proto.TCP.SourcePort
+		proto.TCP.SourcePort = uint32(origPort)
+	case *pb.Layer4_UDP:
+		proto.UDP.SourceXlatedPort = proto.UDP.SourcePort
+		proto.UDP.SourcePort = uint32(origPort)
+	case *pb.Layer4_SCTP:
+		proto.SCTP.SourceXlatedPort = proto.SCTP.SourcePort
+		proto.SCTP.SourcePort = uint32(origPort)
+	default:
+	}
 }
