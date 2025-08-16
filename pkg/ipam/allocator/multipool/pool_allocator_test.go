@@ -500,3 +500,28 @@ func Test_addrsInPrefix(t *testing.T) {
 		})
 	}
 }
+
+// TestUpdateCIDRSets_ShrinkPool ensures that shrinking a pool does not
+// trigger a nil dereference in updateCIDRSets.
+func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t))
+
+	// Initial pool with two IPv4 CIDRs
+	err := p.UpsertPool("shrink-test",
+		[]string{"10.0.0.0/16", "10.1.0.0/16"}, 24,
+		nil, 0,
+	)
+	assert.NoError(t, err)
+
+	pool := p.pools["shrink-test"]
+
+	// Shrink pool to a single CIDR
+	newCIDRs := []netip.Prefix{netip.MustParsePrefix("10.1.0.0/16")}
+
+	assert.NotPanics(t, func() {
+		updated, err := p.updateCIDRSets(false, pool.v4, newCIDRs, 24)
+		assert.NoError(t, err)
+		assert.Len(t, updated, 1)
+		assert.True(t, updated[0].IsClusterCIDR(newCIDRs[0]))
+	})
+}
