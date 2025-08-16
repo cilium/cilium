@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -169,7 +170,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	if err = r.ensureEndpoints(ctx, ep); err != nil {
+	if err = r.ensureEndpointSlice(ctx, ep); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to ensure Endpoints resource", gatewayv1.GatewayReasonNoResources)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
@@ -220,12 +221,13 @@ func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.S
 	return err
 }
 
-func (r *gatewayReconciler) ensureEndpoints(ctx context.Context, desired *corev1.Endpoints) error {
-	ep := desired.DeepCopy()
-	_, err := controllerutil.CreateOrPatch(ctx, r.Client, ep, func() error {
-		ep.Subsets = desired.Subsets
-		ep.OwnerReferences = desired.OwnerReferences
-		setMergedLabelsAndAnnotations(ep, desired)
+func (r *gatewayReconciler) ensureEndpointSlice(ctx context.Context, desired *discoveryv1.EndpointSlice) error {
+	eps := desired.DeepCopy()
+	_, err := controllerutil.CreateOrPatch(ctx, r.Client, eps, func() error {
+		eps.Endpoints = desired.Endpoints
+		eps.Ports = desired.Ports
+		eps.OwnerReferences = desired.OwnerReferences
+		setMergedLabelsAndAnnotations(eps, desired)
 		return nil
 	})
 	return err

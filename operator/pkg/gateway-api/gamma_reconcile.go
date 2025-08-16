@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -117,7 +118,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
 	}
 
-	if err = r.ensureEndpoints(ctx, cep); err != nil {
+	if err = r.ensureEndpointSlice(ctx, cep); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
 	}
@@ -211,10 +212,11 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 	return nil
 }
 
-func (r *gammaReconciler) ensureEndpoints(ctx context.Context, desired *corev1.Endpoints) error {
+func (r *gammaReconciler) ensureEndpointSlice(ctx context.Context, desired *discoveryv1.EndpointSlice) error {
 	ep := desired.DeepCopy()
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, ep, func() error {
-		ep.Subsets = desired.Subsets
+		ep.Endpoints = desired.Endpoints
+		ep.Ports = desired.Ports
 		ep.OwnerReferences = desired.OwnerReferences
 		setMergedLabelsAndAnnotations(ep, desired)
 		return nil

@@ -109,9 +109,23 @@ rules:
   - list
   - watch
 {{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
   - create
+  - patch
   - update
-  - delete
+- apiGroups:
+  - "discovery.k8s.io"
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+  - create
   - patch
 {{- end }}
 {{- if .Values.clustermesh.enableEndpointSliceSynchronization }}

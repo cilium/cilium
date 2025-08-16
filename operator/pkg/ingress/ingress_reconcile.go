@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -243,7 +244,7 @@ func (r *ingressReconciler) getSharedListenerPorts() (uint32, uint32, uint32) {
 	return defaultHostNetworkListenerPort, defaultHostNetworkListenerPort, defaultHostNetworkListenerPort
 }
 
-func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress *networkingv1.Ingress, scopedLog *slog.Logger) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
+func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress *networkingv1.Ingress, scopedLog *slog.Logger) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *discoveryv1.EndpointSlice, error) {
 	passthroughPort, insecureHTTPPort, secureHTTPPort := r.getDedicatedListenerPorts(ingress)
 
 	m := &model.Model{}
@@ -360,14 +361,15 @@ func (r *ingressReconciler) createOrUpdateService(ctx context.Context, desiredSe
 	return nil
 }
 
-func (r *ingressReconciler) createOrUpdateEndpoints(ctx context.Context, desiredEndpoints *corev1.Endpoints) error {
-	ep := desiredEndpoints.DeepCopy()
+func (r *ingressReconciler) createOrUpdateEndpoints(ctx context.Context, desired *discoveryv1.EndpointSlice) error {
+	eps := desired.DeepCopy()
 
-	result, err := controllerutil.CreateOrUpdate(ctx, r.client, ep, func() error {
-		ep.Subsets = desiredEndpoints.Subsets
-		ep.OwnerReferences = desiredEndpoints.OwnerReferences
-		ep.Annotations = mergeMap(ep.Annotations, desiredEndpoints.Annotations)
-		ep.Labels = mergeMap(ep.Labels, desiredEndpoints.Labels)
+	result, err := controllerutil.CreateOrUpdate(ctx, r.client, eps, func() error {
+		eps.Endpoints = desired.Endpoints
+		eps.Ports = desired.Ports
+		eps.OwnerReferences = desired.OwnerReferences
+		eps.Annotations = mergeMap(eps.Annotations, desired.Annotations)
+		eps.Labels = mergeMap(eps.Labels, desired.Labels)
 
 		return nil
 	})
@@ -375,7 +377,7 @@ func (r *ingressReconciler) createOrUpdateEndpoints(ctx context.Context, desired
 		return fmt.Errorf("failed to create or update Endpoints: %w", err)
 	}
 
-	r.logger.DebugContext(ctx, fmt.Sprintf("Endpoints %s has been %s", client.ObjectKeyFromObject(ep), result))
+	r.logger.DebugContext(ctx, fmt.Sprintf("Endpoints %s has been %s", client.ObjectKeyFromObject(eps), result))
 
 	return nil
 }
