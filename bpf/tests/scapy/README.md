@@ -2,12 +2,12 @@
 
 ## How to port or write your first unit test with Scapy buffers
 
-Start by looking at the `tc_l2_announce.c` test as a reference, along with the
-`scapy.h` header. Use `git blame` to find the commit that ported it to Scapy.
+Start by looking at `tc_l2_announce.c` test as a reference, along with the
+`scapy.h` header, and check commit [`6595a3cbe5`](https://github.com/cilium/cilium/commit/6595a3cbe5).
 
 Steps:
 
-0. Create a regular BPF unit test, if not there
+0. Create the BPF unit test skeleton, if test is not there
 1. Define the buffer you will use in the section "Test buffer definitions"
    within `bpf/tests/scapy/pkt_defs.py`, following the format below
 ```
@@ -16,13 +16,152 @@ Steps:
 <test_name>_<packet_name> = Ether()/...
 ...
 ```
-2. In the `_pktgen` section that needs to use the Scapy buffer, declare the
-   buffer using `BUF_DECL(LOCAL_NAME, <test_name>_<packet_name>)`. You can then
-   push the buffer bytes to the builder using
-   `BUILDER_PUSH_BUF(builder, LOCAL_NAME)`.
-3. On the `_check` functions use `BUF_DECL()` to declare the buffer, and use
+2. In the `_pktgen` section of the test, declare the buffer using
+   `BUF_DECL(LOCAL_NAME, <test_name>_<packet_name>)`, and then push the buffer
+   bytes to the builder using `BUILDER_PUSH_BUF(builder, LOCAL_NAME)`.
+3. On the `_check` functions, use `BUF_DECL()` to declare the buffer, and use
    `ASSERT_CTX_BUF_OFF("assert message", "<First Scapy Layer: e.g. Ether>", ctx
    offset, LOCAL_NAME, size to compare)`.
+4. Remove old asserts.
+
+### Porting an existing test
+
+You can take as a reference commit [`6595a3cbe5`](https://github.com/cilium/cilium/commit/6595a3cbe5).
+
+> [!IMPORTANT]
+> To prevent regressions caused by two errors canceling each other out, do NOT
+> remove existing assertions until packet generation _and_ all `ASSERT_CTX_*`
+> checks pass.
+
+#### Packet generation
+
+Start by modifying the `_pktgen()` section (`build_packet()` in some tests). Use
+`HEXDUMP()` to dump the pkt after `pktgen__finish()`:
+
+<details>
+<summary><i>diff: using hexdump()</i></summary>
+
+```
+diff --git a/bpf/tests/tc_l2_announcement6.c b/bpf/tests/tc_l2_announcement6.c
+index 3f9303e46e..6193bf9200 100644
+--- a/bpf/tests/tc_l2_announcement6.c
++++ b/bpf/tests/tc_l2_announcement6.c
+@@ -16,6 +16,7 @@
+ #undef QUIET_CT
+
+ #include "pktgen.h"
++#include "../lib/hexdump.h"
+
+ /* Enable code paths under test */
+ #define ENABLE_IPV6
+@@ -94,6 +95,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
+                return TEST_ERROR;
+
+        pktgen__finish(&builder);
++       HEXDUMP("test", ctx);
+        return 0;
+ }
+```
+
+</details>
+
+Do a run `make run` and recover the trace:
+
+```
+~/dev/cilium/bpf/tests$ cat output/trace_pipe.log | grep test
+[...]
+           <...>-2084557 [003] b..11 146984.634298: bpf_trace_printk: tc_l2_announcement6.c:98 test: pkt_hex Ether[3333ff000001deadbeefdeef86dd6000000000203a4020010000000000000000000000000001fd1000000000000000000000000000018700000040000000fd1000000000000000000000000000010101deadbeefdeef]
+```
+
+Now open a Scapy shell, and use `command()` to create the scapy command:
+
+```
+>>> s = "3333ff000001deadbeefdeef86dd6000000000203a4020010000000000000000000000000001fd1000000000000000000000000000018700000040000000fd1000000000000000000000000000010101deadbeefdeef"
+>>> p = Ether(bytes.fromhex(s))
+>>> p.command()
+"Ether(dst='33:33:ff:00:00:01', src='de:ad:be:ef:de:ef', type=34525)/IPv6(version=6, tc=0, fl=0, plen=32, nh=58, hlim=64, src='2001::1', dst='fd10::1')/ICMPv6ND_NS(type=135, code=0, cksum=0, res=1073741824, tgt='fd10::1')/ICMPv6NDOptSrcLLAddr(type=1, len=1, lladdr='de:ad:be:ef:de:ef')"
+```
+
+Remove all the unnecessary fields, especially the ones inferred by stacking
+layers, irrelevant or reasonable defaults. Make sure TTL are adjusted (e.g. +1
+in some cases).
+
+Replace values with the constants defined in `pkt_defs.py` (e.g.MACs, IPs). Add
+any new value necessary in `pkt_defs.py`:
+
+```
+l2_announce6_ns = Ether(dst=l2_announce6_ns_mmac, src=mac_one)/                \
+                  IPv6(src=v6_ext_node_one, dst=l2_announce6_ns_ma, hlim=255)/ \
+                  ICMPv6ND_NS(tgt=v6_svc_one)/                                 \
+                  ICMPv6NDOptSrcLLAddr(lladdr=mac_one)
+```
+
+Run the test and adjust the scapy packet until it passes.
+
+#### Checks
+
+If the expected packet in the `_check` function is different than the injected,
+define the new packet. You can take as reference the injected packet.
+
+```
+l2_announce6_na = Ether(dst=mac_one, src=mac_two)/                             \
+                  IPv6(src=v6_svc_one, dst=v6_ext_node_one, hlim=255)/         \
+                  ICMPv6ND_NA(R=0, S=1, O=1, tgt=v6_svc_one)/                  \
+                  ICMPv6NDOptDstLLAddr(lladdr=mac_two)
+```
+
+Add the `ASSERT_CTX_BUF_*()` after the current assertions but before
+`test_finish()`:
+
+```
+	BUF_DECL(L2_ANNOUNCE6_NA, l2_announce6_na);
+
+	ASSERT_CTX_BUF_OFF("tc_l2announce2_entry_found_na",
+			   "Ether", ctx,
+			   sizeof(__u32), L2_ANNOUNCE6_NA,
+			   sizeof(BUF(L2_ANNOUNCE6_NA)));
+	test_finish();
+```
+
+Run the test and adjust the expected scapy packet until checks pass. Finally,
+remove all the packet-related assertions covered by the Scapy:
+
+<details>
+<summary><i>diff: example of a ported _check() function</i></summary>
+
+```
+@@ -115,27 +88,14 @@ int l2_announcement_arp_no_entry_check(__maybe_unused const struct __ctx_buff *c
+
+        status_code = data;
+
+        /* The program should pass unknown ARP messages to the stack */
+        assert(*status_code == TC_ACT_OK);
+
+-       l2 = data + sizeof(__u32);
+-       if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+-               test_fatal("l2 out of bounds");
+-
+-       l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+-
+-       if ((void *)l3 + sizeof(struct arphdreth) > data_end)
+-               test_fatal("l3 out of bounds");
+-
+-       assert(memcmp(l2->h_source, (__u8 *)mac_one, ETH_ALEN) == 0);
+-       assert(memcmp(l2->h_dest, (__u8 *)mac_bcast, ETH_ALEN) == 0);
+-       assert(l3->ar_op == bpf_htons(ARPOP_REQUEST));
+-       assert(l3->ar_sip == v4_ext_one);
+-       assert(l3->ar_tip == v4_svc_one);
+-       assert(memcmp(l3->ar_sha, (__u8 *)mac_one, ETH_ALEN) == 0);
+-       assert(memcmp(l3->ar_tha, (__u8 *)mac_bcast, ETH_ALEN) == 0);
+-
++       BUF_DECL(EXPECTED_ARP_REQ, l2_announce_arp_req);
++       ASSERT_CTX_BUF_OFF("arp_req_no_entry_untouched", "Ether", ctx,
++                          sizeof(__u32), EXPECTED_ARP_REQ,
++                          sizeof(BUF(EXPECTED_ARP_REQ)));
+        test_finish();
+
+```
+</details>
 
 ## Using Scapy
 
@@ -342,8 +481,11 @@ calculation using `show2()`.
 You can easily check whether a checksum is correct (e.g. when importing from
 a PCAP capture) by copying it and using `show2()`:
 
+<details>
+<summary><i>Simple process to verify checksums</i></summary>
+
 ```
->>> p = Ether()/IP()/TCP()/Raw("Hello world")
+>>> p = Ether()/IP()/TCP()/Raw("Hello world") #this could come from a PCAP, hexdump() etc.
 >>> p.show2()
 ###[ Ethernet ]###
   dst       = ff:ff:ff:ff:ff:ff
@@ -452,10 +594,14 @@ a PCAP capture) by copying it and using `show2()`:
 False
 ```
 
+</details>
+
 #### Using ranges and sets for values
 
 You can define a collection of packets with permutations on one or more fields
-using the set `[]` or the range `()` operators.
+by using the set `[]` or the range `()` operators.
+
+Use `list()` to generate all the permutations packets:
 
 ```
 >>> meta_pkt = Ether()/IP(src=["1.1.1.1", "1.1.1.2"])/TCP()/Raw("Hello world")
@@ -483,3 +629,6 @@ using the set `[]` or the range `()` operators.
  <Ether  type=IPv4 |<IP  frag=0 proto=tcp |<TCP  dport=netbios_ssn |<Raw  load='Hello world' |>>>>,
  <Ether  type=IPv4 |<IP  frag=0 proto=tcp |<TCP  dport=140 |<Raw  load='Hello world' |>>>>]
 ```
+
+You can also directly inject them using `send()`/`sendp()` without the need to
+use `list()`.
