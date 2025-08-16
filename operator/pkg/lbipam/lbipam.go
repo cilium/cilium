@@ -1408,8 +1408,7 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2.Ciliu
 		ipam.rangesStore.Add(lbRange)
 	}
 
-	// Unmark new pools so they get a conflict: False condition set, otherwise kubectl will report a blank field.
-	ipam.unmarkPool(ctx, pool)
+	ipam.initMarkPool(ctx, pool)
 
 	return nil
 }
@@ -1967,6 +1966,18 @@ func (ipam *LBIPAM) unmarkPool(ctx context.Context, targetPool *cilium_api_v2.Ci
 	ipam.metrics.ConflictingPools.Dec()
 
 	if ipam.setPoolCondition(targetPool, ciliumPoolConflict, meta_v1.ConditionFalse, "resolved", "") {
+		err := ipam.patchPoolStatus(ctx, targetPool)
+		if err != nil {
+			return fmt.Errorf("patchPoolStatus: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// initMarkPool sets the intial pool condition
+func (ipam *LBIPAM) initMarkPool(ctx context.Context, targetPool *cilium_api_v2.CiliumLoadBalancerIPPool) error {
+	if ipam.setPoolCondition(targetPool, ciliumPoolConflict, meta_v1.ConditionUnknown, "initialized", "") {
 		err := ipam.patchPoolStatus(ctx, targetPool)
 		if err != nil {
 			return fmt.Errorf("patchPoolStatus: %w", err)
