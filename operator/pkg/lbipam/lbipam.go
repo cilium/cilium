@@ -1977,7 +1977,7 @@ func (ipam *LBIPAM) unmarkPool(ctx context.Context, targetPool *cilium_api_v2.Ci
 
 // initMarkPool sets the intial pool condition
 func (ipam *LBIPAM) initMarkPool(ctx context.Context, targetPool *cilium_api_v2.CiliumLoadBalancerIPPool) error {
-	if ipam.setPoolCondition(targetPool, ciliumPoolConflict, meta_v1.ConditionUnknown, "initialized", "") {
+	if ipam.setPoolCondition(targetPool, ciliumPoolConflict, meta_v1.ConditionFalse, "initialized", "") {
 		err := ipam.patchPoolStatus(ctx, targetPool)
 		if err != nil {
 			return fmt.Errorf("patchPoolStatus: %w", err)
