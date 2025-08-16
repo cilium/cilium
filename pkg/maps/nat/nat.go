@@ -36,7 +36,7 @@ const (
 	MapNameSnat6AllocRetries = "cilium_snat_v6_alloc_retries"
 
 	// SnatCollisionRetries represents the maximum number of port allocation retries.
-	SnatCollisionRetries = 32
+	SnatCollisionRetries = 24
 )
 
 // Map represents a NAT map.
