@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
@@ -149,7 +149,7 @@ jobs:
       - name: Install yamela
         run: pip install yamale
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
@@ -174,7 +174,7 @@ jobs:
       - name: Install yamela
         run: pip install yamale
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
@@ -200,7 +200,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
