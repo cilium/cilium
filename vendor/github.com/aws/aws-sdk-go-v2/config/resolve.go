@@ -429,3 +429,16 @@ func resolveAuthSchemePreference(ctx context.Context, cfg *aws.Config, configs c
 	}
 	return nil
 }
+
+func resolveServiceOptions(ctx context.Context, cfg *aws.Config, configs configs) error {
+	serviceOptions, found, err := getServiceOptions(ctx, configs)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return nil
+	}
+
+	cfg.ServiceOptions = serviceOptions
+	return nil
+}

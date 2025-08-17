@@ -11,69 +11,74 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the VPC resources, VPC endpoint services, Amazon Lattice services, or
-// service networks associated with the VPC endpoint.
-func (c *Client) DescribeVpcEndpointAssociations(ctx context.Context, params *DescribeVpcEndpointAssociationsInput, optFns ...func(*Options)) (*DescribeVpcEndpointAssociationsOutput, error) {
+// Modifies the specified EC2 Instance Connect Endpoint.
+//
+// For more information, see [Modify an EC2 Instance Connect Endpoint] in the Amazon EC2 User Guide.
+//
+// [Modify an EC2 Instance Connect Endpoint]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/modify-ec2-instance-connect-endpoint.html
+func (c *Client) ModifyInstanceConnectEndpoint(ctx context.Context, params *ModifyInstanceConnectEndpointInput, optFns ...func(*Options)) (*ModifyInstanceConnectEndpointOutput, error) {
 	if params == nil {
-		params = &DescribeVpcEndpointAssociationsInput{}
+		params = &ModifyInstanceConnectEndpointInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcEndpointAssociations", params, optFns, c.addOperationDescribeVpcEndpointAssociationsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyInstanceConnectEndpoint", params, optFns, c.addOperationModifyInstanceConnectEndpointMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DescribeVpcEndpointAssociationsOutput)
+	out := result.(*ModifyInstanceConnectEndpointOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DescribeVpcEndpointAssociationsInput struct {
+type ModifyInstanceConnectEndpointInput struct {
 
-	// Checks whether you have the required permissions for the action, without
+	// The ID of the EC2 Instance Connect Endpoint to modify.
+	//
+	// This member is required.
+	InstanceConnectEndpointId *string
+
+	// Checks whether you have the required permissions for the operation, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The filters.
+	// The new IP address type for the EC2 Instance Connect Endpoint.
 	//
-	//   - vpc-endpoint-id - The ID of the VPC endpoint.
-	//
-	//   - associated-resource-accessibility - The association state. When the state is
-	//   accessible , it returns AVAILABLE . When the state is inaccessible , it
-	//   returns PENDING or FAILED .
-	//
-	//   - association-id - The ID of the VPC endpoint association.
-	//
-	//   - associated-resource-id - The ID of the associated resource configuration.
-	//
-	//   - service-network-arn - The Amazon Resource Name (ARN) of the associated
-	//   service network. Only VPC endpoints of type service network will be returned.
-	//
-	//   - resource-configuration-group-arn - The Amazon Resource Name (ARN) of the
-	//   resource configuration of type GROUP.
-	Filters []types.Filter
+	// PreserveClientIp is only supported on IPv4 EC2 Instance Connect Endpoints. To
+	// use PreserveClientIp , the value for IpAddressType must be ipv4 .
+	IpAddressType types.IpAddressType
 
-	// The maximum page size.
-	MaxResults *int32
+	// Indicates whether the client IP address is preserved as the source. The
+	// following are the possible values.
+	//
+	//   - true - Use the client IP address as the source.
+	//
+	//   - false - Use the network interface IP address as the source.
+	//
+	// PreserveClientIp=true is only supported on IPv4 EC2 Instance Connect Endpoints.
+	// If modifying PreserveClientIp to true , either the endpoint's existing
+	// IpAddressType must be ipv4 , or if modifying IpAddressType in the same request,
+	// the new value must be ipv4 .
+	//
+	// Default: false
+	PreserveClientIp *bool
 
-	// The pagination token.
-	NextToken *string
-
-	// The IDs of the VPC endpoints.
-	VpcEndpointIds []string
+	// Changes the security groups for the EC2 Instance Connect Endpoint. The new set
+	// of groups you specify replaces the current set. You must specify at least one
+	// group, even if it's just the default security group in the VPC. You must specify
+	// the ID of the security group, not the name.
+	SecurityGroupIds []string
 
 	noSmithyDocumentSerde
 }
 
-type DescribeVpcEndpointAssociationsOutput struct {
+type ModifyInstanceConnectEndpointOutput struct {
 
-	// The pagination token.
-	NextToken *string
-
-	// Details of the endpoint associations.
-	VpcEndpointAssociations []types.VpcEndpointAssociation
+	// The return value of the request. Returns true if the specified product code is
+	// owned by the requester and associated with the specified instance.
+	Return *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -81,19 +86,19 @@ type DescribeVpcEndpointAssociationsOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDescribeVpcEndpointAssociationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyInstanceConnectEndpointMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeVpcEndpointAssociations{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyInstanceConnectEndpoint{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeVpcEndpointAssociations{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpModifyInstanceConnectEndpoint{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeVpcEndpointAssociations"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "ModifyInstanceConnectEndpoint"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -148,7 +153,10 @@ func (c *Client) addOperationDescribeVpcEndpointAssociationsMiddlewares(stack *m
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcEndpointAssociations(options.Region), middleware.Before); err != nil {
+	if err = addOpModifyInstanceConnectEndpointValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyInstanceConnectEndpoint(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -211,10 +219,10 @@ func (c *Client) addOperationDescribeVpcEndpointAssociationsMiddlewares(stack *m
 	return nil
 }
 
-func newServiceMetadataMiddleware_opDescribeVpcEndpointAssociations(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opModifyInstanceConnectEndpoint(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DescribeVpcEndpointAssociations",
+		OperationName: "ModifyInstanceConnectEndpoint",
 	}
 }

@@ -568,6 +568,7 @@
         "api_op_ModifyImageAttribute.go",
         "api_op_ModifyInstanceAttribute.go",
         "api_op_ModifyInstanceCapacityReservationAttributes.go",
+        "api_op_ModifyInstanceConnectEndpoint.go",
         "api_op_ModifyInstanceCpuOptions.go",
         "api_op_ModifyInstanceCreditSpecification.go",
         "api_op_ModifyInstanceEventStartTime.go",
