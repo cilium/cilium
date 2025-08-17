@@ -636,6 +636,22 @@
       }
     },
     {
+      // The images from the image-tools repository have a timestamp-based versioning scheme, see https://github.com/cilium/image-tools/pull/286
+      "matchPackageNames": [
+        "quay.io/cilium/cilium-bpftool",
+        "quay.io/cilium/ca-certificates",
+        "quay.io/cilium/cilium-checkpatch",
+        "quay.io/cilium/image-compilers",
+        "quay.io/cilium/iptables",
+        "quay.io/cilium/cilium-llvm",
+        "quay.io/cilium/image-maker",
+        "quay.io/cilium/network-perf",
+        "quay.io/cilium/startup-script",
+        "quay.io/cilium/image-tester",
+      ],
+      "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$",
+    },
+    {
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
