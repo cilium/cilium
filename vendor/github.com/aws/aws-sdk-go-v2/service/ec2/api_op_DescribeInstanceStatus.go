@@ -75,6 +75,8 @@ type DescribeInstanceStatusInput struct {
 	//
 	//   - availability-zone - The Availability Zone of the instance.
 	//
+	//   - availability-zone-id - The ID of the Availability Zone of the instance.
+	//
 	//   - event.code - The code for the scheduled event ( instance-reboot |
 	//   system-reboot | system-maintenance | instance-retirement | instance-stop ).
 	//

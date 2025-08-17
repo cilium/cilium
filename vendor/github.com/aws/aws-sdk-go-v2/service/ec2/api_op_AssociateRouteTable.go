@@ -52,6 +52,10 @@ type AssociateRouteTableInput struct {
 	// The ID of the internet gateway or virtual private gateway.
 	GatewayId *string
 
+	// The ID of a public IPv4 pool. A public IPv4 pool is a pool of IPv4 addresses
+	// that you've brought to Amazon Web Services with BYOIP.
+	PublicIpv4Pool *string
+
 	// The ID of the subnet.
 	SubnetId *string
 

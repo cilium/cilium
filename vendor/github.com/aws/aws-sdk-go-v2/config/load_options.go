@@ -235,6 +235,11 @@ type LoadOptions struct {
 
 	// Priority list of preferred auth scheme names (e.g. sigv4a).
 	AuthSchemePreference []string
+
+	// ServiceOptions provides service specific configuration options that will be applied
+	// when constructing clients for specific services. Each callback function receives the service ID
+	// and the service's Options struct, allowing for dynamic configuration based on the service.
+	ServiceOptions []func(string, any)
 }
 
 func (o LoadOptions) getDefaultsMode(ctx context.Context) (aws.DefaultsMode, bool, error) {
@@ -312,6 +317,10 @@ func (o LoadOptions) getResponseChecksumValidation(ctx context.Context) (aws.Res
 
 func (o LoadOptions) getBaseEndpoint(context.Context) (string, bool, error) {
 	return o.BaseEndpoint, o.BaseEndpoint != "", nil
+}
+
+func (o LoadOptions) getServiceOptions(context.Context) ([]func(string, any), bool, error) {
+	return o.ServiceOptions, len(o.ServiceOptions) > 0, nil
 }
 
 // GetServiceBaseEndpoint satisfies (internal/configsources).ServiceBaseEndpointProvider.
@@ -1211,6 +1220,15 @@ func WithS3DisableExpressAuth(v bool) LoadOptionsFunc {
 func WithBaseEndpoint(v string) LoadOptionsFunc {
 	return func(o *LoadOptions) error {
 		o.BaseEndpoint = v
+		return nil
+	}
+}
+
+// WithServiceOptions is a helper function to construct functional options
+// that sets ServiceOptions on config's LoadOptions.
+func WithServiceOptions(callbacks ...func(string, any)) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.ServiceOptions = append(o.ServiceOptions, callbacks...)
 		return nil
 	}
 }

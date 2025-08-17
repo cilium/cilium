@@ -83,6 +83,8 @@ type DescribeInstancesInput struct {
 	//
 	//   - availability-zone - The Availability Zone of the instance.
 	//
+	//   - availability-zone-id - The ID of the Availability Zone of the instance.
+	//
 	//   - block-device-mapping.attach-time - The attach time for an EBS volume mapped
 	//   to the instance, for example, 2022-09-15T17:15:20.000Z .
 	//

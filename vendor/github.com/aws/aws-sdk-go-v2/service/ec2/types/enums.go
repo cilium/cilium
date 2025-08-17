@@ -2044,6 +2044,9 @@ const (
 	Ec2InstanceConnectEndpointStateDeleteInProgress Ec2InstanceConnectEndpointState = "delete-in-progress"
 	Ec2InstanceConnectEndpointStateDeleteComplete   Ec2InstanceConnectEndpointState = "delete-complete"
 	Ec2InstanceConnectEndpointStateDeleteFailed     Ec2InstanceConnectEndpointState = "delete-failed"
+	Ec2InstanceConnectEndpointStateUpdateInProgress Ec2InstanceConnectEndpointState = "update-in-progress"
+	Ec2InstanceConnectEndpointStateUpdateComplete   Ec2InstanceConnectEndpointState = "update-complete"
+	Ec2InstanceConnectEndpointStateUpdateFailed     Ec2InstanceConnectEndpointState = "update-failed"
 )
 
 // Values returns all known values for Ec2InstanceConnectEndpointState. Note that
@@ -2059,6 +2062,9 @@ func (Ec2InstanceConnectEndpointState) Values() []Ec2InstanceConnectEndpointStat
 		"delete-in-progress",
 		"delete-complete",
 		"delete-failed",
+		"update-in-progress",
+		"update-complete",
+		"update-failed",
 	}
 }
 

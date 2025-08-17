@@ -52,8 +52,14 @@ type CreateVolumeInput struct {
 	// The ID of the Availability Zone in which to create the volume. For example,
 	// us-east-1a .
 	//
-	// This member is required.
+	// Either AvailabilityZone or AvailabilityZoneId must be specified, but not both.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone in which to create the volume. For example,
+	// use1-az1 .
+	//
+	// Either AvailabilityZone or AvailabilityZoneId must be specified, but not both.
+	AvailabilityZoneId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [Ensure Idempotency].
@@ -236,6 +242,9 @@ type CreateVolumeOutput struct {
 	// The Availability Zone for the volume.
 	AvailabilityZone *string
 
+	// The ID of the Availability Zone for the volume.
+	AvailabilityZoneId *string
+
 	// The time stamp when volume creation was initiated.
 	CreateTime *time.Time
 
@@ -371,9 +380,6 @@ func (c *Client) addOperationCreateVolumeMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addIdempotencyToken_opCreateVolumeMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addOpCreateVolumeValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVolume(options.Region), middleware.Before); err != nil {
