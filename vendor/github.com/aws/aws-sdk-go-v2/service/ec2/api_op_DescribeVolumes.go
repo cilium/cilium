@@ -72,6 +72,9 @@ type DescribeVolumesInput struct {
 	//
 	//   - availability-zone - The Availability Zone in which the volume was created.
 	//
+	//   - availability-zone-id - The ID of the Availability Zone in which the volume
+	//   was created.
+	//
 	//   - create-time - The time stamp when the volume was created.
 	//
 	//   - encrypted - Indicates whether the volume is encrypted ( true | false )

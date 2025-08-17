@@ -108,6 +108,9 @@ type DescribeSpotInstanceRequestsInput struct {
 	//   - launched-availability-zone - The Availability Zone in which the request is
 	//   launched.
 	//
+	//   - launched-availability-zone-id - The ID of the Availability Zone in which the
+	//   request is launched.
+	//
 	//   - network-interface.addresses.primary - Indicates whether the IP address is
 	//   the primary private IP address.
 	//
