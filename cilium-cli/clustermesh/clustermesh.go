@@ -1177,33 +1177,35 @@ func (k *K8sClusterMesh) validateCAMatch(aiLocal, aiRemote *accessInformation) (
 
 // ClusterState holds the state during the processing of remote clusters.
 type ClusterState struct {
-	localOldClusters     map[string]any                 // current clusters values
-	localNewClusters     map[string]any                 // new clusters values
-	remoteClustersMesh   map[string]map[string]any      // Clusters values for all remote cluster in mesh mode
-	remoteClustersBD     map[string]map[string]any      // Clusters values for all remote cluster bidirectional mode
-	remoteClients        map[string]*k8s.Client         // Map of remoteClients to apply remoteClustersMesh or remoteClustersBD
-	remoteOldClustersAll map[string]map[string]any      // current clusters values for remote clusters
-	remoteClustersDelete map[*k8s.Client]map[string]any // clusters values for all remote clusters to disconnect
-	remoteNewClusterName string                         // local cluster name to add to remote clusters
-	remoteNewCluster     map[string]any                 // local cluster to add to remote clusters
-	remoteClusterNames   []string                       // names of remote clusters for displaying logs
-	remoteClusterNamesAi []string                       // names of remote clusters for remove sections
+	localOldClusters          map[string]any            // current enabled clusters values
+	localDisabledClusters     map[string]any            // current disabled clusters values
+	localNewClusters          map[string]any            // new clusters values
+	remoteClustersMesh        map[string]map[string]any // Clusters values for all remote cluster in mesh mode
+	remoteClustersBD          map[string]map[string]any // Clusters values for all remote cluster bidirectional mode
+	remoteClients             map[string]*k8s.Client    // Map of remoteClients to apply remoteClustersMesh or remoteClustersBD
+	remoteOldClustersAll      map[string]map[string]any // current clusters values for remote clusters
+	remoteOldDisabledClusters map[string]map[string]any // current disabled clusters values for remote clusters
+	remoteNewClusterName      string                    // local cluster name to add to remote clusters
+	remoteNewCluster          map[string]any            // local cluster to add to remote clusters
+	remoteClusterNames        []string                  // names of remote clusters for displaying logs
+	remoteClusterNamesAi      []string                  // names of remote clusters for remove sections
 }
 
 func processLocalClient(localRelease *release.Release) (*ClusterState, error) {
 	state := &ClusterState{
-		localOldClusters:     make(map[string]any),
-		localNewClusters:     make(map[string]any),
-		remoteClustersMesh:   make(map[string]map[string]any),
-		remoteClustersBD:     make(map[string]map[string]any),
-		remoteClients:        make(map[string]*k8s.Client),
-		remoteOldClustersAll: make(map[string]map[string]any),
-		remoteClustersDelete: make(map[*k8s.Client]map[string]any),
-		remoteNewCluster:     make(map[string]any),
+		localOldClusters:          make(map[string]any),
+		localDisabledClusters:     make(map[string]any),
+		localNewClusters:          make(map[string]any),
+		remoteClustersMesh:        make(map[string]map[string]any),
+		remoteClustersBD:          make(map[string]map[string]any),
+		remoteClients:             make(map[string]*k8s.Client),
+		remoteOldClustersAll:      make(map[string]map[string]any),
+		remoteOldDisabledClusters: make(map[string]map[string]any),
+		remoteNewCluster:          make(map[string]any),
 	}
 	var err error
 
-	state.localOldClusters, err = getClustersFromValues(localRelease.Config)
+	state.localOldClusters, state.localDisabledClusters, err = getClustersFromValues(localRelease.Config)
 	if err != nil {
 		return state, err
 	}
@@ -1245,11 +1247,12 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 		return err
 	}
 
-	remoteOldClusters, err := getClustersFromValues(remoteRelease.Config)
+	remoteOldClusters, remoteDisabledClusters, err := getClustersFromValues(remoteRelease.Config)
 	if err != nil {
 		return err
 	}
 	state.remoteOldClustersAll[aiRemote.ClusterName] = remoteOldClusters
+	state.remoteOldDisabledClusters[aiRemote.ClusterName] = remoteDisabledClusters
 
 	state.remoteNewClusterName, state.remoteNewCluster = getCluster(aiLocal, !match)
 	remoteClusters, err := mergeClusters(remoteOldClusters, map[string]any{state.remoteNewClusterName: state.remoteNewCluster}, "")
@@ -1299,7 +1302,7 @@ func (k *K8sClusterMesh) connectLocalWithHelm(ctx context.Context, localClient *
 
 	k.Log("ℹ️ Configuring Cilium in cluster %s to connect to cluster %s",
 		localClient.ClusterName(), strings.Join(state.remoteClusterNames, ","))
-	return k.helmUpgradeClusters(ctx, localClient, localClusters)
+	return k.helmUpgradeClusters(ctx, localClient, localClusters, state.localDisabledClusters)
 }
 
 func convertClustersToListClusterMesh(clusters map[string]any) []any {
@@ -1338,7 +1341,7 @@ func setClustersInValues(release *release.Release, client *k8s.Client, clusters 
 	return nil
 }
 
-func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Client, clusters map[string]any) error {
+func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Client, clusters, disabledClusters map[string]any) error {
 	release, err := getRelease(client, k.params)
 	if err != nil {
 		return err
@@ -1351,6 +1354,14 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 	if err != nil {
 		return fmt.Errorf("Failed to parse Helm chart version %s on cluster %s: %w", release.Chart.Metadata.Version, client.ClusterName(), err)
 	}
+
+	// Reintroduce disabled clusters so that we don't change too much the existing clusters values
+	for name, value := range disabledClusters {
+		if _, ok := clusters[name]; !ok {
+			clusters[name] = value
+		}
+	}
+
 	if versioncheck.MustCompile("<1.20.0")(version) {
 		clustersRaw = convertClustersToListClusterMesh(clusters)
 	}
@@ -1482,18 +1493,18 @@ func (k *K8sClusterMesh) connectRemoteWithHelm(ctx context.Context, localCluster
 
 		sem <- struct{}{}
 
-		go func(cn []string, rc *k8s.Client, helmVals map[string]any) {
+		go func(cn []string, rc *k8s.Client, helmVals, disabledClusters map[string]any) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			if err := k.connectSingleRemoteWithHelm(ctx, rc, cn, helmVals); err != nil {
+			if err := k.connectSingleRemoteWithHelm(ctx, rc, cn, helmVals, disabledClusters); err != nil {
 				mu.Lock()
 				if firstErr == nil {
 					firstErr = err
 				}
 				mu.Unlock()
 			}
-		}(cn, remoteClient, clusters[aiClusterName])
+		}(cn, remoteClient, clusters[aiClusterName], state.remoteOldDisabledClusters[aiClusterName])
 	}
 
 	wg.Wait()
@@ -1501,11 +1512,11 @@ func (k *K8sClusterMesh) connectRemoteWithHelm(ctx context.Context, localCluster
 	return firstErr
 }
 
-func (k *K8sClusterMesh) connectSingleRemoteWithHelm(ctx context.Context, remoteClient *k8s.Client, clusterNames []string, clusters map[string]any) error {
+func (k *K8sClusterMesh) connectSingleRemoteWithHelm(ctx context.Context, remoteClient *k8s.Client, clusterNames []string, clusters, disabledClusters map[string]any) error {
 	clusterNamesExceptRemote := removeStringFromSlice(remoteClient.ClusterName(), clusterNames)
 	k.Log("ℹ️ Configuring Cilium in cluster %s to connect to cluster %s",
 		remoteClient.ClusterName(), strings.Join(clusterNamesExceptRemote, ","))
-	err := k.helmUpgradeClusters(ctx, remoteClient, clusters)
+	err := k.helmUpgradeClusters(ctx, remoteClient, clusters, disabledClusters)
 	if err != nil {
 		return err
 	}
@@ -1526,30 +1537,34 @@ func (k *K8sClusterMesh) getRemoteClusterNamesAi(ctx context.Context, remoteClie
 	return state, nil
 }
 
-func (k *K8sClusterMesh) retrieveRemoteClusters(ctx context.Context, remoteClients []*k8s.Client, state *ClusterState) error {
+func (k *K8sClusterMesh) retrieveRemoteClusters(ctx context.Context, remoteClients []*k8s.Client, state *ClusterState) (map[*k8s.Client]map[string]any, map[*k8s.Client]map[string]any, error) {
 	aiLocal, err := k.shallowExtractAccessInfo(ctx, k.client.(*k8s.Client))
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	remoteClusterNames := []string{aiLocal.ClusterName}
 	if k.params.ConnectionMode == defaults.ClusterMeshConnectionModeMesh {
 		remoteClusterNames = append(remoteClusterNames, state.remoteClusterNamesAi...)
 	}
+
+	remoteClustersDelete := make(map[*k8s.Client]map[string]any, len(remoteClients))
+	remoteDisabledClustersDelete := make(map[*k8s.Client]map[string]any, len(remoteClients))
 	for _, remoteClient := range remoteClients {
 		remoteRelease, err := getRelease(remoteClient, k.params)
 		if err != nil {
 			k.Log("❌ Unable to find Helm release for the remote cluster")
-			return err
+			return nil, nil, err
 		}
 		// Modify the clustermesh config to remove the intended cluster if any
-		remoteClusters, err := removeFromClustermeshConfig(remoteRelease.Config, remoteClusterNames)
+		remoteClusters, remoteDisabledClusters, err := removeFromClustermeshConfig(remoteRelease.Config, remoteClusterNames)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
-		state.remoteClustersDelete[remoteClient] = remoteClusters
+		remoteClustersDelete[remoteClient] = remoteClusters
+		remoteDisabledClustersDelete[remoteClient] = remoteDisabledClusters
 		state.remoteClusterNames = append(state.remoteClusterNames, remoteClient.ClusterName())
 	}
-	return nil
+	return remoteClustersDelete, remoteDisabledClustersDelete, nil
 }
 
 func removeStringFromSlice(name string, names []string) []string {
@@ -1570,15 +1585,15 @@ func (k *K8sClusterMesh) valueOfFromClusterName(clusterName string, remoteCluste
 	return cn
 }
 
-func (k *K8sClusterMesh) disconnectRemoteWithHelm(ctx context.Context, clusterName string, state *ClusterState) error {
+func (k *K8sClusterMesh) disconnectRemoteWithHelm(ctx context.Context, clusterName string, state *ClusterState, remoteClustersDelete, remoteDisabledClustersDelete map[*k8s.Client]map[string]any) error {
 	if k.params.ConnectionMode == defaults.ClusterMeshConnectionModeUnicast {
 		return nil
 	}
-	for remoteClient, remoteClusters := range state.remoteClustersDelete {
+	for remoteClient := range remoteClustersDelete {
 		cn := k.valueOfFromClusterName(clusterName, remoteClient.ClusterName(), state.remoteClusterNames)
 		k.Log("ℹ️ Configuring Cilium in cluster %s to disconnect from cluster %s",
 			remoteClient.ClusterName(), cn)
-		err := k.helmUpgradeClusters(ctx, remoteClient, remoteClusters)
+		err := k.helmUpgradeClusters(ctx, remoteClient, remoteClustersDelete[remoteClient], remoteDisabledClustersDelete[remoteClient])
 		if err != nil {
 			return err
 		}
@@ -1614,23 +1629,24 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 	}
 
 	// Modify the clustermesh config to remove the intended cluster if any
-	localClusters, err := removeFromClustermeshConfig(localRelease.Config, clusterState.remoteClusterNamesAi)
+	var localClusters map[string]any
+	localClusters, clusterState.localDisabledClusters, err = removeFromClustermeshConfig(localRelease.Config, clusterState.remoteClusterNamesAi)
 	if err != nil {
 		return err
 	}
 
-	err = k.retrieveRemoteClusters(ctx, remoteClients, clusterState)
+	remoteClustersDelete, remoteDisabledClustersDelete, err := k.retrieveRemoteClusters(ctx, remoteClients, clusterState)
 	if err != nil {
 		return err
 	}
 
 	k.Log("ℹ️ Configuring Cilium in cluster %s to disconnect from cluster %s",
 		localClient.ClusterName(), strings.Join(clusterState.remoteClusterNames, ","))
-	err = k.helmUpgradeClusters(ctx, localClient, localClusters)
+	err = k.helmUpgradeClusters(ctx, localClient, localClusters, clusterState.localDisabledClusters)
 	if err != nil {
 		return err
 	}
-	err = k.disconnectRemoteWithHelm(ctx, localClient.ClusterName(), clusterState)
+	err = k.disconnectRemoteWithHelm(ctx, localClient.ClusterName(), clusterState, remoteClustersDelete, remoteDisabledClustersDelete)
 	if err != nil {
 		return err
 	}
@@ -1655,25 +1671,30 @@ func (k *K8sClusterMesh) displayDisconnectedCompleteMessage(localClient *k8s.Cli
 	}
 }
 
-func getEnabledClusters(clusters map[string]any) (map[string]any, error) {
-	for _, clusterAny := range clusters {
-		if _, ok := clusterAny.(map[string]any); !ok {
-			return nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
+func separateEnabledClusters(clusters map[string]any) (map[string]any, map[string]any, error) {
+	enabledClusters := make(map[string]any)
+	disabledClusters := make(map[string]any)
+
+	for name, clusterAny := range clusters {
+		cluster, ok := clusterAny.(map[string]any)
+		if !ok {
+			return nil, nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
+		}
+		enabled, ok := cluster["enabled"]
+		if ok && enabled == false {
+			disabledClusters[name] = cluster
+		} else {
+			enabledClusters[name] = cluster
 		}
 	}
-	maps.DeleteFunc(clusters, func(name string, clusterAny any) bool {
-		cluster := clusterAny.(map[string]any)
-		enabled, ok := cluster["enabled"]
-		return ok && enabled == false
-	})
-	return clusters, nil
+	return enabledClusters, disabledClusters, nil
 }
 
-func getClustersFromValues(values map[string]any) (map[string]any, error) {
+func getClustersFromValues(values map[string]any) (map[string]any, map[string]any, error) {
 	// get current clusters config slice, if it exists
 	c, found, err := unstructured.NestedFieldCopy(values, "clustermesh", "config", "clusters")
 	if err != nil {
-		return nil, fmt.Errorf("existing clustermesh.config is invalid")
+		return nil, nil, fmt.Errorf("existing clustermesh.config is invalid")
 	}
 	if !found || c == nil {
 		c = map[string]any{}
@@ -1682,22 +1703,22 @@ func getClustersFromValues(values map[string]any) (map[string]any, error) {
 	// parse map style values
 	clusterMap, ok := c.(map[string]any)
 	if ok {
-		return getEnabledClusters(clusterMap)
+		return separateEnabledClusters(clusterMap)
 	}
 
 	// Parse array style values
 	clusterSlice, ok := c.([]any)
 	clusters := make(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
+		return nil, nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
 	}
 	for _, clusterRaw := range clusterSlice {
 		cluster, ok := clusterRaw.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
+			return nil, nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
 		}
 		if _, ok := cluster["name"]; !ok {
-			return nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
+			return nil, nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
 		}
 
 		clusterName := cluster["name"].(string)
@@ -1705,7 +1726,7 @@ func getClustersFromValues(values map[string]any) (map[string]any, error) {
 		clusters[clusterName] = cluster
 	}
 
-	return getEnabledClusters(clusters)
+	return separateEnabledClusters(clusters)
 }
 
 func getCluster(ai *accessInformation, configTLS bool) (string, map[string]any) {
@@ -1740,16 +1761,19 @@ func mergeClusters(
 	return outputClusters, nil
 }
 
-func removeFromClustermeshConfig(values map[string]any, clusterNames []string) (map[string]any, error) {
-	clusters, err := getClustersFromValues(values)
+func removeFromClustermeshConfig(values map[string]any, clusterNames []string) (map[string]any, map[string]any, error) {
+	clusters, disabledClusters, err := getClustersFromValues(values)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	maps.DeleteFunc(clusters, func(name string, _ any) bool {
 		return slices.Contains(clusterNames, name)
 	})
+	maps.DeleteFunc(disabledClusters, func(name string, _ any) bool {
+		return slices.Contains(clusterNames, name)
+	})
 
-	return clusters, nil
+	return clusters, disabledClusters, nil
 }
 
 type PolicyDefaultLocalClusterInspectResult struct {
