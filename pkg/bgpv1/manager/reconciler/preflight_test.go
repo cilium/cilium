@@ -22,6 +22,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 // We use similar local listen ports as the tests in the pkg/bgpv1/test package.
@@ -249,7 +250,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	require.NoError(t, err)
 
 	diffstore.Upsert(obj)
-	reconciler := NewServiceReconciler(diffstore, epDiffStore)
+	reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig)
 	err = reconciler.Reconciler.Reconcile(context.Background(), params)
 	require.NoError(t, err)
 
@@ -271,7 +272,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Update LB service
-	reconciler = NewServiceReconciler(diffstore, epDiffStore)
+	reconciler = NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig)
 	err = reconciler.Reconciler.Reconcile(context.Background(), params)
 	require.NoError(t, err)
 }
