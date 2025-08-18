@@ -11,6 +11,7 @@ metadata:
   namespace: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.namespace | default (include "cilium.namespace" .) }}
   labels:
     app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: clustermesh-apiserver
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
