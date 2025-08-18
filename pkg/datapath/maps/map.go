@@ -212,10 +212,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, lbmaps.MaglevOuter6MapName, lbmaps.MaglevOuter4MapName)
 	}
 
-	if !ms.kprCfg.EnableSVCSourceRangeCheck {
-		maps = append(maps, lbmaps.SourceRange6MapName, lbmaps.SourceRange4MapName)
-	}
-
 	if !(option.Config.EnableIPMasqAgent && option.Config.EnableIPv4Masquerade) {
 		maps = append(maps, ipmasq.MapNameIPv4)
 	}

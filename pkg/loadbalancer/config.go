@@ -532,8 +532,7 @@ type ExternalConfig struct {
 	EnableHealthCheckLoadBalancerIP        bool
 
 	// The following options will be removed in v1.19
-	EnableHostPort            bool
-	EnableSVCSourceRangeCheck bool
+	EnableHostPort bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
@@ -548,7 +547,6 @@ func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalC
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
 		EnableHealthCheckLoadBalancerIP:        cfg.EnableHealthCheckLoadBalancerIP,
 		EnableHostPort:                         kprCfg.EnableHostPort,
-		EnableSVCSourceRangeCheck:              kprCfg.EnableSVCSourceRangeCheck,
 	}
 }
 

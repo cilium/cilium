@@ -843,9 +843,6 @@ data:
 {{- if hasKey .Values.maglev "hashSeed" }}
   bpf-lb-maglev-hash-seed: {{ .Values.maglev.hashSeed | quote}}
 {{- end }}
-{{- if .Values.svcSourceRangeCheck }}
-  enable-svc-source-range-check: {{ .Values.svcSourceRangeCheck | quote }}
-{{- end }}
 
 {{- if hasKey .Values "l2NeighDiscovery" }}
 {{- if hasKey .Values.l2NeighDiscovery "enabled" }}
