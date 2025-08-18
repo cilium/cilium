@@ -25,6 +25,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
@@ -640,7 +641,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig).Reconciler.(*ServiceReconciler)
 			reconciler.Init(testSC)
 			defer reconciler.Cleanup(testSC)
 
@@ -1292,7 +1293,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig).Reconciler.(*ServiceReconciler)
 			reconciler.Init(testSC)
 			defer reconciler.Cleanup(testSC)
 
@@ -1943,7 +1944,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig).Reconciler.(*ServiceReconciler)
 			reconciler.Init(testSC)
 			defer reconciler.Cleanup(testSC)
 
@@ -2173,7 +2174,7 @@ func TestEPUpdateOnly(t *testing.T) {
 
 	diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 	epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
-	reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+	reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig).Reconciler.(*ServiceReconciler)
 	reconciler.Init(testSC)
 	defer reconciler.Cleanup(testSC)
 
@@ -2314,7 +2315,7 @@ func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig).Reconciler.(*ServiceReconciler)
 			reconciler.Init(testSC)
 			defer reconciler.Cleanup(testSC)
 

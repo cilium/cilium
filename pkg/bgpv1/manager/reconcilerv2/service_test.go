@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	ciliumoption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 // svcTestStep represents one step in the service reconciler test execution.
@@ -2594,6 +2595,7 @@ func newServiceTestFixture(t *testing.T, config option.BGPConfig) *svcTestFixtur
 					return loadbalancer.Config{}
 				},
 			),
+			svcrouteconfig.Cell,
 			cell.Invoke(func(db *statedb.DB, table statedb.RWTable[*loadbalancer.Frontend]) {
 				f.db = db
 				f.frontends = table
