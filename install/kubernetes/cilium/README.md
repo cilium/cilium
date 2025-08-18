@@ -118,8 +118,10 @@ contributors across the globe, there is almost always someone available to help.
 | bandwidthManager.bbr | bool | `false` | Activate BBR TCP congestion control for Pods |
 | bandwidthManager.bbrHostNamespaceOnly | bool | `false` | Activate BBR TCP congestion control for Pods in the host namespace only. |
 | bandwidthManager.enabled | bool | `false` | Enable bandwidth manager infrastructure (also prerequirement for BBR) |
-| bgpControlPlane | object | `{"enabled":false,"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}` | This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs. |
+| bgpControlPlane | object | `{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}` | This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs. |
 | bgpControlPlane.enabled | bool | `false` | Enables the BGP control plane. |
+| bgpControlPlane.legacyOriginAttribute | object | `{"enabled":false}` | Legacy BGP ORIGIN attribute settings (BGPv2 only) |
+| bgpControlPlane.legacyOriginAttribute.enabled | bool | `false` | Enable/Disable advertising LoadBalancerIP routes with the legacy BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0). Enable for compatibility with the legacy behavior of MetalLB integration. |
 | bgpControlPlane.routerIDAllocation | object | `{"ipPool":"","mode":"default"}` | BGP router-id allocation mode |
 | bgpControlPlane.routerIDAllocation.ipPool | string | `""` | IP pool to allocate the BGP router-id from when the mode is ip-pool. |
 | bgpControlPlane.routerIDAllocation.mode | string | `"default"` | BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address. |
