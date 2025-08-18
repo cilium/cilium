@@ -880,10 +880,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.NodeLabels, []string{}, "List of label prefixes used to determine identity of a node (used only when enable-node-selector-labels is enabled)")
 	option.BindEnv(vp, option.NodeLabels)
 
-	flags.Bool(option.EnableInternalTrafficPolicy, defaults.EnableInternalTrafficPolicy, "Enable internal traffic policy")
-	flags.MarkDeprecated(option.EnableInternalTrafficPolicy, "The flag will be removed in v1.19. The feature will be unconditionally enabled by default.")
-	option.BindEnv(vp, option.EnableInternalTrafficPolicy)
-
 	flags.Bool(option.EnableNonDefaultDenyPolicies, defaults.EnableNonDefaultDenyPolicies, "Enable use of non-default-deny policies")
 	flags.MarkHidden(option.EnableNonDefaultDenyPolicies)
 	option.BindEnv(vp, option.EnableNonDefaultDenyPolicies)

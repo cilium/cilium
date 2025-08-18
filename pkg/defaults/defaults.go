@@ -546,9 +546,6 @@ const (
 	// NetNsPath is the default path to the mounted network namespaces directory
 	NetNsPath = "/var/run/cilium/netns"
 
-	// EnableIternalTrafficPolicy is the default value for option.EnableInternalTrafficPolicy
-	EnableInternalTrafficPolicy = true
-
 	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
 	EnableNonDefaultDenyPolicies = true
 
