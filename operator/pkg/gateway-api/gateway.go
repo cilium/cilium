@@ -227,7 +227,7 @@ func (r *gatewayReconciler) enqueueRequestForOwningTLSRoute(logger *slog.Logger)
 }
 
 // enqueueRequestForOwningGRPCRoute returns an event handler that, when passed a GRPCRoute, returns reconcile.Requests
-// for any Cil9ium-relevant Gateways associated with that GRPCRoute.
+// for any Cilium-relevant Gateways associated with that GRPCRoute.
 func (r *gatewayReconciler) enqueueRequestForOwningGRPCRoute() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
 		gr, ok := a.(*gatewayv1.GRPCRoute)
@@ -248,7 +248,7 @@ func (r *gatewayReconciler) enqueueRequestForBackendService() handler.EventHandl
 			return nil
 		}
 
-		scopedLog := r.logger.With(logfields.LogSubsys, "queue-gw-from-svc")
+		scopedLog := r.logger.With(logfields.LogSubsys, "queue-gw-from-backend-svc")
 
 		// Make a set to hold all reconcile requests
 		reconcileRequests := make(map[reconcile.Request]struct{})
@@ -347,7 +347,7 @@ func (r *gatewayReconciler) enqueueRequestForBackendServiceImport() handler.Even
 			return nil
 		}
 
-		scopedLog := r.logger.With(logfields.LogSubsys, "queue-gw-from-svc")
+		scopedLog := r.logger.With(logfields.LogSubsys, "queue-gw-from-backend-svc-import")
 
 		// make a set to hold all reconcile requests
 		reconcileRequests := make(map[reconcile.Request]struct{})
