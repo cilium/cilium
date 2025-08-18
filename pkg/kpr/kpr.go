@@ -25,7 +25,6 @@ type KPRFlags struct {
 	EnableExternalIPs         bool
 	EnableHostPort            bool
 	EnableSVCSourceRangeCheck bool
-	EnableSessionAffinity     bool
 }
 
 var defaultFlags = KPRFlags{
@@ -35,7 +34,6 @@ var defaultFlags = KPRFlags{
 	EnableExternalIPs:         false,
 	EnableHostPort:            false,
 	EnableSVCSourceRangeCheck: true,
-	EnableSessionAffinity:     true,
 }
 
 func (def KPRFlags) Flags(flags *pflag.FlagSet) {
@@ -54,10 +52,6 @@ func (def KPRFlags) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool("enable-svc-source-range-check", def.EnableSVCSourceRangeCheck, "Enable check of service source ranges (currently, only for LoadBalancer)")
 	flags.MarkDeprecated("enable-svc-source-range-check", "The flag will be removed in v1.19. The feature will be unconditionally enabled by enabling kube-proxy-replacement")
-
-	flags.Bool("enable-session-affinity", def.EnableSessionAffinity, "Enable support for service session affinity")
-	flags.MarkDeprecated("enable-session-affinity", "The flag to control Session Affinity has been deprecated, and it will be removed in v1.19. The feature will be unconditionally enabled.")
-
 }
 
 type KPRConfig struct {
@@ -66,7 +60,6 @@ type KPRConfig struct {
 	EnableExternalIPs         bool
 	EnableHostPort            bool
 	EnableSVCSourceRangeCheck bool
-	EnableSessionAffinity     bool
 	EnableSocketLB            bool
 }
 
@@ -81,7 +74,6 @@ func NewKPRConfig(flags KPRFlags) (KPRConfig, error) {
 		EnableExternalIPs:         flags.EnableExternalIPs,
 		EnableHostPort:            flags.EnableHostPort,
 		EnableSVCSourceRangeCheck: flags.EnableSVCSourceRangeCheck,
-		EnableSessionAffinity:     flags.EnableSessionAffinity,
 		EnableSocketLB:            flags.EnableSocketLB,
 	}
 
@@ -89,7 +81,6 @@ func NewKPRConfig(flags KPRFlags) (KPRConfig, error) {
 		cfg.EnableNodePort = true
 		cfg.EnableExternalIPs = true
 		cfg.EnableHostPort = true
-		cfg.EnableSessionAffinity = true
 		cfg.EnableSocketLB = true
 	}
 

@@ -212,10 +212,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, lbmaps.MaglevOuter6MapName, lbmaps.MaglevOuter4MapName)
 	}
 
-	if !ms.kprCfg.EnableSessionAffinity {
-		maps = append(maps, lbmaps.Affinity6MapName, lbmaps.Affinity4MapName, lbmaps.AffinityMatchMapName)
-	}
-
 	if !ms.kprCfg.EnableSVCSourceRangeCheck {
 		maps = append(maps, lbmaps.SourceRange6MapName, lbmaps.SourceRange4MapName)
 	}

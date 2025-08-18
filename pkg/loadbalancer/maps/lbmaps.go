@@ -340,11 +340,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 	mapsToCreate := []mapDesc{}
 	mapsToDelete := []mapDesc{}
 
-	if r.ExtCfg.EnableSessionAffinity {
-		mapsToCreate = append(mapsToCreate, affinityMap)
-	} else {
-		mapsToDelete = append(mapsToDelete, affinityMap)
-	}
+	mapsToCreate = append(mapsToCreate, affinityMap)
 
 	if r.ExtCfg.EnableSVCSourceRangeCheck {
 		if r.ExtCfg.EnableIPv4 {
