@@ -231,7 +231,7 @@ static __always_inline bool nodeport_xlate6(const struct lb6_service *svc,
 }
 
 #ifdef ENABLE_DSR
-#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+# if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 static __always_inline int
 dsr_set_ipip6_dev(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 		  __u32 seclabel)
@@ -284,10 +284,13 @@ static __always_inline void rss_gen_src6(union v6addr *src,
 }
 
 static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
-					 const struct ipv6hdr *ip6,
+					 const struct ipv6hdr *ip6 __maybe_unused,
 					 const union v6addr *backend_addr,
-					 __be32 l4_hint, int *ohead)
+					 __be32 l4_hint __maybe_unused,
+					 int *oif __maybe_unused,
+					 int *ohead __maybe_unused)
 {
+#  if __ctx_is == __ctx_xdp
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(*ip6);
 	const int l3_off = ETH_HLEN;
 	union v6addr saddr;
@@ -321,8 +324,14 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 			    &saddr, sizeof(ip6->saddr), 0) < 0)
 		return DROP_WRITE_ERROR;
 	return 0;
+#  else /* __ctx_is == __ctx_xdp */
+	if (dsr_set_ipip6_dev(ctx, backend_addr, 0) < 0)
+		return DROP_NO_TUNNEL_KEY;
+	*oif = ENCAP6_IFINDEX;
+	return CTX_ACT_REDIRECT;
+#  endif /* __ctx_is == __ctx_xdp */
 }
-#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+# elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 					struct ipv6hdr *ip6,
 					const union v6addr *svc_addr,
@@ -375,7 +384,7 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 	return 0;
 }
-#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+# elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						 struct ipv6hdr *ip6,
 						 const union v6addr *svc_addr,
@@ -461,7 +470,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 					 ifindex,
 					 bpf_htons(ETH_P_IPV6));
 }
-#endif /* DSR_ENCAP_MODE */
+# endif /* DSR_ENCAP_MODE */
 
 static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 				       struct dsr_opt_v6 *dsr_opt, bool *found)
@@ -702,7 +711,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	ret = dsr_set_ipip6(ctx, ip6, &addr,
-			    ctx_load_meta(ctx, CB_HINT), &ohead);
+			    ctx_load_meta(ctx, CB_HINT), &oif, &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 	ret = dsr_set_ext6(ctx, ip6, &addr, port, &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
@@ -1541,7 +1550,7 @@ static __always_inline bool nodeport_xlate4(const struct lb4_service *svc,
 }
 
 #ifdef ENABLE_DSR
-#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+# if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 static __always_inline int
 dsr_set_ipip4_dev(struct __ctx_buff *ctx, __u32 tunnel_ep, __u32 seclabel)
 {
@@ -1581,10 +1590,13 @@ static __always_inline __be32 rss_gen_src4(__be32 client, __be32 l4_hint)
  *                  [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
  */
 static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
-					 const struct iphdr *ip4,
+					 const struct iphdr *ip4 __maybe_unused,
 					 __be32 backend_addr,
-					 __be32 l4_hint, __be16 *ohead)
+					 __be32 l4_hint __maybe_unused,
+					 int *oif __maybe_unused,
+					 __be16 *ohead __maybe_unused)
 {
+#  if __ctx_is == __ctx_xdp
 	__u16 tot_len = bpf_ntohs(ip4->tot_len) + sizeof(*ip4);
 	const int l3_off = ETH_HLEN;
 	__be32 sum;
@@ -1631,8 +1643,14 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 	return 0;
+#  else /* __ctx_is == __ctx_xdp */
+	if (dsr_set_ipip4_dev(ctx, backend_addr, 0) < 0)
+		return DROP_NO_TUNNEL_KEY;
+	*oif = ENCAP4_IFINDEX;
+	return CTX_ACT_REDIRECT;
+#  endif /* __ctx_is == __ctx_xdp */
 }
-#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+# elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 					struct iphdr *ip4, __be32 svc_addr,
 					__be16 svc_port, __be16 *ohead)
@@ -1690,7 +1708,7 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 
 	return 0;
 }
-#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+# elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_off __maybe_unused,
 						 struct iphdr *ip4, __be32 svc_addr,
 						 __be16 svc_port, int *ifindex, __be16 *ohead)
@@ -1704,7 +1722,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 	__u32 src_sec_identity = WORLD_IPV4_ID;
 	__be32 tunnel_endpoint __maybe_unused;
 	__be16 src_port = 0;
-#if __ctx_is == __ctx_xdp
+#  if __ctx_is == __ctx_xdp
 	bool has_encap = l3_off > ETH_HLEN;
 	struct iphdr *outer_ip4 = ip4;
 	void *data, *data_end;
@@ -1731,7 +1749,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 
 		src_port = tunnel_gen_src_port_v4(&tuple);
 	}
-#endif
+#  endif
 
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 	if (!info || !info->flag_has_tunnel_ep)
@@ -1764,7 +1782,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 		return DROP_FRAG_NEEDED;
 	}
 
-#if __ctx_is == __ctx_xdp
+#  if __ctx_is == __ctx_xdp
 	if (has_encap) {
 		int outer_l4_off = ETH_HLEN + ipv4_hdrlen(outer_ip4);
 		__be32 lb_ip = IPV4_DIRECT_ROUTING;
@@ -1819,7 +1837,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 
 		return CTX_ACT_REDIRECT;
 	}
-#endif
+#  endif
 
 	if (need_opt)
 		return nodeport_add_tunnel_encap_opt(ctx,
@@ -1844,7 +1862,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 					 ifindex,
 					 bpf_htons(ETH_P_IP));
 }
-#endif /* DSR_ENCAP_MODE */
+# endif /* DSR_ENCAP_MODE */
 
 static __always_inline int
 nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
@@ -2069,7 +2087,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	ret = dsr_set_ipip4(ctx, ip4,
 			    addr,
-			    ctx_load_meta(ctx, CB_HINT), &ohead);
+			    ctx_load_meta(ctx, CB_HINT), &oif, &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 	ret = dsr_set_opt4(ctx, ip4,
 			   addr,
