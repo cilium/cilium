@@ -30,19 +30,13 @@ import (
 )
 
 const (
-	upstreamTime    = "upstreamTime"
-	processingTime  = "processingTime"
-	semaphoreTime   = "semaphoreTime"
-	policyCheckTime = "policyCheckTime"
-	policyGenTime   = "policyGenerationTime"
-	dataplaneTime   = "dataplaneTime"
-	totalTime       = "totalTime"
-
-	metricErrorTimeout = "timeout"
-	metricErrorProxy   = "proxyErr"
-	metricErrorAllow   = "allow"
+	metricLabelTimeout  = "timeout"
+	metricLabelProxyErr = "proxyErr"
+	metricLabelAllow    = "allow"
 )
 
+// DNSMessageHandler contains callbacks called by the DNS proxy's serving function.
+// A callback must end all spanstats it starts, and no others.
 type DNSMessageHandler interface {
 	OnQuery(ep *endpoint.Endpoint,
 		epIPPort string,
@@ -51,7 +45,7 @@ type DNSMessageHandler interface {
 		msg *dns.Msg,
 		protocol string,
 		stat *dnsproxy.ProxyRequestContext,
-	) error
+	) (error, string)
 
 	OnResponse(ep *endpoint.Endpoint,
 		epIPPort string,
@@ -60,7 +54,7 @@ type DNSMessageHandler interface {
 		msg *dns.Msg,
 		protocol string,
 		stat *dnsproxy.ProxyRequestContext,
-	) error
+	) (error, string)
 
 	OnError(ep *endpoint.Endpoint,
 		epIPPort string,
@@ -70,7 +64,7 @@ type DNSMessageHandler interface {
 		protocol string,
 		stat *dnsproxy.ProxyRequestContext,
 		err error,
-	) error
+	) (error, string)
 
 	// UpdateOnDNSMsg updates the DNS cache with the DNS message data.
 	// It is called when the DNS message is a response. It is called by
@@ -114,18 +108,18 @@ func (h *dnsMessageHandler) OnQuery(
 	query *dns.Msg,
 	protocol string,
 	stat *dnsproxy.ProxyRequestContext,
-) error {
-	stat.ProcessingTime.Start()
+) (error, string) {
 	if query.Response {
-		return fmt.Errorf("expected query, got response")
+		return fmt.Errorf("expected query, got response"), metricLabelProxyErr
 	} else if ep == nil {
 		// This is a hard fail. We cannot proceed because record.Log requires a
 		// non-nil ep, and we also don't want to insert this data into the
 		// cache if we don't know that an endpoint asked for it
-		endMetric(stat, metricErrorAllow)
-		return dnsproxy.ErrDNSRequestNoEndpoint{}
+		// updateMetric(stat, metricErrorAllow)
+		return dnsproxy.ErrDNSRequestNoEndpoint{}, metricLabelProxyErr
 	}
 
+	stat.ProcessingTime.Start()
 	// The observation point is always Egress.
 	addrInfo := accesslog.AddressingInfo{
 		SrcIPPort: epIPPort,
@@ -144,7 +138,8 @@ func (h *dnsMessageHandler) OnQuery(
 			logfields.Error, err,
 			logfields.DNSName, qname,
 		)
-		return fmt.Errorf("failed to extract DNS query details: %w", err)
+		stat.ProcessingTime.End(false)
+		return fmt.Errorf("failed to extract DNS query details: %w", err), metricLabelProxyErr
 	}
 
 	stat.ProcessingTime.End(true)
@@ -173,7 +168,7 @@ func (h *dnsMessageHandler) OnQuery(
 	)
 	h.proxyAccessLogger.Log(record)
 
-	return nil
+	return nil, metricLabelAllow
 }
 
 func (h *dnsMessageHandler) OnResponse(
@@ -184,19 +179,18 @@ func (h *dnsMessageHandler) OnResponse(
 	response *dns.Msg,
 	protocol string,
 	stat *dnsproxy.ProxyRequestContext,
-) error {
-	stat.ProcessingTime.Start()
+) (error, string) {
 	if !response.Response {
-		return fmt.Errorf("expected response, got query")
+		return fmt.Errorf("expected response, got query"), metricLabelProxyErr
 	} else if ep == nil {
 		// This is a hard fail. We cannot proceed because record.Log requires a
 		// non-nil ep, and we also don't want to insert this data into the
 		// cache if we don't know that an endpoint asked for it (this is
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
-		endMetric(stat, metricErrorAllow)
-		return dnsproxy.ErrDNSRequestNoEndpoint{}
+		return dnsproxy.ErrDNSRequestNoEndpoint{}, metricLabelProxyErr
 	}
+	stat.ProcessingTime.Start()
 
 	// The observation point is always Egress.
 	addrInfo := accesslog.AddressingInfo{
@@ -216,12 +210,12 @@ func (h *dnsMessageHandler) OnResponse(
 			logfields.Error, err,
 			logfields.DNSName, qname,
 		)
-		return fmt.Errorf("failed to extract DNS message details: %w", err)
+		stat.ProcessingTime.End(false)
+		return fmt.Errorf("failed to extract DNS message details: %w", err), metricLabelProxyErr
 	}
 
 	if response.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		h.UpdateOnDNSMsg(time.Now(), ep, qname, responseIPs, int(TTL), stat)
-		endMetric(stat, metricErrorAllow)
 	}
 
 	stat.ProcessingTime.End(true)
@@ -258,7 +252,7 @@ func (h *dnsMessageHandler) OnResponse(
 	)
 	h.proxyAccessLogger.Log(record)
 
-	return nil
+	return nil, metricLabelAllow
 }
 
 func isTimeout(err error) bool {
@@ -295,25 +289,18 @@ func (h *dnsMessageHandler) OnError(
 	protocol string,
 	stat *dnsproxy.ProxyRequestContext,
 	err error,
-) error {
-	stat.ProcessingTime.Start()
+) (error, string) {
 	if query.Response {
-		return fmt.Errorf("error callback expected query, got response")
-	}
-
-	if isTimeout(err) {
-		endMetric(stat, metricErrorTimeout)
-		return nil
-	}
-
-	if ep == nil {
+		return fmt.Errorf("error callback expected query, got response"), metricLabelProxyErr
+	} else if isTimeout(err) {
+		return nil, metricLabelTimeout
+	} else if ep == nil {
 		// This is a hard fail. We cannot proceed because record.Log requires a
 		// non-nil ep, and we also don't want to insert this data into the
 		// cache if we don't know that an endpoint asked for it (this is
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
-		endMetric(stat, metricErrorProxy)
-		return dnsproxy.ErrDNSRequestNoEndpoint{}
+		return dnsproxy.ErrDNSRequestNoEndpoint{}, metricLabelProxyErr
 	}
 
 	qname, qTypes, err := ExtractQueryDetails(query)
@@ -322,10 +309,8 @@ func (h *dnsMessageHandler) OnError(
 			logfields.Error, err,
 			logfields.DNSName, qname,
 		)
-		return fmt.Errorf("failed to extract DNS query details: %w", err)
+		return fmt.Errorf("failed to extract DNS query details: %w", err), metricLabelProxyErr
 	}
-
-	stat.ProcessingTime.End(true)
 
 	verdict := accesslog.VerdictError
 	reason := "Error: " + err.Error()
@@ -364,27 +349,7 @@ func (h *dnsMessageHandler) OnError(
 	)
 	h.proxyAccessLogger.Log(record)
 
-	return nil
-}
-
-// EndMetric ends the span stats for this transaction and updates metrics.
-func endMetric(istat *dnsproxy.ProxyRequestContext, metricError string) {
-	istat.ProcessingTime.End(true)
-	istat.TotalTime.End(true)
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
-		istat.TotalTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstreamTime).Observe(
-		istat.UpstreamTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
-		istat.ProcessingTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
-		istat.SemaphoreAcquireTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyGenTime).Observe(
-		istat.PolicyGenerationTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
-		istat.PolicyCheckTime.Total().Seconds())
-	metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
-		istat.DataplaneTime.Total().Seconds())
+	return nil, metricLabelProxyErr
 }
 
 func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) {

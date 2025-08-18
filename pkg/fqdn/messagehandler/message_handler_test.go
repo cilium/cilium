@@ -143,8 +143,10 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 				// parameter is only used in logging. Not using the endpoint's IP
 				// so we don't spend any time in the benchmark on converting from
 				// net.IP to string.
-				require.NoError(b, handler.OnResponse(ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsg, "udp", emptyPRCtx))
-				require.NoError(b, handler.OnResponse(ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsg, "udp", emptyPRCtx))
+				err, _ := handler.OnResponse(ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsg, "udp", emptyPRCtx)
+				require.NoError(b, err)
+				err, _ = handler.OnResponse(ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsg, "udp", emptyPRCtx)
+				require.NoError(b, err)
 			}()
 		}
 		wg.Wait()

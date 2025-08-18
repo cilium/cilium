@@ -16,9 +16,9 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type OnResponseFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext) error
-type OnQueryFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext) error
-type OnErrorFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext, error error) error
+type OnResponseFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext) (error, string)
+type OnQueryFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext) (error, string)
+type OnErrorFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext, error error) (error, string)
 
 // NotifyOnDNSMsgFunc handles propagating DNS response data
 // See DNSProxy.LookupEndpointIDByIP for usage.
