@@ -1194,6 +1194,7 @@ func (a *Agent) setIPSecSPI(spi uint8) error {
 		a.log.Warn("cilium_encrypt_state map updated failed", logfields.Error, err)
 		return err
 	}
+	a.spi = spi
 	return nil
 }
 
