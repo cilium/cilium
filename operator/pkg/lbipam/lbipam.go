@@ -476,42 +476,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 		return nil
 	}
 
-	// Remove any allocation that are no longer valid due to a change in the service spec
-	err := ipam.stripInvalidAllocations(sv)
-	if err != nil {
-		return fmt.Errorf("stripInvalidAllocations: %w", err)
-	}
-
-	// Check for each ingress, if its IP has been allocated by us. If it isn't check if we can allocate that IP.
-	// If we can't, strip the ingress from the service.
-	svModifiedStatus, err := ipam.stripOrImportIngresses(sv)
-	if err != nil {
-		return fmt.Errorf("stripOrImportIngresses: %w", err)
-	}
-
-	// Attempt to satisfy this service in particular now. We do this now instead of relying on
-	// ipam.satisfyServices to avoid updating the service twice in quick succession.
-	if !sv.isSatisfied() {
-		modified, err := ipam.satisfyService(sv)
-		if err != nil {
-			return fmt.Errorf("satisfyService: %w", err)
-		}
-		if modified {
-			svModifiedStatus = true
-		}
-	}
-
-	// If any of the steps above changed the service object, update the object.
-	if svModifiedStatus {
-		err := ipam.patchSvcStatus(ctx, sv)
-		if err != nil {
-			return fmt.Errorf("patchSvcStatus: %w", err)
-		}
-	}
-
-	ipam.serviceStore.Upsert(sv)
-
-	return nil
+	return ipam.revalidateAndUpdateService(ctx, sv, false)
 }
 
 func (ipam *LBIPAM) serviceViewFromService(key resource.Key, svc *slim_core_v1.Service) *ServiceView {
@@ -1567,60 +1532,62 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2.
 }
 
 func (ipam *LBIPAM) revalidateAllServices(ctx context.Context) error {
-	revalidate := func(sv *ServiceView) error {
-		err := ipam.stripInvalidAllocations(sv)
-		if err != nil {
-			return fmt.Errorf("stripInvalidAllocations: %w", err)
-		}
-
-		// Check for each ingress, if its IP has been allocated by us. If it isn't check if we can allocate that IP.
-		// If we can't, strip the ingress from the service.
-		svModifiedStatus, err := ipam.stripOrImportIngresses(sv)
-		if err != nil {
-			return fmt.Errorf("stripOrImportIngresses: %w", err)
-		}
-
-		// Attempt to satisfy this service in particular now. We do this now instead of relying on
-		// ipam.satisfyServices to avoid updating the service twice in quick succession.
-		if !sv.isSatisfied() {
-			modified, err := ipam.satisfyService(sv)
-			if err != nil {
-				return fmt.Errorf("satisfyService: %w", err)
-			}
-			if modified {
-				svModifiedStatus = true
-			}
-		}
-
-		// If any of the steps above changed the service object, update the object.
-		if svModifiedStatus {
-			err := ipam.patchSvcStatus(ctx, sv)
-			if err != nil {
-				return fmt.Errorf("patchSvcStatus: %w", err)
-			}
-		}
-
-		ipam.serviceStore.Upsert(sv)
-
-		return nil
-	}
-
 	// We want to first revalidate all satisfied services.
 	// This helps in case when pool's CIDR was widened
 	// and we have unsatisfied services that match this pool.
 	// In this case, we want to revalidate satisfied services first,
 	// so that we can reallocate the same IPs from the newly widened CIDR.
 	for _, sv := range ipam.serviceStore.satisfied {
-		if err := revalidate(sv); err != nil {
+		if err := ipam.revalidateAndUpdateService(ctx, sv, false); err != nil {
 			return fmt.Errorf("revalidate: %w", err)
 		}
 	}
 
 	for _, sv := range ipam.serviceStore.unsatisfied {
-		if err := revalidate(sv); err != nil {
+		if err := ipam.revalidateAndUpdateService(ctx, sv, false); err != nil {
 			return fmt.Errorf("revalidate: %w", err)
 		}
 	}
+
+	return nil
+}
+
+func (ipam *LBIPAM) revalidateAndUpdateService(ctx context.Context, sv *ServiceView, skipStrippingAllocations bool) error {
+	if !skipStrippingAllocations {
+		err := ipam.stripInvalidAllocations(sv)
+		if err != nil {
+			return fmt.Errorf("stripInvalidAllocations: %w", err)
+		}
+	}
+
+	// Check for each ingress, if its IP has been allocated by us. If it isn't check if we can allocate that IP.
+	// If we can't, strip the ingress from the service.
+	svModifiedStatus, err := ipam.stripOrImportIngresses(sv)
+	if err != nil {
+		return fmt.Errorf("stripOrImportIngresses: %w", err)
+	}
+
+	// Attempt to satisfy this service in particular now. We do this now instead of relying on
+	// ipam.satisfyServices to avoid updating the service twice in quick succession.
+	if !sv.isSatisfied() {
+		modified, err := ipam.satisfyService(sv)
+		if err != nil {
+			return fmt.Errorf("satisfyService: %w", err)
+		}
+		if modified {
+			svModifiedStatus = true
+		}
+	}
+
+	// If any of the steps above changed the service object, update the object.
+	if svModifiedStatus {
+		err := ipam.patchSvcStatus(ctx, sv)
+		if err != nil {
+			return fmt.Errorf("patchSvcStatus: %w", err)
+		}
+	}
+
+	ipam.serviceStore.Upsert(sv)
 
 	return nil
 }
@@ -1759,37 +1726,11 @@ func (ipam *LBIPAM) deleteRangeAllocations(delRange *LBRange) []*ServiceView {
 func (ipam *LBIPAM) reconcileServicesAfterRangeDeletion(ctx context.Context, svcViews ...*ServiceView) error {
 	var errs []error
 	for _, sv := range svcViews {
-		// Check for each ingress, if its IP has been allocated by us. If it isn't check if we can allocate that IP.
-		// If we can't, strip the ingress from the service.
-		svModifiedStatus, err := ipam.stripOrImportIngresses(sv)
+		// We skip stripping allocations here
+		err := ipam.revalidateAndUpdateService(ctx, sv, true)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("stripOrImportIngresses: %w", err))
-			continue
+			errs = append(errs, err)
 		}
-
-		// Attempt to satisfy this service in particular now. We do this now instead of relying on
-		// ipam.satisfyServices to avoid updating the service twice in quick succession.
-		if !sv.isSatisfied() {
-			statusModified, err := ipam.satisfyService(sv)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("satisfyService: %w", err))
-				continue
-			}
-			if statusModified {
-				svModifiedStatus = true
-			}
-		}
-
-		// If any of the steps above changed the service object, update the object.
-		if svModifiedStatus {
-			err := ipam.patchSvcStatus(ctx, sv)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("patchSvcStatus: %w", err))
-				continue
-			}
-		}
-
-		ipam.serviceStore.Upsert(sv)
 	}
 	return errors.Join(errs...)
 }
