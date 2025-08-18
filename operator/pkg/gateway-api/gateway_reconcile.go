@@ -470,11 +470,10 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 			accepted := false
 
 			for _, cond := range l.Conditions {
-				if cond.Type == string(gatewayv1.GatewayConditionAccepted) {
-					if cond.Status == metav1.ConditionTrue {
-						accepted = true
-						break
-					}
+				if cond.Type == string(gatewayv1.GatewayConditionAccepted) &&
+					cond.Status == metav1.ConditionTrue {
+					accepted = true
+					break
 				}
 			}
 			if accepted {
@@ -756,12 +755,12 @@ func (r *gatewayReconciler) verifyGatewayStaticAddresses(gw *gatewayv1.Gateway) 
 // Uses the helpers.Input interface to ensure that this still applies as new types are added.
 func (r *gatewayReconciler) runCommonRouteChecks(input routechecks.Input, parentRefs []gatewayv1.ParentReference, objNamespace string) error {
 	for _, parent := range parentRefs {
-		// If this parentRef is not a Gateway parentRef, then skip it.
+		// If this parentRef is not a Gateway parentRef, skip it.
 		if !helpers.IsGateway(parent) {
 			continue
 		}
 
-		// Similarly, if this Gateway is not a matching one, then
+		// Similarly, if this Gateway is not a matching one, skip it.
 		if !r.parentIsMatchingGateway(parent, objNamespace) {
 			continue
 		}
@@ -835,15 +834,11 @@ func (r *gatewayReconciler) parentIsMatchingGateway(parent gatewayv1.ParentRefer
 	}, gw); err != nil {
 		return false
 	}
-	if hasMatchingControllerFn(gw) {
-		return true
-	}
-
-	return false
+	return hasMatchingControllerFn(gw)
 }
 
 func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx context.Context, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1beta1.ReferenceGrantList) error {
-	scopedLog.DebugContext(ctx, "Updating HTTPRoute statuses for GAMMA Service", numRoutes, len(httpRoutes.Items))
+	scopedLog.DebugContext(ctx, "Updating HTTPRoute statuses for Gateway", numRoutes, len(httpRoutes.Items))
 	for httpRouteIndex, original := range httpRoutes.Items {
 
 		hr := original.DeepCopy()
@@ -852,7 +847,7 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 		// The validators will mutate the HTTPRoute as required, setting its status correctly.
 		i := &routechecks.HTTPRouteInput{
 			Ctx:       ctx,
-			Logger:    scopedLog.With(logfields.Resource, hr),
+			Logger:    scopedLog.With(logfields.HTTPRoute, hr),
 			Client:    r.Client,
 			Grants:    grants,
 			HTTPRoute: hr,
@@ -886,7 +881,7 @@ func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx cont
 		// The validators will mutate the HTTPRoute as required, setting its status correctly.
 		i := &routechecks.TLSRouteInput{
 			Ctx:      ctx,
-			Logger:   scopedLog.With(logfields.Resource, tlsr),
+			Logger:   scopedLog.With(logfields.TLSRoute, tlsr),
 			Client:   r.Client,
 			Grants:   grants,
 			TLSRoute: tlsr,
@@ -920,7 +915,7 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 		// The validators will mutate the HTTPRoute as required, setting its status correctly.
 		i := &routechecks.GRPCRouteInput{
 			Ctx:       ctx,
-			Logger:    scopedLog.With(logfields.Resource, grpcr),
+			Logger:    scopedLog.With(logfields.GRPCRoute, grpcr),
 			Client:    r.Client,
 			Grants:    grants,
 			GRPCRoute: grpcr,
