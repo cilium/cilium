@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fswatcher"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -208,6 +208,81 @@ var (
 	// is correctly invalidate.
 	xfrmStateCache = NewXfrmStateListCache(time.Minute)
 )
+
+// Upon starting, the agent will load the ipsec key, set the SPI accordingly,
+// and update the EncryptionKey in the local node object to the SPI.
+type Agent struct {
+	// These are provided in [newAgent].
+	log       *slog.Logger
+	localNode *node.LocalNodeStore
+	jobs      job.Group
+
+	// These are initialized in [newAgent].
+	authKeySize int
+	spi         uint8
+}
+
+// newAgent creates a new IPSec agent.
+func newAgent(lc cell.Lifecycle, log *slog.Logger, jobGroup job.Group, localNodeStore *node.LocalNodeStore) *Agent {
+	ipsec := &Agent{
+		log:       log,
+		localNode: localNodeStore,
+		jobs:      jobGroup,
+
+		authKeySize: 0,
+		spi:         0,
+	}
+	lc.Append(ipsec)
+	return ipsec
+}
+
+func (a *Agent) Start(cell.HookContext) error {
+	if !option.Config.EncryptNode {
+		DeleteIPsecEncryptRoute(a.log)
+	}
+	if !option.Config.EnableIPSec {
+		return nil
+	}
+
+	var err error
+	a.authKeySize, a.spi, err = LoadIPSecKeysFile(a.log, option.Config.IPSecKeyFile)
+	if err != nil {
+		return err
+	}
+	if err := SetIPSecSPI(a.log, a.spi); err != nil {
+		return err
+	}
+
+	a.localNode.Update(func(n *node.LocalNode) {
+		n.EncryptionKey = a.spi
+	})
+
+	return nil
+}
+
+// StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
+func (a *Agent) StartBackgroundJobs(handler types.NodeHandler) error {
+	if !option.Config.EnableIPSec {
+		return nil
+	}
+	if err := StartKeyfileWatcher(a.log, a.jobs, option.Config.IPSecKeyFile, handler); err != nil {
+		return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
+	}
+	a.jobs.Add(job.Timer("stale-key-reclaimer", staleKeyReclaimer{a.log}.onTimer, time.Minute))
+	return nil
+}
+
+func (a *Agent) Stop(cell.HookContext) error {
+	return nil
+}
+
+func (a *Agent) AuthKeySize() int {
+	return a.authKeySize
+}
+
+func (a *Agent) SPI() uint8 {
+	return a.spi
+}
 
 func getGlobalIPsecKey(ip net.IP) *ipSecKey {
 	ipSecLock.RLock()
@@ -1209,7 +1284,7 @@ func DeleteIPsecEncryptRoute(log *slog.Logger) {
 	}
 }
 
-func keyfileWatcher(log *slog.Logger, ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler datapath.NodeHandler, health cell.Health) error {
+func keyfileWatcher(log *slog.Logger, ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler types.NodeHandler, health cell.Health) error {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -1258,7 +1333,7 @@ func keyfileWatcher(log *slog.Logger, ctx context.Context, watcher *fswatcher.Wa
 	}
 }
 
-func StartKeyfileWatcher(log *slog.Logger, group job.Group, keyfilePath string, nodeHandler datapath.NodeHandler) error {
+func StartKeyfileWatcher(log *slog.Logger, group job.Group, keyfilePath string, nodeHandler types.NodeHandler) error {
 	if !option.Config.EnableIPsecKeyWatcher {
 		return nil
 	}
