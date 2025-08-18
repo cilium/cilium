@@ -1009,9 +1009,9 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Namespace:  Namespace,
 			Subsystem:  SubsystemK8sClient,
 			Name:       "rate_limiter_duration_seconds",
-			Help:       "Kubernetes client rate limiter latency in seconds. Broken down by path and method.",
+			Help:       "Kubernetes client rate limiter latency in seconds.",
 			Buckets:    []float64{0.005, 0.025, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 15.0, 30.0, 60.0},
-		}, []string{LabelPath, LabelMethod}),
+		}, []string{}),
 
 		KubernetesAPICallsTotal: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemK8sClient + "_api_calls_total",

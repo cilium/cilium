@@ -347,6 +347,7 @@ Removed Metrics
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
+* ``k8s_client_rate_limiter_duration_seconds`` no longer has labels ``path`` and ``method``.
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
