@@ -37,7 +37,7 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 			"k8s:name=probe",
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-	}, fakeTypes.WireguardConfig{})
+	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 	require.NoError(t, err)
 
 	status := e.GetCiliumEndpointStatus()
