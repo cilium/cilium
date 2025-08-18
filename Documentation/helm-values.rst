@@ -275,9 +275,17 @@
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
-     - ``{"enabled":false,"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
+     - ``{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
      - Enables the BGP control plane.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute`
+     - Legacy BGP ORIGIN attribute settings (BGPv2 only)
+     - object
+     - ``{"enabled":false}``
+   * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute.enabled`
+     - Enable/Disable advertising LoadBalancerIP routes with the legacy BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0). Enable for compatibility with the legacy behavior of MetalLB integration.
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane.routerIDAllocation`
