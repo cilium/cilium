@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	bgp_metrics "github.com/cilium/cilium/pkg/bgpv1/metrics"
+	bgp_option "github.com/cilium/cilium/pkg/bgpv1/option"
 	ipam_option "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -35,6 +36,9 @@ import (
 var Cell = cell.Module(
 	"bgp-control-plane",
 	"BGP Control Plane",
+
+	// Provide config so that other cells can access it
+	cell.Config(bgp_option.DefaultConfig),
 
 	// The Controller which is the entry point of the module
 	cell.Provide(agent.NewController, signaler.NewBGPCPSignaler, mode.NewConfigMode),
