@@ -11,6 +11,10 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
+type Cescacher interface {
+	hasCESName(CESName) bool
+}
+
 type CEPName resource.Key
 type CESKey resource.Key
 type CESName string

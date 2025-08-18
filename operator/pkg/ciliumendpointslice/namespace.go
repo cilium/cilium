@@ -36,6 +36,13 @@ func (c *Controller) processNamespaceEvents(ctx context.Context) error {
 
 // onNamespaceUpsert modifies the Controller's list of priority namespaces if the namespace is modified.
 func (c *Controller) onNamespaceUpsert(ns *slimcorev1.Namespace) {
+	c.updateNamespaceAnnotations(ns)
+	if c.cesWithoutCEPs {
+		c.logger.Debug("CESWithoutCEPs not implemented yet")
+	}
+}
+
+func (c *Controller) updateNamespaceAnnotations(ns *slimcorev1.Namespace) {
 	value, _ := k8s.Get(ns, priorityNamespaceAnnotation)
 	c.priorityNamespacesLock.Lock()
 	defer c.priorityNamespacesLock.Unlock()
@@ -56,8 +63,10 @@ func (c *Controller) onNamespaceUpsert(ns *slimcorev1.Namespace) {
 // if the namespace is deleted.
 func (c *Controller) onNamespaceDelete(ns *slimcorev1.Namespace) {
 	c.logger.Debug(fmt.Sprintf("Namespace deleted: %s", ns.Name))
+	if c.cesWithoutCEPs {
+		c.logger.Debug("CESWithoutCEPs not implemented yet")
+	}
 	c.priorityNamespacesLock.Lock()
 	defer c.priorityNamespacesLock.Unlock()
 	delete(c.priorityNamespaces, ns.Name)
-
 }

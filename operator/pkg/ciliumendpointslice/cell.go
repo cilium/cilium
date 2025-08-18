@@ -20,6 +20,9 @@ const (
 
 	// CESRateLimits can be used to configure a custom, stepped dynamic rate limit based on cluster size.
 	CESRateLimits = "ces-rate-limits"
+
+	// CESWithoutCEPs enables the CES controller to create CES directly from pods and removes its need for CiliumEndpoints.
+	CESWithoutCEPs = "ces-without-ceps"
 )
 
 // Cell is a cell that implements a Cilium Endpoint Slice Controller.
@@ -37,12 +40,14 @@ type Config struct {
 	CESMaxCEPsInCES           int    `mapstructure:"ces-max-ciliumendpoints-per-ces"`
 	CESSlicingMode            string `mapstructure:"ces-slice-mode"`
 	CESDynamicRateLimitConfig string `mapstructure:"ces-rate-limits"`
+	CESWithoutCEPs            bool   `mapstructure:"ces-without-ceps"`
 }
 
 var defaultConfig = Config{
 	CESMaxCEPsInCES:           100,
 	CESSlicingMode:            fcfsMode,
 	CESDynamicRateLimitConfig: "[{\"nodes\":0,\"limit\":10,\"burst\":20}]",
+	CESWithoutCEPs:            false,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -51,6 +56,9 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.MarkDeprecated(CESSlicingMode, "Slicing mode defaults to the FCFS mode and is now deprecated option. It does not have a functional effect")
 
 	flags.String(CESRateLimits, def.CESDynamicRateLimitConfig, "Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string.")
+
+	flags.Bool(CESWithoutCEPs, def.CESWithoutCEPs, "Enable CiliumEndpointSlice controller without CiliumEndpoints. Experimental.")
+	flags.MarkHidden(CESWithoutCEPs)
 }
 
 // SharedConfig contains the configuration that is shared between

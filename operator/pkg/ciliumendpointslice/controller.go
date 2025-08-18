@@ -5,6 +5,7 @@ package ciliumendpointslice
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -91,6 +92,8 @@ type Controller struct {
 	priorityNamespaces     map[string]struct{}
 	priorityNamespacesLock lock.RWMutex
 
+	cesWithoutCEPs bool
+
 	// If the queues are empty, they wait until the condition (adding something to the queues) is met.
 	cond sync.Cond
 
@@ -115,7 +118,6 @@ func registerController(p params) error {
 	cesController := &Controller{
 		logger:                   p.Logger,
 		clientset:                clientset,
-		ciliumEndpoint:           p.CiliumEndpoint,
 		ciliumEndpointSlice:      p.CiliumEndpointSlice,
 		ciliumNodes:              p.CiliumNodes,
 		namespace:                p.Namespace,
@@ -126,9 +128,17 @@ func registerController(p params) error {
 		workqueueMetricsProvider: p.WorkqueueMetricsProvider,
 		syncDelay:                DefaultCESSyncTime,
 		priorityNamespaces:       make(map[string]struct{}),
+		cesWithoutCEPs:           p.Cfg.CESWithoutCEPs,
 		cond:                     *sync.NewCond(&lock.Mutex{}),
 		Job:                      p.Job,
 	}
+
+	if p.Cfg.CESWithoutCEPs {
+		return fmt.Errorf("CESWithoutCEPS is not yet implemented.")
+	} else {
+		cesController.ciliumEndpoint = p.CiliumEndpoint
+	}
+
 	p.Lifecycle.Append(cesController)
 	return nil
 }

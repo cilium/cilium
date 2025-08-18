@@ -22,13 +22,14 @@ import (
 // reconciler is used to sync the current (i.e. desired) state of the CESs in datastore into current state CESs in the k8s-apiserver.
 // The source of truth is in local datastore.
 type reconciler struct {
-	logger     *slog.Logger
-	client     clientset.CiliumV2alpha1Interface
-	context    context.Context
-	cesManager *cesManager
-	cepStore   resource.Store[*cilium_v2.CiliumEndpoint]
-	cesStore   resource.Store[*cilium_v2a1.CiliumEndpointSlice]
-	metrics    *Metrics
+	logger         *slog.Logger
+	client         clientset.CiliumV2alpha1Interface
+	context        context.Context
+	cesManager     *cesManager
+	cepStore       resource.Store[*cilium_v2.CiliumEndpoint]
+	cesStore       resource.Store[*cilium_v2a1.CiliumEndpointSlice]
+	metrics        *Metrics
+	cesWithoutCeps bool
 }
 
 // newReconciler creates and initializes a new reconciler.
@@ -40,17 +41,23 @@ func newReconciler(
 	ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint],
 	ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
 	metrics *Metrics,
+	cesWithoutCeps bool,
 ) *reconciler {
-	cepStore, _ := ciliumEndpoint.Store(ctx)
+	var cepStore resource.Store[*cilium_v2.CiliumEndpoint]
+	if !cesWithoutCeps {
+		cepStore, _ = ciliumEndpoint.Store(ctx)
+	}
 	cesStore, _ := ciliumEndpointSlice.Store(ctx)
+
 	return &reconciler{
-		context:    ctx,
-		logger:     logger,
-		client:     client,
-		cesManager: cesMgr,
-		cepStore:   cepStore,
-		cesStore:   cesStore,
-		metrics:    metrics,
+		context:        ctx,
+		logger:         logger,
+		client:         client,
+		cesManager:     cesMgr,
+		cepStore:       cepStore,
+		cesStore:       cesStore,
+		metrics:        metrics,
+		cesWithoutCeps: cesWithoutCeps,
 	}
 }
 
@@ -203,13 +210,17 @@ func (r *reconciler) reconcileCESDelete(ces *cilium_v2a1.CiliumEndpointSlice) (e
 }
 
 func (r *reconciler) getCoreEndpointFromStore(cepName CEPName) *cilium_v2a1.CoreCiliumEndpoint {
-	cepObj, exists, err := r.cepStore.GetByKey(cepName.key())
-	if err == nil && exists {
-		return k8s.ConvertCEPToCoreCEP(cepObj)
+	if r.cesWithoutCeps {
+		return nil
+	} else {
+		cepObj, exists, err := r.cepStore.GetByKey(cepName.key())
+		if err == nil && exists {
+			return k8s.ConvertCEPToCoreCEP(cepObj)
+		}
+		r.logger.DebugContext(r.context,
+			fmt.Sprintf("Couldn't get CEP from Store (err=%v, exists=%v)", err, exists),
+			logfields.CEPName, cepName.string(),
+		)
+		return nil
 	}
-	r.logger.DebugContext(r.context,
-		fmt.Sprintf("Couldn't get CEP from Store (err=%v, exists=%v)", err, exists),
-		logfields.CEPName, cepName.string(),
-	)
-	return nil
 }

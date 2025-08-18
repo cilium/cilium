@@ -4,6 +4,7 @@
 package ciliumendpointslice
 
 import (
+	"fmt"
 	"log/slog"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -22,6 +23,7 @@ var (
 // inserted into CESs without any preference or any priority.
 type cesManager struct {
 	logger *slog.Logger
+
 	// mapping is used to map CESName to CESTracker[i.e. list of CEPs],
 	// as well as CEPName to CESName.
 	mapping *CESToCEPMapping
@@ -33,12 +35,19 @@ type cesManager struct {
 
 // newCESManager creates and initializes a new FirstComeFirstServe based CES
 // manager, in this mode CEPs are batched based on FirstComeFirtServe algorithm.
-func newCESManager(maxCEPsInCES int, logger *slog.Logger) *cesManager {
-	return &cesManager{
+func newCESManager(maxCEPsInCES int, cesWithoutCeps bool, logger *slog.Logger) *cesManager {
+	cesManager := cesManager{
 		logger:       logger,
-		mapping:      newCESToCEPMapping(),
 		maxCEPsInCES: maxCEPsInCES,
 	}
+
+	if cesWithoutCeps {
+		fmt.Errorf("CESWithoutCEPs is not implemented yet.")
+	} else {
+		cesManager.mapping = newCESToCEPMapping()
+	}
+
+	return &cesManager
 }
 
 // This function create a new ces and capacity to hold maximum ceps in a CES.
