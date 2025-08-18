@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Values.prometheus.serviceMonitor.namespace | default (include "cilium.namespace" .) }}
   labels:
     app.kubernetes.io/part-of: cilium
-
+    app.kubernetes.io/name: hubble
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
