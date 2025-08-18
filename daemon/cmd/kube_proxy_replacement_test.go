@@ -33,7 +33,6 @@ type kprConfig struct {
 	enableNodePort             bool
 	enableHostPort             bool
 	enableExternalIPs          bool
-	enableSessionAffinity      bool
 	enableIPSec                bool
 	enableHostLegacyRouting    bool
 	installNoConntrackIptRules bool
@@ -56,12 +55,11 @@ func (cfg *kprConfig) set() (err error) {
 	cfg.lbConfig = loadbalancer.DefaultConfig
 
 	kprFlags := kpr.KPRFlags{
-		KubeProxyReplacement:  cfg.kubeProxyReplacement,
-		EnableNodePort:        cfg.enableNodePort,
-		EnableSocketLB:        cfg.enableSocketLB,
-		EnableHostPort:        cfg.enableHostPort,
-		EnableExternalIPs:     cfg.enableExternalIPs,
-		EnableSessionAffinity: cfg.enableSessionAffinity,
+		KubeProxyReplacement: cfg.kubeProxyReplacement,
+		EnableNodePort:       cfg.enableNodePort,
+		EnableSocketLB:       cfg.enableSocketLB,
+		EnableHostPort:       cfg.enableHostPort,
+		EnableExternalIPs:    cfg.enableExternalIPs,
 	}
 
 	cfg.kprConfig, err = kpr.NewKPRConfig(kprFlags)
@@ -114,7 +112,6 @@ func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg 
 	require.Equal(t, cfg.enableNodePort, kprCfg.EnableNodePort)
 	require.Equal(t, cfg.enableHostPort, kprCfg.EnableHostPort)
 	require.Equal(t, cfg.enableExternalIPs, kprCfg.EnableExternalIPs)
-	require.Equal(t, cfg.enableSessionAffinity, kprCfg.EnableSessionAffinity)
 	require.Equal(t, cfg.enableIPSec, option.Config.EnableIPSec)
 	require.Equal(t, cfg.enableHostLegacyRouting, option.Config.EnableHostLegacyRouting)
 	require.Equal(t, cfg.installNoConntrackIptRules, option.Config.InstallNoConntrackIptRules)
@@ -156,7 +153,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -174,7 +170,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableIPSec:             true,
 				enableSocketLBTracing:   true,
@@ -195,7 +190,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:             true,
 				enableHostPort:             true,
 				enableExternalIPs:          true,
-				enableSessionAffinity:      true,
 				enableHostLegacyRouting:    false,
 				enableBPFMasquerade:        true,
 				enableIPv4Masquerade:       true,
@@ -218,7 +212,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:             true,
 				enableHostPort:             true,
 				enableExternalIPs:          true,
-				enableSessionAffinity:      true,
 				enableHostLegacyRouting:    false,
 				installNoConntrackIptRules: true,
 				enableIPv4Masquerade:       true,
@@ -237,7 +230,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:          false,
 				enableHostPort:          false,
 				enableExternalIPs:       false,
-				enableSessionAffinity:   false,
 				enableIPSec:             false,
 				enableHostLegacyRouting: true,
 				enableSocketLBTracing:   false,
@@ -259,7 +251,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:             true,
 				enableHostPort:             false,
 				enableExternalIPs:          false,
-				enableSessionAffinity:      false,
 				enableHostLegacyRouting:    false,
 				installNoConntrackIptRules: true,
 				enableSocketLBTracing:      true,
@@ -281,7 +272,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -302,7 +292,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -322,7 +311,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -343,7 +331,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -364,7 +351,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -384,7 +370,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -405,7 +390,6 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
