@@ -360,8 +360,12 @@ jobs:
 
       - name: Wait for Cilium to be ready
         run: |
-          cilium status --wait --interactive=false --wait-duration=10m
+          cilium status --wait --interactive=false --wait-duration=3m
           kubectl get pods -n kube-system
+
+      - name: Setup tmate session
+        if: ${{ failure() && matrix.config.index == '2' }}
+        uses: mxschmitt/action-tmate@v3
 
       - name: Make JUnit report directory
         run: |
