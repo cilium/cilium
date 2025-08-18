@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -120,7 +121,7 @@ func testInvalidLoadKeys(t *testing.T) {
 	_, _, err := LoadIPSecKeys(log, keys)
 	require.Error(t, err)
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   remoteNodeID,
@@ -217,7 +218,7 @@ func testUpsertIPSecEquals(t *testing.T) {
 	ipSecKeysGlobal[remote.IP.String()] = key
 	ipSecKeysGlobal[""] = key
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   remoteNodeID,
@@ -294,7 +295,7 @@ func testUpsertIPSecEndpointOut(t *testing.T) {
 	ipSecKeysGlobal[remote.IP.String()] = key
 	ipSecKeysGlobal[""] = key
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
@@ -408,7 +409,7 @@ func testUpsertIPSecEndpointFwd(t *testing.T) {
 	ipSecKeysGlobal[remote.IP.String()] = key
 	ipSecKeysGlobal[""] = key
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
@@ -501,7 +502,7 @@ func testUpsertIPSecEndpointIn(t *testing.T) {
 	ipSecKeysGlobal[remote.IP.String()] = key
 	ipSecKeysGlobal[""] = key
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
@@ -584,7 +585,7 @@ func testUpsertIPSecEndpointIn(t *testing.T) {
 }
 
 func testUpsertIPSecKeyMissing(t *testing.T) {
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   remoteNodeID,
@@ -618,7 +619,7 @@ func testUpdateExistingIPSecEndpoint(t *testing.T) {
 	ipSecKeysGlobal[remote.IP.String()] = key
 	ipSecKeysGlobal[""] = key
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
