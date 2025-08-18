@@ -78,6 +78,5 @@ type ProxyRequestContext struct {
 	PolicyCheckTime      spanstat.SpanStat
 	PolicyGenerationTime spanstat.SpanStat
 	DataplaneTime        spanstat.SpanStat
-	Success              bool
 	DataSource           accesslog.DNSDataSource
 }

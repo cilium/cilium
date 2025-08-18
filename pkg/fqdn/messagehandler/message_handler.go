@@ -34,8 +34,17 @@ const (
 	metricLabelAllow    = "allow"
 )
 
-// DNSMessageHandler contains callbacks called by the DNS proxy's serving function.
-// A callback must end all spanstats it starts, and no others.
+// DNSMessageHandler contains callbacks called by the DNS proxy's serving
+// function. The purpose of the callbacks is to emit proxy access log events and
+// plumb DNS data into the policy subsystem.
+//
+// A callback must end all spanstats it starts, and no others. It may return
+// dnsproxy.ErrDNSRequestNoEndpoint{} error if the endpoint is nil. Note that
+// the caller should log beforehand the contextualized error.
+
+// epIPPort and serverAddrPort should match the original request, where epAddr is
+// the source for egress (the only case current).
+// serverID is the destination server security identity at the time of the DNS event.
 type DNSMessageHandler interface {
 	OnQuery(ep *endpoint.Endpoint,
 		epIPPort string,
@@ -119,6 +128,32 @@ func (h *dnsMessageHandler) OnQuery(
 	verdict := accesslog.VerdictForwarded
 	reason := "Allowed by policy"
 	return h.onQuery(ep, epIPPort, serverID, serverAddrPort, query, protocol, stat, verdict, reason)
+}
+
+func (h *dnsMessageHandler) OnError(
+	ep *endpoint.Endpoint,
+	epIPPort string,
+	serverID identity.NumericIdentity,
+	serverAddrPort netip.AddrPort,
+	query *dns.Msg,
+	protocol string,
+	stat *dnsproxy.ProxyRequestContext,
+	err error,
+) (error, string) {
+	if query.Response {
+		return fmt.Errorf("error callback expected query, got response"), metricLabelProxyErr
+	} else if dnsproxy.IsTimeout(err) {
+		return nil, metricLabelTimeout
+	} else if ep == nil {
+		// This is a hard fail. We cannot proceed because record.Log requires a
+		// non-nil EP.
+		return dnsproxy.ErrDNSRequestNoEndpoint{}, metricLabelProxyErr
+	}
+
+	verdict := accesslog.VerdictError
+	reason := "Error: " + err.Error()
+	err, _ = h.onQuery(ep, epIPPort, serverID, serverAddrPort, query, protocol, stat, verdict, reason)
+	return err, metricLabelProxyErr
 }
 
 // Since handling of error and query are almost the same.
@@ -266,49 +301,6 @@ func (h *dnsMessageHandler) OnResponse(
 	h.proxyAccessLogger.Log(record)
 
 	return nil, metricLabelAllow
-}
-
-// FIXME: docs
-// notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
-// events, proxy metrics and storing DNS data in the DNS cache. This may
-// result in rule generation.
-// It will:
-//   - Report a monitor error event and proxy metrics when the proxy sees an
-//     error, and when it can't process something in this function
-//   - Report the verdict in a monitor event and emit proxy metrics
-//   - Insert the DNS data into the cache when msg is a DNS response, and we
-//     can lookup the endpoint related to it.
-//
-// It may return dnsproxy.ErrDNSRequestNoEndpoint{} error if the endpoint is nil.
-// Note that the caller should log beforehand the contextualized error.
-
-// epIPPort and serverAddrPort should match the original request, where epAddr is
-// the source for egress (the only case current).
-// serverID is the destination server security identity at the time of the DNS event.
-func (h *dnsMessageHandler) OnError(
-	ep *endpoint.Endpoint,
-	epIPPort string,
-	serverID identity.NumericIdentity,
-	serverAddrPort netip.AddrPort,
-	query *dns.Msg,
-	protocol string,
-	stat *dnsproxy.ProxyRequestContext,
-	err error,
-) (error, string) {
-	if query.Response {
-		return fmt.Errorf("error callback expected query, got response"), metricLabelProxyErr
-	} else if dnsproxy.IsTimeout(err) {
-		return nil, metricLabelTimeout
-	} else if ep == nil {
-		// This is a hard fail. We cannot proceed because record.Log requires a
-		// non-nil EP.
-		return dnsproxy.ErrDNSRequestNoEndpoint{}, metricLabelProxyErr
-	}
-
-	verdict := accesslog.VerdictError
-	reason := "Error: " + err.Error()
-	err, _ = h.onQuery(ep, epIPPort, serverID, serverAddrPort, query, protocol, stat, verdict, reason)
-	return err, metricLabelProxyErr
 }
 
 func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) {

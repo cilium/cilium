@@ -1139,8 +1139,6 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	scopedLog.Debug("Received DNS response to proxied lookup, calling OnResponse", logfields.Response, response)
-	stat.Success = true // FIXME drop unused
-
 	err, metricLabel = p.OnResponse(ep, epIPPort, targetServerID, targetServer, response, protocol, &stat)
 	if err != nil {
 		scopedLog.Error(
