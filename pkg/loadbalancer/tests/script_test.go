@@ -103,7 +103,6 @@ func TestScript(t *testing.T) {
 							KubeProxyReplacement:      option.KubeProxyReplacementTrue,
 							EnableNodePort:            true,
 							EnableHostPort:            true,
-							EnableSessionAffinity:     true,
 							EnableSVCSourceRangeCheck: true,
 						}
 					},

@@ -2698,7 +2698,6 @@ resourceQuotas:
       pods: "15"
 # Need to document default
 ##################
-#sessionAffinity: false
 
 # -- Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
 secretsNamespaceAnnotations: {}
