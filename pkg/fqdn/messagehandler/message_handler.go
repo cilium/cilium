@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
-	"net"
 	"net/netip"
 	"strings"
 
@@ -269,14 +268,6 @@ func (h *dnsMessageHandler) OnResponse(
 	return nil, metricLabelAllow
 }
 
-func isTimeout(err error) bool {
-	var neterr net.Error
-	if errors.As(err, &neterr) {
-		return neterr.Timeout()
-	}
-	return false
-}
-
 // FIXME: docs
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
 // events, proxy metrics and storing DNS data in the DNS cache. This may
@@ -306,7 +297,7 @@ func (h *dnsMessageHandler) OnError(
 ) (error, string) {
 	if query.Response {
 		return fmt.Errorf("error callback expected query, got response"), metricLabelProxyErr
-	} else if isTimeout(err) {
+	} else if dnsproxy.IsTimeout(err) {
 		return nil, metricLabelTimeout
 	} else if ep == nil {
 		// This is a hard fail. We cannot proceed because record.Log requires a

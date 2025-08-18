@@ -905,14 +905,6 @@ func setSoMarks(fd int, ipFamily ipfamily.IPFamily, secId identity.NumericIdenti
 	return nil
 }
 
-func isTimeout(err error) bool {
-	var neterr net.Error
-	if errors.As(err, &neterr) {
-		return neterr.Timeout()
-	}
-	return false
-}
-
 const (
 	upstreamTime    = "upstreamTime"
 	processingTime  = "processingTime"
@@ -1132,7 +1124,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	stat.UpstreamTime.End(err == nil)
 	if err != nil {
-		if isTimeout(err) {
+		if IsTimeout(err) {
 			scopedLog.Warn("Timeout waiting for response to forwarded proxied DNS lookup", logfields.Error, err)
 			_, metricLabel = p.OnError(ep, epIPPort, targetServerID, targetServer, request, protocol, &stat, err)
 			stat.TotalTime.End(false)
@@ -1180,6 +1172,14 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	p.usedServers[targetServer.Addr()] = struct{}{}
 	p.Unlock()
 	stat.TotalTime.End(true)
+}
+
+func IsTimeout(err error) bool {
+	var neterr net.Error
+	if errors.As(err, &neterr) {
+		return neterr.Timeout()
+	}
+	return false
 }
 
 func (p *DNSProxy) enforceConcurrencyLimit(ctx context.Context) error {
