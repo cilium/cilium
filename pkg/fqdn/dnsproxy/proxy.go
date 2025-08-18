@@ -1110,7 +1110,8 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	if err != nil {
 		if isTimeout(err) {
 			scopedLog.Warn("Timeout waiting for response to forwarded proxied DNS lookup", logfields.Error, err)
-			p.OnError(ep, epIPPort, targetServerID, targetServer, request, protocol, &stat, err)
+			// No need to call OnError here. We've reported the query and there's nothing more to do
+			// on a timeout of upstream. Downstream will do retries.
 			return
 		}
 		scopedLog.Error("Cannot forward proxied DNS lookup", logfields.Error, err)
