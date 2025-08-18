@@ -94,7 +94,6 @@ lb/maps-dump maps.actual
 
 # The quarantined restored state is clean now.
 test/bpfops-summary
-stdout 'restoredQuarantines: 0'
 stdout 'restoredServiceIDs: 0'
 stdout 'restoredBackendIDs: 0'
 

@@ -136,12 +136,6 @@ type BPFOps struct {
 	backendIDAlloc     idAllocator[loadbalancer.BackendID]
 	restoredBackendIDs map[loadbalancer.L3n4Addr]loadbalancer.BackendID
 
-	// restoredQuarantinedBackends are backends that were quarantined for
-	// a specific frontend. This comes into play when we have active health checker.
-	// On restart we restore this information and use this until we get an update
-	// from a health checker ([Backend.UnhealthyUpdatedAt] is non-zero).
-	restoredQuarantinedBackends map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]
-
 	// backendStates maps from backend address to associated state.
 	// This is used to track which frontends reference a specific backend
 	// in order to delete orphaned backeds.
@@ -293,22 +287,6 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 			ops.restoredServiceIDs[addr] = id
 		}
 		ops.serviceIDAlloc.nextID = max(ops.serviceIDAlloc.nextID, id+1)
-
-		if master.GetQCount() > 0 && len(slots) == 1+master.GetCount()+master.GetQCount() {
-			if ops.restoredQuarantinedBackends == nil {
-				ops.restoredQuarantinedBackends = make(map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr])
-			}
-			backends := ops.restoredQuarantinedBackends[addr]
-			if backends == nil {
-				backends = sets.New[loadbalancer.L3n4Addr]()
-				ops.restoredQuarantinedBackends[addr] = backends
-			}
-			for _, slot := range slots[1+master.GetCount():] {
-				if addr, found := backendIDToAddress[slot.GetBackendID()]; found {
-					backends.Insert(addr)
-				}
-			}
-		}
 	}
 	return nil
 }
@@ -367,26 +345,6 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revisi
 	return nil
 }
 
-func (ops *BPFOps) deleteRestoredQuarantinedBackends(fe loadbalancer.L3n4Addr, bes ...loadbalancer.L3n4Addr) {
-	if ops.restoredQuarantinedBackends == nil {
-		return
-	}
-	if len(bes) == 0 {
-		delete(ops.restoredQuarantinedBackends, fe)
-	} else {
-		backends := ops.restoredQuarantinedBackends[fe]
-		if len(backends) > 0 {
-			backends.Delete(bes...)
-		}
-		if len(backends) == 0 {
-			delete(ops.restoredQuarantinedBackends, fe)
-		}
-	}
-	if len(ops.restoredQuarantinedBackends) == 0 {
-		ops.restoredQuarantinedBackends = nil
-	}
-}
-
 func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	feID, err := ops.serviceIDAlloc.lookupLocalID(fe.Address)
 	if err != nil {
@@ -399,9 +357,6 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		logfields.ID, feID,
 		logfields.Address, fe.Address,
 	)
-
-	// Drop any restored quarantine state
-	ops.deleteRestoredQuarantinedBackends(fe.Address)
 
 	// Delete Maglev.
 	if ops.useMaglev(fe) {
@@ -515,13 +470,6 @@ func (ops *BPFOps) pruneServiceMaps() error {
 				logfields.ID, svcValue.GetRevNat(),
 				logfields.Address, addr)
 			toDelete = append(toDelete, svcKey.ToNetwork())
-
-			// Drop restored quarantined state
-			if svcKey.GetBackendSlot() > 0 {
-				if beAddr, found := ops.backendIDAlloc.idToAddr[svcValue.GetBackendID()]; found {
-					ops.deleteRestoredQuarantinedBackends(addr, beAddr)
-				}
-			}
 		}
 	}
 	if err := ops.LBMaps.DumpService(svcCB); err != nil {
@@ -843,7 +791,6 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 	for _, orphanState := range ops.orphanBackends(fe.Address, backendAddrs) {
 		ops.log.Debug("Delete orphan backend", logfields.Address, orphanState.addr)
-		ops.deleteRestoredQuarantinedBackends(fe.Address, orphanState.addr)
 		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
 			return fmt.Errorf("delete backend: %w", err)
 		}
@@ -926,10 +873,6 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 					return fmt.Errorf("delete affinity match: %w", err)
 				}
 			}
-		}
-
-		if be.UnhealthyUpdatedAt != nil {
-			ops.deleteRestoredQuarantinedBackends(fe.Address, be.Address)
 		}
 
 		state := be.State
@@ -1337,15 +1280,8 @@ func (ops *BPFOps) computeMaglevTable(bes []backendWithRevision) ([]loadbalancer
 // Backends are sorted to deterministically to keep the order stable in BPF maps
 // when updating.
 func (ops *BPFOps) sortedBackends(fe *loadbalancer.Frontend) []backendWithRevision {
-	quarantined := ops.restoredQuarantinedBackends[fe.Address]
-
 	bes := []backendWithRevision{}
 	for be, rev := range fe.Backends {
-		if be.UnhealthyUpdatedAt == nil && quarantined.Has(be.Address) {
-			// Backend was previously quarantined and we have not health checked it
-			// yet. Use the restored health until health check is performed.
-			be.Unhealthy = true
-		}
 		bes = append(bes, backendWithRevision{&be, rev})
 	}
 	sort.Slice(bes, func(i, j int) bool {
@@ -1394,7 +1330,6 @@ func (ops *BPFOps) StateSummary() string {
 	fmt.Fprintf(&b, "backendReferences: %d\n", len(ops.backendReferences))
 	fmt.Fprintf(&b, "nodePortAddrByPort: %d\n", len(ops.nodePortAddrByPort))
 	fmt.Fprintf(&b, "prevSourceRanges: %d\n", len(ops.prevSourceRanges))
-	fmt.Fprintf(&b, "restoredQuarantines: %d\n", len(ops.restoredQuarantinedBackends))
 	return b.String()
 }
 
