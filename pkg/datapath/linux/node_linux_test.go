@@ -82,7 +82,7 @@ func newIPsecTestAgent(tb testing.TB) *ipsec.Agent {
 	agent := ipsec.NewAgent(hivetest.Lifecycle(tb), hivetest.Logger(tb), nil, nil)
 
 	tb.Cleanup(func() {
-		err := agent.DeleteXFRM(hivetest.Logger(tb), ipsec.AllReqID)
+		err := agent.DeleteXFRM(ipsec.AllReqID)
 		if err != nil {
 			tb.Errorf("Failed cleaning XFRM state: %v", err)
 		}
@@ -749,7 +749,7 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
 
 	a := newIPsecTestAgent(t)
-	_, _, err := a.LoadIPSecKeys(log, keys)
+	_, _, err := a.LoadIPSecKeys(keys)
 	require.NoError(t, err)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
@@ -1274,7 +1274,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodePodCIDRsChurnIPSec(t *testing.T) 
 	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
 
 	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
-	_, _, err = a.LoadIPSecKeys(log, keys)
+	_, _, err = a.LoadIPSecKeys(keys)
 	require.NoError(t, err)
 
 	// set "local_node" as the local node name

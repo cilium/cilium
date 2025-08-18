@@ -730,7 +730,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if err := n.removeEncryptRules(); err != nil {
 			n.log.Warn("Cannot cleanup previous encryption rule state.", logfields.Error, err)
 		}
-		if err := n.ipsecAgent.DeleteXFRM(n.log, ipsec.AllReqID); err != nil {
+		if err := n.ipsecAgent.DeleteXFRM(ipsec.AllReqID); err != nil {
 			return fmt.Errorf("failed to delete xfrm policies on node configuration changed: %w", err)
 		}
 	}

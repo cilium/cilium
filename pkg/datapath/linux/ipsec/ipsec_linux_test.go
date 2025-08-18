@@ -73,7 +73,7 @@ func newIPsecTestAgent(tb testing.TB) *Agent {
 	agent := NewAgent(hivetest.Lifecycle(tb), hivetest.Logger(tb), nil, nil)
 
 	tb.Cleanup(func() {
-		err := agent.DeleteXFRM(log, AllReqID)
+		err := agent.DeleteXFRM(AllReqID)
 		if err != nil {
 			tb.Errorf("Failed cleaning XFRM state: %v", err)
 		}
@@ -121,14 +121,14 @@ func TestPrivilegedLoadKeysNoFile(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
 	a := newIPsecTestAgent(t)
-	_, _, err := a.loadIPSecKeysFile(log, path)
+	_, _, err := a.loadIPSecKeysFile(path)
 	require.True(t, os.IsNotExist(err))
 }
 
 func testInvalidLoadKeys(t *testing.T) {
 	a := newIPsecTestAgent(t)
 	keys := bytes.NewReader(invalidKeysDat)
-	_, _, err := a.LoadIPSecKeys(log, keys)
+	_, _, err := a.LoadIPSecKeys(keys)
 	require.Error(t, err)
 
 	params := &types.IPSecParameters{
@@ -145,7 +145,7 @@ func testInvalidLoadKeys(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.Error(t, err)
 }
 
@@ -156,9 +156,9 @@ func TestPrivilegedLoadKeys(t *testing.T) {
 	for _, testCase := range testCases {
 		keys := bytes.NewReader(testCase)
 		a := newIPsecTestAgent(t)
-		_, spi, err := a.LoadIPSecKeys(log, keys)
+		_, spi, err := a.LoadIPSecKeys(keys)
 		require.NoError(t, err)
-		err = a.setIPSecSPI(log, spi)
+		err = a.setIPSecSPI(spi)
 		require.NoError(t, err)
 	}
 }
@@ -168,7 +168,7 @@ func TestPrivilegedLoadKeysLenChange(t *testing.T) {
 
 	a := newIPsecTestAgent(t)
 	keys := bytes.NewReader(append(keysDat, keysNullDat...))
-	_, _, err := a.LoadIPSecKeys(log, keys)
+	_, _, err := a.LoadIPSecKeys(keys)
 	require.ErrorContains(t, err, "invalid key rotation: key length must not change")
 }
 
@@ -177,7 +177,7 @@ func TestPrivilegedLoadKeysSameSPI(t *testing.T) {
 
 	a := newIPsecTestAgent(t)
 	keys := bytes.NewReader(keysSameSpiDat)
-	_, _, err := a.LoadIPSecKeys(log, keys)
+	_, _, err := a.LoadIPSecKeys(keys)
 	require.ErrorContains(t, err, "invalid SPI: changing IPSec keys requires incrementing the key id")
 }
 
@@ -245,7 +245,7 @@ func testUpsertIPSecEquals(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
@@ -253,7 +253,7 @@ func testUpsertIPSecEquals(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, result)
 
-	err = a.DeleteXFRM(log, AllReqID)
+	err = a.DeleteXFRM(AllReqID)
 	require.NoError(t, err)
 
 	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
@@ -269,7 +269,7 @@ func testUpsertIPSecEquals(t *testing.T) {
 	a.ipSecKeysGlobal[remote.IP.String()] = key
 	a.ipSecKeysGlobal[""] = key
 
-	_, err = a.UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
@@ -323,7 +323,7 @@ func testUpsertIPSecEndpointOut(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	encryptionMark := generateEncryptMark(key.Spi, params.RemoteNodeID)
@@ -438,7 +438,7 @@ func testUpsertIPSecEndpointFwd(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	tmpls := []netlink.XfrmPolicyTmpl{
@@ -532,7 +532,7 @@ func testUpsertIPSecEndpointIn(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	// Confirm state was created with correct marks.
@@ -616,7 +616,7 @@ func testUpsertIPSecKeyMissing(t *testing.T) {
 	}
 
 	a := newIPsecTestAgent(t)
-	_, err := a.UpsertIPsecEndpoint(log, params)
+	_, err := a.UpsertIPsecEndpoint(params)
 	require.ErrorContains(t, err, "unable to replace local state: global IPsec key missing")
 }
 
@@ -651,10 +651,10 @@ func testUpdateExistingIPSecEndpoint(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	// test updateExisting (xfrm delete + add)
-	_, err = a.UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 }
