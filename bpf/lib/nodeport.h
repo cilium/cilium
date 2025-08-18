@@ -232,6 +232,28 @@ static __always_inline bool nodeport_xlate6(const struct lb6_service *svc,
 
 #ifdef ENABLE_DSR
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+static __always_inline int
+dsr_set_ipip6_dev(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
+		  __u32 seclabel)
+{
+	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+	struct bpf_tunnel_key key;
+
+	memset(&key, 0, sizeof(key));
+	key.tunnel_id = get_tunnel_id(seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel);
+	key.remote_ipv6[0] = tunnel_ep->p1;
+	key.remote_ipv6[1] = tunnel_ep->p2;
+	key.remote_ipv6[2] = tunnel_ep->p3;
+	key.remote_ipv6[3] = tunnel_ep->p4;
+	key.tunnel_ttl = IPDEFTTL;
+
+	if (unlikely(ctx_set_tunnel_key(ctx, &key, key_size,
+					BPF_F_ZERO_CSUM_TX |
+					BPF_F_TUNINFO_IPV6) < 0))
+		return DROP_WRITE_ERROR;
+	return 0;
+}
+
 static __always_inline void rss_gen_src6(union v6addr *src,
 					 const union v6addr *client,
 					 __be32 l4_hint)
@@ -1521,6 +1543,28 @@ static __always_inline bool nodeport_xlate4(const struct lb4_service *svc,
 
 #ifdef ENABLE_DSR
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+static __always_inline int
+dsr_set_ipip4_dev(struct __ctx_buff *ctx, __u32 tunnel_ep, __u32 seclabel)
+{
+	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+	struct bpf_tunnel_key key;
+
+	/* When encapsulating, a packet originating from the local
+	 * host is being considered as a packet from a remote node
+	 * as it is being received.
+	 */
+	memset(&key, 0, sizeof(key));
+	key.tunnel_id = get_tunnel_id(seclabel == HOST_ID ?
+				      LOCAL_NODE_ID : seclabel);
+	key.remote_ipv4 = bpf_htonl(tunnel_ep);
+	key.tunnel_ttl = IPDEFTTL;
+
+	if (unlikely(ctx_set_tunnel_key(ctx, &key, key_size,
+					BPF_F_ZERO_CSUM_TX) < 0))
+		return DROP_WRITE_ERROR;
+	return 0;
+}
+
 static __always_inline __be32 rss_gen_src4(__be32 client, __be32 l4_hint)
 {
 	const __u32 bits = 32 - IPV4_RSS_PREFIX_BITS;
