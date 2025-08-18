@@ -54,7 +54,7 @@ func newLocalNodeConfig(
 	kprCfg kpr.KPRConfig,
 	maglevConfig maglev.Config,
 	mtuTbl statedb.Table[mtu.RouteMTU],
-	wgCfg wgTypes.WireguardConfig,
+	wgAgent wgTypes.WireguardAgent,
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -82,7 +82,7 @@ func newLocalNodeConfig(
 
 	watchChans := []<-chan struct{}{devsWatch, addrsWatch, mtuWatch}
 	var directRoutingDevice *tables.Device
-	if option.Config.DirectRoutingDeviceRequired(kprCfg, wgCfg.Enabled()) {
+	if option.Config.DirectRoutingDeviceRequired(kprCfg, wgAgent.Enabled()) {
 		drd, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
 		if drd == nil {
 			return datapath.LocalNodeConfiguration{}, nil, errors.New("direct routing device required but not configured")
@@ -90,6 +90,15 @@ func newLocalNodeConfig(
 
 		watchChans = append(watchChans, directRoutingDevWatch)
 		directRoutingDevice = drd
+	}
+
+	var wgIndex uint32
+	if wgAgent.Enabled() {
+		var err error
+		wgIndex, err = wgAgent.IfaceIndex()
+		if err != nil {
+			return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting Wireguard device index: %w", err)
+		}
 	}
 
 	return datapath.LocalNodeConfiguration{
@@ -117,7 +126,8 @@ func newLocalNodeConfig(
 		EnableAutoDirectRouting:      config.EnableAutoDirectRouting,
 		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
 		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
-		EnableWireguard:              wgCfg.Enabled(),
+		EnableWireguard:              wgAgent.Enabled(),
+		WireguardIfIndex:             wgIndex,
 		EnableIPSec:                  config.EnableIPSec,
 		EnableIPSecEncryptedOverlay:  config.EnableIPSecEncryptedOverlay,
 		EncryptNode:                  config.EncryptNode,

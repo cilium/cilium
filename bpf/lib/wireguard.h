@@ -21,7 +21,7 @@
  * This function returns true in case all the following conditions are satisfied:
  *
  * - ctx is a UDP packet;
- * - L4 dport == WG_PORT;
+ * - L4 dport == CONFIG(wg_port);
  * - L4 sport == dport;
  * - valid identity in cluster.
  */
@@ -42,7 +42,7 @@ ctx_is_wireguard(struct __ctx_buff *ctx, int l4_off, __u8 protocol, __u32 identi
 		return false;
 
 	/* Packet is not for cilium@WireGuard.*/
-	if (l4.dport != bpf_htons(WG_PORT))
+	if (l4.dport != bpf_htons(CONFIG(wg_port)))
 		return false;
 
 	/* Packet does not come from cilium@WireGuard. */
@@ -181,7 +181,7 @@ maybe_encrypt: __maybe_unused
 	if (dst && dst->key) {
 		set_identity_mark(ctx, src_sec_identity, MARK_MAGIC_IDENTITY);
 overlay_encrypt: __maybe_unused
-		return ctx_redirect(ctx, WG_IFINDEX, 0);
+		return ctx_redirect(ctx, CONFIG(wg_ifindex), 0);
 	}
 
 out:
