@@ -34,5 +34,5 @@ type params struct {
 
 // newIPsecAgent returns the [*Agent] as an interface [types.IPsecAgent].
 func newIPsecAgent(p params) types.IPsecAgent {
-	return newAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore)
+	return NewAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore)
 }
