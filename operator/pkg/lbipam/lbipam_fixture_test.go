@@ -184,7 +184,7 @@ func (nf *newFixture) UpsertPool(t *testing.T, pool *cilium_api_v2.CiliumLoadBal
 				t.Fatal(err)
 			}
 		},
-	})
+	}, false)
 }
 
 func (nf *newFixture) DeletePool(t *testing.T, pool *cilium_api_v2.CiliumLoadBalancerIPPool) {
@@ -199,7 +199,7 @@ func (nf *newFixture) DeletePool(t *testing.T, pool *cilium_api_v2.CiliumLoadBal
 				t.Fatal(err)
 			}
 		},
-	})
+	}, false)
 }
 
 func (nf *newFixture) UpsertSvc(t *testing.T, svc *slim_core_v1.Service) {
