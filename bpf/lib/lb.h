@@ -280,21 +280,13 @@ bool lb6_svc_is_loopback(const struct lb6_service *svc __maybe_unused)
 static __always_inline
 bool lb4_svc_has_src_range_check(const struct lb4_service *svc __maybe_unused)
 {
-#ifdef ENABLE_SRC_RANGE_CHECK
 	return svc->flags & SVC_FLAG_SOURCE_RANGE;
-#else
-	return false;
-#endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
 static __always_inline
 bool lb6_svc_has_src_range_check(const struct lb6_service *svc __maybe_unused)
 {
-#ifdef ENABLE_SRC_RANGE_CHECK
 	return svc->flags & SVC_FLAG_SOURCE_RANGE;
-#else
-	return false;
-#endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
 static __always_inline
@@ -627,7 +619,6 @@ static __always_inline
 bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 		      const union v6addr *saddr __maybe_unused)
 {
-#ifdef ENABLE_SRC_RANGE_CHECK
 	struct lb6_src_range_key key;
 	bool verdict = false;
 
@@ -644,9 +635,6 @@ bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 		verdict = true;
 
 	return verdict ^ !!(svc->flags2 & SVC_FLAG_SOURCE_RANGE_DENY);
-#else
-	return true;
-#endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
 static __always_inline bool
@@ -1344,7 +1332,6 @@ static __always_inline
 bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 		      __u32 saddr __maybe_unused)
 {
-#ifdef ENABLE_SRC_RANGE_CHECK
 	struct lb4_src_range_key key;
 	bool verdict = false;
 
@@ -1361,9 +1348,6 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 		verdict = true;
 
 	return verdict ^ !!(svc->flags2 & SVC_FLAG_SOURCE_RANGE_DENY);
-#else
-	return true;
-#endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
 static __always_inline bool
