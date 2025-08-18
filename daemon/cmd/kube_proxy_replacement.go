@@ -179,12 +179,6 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 			return err
 		}
 
-		if option.Config.EnableRecorder {
-			if probes.HaveProgramHelper(logger, ebpf.XDP, asm.FnKtimeGetBootNs) != nil {
-				return fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
-			}
-		}
-
 		if option.Config.EnableHealthDatapath {
 			if probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil {
 				option.Config.EnableHealthDatapath = false

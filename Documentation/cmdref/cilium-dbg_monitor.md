@@ -28,7 +28,7 @@ cilium-dbg monitor [flags]
   -n, --numeric                 Display all security identities as numeric values
       --related-to []uint16     Filter by either source or destination endpoint id
       --to []uint16             Filter by destination endpoint id
-  -t, --type []string           Filter by event types [agent capture debug drop l7 policy-verdict recorder trace trace-sock]
+  -t, --type []string           Filter by event types [agent capture debug drop l7 policy-verdict trace trace-sock]
   -v, --verbose bools[=false]   Enable verbose output (-v, -vv) (default [])
 ```
 

@@ -22,7 +22,6 @@
 #include "identity.h"
 #include "trace.h"
 #include "ghash.h"
-#include "pcap.h"
 #include "host_firewall.h"
 #include "stubs.h"
 #include "proxy_hairpin.h"
@@ -687,7 +686,6 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	ret = encap_geneve_dsr_opt6(ctx, ip6, &addr, port, &oif, &ohead);
 	if (!IS_ERR(ret)) {
 		if (ret == CTX_ACT_REDIRECT && oif) {
-			cilium_capture_out(ctx);
 			return ctx_redirect(ctx, oif, 0);
 		}
 
@@ -726,7 +724,6 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 
 	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
-		cilium_capture_out(ctx);
 		return ret;
 	}
 drop_err:
@@ -834,7 +831,6 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 	}
 	ret = fib_redirect_v6(ctx, l3_off, ip6, false, true, &ext_err, &oif);
 	if (fib_ok(ret)) {
-		cilium_capture_out(ctx);
 		return ret;
 	}
 drop_err:
@@ -865,7 +861,6 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 	}
 	ret = fib_redirect_v4(ctx, l3_off, ip4, false, true, &ext_err, &oif);
 	if (fib_ok(ret)) {
-		cilium_capture_out(ctx);
 		return ret;
 	}
 drop_err:
@@ -1042,7 +1037,6 @@ int __nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir)
 #ifndef IS_BPF_LXC
 	edt_set_aggregate(ctx, 0);
 #endif
-	cilium_capture_out(ctx);
 	return ret;
 drop:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
@@ -1134,7 +1128,6 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		goto recircle;
 
 	edt_set_aggregate(ctx, 0);
-	cilium_capture_out(ctx);
 	return ret;
 #endif
 
@@ -1236,7 +1229,6 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 			goto drop_err;
 
 		if (ret == CTX_ACT_REDIRECT && oif) {
-			cilium_capture_out(ctx);
 			return ctx_redirect(ctx, oif, 0);
 		}
 
@@ -1272,7 +1264,6 @@ fib_ipv4:
 	}
 	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
-		cilium_capture_out(ctx);
 		return ret;
 	}
 drop_err:
@@ -1433,8 +1424,6 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct lb6_service *svc;
 	struct lb6_key key = {};
-
-	cilium_capture_in(ctx);
 
 	tuple.nexthdr = ip6->nexthdr;
 	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
@@ -2046,7 +2035,6 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 				    ip4, addr, port, &oif, &ohead);
 	if (!IS_ERR(ret)) {
 		if (ret == CTX_ACT_REDIRECT && oif) {
-			cilium_capture_out(ctx);
 			return ctx_redirect(ctx, oif, 0);
 		}
 	}
@@ -2064,7 +2052,6 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	}
 	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
-		cilium_capture_out(ctx);
 		return ret;
 	}
 drop_err:
@@ -2353,7 +2340,6 @@ int tail_nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx)
 #ifndef IS_BPF_LXC
 	edt_set_aggregate(ctx, 0);
 #endif
-	cilium_capture_out(ctx);
 	return ret;
 
 drop_err:
@@ -2439,7 +2425,6 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 
 	/* Redirected to egress interface: */
 	edt_set_aggregate(ctx, 0);
-	cilium_capture_out(ctx);
 	return ret;
 #endif
 
@@ -2566,7 +2551,6 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 			goto drop_err;
 
 		if (ret == CTX_ACT_REDIRECT && oif) {
-			cilium_capture_out(ctx);
 			return ctx_redirect(ctx, oif, 0);
 		}
 	}
@@ -2581,7 +2565,6 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
-		cilium_capture_out(ctx);
 		return ret;
 	}
 drop_err:
@@ -2774,8 +2757,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	int ret, l4_off;
-
-	cilium_capture_in(ctx);
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);

@@ -41,13 +41,9 @@ const (
 	// which corresponds to policy_verdict_notify defined in bpf/lib/policy_log.h
 	MessageTypePolicyVerdict
 
-	// MessageTypeRecCapture is a BPF datapath notification carrying a RecorderCapture
-	// which corresponds to capture_msg defined in bpf/lib/pcap.h
-	MessageTypeRecCapture
-
 	// MessageTypeTraceSock is a BPF datapath notification carrying a TraceNotifySock
 	// which corresponds to trace_sock_notify defined in bpf/lib/trace_sock.h
-	MessageTypeTraceSock
+	MessageTypeTraceSock = 7
 
 	// 129-255 are reserved for agent level events
 
@@ -66,7 +62,6 @@ const (
 	MessageTypeNameL7            = "l7"
 	MessageTypeNameAgent         = "agent"
 	MessageTypeNamePolicyVerdict = "policy-verdict"
-	MessageTypeNameRecCapture    = "recorder"
 	MessageTypeNameTraceSock     = "trace-sock"
 )
 
@@ -82,7 +77,6 @@ var (
 		MessageTypeNameL7:            MessageTypeAccessLog,
 		MessageTypeNameAgent:         MessageTypeAgent,
 		MessageTypeNamePolicyVerdict: MessageTypePolicyVerdict,
-		MessageTypeNameRecCapture:    MessageTypeRecCapture,
 		MessageTypeNameTraceSock:     MessageTypeTraceSock,
 	}
 )

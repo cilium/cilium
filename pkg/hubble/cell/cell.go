@@ -28,8 +28,6 @@ import (
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/recorder"
 )
 
 // The top-level Hubble cell, implements several Hubble subsystems: reports pod
@@ -78,7 +76,6 @@ type hubbleParams struct {
 	NodeManager       nodeManager.NodeManager
 	NodeLocalStore    *node.LocalNodeStore
 	MonitorAgent      monitorAgent.Agent
-	Recorder          *recorder.Recorder
 
 	TLSConfigPromise tlsConfigPromise
 
@@ -91,9 +88,7 @@ type hubbleParams struct {
 	GRPCMetrics          *grpc_prometheus.ServerMetrics
 	MetricsFlowProcessor metrics.FlowProcessor
 
-	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
-	AgentConfig *option.DaemonConfig
-	Config      config
+	Config config
 }
 
 type HubbleIntegration interface {
@@ -112,14 +107,12 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.NodeManager,
 		params.NodeLocalStore,
 		params.MonitorAgent,
-		params.Recorder,
 		params.TLSConfigPromise,
 		params.ObserverOptions,
 		params.ExporterBuilders,
 		params.PayloadParser,
 		params.GRPCMetrics,
 		params.MetricsFlowProcessor,
-		params.AgentConfig,
 		params.Config,
 		params.Logger,
 	)

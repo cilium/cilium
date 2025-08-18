@@ -552,7 +552,7 @@ bpf:
   # Helm configuration for BPF events map rate limiting is experimental and might change
   # in upcoming releases.
   events:
-    # -- Default settings for all types of events except dbg and pcap.
+    # -- Default settings for all types of events except dbg.
     default:
       # @schema
       # type: [null, integer]

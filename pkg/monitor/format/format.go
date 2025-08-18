@@ -88,8 +88,6 @@ func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 		msg = &monitorAPI.AgentNotify{}
 	case monitorAPI.MessageTypePolicyVerdict:
 		msg = &monitor.PolicyVerdictNotify{}
-	case monitorAPI.MessageTypeRecCapture:
-		msg = &monitor.RecorderCapture{}
 	case monitorAPI.MessageTypeTraceSock:
 		msg = &monitor.TraceSockNotify{}
 	default:

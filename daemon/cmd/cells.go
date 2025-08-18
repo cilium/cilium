@@ -74,7 +74,6 @@ import (
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/recorder"
 	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
@@ -304,9 +303,6 @@ var (
 
 		// K8s Watcher provides the core k8s watchers
 		watchers.Cell,
-
-		// Provide pcap recorder
-		recorder.Cell,
 
 		// Provides a wrapper of the cilium config that can be watched dynamically
 		dynamicconfig.Cell,

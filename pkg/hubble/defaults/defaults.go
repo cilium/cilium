@@ -30,8 +30,4 @@ const (
 	// SocketPath is the path to the UNIX domain socket exposing the Hubble API
 	// to clients locally.
 	SocketPath = ciliumDefaults.RuntimePath + "/hubble.sock"
-
-	// RecorderStoragePath is the directory in which pcap files created via the
-	// Hubble Recorder API are stored.
-	RecorderStoragePath = ciliumDefaults.RuntimePath + "/pcaps"
 )
