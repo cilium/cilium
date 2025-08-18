@@ -216,6 +216,7 @@ spec:
         {{- if .Values.ciliumEndpointSlice.enabled }}
         - --enable-cilium-endpoint-slice
         {{- end }}
+        {{- include "clustermesh.apiserver.args.extra" . | nindent 8 }}
         {{- with .Values.clustermesh.apiserver.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
@@ -311,6 +312,7 @@ spec:
         - --controller-group-metrics=all
         {{- end }}
         - --enable-heartbeat={{ eq "true" (include "identityAllocationCRD" .) | ternary "false" "true" }}
+        {{- include "clustermesh.kvstoremesh.args.extra" . | nindent 8 }}
         {{- with .Values.clustermesh.apiserver.kvstoremesh.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}

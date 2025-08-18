@@ -81,3 +81,15 @@ Allow packagers to add extra configuration to certgen.
 */}}
 {{- define "certgen.config.extra" -}}
 {{- end }}
+
+{{/*
+Allow packagers to add extra arguments to the clustermesh-apiserver apiserver container.
+*/}}
+{{- define "clustermesh.apiserver.args.extra" -}}
+{{- end }}
+
+{{/*
+Allow packagers to add extra arguments to the clustermesh-apiserver kvstoremesh container.
+*/}}
+{{- define "clustermesh.kvstoremesh.args.extra" -}}
+{{- end }}
