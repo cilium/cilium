@@ -26,6 +26,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type Aggregation struct {
@@ -709,6 +710,17 @@ var (
 			},
 		},
 	}
+
+	daemonConfig = func() *option.DaemonConfig {
+		config := *option.Config
+		return &config
+	}
+
+	daemonConfigWithLegacyOriginAttrEabled = func() *option.DaemonConfig {
+		config := *option.Config
+		config.EnableBGPLegacyOriginAttribute = true
+		return &config
+	}
 )
 
 // Test_ServiceLBReconciler tests reconciliation of service of type load-balancer
@@ -719,6 +731,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		advertisements   []*v2.CiliumBGPAdvertisement
 		services         []*slim_corev1.Service
 		endpoints        []*k8s.Endpoints
+		daemonConfig     *option.DaemonConfig
 		expectedMetadata ServiceReconcilerMetadata
 	}{
 		{
@@ -726,6 +739,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			peerConfig:     []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:       []*slim_corev1.Service{redLBSvc},
 			advertisements: nil,
+			daemonConfig:   daemonConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
@@ -744,6 +758,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
+			daemonConfig: daemonConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
@@ -766,6 +781,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
+			daemonConfig: daemonConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -802,6 +818,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector, aggregation)),
 			},
+			daemonConfig: daemonConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -839,6 +856,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector, aggregation)),
 			},
+			daemonConfig: daemonConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -876,6 +894,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
+			daemonConfig: daemonConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -913,6 +932,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
+			daemonConfig: daemonConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -950,6 +970,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
+			daemonConfig: daemonConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
@@ -973,9 +994,47 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
+			daemonConfig: daemonConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v2.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+					},
+				},
+			},
+		},
+		{
+			name:       "Service (LB) with advertisement(LB) and legacy origin attr - matching labels (eTP=cluster)",
+			peerConfig: []*v2.CiliumBGPPeerConfig{redPeerConfig},
+			services:   []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
+			advertisements: []*v2.CiliumBGPAdvertisement{
+				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
+			},
+			daemonConfig: daemonConfigWithLegacyOriginAttrEabled(),
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServicePaths: ResourceAFPathsMap{
+					redSvcKey: AFPathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+							ingressV4Prefix: types.SetPathOriginAttrIncomplete(types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix))),
+						},
+						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
+							ingressV6Prefix: types.SetPathOriginAttrIncomplete(types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix))),
+						},
+					},
+				},
+				ServiceRoutePolicies: ResourceRoutePolicyMap{
+					redSvcKey: RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+						redPeer65001v6LBRPName: redPeer65001v6LBRP,
+					},
+				},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
@@ -1004,6 +1063,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 					}),
 				SvcDiffStore: store.InitFakeDiffStore[*slim_corev1.Service](tt.services),
 				EPDiffStore:  store.InitFakeDiffStore[*k8s.Endpoints](tt.endpoints),
+				DaemonConfig: tt.daemonConfig,
 			}
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -1025,7 +1085,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			serviceMetadataEqual(req, tt.expectedMetadata, svcReconciler.getMetadata(testBGPInstance))
 
 			// validate that advertised paths match expected metadata
-			advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
+			advertisedPrefixesAndPathAttrMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
 
 			// validate that advertised policies match expected attributes
 			advertisedPoliciesAttributesMatch(req, testBGPInstance, tt.expectedMetadata.ServiceRoutePolicies)
@@ -1377,6 +1437,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 					}),
 				SvcDiffStore: store.InitFakeDiffStore[*slim_corev1.Service](tt.services),
 				EPDiffStore:  store.InitFakeDiffStore[*k8s.Endpoints](tt.endpoints),
+				DaemonConfig: daemonConfig(),
 			}
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -1398,7 +1459,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			serviceMetadataEqual(req, tt.expectedMetadata, svcReconciler.getMetadata(testBGPInstance))
 
 			// validate that advertised paths match expected metadata
-			advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
+			advertisedPrefixesAndPathAttrMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
 
 			// validate that advertised policies match expected attributes
 			advertisedPoliciesAttributesMatch(req, testBGPInstance, tt.expectedMetadata.ServiceRoutePolicies)
@@ -1750,6 +1811,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 					}),
 				SvcDiffStore: store.InitFakeDiffStore[*slim_corev1.Service](tt.services),
 				EPDiffStore:  store.InitFakeDiffStore[*k8s.Endpoints](tt.endpoints),
+				DaemonConfig: daemonConfig(),
 			}
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -1771,7 +1833,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			serviceMetadataEqual(req, tt.expectedMetadata, svcReconciler.getMetadata(testBGPInstance))
 
 			// validate that advertised paths match expected metadata
-			advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
+			advertisedPrefixesAndPathAttrMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
 
 			// validate that advertised policies match expected attributes
 			advertisedPoliciesAttributesMatch(req, testBGPInstance, tt.expectedMetadata.ServiceRoutePolicies)
@@ -2151,6 +2213,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			}),
 		SvcDiffStore: serviceStore,
 		EPDiffStore:  epStore,
+		DaemonConfig: daemonConfig(),
 	}
 
 	svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -2187,7 +2250,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		serviceMetadataEqual(req, tt.expectedMetadata, svcReconciler.getMetadata(testBGPInstance))
 
 		// validate that advertised paths match expected metadata
-		advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
+		advertisedPrefixesAndPathAttrMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
 
 		// validate that advertised policies match expected attributes
 		advertisedPoliciesAttributesMatch(req, testBGPInstance, tt.expectedMetadata.ServiceRoutePolicies)
@@ -2529,6 +2592,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 			}),
 		SvcDiffStore: serviceStore,
 		EPDiffStore:  epStore,
+		DaemonConfig: daemonConfig(),
 	}
 
 	svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -2565,7 +2629,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 		serviceMetadataEqual(req, tt.expectedMetadata, svcReconciler.getMetadata(testBGPInstance))
 
 		// validate that advertised paths match expected metadata
-		advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
+		advertisedPrefixesAndPathAttrMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
 
 		// validate that advertised policies match expected attributes
 		advertisedPoliciesAttributesMatch(req, testBGPInstance, tt.expectedMetadata.ServiceRoutePolicies)
@@ -2830,6 +2894,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 			}),
 		SvcDiffStore: serviceStore,
 		EPDiffStore:  epStore,
+		DaemonConfig: daemonConfig(),
 	}
 
 	svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -2871,7 +2936,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 		serviceMetadataEqual(req, tt.expectedMetadata, svcReconciler.getMetadata(testBGPInstance))
 
 		// validate that advertised paths match expected metadata
-		advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
+		advertisedPrefixesAndPathAttrMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
 
 		// validate that advertised policies match expected attributes
 		advertisedPoliciesAttributesMatch(req, testBGPInstance, tt.expectedMetadata.ServiceRoutePolicies)
@@ -2916,7 +2981,7 @@ func serviceMetadataEqual(req *require.Assertions, expectedMetadata, runningMeta
 		"ServiceRoutePolicies mismatch, expected: %v, got: %v", expectedMetadata.ServiceRoutePolicies, runningMetadata.ServiceRoutePolicies)
 }
 
-func advertisedPrefixesMatch(req *require.Assertions, bgpInstance *instance.BGPInstance, expectedPaths ResourceAFPathsMap) {
+func advertisedPrefixesAndPathAttrMatch(req *require.Assertions, bgpInstance *instance.BGPInstance, expectedPaths ResourceAFPathsMap) {
 	expected := make(map[string]*types.Path)
 	for _, svcPaths := range expectedPaths {
 		for _, afPaths := range svcPaths {
@@ -2938,6 +3003,10 @@ func advertisedPrefixesMatch(req *require.Assertions, bgpInstance *instance.BGPI
 	expPrefixes := slices.Collect(maps.Keys(expected))
 	advPrefixes := slices.Collect(maps.Keys(advertised))
 	req.ElementsMatchf(expPrefixes, advPrefixes, "advertised prefixes do not match expected metadata, expected: %v, got: %v", expPrefixes, advPrefixes)
+
+	for _, advPrefix := range advPrefixes {
+		req.ElementsMatch(expected[advPrefix].PathAttributes, advertised[advPrefix].PathAttributes, "advertised prefixes do not match expected path attributes, expected: %v, got: %v", expected[advPrefix].PathAttributes, advertised[advPrefix].PathAttributes)
+	}
 }
 
 // advertisedPoliciesAttributesMatch checks that the policies expected were in fact configured on the internal BGP speaker
