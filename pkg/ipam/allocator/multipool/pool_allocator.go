@@ -18,14 +18,74 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 type cidrPool struct {
-	v4         []cidralloc.CIDRAllocator
-	v6         []cidralloc.CIDRAllocator
-	v4MaskSize int
-	v6MaskSize int
+	v4                        []cidralloc.CIDRAllocator
+	v6                        []cidralloc.CIDRAllocator
+	v4MaskSize                int
+	v6MaskSize                int
+	CountAllocatedIPsInPrefix func(cidr *netip.Prefix) *big.Int
+}
+
+func getRemainingIPs(p PoolAllocator) {
+
+	for i, pool := range p.pools {
+		poolName := fmt.Sprintf("pool-%d", i)
+
+		for _, family := range []string{"ipv4", "ipv6"} {
+			var remaining *big.Int
+			if family == "ipv4" {
+				availablev4 := pool.GetAvailableAddrsV4()
+				allocatedv4 := pol.allocatedV4()
+				remaining = new(big.Int).Sub(availablev4, allocatedv4)
+			} else {
+				availablev6 := pool.GetAvailableAddrsV6()
+				allocatedv6 := pool.allocatedV6()
+				remaining = new(big.Int).Sub(availablev6, allocatedv6)
+			}
+
+			metrics.RemainingIPs.WithLabelValues(poolName, family).
+				Set(float64(remaining.Int64()))
+		}
+	}
+}
+
+func (c cidrPool) allocatedV4() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v4 {
+		cidrBlock := f.Prefix()
+		total.Add(total, c.CountAllocatedIPsInPrefix(&cidrBlock))
+	}
+	return total
+}
+
+func (c cidrPool) allocatedV6() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v6 {
+		cidrBlock := f.Prefix()
+		total.Add(total, c.CountAllocatedIPsInPrefix(&cidrBlock))
+	}
+	return total
+
+}
+
+func (c cidrPool) GetAvailableAddrsV4() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v4 {
+		total.Add(total, addrsInPrefix(f.Prefix()))
+	}
+	return total
+}
+
+func (c cidrPool) GetAvailableAddrsV6() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v6 {
+		total.Add(total, addrsInPrefix(f.Prefix()))
+	}
+	return total
 }
 
 type cidrSet map[netip.Prefix]struct{}
