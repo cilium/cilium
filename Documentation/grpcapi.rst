@@ -19,5 +19,4 @@ upheld for whole lifecycle of Cilium 1.x.
    Flow <_api/v1/flow/README>
    Observer <_api/v1/observer/README>
    Peer <_api/v1/peer/README>
-   Recorder <_api/v1/recorder/README>
    Relay <_api/v1/relay/README>
