@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/stretchr/testify/assert"
@@ -414,7 +413,8 @@ func TestL34Decode(t *testing.T) {
 	// ff02::1:ff00:b3e5   f00d::a10:0:0:9195   L3/4
 	d2 := []byte{
 		4, 5, 168, 11, 95, 22, 242, 184, 86, 0, 0, 0, 86, 0, 0, 0, 104, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 51, 255, 0, 179, 229, 18, 145,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		51, 51, 255, 0, 179, 229, 18, 145,
 		6, 226, 34, 26, 134, 221, 96, 0, 0, 0, 0, 32, 58, 255, 255, 2, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 1, 255, 0, 179, 229, 240, 13, 0, 0, 0, 0, 0, 0, 10,
 		16, 0, 0, 0, 0, 145, 149, 135, 0, 80, 117, 0, 0, 0, 0, 240, 13, 0, 0, 0,
@@ -571,114 +571,80 @@ func TestDecodeTraceNotify(t *testing.T) {
 }
 
 func TestDecodeDropNotify(t *testing.T) {
-	packetBuffer := gopacket.NewSerializeBuffer()
-	if err := gopacket.SerializeLayers(packetBuffer,
-		gopacket.SerializeOptions{},
-		&layers.Ethernet{
-			SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
-			DstMAC:       net.HardwareAddr{4, 5, 6, 7, 8, 9},
-			EthernetType: layers.EthernetTypeIPv4,
-		},
-		&layers.IPv4{
-			IHL:   5,
-			SrcIP: net.IPv4(1, 2, 3, 4),
-			DstIP: net.IPv4(1, 2, 3, 4),
-		},
-	); err != nil {
-		t.Fatalf("SerializeLayers(...) buffer: %v", err)
-	}
-
-	SrcLabel := identity.NumericIdentity(123)
-	DstLabel := identity.NumericIdentity(456)
-
-	dropNotify := func(version uint16) monitor.DropNotify {
-		return monitor.DropNotify{
-			Type:     byte(monitorAPI.MessageTypeDrop),
-			File:     1, // bpf_host.c
-			Version:  version,
-			SrcLabel: SrcLabel,
-			DstLabel: DstLabel,
-		}
-	}
-	identityGetter := &testutils.FakeIdentityGetter{
-		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
-			m := map[identity.NumericIdentity][]string{
-				SrcLabel: {"k8s:src=label"},
-				DstLabel: {"k8s:dst=label"},
+	for _, c := range []struct {
+		Name       string
+		IsL3Device bool
+	}{{"L3Device", true}, {"L2Device", false}} {
+		t.Run(c.Name, func(t *testing.T) {
+			dn := monitor.DropNotify{
+				DropNotifyV1: monitor.DropNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeDrop),
+					File:     1, // bpf_host.c
+					Line:     42,
+					SrcLabel: 123,
+					DstLabel: 456,
+					Version:  monitor.DropNotifyVersion2,
+				},
+			}
+			lay := []gopacket.SerializableLayer{
+				&layers.Ethernet{
+					SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+					DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+					EthernetType: layers.EthernetTypeIPv4,
+				},
+				&layers.IPv4{
+					Version:  4,
+					IHL:      5,
+					Length:   49,
+					Id:       0xCECB,
+					TTL:      64,
+					Protocol: layers.IPProtocolUDP,
+					SrcIP:    net.IPv4(1, 2, 3, 4),
+					DstIP:    net.IPv4(1, 2, 3, 4),
+				},
+				&layers.UDP{
+					SrcPort: 23939,
+					DstPort: 32412,
+				},
 			}
 
-			v, ok := m[identity.NumericIdentity(securityIdentity)]
-			if !ok {
-				return nil, fmt.Errorf("identity not found for %d", securityIdentity)
+			if c.IsL3Device {
+				dn.Flags = monitor.TraceNotifyFlagIsL3Device
+				lay = lay[1:]
 			}
-			return &identity.Identity{Labels: labels.NewLabelsFromModel(v)}, nil
-		},
-	}
 
-	testCases := []struct {
-		name      string
-		dn        any
-		srcLabels []string
-		dstLabels []string
-		want      *flowpb.Flow
-	}{
-		{
-			name:      "v1",
-			dn:        dropNotify(1),
-			srcLabels: []string{"k8s:src=label"},
-			dstLabels: []string{"k8s:dst=label"},
-			want: &flowpb.Flow{
-				Verdict: flowpb.Verdict_DROPPED,
-				Ethernet: &flowpb.Ethernet{
-					Source:      "01:02:03:04:05:06",
-					Destination: "04:05:06:07:08:09",
-				},
-				IP: &flowpb.IP{
-					Source:      "1.2.3.4",
-					Destination: "1.2.3.4",
-					IpVersion:   flowpb.IPVersion_IPv4,
-				},
-				Source: &flowpb.Endpoint{
-					Identity: 123,
-					Labels:   []string{"k8s:src=label"},
-				},
-				Destination: &flowpb.Endpoint{
-					Identity: 456,
-					Labels:   []string{"k8s:dst=label"},
-				},
-				Type: flowpb.FlowType_L3_L4,
-				EventType: &flowpb.CiliumEventType{
-					Type: 1,
-				},
-				Summary: "IPv4",
-				File:    &flowpb.FileInfo{Name: "bpf_host.c"},
-			},
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			n := tc.dn
 			buf := &bytes.Buffer{}
-			if err := binary.Write(buf, byteorder.Native, n); err != nil {
-				t.Fatalf("Write(...) %T to buffer: %v", n, err)
+			err := binary.Write(buf, byteorder.Native, &dn)
+			require.NoError(t, err)
+			buffer := gopacket.NewSerializeBuffer()
+			err = gopacket.SerializeLayers(buffer, gopacket.SerializeOptions{}, lay...)
+			require.NoError(t, err)
+			buf.Write(buffer.Bytes())
+			require.NoError(t, err)
+			identityGetter := &testutils.FakeIdentityGetter{
+				OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
+					if securityIdentity == uint32(dn.SrcLabel) {
+						return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:src=label"})}, nil
+					} else if securityIdentity == uint32(dn.DstLabel) {
+						return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
+					}
+					return nil, fmt.Errorf("identity not found for %d", securityIdentity)
+				},
 			}
 
-			buf.Write(packetBuffer.Bytes())
-			parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
-			if err != nil {
-				t.Fatalf("New parser: %v", err)
-			}
-
-			f := &flowpb.Flow{}
-			if err := parser.Decode(buf.Bytes(), f); err != nil {
-				t.Fatalf("parser.Decode(bytes, f): %v", err)
-
-			}
+			parser, err := New(hivetest.Logger(t), &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
 			require.NoError(t, err)
 
-			if diff := cmp.Diff(tc.want, f, cmpopts.IgnoreFields(flowpb.Flow{}, "File"), protocmp.Transform()); diff != "" {
-				t.Errorf("Unexpected diff (-want +got):\n%s", diff)
-			}
+			f := &flowpb.Flow{}
+			err = parser.Decode(buf.Bytes(), f)
+			require.NoError(t, err)
+			assert.Equal(t, []string{"k8s:src=label"}, f.GetSource().GetLabels())
+			assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
+			assert.NotNil(t, f.GetFile())
+			assert.Equal(t, "bpf_host.c", f.GetFile().GetName())
+			assert.Equal(t, uint32(42), f.GetFile().GetLine())
+			assert.Equal(t, uint32(23939), f.GetL4().GetUDP().GetSourcePort())
+			assert.Equal(t, uint32(32412), f.GetL4().GetUDP().GetDestinationPort())
 		})
 	}
 }
@@ -931,9 +897,11 @@ func TestNetworkPolicyCorrelationDisabled(t *testing.T) {
 func TestDecodeDropReason(t *testing.T) {
 	reason := uint8(130)
 	dn := monitor.DropNotify{
-		Type:    byte(monitorAPI.MessageTypeDrop),
-		SubType: reason,
-		Version: monitor.DropNotifyVersion2,
+		DropNotifyV1: monitor.DropNotifyV1{
+			Type:    byte(monitorAPI.MessageTypeDrop),
+			SubType: reason,
+			Version: monitor.DropNotifyVersion2,
+		},
 	}
 	data, err := testutils.CreateL3L4Payload(dn)
 	require.NoError(t, err)
@@ -1110,8 +1078,10 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// DROP at unknown endpoint
 	dn := monitor.DropNotify{
-		Type:    byte(monitorAPI.MessageTypeDrop),
-		Version: monitor.DropNotifyVersion2,
+		DropNotifyV1: monitor.DropNotifyV1{
+			Type:    byte(monitorAPI.MessageTypeDrop),
+			Version: monitor.DropNotifyVersion2,
+		},
 	}
 	f := parseFlow(dn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
@@ -1119,9 +1089,11 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// DROP Egress
 	dn = monitor.DropNotify{
-		Type:    byte(monitorAPI.MessageTypeDrop),
-		Source:  localEP,
-		Version: monitor.DropNotifyVersion2,
+		DropNotifyV1: monitor.DropNotifyV1{
+			Type:    byte(monitorAPI.MessageTypeDrop),
+			Source:  localEP,
+			Version: monitor.DropNotifyVersion2,
+		},
 	}
 	f = parseFlow(dn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
@@ -1129,9 +1101,11 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// DROP Ingress
 	dn = monitor.DropNotify{
-		Type:    byte(monitorAPI.MessageTypeDrop),
-		Source:  localEP,
-		Version: monitor.DropNotifyVersion2,
+		DropNotifyV1: monitor.DropNotifyV1{
+			Type:    byte(monitorAPI.MessageTypeDrop),
+			Source:  localEP,
+			Version: monitor.DropNotifyVersion2,
+		},
 	}
 	f = parseFlow(dn, remoteIP, localIP)
 	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
@@ -1416,7 +1390,7 @@ func TestDecodeIsReply(t *testing.T) {
 	assert.False(t, f.GetReply())
 
 	// DropNotify statically assumes is_reply=unknown
-	dn := monitor.DropNotify{
+	dn := monitor.DropNotifyV1{
 		Type: byte(monitorAPI.MessageTypeDrop),
 	}
 	f = parseFlow(dn, localIP, remoteIP)
@@ -1797,17 +1771,19 @@ func TestDecode_DropNotify(t *testing.T) {
 
 	testCases := []struct {
 		name    string
-		event   monitor.DropNotify
+		event   any
 		ipTuple ipTuple
 		want    *flowpb.Flow
 	}{
 		{
 			name: "drop_unknown",
 			event: monitor.DropNotify{
-				Type:    byte(monitorAPI.MessageTypeDrop),
-				File:    2,
-				Line:    42,
-				Version: monitor.DropNotifyVersion2,
+				DropNotifyV1: monitor.DropNotifyV1{
+					Type:    byte(monitorAPI.MessageTypeDrop),
+					File:    2,
+					Line:    42,
+					Version: monitor.DropNotifyVersion2,
+				},
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
@@ -1821,11 +1797,13 @@ func TestDecode_DropNotify(t *testing.T) {
 		{
 			name: "drop_egress",
 			event: monitor.DropNotify{
-				Type:    byte(monitorAPI.MessageTypeDrop),
-				Source:  localEP,
-				File:    6,
-				Line:    12,
-				Version: monitor.DropNotifyVersion2,
+				DropNotifyV1: monitor.DropNotifyV1{
+					Type:    byte(monitorAPI.MessageTypeDrop),
+					Source:  localEP,
+					File:    6,
+					Line:    12,
+					Version: monitor.DropNotifyVersion2, // Add version
+				},
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
@@ -1840,11 +1818,13 @@ func TestDecode_DropNotify(t *testing.T) {
 		{
 			name: "drop_ingress",
 			event: monitor.DropNotify{
-				Type:    byte(monitorAPI.MessageTypeDrop),
-				Source:  localEP,
-				File:    4,
-				Line:    44,
-				Version: monitor.DropNotifyVersion2,
+				DropNotifyV1: monitor.DropNotifyV1{
+					Type:    byte(monitorAPI.MessageTypeDrop),
+					Source:  localEP,
+					File:    4,
+					Line:    44,
+					Version: monitor.DropNotifyVersion2, // Add version
+				},
 			},
 			ipTuple: ingressTuple,
 			want: &flowpb.Flow{
