@@ -463,10 +463,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.AddressScopeMax)
 	option.BindEnv(vp, option.AddressScopeMax)
 
-	flags.Bool(option.EnableRecorder, false, "Enable BPF datapath pcap recorder")
-	flags.MarkDeprecated(option.EnableRecorder, "The feature will be removed in v1.19")
-	option.BindEnv(vp, option.EnableRecorder)
-
 	flags.Bool(option.EnableLocalRedirectPolicy, false, "Enable Local Redirect Policy")
 	option.BindEnv(vp, option.EnableLocalRedirectPolicy)
 

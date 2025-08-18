@@ -144,7 +144,7 @@ nextEvent:
 				errors.Is(err, parserErrors.ErrUnknownEventType),
 				errors.Is(err, parserErrors.ErrEventSkipped),
 				// silently ignore perf ring buffer events with unknown types,
-				// since they are not intended for us (e.g. MessageTypeRecCapture)
+				// since they are not intended for us
 				parserErrors.IsErrInvalidType(err):
 			default:
 				s.log.Debug(

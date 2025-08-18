@@ -357,7 +357,7 @@
      - object
      - ``{"default":{"burstLimit":null,"rateLimit":null},"drop":{"enabled":true},"policyVerdict":{"enabled":true},"trace":{"enabled":true}}``
    * - :spelling:ignore:`bpf.events.default`
-     - Default settings for all types of events except dbg and pcap.
+     - Default settings for all types of events except dbg.
      - object
      - ``{"burstLimit":null,"rateLimit":null}``
    * - :spelling:ignore:`bpf.events.default.burstLimit`

@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -129,8 +128,16 @@ func (ms *MapSweeper) CollectStaleMapGarbage() {
 // to live until the BPF program using them is being replaced.
 func (ms *MapSweeper) RemoveDisabledMaps() {
 	var (
-		mapsDir      = bpf.TCGlobalsPath()
-		maps         = []string{"cilium_proxy4", "cilium_proxy6"}
+		mapsDir = bpf.TCGlobalsPath()
+		maps    = []string{
+			// maps we unconditionally remove, because they no longer exist in modern versions of Cilium at all
+			"cilium_proxy4",
+			"cilium_proxy6",
+			"cilium_capture_cache",
+			"cilium_capture4_rules",
+			"cilium_capture6_rules",
+			"cilium_ktime_cache",
+		}
 		prefixedMaps = []PrefixedMap{
 			{"cilium_policy_", []string{policymap.MapName}},
 		}
@@ -148,7 +155,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb6_backends_v2",
 			"cilium_lb6_reverse_sk",
 			"cilium_snat_v6_external",
-			recorder.MapNameWcard6,
 			lbmaps.MaglevOuter6MapName,
 			lbmaps.Affinity6MapName,
 			lbmaps.SourceRange6MapName,
@@ -171,7 +177,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_backends_v2",
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
-			recorder.MapNameWcard4,
 			lbmaps.MaglevOuter4MapName,
 			lbmaps.Affinity4MapName,
 			lbmaps.SourceRange4MapName,
@@ -184,11 +189,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 
 	if !ms.kprCfg.EnableNodePort {
 		maps = append(maps, []string{"cilium_snat_v4_external", "cilium_snat_v6_external"}...)
-	}
-
-	if !option.Config.EnableRecorder {
-		maps = append(maps, []string{recorder.MapNameWcard4, recorder.MapNameWcard6,
-			"cilium_capture_cache", "cilium_ktime_cache"}...)
 	}
 
 	if !option.Config.EnableIPv4FragmentsTracking {

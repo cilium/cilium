@@ -18,7 +18,6 @@ import (
 	cmdConfig "github.com/cilium/cilium/hubble/cmd/config"
 	"github.com/cilium/cilium/hubble/cmd/list"
 	"github.com/cilium/cilium/hubble/cmd/observe"
-	"github.com/cilium/cilium/hubble/cmd/record"
 	"github.com/cilium/cilium/hubble/cmd/reflect"
 	"github.com/cilium/cilium/hubble/cmd/status"
 	"github.com/cilium/cilium/hubble/cmd/version"
@@ -97,7 +96,6 @@ func NewWithViper(vp *viper.Viper) *cobra.Command {
 		cmdConfig.New(vp),
 		list.New(vp),
 		observe.New(vp),
-		record.New(vp),
 		reflect.New(vp),
 		status.New(vp),
 		version.New(),

@@ -51,7 +51,6 @@ func TestNewMonitorFilter(t *testing.T) {
 				monitorAPI.MessageTypeNameL7,
 				monitorAPI.MessageTypeNameAgent,
 				monitorAPI.MessageTypeNamePolicyVerdict,
-				monitorAPI.MessageTypeNameRecCapture,
 				monitorAPI.MessageTypeNameTraceSock,
 			},
 			expectedErr: nil,
@@ -65,7 +64,6 @@ func TestNewMonitorFilter(t *testing.T) {
 				l7:            true,
 				agent:         true,
 				policyVerdict: true,
-				recCapture:    true,
 				traceSock:     true,
 			},
 		},
@@ -256,21 +254,6 @@ func Test_OnMonitorEvent(t *testing.T) {
 					event: &observerTypes.MonitorEvent{
 						Payload: &observerTypes.PerfEvent{
 							Data: []byte{monitorAPI.MessageTypePolicyVerdict},
-						},
-					},
-					stop:        false,
-					expectedErr: nil,
-				},
-			},
-		},
-		{
-			name:    "monitorAPI.MessageTypeRecCapture",
-			filters: []string{monitorAPI.MessageTypeNameRecCapture},
-			events: []testEvent{
-				{
-					event: &observerTypes.MonitorEvent{
-						Payload: &observerTypes.PerfEvent{
-							Data: []byte{monitorAPI.MessageTypeRecCapture},
 						},
 					},
 					stop:        false,

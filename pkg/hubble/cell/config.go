@@ -40,14 +40,6 @@ type config struct {
 	// for communication to agents, if both are available.
 	PreferIpv6 bool `mapstructure:"hubble-prefer-ipv6"`
 
-	// EnableRecorderAPI specifies if the Hubble Recorder API should be served.
-	EnableRecorderAPI bool `mapstructure:"enable-hubble-recorder-api"`
-	// RecorderStoragePath specifies the directory in which pcap files created
-	// via the Hubble Recorder API are stored.
-	RecorderStoragePath string `mapstructure:"hubble-recorder-storage-path"`
-	// RecorderSinkQueueSize is the queue size for each recorder sink.
-	RecorderSinkQueueSize int `mapstructure:"hubble-recorder-sink-queue-size"`
-
 	// EnableK8sDropEvents controls whether Hubble should create v1.Events for
 	// packet drops related to pods.
 	EnableK8sDropEvents bool `mapstructure:"hubble-drop-events"`
@@ -69,10 +61,6 @@ var defaultConfig = config{
 	// Hubble TCP server configuration
 	ListenAddress: "",
 	PreferIpv6:    false,
-	// Hubble recorder configuration
-	EnableRecorderAPI:     true,
-	RecorderStoragePath:   hubbleDefaults.RecorderStoragePath,
-	RecorderSinkQueueSize: 1024,
 	// Hubble k8s v1.Events integration configuration.
 	EnableK8sDropEvents:   false,
 	K8sDropEventsInterval: 2 * time.Minute,
@@ -95,12 +83,6 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	// Hubble TCP server configuration
 	flags.String("hubble-listen-address", def.ListenAddress, `An additional address for Hubble server to listen to, e.g. ":4244"`)
 	flags.Bool("hubble-prefer-ipv6", def.PreferIpv6, "Prefer IPv6 addresses for announcing nodes when both address types are available.")
-	flags.Bool("enable-hubble-recorder-api", def.EnableRecorderAPI, "Enable the Hubble recorder API")
-	flags.MarkDeprecated("enable-hubble-recorder-api", "The feature will be removed in v1.19")
-	flags.String("hubble-recorder-storage-path", def.RecorderStoragePath, "Directory in which pcap files created via the Hubble Recorder API are stored")
-	flags.MarkDeprecated("hubble-recorder-storage-path", "The feature will be removed in v1.19")
-	flags.Int("hubble-recorder-sink-queue-size", def.RecorderSinkQueueSize, "Queue size of each Hubble recorder sink")
-	flags.MarkDeprecated("hubble-recorder-sink-queue-size", "The feature will be removed in v1.19")
 	// Hubble k8s v1.Events integration configuration.
 	flags.Bool("hubble-drop-events", def.EnableK8sDropEvents, "Emit packet drop Events related to pods (alpha)")
 	flags.Duration("hubble-drop-events-interval", def.K8sDropEventsInterval, "Minimum time between emitting same events")

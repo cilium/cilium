@@ -35,9 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
-	hubbleRecorder "github.com/cilium/cilium/pkg/hubble/recorder"
-	"github.com/cilium/cilium/pkg/hubble/recorder/recorderoption"
-	"github.com/cilium/cilium/pkg/hubble/recorder/sink"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -48,8 +45,6 @@ import (
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -76,7 +71,6 @@ type hubbleIntegration struct {
 	nodeManager       nodeManager.NodeManager
 	nodeLocalStore    *node.LocalNodeStore
 	monitorAgent      monitorAgent.Agent
-	recorder          *recorder.Recorder
 	tlsConfigPromise  tlsConfigPromise
 	exporters         []exporter.FlowLogExporter
 
@@ -88,9 +82,7 @@ type hubbleIntegration struct {
 	grpcMetrics          *grpc_prometheus.ServerMetrics
 	metricsFlowProcessor metrics.FlowProcessor
 
-	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
-	agentConfig *option.DaemonConfig
-	config      config
+	config config
 }
 
 // new creates and return a new hubbleIntegration.
@@ -104,14 +96,12 @@ func new(
 	nodeManager nodeManager.NodeManager,
 	nodeLocalStore *node.LocalNodeStore,
 	monitorAgent monitorAgent.Agent,
-	recorder *recorder.Recorder,
 	tlsConfigPromise tlsConfigPromise,
 	observerOptions []observeroption.Option,
 	exporterBuilders []*exportercell.FlowLogExporterBuilder,
 	payloadParser parser.Decoder,
 	grpcMetrics *grpc_prometheus.ServerMetrics,
 	metricsFlowProcessor metrics.FlowProcessor,
-	agentConfig *option.DaemonConfig,
 	config config,
 	log *slog.Logger,
 ) (*hubbleIntegration, error) {
@@ -136,14 +126,12 @@ func new(
 		nodeManager:          nodeManager,
 		nodeLocalStore:       nodeLocalStore,
 		monitorAgent:         monitorAgent,
-		recorder:             recorder,
 		tlsConfigPromise:     tlsConfigPromise,
 		observerOptions:      observerOptions,
 		exporters:            exporters,
 		payloadParser:        payloadParser,
 		grpcMetrics:          grpcMetrics,
 		metricsFlowProcessor: metricsFlowProcessor,
-		agentConfig:          agentConfig,
 		config:               config,
 		log:                  log,
 	}
@@ -345,20 +333,6 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		serveroption.WithGRPCStreamInterceptor(h.grpcMetrics.StreamServerInterceptor()),
 		serveroption.WithGRPCUnaryInterceptor(h.grpcMetrics.UnaryServerInterceptor()),
 	)
-
-	if h.agentConfig.EnableRecorder && h.config.EnableRecorderAPI {
-		dispatch, err := sink.NewDispatch(h.log, h.config.RecorderSinkQueueSize)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize recorder sink dispatch: %w", err)
-		}
-		h.monitorAgent.RegisterNewConsumer(dispatch)
-		svc, err := hubbleRecorder.NewService(h.log, h.recorder, dispatch,
-			recorderoption.WithStoragePath(h.config.RecorderStoragePath))
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize recorder service: %w", err)
-		}
-		localSrvOpts = append(localSrvOpts, serveroption.WithRecorderService(svc))
-	}
 
 	localSrv, err := server.NewServer(h.log, localSrvOpts...)
 	if err != nil {

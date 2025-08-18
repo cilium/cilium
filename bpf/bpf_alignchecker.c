@@ -10,7 +10,6 @@
 #include "lib/nat.h"
 #include "lib/trace.h"
 #include "lib/policy_log.h"
-#include "lib/pcap.h"
 #include "lib/trace_sock.h"
 #include "lib/mcast.h"
 #include "lib/vtep.h"
@@ -73,9 +72,6 @@ add_type(struct egress_gw_policy_key6);
 add_type(struct egress_gw_policy_entry6);
 add_type(struct vtep_key);
 add_type(struct vtep_value);
-add_type(struct capture4_wcard);
-add_type(struct capture6_wcard);
-add_type(struct capture_rule);
 add_type(struct srv6_vrf_key4);
 add_type(struct srv6_vrf_key6);
 add_type(struct srv6_policy_key4);
