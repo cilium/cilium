@@ -5,6 +5,7 @@ package ciliumendpointslice
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -157,9 +158,9 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 	c.context, c.contextCancel = context.WithCancel(context.Background())
 	defer utilruntime.HandleCrash()
 
-	c.manager = newCESManager(c.maxCEPsInCES, c.logger)
+	c.manager = newCESManager(c.maxCEPsInCES, c.cesWithoutCEPs, c.logger)
 
-	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.metrics)
+	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.metrics, c.cesWithoutCEPs)
 
 	c.initializeQueue()
 
@@ -173,10 +174,14 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 		}),
 	)
 	// Start the work pools processing CEP events only after syncing CES in local cache.
-	c.wp = workerpool.New(3)
-	c.wp.Submit("cilium-endpoints-updater", c.runCiliumEndpointsUpdater)
-	c.wp.Submit("cilium-endpoint-slices-updater", c.runCiliumEndpointSliceUpdater)
-	c.wp.Submit("cilium-nodes-updater", c.runCiliumNodesUpdater)
+	if c.cesWithoutCEPs {
+		return fmt.Errorf("CESWithoutCEPS is not yet implemented.")
+	} else {
+		c.wp = workerpool.New(3)
+		c.wp.Submit("cilium-endpoints-updater", c.runCiliumEndpointsUpdater)
+		c.wp.Submit("cilium-endpoint-slices-updater", c.runCiliumEndpointSliceUpdater)
+		c.wp.Submit("cilium-nodes-updater", c.runCiliumNodesUpdater)
+	}
 
 	c.logger.InfoContext(ctx, "Starting CES controller reconciler.")
 	c.Job.Add(
@@ -234,7 +239,12 @@ func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
 		return err
 	}
 	for event := range c.ciliumNodes.Events(ctx) {
+		if c.cesWithoutCEPs {
+			c.logger.DebugContext(ctx, "Got Cilium Nodes event", logfields.CESName, event.Key)
+		}
 		event.Done(nil)
+
+		// Update dynamic rate limiter
 		totalNodes := len(ciliumNodesStore.List())
 		if c.rateLimit.updateRateLimiterWithNodes(totalNodes) {
 			c.logger.InfoContext(ctx, "Updated CES controller workqueue configuration",
@@ -248,6 +258,14 @@ func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
 // Sync all CESs from cesStore to manager cache.
 // Note: CESs are synced locally before CES controller running and this is required.
 func (c *Controller) syncCESsInLocalCache(ctx context.Context) error {
+	if c.cesWithoutCEPs {
+		return fmt.Errorf("CESWithoutCEPS is not yet implemented.")
+	} else {
+		return c.syncCESsInLocalCacheDefault(ctx)
+	}
+}
+
+func (c *Controller) syncCESsInLocalCacheDefault(ctx context.Context) error {
 	store, err := c.ciliumEndpointSlice.Store(ctx)
 	if err != nil {
 		c.logger.WarnContext(ctx, "Error getting CES Store", logfields.Error, err)

@@ -30,7 +30,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	log := hivetest.Logger(t)
 	var r *reconciler
 	var fakeClient *k8sClient.FakeClientset
-	m := newCESManager(2, log)
+	m := newCESManager(2, false, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
@@ -53,7 +53,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	)
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, t.Context())
-	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics, false)
 	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -102,7 +102,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 	log := hivetest.Logger(t)
 	var r *reconciler
 	var fakeClient *k8sClient.FakeClientset
-	m := newCESManager(2, log)
+	m := newCESManager(2, false, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
@@ -126,7 +126,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, t.Context())
 
-	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics, false)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -204,7 +204,7 @@ func TestCESManagement(t *testing.T) {
 	log := hivetest.Logger(t)
 	var r *reconciler
 	var fakeClient *k8sClient.FakeClientset
-	m := newCESManager(2, log)
+	m := newCESManager(2, false, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
@@ -228,7 +228,7 @@ func TestCESManagement(t *testing.T) {
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, t.Context())
 
-	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics, false)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
