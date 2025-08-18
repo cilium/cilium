@@ -48,7 +48,7 @@ func GenerateIndexerGRPCRoutebyBackendService(c client.Client, logger *slog.Logg
 				backendServiceName, err := helpers.GetBackendServiceName(c, namespace, backend.BackendObjectReference)
 				if err != nil {
 					logger.Error("Failed to get backend service name",
-						logfields.Controller, logfields.GRPCRoute,
+						logfields.LogSubsys, logfields.GRPCRoute,
 						logfields.Resource, client.ObjectKeyFromObject(rawObj),
 						logfields.Error, err)
 					continue
