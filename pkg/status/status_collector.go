@@ -375,9 +375,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		features.Annotations = append(features.Annotations, annotation.ServiceNodeSelectorExposure)
 		features.Annotations = append(features.Annotations, annotation.ServiceTypeExposure)
 		features.Annotations = append(features.Annotations, annotation.ServiceProxyDelegation)
-		if d.statusParams.KPRConfig.EnableSVCSourceRangeCheck {
-			features.Annotations = append(features.Annotations, annotation.ServiceSourceRangesPolicy)
-		}
+		features.Annotations = append(features.Annotations, annotation.ServiceSourceRangesPolicy)
 		sort.Strings(features.Annotations)
 	}
 

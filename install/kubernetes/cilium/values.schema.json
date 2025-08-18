@@ -5775,9 +5775,6 @@
       },
       "type": "object"
     },
-    "svcSourceRangeCheck": {
-      "type": "boolean"
-    },
     "synchronizeK8sNodes": {
       "type": "boolean"
     },

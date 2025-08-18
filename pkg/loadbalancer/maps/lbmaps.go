@@ -342,19 +342,15 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 
 	mapsToCreate = append(mapsToCreate, affinityMap)
 
-	if r.ExtCfg.EnableSVCSourceRangeCheck {
-		if r.ExtCfg.EnableIPv4 {
-			mapsToCreate = append(mapsToCreate, v4SourceRangeMap)
-		} else {
-			mapsToDelete = append(mapsToDelete, v4SourceRangeMap)
-		}
-		if r.ExtCfg.EnableIPv6 {
-			mapsToCreate = append(mapsToCreate, v6SourceRangeMap)
-		} else {
-			mapsToDelete = append(mapsToDelete, v6SourceRangeMap)
-		}
+	if r.ExtCfg.EnableIPv4 {
+		mapsToCreate = append(mapsToCreate, v4SourceRangeMap)
 	} else {
-		mapsToDelete = append(mapsToDelete, v4SourceRangeMap, v6SourceRangeMap)
+		mapsToDelete = append(mapsToDelete, v4SourceRangeMap)
+	}
+	if r.ExtCfg.EnableIPv6 {
+		mapsToCreate = append(mapsToCreate, v6SourceRangeMap)
+	} else {
+		mapsToDelete = append(mapsToDelete, v6SourceRangeMap)
 	}
 
 	if r.ExtCfg.EnableIPv4 {
