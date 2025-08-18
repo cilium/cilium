@@ -95,7 +95,7 @@ func (*requestLatencyAdapter) Observe(_ context.Context, verb string, u url.URL,
 type rateLimiterLatencyAdapter struct{}
 
 func (c *rateLimiterLatencyAdapter) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
-	metrics.KubernetesAPIRateLimiterLatency.WithLabelValues(u.Path, verb).Observe(latency.Seconds())
+	metrics.KubernetesAPIRateLimiterLatency.WithLabelValues().Observe(latency.Seconds())
 }
 
 // resultAdapter implements the ResultMetric interface from k8s client-go package
