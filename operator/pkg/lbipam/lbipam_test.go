@@ -2700,12 +2700,9 @@ func TestLBIPAMRestartOnFullPool(t *testing.T) {
 		fakeClientset *k8sFakeClient.FakeClientset
 		counters      *testCounters
 	)
-	testHive := hive.New(
+	testCells := cell.Group(
 		// Cell under test
 		Cell,
-
-		// Dependencies
-		k8sFakeClient.FakeClientCell(),
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{}
 		}),
@@ -2721,13 +2718,19 @@ func TestLBIPAMRestartOnFullPool(t *testing.T) {
 		}),
 		cell.Invoke(func(
 			tc *testCounters,
-			cf *k8sFakeClient.FakeClientset,
-			lb *LBIPAM,
 		) {
 			counters = tc
-			fakeClientset = cf
 		}),
 	)
+	testHive := hive.New(cell.Group(
+		testCells,
+		k8sFakeClient.FakeClientCell(),
+		cell.Invoke(func(
+			cf *k8sFakeClient.FakeClientset,
+		) {
+			fakeClientset = cf
+		}),
+	))
 
 	tlog := hivetest.Logger(t)
 	err := testHive.Start(tlog, t.Context())
@@ -2796,33 +2799,12 @@ func TestLBIPAMRestartOnFullPool(t *testing.T) {
 	err = testHive.Stop(tlog, t.Context())
 	require.NoError(t, err)
 	// We only reuse the same clientset to retain state.
-	testRestartedHive := hive.New(
-		Cell,
-
-		// Dependencies
+	testRestartedHive := hive.New(cell.Group(
+		testCells,
 		cell.Provide(func() k8sClient.Clientset {
-			// We are reusing previous clientset!
 			return fakeClientset
 		}),
-		cell.Provide(func() *option.DaemonConfig {
-			return &option.DaemonConfig{}
-		}),
-		cell.Config(k8s.DefaultConfig),
-		cell.Provide(
-			k8s.ServiceResource,
-			operator_k8s.LBIPPoolsResource,
-		),
-
-		// Expose cells for testing
-		cell.Provide(func() *testCounters {
-			return &testCounters{}
-		}),
-		cell.Invoke(func(
-			tc *testCounters,
-		) {
-			counters = tc
-		}),
-	)
+	))
 	err = testRestartedHive.Start(tlog, t.Context())
 	require.NoError(t, err)
 
