@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // The IPsec agent handles key-related initialisation tasks for the
@@ -30,9 +31,10 @@ type params struct {
 	Log            *slog.Logger
 	JobGroup       job.Group
 	LocalNodeStore *node.LocalNodeStore
+	Config         *option.DaemonConfig
 }
 
 // newIPsecAgent returns the [*Agent] as an interface [types.IPsecAgent].
 func newIPsecAgent(p params) types.IPsecAgent {
-	return NewAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore)
+	return NewAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore, p.Config)
 }

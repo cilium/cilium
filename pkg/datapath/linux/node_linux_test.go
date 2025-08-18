@@ -79,7 +79,7 @@ const (
 )
 
 func newIPsecTestAgent(tb testing.TB) *ipsec.Agent {
-	agent := ipsec.NewAgent(hivetest.Lifecycle(tb), hivetest.Logger(tb), nil, nil)
+	agent := ipsec.NewAgent(hivetest.Lifecycle(tb), hivetest.Logger(tb), nil, nil, nil)
 
 	tb.Cleanup(func() {
 		err := agent.DeleteXFRM(ipsec.AllReqID)
