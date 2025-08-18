@@ -1081,7 +1081,7 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 			return 0, 0, fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		spi, offsetBase, err = parseSPI(log, s[offsetSPI])
+		spi, offsetBase, err = parseSPI(s[offsetSPI])
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to parse SPI: %w", err)
 		}
@@ -1157,7 +1157,7 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 	return keyLen, spi, nil
 }
 
-func parseSPI(log *slog.Logger, spiStr string) (uint8, int, error) {
+func parseSPI(spiStr string) (uint8, int, error) {
 	if spiStr[len(spiStr)-1] == '+' {
 		spiStr = spiStr[:len(spiStr)-1]
 	}

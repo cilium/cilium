@@ -76,17 +76,6 @@ func setup(tb testing.TB, family string) *linuxPrivilegedBaseTestSuite {
 const (
 	dummyHostDeviceName     = "dummy_host"
 	dummyExternalDeviceName = "dummy_external"
-
-	baseTime = 2500
-	mcastNum = 6
-)
-
-var (
-	baseIPv4Time = []string{"net", "ipv4", "neigh", "default", "base_reachable_time_ms"}
-	baseIPv6Time = []string{"net", "ipv6", "neigh", "default", "base_reachable_time_ms"}
-
-	mcastNumIPv4 = []string{"net", "ipv4", "neigh", "default", "mcast_solicit"}
-	mcastNumIPv6 = []string{"net", "ipv6", "neigh", "default", "mcast_solicit"}
 )
 
 func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) *linuxPrivilegedBaseTestSuite {
