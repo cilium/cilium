@@ -42,21 +42,20 @@ type Metrics struct {
 	NPNonDefaultDenyEnabled      metric.Gauge
 	NPCIDRPoliciesToNodes        metric.Vec[metric.Gauge]
 
-	ACLBTransparentEncryption        metric.Vec[metric.Gauge]
-	ACLBKubeProxyReplacementEnabled  metric.Gauge
-	ACLBNodePortConfig               metric.Vec[metric.Gauge]
-	ACLBBGPEnabled                   metric.Gauge
-	ACLBEgressGatewayEnabled         metric.Gauge
-	ACLBBandwidthManagerEnabled      metric.Gauge
-	ACLBSCTPEnabled                  metric.Gauge
-	ACLBInternalTrafficPolicyEnabled metric.Gauge
-	ACLBVTEPEnabled                  metric.Gauge
-	ACLBCiliumEnvoyConfigEnabled     metric.Gauge
-	ACLBBigTCPEnabled                metric.Vec[metric.Gauge]
-	ACLBL2LBEnabled                  metric.Gauge
-	ACLBL2PodAnnouncementEnabled     metric.Gauge
-	ACLBExternalEnvoyProxyEnabled    metric.Vec[metric.Gauge]
-	ACLBCiliumNodeConfigEnabled      metric.Gauge
+	ACLBTransparentEncryption       metric.Vec[metric.Gauge]
+	ACLBKubeProxyReplacementEnabled metric.Gauge
+	ACLBNodePortConfig              metric.Vec[metric.Gauge]
+	ACLBBGPEnabled                  metric.Gauge
+	ACLBEgressGatewayEnabled        metric.Gauge
+	ACLBBandwidthManagerEnabled     metric.Gauge
+	ACLBSCTPEnabled                 metric.Gauge
+	ACLBVTEPEnabled                 metric.Gauge
+	ACLBCiliumEnvoyConfigEnabled    metric.Gauge
+	ACLBBigTCPEnabled               metric.Vec[metric.Gauge]
+	ACLBL2LBEnabled                 metric.Gauge
+	ACLBL2PodAnnouncementEnabled    metric.Gauge
+	ACLBExternalEnvoyProxyEnabled   metric.Vec[metric.Gauge]
+	ACLBCiliumNodeConfigEnabled     metric.Gauge
 
 	NPL3Ingested                metric.Vec[metric.Counter]
 	NPHostNPIngested            metric.Vec[metric.Counter]
@@ -526,13 +525,6 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemACLB,
 			Name:      "sctp_enabled",
-		}),
-
-		ACLBInternalTrafficPolicyEnabled: metric.NewGauge(metric.GaugeOpts{
-			Help:      "K8s Internal Traffic Policy enabled on the agent",
-			Namespace: metrics.Namespace,
-			Subsystem: subsystemACLB,
-			Name:      "k8s_internal_traffic_policy_enabled",
 		}),
 
 		ACLBVTEPEnabled: metric.NewGauge(metric.GaugeOpts{
@@ -1090,10 +1082,6 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 
 	if config.EnableSCTP {
 		m.ACLBSCTPEnabled.Add(1)
-	}
-
-	if config.EnableInternalTrafficPolicy {
-		m.ACLBInternalTrafficPolicyEnabled.Add(1)
 	}
 
 	if config.EnableVTEP {

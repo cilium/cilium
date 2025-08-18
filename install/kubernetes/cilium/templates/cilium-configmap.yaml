@@ -1395,7 +1395,6 @@ data:
 
   nat-map-stats-entries: {{ .Values.nat.mapStatsEntries | quote }}
   nat-map-stats-interval: {{ .Values.nat.mapStatsInterval | quote }}
-  enable-internal-traffic-policy: {{ .Values.enableInternalTrafficPolicy | quote }}
   enable-lb-ipam: {{ .Values.enableLBIPAM | quote }}
   enable-non-default-deny-policies: {{ .Values.enableNonDefaultDenyPolicies | quote }}
 

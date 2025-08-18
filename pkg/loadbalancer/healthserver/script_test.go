@@ -92,7 +92,6 @@ func TestScript(t *testing.T) {
 						return &option.DaemonConfig{
 							EnableIPv4:                      true,
 							EnableIPv6:                      true,
-							EnableInternalTrafficPolicy:     true,
 							EnableHealthCheckLoadBalancerIP: true,
 						}
 					},

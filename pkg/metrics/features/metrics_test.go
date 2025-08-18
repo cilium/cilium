@@ -1115,52 +1115,6 @@ func TestUpdateSCTP(t *testing.T) {
 	}
 }
 
-func TestUpdateInternalTrafficPolicy(t *testing.T) {
-	tests := []struct {
-		name                        string
-		enableInternalTrafficPolicy bool
-		expected                    float64
-	}{
-		{
-			name:                        "InternalTrafficPolicy enabled",
-			enableInternalTrafficPolicy: true,
-			expected:                    1,
-		},
-		{
-			name:                        "InternalTrafficPolicy disabled",
-			enableInternalTrafficPolicy: false,
-			expected:                    0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
-			config := &option.DaemonConfig{
-				EnableInternalTrafficPolicy: tt.enableInternalTrafficPolicy,
-				IPAM:                        defaultIPAMModes[0],
-				EnableIPv4:                  true,
-				IdentityAllocationMode:      defaultIdentityAllocationModes[0],
-				DatapathMode:                defaultDeviceModes[0],
-				NodePortAcceleration:        defaultNodePortModeAccelerations[0],
-			}
-
-			lbConfig := loadbalancer.DefaultConfig
-			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
-			lbConfig.LBMode = defaultNodePortModes[0]
-
-			params := mockFeaturesParams{
-				CNIChainingMode: defaultChainingModes[0],
-			}
-
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{})
-
-			counterValue := metrics.ACLBInternalTrafficPolicyEnabled.Get()
-			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableInternalTrafficPolicy, counterValue)
-		})
-	}
-}
-
 func TestUpdateVTEP(t *testing.T) {
 	tests := []struct {
 		name       string

@@ -776,10 +776,6 @@ func isExtLocal(fe *loadbalancer.Frontend) bool {
 }
 
 func isIntLocal(extCfg *loadbalancer.ExternalConfig, fe *loadbalancer.Frontend) bool {
-	if !extCfg.EnableInternalTrafficPolicy {
-		return false
-	}
-
 	switch fe.Type {
 	case loadbalancer.SVCTypeClusterIP, loadbalancer.SVCTypeNodePort, loadbalancer.SVCTypeLoadBalancer, loadbalancer.SVCTypeExternalIPs:
 		return fe.Service.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal

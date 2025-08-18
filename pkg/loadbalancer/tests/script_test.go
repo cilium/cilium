@@ -93,9 +93,8 @@ func TestScript(t *testing.T) {
 					source.NewSources,
 					func(cfg loadbalancer.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:                  true,
-							EnableIPv6:                  true,
-							EnableInternalTrafficPolicy: true,
+							EnableIPv4: true,
+							EnableIPv6: true,
 						}
 					},
 					func() kpr.KPRConfig {

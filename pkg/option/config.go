@@ -1013,9 +1013,6 @@ const (
 	// BPFConntrackAccounting controls whether CT accounting for packets and bytes is enabled
 	BPFConntrackAccounting = "bpf-conntrack-accounting"
 
-	// EnableInternalTrafficPolicy enables handling routing for services with internalTrafficPolicy configured
-	EnableInternalTrafficPolicy = "enable-internal-traffic-policy"
-
 	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
 	EnableNonDefaultDenyPolicies = "enable-non-default-deny-policies"
 
@@ -1937,9 +1934,6 @@ type DaemonConfig struct {
 	// to deleted service backends when socket-LB is enabled
 	EnableSocketLBPodConnectionTermination bool
 
-	// EnableInternalTrafficPolicy enables handling routing for services with internalTrafficPolicy configured
-	EnableInternalTrafficPolicy bool
-
 	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
 	EnableNonDefaultDenyPolicies bool
 
@@ -2007,7 +2001,6 @@ var (
 		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
 		BPFConntrackAccounting:        defaults.BPFConntrackAccounting,
 		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
-		EnableInternalTrafficPolicy:   defaults.EnableInternalTrafficPolicy,
 
 		EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
 
@@ -2976,7 +2969,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		c.IdentityRestoreGracePeriod = defaults.IdentityRestoreGracePeriodKvstore
 	}
 
-	c.EnableInternalTrafficPolicy = vp.GetBool(EnableInternalTrafficPolicy)
 	c.EnableSourceIPVerification = vp.GetBool(EnableSourceIPVerification)
 
 	// Allow the range [0.0, 1.0].
