@@ -199,6 +199,7 @@ func Test_Conformance(t *testing.T) {
 		{name: "httproute-weight", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-service-types", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-invalid-parentref-types", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-simple-same-namespace", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-serviceimport-backend", gateway: []gwDetails{gatewaySameNamespace}},
 		{
 			name: "httproute-invalid-serviceimport-no-crd", gateway: []gwDetails{gatewaySameNamespace},

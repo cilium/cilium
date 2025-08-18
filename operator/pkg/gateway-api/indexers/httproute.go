@@ -51,8 +51,8 @@ func GenerateIndexerHTTPRouteByBackendService(c client.Client, logger *slog.Logg
 				backendServiceName, err := helpers.GetBackendServiceName(c, namespace, backend.BackendObjectReference)
 				if err != nil {
 					logger.Error("Failed to get backend service name",
-						logfields.Controller, logfields.HTTPRoute,
-						logfields.Resource, client.ObjectKeyFromObject(rawObj),
+						logfields.LogSubsys, logfields.HTTPRoute,
+						logfields.HTTPRoute, client.ObjectKeyFromObject(rawObj),
 						logfields.Error, err)
 					continue
 				}

@@ -27,8 +27,8 @@ func GenerateIndexerTLSRoutebyBackendService(c client.Client, logger *slog.Logge
 				backendServiceName, err := helpers.GetBackendServiceName(c, namespace, backend.BackendObjectReference)
 				if err != nil {
 					logger.Error("Failed to get backend service name",
-						logfields.Controller, logfields.TLSRoute,
-						logfields.Resource, client.ObjectKeyFromObject(rawObj),
+						logfields.LogSubsys, logfields.TLSRoute,
+						logfields.TLSRoute, client.ObjectKeyFromObject(rawObj),
 						logfields.Error, err)
 					continue
 				}
