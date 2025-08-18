@@ -184,18 +184,18 @@ func NewAgent(lc cell.Lifecycle, log *slog.Logger, jobGroup job.Group, localNode
 
 func (a *Agent) Start(cell.HookContext) error {
 	if !option.Config.EncryptNode {
-		DeleteIPsecEncryptRoute(a.log)
+		a.deleteIPsecEncryptRoute(a.log)
 	}
 	if !option.Config.EnableIPSec {
 		return nil
 	}
 
 	var err error
-	a.authKeySize, a.spi, err = a.LoadIPSecKeysFile(a.log, option.Config.IPSecKeyFile)
+	a.authKeySize, a.spi, err = a.loadIPSecKeysFile(a.log, option.Config.IPSecKeyFile)
 	if err != nil {
 		return err
 	}
-	if err := SetIPSecSPI(a.log, a.spi); err != nil {
+	if err := a.setIPSecSPI(a.log, a.spi); err != nil {
 		return err
 	}
 
@@ -600,7 +600,7 @@ func (a *Agent) ipSecReplacePolicyIn(params *types.IPSecParameters) error {
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func (a *Agent) IpSecReplacePolicyFwd(params *types.IPSecParameters) error {
+func (a *Agent) ipsecReplacePolicyFwd(params *types.IPSecParameters) error {
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
 	key := a.getGlobalIPsecKey(net.IP{})
@@ -793,7 +793,7 @@ func (a *Agent) safeDeleteXfrmState(log *slog.Logger, state *netlink.XfrmState, 
 	return a.xfrmStateCache.XfrmStateDel(state)
 }
 
-func ipsecDeleteXfrmPolicy(log *slog.Logger, nodeID uint16) error {
+func (a *Agent) ipsecDeleteXfrmPolicy(log *slog.Logger, nodeID uint16) error {
 	scopedLog := log.With(
 		logfields.NodeID, nodeID,
 	)
@@ -886,7 +886,7 @@ func (a *Agent) UpsertIPsecEndpoint(log *slog.Logger, params *types.IPSecParamet
 		}
 
 		if params.Dir&IPSecDirFwd != 0 {
-			if err = a.IpSecReplacePolicyFwd(params); err != nil {
+			if err = a.ipsecReplacePolicyFwd(params); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy fwd: %w", err)
 				}
@@ -911,7 +911,7 @@ func (a *Agent) UpsertIPsecEndpoint(log *slog.Logger, params *types.IPSecParamet
 // DeleteIPsecEndpoint deletes a endpoint associated with the remote IP address
 func (a *Agent) DeleteIPsecEndpoint(log *slog.Logger, nodeID uint16) error {
 	log = log.With(logfields.LogSubsys, subsystem)
-	return errors.Join(a.ipsecDeleteXfrmState(log, nodeID), ipsecDeleteXfrmPolicy(log, nodeID))
+	return errors.Join(a.ipsecDeleteXfrmState(log, nodeID), a.ipsecDeleteXfrmPolicy(log, nodeID))
 }
 
 func isXfrmPolicyCilium(policy netlink.XfrmPolicy) bool {
@@ -1049,10 +1049,10 @@ func decodeIPSecKey(keyRaw string) (int, []byte, error) {
 	return len(keyTrimmed), key, err
 }
 
-// LoadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
+// loadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
 // is to put a key per line as follows, (auth-algo auth-key enc-algo enc-key)
 // Returns the authentication overhead in bytes, the key ID, and an error.
-func (a *Agent) LoadIPSecKeysFile(log *slog.Logger, path string) (int, uint8, error) {
+func (a *Agent) loadIPSecKeysFile(log *slog.Logger, path string) (int, uint8, error) {
 	log.Info("Loading IPsec keyfile",
 		logfields.Path, path,
 		logfields.LogSubsys, subsystem,
@@ -1195,7 +1195,7 @@ func parseSPI(spiStr string) (uint8, int, error) {
 	return uint8(spi), 0, nil
 }
 
-func SetIPSecSPI(log *slog.Logger, spi uint8) error {
+func (a *Agent) setIPSecSPI(log *slog.Logger, spi uint8) error {
 	log = log.With(logfields.LogSubsys, subsystem)
 	if err := encrypt.MapUpdateContext(0, spi); err != nil {
 		log.Warn("cilium_encrypt_state map updated failed", logfields.Error, err)
@@ -1204,9 +1204,9 @@ func SetIPSecSPI(log *slog.Logger, spi uint8) error {
 	return nil
 }
 
-// DeleteIPsecEncryptRoute removes nodes in main routing table by walking
+// deleteIPsecEncryptRoute removes nodes in main routing table by walking
 // routes and matching route protocol type.
-func DeleteIPsecEncryptRoute(log *slog.Logger) {
+func (a *Agent) deleteIPsecEncryptRoute(log *slog.Logger) {
 	log = log.With(logfields.LogSubsys, subsystem)
 	filter := &netlink.Route{
 		Protocol: route.EncryptRouteProtocol,
@@ -1238,7 +1238,7 @@ func (a *Agent) keyfileWatcher(log *slog.Logger, ctx context.Context, watcher *f
 				continue
 			}
 
-			_, spi, err := a.LoadIPSecKeysFile(log, keyfilePath)
+			_, spi, err := a.loadIPSecKeysFile(log, keyfilePath)
 			if err != nil {
 				health.Degraded(fmt.Sprintf("Failed to load keyfile %q", keyfilePath), err)
 				log.Error("Failed to load IPsec keyfile", logfields.Error, err)
@@ -1259,7 +1259,7 @@ func (a *Agent) keyfileWatcher(log *slog.Logger, ctx context.Context, watcher *f
 
 			// Push SPI update into BPF datapath now that XFRM state
 			// is configured.
-			if err := SetIPSecSPI(log, spi); err != nil {
+			if err := a.setIPSecSPI(log, spi); err != nil {
 				health.Degraded("Failed to set IPsec SPI", err)
 				log.Error("Failed to set IPsec SPI", logfields.Error, err)
 				continue

@@ -121,7 +121,7 @@ func TestPrivilegedLoadKeysNoFile(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
 	a := newIPsecTestAgent(t)
-	_, _, err := a.LoadIPSecKeysFile(log, path)
+	_, _, err := a.loadIPSecKeysFile(log, path)
 	require.True(t, os.IsNotExist(err))
 }
 
@@ -158,7 +158,7 @@ func TestPrivilegedLoadKeys(t *testing.T) {
 		a := newIPsecTestAgent(t)
 		_, spi, err := a.LoadIPSecKeys(log, keys)
 		require.NoError(t, err)
-		err = SetIPSecSPI(log, spi)
+		err = a.setIPSecSPI(log, spi)
 		require.NoError(t, err)
 	}
 }
