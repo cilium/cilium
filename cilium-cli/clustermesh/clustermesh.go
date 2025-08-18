@@ -1689,7 +1689,7 @@ func getClustersFromValues(values map[string]any) (map[string]any, error) {
 
 func getCluster(ai *accessInformation, configTLS bool) (string, map[string]any) {
 	remoteCluster := map[string]any{
-		"ips":  []string{ai.ServiceIPs[0]},
+		"ips":  ai.ServiceIPs,
 		"port": ai.ServicePort,
 	}
 
