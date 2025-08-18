@@ -25,7 +25,6 @@ type monitorFilter struct {
 	l7            bool
 	agent         bool
 	policyVerdict bool
-	recCapture    bool
 	traceSock     bool
 }
 
@@ -50,8 +49,6 @@ func NewMonitorFilter(logger *slog.Logger, monitorEventFilters []string) (*monit
 			monitorFilter.agent = true
 		case monitorAPI.MessageTypeNamePolicyVerdict:
 			monitorFilter.policyVerdict = true
-		case monitorAPI.MessageTypeNameRecCapture:
-			monitorFilter.recCapture = true
 		case monitorAPI.MessageTypeNameTraceSock:
 			monitorFilter.traceSock = true
 		default:
@@ -88,8 +85,6 @@ func (m *monitorFilter) OnMonitorEvent(ctx context.Context, event *observerTypes
 			return !m.l7, nil
 		case monitorAPI.MessageTypePolicyVerdict:
 			return !m.policyVerdict, nil
-		case monitorAPI.MessageTypeRecCapture:
-			return !m.recCapture, nil
 		case monitorAPI.MessageTypeTraceSock:
 			return !m.traceSock, nil
 		default:
