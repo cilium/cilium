@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
-	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
 	ciliumMetrics "github.com/cilium/cilium/pkg/metrics"
@@ -81,11 +80,6 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 	if api.PrefilterDeletePrefilterHandler == nil {
 		api.PrefilterDeletePrefilterHandler = prefilter.DeletePrefilterHandlerFunc(func(params prefilter.DeletePrefilterParams) middleware.Responder {
 			return middleware.NotImplemented("operation prefilter.DeletePrefilter has not yet been implemented")
-		})
-	}
-	if api.RecorderDeleteRecorderIDHandler == nil {
-		api.RecorderDeleteRecorderIDHandler = recorder.DeleteRecorderIDHandlerFunc(func(params recorder.DeleteRecorderIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation recorder.DeleteRecorderID has not yet been implemented")
 		})
 	}
 	if api.BgpGetBgpPeersHandler == nil {
@@ -233,21 +227,6 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 			return middleware.NotImplemented("operation prefilter.GetPrefilter has not yet been implemented")
 		})
 	}
-	if api.RecorderGetRecorderHandler == nil {
-		api.RecorderGetRecorderHandler = recorder.GetRecorderHandlerFunc(func(params recorder.GetRecorderParams) middleware.Responder {
-			return middleware.NotImplemented("operation recorder.GetRecorder has not yet been implemented")
-		})
-	}
-	if api.RecorderGetRecorderIDHandler == nil {
-		api.RecorderGetRecorderIDHandler = recorder.GetRecorderIDHandlerFunc(func(params recorder.GetRecorderIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation recorder.GetRecorderID has not yet been implemented")
-		})
-	}
-	if api.RecorderGetRecorderMasksHandler == nil {
-		api.RecorderGetRecorderMasksHandler = recorder.GetRecorderMasksHandlerFunc(func(params recorder.GetRecorderMasksParams) middleware.Responder {
-			return middleware.NotImplemented("operation recorder.GetRecorderMasks has not yet been implemented")
-		})
-	}
 	if api.ServiceGetServiceHandler == nil {
 		api.ServiceGetServiceHandler = service.GetServiceHandlerFunc(func(params service.GetServiceParams) middleware.Responder {
 			return middleware.NotImplemented("operation service.GetService has not yet been implemented")
@@ -296,11 +275,6 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 	if api.PolicyPutPolicyHandler == nil {
 		api.PolicyPutPolicyHandler = policy.PutPolicyHandlerFunc(func(params policy.PutPolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.PutPolicy has not yet been implemented")
-		})
-	}
-	if api.RecorderPutRecorderIDHandler == nil {
-		api.RecorderPutRecorderIDHandler = recorder.PutRecorderIDHandlerFunc(func(params recorder.PutRecorderIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation recorder.PutRecorderID has not yet been implemented")
 		})
 	}
 

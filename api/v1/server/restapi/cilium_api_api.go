@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
-	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
 )
 
@@ -71,9 +70,6 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		}),
 		PrefilterDeletePrefilterHandler: prefilter.DeletePrefilterHandlerFunc(func(params prefilter.DeletePrefilterParams) middleware.Responder {
 			return middleware.NotImplemented("operation prefilter.DeletePrefilter has not yet been implemented")
-		}),
-		RecorderDeleteRecorderIDHandler: recorder.DeleteRecorderIDHandlerFunc(func(params recorder.DeleteRecorderIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation recorder.DeleteRecorderID has not yet been implemented")
 		}),
 		BgpGetBgpPeersHandler: bgp.GetBgpPeersHandlerFunc(func(params bgp.GetBgpPeersParams) middleware.Responder {
 			return middleware.NotImplemented("operation bgp.GetBgpPeers has not yet been implemented")
@@ -162,15 +158,6 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		PrefilterGetPrefilterHandler: prefilter.GetPrefilterHandlerFunc(func(params prefilter.GetPrefilterParams) middleware.Responder {
 			return middleware.NotImplemented("operation prefilter.GetPrefilter has not yet been implemented")
 		}),
-		RecorderGetRecorderHandler: recorder.GetRecorderHandlerFunc(func(params recorder.GetRecorderParams) middleware.Responder {
-			return middleware.NotImplemented("operation recorder.GetRecorder has not yet been implemented")
-		}),
-		RecorderGetRecorderIDHandler: recorder.GetRecorderIDHandlerFunc(func(params recorder.GetRecorderIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation recorder.GetRecorderID has not yet been implemented")
-		}),
-		RecorderGetRecorderMasksHandler: recorder.GetRecorderMasksHandlerFunc(func(params recorder.GetRecorderMasksParams) middleware.Responder {
-			return middleware.NotImplemented("operation recorder.GetRecorderMasks has not yet been implemented")
-		}),
 		ServiceGetServiceHandler: service.GetServiceHandlerFunc(func(params service.GetServiceParams) middleware.Responder {
 			return middleware.NotImplemented("operation service.GetService has not yet been implemented")
 		}),
@@ -200,9 +187,6 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		}),
 		PolicyPutPolicyHandler: policy.PutPolicyHandlerFunc(func(params policy.PutPolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.PutPolicy has not yet been implemented")
-		}),
-		RecorderPutRecorderIDHandler: recorder.PutRecorderIDHandlerFunc(func(params recorder.PutRecorderIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation recorder.PutRecorderID has not yet been implemented")
 		}),
 	}
 }
@@ -252,8 +236,6 @@ type CiliumAPIAPI struct {
 	PolicyDeletePolicyHandler policy.DeletePolicyHandler
 	// PrefilterDeletePrefilterHandler sets the operation handler for the delete prefilter operation
 	PrefilterDeletePrefilterHandler prefilter.DeletePrefilterHandler
-	// RecorderDeleteRecorderIDHandler sets the operation handler for the delete recorder ID operation
-	RecorderDeleteRecorderIDHandler recorder.DeleteRecorderIDHandler
 	// BgpGetBgpPeersHandler sets the operation handler for the get bgp peers operation
 	BgpGetBgpPeersHandler bgp.GetBgpPeersHandler
 	// BgpGetBgpRoutePoliciesHandler sets the operation handler for the get bgp route policies operation
@@ -312,12 +294,6 @@ type CiliumAPIAPI struct {
 	PolicyGetPolicySelectorsHandler policy.GetPolicySelectorsHandler
 	// PrefilterGetPrefilterHandler sets the operation handler for the get prefilter operation
 	PrefilterGetPrefilterHandler prefilter.GetPrefilterHandler
-	// RecorderGetRecorderHandler sets the operation handler for the get recorder operation
-	RecorderGetRecorderHandler recorder.GetRecorderHandler
-	// RecorderGetRecorderIDHandler sets the operation handler for the get recorder ID operation
-	RecorderGetRecorderIDHandler recorder.GetRecorderIDHandler
-	// RecorderGetRecorderMasksHandler sets the operation handler for the get recorder masks operation
-	RecorderGetRecorderMasksHandler recorder.GetRecorderMasksHandler
 	// ServiceGetServiceHandler sets the operation handler for the get service operation
 	ServiceGetServiceHandler service.GetServiceHandler
 	// DaemonPatchConfigHandler sets the operation handler for the patch config operation
@@ -338,8 +314,6 @@ type CiliumAPIAPI struct {
 	EndpointPutEndpointIDHandler endpoint.PutEndpointIDHandler
 	// PolicyPutPolicyHandler sets the operation handler for the put policy operation
 	PolicyPutPolicyHandler policy.PutPolicyHandler
-	// RecorderPutRecorderIDHandler sets the operation handler for the put recorder ID operation
-	RecorderPutRecorderIDHandler recorder.PutRecorderIDHandler
 
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
@@ -435,9 +409,6 @@ func (o *CiliumAPIAPI) Validate() error {
 	if o.PrefilterDeletePrefilterHandler == nil {
 		unregistered = append(unregistered, "prefilter.DeletePrefilterHandler")
 	}
-	if o.RecorderDeleteRecorderIDHandler == nil {
-		unregistered = append(unregistered, "recorder.DeleteRecorderIDHandler")
-	}
 	if o.BgpGetBgpPeersHandler == nil {
 		unregistered = append(unregistered, "bgp.GetBgpPeersHandler")
 	}
@@ -525,15 +496,6 @@ func (o *CiliumAPIAPI) Validate() error {
 	if o.PrefilterGetPrefilterHandler == nil {
 		unregistered = append(unregistered, "prefilter.GetPrefilterHandler")
 	}
-	if o.RecorderGetRecorderHandler == nil {
-		unregistered = append(unregistered, "recorder.GetRecorderHandler")
-	}
-	if o.RecorderGetRecorderIDHandler == nil {
-		unregistered = append(unregistered, "recorder.GetRecorderIDHandler")
-	}
-	if o.RecorderGetRecorderMasksHandler == nil {
-		unregistered = append(unregistered, "recorder.GetRecorderMasksHandler")
-	}
 	if o.ServiceGetServiceHandler == nil {
 		unregistered = append(unregistered, "service.GetServiceHandler")
 	}
@@ -563,9 +525,6 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.PolicyPutPolicyHandler == nil {
 		unregistered = append(unregistered, "policy.PutPolicyHandler")
-	}
-	if o.RecorderPutRecorderIDHandler == nil {
-		unregistered = append(unregistered, "recorder.PutRecorderIDHandler")
 	}
 
 	if len(unregistered) > 0 {
@@ -679,10 +638,6 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
 	o.handlers["DELETE"]["/prefilter"] = prefilter.NewDeletePrefilter(o.context, o.PrefilterDeletePrefilterHandler)
-	if o.handlers["DELETE"] == nil {
-		o.handlers["DELETE"] = make(map[string]http.Handler)
-	}
-	o.handlers["DELETE"]["/recorder/{id}"] = recorder.NewDeleteRecorderID(o.context, o.RecorderDeleteRecorderIDHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
@@ -802,18 +757,6 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
-	o.handlers["GET"]["/recorder"] = recorder.NewGetRecorder(o.context, o.RecorderGetRecorderHandler)
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
-	o.handlers["GET"]["/recorder/{id}"] = recorder.NewGetRecorderID(o.context, o.RecorderGetRecorderIDHandler)
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
-	o.handlers["GET"]["/recorder/masks"] = recorder.NewGetRecorderMasks(o.context, o.RecorderGetRecorderMasksHandler)
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
 	o.handlers["GET"]["/service"] = service.NewGetService(o.context, o.ServiceGetServiceHandler)
 	if o.handlers["PATCH"] == nil {
 		o.handlers["PATCH"] = make(map[string]http.Handler)
@@ -851,10 +794,6 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["PUT"] = make(map[string]http.Handler)
 	}
 	o.handlers["PUT"]["/policy"] = policy.NewPutPolicy(o.context, o.PolicyPutPolicyHandler)
-	if o.handlers["PUT"] == nil {
-		o.handlers["PUT"] = make(map[string]http.Handler)
-	}
-	o.handlers["PUT"]["/recorder/{id}"] = recorder.NewPutRecorderID(o.context, o.RecorderPutRecorderIDHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP

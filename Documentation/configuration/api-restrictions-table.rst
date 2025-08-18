@@ -26,7 +26,6 @@ DeleteFqdnCache       Deletes matching DNS lookups from the cache, optionally
 DeleteIPAMIP          -
 DeletePolicy          Deprecated: will be removed in v1.19
 DeletePrefilter       -
-DeleteRecorderID      -
 GetBGPPeers           Retrieves current operational state of BGP peers created by
                       Cilium BGP virtual router. This includes session state,
                       uptime, information per address family, etc.
@@ -75,9 +74,6 @@ GetPolicy             Returns the entire policy tree with all children.
                       Deprecated: will be removed in v1.19
 GetPolicySelectors    -
 GetPrefilter          -
-GetRecorder           -
-GetRecorderID         -
-GetRecorderMasks      -
 GetService            -
 PatchConfig           Updates the daemon configuration by applying the provided
                       ConfigurationMap and regenerates & recompiles all required
@@ -93,7 +89,6 @@ PostIPAM              -
 PostIPAMIP            -
 PutEndpointID         Creates a new endpoint
 PutPolicy             Deprecated: will be removed in v1.19
-PutRecorderID         -
 ===================== ====================
 
 Cilium Agent Clusterwide Health API

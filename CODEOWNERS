@@ -275,7 +275,6 @@
 /api/v1/observer/ @cilium/sig-hubble-api
 /api/v1/operator/ @cilium/api @cilium/operator
 /api/v1/peer/ @cilium/sig-hubble-api
-/api/v1/recorder/ @cilium/sig-hubble-api
 /api/v1/relay/ @cilium/sig-hubble-api
 Makefile* @cilium/build
 /bpf/ @cilium/sig-datapath
