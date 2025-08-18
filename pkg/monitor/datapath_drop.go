@@ -17,6 +17,7 @@ const (
 	DropNotifyVersion0 = iota
 	DropNotifyVersion1
 	DropNotifyVersion2
+	DropNotifyVersion3
 )
 
 const (
@@ -24,6 +25,8 @@ const (
 	dropNotifyV1Len = 36
 	// dropNotifyV2Len is the amount of packet data provided in a v2 drop notification.
 	dropNotifyV2Len = 40
+	// dropNotifyV3Len is the amount of packet data provided in a v3 drop notification.
+	dropNotifyV3Len = 48
 )
 
 const (
@@ -42,27 +45,29 @@ var (
 		DropNotifyVersion0: dropNotifyV1Len, // retain backwards compatibility for testing.
 		DropNotifyVersion1: dropNotifyV1Len,
 		DropNotifyVersion2: dropNotifyV2Len,
+		DropNotifyVersion3: dropNotifyV3Len,
 	}
 )
 
 // DropNotify is the message format of a drop notification in the BPF ring buffer
 type DropNotify struct {
-	Type     uint8
-	SubType  uint8
-	Source   uint16
-	Hash     uint32
-	OrigLen  uint32
-	CapLen   uint16
-	Version  uint16
-	SrcLabel identity.NumericIdentity
-	DstLabel identity.NumericIdentity
-	DstID    uint32
-	Line     uint16
-	File     uint8
-	ExtError int8
-	Ifindex  uint32
-	Flags    uint8
-	_        [3]uint8
+	Type      uint8
+	SubType   uint8
+	Source    uint16
+	Hash      uint32
+	OrigLen   uint32
+	CapLen    uint16
+	Version   uint16
+	SrcLabel  identity.NumericIdentity
+	DstLabel  identity.NumericIdentity
+	DstID     uint32
+	Line      uint16
+	File      uint8
+	ExtError  int8
+	Ifindex   uint32
+	Flags     uint8
+	_         [3]uint8
+	IPTraceID uint64
 	// data
 }
 
@@ -108,7 +113,7 @@ func (n *DropNotify) Decode(data []byte) error {
 	version := byteorder.Native.Uint16(data[14:16])
 
 	// Check against max version.
-	if version > DropNotifyVersion2 {
+	if version > DropNotifyVersion3 {
 		return fmt.Errorf("Unrecognized drop event (version %d)", version)
 	}
 
@@ -118,6 +123,13 @@ func (n *DropNotify) Decode(data []byte) error {
 			return fmt.Errorf("unexpected DropNotify data length (version %d), expected at least %d but got %d", version, dropNotifyV2Len, l)
 		}
 		n.Flags = data[36]
+	}
+
+	if version >= DropNotifyVersion3 {
+		if l := len(data); l < dropNotifyV3Len {
+			return fmt.Errorf("unexpected DropNotify data length (version %d), expected at least %d but got %d", version, dropNotifyV3Len, l)
+		}
+		n.IPTraceID = byteorder.Native.Uint64(data[40:48])
 	}
 
 	// Decode logic for version >= v0/v1.
@@ -171,6 +183,9 @@ func (n *DropNotify) DataOffset() uint {
 func (n *DropNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.DisplayFormat) {
 	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %s:%d, ",
 		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, api.BPFFileName(n.File), int(n.Line))
+	if id := n.IPTraceID; id > 0 {
+		fmt.Fprintf(buf, " [ ip-trace-id = %d ]", id)
+	}
 	n.dumpIdentity(buf, numeric)
 	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[n.DataOffset():], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
 }
@@ -190,13 +205,16 @@ func (n *DropNotify) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, p
 		fmt.Fprintf(buf, "\n")
 	}
 
+	if id := n.IPTraceID; id > 0 {
+		fmt.Fprintf(buf, " [ IP-TRACE-ID=%d", id)
+	}
+
 	if offset := int(n.DataOffset()); n.CapLen > 0 && len(data) > offset {
 		Dissect(buf, dissect, data[offset:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()})
 	}
 }
 
 func (n *DropNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
-
 	v := DropNotifyToVerbose(n)
 	v.CPUPrefix = cpuPrefix
 	if offset := int(n.DataOffset()); n.CapLen > 0 && len(data) > offset {
@@ -222,15 +240,16 @@ type DropNotifyVerbose struct {
 	Mark      string `json:"mark,omitempty"`
 	Reason    string `json:"reason,omitempty"`
 
-	Source   uint16                   `json:"source"`
-	Bytes    uint32                   `json:"bytes"`
-	SrcLabel identity.NumericIdentity `json:"srcLabel"`
-	DstLabel identity.NumericIdentity `json:"dstLabel"`
-	DstID    uint32                   `json:"dstID"`
-	Line     uint16                   `json:"Line"`
-	File     uint8                    `json:"File"`
-	ExtError int8                     `json:"ExtError"`
-	Ifindex  uint32                   `json:"Ifindex"`
+	Source    uint16                   `json:"source"`
+	Bytes     uint32                   `json:"bytes"`
+	SrcLabel  identity.NumericIdentity `json:"srcLabel"`
+	DstLabel  identity.NumericIdentity `json:"dstLabel"`
+	DstID     uint32                   `json:"dstID"`
+	Line      uint16                   `json:"Line"`
+	File      uint8                    `json:"File"`
+	ExtError  int8                     `json:"ExtError"`
+	Ifindex   uint32                   `json:"Ifindex"`
+	IPTraceID uint64                   `json:"IPTraceID,omitempty"`
 
 	Summary *DissectSummary `json:"summary,omitempty"`
 }
@@ -238,17 +257,18 @@ type DropNotifyVerbose struct {
 // DropNotifyToVerbose creates verbose notification from DropNotify
 func DropNotifyToVerbose(n *DropNotify) DropNotifyVerbose {
 	return DropNotifyVerbose{
-		Type:     "drop",
-		Mark:     fmt.Sprintf("%#x", n.Hash),
-		Reason:   api.DropReasonExt(n.SubType, n.ExtError),
-		Source:   n.Source,
-		Bytes:    n.OrigLen,
-		SrcLabel: n.SrcLabel,
-		DstLabel: n.DstLabel,
-		DstID:    n.DstID,
-		Line:     n.Line,
-		File:     n.File,
-		ExtError: n.ExtError,
-		Ifindex:  n.Ifindex,
+		Type:      "drop",
+		Mark:      fmt.Sprintf("%#x", n.Hash),
+		Reason:    api.DropReasonExt(n.SubType, n.ExtError),
+		Source:    n.Source,
+		Bytes:     n.OrigLen,
+		SrcLabel:  n.SrcLabel,
+		DstLabel:  n.DstLabel,
+		DstID:     n.DstID,
+		Line:      n.Line,
+		File:      n.File,
+		ExtError:  n.ExtError,
+		Ifindex:   n.Ifindex,
+		IPTraceID: n.IPTraceID,
 	}
 }
