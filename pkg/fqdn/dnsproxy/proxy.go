@@ -1121,10 +1121,9 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		return
 	}
 
-	scopedLog.Debug("Received DNS response to proxied lookup", logfields.Response, response)
-	stat.Success = true
+	scopedLog.Debug("Received DNS response to proxied lookup, calling OnResponse", logfields.Response, response)
+	stat.Success = true // FIXME drop unused
 
-	scopedLog.Debug("Notifying with DNS response to original DNS query")
 	if err := p.OnResponse(ep, epIPPort, targetServerID, targetServer, response, protocol, &stat); err != nil {
 		scopedLog.Error(
 			"Failed to process DNS response",
