@@ -433,9 +433,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if !option.Config.EnableHostLegacyRouting {
 			cDefinesMap["ENABLE_HOST_ROUTING"] = "1"
 		}
-		if h.kprCfg.EnableSVCSourceRangeCheck {
-			cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
-		}
+
+		cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
 
 		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMin)
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMax)

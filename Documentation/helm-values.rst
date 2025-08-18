@@ -3500,10 +3500,6 @@
      - interval between checks of the startup probe
      - int
      - ``2``
-   * - :spelling:ignore:`svcSourceRangeCheck`
-     - Enable check of service source ranges (currently, only for LoadBalancer).
-     - bool
-     - ``true``
    * - :spelling:ignore:`synchronizeK8sNodes`
      - Synchronize Kubernetes nodes to kvstore and perform CNP GC.
      - bool
