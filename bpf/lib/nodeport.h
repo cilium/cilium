@@ -707,18 +707,17 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	ret = dsr_set_ext6(ctx, ip6, &addr, port, &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 	ret = encap_geneve_dsr_opt6(ctx, ip6, &addr, port, &oif, &ohead);
+	if (!IS_ERR(ret))
+		fib_params.l.family = AF_INET;
+#else
+# error "Invalid load balancer DSR encapsulation mode!"
+#endif
 	if (!IS_ERR(ret)) {
 		if (ret == CTX_ACT_REDIRECT && oif) {
 			cilium_capture_out(ctx);
 			return ctx_redirect(ctx, oif, 0);
 		}
-
-		fib_params.l.family = AF_INET;
-	}
-#else
-# error "Invalid load balancer DSR encapsulation mode!"
-#endif
-	if (IS_ERR(ret)) {
+	} else {
 		if (dsr_fail_needs_reply(ret))
 			return dsr_reply_icmp6(ctx, ip6, &addr, port, ret, ohead);
 		goto drop_err;
@@ -2088,16 +2087,15 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 	ret = encap_geneve_dsr_opt4(ctx, ctx_load_meta(ctx, CB_DSR_L3_OFF),
 				    ip4, addr, port, &oif, &ohead);
+#else
+# error "Invalid load balancer DSR encapsulation mode!"
+#endif
 	if (!IS_ERR(ret)) {
 		if (ret == CTX_ACT_REDIRECT && oif) {
 			cilium_capture_out(ctx);
 			return ctx_redirect(ctx, oif, 0);
 		}
-	}
-#else
-# error "Invalid load balancer DSR encapsulation mode!"
-#endif
-	if (IS_ERR(ret)) {
+	} else {
 		if (dsr_fail_needs_reply(ret))
 			return dsr_reply_icmp4(ctx, ip4, addr, port, ret, ohead);
 		goto drop_err;
