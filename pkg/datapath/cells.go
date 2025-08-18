@@ -102,7 +102,7 @@ var Cell = cell.Module(
 	// The bandwidth manager provides efficient EDT-based rate-limiting (on Linux).
 	bandwidth.Cell,
 
-	// IPsec cell provides the IPsecKeyCustodian.
+	// IPsec cell provides the IPsecAgent.
 	ipsec.Cell,
 
 	// MTU provides the MTU configuration of the node.
