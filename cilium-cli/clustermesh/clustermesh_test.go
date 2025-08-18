@@ -336,30 +336,33 @@ func TestMergeClusters(t *testing.T) {
 }
 
 func TestRemoveFromClustermeshConfig(t *testing.T) {
-	uu := map[string]struct {
-		vv       map[string]any
-		clusters []string
-		err      error
-		e        map[string]any
+	tests := map[string]struct {
+		values           map[string]any
+		clusters         []string
+		err              error
+		expected         map[string]any
+		expectedDisabled map[string]any
 	}{
 		"missing": {
-			clusters: []string{"test1", "test2"},
-			e:        map[string]any{},
+			clusters:         []string{"test1", "test2"},
+			expected:         map[string]any{},
+			expectedDisabled: map[string]any{},
 		},
 		"empty": {
 			clusters: []string{"c1", "c2"},
-			vv: map[string]any{
+			values: map[string]any{
 				"clustermesh": map[string]any{
 					"config": map[string]any{
 						"clusters": nil,
 					},
 				},
 			},
-			e: map[string]any{},
+			expected:         map[string]any{},
+			expectedDisabled: map[string]any{},
 		},
 		"connected": {
 			clusters: []string{"c1", "c2"},
-			vv: map[string]any{
+			values: map[string]any{
 				"clustermesh": map[string]any{
 					"config": map[string]any{
 						"clusters": map[string]any{
@@ -379,16 +382,17 @@ func TestRemoveFromClustermeshConfig(t *testing.T) {
 					},
 				},
 			},
-			e: map[string]any{
+			expected: map[string]any{
 				"c3": map[string]any{
 					"ips":  []any{"172.19.0.6"},
 					"port": "32379",
 				},
 			},
+			expectedDisabled: map[string]any{},
 		},
 		"partially-connected": {
 			clusters: []string{"c3", "c4"},
-			vv: map[string]any{
+			values: map[string]any{
 				"clustermesh": map[string]any{
 					"config": map[string]any{
 						"clusters": map[string]any{
@@ -404,16 +408,17 @@ func TestRemoveFromClustermeshConfig(t *testing.T) {
 					},
 				},
 			},
-			e: map[string]any{
+			expected: map[string]any{
 				"c2": map[string]any{
 					"ips":  []any{"172.19.0.4"},
 					"port": "32379",
 				},
 			},
+			expectedDisabled: map[string]any{},
 		},
 		"not-connected": {
 			clusters: []string{"c1", "c4"},
-			vv: map[string]any{
+			values: map[string]any{
 				"clustermesh": map[string]any{
 					"config": map[string]any{
 						"clusters": map[string]any{
@@ -429,7 +434,7 @@ func TestRemoveFromClustermeshConfig(t *testing.T) {
 					},
 				},
 			},
-			e: map[string]any{
+			expected: map[string]any{
 				"c3": map[string]any{
 					"ips":  []any{"172.19.0.6"},
 					"port": "32379",
@@ -437,20 +442,67 @@ func TestRemoveFromClustermeshConfig(t *testing.T) {
 				"c2": map[string]any{
 					"ips":  []any{"172.19.0.4"},
 					"port": "32379",
+				},
+			},
+			expectedDisabled: map[string]any{},
+		},
+		"disabled": {
+			clusters: []string{"c1", "c4"},
+			values: map[string]any{
+				"clustermesh": map[string]any{
+					"config": map[string]any{
+						"clusters": map[string]any{
+							"c5": map[string]any{
+								"enabled": false,
+								"ips":     []any{"172.19.0.8"},
+								"port":    "32379",
+							},
+							"c4": map[string]any{
+								"enabled": false,
+								"ips":     []any{"172.19.0.7"},
+								"port":    "32379",
+							},
+							"c3": map[string]any{
+								"ips":  []any{"172.19.0.6"},
+								"port": "32379",
+							},
+							"c2": map[string]any{
+								"ips":  []any{"172.19.0.4"},
+								"port": "32379",
+							},
+						},
+					},
+				},
+			},
+			expected: map[string]any{
+				"c3": map[string]any{
+					"ips":  []any{"172.19.0.6"},
+					"port": "32379",
+				},
+				"c2": map[string]any{
+					"ips":  []any{"172.19.0.4"},
+					"port": "32379",
+				},
+			},
+			expectedDisabled: map[string]any{
+				"c5": map[string]any{
+					"enabled": false,
+					"ips":     []any{"172.19.0.8"},
+					"port":    "32379",
 				},
 			},
 		},
 	}
 
-	for k := range uu {
-		u := uu[k]
-		t.Run(k, func(t *testing.T) {
-			ee, err := removeFromClustermeshConfig(u.vv, u.clusters)
+	for testName, test := range tests {
+		t.Run(testName, func(t *testing.T) {
+			clusters, clustersDisabled, err := removeFromClustermeshConfig(test.values, test.clusters)
 			if err != nil {
-				assert.Equal(t, u.err, err)
+				assert.Equal(t, test.err, err)
 				return
 			}
-			assert.Equal(t, u.e, ee)
+			assert.Equal(t, test.expected, clusters)
+			assert.Equal(t, test.expectedDisabled, clustersDisabled)
 		})
 	}
 }
@@ -565,16 +617,18 @@ func TestGetCASecret(t *testing.T) {
 
 func TestGetClustersFromValues(t *testing.T) {
 	tests := []struct {
-		name      string
-		values    map[string]any
-		expected  map[string]any
-		assertErr assert.ErrorAssertionFunc
+		name                     string
+		values                   map[string]any
+		expected                 map[string]any
+		expectedDisabledClusters map[string]any
+		assertErr                assert.ErrorAssertionFunc
 	}{
 		{
-			name:      "null",
-			values:    nil,
-			expected:  map[string]any{},
-			assertErr: assert.NoError,
+			name:                     "null",
+			values:                   nil,
+			expected:                 map[string]any{},
+			expectedDisabledClusters: map[string]any{},
+			assertErr:                assert.NoError,
 		},
 		{
 			name: "list",
@@ -624,6 +678,13 @@ func TestGetClustersFromValues(t *testing.T) {
 					"port": "32379",
 				},
 			},
+			expectedDisabledClusters: map[string]any{
+				"c4": map[string]any{
+					"enabled": false,
+					"ips":     []any{"172.19.0.7"},
+					"port":    "32379",
+				},
+			},
 			assertErr: assert.NoError,
 		},
 		{
@@ -670,6 +731,13 @@ func TestGetClustersFromValues(t *testing.T) {
 					"port": "32379",
 				},
 			},
+			expectedDisabledClusters: map[string]any{
+				"c4": map[string]any{
+					"enabled": false,
+					"ips":     []any{"172.19.0.7"},
+					"port":    "32379",
+				},
+			},
 			assertErr: assert.NoError,
 		},
 		{
@@ -684,8 +752,9 @@ func TestGetClustersFromValues(t *testing.T) {
 					},
 				},
 			},
-			expected:  nil,
-			assertErr: assert.Error,
+			expected:                 nil,
+			expectedDisabledClusters: nil,
+			assertErr:                assert.Error,
 		},
 		{
 			name: "list-error-format",
@@ -697,16 +766,18 @@ func TestGetClustersFromValues(t *testing.T) {
 					},
 				},
 			},
-			expected:  nil,
-			assertErr: assert.Error,
+			expected:                 nil,
+			expectedDisabledClusters: nil,
+			assertErr:                assert.Error,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			clusters, err := getClustersFromValues(test.values)
+			clusters, disabledClusters, err := getClustersFromValues(test.values)
 			test.assertErr(t, err)
 			assert.Equal(t, test.expected, clusters)
+			assert.Equal(t, test.expectedDisabledClusters, disabledClusters)
 		})
 	}
 }
