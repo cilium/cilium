@@ -304,7 +304,6 @@ func (ipam *LBIPAM) poolOnUpsert(ctx context.Context, pool *cilium_api_v2.Cilium
 	// Deep copy so we get a version we are allowed to update the status
 	pool = pool.DeepCopy()
 
-	var err error
 	if existingPool, exists := ipam.pools[pool.GetName()]; exists {
 		// Spec hasn't changed, nothing to do
 		if existingPool.Spec.DeepEqual(&pool.Spec) {
@@ -316,27 +315,20 @@ func (ipam *LBIPAM) poolOnUpsert(ctx context.Context, pool *cilium_api_v2.Cilium
 				logfields.PoolNewSpec, pool.Spec)
 		}
 
-		err = ipam.handlePoolModified(ctx, pool)
-		if err != nil {
+		if err := ipam.handlePoolModified(ctx, pool); err != nil {
 			return fmt.Errorf("handlePoolModified: %w", err)
 		}
 	} else {
-		err = ipam.handleNewPool(ctx, pool)
-		if err != nil {
+		if err := ipam.handleNewPool(ctx, pool); err != nil {
 			return fmt.Errorf("handleNewPool: %w", err)
 		}
 	}
-	if err != nil {
-		return err
-	}
 
-	err = ipam.settleConflicts(ctx)
-	if err != nil {
+	if err := ipam.settleConflicts(ctx); err != nil {
 		return fmt.Errorf("settleConflicts: %w", err)
 	}
 
-	err = ipam.satisfyAndUpdateCounts(ctx)
-	if err != nil {
+	if err := ipam.satisfyAndUpdateCounts(ctx); err != nil {
 		return fmt.Errorf("satisfyAndUpdateCounts: %w", err)
 	}
 
@@ -350,18 +342,15 @@ func (ipam *LBIPAM) poolOnDelete(ctx context.Context, pool *cilium_api_v2.Cilium
 		}(time.Now())
 	}
 
-	err := ipam.handlePoolDeleted(ctx, pool)
-	if err != nil {
+	if err := ipam.handlePoolDeleted(ctx, pool); err != nil {
 		return fmt.Errorf("handlePoolDeleted: %w", err)
 	}
 
-	err = ipam.settleConflicts(ctx)
-	if err != nil {
+	if err := ipam.settleConflicts(ctx); err != nil {
 		return fmt.Errorf("settleConflicts: %w", err)
 	}
 
-	err = ipam.satisfyAndUpdateCounts(ctx)
-	if err != nil {
+	if err := ipam.satisfyAndUpdateCounts(ctx); err != nil {
 		return fmt.Errorf("satisfyAndUpdateCounts: %w", err)
 	}
 
@@ -375,8 +364,7 @@ func (ipam *LBIPAM) svcOnUpsert(ctx context.Context, svc *slim_core_v1.Service, 
 		}(time.Now())
 	}
 
-	err := ipam.handleUpsertService(ctx, svc, init)
-	if err != nil {
+	if err := ipam.handleUpsertService(ctx, svc, init); err != nil {
 		return fmt.Errorf("handleUpsertService: %w", err)
 	}
 
@@ -386,8 +374,7 @@ func (ipam *LBIPAM) svcOnUpsert(ctx context.Context, svc *slim_core_v1.Service, 
 		return nil
 	}
 
-	err = ipam.satisfyAndUpdateCounts(ctx)
-	if err != nil {
+	if err := ipam.satisfyAndUpdateCounts(ctx); err != nil {
 		return fmt.Errorf("satisfyAndUpdateCounts: %w", err)
 	}
 
@@ -410,8 +397,7 @@ func (ipam *LBIPAM) svcOnDelete(ctx context.Context, svc *slim_core_v1.Service, 
 		// it will happen later after full sync
 		return nil
 	}
-	err := ipam.satisfyAndUpdateCounts(ctx)
-	if err != nil {
+	if err := ipam.satisfyAndUpdateCounts(ctx); err != nil {
 		return fmt.Errorf("satisfyAndUpdateCounts: %w", err)
 	}
 
@@ -419,13 +405,11 @@ func (ipam *LBIPAM) svcOnDelete(ctx context.Context, svc *slim_core_v1.Service, 
 }
 
 func (ipam *LBIPAM) satisfyAndUpdateCounts(ctx context.Context) error {
-	err := ipam.satisfyServices(ctx)
-	if err != nil {
+	if err := ipam.satisfyServices(ctx); err != nil {
 		return fmt.Errorf("satisfyServices: %w", err)
 	}
 
-	err = ipam.updateAllPoolCounts(ctx)
-	if err != nil {
+	if err := ipam.updateAllPoolCounts(ctx); err != nil {
 		return fmt.Errorf("updateAllPoolCounts: %w", err)
 	}
 
@@ -457,8 +441,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 		sv.Status.LoadBalancer.Ingress = nil
 		slim_meta.RemoveStatusCondition(&sv.Status.Conditions, ciliumSvcRequestSatisfiedCondition)
 
-		err := ipam.patchSvcStatus(ctx, sv)
-		if err != nil {
+		if err := ipam.patchSvcStatus(ctx, sv); err != nil {
 			return fmt.Errorf("patchSvcStatus: %w", err)
 		}
 
