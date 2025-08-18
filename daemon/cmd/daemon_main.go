@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -1154,22 +1153,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, "L7 proxy requires iptables rules (--install-iptables-rules=\"true\")")
 	}
 
-	if !option.Config.DNSProxyInsecureSkipTransparentModeCheck {
-		if option.Config.EnableIPSec && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
-			logging.Fatal(logger, "IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
-		}
-	}
-
-	if option.Config.EnableIPSec && option.Config.TunnelingEnabled() {
-		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
-			logging.Fatal(logger, "IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later).", logfields.Error, err)
-		}
-	}
-
-	if option.Config.EnableIPSecEncryptedOverlay && !option.Config.EnableIPSec {
-		logger.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
-	}
-
 	if option.Config.EnableRemoteNodeMasquerade && !option.Config.EnableBPFMasquerade {
 		logging.Fatal(logger, "Option "+option.EnableRemoteNodeMasquerade+" requires BPF masquerade to be enabled ("+option.EnableBPFMasquerade+")")
 	}
@@ -1183,12 +1166,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	if option.Config.EnableSRv6 {
 		if !option.Config.EnableIPv6 {
 			logging.Fatal(logger, "SRv6 requires IPv6.")
-		}
-	}
-
-	if option.Config.EnableHostFirewall {
-		if option.Config.EnableIPSec {
-			logging.Fatal(logger, "IPSec cannot be used with the host firewall.")
 		}
 	}
 
@@ -1218,9 +1195,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		}
 		if !option.Config.EnableEndpointRoutes {
 			logging.Fatal(logger, fmt.Sprintf("Cannot specify %s or %s  without %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableEndpointRoutes))
-		}
-		if option.Config.EnableIPSec {
-			logging.Fatal(logger, fmt.Sprintf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableIPSecName))
 		}
 	}
 
