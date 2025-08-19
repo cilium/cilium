@@ -87,6 +87,9 @@ message Flow {
     // Verdict = DROPPED.
     FileInfo file = 38;
 
+    // IPTraceID relates to the trace ID in the IP options of a packet.
+    IPTraceID ip_trace_id = 40;
+
     // only applicable to Verdict = DROPPED.
     DropReason drop_reason_desc = 25;
 
@@ -640,6 +643,8 @@ message FlowFilter {
 
     // trace_id filters flows by trace ID
     repeated string trace_id = 28;
+    // ip_trace_id filters flows by IPTraceID
+    repeated uint64 ip_trace_id = 39;
 
     // Experimental contains filters that are not stable yet. Support for
     // experimental features is always optional and subject to change.
@@ -719,6 +724,11 @@ message Kafka {
 message Service {
     string name = 1;
     string namespace = 2;
+}
+
+message IPTraceID {
+    uint64 trace_id = 1;
+    uint32 ip_option_type = 2;
 }
 
 enum LostEventSource {

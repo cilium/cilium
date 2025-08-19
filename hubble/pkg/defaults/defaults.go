@@ -65,6 +65,7 @@ var (
 		"destination_service",
 		"is_reply",
 		"Summary",
+		"ip_trace_id",
 	}
 )
 

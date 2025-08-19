@@ -603,13 +603,19 @@ func TestDecodeDropNotify(t *testing.T) {
 	SrcLabel := identity.NumericIdentity(123)
 	DstLabel := identity.NumericIdentity(456)
 
-	dropNotify := func(version uint16) monitor.DropNotify {
+	dropNotify := func(version uint16, iptraceid ...uint64) monitor.DropNotify {
+		var id uint64
+		if len(iptraceid) > 0 {
+			id = iptraceid[0]
+		}
+
 		return monitor.DropNotify{
-			Type:     byte(monitorAPI.MessageTypeDrop),
-			File:     1, // bpf_host.c
-			Version:  version,
-			SrcLabel: SrcLabel,
-			DstLabel: DstLabel,
+			Type:      byte(monitorAPI.MessageTypeDrop),
+			File:      1, // bpf_host.c
+			Version:   version,
+			SrcLabel:  SrcLabel,
+			DstLabel:  DstLabel,
+			IPTraceID: id,
 		}
 	}
 	identityGetter := &testutils.FakeIdentityGetter{
@@ -664,6 +670,39 @@ func TestDecodeDropNotify(t *testing.T) {
 				},
 				Summary: "IPv4",
 				File:    &flowpb.FileInfo{Name: "bpf_host.c"},
+			},
+		},
+		{
+			name:      "v2 with IP Trace ID",
+			dn:        dropNotify(3, 0x12345678),
+			srcLabels: []string{"k8s:src=label"},
+			dstLabels: []string{"k8s:dst=label"},
+			want: &flowpb.Flow{
+				Verdict: flowpb.Verdict_DROPPED,
+				Ethernet: &flowpb.Ethernet{
+					Source:      "01:02:03:04:05:06",
+					Destination: "04:05:06:07:08:09",
+				},
+				IP: &flowpb.IP{
+					Source:      "1.2.3.4",
+					Destination: "1.2.3.4",
+					IpVersion:   flowpb.IPVersion_IPv4,
+				},
+				Source: &flowpb.Endpoint{
+					Identity: 123,
+					Labels:   []string{"k8s:src=label"},
+				},
+				Destination: &flowpb.Endpoint{
+					Identity: 456,
+					Labels:   []string{"k8s:dst=label"},
+				},
+				Type:      flowpb.FlowType_L3_L4,
+				EventType: &flowpb.CiliumEventType{Type: 1},
+				Summary:   "IPv4",
+				File:      &flowpb.FileInfo{Name: "bpf_host.c"},
+				IpTraceId: &flowpb.IPTraceID{
+					TraceId: 0x12345678,
+				},
 			},
 		},
 	}
@@ -2233,6 +2272,46 @@ func TestDecode_TraceNotify(t *testing.T) {
 				TraceReason:           flowpb.TraceReason_SRV6_ENCAP,
 				TrafficDirection:      flowpb.TrafficDirection_EGRESS,
 				TraceObservationPoint: flowpb.TraceObservationPoint_TO_STACK,
+			},
+		},
+		{
+			name: "v2_from_lxc",
+			event: monitor.TraceNotify{
+				Type:     byte(monitorAPI.MessageTypeTrace),
+				Source:   localEP,
+				ObsPoint: monitorAPI.TraceFromLxc,
+				Reason:   monitor.TraceReasonUnknown,
+				Version:  monitor.TraceNotifyVersion2,
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					SubType: 5,
+				},
+				Source:                &flowpb.Endpoint{ID: 1234},
+				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
+			},
+		},
+		{
+			name: "v2_from_lxc_with_ip_trace_id",
+			event: monitor.TraceNotify{
+				Type:      byte(monitorAPI.MessageTypeTrace),
+				Source:    localEP,
+				ObsPoint:  monitorAPI.TraceFromLxc,
+				Reason:    monitor.TraceReasonUnknown,
+				Version:   monitor.TraceNotifyVersion2,
+				IPTraceID: 1234,
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					SubType: 5,
+				},
+				Source:                &flowpb.Endpoint{ID: 1234},
+				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
+				IpTraceId: &flowpb.IPTraceID{
+					TraceId: 1234,
+				},
 			},
 		},
 	}

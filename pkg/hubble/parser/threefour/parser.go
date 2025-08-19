@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/correlation"
 )
 
@@ -270,6 +271,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.TrafficDirection = decodeTrafficDirection(srcEndpoint.ID, dn, tn, pvn)
 	decoded.EventType = decodeCiliumEventType(eventType, eventSubType)
 	decoded.TraceReason = decodeTraceReason(tn)
+	decoded.IpTraceId = decodeIpTraceId(dn, tn)
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
 	decoded.PolicyMatchType = decodePolicyMatchType(pvn)
@@ -612,6 +614,23 @@ func decodeTraceReason(tn *monitor.TraceNotify) pb.TraceReason {
 	// the datapath values.
 	default:
 		return pb.TraceReason(tn.TraceReason())
+	}
+}
+
+func decodeIpTraceId(dn *monitor.DropNotify, tn *monitor.TraceNotify) *pb.IPTraceID {
+	var id uint64
+	switch {
+	case dn != nil:
+		id = uint64(dn.IPTraceID)
+	case tn != nil:
+		id = uint64(tn.IPTraceID)
+	}
+	if id == 0 {
+		return nil
+	}
+	return &pb.IPTraceID{
+		TraceId:      id,
+		IpOptionType: uint32(option.Config.IPTracingOptionType),
 	}
 }
 
