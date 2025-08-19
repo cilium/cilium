@@ -110,6 +110,7 @@ var (
 		// Provides optional configuration callback to bypass
 		// host firewall when accessing Kubernetes objects.
 		hostfirewallbypass.Cell,
+		cell.Invoke(hostfirewallbypass.RestartClientset),
 
 		// Provide the logic to map DNS names matching Kubernetes services to the
 		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
