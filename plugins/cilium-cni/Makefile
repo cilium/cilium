@@ -10,6 +10,7 @@ TARGET := cilium-cni
 .PHONY: all
 all: $(TARGET)
 
+.PHONY: $(TARGET)
 $(TARGET):
 	@$(ECHO_GO)
 	$(QUIET)$(GO_BUILD) -o $@
