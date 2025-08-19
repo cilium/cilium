@@ -53,7 +53,7 @@ jobs:
           SHA=$(git rev-parse ${REF})
           readarray workflows < <((
             yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml
-            yq '.tests[]' .github/ariane-scheduled.yaml
+            yq '.schedule.nightly.workflows[]' .github/ariane-config.yaml
           ) | sort -u)
 
           for workflow in "${workflows[@]}"; do
