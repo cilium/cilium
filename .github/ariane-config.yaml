@@ -86,6 +86,12 @@ triggers:
     workflows:
     - tests-ces-migrate.yaml
 
+schedule:
+  nightly:
+    workflows:
+    - conformance-aks.yaml
+    - conformance-gke.yaml
+
 workflows:
   conformance-aks.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
