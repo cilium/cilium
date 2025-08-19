@@ -161,7 +161,7 @@ cilium-agent hive dot-graph [flags]
       --k8s-heartbeat-timeout duration                            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                                Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                             Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
-      --kube-proxy-replacement string                             Enable kube-proxy replacement (default "false")
+      --kube-proxy-replacement                                    Enable kube-proxy replacement
       --kube-proxy-replacement-healthz-bind-address string        The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.
       --kvstore string                                            Key-value store type
       --kvstore-lease-ttl duration                                Time-to-live for the KVstore lease. (default 15m0s)

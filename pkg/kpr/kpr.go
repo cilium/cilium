@@ -4,8 +4,6 @@
 package kpr
 
 import (
-	"fmt"
-
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 )
@@ -19,7 +17,7 @@ var Cell = cell.Module(
 )
 
 type KPRFlags struct {
-	KubeProxyReplacement string
+	KubeProxyReplacement bool
 	EnableSocketLB       bool `mapstructure:"bpf-lb-sock"`
 	EnableNodePort       bool
 	EnableExternalIPs    bool
@@ -27,7 +25,7 @@ type KPRFlags struct {
 }
 
 var defaultFlags = KPRFlags{
-	KubeProxyReplacement: "false",
+	KubeProxyReplacement: false,
 	EnableSocketLB:       false,
 	EnableNodePort:       false,
 	EnableExternalIPs:    false,
@@ -35,7 +33,7 @@ var defaultFlags = KPRFlags{
 }
 
 func (def KPRFlags) Flags(flags *pflag.FlagSet) {
-	flags.String("kube-proxy-replacement", def.KubeProxyReplacement, "Enable kube-proxy replacement")
+	flags.Bool("kube-proxy-replacement", def.KubeProxyReplacement, "Enable kube-proxy replacement")
 
 	flags.Bool("bpf-lb-sock", def.EnableSocketLB, "Enable socket-based LB for E/W traffic")
 
@@ -50,7 +48,7 @@ func (def KPRFlags) Flags(flags *pflag.FlagSet) {
 }
 
 type KPRConfig struct {
-	KubeProxyReplacement string
+	KubeProxyReplacement bool
 	EnableNodePort       bool
 	EnableExternalIPs    bool
 	EnableHostPort       bool
@@ -58,10 +56,6 @@ type KPRConfig struct {
 }
 
 func NewKPRConfig(flags KPRFlags) (KPRConfig, error) {
-	if flags.KubeProxyReplacement != "true" && flags.KubeProxyReplacement != "false" {
-		return KPRConfig{}, fmt.Errorf("invalid value for kube-proxy-replacement")
-	}
-
 	cfg := KPRConfig{
 		KubeProxyReplacement: flags.KubeProxyReplacement,
 		EnableNodePort:       flags.EnableNodePort,
@@ -70,7 +64,7 @@ func NewKPRConfig(flags KPRFlags) (KPRConfig, error) {
 		EnableSocketLB:       flags.EnableSocketLB,
 	}
 
-	if flags.KubeProxyReplacement == "true" {
+	if flags.KubeProxyReplacement {
 		cfg.EnableNodePort = true
 		cfg.EnableExternalIPs = true
 		cfg.EnableHostPort = true

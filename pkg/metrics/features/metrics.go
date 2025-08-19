@@ -1062,7 +1062,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncWireGuard, node2nodeEnabled, strictMode).Add(1)
 	}
 
-	if kprCfg.KubeProxyReplacement == option.KubeProxyReplacementTrue {
+	if kprCfg.KubeProxyReplacement {
 		m.ACLBKubeProxyReplacementEnabled.Add(1)
 	}
 

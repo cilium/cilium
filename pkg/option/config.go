@@ -1093,14 +1093,6 @@ const (
 	// NodePortAccelerationBestEffort means we accelerate NodePort via native XDP in the driver (preferred), but will skip devices without driver support
 	NodePortAccelerationBestEffort = XDPModeBestEffort
 
-	// KubeProxyReplacementTrue specifies to enable all kube-proxy replacement
-	// features (might panic).
-	KubeProxyReplacementTrue = "true"
-
-	// KubeProxyReplacementFalse specifies to enable only selected kube-proxy
-	// replacement features (might panic).
-	KubeProxyReplacementFalse = "false"
-
 	// PprofAddressAgent is the default value for pprof in the agent
 	PprofAddressAgent = "localhost"
 
@@ -2112,7 +2104,7 @@ func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kprCfg kpr.KPRConfig, wiregua
 
 	// Attaching cil_to_wireguard to cilium_wg0 egress is required for handling
 	// the rev-NAT xlations when encrypting KPR traffic.
-	if kprCfg.EnableNodePort && c.EnableL7Proxy && kprCfg.KubeProxyReplacement == KubeProxyReplacementTrue {
+	if kprCfg.EnableNodePort && c.EnableL7Proxy && kprCfg.KubeProxyReplacement {
 		return true
 	}
 

@@ -294,7 +294,7 @@ type OperatorConfig struct {
 
 	// KubeProxyReplacement or NodePort are required to implement cluster
 	// Ingress (or equivalent Gateway API functionality)
-	KubeProxyReplacement string
+	KubeProxyReplacement bool
 	EnableNodePort       bool
 
 	// AWS options
@@ -448,7 +448,7 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.ParallelAllocWorkers = vp.GetInt64(ParallelAllocWorkers)
 
 	// Gateways and Ingress
-	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
+	c.KubeProxyReplacement = vp.GetBool(KubeProxyReplacement)
 	c.EnableNodePort = vp.GetBool(EnableNodePort)
 
 	// AWS options
