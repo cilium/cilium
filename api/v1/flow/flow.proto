@@ -210,7 +210,7 @@ enum TraceObservationPoint {
     // TO_CRYPTO indicates network packets are transmitted towards the crypto
     // process for encryption.
     TO_CRYPTO = 13;
-    
+
 }
 
 enum TraceReason {
@@ -757,6 +757,10 @@ message LostEvent {
     // cpu on which the event was lost if the source of lost events is
     // PERF_EVENT_RING_BUFFER.
     google.protobuf.Int32Value cpu = 3;
+    // first is the timestamp of the first event that was lost.
+    google.protobuf.Timestamp first = 4;
+    // last is the timestamp of the last event that was lost.
+    google.protobuf.Timestamp last = 5;
 }
 
 // AgentEventType is the type of agent event. These values are shared with type
