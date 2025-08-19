@@ -279,18 +279,44 @@ func TestL34Decode(t *testing.T) {
 	// SOURCE          					DESTINATION           TYPE   SUMMARY
 	// 192.168.60.11:6443(sun-sr-https)  10.16.236.178:54222   L3/4   TCP Flags: ACK
 	d := []byte{
-		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
+		// NOTIFY_CAPTURE_HDR
+		4,    // Trace type
+		7,    // Observation Point
+		0, 0, // Source
+		7, 124, 26, 57, // Hash
+		66, 0, 0, 0, // Original length
+		66, 0, // Cap length
+		2, 0, // Version
+		// trace_notify fields
 		1, 0, 0, 0, // source labels
 		0, 0, 0, 0, // destination labels
 		0, 0, // destination ID
 		0x81,       // "established" trace reason with the encrypt bit set
 		0,          // flags
 		0, 0, 0, 0, // ifindex
-		246, 141, 178, 45, 33, 217, 246, 141, 178,
-		45, 33, 217, 8, 0, 69, 0, 0, 52, 234, 28, 64, 0, 64, 6, 120, 49, 192,
-		168, 60, 11, 10, 16, 236, 178, 25, 43, 211, 206, 42, 239, 210, 28, 180,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, // Orig IP
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // trace_id
+		// Ethernet header
+		0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, // Dst MAC
+		0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, // Src MAC
+		0x08, 0x00, // IPv4 ethertype
+		// IPv4 Header
+		0x45,  // Version (4), IHL (5)
+		0,     // TOS
+		0, 52, // length
+		234, 28, // ID
+		0x40, 0, // Flags (1), Offset
+		64,      // TTL
+		6,       // Protocol (TCP)
+		120, 49, // Checksum
+		192, 168, 60, 11, // Source IP
+		10, 16, 236, 178, // Destination IP
+		25, 43, 211, 206, 42, 239, 210, 28, 180,
+		// TCP
 		152, 129, 103, 128, 16, 1, 152, 216, 156, 0, 0, 1, 1, 8, 10, 0, 90, 176,
-		98, 0, 90, 176, 97, 0, 0}
+		98, 0, 90, 176, 97,
+		0, 0,
+	}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
@@ -412,12 +438,36 @@ func TestL34Decode(t *testing.T) {
 	// SOURCE              DESTINATION          TYPE   SUMMARY
 	// ff02::1:ff00:b3e5   f00d::a10:0:0:9195   L3/4
 	d2 := []byte{
-		4, 5, 168, 11, 95, 22, 242, 184, 86, 0, 0, 0, 86, 0, 0, 0, 104, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		51, 51, 255, 0, 179, 229, 18, 145,
-		6, 226, 34, 26, 134, 221, 96, 0, 0, 0, 0, 32, 58, 255, 255, 2, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 1, 255, 0, 179, 229, 240, 13, 0, 0, 0, 0, 0, 0, 10,
-		16, 0, 0, 0, 0, 145, 149, 135, 0, 80, 117, 0, 0, 0, 0, 240, 13, 0, 0, 0,
+		4,       // Trace type
+		5,       // Observation point
+		168, 11, // Source
+		95, 22, 242, 184, // Hash
+		86, 0, 0, 0, // Original length
+		86, 0, // Cap length
+		2, 0, // Version
+		// trace_notify fields
+		104, 0, 0, 0, // source labels
+		0, 0, 0, 0, // destination labels
+		0, 0, // destination ID
+		0,          // trace reason
+		0,          // flags
+		0, 0, 0, 0, // Ifindex
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0, // Orig IP
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // trace_id
+		// Ethernet header
+		51, 51, 255, 0, 179, 229, // Dst MAC
+		18, 145, 6, 226, 34, 26, // Src MAC
+		134, 221, // IPv6 ethertype
+		// IPv6 Header
+		0x60,    // Version, TC (half)
+		0, 0, 0, // TC (half) + flow label
+		0, 32, // Length
+		58,                                                                                             // Next header (IPv6-ICMP)
+		255,                                                                                            // Hop limit
+		0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF, 0x00, 0xB3, 0xE5, // Src IPv6 address
+		0xF0, 0x0D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x10, 0x00, 0x00, 0x00, 0x00, 0x91, 0x95, // Dst IPv6 address
+		// ICMPv6
+		135, 0, 80, 117, 0, 0, 0, 0, 240, 13, 0, 0, 0,
 		0, 0, 0, 10, 16, 0, 0, 0, 0, 179, 229, 1, 1, 18, 145, 6, 226, 34, 26, 0,
 		0, 0, 0, 0, 0}
 
@@ -505,10 +555,12 @@ func TestDecodeTraceNotify(t *testing.T) {
 	}{{"L3Device", true}, {"L2Device", false}} {
 		t.Run(c.Name, func(t *testing.T) {
 			tn := monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				SrcLabel: 123,
-				DstLabel: 456,
-				Version:  monitor.TraceNotifyVersion1,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					SrcLabel: 123,
+					DstLabel: 456,
+					Version:  monitor.TraceNotifyVersion2,
+				},
 			}
 			lay := []gopacket.SerializableLayer{
 				&layers.Ethernet{
@@ -991,8 +1043,10 @@ func TestDecodeTraceReason(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			tn := monitor.TraceNotify{
-				Type:   byte(monitorAPI.MessageTypeTrace),
-				Reason: tc.reason,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:   byte(monitorAPI.MessageTypeTrace),
+					Reason: tc.reason,
+				},
 			}
 			f := parseFlow(tn, "1.2.3.4", "5.6.7.8")
 			assert.Equal(t, tc.want, f.GetTraceReason())
@@ -1000,8 +1054,10 @@ func TestDecodeTraceReason(t *testing.T) {
 		})
 		t.Run(tc.name+" encrypted", func(t *testing.T) {
 			tn := monitor.TraceNotify{
-				Type:   byte(monitorAPI.MessageTypeTrace),
-				Reason: tc.reason | monitor.TraceReasonEncryptMask,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:   byte(monitorAPI.MessageTypeTrace),
+					Reason: tc.reason | monitor.TraceReasonEncryptMask,
+				},
 			}
 			f := parseFlow(tn, "1.2.3.4", "5.6.7.8")
 			assert.Equal(t, tc.want, f.GetTraceReason())
@@ -1012,9 +1068,11 @@ func TestDecodeTraceReason(t *testing.T) {
 
 func TestDecodeLocalIdentity(t *testing.T) {
 	tn := monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		SrcLabel: 123 | identity.IdentityScopeLocal,
-		DstLabel: 456 | identity.IdentityScopeLocal,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			SrcLabel: 123 | identity.IdentityScopeLocal,
+			DstLabel: 456 | identity.IdentityScopeLocal,
+		},
 	}
 	data, err := testutils.CreateL3L4Payload(tn)
 	require.NoError(t, err)
@@ -1113,8 +1171,10 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_LXC at unknown endpoint
 	tn := monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		ObsPoint: monitorAPI.TraceToLxc,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			ObsPoint: monitorAPI.TraceToLxc,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
@@ -1122,9 +1182,11 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_LXC Egress
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceToLxc,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   localEP,
+			ObsPoint: monitorAPI.TraceToLxc,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
@@ -1132,11 +1194,13 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TO_NETWORK Egress (SNAT)
 	tnv1 := monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   hostEP,
-		ObsPoint: monitorAPI.TraceToNetwork,
-		Version:  monitor.TraceNotifyVersion1,
-		OrigIP:   types.IPv6{1, 2, 3, 4}, // localIP
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   hostEP,
+			ObsPoint: monitorAPI.TraceToNetwork,
+			Version:  monitor.TraceNotifyVersion1,
+			OrigIP:   types.IPv6{1, 2, 3, 4}, // localIP
+		},
 	}
 	f = parseFlow(tnv1, netip.MustParseAddr("10.11.12.13"), remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
@@ -1144,10 +1208,12 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_LXC Egress, reversed by CT_REPLY
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceToLxc,
-		Reason:   monitor.TraceReasonCtReply,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   localEP,
+			ObsPoint: monitorAPI.TraceToLxc,
+			Reason:   monitor.TraceReasonCtReply,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
@@ -1155,9 +1221,11 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_HOST Ingress
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceToHost,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   localEP,
+			ObsPoint: monitorAPI.TraceToHost,
+		},
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
@@ -1165,10 +1233,12 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_HOST Ingress, reversed by CT_REPLY
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceToHost,
-		Reason:   monitor.TraceReasonCtReply,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   localEP,
+			ObsPoint: monitorAPI.TraceToHost,
+			Reason:   monitor.TraceReasonCtReply,
+		},
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
@@ -1176,10 +1246,12 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_FROM_LXC unknown
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceFromLxc,
-		Reason:   monitor.TraceReasonUnknown,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   localEP,
+			ObsPoint: monitorAPI.TraceFromLxc,
+			Reason:   monitor.TraceReasonUnknown,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
@@ -1187,10 +1259,12 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_FROM_LXC unknown (encrypted)
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceFromLxc,
-		Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   localEP,
+			ObsPoint: monitorAPI.TraceFromLxc,
+			Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
@@ -1198,10 +1272,12 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_STACK Encrypt Overlay
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   hostEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonEncryptOverlay,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   hostEP,
+			ObsPoint: monitorAPI.TraceToStack,
+			Reason:   monitor.TraceReasonEncryptOverlay,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
@@ -1209,10 +1285,12 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_STACK SRV6 decap Ingress
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   hostEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Decap,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   hostEP,
+			ObsPoint: monitorAPI.TraceToStack,
+			Reason:   monitor.TraceReasonSRv6Decap,
+		},
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
@@ -1220,10 +1298,12 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_STACK SRV6 encap Egress
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Encap,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   localEP,
+			ObsPoint: monitorAPI.TraceToStack,
+			Reason:   monitor.TraceReasonSRv6Encap,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
@@ -1286,9 +1366,11 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// TRACE_TO_LXC
 	tn := monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		ObsPoint: monitorAPI.TraceToLxc,
-		Reason:   monitor.TraceReasonCtReply,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			ObsPoint: monitorAPI.TraceToLxc,
+			Reason:   monitor.TraceReasonCtReply,
+		},
 	}
 	f := parseFlow(tn, localIP, remoteIP)
 	assert.NotNil(t, f.GetIsReply())
@@ -1297,9 +1379,11 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// TRACE_FROM_LXC
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		ObsPoint: monitorAPI.TraceFromLxc,
-		Reason:   monitor.TraceReasonUnknown,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			ObsPoint: monitorAPI.TraceFromLxc,
+			Reason:   monitor.TraceReasonUnknown,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
@@ -1307,9 +1391,11 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// TRACE_FROM_LXC encrypted
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		ObsPoint: monitorAPI.TraceFromLxc,
-		Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			ObsPoint: monitorAPI.TraceFromLxc,
+			Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
@@ -1317,10 +1403,12 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// TRACE_TO_STACK srv6-decap
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   hostEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Decap,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   hostEP,
+			ObsPoint: monitorAPI.TraceToStack,
+			Reason:   monitor.TraceReasonSRv6Decap,
+		},
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Nil(t, f.GetIsReply())
@@ -1328,10 +1416,12 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// TRACE_TO_STACK srv6-decap (encrypted)
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   hostEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Decap | monitor.TraceReasonEncryptMask,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   hostEP,
+			ObsPoint: monitorAPI.TraceToStack,
+			Reason:   monitor.TraceReasonSRv6Decap | monitor.TraceReasonEncryptMask,
+		},
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Nil(t, f.GetIsReply())
@@ -1339,10 +1429,12 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// TRACE_TO_STACK srv6-encap
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Encap,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   localEP,
+			ObsPoint: monitorAPI.TraceToStack,
+			Reason:   monitor.TraceReasonSRv6Encap,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
@@ -1350,10 +1442,12 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// TRACE_TO_STACK srv6-encap (encrypted)
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   localEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonSRv6Encap | monitor.TraceReasonEncryptMask,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   localEP,
+			ObsPoint: monitorAPI.TraceToStack,
+			Reason:   monitor.TraceReasonSRv6Encap | monitor.TraceReasonEncryptMask,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
@@ -1361,10 +1455,12 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// TRACE_TO_STACK Encrypted Overlay
 	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   hostEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonEncryptOverlay,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   hostEP,
+			ObsPoint: monitorAPI.TraceToStack,
+			Reason:   monitor.TraceReasonEncryptOverlay,
+		},
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
@@ -1479,8 +1575,10 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	require.NoError(t, err)
 
 	v0 := monitor.TraceNotify{
-		Type:    byte(monitorAPI.MessageTypeTrace),
-		Version: monitor.TraceNotifyVersion0,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:    byte(monitorAPI.MessageTypeTrace),
+			Version: monitor.TraceNotifyVersion0,
+		},
 	}
 	eth := layers.Ethernet{
 		EthernetType: layers.EthernetTypeIPv4,
@@ -1500,9 +1598,11 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	assert.Empty(t, f.IP.SourceXlated)
 
 	v1 := monitor.TraceNotify{
-		Type:    byte(monitorAPI.MessageTypeTrace),
-		Version: monitor.TraceNotifyVersion1,
-		OrigIP:  [16]byte{1, 1, 1, 1},
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:    byte(monitorAPI.MessageTypeTrace),
+			Version: monitor.TraceNotifyVersion1,
+			OrigIP:  [16]byte{1, 1, 1, 1},
+		},
 	}
 	data, err = testutils.CreateL3L4Payload(v1, &eth, &ip, &layers.TCP{})
 	require.NoError(t, err)
@@ -1512,9 +1612,11 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	assert.Equal(t, "10.0.0.2", f.IP.SourceXlated)
 
 	v1 = monitor.TraceNotify{
-		Type:    byte(monitorAPI.MessageTypeTrace),
-		Version: monitor.TraceNotifyVersion1,
-		OrigIP:  [16]byte{10, 0, 0, 2},
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:    byte(monitorAPI.MessageTypeTrace),
+			Version: monitor.TraceNotifyVersion1,
+			OrigIP:  [16]byte{10, 0, 0, 2},
+		},
 	}
 	data, err = testutils.CreateL3L4Payload(v1, &eth, &ip, &layers.TCP{})
 	require.NoError(t, err)
@@ -1528,8 +1630,10 @@ func TestICMP(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), &testutils.NoopEndpointGetter, nil, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
 	require.NoError(t, err)
 	message := monitor.TraceNotify{
-		Type:    byte(monitorAPI.MessageTypeTrace),
-		Version: monitor.TraceNotifyVersion1,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:    byte(monitorAPI.MessageTypeTrace),
+			Version: monitor.TraceNotifyVersion1,
+		},
 	}
 
 	// icmpv4
@@ -1606,9 +1710,11 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 	require.NoError(t, err)
 
 	v0 := monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		SrcLabel: 456, // takes precedence over ep.Identity
-		Version:  monitor.TraceNotifyVersion0,
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			SrcLabel: 456, // takes precedence over ep.Identity
+			Version:  monitor.TraceNotifyVersion0,
+		},
 	}
 
 	eth := layers.Ethernet{
@@ -1712,10 +1818,12 @@ func TestTraceNotifyProxyPort(t *testing.T) {
 	require.NoError(t, err)
 
 	v0 := monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Version:  monitor.TraceNotifyVersion0,
-		ObsPoint: monitorAPI.TraceToProxy,
-		DstID:    uint16(1234),
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Version:  monitor.TraceNotifyVersion0,
+			ObsPoint: monitorAPI.TraceToProxy,
+			DstID:    uint16(1234),
+		},
 	}
 	eth := layers.Ethernet{
 		EthernetType: layers.EthernetTypeIPv4,
@@ -1734,11 +1842,13 @@ func TestTraceNotifyProxyPort(t *testing.T) {
 	assert.Equal(t, uint32(1234), f.ProxyPort)
 
 	v1 := monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Version:  monitor.TraceNotifyVersion1,
-		ObsPoint: monitorAPI.TraceToProxy,
-		DstID:    uint16(4321),
-		OrigIP:   [16]byte{1, 1, 1, 1},
+		TraceNotifyV1: monitor.TraceNotifyV1{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Version:  monitor.TraceNotifyVersion1,
+			ObsPoint: monitorAPI.TraceToProxy,
+			DstID:    uint16(4321),
+			OrigIP:   [16]byte{1, 1, 1, 1},
+		},
 	}
 	data, err = testutils.CreateL3L4Payload(v1, &eth, &ip, &layers.TCP{})
 	require.NoError(t, err)
@@ -1914,8 +2024,10 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_unknown",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				ObsPoint: monitorAPI.TraceToLxc,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					ObsPoint: monitorAPI.TraceToLxc,
+				},
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
@@ -1927,9 +2039,11 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_to_lxc",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   localEP,
-				ObsPoint: monitorAPI.TraceToLxc,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   localEP,
+					ObsPoint: monitorAPI.TraceToLxc,
+				},
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
@@ -1942,11 +2056,13 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v1_to_network",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   hostEP,
-				ObsPoint: monitorAPI.TraceToNetwork,
-				Version:  monitor.TraceNotifyVersion1,
-				OrigIP:   types.IPv6{1, 2, 3, 4}, // localIP
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   hostEP,
+					ObsPoint: monitorAPI.TraceToNetwork,
+					Version:  monitor.TraceNotifyVersion1,
+					OrigIP:   types.IPv6{1, 2, 3, 4}, // localIP
+				},
 			},
 			ipTuple: xlatedEgressTuple,
 			want: &flowpb.Flow{
@@ -1966,13 +2082,15 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v1_to_crypto",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   hostEP,
-				ObsPoint: monitorAPI.TraceToCrypto,
-				Version:  monitor.TraceNotifyVersion1,
-				Reason:   monitor.TraceReasonUnknown,
-				Flags:    monitor.TraceNotifyFlagIsL3Device,
-				OrigIP:   types.IPv6{1, 2, 3, 4},
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   hostEP,
+					ObsPoint: monitorAPI.TraceToCrypto,
+					Version:  monitor.TraceNotifyVersion1,
+					Reason:   monitor.TraceReasonUnknown,
+					Flags:    monitor.TraceNotifyFlagIsL3Device,
+					OrigIP:   types.IPv6{1, 2, 3, 4},
+				},
 			},
 			ipTuple: xlatedEgressTuple,
 			want: &flowpb.Flow{
@@ -1990,13 +2108,15 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v1_from_crypto",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   hostEP,
-				ObsPoint: monitorAPI.TraceFromCrypto,
-				Version:  monitor.TraceNotifyVersion1,
-				Reason:   monitor.TraceReasonUnknown,
-				Flags:    monitor.TraceNotifyFlagIsL3Device,
-				OrigIP:   types.IPv6{1, 2, 3, 4},
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   hostEP,
+					ObsPoint: monitorAPI.TraceFromCrypto,
+					Version:  monitor.TraceNotifyVersion1,
+					Reason:   monitor.TraceReasonUnknown,
+					Flags:    monitor.TraceNotifyFlagIsL3Device,
+					OrigIP:   types.IPv6{1, 2, 3, 4},
+				},
 			},
 			ipTuple: xlatedEgressTuple,
 			want: &flowpb.Flow{
@@ -2014,10 +2134,12 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_to_lxc_reply",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   localEP,
-				ObsPoint: monitorAPI.TraceToLxc,
-				Reason:   monitor.TraceReasonCtReply,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   localEP,
+					ObsPoint: monitorAPI.TraceToLxc,
+					Reason:   monitor.TraceReasonCtReply,
+				},
 			},
 			ipTuple: xlatedEgressTuple,
 			want: &flowpb.Flow{
@@ -2033,9 +2155,11 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_to_host",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   localEP,
-				ObsPoint: monitorAPI.TraceToHost,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   localEP,
+					ObsPoint: monitorAPI.TraceToHost,
+				},
 			},
 			ipTuple: ingressTuple,
 			want: &flowpb.Flow{
@@ -2056,10 +2180,12 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_to_host_reply",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   localEP,
-				ObsPoint: monitorAPI.TraceToHost,
-				Reason:   monitor.TraceReasonCtReply,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   localEP,
+					ObsPoint: monitorAPI.TraceToHost,
+					Reason:   monitor.TraceReasonCtReply,
+				},
 			},
 			ipTuple: ingressTuple,
 			want: &flowpb.Flow{
@@ -2080,10 +2206,12 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_from_lxc",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   localEP,
-				ObsPoint: monitorAPI.TraceFromLxc,
-				Reason:   monitor.TraceReasonUnknown,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   localEP,
+					ObsPoint: monitorAPI.TraceFromLxc,
+					Reason:   monitor.TraceReasonUnknown,
+				},
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
@@ -2097,10 +2225,12 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_from_lxc_encrypted",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   localEP,
-				ObsPoint: monitorAPI.TraceFromLxc,
-				Reason:   monitor.TraceReasonUnknown,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   localEP,
+					ObsPoint: monitorAPI.TraceFromLxc,
+					Reason:   monitor.TraceReasonUnknown,
+				},
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
@@ -2114,10 +2244,12 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_unknown_encrypted",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   localEP,
-				ObsPoint: monitorAPI.TraceFromLxc,
-				Reason:   monitor.TraceReasonUnknown,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   localEP,
+					ObsPoint: monitorAPI.TraceFromLxc,
+					Reason:   monitor.TraceReasonUnknown,
+				},
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
@@ -2131,10 +2263,12 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_from_lxc_unknown_encrypted",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   localEP,
-				ObsPoint: monitorAPI.TraceFromLxc,
-				Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   localEP,
+					ObsPoint: monitorAPI.TraceFromLxc,
+					Reason:   monitor.TraceReasonUnknown | monitor.TraceReasonEncryptMask,
+				},
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
@@ -2151,10 +2285,12 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_to_stack_encrypt_overlay",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   hostEP,
-				ObsPoint: monitorAPI.TraceToStack,
-				Reason:   monitor.TraceReasonEncryptOverlay,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   hostEP,
+					ObsPoint: monitorAPI.TraceToStack,
+					Reason:   monitor.TraceReasonEncryptOverlay,
+				},
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
@@ -2170,10 +2306,12 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_to_stack_srv6_decap",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   hostEP,
-				ObsPoint: monitorAPI.TraceToStack,
-				Reason:   monitor.TraceReasonSRv6Decap,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   hostEP,
+					ObsPoint: monitorAPI.TraceToStack,
+					Reason:   monitor.TraceReasonSRv6Decap,
+				},
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
@@ -2189,10 +2327,12 @@ func TestDecode_TraceNotify(t *testing.T) {
 		{
 			name: "v0_to_stack_srv6_encap",
 			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   localEP,
-				ObsPoint: monitorAPI.TraceToStack,
-				Reason:   monitor.TraceReasonSRv6Encap,
+				TraceNotifyV1: monitor.TraceNotifyV1{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   localEP,
+					ObsPoint: monitorAPI.TraceToStack,
+					Reason:   monitor.TraceReasonSRv6Encap,
+				},
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
