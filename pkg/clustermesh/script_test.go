@@ -119,7 +119,7 @@ func TestScript(t *testing.T) {
 				func() kpr.KPRConfig {
 					return kpr.KPRConfig{
 						EnableNodePort:       true,
-						KubeProxyReplacement: option.KubeProxyReplacementTrue,
+						KubeProxyReplacement: true,
 					}
 				},
 				func() store.Factory {

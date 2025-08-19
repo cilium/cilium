@@ -102,7 +102,7 @@ func registerReconciler(params ingressParams) error {
 		return nil
 	}
 
-	if params.OperatorConfig.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
+	if !params.OperatorConfig.KubeProxyReplacement &&
 		!params.OperatorConfig.EnableNodePort {
 		params.Logger.Warn("Ingress Controller support requires either kube-proxy-replacement or enable-node-port enabled")
 		return nil

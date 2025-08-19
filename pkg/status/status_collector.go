@@ -275,12 +275,9 @@ func (d *statusCollector) getCNIChainingStatus() *models.CNIChainingStatus {
 }
 
 func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *models.KubeProxyReplacement {
-	var mode string
-	switch d.statusParams.KPRConfig.KubeProxyReplacement {
-	case option.KubeProxyReplacementTrue:
+	mode := models.KubeProxyReplacementModeFalse
+	if d.statusParams.KPRConfig.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeTrue
-	case option.KubeProxyReplacementFalse:
-		mode = models.KubeProxyReplacementModeFalse
 	}
 
 	devices, _ := datapathTables.SelectedDevices(d.statusParams.Devices, d.statusParams.DB.ReadTxn())
