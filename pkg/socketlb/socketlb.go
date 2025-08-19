@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/kpr"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
@@ -58,7 +58,7 @@ func cgroupLinkPath() string {
 // options have changed.
 // It expects bpf_sock.c to be compiled previously, so that bpf_sock.o is present
 // in the Runtime dir.
-func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, kprCfg kpr.KPRConfig, svcCfg svcrouteconfig.RoutesConfig) error {
+func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeConfiguration, svcCfg svcrouteconfig.RoutesConfig) error {
 	if err := os.MkdirAll(cgroupLinkPath(), 0777); err != nil {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
@@ -68,7 +68,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, kprCfg kpr.KPRConfig, svc
 		return fmt.Errorf("failed to load collection spec for bpf_sock.o: %w", err)
 	}
 
-	cfg := config.NewBPFSocket()
+	cfg := config.NewBPFSock(config.NodeConfig(lnc))
 	cfg.EnableNoServiceEndpointsRoutable = svcCfg.EnableNoServiceEndpointsRoutable
 
 	coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
@@ -103,7 +103,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, kprCfg kpr.KPRConfig, svc
 			enabled[GetPeerName4] = true
 		}
 
-		if kprCfg.KubeProxyReplacement && option.Config.NodePortBindProtection {
+		if lnc.KPRConfig.KubeProxyReplacement && option.Config.NodePortBindProtection {
 			enabled[PostBind4] = true
 		}
 
@@ -125,7 +125,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, kprCfg kpr.KPRConfig, svc
 			enabled[GetPeerName6] = true
 		}
 
-		if kprCfg.KubeProxyReplacement && option.Config.NodePortBindProtection {
+		if lnc.KPRConfig.KubeProxyReplacement && option.Config.NodePortBindProtection {
 			enabled[PostBind6] = true
 		}
 
