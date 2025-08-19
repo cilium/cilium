@@ -89,7 +89,11 @@ func testDistribution(t *testing.T, client echo.MeshPod, expected http.ExpectedR
 	g.SetLimit(concurrentRequests)
 	for i := 0.0; i < totalRequests; i++ {
 		g.Go(func() error {
-			_, cRes, err := client.CaptureRequestResponseAndCompare(t, expected)
+			uniqueExpected := expected
+			if err := http.AddEntropy(&uniqueExpected); err != nil {
+				return fmt.Errorf("error adding entropy: %w", err)
+			}
+			_, cRes, err := client.CaptureRequestResponseAndCompare(t, uniqueExpected)
 			if err != nil {
 				return fmt.Errorf("failed: %w", err)
 			}
