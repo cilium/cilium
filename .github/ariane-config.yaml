@@ -80,6 +80,11 @@ triggers:
     workflows:
     - net-perf-gke.yaml
 
+schedule:
+  nightly:
+    workflows:
+    - conformance-gke.yaml
+
 workflows:
   conformance-aks.yaml:
     paths-ignore-regex: (test|Documentation)/
