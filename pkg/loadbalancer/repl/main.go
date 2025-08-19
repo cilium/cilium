@@ -81,7 +81,6 @@ func main() {
 
 var Hive = hive.New(
 	client.Cell,
-	daemonk8s.ResourcesCell,
 	daemonk8s.TablesCell,
 	maglev.Cell,
 	node.LocalNodeStoreCell,

@@ -52,45 +52,6 @@ const (
 	reflectorWaitTime = 500 * time.Millisecond
 )
 
-// K8sReflectorCell reflects Kubernetes Service and EndpointSlice objects to the
-// load-balancing tables.
-//
-// Note that this implementation uses Resource[*Service] and Resource[*Endpoints],
-// which is not the desired end-game as we'll hold onto the same data multiple
-// times. We should instead have a reflector that is built directly on the client-go
-// reflector (k8s.RegisterReflector) and not populate an intermediate cache.Store.
-// But as we're still experimenting it's easier to build on what already exists.
-var K8sReflectorCell = cell.Module(
-	"k8s-reflector",
-	"Reflects load-balancing state from Kubernetes",
-
-	// Bridge Resource[XYZ] to Observable[Event[XYZ]]. Makes it easier to
-	// test [ReflectorCell].
-	cell.ProvidePrivate(resourcesToStreams),
-	cell.Invoke(RegisterK8sReflector),
-)
-
-type resourceIn struct {
-	cell.In
-	ServicesResource  resource.Resource[*slim_corev1.Service]
-	EndpointsResource resource.Resource[*k8s.Endpoints]
-}
-
-type StreamsOut struct {
-	cell.Out
-	ServicesStream  stream.Observable[resource.Event[*slim_corev1.Service]]
-	EndpointsStream stream.Observable[resource.Event[*k8s.Endpoints]]
-}
-
-// resourcesToStreams extracts the stream.Observable from resource.Resource.
-// This makes the reflector easier to test as its API surface is reduced.
-func resourcesToStreams(in resourceIn) StreamsOut {
-	return StreamsOut{
-		ServicesStream:  in.ServicesResource,
-		EndpointsStream: in.EndpointsResource,
-	}
-}
-
 type reflectorParams struct {
 	cell.In
 
@@ -98,8 +59,8 @@ type reflectorParams struct {
 	Log                    *slog.Logger
 	Lifecycle              cell.Lifecycle
 	JobGroup               job.Group
-	ServicesResource       stream.Observable[resource.Event[*slim_corev1.Service]]
-	EndpointsResource      stream.Observable[resource.Event[*k8s.Endpoints]]
+	Services               statedb.Table[*slim_corev1.Service]
+	Endpoints              statedb.Table[*k8s.Endpoints]
 	Pods                   statedb.Table[daemonK8s.LocalPod]
 	Writer                 *writer.Writer
 	Config                 loadbalancer.Config
@@ -119,7 +80,7 @@ func (p reflectorParams) waitTime() time.Duration {
 }
 
 func RegisterK8sReflector(p reflectorParams) {
-	if !p.Writer.IsEnabled() || p.ServicesResource == nil {
+	if !p.Writer.IsEnabled() {
 		return
 	}
 	if p.SVCMetrics == nil {
@@ -129,9 +90,43 @@ func RegisterK8sReflector(p reflectorParams) {
 	podsComplete := p.Writer.RegisterInitializer("k8s-pods")
 	epsComplete := p.Writer.RegisterInitializer("k8s-endpoints")
 	svcComplete := p.Writer.RegisterInitializer("k8s-services")
+
+	// Create observables from statedb tables
+	servicesObservable := stream.Map(
+		statedb.Observable(p.DB, p.Services),
+		func(change statedb.Change[*slim_corev1.Service]) resource.Event[*slim_corev1.Service] {
+			kind := resource.Upsert
+			if change.Deleted {
+				kind = resource.Delete
+			}
+			return resource.Event[*slim_corev1.Service]{
+				Kind:   kind,
+				Key:    resource.NewKey(change.Object),
+				Object: change.Object,
+				Done:   func(error) {},
+			}
+		},
+	)
+
+	endpointsObservable := stream.Map(
+		statedb.Observable(p.DB, p.Endpoints),
+		func(change statedb.Change[*k8s.Endpoints]) resource.Event[*k8s.Endpoints] {
+			kind := resource.Upsert
+			if change.Deleted {
+				kind = resource.Delete
+			}
+			return resource.Event[*k8s.Endpoints]{
+				Kind:   kind,
+				Key:    resource.NewKey(change.Object),
+				Object: change.Object,
+				Done:   func(error) {},
+			}
+		},
+	)
+
 	p.JobGroup.Add(
 		job.OneShot("reflect-services-endpoints", func(ctx context.Context, health cell.Health) error {
-			return runServiceEndpointsReflector(ctx, health, p, svcComplete, epsComplete)
+			return runServiceEndpointsReflector(ctx, health, p, servicesObservable, endpointsObservable, svcComplete, epsComplete)
 		}),
 		job.OneShot("reflect-pods", func(ctx context.Context, health cell.Health) error {
 			return runPodReflector(ctx, health, p, podsComplete)
@@ -167,7 +162,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 			if change.Deleted {
 				rh.update(podName, nil)
 				if p.ExtConfig.EnableHostPort {
-					if err := deleteHostPort(p, txn, obj); err != nil {
+					if err := deleteHostPort(p, txn, change.Object); err != nil {
 						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
 							logfields.Error, err)
 					}
@@ -179,7 +174,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 					// has been removed to free up the HostPort for other pods.
 					rh.update(podName, nil)
 					if p.ExtConfig.EnableHostPort {
-						if err := deleteHostPort(p, txn, obj); err != nil {
+						if err := deleteHostPort(p, txn, change.Object); err != nil {
 							p.Log.Error("BUG: Unexpected failure in deleteHostPort",
 								logfields.Error, err)
 						}
@@ -194,7 +189,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 					}
 
 					if p.ExtConfig.EnableHostPort {
-						err = upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
+						err = upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, change.Object)
 					}
 					rh.update(podName, err)
 				}
@@ -230,14 +225,46 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 	return nil
 }
 
-func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p reflectorParams, initServices, initEndpoints func(writer.WriteTxn)) error {
+func runServiceEndpointsReflector(
+	ctx context.Context,
+	health cell.Health,
+	p reflectorParams,
+	servicesObservable stream.Observable[resource.Event[*slim_corev1.Service]],
+	endpointsObservable stream.Observable[resource.Event[*k8s.Endpoints]],
+	initServices, initEndpoints func(writer.WriteTxn),
+) error {
+	// Wait for services and endpoints tables to be populated before proceeding.
+	health.OK("Waiting for services and endpoints to be initialized")
+	_, servicesInitialized := p.Services.Initialized(p.DB.ReadTxn())
+	_, endpointsInitialized := p.Endpoints.Initialized(p.DB.ReadTxn())
+	select {
+	case <-ctx.Done():
+		return nil
+	case <-servicesInitialized:
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-endpointsInitialized:
+		}
+	case <-endpointsInitialized:
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-servicesInitialized:
+		}
+	}
+
+	txn := p.Writer.WriteTxn()
+	initServices(txn)
+	initEndpoints(txn)
+	txn.Commit()
+
+	health.OK("Running")
+
 	rh := newReflectorHealth(health, p.Log)
 
 	processServiceEvent := func(txn writer.WriteTxn, kind resource.EventKind, obj *slim_corev1.Service) {
 		switch kind {
-		case resource.Sync:
-			initServices(txn)
-
 		case resource.Upsert:
 			svc, fes := convertService(p.Config, p.ExtConfig, p.Log, p.LocalNodeStore, obj, source.Kubernetes)
 			if svc == nil {
@@ -283,9 +310,6 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 	currentEndpoints := map[string]endpointsEvent{}
 	processEndpointsEvent := func(txn writer.WriteTxn, key bufferKey, kind resource.EventKind, allEps allEndpoints) {
 		switch kind {
-		case resource.Sync:
-			initEndpoints(txn)
-
 		case resource.Upsert:
 			name := loadbalancer.NewServiceName(
 				key.key.Namespace,
@@ -358,8 +382,8 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 	events := stream.ToChannel(ctx,
 		stream.Buffer(
 			joinObservables(
-				toObjectObservable(p.ServicesResource),
-				toObjectObservable(p.EndpointsResource),
+				toObjectObservable(servicesObservable),
+				toObjectObservable(endpointsObservable),
 			),
 			reflectorBufferSize,
 			p.waitTime(),
@@ -553,10 +577,10 @@ func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
 	)
 }
 
-func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalancer.Config, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn writer.WriteTxn, writer *writer.Writer, pod *slim_corev1.Pod) error {
+func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalancer.Config, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn writer.WriteTxn, writer *writer.Writer, pod daemonK8s.LocalPod) error {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
-	serviceNamePrefix := hostPortServiceNamePrefix(pod)
+	serviceNamePrefix := hostPortServiceNamePrefix(pod.Pod)
 
 	updatedServices := sets.New[loadbalancer.ServiceName]()
 	for _, c := range containers {
@@ -712,8 +736,8 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 	return nil
 }
 
-func deleteHostPort(params reflectorParams, wtxn writer.WriteTxn, pod *slim_corev1.Pod) error {
-	serviceNamePrefix := hostPortServiceNamePrefix(pod)
+func deleteHostPort(params reflectorParams, wtxn writer.WriteTxn, pod daemonK8s.LocalPod) error {
+	serviceNamePrefix := hostPortServiceNamePrefix(pod.Pod)
 	for svc := range params.Writer.Services().Prefix(wtxn, loadbalancer.ServiceByName(serviceNamePrefix)) {
 		err := params.Writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
 		if err != nil {

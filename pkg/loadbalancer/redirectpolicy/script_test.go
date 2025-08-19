@@ -68,7 +68,6 @@ func TestScript(t *testing.T) {
 			log := hivetest.Logger(t, opts...)
 			h := hive.New(
 				k8sClient.FakeClientCell(),
-				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
 				metrics.Cell,
 
