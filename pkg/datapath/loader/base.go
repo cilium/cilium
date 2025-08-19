@@ -227,7 +227,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants: config.NewBPFNetwork(nodeConfig(lnc)),
+		Constants: config.NewBPFNetwork(config.NodeConfig(lnc)),
 	})
 	if err != nil {
 		return err
@@ -470,7 +470,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		if err := compileWithOptions(ctx, l.logger, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
 			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)
 		}
-		if err := socketlb.Enable(l.logger, l.sysctl, lnc.KPRConfig, l.svcRouteConfig); err != nil {
+		if err := socketlb.Enable(l.logger, l.sysctl, lnc, l.svcRouteConfig); err != nil {
 			return err
 		}
 	} else {
