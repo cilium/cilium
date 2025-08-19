@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func parseBoolStatus(s string) bool {
@@ -202,6 +204,25 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	return nil
 }
 
+func (ct *ConnectivityTest) extractFeaturesFromUname(ctx context.Context, ciliumPod Pod, result features.Set) error {
+	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
+		defaults.AgentContainerName, []string{"uname", "-r"})
+	if err != nil {
+		return fmt.Errorf("failed to fetch uname -r: %w", err)
+	}
+
+	kernelVersion, err := version.ParseKernelVersion(stdout.String())
+	if err != nil {
+		return fmt.Errorf("failed to parse kernel version: %w", err)
+	}
+
+	result[features.RHEL] = features.Status{
+		Enabled: versioncheck.MustCompile("<=4.18.0")(kernelVersion),
+	}
+
+	return nil
+}
+
 func (ct *ConnectivityTest) extractFeaturesFromK8sCluster(ctx context.Context, result features.Set) {
 	flavor := ct.client.AutodetectFlavor(ctx)
 
@@ -355,6 +376,10 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 			return err
 		}
 		err = ct.extractFeaturesFromCiliumStatus(ctx, ciliumPod, features)
+		if err != nil {
+			return err
+		}
+		err = ct.extractFeaturesFromUname(ctx, ciliumPod, features)
 		if err != nil {
 			return err
 		}
