@@ -139,10 +139,11 @@ type Agent struct {
 	ipSecLock lock.RWMutex
 
 	// These are provided in [newAgent].
-	log       *slog.Logger
-	localNode *node.LocalNodeStore
-	jobs      job.Group
-	config    *option.DaemonConfig
+	log        *slog.Logger
+	localNode  *node.LocalNodeStore
+	jobs       job.Group
+	config     *option.DaemonConfig
+	encryptMap encrypt.EncryptMap
 
 	// These are initialized in [newAgent].
 	authKeySize int
@@ -167,12 +168,13 @@ type Agent struct {
 }
 
 // NewAgent creates a new IPSec agent.
-func NewAgent(lc cell.Lifecycle, log *slog.Logger, jobGroup job.Group, localNodeStore *node.LocalNodeStore, config *option.DaemonConfig) *Agent {
+func NewAgent(lc cell.Lifecycle, log *slog.Logger, jobGroup job.Group, localNodeStore *node.LocalNodeStore, config *option.DaemonConfig, encryptMap encrypt.EncryptMap) *Agent {
 	ipsec := &Agent{
-		log:       log,
-		localNode: localNodeStore,
-		jobs:      jobGroup,
-		config:    config,
+		log:        log,
+		localNode:  localNodeStore,
+		jobs:       jobGroup,
+		config:     config,
+		encryptMap: encryptMap,
 
 		authKeySize:          0,
 		spi:                  0,
@@ -1068,10 +1070,6 @@ func (a *Agent) LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 	a.ipSecLock.Lock()
 	defer a.ipSecLock.Unlock()
 
-	if err := encrypt.MapCreate(); err != nil {
-		return 0, 0, fmt.Errorf("Encrypt map create failed: %w", err)
-	}
-
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
@@ -1190,7 +1188,9 @@ func parseSPI(spiStr string) (uint8, int, error) {
 }
 
 func (a *Agent) setIPSecSPI(spi uint8) error {
-	if err := encrypt.MapUpdateContext(0, spi); err != nil {
+	k := encrypt.EncryptKey{Key: 0}
+	v := encrypt.EncryptValue{KeyID: spi}
+	if err := a.encryptMap.Update(k, v); err != nil {
 		a.log.Warn("cilium_encrypt_state map updated failed", logfields.Error, err)
 		return err
 	}

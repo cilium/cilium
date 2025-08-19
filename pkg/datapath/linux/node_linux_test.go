@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kpr"
+	fakeencryptmap "github.com/cilium/cilium/pkg/maps/encrypt/fake"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -79,7 +80,7 @@ const (
 )
 
 func newIPsecTestAgent(tb testing.TB) *ipsec.Agent {
-	agent := ipsec.NewAgent(hivetest.Lifecycle(tb), hivetest.Logger(tb), nil, nil, nil)
+	agent := ipsec.NewAgent(hivetest.Lifecycle(tb), hivetest.Logger(tb), nil, nil, nil, fakeencryptmap.NewFakeEncryptMap())
 
 	tb.Cleanup(func() {
 		err := agent.DeleteXFRM(ipsec.AllReqID)
