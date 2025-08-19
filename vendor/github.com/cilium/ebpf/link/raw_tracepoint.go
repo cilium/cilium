@@ -74,6 +74,10 @@ func (frt *simpleRawTracepoint) Unpin() error {
 	return fmt.Errorf("unpin raw_tracepoint: %w", ErrNotSupported)
 }
 
+func (frt *simpleRawTracepoint) Detach() error {
+	return fmt.Errorf("detach raw_tracepoint: %w", ErrNotSupported)
+}
+
 func (frt *simpleRawTracepoint) Info() (*Info, error) {
 	return nil, fmt.Errorf("can't get raw_tracepoint info: %w", ErrNotSupported)
 }
