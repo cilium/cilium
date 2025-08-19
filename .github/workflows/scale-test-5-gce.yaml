@@ -64,7 +64,7 @@ env:
   test_name: scale-5
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 533.0.0
+  gcloud_version: 534.0.0
 
 jobs:
   echo-inputs:
@@ -92,7 +92,7 @@ jobs:
       job_name: "Install and Scale Test"
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -159,7 +159,7 @@ jobs:
           go-version: ${{ env.go_version }}
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
+        uses: cilium/scale-tests-action/install-kops@87a9ed3bcb8f6fb2c046a7a6bf5f409628d33a67 # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@b7593ed2efd1c1617e1b0254da33b86225adb2a5 # v2.1.12
@@ -176,7 +176,7 @@ jobs:
           version: ${{ env.gcloud_version }}
 
       - name: Clone ClusterLoader2
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: kubernetes/perf-tests
           # Avoid using renovate to update this dependency because: (1)
@@ -211,7 +211,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
+        uses: cilium/scale-tests-action/create-cluster@87a9ed3bcb8f6fb2c046a7a6bf5f409628d33a67 # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -224,7 +224,7 @@ jobs:
           kube_proxy_enabled: false
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@969e82091d02975fbc5a798f5b7ba065fb8c67c3  # main
+        uses: cilium/scale-tests-action/setup-firewall@87a9ed3bcb8f6fb2c046a7a6bf5f409628d33a67  # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
@@ -255,7 +255,7 @@ jobs:
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
+        uses: cilium/scale-tests-action/validate-cluster@87a9ed3bcb8f6fb2c046a7a6bf5f409628d33a67 # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -285,7 +285,7 @@ jobs:
             2>&1 | tee cl2-setup.txt
 
       - name: Create Instance Group for workload deployments
-        uses: cilium/scale-tests-action/create-instance-group@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
+        uses: cilium/scale-tests-action/create-instance-group@87a9ed3bcb8f6fb2c046a7a6bf5f409628d33a67 # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -295,7 +295,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
+        uses: cilium/scale-tests-action/validate-cluster@87a9ed3bcb8f6fb2c046a7a6bf5f409628d33a67 # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -303,7 +303,7 @@ jobs:
           interval: 10s
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
+        uses: cilium/scale-tests-action/setup-firewall@87a9ed3bcb8f6fb2c046a7a6bf5f409628d33a67 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           create_native_routing_firewall: 'false'
@@ -374,14 +374,14 @@ jobs:
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: cilium/scale-tests-action/cleanup-cluster@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
+        uses: cilium/scale-tests-action/cleanup-cluster@87a9ed3bcb8f6fb2c046a7a6bf5f409628d33a67 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@969e82091d02975fbc5a798f5b7ba065fb8c67c3 # main
+        uses: cilium/scale-tests-action/export-results@87a9ed3bcb8f6fb2c046a7a6bf5f409628d33a67 # main
         with:
           test_name: ${{ env.test_name }}
           tested_sha: ${{ steps.vars.outputs.SHA }}
