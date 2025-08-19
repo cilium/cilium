@@ -129,11 +129,13 @@ func (c *consumer) trySendLostEventLocked(ts time.Time) {
 		return
 	}
 
+	count := c.lostEventCounter.Peek()
 	lostEvent := c.newEvent(ts, func() any {
 		return &observerTypes.LostEvent{
 			Source:        observerTypes.LostEventSourceEventsQueue,
-			NumLostEvents: c.lostEventCounter.Peek().Count,
-			// TODO: add timestamp range to LostEvent
+			NumLostEvents: count.Count,
+			First:         count.First,
+			Last:          count.Last,
 		}
 	})
 
