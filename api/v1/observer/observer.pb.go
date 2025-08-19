@@ -392,6 +392,7 @@ type HTTPHeader = flow.HTTPHeader
 type HTTP = flow.HTTP
 type Kafka = flow.Kafka
 type Service = flow.Service
+type IPTraceID = flow.IPTraceID
 type LostEvent = flow.LostEvent
 type AgentEvent = flow.AgentEvent
 type AgentEvent_Unknown = flow.AgentEvent_Unknown
