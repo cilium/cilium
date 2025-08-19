@@ -504,3 +504,37 @@ func BenchmarkSubsetOf(b *testing.B) {
 		)
 	}
 }
+
+func TestMap(t *testing.T) {
+	assert.Nil(t, Map([]int(nil), func(i int) int { return i }),
+		"Map should preserve the nilness of the input slice")
+
+	out := Map([]int{}, func(i int) int { return i })
+	assert.NotNil(t, out, "Map should return an empty, but not nil, slice")
+	assert.Empty(t, out, "Map should return an empty, but not nil, slice")
+
+	assert.Equal(t, []int{1, 2, 3, 4, 5},
+		Map([]int{0, 1, 2, 3, 4}, func(i int) int { return i + 1 }),
+		"Map should correctly map the input array, when the output type is the same",
+	)
+
+	assert.Equal(t, []string{"true", "false", "true"},
+		Map([]bool{true, false, true}, func(b bool) string { return strconv.FormatBool(b) }),
+		"Map should correctly map the input array, when the output type is different",
+	)
+}
+
+func TestMapIter(t *testing.T) {
+	assert.Empty(t, slices.Collect(MapIter(slices.Values([]int{}), func(i int) int { return i })),
+		"MapIter should work correctly if the input iterator has no elements")
+
+	assert.Equal(t, []int{1, 2, 3, 4, 5},
+		slices.Collect(MapIter(slices.Values([]int{0, 1, 2, 3, 4}), func(i int) int { return i + 1 })),
+		"MapIter should correctly map the input iterator, when the output type is the same",
+	)
+
+	assert.Equal(t, []string{"true", "false", "true"},
+		slices.Collect(MapIter(slices.Values([]bool{true, false, true}), func(b bool) string { return strconv.FormatBool(b) })),
+		"MapIter should correctly map the input iterator, when the output type is different",
+	)
+}
