@@ -367,11 +367,20 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-      - name: Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})
+      - name: Run sequential connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})"
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }})-sequential.xml" \
+          --junit-property github_job_step="Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})" \
+          --test 'seq-.*'
+
+      - name: Run concurrent connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }})-concurrent.xml" \
+          --junit-property github_job_step="Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})" \
+          --test-concurrency=5 \
+          --test '!seq-.*'
 
       - name: Run common post steps
         if: ${{ always() }}
