@@ -697,7 +697,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
 
 // Tests the same as TestNodeChurnXFRMLeaks, but in tunneling mode. As a
 // consequence, encrypted overlay will kick in.
-func TestNodeChurnXFRMLeaksEncryptedOverlay(t *testing.T) {
+func TestPrivilegedNodeChurnXFRMLeaksEncryptedOverlay(t *testing.T) {
 	s := setupLinuxPrivilegedIPv4OnlyTestSuite(t)
 	config := s.nodeConfigTemplate
 	config.EnableIPSec = true

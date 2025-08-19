@@ -63,7 +63,7 @@ func TestPrivilegedLoadKeysNoFile(t *testing.T) {
 	require.True(t, os.IsNotExist(err))
 }
 
-func TestInvalidLoadKeys(t *testing.T) {
+func TestPrivilegedInvalidLoadKeys(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	keys := bytes.NewReader(invalidKeysDat)
@@ -154,7 +154,7 @@ func TestPrivilegedParseSPI(t *testing.T) {
 	}
 }
 
-func TestUpsertIPSecEquals(t *testing.T) {
+func TestPrivilegedUpsertIPSecEquals(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	_, local, err := net.ParseCIDR("1.2.3.4/16")
@@ -237,7 +237,7 @@ func TestUpsertIPSecEquals(t *testing.T) {
 //     the well-defined Encryption mark.
 //
 // 2. A state should be created with similar properties as above.
-func TestUpsertIPSecEndpointOut(t *testing.T) {
+func TestPrivilegedUpsertIPSecEndpointOut(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
@@ -358,7 +358,7 @@ func TestUpsertIPSecEndpointOut(t *testing.T) {
 //   - Template destination is the ESP tunnel IP of the local node forwarding
 //     the traffic.
 //   - A ReqID of 1
-func TestUpsertIPSecEndpointFwd(t *testing.T) {
+func TestPrivilegedUpsertIPSecEndpointFwd(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
@@ -456,7 +456,7 @@ func TestUpsertIPSecEndpointFwd(t *testing.T) {
 //     the exception that the mark match should be the TO_PROXY mark.
 //
 // 2. A state should be created with similar properties as above.
-func TestUpsertIPSecEndpointIn(t *testing.T) {
+func TestPrivilegedUpsertIPSecEndpointIn(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
@@ -561,7 +561,7 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 	require.Equal(t, netlink.XFRM_MODE_TUNNEL, policyTmpl.Mode)
 }
 
-func TestUpsertIPSecKeyMissing(t *testing.T) {
+func TestPrivilegedUpsertIPSecKeyMissing(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
@@ -587,7 +587,7 @@ func TestUpsertIPSecKeyMissing(t *testing.T) {
 	require.ErrorContains(t, err, "unable to replace local state: global IPsec key missing")
 }
 
-func TestUpdateExistingIPSecEndpoint(t *testing.T) {
+func TestPrivilegedUpdateExistingIPSecEndpoint(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
