@@ -141,7 +141,7 @@ static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, int l3_off
 		}
 
 		if (nh == NEXTHDR_FRAGMENT) {
-			struct ipv6_frag_hdr frag;
+			struct ipv6_frag_hdr frag = { 0 };
 
 			if (ctx_load_bytes(ctx, l3_off + len, &frag, sizeof(frag)) < 0)
 				return DROP_INVALID;
