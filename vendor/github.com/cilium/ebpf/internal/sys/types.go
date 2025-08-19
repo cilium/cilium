@@ -1064,6 +1064,16 @@ func LinkCreateUprobeMulti(attr *LinkCreateUprobeMultiAttr) (*FD, error) {
 	return NewFD(int(fd))
 }
 
+type LinkDetachAttr struct {
+	_      structs.HostLayout
+	LinkFd uint32
+}
+
+func LinkDetach(attr *LinkDetachAttr) error {
+	_, err := BPF(BPF_LINK_DETACH, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	return err
+}
+
 type LinkGetFdByIdAttr struct {
 	_  structs.HostLayout
 	Id LinkID

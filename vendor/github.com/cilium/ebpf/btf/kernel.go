@@ -60,6 +60,11 @@ func loadCachedKernelSpec() (*Spec, error) {
 	globalCache.Lock()
 	defer globalCache.Unlock()
 
+	// check again, to prevent race between multiple callers
+	if globalCache.kernel != nil {
+		return globalCache.kernel, nil
+	}
+
 	spec, err := loadKernelSpec()
 	if err != nil {
 		return nil, err
@@ -102,6 +107,11 @@ func loadCachedKernelModuleSpec(module string) (*Spec, error) {
 	// it makes a difference.
 	globalCache.Lock()
 	defer globalCache.Unlock()
+
+	// check again, to prevent race between multiple callers
+	if spec := globalCache.modules[module]; spec != nil {
+		return spec, nil
+	}
 
 	spec, err = loadKernelModuleSpec(module, base)
 	if err != nil {
