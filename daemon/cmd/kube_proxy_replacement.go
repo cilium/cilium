@@ -145,8 +145,8 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		// running in full KPR mode as otherwise conntrack would be
 		// required for NAT operations
 		if !(kprCfg.EnableHostPort && kprCfg.EnableNodePort && kprCfg.EnableExternalIPs && kprCfg.EnableSocketLB) {
-			return fmt.Errorf("%s requires the agent to run with %s=%s.",
-				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
+			return fmt.Errorf("%s requires the agent to run with %s.",
+				option.InstallNoConntrackIptRules, option.KubeProxyReplacement)
 		}
 
 		if option.Config.MasqueradingEnabled() && !option.Config.EnableBPFMasquerade {
@@ -271,8 +271,8 @@ func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
 		// KPR=true is needed or we might rely on netfilter.
-		case kprCfg.KubeProxyReplacement != option.KubeProxyReplacementTrue:
-			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
+		case !kprCfg.KubeProxyReplacement:
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.KubeProxyReplacement)
 		}
 		if msg != "" {
 			option.Config.EnableHostLegacyRouting = true
