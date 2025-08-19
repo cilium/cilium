@@ -304,6 +304,11 @@ func (ipam *LBIPAM) handleServiceEvent(ctx context.Context, event resource.Event
 			err = fmt.Errorf("svcOnDelete: %w", err)
 		}
 	}
+	if !init && err == nil {
+		if err = ipam.satisfyAndUpdateCounts(ctx); err != nil {
+			err = fmt.Errorf("satisfyAndUpdateCounts: %w", err)
+		}
+	}
 	event.Done(err)
 }
 
@@ -361,16 +366,6 @@ func (ipam *LBIPAM) svcOnUpsert(ctx context.Context, svc *slim_core_v1.Service, 
 		return fmt.Errorf("handleUpsertService: %w", err)
 	}
 
-	if init {
-		// No need to satisfy or update on init,
-		// it will happen later after full sync
-		return nil
-	}
-
-	if err := ipam.satisfyAndUpdateCounts(ctx); err != nil {
-		return fmt.Errorf("satisfyAndUpdateCounts: %w", err)
-	}
-
 	return nil
 }
 
@@ -384,15 +379,6 @@ func (ipam *LBIPAM) svcOnDelete(ctx context.Context, svc *slim_core_v1.Service, 
 	ipam.logger.DebugContext(ctx, fmt.Sprintf("Deleted service '%s/%s'", svc.GetNamespace(), svc.GetName()))
 
 	ipam.handleDeletedService(svc)
-
-	if init {
-		// No need to satisfy or update on init,
-		// it will happen later after full sync
-		return nil
-	}
-	if err := ipam.satisfyAndUpdateCounts(ctx); err != nil {
-		return fmt.Errorf("satisfyAndUpdateCounts: %w", err)
-	}
 
 	return nil
 }
