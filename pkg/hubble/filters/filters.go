@@ -149,5 +149,6 @@ func DefaultFilters(log *slog.Logger) []OnBuildFilter {
 		&TrafficDirectionFilter{},
 		&CELExpressionFilter{log: log},
 		&NetworkInterfaceFilter{},
+		&IPTraceIDFilter{},
 	}
 }
