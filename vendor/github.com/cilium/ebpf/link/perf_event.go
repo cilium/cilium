@@ -199,6 +199,10 @@ func (pi *perfEventIoctl) Unpin() error {
 	return fmt.Errorf("perf event ioctl unpin: %w", ErrNotSupported)
 }
 
+func (pi *perfEventIoctl) Detach() error {
+	return fmt.Errorf("perf event ioctl detach: %w", ErrNotSupported)
+}
+
 func (pi *perfEventIoctl) Info() (*Info, error) {
 	return nil, fmt.Errorf("perf event ioctl info: %w", ErrNotSupported)
 }

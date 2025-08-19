@@ -116,8 +116,8 @@ github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UF
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/chai2010/gettext-go v1.0.2 h1:1Lwwip6Q2QGsAdl/ZKPCwTe9fe0CjlUbqj5bFNSjIRk=
 github.com/chai2010/gettext-go v1.0.2/go.mod h1:y+wnP2cHYaVj19NZhYKAwEMH2CI1gNHeQQ+5AjwawxA=
-github.com/cilium/charts v0.0.0-20250731160311-35ab4afc4691 h1:j0K8dosjQpy5X0GSZyyaduxN1NsQb4hkYfF6JtysyKk=
-github.com/cilium/charts v0.0.0-20250731160311-35ab4afc4691/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
+github.com/cilium/charts v0.0.0-20250815135331-8443b5068217 h1:selLLU2HQb1FGxHdGF3o/m0s8fD1JMgc6paMmhwdrBA=
+github.com/cilium/charts v0.0.0-20250815135331-8443b5068217/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
 github.com/cilium/controller-tools v0.16.5-1 h1:aJLd2riNwIP+qVwA9bFBu2GDk6fQVecJt/0bZF2IYOw=
 github.com/cilium/controller-tools v0.16.5-1/go.mod h1:8vztuRVzs8IuuJqKqbXCSlXcw+lkAv/M2sTpg55qjMY=
 github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce h1:gqzXY3NuHllVVDw9vD49mlXx+9bYFPlg23rdrkQNFDM=
@@ -126,8 +126,8 @@ github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62 h1:MOWY9eqnrr
 github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62/go.mod h1:9EU8oWNwEP6f98xJz/YjWw7yOLHK7p90MKmaPu1wBcE=
 github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a h1:PRGN7B+72mj3OtLL2DM3F/9jp+ItgqgNS7mecgCmwsQ=
 github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a/go.mod h1:/7LC2GOgyXJ7maupZlaVIumYQiGPIgllSf6mA9sg6RU=
-github.com/cilium/ebpf v0.19.1-0.20250807093509-f87d8e6c72ae h1:Md5LLmBQkRw69u7mP+2+mswknAitlYvX/a7TKR8qfPM=
-github.com/cilium/ebpf v0.19.1-0.20250807093509-f87d8e6c72ae/go.mod h1:fLCgMo3l8tZmAdM3B2XqdFzXBpwkcSTroaVqN08OWVY=
+github.com/cilium/ebpf v0.19.1-0.20250818092626-ae226118949d h1:53XY3TeudeY1tPentx/Uf0FLMzq1op9dwdPJ5QaTCFc=
+github.com/cilium/ebpf v0.19.1-0.20250818092626-ae226118949d/go.mod h1:GMSzJItnG6k1OEtplNHr66oI/BlTcGTS/oE7lO4kOGU=
 github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba h1:Ddc5e+pz0/nY0XiAEW/UcIlvnaHACSuF77ePyMNX510=
 github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba/go.mod h1:9MPoeojWVEBLFnioKXTvRoqGWTs9Dt252r1ACFsi8K8=
 github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c h1:+/SPdDam5Mha4QzOByEoBE7hfq8aUxnioItyKM48U6M=
@@ -962,8 +962,8 @@ google.golang.org/genproto v0.0.0-20200513103714-09dca8ec2884/go.mod h1:55QSHmfG
 google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013/go.mod h1:NbSheEEYHJ7i3ixzK3sjbqSGDJWnxyFXZblF3eUsNvo=
 google.golang.org/genproto/googleapis/api v0.0.0-20250728155136-f173205681a0 h1:0UOBWO4dC+e51ui0NFKSPbkHHiQ4TmrEfEZMLDyRmY8=
 google.golang.org/genproto/googleapis/api v0.0.0-20250728155136-f173205681a0/go.mod h1:8ytArBbtOy2xfht+y2fqKd5DRDJRUQhqbyEnQ4bDChs=
-google.golang.org/genproto/googleapis/rpc v0.0.0-20250804133106-a7a43d27e69b h1:zPKJod4w6F1+nRGDI9ubnXYhU9NSWoFAijkHkUXeTK8=
-google.golang.org/genproto/googleapis/rpc v0.0.0-20250804133106-a7a43d27e69b/go.mod h1:qQ0YXyHHx3XkvlzUtpXDkS29lDSafHMZBAZDc03LQ3A=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c h1:qXWI/sQtv5UKboZ/zUk7h+mrf/lXORyI+n9DKDAusdg=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c/go.mod h1:gw1tLEfykwDz2ET4a12jcXt4couGAm7IwsVaTy0Sflo=
 google.golang.org/grpc v1.19.0/go.mod h1:mqu4LbDTu4XGKhr4mRzUsmM4RtVoemTSY81AxZiDr8c=
 google.golang.org/grpc v1.23.0/go.mod h1:Y5yQAOtifL1yxbo5wqy6BxZv8vAUGQwXBOALyacEbxg=
 google.golang.org/grpc v1.25.1/go.mod h1:c3i+UQWmh7LiEpx4sFZnkU36qjEYZ0imhYfXVyQciAY=

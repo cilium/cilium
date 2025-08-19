@@ -16,10 +16,10 @@ require (
 	github.com/aws/smithy-go v1.22.5
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/charts v0.0.0-20250731160311-35ab4afc4691
+	github.com/cilium/charts v0.0.0-20250815135331-8443b5068217
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.19.1-0.20250807093509-f87d8e6c72ae
+	github.com/cilium/ebpf v0.19.1-0.20250818092626-ae226118949d
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
 	github.com/cilium/hive v0.0.0-20250731144630-28e7a35ed227
@@ -119,7 +119,7 @@ require (
 	golang.org/x/time v0.12.0
 	golang.org/x/tools v0.36.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250804133106-a7a43d27e69b
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c
 	google.golang.org/grpc v1.74.2
 	google.golang.org/protobuf v1.36.7
 	helm.sh/helm/v3 v3.18.5
