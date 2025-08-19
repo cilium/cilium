@@ -569,6 +569,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
+	if option.Config.EnableIPv4MasqueradeDualPortRange && !option.Config.EnableBPFMasquerade {
+		d.logger.Error("Dual port range (--%s) requires BPF IPv4 masquerade (--%s=\"true\") to be enabled", option.EnableIPv4MasqueradeDualPortRange, option.EnableIPv4Masquerade)
+		return nil, nil, fmt.Errorf("dual port range (--%s) requires BPF IPv4 asquerade (--%s=\"true\") to be enabled", option.EnableIPv4MasqueradeDualPortRange, option.EnableIPv4Masquerade)
+	}
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
 	// are set.

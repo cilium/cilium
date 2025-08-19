@@ -284,6 +284,26 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
+
+#ifdef ENABLE_MASQUERADE_IPV4
+/* If dual port range is enabled, we use two separate ranges for SNAT.
+ * Otherwise, we fall back to the default single range.
+ */
+# ifdef ENABLE_IPV4_MASQ_DUAL_PORT_RANGE
+#  define NODEPORT_PORT_NAT_IPV4_RANGE1_MIN 1024
+#  define NODEPORT_PORT_NAT_IPV4_RANGE1_MAX 29999
+#  define NODEPORT_PORT_NAT_IPV4_RANGE2_MIN 32768
+#  define NODEPORT_PORT_NAT_IPV4_RANGE2_MAX 65535
+// Define the pre-calculated threshold for the weighted distribution.
+// This value is approximately ((30000 - 1024) / ((30000 - 1024) + (65536 - 32768))) * UINT32_MAX
+#  define IPV4_MASQ_DUAL_PORT_RANGE_THRESHOLD 2015596209U  // Use 'U' suffix for unsigned literal
+# else
+/* Fallback to original single range if dual port range is not enabled */
+#  define NODEPORT_PORT_NAT_IPV4_MIN NODEPORT_PORT_MIN_NAT
+#  define NODEPORT_PORT_NAT_IPV4_MAX NODEPORT_PORT_MAX_NAT
+# endif /* ENABLE_IPV4_MASQ_DUAL_PORT_RANGE */
+#endif /* ENABLE_MASQUERADE_IPV4 */
+
 static __always_inline bool
 nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 			       struct ipv4_nat_target *target __maybe_unused)
@@ -320,18 +340,40 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
-	struct ipv4_nat_target target = {
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MAX_NAT,
-#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
-		.cluster_id = cluster_id,
-#endif
-	};
+	__u16 selected_min_port;
+	__u16 selected_max_port;
+#if defined(ENABLE_MASQUERADE_IPV4) && defined(ENABLE_IPV4_MASQ_DUAL_PORT_RANGE)
+	__u32 random_val;
+#   endif /* ENABLE_MASQUERADE_IPV4 && ENABLE_IPV4_MASQ_DUAL_PORT_RANGE */
+	struct ipv4_nat_target target;
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo;
 	int l4_off, ret;
+#if defined(ENABLE_MASQUERADE_IPV4) && defined(ENABLE_IPV4_MASQ_DUAL_PORT_RANGE)
+	random_val = get_prandom_u32();
+	// If random_val is less than the threshold, select RANGE1 (the "first" range)
+	if (random_val < IPV4_MASQ_DUAL_PORT_RANGE_THRESHOLD) {
+		selected_min_port = NODEPORT_PORT_NAT_IPV4_RANGE1_MIN;
+		selected_max_port = NODEPORT_PORT_NAT_IPV4_RANGE1_MAX;
+	} else { // Otherwise, select RANGE2 (the "second" range)
+		selected_min_port = NODEPORT_PORT_NAT_IPV4_RANGE2_MIN;
+		selected_max_port = NODEPORT_PORT_NAT_IPV4_RANGE2_MAX;
+	}
+#elif defined(ENABLE_MASQUERADE_IPV4)
+	selected_min_port = NODEPORT_PORT_NAT_IPV4_MIN;
+	selected_max_port = NODEPORT_PORT_NAT_IPV4_MAX;
+#else
+	selected_min_port = NODEPORT_PORT_MIN_NAT;
+	selected_max_port = NODEPORT_PORT_MAX_NAT;
+#   endif /* ENABLE_MASQUERADE_IPV4 && ENABLE_IPV4_MASQ_DUAL_PORT_RANGE */
+	memset(&target, 0, sizeof(target));
+	target.min_port = selected_min_port;
+	target.max_port = selected_max_port;
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+		target.cluster_id = cluster_id;
+#endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;

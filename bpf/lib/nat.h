@@ -526,13 +526,22 @@ snat_v4_nat_can_skip(const struct ipv4_nat_target *target,
 		     const struct ipv4_ct_tuple *tuple)
 {
 	__u16 sport = bpf_ntohs(tuple->sport);
+	bool is_privileged;
+	bool is_nodeport;
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target->egress_gateway)
 		return false;
 #endif
 
-	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS);
+	/* If the packet is not from a local endpoint, and the source port is
+	 * not a privileged port or a port in the ephemeral range gap, then
+	 * SNAT can be skipped.
+	 */
+	is_privileged = (sport < 1024);
+	is_nodeport = (sport >= 30000 && sport < 32768);
+
+	return (!target->from_local_endpoint && !(is_privileged || is_nodeport));
 }
 
 static __always_inline bool
