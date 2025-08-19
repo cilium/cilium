@@ -6,7 +6,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 )
 
 type Params struct {
@@ -17,11 +16,16 @@ type Params struct {
 	Lifecycle    cell.Lifecycle
 	DaemonConfig *option.DaemonConfig
 
-	JobGroup job.Group
+	M *Map
 }
 
 var Cell = cell.Module(
 	"subnet_topology",
 	"Provides manager for subnet topology",
+	cell.ProvidePrivate(
+		func(reg *metrics.Registry) *Map {
+			return SubnetMap(reg)
+		},
+	),
 	cell.Invoke(registerDynamicManager),
 )
