@@ -179,7 +179,10 @@ func NewIPCache(c *Configuration) *IPCache {
 
 // Shutdown cleans up asynchronous routines associated with the IPCache.
 func (ipc *IPCache) Shutdown() error {
-	return ipc.controllers.RemoveControllerAndWait(LabelInjectorName)
+	if ipc.controllers.Lookup(LabelInjectorName) != nil {
+		return ipc.controllers.RemoveControllerAndWait(LabelInjectorName)
+	}
+	return nil
 }
 
 // RLock RLocks the IPCache's mutex.

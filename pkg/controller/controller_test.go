@@ -188,7 +188,7 @@ func TestCancellation(t *testing.T) {
 // terminationChannel returns a channel that is closed after the controller has
 // been terminated
 func (m *Manager) terminationChannel(name string) chan struct{} {
-	if c := m.lookup(name); c != nil {
+	if c := m.Lookup(name); c != nil {
 		return c.terminated
 	}
 
