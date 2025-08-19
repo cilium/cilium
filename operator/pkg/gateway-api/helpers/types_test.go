@@ -61,6 +61,16 @@ func TestIsGammaService(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "service kind with group core",
+			args: args{
+				parent: gatewayv1.ParentReference{
+					Kind:  ptr.To[gatewayv1.Kind]("Service"),
+					Group: ptr.To[gatewayv1.Group]("core"),
+				},
+			},
+			want: true,
+		},
+		{
 			name: "something else",
 			args: args{
 				parent: gatewayv1.ParentReference{
