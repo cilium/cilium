@@ -55,6 +55,7 @@
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
 #include "lib/vtep.h"
+#include "lib/subnet.h"
 
 /* Per-packet LB is needed if all LB cases can not be handled in bpf_sock.
  * Most services with L7 LB flag can not be redirected to their proxy port
@@ -510,12 +511,16 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * so we can do this first.
 	 */
 	if (1) {
+		const union v6addr *saddr = (union v6addr *)&ip6->saddr;
 		const union v6addr *daddr = (union v6addr *)&ip6->daddr;
-
+		
+		__u32 src_subnet_id = lookup_ip6_subnet(saddr, 0);
+		__u32 dst_subnet_id = lookup_ip6_subnet(daddr, 0);
+		bool same_subnet = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
 		info = lookup_ip6_remote_endpoint(daddr, 0);
 		if (info) {
 			*dst_sec_identity = info->sec_identity;
-			skip_tunnel = info->flag_skip_tunnel;
+			skip_tunnel = (info->flag_skip_tunnel) || same_subnet;
 		} else {
 			*dst_sec_identity = WORLD_IPV6_ID;
 		}
@@ -961,11 +966,18 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	hairpin_flow = ct_state_new.loopback;
 #endif /* ENABLE_PER_PACKET_LB */
 
+	__u32 src_subnet_id = lookup_ip4_subnet(ip4->saddr, 0);
+	__u32 dst_subnet_id = lookup_ip4_subnet(ip4->daddr, 0);
+	bool same_subnet = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
+	cilium_dbg3(ctx, DBG_TUNNEL_TRACE, ip4->saddr, ip4->daddr, src_subnet_id);
+	cilium_dbg3(ctx, DBG_TUNNEL_TRACE, ip4->saddr, ip4->daddr, dst_subnet_id);
+	cilium_dbg3(ctx, DBG_SUBNET_CHECK, ip4->saddr, ip4->daddr, same_subnet);
+
 	/* Determine the destination category for policy fallback. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
 	if (info) {
 		*dst_sec_identity = info->sec_identity;
-		skip_tunnel = info->flag_skip_tunnel;
+		skip_tunnel = (info->flag_skip_tunnel) || same_subnet;
 	} else {
 		*dst_sec_identity = WORLD_IPV4_ID;
 	}
