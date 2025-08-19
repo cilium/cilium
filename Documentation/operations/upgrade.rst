@@ -321,6 +321,9 @@ Removed Options
 * The previously deprecated ``--bpf-lb-proto-diff`` flag has been removed.
 * The previously deprecated PCAP recorder feature and its accompanying flags (``--enable-recorder``,
   ``--hubble-recorder-*``) have been removed.
+* The previously deprecated ``--enable-session-affinity``, ``--enable-internal-traffic-policy``, and
+  ``--enable-svc-source-range-check`` flags have been removed. Their corresponding features are
+  enabled by default.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -354,6 +357,7 @@ Added Metrics
 Removed Metrics
 ~~~~~~~~~~~~~~~
 
+* ``k8s_internal_traffic_policy_enabled`` has been removed, because the corresponding feature is enabled by default.
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
