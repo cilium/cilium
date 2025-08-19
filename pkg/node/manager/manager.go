@@ -123,6 +123,9 @@ type manager struct {
 	// nodes is the list of nodes. Access must be protected via mutex.
 	nodes map[nodeTypes.Identity]*nodeEntry
 
+	// nodeTable holds the nodes
+	nodeTable statedb.RWTable[*node.Node]
+
 	// Upon agent startup, this is filled with nodes as read from disk. Used to
 	// synthesize node deletion events for nodes which disappeared while we were
 	// down.
@@ -275,6 +278,7 @@ func New(
 	db *statedb.DB,
 	devices statedb.Table[*tables.Device],
 	wgCfg types.WireguardConfig,
+	nodeTable statedb.RWTable[*node.Node],
 ) (*manager, error) {
 	if ipsetFilter == nil {
 		ipsetFilter = func(*nodeTypes.Node) bool { return false }
@@ -283,6 +287,7 @@ func New(
 	m := &manager{
 		logger:                 logger,
 		nodes:                  map[nodeTypes.Identity]*nodeEntry{},
+		nodeTable:              nodeTable,
 		restoredNodes:          map[nodeTypes.Identity]*nodeTypes.Node{},
 		conf:                   c,
 		underlay:               tunnelConf.UnderlayProtocol(),
@@ -581,6 +586,13 @@ func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 }
 
 func (m *manager) nodeAddressHasEncryptKey() bool {
+	optOut := false
+	if m.nodeTable != nil {
+		if localNode, _, found := m.nodeTable.Get(m.db.ReadTxn(), node.LocalNodeQuery); found {
+			optOut = localNode.Local.OptOutNodeEncryption
+		}
+	}
+
 	// If we are doing encryption, but not node based encryption, then do not
 	// add a key to the nodeIPs so that we avoid a trip through stack and attempting
 	// to encrypt something we know does not have an encryption policy installed
@@ -589,7 +601,7 @@ func (m *manager) nodeAddressHasEncryptKey() bool {
 	return m.conf.NodeEncryptionEnabled() &&
 		// Also ignore any remote node's key if the local node opted to not perform
 		// node-to-node encryption
-		!node.GetOptOutNodeEncryption(m.logger)
+		!optOut
 }
 
 // endpointEncryptionKey returns the encryption key index to use for the health
@@ -869,6 +881,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		entry = &nodeEntry{node: n}
 		entry.mutex.Lock()
 		m.nodes[nodeIdentifier] = entry
+		m.upsertToNodeTable(&entry.node)
 		m.mutex.Unlock()
 		var errs error
 		if dpUpdate {
@@ -897,6 +910,27 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	if m.nodeCheckpointer != nil {
 		m.nodeCheckpointer.TriggerWithReason("NodeUpdate")
 	}
+}
+
+func (m *manager) upsertToNodeTable(n *nodeTypes.Node) {
+	if m.nodeTable == nil {
+		return
+	}
+	txn := m.db.WriteTxn(m.nodeTable)
+	m.nodeTable.Insert(txn, &node.Node{Node: *n})
+	txn.Commit()
+}
+
+func (m *manager) deleteFromNodeTable(nodeId nodeTypes.Identity) {
+	if m.nodeTable == nil {
+		return
+	}
+	var n node.Node
+	n.Name = nodeId.Name
+	n.Cluster = nodeId.Cluster
+	txn := m.db.WriteTxn(m.nodeTable)
+	m.nodeTable.Delete(txn, &n)
+	txn.Commit()
 }
 
 func (m *manager) cidrsToPrefixesCluster(n *nodeTypes.Node, cidrs ...*cidr.CIDR) iter.Seq[cmtypes.PrefixCluster] {
@@ -1127,6 +1161,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
+	m.deleteFromNodeTable(nodeIdentifier)
 	if m.nodeCheckpointer != nil {
 		m.nodeCheckpointer.TriggerWithReason("NodeDeleted")
 	}
