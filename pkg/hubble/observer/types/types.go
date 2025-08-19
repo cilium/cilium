@@ -61,4 +61,8 @@ type LostEvent struct {
 	NumLostEvents uint64
 	// CPU is the cpu number if for events lost in the perf ring buffer
 	CPU int
+	// First is the timestamp of the first event that was lost
+	First time.Time
+	// Last is the timestamp of the last event that was lost
+	Last time.Time
 }

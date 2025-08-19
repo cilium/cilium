@@ -171,13 +171,20 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 			return nil, errors.ErrUnknownEventType
 		}
 	case *observerTypes.LostEvent:
-		ev.Event = &pb.LostEvent{
+		lostEvent := &pb.LostEvent{
 			Source:        lostEventSourceToProto(payload.Source),
 			NumEventsLost: payload.NumLostEvents,
 			Cpu: &wrapperspb.Int32Value{
 				Value: int32(payload.CPU),
 			},
 		}
+		if !payload.First.IsZero() {
+			lostEvent.First = timestamppb.New(payload.First)
+		}
+		if !payload.Last.IsZero() {
+			lostEvent.Last = timestamppb.New(payload.Last)
+		}
+		ev.Event = lostEvent
 		return ev, nil
 	case nil:
 		return ev, errors.ErrEmptyData
