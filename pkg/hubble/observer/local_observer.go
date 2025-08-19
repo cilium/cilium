@@ -347,7 +347,8 @@ nextEvent:
 					LostEvents: &flowpb.LostEvent{
 						Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
 						NumEventsLost: count.Count,
-						// TODO: add timestamp range to LostEvent
+						First:         timestamppb.New(count.First),
+						Last:          timestamppb.New(count.Last),
 					},
 				},
 			}
