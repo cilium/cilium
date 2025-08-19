@@ -40,6 +40,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		logfields.Controller, gamma,
 		logfields.Resource, req.NamespacedName,
 	)
+	scopedLog.InfoContext(ctx, "Reconciling GAMMA service")
 
 	// Step 1: Retrieve the Service
 	originalSvc := &corev1.Service{}
@@ -72,6 +73,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	if len(httpRouteList.Items) == 0 {
+		scopedLog.InfoContext(ctx, "No referencing HTTPRoute found")
 		return controllerruntime.Success()
 	}
 
