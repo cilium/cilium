@@ -520,7 +520,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 				Type:     byte(monitorAPI.MessageTypeTrace),
 				SrcLabel: 123,
 				DstLabel: 456,
-				Version:  monitor.TraceNotifyVersion1,
+				Version:  monitor.TraceNotifyVersion2,
 			}
 			lay := []gopacket.SerializableLayer{
 				&layers.Ethernet{
