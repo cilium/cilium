@@ -500,7 +500,7 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # enable the check for proxy traffic.
@@ -533,7 +533,7 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Features tested after downgrade
