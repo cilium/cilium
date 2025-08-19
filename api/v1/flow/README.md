@@ -600,6 +600,8 @@ that happened before the events were captured by Hubble.
 | source | [LostEventSource](#flow-LostEventSource) |  | source is the location where events got lost. |
 | num_events_lost | [uint64](#uint64) |  | num_events_lost is the number of events that haven been lost at source. |
 | cpu | [google.protobuf.Int32Value](#google-protobuf-Int32Value) |  | cpu on which the event was lost if the source of lost events is PERF_EVENT_RING_BUFFER. |
+| first | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | first is the timestamp of the first event that was lost. |
+| last | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | last is the timestamp of the last event that was lost. |
 
 
 
