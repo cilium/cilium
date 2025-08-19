@@ -84,23 +84,30 @@ type NodeManager interface {
 
 func newAllNodeManager(in struct {
 	cell.In
-	Logger         *slog.Logger
-	ClusterInfo    cmtypes.ClusterInfo
-	TunnelConf     tunnel.Config
-	Lifecycle      cell.Lifecycle
-	IPCache        *ipcache.IPCache
-	IPSetMgr       ipset.Manager
-	IPSetFilter    IPSetFilterFn `optional:"true"`
-	NodeMetrics    *nodeMetrics
-	Health         cell.Health
-	JobGroup       job.Group
-	DB             *statedb.DB
-	Devices        statedb.Table[*tables.Device]
-	WGConfig       wgTypes.Config
-	LocalNodeStore *node.LocalNodeStore
+	Logger      *slog.Logger
+	ClusterInfo cmtypes.ClusterInfo
+	TunnelConf  tunnel.Config
+	Lifecycle   cell.Lifecycle
+	IPCache     *ipcache.IPCache
+	IPSetMgr    ipset.Manager
+	IPSetFilter IPSetFilterFn `optional:"true"`
+	NodeMetrics *nodeMetrics
+	Health      cell.Health
+	JobGroup    job.Group
+	DB          *statedb.DB
+	Devices     statedb.Table[*tables.Device]
+	WGConfig    wgTypes.Config
+	Nodes       statedb.Table[*node.Node]
 },
 ) (NodeManager, error) {
-	mngr, err := New(in.Logger, option.Config, in.ClusterInfo, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, in.LocalNodeStore)
+
+	// We want to restrict access to RWTable[*Node] until the
+	// migration away from NodeManager is complete (#41744),
+	// hence we only have access to Table[*Node] and cast it
+	// here.
+	nodeTable := in.Nodes.(statedb.RWTable[*node.Node])
+
+	mngr, err := New(in.Logger, option.Config, in.ClusterInfo, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, nodeTable)
 	if err != nil {
 		return nil, err
 	}
