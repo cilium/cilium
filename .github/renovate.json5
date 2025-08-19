@@ -83,6 +83,7 @@
     "kind/enhancement",
     "release-note/misc"
   ],
+  "rebaseLabel": "dont-merge/needs-rebase",
   "stopUpdatingLabel": "renovate/stop-updating",
   "allowedPostUpgradeCommands": [
     "^make -C install/kubernetes$",
