@@ -681,7 +681,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if option.Config.EnableHealthDatapath {
+	if option.Config.EnableIPIPDevices {
 		if option.Config.IPv4Enabled() {
 			ipip4, err := safenetlink.LinkByName(defaults.IPIPv4Device)
 			if err != nil {
@@ -696,6 +696,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			}
 			cDefinesMap["ENCAP6_IFINDEX"] = fmt.Sprintf("%d", ipip6.Attrs().Index)
 		}
+	} else {
+		cDefinesMap["ENCAP4_IFINDEX"] = "0"
+		cDefinesMap["ENCAP6_IFINDEX"] = "0"
 	}
 
 	// Write Identity and ClusterID related macros.
