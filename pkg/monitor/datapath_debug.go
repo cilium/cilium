@@ -102,6 +102,9 @@ const (
 	DbgSkLookup6
 	DbgSkAssign
 	DbgL7LB
+	DbgSkipPolicy
+	DbgSameSubnetCheck
+	DbgSubnetTrace
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -411,6 +414,12 @@ func (n *DebugMsg) Message(linkMonitor getters.LinkGetter) string {
 		return fmt.Sprintf("Socket assign: %s", skAssignInfo(n))
 	case DbgL7LB:
 		return fmt.Sprintf("L7 LB from %s to %s: proxy port %d", ip4Str(n.Arg1), ip4Str(n.Arg2), n.Arg3)
+	case DbgSameSubnetCheck:
+		return fmt.Sprintf("Same subnet check: src_ip=%s dst_ip=%s subnet_identity=%t",
+			ip4Str(n.Arg1), ip4Str(n.Arg2), n.Arg3 != 0)
+	case DbgSubnetTrace:
+		return fmt.Sprintf("Subnet trace: src_ip=%s dst_ip=%s subnet_id=%d",
+			ip4Str(n.Arg1), ip4Str(n.Arg2), n.Arg3)
 	default:
 		return fmt.Sprintf("Unknown message type=%d arg1=%d arg2=%d", n.SubType, n.Arg1, n.Arg2)
 	}
