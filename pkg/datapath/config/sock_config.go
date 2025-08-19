@@ -5,16 +5,18 @@
 
 package config
 
-// BPFSocket is a configuration struct for a Cilium datapath object. Warning: do
-// not instantiate directly! Always use [NewBPFSocket] to ensure the default
+// BPFSock is a configuration struct for a Cilium datapath object. Warning: do
+// not instantiate directly! Always use [NewBPFSock] to ensure the default
 // values configured in the ELF are honored.
-type BPFSocket struct {
+type BPFSock struct {
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
+
+	Node
 }
 
-func NewBPFSocket() *BPFSocket {
-	return &BPFSocket{false, false}
+func NewBPFSock(node Node) *BPFSock {
+	return &BPFSock{false, false, node}
 }

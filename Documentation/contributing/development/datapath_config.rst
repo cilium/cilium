@@ -169,11 +169,11 @@ This will show up in the Go scaffolding as:
       Foo uint64 `config:"foo"`
     }
 
-Populate it in the agent through ``pkg/datapath/loader.nodeConfig()``:
+Populate it in the agent through ``pkg/datapath/config.NodeConfig()``:
 
 .. code-block:: go
 
-  func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
+  func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
     ...
     node.Foo = 42
     ...
