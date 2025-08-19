@@ -37,7 +37,7 @@ func IsGateway(parent gatewayv1.ParentReference) bool {
 
 func IsGammaService(parent gatewayv1.ParentReference) bool {
 	return parent.Kind != nil && *parent.Kind == kindService &&
-		parent.Group != nil && *parent.Group == corev1.GroupName
+		parent.Group != nil && (*parent.Group == corev1.GroupName || *parent.Group == "core")
 }
 
 func IsGammaServiceEqual(parent gatewayv1.ParentReference, gammaService *corev1.Service, objNamespace string) bool {
