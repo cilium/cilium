@@ -84,22 +84,22 @@ type NodeManager interface {
 
 func newAllNodeManager(in struct {
 	cell.In
-	Logger         *slog.Logger
-	TunnelConf     tunnel.Config
-	Lifecycle      cell.Lifecycle
-	IPCache        *ipcache.IPCache
-	IPSetMgr       ipset.Manager
-	IPSetFilter    IPSetFilterFn `optional:"true"`
-	NodeMetrics    *nodeMetrics
-	Health         cell.Health
-	JobGroup       job.Group
-	DB             *statedb.DB
-	Devices        statedb.Table[*tables.Device]
-	WGConfig       wgTypes.Config
-	LocalNodeStore *node.LocalNodeStore
+	Logger      *slog.Logger
+	TunnelConf  tunnel.Config
+	Lifecycle   cell.Lifecycle
+	IPCache     *ipcache.IPCache
+	IPSetMgr    ipset.Manager
+	IPSetFilter IPSetFilterFn `optional:"true"`
+	NodeMetrics *nodeMetrics
+	Health      cell.Health
+	JobGroup    job.Group
+	DB          *statedb.DB
+	Devices     statedb.Table[*tables.Device]
+	WGConfig    wgTypes.Config
+	Nodes       statedb.RWTable[*node.Node]
 },
 ) (NodeManager, error) {
-	mngr, err := New(in.Logger, option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, in.LocalNodeStore)
+	mngr, err := New(in.Logger, option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, in.Nodes)
 	if err != nil {
 		return nil, err
 	}

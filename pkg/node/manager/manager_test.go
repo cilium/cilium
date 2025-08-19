@@ -251,7 +251,7 @@ func TestNodeLifecycle(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	mngr.Subscribe(dp)
 	require.NoError(t, err)
 
@@ -348,7 +348,7 @@ func TestNodeLabels(t *testing.T) {
 		Source:  source.Unspec,
 	}
 
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{Node: nLocal}))
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	mngr.Subscribe(dp)
 	require.NoError(t, err)
 	mngr.NodeUpdated(nRemote)
@@ -422,7 +422,7 @@ func TestMultipleSources(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -506,7 +506,7 @@ func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
 	dp := fakenode.NewHandler()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(b)
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	require.NoError(b, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -529,7 +529,7 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	dp := fakenode.NewHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -555,7 +555,7 @@ func TestBackgroundSync(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	mngr.Subscribe(signalNodeHandler)
 	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
@@ -625,7 +625,7 @@ func TestIpcache(t *testing.T) {
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -770,7 +770,7 @@ func TestIpcacheHealthIP(t *testing.T) {
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -817,7 +817,7 @@ func TestNodeEncryption(t *testing.T) {
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(logger, &option.DaemonConfig{
 		EncryptNode: true,
-	}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -941,7 +941,7 @@ func TestNode(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -1077,8 +1077,8 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 				IPSetFilterFn: func(no *nodeTypes.Node) bool { return false },
 			}
 		}),
-		cell.Provide(tables.NewDeviceTable),                   // Provide statedb.RWTable[*tables.Device]
-		cell.Provide(statedb.RWTable[*tables.Device].ToTable), // Provide statedb.Table[*tables.Device] from RW table
+		cell.Provide(tables.NewDeviceTable),
+		cell.Provide(statedb.RWTable[*tables.Device].ToTable),
 		cell.Module("node_manager", "Node Manager", cell.Provide(New)),
 		node.LocalNodeStoreTestCell,
 		cell.Provide(func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} }),
@@ -1203,7 +1203,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(logger, &option.DaemonConfig{
 		LocalRouterIPv4: "169.254.4.6",
-	}, tunnel.Config{}, ipcache, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	}, tunnel.Config{}, ipcache, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -1304,7 +1304,7 @@ func TestNodeIpset(t *testing.T) {
 	mngr, err := New(logger, &option.DaemonConfig{
 		RoutingMode:          option.RoutingModeNative,
 		EnableIPv4Masquerade: true,
-	}, tunnel.Config{}, newIPcacheMock(), newIPSetMock(), filter, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	}, tunnel.Config{}, newIPcacheMock(), newIPSetMock(), filter, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 	mngr.Subscribe(dp)
 	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
@@ -1485,7 +1485,7 @@ func TestNodesStartupPruning(t *testing.T) {
 		mngr, err := New(logger, &option.DaemonConfig{
 			StateDir:    stateDir,
 			ClusterName: "c1",
-		}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+		}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			mngr.Stop(context.TODO())
@@ -1611,4 +1611,85 @@ func TestNodesStartupPruning(t *testing.T) {
 		assert.Equal(t, float64(2), mngr.metrics.EventsReceived.WithLabelValues("delete", string(source.Restored)).Get())
 		assert.Equal(t, float64(3), mngr.metrics.NumNodes.Get())
 	})
+}
+
+func TestNodeTableMirroring(t *testing.T) {
+	logger := hivetest.Logger(t)
+	db := statedb.New()
+	nodeTable, err := node.NewNodeTable(db)
+	require.NoError(t, err)
+
+	ipcacheMock := newIPcacheMock()
+	h, _ := cell.NewSimpleHealth()
+	mngr, err := New(logger, &option.DaemonConfig{
+		ClusterName: "c1",
+	}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, nodeTable)
+	require.NoError(t, err)
+
+	initialized, initWatch := nodeTable.Initialized(db.ReadTxn())
+	require.False(t, initialized)
+	require.Equal(t, []string{TableInitializerName}, nodeTable.PendingInitializers(db.ReadTxn()))
+
+	n1 := nodeTypes.Node{
+		Name:    "node1",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{{
+			Type: addressing.NodeInternalIP,
+			IP:   net.ParseIP("10.0.0.1"),
+		}},
+		Source: source.KVStore,
+	}
+	n2 := nodeTypes.Node{
+		Name:    "node2",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{{
+			Type: addressing.NodeInternalIP,
+			IP:   net.ParseIP("10.0.0.2"),
+		}},
+		Source: source.KVStore,
+	}
+
+	requireNode := func(t *testing.T, n nodeTypes.Node) {
+		stored, _, found := nodeTable.Get(db.ReadTxn(), node.NodeByName(n.Fullname()))
+		require.True(t, found)
+		require.Equal(t, node.Node{Node: n}, *stored)
+	}
+	requireNoNode := func(t *testing.T, n nodeTypes.Node) {
+		_, _, found := nodeTable.Get(db.ReadTxn(), node.NodeByName(n.Fullname()))
+		require.False(t, found)
+	}
+
+	mngr.NodeUpdated(n1)
+	requireNode(t, n1)
+
+	n1.EncryptionKey = 42
+	mngr.NodeUpdated(n1)
+	requireNode(t, n1)
+
+	mngr.NodeUpdated(n2)
+	requireNode(t, n1)
+	requireNode(t, n2)
+
+	select {
+	case <-initWatch:
+		t.Fatal("node table initialized before NodeSync")
+	default:
+	}
+
+	initialized, _ = nodeTable.Initialized(db.ReadTxn())
+	require.False(t, initialized)
+
+	mngr.NodeSync()
+
+	select {
+	case <-initWatch:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for node table initializer")
+	}
+	initialized, _ = nodeTable.Initialized(db.ReadTxn())
+	require.True(t, initialized)
+
+	mngr.NodeDeleted(n1)
+	requireNoNode(t, n1)
+	requireNode(t, n2)
 }

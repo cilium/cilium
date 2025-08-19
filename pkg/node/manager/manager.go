@@ -59,6 +59,8 @@ const (
 	nodesFilename = "nodes.json"
 	// Minimum amount of time to wait in between writing nodes file.
 	nodeCheckpointMinInterval = time.Minute
+	// TableInitializerName is the StateDB initializer name for node manager table mirroring.
+	TableInitializerName = "manager"
 )
 
 var baseBackgroundSyncInterval = time.Minute
@@ -164,16 +166,22 @@ type manager struct {
 
 	// Reference to the StateDB
 	db *statedb.DB
+
 	// The devices table
 	devices statedb.Table[*tables.Device]
+
+	// nodeTable holds the nodes
+	nodeTable statedb.RWTable[*node.Node]
+
+	// nodeTableInit holds the function to mark the nodeTable initialized by
+	// the manager.
+	nodeTableInit func()
 
 	// custom mutator function to enrich prefixCluster(s) from node objects.
 	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
 
 	// wireguard configuration used when calling endpointEncryptionKey.
 	wgConfig types.Config
-
-	localNodeStore *node.LocalNodeStore
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -271,7 +279,7 @@ func New(
 	db *statedb.DB,
 	devices statedb.Table[*tables.Device],
 	wgCfg types.Config,
-	localNodeStore *node.LocalNodeStore,
+	nodeTable statedb.RWTable[*node.Node],
 ) (*manager, error) {
 	if ipsetFilter == nil {
 		ipsetFilter = func(*nodeTypes.Node) bool { return false }
@@ -280,6 +288,7 @@ func New(
 	m := &manager{
 		logger:                 logger,
 		nodes:                  map[nodeTypes.Identity]*nodeEntry{},
+		nodeTable:              nodeTable,
 		restoredNodes:          map[nodeTypes.Identity]*nodeTypes.Node{},
 		conf:                   c,
 		underlay:               tunnelConf.UnderlayProtocol(),
@@ -296,7 +305,17 @@ func New(
 		devices:                devices,
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
 		wgConfig:               wgCfg,
-		localNodeStore:         localNodeStore,
+	}
+
+	if nodeTable != nil {
+		wtxn := db.WriteTxn(nodeTable)
+		initDone := nodeTable.RegisterInitializer(wtxn, TableInitializerName)
+		wtxn.Commit()
+		m.nodeTableInit = sync.OnceFunc(func() {
+			wtxn := db.WriteTxn(nodeTable)
+			initDone(wtxn)
+			wtxn.Commit()
+		})
 	}
 
 	return m, nil
@@ -584,10 +603,11 @@ func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 }
 
 func (m *manager) nodeAddressHasEncryptKey() bool {
-	ln, err := m.localNodeStore.Get(context.Background())
-	if err != nil {
-		m.logger.Error("Failed to retrieve local node", logfields.Error, err)
-		return false
+	optOut := false
+	if m.nodeTable != nil && m.db != nil {
+		if localNode, _, found := m.nodeTable.Get(m.db.ReadTxn(), node.LocalNodeQuery); found {
+			optOut = localNode.Local.OptOutNodeEncryption
+		}
 	}
 
 	// If we are doing encryption, but not node based encryption, then do not
@@ -598,7 +618,7 @@ func (m *manager) nodeAddressHasEncryptKey() bool {
 	return m.conf.NodeEncryptionEnabled() &&
 		// Also ignore any remote node's key if the local node opted to not perform
 		// node-to-node encryption
-		!ln.Local.OptOutNodeEncryption
+		!optOut
 }
 
 // endpointEncryptionKey returns the encryption key index to use for the health
@@ -847,6 +867,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.mutex.Unlock()
 		oldNode := entry.node
 		entry.node = n
+		m.upsertToNodeTable(&entry.node)
 		if dpUpdate {
 			var errs error
 			m.Iter(func(nh node.Handler) {
@@ -879,6 +900,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		entry = &nodeEntry{node: n}
 		entry.mutex.Lock()
 		m.nodes[nodeIdentifier] = entry
+		m.upsertToNodeTable(&entry.node)
 		m.mutex.Unlock()
 		var errs error
 		if dpUpdate {
@@ -906,6 +928,37 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 	if m.nodeCheckpointer != nil {
 		m.nodeCheckpointer.TriggerWithReason("NodeUpdate")
+	}
+}
+
+func (m *manager) upsertToNodeTable(n *nodeTypes.Node) {
+	if n.IsLocal() || m.nodeTable == nil {
+		return
+	}
+	txn := m.db.WriteTxn(m.nodeTable)
+	old, found, _ := m.nodeTable.Insert(txn, &node.Node{Node: *n})
+	if found && old.Local != nil {
+		// Never touch the local node.
+		txn.Abort()
+	} else {
+		txn.Commit()
+	}
+}
+
+func (m *manager) deleteFromNodeTable(nodeId nodeTypes.Identity) {
+	if m.nodeTable == nil {
+		return
+	}
+	var n node.Node
+	n.Name = nodeId.Name
+	n.Cluster = nodeId.Cluster
+	txn := m.db.WriteTxn(m.nodeTable)
+	old, found, _ := m.nodeTable.Delete(txn, &n)
+	if found && old.Local != nil {
+		// Never touch the local node.
+		txn.Abort()
+	} else {
+		txn.Commit()
 	}
 }
 
@@ -1140,6 +1193,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
+	m.deleteFromNodeTable(nodeIdentifier)
 	if m.nodeCheckpointer != nil {
 		m.nodeCheckpointer.TriggerWithReason("NodeDeleted")
 	}
@@ -1175,6 +1229,10 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 // deletion of possible stale nodes.
 func (m *manager) NodeSync() {
 	m.ipsetInitializer.InitDone()
+
+	if m.nodeTableInit != nil {
+		m.nodeTableInit()
+	}
 
 	// Due to the complexity around kvstore vs k8s as node sources, it may occur
 	// that both sources call NodeSync at some point. Ensure we only run this
