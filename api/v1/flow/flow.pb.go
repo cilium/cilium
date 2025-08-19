@@ -3980,7 +3980,11 @@ type LostEvent struct {
 	NumEventsLost uint64 `protobuf:"varint,2,opt,name=num_events_lost,json=numEventsLost,proto3" json:"num_events_lost,omitempty"`
 	// cpu on which the event was lost if the source of lost events is
 	// PERF_EVENT_RING_BUFFER.
-	Cpu           *wrapperspb.Int32Value `protobuf:"bytes,3,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	Cpu *wrapperspb.Int32Value `protobuf:"bytes,3,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	// first is the timestamp of the first event that was lost.
+	First *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=first,proto3" json:"first,omitempty"`
+	// last is the timestamp of the last event that was lost.
+	Last          *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last,proto3" json:"last,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4032,6 +4036,20 @@ func (x *LostEvent) GetNumEventsLost() uint64 {
 func (x *LostEvent) GetCpu() *wrapperspb.Int32Value {
 	if x != nil {
 		return x.Cpu
+	}
+	return nil
+}
+
+func (x *LostEvent) GetFirst() *timestamppb.Timestamp {
+	if x != nil {
+		return x.First
+	}
+	return nil
+}
+
+func (x *LostEvent) GetLast() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Last
 	}
 	return nil
 }
@@ -5271,11 +5289,13 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x05topic\x18\x05 \x01(\tR\x05topic\";\n" +
 	"\aService\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\x91\x01\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\xf3\x01\n" +
 	"\tLostEvent\x12-\n" +
 	"\x06source\x18\x01 \x01(\x0e2\x15.flow.LostEventSourceR\x06source\x12&\n" +
 	"\x0fnum_events_lost\x18\x02 \x01(\x04R\rnumEventsLost\x12-\n" +
-	"\x03cpu\x18\x03 \x01(\v2\x1b.google.protobuf.Int32ValueR\x03cpu\"\xfe\x04\n" +
+	"\x03cpu\x18\x03 \x01(\v2\x1b.google.protobuf.Int32ValueR\x03cpu\x120\n" +
+	"\x05first\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x05first\x12.\n" +
+	"\x04last\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x04last\"\xfe\x04\n" +
 	"\n" +
 	"AgentEvent\x12(\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x14.flow.AgentEventTypeR\x04type\x123\n" +
@@ -5748,31 +5768,33 @@ var file_flow_flow_proto_depIdxs = []int32{
 	38, // 56: flow.HTTP.headers:type_name -> flow.HTTPHeader
 	11, // 57: flow.LostEvent.source:type_name -> flow.LostEventSource
 	59, // 58: flow.LostEvent.cpu:type_name -> google.protobuf.Int32Value
-	12, // 59: flow.AgentEvent.type:type_name -> flow.AgentEventType
-	44, // 60: flow.AgentEvent.unknown:type_name -> flow.AgentEventUnknown
-	45, // 61: flow.AgentEvent.agent_start:type_name -> flow.TimeNotification
-	46, // 62: flow.AgentEvent.policy_update:type_name -> flow.PolicyUpdateNotification
-	47, // 63: flow.AgentEvent.endpoint_regenerate:type_name -> flow.EndpointRegenNotification
-	48, // 64: flow.AgentEvent.endpoint_update:type_name -> flow.EndpointUpdateNotification
-	49, // 65: flow.AgentEvent.ipcache_update:type_name -> flow.IPCacheNotification
-	51, // 66: flow.AgentEvent.service_upsert:type_name -> flow.ServiceUpsertNotification
-	52, // 67: flow.AgentEvent.service_delete:type_name -> flow.ServiceDeleteNotification
-	56, // 68: flow.TimeNotification.time:type_name -> google.protobuf.Timestamp
-	60, // 69: flow.IPCacheNotification.old_identity:type_name -> google.protobuf.UInt32Value
-	50, // 70: flow.ServiceUpsertNotification.frontend_address:type_name -> flow.ServiceUpsertNotificationAddr
-	50, // 71: flow.ServiceUpsertNotification.backend_addresses:type_name -> flow.ServiceUpsertNotificationAddr
-	14, // 72: flow.DebugEvent.type:type_name -> flow.DebugEventType
-	22, // 73: flow.DebugEvent.source:type_name -> flow.Endpoint
-	60, // 74: flow.DebugEvent.hash:type_name -> google.protobuf.UInt32Value
-	60, // 75: flow.DebugEvent.arg1:type_name -> google.protobuf.UInt32Value
-	60, // 76: flow.DebugEvent.arg2:type_name -> google.protobuf.UInt32Value
-	60, // 77: flow.DebugEvent.arg3:type_name -> google.protobuf.UInt32Value
-	59, // 78: flow.DebugEvent.cpu:type_name -> google.protobuf.Int32Value
-	79, // [79:79] is the sub-list for method output_type
-	79, // [79:79] is the sub-list for method input_type
-	79, // [79:79] is the sub-list for extension type_name
-	79, // [79:79] is the sub-list for extension extendee
-	0,  // [0:79] is the sub-list for field type_name
+	56, // 59: flow.LostEvent.first:type_name -> google.protobuf.Timestamp
+	56, // 60: flow.LostEvent.last:type_name -> google.protobuf.Timestamp
+	12, // 61: flow.AgentEvent.type:type_name -> flow.AgentEventType
+	44, // 62: flow.AgentEvent.unknown:type_name -> flow.AgentEventUnknown
+	45, // 63: flow.AgentEvent.agent_start:type_name -> flow.TimeNotification
+	46, // 64: flow.AgentEvent.policy_update:type_name -> flow.PolicyUpdateNotification
+	47, // 65: flow.AgentEvent.endpoint_regenerate:type_name -> flow.EndpointRegenNotification
+	48, // 66: flow.AgentEvent.endpoint_update:type_name -> flow.EndpointUpdateNotification
+	49, // 67: flow.AgentEvent.ipcache_update:type_name -> flow.IPCacheNotification
+	51, // 68: flow.AgentEvent.service_upsert:type_name -> flow.ServiceUpsertNotification
+	52, // 69: flow.AgentEvent.service_delete:type_name -> flow.ServiceDeleteNotification
+	56, // 70: flow.TimeNotification.time:type_name -> google.protobuf.Timestamp
+	60, // 71: flow.IPCacheNotification.old_identity:type_name -> google.protobuf.UInt32Value
+	50, // 72: flow.ServiceUpsertNotification.frontend_address:type_name -> flow.ServiceUpsertNotificationAddr
+	50, // 73: flow.ServiceUpsertNotification.backend_addresses:type_name -> flow.ServiceUpsertNotificationAddr
+	14, // 74: flow.DebugEvent.type:type_name -> flow.DebugEventType
+	22, // 75: flow.DebugEvent.source:type_name -> flow.Endpoint
+	60, // 76: flow.DebugEvent.hash:type_name -> google.protobuf.UInt32Value
+	60, // 77: flow.DebugEvent.arg1:type_name -> google.protobuf.UInt32Value
+	60, // 78: flow.DebugEvent.arg2:type_name -> google.protobuf.UInt32Value
+	60, // 79: flow.DebugEvent.arg3:type_name -> google.protobuf.UInt32Value
+	59, // 80: flow.DebugEvent.cpu:type_name -> google.protobuf.Int32Value
+	81, // [81:81] is the sub-list for method output_type
+	81, // [81:81] is the sub-list for method input_type
+	81, // [81:81] is the sub-list for extension type_name
+	81, // [81:81] is the sub-list for extension extendee
+	0,  // [0:81] is the sub-list for field type_name
 }
 
 func init() { file_flow_flow_proto_init() }
