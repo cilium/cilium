@@ -1638,6 +1638,9 @@ type DaemonConfig struct {
 	// EnableHealthDatapath enables IPIP health probes data path
 	EnableHealthDatapath bool
 
+	// EnableIPIPDevices enables the creation of IPIP devices for IPv4 and IPv6
+	EnableIPIPDevices bool
+
 	// EnableHostLegacyRouting enables the old routing path via stack.
 	EnableHostLegacyRouting bool
 
@@ -2561,6 +2564,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableL7Proxy = vp.GetBool(EnableL7Proxy)
 	c.EnableTracing = vp.GetBool(EnableTracing)
 	c.EnableIPIPTermination = vp.GetBool(EnableIPIPTermination)
+	c.EnableIPIPDevices = c.EnableIPIPTermination
 	c.EnableUnreachableRoutes = vp.GetBool(EnableUnreachableRoutes)
 	c.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
 	c.NodePortBindProtection = vp.GetBool(NodePortBindProtection)
