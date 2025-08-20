@@ -25,9 +25,14 @@ mv $SRC/cilium/pkg/policy/selectorcache_test.go $SRC/cilium/pkg/policy/selectorc
 
 
 compile_go_fuzzer github.com/cilium/cilium/test/fuzzing Fuzz fuzz gofuzz
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/monitor/format FuzzFormatEvent FuzzFormatEvent
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2 FuzzCiliumNetworkPolicyParse FuzzCiliumNetworkPolicyParse
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/container/bitlpm FuzzUint8 FuzzUint8
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/fqdn/namemanager FuzzMapSelectorsToNamesLocked FuzzMapSelectorsToNamesLocked
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2 FuzzCiliumClusterwideNetworkPolicyParse FuzzCiliumClusterwideNetworkPolicyParse
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzResolvePolicy FuzzResolvePolicy
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzDenyPreferredInsert FuzzDenyPreferredInsert
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2 FuzzCiliumNetworkPolicyParse FuzzCiliumNetworkPolicyParse
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/loadbalancer FuzzJSONBackend FuzzJSONBackend
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/loadbalancer FuzzJSONFrontend FuzzJSONFrontend
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/loadbalancer FuzzJSONService FuzzJSONService
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/monitor/format FuzzFormatEvent FuzzFormatEvent
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzAccumulateMapChange FuzzAccumulateMapChange
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzDenyPreferredInsert FuzzDenyPreferredInsert
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzResolvePolicy FuzzResolvePolicy
