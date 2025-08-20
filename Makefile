@@ -448,6 +448,11 @@ microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	@echo "  DEPLOY image to microk8s ($(LOCAL_OPERATOR_IMAGE))"
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_OPERATOR_IMAGE)
 
+.PHONY: check-fuzz
+check-fuzz: # Check that fuzzers are added to the tree correctly.
+	@$(ECHO_CHECK) contrib/scripts/check-fuzz.sh
+	$(QUIET) contrib/scripts/check-fuzz.sh
+
 precheck: ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
@@ -483,6 +488,7 @@ endif
 	$(QUIET)$(GO) run ./tools/slogloggercheck .
 	@$(ECHO_CHECK) contrib/scripts/check-fipsonly.sh
 	$(QUIET) contrib/scripts/check-fipsonly.sh
+	$(MAKE) check-fuzz
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
