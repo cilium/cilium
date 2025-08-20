@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -79,6 +80,7 @@ type k8sPodWatcherParams struct {
 	CGroupManager     cgroup.CGroupManager
 	LBConfig          loadbalancer.Config
 	WgConfig          wgTypes.WireguardConfig
+	IPSecConfig       datapath.IPsecConfig
 }
 
 func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
@@ -98,6 +100,7 @@ func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 		nodeAddrs:         params.NodeAddrs,
 		lbConfig:          params.LBConfig,
 		wgConfig:          params.WgConfig,
+		ipsecConfig:       params.IPSecConfig,
 
 		controllersStarted: make(chan struct{}),
 	}
@@ -126,6 +129,7 @@ type K8sPodWatcher struct {
 	nodeAddrs       statedb.Table[datapathTables.NodeAddress]
 	lbConfig        loadbalancer.Config
 	wgConfig        wgTypes.WireguardConfig
+	ipsecConfig     datapath.IPsecConfig
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -550,7 +554,7 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 		return fmt.Errorf("no/invalid HostIP: %s", newPod.Status.HostIP)
 	}
 
-	hostKey := node.GetEndpointEncryptKeyIndex(k.logger, k.wgConfig)
+	hostKey := node.GetEndpointEncryptKeyIndex(k.logger, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
 
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,

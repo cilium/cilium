@@ -207,26 +207,6 @@ const (
 	// PreAllocateMaps is the default value for BPF map preallocation
 	PreAllocateMaps = true
 
-	// EnableIPSec is the default value for IPSec enablement
-	EnableIPSec = false
-
-	// IPsecKeyRotationDuration is the time to wait before removing old keys when
-	// the IPsec key is changing.
-	IPsecKeyRotationDuration = 5 * time.Minute
-
-	// Enable watcher for IPsec key. If disabled, a restart of the agent will
-	// be necessary on key rotations.
-	EnableIPsecKeyWatcher = true
-
-	// Enable caching for XfrmState for IPSec. Significantly reduces CPU usage
-	// in large clusters.
-	EnableIPSecXfrmStateCaching = true
-
-	// Enable IPSec encrypted overlay
-	//
-	// This feature will encrypt overlay traffic before it leaves the cluster.
-	EnableIPSecEncryptedOverlay = false
-
 	// EncryptNode enables encrypting traffic from host networking applications
 	// which are not part of Cilium manged pods.
 	EncryptNode = false
@@ -489,9 +469,6 @@ const (
 	// - {ICMP,UDP,TCP}v6 over (future) VXLANv6 (>=132B) -- decode error
 	// The value is aligned to 3 cache-lines, see above comment in TracePayloadLen.
 	TracePayloadLenOverlay = 192
-
-	// Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation.
-	UseCiliumInternalIPForIPsec = false
 
 	// TunnelPortVXLAN is the default VXLAN port
 	TunnelPortVXLAN uint16 = 8472

@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -24,6 +25,7 @@ var Cell = cell.Module(
 	cell.Config(defaultConfig),
 	cell.ProvidePrivate(func(
 		cfg *option.DaemonConfig,
+		ipsecCfg datapath.IPsecConfig,
 	) SharedConfig {
 		return SharedConfig{
 			TunnelingEnabled:                cfg.TunnelingEnabled(),
@@ -37,7 +39,7 @@ var Cell = cell.Module(
 			InstallNoConntrackIptRules:  cfg.InstallNoConntrackIptRules,
 			EnableEndpointRoutes:        cfg.EnableEndpointRoutes,
 			IPAM:                        cfg.IPAM,
-			EnableIPSec:                 cfg.EnableIPSec,
+			EnableIPSec:                 ipsecCfg.Enabled(),
 			MasqueradeInterfaces:        cfg.MasqueradeInterfaces,
 			EnableMasqueradeRouteSource: cfg.EnableMasqueradeRouteSource,
 			EnableL7Proxy:               cfg.EnableL7Proxy,

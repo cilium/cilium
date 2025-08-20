@@ -44,7 +44,7 @@ type MTU interface {
 type mtuParams struct {
 	cell.In
 
-	IPsec        types.IPsecKeyCustodian
+	IPsec        types.IPsecAgent
 	CNI          cni.CNIConfigManager
 	TunnelConfig tunnel.Config
 
@@ -83,7 +83,7 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 				p.TunnelConfig.UnderlayProtocol() == tunnel.IPv6
 			*c = NewConfiguration(
 				p.IPsec.AuthKeySize(),
-				option.Config.EnableIPSec,
+				p.IPsec.Enabled(),
 				p.TunnelConfig.ShouldAdaptMTU(),
 				p.WgConfig.Enabled(),
 				tunnelOverIPv6,

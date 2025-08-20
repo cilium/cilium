@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
 	"github.com/cilium/cilium/pkg/maps/multicast"
@@ -73,6 +74,9 @@ var Cell = cell.Module(
 
 	// Provides access to policy maps.
 	policymap.Cell,
+
+	// Provides access to the encryption map.
+	encrypt.Cell,
 )
 
 type mapApiHandlerOut struct {
