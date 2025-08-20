@@ -1799,4 +1799,6 @@ const (
 	Matcher = "matcher"
 
 	ParentResource = "parentResource"
+
+	KPRConfiguration = "kprConfiguration"
 )
