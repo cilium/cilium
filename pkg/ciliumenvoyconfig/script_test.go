@@ -35,6 +35,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -118,6 +119,7 @@ func TestScript(t *testing.T) {
 					},
 				),
 				node.LocalNodeStoreTestCell,
+				cell.Provide(func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} }),
 				cell.Invoke(func(lns_ *node.LocalNodeStore) { lns = lns_ }),
 			),
 			tableCells,

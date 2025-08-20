@@ -18,8 +18,9 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/clustermesh/types"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -27,8 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-
-	"k8s.io/utils/ptr"
 )
 
 type testParams struct {
@@ -50,6 +49,7 @@ func fixture(t testing.TB) (p testParams) {
 		node.LocalNodeStoreTestCell,
 		Cell,
 		cell.Provide(
+			func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 			func() *option.DaemonConfig { return &option.DaemonConfig{} },
 			tables.NewNodeAddressTable,
 			statedb.RWTable[tables.NodeAddress].ToTable,
@@ -66,10 +66,10 @@ func fixture(t testing.TB) (p testParams) {
 	return p
 }
 
-func intToAddr(i int) types.AddrCluster {
+func intToAddr(i int) cmtypes.AddrCluster {
 	var addr [4]byte
 	binary.BigEndian.PutUint32(addr[:], 0x0100_0000+uint32(i))
-	addrCluster, _ := types.AddrClusterFromIP(addr[:])
+	addrCluster, _ := cmtypes.AddrClusterFromIP(addr[:])
 	return addrCluster
 }
 
