@@ -57,6 +57,8 @@ var Cell = cell.Module(
 		// 'reserved:kube-apiserver' label.
 		registerAPIServerBackendWatcher,
 	),
+
+	cell.Provide(func(ipc *ipcache.IPCache) ipcache.MetadataBatchAPI { return ipc }),
 )
 
 type ipCacheParams struct {
