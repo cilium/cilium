@@ -54,7 +54,7 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 		return err
 	}
 
-	n.Local.UnderlayProtocol = ini.TunnelConfig.UnderlayProtocol()
+	n.UnderlayProtocol = ini.TunnelConfig.UnderlayProtocol()
 
 	if err := ini.initFromK8s(ctx, n); err != nil {
 		return err
@@ -80,7 +80,7 @@ func (ini *localNodeSynchronizer) SyncLocalNode(ctx context.Context, store *node
 			if isBeingDeleted {
 				// Update LocalNode to mark it as being deleted
 				store.Update(func(ln *node.LocalNode) {
-					ln.Local.IsBeingDeleted = true
+					ln.IsBeingDeleted = true
 				})
 			}
 			new := parseNode(ini.Logger, ev.Object)
@@ -93,7 +93,7 @@ func (ini *localNodeSynchronizer) SyncLocalNode(ctx context.Context, store *node
 			ini.Logger.Info("Received Local node Delete event", logfields.Node, ev.Object)
 			// Mark as being deleted on explicit delete events too
 			store.Update(func(ln *node.LocalNode) {
-				ln.Local.IsBeingDeleted = true
+				ln.IsBeingDeleted = true
 			})
 		}
 
@@ -102,10 +102,7 @@ func (ini *localNodeSynchronizer) SyncLocalNode(ctx context.Context, store *node
 }
 
 func newLocalNodeSynchronizer(p localNodeSynchronizerParams) node.LocalNodeSynchronizer {
-	return &localNodeSynchronizer{
-		localNodeSynchronizerParams: p,
-		old:                         node.LocalNode{Local: &node.LocalNodeInfo{}},
-	}
+	return &localNodeSynchronizer{localNodeSynchronizerParams: p}
 }
 
 func (ini *localNodeSynchronizer) initFromConfig(ctx context.Context, n *node.LocalNode) error {
@@ -113,8 +110,8 @@ func (ini *localNodeSynchronizer) initFromConfig(ctx context.Context, n *node.Lo
 	n.ClusterID = ini.Config.ClusterID
 	n.Name = nodeTypes.GetName()
 
-	n.Local.IPv4NativeRoutingCIDR = ini.Config.IPv4NativeRoutingCIDR
-	n.Local.IPv6NativeRoutingCIDR = ini.Config.IPv6NativeRoutingCIDR
+	n.IPv4NativeRoutingCIDR = ini.Config.IPv4NativeRoutingCIDR
+	n.IPv6NativeRoutingCIDR = ini.Config.IPv6NativeRoutingCIDR
 
 	// Initialize node IP addresses from configuration.
 	if ini.Config.IPv6NodeAddr != "auto" {
@@ -231,7 +228,7 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 func (ini *localNodeSynchronizer) mutableFieldsEqual(new *node.LocalNode) bool {
 	return maps.Equal(ini.old.Labels, new.Labels) &&
 		maps.Equal(ini.old.Annotations, new.Annotations) &&
-		ini.old.Local.UID == new.Local.UID && ini.old.Local.ProviderID == new.Local.ProviderID
+		ini.old.UID == new.UID && ini.old.ProviderID == new.ProviderID
 }
 
 // syncFromK8s synchronizes the fields that can be mutated at runtime
@@ -257,6 +254,11 @@ func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
 	ini.old.Labels = new.Labels
 
 	ini.Logger.Debug(
+		"Local node labels updated",
+		logfields.Labels, ln.Labels,
+	)
+
+	ini.Logger.Debug(
 		"Syncing local node with new annotations",
 		logfields.Annotations, ln.Annotations,
 		logfields.OldAnnotations, ini.old.Annotations,
@@ -268,24 +270,28 @@ func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
 	maps.Copy(ln.Annotations, new.Annotations)
 	ini.old.Annotations = new.Annotations
 
-	ini.old.Local.UID = new.Local.UID
-	ini.old.Local.ProviderID = new.Local.ProviderID
-	ln.Local.UID = new.Local.UID
-	ln.Local.ProviderID = new.Local.ProviderID
+	ini.Logger.Debug(
+		"Local node annotations updated",
+		logfields.Annotations, ln.Annotations,
+	)
+
+	ini.old.UID = new.UID
+	ini.old.ProviderID = new.ProviderID
+	ln.UID = new.UID
+	ln.ProviderID = new.ProviderID
 
 	ini.Logger.Debug(
 		"Local node UID and ProviderID updated",
-		logfields.UID, ln.Local.UID,
-		logfields.ProviderID, ln.Local.ProviderID,
+		logfields.UID, ln.UID,
+		logfields.ProviderID, ln.ProviderID,
 	)
 }
 
 func parseNode(logger *slog.Logger, k8sNode *slim_corev1.Node) *node.LocalNode {
 	return &node.LocalNode{
-		Node: *k8s.ParseNode(logger, k8sNode, source.Kubernetes),
-		Local: &node.LocalNodeInfo{
-			UID:        k8sNode.GetUID(),
-			ProviderID: k8sNode.Spec.ProviderID,
-		},
+		Logger:     logger,
+		Node:       *k8s.ParseNode(logger, k8sNode, source.Kubernetes),
+		UID:        k8sNode.GetUID(),
+		ProviderID: k8sNode.Spec.ProviderID,
 	}
 }

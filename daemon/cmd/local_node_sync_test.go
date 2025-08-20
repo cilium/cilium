@@ -107,9 +107,7 @@ func TestLocalNodeSync(t *testing.T) {
 		local = node.LocalNode{Node: types.Node{
 			Labels:      map[string]string{"ex": "label"},
 			Annotations: map[string]string{"ex": "annot"},
-		},
-			Local: &node.LocalNodeInfo{},
-		}
+		}}
 		fln  = newFakeLocalNode()
 		sync = newLocalNodeSynchronizer(localNodeSynchronizerParams{
 			Logger: hivetest.Logger(t),
@@ -129,39 +127,39 @@ func TestLocalNodeSync(t *testing.T) {
 		})
 	)
 
-	require.NoError(t, sync.InitLocalNode(t.Context(), &local))
+	require.NoError(t, sync.InitLocalNode(context.TODO(), &local))
 	require.EqualValues(t, 1, fln.done)
 	require.Equal(t, "foo", local.Name)
 	require.Equal(t, "10.0.0.1", local.GetNodeInternalIPv4().String())
 	require.Equal(t, "fc00::11", local.GetNodeInternalIPv6().String())
 	require.Equal(t, map[string]string{"ex": "label", "foo": "bar"}, local.Labels)
 	require.Equal(t, map[string]string{"ex": "annot", "cilium.io/baz": "qux"}, local.Annotations)
-	require.Equal(t, k8stypes.UID("uid1"), local.Local.UID)
-	require.Equal(t, "provider://foobar", local.Local.ProviderID)
+	require.Equal(t, k8stypes.UID("uid1"), local.UID)
+	require.Equal(t, "provider://foobar", local.ProviderID)
 
 	store := node.NewTestLocalNodeStore(local)
+	updates := stream.ToChannel(context.Background(), store.Observable, stream.WithBufferSize(4))
 
-	sync.SyncLocalNode(t.Context(), store)
-
-	// Assert that SyncLocalNode processed all the events emitted by [fln]
+	sync.SyncLocalNode(context.Background(), store)
 	require.EqualValues(t, 5, fln.done)
 
-	// The observed update at this point will be the final state.
-	updates := stream.ToChannel(t.Context(), store)
 	update := <-updates
+	require.Equal(t, map[string]string{"ex": "label", "foo": "bar"}, update.Labels)
+	require.Equal(t, map[string]string{"ex": "annot", "cilium.io/baz": "qux"}, update.Annotations)
+	update = <-updates
+	require.Equal(t, map[string]string{"ex": "label", "foo": "bar", "qux": "baz"}, update.Labels)
+	require.Equal(t, map[string]string{"ex": "annot", "cilium.io/baz": "qux", "cilium.io/bar": "foo"}, update.Annotations)
+	update = <-updates
 	require.Equal(t, map[string]string{"ex": "label", "qux": "baz"}, update.Labels)
 	require.Equal(t, map[string]string{"ex": "annot", "cilium.io/bar": "foo"}, update.Annotations)
-	require.Equal(t, k8stypes.UID("uid2"), update.Local.UID)
-	require.Equal(t, "provider://foobaz", update.Local.ProviderID)
-
-	n, err := store.Get(t.Context())
-	require.NoError(t, err)
-	require.True(t, n.DeepEqual(&update))
+	update = <-updates
+	require.Equal(t, k8stypes.UID("uid2"), update.UID)
+	require.Equal(t, "provider://foobaz", update.ProviderID)
 }
 
 func TestInitLocalNode_initFromK8s(t *testing.T) {
-	lni := newLocalNodeSynchronizer(
-		localNodeSynchronizerParams{
+	lni := &localNodeSynchronizer{
+		localNodeSynchronizerParams: localNodeSynchronizerParams{
 			Logger: hivetest.Logger(t),
 			Config: &option.DaemonConfig{
 				IPv4NodeAddr:                 "auto",
@@ -223,12 +221,11 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 				},
 			},
 		},
-	)
+	}
 	n := &node.LocalNode{
 		Node: types.Node{
 			Labels: map[string]string{},
 		},
-		Local: &node.LocalNodeInfo{},
 	}
 	err := lni.InitLocalNode(context.Background(), n)
 	assert.NoError(t, err)
@@ -324,18 +321,18 @@ func testNodeDeletion(t *testing.T, nodeEvent resource.Event[*slim_corev1.Node])
 	})
 
 	// Initialize local node
-	local := node.LocalNode{Node: types.Node{Name: "test-node"}, Local: &node.LocalNodeInfo{}}
+	local := node.LocalNode{Node: types.Node{Name: "test-node"}}
 	store := node.NewTestLocalNodeStore(local)
 
 	// Start observing updates
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	updates := stream.ToChannel(ctx, store, stream.WithBufferSize(3))
+	updates := stream.ToChannel(ctx, store.Observable, stream.WithBufferSize(3))
 
 	// Verify initial state
 	initialNode, _ := store.Get(context.Background())
-	assert.False(t, initialNode.Local.IsBeingDeleted)
+	assert.False(t, initialNode.IsBeingDeleted)
 
 	// Start the sync
 	go sync.SyncLocalNode(ctx, store)
@@ -345,7 +342,7 @@ func testNodeDeletion(t *testing.T, nodeEvent resource.Event[*slim_corev1.Node])
 	for !foundDeleted {
 		select {
 		case updatedNode := <-updates:
-			if updatedNode.Local.IsBeingDeleted {
+			if updatedNode.IsBeingDeleted {
 				foundDeleted = true
 			}
 		case <-ctx.Done():

@@ -24,7 +24,7 @@ func TestCell_SuccessfullyRunClient(t *testing.T) {
 	h := hive.New(
 		cell.Provide(NewDefaultNodeProvider),
 		cell.Provide(NewInsecureGRPCOptionsProvider),
-		node.LocalNodeStoreTestCell,
+		node.LocalNodeStoreCell,
 		Cell,
 		cell.Invoke(func(localNodeStore *node.LocalNodeStore) {
 			localNodeStore.Update(func(n *node.LocalNode) {
@@ -84,7 +84,7 @@ func TestCell_NoServerProvided(t *testing.T) {
 	h := hive.New(
 		cell.Provide(NewDefaultNodeProvider),
 		cell.Provide(NewInsecureGRPCOptionsProvider),
-		node.LocalNodeStoreTestCell,
+		node.LocalNodeStoreCell,
 		Cell,
 		cell.Invoke(func(localNodeStore *node.LocalNodeStore) {
 			localNodeStore.Update(func(n *node.LocalNode) {

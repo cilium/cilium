@@ -84,7 +84,7 @@ var Hive = hive.New(
 	daemonk8s.ResourcesCell,
 	daemonk8s.TablesCell,
 	maglev.Cell,
-	node.LocalNodeStoreTestCell,
+	node.LocalNodeStoreCell,
 	metrics.Cell,
 	cell.Config(loadbalancer.TestConfig{}),
 	cell.Provide(source.NewSources),

@@ -116,7 +116,7 @@ func TestScript(t *testing.T) {
 						return mockFeatureMetrics{}
 					},
 				),
-				node.LocalNodeStoreTestCell,
+				node.LocalNodeStoreCell,
 				cell.Invoke(func(lns_ *node.LocalNodeStore) { lns = lns_ }),
 			),
 			tableCells,

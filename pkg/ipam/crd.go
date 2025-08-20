@@ -306,7 +306,7 @@ func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNo
 				logfields.VPCCIDR, primaryCIDR,
 			)
 			localNodeStore.Update(func(n *node.LocalNode) {
-				n.Local.IPv4NativeRoutingCIDR = primaryCIDR
+				n.IPv4NativeRoutingCIDR = primaryCIDR
 			})
 		}
 		return true

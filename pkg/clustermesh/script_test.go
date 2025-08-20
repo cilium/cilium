@@ -99,7 +99,7 @@ func TestScript(t *testing.T) {
 			lbcell.Cell,
 
 			maglev.Cell,
-			node.LocalNodeStoreTestCell,
+			node.LocalNodeStoreCell,
 			cni.Cell,
 			ipset.Cell,
 			dial.ServiceResolverCell,

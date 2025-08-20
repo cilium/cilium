@@ -247,11 +247,11 @@ func (a *Agent) initLocalNodeFromWireGuard(localNode *node.LocalNode, sel k8sLab
 				types.NodeEncryptionOptOutLabels+" label selector",
 			logfields.Selector, a.config.NodeEncryptionOptOutLabels,
 		)
-		localNode.Local.OptOutNodeEncryption = true
+		localNode.OptOutNodeEncryption = true
 		localNode.EncryptionKey = 0
 	}
 
-	a.optOut = localNode.Local.OptOutNodeEncryption
+	a.optOut = localNode.OptOutNodeEncryption
 }
 
 // init creates and configures the local WireGuard tunnel device.

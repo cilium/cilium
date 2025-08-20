@@ -950,18 +950,10 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 	// Update node labels and verify that the node labels are updated correctly even if the old
 	// labels {k1=v1} are not present in the endpoint manager's state.
 	mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = map[string]string{"k2": "v2"} })
-	require.EventuallyWithT(
-		t,
-		func(c *assert.CollectT) {
-			hostEP, ok := mgr.endpoints[hostEPID]
-			if assert.True(c, ok, "host endpoint %s not found", hostEPID) {
-				got := hostEP.GetOpLabels()
-				assert.Equal(c, []string{"k8s:k2=v2"}, got, "labels must match")
-			}
-		},
-		10*time.Second,
-		20*time.Millisecond,
-	)
+	hostEP, ok := mgr.endpoints[hostEPID]
+	require.True(t, ok)
+	got := hostEP.GetOpLabels()
+	require.Equal(t, []string{"k8s:k2=v2"}, got)
 }
 
 func TestUpdateHostEndpointLabels(t *testing.T) {
@@ -976,7 +968,8 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 		oldLabels, newLabels map[string]string
 	}
 	type want struct {
-		labels []string
+		labels      []string
+		labelsCheck assert.ComparisonAssertionFunc
 	}
 	tests := []struct {
 		name        string
@@ -1006,7 +999,8 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 			},
 			setupWant: func() want {
 				return want{
-					labels: []string{"k8s:k1=v1"},
+					labels:      []string{"k8s:k1=v1"},
+					labelsCheck: assert.EqualValues,
 				}
 			},
 			postTestRun: func() {
@@ -1038,7 +1032,8 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 			},
 			setupWant: func() want {
 				return want{
-					labels: []string{"k8s:k2=v2"},
+					labels:      []string{"k8s:k2=v2"},
+					labelsCheck: assert.EqualValues,
 				}
 			},
 			postTestRun: func() {
@@ -1071,7 +1066,8 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 			},
 			setupWant: func() want {
 				return want{
-					labels: []string{"k8s:k1=v1"},
+					labels:      []string{"k8s:k1=v1"},
+					labelsCheck: assert.EqualValues,
 				}
 			},
 			postTestRun: func() {
@@ -1091,19 +1087,10 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 		mgr.startNodeLabelsObserver(args.oldLabels)
 		mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = args.newLabels })
 
-		require.EventuallyWithT(
-			t,
-			func(c *assert.CollectT) {
-				hostEP, ok := mgr.endpoints[hostEPID]
-				assert.True(t, ok, "host endpoint %s not found", hostEPID)
-				got := hostEP.GetOpLabels()
-				assert.Equal(c, want.labels, got, "labels mismatch")
-			},
-			10*time.Second,
-			20*time.Millisecond,
-			"Test Name: %s",
-			tt.name,
-		)
+		hostEP, ok := mgr.endpoints[hostEPID]
+		require.True(t, ok)
+		got := hostEP.GetOpLabels()
+		want.labelsCheck(t, want.labels, got, "Test Name: %s", tt.name)
 		tt.postTestRun()
 	}
 }

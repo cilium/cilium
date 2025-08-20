@@ -32,7 +32,7 @@ func TestCell(t *testing.T) {
 		daemonk8s.ResourcesCell,
 		daemonk8s.TablesCell,
 		maglev.Cell,
-		node.LocalNodeStoreTestCell,
+		node.LocalNodeStoreCell,
 		metrics.Cell,
 		kpr.Cell,
 		Cell,

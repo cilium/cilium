@@ -179,7 +179,7 @@ func TestServiceBackendResolver(t *testing.T) {
 
 	h := hive.New(
 		lb.ConfigCell,
-		node.LocalNodeStoreTestCell,
+		node.LocalNodeStoreCell,
 		writer.Cell,
 
 		cell.Provide(

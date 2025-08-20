@@ -47,7 +47,7 @@ func fixture(t testing.TB) (p testParams) {
 
 	h := hive.New(
 		loadbalancer.ConfigCell,
-		node.LocalNodeStoreTestCell,
+		node.LocalNodeStoreCell,
 		Cell,
 		cell.Provide(
 			func() *option.DaemonConfig { return &option.DaemonConfig{} },

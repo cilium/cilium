@@ -19,9 +19,12 @@ import (
 
 // LocalNode is the local Cilium node. This is derived from the k8s corev1.Node object.
 //
+// NOTE: 'TempLocalNode' will be renamed to 'LocalNode' in next commit where this replaces
+// the old type with the same name.
+//
 // +k8s:deepcopy-gen=true
 // +deepequal-gen=true
-type LocalNode struct {
+type TempLocalNode struct {
 	types.Node
 
 	// Local is non-nil if this is the local node. This carries additional
@@ -30,7 +33,7 @@ type LocalNode struct {
 }
 
 // TableHeader implements statedb.TableWritable.
-func (n *LocalNode) TableHeader() []string {
+func (n *TempLocalNode) TableHeader() []string {
 	return []string{
 		"Name",
 		"Source",
@@ -39,7 +42,7 @@ func (n *LocalNode) TableHeader() []string {
 }
 
 // TableRow implements statedb.TableWritable.
-func (n *LocalNode) TableRow() []string {
+func (n *TempLocalNode) TableRow() []string {
 	addrs := make([]string, len(n.IPAddresses))
 	for i := range n.IPAddresses {
 		addrs[i] = string(n.IPAddresses[i].Type) + ":" + n.IPAddresses[i].ToString()
@@ -52,7 +55,7 @@ func (n *LocalNode) TableRow() []string {
 	}
 }
 
-var _ statedb.TableWritable = &LocalNode{}
+var _ statedb.TableWritable = &TempLocalNode{}
 
 // LocalNodeInfo is the additional information about the local node that
 // is only used internally.
@@ -86,9 +89,9 @@ const (
 )
 
 var (
-	LocalNodeNameIndex = statedb.Index[*LocalNode, string]{
+	LocalNodeNameIndex = statedb.Index[*TempLocalNode, string]{
 		Name: "name",
-		FromObject: func(obj *LocalNode) index.KeySet {
+		FromObject: func(obj *TempLocalNode) index.KeySet {
 			return index.NewKeySet(index.String(obj.Fullname()))
 		},
 		FromKey:    index.String,
@@ -97,9 +100,9 @@ var (
 	}
 	NodeByName = LocalNodeNameIndex.Query
 
-	LocalNodeLocalIndex = statedb.Index[*LocalNode, bool]{
+	LocalNodeLocalIndex = statedb.Index[*TempLocalNode, bool]{
 		Name: "local",
-		FromObject: func(obj *LocalNode) index.KeySet {
+		FromObject: func(obj *TempLocalNode) index.KeySet {
 			if obj.Local == nil {
 				// Don't add remote nodes to this index at all.
 				return index.KeySet{}
@@ -115,7 +118,7 @@ var (
 	LocalNodeQuery = NodeByLocal(true)
 )
 
-func NewLocalNodeTable(db *statedb.DB) (statedb.RWTable[*LocalNode], error) {
+func NewLocalNodeTable(db *statedb.DB) (statedb.RWTable[*TempLocalNode], error) {
 	return statedb.NewTable(
 		db,
 		LocalNodeTableName,
