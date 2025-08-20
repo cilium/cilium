@@ -121,7 +121,6 @@ func registerController(p params) error {
 	if err != nil {
 		return err
 	}
-
 	cesController := &Controller{
 		logger:                   p.Logger,
 		clientset:                clientset,
