@@ -13,6 +13,8 @@ import (
 
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -32,6 +34,23 @@ func getNode(name string, key int) *capi_v2.CiliumNode {
 			Encryption: capi_v2.EncryptionSpec{
 				Key: key,
 			},
+		},
+	}
+}
+
+func getPod(name string, ns string) *slim_corev1.Pod {
+	return &slim_corev1.Pod{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+	}
+}
+
+func getCID(name string) *capi_v2.CiliumIdentity {
+	return &capi_v2.CiliumIdentity{
+		ObjectMeta: v1.ObjectMeta{
+			Name: name,
 		},
 	}
 }
@@ -119,5 +138,55 @@ func TestSlimManagerNodes(t *testing.T) {
 		assert.Len(t, m.mapping.nodeData, 1, "Total number of nodes in cache is 1")
 		m.RemoveNodeMapping(getNode("n2", 0))
 		assert.Len(t, m.mapping.nodeData, 0, "Total number of nodes in cache is 0")
+	})
+}
+
+func TestFCFSManager(t *testing.T) {
+	log := hivetest.Logger(t)
+	t.Run("Test adding new CEP to map", func(*testing.T) {
+		m := newSlimManager(2, log)
+		m.UpsertPodWithIdentity(getPod("p1", "ns"), "node1", getCID("1"))
+		assert.Equal(t, 1, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 1, m.mapping.countCEPs(), "Total number of CEPs inserted is 1")
+	})
+	t.Run("Test creating enough CESs", func(*testing.T) {
+		m := newSlimManager(2, log)
+		m.UpsertPodWithIdentity(getPod("c1", "ns"), "node1", getCID("1"))
+		m.UpsertPodWithIdentity(getPod("c2", "ns"), "node1", getCID("1"))
+		m.UpsertPodWithIdentity(getPod("c3", "ns"), "node1", getCID("1"))
+		m.UpsertPodWithIdentity(getPod("c4", "ns"), "node1", getCID("1"))
+		m.UpsertPodWithIdentity(getPod("c5", "ns"), "node1", getCID("1"))
+		assert.Equal(t, 3, m.mapping.getCESCount(), "Total number of CESs allocated is 3")
+		assert.Equal(t, 5, m.mapping.countCEPs(), "Total number of CEPs inserted is 5")
+	})
+	t.Run("Test keeping the CEPs from different namespaces in different CESs", func(*testing.T) {
+		m := newSlimManager(5, log)
+		m.UpsertPodWithIdentity(getPod("c1", "ns1"), "node1", getCID("1"))
+		m.UpsertPodWithIdentity(getPod("c2", "ns2"), "node1", getCID("1"))
+		m.UpsertPodWithIdentity(getPod("c3", "ns3"), "node1", getCID("1"))
+		m.UpsertPodWithIdentity(getPod("c4", "ns4"), "node1", getCID("1"))
+		m.UpsertPodWithIdentity(getPod("c5", "ns5"), "node1", getCID("1"))
+		assert.Equal(t, 5, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 5, m.mapping.countCEPs(), "Total number of CEPs inserted is 1")
+	})
+	t.Run("Test keeping the same mapping", func(*testing.T) {
+		m := newSlimManager(2, log)
+		m.UpsertPodWithIdentity(getPod("c1", "ns"), "node1", getCID("1"))
+		m.UpsertPodWithIdentity(getPod("c1", "ns"), "node1", getCID("1"))
+		assert.Equal(t, 1, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 1, m.mapping.countCEPs(), "Total number of CEPs inserted is 1")
+	})
+	t.Run("Test reusing CES", func(*testing.T) {
+		m := newSlimManager(2, log)
+		m.UpsertPodWithIdentity(getPod("c1", "ns"), "node1", getCID("1"))
+		m.UpsertPodWithIdentity(getPod("c2", "ns"), "node1", getCID("1"))
+		m.RemovePodMapping(getPod("c1", "ns"))
+		m.UpsertPodWithIdentity(getPod("c3", "ns"), "node1", getCID("1"))
+		m.RemovePodMapping(getPod("c2", "ns"))
+		m.UpsertPodWithIdentity(getPod("c4", "ns"), "node1", getCID("1"))
+		m.RemovePodMapping(getPod("c3", "ns"))
+		m.UpsertPodWithIdentity(getPod("c5", "ns"), "node1", getCID("1"))
+		assert.Equal(t, 1, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 2, m.mapping.countCEPs(), "Total number of CEPs inserted is 2")
 	})
 }
