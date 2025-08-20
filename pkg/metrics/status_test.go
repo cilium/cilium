@@ -139,15 +139,32 @@ func Test_statusCollector_Collect(t *testing.T) {
 			expectedCount:        5,
 			expectedMetric:       expectedStatusMetric,
 		},
+		{
+			name:           "check status metrics without health checking",
+			healthResponse: sampleHealthResponse,
+			expectedCount:  3, // Only non-health metrics: controllers_failing, ip_addresses (IPv4 + IPv6)
+			expectedMetric: `# HELP cilium_controllers_failing Number of failing controllers
+# TYPE cilium_controllers_failing gauge
+cilium_controllers_failing 1
+# HELP cilium_ip_addresses Number of allocated IP addresses
+# TYPE cilium_ip_addresses gauge
+cilium_ip_addresses{family="ipv4"} 3
+cilium_ip_addresses{family="ipv6"} 3
+`,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Log("Test :", tt.name)
+		var connectivityClient connectivityStatusGetter
+		if tt.connectivityResponse != nil {
+			connectivityClient = &fakeConnectivityClient{
+				response: tt.connectivityResponse,
+			}
+		}
 		collector := newStatusCollectorWithClients(logger, &fakeDaemonClient{
 			response: tt.healthResponse,
-		}, &fakeConnectivityClient{
-			response: tt.connectivityResponse,
-		})
+		}, connectivityClient)
 
 		// perform static checks such as prometheus naming convention, number of labels matching, etc
 		lintProblems, err := testutil.CollectAndLint(collector)
