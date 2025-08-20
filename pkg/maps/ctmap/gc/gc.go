@@ -138,6 +138,7 @@ func (gc *GC) enable(
 		triggeredBySignal := false
 		var gcPrev time.Time
 		var forceFullGCTTL time.Time
+		var cachedGCInterval time.Duration
 		for {
 			var (
 				maxDeleteRatio float64
@@ -198,7 +199,8 @@ func (gc *GC) enable(
 			}
 
 			// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
-			interval := ctmap.GetInterval(gc.logger, gcInterval, maxDeleteRatio)
+			interval := ctmap.GetInterval(gc.logger, gcInterval, cachedGCInterval, maxDeleteRatio)
+
 			if success && gc.isFullGC(ipv4, ipv6) {
 				nextGCTime := time.Now().Add(interval)
 				for _, e := range eps {
@@ -206,6 +208,8 @@ func (gc *GC) enable(
 				}
 
 				forceFullGCTTL = time.Now().Add(interval)
+				// full pass so we reset our cached GC interval.
+				cachedGCInterval = interval
 			} else if !initialScan {
 				// If we did not succeed, or it wasn't a full pass then we take the
 				// minimum of the new interval and any remaining time on the last interval
@@ -217,8 +221,12 @@ func (gc *GC) enable(
 				if forceInterval < 0 {
 					forceInterval = 0
 				}
-				if forceInterval < interval {
+				if forceInterval >= 0 && forceInterval < interval {
 					interval = forceInterval
+				} else {
+					// partial pass, but the new interval is less than any leftover ttl so
+					// we cache this as well.
+					cachedGCInterval = interval
 				}
 			}
 
