@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
@@ -38,8 +39,9 @@ func TestCell(t *testing.T) {
 		metrics.Cell,
 		kpr.Cell,
 		Cell,
-		cell.Provide(source.NewSources),
 		cell.Provide(
+			func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
+			source.NewSources,
 			tables.NewNodeAddressTable,
 			statedb.RWTable[tables.NodeAddress].ToTable,
 			func() *option.DaemonConfig {

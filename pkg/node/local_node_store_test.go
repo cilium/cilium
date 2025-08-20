@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	. "github.com/cilium/cilium/pkg/node"
 )
@@ -78,6 +79,12 @@ func TestLocalNodeStore(t *testing.T) {
 	hive := hive.New(
 		LocalNodeStoreCell,
 
+		cell.Provide(func() cmtypes.ClusterInfo {
+			return cmtypes.ClusterInfo{
+				Name: "test",
+				ID:   1,
+			}
+		}),
 		cell.Provide(func() LocalNodeSynchronizer { return ts }),
 		cell.Invoke(observe),
 		cell.Invoke(update),

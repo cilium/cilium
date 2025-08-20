@@ -86,6 +86,7 @@ func TestScript(t *testing.T) {
 				maglev.Cell,
 				node.LocalNodeStoreTestCell,
 				cell.Provide(
+					func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 					func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
 					statedb.RWTable[tables.NodeAddress].ToTable,

@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/node"
@@ -796,6 +797,7 @@ func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*
 		NodeAddressCell,
 		node.LocalNodeStoreCell,
 		cell.Provide(
+			func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 			NewDeviceTable,
 			statedb.RWTable[*Device].ToTable,
 			NewRouteTable,
@@ -1088,10 +1090,15 @@ func TestNodeAddressFromRoute(t *testing.T) {
 					statedb.RWTable[*Route].ToTable,
 				),
 				NodeAddressCell,
-				cell.Provide(func() node.LocalNodeSynchronizer { return testLocalNodeSync{} }),
-				cell.Provide(func() *option.DaemonConfig {
-					return &option.DaemonConfig{AddressScopeMax: defaults.AddressScopeMax}
-				}),
+				cell.Provide(
+					func() node.LocalNodeSynchronizer { return testLocalNodeSync{} },
+					func() *option.DaemonConfig {
+						return &option.DaemonConfig{AddressScopeMax: defaults.AddressScopeMax}
+					},
+					func() cmtypes.ClusterInfo {
+						return cmtypes.ClusterInfo{}
+					},
+				),
 
 				// Capture table handles for use in the test.
 				cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*Device], r statedb.RWTable[*Route], na statedb.Table[NodeAddress]) {
