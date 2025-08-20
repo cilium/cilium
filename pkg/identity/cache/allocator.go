@@ -11,8 +11,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync/atomic"
 
+	"github.com/cilium/hive/script"
 	"github.com/cilium/stream"
 	"github.com/google/renameio/v2"
 	jsoniter "github.com/json-iterator/go"
@@ -1070,5 +1073,83 @@ func clusterNameValidator(clusterName string) allocator.CacheValidator {
 		}
 
 		return nil
+	}
+}
+
+func ScriptCmds(a *CachingIdentityAllocator) map[string]script.Cmd {
+	return map[string]script.Cmd{
+		"identity/list": script.Command(
+			script.CmdUsage{
+				Summary: "List all identities in the allocator",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					var sb strings.Builder
+					models := a.GetIdentities()
+					sb.WriteRune('[')
+					for _, m := range models {
+						sb.WriteString(strconv.FormatInt(m.ID, 10))
+						sb.WriteRune(' ')
+						sb.WriteRune('{')
+						sb.WriteString(strings.Join([]string(m.Labels), ","))
+						sb.WriteRune('}')
+						sb.WriteRune(' ')
+					}
+					sb.WriteRune(']')
+					sb.WriteRune('\n')
+					return sb.String(), "", nil
+				}, nil
+			},
+		),
+		"identity/allocate": script.Command(
+			script.CmdUsage{
+				Summary: "Allocate identity from the allocator",
+				Args:    "labels",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				var wait script.WaitFunc
+
+				allArgs := []string(args)
+				var labelArr []labels.Label
+				for s := range strings.SplitSeq(allArgs[0], ",") {
+					labelArr = append(labelArr, labels.ParseLabel(s))
+				}
+				id, _, err := a.AllocateIdentity(s.Context(), labels.LabelArray(labelArr).Labels(), true, identity.NumericIdentity(0))
+				if err != nil {
+					return wait, fmt.Errorf("allocate: %w", err)
+				}
+				wait = func(s *script.State) (stdout string, stderr string, err error) {
+					return id.String() + "\n", "", nil
+				}
+				return wait, nil
+			},
+		),
+		"identity/release": script.Command(
+			script.CmdUsage{
+				Summary: "Release identity from the allocator",
+				Args:    "numeric-id",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				if len(args) != 1 {
+					return nil, fmt.Errorf("expected one arg but got %v, see usage details", len(args))
+				}
+				num, err := strconv.Atoi(args[0])
+				if err != nil {
+					return nil, fmt.Errorf("atoi: %w", err)
+				}
+				nid := identity.NumericIdentity(num)
+				id := a.LookupIdentityByID(s.Context(), nid)
+				if id == nil {
+					return nil, fmt.Errorf("identity %d not found", nid)
+				}
+				released, err := a.Release(s.Context(), id, true)
+				if err != nil {
+					return nil, fmt.Errorf("release: %w", err)
+				}
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					return fmt.Sprintf("released=%v\n", released), "", nil
+				}, nil
+			},
+		),
 	}
 }
