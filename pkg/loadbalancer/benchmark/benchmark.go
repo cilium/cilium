@@ -25,6 +25,7 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -539,6 +540,9 @@ func testHive(maps lbmaps.LBMaps,
 			node.LocalNodeStoreTestCell,
 
 			cell.Provide(
+				func() cmtypes.ClusterInfo {
+					return cmtypes.ClusterInfo{}
+				},
 				func() loadbalancer.Config {
 					return loadbalancer.Config{
 						UserConfig:  loadbalancer.DefaultUserConfig,

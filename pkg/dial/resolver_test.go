@@ -184,6 +184,7 @@ func TestServiceBackendResolver(t *testing.T) {
 		writer.Cell,
 
 		cell.Provide(
+			func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 			ServiceBackendResolverFactory("test1"),
 
 			func() *option.DaemonConfig { return &option.DaemonConfig{} },
