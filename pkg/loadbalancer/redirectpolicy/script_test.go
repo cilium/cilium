@@ -23,6 +23,7 @@ import (
 	"go.uber.org/goleak"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -77,6 +78,7 @@ func TestScript(t *testing.T) {
 				node.LocalNodeStoreTestCell,
 				maglev.Cell,
 				cell.Provide(
+					func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 					source.NewSources,
 					func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
 					tables.NewNodeAddressTable,
