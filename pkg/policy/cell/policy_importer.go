@@ -54,7 +54,7 @@ type policyImporterParams struct {
 	Repo            policy.PolicyRepository
 	PolicyComputer  compute.PolicyRecomputer
 	EndpointManager endpointmanager.EndpointManager
-	IPCache         *ipcache.IPCache
+	IPCache         ipcache.MetadataBatchAPI
 	MonitorAgent    agent.Agent
 }
 
@@ -63,7 +63,7 @@ type Importer struct {
 	repo         policy.PolicyRepository
 	computer     compute.PolicyRecomputer
 	epm          epmanager
-	ipc          ipcacher
+	ipc          ipcache.MetadataBatchAPI
 	monitorAgent agent.Agent
 
 	// prefixesByResources is the list of prefixes
@@ -72,12 +72,6 @@ type Importer struct {
 	prefixesByResource map[ipcachetypes.ResourceID][]netip.Prefix
 
 	q chan *policytypes.PolicyUpdate
-}
-
-type ipcacher interface {
-	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
-	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
-	WaitForRevision(ctx context.Context, rev uint64) error
 }
 
 type epmanager interface {
