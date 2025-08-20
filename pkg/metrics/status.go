@@ -12,6 +12,7 @@ import (
 	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type statusCollector struct {
@@ -31,12 +32,15 @@ func newStatusCollector(logger *slog.Logger) *statusCollector {
 		logging.Fatal(logger, "Error while creating Cilium API client", logfields.Error, err)
 	}
 
-	healthClient, err := healthClientPkg.NewClient("")
-	if err != nil {
-		logging.Fatal(logger, "Error while creating cilium-health API client", logfields.Error, err)
+	if option.Config.EnableHealthChecking {
+		healthClient, err := healthClientPkg.NewClient("")
+		if err != nil {
+			logging.Fatal(logger, "Error while creating cilium-health API client", logfields.Error, err)
+		}
+		return newStatusCollectorWithClients(logger, ciliumClient.Daemon, healthClient.Connectivity)
 	}
 
-	return newStatusCollectorWithClients(logger, ciliumClient.Daemon, healthClient.Connectivity)
+	return newStatusCollectorWithClients(logger, ciliumClient.Daemon, nil)
 }
 
 // newStatusCollectorWithClients provides a constructor with injected clients
@@ -71,8 +75,10 @@ func newStatusCollectorWithClients(logger *slog.Logger, d daemonHealthGetter, c 
 func (s *statusCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- s.controllersFailingDesc
 	ch <- s.ipAddressesDesc
-	ch <- s.unreachableNodesDesc
-	ch <- s.unreachableHealthEndpointsDesc
+	if s.connectivityStatusGetter != nil {
+		ch <- s.unreachableNodesDesc
+		ch <- s.unreachableHealthEndpointsDesc
+	}
 }
 
 func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
@@ -119,6 +125,11 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 			float64(len(statusResponse.Payload.Ipam.IPV6)),
 			"ipv6",
 		)
+	}
+
+	// Skip health metrics if health checking is disabled
+	if s.connectivityStatusGetter == nil {
+		return
 	}
 
 	healthStatusResponse, err := s.connectivityStatusGetter.GetStatus(nil)
