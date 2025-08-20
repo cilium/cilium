@@ -40,6 +40,8 @@ var Cell = cell.Module(
 			fence.Add("kvstore-ipcache", watcher.WaitForSync)
 		},
 	),
+
+	cell.Provide(func(ipc *ipcache.IPCache) ipcache.MetadataBatchAPI { return ipc }),
 )
 
 type ipCacheParams struct {
