@@ -211,7 +211,7 @@ fib_lookup_v6(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 
 static __always_inline int
 fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
-		struct ipv6hdr *ip6 __maybe_unused, const bool needs_l2_check,
+		struct ipv6hdr *ip6, const bool needs_l2_check,
 		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif)
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {0};
@@ -275,7 +275,7 @@ fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 
 static __always_inline int
 fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
-		struct iphdr *ip4 __maybe_unused, const bool needs_l2_check,
+		struct iphdr *ip4, const bool needs_l2_check,
 		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif)
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {0};
