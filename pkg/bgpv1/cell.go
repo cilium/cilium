@@ -35,9 +35,7 @@ var Cell = cell.Module(
 	"bgp-control-plane",
 	"BGP Control Plane",
 
-	// This works
-	/* cell.Provide(func() *bgp_option.BGPConfig { return &bgp_option.DefaultConfig }), */
-	// But this doesn't
+	// Provide config so that other cells can access it
 	cell.Config(bgp_option.DefaultConfig),
 
 	// The Controller which is the entry point of the module
