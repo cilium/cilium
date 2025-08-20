@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
+	bgp_option "github.com/cilium/cilium/pkg/bgpv1/agent/option"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/api"
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
@@ -33,6 +34,11 @@ import (
 var Cell = cell.Module(
 	"bgp-control-plane",
 	"BGP Control Plane",
+
+	// This works
+	/* cell.Provide(func() *bgp_option.BGPConfig { return &bgp_option.DefaultConfig }), */
+	// But this doesn't
+	cell.Config(bgp_option.DefaultConfig),
 
 	// The Controller which is the entry point of the module
 	cell.Provide(agent.NewController, signaler.NewBGPCPSignaler, mode.NewConfigMode),

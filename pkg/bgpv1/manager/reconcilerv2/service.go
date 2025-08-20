@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/bgpv1/agent/option"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -25,7 +26,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/option"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 )
 
@@ -42,7 +42,7 @@ type ServiceReconcilerIn struct {
 	PeerAdvert   *CiliumPeerAdvertisement
 	SvcDiffStore store.DiffStore[*slim_corev1.Service]
 	EPDiffStore  store.DiffStore[*k8s.Endpoints]
-	DaemonConfig *option.DaemonConfig
+	Config       *option.BGPConfig
 }
 
 type ServiceReconciler struct {
@@ -63,7 +63,7 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 		Reconciler: &ServiceReconciler{
 			logger:                       in.Logger,
 			peerAdvert:                   in.PeerAdvert,
-			legacyOriginAttributeEnabled: in.DaemonConfig.EnableBGPLegacyOriginAttribute,
+			legacyOriginAttributeEnabled: in.Config.EnableBGPLegacyOriginAttribute,
 			svcDiffStore:                 in.SvcDiffStore,
 			epDiffStore:                  in.EPDiffStore,
 			metadata:                     make(map[string]ServiceReconcilerMetadata),

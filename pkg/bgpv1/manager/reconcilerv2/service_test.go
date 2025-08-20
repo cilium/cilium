@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/bgpv1/agent/option"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -26,7 +27,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 type Aggregation struct {
@@ -711,13 +711,13 @@ var (
 		},
 	}
 
-	daemonConfig = func() *option.DaemonConfig {
-		config := *option.Config
+	bgpConfig = func() *option.BGPConfig {
+		config := option.DefaultConfig
 		return &config
 	}
 
-	daemonConfigWithLegacyOriginAttrEabled = func() *option.DaemonConfig {
-		config := *option.Config
+	bgpConfigWithLegacyOriginAttrEabled = func() *option.BGPConfig {
+		config := option.DefaultConfig
 		config.EnableBGPLegacyOriginAttribute = true
 		return &config
 	}
@@ -731,7 +731,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		advertisements   []*v2.CiliumBGPAdvertisement
 		services         []*slim_corev1.Service
 		endpoints        []*k8s.Endpoints
-		daemonConfig     *option.DaemonConfig
+		config           *option.BGPConfig
 		expectedMetadata ServiceReconcilerMetadata
 	}{
 		{
@@ -739,7 +739,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			peerConfig:     []*v2.CiliumBGPPeerConfig{redPeerConfig},
 			services:       []*slim_corev1.Service{redLBSvc},
 			advertisements: nil,
-			daemonConfig:   daemonConfig(),
+			config:         bgpConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
@@ -758,7 +758,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
-			daemonConfig: daemonConfig(),
+			config: bgpConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
@@ -781,7 +781,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
-			daemonConfig: daemonConfig(),
+			config: bgpConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -818,7 +818,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector, aggregation)),
 			},
-			daemonConfig: daemonConfig(),
+			config: bgpConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -856,7 +856,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector, aggregation)),
 			},
-			daemonConfig: daemonConfig(),
+			config: bgpConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -894,7 +894,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
-			daemonConfig: daemonConfig(),
+			config: bgpConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -932,7 +932,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
-			daemonConfig: daemonConfig(),
+			config: bgpConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -970,7 +970,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
-			daemonConfig: daemonConfig(),
+			config: bgpConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
@@ -994,7 +994,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
-			daemonConfig: daemonConfig(),
+			config: bgpConfig(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
@@ -1017,7 +1017,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
-			daemonConfig: daemonConfigWithLegacyOriginAttrEabled(),
+			config: bgpConfigWithLegacyOriginAttrEabled(),
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: ResourceAFPathsMap{
 					redSvcKey: AFPathsMap{
@@ -1063,7 +1063,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 					}),
 				SvcDiffStore: store.InitFakeDiffStore[*slim_corev1.Service](tt.services),
 				EPDiffStore:  store.InitFakeDiffStore[*k8s.Endpoints](tt.endpoints),
-				DaemonConfig: tt.daemonConfig,
+				Config:       tt.config,
 			}
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -1437,7 +1437,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 					}),
 				SvcDiffStore: store.InitFakeDiffStore[*slim_corev1.Service](tt.services),
 				EPDiffStore:  store.InitFakeDiffStore[*k8s.Endpoints](tt.endpoints),
-				DaemonConfig: daemonConfig(),
+				Config:       bgpConfig(),
 			}
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -1811,7 +1811,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 					}),
 				SvcDiffStore: store.InitFakeDiffStore[*slim_corev1.Service](tt.services),
 				EPDiffStore:  store.InitFakeDiffStore[*k8s.Endpoints](tt.endpoints),
-				DaemonConfig: daemonConfig(),
+				Config:       bgpConfig(),
 			}
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -2213,7 +2213,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			}),
 		SvcDiffStore: serviceStore,
 		EPDiffStore:  epStore,
-		DaemonConfig: daemonConfig(),
+		Config:       bgpConfig(),
 	}
 
 	svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -2592,7 +2592,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 			}),
 		SvcDiffStore: serviceStore,
 		EPDiffStore:  epStore,
-		DaemonConfig: daemonConfig(),
+		Config:       bgpConfig(),
 	}
 
 	svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -2894,7 +2894,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 			}),
 		SvcDiffStore: serviceStore,
 		EPDiffStore:  epStore,
-		DaemonConfig: daemonConfig(),
+		Config:       bgpConfig(),
 	}
 
 	svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)

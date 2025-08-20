@@ -972,11 +972,6 @@ const (
 	// BGP router-id allocation IP pool
 	BGPRouterIDAllocationIPPool = "bgp-router-id-allocation-ip-pool"
 
-	// Enables advertising LoadBalancerIP routes with the BGP ORIGIN
-	// attribute set to INCOMPLETE (2), matching MetalLB’s legacy behavior,
-	// instead of the default IGP (0).
-	EnableBGPLegacyOriginAttribute = "enable-bgp-legacy-origin-attribute"
-
 	// EnablePMTUDiscovery enables path MTU discovery to send ICMP
 	// fragmentation-needed replies to the client (when needed).
 	EnablePMTUDiscovery = "enable-pmtu-discovery"
@@ -1878,9 +1873,6 @@ type DaemonConfig struct {
 
 	// BGPRouterIDAllocationIPPool is the IP pool to allocate the BGP router-id from.
 	BGPRouterIDAllocationIPPool string
-
-	// Enables LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
-	EnableBGPLegacyOriginAttribute bool
 
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
@@ -2966,9 +2958,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	// BGP router-id allocation mode
 	c.BGPRouterIDAllocationMode = vp.GetString(BGPRouterIDAllocationMode)
 	c.BGPRouterIDAllocationIPPool = vp.GetString(BGPRouterIDAllocationIPPool)
-
-	// Enables LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
-	c.EnableBGPLegacyOriginAttribute = vp.GetBool(EnableBGPLegacyOriginAttribute)
 
 	// Support failure-mode for policy map overflow
 	c.EnableEndpointLockdownOnPolicyOverflow = vp.GetBool(EnableEndpointLockdownOnPolicyOverflow)
