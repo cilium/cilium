@@ -68,6 +68,7 @@ type KPRConfig struct {
 	EnableSVCSourceRangeCheck bool
 	EnableSessionAffinity     bool
 	EnableSocketLB            bool
+	EnableNoEndpointsRoutable bool
 }
 
 func NewKPRConfig(flags KPRFlags) (KPRConfig, error) {

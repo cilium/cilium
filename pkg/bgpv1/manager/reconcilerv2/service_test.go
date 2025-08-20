@@ -26,6 +26,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 type Aggregation struct {
@@ -1004,6 +1005,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 					}),
 				SvcDiffStore: store.InitFakeDiffStore[*slim_corev1.Service](tt.services),
 				EPDiffStore:  store.InitFakeDiffStore[*k8s.Endpoints](tt.endpoints),
+				RoutesConfig: svcrouteconfig.DefaultConfig,
 			}
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -1377,6 +1379,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 					}),
 				SvcDiffStore: store.InitFakeDiffStore[*slim_corev1.Service](tt.services),
 				EPDiffStore:  store.InitFakeDiffStore[*k8s.Endpoints](tt.endpoints),
+				RoutesConfig: svcrouteconfig.DefaultConfig,
 			}
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -1750,6 +1753,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 					}),
 				SvcDiffStore: store.InitFakeDiffStore[*slim_corev1.Service](tt.services),
 				EPDiffStore:  store.InitFakeDiffStore[*k8s.Endpoints](tt.endpoints),
+				RoutesConfig: svcrouteconfig.DefaultConfig,
 			}
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -2151,6 +2155,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			}),
 		SvcDiffStore: serviceStore,
 		EPDiffStore:  epStore,
+		RoutesConfig: svcrouteconfig.DefaultConfig,
 	}
 
 	svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -2529,6 +2534,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 			}),
 		SvcDiffStore: serviceStore,
 		EPDiffStore:  epStore,
+		RoutesConfig: svcrouteconfig.DefaultConfig,
 	}
 
 	svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
@@ -2830,6 +2836,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 			}),
 		SvcDiffStore: serviceStore,
 		EPDiffStore:  epStore,
+		RoutesConfig: svcrouteconfig.DefaultConfig,
 	}
 
 	svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
