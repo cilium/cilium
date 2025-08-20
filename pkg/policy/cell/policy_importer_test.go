@@ -99,7 +99,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	repo := policy.NewPolicyRepository(logger, ids, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 	polComputer := compute.InstantiateCellForTesting(t, logger, "policy-cell", "TestAddReplaceRemoveRule", repo, idmgr)
 
-	pi := &policyImporter{
+	pi := &Importer{
 		log:      logger,
 		repo:     repo,
 		computer: polComputer,
