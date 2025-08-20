@@ -34,6 +34,11 @@ upstream documentation:
 Deploy Cilium with the portmap plugin enabled
 =============================================
 
+Install the ``portmap`` binaries. Some Kubernetes distributions will do this for
+you, in which case you don't need to do anything. However, if ``portmap`` is not
+available on your worker nodes, you must install it into ``/opt/cni/bin/``. You
+can find binaries from the `CNI project releases page <https://github.com/containernetworking/plugins/releases>`_.
+
 .. include:: k8s-install-download-release.rst
 
 Deploy Cilium release via Helm:
