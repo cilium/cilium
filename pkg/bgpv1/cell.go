@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
-	bgp_option "github.com/cilium/cilium/pkg/bgpv1/agent/option"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/api"
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	bgp_metrics "github.com/cilium/cilium/pkg/bgpv1/metrics"
+	bgp_option "github.com/cilium/cilium/pkg/bgpv1/option"
 	ipam_option "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"

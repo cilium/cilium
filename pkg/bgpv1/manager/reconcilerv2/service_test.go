@@ -16,9 +16,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/bgpv1/agent/option"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
+	"github.com/cilium/cilium/pkg/bgpv1/option"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -711,15 +711,15 @@ var (
 		},
 	}
 
-	bgpConfig = func() *option.BGPConfig {
+	bgpConfig = func() option.BGPConfig {
 		config := option.DefaultConfig
-		return &config
+		return config
 	}
 
-	bgpConfigWithLegacyOriginAttrEabled = func() *option.BGPConfig {
+	bgpConfigWithLegacyOriginAttrEabled = func() option.BGPConfig {
 		config := option.DefaultConfig
 		config.EnableBGPLegacyOriginAttribute = true
-		return &config
+		return config
 	}
 )
 
@@ -731,7 +731,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		advertisements   []*v2.CiliumBGPAdvertisement
 		services         []*slim_corev1.Service
 		endpoints        []*k8s.Endpoints
-		config           *option.BGPConfig
+		config           option.BGPConfig
 		expectedMetadata ServiceReconcilerMetadata
 	}{
 		{
