@@ -73,6 +73,10 @@ type ExternalRegenerationMetadata struct {
 	RegenerationLevel DatapathRegenerationLevel
 
 	ParentContext context.Context
+
+	// PolicyRevisionToWaitFor is the policy revision is being requested to
+	// update the endpoint to.
+	PolicyRevisionToWaitFor uint64
 }
 
 func (m *ExternalRegenerationMetadata) GetRegenerationReason() string {

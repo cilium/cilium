@@ -130,6 +130,8 @@ func ParseExternalRegenerationMetadata(ctx context.Context, logger *slog.Logger,
 		datapathRegenerationContext: &datapathRegenerationContext{
 			regenerationLevel: e.RegenerationLevel,
 			ctCleaned:         make(chan struct{}),
+
+			policyRevisionToWaitFor: e.PolicyRevisionToWaitFor,
 		},
 		parentContext: ctx,
 		cancelFunc:    c,
@@ -152,6 +154,10 @@ type datapathRegenerationContext struct {
 
 	policyMapSyncDone bool
 	policyMapDump     policy.MapStateMap
+
+	// policyRevisionToWaitFor is the policy revision is being requested to
+	// update the endpoint to.
+	policyRevisionToWaitFor uint64
 
 	finalizeList revert.FinalizeList
 	revertStack  revert.RevertStack
