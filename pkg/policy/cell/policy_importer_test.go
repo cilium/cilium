@@ -94,7 +94,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		},
 	}
 
-	pi := &policyImporter{
+	pi := &Importer{
 		log:  slog.Default(),
 		repo: policy.NewPolicyRepository(hivetest.Logger(t), ids, nil, nil, nil, testpolicy.NewPolicyMetricsNoop()),
 		epm:  epm,
