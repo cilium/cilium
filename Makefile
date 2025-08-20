@@ -453,6 +453,17 @@ check-fuzz: # Check that fuzzers are added to the tree correctly.
 	@$(ECHO_CHECK) contrib/scripts/check-fuzz.sh
 	$(QUIET) contrib/scripts/check-fuzz.sh
 
+.PHONY: fuzz
+ifneq ($(V),0)
+fuzz: export DEBUG=1
+endif
+ifneq ($(GOTEST_FORMATTER),cat)
+fuzz: export FUZZ_ARGS=-json
+endif
+fuzz: check-fuzz # Run fuzzer tests briefly for FUZZ_TIME seconds
+	@$(ECHO_CHECK) go-fuzz
+	./test/fuzzing/go-fuzz.sh | $(GOTEST_FORMATTER)
+
 precheck: ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
