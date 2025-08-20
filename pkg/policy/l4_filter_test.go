@@ -4,7 +4,6 @@
 package policy
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -25,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	testcertificatemanager "github.com/cilium/cilium/pkg/testutils/certificatemanager"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -70,7 +70,7 @@ func newTestData(logger *slog.Logger) *testData {
 
 	td := &testData{
 		sc:                testNewSelectorCache(logger, nil),
-		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, testpolicy.NewPolicyMetricsNoop()),
+		repo:              NewPolicyRepository(logger, nil, &testcertificatemanager.Fake{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, testpolicy.NewPolicyMetricsNoop()),
 		idSet:             set.NewSet[identity.NumericIdentity](),
 		testPolicyContext: &testPolicyContextType{logger: logger},
 	}
@@ -2628,22 +2628,4 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 			require.True(t, anyPerSelectorPolicy, "Should have at least one PerSelectorPolicy")
 		})
 	}
-}
-
-type fakeCertificateManager struct{}
-
-const (
-	fakeCA         = "fake ca"
-	fakePublicKey  = "fake public key"
-	fakePrivateKey = "fake private key"
-)
-
-func (_ *fakeCertificateManager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, inlineSecrets bool, err error) {
-	name := tlsCtx.Secret.Name
-	public = fakePublicKey + " " + name
-	private = fakePrivateKey + " " + name
-	ca = fakeCA + " " + name
-
-	inlineSecrets = true
-	return
 }
