@@ -495,6 +495,14 @@ func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
 	ipc.mutex.RUnlock()
 }
 
+type MetadataBatchAPI interface {
+	UpsertMetadataBatch(updates ...MU) (revision uint64)
+	RemoveMetadataBatch(updates ...MU) (revision uint64)
+	WaitForRevision(ctx context.Context, rev uint64) error
+}
+
+var _ MetadataBatchAPI = &IPCache{}
+
 // MU is a batched metadata update, the short name is to cut down on visual clutter.
 type MU struct {
 	Prefix   cmtypes.PrefixCluster
