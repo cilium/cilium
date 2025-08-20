@@ -186,6 +186,7 @@ const (
 	TraceReasonSRv6Encap
 	TraceReasonSRv6Decap
 	TraceReasonEncryptOverlay
+	TraceReasonFragments
 	// TraceReasonEncryptMask is the bit used to indicate encryption or not.
 	TraceReasonEncryptMask = uint8(0x80)
 )
@@ -201,6 +202,7 @@ var traceReasons = map[uint8]string{
 	TraceReasonSRv6Encap:            "srv6-encap",
 	TraceReasonSRv6Decap:            "srv6-decap",
 	TraceReasonEncryptOverlay:       "encrypt-overlay",
+	TraceReasonFragments:            "fragments",
 }
 
 // dumpIdentity dumps the source and destination identities in numeric or

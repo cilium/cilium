@@ -152,6 +152,7 @@ const (
 	TraceToNetwork
 	TraceFromCrypto
 	TraceToCrypto
+	TraceFragments
 )
 
 // TraceObservationPoints is a map of all supported trace observation points

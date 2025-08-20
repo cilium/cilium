@@ -83,6 +83,7 @@ const TraceReason_REOPENED = flow.TraceReason_REOPENED
 const TraceReason_SRV6_ENCAP = flow.TraceReason_SRV6_ENCAP
 const TraceReason_SRV6_DECAP = flow.TraceReason_SRV6_DECAP
 const TraceReason_ENCRYPT_OVERLAY = flow.TraceReason_ENCRYPT_OVERLAY
+const TraceReason_FRAGMENTS = flow.TraceReason_FRAGMENTS
 
 var TraceReason_name = flow.TraceReason_name
 var TraceReason_value = flow.TraceReason_value

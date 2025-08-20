@@ -256,6 +256,7 @@ const (
 	TraceReason_SRV6_ENCAP      TraceReason = 6
 	TraceReason_SRV6_DECAP      TraceReason = 7
 	TraceReason_ENCRYPT_OVERLAY TraceReason = 8
+	TraceReason_FRAGMENTS       TraceReason = 9
 )
 
 // Enum value maps for TraceReason.
@@ -270,6 +271,7 @@ var (
 		6: "SRV6_ENCAP",
 		7: "SRV6_DECAP",
 		8: "ENCRYPT_OVERLAY",
+		9: "FRAGMENTS",
 	}
 	TraceReason_value = map[string]int32{
 		"TRACE_REASON_UNKNOWN": 0,
@@ -281,6 +283,7 @@ var (
 		"SRV6_ENCAP":           6,
 		"SRV6_DECAP":           7,
 		"ENCRYPT_OVERLAY":      8,
+		"FRAGMENTS":            9,
 	}
 )
 
@@ -5370,7 +5373,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"TO_NETWORK\x10\v\x12\x0f\n" +
 	"\vFROM_CRYPTO\x10\f\x12\r\n" +
-	"\tTO_CRYPTO\x10\r*\xa0\x01\n" +
+	"\tTO_CRYPTO\x10\r*\xaf\x01\n" +
 	"\vTraceReason\x12\x18\n" +
 	"\x14TRACE_REASON_UNKNOWN\x10\x00\x12\a\n" +
 	"\x03NEW\x10\x01\x12\x0f\n" +
@@ -5382,7 +5385,8 @@ const file_flow_flow_proto_rawDesc = "" +
 	"SRV6_ENCAP\x10\x06\x12\x0e\n" +
 	"\n" +
 	"SRV6_DECAP\x10\a\x12\x13\n" +
-	"\x0fENCRYPT_OVERLAY\x10\b*H\n" +
+	"\x0fENCRYPT_OVERLAY\x10\b\x12\r\n" +
+	"\tFRAGMENTS\x10\t*H\n" +
 	"\n" +
 	"L7FlowType\x12\x13\n" +
 	"\x0fUNKNOWN_L7_TYPE\x10\x00\x12\v\n" +

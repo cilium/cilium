@@ -71,13 +71,20 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-#ifndef ENABLE_IPV6_FRAGMENTS
 	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+#ifndef ENABLE_IPV6_FRAGMENTS
 	if (fraginfo < 0)
 		return (int)fraginfo;
-	if (ipfrag_is_fragment(fraginfo))
+#endif
+	if (fraginfo < 0 && ipfrag_is_fragment(fraginfo)) {
+#ifndef ENABLE_IPV6_FRAGMENTS
 		return DROP_FRAG_NOSUPPORT;
 #endif
+		send_trace_notify(ctx, TRACE_FROM_OVERLAY, SECLABEL_IPV6,
+			  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+			  ctx->ingress_ifindex, TRACE_REASON_FRAGMENTS,
+			  0, bpf_htons(ETH_P_IP));
+	}
 
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
@@ -353,11 +360,16 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
  * AND a IPv4 fragmented packet is received,
  * then drop the packet.
  */
-#ifndef ENABLE_IPV4_FRAGMENTS
 	fraginfo = ipfrag_encode_ipv4(ip4);
-	if (ipfrag_is_fragment(fraginfo))
+	if (ipfrag_is_fragment(fraginfo)) {
+#ifndef ENABLE_IPV4_FRAGMENTS
 		return DROP_FRAG_NOSUPPORT;
 #endif
+		send_trace_notify(ctx, TRACE_FROM_OVERLAY, SECLABEL_IPV4,
+			  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+			  ctx->ingress_ifindex, TRACE_REASON_FRAGMENTS,
+			  0, bpf_htons(ETH_P_IP));
+	}
 
 #ifdef ENABLE_MULTICAST
 	if (IN_MULTICAST(bpf_ntohl(ip4->daddr))) {
