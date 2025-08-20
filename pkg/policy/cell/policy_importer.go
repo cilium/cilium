@@ -51,7 +51,7 @@ type policyImporterParams struct {
 	MonitorAgent    agent.Agent
 }
 
-type policyImporter struct {
+type Importer struct {
 	log          *slog.Logger
 	repo         policy.PolicyRepository
 	computer     compute.PolicyRecomputer
@@ -78,7 +78,7 @@ type epmanager interface {
 }
 
 func newPolicyImporter(cfg policyImporterParams) PolicyImporter {
-	i := &policyImporter{
+	i := &Importer{
 		log:          cfg.Log,
 		repo:         cfg.Repo,
 		computer:     cfg.PolicyComputer,
@@ -106,7 +106,7 @@ func newPolicyImporter(cfg policyImporterParams) PolicyImporter {
 // (This is only used for policies created by the local API).
 const ResourceIDAnonymous = "policy/anonymous"
 
-func (i *policyImporter) UpdatePolicy(u *policytypes.PolicyUpdate) {
+func (i *Importer) UpdatePolicy(u *policytypes.PolicyUpdate) {
 	i.q <- u
 }
 
@@ -123,7 +123,7 @@ func concat(buf []*policytypes.PolicyUpdate, in *policytypes.PolicyUpdate) []*po
 // to be allocated.
 //
 // It returns the set of stale prefixes that should be deallocated after policy updates are complete.
-func (i *policyImporter) updatePrefixes(ctx context.Context, updates []*policytypes.PolicyUpdate) (toPrune map[ipcachetypes.ResourceID][]netip.Prefix) {
+func (i *Importer) updatePrefixes(ctx context.Context, updates []*policytypes.PolicyUpdate) (toPrune map[ipcachetypes.ResourceID][]netip.Prefix) {
 	if i.ipc == nil {
 		return
 	}
@@ -240,7 +240,7 @@ func (i *policyImporter) updatePrefixes(ctx context.Context, updates []*policyty
 }
 
 // prunePrefixes removes the CIDR labels from the given set of (resource, prefix) pairs.
-func (i *policyImporter) prunePrefixes(prunePrefixes map[ipcachetypes.ResourceID][]netip.Prefix) {
+func (i *Importer) prunePrefixes(prunePrefixes map[ipcachetypes.ResourceID][]netip.Prefix) {
 	if i.ipc == nil {
 		return
 	}
@@ -269,7 +269,7 @@ func (i *policyImporter) prunePrefixes(prunePrefixes map[ipcachetypes.ResourceID
 // It also handles prefix allocation in the ipcache when the supplied rules rely on
 // CIDR identities.
 // (Does not actually return error, just to satisfy the Job signature)
-func (i *policyImporter) processUpdates(ctx context.Context, updates []*policytypes.PolicyUpdate) error {
+func (i *Importer) processUpdates(ctx context.Context, updates []*policytypes.PolicyUpdate) error {
 	if len(updates) == 0 {
 		return nil
 	}
