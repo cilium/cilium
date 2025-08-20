@@ -107,7 +107,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	repo := policy.NewPolicyRepository(logger, ids, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 	polComputer := compute.InstantiateCellForTesting(t, logger, "policy-cell", "TestAddReplaceRemoveRule", repo, idmgr)
 
-	pi := &policyImporter{
+	pi := &Importer{
 		log:      logger,
 		repo:     repo,
 		computer: polComputer,
@@ -530,7 +530,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 			}
 
 			logger := hivetest.Logger(t)
-			pi := &policyImporter{
+			pi := &Importer{
 				log:      logger,
 				repo:     args.repo,
 				computer: compute.InstantiateCellForTesting(t, logger, "policy-cell", "TestAddCiliumNetworkPolicyByLabels", args.repo, args.idmgr),
