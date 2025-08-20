@@ -61,6 +61,8 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Run checkpatch.pl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           make -C bpf checkpatch || (echo "Run 'make -C bpf checkpatch' locally to investigate reports"; exit 1)
 
