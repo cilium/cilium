@@ -16,11 +16,24 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"golang.org/x/sys/unix"
+
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/api/v1/datapathplugins"
 
 	"github.com/cilium/ebpf"
 
 	"google.golang.org/grpc"
+)
+
+const (
+	// Chosen not to conflict with Cilium defaults in pkg/datapath/linux
+	routeTable = 225
+	// Loosely chosen not to conflict with existing marks used by Cilium,
+	// but this probably would interfere with ipsec which uses these bits.
+	markMagicToProxy = 0xA000
+	markMask         = 0xF000
 )
 
 var (
@@ -34,6 +47,11 @@ func main() {
 	flag.Parse()
 
 	logger := slog.Default()
+
+	if err := setupRoutes(); err != nil {
+		logger.Error("Could not setup routes", "error", err)
+		os.Exit(1)
+	}
 
 	go func() {
 		logger.Info("Starting http proxy server",
@@ -59,6 +77,66 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
+}
+
+func setupRoutes() error {
+	// ip rule add fwmark 0xA000/0xF000 lookup 225
+	if err := ensureRule(); err != nil {
+		return err
+	}
+
+	link, err := netlink.LinkByName("lo")
+	if err != nil {
+		return fmt.Errorf("looking up lo: %w", err)
+	}
+
+	// // ip route add 225 default dev lo
+	// if err := netlink.RouteReplace(&netlink.Route{
+	// 	Dst:       &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
+	// 	LinkIndex: link.Attrs().Index,
+	// 	Table:     routeTable,
+	// }); err != nil && !errors.Is(err, unix.EEXIST) {
+	// 	return fmt.Errorf("adding default route: %w", err)
+	// }
+
+	// ip route add local default dev lo table 225
+	if err := netlink.RouteReplace(&netlink.Route{
+		// Src:       net.IPv4zero,
+		Dst:       &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
+		LinkIndex: link.Attrs().Index,
+		Table:     routeTable,
+		Scope:     netlink.SCOPE_HOST,
+		Type:      unix.RTN_LOCAL,
+	}); err != nil && !errors.Is(err, unix.EEXIST) {
+		return fmt.Errorf("adding local route: %w", err)
+	}
+
+	return nil
+}
+
+func ensureRule() error {
+	var mask uint32 = markMask
+	rule := netlink.NewRule()
+	rule.Table = routeTable
+	rule.Mark = markMagicToProxy
+	rule.Mask = &mask
+
+	rules, err := netlink.RuleList(0)
+	if err != nil {
+		return fmt.Errorf("listing rules: %w", err)
+	}
+
+	for _, r := range rules {
+		if r.Table == rule.Table && r.Mark == rule.Mark {
+			return nil
+		}
+	}
+
+	if err := netlink.RuleAdd(rule); err != nil {
+		return fmt.Errorf("adding rule: %w", err)
+	}
+
+	return nil
 }
 
 func runTProxyServer(logger *slog.Logger) error {

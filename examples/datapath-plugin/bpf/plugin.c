@@ -13,6 +13,11 @@
 
 #include "exits.h"
 
+/* Loosely chosen not to conflict with existing marks used by Cilium,
+ * but this probably would interfere with ipsec which uses these bits.
+ */
+#define MARK_MAGIC_TO_PROXY 0xA000
+
 __u16 proxy_port;
 
 SEC("tc")
@@ -68,6 +73,11 @@ int from_client(struct __sk_buff *ctx)
 		return TC_ACT_OK;
 	}
 
+	if (tuple->ipv4.dport != bpf_htons(80)) {
+		bpf_printk("passing non-HTTP traffic\n");
+		return TC_ACT_OK;
+	}
+
 	/* First, see if there is an established socket. */
 	sk = bpf_sk_lookup_tcp(ctx, tuple, sizeof(tuple->ipv4),
 			       BPF_F_CURRENT_NETNS, 0);
@@ -101,6 +111,7 @@ assign:
 		bpf_printk("bpf_sk_assign returned %d\n", bpf_sk_assign(ctx, sk, 0));
 release:
 	bpf_sk_release(sk);
+	ctx->mark |= MARK_MAGIC_TO_PROXY;
 	return TC_ACT_OK;
 }
 

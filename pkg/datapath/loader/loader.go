@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -963,11 +964,11 @@ func attachSKBPrograms(ctx context.Context, logger *slog.Logger, pluginManager D
 	var commit func() error
 	if postHook == nil {
 		// Use default exit hook that just returns what Cilium intended.
-		exitSpecs, err := loadExits()
+		exitSpecs, err := bpfgen.LoadExits()
 		if err != nil {
 			return fmt.Errorf("loading exits collection spec: %w", err)
 		}
-		var exitObjs exitsObjects
+		var exitObjs bpfgen.ExitsObjects
 		commit, err = bpf.LoadAndAssign(logger, &exitObjs, exitSpecs, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{
 				Maps:            ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
