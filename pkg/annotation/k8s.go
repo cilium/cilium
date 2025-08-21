@@ -218,6 +218,8 @@ const (
 	CECInjectCiliumFilters      = CECPrefix + "/inject-cilium-filters"
 	CECIsL7LB                   = CECPrefix + "/is-l7lb"
 	CECUseOriginalSourceAddress = CECPrefix + "/use-original-source-address"
+
+	NoTrackHostPorts = NetworkPrefix + "/no-track-host-ports"
 )
 
 // CiliumPrefixRegex is a regex matching Cilium specific annotations.

@@ -88,6 +88,11 @@ type ipcacheManager interface {
 	DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool)
 }
 
+type hostNetworkManager interface {
+	AddNoTrackHostPorts(namespace, name string, ports []string)
+	RemoveNoTrackHostPorts(namespace, name string)
+}
+
 type K8sWatcher struct {
 	logger           *slog.Logger
 	resourceGroupsFn func(logger *slog.Logger, cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly []string)
