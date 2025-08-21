@@ -1,0 +1,66 @@
+hive/start
+db/show health
+
+k8s/add policy.yaml
+
+policy/import policy.yaml
+
+identity/allocate k8s:io.kubernetes.pod.namespace=default,k8s:foo=bar
+env --from-stdout id1
+idm/add-from-stdout k8s:io.kubernetes.pod.namespace=default,k8s:foo=bar
+
+replace 'policy' 'p2' policy.yaml
+policy/import policy.yaml
+policy/import allow-env-prod.yaml
+
+identity/allocate k8s:io.kubernetes.pod.namespace=default,k8s:baz=bar
+env --from-stdout id2
+idm/add-from-stdout k8s:io.kubernetes.pod.namespace=default,k8s:baz=bar
+
+db/cmp policy-computations policy.table
+
+-- policy.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "policy"
+  namespace: "default"
+spec:
+  endpointSelector: {}
+  egress:
+    - toEndpoints:
+      - matchLabels: {}
+    - toEndpoints:
+      - matchLabels:
+          "k8s:io.kubernetes.pod.namespace": kube-system
+          "k8s:k8s-app": kube-dns
+      toPorts:
+      - ports:
+        - port: "53"
+          protocol: "UDP"
+        rules:
+          dns:
+          - matchPattern: "*"
+    - toFQDNs:
+      - matchPattern: "*"
+      - matchPattern: "ifconfig.co"
+    - toCIDR:
+      - "1.1.1.1/32"
+
+-- allow-env-prod.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "allow-env-prod"
+  namespace: "default"
+spec:
+  endpointSelector:
+    matchLabels:
+      env: prod
+  egress:
+  - {}
+
+-- policy.table --
+Identity Revision Err
+${id1}   3
+${id2}   4
