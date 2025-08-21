@@ -138,7 +138,8 @@ spec:
   },
   "NodeIdentity": 0,
   "WireguardPubKey": "VRksOB6ZNds4oXWIGfSVpvc0gBhcOWFmzvTDcyvULlI=",
-  "BootID": "570d3fd1-93db-4862-ba99-6a3c2c10c38f"
+  "BootID": "570d3fd1-93db-4862-ba99-6a3c2c10c38f",
+  "PreferExternalIP": false
 }
 -- node-2.expected --
 # cilium/state/nodes/v1/cluster3/test-node-2
@@ -186,5 +187,6 @@ spec:
   "Annotations": null,
   "NodeIdentity": 0,
   "WireguardPubKey": "",
-  "BootID": "c1d2cda2-aca0-4033-abca-3843298860b9"
+  "BootID": "c1d2cda2-aca0-4033-abca-3843298860b9",
+  "PreferExternalIP": false
 }

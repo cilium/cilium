@@ -486,5 +486,5 @@ func (n NodeAddress) AddrType() addressing.AddressType {
 // An error is returned if GetIP fails to extract an IP from the CiliumNode
 // based on the provided address family.
 func (n *CiliumNode) GetIP(ipv6 bool) net.IP {
-	return addressing.ExtractNodeIP[NodeAddress](n.Spec.Addresses, ipv6)
+	return addressing.ExtractNodeIP[NodeAddress](n.Spec.Addresses, ipv6, false)
 }

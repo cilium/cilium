@@ -27,11 +27,11 @@ type Address interface {
 }
 
 // ExtractNodeIP returns one of the provided IP addresses available with the following priority:
-// - NodeInternalIP
-// - NodeExternalIP
+// - NodeInternalIP if preferExternalIP is false, otherwise NodeExternalIP
+// - NodeExternalIP if preferExternalIP is false, otherwise NodeInternalIP
 // - other IP address type
 // An error is returned if ExtractNodeIP fails to get an IP based on the provided address family.
-func ExtractNodeIP[T Address](addrs []T, ipv6 bool) net.IP {
+func ExtractNodeIP[T Address](addrs []T, ipv6, preferExternalIP bool) net.IP {
 	var backupIP net.IP
 	for _, addr := range addrs {
 		parsed := net.ParseIP(addr.ToString())
@@ -42,16 +42,22 @@ func ExtractNodeIP[T Address](addrs []T, ipv6 bool) net.IP {
 			(!ipv6 && parsed.To4() == nil) {
 			continue
 		}
+		preferedType := NodeInternalIP
+		backupType := NodeExternalIP
+		if preferExternalIP {
+			preferedType = NodeExternalIP
+			backupType = NodeInternalIP
+		}
 		switch addr.AddrType() {
 		// Ignore CiliumInternalIPs
 		case NodeCiliumInternalIP:
 			continue
-		// Always prefer a cluster internal IP
-		case NodeInternalIP:
+		// Always use preferred type Node IP
+		case preferedType:
 			return parsed
-		case NodeExternalIP:
-			// Fall back to external Node IP
-			// if no internal IP could be found
+		case backupType:
+			// Fall back to backup type Node IP
+			// if no preferred type IP could be found
 			backupIP = parsed
 		default:
 			// As a last resort, if no internal or external
