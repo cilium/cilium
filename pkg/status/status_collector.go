@@ -337,7 +337,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 	if d.statusParams.KPRConfig.EnableHostPort {
 		features.HostPort.Enabled = true
 	}
-	if d.statusParams.KPRConfig.EnableExternalIPs {
+	if d.statusParams.KPRConfig.KubeProxyReplacement {
 		features.ExternalIPs.Enabled = true
 	}
 	if d.statusParams.KPRConfig.EnableSocketLB {
