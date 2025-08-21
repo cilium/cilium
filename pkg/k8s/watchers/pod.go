@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -50,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
+
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -66,38 +68,40 @@ type k8sPodWatcherParams struct {
 
 	K8sEventReporter *K8sEventReporter
 
-	Clientset         k8sClient.Clientset
-	Resources         agentK8s.Resources
-	K8sResourceSynced *k8sSynced.Resources
-	K8sAPIGroups      *k8sSynced.APIGroups
-	EndpointManager   endpointmanager.EndpointManager
-	PolicyUpdater     *policy.Updater
-	IPCache           *ipcache.IPCache
-	DB                *statedb.DB
-	Pods              statedb.Table[agentK8s.LocalPod]
-	NodeAddrs         statedb.Table[datapathTables.NodeAddress]
-	CGroupManager     cgroup.CGroupManager
-	LBConfig          loadbalancer.Config
-	WgConfig          wgTypes.WireguardConfig
+	Clientset          k8sClient.Clientset
+	Resources          agentK8s.Resources
+	K8sResourceSynced  *k8sSynced.Resources
+	K8sAPIGroups       *k8sSynced.APIGroups
+	EndpointManager    endpointmanager.EndpointManager
+	PolicyUpdater      *policy.Updater
+	IPCache            *ipcache.IPCache
+	DB                 *statedb.DB
+	Pods               statedb.Table[agentK8s.LocalPod]
+	NodeAddrs          statedb.Table[datapathTables.NodeAddress]
+	CGroupManager      cgroup.CGroupManager
+	LBConfig           loadbalancer.Config
+	WgConfig           wgTypes.WireguardConfig
+	HostNetworkManager datapath.IptablesManager
 }
 
 func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 	return &K8sPodWatcher{
-		logger:            params.Logger,
-		clientset:         params.Clientset,
-		k8sEventReporter:  params.K8sEventReporter,
-		k8sResourceSynced: params.K8sResourceSynced,
-		k8sAPIGroups:      params.K8sAPIGroups,
-		endpointManager:   params.EndpointManager,
-		policyManager:     params.PolicyUpdater,
-		ipcache:           params.IPCache,
-		cgroupManager:     params.CGroupManager,
-		resources:         params.Resources,
-		db:                params.DB,
-		pods:              params.Pods,
-		nodeAddrs:         params.NodeAddrs,
-		lbConfig:          params.LBConfig,
-		wgConfig:          params.WgConfig,
+		logger:             params.Logger,
+		clientset:          params.Clientset,
+		k8sEventReporter:   params.K8sEventReporter,
+		k8sResourceSynced:  params.K8sResourceSynced,
+		k8sAPIGroups:       params.K8sAPIGroups,
+		endpointManager:    params.EndpointManager,
+		policyManager:      params.PolicyUpdater,
+		ipcache:            params.IPCache,
+		cgroupManager:      params.CGroupManager,
+		resources:          params.Resources,
+		db:                 params.DB,
+		pods:               params.Pods,
+		nodeAddrs:          params.NodeAddrs,
+		lbConfig:           params.LBConfig,
+		wgConfig:           params.WgConfig,
+		hostNetworkManager: params.HostNetworkManager,
 
 		controllersStarted: make(chan struct{}),
 	}
@@ -115,17 +119,18 @@ type K8sPodWatcher struct {
 	k8sResourceSynced *k8sSynced.Resources
 	// k8sAPIGroups is a set of k8s API in use. They are setup in watchers,
 	// and may be disabled while the agent runs.
-	k8sAPIGroups    *k8sSynced.APIGroups
-	endpointManager endpointManager
-	policyManager   policyManager
-	ipcache         ipcacheManager
-	cgroupManager   cgroupManager
-	resources       agentK8s.Resources
-	db              *statedb.DB
-	pods            statedb.Table[agentK8s.LocalPod]
-	nodeAddrs       statedb.Table[datapathTables.NodeAddress]
-	lbConfig        loadbalancer.Config
-	wgConfig        wgTypes.WireguardConfig
+	k8sAPIGroups       *k8sSynced.APIGroups
+	endpointManager    endpointManager
+	policyManager      policyManager
+	ipcache            ipcacheManager
+	cgroupManager      cgroupManager
+	resources          agentK8s.Resources
+	db                 *statedb.DB
+	pods               statedb.Table[agentK8s.LocalPod]
+	nodeAddrs          statedb.Table[datapathTables.NodeAddress]
+	lbConfig           loadbalancer.Config
+	wgConfig           wgTypes.WireguardConfig
+	hostNetworkManager hostNetworkManager
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -232,9 +237,16 @@ func (k *K8sPodWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		return err
 	}
 
-	if pod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy {
-		scopedLog.Debug("Skip pod event using host networking")
-		return err
+	if pod.Spec.HostNetwork {
+		if hostPorts, ok := annotation.Get(pod, annotation.NoTrackHostPorts); ok {
+			hostPorts = strings.ReplaceAll(hostPorts, " ", "")
+			k.hostNetworkManager.SetNoTrackHostPorts(pod.Namespace, pod.Name, strings.Split(hostPorts, ","))
+		}
+
+		if !option.Config.EnableLocalRedirectPolicy {
+			scopedLog.Debug("Skip pod event using host networking")
+			return err
+		}
 	}
 
 	podIPs := k8sUtils.ValidIPs(pod.Status)
@@ -281,10 +293,18 @@ func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) er
 		return err
 	}
 
-	if newK8sPod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy &&
-		!option.Config.EnableSocketLBTracing {
-		scopedLog.Debug("Skip pod event using host networking")
-		return err
+	if newK8sPod.Spec.HostNetwork {
+		if hostPorts, ok := annotation.Get(newK8sPod, annotation.NoTrackHostPorts); ok {
+			hostPorts = strings.ReplaceAll(hostPorts, " ", "")
+
+			k.hostNetworkManager.SetNoTrackHostPorts(newK8sPod.Namespace, newK8sPod.Name, strings.Split(hostPorts, ","))
+		}
+
+		if !option.Config.EnableLocalRedirectPolicy &&
+			!option.Config.EnableSocketLBTracing {
+			scopedLog.Debug("Skip pod event using host networking")
+			return err
+		}
 	}
 
 	k.cgroupManager.OnUpdatePod(oldK8sPod, newK8sPod)
@@ -475,6 +495,12 @@ func (k *K8sPodWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 		logfields.PodIPs, pod.Status.PodIPs,
 		logfields.HostIP, pod.Status.HostIP,
 	)
+
+	if pod.Spec.HostNetwork {
+		if _, ok := annotation.Get(pod, annotation.NoTrackHostPorts); ok {
+			k.hostNetworkManager.RemoveNoTrackHostPorts(pod.Namespace, pod.Name)
+		}
+	}
 
 	k.cgroupManager.OnDeletePod(pod)
 
