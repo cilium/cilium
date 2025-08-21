@@ -13,15 +13,15 @@ set -eu
 printf "package policy\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/testing\"\n" > $SRC/cilium/pkg/policy/registerfuzzdep.go
 
 go mod tidy && go mod vendor
-mv $SRC/cilium/pkg/policy/distillery_test.go $SRC/cilium/pkg/policy/distillery_test_fuzz.go
-mv $SRC/cilium/pkg/policy/l4_filter_test.go $SRC/cilium/pkg/policy/l4_filter_test_fuzz.go
-mv $SRC/cilium/pkg/policy/l4_test.go $SRC/cilium/pkg/policy/l4_test_fuzz.go
-mv $SRC/cilium/pkg/policy/mapstate_test.go $SRC/cilium/pkg/policy/mapstate_test_fuzz.go
-mv $SRC/cilium/pkg/policy/repository_test.go $SRC/cilium/pkg/policy/repository_test_fuzz.go
-mv $SRC/cilium/pkg/policy/resolve_test.go $SRC/cilium/pkg/policy/resolve_test_fuzz.go
-mv $SRC/cilium/pkg/policy/resolve_deny_test.go $SRC/cilium/pkg/policy/resolve_deny_test_fuzz.go
-mv $SRC/cilium/pkg/policy/rule_test.go $SRC/cilium/pkg/policy/rule_test_fuzz.go
-mv $SRC/cilium/pkg/policy/selectorcache_test.go $SRC/cilium/pkg/policy/selectorcache_test_fuzz.go
+ln -s "$SRC"/cilium/pkg/policy/distillery_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/l4_filter_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/l4_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/mapstate_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/repository_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/resolve_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/resolve_deny_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/rule_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/selectorcache_test{,_fuzz}.go
 
 
 compile_go_fuzzer github.com/cilium/cilium/test/fuzzing Fuzz fuzz gofuzz
