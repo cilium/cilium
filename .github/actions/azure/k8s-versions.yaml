@@ -4,14 +4,21 @@ include:
   - version: "1.30"
     location: westus3
     index: 1
+    ipv6: true
   - version: "1.31"
     location: westus2
     index: 2
+    ipv6: true
   - version: "1.32"
     location: eastus2
     index: 3
+    default: true
+    ipv6: false
+    egw: true
   - version: "1.33"
     location: eastus
     default: true
     preview: true
     index: 4
+    ipv6: true
+    egw: false

@@ -19,7 +19,8 @@ on:
         default: '{}'
   push:
     branches:
-      - 'renovate/main-**'
+#      - 'renovate/main-**'
+      - '**'
   # Run every 8 hours
   schedule:
     - cron:  '0 0/8 * * *'
@@ -209,6 +210,7 @@ jobs:
         uses: ./.github/actions/cli-test-config
         with:
           hubble: false
+          include-unsafe-tests: ${{ matrix.egw == 'true' && true || false }}
 
       - name: Set up job variables
         id: vars
@@ -230,9 +232,14 @@ jobs:
             --helm-set kubeProxyReplacement=true \
             --helm-set=bpf.masquerade=true \
             --helm-set=ipv4.enabled=true \
-            --helm-set=ipv6.enabled=true \
-            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
-            --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
+            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16"
+          if [[ "${{ matrix.egw }}" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" ${{ env.EGRESS_GATEWAY_HELM_VALUES }}"
+          fi
+          if [[ "${{ matrix.ipv6 }}" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=ipv6.enabled=true \
+                                      --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
+          fi
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
@@ -247,13 +254,48 @@ jobs:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
       - name: Create AKS cluster
-        uses: ./.github/actions/setup-aks-cluster
-        with:
-          cluster_name: ${{ env.name }}
-          location: ${{ matrix.location }}
-          version: ${{ matrix.version }}
-          tags: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}"
-          taints: ${{ env.cost_reduction }}
+        run: |
+          # Create group
+          az group create \
+            --name ${{ env.name }} \
+            --location ${{ matrix.location }} \
+            --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
+          if [[ "${{ matrix.egw }}" == "true" ]]; then
+            # Create virtual networks and subnets
+            az network vnet create -g ${{ env.name }} --location ${{ matrix.location }} --name ${{ env.name }}-vnet --address-prefixes 192.168.8.0/22 fd00::/48 -o none
+            NODE_SUBNET_ID=$(az network vnet subnet create -g ${{ env.name }} --vnet-name ${{ env.name }}-vnet --name ${{ env.name }}-subnet --address-prefixes 192.168.10.0/24 fd00:0:0:10::/64 --query "id" -o tsv)
+            echo "node_subnet_id=$NODE_SUBNET_ID" >> $GITHUB_OUTPUT
+            EXTERNAL_SUBNET_ID=$(az network vnet subnet create -g ${{ env.name }} --vnet-name ${{ env.name }}-vnet --name ${{ env.name }}-external-subnet --address-prefixes 192.168.11.0/24 fd00:0:0:11::/64 --query "id" -o tsv)
+            echo "external_subnet_id=$EXTERNAL_SUBNET_ID" >> $GITHUB_OUTPUT
+            VNET_SUBNET_ARG="--vnet-subnet-id $NODE_SUBNET_ID"
+          else
+            VNET_SUBNET_ARG=""
+          fi
+          # Create AKS cluster
+          az aks create \
+            --resource-group ${{ env.name }} \
+            --name ${{ env.name }} \
+            --location ${{ matrix.location }} \
+            --kubernetes-version ${{ matrix.version }} \
+            --network-plugin none \
+            --node-count ${{ matrix.egw == 'true' && '3' || '2' }} \
+            --nodepool-labels io.cilium/egress-gateway=true \
+            --ip-families ${{ matrix.ipv6 == 'true' && 'ipv4,ipv6' || 'ipv4' }} \
+            ${{ env.cost_reduction }} \
+            --generate-ssh-keys \
+            $VNET_SUBNET_ARG
+          if [[ "${{ matrix.egw }}" == "true" ]]; then
+            # Get cluster credentials
+            az aks get-credentials \
+              --resource-group ${{ env.name }} \
+              --name ${{ env.name }}
+            # Label a node so that Cilium pods don't get scheduled.
+            NON_CILIUM_NODE=$(kubectl get nodes --selector agentpool --no-headers -o custom-columns=NAME:.metadata.name | head -n 1)
+            kubectl label node "$NON_CILIUM_NODE" cilium.io/no-schedule=true --overwrite
+            echo "Non-cilium node: $NON_CILIUM_NODE"
+            NODE_POOL_NAME="egwnp"
+            az aks nodepool add -g ${{ env.name }} --cluster-name ${{ env.name }} -n $NODE_POOL_NAME --enable-node-public-ip --node-count 1  --vnet-subnet-id $EXTERNAL_SUBNET_ID
+          fi
 
       - name: Get cluster credentials
         run: |
@@ -291,7 +333,11 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          EXTRA_ARGS=""
+          if [[ "${{ matrix.egw }}" == "true" ]]; then
+            EXTRA_ARGS="--nodes-without-cilium"
+          fi
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} $EXTRA_ARGS
 
       - name: Enable Relay
         run: |

@@ -7,3 +7,5 @@ includeItem:
   disabled: bool(required=False)
   preview: bool(required=False)
   default: bool(required=False)
+  ipv6: bool(required=False)
+  egw: bool(required=False)
