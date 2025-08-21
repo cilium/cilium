@@ -26,9 +26,6 @@ type ClusterMeshStatus struct {
 
 	// List of remote clusters
 	Clusters []*RemoteCluster `json:"clusters"`
-
-	// Number of global services
-	NumGlobalServices int64 `json:"num-global-services,omitempty"`
 }
 
 // Validate validates this cluster mesh status
