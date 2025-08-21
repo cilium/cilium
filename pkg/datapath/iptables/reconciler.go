@@ -24,10 +24,11 @@ import (
 type desiredState struct {
 	installRules bool
 
-	devices       sets.Set[string]
-	localNodeInfo localNodeInfo
-	proxies       map[string]proxyInfo
-	noTrackPods   sets.Set[noTrackPodInfo]
+	devices          sets.Set[string]
+	localNodeInfo    localNodeInfo
+	proxies          map[string]proxyInfo
+	noTrackPods      sets.Set[noTrackPodInfo]
+	noTrackHostPorts noTrackHostPortsByPod
 }
 
 type localNodeInfo struct {
@@ -110,6 +111,11 @@ type proxyInfo struct {
 type noTrackPodInfo struct {
 	ip   netip.Addr
 	port uint16
+}
+
+type noTrackHostPortsPodInfo struct {
+	podKey podAndNameSpace
+	ports  []string
 }
 
 func reconciliationLoop(

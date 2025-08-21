@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/command/exec"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -77,6 +79,10 @@ var (
 				Port:     port,
 			},
 		}
+	}
+
+	noTrackSupportedProtos = []lb.L4Type{
+		lb.TCP, lb.UDP,
 	}
 )
 
@@ -254,6 +260,37 @@ func (m *Manager) removeCiliumRules(table string, prog runnable, match string) e
 	return nil
 }
 
+type podAndNameSpace struct {
+	podName, namespace string
+}
+
+// noTrackHostPortsByPod stores the ports passed in with the annotation /no-track-host-ports
+// indexed by pod name+namespace
+type noTrackHostPortsByPod map[podAndNameSpace]set.Set[lb.L4Addr]
+
+func (ports noTrackHostPortsByPod) flatten() set.Set[lb.L4Addr] {
+	result := set.Set[lb.L4Addr]{}
+
+	for _, p := range ports {
+		result.Merge(p)
+	}
+
+	return result
+}
+
+func (ports noTrackHostPortsByPod) exclude(key podAndNameSpace) noTrackHostPortsByPod {
+	result := make(noTrackHostPortsByPod)
+
+	for k, p := range ports {
+		if key == k {
+			continue
+		}
+		result[k] = p
+	}
+
+	return result
+}
+
 // Manager manages the iptables-related configuration for Cilium.
 type Manager struct {
 	logger *slog.Logger
@@ -280,13 +317,15 @@ type Manager struct {
 }
 
 type reconcilerParams struct {
-	clock          clock.WithTicker
-	localNodeStore *node.LocalNodeStore
-	db             *statedb.DB
-	devices        statedb.Table[*tables.Device]
-	proxies        chan reconciliationRequest[proxyInfo]
-	addNoTrackPod  chan reconciliationRequest[noTrackPodInfo]
-	delNoTrackPod  chan reconciliationRequest[noTrackPodInfo]
+	clock               clock.WithTicker
+	localNodeStore      *node.LocalNodeStore
+	db                  *statedb.DB
+	devices             statedb.Table[*tables.Device]
+	proxies             chan reconciliationRequest[proxyInfo]
+	addNoTrackPod       chan reconciliationRequest[noTrackPodInfo]
+	delNoTrackPod       chan reconciliationRequest[noTrackPodInfo]
+	addNoTrackHostPorts chan reconciliationRequest[noTrackHostPortsPodInfo]
+	delNoTrackHostPorts chan reconciliationRequest[podAndNameSpace]
 }
 
 type params struct {
@@ -317,13 +356,15 @@ func newIptablesManager(p params) datapath.IptablesManager {
 		sharedCfg: p.SharedCfg,
 		argsInit:  lock.NewStoppableWaitGroup(),
 		reconcilerParams: reconcilerParams{
-			clock:          clock.RealClock{},
-			localNodeStore: p.LocalNodeStore,
-			db:             p.DB,
-			devices:        p.Devices,
-			proxies:        make(chan reconciliationRequest[proxyInfo]),
-			addNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
-			delNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
+			clock:               clock.RealClock{},
+			localNodeStore:      p.LocalNodeStore,
+			db:                  p.DB,
+			devices:             p.Devices,
+			proxies:             make(chan reconciliationRequest[proxyInfo]),
+			addNoTrackPod:       make(chan reconciliationRequest[noTrackPodInfo]),
+			delNoTrackPod:       make(chan reconciliationRequest[noTrackPodInfo]),
+			addNoTrackHostPorts: make(chan reconciliationRequest[noTrackHostPortsPodInfo]),
+			delNoTrackHostPorts: make(chan reconciliationRequest[podAndNameSpace]),
 		},
 		haveIp6tables:    true,
 		cniConfigManager: p.CNIConfigManager,
@@ -474,6 +515,8 @@ func (m *Manager) Stop(ctx cell.HookContext) error {
 	close(m.reconcilerParams.proxies)
 	close(m.reconcilerParams.addNoTrackPod)
 	close(m.reconcilerParams.delNoTrackPod)
+	close(m.reconcilerParams.addNoTrackHostPorts)
+	close(m.reconcilerParams.delNoTrackHostPorts)
 	return nil
 }
 
@@ -1112,6 +1155,30 @@ func (m *Manager) RemoveNoTrackRules(ip netip.Addr, port uint16) {
 	<-reconciled
 }
 
+func (m *Manager) AddNoTrackHostPorts(namespace, name string, ports []string) {
+	if !m.sharedCfg.InstallNoConntrackIptRules {
+		return
+	}
+
+	podName := podAndNameSpace{podName: name, namespace: namespace}
+
+	reconciled := make(chan struct{})
+	m.reconcilerParams.addNoTrackHostPorts <- reconciliationRequest[noTrackHostPortsPodInfo]{noTrackHostPortsPodInfo{podName, ports}, reconciled}
+	<-reconciled
+}
+
+func (m *Manager) RemoveNoTrackHostPorts(namespace, name string) {
+	if !m.sharedCfg.InstallNoConntrackIptRules {
+		return
+	}
+
+	podName := podAndNameSpace{podName: name, namespace: namespace}
+
+	reconciled := make(chan struct{})
+	m.reconcilerParams.delNoTrackHostPorts <- reconciliationRequest[podAndNameSpace]{podName, reconciled}
+	<-reconciled
+}
+
 func (m *Manager) InstallProxyRules(proxyPort uint16, name string) {
 	reconciled := make(chan struct{})
 	m.reconcilerParams.proxies <- reconciliationRequest[proxyInfo]{proxyInfo{name, proxyPort}, reconciled}
@@ -1692,6 +1759,16 @@ func (m *Manager) installRules(state desiredState) error {
 		}
 	}
 
+	noTrackPorts := groupL4AddrsByProto(state.noTrackHostPorts.flatten().AsSlice())
+	for _, proto := range noTrackSupportedProtos {
+		if ports, ok := noTrackPorts[proto]; ok && len(ports) > 0 {
+			if err := m.installHostNoTrackRules(proto, ports); err != nil {
+				return err
+			}
+		}
+
+	}
+
 	for _, c := range ciliumChains {
 		// do not install feeder for chains that are set to be disabled
 		if isDisabledChain(m.cfg.DisableIptablesFeederRules, c.hook) {
@@ -1971,4 +2048,169 @@ func allEgressMasqueradeCmds(allocRange string, snatDstExclusionCIDR string,
 		cmds = append(cmds, cmd)
 	}
 	return cmds
+}
+
+// hostNoTrackMultiPorts installs or removes a notrack rule matching multiple ports.
+// the use case for this is to skip conntrack when a pod uses hostNetwork to improve performance (pps/rps)
+// since conntrack affects the performance under load - which can occur under DDoS or traffic spikes for instance.
+func (m *Manager) hostNoTrackMultiPorts(prog iptablesInterface, cmd, proto string, ports []uint16) error {
+	// sort the slice containing the ports, and turn them into strings
+	slices.Sort(ports)
+	strPorts := make([]string, len(ports))
+	for i, p := range ports {
+		strPorts[i] = strconv.FormatUint(uint64(p), 10)
+	}
+
+	if err := prog.runProg([]string{
+		"-t", "raw",
+		cmd, ciliumPreRawChain,
+		"-p", strings.ToLower(proto),
+		"--match", "multiport",
+		"--dports", strings.Join(strPorts, ","),
+		"-m", "comment", "--comment", "cilium no-track-host-ports",
+		"-j", "CT",
+		"--notrack"}); err != nil {
+		return err
+	}
+
+	if err := prog.runProg([]string{
+		"-t", "raw",
+		cmd, ciliumOutputRawChain,
+		"-p", strings.ToLower(proto),
+		"--match", "multiport",
+		"--sports", strings.Join(strPorts, ","),
+		"-m", "comment", "--comment", "cilium no-track-host-ports return traffic",
+		"-j", "CT",
+		"--notrack"}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// groupL4AddrsByProto iterates over a slice of ports and returns a map with the port numbers
+// grouped by protocol.
+func groupL4AddrsByProto(ports []lb.L4Addr) map[lb.L4Type][]uint16 {
+	result := make(map[lb.L4Type][]uint16)
+
+	for _, p := range ports {
+		result[p.Protocol] = append(result[p.Protocol], p.Port)
+	}
+
+	return result
+}
+
+// replaceNoTrackHostPortRules replaces noTrackHostPort rules on a state change. the new ruleset is added, and the previous one is removed.
+func (m *Manager) replaceNoTrackHostPortRules(oldPorts, newPorts map[lb.L4Type][]uint16) error {
+	for _, proto := range noTrackSupportedProtos {
+		oldP := set.NewSet(oldPorts[proto]...)
+		newP := set.NewSet(newPorts[proto]...)
+
+		if newP.Equal(oldP) {
+			continue
+		}
+
+		if !newP.Empty() {
+			if err := m.installHostNoTrackRules(proto, newP.AsSlice()); err != nil {
+				return err
+			}
+		}
+
+		if !oldP.Empty() {
+			if err := m.cleanupHostNoTrackRules(proto, oldP.AsSlice()); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// installHostNoTrackRules installs a hostNoTrack multiport rule
+func (m *Manager) installHostNoTrackRules(proto lb.L4Type, p []uint16) error {
+	if m.sharedCfg.EnableIPv4 {
+		if err := m.hostNoTrackMultiPorts(ip4tables, "-A", proto, p); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 {
+		if err := m.hostNoTrackMultiPorts(ip6tables, "-A", proto, p); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// cleanupHostNoTrackRules cleans up a hostNoTrack multiport rule
+func (m *Manager) cleanupHostNoTrackRules(proto lb.L4Type, p []uint16) error {
+	if m.sharedCfg.EnableIPv4 {
+		if err := m.hostNoTrackMultiPorts(ip4tables, "-D", proto, p); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 {
+		if err := m.hostNoTrackMultiPorts(ip6tables, "-D", proto, p); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// removeNoTrackHostPorts removes notrack rules if the global set changes after removing an entry for the pod.
+func (m *Manager) removeNoTrackHostPorts(currentState noTrackHostPortsByPod, podName podAndNameSpace) error {
+	oldPorts := groupL4AddrsByProto(currentState.flatten().AsSlice())
+	delete(currentState, podName)
+	newPorts := groupL4AddrsByProto(currentState.flatten().AsSlice())
+
+	return m.replaceNoTrackHostPortRules(oldPorts, newPorts)
+}
+
+// setNoTrackHostPorts ensures that the notrack rules for host network pods are in place.
+// it removes the previous ruleset and adds the new ruleset if the global set of ports have changed.
+func (m *Manager) setNoTrackHostPorts(currentState noTrackHostPortsByPod, podName podAndNameSpace, ports []string) error {
+	parsedPorts := make([]lb.L4Addr, 0, len(ports))
+
+	for _, p := range ports {
+		if p == "" {
+			continue
+		}
+
+		parsed, err := lb.L4AddrFromString(p)
+		if err != nil {
+			return fmt.Errorf("failed to parse port/proto for %s: %w", p, err)
+		}
+
+		switch parsed.Protocol {
+		case lb.TCP, lb.UDP:
+			parsedPorts = append(parsedPorts, parsed)
+		default:
+			return fmt.Errorf("protocol %s is not unsupported for no-track-host-ports", parsed.Protocol)
+		}
+	}
+
+	newSet := set.NewSet(parsedPorts...)
+	if newSet.Empty() {
+		return m.removeNoTrackHostPorts(currentState, podName)
+	}
+
+	currentPodPorts, ok := currentState[podName]
+	if ok && currentPodPorts.Equal(newSet) {
+		// no changes
+		return nil
+	}
+
+	// grab the previously installed state
+	oldPorts := groupL4AddrsByProto(currentState.flatten().AsSlice())
+
+	// update current state, since we now know it has changed (or is a new entry altogether)
+	currentState[podName] = newSet
+
+	newPorts := groupL4AddrsByProto(currentState.flatten().AsSlice())
+
+	return m.replaceNoTrackHostPortRules(oldPorts, newPorts)
+
 }
