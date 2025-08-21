@@ -356,6 +356,8 @@ Bugtool Options
 
 Added Metrics
 ~~~~~~~~~~~~~
+* ``cilium_agent_clustermesh_remote_cluster_endpoints`` was added and report
+  the total number of endpoints per remote cluster in a ClusterMesh environment.
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
@@ -380,6 +382,15 @@ As well, any remaining Operator k8s workqueue metrics that use the label ``queue
 * The metric ``workqueue_work_duration_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_work_duration_seconds``, the label ``queue_name`` has been renamed to ``name``.
 
 * ``k8s_client_rate_limiter_duration_seconds`` no longer has labels ``path`` and ``method``.
+
+The following metrics:
+* ``cilium_agent_clustermesh_global_services``
+* ``cilium_operator_clustermesh_global_services``
+* ``cilium_operator_clustermesh_global_service_exports``
+now report per cluster metric instead of a "global" count and were renamed to respectively:
+* ``cilium_agent_clustermesh_remote_cluster_services``
+* ``cilium_operator_clustermesh_remote_cluster_services``
+* ``cilium_operator_clustermesh_remote_cluster_service_exports``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~

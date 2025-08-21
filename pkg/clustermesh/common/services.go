@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 type GlobalService struct {
@@ -30,16 +29,12 @@ type GlobalServiceCache struct {
 	logger *slog.Logger
 	mutex  lock.RWMutex
 	byName map[types.NamespacedName]*GlobalService
-
-	// metricTotalGlobalServices is the gauge metric for total of global services
-	metricTotalGlobalServices metric.Gauge
 }
 
-func NewGlobalServiceCache(logger *slog.Logger, metricTotalGlobalServices metric.Gauge) *GlobalServiceCache {
+func NewGlobalServiceCache(logger *slog.Logger) *GlobalServiceCache {
 	return &GlobalServiceCache{
-		logger:                    logger,
-		byName:                    map[types.NamespacedName]*GlobalService{},
-		metricTotalGlobalServices: metricTotalGlobalServices,
+		logger: logger,
+		byName: map[types.NamespacedName]*GlobalService{},
 	}
 }
 
@@ -101,7 +96,6 @@ func (c *GlobalServiceCache) OnUpdate(svc *serviceStore.ClusterService) {
 			logfields.ServiceName, svc,
 			logfields.ClusterName, svc.Cluster,
 		)
-		c.metricTotalGlobalServices.Set(float64(len(c.byName)))
 	}
 
 	c.logger.Debug(
@@ -137,7 +131,6 @@ func (c *GlobalServiceCache) delete(globalService *GlobalService, clusterName st
 			logfields.ClusterName, clusterName,
 		)
 		delete(c.byName, serviceNN)
-		c.metricTotalGlobalServices.Set(float64(len(c.byName)))
 	}
 
 	return true
