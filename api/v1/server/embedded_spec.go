@@ -2200,10 +2200,6 @@ func init() {
           "items": {
             "$ref": "#/definitions/RemoteCluster"
           }
-        },
-        "num-global-services": {
-          "description": "Number of global services",
-          "type": "integer"
         }
       }
     },
@@ -7569,10 +7565,6 @@ func init() {
           "items": {
             "$ref": "#/definitions/RemoteCluster"
           }
-        },
-        "num-global-services": {
-          "description": "Number of global services",
-          "type": "integer"
         }
       }
     },
