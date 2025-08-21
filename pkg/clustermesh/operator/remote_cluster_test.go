@@ -114,7 +114,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 				return &models.RemoteCluster{Ready: true, Config: &models.RemoteClusterConfig{
 					ServiceExportsEnabled: tt.capabilityServiceExportsEnabled,
 				}}
-			})
+			}, common.ClusterConfig{})
 
 			// Validate the status before watching the remote cluster.
 			status := rc.(*remoteCluster).Status()
@@ -213,7 +213,7 @@ func TestRemoteClusterHooks(t *testing.T) {
 	ready := make(chan error)
 	rc := cm.newRemoteCluster("foo", func() *models.RemoteCluster {
 		return &models.RemoteCluster{Ready: true, Config: &models.RemoteClusterConfig{}}
-	})
+	}, common.ClusterConfig{})
 
 	wg.Add(1)
 	go func() {

@@ -244,7 +244,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			fakeclock := baseclocktest.NewFakeClock(time.Now())
 			km := KVStoreMesh{client: client, storeFactory: st, logger: hivetest.Logger(t), clock: fakeclock}
 
-			rc := km.newRemoteCluster("foo", nil)
+			rc := km.newRemoteCluster("foo", nil, common.ClusterConfig{})
 			ready := make(chan error)
 
 			wg.Add(1)
@@ -383,7 +383,7 @@ func TestRemoteClusterRemove(t *testing.T) {
 	km := KVStoreMesh{client: wrapper, storeFactory: st, logger: hivetest.Logger(t), clock: fakeclock}
 	rcs := make(map[string]*remoteCluster)
 	for _, cluster := range []string{"foo", "foobar", "baz"} {
-		rcs[cluster] = km.newRemoteCluster(cluster, nil).(*remoteCluster)
+		rcs[cluster] = km.newRemoteCluster(cluster, nil, common.ClusterConfig{}).(*remoteCluster)
 		rcs[cluster].Stop()
 	}
 
@@ -621,7 +621,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 			Ready:  true,
 			Config: &models.RemoteClusterConfig{ServiceExportsEnabled: ptr.To(true)},
 		}
-	})
+	}, common.ClusterConfig{})
 	cfg := types.CiliumClusterConfig{
 		ID: 10, Capabilities: types.CiliumClusterConfigCapabilities{
 			SyncedCanaries: true, ServiceExportsEnabled: ptr.To(true),

@@ -53,7 +53,7 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	cm := NewClusterMesh(Configuration{
 		Logger:      hivetest.Logger(t),
 		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
-		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
+		NewRemoteCluster: func(name string, sf StatusFunc, _ ClusterConfig) RemoteCluster {
 			statusfn = sf
 			return &fakeRemoteCluster{
 				onRun: func(context.Context) { ready <- struct{}{} },

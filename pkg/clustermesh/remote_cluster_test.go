@@ -169,7 +169,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				globalServices: common.NewGlobalServiceCache(logger, metrics.NoOpGauge),
 				FeatureMetrics: NewClusterMeshMetricsNoop(),
 			}
-			rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
+			rc := cm.NewRemoteCluster("foo", nil, common.ClusterConfig{}).(*remoteCluster)
 			ready := make(chan error)
 
 			remoteClient := &remoteEtcdClientWrapper{
@@ -299,7 +299,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		FeatureMetrics: NewClusterMeshMetricsNoop(),
 		globalServices: common.NewGlobalServiceCache(logger, metrics.NoOpGauge),
 	}
-	rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
+	rc := cm.NewRemoteCluster("foo", nil, common.ClusterConfig{}).(*remoteCluster)
 
 	fixture := func(t *testing.T, id uint32, run func(t *testing.T, ready <-chan error)) {
 		ctx, cancel := context.WithCancel(ctx)
