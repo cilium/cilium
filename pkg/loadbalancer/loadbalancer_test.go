@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -598,6 +599,34 @@ func TestServiceNameYAMLJSON(t *testing.T) {
 				assert.True(t, test.name.Equal(name), "Equal %v %v", test.name, name)
 			}
 		}
+	}
+}
+
+func TestL4AddrParsing(t *testing.T) {
+	type testCase struct {
+		err    bool
+		input  string
+		output L4Addr
+	}
+
+	testCases := []testCase{
+		{false, "443/tcp", L4Addr{Protocol: TCP, Port: 443}},
+		{false, "1312/udp", L4Addr{Protocol: UDP, Port: 1312}},
+		{true, "65538/tcp", L4Addr{}}, // port > 16 bits
+		{true, "123/abcd", L4Addr{}},  // unknown proto
+	}
+
+	for _, tc := range testCases {
+		addr, err := L4AddrFromString(tc.input)
+		if tc.err {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err)
+			// test the conversion back
+			require.Equal(t, addr.String(), strings.ToUpper(tc.input))
+		}
+
+		require.Equal(t, tc.output, addr)
 	}
 }
 
