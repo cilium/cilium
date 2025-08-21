@@ -31,7 +31,6 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 const (
@@ -113,7 +112,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	}
 	defer hive.Stop(tlog, context.Background())
 
-	globalService := common.NewGlobalServiceCache(hivetest.Logger(t), metric.NewGauge(metric.GaugeOpts{}))
+	globalService := common.NewGlobalServiceCache(hivetest.Logger(t))
 	podInformer := newMeshPodInformer(logger, globalService)
 	nodeInformer := newMeshNodeInformer(logger)
 	controller, serviceInformer, endpointsliceInformer := newEndpointSliceMeshController(

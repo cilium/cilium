@@ -12,7 +12,6 @@ import (
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 type (
@@ -28,14 +27,11 @@ type GlobalServiceExportCache struct {
 	// size is used to manage a counter of globalServiceExport
 	// as uint instead of the float of metric.Gauge as float are not reliable to count
 	size uint64
-	// metricTotalGlobalServiceExports is the gauge metric for total of global service exports
-	metricTotalGlobalServiceExports metric.Gauge
 }
 
-func NewGlobalServiceExportCache(metricTotalGlobalServiceExports metric.Gauge) *GlobalServiceExportCache {
+func NewGlobalServiceExportCache() *GlobalServiceExportCache {
 	return &GlobalServiceExportCache{
-		cache:                           ServiceExportsByNamespace{},
-		metricTotalGlobalServiceExports: metricTotalGlobalServiceExports,
+		cache: ServiceExportsByNamespace{},
 	}
 }
 
@@ -79,7 +75,6 @@ func (c *GlobalServiceExportCache) OnUpdate(svcExport *mcsapitypes.MCSAPIService
 		svcExportsByCluster = ServiceExportsByCluster{}
 		svcExportsByName[svcExport.Name] = svcExportsByCluster
 		c.size += 1
-		c.metricTotalGlobalServiceExports.Set(float64(c.size))
 	}
 
 	svcExportsByCluster[svcExport.Cluster] = svcExport
@@ -109,7 +104,6 @@ func (c *GlobalServiceExportCache) OnDelete(svcExport *mcsapitypes.MCSAPIService
 		return true
 	}
 	c.size -= 1
-	c.metricTotalGlobalServiceExports.Set(float64(c.size))
 	delete(svcExportsByName, svcExport.Name)
 
 	if len(c.cache[svcExport.Namespace]) != 0 {
