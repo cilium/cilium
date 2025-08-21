@@ -9,10 +9,10 @@ import (
 )
 
 type Metrics struct {
-	// TotalGlobalServices tracks the total number of global services.
+	// TotalGlobalServices tracks the number of total global services per remote cluster.
 	TotalGlobalServices metric.Vec[metric.Gauge]
-	// TotalGlobalServiceExports tracks the total number of global service exports.
-	TotalGlobalServiceExports metric.Vec[metric.Gauge]
+	// TotalServiceExports tracks the number of total MCS-API service exports per remote cluster.
+	TotalServiceExports metric.Vec[metric.Gauge]
 }
 
 func NewMetrics() Metrics {
@@ -20,14 +20,14 @@ func NewMetrics() Metrics {
 		TotalGlobalServices: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
 			Subsystem: subsystem,
-			Name:      "global_services",
-			Help:      "The total number of global services in the cluster mesh",
-		}, []string{metrics.LabelSourceCluster}),
-		TotalGlobalServiceExports: metric.NewGaugeVec(metric.GaugeOpts{
+			Name:      "remote_cluster_global_services",
+			Help:      "The total number of global services in the remote cluster",
+		}, []string{metrics.LabelSourceCluster, metrics.LabelTargetCluster}),
+		TotalServiceExports: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
 			Subsystem: subsystem,
-			Name:      "global_service_exports",
-			Help:      "The total number of MCS-API global service exports in the cluster mesh",
-		}, []string{metrics.LabelSourceCluster}),
+			Name:      "remote_cluster_service_exports",
+			Help:      "The total number of MCS-API service exports in the remote cluster",
+		}, []string{metrics.LabelSourceCluster, metrics.LabelTargetCluster}),
 	}
 }

@@ -211,12 +211,14 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		),
 		&clusterServiceObserver{serviceMerger: cm.conf.ServiceMerger},
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.services) }),
+		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalGlobalServices.WithLabelValues(cm.conf.ClusterInfo.Name, cm.nodeName, rc.name)),
 	)
 
 	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(
 		cm.conf.Logger,
 		name, cm.conf.IPCache, cm.conf.StoreFactory, source.ClusterMesh,
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.ipcache) }),
+		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalIdentities.WithLabelValues(cm.conf.ClusterInfo.Name, cm.nodeName, rc.name)),
 	)
 	rc.ipCacheWatcherExtraOpts = cm.conf.IPCacheWatcherExtraOpts
 
