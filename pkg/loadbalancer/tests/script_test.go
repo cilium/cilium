@@ -101,7 +101,6 @@ func TestScript(t *testing.T) {
 						return kpr.KPRConfig{
 							KubeProxyReplacement: true,
 							EnableNodePort:       true,
-							EnableHostPort:       true,
 						}
 					},
 					func(ops *lbreconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer, waitFn loadbalancer.InitWaitFunc) uhive.ScriptCmdsOut {
