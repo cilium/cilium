@@ -832,7 +832,9 @@ lb6_select_backend_id(struct __ctx_buff *ctx, struct lb6_key *key,
 #elif LB_SELECTION == LB_SELECTION_MAGLEV
 # define lb6_select_backend_id	lb6_select_backend_id_maglev
 #elif LB_SELECTION == LB_SELECTION_FIRST
-/* Backend selection for tests that always chooses first slot. */
+/* Backend selection for unit tests that always chooses first slot. This
+ * part is unreachable from agent code enablement.
+ */
 static __always_inline __u32
 lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 		      struct lb6_key *key __maybe_unused,
@@ -1570,7 +1572,9 @@ lb4_select_backend_id(struct __ctx_buff *ctx, struct lb4_key *key,
 #elif LB_SELECTION == LB_SELECTION_MAGLEV
 # define lb4_select_backend_id	lb4_select_backend_id_maglev
 #elif LB_SELECTION == LB_SELECTION_FIRST
-/* Backend selection for tests that always chooses first slot. */
+/* Backend selection for unit tests that always chooses first slot. This
+ * part is unreachable from agent code enablement.
+ */
 static __always_inline __u32
 lb4_select_backend_id(struct __ctx_buff *ctx,
 		      struct lb4_key *key,
