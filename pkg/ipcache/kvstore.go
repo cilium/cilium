@@ -64,9 +64,10 @@ func NewIPIdentitySynchronizer(logger *slog.Logger, client kvstore.Client) *IPId
 }
 
 // Upsert updates / inserts the provided IP->Identity mapping into the kvstore.
-func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Addr, ID identity.NumericIdentity, key uint8,
-	metadata, k8sNamespace, k8sPodName string, npm types.NamedPortMap) error {
-
+func (s *IPIdentitySynchronizer) Upsert(
+	ctx context.Context, IP, hostIP, HostExternalIP netip.Addr, ID identity.NumericIdentity,
+	key uint8, metadata, k8sNamespace, k8sPodName string, npm types.NamedPortMap,
+) error {
 	// Sort named ports into a slice
 	namedPorts := make([]identity.NamedPort, 0, len(npm))
 	for name, value := range npm {
@@ -82,14 +83,15 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Ad
 
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
 	ipIDPair := identity.IPIdentityPair{
-		IP:           IP.AsSlice(),
-		ID:           ID,
-		Metadata:     metadata,
-		HostIP:       hostIP.AsSlice(),
-		Key:          key,
-		K8sNamespace: k8sNamespace,
-		K8sPodName:   k8sPodName,
-		NamedPorts:   namedPorts,
+		IP:             IP.AsSlice(),
+		ID:             ID,
+		Metadata:       metadata,
+		HostIP:         hostIP.AsSlice(),
+		HostExternalIP: HostExternalIP.AsSlice(),
+		Key:            key,
+		K8sNamespace:   k8sNamespace,
+		K8sPodName:     k8sPodName,
+		NamedPorts:     namedPorts,
 	}
 
 	marshaledIPIDPair, err := json.Marshal(ipIDPair)
@@ -188,6 +190,7 @@ type IPIdentityWatcher struct {
 	source                     source.Source
 	withSelfDeletionProtection bool
 	validators                 []ipIdentityValidator
+	preferExternalIPs          bool
 
 	// Set only when withSelfDeletionProtection is true
 	syncer *IPIdentitySynchronizer
@@ -231,6 +234,7 @@ type iwOpts struct {
 	selfDeletionProtection *IPIdentitySynchronizer
 	cachedPrefix           bool
 	validators             []ipIdentityValidator
+	preferExternalIPs      bool
 }
 
 // WithClusterID configures the ClusterID associated with the given watcher.
@@ -284,6 +288,13 @@ func WithIdentityValidator(clusterID uint32) IWOpt {
 	}
 }
 
+// WithPreferExternalIPs configures the watcher to prefer ExternalIPs
+func WithPreferExternalIPs(preferExternalIPs bool) IWOpt {
+	return func(opts *iwOpts) {
+		opts.preferExternalIPs = preferExternalIPs
+	}
+}
+
 // Watch starts the watcher and blocks waiting for events, until the context is
 // closed. When events are received from the kvstore, all IPIdentityMappingListener
 // are notified. It automatically emits deletion events for stale keys when appropriate
@@ -312,6 +323,7 @@ func (iw *IPIdentityWatcher) Watch(ctx context.Context, backend storepkg.WatchSt
 	iw.withSelfDeletionProtection = iwo.selfDeletionProtection != nil
 	iw.syncer = iwo.selfDeletionProtection
 	iw.validators = iwo.validators
+	iw.preferExternalIPs = iwo.preferExternalIPs
 	iw.store.Watch(ctx, backend, prefix)
 }
 
@@ -417,13 +429,18 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 		ip = cmtypes.AnnotateIPCacheKeyWithClusterID(ip, iw.clusterID)
 	}
 
+	hostIP := ipIDPair.HostIP
+	if iw.preferExternalIPs && len(ipIDPair.HostExternalIP) != 0 {
+		hostIP = ipIDPair.HostExternalIP
+	}
+
 	// There is no need to delete the "old" IP addresses from this
 	// ip ID pair. The only places where the ip ID pair are created
 	// is the clustermesh, where it sends a delete to the KVStore,
 	// and the endpoint-runIPIdentitySync where it bounded to a
 	// lease and a controller which is stopped/removed when the
 	// endpoint is gone.
-	iw.ipcache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, k8sMeta, Identity{
+	iw.ipcache.Upsert(ip, hostIP, ipIDPair.Key, k8sMeta, Identity{
 		ID:     peerIdentity,
 		Source: iw.source,
 	})

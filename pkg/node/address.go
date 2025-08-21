@@ -255,6 +255,17 @@ func GetCiliumEndpointNodeIP(logger *slog.Logger) string {
 	return GetIPv6(logger).String()
 }
 
+// GetCiliumEndpointNodeExternalIP is the external node IP that will be referenced
+// by CiliumEndpoints with endpoints running on this node.
+func GetCiliumEndpointNodeExternalIP(logger *slog.Logger) string {
+	n := getLocalNode(logger)
+	externalIP := n.GetExternalIP(option.Config.EnableIPv6 && n.Local.UnderlayProtocol == tunnel.IPv6)
+	if externalIP == nil {
+		return GetCiliumEndpointNodeIP(logger)
+	}
+	return externalIP.String()
+}
+
 // SetInternalIPv4Router sets the cilium internal IPv4 node address, it is allocated from the node prefix.
 // This must not be conflated with k8s internal IP as this IP address is only relevant within the
 // Cilium-managed network (this means within the node for direct routing mode and on the overlay

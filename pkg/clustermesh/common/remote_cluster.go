@@ -56,7 +56,8 @@ type remoteCluster struct {
 
 	// configPath is the path to the etcd configuration to be used to
 	// connect to the etcd cluster of the remote cluster
-	configPath    string
+	configPath string
+	// clusterConfig is file configuration of the remote cluster loaded from configPath
 	clusterConfig ClusterConfig
 
 	// clusterSizeDependantInterval allows to calculate intervals based on cluster size.

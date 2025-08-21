@@ -1046,6 +1046,11 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					e.runlock()
 					return controller.NewExitReason("Failed to get node IP")
 				}
+				hostExternalIP, err := netip.ParseAddr(node.GetCiliumEndpointNodeExternalIP(logger))
+				if err != nil {
+					e.runlock()
+					return controller.NewExitReason("Failed to get node external IP")
+				}
 				key := node.GetEndpointEncryptKeyIndex(logger, e.wgConfig)
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
@@ -1055,7 +1060,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := e.kvstoreSyncher.Upsert(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, e.GetK8sPorts()); err != nil {
+				if err := e.kvstoreSyncher.Upsert(ctx, endpointIP, hostIP, hostExternalIP, ID, key, metadata, k8sNamespace, k8sPodName, e.GetK8sPorts()); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %w", endpointIP.String(), ID, err)
 				}
 				return nil
