@@ -20,8 +20,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-type StatusFunc func() *models.RemoteCluster
-type RemoteClusterCreatorFunc func(name string, status StatusFunc) RemoteCluster
+type (
+	StatusFunc               func() *models.RemoteCluster
+	RemoteClusterCreatorFunc func(name string, status StatusFunc, config ClusterConfig) RemoteCluster
+)
 
 // Configuration is the configuration that must be provided to
 // NewClusterMesh()
@@ -157,8 +159,9 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
 		metricTotalFailures:        cm.conf.Metrics.TotalFailures.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
 	}
+	rc.loadClusterConfig()
 
-	rc.RemoteCluster = cm.conf.NewRemoteCluster(name, rc.status)
+	rc.RemoteCluster = cm.conf.NewRemoteCluster(name, rc.status, rc.clusterConfig)
 	return rc
 }
 

@@ -189,7 +189,7 @@ func (cm *clusterMesh) GlobalServiceExports() *GlobalServiceExportCache {
 	return cm.globalServiceExports
 }
 
-func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
+func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc, config common.ClusterConfig) common.RemoteCluster {
 	rc := &remoteCluster{
 		logger:                        cm.logger.With(logfields.ClusterName, name),
 		name:                          name,

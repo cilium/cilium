@@ -92,7 +92,7 @@ func TestClusterMesh(t *testing.T) {
 		Config:              Config{ClusterMeshConfig: baseDir},
 		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local"},
 		RemoteClientFactory: DefaultRemoteClientFactory(kvstore.Config{}),
-		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
+		NewRemoteCluster: func(name string, sf StatusFunc, _ ClusterConfig) RemoteCluster {
 			statuses.Store(name, sf)
 			rc := &fakeRemoteCluster{
 				onRun:    func(context.Context) { ready.Store(name, true) },
@@ -220,7 +220,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 		Config:              Config{ClusterMeshConfig: baseDir},
 		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local"},
 		RemoteClientFactory: DefaultRemoteClientFactory(kvstore.Config{}),
-		NewRemoteCluster: func(name string, _ StatusFunc) RemoteCluster {
+		NewRemoteCluster: func(name string, _ StatusFunc, _ ClusterConfig) RemoteCluster {
 			return &fakeRemoteCluster{
 				onRun: func(context.Context) { ready.Store(name, true) },
 				onRemove: func(ctx context.Context) {

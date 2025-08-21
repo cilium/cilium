@@ -170,7 +170,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 	return cm
 }
 
-func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
+func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc, config common.ClusterConfig) common.RemoteCluster {
 	rc := &remoteCluster{
 		name:                     name,
 		clusterID:                cmtypes.ClusterIDUnset,

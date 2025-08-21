@@ -42,6 +42,7 @@ trusted-ca-file: /var/lib/cilium/clustermesh/common-etcd-client-ca.crt
 key-file: /var/lib/cilium/clustermesh/{{ $prefix }}etcd-client.key
 cert-file: /var/lib/cilium/clustermesh/{{ $prefix }}etcd-client.crt
 {{- end }}
+cilium-prefer-external-ips: {{ $cluster.preferExternalIPs | default false }}
 {{- end }}
 
 {{- define "clustermesh-clusters" }}
