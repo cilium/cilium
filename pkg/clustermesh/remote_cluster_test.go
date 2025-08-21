@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/clustermesh/common"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -24,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -166,7 +164,6 @@ func TestRemoteClusterRun(t *testing.T) {
 					FeatureMetrics:        NewClusterMeshMetricsNoop(),
 					Logger:                logger,
 				},
-				globalServices: common.NewGlobalServiceCache(logger, metrics.NoOpGauge),
 				FeatureMetrics: NewClusterMeshMetricsNoop(),
 			}
 			rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
@@ -297,7 +294,6 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			Logger:                logger,
 		},
 		FeatureMetrics: NewClusterMeshMetricsNoop(),
-		globalServices: common.NewGlobalServiceCache(logger, metrics.NoOpGauge),
 	}
 	rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 

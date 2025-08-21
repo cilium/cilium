@@ -682,15 +682,6 @@ func remoteClusterStatusToError(status *models.RemoteCluster) error {
 }
 
 func (c *ConnectivityStatus) parseAgentStatus(name string, expected []string, s *status.ClusterMeshAgentConnectivityStatus) {
-	if c.GlobalServices.Min < 0 || c.GlobalServices.Min > s.GlobalServices {
-		c.GlobalServices.Min = s.GlobalServices
-	}
-
-	if c.GlobalServices.Max < s.GlobalServices {
-		c.GlobalServices.Max = s.GlobalServices
-	}
-
-	c.GlobalServices.Avg += float64(s.GlobalServices)
 	c.Total++
 
 	ready := int64(0)
