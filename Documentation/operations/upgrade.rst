@@ -354,6 +354,8 @@ Bugtool Options
 
 Added Metrics
 ~~~~~~~~~~~~~
+* ``cilium_agent_clustermesh_remote_cluster_identities`` was added and report per remote cluster
+  identities in a ClusterMesh.
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
@@ -364,6 +366,15 @@ Changed Metrics
 ~~~~~~~~~~~~~~~
 
 * ``k8s_client_rate_limiter_duration_seconds`` no longer has labels ``path`` and ``method``.
+
+The following metrics:
+* ``cilium_agent_clustermesh_global_services``
+* ``cilium_operator_clustermesh_global_services``
+* ``cilium_operator_clustermesh_global_service_exports``
+now reports per cluster metric and were renamed to respectively:
+* ``cilium_agent_clustermesh_remote_cluster_global_services``
+* ``cilium_operator_clustermesh_remote_cluster_global_services``
+* ``cilium_operator_clustermesh_global_service_exports``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~

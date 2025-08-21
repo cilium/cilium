@@ -12,8 +12,11 @@ type Metrics struct {
 	// TotalNodes tracks the number of total nodes in a remote cluster.
 	TotalNodes metric.Vec[metric.Gauge]
 
-	// TotalGlobalServices tracks the total number of global services.
+	// TotalGlobalServices tracks the number of total global services in a remote cluster.
 	TotalGlobalServices metric.Vec[metric.Gauge]
+
+	// TotalIdentities tracks the number of total identities in a remote cluster.
+	TotalIdentities metric.Vec[metric.Gauge]
 }
 
 func NewMetrics() Metrics {
@@ -27,11 +30,19 @@ func NewMetrics() Metrics {
 		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 
 		TotalGlobalServices: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: metrics.Namespace + "_" + subsystem + "_global_services",
+			ConfigName: metrics.Namespace + "_" + subsystem + "_remote_cluster_global_services",
 			Namespace:  metrics.Namespace,
 			Subsystem:  subsystem,
-			Name:       "global_services",
-			Help:       "The total number of global services in the cluster mesh",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName}),
+			Name:       "remote_cluster_global_services",
+			Help:       "The total number of global services in the remote cluster",
+		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
+
+		TotalIdentities: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: metrics.Namespace + "_" + subsystem + "_remote_cluster_global_identities",
+			Namespace:  metrics.Namespace,
+			Subsystem:  subsystem,
+			Name:       "remote_cluster_identities",
+			Help:       "The total number of identities in the remote cluster",
+		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 	}
 }
