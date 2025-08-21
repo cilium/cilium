@@ -92,9 +92,8 @@ func NewK8sStatusCollector(client k8sImplementation, params K8sStatusParameters)
 }
 
 type ClusterMeshAgentConnectivityStatus struct {
-	GlobalServices int64
-	Clusters       map[string]*models.RemoteCluster
-	Errors         ErrorCountMap
+	Clusters map[string]*models.RemoteCluster
+	Errors   ErrorCountMap
 }
 
 // ErrClusterMeshStatusNotAvailable is a sentinel.
@@ -117,7 +116,6 @@ func (k *K8sStatusCollector) ClusterMeshConnectivity(ctx context.Context, cilium
 		return nil, ErrClusterMeshStatusNotAvailable
 	}
 
-	c.GlobalServices = status.ClusterMesh.NumGlobalServices
 	for _, cluster := range status.ClusterMesh.Clusters {
 		c.Clusters[cluster.Name] = cluster
 	}
