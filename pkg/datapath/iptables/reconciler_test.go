@@ -20,8 +20,10 @@ import (
 	baseclocktest "k8s.io/utils/clock/testing"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
+	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -58,13 +60,15 @@ func TestReconciliationLoop(t *testing.T) {
 			store = store_
 			health = health_.NewScope("iptables-reconciler-test")
 			params = &reconcilerParams{
-				clock:          clock,
-				localNodeStore: store_,
-				db:             db_,
-				devices:        devices_,
-				proxies:        make(chan reconciliationRequest[proxyInfo]),
-				addNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
-				delNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
+				clock:               clock,
+				localNodeStore:      store_,
+				db:                  db_,
+				devices:             devices_,
+				proxies:             make(chan reconciliationRequest[proxyInfo]),
+				addNoTrackPod:       make(chan reconciliationRequest[noTrackPodInfo]),
+				delNoTrackPod:       make(chan reconciliationRequest[noTrackPodInfo]),
+				addNoTrackHostPorts: make(chan reconciliationRequest[noTrackHostPortsPodInfo]),
+				delNoTrackHostPorts: make(chan reconciliationRequest[podAndNameSpace]),
 			}
 		}),
 	)
@@ -109,6 +113,35 @@ func TestReconciliationLoop(t *testing.T) {
 			ip:   addr,
 			port: port,
 		})
+		return nil
+	}
+
+	setNoTrackHostPorts := func(currentState noTrackHostPortsByPod, pod podAndNameSpace, ports []string) error {
+		mu.Lock()
+		defer mu.Unlock()
+
+		parsedPorts := make([]lb.L4Addr, 0, len(ports))
+
+		for _, p := range ports {
+			parsed, err := lb.L4AddrFromString(p)
+
+			if err != nil {
+				return fmt.Errorf("failed to parse port/proto for %s: %w", p, err)
+			}
+
+			parsedPorts = append(parsedPorts, parsed)
+		}
+
+		currentState[pod] = set.NewSet(parsedPorts...)
+
+		return nil
+	}
+
+	removeNoTrackHostPorts := func(currentState noTrackHostPortsByPod, pod podAndNameSpace) error {
+		mu.Lock()
+		defer mu.Unlock()
+		currentState = currentState.exclude(pod)
+		assert.NotContains(t, currentState, pod)
 		return nil
 	}
 
@@ -345,7 +378,12 @@ func TestReconciliationLoop(t *testing.T) {
 	errs := make(chan error)
 	go func() {
 		defer close(errs)
-		errs <- reconciliationLoop(ctx, tlog, health, true, params, updateFunc, updateProxyFunc, installNoTrackFunc, removeNoTrackFunc)
+		errs <- reconciliationLoop(
+			ctx, tlog, health, true,
+			params, updateFunc, updateProxyFunc,
+			installNoTrackFunc, removeNoTrackFunc,
+			setNoTrackHostPorts, removeNoTrackHostPorts,
+		)
 	}()
 
 	// wait for reconciler to react to the initial state
@@ -408,6 +446,8 @@ func TestReconciliationLoop(t *testing.T) {
 	close(params.proxies)
 	close(params.addNoTrackPod)
 	close(params.delNoTrackPod)
+	close(params.addNoTrackHostPorts)
+	close(params.delNoTrackHostPorts)
 	cancel()
 	assert.NoError(t, <-errs)
 }
