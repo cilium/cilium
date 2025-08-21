@@ -374,6 +374,7 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})
+        id: connectivity_test
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }}).xml" \
@@ -387,7 +388,7 @@ jobs:
           job_status: "${{ job.status }}"
 
       - name: Clean up ESP allow firewall rule
-        if: ${{ matrix.config.type == 'tunnel-ipsec' }}
+        if: ${{ always() && steps.connectivity_test.outcome == 'success' && matrix.config.type == 'tunnel-ipsec' }}
         run: |
           cluster_name=${{ env.clusterName }}-${{ matrix.config.index }}
           cluster_zone=${{ matrix.k8s.zone }}
@@ -399,7 +400,7 @@ jobs:
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
       - name: Clean up GKE
-        if: ${{ always() }}
+        if: ${{ always() && steps.connectivity_test.outcome == 'success' }}
         run: |
           while [ "$(gcloud container operations list --zone ${{ matrix.k8s.zone }} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-${{ matrix.config.index }}" --format="value(name)")" ];do
             echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
