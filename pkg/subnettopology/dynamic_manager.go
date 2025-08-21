@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -17,12 +18,17 @@ type dynamicManager struct {
 	logger   *slog.Logger
 	filepath string
 
-	hash   uint64
-	subnet string
+	hash    uint64
+	subnets []subnet
 
 	wp *workerpool.WorkerPool
 
 	m *Map
+}
+
+type subnet struct {
+	ip     net.IP
+	prefix net.IPMask
 }
 
 func registerDynamicManager(p Params) error {
@@ -73,23 +79,64 @@ func (tm *dynamicManager) onUpdate(newSubnet string, newHash uint64) error {
 		return nil
 	}
 
-	// Sync eBPF map.
-	str := "10.244.0.0/16"
-	// Parse CIDR
-	ip, ipNet, err := net.ParseCIDR(str)
-	if err != nil {
-		return fmt.Errorf("invalid CIDR: %s", str)
+	// Delete all entries from eBPF map.
+	if err := tm.m.DeleteAll(); err != nil {
+		return fmt.Errorf("failed to delete all entries from eBPF map: %w", err)
 	}
-	tm.logger.Info("Syncing eBPF map", "ip", ip.String(), "prefix", ipNet.Mask.String(), "hash", newHash)
-	k := NewKey(ip, ipNet.Mask, 0)
-	v := NewValue(1)
-	if err := tm.m.Update(&k, &v); err != nil {
-		return fmt.Errorf("failed to update eBPF map: %w", err)
+	tm.logger.Info("Deleted all entries from eBPF map due to hash change", "oldHash", tm.hash, "newHash", newHash)
+
+	// Parse new newSubnets.
+	newSubnets, err := tm.parse(newSubnet)
+	if err != nil {
+		return fmt.Errorf("failed to parse new subnets: %w", err)
 	}
 
-	tm.logger.Info("Sync'd eBPF map")
+	// Sync eBPF map.
+	for _, subnet := range newSubnets {
+		tm.logger.Info("Syncing eBPF map", "ip", subnet.ip.String(), "prefix", subnet.prefix.String(), "hash", newHash)
+		k := NewKey(subnet.ip, subnet.prefix, 0)
+		v := NewValue(1)
+		if err := tm.m.Update(&k, &v); err != nil {
+			return fmt.Errorf("invalid CIDR: %s", subnet.ip.String())
+		}
+	}
+
 	tm.hash = newHash
-	tm.subnet = newSubnet
+	tm.subnets = newSubnets
 
 	return nil
+}
+
+/*
+Parse the subnet topology from the configuration.
+Example format of newSubnet:
+10.0.0.1/24,10.10.0.1/24;10.20.0.1/24;2001:0db8:85a3::/64
+Maps to subnets:
+| CIDR | Subnet ID |
+|------|-----------|
+| 10.0.0.1/24 | 1  |
+| 10.10.0.1/24 | 1 |
+| 10.20.0.1/24 | 2 |
+| 2001:0db8:85a3::/64 | 3 |
+*/
+func (tm *dynamicManager) parse(newSubnet string) ([]subnet, error) {
+	var subnets []subnet
+	if newSubnet == "" {
+		return subnets, nil
+	}
+	entries := strings.Split(newSubnet, ";")
+	for _, entry := range entries {
+		cidrs := strings.Split(entry, ",")
+		for _, cidr := range cidrs {
+			ip, ipNet, err := net.ParseCIDR(cidr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid CIDR: %s", cidr)
+			}
+			subnets = append(subnets, subnet{
+				ip:     ip,
+				prefix: ipNet.Mask,
+			})
+		}
+	}
+	return subnets, nil
 }
