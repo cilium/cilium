@@ -9,10 +9,6 @@ set -eu
 # Ciliums OSS-Fuzz integration can be found here: https://github.com/google/oss-fuzz/tree/master/projects/cilium
 
 
-# Add a fuzz dependency because OSS-Fuzz rewrites the testing types to ones compatible with libFuzzer which is the fuzzing engine used by OSS-Fuzz:
-printf "package policy\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/testing\"\n" > $SRC/cilium/pkg/policy/registerfuzzdep.go
-
-go mod tidy && go mod vendor
 ln -s "$SRC"/cilium/pkg/policy/distillery_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/l4_filter_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/l4_test{,_fuzz}.go
