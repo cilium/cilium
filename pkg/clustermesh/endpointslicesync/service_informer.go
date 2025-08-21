@@ -22,6 +22,7 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -50,6 +51,7 @@ type meshServiceInformer struct {
 	services           resource.Resource[*slim_corev1.Service]
 	serviceStore       resource.Store[*slim_corev1.Service]
 	meshNodeInformer   *meshNodeInformer
+	namespaceWatcher   clustermesh.GlobalNamespaceTracker
 
 	servicesSynced atomic.Bool
 	handler        cache.ResourceEventHandler
@@ -67,6 +69,29 @@ func doesServiceSyncEndpointSlice(svc *slim_corev1.Service) bool {
 	value, ok := annotation.Get(svc, annotation.GlobalService)
 	if !ok || strings.ToLower(value) != "true" {
 		return false
+	}
+
+	value, ok = annotation.Get(svc, annotation.GlobalServiceSyncEndpointSlices)
+	if !ok {
+		// If the service is headless we sync the EndpointSlice by default
+		return svc.Spec.ClusterIP == v1.ClusterIPNone
+	}
+	return strings.ToLower(value) == "true"
+}
+
+func doesServiceSyncEndpointSliceWithNamespaceFilter(svc *slim_corev1.Service, namespaceWatcher clustermesh.GlobalNamespaceTracker) bool {
+	// First check if service has the global annotation
+	value, ok := annotation.Get(svc, annotation.GlobalService)
+	if !ok || strings.ToLower(value) != "true" {
+		return false
+	}
+
+	// If namespace filtering is active, also check if service is in a global namespace
+	if namespaceWatcher != nil && namespaceWatcher.IsFilteringActive() {
+		if !namespaceWatcher.IsGlobalNamespace(svc.Namespace) {
+			// Service is marked as global but not in a global namespace
+			return false
+		}
 	}
 
 	value, ok = annotation.Get(svc, annotation.GlobalServiceSyncEndpointSlices)
@@ -100,6 +125,7 @@ func newMeshServiceInformer(
 	globalServiceCache *common.GlobalServiceCache,
 	services resource.Resource[*slim_corev1.Service],
 	meshNodeInformer *meshNodeInformer,
+	namespaceWatcher clustermesh.GlobalNamespaceTracker,
 ) *meshServiceInformer {
 	return &meshServiceInformer{
 		dummyInformer:      dummyInformer{name: "meshServiceInformer", logger: logger},
@@ -107,6 +133,7 @@ func newMeshServiceInformer(
 		globalServiceCache: globalServiceCache,
 		services:           services,
 		meshNodeInformer:   meshNodeInformer,
+		namespaceWatcher:   namespaceWatcher,
 	}
 }
 
@@ -158,8 +185,8 @@ func (i *meshServiceInformer) clusterSvcToSvc(clusterSvc *store.ClusterService, 
 		return nil, newNotFoundError(fmt.Sprintf("service '%s' not found", clusterSvc.NamespaceServiceName()))
 	}
 
-	if !force && !doesServiceSyncEndpointSlice(svc) {
-		return nil, newNotFoundError(fmt.Sprintf("service '%s' does not have sync endpoint slice annotation", clusterSvc.NamespaceServiceName()))
+	if !force && !doesServiceSyncEndpointSliceWithNamespaceFilter(svc, i.namespaceWatcher) {
+		return nil, newNotFoundError(fmt.Sprintf("service '%s' does not have sync endpoint slice annotation or is not in a global namespace", clusterSvc.NamespaceServiceName()))
 	}
 
 	labels := maps.Clone(svc.Labels)

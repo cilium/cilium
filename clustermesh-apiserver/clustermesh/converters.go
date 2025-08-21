@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -37,12 +38,12 @@ type NamespaceFilter interface {
 	ShouldExport(namespace string) bool
 }
 
-// globalNamespaceFilter implements NamespaceFilter using a GlobalNamespaceTracker.
+// globalNamespaceFilter implements NamespaceFilter using a clustermesh.GlobalNamespaceTracker.
 type globalNamespaceFilter struct {
-	tracker GlobalNamespaceTracker
+	tracker clustermesh.GlobalNamespaceTracker
 }
 
-func NewGlobalNamespaceFilter(tracker GlobalNamespaceTracker) NamespaceFilter {
+func NewGlobalNamespaceFilter(tracker clustermesh.GlobalNamespaceTracker) NamespaceFilter {
 	return &globalNamespaceFilter{tracker: tracker}
 }
 
@@ -153,12 +154,12 @@ func newCiliumIdentityOptions() Options[*cilium_api_v2.CiliumIdentity] {
 }
 
 // CiliumIdentityConverter implements Converter[*cilium_api_v2.CiliumIdentity]
-type CiliumIdentityConverter struct{ 
-	logger   *slog.Logger 
+type CiliumIdentityConverter struct {
+	logger   *slog.Logger
 	nsFilter NamespaceFilter
 }
 
-func newCiliumIdentityConverter(logger *slog.Logger, tracker GlobalNamespaceTracker) Converter[*cilium_api_v2.CiliumIdentity] {
+func newCiliumIdentityConverter(logger *slog.Logger, tracker clustermesh.GlobalNamespaceTracker) Converter[*cilium_api_v2.CiliumIdentity] {
 	nsFilter := NewGlobalNamespaceFilter(tracker)
 	return &CiliumIdentityConverter{logger: logger, nsFilter: nsFilter}
 }
@@ -204,7 +205,7 @@ func newCiliumEndpointOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[*type
 	}
 }
 
-func newCiliumEndpointConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo, tracker GlobalNamespaceTracker) Converter[*types.CiliumEndpoint] {
+func newCiliumEndpointConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo, tracker clustermesh.GlobalNamespaceTracker) Converter[*types.CiliumEndpoint] {
 	nsFilter := NewGlobalNamespaceFilter(tracker)
 	return NewCachedCoverter(func(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
 		return ciliumEndpointMapper(endpoint, nsFilter)
@@ -257,7 +258,7 @@ func newCiliumEndpointSliceOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[
 	}
 }
 
-func newCiliumEndpointSliceConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo, tracker GlobalNamespaceTracker) Converter[*cilium_api_v2a1.CiliumEndpointSlice] {
+func newCiliumEndpointSliceConverter(logger *slog.Logger, cinfo cmtypes.ClusterInfo, tracker clustermesh.GlobalNamespaceTracker) Converter[*cilium_api_v2a1.CiliumEndpointSlice] {
 	nsFilter := NewGlobalNamespaceFilter(tracker)
 	return NewCachedCoverter(func(endpointslice *cilium_api_v2a1.CiliumEndpointSlice) iter.Seq[store.Key] {
 		return ciliumEndpointSliceMapper(endpointslice, nsFilter)
@@ -266,7 +267,7 @@ func newCiliumEndpointSliceConverter(logger *slog.Logger, cinfo cmtypes.ClusterI
 
 func ciliumEndpointSliceMapper(endpointslice *cilium_api_v2a1.CiliumEndpointSlice, nsFilter NamespaceFilter) iter.Seq[store.Key] {
 	return func(yield func(store.Key) bool) {
-		// Only export endpoint slices from global namespaces
+		// Only export cilium endpoint slices from global namespaces
 		if !nsFilter.ShouldExport(endpointslice.Namespace) {
 			return
 		}

@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
@@ -74,7 +75,15 @@ var Synchronization = cell.Module(
 	cell.Group(
 		cell.Provide(
 			newNamespaceWatcherConfig,
-			RegisterNamespaceWatcher,
+			func(p clustermesh.NamespaceWatcherParams, config clustermesh.NamespaceWatcherConfig) clustermesh.GlobalNamespaceTracker {
+				return clustermesh.RegisterNamespaceWatcher(clustermesh.NamespaceWatcherParams{
+					In:         p.In,
+					Logger:     p.Logger,
+					JobGroup:   p.JobGroup,
+					Namespaces: p.Namespaces,
+					Config:     config,
+				})
+			},
 		),
 	),
 
@@ -167,7 +176,7 @@ type namespaceWatcherConfigParams struct {
 	cell.In
 }
 
-func newNamespaceWatcherConfig(params namespaceWatcherConfigParams) NamespaceWatcherConfig {
+func newNamespaceWatcherConfig(params namespaceWatcherConfigParams) clustermesh.NamespaceWatcherConfig {
 	// Read the configuration from environment variable following the same pattern as cluster-id
 	defaultGlobal := false // Default to false for security
 	if envVal := os.Getenv("CLUSTERMESH_DEFAULT_GLOBAL_NAMESPACE"); envVal != "" {
@@ -175,6 +184,6 @@ func newNamespaceWatcherConfig(params namespaceWatcherConfigParams) NamespaceWat
 			defaultGlobal = parsed
 		}
 	}
-	
-	return NamespaceWatcherConfig{DefaultGlobalNamespace: defaultGlobal}
+
+	return clustermesh.NamespaceWatcherConfig{DefaultGlobalNamespace: defaultGlobal}
 }

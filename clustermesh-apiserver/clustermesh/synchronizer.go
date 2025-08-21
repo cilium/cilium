@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -46,7 +47,7 @@ type syncParams[T runtime.Object] struct {
 
 	Client  kvstore.Client
 	Factory store.Factory
-	Tracker GlobalNamespaceTracker
+	Tracker clustermesh.GlobalNamespaceTracker
 
 	Resource  resource.Resource[T]
 	Options   Options[T]
@@ -73,7 +74,7 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 	// Register a processor for namespace changes to handle resource sync
 	// Only register processors for resources that need namespace-based filtering
 	if in.Tracker != nil && in.Resource != nil && needsNamespaceProcessor(in.Options.Resource) {
-		processor := &resourceProcessor[T]{
+		processor := &namespaceProcessor[T]{
 			logger:    logger,
 			resource:  in.Resource,
 			converter: in.Converter,
@@ -142,15 +143,15 @@ func needsNamespaceProcessor(resourceName string) bool {
 	}
 }
 
-// resourceProcessor implements NamespaceProcessor for a specific resource type
-type resourceProcessor[T runtime.Object] struct {
+// namespaceProcessor implements NamespaceProcessor for a specific resource type
+type namespaceProcessor[T runtime.Object] struct {
 	logger    *slog.Logger
 	resource  resource.Resource[T]
 	converter Converter[T]
 	store     store.SyncStore
 }
 
-func (rp *resourceProcessor[T]) ProcessNamespaceChange(namespace string, isGlobal bool) {
+func (rp *namespaceProcessor[T]) ProcessNamespaceChange(namespace string, isGlobal bool) {
 	ctx := context.Background()
 
 	rp.logger.Info("Namespace global status changed, triggering resource sync",
@@ -221,4 +222,38 @@ func (rp *resourceProcessor[T]) ProcessNamespaceChange(namespace string, isGloba
 			process("delete", delete.GetKeyName(), func() error { return rp.store.DeleteKey(ctx, delete) })
 		}
 	}
+}
+
+func (rp *namespaceProcessor[T]) GetAllNamespaces() []string {
+	ctx := context.Background()
+
+	resourceStore, err := rp.resource.Store(ctx)
+	if err != nil {
+		rp.logger.Warn("Failed to get resource store for namespace listing",
+			logfields.Error, err,
+		)
+		return []string{}
+	}
+
+	// Get all index values for the namespace index using the underlying cache store
+	cacheStore := resourceStore.CacheStore()
+
+	// Cast to Indexer to access ListIndexFuncValues
+	indexer, ok := cacheStore.(cache.Indexer)
+	if !ok {
+		rp.logger.Warn("Cache store does not implement Indexer interface")
+		return []string{}
+	}
+
+	indexValues := indexer.ListIndexFuncValues(cache.NamespaceIndex)
+
+	// Filter out empty namespace (for cluster-scoped resources like CiliumIdentity that might not have namespace)
+	result := make([]string, 0, len(indexValues))
+	for _, value := range indexValues {
+		if value != "" {
+			result = append(result, value)
+		}
+	}
+
+	return result
 }

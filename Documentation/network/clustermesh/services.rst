@@ -62,6 +62,133 @@ Below example will expose remote endpoint without sharing local endpoints.
      selector:
        name: rebel-base
 
+.. _namespace_export_control:
+
+Namespace-based Export Control
+##############################
+
+By default, all namespaces in a cluster are considered global for ClusterMesh
+resource sharing. To enhance security and control which namespaces export
+resources to other clusters, you can enable namespace-based export control
+through namespace annotations.
+
+Prerequisites
+============
+
+For namespace-based export control to work correctly, you need to understand:
+
+* When no namespaces are annotated, the behavior remains exactly the same as
+  the traditional ClusterMesh setup (backwards compatible)
+* When the first namespace receives the ``clustermesh.cilium.io/global``
+  annotation, namespace filtering becomes active
+* Only resources from namespaces marked as global will be shared across clusters
+
+Configuration
+============
+
+Global Namespace Annotation
+---------------------------
+
+To mark a namespace as global and enable resource export to other clusters:
+
+.. code-block:: yaml
+
+   apiVersion: v1
+   kind: Namespace
+   metadata:
+     name: production
+     annotations:
+       clustermesh.cilium.io/global: "true"
+
+To explicitly mark a namespace as local (non-global):
+
+.. code-block:: yaml
+
+   apiVersion: v1
+   kind: Namespace
+   metadata:
+     name: development
+     annotations:
+       clustermesh.cilium.io/global: "false"
+
+Default Global Namespace Behavior
+---------------------------------
+
+You can configure the default behavior for namespaces without annotations
+using the ``clustermesh.defaultGlobalNamespace`` configuration option:
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set clustermesh.defaultGlobalNamespace=false
+
+When set to ``false`` (recommended for security), unannotated namespaces are
+treated as local by default when namespace filtering is active.
+
+Global Service Requirements
+==========================
+
+When namespace-based export control is active, a service must satisfy **both**
+conditions to be considered a Global Service:
+
+1. The service must be annotated with ``service.cilium.io/global: "true"``
+2. The service must reside within a namespace marked as global
+
+.. code-block:: yaml
+
+   # Global namespace
+   apiVersion: v1
+   kind: Namespace
+   metadata:
+     name: production
+     annotations:
+       clustermesh.cilium.io/global: "true"
+   ---
+   # Global service within global namespace
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: backend-service
+     namespace: production
+     annotations:
+       service.cilium.io/global: "true"
+   spec:
+     type: ClusterIP
+     ports:
+     - port: 80
+     selector:
+       app: backend
+
+Edge Cases and Behavior
+======================
+
+* **Activation**: When the first namespace receives a global annotation,
+  filtering becomes active and all resources from non-global namespaces
+  are removed from the shared etcd store
+* **Deactivation**: When the last annotated namespace is removed or loses
+  its annotation, filtering becomes inactive and all namespace resources
+  are backfilled into etcd (backwards compatibility mode)
+* **Transition**: Resources are dynamically added/removed from etcd as
+  namespace annotations change
+
+Testing and Validation
+=====================
+
+To test namespace-based export control:
+
+1. Verify initial backwards compatibility (no annotations):
+
+   .. code-block:: shell-session
+
+      cilium clustermesh status --context $CLUSTER1
+
+2. Add global annotation to a namespace and verify filtering activation
+
+3. Check that only resources from global namespaces appear in other clusters
+
+4. Validate global service functionality with both namespace and service annotations
+
 .. _endpointslicesync:
 
 Synchronizing Kubernetes EndpointSlice (Beta)

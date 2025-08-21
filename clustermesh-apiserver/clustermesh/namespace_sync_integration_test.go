@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/cilium/cilium/pkg/clustermesh"
 )
 
 // TestNamespaceSyncCallback tests that namespace change processors trigger the correct behavior
@@ -29,6 +31,7 @@ func TestNamespaceSyncCallback(t *testing.T) {
 				isGlobal  bool
 			}{namespace, isGlobal})
 		},
+		namespaces: []string{"production", "development"}, // Simulate known namespaces
 	}
 
 	// Register the processor
@@ -112,13 +115,13 @@ func TestNamespaceFilterIntegration(t *testing.T) {
 // mockGlobalNamespaceTracker is a simple mock implementation for testing
 type mockGlobalNamespaceTracker struct {
 	globalNamespaces sets.Set[string]
-	processors       []NamespaceProcessor
+	processors       []clustermesh.NamespaceProcessor
 }
 
 func newMockGlobalNamespaceTracker() *mockGlobalNamespaceTracker {
 	return &mockGlobalNamespaceTracker{
 		globalNamespaces: sets.New[string](),
-		processors:       []NamespaceProcessor{},
+		processors:       []clustermesh.NamespaceProcessor{},
 	}
 }
 
@@ -130,7 +133,11 @@ func (m *mockGlobalNamespaceTracker) GetGlobalNamespaces() sets.Set[string] {
 	return m.globalNamespaces.Clone()
 }
 
-func (m *mockGlobalNamespaceTracker) RegisterProcessor(processor NamespaceProcessor) {
+func (m *mockGlobalNamespaceTracker) IsFilteringActive() bool {
+	return m.globalNamespaces.Len() > 0
+}
+
+func (m *mockGlobalNamespaceTracker) RegisterProcessor(processor clustermesh.NamespaceProcessor) {
 	m.processors = append(m.processors, processor)
 }
 
@@ -153,11 +160,16 @@ func (m *mockGlobalNamespaceTracker) setNamespaceGlobal(namespace string, isGlob
 
 // testNamespaceProcessor is a simple test implementation of NamespaceProcessor
 type testNamespaceProcessor struct {
-	callback func(namespace string, isGlobal bool)
+	callback   func(namespace string, isGlobal bool)
+	namespaces []string // Namespaces this processor knows about
 }
 
 func (p *testNamespaceProcessor) ProcessNamespaceChange(namespace string, isGlobal bool) {
 	if p.callback != nil {
 		p.callback(namespace, isGlobal)
 	}
+}
+
+func (p *testNamespaceProcessor) GetAllNamespaces() []string {
+	return p.namespaces
 }

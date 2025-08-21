@@ -34,7 +34,7 @@ func CiliumSlimEndpointResource(params k8s.CiliumResourceParams, opts ...func(*m
 	return resource.New[*types.CiliumEndpoint](params.Lifecycle, lw,
 		resource.WithLazyTransform(func() runtime.Object {
 			return &cilium_api_v2.CiliumEndpoint{}
-		}, k8s.TransformToCiliumEndpoint), 
+		}, k8s.TransformToCiliumEndpoint),
 		resource.WithCRDSync(params.CRDSyncPromise),
 		resource.WithIndexers(indexers),
 	), nil
@@ -65,7 +65,7 @@ func CiliumEndpointSliceResource(params k8s.CiliumResourceParams, opts ...func(*
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
 	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](params.Lifecycle, lw,
-		resource.WithMetric("CiliumEndpointSlice"), 
+		resource.WithMetric("CiliumEndpointSlice"),
 		resource.WithCRDSync(params.CRDSyncPromise),
 		resource.WithIndexers(indexers),
 	), nil
@@ -98,7 +98,7 @@ func CiliumIdentityResource(params k8s.CiliumResourceParams, opts ...func(*metav
 		cache.NamespaceIndex: CiliumIdentityNamespaceIndexFunc,
 	}
 	return resource.New[*cilium_api_v2.CiliumIdentity](params.Lifecycle, lw,
-		resource.WithMetric("CiliumIdentity"), 
+		resource.WithMetric("CiliumIdentity"),
 		resource.WithCRDSync(params.CRDSyncPromise),
 		resource.WithIndexers(indexers),
 	), nil

@@ -514,6 +514,12 @@ data:
   cluster-id: "{{ .Values.cluster.id }}"
 {{- end }}
 
+{{- if hasKey .Values.clustermesh "defaultGlobalNamespace" }}
+  # Default global namespace behavior for ClusterMesh namespace filtering.
+  # When namespace-based filtering is active, determines default behavior for non-annotated namespaces.
+  clustermesh-default-global-namespace: "{{ .Values.clustermesh.defaultGlobalNamespace }}"
+{{- end }}
+
   # Encapsulation mode for communication between nodes
   # Possible values:
   #   - disabled

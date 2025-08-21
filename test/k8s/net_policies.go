@@ -1514,15 +1514,15 @@ spec:
 `, globalNS1)
 
 			l7PolicyFile := "/tmp/l7-policy-global.yaml"
-			err := kubectl.ExecShort(fmt.Sprintf("echo '%s' > %s", l7PolicyContent, l7PolicyFile))
-			Expect(err).To(BeNil(), "Should be able to create L7 policy file")
+			res := kubectl.ExecShort(fmt.Sprintf("echo '%s' > %s", l7PolicyContent, l7PolicyFile))
+			Expect(res.GetErr("create L7 policy file")).To(BeNil(), "Should be able to create L7 policy file")
 
-			_, err = kubectl.CiliumPolicyAction(
+			_, err := kubectl.CiliumPolicyAction(
 				globalNS1, l7PolicyFile, helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "L7 policy should be applied successfully")
+			Expect(err).To(BeNil(), "L7 policy should be applied successfully")
 
 			// Test allowed HTTP paths
-			res := kubectl.ExecPodCmd(
+			res = kubectl.ExecPodCmd(
 				globalNS1, appPodsGlobalNS1[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", globalNS1ClusterIP)))
 			res.ExpectSuccess("App2 should be able to access /public path")
@@ -1623,12 +1623,92 @@ spec:
 
 			// Clean up
 			_ = kubectl.Delete(l3l4PolicyLocal)
-			_ = kubectl.Delete(demoManifestLocal) 
+			_ = kubectl.Delete(demoManifestLocal)
 			_ = kubectl.NamespaceDelete(localNS)
-			
+
 			// Re-add the second global annotation for other tests
 			res = kubectl.Exec(fmt.Sprintf("kubectl annotate namespace %s clustermesh.cilium.io/global=true", globalNS2))
 			res.ExpectSuccess("Should be able to re-add global annotation to %s", globalNS2)
+		})
+
+		It("Tests clustermesh-default-global-namespace configuration behavior", func() {
+			By("Testing CLUSTERMESH_DEFAULT_GLOBAL_NAMESPACE configuration")
+
+			// Create a test namespace without annotation
+			testNS := helpers.GenerateNamespaceForTest("default-test")
+			kubectl.NamespaceDelete(testNS)
+			res := kubectl.NamespaceCreate(testNS)
+			res.ExpectSuccess("unable to create test namespace %q", testNS)
+
+			// Deploy demo apps to test namespace
+			demoManifestTest := fmt.Sprintf("%s -n %s", demoPath, testNS)
+			res = kubectl.ApplyDefault(demoManifestTest)
+			res.ExpectSuccess("unable to apply demo manifest to test namespace %s", testNS)
+
+			// Wait for pods in test namespace
+			err := kubectl.WaitforPods(testNS, "-l zgroup=testapp", helpers.HelperTimeout)
+			Expect(err).To(BeNil(), "testapp pods should be ready in test namespace %q", testNS)
+
+			appPodsTest := helpers.GetAppPods(apps, testNS, kubectl, "id")
+			testClusterIP, _, err := kubectl.GetServiceHostPort(testNS, app1Service)
+			Expect(err).To(BeNil(), "Cannot get service in test namespace %q", testNS)
+
+			By("Testing behavior with first annotation marking a namespace as false")
+
+			// Add annotation marking testNS as explicitly false (non-global)
+			res = kubectl.Exec(fmt.Sprintf("kubectl annotate namespace %s clustermesh.cilium.io/global=false", testNS))
+			res.ExpectSuccess("Should be able to mark namespace %s as non-global", testNS)
+
+			// Wait for changes to propagate
+			time.Sleep(5 * time.Second)
+
+			// When default is true, other namespaces should remain global, but testNS should be local
+			// This tests the behavior described in the CFP where explicitly false namespaces are filtered
+			res = kubectl.ExecPodCmd(
+				globalNS1, appPodsGlobalNS1[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", globalNS1ClusterIP)))
+			res.ExpectSuccess("Connectivity within global namespace should work when filtering is active")
+
+			By("Testing that explicitly false namespace behaves as local")
+
+			// Test connectivity within the explicitly false namespace
+			res = kubectl.ExecPodCmd(
+				testNS, appPodsTest[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", testClusterIP)))
+			res.ExpectSuccess("Connectivity within explicitly false namespace should work")
+
+			By("Testing removal of false annotation returns to backwards compatibility")
+
+			// Remove the false annotation
+			res = kubectl.Exec(fmt.Sprintf("kubectl annotate namespace %s clustermesh.cilium.io/global-", testNS))
+			res.ExpectSuccess("Should be able to remove annotation from %s", testNS)
+
+			// Remove all other global annotations to deactivate filtering
+			res = kubectl.Exec(fmt.Sprintf("kubectl annotate namespace %s clustermesh.cilium.io/global-", globalNS1))
+			res.ExpectSuccess("Should be able to remove global annotation from %s", globalNS1)
+
+			res = kubectl.Exec(fmt.Sprintf("kubectl annotate namespace %s clustermesh.cilium.io/global-", globalNS2))
+			res.ExpectSuccess("Should be able to remove global annotation from %s", globalNS2)
+
+			// Wait for changes to propagate
+			time.Sleep(5 * time.Second)
+
+			// Should return to backwards compatibility mode
+			res = kubectl.ExecPodCmd(
+				testNS, appPodsTest[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", globalNS1ClusterIP)))
+			res.ExpectSuccess("Cross-namespace connectivity should work in backwards compatibility mode")
+
+			// Clean up
+			_ = kubectl.Delete(demoManifestTest)
+			_ = kubectl.NamespaceDelete(testNS)
+
+			// Restore global annotations for other tests
+			res = kubectl.Exec(fmt.Sprintf("kubectl annotate namespace %s clustermesh.cilium.io/global=true", globalNS1))
+			res.ExpectSuccess("Should be able to restore global annotation to %s", globalNS1)
+
+			res = kubectl.Exec(fmt.Sprintf("kubectl annotate namespace %s clustermesh.cilium.io/global=true", globalNS2))
+			res.ExpectSuccess("Should be able to restore global annotation to %s", globalNS2)
 		})
 
 		It("Tests CiliumEndpoint and CiliumIdentity resources in global namespaces", func() {
@@ -1638,9 +1718,9 @@ spec:
 			for _, ns := range []string{globalNS1, globalNS2} {
 				res := kubectl.Exec(fmt.Sprintf("kubectl get ciliumendpoints -n %s -o name", ns))
 				res.ExpectSuccess("Should be able to list CiliumEndpoints in global namespace %s", ns)
-				
+
 				endpoints := strings.Fields(res.Stdout())
-				Expect(len(endpoints)).To(BeNumerically(">", 0), 
+				Expect(len(endpoints)).To(BeNumerically(">", 0),
 					"CiliumEndpoints should exist in global namespace %s", ns)
 
 				// Verify endpoint details
@@ -1658,7 +1738,7 @@ spec:
 			// Check that CiliumIdentities exist (they are cluster-scoped)
 			res := kubectl.Exec("kubectl get ciliumidentities -o name")
 			res.ExpectSuccess("Should be able to list CiliumIdentities")
-			
+
 			identities := strings.Fields(res.Stdout())
 			Expect(len(identities)).To(BeNumerically(">", 0), "CiliumIdentities should exist")
 
@@ -1676,7 +1756,7 @@ spec:
 			By("Testing annotation changes affect resource management")
 
 			// Remove global annotation from one namespace and verify resources
-			res := kubectl.Exec(fmt.Sprintf("kubectl annotate namespace %s clustermesh.cilium.io/global-", globalNS2))
+			res = kubectl.Exec(fmt.Sprintf("kubectl annotate namespace %s clustermesh.cilium.io/global-", globalNS2))
 			res.ExpectSuccess("Should be able to remove global annotation from %s", globalNS2)
 
 			// Wait for changes to propagate
@@ -1714,7 +1794,7 @@ spec:
 				time.Sleep(100 * time.Millisecond) // Small delay between requests
 			}
 
-			Expect(successCount).To(BeNumerically(">=", 8), 
+			Expect(successCount).To(BeNumerically(">=", 8),
 				"At least 8 out of 10 requests should succeed for load balancing test")
 
 			By("Testing service discovery across global namespaces with DNS")
@@ -1735,7 +1815,6 @@ spec:
 			// Scale back down for cleanup
 			res = kubectl.Exec(fmt.Sprintf("kubectl scale deployment app1 --replicas=1 -n %s", globalNS1))
 			res.ExpectSuccess("Should be able to scale app1 deployment back down in %s", globalNS1)
-		})
 		})
 	})
 
