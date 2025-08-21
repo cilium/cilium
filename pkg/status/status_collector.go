@@ -334,10 +334,8 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		features.NodePort.PortMin = int64(d.statusParams.LBConfig.NodePortMin)
 		features.NodePort.PortMax = int64(d.statusParams.LBConfig.NodePortMax)
 	}
-	if d.statusParams.KPRConfig.EnableHostPort {
-		features.HostPort.Enabled = true
-	}
 	if d.statusParams.KPRConfig.KubeProxyReplacement {
+		features.HostPort.Enabled = true
 		features.ExternalIPs.Enabled = true
 	}
 	if d.statusParams.KPRConfig.EnableSocketLB {
