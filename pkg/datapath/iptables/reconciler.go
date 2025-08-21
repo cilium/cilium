@@ -128,6 +128,8 @@ func reconciliationLoop(
 	updateProxyRules func(proxyPort uint16, name string) error,
 	installNoTrackRules func(addr netip.Addr, port uint16) error,
 	removeNoTrackRules func(addr netip.Addr, port uint16) error,
+	addNoTrackHostPorts func(currentState noTrackHostPortsByPod, podName podAndNameSpace, ports []string) error,
+	removeNoTrackHostPorts func(currentState noTrackHostPortsByPod, podName podAndNameSpace) error,
 ) error {
 	// The minimum interval between reconciliation attempts
 	const minReconciliationInterval = 200 * time.Millisecond
@@ -142,9 +144,10 @@ func reconciliationLoop(
 	fullLogLimiter := logging.NewLimiter(10*time.Second, 3)
 
 	state := desiredState{
-		installRules: installIptRules,
-		proxies:      make(map[string]proxyInfo),
-		noTrackPods:  sets.New[noTrackPodInfo](),
+		installRules:     installIptRules,
+		proxies:          make(map[string]proxyInfo),
+		noTrackPods:      sets.New[noTrackPodInfo](),
+		noTrackHostPorts: make(noTrackHostPortsByPod),
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -299,6 +302,53 @@ stop:
 			} else {
 				close(req.updated)
 			}
+
+		case req, ok := <-params.addNoTrackHostPorts:
+			if !ok {
+				break stop
+			}
+
+			if firstInit {
+				stateChanged = true
+				updatedChs = append(updatedChs, req.updated)
+				continue
+			}
+
+			if err := addNoTrackHostPorts(state.noTrackHostPorts, req.info.podKey, req.info.ports); err != nil {
+				if partialLogLimiter.Allow() {
+					log.Error("failed to set up no-track-host-ports, will retry a full reconciliation", logfields.Error, err)
+				}
+
+				// incremental rules update failed, schedule a full iptables reconciliation
+				stateChanged = true
+				updatedChs = append(updatedChs, req.updated)
+			} else {
+				close(req.updated)
+			}
+
+		case req, ok := <-params.delNoTrackHostPorts:
+			if !ok {
+				break stop
+			}
+
+			if firstInit {
+				stateChanged = true
+				updatedChs = append(updatedChs, req.updated)
+				continue
+			}
+
+			if err := removeNoTrackHostPorts(state.noTrackHostPorts, req.info); err != nil {
+				if partialLogLimiter.Allow() {
+					log.Error("failed to remove no-track-host-ports, will retry a full reconciliation", logfields.Error, err)
+				}
+
+				// incremental rules update failed, schedule a full iptables reconciliation
+				stateChanged = true
+				updatedChs = append(updatedChs, req.updated)
+			} else {
+				close(req.updated)
+			}
+
 		case <-refresher.C():
 			stateChanged = true
 		case <-ticker.C():
@@ -348,6 +398,10 @@ stop:
 	for range params.addNoTrackPod {
 	}
 	for range params.delNoTrackPod {
+	}
+	for range params.addNoTrackHostPorts {
+	}
+	for range params.delNoTrackHostPorts {
 	}
 
 	return nil

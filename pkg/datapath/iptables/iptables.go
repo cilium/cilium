@@ -403,6 +403,8 @@ func newIptablesManager(p params) datapath.IptablesManager {
 				iptMgr.doInstallProxyRules,
 				iptMgr.installNoTrackRules,
 				iptMgr.removeNoTrackRules,
+				iptMgr.setNoTrackHostPorts,
+				iptMgr.removeNoTrackHostPorts,
 			)
 		}),
 	)
