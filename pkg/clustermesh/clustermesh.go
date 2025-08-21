@@ -110,10 +110,6 @@ type ClusterMesh struct {
 	// common implements the common logic to connect to remote clusters.
 	common common.ClusterMesh
 
-	// globalServices is a list of all global services. The datastructure
-	// is protected by its own mutex inside the structure.
-	globalServices *common.GlobalServiceCache
-
 	// nodeName is the name of the local node. This is used for logging and metrics
 	nodeName string
 
@@ -134,12 +130,8 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 
 	nodeName := nodeTypes.GetName()
 	cm := &ClusterMesh{
-		conf:     c,
-		nodeName: nodeName,
-		globalServices: common.NewGlobalServiceCache(
-			c.Logger,
-			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterInfo.Name, nodeName),
-		),
+		conf:           c,
+		nodeName:       nodeName,
 		FeatureMetrics: c.FeatureMetrics,
 	}
 
@@ -168,6 +160,20 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 
 	lifecycle.Append(cm.common)
 	return cm
+}
+
+type clusterServiceObserver struct {
+	serviceMerger ServiceMerger
+}
+
+func (obs *clusterServiceObserver) OnUpdate(key store.Key) {
+	svc := &(key.(*serviceStore.ValidatingClusterService).ClusterService)
+	obs.serviceMerger.MergeExternalServiceUpdate(svc)
+}
+
+func (obs *clusterServiceObserver) OnDelete(key store.NamedKey) {
+	svc := &(key.(*serviceStore.ValidatingClusterService).ClusterService)
+	obs.serviceMerger.MergeExternalServiceDelete(svc)
 }
 
 func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
@@ -203,12 +209,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 			serviceStore.NamespacedNameValidator(),
 			serviceStore.ClusterIDValidator(&rc.clusterID),
 		),
-		common.NewSharedServicesObserver(
-			rc.log,
-			cm.globalServices,
-			cm.conf.ServiceMerger.MergeExternalServiceUpdate,
-			cm.conf.ServiceMerger.MergeExternalServiceDelete,
-		),
+		&clusterServiceObserver{serviceMerger: cm.conf.ServiceMerger},
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.services) }),
 	)
 
@@ -281,9 +282,7 @@ func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster)
 
 // Status returns the status of the ClusterMesh subsystem
 func (cm *ClusterMesh) Status() (status *models.ClusterMeshStatus) {
-	status = &models.ClusterMeshStatus{
-		NumGlobalServices: int64(cm.globalServices.Size()),
-	}
+	status = &models.ClusterMeshStatus{}
 
 	cm.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {
 		rc := rci.(*remoteCluster)

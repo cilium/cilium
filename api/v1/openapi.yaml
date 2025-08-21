@@ -2339,9 +2339,6 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/RemoteCluster"
-      num-global-services:
-        description: Number of global services
-        type: integer
   RemoteCluster:
     description: |-
       Status of remote cluster
