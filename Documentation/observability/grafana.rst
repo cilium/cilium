@@ -19,7 +19,7 @@ deployment.
 .. admonition:: Video
  :class: attention
 
-  You can also see Cilium and Grafana in action on `eCHO episode 68: Cilium & Grafana <https://www.youtube.com/watch?v=DdWksYq5Pv4>`__.
+  You can see Cilium, Prometheus and Grafana in action together in the KubeCon + CloudNativeCon talk `Effortless Open Source Observability with Cilium, Prometheus and Grafana <https://www.youtube.com/watch?v=l3zY7wHUkBA>`__.
 
 The default installation contains:
 
