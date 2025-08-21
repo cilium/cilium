@@ -182,7 +182,7 @@ func (n *NodeDiscovery) updateLocalNode(ctx context.Context, ln *node.LocalNode)
 					}
 
 					err := n.Registrar.UpdateLocalKeySync(ctx, &ln.Node)
-					if err != nil {
+					if err != nil && !errors.Is(err, context.Canceled) {
 						n.logger.Error("Unable to propagate local node change to kvstore", logfields.Error, err)
 					}
 					return err
