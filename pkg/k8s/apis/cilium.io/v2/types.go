@@ -285,6 +285,10 @@ type EndpointNetworking struct {
 	// NodeIP is the IP of the node the endpoint is running on. The IP must
 	// be reachable between nodes.
 	NodeIP string `json:"node,omitempty"`
+
+	// NodeExternalIP is the external IP of the node the endpoint is running on. The IP must
+	// be reachable between nodes if preferring external IP.
+	NodeExternalIP string `json:"node-external,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

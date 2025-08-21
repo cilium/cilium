@@ -80,6 +80,9 @@ type remoteCluster struct {
 	// featureMetricMaxClusters contains the max clusters defined for this
 	// clustermesh config.
 	featureMetricMaxClusters string
+
+	// clusterConfig is file configuration of the remote cluster
+	clusterConfig common.ClusterConfig
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config cmtypes.CiliumClusterConfig, ready chan<- error) {
@@ -131,7 +134,10 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	})
 
 	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {
-		rc.ipCacheWatcher.Watch(ctx, backend, rc.ipCacheWatcherOpts(&config)...)
+		rc.ipCacheWatcher.Watch(
+			ctx, backend,
+			append(rc.ipCacheWatcherOpts(&config), ipcache.WithPreferExternalIPs(rc.clusterConfig.PreferExternalIPs))...,
+		)
 	})
 
 	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {

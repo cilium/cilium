@@ -49,6 +49,7 @@ endpoints:
     - ipv4: 10.244.1.79
       ipv6: fd00:10:244:1::d643
     node: 172.18.0.3
+    node-external: 172.18.0.3
 - encryption:
     key: 5
   id: 199475
@@ -59,6 +60,7 @@ endpoints:
     - ipv4: 10.244.2.74
       ipv6: fd00:10:244:2::e024
     node: 172.18.0.2
+    node-external: 172.18.0.2
 - encryption: {}
   id: 199475
   name: foo-003
@@ -68,6 +70,7 @@ endpoints:
     - ipv4: 10.244.2.91
       ipv6: fd00:10:244:2::e4b4
     node: 172.18.0.2
+    node-external: 172.18.0.2
 kind: CiliumEndpointSlice
 metadata:
   name: ces-c7hlcxqpt-rwqlm
@@ -85,6 +88,7 @@ endpoints:
     - ipv4: 10.244.2.15
       ipv6: fd00:10:244:2::d615
     node: 172.18.0.2
+    node-external: 172.18.0.2
 - encryption: {}
   id: 199481
   name: foo-009
@@ -94,6 +98,7 @@ endpoints:
     - ipv4: 10.244.2.91
       ipv6: fd00:10:244:2::e4b3
     node: 172.18.0.2
+    node-external: 172.18.0.2
 kind: CiliumEndpointSlice
 metadata:
   name: ces-c7hlcxqpt-rwqlm
@@ -111,6 +116,7 @@ endpoints:
     - ipv4: 10.244.2.78
       ipv6: fd00:10:244:2::9182
     node: 172.18.0.2
+    node-external: 172.42.0.2
 kind: CiliumEndpointSlice
 metadata:
   name: ces-l4wvwxg7q-wgmhr
@@ -128,6 +134,7 @@ endpoints:
     - ipv4: 10.244.2.120
       ipv6: fd00:10:244:2::5e16
     node: 172.18.0.2
+    node-external: 172.42.0.2
 kind: CiliumEndpointSlice
 metadata:
   name: ces-67mn6kyjn-4tmqc
@@ -139,6 +146,7 @@ namespace: fred
   "IP": "10.244.1.79",
   "Mask": null,
   "HostIP": "172.18.0.3",
+  "HostExternalIP": "172.18.0.3",
   "ID": 199472,
   "Key": 0,
   "Metadata": "",
@@ -151,6 +159,7 @@ namespace: fred
   "IP": "10.244.2.74",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199475,
   "Key": 5,
   "Metadata": "",
@@ -163,6 +172,7 @@ namespace: fred
   "IP": "10.244.2.78",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.42.0.2",
   "ID": 199494,
   "Key": 0,
   "Metadata": "",
@@ -175,6 +185,7 @@ namespace: fred
   "IP": "10.244.2.91",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199475,
   "Key": 0,
   "Metadata": "",
@@ -187,6 +198,7 @@ namespace: fred
   "IP": "fd00:10:244:1::d643",
   "Mask": null,
   "HostIP": "172.18.0.3",
+  "HostExternalIP": "172.18.0.3",
   "ID": 199472,
   "Key": 0,
   "Metadata": "",
@@ -199,6 +211,7 @@ namespace: fred
   "IP": "fd00:10:244:2::9182",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.42.0.2",
   "ID": 199494,
   "Key": 0,
   "Metadata": "",
@@ -211,6 +224,7 @@ namespace: fred
   "IP": "fd00:10:244:2::e024",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199475,
   "Key": 5,
   "Metadata": "",
@@ -223,6 +237,7 @@ namespace: fred
   "IP": "fd00:10:244:2::e4b4",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199475,
   "Key": 0,
   "Metadata": "",
@@ -236,6 +251,7 @@ namespace: fred
   "IP": "10.244.2.15",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
   "Metadata": "",
@@ -248,6 +264,7 @@ namespace: fred
   "IP": "10.244.2.78",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.42.0.2",
   "ID": 199494,
   "Key": 0,
   "Metadata": "",
@@ -260,6 +277,7 @@ namespace: fred
   "IP": "10.244.2.91",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
   "Metadata": "",
@@ -272,6 +290,7 @@ namespace: fred
   "IP": "fd00:10:244:2::9182",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.42.0.2",
   "ID": 199494,
   "Key": 0,
   "Metadata": "",
@@ -284,6 +303,7 @@ namespace: fred
   "IP": "fd00:10:244:2::d615",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
   "Metadata": "",
@@ -296,6 +316,7 @@ namespace: fred
   "IP": "fd00:10:244:2::e4b3",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
   "Metadata": "",
@@ -309,6 +330,7 @@ namespace: fred
   "IP": "10.244.2.120",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.42.0.2",
   "ID": 199494,
   "Key": 0,
   "Metadata": "",
@@ -321,6 +343,7 @@ namespace: fred
   "IP": "10.244.2.15",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
   "Metadata": "",
@@ -333,6 +356,7 @@ namespace: fred
   "IP": "10.244.2.78",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.42.0.2",
   "ID": 199494,
   "Key": 0,
   "Metadata": "",
@@ -345,6 +369,7 @@ namespace: fred
   "IP": "10.244.2.91",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
   "Metadata": "",
@@ -357,6 +382,7 @@ namespace: fred
   "IP": "fd00:10:244:2::5e16",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.42.0.2",
   "ID": 199494,
   "Key": 0,
   "Metadata": "",
@@ -369,6 +395,7 @@ namespace: fred
   "IP": "fd00:10:244:2::9182",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.42.0.2",
   "ID": 199494,
   "Key": 0,
   "Metadata": "",
@@ -381,6 +408,7 @@ namespace: fred
   "IP": "fd00:10:244:2::d615",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
   "Metadata": "",
@@ -393,6 +421,7 @@ namespace: fred
   "IP": "fd00:10:244:2::e4b3",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
   "Metadata": "",
@@ -406,6 +435,7 @@ namespace: fred
   "IP": "10.244.2.120",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.42.0.2",
   "ID": 199494,
   "Key": 0,
   "Metadata": "",
@@ -418,6 +448,7 @@ namespace: fred
   "IP": "10.244.2.15",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
   "Metadata": "",
@@ -430,6 +461,7 @@ namespace: fred
   "IP": "10.244.2.91",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
   "Metadata": "",
@@ -442,6 +474,7 @@ namespace: fred
   "IP": "fd00:10:244:2::5e16",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.42.0.2",
   "ID": 199494,
   "Key": 0,
   "Metadata": "",
@@ -454,6 +487,7 @@ namespace: fred
   "IP": "fd00:10:244:2::d615",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
   "Metadata": "",
@@ -466,6 +500,7 @@ namespace: fred
   "IP": "fd00:10:244:2::e4b3",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
   "Metadata": "",

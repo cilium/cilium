@@ -216,6 +216,9 @@ func (in *Node) DeepEqual(other *Node) bool {
 	if in.BootID != other.BootID {
 		return false
 	}
+	if in.PreferExternalIP != other.PreferExternalIP {
+		return false
+	}
 
 	return true
 }

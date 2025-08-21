@@ -56,7 +56,7 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 		PodName:         "Namespace/PodName",
 	}, status.ExternalIdentifiers)
 	require.Nil(t, status.Identity)
-	require.Equal(t, &v2.EndpointNetworking{Addressing: []*v2.AddressPair{{IPV4: "192.168.1.100", IPV6: "f00d::a10:0:0:abcd"}}, NodeIP: "<nil>"}, status.Networking)
+	require.Equal(t, &v2.EndpointNetworking{Addressing: []*v2.AddressPair{{IPV4: "192.168.1.100", IPV6: "f00d::a10:0:0:abcd"}}, NodeIP: "<nil>", NodeExternalIP: "<nil>"}, status.Networking)
 	require.Equal(t, v2.EncryptionSpec{Key: 0}, status.Encryption)
 	require.Equal(t, models.NamedPorts{}, status.NamedPorts)
 	// ServiceAccount should be empty when no pod is set
@@ -114,7 +114,7 @@ func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
 		PodName:         "Namespace/PodName",
 	}, status.ExternalIdentifiers)
 	require.Nil(t, status.Identity)
-	require.Equal(t, &v2.EndpointNetworking{Addressing: []*v2.AddressPair{{IPV4: "192.168.1.100", IPV6: "f00d::a10:0:0:abcd"}}, NodeIP: "<nil>"}, status.Networking)
+	require.Equal(t, &v2.EndpointNetworking{Addressing: []*v2.AddressPair{{IPV4: "192.168.1.100", IPV6: "f00d::a10:0:0:abcd"}}, NodeIP: "<nil>", NodeExternalIP: "<nil>"}, status.Networking)
 	require.Equal(t, v2.EncryptionSpec{Key: 0}, status.Encryption)
 	require.Equal(t, models.NamedPorts{}, status.NamedPorts)
 	// ServiceAccount should match the pod's ServiceAccountName
