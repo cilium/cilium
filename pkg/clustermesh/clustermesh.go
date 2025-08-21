@@ -191,7 +191,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc, c
 			nodeStore.NameValidator(),
 			nodeStore.ClusterIDValidator(&rc.clusterID),
 		),
-		nodeStore.NewNodeObserver(cm.conf.NodeObserver, source.ClusterMesh),
+		nodeStore.NewClusterMeshNodeObserver(cm.conf.NodeObserver, config.PreferExternalIPs),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.nodes) }),
 		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(cm.conf.ClusterInfo.Name, cm.nodeName, rc.name)),
 	)
