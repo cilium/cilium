@@ -680,7 +680,7 @@ func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
 		}
 	}
 
-	apiList, err := c.Clientset.Discovery().ServerGroups()
+	apiList, err := c.GetServerGroups()
 	if err == nil {
 		apiGroups := apiList.Groups
 		for i := range apiGroups {
@@ -1247,4 +1247,46 @@ func (c *Client) DeleteGeneric(ctx context.Context, obj Object) error {
 	dynamicClient := c.DynamicClientset.Resource(resource).Namespace(obj.GetNamespace())
 
 	return dynamicClient.Delete(ctx, obj.GetName(), metav1.DeleteOptions{})
+}
+
+func (c *Client) GetServerGroups() (*metav1.APIGroupList, error) {
+	return c.Clientset.Discovery().ServerGroups()
+}
+
+// OpenshiftClusterVersion represents the OpenShift ClusterVersion resource
+type OpenshiftClusterVersion struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Status            ClusterVersionStatus `json:"status,omitempty"`
+}
+
+// ClusterVersionStatus represents the status of the OpenShift ClusterVersion
+type ClusterVersionStatus struct {
+	Desired ClusterVersionUpdate `json:"desired,omitempty"`
+}
+
+// ClusterVersionUpdate represents the desired version information
+type ClusterVersionUpdate struct {
+	Version string `json:"version,omitempty"`
+}
+
+// GetOpenshiftClusterVersion retrieves the OpenShift ClusterVersion resource
+func (c *Client) GetOpenshiftClusterVersion(ctx context.Context) (*OpenshiftClusterVersion, error) {
+	gvr := schema.GroupVersionResource{
+		Group:    "config.openshift.io",
+		Version:  "v1",
+		Resource: "clusterversions",
+	}
+
+	unstructuredObj, err := c.DynamicClientset.Resource(gvr).Get(ctx, "version", metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ClusterVersion: %w", err)
+	}
+
+	var cv OpenshiftClusterVersion
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.UnstructuredContent(), &cv); err != nil {
+		return nil, fmt.Errorf("failed to convert ClusterVersion: %w", err)
+	}
+
+	return &cv, nil
 }
