@@ -64,7 +64,7 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, client := range ct.ClientPods() {
-		t.ForEachIPFamily(func(ipFam features.IPFamily) {
+		t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 			// IPv6 to world may not be supported in all environments, even though IPv6 is enabled
 			// and working in the cluster internally.
 			if ipFam == features.IPFamilyV6 && !s.ipv6 {
@@ -129,7 +129,7 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, client := range ct.ClientPods() {
-		t.ForEachIPFamily(func(ipFam features.IPFamily) {
+		t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 			// IPv6 to world may not be supported in all environments, even though IPv6 is enabled
 			// and working in the cluster internally.
 			if ipFam == features.IPFamilyV6 && !s.ipv6 {

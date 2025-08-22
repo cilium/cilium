@@ -64,7 +64,7 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 			if !hasAllLabels(echo, s.destinationLabels) {
 				continue
 			}
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam).Run(func(a *check.Action) {
 					if s.method == "" {
 						a.ExecInPod(ctx, a.CurlCommand(echo))
@@ -133,7 +133,7 @@ func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				s.curlEndpoints(ctx, t, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam)
 			})
 
@@ -223,7 +223,7 @@ func (s *podToPodNoFrag) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 
-	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+	t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 		mtu := s.deriveMTU(ctx, t, ipFam)
 		t.NewAction(s, fmt.Sprintf("ping-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
 			payloadSize := mtu - HdrSizeICMPEcho
@@ -383,7 +383,7 @@ func (s *podToPodMissingIPCache) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				if ipFam == features.IPFamilyV6 {
 					// encryption-strict-mode-cidr only accepts an IPv4 CIDR
 					return

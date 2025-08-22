@@ -55,7 +55,7 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 		policies = append(policies, policy)
 	}
 
-	t.ForEachIPFamily(func(ipFamily features.IPFamily) {
+	t.ForEachEnabledIPFamily(func(ipFamily features.IPFamily) {
 		// Filter policies by IP family
 		var familyPolicies []*v2.CiliumLocalRedirectPolicy
 		for _, policy := range policies {

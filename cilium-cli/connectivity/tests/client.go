@@ -40,7 +40,7 @@ func (s *clientToClient) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("ping-%s-%d", ipFam, i), &src, &dst, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, ct.PingCommand(dst, ipFam))
 

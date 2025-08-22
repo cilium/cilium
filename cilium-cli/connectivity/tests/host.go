@@ -37,7 +37,7 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 
 	for _, pod := range ct.ClientPods() {
 		for _, node := range ct.Nodes() {
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				for _, addr := range node.Status.Addresses {
 					if features.GetIPFamily(addr.Address) != ipFam {
 						continue
@@ -91,7 +91,7 @@ func (s *podToControlPlaneHost) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 	for _, pod := range ct.ControlPlaneClientPods() {
 		for _, node := range ct.ControlPlaneNodes() {
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				for _, addr := range node.Status.Addresses {
 					if features.GetIPFamily(addr.Address) != ipFam {
 						continue
@@ -143,7 +143,7 @@ func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
 
 	for _, client := range ct.ClientPods() {
 		for _, echo := range ct.EchoPods() {
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				hostIP, err := ct.GetPodHostIPByFamily(echo, ipFam)
 				if err != nil {
 					return
@@ -194,7 +194,7 @@ func (s *hostToPod) Run(ctx context.Context, t *check.Test) {
 		}
 
 		for _, dst := range ct.EchoPods() {
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &src, dst, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommand(dst))
 				})

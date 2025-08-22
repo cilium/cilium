@@ -34,7 +34,7 @@ func (s *clusterMeshEndpointSliceSync) Run(ctx context.Context, t *check.Test) {
 		t.Fatalf("Cannot get %s service", check.EchoOtherNodeDeploymentHeadlessServiceName)
 	}
 
-	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+	t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 		t.NewAction(s, fmt.Sprintf("dig-%s", ipFam), client, service, ipFam).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, ct.NSLookupCommandService(service, ipFam))
 		})

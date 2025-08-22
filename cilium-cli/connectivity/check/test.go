@@ -917,8 +917,8 @@ type ExecutedFamilies struct {
 	IPv6 bool
 }
 
-func (t *Test) ForEachIPFamily(do func(features.IPFamily)) ExecutedFamilies {
-	return t.ctx.ForEachIPFamily(t.HasNetworkPolicies(), do)
+func (t *Test) ForEachEnabledIPFamily(do func(features.IPFamily)) ExecutedFamilies {
+	return t.ctx.ForEachEnabledIPFamily(t.HasNetworkPolicies(), do)
 }
 
 // CertificateCAs returns the CAs used to sign the certificates within the test.
