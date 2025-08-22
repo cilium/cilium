@@ -680,7 +680,7 @@ func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
 		}
 	}
 
-	apiList, err := c.Clientset.Discovery().ServerGroups()
+	apiList, err := c.GetServerGroups()
 	if err == nil {
 		apiGroups := apiList.Groups
 		for i := range apiGroups {
@@ -1247,4 +1247,8 @@ func (c *Client) DeleteGeneric(ctx context.Context, obj Object) error {
 	dynamicClient := c.DynamicClientset.Resource(resource).Namespace(obj.GetNamespace())
 
 	return dynamicClient.Delete(ctx, obj.GetName(), metav1.DeleteOptions{})
+}
+
+func (c *Client) GetServerGroups() (*metav1.APIGroupList, error) {
+	return c.Clientset.Discovery().ServerGroups()
 }
