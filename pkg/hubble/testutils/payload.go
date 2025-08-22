@@ -23,6 +23,7 @@ func CreateL3L4Payload(message any, layers ...gopacket.SerializableLayer) ([]byt
 	switch messageType := message.(type) {
 	case monitor.DebugCapture,
 		monitor.DropNotify,
+		monitor.DropNotifyV1,
 		monitor.PolicyVerdictNotify,
 		monitor.TraceNotify:
 		if err := binary.Write(buf, byteorder.Native, message); err != nil {
