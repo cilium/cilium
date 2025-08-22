@@ -210,7 +210,7 @@ jobs:
         uses: ./.github/actions/cli-test-config
         with:
           hubble: false
-          include-unsafe-tests: ${{ matrix.egw == 'true' && true || false }}
+          include-unsafe-tests: true
 
       - name: Set up job variables
         id: vars
