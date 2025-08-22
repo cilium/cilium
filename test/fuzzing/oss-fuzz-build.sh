@@ -32,3 +32,9 @@ compile_native_go_fuzzer github.com/cilium/cilium/pkg/monitor/format FuzzFormatE
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzAccumulateMapChange FuzzAccumulateMapChange
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzDenyPreferredInsert FuzzDenyPreferredInsert
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzResolvePolicy FuzzResolvePolicy
+
+compile_go_fuzzer github.com/cilium/cilium/pkg/labelsfilter FuzzLabelsfilterPkg fuzz_labelsfilter_pkg
+compile_go_fuzzer github.com/cilium/cilium/pkg/fqdn/matchpattern FuzzMatchpatternValidate fuzz_matchpattern_validate
+compile_go_fuzzer github.com/cilium/cilium/pkg/fqdn/matchpattern FuzzMatchpatternValidateWithoutCache fuzz_matchpattern_validate_without_cache
+compile_go_fuzzer github.com/cilium/cilium/pkg/hubble/parser FuzzParserDecode fuzz_parser_decode
+compile_go_fuzzer github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels FuzzLabelsParse fuzz_labels_parse
