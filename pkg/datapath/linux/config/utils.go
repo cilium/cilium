@@ -49,7 +49,7 @@ func assignConfig(name string, value any) string {
 	case uint64:
 		t = "__u64"
 	default:
-		return fmt.Sprintf("/* BUG: %s has invalid type for ASSIGN_CONFIG: %T/*\n", name, value)
+		return fmt.Sprintf("/* BUG: %s has invalid type for ASSIGN_CONFIG: %T*/\n", name, value)
 	}
 	return fmt.Sprintf("ASSIGN_CONFIG(%s, %s, %v);\n", t, name, value)
 }
