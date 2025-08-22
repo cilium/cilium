@@ -21,10 +21,15 @@ ln -s "$SRC"/cilium/pkg/policy/selectorcache_test{,_fuzz}.go
 
 
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/container/bitlpm FuzzUint8 FuzzUint8
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/fqdn/matchpattern FuzzMatchpatternValidate FuzzMatchpatternValidate
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/fqdn/matchpattern FuzzMatchpatternValidateWithoutCache FuzzMatchpatternValidateWithoutCache
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/fqdn/namemanager FuzzMapSelectorsToNamesLocked FuzzMapSelectorsToNamesLocked
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/hubble/parser FuzzParserDecode FuzzParserDecode
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2 FuzzCiliumClusterwideNetworkPolicyParse FuzzCiliumClusterwideNetworkPolicyParse
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2 FuzzCiliumNetworkPolicyParse FuzzCiliumNetworkPolicyParse
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels FuzzLabelsParse FuzzLabelsParse
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/labels FuzzNewLabels FuzzNewLabels
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/labelsfilter FuzzLabelsfilterPkg FuzzLabelsfilterPkg
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/loadbalancer FuzzJSONBackend FuzzJSONBackend
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/loadbalancer FuzzJSONFrontend FuzzJSONFrontend
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/loadbalancer FuzzJSONService FuzzJSONService
@@ -32,9 +37,3 @@ compile_native_go_fuzzer github.com/cilium/cilium/pkg/monitor/format FuzzFormatE
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzAccumulateMapChange FuzzAccumulateMapChange
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzDenyPreferredInsert FuzzDenyPreferredInsert
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzResolvePolicy FuzzResolvePolicy
-
-compile_go_fuzzer github.com/cilium/cilium/pkg/labelsfilter FuzzLabelsfilterPkg fuzz_labelsfilter_pkg
-compile_go_fuzzer github.com/cilium/cilium/pkg/fqdn/matchpattern FuzzMatchpatternValidate fuzz_matchpattern_validate
-compile_go_fuzzer github.com/cilium/cilium/pkg/fqdn/matchpattern FuzzMatchpatternValidateWithoutCache fuzz_matchpattern_validate_without_cache
-compile_go_fuzzer github.com/cilium/cilium/pkg/hubble/parser FuzzParserDecode fuzz_parser_decode
-compile_go_fuzzer github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels FuzzLabelsParse fuzz_labels_parse

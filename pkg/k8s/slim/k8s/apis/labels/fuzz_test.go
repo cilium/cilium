@@ -2,7 +2,10 @@
 // Copyright Authors of Cilium
 package labels
 
-func FuzzLabelsParse(data []byte) int {
-	_, _ = Parse(string(data))
-	return 1
+import "testing"
+
+func FuzzLabelsParse(f *testing.F) {
+	f.Fuzz(func(t *testing.T, data []byte) {
+		_, _ = Parse(string(data))
+	})
 }
