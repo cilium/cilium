@@ -1316,22 +1316,26 @@ func (ct *ConnectivityTest) KillMulticastTestSender() []string {
 	return cmd
 }
 
-func (ct *ConnectivityTest) ForEachIPFamily(hasNetworkPolicies bool, do func(features.IPFamily)) {
+func (ct *ConnectivityTest) ForEachIPFamily(hasNetworkPolicies bool, do func(features.IPFamily)) ExecutedFamilies {
 	ipFams := features.GetIPFamilies(ct.Params().IPFamilies)
+	var executed ExecutedFamilies
 
 	for _, ipFam := range ipFams {
 		switch ipFam {
 		case features.IPFamilyV4:
 			if f, ok := ct.Features[features.IPv4]; ok && f.Enabled {
 				do(ipFam)
+				executed.IPv4 = true
 			}
 
 		case features.IPFamilyV6:
 			if f, ok := ct.Features[features.IPv6]; ok && f.Enabled {
 				do(ipFam)
+				executed.IPv6 = true
 			}
 		}
 	}
+	return executed
 }
 
 func (ct *ConnectivityTest) ShouldRunConnDisruptNSTraffic() bool {
