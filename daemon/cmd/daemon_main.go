@@ -945,10 +945,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 			logger.Warn("Unknown verbose debug group", logfields.Group, grp)
 		}
 	}
-	// Enable policy debugging if debug is enabled.
-	if option.Config.Debug {
-		option.Config.Opts.SetBool(option.DebugPolicy, true)
-	}
 
 	common.RequireRootPrivilege("cilium-agent")
 
