@@ -6,6 +6,7 @@ package redirectpolicy
 import (
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -14,6 +15,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -99,6 +101,9 @@ type LocalRedirectPolicy struct {
 	ServiceID lb.ServiceName
 	// BackendSelector is an endpoint selector generated from the parsed policy selector
 	BackendSelector api.EndpointSelector
+	// PreferredIPaddresses is a slice of IP addresses that prefer to use over pod IP
+	// that we get from Kubernetes
+	PreferredIPaddresses []netip.Addr
 	// BackendPorts is a slice of backend port and protocol along with the port name
 	BackendPorts []bePortInfo
 	// BackendPortsByPortName is a map indexed by port name with the value as
@@ -179,17 +184,18 @@ func parseLRP(cfg Config, log *slog.Logger, clrp *v2.CiliumLocalRedirectPolicy) 
 func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespace string, uid types.UID, spec v2.CiliumLocalRedirectPolicySpec) (*LocalRedirectPolicy, error) {
 
 	var (
-		addrMatcher    = spec.RedirectFrontend.AddressMatcher
-		svcMatcher     = spec.RedirectFrontend.ServiceMatcher
-		redirectTo     = spec.RedirectBackend
-		frontendType   = frontendTypeUnknown
-		checkNamedPort = false
-		lrpType        lrpConfigType
-		k8sSvc         lb.ServiceName
-		fe             lb.L3n4Addr
-		feMappings     []feMapping
-		bePorts        []bePortInfo
-		bePortsMap     = make(map[lb.FEPortName]bePortInfo)
+		addrMatcher          = spec.RedirectFrontend.AddressMatcher
+		svcMatcher           = spec.RedirectFrontend.ServiceMatcher
+		redirectTo           = spec.RedirectBackend
+		frontendType         = frontendTypeUnknown
+		checkNamedPort       = false
+		lrpType              lrpConfigType
+		k8sSvc               lb.ServiceName
+		fe                   lb.L3n4Addr
+		feMappings           []feMapping
+		bePorts              []bePortInfo
+		bePortsMap           = make(map[lb.FEPortName]bePortInfo)
+		preferredIPaddresses = make([]netip.Addr, 0, len(spec.RedirectBackend.PreferredIPaddresses))
 	)
 
 	// Parse frontend config
@@ -309,6 +315,16 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 				"frontend protocol")
 		}
 	}
+	for _, ipString := range spec.RedirectBackend.PreferredIPaddresses {
+		ip, err := netip.ParseAddr(ipString)
+		if err != nil {
+			log.Warn("can't validate the IP address",
+				logfields.IPAddr, ipString,
+				logfields.Error, err)
+			continue
+		}
+		preferredIPaddresses = append(preferredIPaddresses, ip)
+	}
 
 	// Get an EndpointSelector from the passed policy labelSelector for optimized matching.
 	selector := api.NewESFromK8sLabelSelector("", &redirectTo.LocalEndpointSelector)
@@ -320,6 +336,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		BackendSelector:         selector,
 		BackendPorts:            bePorts,
 		BackendPortsByPortName:  bePortsMap,
+		PreferredIPaddresses:    preferredIPaddresses,
 		LRPType:                 lrpType,
 		FrontendType:            frontendType,
 		SkipRedirectFromBackend: spec.SkipRedirectFromBackend,

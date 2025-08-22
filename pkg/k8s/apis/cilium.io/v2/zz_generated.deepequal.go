@@ -2370,6 +2370,23 @@ func (in *RedirectBackend) DeepEqual(other *RedirectBackend) bool {
 		return false
 	}
 
+	if ((in.PreferredIPaddresses != nil) && (other.PreferredIPaddresses != nil)) || ((in.PreferredIPaddresses == nil) != (other.PreferredIPaddresses == nil)) {
+		in, other := &in.PreferredIPaddresses, &other.PreferredIPaddresses
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if ((in.ToPorts != nil) && (other.ToPorts != nil)) || ((in.ToPorts == nil) != (other.ToPorts == nil)) {
 		in, other := &in.ToPorts, &other.ToPorts
 		if other == nil {
