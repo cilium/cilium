@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"math/big"
 	"net"
 	"os"
@@ -21,6 +22,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"istio.io/api/security/v1alpha1"
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -185,7 +187,23 @@ func (x *Server) Serve() error {
 		return fmt.Errorf("failed to create gRPC TLS credentials: %w", err)
 	}
 
-	x.g = grpc.NewServer(grpc.Creds(creds))
+	// keepalive options match config values from:
+	// https://github.com/istio/istio/blob/b68cd04f9f132c1361d62eb14125e915e8011428/pkg/keepalive/options.go#L45
+	// Without these, our grpc server will eventually send a Go Away message to ztunnel, killing the connection.
+	grpcOptions := []grpc.ServerOption{
+		grpc.Creds(creds),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime: 15 * time.Second,
+		}),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:                  30 * time.Second,
+			Timeout:               10 * time.Second,
+			MaxConnectionAge:      time.Duration(math.MaxInt64), // INFINITY
+			MaxConnectionAgeGrace: 10 * time.Second,
+		}),
+	}
+
+	x.g = grpc.NewServer(grpcOptions...)
 
 	v1alpha1.RegisterIstioCertificateServiceServer(x.g, x)
 	v3.RegisterAggregatedDiscoveryServiceServer(x.g, x)
