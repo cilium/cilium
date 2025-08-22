@@ -9,7 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 )
 
-// FmtDefineAddress returns the a define string from the given name and addr.
+// FmtDefineAddress returns a C `#define` string for the given name and addr.
 // Example:
 // fmt.Print(FmtDefineAddress("foo", []byte{1, 2, 3})) // "#define foo { .addr = { 0x1, 0x2, 0x3 } }\n"
 func FmtDefineAddress(name string, addr []byte) string {
