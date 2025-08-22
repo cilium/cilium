@@ -17,10 +17,6 @@ var (
 	// allowedMatchNameChars tests that MatchName contains only valid DNS characters
 	allowedMatchNameChars = regexp.MustCompile("^[-a-zA-Z0-9_.]+$")
 
-	// allowedPatternChars tests that the MatchPattern field contains only the
-	// characters we want in our wildcard scheme.
-	allowedPatternChars = regexp.MustCompile("^[-a-zA-Z0-9_.*]+$") // the * inside the [] is a literal *
-
 	// FQDNMatchNameRegexString is a regex string which matches what's expected
 	// in the MatchName field in the FQDNSelector. This should be kept in-sync
 	// with the marker comment for validation. There's no way to use a Golang
@@ -103,9 +99,6 @@ func (s *FQDNSelector) sanitize() error {
 		return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", s.MatchName)
 	}
 
-	if len(s.MatchPattern) > 0 && !allowedPatternChars.MatchString(s.MatchPattern) {
-		return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", s.MatchPattern)
-	}
 	_, err := matchpattern.Validate(s.MatchPattern)
 	return err
 }
@@ -135,9 +128,6 @@ func (r *PortRuleDNS) Sanitize() error {
 		return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", r.MatchName)
 	}
 
-	if len(r.MatchPattern) > 0 && !allowedPatternChars.MatchString(r.MatchPattern) {
-		return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", r.MatchPattern)
-	}
 	_, err := matchpattern.Validate(r.MatchPattern)
 	return err
 }
