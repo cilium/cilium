@@ -242,6 +242,10 @@ type Node struct {
 
 	// BootID is a unique node identifier generated on boot
 	BootID string
+
+	// PreferExternalIP indicates whether GetNodeIP should prefer ExternalIP.
+	// This is mainly used in the context of ClusterMesh.
+	PreferExternalIP bool
 }
 
 // Fullname returns the node's full name including the cluster name if a
@@ -295,13 +299,13 @@ func (n *Node) IsNodeIP(addr netip.Addr) addressing.AddressType {
 
 // GetNodeIP returns one of the node's IP addresses available with the
 // following priority:
-// - NodeInternalIP
-// - NodeExternalIP
+// - NodeInternalIP if PreferExternalIP is false, otherwise NodeExternalIP
+// - NodeExternalIP if PreferExternalIP is false, otherwise NodeInternalIP
 // - other IP address type
 // Nil is returned if GetNodeIP fails to extract an IP from the Node based
 // on the provided address family.
 func (n *Node) GetNodeIP(ipv6 bool) net.IP {
-	return addressing.ExtractNodeIP[Address](n.IPAddresses, ipv6)
+	return addressing.ExtractNodeIP[Address](n.IPAddresses, ipv6, n.PreferExternalIP)
 }
 
 // GetExternalIP returns ExternalIP of k8s Node. If not present, then it

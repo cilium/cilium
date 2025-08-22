@@ -98,6 +98,7 @@ type Parameters struct {
 	ServiceType          string
 	DestinationContext   []string
 	ConnectionMode       string
+	PreferExternalIPs    bool
 	Wait                 bool
 	WaitDuration         time.Duration
 	DestinationEndpoints []string
@@ -1233,7 +1234,7 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 	}
 
 	// Expand those values to include the clustermesh configuration
-	newClusterName, newCluster := getCluster(aiRemote, !match)
+	newClusterName, newCluster := k.getCluster(aiRemote, !match)
 	if _, ok := state.localNewClusters[newClusterName]; ok {
 		return fmt.Errorf("Multiple remote clusters have the same name '%s'", newClusterName)
 	}
@@ -1252,7 +1253,7 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 	}
 	state.remoteOldClustersAll[aiRemote.ClusterName] = remoteOldClusters
 
-	state.remoteNewClusterName, state.remoteNewCluster = getCluster(aiLocal, !match)
+	state.remoteNewClusterName, state.remoteNewCluster = k.getCluster(aiLocal, !match)
 	remoteHelmValues, err := mergeClusters(remoteOldClusters, map[string]any{state.remoteNewClusterName: state.remoteNewCluster}, "")
 	if err != nil {
 		return err
@@ -1687,10 +1688,11 @@ func getClustersFromValues(values map[string]any) (map[string]any, error) {
 	return getEnabledClusters(clusters)
 }
 
-func getCluster(ai *accessInformation, configTLS bool) (string, map[string]any) {
+func (k K8sClusterMesh) getCluster(ai *accessInformation, configTLS bool) (string, map[string]any) {
 	remoteCluster := map[string]any{
-		"ips":  ai.ServiceIPs,
-		"port": ai.ServicePort,
+		"preferExternalIPs": k.params.PreferExternalIPs,
+		"ips":               ai.ServiceIPs,
+		"port":              ai.ServicePort,
 	}
 
 	// Only add TLS configuration if requested (probably because CA

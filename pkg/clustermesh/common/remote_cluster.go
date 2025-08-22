@@ -8,12 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
+	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
@@ -40,6 +42,10 @@ type RemoteCluster interface {
 	Remove(ctx context.Context)
 }
 
+type ClusterConfig struct {
+	PreferExternalIPs bool `json:"cilium-prefer-external-ips"`
+}
+
 // remoteCluster represents another cluster other than the cluster the agent is
 // running in
 type remoteCluster struct {
@@ -51,6 +57,8 @@ type remoteCluster struct {
 	// configPath is the path to the etcd configuration to be used to
 	// connect to the etcd cluster of the remote cluster
 	configPath string
+	// clusterConfig is file configuration of the remote cluster loaded from configPath
+	clusterConfig ClusterConfig
 
 	// clusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	clusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
@@ -125,12 +133,31 @@ func (rc *remoteCluster) releaseOldConnection() {
 	}
 }
 
+func (rc *remoteCluster) loadClusterConfig() {
+	b, err := os.ReadFile(rc.configPath)
+	if err != nil {
+		rc.logger.Error("Unable to read cluster configuration file",
+			logfields.Path, rc.clusterConfig,
+			logfields.Error, err,
+		)
+		return
+	}
+	err = yaml.Unmarshal(b, &rc.clusterConfig)
+	if err != nil {
+		rc.logger.Error("Unable to load cluster configuration file",
+			logfields.Path, rc.clusterConfig,
+			logfields.Error, err,
+		)
+	}
+}
+
 func (rc *remoteCluster) restartRemoteConnection() {
 	rc.controllers.UpdateController(
 		rc.remoteConnectionControllerName,
 		controller.ControllerParams{
 			Group: remoteConnectionControllerGroup,
 			DoFunc: func(ctx context.Context) error {
+				rc.loadClusterConfig()
 				rc.releaseOldConnection()
 
 				clusterLock := rc.clusterLockFactory()

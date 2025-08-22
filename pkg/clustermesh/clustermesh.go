@@ -170,7 +170,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 	return cm
 }
 
-func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
+func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc, config common.ClusterConfig) common.RemoteCluster {
 	rc := &remoteCluster{
 		name:                     name,
 		clusterID:                cmtypes.ClusterIDUnset,
@@ -183,6 +183,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		log:                      cm.conf.Logger.With(logfields.ClusterName, name),
 		featureMetrics:           cm.FeatureMetrics,
 		featureMetricMaxClusters: fmt.Sprintf("%d", cm.conf.ClusterInfo.MaxConnectedClusters),
+		clusterConfig:            config,
 	}
 	rc.remoteNodes = cm.conf.StoreFactory.NewWatchStore(
 		name,
@@ -191,7 +192,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 			nodeStore.NameValidator(),
 			nodeStore.ClusterIDValidator(&rc.clusterID),
 		),
-		nodeStore.NewNodeObserver(cm.conf.NodeObserver, source.ClusterMesh),
+		nodeStore.NewClusterMeshNodeObserver(cm.conf.NodeObserver, config.PreferExternalIPs),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.nodes) }),
 		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(cm.conf.ClusterInfo.Name, cm.nodeName, rc.name)),
 	)
