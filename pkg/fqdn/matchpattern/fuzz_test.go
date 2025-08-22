@@ -2,12 +2,16 @@
 // Copyright Authors of Cilium
 package matchpattern
 
-func FuzzMatchpatternValidate(data []byte) int {
-	_, _ = Validate(string(data))
-	return 1
+import "testing"
+
+func FuzzMatchpatternValidate(f *testing.F) {
+	f.Fuzz(func(t *testing.T, data []byte) {
+		_, _ = Validate(string(data))
+	})
 }
 
-func FuzzMatchpatternValidateWithoutCache(data []byte) int {
-	_, _ = ValidateWithoutCache(string(data))
-	return 1
+func FuzzMatchpatternValidateWithoutCache(f *testing.F) {
+	f.Fuzz(func(t *testing.T, data []byte) {
+		_, _ = ValidateWithoutCache(string(data))
+	})
 }
