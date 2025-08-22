@@ -117,6 +117,9 @@ type EndpointFlags struct {
 	// an overlay tunnel, regardless of Cilium's configuration.
 	flagSkipTunnel bool
 
+	// TODO
+	flagRemoteCluster bool
+
 	// Note: if you add any more flags here, be sure to update (*prefixInfo).flatten()
 	// to merge them across different resources.
 }
@@ -126,6 +129,11 @@ func (e *EndpointFlags) SetSkipTunnel(skip bool) {
 	e.flagSkipTunnel = skip
 }
 
+func (e *EndpointFlags) SetRemoteCluster(remote bool) {
+	e.isInit = true
+	e.flagRemoteCluster = remote
+}
+
 func (e EndpointFlags) IsValid() bool {
 	return e.isInit
 }
@@ -133,13 +141,17 @@ func (e EndpointFlags) IsValid() bool {
 // Uint8 encoding MUST mimic the one in pkg/maps/ipcache
 // since it will eventually get recast to it
 const (
-	FlagSkipTunnel uint8 = 1 << iota
+	FlagSkipTunnel    uint8 = 1 << iota
+	FlagRemoteCluster uint8 = 1 << 3
 )
 
 func (e EndpointFlags) Uint8() uint8 {
 	var flags uint8 = 0
 	if e.flagSkipTunnel {
-		flags = flags | FlagSkipTunnel
+		flags |= FlagSkipTunnel
+	}
+	if e.flagRemoteCluster {
+		flags |= FlagRemoteCluster
 	}
 	return flags
 }
