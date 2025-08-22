@@ -362,6 +362,20 @@ Removed Metrics
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
+The following metrics previously had instances (i.e. for some watcher K8s resource type labels) under ``workqueue_``.
+In this release any such metrics have been renamed and combined into the correct metric name prefixed with ``cilium_operator_``.
+
+As well, any remaining Operator k8s workqueue metrics that use the label ``queue_name`` have had it renamed to 
+``name`` to be consistent with agent k8s workqueue metrics.
+
+* The metric ``workqueue_adds_total`` has been renamed and combined into to ``cilium_operator_k8s_workqueue_adds_total``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_depth`` has been renamed and combined into ``cilium_operator_k8s_workqueue_adds_total``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_longest_running_processor_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_longest_running_processor_seconds``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_queue_duration_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_queue_duration_seconds``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_retries_total`` has been renamed and combined into ``cilium_operator_k8s_workqueue_retries_total`, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_unfinished_work_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_unfinished_work_seconds`, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_work_duration_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_work_duration_seconds``, the label ``queue_name`` has been renamed to ``name``.
+
 * ``k8s_client_rate_limiter_duration_seconds`` no longer has labels ``path`` and ``method``.
 
 Deprecated Metrics

@@ -60,6 +60,7 @@ func TestStateDBTableEventStream(t *testing.T) {
 		func(k resource.Key) statedb.Query[*corev1.Node] {
 			return nodeNameIndex.Query(k.String())
 		},
+		nil,
 	)
 
 	// No sync event before initialized
