@@ -39,7 +39,6 @@ func TestPortConfigurationDeepEqual(t *testing.T) {
 		b    PortConfiguration
 		want bool
 	}{
-
 		{
 			a: PortConfiguration{
 				"foo": {Protocol: loadbalancer.NONE, Port: 1},
@@ -106,8 +105,11 @@ func TestClusterServiceValidate(t *testing.T) {
 			assert: assert.Error,
 		},
 		{
-			name:   "minimum information",
-			svc:    ClusterService{Cluster: "foo", Namespace: "bar", Name: "qux"},
+			name: "minimum information",
+			svc: ClusterService{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				Zones: map[string]BackendZone{},
+			},
 			assert: assert.NoError,
 		},
 		{
@@ -117,12 +119,16 @@ func TestClusterServiceValidate(t *testing.T) {
 				ClusterID: 99,
 				Frontends: map[string]PortConfiguration{"10.1.2.3": {}, "abcd::0001": {}},
 				Backends:  map[string]PortConfiguration{"10.3.2.1": {}, "dcba::0001": {}},
+				Zones:     map[string]BackendZone{},
 			},
 			assert: assert.NoError,
 		},
 		{
-			name:   "invalid cluster ID",
-			svc:    ClusterService{Cluster: "foo", Namespace: "bar", Name: "qux", ClusterID: 260},
+			name: "invalid cluster ID",
+			svc: ClusterService{
+				Cluster: "foo", Namespace: "bar", Name: "qux", ClusterID: 260,
+				Zones: map[string]BackendZone{},
+			},
 			assert: assert.Error,
 		},
 		{
@@ -130,6 +136,7 @@ func TestClusterServiceValidate(t *testing.T) {
 			svc: ClusterService{
 				Cluster: "foo", Namespace: "bar", Name: "qux",
 				Frontends: map[string]PortConfiguration{"10.1.2.3": {}, "invalid": {}},
+				Zones:     map[string]BackendZone{},
 			},
 			assert: assert.Error,
 		},
@@ -138,6 +145,7 @@ func TestClusterServiceValidate(t *testing.T) {
 			svc: ClusterService{
 				Cluster: "foo", Namespace: "bar", Name: "qux",
 				Backends: map[string]PortConfiguration{"invalid": {}, "dcba::0001": {}},
+				Zones:    map[string]BackendZone{},
 			},
 			assert: assert.Error,
 		},
@@ -159,37 +167,55 @@ func TestValidatingClusterService(t *testing.T) {
 		errstr    string
 	}{
 		{
-			name:      "valid cluster name",
-			svc:       ClusterService{Cluster: "foo", Namespace: "bar", Name: "qux"},
+			name: "valid cluster name",
+			svc: ClusterService{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				Zones: map[string]BackendZone{},
+			},
 			validator: ClusterNameValidator("foo"),
 		},
 		{
-			name:      "invalid cluster name",
-			svc:       ClusterService{Cluster: "foo", Namespace: "bar", Name: "qux"},
+			name: "invalid cluster name",
+			svc: ClusterService{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				Zones: map[string]BackendZone{},
+			},
 			validator: ClusterNameValidator("fred"),
 			errstr:    "unexpected cluster name: got foo, expected fred",
 		},
 		{
-			name:      "valid namespaced name",
-			key:       "bar/qux",
-			svc:       ClusterService{Cluster: "foo", Namespace: "bar", Name: "qux"},
+			name: "valid namespaced name",
+			key:  "bar/qux",
+			svc: ClusterService{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				Zones: map[string]BackendZone{},
+			},
 			validator: NamespacedNameValidator(),
 		},
 		{
-			name:      "invalid namespaced name",
-			key:       "fred/qux",
-			svc:       ClusterService{Cluster: "foo", Namespace: "bar", Name: "qux"},
+			name: "invalid namespaced name",
+			key:  "fred/qux",
+			svc: ClusterService{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				Zones: map[string]BackendZone{},
+			},
 			validator: NamespacedNameValidator(),
 			errstr:    "namespaced name does not match key: got bar/qux, expected fred/qux",
 		},
 		{
-			name:      "valid cluster ID",
-			svc:       ClusterService{Cluster: "foo", Namespace: "bar", Name: "qux", ClusterID: 10},
+			name: "valid cluster ID",
+			svc: ClusterService{
+				Cluster: "foo", Namespace: "bar", Name: "qux", ClusterID: 10,
+				Zones: map[string]BackendZone{},
+			},
 			validator: ClusterIDValidator(ptr.To[uint32](10)),
 		},
 		{
-			name:      "invalid cluster ID",
-			svc:       ClusterService{Cluster: "foo", Namespace: "bar", Name: "qux", ClusterID: 10},
+			name: "invalid cluster ID",
+			svc: ClusterService{
+				Cluster: "foo", Namespace: "bar", Name: "qux", ClusterID: 10,
+				Zones: map[string]BackendZone{},
+			},
 			validator: ClusterIDValidator(ptr.To[uint32](15)),
 			errstr:    "unexpected cluster ID: got 10, expected 15",
 		},

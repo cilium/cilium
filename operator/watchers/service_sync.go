@@ -241,6 +241,16 @@ func (d DefaultClusterServiceConverter) Convert(k8sService *slim_corev1.Service,
 			if backend.Hostname != "" {
 				svc.Hostnames[addrString] = backend.Hostname
 			}
+			if backend.Zone != "" {
+				forZones := make([]serviceStore.ForZone, 0, len(backend.HintsForZones))
+				for _, zone := range backend.HintsForZones {
+					forZones = append(forZones, serviceStore.ForZone{Name: zone})
+				}
+				svc.Zones[addrString] = serviceStore.BackendZone{
+					Zone:     backend.Zone,
+					ForZones: forZones,
+				}
+			}
 		}
 	}
 
