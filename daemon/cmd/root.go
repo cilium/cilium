@@ -4,8 +4,11 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"os"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -41,8 +44,25 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
 			daemonLogger := logging.DefaultSlogLogger.With(logfields.LogSubsys, daemonSubsys)
 
+			agentProcessLock, err := net.Listen("unix", "@cilium_agent_lock")
+			if err != nil {
+				if errors.Is(err, syscall.EADDRINUSE) {
+					logging.Fatal(daemonLogger, "another cilium-agent is already running")
+				}
+				logging.Fatal(daemonLogger, fmt.Sprintf("unable to acquire the cilium-agent process lock: %s", err))
+			}
+
+			defer func() {
+				if agentProcessLock != nil {
+					agentProcessLock.Close()
+				}
+			}()
+
+			// Initialize working directories and validate the configuration.
+			initEnv(daemonLogger, h.Viper())
+
 			// Validate the daemon-specific global options.
-			if err := option.Config.Validate(h.Viper()); err != nil {
+			if err = option.Config.Validate(h.Viper()); err != nil {
 				logging.Fatal(daemonLogger, fmt.Sprintf("invalid daemon configuration: %s", err))
 			}
 
