@@ -1451,7 +1451,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:ba771a73604d1947a8f87f623e93a7c3baf00146528a54838121e99ea271df7d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.0-1754998290-11299b59706d4ccb2cbbc2a6cd548709655098ea","useDigest":true}``
+     - ``{"digest":"sha256:0101e286e05b0522d14d4e0e87f9c798aded3bb7b91e8cc960a6416826fdd123","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.0-1755950808-240447ebb237c5a4c8a31b2a59360602ce999774","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -2943,7 +2943,7 @@
    * - :spelling:ignore:`nodeinit.image`
      - node-init image.
      - object
-     - ``{"digest":"sha256:5e111ecc2cfa7fa017ecd38a25e17e9639776b4e097c2af99ba3cc71b9ba92e4","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}``
+     - ``{"digest":"sha256:3caccdd0feccbfecfdf278ef410e1c4d5a7f3934c59def781e366405447a8644","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}``
    * - :spelling:ignore:`nodeinit.nodeSelector`
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -3267,7 +3267,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:ba771a73604d1947a8f87f623e93a7c3baf00146528a54838121e99ea271df7d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.0-1754998290-11299b59706d4ccb2cbbc2a6cd548709655098ea","useDigest":true}``
+     - ``{"digest":"sha256:0101e286e05b0522d14d4e0e87f9c798aded3bb7b91e8cc960a6416826fdd123","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.0-1755950808-240447ebb237c5a4c8a31b2a59360602ce999774","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
