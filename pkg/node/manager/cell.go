@@ -17,6 +17,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -96,9 +97,10 @@ func newAllNodeManager(in struct {
 	DB          *statedb.DB
 	Devices     statedb.Table[*tables.Device]
 	WGConfig    wgTypes.WireguardConfig
+	Nodes       statedb.RWTable[*node.Node]
 },
 ) (NodeManager, error) {
-	mngr, err := New(in.Logger, option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig)
+	mngr, err := New(in.Logger, option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, in.Nodes)
 	if err != nil {
 		return nil, err
 	}

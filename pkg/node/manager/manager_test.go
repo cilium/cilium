@@ -264,7 +264,7 @@ func TestNodeLifecycle(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 	mngr.Subscribe(dp)
 	require.NoError(t, err)
 
@@ -344,7 +344,7 @@ func TestMultipleSources(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -428,7 +428,7 @@ func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
 	dp := fakeTypes.NewNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(b)
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 	require.NoError(b, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -452,7 +452,7 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	dp := fakeTypes.NewNodeHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -478,7 +478,7 @@ func TestBackgroundSync(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 	mngr.Subscribe(signalNodeHandler)
 	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
@@ -548,7 +548,7 @@ func TestIpcache(t *testing.T) {
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -693,7 +693,7 @@ func TestIpcacheHealthIP(t *testing.T) {
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -742,7 +742,7 @@ func TestNodeEncryption(t *testing.T) {
 	mngr, err := New(logger, &option.DaemonConfig{
 		EncryptNode: true,
 		EnableIPSec: true,
-	}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -866,7 +866,7 @@ func TestNode(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -1002,8 +1002,9 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 				IPSetFilterFn: func(no *nodeTypes.Node) bool { return false },
 			}
 		}),
-		cell.Provide(tables.NewDeviceTable),                   // Provide statedb.RWTable[*tables.Device]
-		cell.Provide(statedb.RWTable[*tables.Device].ToTable), // Provide statedb.Table[*tables.Device] from RW table
+		cell.Provide(tables.NewDeviceTable),
+		cell.Provide(statedb.RWTable[*tables.Device].ToTable),
+		cell.Provide(node.NewNodeTable),
 		cell.Module("node_manager", "Node Manager", cell.Provide(New)),
 		cell.Invoke(fn),
 	)
@@ -1126,7 +1127,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(logger, &option.DaemonConfig{
 		LocalRouterIPv4: "169.254.4.6",
-	}, tunnel.Config{}, ipcache, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	}, tunnel.Config{}, ipcache, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -1227,7 +1228,7 @@ func TestNodeIpset(t *testing.T) {
 	mngr, err := New(logger, &option.DaemonConfig{
 		RoutingMode:          option.RoutingModeNative,
 		EnableIPv4Masquerade: true,
-	}, tunnel.Config{}, newIPcacheMock(), newIPSetMock(), filter, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	}, tunnel.Config{}, newIPcacheMock(), newIPSetMock(), filter, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 	mngr.Subscribe(dp)
 	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
@@ -1407,7 +1408,7 @@ func TestNodesStartupPruning(t *testing.T) {
 		mngr, err := New(logger, &option.DaemonConfig{
 			StateDir:    stateDir,
 			ClusterName: "c1",
-		}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+		}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, nil)
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			mngr.Stop(context.TODO())

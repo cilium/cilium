@@ -469,10 +469,6 @@ func SetIPsecKeyIdentity(id uint8) {
 	})
 }
 
-func GetOptOutNodeEncryption(logger *slog.Logger) bool {
-	return getLocalNode(logger).Local.OptOutNodeEncryption
-}
-
 // SetEndpointHealthIPv4 sets the IPv4 cilium-health endpoint address.
 func SetEndpointHealthIPv4(ip net.IP) {
 	localNode.Update(func(n *LocalNode) {

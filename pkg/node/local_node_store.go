@@ -32,8 +32,8 @@ var LocalNodeStoreCell = cell.Module(
 	"Provides LocalNodeStore for observing and updating local node info",
 
 	cell.Provide(
-		NewLocalNodeTable,
-		statedb.RWTable[*LocalNode].ToTable,
+		NewNodeTable,
+		statedb.RWTable[*Node].ToTable,
 	),
 
 	cell.Provide(NewLocalNodeStore),
@@ -144,7 +144,9 @@ func (s *LocalNodeStore) Observe(ctx context.Context, next func(LocalNode), comp
 		defer complete(nil)
 		for {
 			lns, _, watch, _ := s.nodes.GetWatch(s.db.ReadTxn(), LocalNodeQuery)
-			next(*lns)
+			if lns != nil {
+				next(*lns)
+			}
 			if err := limiter.Wait(ctx); err != nil {
 				return
 			}
@@ -194,7 +196,7 @@ func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 
 func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
 	db := statedb.New()
-	tbl, err := NewLocalNodeTable(db)
+	tbl, err := NewNodeTable(db)
 	if err != nil {
 		panic(err)
 	}
