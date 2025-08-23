@@ -88,6 +88,7 @@ runs:
             --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
             --nodes-without-cilium \
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
+            --helm-set=bpf.hostLegacyRouting=${{ ! inputs.kpr }} \
             --helm-set=l2NeighDiscovery.enabled=true \
             --helm-set-string=encryption.ipsec.keyRotationDuration="1m" \
             --set='${{ inputs.misc }}'"
