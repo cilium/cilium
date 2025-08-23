@@ -7,7 +7,7 @@ ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1755973935-c5bf38b@sha256:448
 ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:7cf8a8f34e628ebc20bf48a3af78656047584eb8@sha256:06894c4671ce3cfa7dbf8b60a63600be899249d9d0e4e1ce7ba6ae502b3f86a5
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:1755531540-60ee83e@sha256:1b05459281d6613acb8573b2cd7f488a0d224eebf031770babbfc6a294501cf7
 ARG GOLANG_IMAGE=docker.io/library/golang:1.25.1@sha256:a5e935dbd8bc3a5ea24388e376388c9a69b40628b6788a81658a801abbec8f2e
-ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1755973935-c5bf38b@sha256:40f98e82b2fdeb4936776792ee0dedaacab1892c2d689748a1745e3ee911cecf
+ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1755027449-dfe66ec@sha256:6a8632f1772dee0f1f287dd84f4010347c19f350347487603f16210674a3a787
 
 FROM ${COMPILERS_IMAGE} AS compilers-image
 
@@ -27,28 +27,28 @@ RUN \
     apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
-      # Install cross tools for both arm64 on amd64
-      gcc-aarch64-linux-gnu \
-      g++-aarch64-linux-gnu \
-      libc6-dev-arm64-cross \
-      binutils-aarch64-linux-gnu \
-      gcc-x86-64-linux-gnu \
-      g++-x86-64-linux-gnu \
-      libc6-dev-amd64-cross \
-      binutils-x86-64-linux-gnu \
-      # Dependencies to unzip protoc
-      unzip \
-      # Base Cilium-build dependencies
-      binutils \
-      coreutils \
-      curl \
-      gcc \
-      git \
-      libc6-dev \
-      make \
-      ccache \
-      python3-scapy \
-      python3-jinja2 && \
+    # Install cross tools for both arm64 on amd64
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu \
+    libc6-dev-arm64-cross \
+    binutils-aarch64-linux-gnu \
+    gcc-x86-64-linux-gnu \
+    g++-x86-64-linux-gnu \
+    libc6-dev-amd64-cross \
+    binutils-x86-64-linux-gnu \
+    # Dependencies to unzip protoc
+    unzip \
+    # Base Cilium-build dependencies
+    binutils \
+    coreutils \
+    curl \
+    gcc \
+    git \
+    libc6-dev \
+    make \
+    ccache \
+    python3-scapy \
+    python3-jinja2 && \
     apt-get purge --auto-remove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
