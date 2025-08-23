@@ -147,6 +147,10 @@ endpoints:
     serving: true
     terminating: false
   nodeName: nodeport-worker
+  zone: zone1
+  hints:
+    forZones:
+    - name: zone1
 ports:
 - name: http
   port: 8080
@@ -168,6 +172,7 @@ ports:
   },
   "backends": {},
   "hostnames": {},
+  "zones": {},
   "labels": {},
   "selector": {
     "name": "echo"
@@ -199,6 +204,16 @@ ports:
     }
   },
   "hostnames": {},
+  "zones": {
+    "10.244.1.1": {
+      "zone": "zone1",
+      "forZones": [
+        {
+          "name": "zone1"
+        }
+      ]
+    }
+  },
   "labels": {},
   "selector": {
     "name": "echo"
