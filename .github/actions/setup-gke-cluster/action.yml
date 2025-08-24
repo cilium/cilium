@@ -1,0 +1,74 @@
+name: "Create GKE cluster"
+description: "Uses gcloud"
+inputs:
+  cluster-name:
+    description: "Base cluster name"
+    required: true
+  zone:
+    description: "GCP zone for the cluster"
+    required: true
+  cluster-version:
+    description: "Explicit GKE cluster version"
+    required: false
+    default: ""
+  node-taints:
+    description: "taints to apply to cluster nodes"
+    required: false
+    default: "ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute"
+  nodes:
+    description: "Number of nodes"
+    required: false
+    default: "2"
+  machine-type:
+    description: "Machine type"
+    required: false
+    default: "n2-standard-2"
+  labels:
+    description: ""
+    required: false
+    default: ""
+outputs:
+  native_cidr:
+    description: ""
+    value: ${{ steps.create-cluster.outputs.native_cidr }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: create-cluster
+      shell: bash
+      run: |
+        LABELS=""
+        VERSION=""
+        TAINTS=""
+
+        if [[ -n "${{ inputs.labels }}" ]]; then
+          LABELS="--labels ${{ inputs.labels }}"
+        fi
+
+        if [[ -n "${{ inputs.cluster-version }}" ]]; then
+          VERSION="--cluster-version ${{ inputs.cluster-version }}"
+        fi
+
+        if [[ -n "${{ inputs.node-taints }}" ]]; then
+          TAINTS="--node-taints ${{ inputs.node-taints }}"
+        fi
+
+        gcloud container clusters create "${{ inputs.cluster-name }}" \
+          --zone "${{ inputs.zone }}" \
+          --enable-ip-alias \
+          --create-subnetwork="range=/26" \
+          --cluster-ipv4-cidr="/21" \
+          --services-ipv4-cidr="/24" \
+          --image-type COS_CONTAINERD \
+          --num-nodes "${{ inputs.nodes }}" \
+          --machine-type "${{ inputs.machine-type }}" \
+          --disk-type pd-standard \
+          --disk-size 20GB \
+          --no-enable-insecure-kubelet-readonly-port \
+          $VERSION \
+          $LABELS \
+          $TAINTS
+
+        native_cidr=$(gcloud container clusters describe "${{ inputs.cluster-name }}" --zone "${{ inputs.zone }}" --format 'value(clusterIpv4Cidr)')
+        echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
