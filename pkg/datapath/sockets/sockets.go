@@ -23,8 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
@@ -217,10 +219,12 @@ func filterAndDestroySockets(family, protocol uint8, states uint32, socketCB fun
 type bpfSocketDestroyer struct {
 	destroyMu    lock.Mutex
 	progs        *bpfgen.SockTermPrograms
+	sock4Map     *bpf.Map
+	sock6Map     *bpf.Map
 	filterSetter loader.FilterSetter
 }
 
-func newBPFSocketDestroyer(logger *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfSocketDestroyer, error) {
+func newBPFSocketDestroyer(logger *slog.Logger, sockRevNat4, sockRevNat6, sock4Map, sock6Map *bpf.Map) (*bpfSocketDestroyer, error) {
 	progs, filterSetter, err := loader.LoadSockTerm(logger, sockRevNat4, sockRevNat6)
 	if err != nil {
 		return nil, err
@@ -229,6 +233,8 @@ func newBPFSocketDestroyer(logger *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Ma
 	return &bpfSocketDestroyer{
 		progs:        progs,
 		filterSetter: filterSetter,
+		sock4Map:     sock4Map,
+		sock6Map:     sock6Map,
 	}, nil
 }
 
@@ -252,27 +258,27 @@ func (sd *bpfSocketDestroyer) Destroy(logger *slog.Logger, f SocketFilter) error
 		return fmt.Errorf("configuring filter: %w", err)
 	}
 
-	var prog *ebpf.Program
+	var sockMap *bpf.Map
+	var keyPrefix any
+	prog := sd.progs.CilSockDestroy
 	if f.Family == syscall.AF_INET {
-		if f.Protocol == unix.IPPROTO_UDP {
-			prog = sd.progs.CilSockUdpDestroyV4
-		} else {
-			prog = sd.progs.CilSockTcpDestroyV4
+		sockMap = sd.sock4Map
+		keyPrefix = lbmaps.Sock4KeyPrefix{
+			Address: types.IPv4(f.DestIp),
+			Port:    0,
 		}
 	} else {
-		if f.Protocol == unix.IPPROTO_UDP {
-			prog = sd.progs.CilSockUdpDestroyV6
-		} else {
-			prog = sd.progs.CilSockTcpDestroyV6
+		sockMap = sd.sock6Map
+		keyPrefix = lbmaps.Sock6KeyPrefix{
+			Address: types.IPv6(f.DestIp),
+			Port:    0,
 		}
-	}
-
-	if prog == nil {
-		return fmt.Errorf("no socket deletion program available for address family %d", f.Family)
 	}
 
 	iter, err := link.AttachIter(link.IterOptions{
-		Program: prog,
+		Program:   prog,
+		Map:       sockMap.Raw(),
+		KeyPrefix: keyPrefix,
 	})
 	if err != nil {
 		return fmt.Errorf("creating iterator: %w", err)
@@ -329,10 +335,10 @@ func (sd *bpfSocketDestroyer) Destroy(logger *slog.Logger, f SocketFilter) error
 //
 // sockRevNat4 and sockRevNat6 must be provided to use the BPF-based strategy;
 // otherwise, initialization falls back to Netlink.
-func NewSocketDestroyer(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (SocketDestroyer, error) {
+func NewSocketDestroyer(l *slog.Logger, sockRevNat4, sockRevNat6, sock4Map, sock6Map *bpf.Map) (SocketDestroyer, error) {
 	if sockRevNat4 != nil || sockRevNat6 != nil {
 		l.Info("Creating BPF socket destroyer")
-		bpfSD, err := newBPFSocketDestroyer(l, sockRevNat4, sockRevNat6)
+		bpfSD, err := newBPFSocketDestroyer(l, sockRevNat4, sockRevNat6, sock4Map, sock6Map)
 		if errors.Is(err, ebpf.ErrNotSupported) {
 			l.Info("bpf_sock_destroy is not supported on the current kernel. Falling back to netlink-based socket destroyer")
 		} else if err != nil {

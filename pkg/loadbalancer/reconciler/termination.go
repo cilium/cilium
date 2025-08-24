@@ -92,7 +92,8 @@ type socketDestroyerFactory func(socketTerminationParams) (sockets.SocketDestroy
 
 func makeSocketDestroyer(p socketTerminationParams) (sockets.SocketDestroyer, error) {
 	sockRevNat4, sockRevNat6 := p.LBMaps.SockRevNat()
-	sd, err := sockets.NewSocketDestroyer(p.Log, sockRevNat4, sockRevNat6)
+	sock4, sock6 := p.LBMaps.Sock()
+	sd, err := sockets.NewSocketDestroyer(p.Log, sockRevNat4, sockRevNat6, sock4, sock6)
 	if err != nil {
 		return nil, err
 	}

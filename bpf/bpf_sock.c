@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+#include "linux/bpf.h"
 #include <bpf/ctx/unspec.h>
 #include <bpf/api.h>
 
@@ -1267,6 +1268,62 @@ int cil_sock_release(struct bpf_sock *ctx __maybe_unused)
 	}
 #endif /* ENABLE_IPV6 */
 	return SYS_PROCEED;
+}
+
+struct {
+	__uint(type, BPF_MAP_TYPE_SOCKHASH);
+	__uint(max_entries, 1 << 20); /* ~1 million */
+	__uint(map_extra, offsetof(struct ipv4_sockets_tuple, cookie)); /* Size of bucket_key */
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__type(key, struct ipv4_sockets_tuple);
+	__type(value, __u64);
+} cil_sockets_v4 __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_SOCKHASH);
+	__uint(max_entries, 1 << 20); /* ~1 million */
+	__uint(map_extra, offsetof(struct ipv6_sockets_tuple, cookie)); /* Size of bucket_key */
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__type(key, struct ipv6_sockets_tuple);
+	__type(value, __u64);
+} cil_sockets_v6 __section_maps_btf;
+
+__section("sockops")
+int cil_sock_insert(struct bpf_sock_ops *ctx __maybe_unused)
+{
+	struct ipv4_sockets_tuple key_v4 = {};
+	struct ipv6_sockets_tuple key_v6 = {};
+	__u64 cookie = get_socket_cookie(ctx);
+	void *map, *key;
+
+	switch (ctx->op) {
+	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
+	case BPF_SOCK_OPS_UDP_CONNECT_CB:
+		if (ctx->family == AF_INET) {
+			map = &cil_sockets_v4;
+			key_v4.address.be32 = ctx->remote_ip4;
+			key_v4.port = ctx->remote_port;
+			key_v4.cookie = cookie;
+			key = &key_v4;
+		} else if (ctx->family == AF_INET6) {
+			map = &cil_sockets_v6;
+			key_v6.address.p1 = ctx->remote_ip6[0];
+			key_v6.address.p2 = ctx->remote_ip6[1];
+			key_v6.address.p3 = ctx->remote_ip6[2];
+			key_v6.address.p4 = ctx->remote_ip6[3];
+			key_v6.port = ctx->remote_port;
+			key_v6.cookie = cookie;
+			key = &key_v6;
+		} else {
+			break;
+		}
+
+		sock_hash_update(ctx, map, key, BPF_NOEXIST);
+		break;
+	default:
+		break;
+	}
+	return 0;
 }
 #endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 

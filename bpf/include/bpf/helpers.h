@@ -33,6 +33,8 @@
 static void *BPF_FUNC(map_lookup_elem, const void *map, const void *key);
 static int BPF_FUNC(map_update_elem, const void *map, const void *key,
 		    const void *value, __u32 flags);
+static int BPF_FUNC(sock_hash_update, void *ctx, const void *map,
+		    const void *key, __u64 flags);
 static int BPF_FUNC(map_delete_elem, const void *map, const void *key);
 static void *BPF_FUNC(map_lookup_percpu_elem, void *map, const void *key,
 				unsigned int cpu);

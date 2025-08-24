@@ -169,4 +169,25 @@ int cil_sock_tcp_destroy_v6(struct bpf_iter__tcp *ctx)
 	return sock_tcp_destroy_v6(ctx);
 }
 
+struct bpf_iter__sockmap {
+	struct bpf_iter_meta *meta;
+	void *map;
+	void *key;
+	void *sk;
+};
+
+__section("iter/sockmap")
+int cil_sock_destroy(struct bpf_iter__sockmap *ctx)
+{
+	void *key = ctx->key;
+	void *sk = ctx->sk;
+
+	if (!key || !sk)
+		return 0;
+
+	bpf_sock_destroy((struct sock_common *)sk);
+
+	return 0;
+}
+
 BPF_LICENSE("Dual BSD/GPL");

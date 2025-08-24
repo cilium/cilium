@@ -5,6 +5,7 @@ package link
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
@@ -23,6 +24,8 @@ type IterOptions struct {
 	// Map specifies the target map for bpf_map_elem and sockmap iterators.
 	// It may be nil.
 	Map *ebpf.Map
+
+	KeyPrefix any
 }
 
 // AttachIter attaches a BPF seq_file iterator.
@@ -39,6 +42,10 @@ func AttachIter(opts IterOptions) (*Iter, error) {
 			return nil, fmt.Errorf("invalid map: %w", sys.ErrClosedFd)
 		}
 		info.map_fd = uint32(mapFd)
+	}
+	if opts.KeyPrefix != nil {
+		info.key_prefix = sys.UnsafePointer(unsafe.Pointer(&opts.KeyPrefix))
+		info.key_prefix_len = uint32(reflect.TypeOf(opts.KeyPrefix).Size())
 	}
 
 	attr := sys.LinkCreateIterAttr{
@@ -82,5 +89,7 @@ func (it *Iter) Open() (io.ReadCloser, error) {
 
 // union bpf_iter_link_info.map
 type bpfIterLinkInfoMap struct {
-	map_fd uint32
+	map_fd         uint32
+	key_prefix     sys.Pointer
+	key_prefix_len uint32
 }

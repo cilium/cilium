@@ -106,6 +106,7 @@ type SockTermSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type SockTermProgramSpecs struct {
+	CilSockDestroy      *ebpf.ProgramSpec `ebpf:"cil_sock_destroy"`
 	CilSockTcpDestroyV4 *ebpf.ProgramSpec `ebpf:"cil_sock_tcp_destroy_v4"`
 	CilSockTcpDestroyV6 *ebpf.ProgramSpec `ebpf:"cil_sock_tcp_destroy_v6"`
 	CilSockUdpDestroyV4 *ebpf.ProgramSpec `ebpf:"cil_sock_udp_destroy_v4"`
@@ -169,6 +170,7 @@ type SockTermVariables struct {
 //
 // It can be passed to LoadSockTermObjects or ebpf.CollectionSpec.LoadAndAssign.
 type SockTermPrograms struct {
+	CilSockDestroy      *ebpf.Program `ebpf:"cil_sock_destroy"`
 	CilSockTcpDestroyV4 *ebpf.Program `ebpf:"cil_sock_tcp_destroy_v4"`
 	CilSockTcpDestroyV6 *ebpf.Program `ebpf:"cil_sock_tcp_destroy_v6"`
 	CilSockUdpDestroyV4 *ebpf.Program `ebpf:"cil_sock_udp_destroy_v4"`
@@ -177,6 +179,7 @@ type SockTermPrograms struct {
 
 func (p *SockTermPrograms) Close() error {
 	return _SockTermClose(
+		p.CilSockDestroy,
 		p.CilSockTcpDestroyV4,
 		p.CilSockTcpDestroyV6,
 		p.CilSockUdpDestroyV4,

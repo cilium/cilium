@@ -972,6 +972,12 @@ const (
 	// SockRevNat6MapName is the BPF map name.
 	SockRevNat6MapName = "cilium_lb6_reverse_sk"
 
+	// Sock4MapName is the BPF map name.
+	Sock4MapName = "cil_sockets_v4"
+
+	// Sock6MapName is the BPF map name.
+	Sock6MapName = "cil_sockets_v6"
+
 	// SockRevNat4MapSize is the maximum number of entries in the BPF map.
 	SockRevNat4MapSize = 256 * 1024
 
@@ -1026,6 +1032,46 @@ func (v *SockRevNat4Value) String() string {
 
 func (v *SockRevNat4Value) New() bpf.MapValue { return &SockRevNat4Value{} }
 
+type Sock4KeyPrefix struct {
+	Address types.IPv4 `align:"address"`
+	Port    int32      `align:"port"`
+}
+
+// Sock4Key is the tuple with address, port and cookie used as key in
+// the sock hash.
+type Sock4Key struct {
+	Sock4KeyPrefix
+	Cookie uint64 `align:"cookie"`
+}
+
+// Sock4Value is the socket cookie or file descriptor.
+type Sock4Value uint64
+
+func NewSock4Key(cookie uint64, addr net.IP, port uint16) *Sock4Key {
+	var key Sock4Key
+	key.Cookie = cookie
+	key.Port = int32(byteorder.NetworkToHost16(port))
+	copy(key.Address[:], addr.To4())
+
+	return &key
+}
+
+// String converts the key into a human readable string format.
+func (k *Sock4Key) String() string {
+	return fmt.Sprintf("[%s]:%d, %d", k.Address, k.Port, k.Cookie)
+}
+
+func (k *Sock4Key) New() bpf.MapKey { return &Sock4Key{} }
+
+// String converts the value into a human readable string format.
+func (v Sock4Value) String() string {
+	return fmt.Sprintf("%d", v)
+}
+
+func (v Sock4Value) New() bpf.MapValue {
+	return new(Sock4Value)
+}
+
 // SockRevNat6Key is the tuple with address, port and cookie used as key in
 // the reverse NAT sock map.
 type SockRevNat6Key struct {
@@ -1071,7 +1117,52 @@ func (v *SockRevNat6Value) String() string {
 	return fmt.Sprintf("[%s]:%d, %d", v.Address, v.Port, v.RevNatIndex)
 }
 
+type Sock6KeyPrefix struct {
+	Address types.IPv6 `align:"address"`
+	Port    int32      `align:"port"`
+}
+
+// Sock6Key is the tuple with address, port and cookie used as key in
+// the sock hash.
+type Sock6Key struct {
+	Sock6KeyPrefix
+	Cookie uint64 `align:"cookie"`
+}
+
+// Sock6Value is the socket cookie or file descriptor.
+type Sock6Value uint64
+
+func NewSock6Key(cookie uint64, addr net.IP, port uint16) *Sock6Key {
+	var key Sock6Key
+
+	key.Cookie = cookie
+	key.Port = int32(byteorder.NetworkToHost16(port))
+	ipv6Array := addr.To16()
+	copy(key.Address[:], ipv6Array[:])
+
+	return &key
+}
+
+// String converts the key into a human readable string format.
+func (k *Sock6Key) String() string {
+	return fmt.Sprintf("[%s]:%d, %d", k.Address, k.Port, k.Cookie)
+}
+
+func (k *Sock6Key) New() bpf.MapKey { return &Sock6Key{} }
+
 func (v *SockRevNat6Value) New() bpf.MapValue { return &SockRevNat6Value{} }
+
+// String converts the value into a human readable string format.
+func (v Sock6Value) String() string {
+	return fmt.Sprintf("%d", v)
+}
+
+func (v Sock6Value) New() bpf.MapValue {
+	return new(Sock6Value)
+}
+
+const SizeofSock4KeyPrefix = int(unsafe.Offsetof(Sock4Key{}.Cookie))
+const SizeofSock6KeyPrefix = int(unsafe.Offsetof(Sock6Key{}.Cookie))
 
 //
 // Maglev
