@@ -229,6 +229,9 @@ const (
 	// Rule label is a label for a L7 rule name.
 	LabelL7Rule = "rule"
 
+	// LabelPoolName is the label for a pool name.
+	LabelPoolName = "pool_name"
+
 	// LabelL7ProxyType is the label for denoting a L7 proxy type.
 	LabelL7ProxyType = "proxy_type"
 
@@ -458,6 +461,8 @@ var (
 	// subtracted by IPAMEvent{allocated}.
 	IPAMCapacity = NoOpGaugeVec
 
+	RemainingIPs = NoOpGaugeVec
+
 	// KVstore events
 
 	// KVStoreOperationsDuration records the duration of kvstore operations
@@ -667,6 +672,7 @@ type LegacyMetrics struct {
 	TerminatingEndpointsEvents       metric.Counter
 	IPAMEvent                        metric.Vec[metric.Counter]
 	IPAMCapacity                     metric.Vec[metric.Gauge]
+	RemainingIPs                     metric.Vec[metric.Gauge]
 	KVStoreOperationsDuration        metric.Vec[metric.Observer]
 	KVStoreEventsQueueDuration       metric.Vec[metric.Observer]
 	KVStoreQuorumErrors              metric.Vec[metric.Counter]
@@ -1045,6 +1051,13 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:       "ipam_capacity",
 			Help:       "Total number of IPs in the IPAM pool labeled by family",
 		}, []string{LabelDatapathFamily}),
+
+		RemainingIPs: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_remaining_ips",
+			Namespace:  Namespace,
+			Name:       "remaining_ips",
+			Help:       "Number of remaining IPs in the IPAM pool labeled by family",
+		}, []string{LabelPoolName, LabelDatapathFamily}),
 
 		KVStoreOperationsDuration: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds",
