@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1755973935-c5bf38b@sha256:448b126455a301c48d4189bfa9335f44d7d4524d69dcbc8151013ecb6ac0f042
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:e2475cb340c1525bfd491bff1139c663e7fecbb2@sha256:a3652c5c46c22f8508a56c2b6e586e44bdffc01e1690d8369b67c6a23320fe64
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:247e6a41b07df681e7b5612fad61c851b6b86583@sha256:7ec2244e18295a54d9d4a64ccd8dabb8777ce18aab2b002cf5f5eecb8e471243
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:1755531540-60ee83e@sha256:1b05459281d6613acb8573b2cd7f488a0d224eebf031770babbfc6a294501cf7
 ARG GOLANG_IMAGE=docker.io/library/golang:1.25.0@sha256:9e56f0d0f043a68bb8c47c819e47dc29f6e8f5129b8885bed9d43f058f7f3ed6
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1755973935-c5bf38b@sha256:40f98e82b2fdeb4936776792ee0dedaacab1892c2d689748a1745e3ee911cecf
