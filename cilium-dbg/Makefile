@@ -20,7 +20,8 @@ all: $(TARGET)
 
 $(TARGET):
 	@$(ECHO_GO)
-	$(QUIET)$(GO_BUILD) -o $@
+	# drop -race from cilium-dbg command
+	$(QUIET)$(filter-out -race,$(GO_BUILD)) -o $@
 
 clean:
 	@$(ECHO_CLEAN)
