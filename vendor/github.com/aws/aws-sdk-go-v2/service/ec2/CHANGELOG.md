@@ -1,3 +1,15 @@
+# v1.245.2 (2025-08-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.245.1 (2025-08-20)
+
+* **Bug Fix**: Remove unused deserialization code.
+
+# v1.245.0 (2025-08-19)
+
+* **Feature**: Add support for "warning" volume status.
+
 # v1.244.0 (2025-08-14)
 
 * **Feature**: This release adds ModifyInstanceConnectEndpoint API to update configurations on existing EC2 Instance Connect Endpoints and improves IPv6 support through dualstack DNS names for EC2 Instance Connect Endpoints.
