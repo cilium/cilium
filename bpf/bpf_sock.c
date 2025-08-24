@@ -205,7 +205,8 @@ sock4_wildcard_lookup(struct lb4_key *key __maybe_unused,
 
 	info = lookup_ip4_remote_endpoint(key->address, 0);
 	if (info && (info->sec_identity == HOST_ID ||
-		     (include_remote_hosts && identity_is_remote_node(info->sec_identity))))
+		     (include_remote_hosts && identity_is_remote_node(info->sec_identity) &&
+		      !info->flag_remote_cluster)))
 		goto wildcard_lookup;
 
 	return NULL;
@@ -742,7 +743,8 @@ sock6_wildcard_lookup(struct lb6_key *key __maybe_unused,
 
 	info = lookup_ip6_remote_endpoint(&key->address, 0);
 	if (info && (info->sec_identity == HOST_ID ||
-		     (include_remote_hosts && identity_is_remote_node(info->sec_identity))))
+		     (include_remote_hosts && identity_is_remote_node(info->sec_identity) &&
+		      !info->flag_remote_cluster)))
 		goto wildcard_lookup;
 
 	return NULL;
