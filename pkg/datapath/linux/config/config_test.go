@@ -44,6 +44,7 @@ var (
 		CiliumInternalIPv6:  ipv6DummyAddr.AsSlice(),
 		AllocCIDRIPv4:       cidr.MustParseCIDR("10.147.0.0/16"),
 		ServiceLoopbackIPv4: ipv4DummyAddr.AsSlice(),
+		ServiceLoopbackIPv6: ipv6DummyAddr.AsSlice(),
 		Devices:             []*tables.Device{},
 		NodeAddresses:       []tables.NodeAddress{},
 		HostEndpointID:      1,

@@ -50,6 +50,11 @@ func (in *LocalNodeInfo) DeepCopyInto(out *LocalNodeInfo) {
 		*out = make(net.IP, len(*in))
 		copy(*out, *in)
 	}
+	if in.ServiceLoopbackIPv6 != nil {
+		in, out := &in.ServiceLoopbackIPv6, &out.ServiceLoopbackIPv6
+		*out = make(net.IP, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
