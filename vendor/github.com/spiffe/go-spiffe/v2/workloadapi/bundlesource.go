@@ -4,16 +4,15 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/zeebo/errs"
 )
-
-var bundlesourceErr = errs.Class("bundlesource")
 
 // BundleSource is a source of SPIFFE bundles maintained via the Workload API.
 type BundleSource struct {
@@ -73,7 +72,7 @@ func (s *BundleSource) GetBundleForTrustDomain(trustDomain spiffeid.TrustDomain)
 	x509Authorities, hasX509Authorities := s.x509Authorities[trustDomain]
 	jwtAuthorities, hasJWTAuthorities := s.jwtAuthorities[trustDomain]
 	if !hasX509Authorities && !hasJWTAuthorities {
-		return nil, bundlesourceErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
+		return nil, wrapBundlesourceErr(fmt.Errorf("no SPIFFE bundle for trust domain %q", trustDomain))
 	}
 	bundle := spiffebundle.New(trustDomain)
 	if hasX509Authorities {
@@ -96,7 +95,7 @@ func (s *BundleSource) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDom
 
 	x509Authorities, hasX509Authorities := s.x509Authorities[trustDomain]
 	if !hasX509Authorities {
-		return nil, bundlesourceErr.New("no X.509 bundle for trust domain %q", trustDomain)
+		return nil, wrapBundlesourceErr(fmt.Errorf("no X.509 bundle for trust domain %q", trustDomain))
 	}
 	return x509bundle.FromX509Authorities(trustDomain, x509Authorities), nil
 }
@@ -112,7 +111,7 @@ func (s *BundleSource) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDoma
 
 	jwtAuthorities, hasJWTAuthorities := s.jwtAuthorities[trustDomain]
 	if !hasJWTAuthorities {
-		return nil, bundlesourceErr.New("no JWT bundle for trust domain %q", trustDomain)
+		return nil, wrapBundlesourceErr(fmt.Errorf("no JWT bundle for trust domain %q", trustDomain))
 	}
 	return jwtbundle.FromJWTAuthorities(trustDomain, jwtAuthorities), nil
 }
@@ -182,7 +181,11 @@ func (s *BundleSource) checkClosed() error {
 	s.closeMtx.RLock()
 	defer s.closeMtx.RUnlock()
 	if s.closed {
-		return bundlesourceErr.New("source is closed")
+		return wrapBundlesourceErr(errors.New("source is closed"))
 	}
 	return nil
+}
+
+func wrapBundlesourceErr(err error) error {
+	return fmt.Errorf("bundlesource: %w", err)
 }
