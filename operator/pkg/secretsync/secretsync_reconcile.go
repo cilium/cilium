@@ -24,7 +24,9 @@ import (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := r.logger.With(logfields.Controller, "secret-syncer", logfields.Resource, req.NamespacedName)
+	scopedLog := r.logger.With(
+		logfields.Resource, req.NamespacedName,
+	)
 	scopedLog.Debug("Reconciling secret")
 
 	original := &corev1.Secret{}
