@@ -736,7 +736,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaksSubnetMode(t *testi
 func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testing.T, config datapath.LocalNodeConfiguration) {
 	log := hivetest.Logger(t)
 	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
-	_, _, err := ipsec.LoadIPSecKeys(log, keys)
+	_, _, err := ipsec.LoadIPSecKeys(keys)
 	require.NoError(t, err)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
@@ -1260,7 +1260,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodePodCIDRsChurnIPSec(t *testing.T) 
 	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
 
 	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
-	_, _, err = ipsec.LoadIPSecKeys(log, keys)
+	_, _, err = ipsec.LoadIPSecKeys(keys)
 	require.NoError(t, err)
 
 	// set "local_node" as the local node name
