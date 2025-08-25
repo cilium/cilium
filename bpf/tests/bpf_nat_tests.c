@@ -1125,7 +1125,7 @@ static long snat_callback_tcp(__u32 i, struct snat_callback_ctx *ctx)
 	return ctx->err != 0;
 }
 
-CHECK("tc", "nat4_port_allocation")
+CHECK("tc", "nat4_port_allocation_tcp")
 int test_nat4_port_allocation_tcp_check(struct __ctx_buff *ctx)
 {
 	struct snat_callback_ctx cb_ctx = {
@@ -1256,7 +1256,7 @@ static long snat_callback_udp(__u32 i, struct snat_callback_ctx *ctx)
 	return ctx->err != 0;
 }
 
-CHECK("tc", "nat4_port_allocation")
+CHECK("tc", "nat4_port_allocation_udp")
 int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 {
 	struct snat_callback_ctx cb_ctx = {
