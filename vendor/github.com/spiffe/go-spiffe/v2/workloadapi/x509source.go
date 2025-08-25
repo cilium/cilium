@@ -2,15 +2,14 @@ package workloadapi
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
-	"github.com/zeebo/errs"
 )
-
-var x509sourceErr = errs.Class("x509source")
 
 // X509Source is a source of X509-SVIDs and X.509 bundles maintained via the
 // Workload API.
@@ -74,7 +73,7 @@ func (s *X509Source) GetX509SVID() (*x509svid.SVID, error) {
 		// This is a defensive check and should be unreachable since the source
 		// waits for the initial Workload API update before returning from
 		// New().
-		return nil, x509sourceErr.New("missing X509-SVID")
+		return nil, wrapX509sourceErr(errors.New("missing X509-SVID"))
 	}
 	return svid, nil
 }
@@ -118,7 +117,11 @@ func (s *X509Source) checkClosed() error {
 	s.closeMtx.RLock()
 	defer s.closeMtx.RUnlock()
 	if s.closed {
-		return x509sourceErr.New("source is closed")
+		return wrapX509sourceErr(errors.New("source is closed"))
 	}
 	return nil
+}
+
+func wrapX509sourceErr(err error) error {
+	return fmt.Errorf("x509source: %w", err)
 }
