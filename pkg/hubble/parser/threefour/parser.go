@@ -723,7 +723,8 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 			// ultimately originating from the local node and destinated to a
 			// remote node, so egress make more sense to expose at a high
 			// level.
-			case tn.TraceReason() == monitor.TraceReasonEncryptOverlay:
+			// encrypt_overlay is deprecated, as datapath no longer returns it.
+			case tn.TraceReason() == monitor.TraceReasonDeprecatedEncryptOverlay:
 				return pb.TrafficDirection_EGRESS
 			// isSourceEP != isReply ==
 			//  (isSourceEP && !isReply) || (!isSourceEP && isReply)

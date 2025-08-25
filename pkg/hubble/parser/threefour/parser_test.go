@@ -1063,8 +1063,9 @@ func TestDecodeTraceReason(t *testing.T) {
 			want:   flowpb.TraceReason_SRV6_DECAP,
 		},
 		{
+			// encrypt_overlay is deprecated, as datapath no longer returns it.
 			name:   "encrypt-overlay",
-			reason: monitor.TraceReasonEncryptOverlay,
+			reason: monitor.TraceReasonDeprecatedEncryptOverlay,
 			want:   flowpb.TraceReason_ENCRYPT_OVERLAY,
 		},
 	}
@@ -1272,11 +1273,12 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	// TRACE_TO_STACK Encrypt Overlay
+	// encrypt_overlay is deprecated, as datapath no longer returns it.
 	tn = monitor.TraceNotify{
 		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   hostEP,
 		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonEncryptOverlay,
+		Reason:   monitor.TraceReasonDeprecatedEncryptOverlay,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
@@ -1435,11 +1437,12 @@ func TestDecodeIsReply(t *testing.T) {
 	assert.False(t, f.GetReply())
 
 	// TRACE_TO_STACK Encrypted Overlay
+	// encrypt_overlay is deprecated, as datapath no longer returns it.
 	tn = monitor.TraceNotify{
 		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   hostEP,
 		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonEncryptOverlay,
+		Reason:   monitor.TraceReasonDeprecatedEncryptOverlay,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
@@ -2218,12 +2221,13 @@ func TestDecode_TraceNotify(t *testing.T) {
 			},
 		},
 		{
+			// encrypt_overlay is deprecated, as datapath no longer returns it.
 			name: "v0_to_stack_encrypt_overlay",
 			event: monitor.TraceNotify{
 				Type:     byte(monitorAPI.MessageTypeTrace),
 				Source:   hostEP,
 				ObsPoint: monitorAPI.TraceToStack,
-				Reason:   monitor.TraceReasonEncryptOverlay,
+				Reason:   monitor.TraceReasonDeprecatedEncryptOverlay,
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
