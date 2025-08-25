@@ -839,9 +839,9 @@ lb6_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 #endif  /* defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM */
 
 #if LB_SELECTION == LB_SELECTION_RANDOM
-# define lb6_select_backend_id	lb6_select_backend_id_random
+# define lb6_select_backend_id_default	lb6_select_backend_id_random
 #elif LB_SELECTION == LB_SELECTION_MAGLEV
-# define lb6_select_backend_id	lb6_select_backend_id_maglev
+# define lb6_select_backend_id_default	lb6_select_backend_id_maglev
 #elif LB_SELECTION == LB_SELECTION_FIRST
 /* Backend selection for unit tests that always chooses first slot. This
  * part is unreachable from agent code enablement.
@@ -867,7 +867,7 @@ static __always_inline __u32 lb6_algorithm(const struct lb6_service *svc)
 }
 
 static __always_inline __u32
-lb6_select_backend_id_runtime(struct __ctx_buff *ctx, struct lb6_key *key,
+lb6_select_backend_id(struct __ctx_buff *ctx, struct lb6_key *key,
 			      const struct ipv6_ct_tuple *tuple,
 			      const struct lb6_service *svc)
 {
@@ -887,9 +887,11 @@ lb6_select_backend_id_runtime(struct __ctx_buff *ctx, struct lb6_key *key,
 		 *  3. A future algorithm constant was chosen that this build does not support.
 		 * Fallback to default in this case.
 		 */
-		return lb6_select_backend_id(ctx, key, tuple, svc);
+		return lb6_select_backend_id_default(ctx, key, tuple, svc);
 	}
 }
+#else
+# define lb6_select_backend_id lb6_select_backend_id_default
 #endif /* LB_SELECTION_PER_SERVICE */
 
 static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
@@ -1108,11 +1110,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			}
 		}
 		if (backend_id == 0) {
-#ifdef LB_SELECTION_PER_SERVICE
-			backend_id = lb6_select_backend_id_runtime(ctx, key, tuple, svc);
-#elif
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
-#endif
 			backend = lb6_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
 				goto no_service;
@@ -1627,9 +1625,9 @@ lb4_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 #endif /* LB_SELECTION_PER_SERVICE || LB_SELECTION == LB_SELECTION_MAGLEV */
 
 #if LB_SELECTION == LB_SELECTION_RANDOM
-# define lb4_select_backend_id	lb4_select_backend_id_random
+# define lb4_select_backend_id_default	lb4_select_backend_id_random
 #elif LB_SELECTION == LB_SELECTION_MAGLEV
-# define lb4_select_backend_id	lb4_select_backend_id_maglev
+# define lb4_select_backend_id_default	lb4_select_backend_id_maglev
 #elif LB_SELECTION == LB_SELECTION_FIRST
 /* Backend selection for unit tests that always chooses first slot. This
  * part is unreachable from agent code enablement.
@@ -1655,7 +1653,7 @@ static __always_inline __u32 lb4_algorithm(const struct lb4_service *svc)
 }
 
 static __always_inline __u32
-lb4_select_backend_id_runtime(struct __ctx_buff *ctx, struct lb4_key *key,
+lb4_select_backend_id(struct __ctx_buff *ctx, struct lb4_key *key,
 			      const struct ipv4_ct_tuple *tuple,
 			      const struct lb4_service *svc)
 {
@@ -1675,9 +1673,11 @@ lb4_select_backend_id_runtime(struct __ctx_buff *ctx, struct lb4_key *key,
 		 *  3. A future algorithm constant was chosen that this build does not support.
 		 * Fallback to default in this case.
 		 */
-		return lb4_select_backend_id(ctx, key, tuple, svc);
+		return lb4_select_backend_id_default(ctx, key, tuple, svc);
 	}
 }
+#else
+# define lb4_select_backend_id lb4_select_backend_id_default
 #endif /* LB_SELECTION_PER_SERVICE */
 
 static __always_inline int
@@ -1917,11 +1917,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		}
 		if (backend_id == 0) {
 			/* No CT entry has been found, so select a svc endpoint */
-#ifdef LB_SELECTION_PER_SERVICE
-			backend_id = lb4_select_backend_id_runtime(ctx, key, tuple, svc);
-#elif
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
-#endif
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
 				goto no_service;
