@@ -153,7 +153,7 @@ func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, hash uint64, 
 }
 
 func (d *DynamicFlowProcessor) addNewMetric(reg *prometheus.Registry, cm *api.MetricConfig, metricNames map[string]*api.MetricConfig, newMetrics *[]api.NamedHandler) {
-	nh, err := api.DefaultRegistry().ValidateAndCreateHandler(reg, cm, &metricNames)
+	nh, err := api.DefaultRegistry().ValidateAndCreateHandler(cm, &metricNames)
 	if err != nil {
 		d.logger.Error(
 			"Failed to configure metrics plugin",
