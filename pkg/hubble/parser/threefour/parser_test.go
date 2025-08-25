@@ -1062,11 +1062,6 @@ func TestDecodeTraceReason(t *testing.T) {
 			reason: monitor.TraceReasonSRv6Decap,
 			want:   flowpb.TraceReason_SRV6_DECAP,
 		},
-		{
-			name:   "encrypt-overlay",
-			reason: monitor.TraceReasonEncryptOverlay,
-			want:   flowpb.TraceReason_ENCRYPT_OVERLAY,
-		},
 	}
 
 	for _, tc := range tt {
@@ -1271,17 +1266,6 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
-	// TRACE_TO_STACK Encrypt Overlay
-	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   hostEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonEncryptOverlay,
-	}
-	f = parseFlow(tn, localIP, remoteIP)
-	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
-
 	// TRACE_TO_STACK SRV6 decap Ingress
 	tn = monitor.TraceNotify{
 		Type:     byte(monitorAPI.MessageTypeTrace),
@@ -1429,17 +1413,6 @@ func TestDecodeIsReply(t *testing.T) {
 		Source:   localEP,
 		ObsPoint: monitorAPI.TraceToStack,
 		Reason:   monitor.TraceReasonSRv6Encap | monitor.TraceReasonEncryptMask,
-	}
-	f = parseFlow(tn, localIP, remoteIP)
-	assert.Nil(t, f.GetIsReply())
-	assert.False(t, f.GetReply())
-
-	// TRACE_TO_STACK Encrypted Overlay
-	tn = monitor.TraceNotify{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		Source:   hostEP,
-		ObsPoint: monitorAPI.TraceToStack,
-		Reason:   monitor.TraceReasonEncryptOverlay,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
@@ -2215,25 +2188,6 @@ func TestDecode_TraceNotify(t *testing.T) {
 				},
 				Source:                &flowpb.Endpoint{ID: 1234},
 				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
-			},
-		},
-		{
-			name: "v0_to_stack_encrypt_overlay",
-			event: monitor.TraceNotify{
-				Type:     byte(monitorAPI.MessageTypeTrace),
-				Source:   hostEP,
-				ObsPoint: monitorAPI.TraceToStack,
-				Reason:   monitor.TraceReasonEncryptOverlay,
-			},
-			ipTuple: egressTuple,
-			want: &flowpb.Flow{
-				EventType: &flowpb.CiliumEventType{
-					SubType: 3,
-				},
-				Source:                &flowpb.Endpoint{ID: 1234},
-				TraceReason:           flowpb.TraceReason_ENCRYPT_OVERLAY,
-				TrafficDirection:      flowpb.TrafficDirection_EGRESS,
-				TraceObservationPoint: flowpb.TraceObservationPoint_TO_STACK,
 			},
 		},
 		{

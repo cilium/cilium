@@ -236,7 +236,7 @@ enum TraceReason {
     REOPENED = 5 [deprecated=true];
     SRV6_ENCAP = 6;
     SRV6_DECAP = 7;
-    ENCRYPT_OVERLAY = 8;
+    ENCRYPT_OVERLAY = 8 [deprecated=true];
 }
 
 message FileInfo {
