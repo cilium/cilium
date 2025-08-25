@@ -30,7 +30,7 @@ require (
 	github.com/cilium/workerpool v1.3.0
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/containernetworking/cni v1.3.0
-	github.com/coreos/go-systemd/v22 v22.5.0
+	github.com/coreos/go-systemd/v22 v22.6.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
@@ -65,7 +65,7 @@ require (
 	github.com/hmarr/codeowners v1.2.1
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/json-iterator/go v1.1.12
-	github.com/kevinburke/ssh_config v1.2.0
+	github.com/kevinburke/ssh_config v1.4.0
 	github.com/lthibault/jitterbug/v2 v2.2.2
 	github.com/mackerelio/go-osstat v0.2.6
 	github.com/mattn/go-shellwords v1.0.12
@@ -92,7 +92,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.7
 	github.com/spf13/viper v1.20.1
-	github.com/spiffe/go-spiffe/v2 v2.5.0
+	github.com/spiffe/go-spiffe/v2 v2.6.0
 	github.com/spiffe/spire-api-sdk v1.12.4
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
@@ -120,9 +120,9 @@ require (
 	golang.org/x/tools v0.36.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c
-	google.golang.org/grpc v1.74.2
-	google.golang.org/protobuf v1.36.7
-	helm.sh/helm/v3 v3.18.4
+	google.golang.org/grpc v1.75.0
+	google.golang.org/protobuf v1.36.8
+	helm.sh/helm/v3 v3.18.5
 	k8s.io/api v0.34.0
 	k8s.io/apiextensions-apiserver v0.34.0
 	k8s.io/apimachinery v0.34.0
@@ -132,7 +132,7 @@ require (
 	k8s.io/endpointslice v0.34.0
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.34.0
-	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
+	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/gateway-api v1.3.1-0.20250611112659-17a60f668a0d
 	sigs.k8s.io/mcs-api v0.1.1-0.20250610011024-38bab5ba476b
@@ -143,7 +143,7 @@ require (
 require (
 	cel.dev/expr v0.24.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
-	github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20230306123547-8075edf89bb0 // indirect
+	github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20250520111509-a70c2aa677fa // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2 // indirect
@@ -194,7 +194,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.23.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
@@ -279,6 +279,7 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rubenv/sql-migrate v1.8.0 // indirect
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
@@ -288,11 +289,7 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/weppos/publicsuffix-go v0.30.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
-	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
-	github.com/zeebo/errs v1.4.0 // indirect
 	github.com/zmap/zcrypto v0.0.0-20230310154051-c8b263fd8300 // indirect
 	github.com/zmap/zlint/v3 v3.5.0 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
