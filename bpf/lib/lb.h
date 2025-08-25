@@ -565,16 +565,9 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16
 }
 
 static __always_inline void
-lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
-	key->proto = protocol;
-}
-
-static __always_inline void
 lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
 {
-	lb6_key_set_protocol(key, tuple->nexthdr);
+	key->proto = tuple->nexthdr;
 	ipv6_addr_copy(&key->address, &tuple->daddr);
 	key->dport = tuple->sport;
 }
@@ -650,37 +643,47 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 static __always_inline
 struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 {
-	struct lb6_service *svc;
-
-	svc = map_lookup_elem(&cilium_lb6_services_v2, key);
-
-	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != IPPROTO_ANY) {
-		key->proto = IPPROTO_ANY;
-		svc = map_lookup_elem(&cilium_lb6_services_v2, key);
-	}
-
-	return svc;
+	return map_lookup_elem(&cilium_lb6_services_v2, key);
 }
 
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 				       const bool scope_switch)
 {
-	__u8 orig_proto = key->proto;
 	struct lb6_service *svc;
 
 	key->backend_slot = 0;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb6_lookup_service(key);
-	if (!svc)
+	if (!svc) {
+		__u8 orig_proto = key->proto;
+		__u16 orig_dport = key->dport;
+
+		key->dport = LB_SVC_WILDCARD_DPORT;
+		key->proto = LB_SVC_WILDCARD_PROTO;
+
+		svc = __lb6_lookup_service(key);
+
+		/* If wildcard lookup was successful, we return the wildcard service while
+		 * leaving the modified dport/proto values in the key. A wildcard service
+		 * entry will have no backends and so caller should trigger a drop.
+		 */
+		if (svc)
+			return svc;
+
+		key->dport = orig_dport;
+		key->proto = orig_proto;
+
+		/* If we have no external scope for this, it's safe to return NULL here
+		 * because there can't be an internal scope. (For now.)
+		 */
 		return NULL;
+	}
 
 	if (!scope_switch || !lb6_svc_is_two_scopes(svc))
 		return svc;
 
-	key->proto = orig_proto;
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb6_lookup_service(key);
 }
@@ -1163,12 +1166,6 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key __maybe_unused,
 	return NULL;
 }
 
-static __always_inline void
-lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
-}
-
 static __always_inline
 struct lb6_service *__lb6_lookup_backend_slot(struct lb6_key *key __maybe_unused)
 {
@@ -1287,16 +1284,9 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 }
 
 static __always_inline void
-lb4_key_set_protocol(struct lb4_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
-	key->proto = protocol;
-}
-
-static __always_inline void
 lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
 {
-	lb4_key_set_protocol(key, tuple->nexthdr);
+	key->proto = tuple->nexthdr;
 	key->address = tuple->daddr;
 	/* CT tuple has ports in reverse order: */
 	key->dport = tuple->sport;
@@ -1372,37 +1362,47 @@ lb4_to_lb6_service(const struct lb4_service *svc __maybe_unused)
 static __always_inline
 struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 {
-	struct lb4_service *svc;
-
-	svc = map_lookup_elem(&cilium_lb4_services_v2, key);
-
-	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != IPPROTO_ANY) {
-		key->proto = IPPROTO_ANY;
-		svc = map_lookup_elem(&cilium_lb4_services_v2, key);
-	}
-
-	return svc;
+	return map_lookup_elem(&cilium_lb4_services_v2, key);
 }
 
 static __always_inline
 struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 				       const bool scope_switch)
 {
-	__u8 orig_proto = key->proto;
 	struct lb4_service *svc;
 
 	key->backend_slot = 0;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb4_lookup_service(key);
-	if (!svc)
+	if (!svc) {
+		__u8 orig_proto = key->proto;
+		__u16 orig_dport = key->dport;
+
+		key->dport = LB_SVC_WILDCARD_DPORT;
+		key->proto = LB_SVC_WILDCARD_PROTO;
+
+		svc = __lb4_lookup_service(key);
+
+		/* If wildcard lookup was successful, we return the wildcard service while
+		 * leaving the modified dport/proto values in the key. A wildcard service
+		 * entry will have no backends and so caller should trigger a drop.
+		 */
+		if (svc)
+			return svc;
+
+		key->dport = orig_dport;
+		key->proto = orig_proto;
+
+		/* If we have no external scope for this, it's safe to return NULL here
+		 * because there can't be an internal scope. (For now.)
+		 */
 		return NULL;
+	}
 
 	if (!scope_switch || !lb4_svc_is_two_scopes(svc))
 		return svc;
 
-	key->proto = orig_proto;
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb4_lookup_service(key);
 }

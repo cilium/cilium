@@ -1480,6 +1480,16 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	svc = lb6_lookup_service(&key, false);
 	if (svc) {
+		/* Check if the identified service is a wildcard entry. This means
+		 * we have no protocol-level service entry, meaning we should drop
+		 * the traffic to avoid it being punted back to the network and re-
+		 * delivered to is in a loop.
+		 */
+		if (key.dport == LB_SVC_WILDCARD_DPORT) {
+			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+			return DROP_NO_SERVICE;
+		}
+
 		return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
 					fraginfo, l4_off, src_sec_identity,
 					punt_to_stack, ext_err);
@@ -2839,6 +2849,16 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	svc = lb4_lookup_service(&key, false);
 	if (svc) {
+		/* Check if the identified service is a wildcard entry. This means
+		 * we have no protocol-level service entry, meaning we should drop
+		 * the traffic to avoid it being punted back to the network and re-
+		 * delivered to is in a loop.
+		 */
+		if (key.dport == LB_SVC_WILDCARD_DPORT) {
+			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+			return DROP_NO_SERVICE;
+		}
+
 		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
 					fraginfo, l4_off, src_sec_identity,
 					punt_to_stack, ext_err);
