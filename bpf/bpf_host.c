@@ -1260,7 +1260,12 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	if (ctx->vlan_present) {
 		__u32 vlan_id = ctx->vlan_tci & 0xfff;
 
-		if (vlan_id) {
+		if (vlan_id == 0) {
+			if (bpf_skb_vlan_pop(ctx) < 0) {
+				ret = DROP_WRITE_ERROR;
+				goto drop_err;
+			}
+		} else {
 			if (allow_vlan(ctx->ifindex, vlan_id))
 				return CTX_ACT_OK;
 
@@ -1418,7 +1423,12 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	 */
 	if (ctx->vlan_present) {
 		vlan_id = ctx->vlan_tci & 0xfff;
-		if (vlan_id) {
+		if (vlan_id == 0) {
+			if (bpf_skb_vlan_pop(ctx) < 0) {
+				ret = DROP_WRITE_ERROR;
+				goto drop_err;
+			}
+		} else {
 			if (allow_vlan(ctx->ifindex, vlan_id))
 				return CTX_ACT_OK;
 
