@@ -11,13 +11,16 @@ import (
 	"os"
 
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -766,26 +769,29 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 	return nil
 }
 
-func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
-	device := n.getDefaultEncryptionInterface()
-	return route.Route{
-		Nexthop: nil,
-		Device:  device,
-		Prefix:  *ip,
-		Table:   linux_defaults.RouteTableIPSec,
-		Proto:   linux_defaults.RTProto,
-		Type:    route.RTN_LOCAL,
+func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) reconciler.DesiredRoute {
+	device, _, _ := n.devicesTable.Get(n.db.ReadTxn(), tables.DeviceNameIndex.Query(n.getDefaultEncryptionInterface()))
+	prefix, _ := netipx.FromStdIPNet(ip)
+	owner, _ := n.desiredRouteManager.GetOrRegisterOwner("node-"+n.localNodeID.String(), reconciler.AdminDistanceDefault)
+	return reconciler.DesiredRoute{
+		Owner:  owner,
+		Device: device,
+		Prefix: prefix,
+		Table:  linux_defaults.RouteTableIPSec,
+		Type:   route.RTN_LOCAL,
 	}
 }
 
-func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
-	return route.Route{
-		Nexthop: nil,
-		Device:  n.datapathConfig.HostDevice,
-		Prefix:  *ip,
-		Table:   linux_defaults.RouteTableIPSec,
-		MTU:     n.nodeConfig.RoutePostEncryptMTU,
-		Proto:   linux_defaults.RTProto,
+func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) reconciler.DesiredRoute {
+	hd, _, _ := n.devicesTable.Get(n.db.ReadTxn(), tables.DeviceNameIndex.Query(n.datapathConfig.HostDevice))
+	prefix, _ := netipx.FromStdIPNet(ip)
+	owner, _ := n.desiredRouteManager.GetOrRegisterOwner("node-"+n.localNodeID.String(), reconciler.AdminDistanceDefault)
+	return reconciler.DesiredRoute{
+		Owner:  owner,
+		Device: hd,
+		Prefix: prefix,
+		Table:  linux_defaults.RouteTableIPSec,
+		MTU:    uint32(n.nodeConfig.RoutePostEncryptMTU),
 	}
 }
 
@@ -811,14 +817,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) error {
 		return nil
 	}
 
-	if err := route.Upsert(n.log, n.createNodeIPSecOutRoute(ip)); err != nil {
-		n.log.Error("Unable to replace the IPSec route OUT the host routing table",
-			logfields.Error, err,
-			logfields.CIDR, ip,
-		)
-		return err
-	}
-	return nil
+	return n.desiredRouteManager.UpsertRouteWait(n.createNodeIPSecOutRoute(ip))
 }
 
 // The caller must ensure that the CIDR passed in must be non-nil.
@@ -827,14 +826,7 @@ func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) error {
 		return nil
 	}
 
-	if err := route.Delete(n.createNodeIPSecOutRoute(ip)); err != nil {
-		n.log.Error("Unable to delete the IPsec route OUT from the host routing table",
-			logfields.Error, err,
-			logfields.CIDR, ip,
-		)
-		return fmt.Errorf("failed to delete ipsec host route out: %w", err)
-	}
-	return nil
+	return n.desiredRouteManager.DeleteRoute(n.createNodeIPSecOutRoute(ip))
 }
 
 // replaceNodeIPSecoInRoute replace the in IPSec routes in the host routing
@@ -845,13 +837,14 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) error {
 		return nil
 	}
 
-	if err := route.Upsert(n.log, n.createNodeIPSecInRoute(ip)); err != nil {
-		n.log.Error("Unable to replace the IPSec route IN the host routing table",
-			logfields.Error, err,
-			logfields.CIDR, ip,
-		)
-		return fmt.Errorf("failed to replace ipsec host route IN: %w", err)
-	}
+	return n.desiredRouteManager.UpsertRouteWait(n.createNodeIPSecInRoute(ip))
+	// if err := route.Upsert(n.log, n.createNodeIPSecInRoute(ip)); err != nil {
+	// 	n.log.Error("Unable to replace the IPSec route IN the host routing table",
+	// 		logfields.Error, err,
+	// 		logfields.CIDR, ip,
+	// 	)
+	// 	return fmt.Errorf("failed to replace ipsec host route IN: %w", err)
+	// }
 	return nil
 }
 
@@ -861,7 +854,7 @@ func (n *linuxNodeHandler) deleteNodeIPSecInRoute(ip *net.IPNet) error {
 		return nil
 	}
 
-	if err := route.Delete(n.createNodeIPSecInRoute(ip)); err != nil {
+	if err := n.desiredRouteManager.DeleteRoute(n.createNodeIPSecInRoute(ip)); err != nil {
 		n.log.Error("Unable to delete the IPsec route IN from the host routing table",
 			logfields.Error, err,
 			logfields.CIDR, ip,

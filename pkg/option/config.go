@@ -1845,7 +1845,7 @@ type DaemonConfig struct {
 	VtepEndpoints []net.IP
 
 	// VtepCIDRs VTEP CIDRs
-	VtepCIDRs []*cidr.CIDR
+	VtepCIDRs []netip.Prefix
 
 	// VtepMask VTEP Mask
 	VtepCidrMask net.IP
@@ -3317,7 +3317,7 @@ func (c *DaemonConfig) validateVTEP(vp *viper.Viper) error {
 
 	}
 	for _, v := range vtepCIDRs {
-		externalCIDR, err := cidr.ParseCIDR(v)
+		externalCIDR, err := netip.ParsePrefix(v)
 		if err != nil {
 			return fmt.Errorf("Invalid VTEP CIDR: %v", v)
 		}
