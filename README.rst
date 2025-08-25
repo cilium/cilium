@@ -38,8 +38,8 @@ and flexible. To learn more about eBPF, visit `eBPF.io`_.
    </a>
    <a href="https://ebpf.io/">
       <picture>
-         <source media="(prefers-color-scheme: light)" srcset=".github/assets/powered-by-ebpf.svg" />
-         <img src=".github/assets/powered-by-ebpf_white.svg" alt="Powered by eBPF" height="80" align="right" />
+         <source media="(prefers-color-scheme: light)" srcset=".github/assets/ebpf-horizontal.svg" />
+         <img src=".github/assets/ebpf-horizontal-dark-back.svg" alt="eBPF Logo" height="80" align="right" />
       </picture>
    </a>
 
