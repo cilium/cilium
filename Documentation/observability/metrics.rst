@@ -371,7 +371,8 @@ Clustermesh
 =============================================== ============================================================ ========== =================================================================
 Name                                            Labels                                                       Default    Description
 =============================================== ============================================================ ========== =================================================================
-``clustermesh_global_services``                 ``source_cluster``, ``source_node_name``                     Enabled    The total number of global services in the cluster mesh
+``clustermesh_remote_cluster_global_services``  ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of global services in the remote cluster
+``clustermesh_remote_cluster_identities``       ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of identities in the remote cluster
 ``clustermesh_remote_clusters``                 ``source_cluster``, ``source_node_name``                     Enabled    The total number of remote clusters meshed with the local cluster
 ``clustermesh_remote_cluster_failures``         ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of failures related to the remote cluster
 ``clustermesh_remote_cluster_nodes``            ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of nodes in the remote cluster
@@ -866,6 +867,16 @@ Name                                                 Labels                     
 ``serviceexport_status_condition``   ``serviceexport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceExport in the local cluster
 ``serviceimport_info``               ``serviceimport``, ``namespace``                             Enabled    Information about ServiceImport in the local cluster
 ==================================== ============================================================ ========== ===========================================================
+
+Clustermesh
+~~~~~~~~~~~
+
+===================================================== ======================================= ========== ==================================================================
+Name                                                  Labels                                  Default    Description
+===================================================== ======================================= ========== ==================================================================
+``clustermesh_remote_cluster_global_services``        ``source_cluster``, ``target_cluster``  Enabled    The total number of global services in the remote cluster
+``clustermesh_remote_cluster_global_service_exports`` ``source_cluster``, ``target_cluster``  Enabled    The total number of MCS-API service exports in the remote cluster
+===================================================== ======================================= ========== ==================================================================
 
 
 Hubble
