@@ -943,6 +943,7 @@ func (p *Printer) WriteLostEvent(res *observerpb.GetFlowsResponse) error {
 		src := f.GetSource()
 		numEventsLost := f.GetNumEventsLost()
 		cpu := f.GetCpu()
+		first, last := f.GetFirst(), f.GetLast()
 
 		if p.line == 0 {
 			w.print("TIMESTAMP", tab)
@@ -957,16 +958,20 @@ func (p *Printer) WriteLostEvent(res *observerpb.GetFlowsResponse) error {
 				"SUMMARY", newline,
 			)
 		}
-		w.print("", tab)
+		w.print(fmtTimestamp(p.opts.timeFormat, res.GetTime()), tab)
 		if p.opts.nodeName {
 			w.print("", tab)
+		}
+		summary := fmt.Sprintf("CPU(%d) - %d", cpu.GetValue(), numEventsLost)
+		if first != nil && last != nil {
+			summary += fmt.Sprintf(" (first: %s, last: %s)", fmtTimestamp(p.opts.timeFormat, first), fmtTimestamp(p.opts.timeFormat, last))
 		}
 		w.print(
 			src, tab,
 			"", tab,
 			"EVENTS LOST", tab,
 			"", tab,
-			fmt.Sprintf("CPU(%d) - %d", cpu.GetValue(), numEventsLost), newline,
+			summary, newline,
 		)
 		if w.err != nil {
 			return fmt.Errorf("failed to write out packet: %w", w.err)
@@ -976,6 +981,7 @@ func (p *Printer) WriteLostEvent(res *observerpb.GetFlowsResponse) error {
 		src := f.GetSource()
 		numEventsLost := f.GetNumEventsLost()
 		cpu := f.GetCpu()
+		first, last := f.GetFirst(), f.GetLast()
 		if p.line != 0 {
 			// TODO: line length?
 			w.print(dictSeparator, newline)
@@ -983,15 +989,19 @@ func (p *Printer) WriteLostEvent(res *observerpb.GetFlowsResponse) error {
 
 		// this is a little crude, but will do for now. should probably find the
 		// longest header and auto-format the keys
-		w.print("  TIMESTAMP: ", "", newline)
+		w.print("  TIMESTAMP: ", fmtTimestamp(p.opts.timeFormat, res.GetTime()), newline)
 		if p.opts.nodeName {
 			w.print("       NODE: ", "", newline)
+		}
+		summary := fmt.Sprintf("CPU(%d) - %d", cpu.GetValue(), numEventsLost)
+		if first != nil && last != nil {
+			summary += fmt.Sprintf(" (first: %s, last: %s)", fmtTimestamp(p.opts.timeFormat, first), fmtTimestamp(p.opts.timeFormat, last))
 		}
 		w.print(
 			"     SOURCE: ", src, newline,
 			"       TYPE: ", "EVENTS LOST", newline,
 			"    VERDICT: ", "", newline,
-			"    SUMMARY: ", fmt.Sprintf("CPU(%d) - %d", cpu.GetValue(), numEventsLost), newline,
+			"    SUMMARY: ", summary, newline,
 		)
 		if w.err != nil {
 			return fmt.Errorf("failed to write out packet: %w", w.err)
@@ -1001,11 +1011,16 @@ func (p *Printer) WriteLostEvent(res *observerpb.GetFlowsResponse) error {
 		src := f.GetSource()
 		numEventsLost := f.GetNumEventsLost()
 		cpu := f.GetCpu()
+		first, last := f.GetFirst(), f.GetLast()
 
-		w.printf("EVENTS LOST: %s CPU(%d) %d\n",
+		summary := fmt.Sprintf("CPU(%d) %d", cpu.GetValue(), numEventsLost)
+		if first != nil && last != nil {
+			summary += fmt.Sprintf(" (first: %s, last: %s)", fmtTimestamp(p.opts.timeFormat, first), fmtTimestamp(p.opts.timeFormat, last))
+		}
+		w.printf("%s EVENTS LOST: %s %s\n",
+			fmtTimestamp(p.opts.timeFormat, res.GetTime()),
 			src,
-			cpu.GetValue(),
-			numEventsLost,
+			summary,
 		)
 		if w.err != nil {
 			return fmt.Errorf("failed to write out packet: %w", w.err)

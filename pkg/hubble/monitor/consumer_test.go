@@ -37,7 +37,8 @@ func TestHubbleConsumer(t *testing.T) {
 		events: make(chan *observerTypes.MonitorEvent, 1),
 		logger: hivetest.Logger(t),
 	}
-	consumer := NewConsumer(observer)
+	lostSendInterval := 100 * time.Millisecond
+	consumer := NewConsumer(observer, lostSendInterval)
 	data := []byte{0, 1, 2, 3, 4}
 	cpu := 5
 
@@ -84,14 +85,27 @@ func TestHubbleConsumer(t *testing.T) {
 	assert.Equal(t, expected.Payload, received.Payload)
 	assert.NotEqual(t, uuid.UUID{}, received.UUID)
 
-	// The first notification will get through, the other two will be dropped
+	// The first notification will get through, the others two will be dropped
 	consumer.NotifyAgentEvent(1, nil)
 	consumer.NotifyPerfEventLost(0, 0) // dropped
 	consumer.NotifyPerfEvent(nil, 0)   // dropped
+
+	time.Sleep(lostSendInterval * 2) // Wait for lost event counter interval to elapse
+
+	// try to send other events, which will also be dropped
+	// consumer should also try to send lost events but would not succeed
+	consumer.NotifyPerfEventLost(0, 0) // dropped
+	consumer.NotifyPerfEvent(nil, 0)   // dropped
+
+	// receive the lost event notification which is always
+	// sent before the next event, and validate we receive
+	// the count of lost events before and after the counter
+	// interval elapsed.
 	expected = &observerTypes.MonitorEvent{
 		NodeName: nodeTypes.GetName(),
-		Payload: &observerTypes.AgentEvent{
-			Type: 1,
+		Payload: &observerTypes.LostEvent{
+			Source:        observerTypes.LostEventSourceEventsQueue,
+			NumLostEvents: 4,
 		},
 	}
 	received = <-observer.GetEventsChannel()
@@ -99,15 +113,11 @@ func TestHubbleConsumer(t *testing.T) {
 	assert.Equal(t, expected.Payload, received.Payload)
 	assert.NotEqual(t, uuid.UUID{}, received.UUID)
 
-	// Now that the channel has one slot again, send another message
-	// (which will be dropped) to get a lost event notifications
-	consumer.NotifyAgentEvent(0, nil) // dropped
-
+	// then receive the event before the drops happened
 	expected = &observerTypes.MonitorEvent{
 		NodeName: nodeTypes.GetName(),
-		Payload: &observerTypes.LostEvent{
-			Source:        observerTypes.LostEventSourceEventsQueue,
-			NumLostEvents: 2,
+		Payload: &observerTypes.AgentEvent{
+			Type: 1,
 		},
 	}
 	received = <-observer.GetEventsChannel()
@@ -140,7 +150,7 @@ func BenchmarkHubbleConsumerSendEvent(b *testing.B) {
 		}
 
 		var (
-			cnsm = NewConsumer(observer)
+			cnsm = NewConsumer(observer, 1*time.Second)
 			data = []byte{0, 1, 2, 3, 4}
 			cpu  = 5
 		)
