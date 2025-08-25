@@ -3410,6 +3410,15 @@ clustermesh:
       extraVolumeMounts: []
       # -- Affinity for coredns-mcsapi-autoconfig
       affinity: {}
+  namespaceExportControl:
+    # -- Enable namespace-based export control for ClusterMesh according to CFP-39876.
+    # When enabled, only namespaces annotated with 'clustermesh.cilium.io/global=true' 
+    # participate in multi-cluster communication.
+    enabled: true
+    # -- Default behavior for namespaces when namespace-based filtering is active.
+    # When true, namespaces are global by default unless annotated with 'clustermesh.cilium.io/global=false'.
+    # When false, namespaces are local by default unless annotated with 'clustermesh.cilium.io/global=true'.
+    defaultGlobalNamespace: false
   apiserver:
     # -- Clustermesh API server image.
     image:

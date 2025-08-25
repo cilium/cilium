@@ -79,6 +79,29 @@ func doesServiceSyncEndpointSlice(svc *slim_corev1.Service) bool {
 	return strings.ToLower(value) == "true"
 }
 
+func doesServiceSyncEndpointSliceWithNamespaceFilter(svc *slim_corev1.Service, namespaceWatcher clustermesh.GlobalNamespaceTracker) bool {
+	// First check if service has the global annotation
+	value, ok := annotation.Get(svc, annotation.GlobalService)
+	if !ok || strings.ToLower(value) != "true" {
+		return false
+	}
+
+	// If namespace filtering is active, also check if service is in a global namespace
+	if namespaceWatcher != nil && namespaceWatcher.IsFilteringActive() {
+		if !namespaceWatcher.IsGlobalNamespace(svc.Namespace) {
+			// Service is marked as global but not in a global namespace
+			return false
+		}
+	}
+
+	value, ok = annotation.Get(svc, annotation.GlobalServiceSyncEndpointSlices)
+	if !ok {
+		// If the service is headless we sync the EndpointSlice by default
+		return svc.Spec.ClusterIP == v1.ClusterIPNone
+	}
+	return strings.ToLower(value) == "true"
+}
+
 func (i *meshServiceInformer) refreshAllCluster(svc *slim_corev1.Service) {
 	if i.handler == nil {
 		// We don't really need to return an error here as this means that the EndpointSlice controller
@@ -162,8 +185,8 @@ func (i *meshServiceInformer) clusterSvcToSvc(clusterSvc *store.ClusterService, 
 		return nil, newNotFoundError(fmt.Sprintf("service '%s' not found", clusterSvc.NamespaceServiceName()))
 	}
 
-	if !force && !doesServiceSyncEndpointSlice(svc) {
-		return nil, newNotFoundError(fmt.Sprintf("service '%s' does not have sync endpoint slice annotation", clusterSvc.NamespaceServiceName()))
+	if !force && !doesServiceSyncEndpointSliceWithNamespaceFilter(svc, i.namespaceWatcher) {
+		return nil, newNotFoundError(fmt.Sprintf("service '%s' does not have sync endpoint slice annotation or is not in a global namespace", clusterSvc.NamespaceServiceName()))
 	}
 
 	labels := maps.Clone(svc.Labels)

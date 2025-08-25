@@ -253,6 +253,22 @@ jobs:
             policy-default-local-cluster: true
             multipool-ipam: 'disabled'
 
+          - name: '11'
+            tunnel: 'disabled'
+            ipFamily: 'ipv4'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            mode: 'kvstoremesh'
+            tls-auto-method: helm
+            cm-auth-mode-1: 'legacy'
+            cm-auth-mode-2: 'legacy'
+            maxConnectedClusters: '255'
+            ciliumEndpointSlice: 'enabled'
+            policy-default-local-cluster: true
+            multipool-ipam: 'disabled'
+            global-namespace-default: 'false'
+            test-global-namespaces: 'true'
+
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -308,6 +324,12 @@ jobs:
             --helm-set=extraConfig.clustermesh-sync-timeout=5m \
             --helm-set=extraConfig.lb-init-wait-timeout=4m \
             "
+
+          # Add global namespace configuration if specified
+          if [ "${{ matrix.global-namespace-default }}" != "" ]; then
+            CILIUM_INSTALL_DEFAULTS="$CILIUM_INSTALL_DEFAULTS \
+              --helm-set=clustermesh.defaultGlobalNamespace=${{ matrix.global-namespace-default }}"
+          fi
 
           CILIUM_INSTALL_TUNNEL=" \
             --helm-set=tunnelProtocol=${{ matrix.tunnel }} \
@@ -385,6 +407,12 @@ jobs:
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
             --multi-cluster=${{ env.contextName2 }} \
             --sysdump-output-filename 'cilium-sysdump-${{ matrix.name }}-<ts>'"
+
+          # Add global namespace annotations for clustermesh testing
+          if [ "${{ matrix.test-global-namespaces }}" == "true" ]; then
+            CONNECTIVITY_TEST_DEFAULTS="$CONNECTIVITY_TEST_DEFAULTS \
+              --namespace-annotations=clustermesh.cilium.io/global=true"
+          fi
 
           if [ "${{ matrix.multipool-ipam }}" != "disabled" ]; then
             CONNECTIVITY_TEST_DEFAULTS="$CONNECTIVITY_TEST_DEFAULTS \

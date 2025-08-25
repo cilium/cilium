@@ -34,7 +34,8 @@ import (
 )
 
 const (
-	conditionTypeReady = "Ready"
+	conditionTypeReady              = "Ready"
+	conditionTypeNamespaceNotGlobal = "NamespaceNotGlobal"
 )
 
 // mcsAPIServiceImportReconciler is a controller that automatically creates
@@ -405,9 +406,60 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 			}) {
 				meta.RemoveStatusCondition(&svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportConflict)
 				meta.RemoveStatusCondition(&svcExport.Status.Conditions, conditionTypeReady)
+				meta.RemoveStatusCondition(&svcExport.Status.Conditions, conditionTypeNamespaceNotGlobal)
 				if err := r.Client.Status().Update(ctx, svcExport); err != nil {
 					return controllerruntime.Fail(err)
 				}
+			}
+			return controllerruntime.Success()
+		}
+
+		// Check if service has the global annotation per CFP-39876
+		// For MCS API, a service must be annotated as global to be exportable
+		if value, ok := localSvc.Annotations["service.cilium.io/global"]; !ok || strings.ToLower(value) != "true" {
+			if meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
+				Type:    mcsapiv1alpha1.ServiceExportValid,
+				Status:  metav1.ConditionFalse,
+				Reason:  "ServiceNotGlobal",
+				Message: "Service must be annotated with service.cilium.io/global: \"true\" to be exportable",
+			}) {
+				meta.RemoveStatusCondition(&svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportConflict)
+				meta.RemoveStatusCondition(&svcExport.Status.Conditions, conditionTypeReady)
+				meta.RemoveStatusCondition(&svcExport.Status.Conditions, conditionTypeNamespaceNotGlobal)
+				if err := r.Client.Status().Update(ctx, svcExport); err != nil {
+					return controllerruntime.Fail(err)
+				}
+			}
+			// Don't proceed with creating ServiceImport for non-global services
+			if svcImportExists {
+				return controllerruntime.Fail(r.Client.Delete(ctx, svcImport))
+			}
+			return controllerruntime.Success()
+		}
+
+		// Check if namespace is global when namespace filtering is active
+		if r.namespaceTracker != nil && r.namespaceTracker.IsFilteringActive() && !r.namespaceTracker.IsGlobalNamespace(req.Namespace) {
+			if meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
+				Type:    conditionTypeNamespaceNotGlobal,
+				Status:  metav1.ConditionTrue,
+				Reason:  "NamespaceNotGlobal",
+				Message: "Namespace is not marked for global export",
+			}) {
+				meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
+					Type:    mcsapiv1alpha1.ServiceExportValid,
+					Status:  metav1.ConditionFalse,
+					Reason:  "NamespaceNotGlobal",
+					Message: "Service cannot be exported because namespace is not global",
+				})
+				meta.RemoveStatusCondition(&svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportConflict)
+				meta.RemoveStatusCondition(&svcExport.Status.Conditions, conditionTypeReady)
+				if err := r.Client.Status().Update(ctx, svcExport); err != nil {
+					return controllerruntime.Fail(err)
+				}
+			}
+			// Don't proceed with creating ServiceImport for non-global namespaces
+			if svcImportExists {
+				return controllerruntime.Fail(r.Client.Delete(ctx, svcImport))
 			}
 			return controllerruntime.Success()
 		}
@@ -423,6 +475,9 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 			Reason:  mcsapiv1alpha1.ServiceExportValid,
 			Message: "Service is Valid for export",
 		})
+
+		// Remove NamespaceNotGlobal condition since we're in a global namespace
+		changedCondition = meta.RemoveStatusCondition(&svcExport.Status.Conditions, conditionTypeNamespaceNotGlobal) || changedCondition
 
 		if conflictMsg == "" {
 			conflictMsg = checkConflictExport(orderedSvcExports)
@@ -466,6 +521,16 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 		annotations[mcsapicontrollers.DerivedServiceAnnotation] = svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
 	}
 	svcImport.Annotations = annotations
+
+	// Check if the current namespace is global when namespace filtering is active
+	// If not, don't create the ServiceImport as services in non-global namespaces cannot import remote services
+	if r.namespaceTracker != nil && r.namespaceTracker.IsFilteringActive() && !r.namespaceTracker.IsGlobalNamespace(req.Namespace) {
+		// Delete ServiceImport if it exists in a non-global namespace
+		if svcImportExists {
+			return controllerruntime.Fail(r.Client.Delete(ctx, svcImport))
+		}
+		return controllerruntime.Success()
+	}
 
 	svcImport, err = r.createOrUpdateServiceImport(ctx, svcImport)
 	if err != nil {
