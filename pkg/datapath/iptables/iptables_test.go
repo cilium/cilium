@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -861,4 +862,40 @@ func TestTunnelNoTrackRulesTunnelingDisabled(t *testing.T) {
 	if err := mockIp6tables.checkExpectations(); err != nil {
 		t.Error(err)
 	}
+}
+
+func TestNoTrackHostPorts(t *testing.T) {
+	mockIptables := &mockIptables{t: t, prog: "iptables"}
+	ports := []lb.L4Addr{
+		lb.NewL4Addr(lb.TCP, 80),
+		lb.NewL4Addr(lb.TCP, 443),
+		lb.NewL4Addr(lb.UDP, 161),
+	}
+
+	byProto := groupL4AddrsByProto(ports)
+	assert.NotEmpty(t, byProto)
+	assert.Len(t, byProto[lb.UDP], 1)
+	assert.Len(t, byProto[lb.TCP], 2)
+
+	mockIptables.expectations = []expectation{
+		{
+			args: "-t raw -A CILIUM_PRE_raw -p tcp --match multiport --dports 80,443 -m comment --comment cilium no-track-host-ports -j CT --notrack",
+		},
+		{
+			args: "-t raw -A CILIUM_OUTPUT_raw -p tcp --match multiport --sports 80,443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack",
+		},
+	}
+
+	assert.NoError(t, mockManager.hostNoTrackMultiPorts(mockIptables, "-A", lb.TCP, byProto[lb.TCP]))
+
+	mockIptables.expectations = append(mockIptables.expectations, []expectation{
+		{
+			args: "-t raw -A CILIUM_PRE_raw -p udp --match multiport --dports 161 -m comment --comment cilium no-track-host-ports -j CT --notrack",
+		},
+		{
+			args: "-t raw -A CILIUM_OUTPUT_raw -p udp --match multiport --sports 161 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack",
+		},
+	}...)
+
+	assert.NoError(t, mockManager.hostNoTrackMultiPorts(mockIptables, "-A", lb.UDP, byProto[lb.UDP]))
 }
