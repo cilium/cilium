@@ -195,6 +195,7 @@ spec:
         {{- end }}
         - --cluster-name=$(CLUSTER_NAME)
         - --cluster-id=$(CLUSTER_ID)
+        - --clustermesh-default-global-namespace=$(CLUSTERMESH_DEFAULT_GLOBAL_NAMESPACE)
         - --kvstore-opt=etcd.config=/var/lib/cilium/etcd-config.yaml
         - --kvstore-opt=etcd.qps=20
         - --kvstore-opt=etcd.bootstrapQps=10000
@@ -334,6 +335,12 @@ spec:
             configMapKeyRef:
               name: cilium-config
               key: cluster-id
+        - name: CLUSTERMESH_DEFAULT_GLOBAL_NAMESPACE
+          valueFrom:
+            configMapKeyRef:
+              name: cilium-config
+              key: clustermesh-default-global-namespace
+              optional: true
         {{- with .Values.clustermesh.apiserver.kvstoremesh.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
