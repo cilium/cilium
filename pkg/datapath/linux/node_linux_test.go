@@ -761,10 +761,10 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 	err = linuxNodeHandler.NodeAdd(node)
 	require.NoError(t, err)
 
-	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	states, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.NotEmpty(t, states)
-	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	policies, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.NotEqual(t, 0, countXFRMPolicies(policies))
 
@@ -772,10 +772,10 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 	err = linuxNodeHandler.NodeDelete(node)
 	require.NoError(t, err)
 
-	states, err = netlink.XfrmStateList(netlink.FAMILY_ALL)
+	states, err = safenetlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.Empty(t, states)
-	policies, err = netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	policies, err = safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.Equal(t, 0, countXFRMPolicies(policies))
 }
@@ -1174,7 +1174,7 @@ func lookupIPSecInRoutes(t *testing.T, family int, extDev string, prefixes []*ci
 }
 
 func lookupIPSecXFRMPoliciesOut(t *testing.T, family int, prefixes []*cidr.CIDR) {
-	policies, err := netlink.XfrmPolicyList(family)
+	policies, err := safenetlink.XfrmPolicyList(family)
 	require.NoError(t, err)
 
 	var zero *cidr.CIDR
