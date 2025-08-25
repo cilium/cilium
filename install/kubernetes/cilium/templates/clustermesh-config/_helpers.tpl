@@ -47,16 +47,17 @@ cert-file: /var/lib/cilium/clustermesh/{{ $prefix }}etcd-client.crt
 {{- define "clustermesh-clusters" }}
 {{- $clusters := dict }}
 {{- if kindIs "map" .Values.clustermesh.config.clusters }}
-  {{- range $name, $cluster := .Values.clustermesh.config.clusters }}
-    {{- if $cluster.enabled | default true }}
+  {{- range $name, $cluster := deepCopy .Values.clustermesh.config.clusters }}
+    {{- if ne $cluster.enabled false }}
       {{- $_ := unset $cluster "enabled" }}
       {{- $_ = set $cluster "name" $name }}
       {{- $_ = set $clusters $name $cluster }}
     {{- end }}
   {{- end }}
 {{- else if kindIs "slice" .Values.clustermesh.config.clusters }}
-  {{- range $cluster := .Values.clustermesh.config.clusters }}
-    {{- if $cluster.enabled | default true }}
+  {{- range $cluster := deepCopy .Values.clustermesh.config.clusters }}
+    {{- if ne $cluster.enabled false }}
+      {{- $_ := unset $cluster "enabled" }}
       {{- $_ := set $clusters $cluster.name $cluster }}
     {{- end }}
   {{- end }}
