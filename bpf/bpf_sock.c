@@ -1272,7 +1272,7 @@ int cil_sock_release(struct bpf_sock *ctx __maybe_unused)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_SOCKHASH);
-	__uint(max_entries, 1 << 20); /* ~1 million */
+	__uint(max_entries, 1048576); /* ~1 million */
 	__uint(map_extra, offsetof(struct ipv4_sockets_tuple, cookie)); /* Size of bucket_key */
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__type(key, struct ipv4_sockets_tuple);
@@ -1281,7 +1281,7 @@ struct {
 
 struct {
 	__uint(type, BPF_MAP_TYPE_SOCKHASH);
-	__uint(max_entries, 1 << 20); /* ~1 million */
+	__uint(max_entries, 1048576); /* ~1 million */
 	__uint(map_extra, offsetof(struct ipv6_sockets_tuple, cookie)); /* Size of bucket_key */
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__type(key, struct ipv6_sockets_tuple);
@@ -1302,7 +1302,7 @@ int cil_sock_insert(struct bpf_sock_ops *ctx __maybe_unused)
 		if (ctx->family == AF_INET) {
 			map = &cil_sockets_v4;
 			key_v4.address.be32 = ctx->remote_ip4;
-			key_v4.port = ctx->remote_port;
+			key_v4.port = bpf_ntohl(ctx->remote_port);
 			key_v4.cookie = cookie;
 			key = &key_v4;
 		} else if (ctx->family == AF_INET6) {
@@ -1311,7 +1311,7 @@ int cil_sock_insert(struct bpf_sock_ops *ctx __maybe_unused)
 			key_v6.address.p2 = ctx->remote_ip6[1];
 			key_v6.address.p3 = ctx->remote_ip6[2];
 			key_v6.address.p4 = ctx->remote_ip6[3];
-			key_v6.port = ctx->remote_port;
+			key_v6.port = bpf_ntohl(ctx->remote_port);
 			key_v6.cookie = cookie;
 			key = &key_v6;
 		} else {

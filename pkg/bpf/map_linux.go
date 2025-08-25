@@ -6,7 +6,6 @@
 package bpf
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -278,7 +277,7 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 
 // NewMapWithExtra creates a new Map instance - object representing a BPF map
 func NewMapWithExtra(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
-	maxEntries int, flags uint32, extra []byte) *Map {
+	maxEntries int, flags uint32, extra uint64) *Map {
 
 	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 	defaultSlogLogger := logging.DefaultSlogLogger
@@ -297,7 +296,7 @@ func NewMapWithExtra(name string, mapType ebpf.MapType, mapKey MapKey, mapValue 
 			ValueSize:  uint32(valueSize),
 			MaxEntries: uint32(maxEntries),
 			Flags:      flags,
-			Extra:      bytes.NewReader(extra),
+			MapExtra:   extra,
 		},
 		name:  path.Base(name),
 		key:   mapKey,

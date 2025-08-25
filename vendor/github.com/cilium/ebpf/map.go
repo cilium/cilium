@@ -58,6 +58,7 @@ type MapSpec struct {
 	KeySize    uint32
 	ValueSize  uint32
 	MaxEntries uint32
+	MapExtra   uint64
 
 	// Flags is passed to the kernel and specifies additional map
 	// creation attributes.
@@ -532,6 +533,7 @@ func (spec *MapSpec) createMap(inner *sys.FD) (_ *Map, err error) {
 		KeySize:    spec.KeySize,
 		ValueSize:  spec.ValueSize,
 		MaxEntries: spec.MaxEntries,
+		MapExtra:   spec.MapExtra,
 		MapFlags:   spec.Flags,
 		NumaNode:   spec.NumaNode,
 	}

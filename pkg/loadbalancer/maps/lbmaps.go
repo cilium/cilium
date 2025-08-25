@@ -4,7 +4,6 @@
 package maps
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -300,32 +299,26 @@ func NewSockRevNat6Map(maxEntries int) *bpf.Map {
 }
 
 func NewSock4Map(maxEntries int) *bpf.Map {
-	var mapExtra [4]byte
-	binary.NativeEndian.PutUint32(mapExtra[:], uint32(SizeofSock4KeyPrefix))
-
 	return bpf.NewMapWithExtra(
 		Sock4MapName,
 		ebpf.SockHash,
 		&Sock4Key{},
-		Sock4Value(0),
+		&SockValue{},
 		maxEntries,
 		0,
-		mapExtra[:],
+		uint64(SizeofSock4KeyPrefix),
 	)
 }
 
 func NewSock6Map(maxEntries int) *bpf.Map {
-	var mapExtra [4]byte
-	binary.NativeEndian.PutUint32(mapExtra[:], uint32(SizeofSock6KeyPrefix))
-
 	return bpf.NewMapWithExtra(
-		SockRevNat6MapName,
+		Sock6MapName,
 		ebpf.SockHash,
 		&Sock6Key{},
-		Sock6Value(0),
+		&SockValue{},
 		maxEntries,
 		0,
-		mapExtra[:],
+		uint64(SizeofSock6KeyPrefix),
 	)
 }
 

@@ -1044,8 +1044,10 @@ type Sock4Key struct {
 	Cookie uint64 `align:"cookie"`
 }
 
-// Sock4Value is the socket cookie or file descriptor.
-type Sock4Value uint64
+// SockValue is the socket cookie or file descriptor.
+type SockValue struct {
+	CookieOrFd uint64
+}
 
 func NewSock4Key(cookie uint64, addr net.IP, port uint16) *Sock4Key {
 	var key Sock4Key
@@ -1064,13 +1066,11 @@ func (k *Sock4Key) String() string {
 func (k *Sock4Key) New() bpf.MapKey { return &Sock4Key{} }
 
 // String converts the value into a human readable string format.
-func (v Sock4Value) String() string {
+func (v SockValue) String() string {
 	return fmt.Sprintf("%d", v)
 }
 
-func (v Sock4Value) New() bpf.MapValue {
-	return new(Sock4Value)
-}
+func (v SockValue) New() bpf.MapValue { return &SockValue{} }
 
 // SockRevNat6Key is the tuple with address, port and cookie used as key in
 // the reverse NAT sock map.
@@ -1120,6 +1120,7 @@ func (v *SockRevNat6Value) String() string {
 type Sock6KeyPrefix struct {
 	Address types.IPv6 `align:"address"`
 	Port    int32      `align:"port"`
+	_       [4]byte
 }
 
 // Sock6Key is the tuple with address, port and cookie used as key in
@@ -1128,9 +1129,6 @@ type Sock6Key struct {
 	Sock6KeyPrefix
 	Cookie uint64 `align:"cookie"`
 }
-
-// Sock6Value is the socket cookie or file descriptor.
-type Sock6Value uint64
 
 func NewSock6Key(cookie uint64, addr net.IP, port uint16) *Sock6Key {
 	var key Sock6Key
@@ -1151,15 +1149,6 @@ func (k *Sock6Key) String() string {
 func (k *Sock6Key) New() bpf.MapKey { return &Sock6Key{} }
 
 func (v *SockRevNat6Value) New() bpf.MapValue { return &SockRevNat6Value{} }
-
-// String converts the value into a human readable string format.
-func (v Sock6Value) String() string {
-	return fmt.Sprintf("%d", v)
-}
-
-func (v Sock6Value) New() bpf.MapValue {
-	return new(Sock6Value)
-}
 
 const SizeofSock4KeyPrefix = int(unsafe.Offsetof(Sock4Key{}.Cookie))
 const SizeofSock6KeyPrefix = int(unsafe.Offsetof(Sock6Key{}.Cookie))

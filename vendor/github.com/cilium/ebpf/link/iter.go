@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/internal/sys"
+	"github.com/cilium/ebpf/internal/sysenc"
 )
 
 type IterOptions struct {
@@ -44,8 +45,14 @@ func AttachIter(opts IterOptions) (*Iter, error) {
 		info.map_fd = uint32(mapFd)
 	}
 	if opts.KeyPrefix != nil {
-		info.key_prefix = sys.UnsafePointer(unsafe.Pointer(&opts.KeyPrefix))
 		info.key_prefix_len = uint32(reflect.TypeOf(opts.KeyPrefix).Size())
+		buf, err := sysenc.Marshal(opts.KeyPrefix, int(info.key_prefix_len))
+		if err != nil {
+			return nil, fmt.Errorf("marshaling key prefix: %w", err)
+		}
+
+		info.key_prefix = buf.Pointer()
+		fmt.Printf("JORDAN: %+v\n", buf.Bytes())
 	}
 
 	attr := sys.LinkCreateIterAttr{

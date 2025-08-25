@@ -4,7 +4,6 @@ package reconciler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"iter"
 	"log/slog"
@@ -152,14 +151,7 @@ func socketTerminationLoop(p socketTerminationParams, sd sockets.SocketDestroyer
 			// Terminate the sockets connected to backends that have been either
 			// deleted or which are no longer considered viable.
 			if change.Deleted || !backend.IsAlive() {
-				opSupported := terminateConnectionsToBackend(p, sd, backend.Address)
-				if !opSupported {
-					// The kernel doesn't support socket termination. We can stop processing.
-					p.Log.Error("Forcefully terminating sockets connected to deleted service backends " +
-						"not supported by underlying kernel: see kube-proxy free guide for " +
-						"the required kernel configurations")
-					return nil
-				}
+				terminateConnectionsToBackend(p, sd, backend.Address)
 			}
 		}
 
@@ -177,9 +169,7 @@ func socketTerminationLoop(p socketTerminationParams, sd sockets.SocketDestroyer
 // terminateConnectionsToBackend closes UDP & TCP connection sockets that match
 // the destination l3/l4 tuple addr that also are tracked in the sock rev nat map
 // (including socket cookie).
-func terminateConnectionsToBackend(p socketTerminationParams, sd sockets.SocketDestroyer, l3n4Addr lb.L3n4Addr) (opSupported bool) {
-	opSupported = true
-
+func terminateConnectionsToBackend(p socketTerminationParams, sd sockets.SocketDestroyer, l3n4Addr lb.L3n4Addr) {
 	var (
 		family   uint8
 		protocol uint8
@@ -224,53 +214,23 @@ func terminateConnectionsToBackend(p socketTerminationParams, sd sockets.SocketD
 		cookie = cookie<<32 + uint64(id.Cookie[0])
 		return p.LBMaps.ExistsSockRevNat(cookie, id.Destination, id.DestinationPort)
 	}
-
-	destroy := func(nsName string, ns *netns.NetNS) error {
-		err := p.NetNSOps.do(ns, func() error {
-			return sd.Destroy(p.Log, sockets.SocketFilter{
-				Family:    family,
-				Protocol:  protocol,
-				States:    states,
-				DestIp:    ip,
-				DestPort:  l3n4Addr.Port(),
-				DestroyCB: checkSockInRevNat,
-			})
-		})
-
-		if err != nil {
-			if errors.Is(err, unix.EOPNOTSUPP) {
-				opSupported = false
-				return err
-			} else {
-				p.Log.Error(
-					"error while forcefully terminating sockets connected to "+
-						"deleted service backend. Consider restarting any application pods sending traffic "+
-						"to the backend",
-					logfields.Error, err,
-					logfields.L3n4Addr, l3n4Addr,
-					logfields.NetNSName, nsName,
-				)
-			}
-		}
-		return nil
-	}
-
-	// Terminate sockets in host namespace
-	if hostNS, err := p.NetNSOps.current(); err == nil {
-		destroy("<host>", hostNS)
-	}
-
 	// Iterate over all pod network namespaces, and terminate any stale connections.
 	if p.ExtConfig.EnableSocketLBPodConnectionTermination && !p.ExtConfig.BPFSocketLBHostnsOnly {
-		iter, errs := p.NetNSOps.all()
-		if iter != nil {
-			for name, ns := range iter {
-				destroy(name, ns)
-			}
-		}
-		for err := range errs {
-			p.Log.Debug("Error opening netns, skipping",
-				logfields.Error, err)
+		if err := sd.Destroy(p.Log, sockets.SocketFilter{
+			Family:    family,
+			Protocol:  protocol,
+			States:    states,
+			DestIp:    ip,
+			DestPort:  l3n4Addr.Port(),
+			DestroyCB: checkSockInRevNat,
+		}); err != nil {
+			p.Log.Error(
+				"error while forcefully terminating sockets connected to "+
+					"deleted service backend. Consider restarting any application pods sending traffic "+
+					"to the backend",
+				logfields.Error, err,
+				logfields.L3n4Addr, l3n4Addr,
+			)
 		}
 	}
 

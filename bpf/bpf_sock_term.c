@@ -9,6 +9,7 @@
 
 #include "bpf/compiler.h"
 #include "lib/common.h"
+#include "lib/dbg.h"
 #include "lib/sock.h"
 #include "lib/sock_term.h"
 
@@ -176,15 +177,27 @@ struct bpf_iter__sockmap {
 	void *sk;
 };
 
+# define bpf_printk(fmt, ...)					\
+		({						\
+			const char ____fmt[] = fmt;		\
+			trace_printk(____fmt, sizeof(____fmt),	\
+				     ##__VA_ARGS__);		\
+		})
+
+
+
 __section("iter/sockmap")
 int cil_sock_destroy(struct bpf_iter__sockmap *ctx)
 {
 	void *key = ctx->key;
 	void *sk = ctx->sk;
 
+	bpf_printk("cil_sock_destroy 1 %p %p\n", key, sk);
+
 	if (!key || !sk)
 		return 0;
 
+	bpf_printk("cil_sock_destroy 2\n");
 	bpf_sock_destroy((struct sock_common *)sk);
 
 	return 0;

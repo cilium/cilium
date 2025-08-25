@@ -265,13 +265,13 @@ func (sd *bpfSocketDestroyer) Destroy(logger *slog.Logger, f SocketFilter) error
 		sockMap = sd.sock4Map
 		keyPrefix = lbmaps.Sock4KeyPrefix{
 			Address: types.IPv4(f.DestIp),
-			Port:    0,
+			Port:    int32(f.DestPort),
 		}
 	} else {
 		sockMap = sd.sock6Map
 		keyPrefix = lbmaps.Sock6KeyPrefix{
 			Address: types.IPv6(f.DestIp),
-			Port:    0,
+			Port:    int32(f.DestPort),
 		}
 	}
 

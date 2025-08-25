@@ -1018,6 +1018,7 @@ struct ipv4_sockets_tuple {
 struct ipv6_sockets_tuple {
 	union v6addr address;
 	__be32 port;
+	__u32 pad;
 	__sock_cookie cookie;
 } __packed;
 
