@@ -4,12 +4,14 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // Registry holds a set of registered metric handlers
@@ -53,6 +55,11 @@ func (r *Registry) ConfigureHandlers(logger *slog.Logger, registry *prometheus.R
 	for _, metricsConfig := range enabled.Metrics {
 		h, err := r.validateAndCreateHandlerLocked(metricsConfig, &metricNames)
 		if err != nil {
+			var errM *errMetricNotExist
+			if errors.As(err, &errM) {
+				logger.Warn("Skipping unknown hubble metric", logfields.Name, errM.name)
+				continue
+			}
 			return nil, err
 		}
 		enabledHandlers = append(enabledHandlers, *h)
@@ -70,7 +77,7 @@ func (r *Registry) ValidateAndCreateHandler(metricsConfig *MetricConfig, metricN
 func (r *Registry) validateAndCreateHandlerLocked(metricsConfig *MetricConfig, metricNames *map[string]*MetricConfig) (*NamedHandler, error) {
 	plugin, ok := r.handlers[metricsConfig.Name]
 	if !ok {
-		return nil, fmt.Errorf("metric '%s' does not exist", metricsConfig.Name)
+		return nil, &errMetricNotExist{metricsConfig.Name}
 	}
 
 	if cp, ok := plugin.(PluginConflicts); ok {
@@ -88,4 +95,12 @@ func (r *Registry) validateAndCreateHandlerLocked(metricsConfig *MetricConfig, m
 	}
 
 	return &h, nil
+}
+
+type errMetricNotExist struct {
+	name string
+}
+
+func (e *errMetricNotExist) Error() string {
+	return fmt.Sprintf("metric %q does not exist", e.name)
 }
