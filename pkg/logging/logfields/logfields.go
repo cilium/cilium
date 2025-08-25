@@ -1841,4 +1841,6 @@ const (
 	ReloadKeypairError = "reloadKeypairError"
 
 	ReloadCAError = "reloadCAError"
+
+	IsGlobal = "isGlobal"
 )
