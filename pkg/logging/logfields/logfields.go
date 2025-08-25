@@ -1803,4 +1803,7 @@ const (
 	Fraction = "fraction"
 
 	Rate = "rate"
+
+	// CESFeatureEnabled indicates whether CiliumEndpointSlice feature is enabled.
+	CESFeatureEnabled = "cesEnabled"
 )
