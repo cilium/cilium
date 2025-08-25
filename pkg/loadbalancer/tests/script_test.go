@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -87,6 +88,7 @@ func TestScript(t *testing.T) {
 				maglev.Cell,
 				node.LocalNodeStoreTestCell,
 				cell.Provide(
+					func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 					func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
 					statedb.RWTable[tables.NodeAddress].ToTable,
