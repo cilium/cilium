@@ -155,7 +155,7 @@ func (m *Manager) removeController(ctrl *managedController) {
 	ctrl.logger.Debug("Removed controller")
 }
 
-func (m *Manager) lookup(name string) *managedController {
+func (m *Manager) Lookup(name string) *managedController {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	return m.lookupLocked(name)
@@ -255,7 +255,7 @@ func (m *Manager) GetStatusModel() models.ControllerStatuses {
 
 // TriggerController triggers the controller with the specified name.
 func (m *Manager) TriggerController(name string) {
-	ctrl := m.lookup(name)
+	ctrl := m.Lookup(name)
 	if ctrl == nil {
 		return
 	}
