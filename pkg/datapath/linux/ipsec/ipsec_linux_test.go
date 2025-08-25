@@ -18,6 +18,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -110,13 +111,13 @@ func TestPrivilegedAll(t *testing.T) {
 func TestPrivilegedLoadKeysNoFile(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
-	_, _, err := LoadIPSecKeysFile(log, path)
+	_, _, err := LoadIPSecKeysFile(path)
 	require.True(t, os.IsNotExist(err))
 }
 
 func testInvalidLoadKeys(t *testing.T) {
 	keys := bytes.NewReader(invalidKeysDat)
-	_, _, err := LoadIPSecKeys(log, keys)
+	_, _, err := LoadIPSecKeys(keys)
 	require.Error(t, err)
 
 	params := &IPSecParameters{
@@ -143,7 +144,7 @@ func TestPrivilegedLoadKeys(t *testing.T) {
 	testCases := [][]byte{keysDat, keysNullDat, keysAeadDat, keysAeadDat256}
 	for _, testCase := range testCases {
 		keys := bytes.NewReader(testCase)
-		_, spi, err := LoadIPSecKeys(log, keys)
+		_, spi, err := LoadIPSecKeys(keys)
 		require.NoError(t, err)
 		err = SetIPSecSPI(log, spi)
 		require.NoError(t, err)
@@ -155,7 +156,7 @@ func TestPrivilegedLoadKeysLenChange(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
 	keys := bytes.NewReader(append(keysDat, keysNullDat...))
-	_, _, err := LoadIPSecKeys(log, keys)
+	_, _, err := LoadIPSecKeys(keys)
 	require.ErrorContains(t, err, "invalid key rotation: key length must not change")
 }
 
@@ -163,7 +164,7 @@ func TestPrivilegedLoadKeysSameSPI(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
 	keys := bytes.NewReader(keysSameSpiDat)
-	_, _, err := LoadIPSecKeys(log, keys)
+	_, _, err := LoadIPSecKeys(keys)
 	require.ErrorContains(t, err, "invalid SPI: changing IPSec keys requires incrementing the key id")
 }
 
@@ -183,7 +184,7 @@ func TestPrivilegedParseSPI(t *testing.T) {
 		{"0", 0, 0, true},
 	}
 	for _, tc := range testCases {
-		spi, off, err := parseSPI(log, tc.input)
+		spi, off, err := parseSPI(tc.input)
 		if spi != tc.expSPI {
 			t.Fatalf("For input %q, expected SPI %d, but got %d", tc.input, tc.expSPI, spi)
 		}
@@ -234,7 +235,7 @@ func testUpsertIPSecEquals(t *testing.T) {
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
-	result, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	result, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.Empty(t, result)
 
@@ -258,7 +259,7 @@ func testUpsertIPSecEquals(t *testing.T) {
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
-	result, err = netlink.XfrmStateList(netlink.FAMILY_ALL)
+	result, err = safenetlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.Empty(t, result)
 }
