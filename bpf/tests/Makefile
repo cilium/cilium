@@ -31,7 +31,16 @@ TRACE_PIPE_PID := $(ROOT_DIR)/bpf/tests/output/trace_pipe.pid
 
 .PHONY: all clean run $(SCAPY_HDR_TS)
 
-TEST_OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
+ALL_TEST_OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
+
+ifeq ($(origin BPF_TEST), undefined)
+TEST_OBJECTS = $(ALL_TEST_OBJECTS)
+else
+TEST_OBJECTS=$(shell echo $(ALL_TEST_OBJECTS) | tr ' ' '\n' | grep $(BPF_TEST).o)
+ifeq ($(strip $(TEST_OBJECTS)),)
+$(error Invalid test '$(BPF_TEST).o')
+endif
+endif
 
 all: $(TEST_OBJECTS)
 
@@ -95,8 +104,8 @@ endif
 ifdef BPF_TEST_DUMP_CTX
     BPF_TEST_FLAGS += -dump-ctx
 endif
-ifdef BPF_TEST_FILE
-	BPF_TEST_FLAGS += -test $(BPF_TEST_FILE)
+ifdef BPF_TEST
+	BPF_TEST_FLAGS += -test $(BPF_TEST)
 endif
 
 run: $(TEST_OBJECTS)
