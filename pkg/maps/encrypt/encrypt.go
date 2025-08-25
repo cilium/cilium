@@ -84,15 +84,3 @@ func MapUpdateContext(ctxID uint32, keyID uint8) error {
 	}
 	return encryptMap.Update(k, v)
 }
-
-// MapUpdateContextWithMap updates the encrypt state with ctxID to use the new keyID
-// with the map as its argument.
-//
-// This is primarily used in tests.
-func MapUpdateContextWithMap(m *bpf.Map, ctxID uint32, keyID uint8) error {
-	k := newEncryptKey(ctxID)
-	v := &EncryptValue{
-		encryptKeyID: keyID,
-	}
-	return m.Update(k, v)
-}
