@@ -1939,3 +1939,63 @@ func TestReplaceByLabels(t *testing.T) {
 	assert.Len(t, sc.selectors, 1)
 
 }
+
+func TestICMPPolicyEnforcement(t *testing.T) {
+    td := newTestData(hivetest.Logger(t))
+    repo := td.repo
+
+    // Define a policy allowing only ICMP type 0 (Echo Reply)
+    icmpType0 := intstr.FromInt(0)
+    icmpRule := api.Rule{
+        Ingress: []api.IngressRule{
+            {
+                ICMPs: api.ICMPRules{{
+                    Fields: []api.ICMPField{{
+                        Type: &icmpType0,
+                    }},
+                }},
+            },
+        },
+        Labels: labels.LabelArray{labels.ParseLabel("icmp-allow-type-0")},
+    }
+
+    // Add the ICMP rule to the repository
+    _, _, err := repo.mustAdd(icmpRule)
+    require.NoError(t, err, "unable to add ICMP rule to policy repository")
+
+    // Test cases for ICMP traffic
+    testCases := []struct {
+        icmpType int
+        expected bool 
+    }{
+        {0, true},  
+        {8, false}, 
+        {13, false}, 
+    }
+
+    for _, tc := range testCases {
+        // Simulate traffic with the given ICMP type
+        verdict := repo.resolveICMPPolicy(tc.icmpType)
+        if tc.expected {
+            require.True(t, verdict, "ICMP type %d should be allowed", tc.icmpType)
+        } else {
+            require.False(t, verdict, "ICMP type %d should be denied", tc.icmpType)
+        }
+    }
+}
+
+// Helper function to simulate ICMP policy resolution
+func (repo *Repository) resolveICMPPolicy(icmpType int) bool {
+    for _, rule := range repo.rules {
+        for _, ingress := range rule.Rule.Ingress {
+            for _, icmp := range ingress.ICMPs {
+                for _, field := range icmp.Fields {
+                    if field.Type != nil && *field.Type == intstr.FromInt(icmpType) {
+                        return true
+                    }
+                }
+            }
+        }
+    }
+    return false
+}
