@@ -10290,6 +10290,7 @@ const (
 	VolumeStatusInfoStatusOk               VolumeStatusInfoStatus = "ok"
 	VolumeStatusInfoStatusImpaired         VolumeStatusInfoStatus = "impaired"
 	VolumeStatusInfoStatusInsufficientData VolumeStatusInfoStatus = "insufficient-data"
+	VolumeStatusInfoStatusWarning          VolumeStatusInfoStatus = "warning"
 )
 
 // Values returns all known values for VolumeStatusInfoStatus. Note that this can
@@ -10301,6 +10302,7 @@ func (VolumeStatusInfoStatus) Values() []VolumeStatusInfoStatus {
 		"ok",
 		"impaired",
 		"insufficient-data",
+		"warning",
 	}
 }
 
