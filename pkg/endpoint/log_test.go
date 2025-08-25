@@ -26,11 +26,14 @@ import (
 func TestPolicyLog(t *testing.T) {
 	setupEndpointSuite(t)
 	logger := hivetest.Logger(t)
+	logPath := filepath.Join(option.Config.StateDir, "endpoint-policy.log")
+	f, err := os.Create(logPath)
+	require.NoError(t, err)
 
 	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
 
 	model := newTestEndpointModel(12345, StateReady)
-	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, f)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -48,7 +51,7 @@ func TestPolicyLog(t *testing.T) {
 	require.NotNil(t, policyLogger)
 	defer func() {
 		// remote created log file when we are done.
-		err := os.Remove(filepath.Join(option.Config.StateDir, "endpoint-policy.log"))
+		err := os.Remove(logPath)
 		require.NoError(t, err)
 	}()
 
@@ -67,7 +70,7 @@ func TestPolicyLog(t *testing.T) {
 	require.Nil(t, policyLogger)
 
 	// Verify file exists and contains the logged message
-	buf, err := os.ReadFile(filepath.Join(option.Config.StateDir, "endpoint-policy.log"))
+	buf, err := os.ReadFile(logPath)
 	require.NoError(t, err)
 	require.True(t, bytes.Contains(buf, []byte("testing policy logging")))
 	require.True(t, bytes.Contains(buf, []byte("testing PolicyDebug")))

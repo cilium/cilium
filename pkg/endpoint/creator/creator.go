@@ -6,8 +6,13 @@ package creator
 import (
 	"context"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strconv"
+	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/lumberjack/v2"
 
 	"github.com/cilium/cilium/api/v1/models"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -21,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/time"
@@ -66,6 +72,7 @@ type endpointCreator struct {
 	kvstoreSyncher *ipcache.IPIdentitySynchronizer
 	wgConfig       wgTypes.WireguardConfig
 	ipsecConfig    datapath.IPsecConfig
+	policyLogger   func() *lumberjack.Logger
 }
 
 var _ EndpointCreator = &endpointCreator{}
@@ -117,6 +124,30 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 		kvstoreSyncher:   p.KVStoreSynchronizer,
 		wgConfig:         p.WgConfig,
 		ipsecConfig:      p.IPSecConfig,
+		policyLogger:     sync.OnceValue(policyDebugLogger),
+	}
+}
+
+func policyDebugLogger() *lumberjack.Logger {
+	maxSize := 10 // 10 MB
+	if ms := os.Getenv("CILIUM_DBG_POLICY_LOG_MAX_SIZE"); ms != "" {
+		if ms, err := strconv.Atoi(ms); err == nil {
+			maxSize = ms
+		}
+	}
+	maxBackups := 3
+	if mb := os.Getenv("CILIUM_DBG_POLICY_LOG_MAX_BACKUPS"); mb != "" {
+		if mb, err := strconv.Atoi(mb); err == nil {
+			maxBackups = mb
+		}
+	}
+	return &lumberjack.Logger{
+		Filename:   filepath.Join(option.Config.StateDir, "endpoint-policy.log"),
+		MaxSize:    maxSize,
+		MaxBackups: maxBackups,
+		MaxAge:     28, // days
+		LocalTime:  true,
+		Compress:   true,
 	}
 }
 
@@ -143,6 +174,7 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 		base,
 		c.wgConfig,
 		c.ipsecConfig,
+		c.policyLogger(),
 	)
 }
 
@@ -192,6 +224,7 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 		c.kvstoreSyncher,
 		c.wgConfig,
 		c.ipsecConfig,
+		c.policyLogger(),
 	)
 	if err != nil {
 		return err
@@ -227,6 +260,7 @@ func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 		c.kvstoreSyncher,
 		c.wgConfig,
 		c.ipsecConfig,
+		c.policyLogger(),
 	)
 	if err != nil {
 		return err

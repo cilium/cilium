@@ -39,7 +39,7 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 			"k8s:name=probe",
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
 	require.NoError(t, err)
 
 	status := e.GetCiliumEndpointStatus()
@@ -83,7 +83,7 @@ func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
 			"k8s:name=probe",
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
 	require.NoError(t, err)
 
 	// Create a mock pod with ServiceAccount

@@ -6,11 +6,6 @@ package endpoint
 import (
 	"context"
 	"log/slog"
-	"os"
-	"path/filepath"
-	"strconv"
-
-	"github.com/cilium/lumberjack/v2"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -143,27 +138,7 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]any) {
 	policyLogger := e.policyLogger.Load()
 	// e.Options check needed for unit testing.
 	if policyLogger == nil && e.Options != nil && e.Options.IsEnabled(option.DebugPolicy) {
-		maxSize := 10 // 10 MB
-		if ms := os.Getenv("CILIUM_DBG_POLICY_LOG_MAX_SIZE"); ms != "" {
-			if ms, err := strconv.Atoi(ms); err == nil {
-				maxSize = ms
-			}
-		}
-		maxBackups := 3
-		if mb := os.Getenv("CILIUM_DBG_POLICY_LOG_MAX_BACKUPS"); mb != "" {
-			if mb, err := strconv.Atoi(mb); err == nil {
-				maxBackups = mb
-			}
-		}
-		lumberjackLogger := &lumberjack.Logger{
-			Filename:   filepath.Join(option.Config.StateDir, "endpoint-policy.log"),
-			MaxSize:    maxSize,
-			MaxBackups: maxBackups,
-			MaxAge:     28, // days
-			LocalTime:  true,
-			Compress:   true,
-		}
-		baseLogger := slog.New(slog.NewTextHandler(lumberjackLogger, &slog.HandlerOptions{
+		baseLogger := slog.New(slog.NewTextHandler(e.policyDebugLog, &slog.HandlerOptions{
 			Level:       slog.LevelDebug,
 			ReplaceAttr: logging.ReplaceAttrFn,
 		}))
