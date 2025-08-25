@@ -24,12 +24,14 @@ import (
 	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipPkg "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -59,6 +61,7 @@ const (
 	ModifyNetworkInterface          = "ModifyNetworkInterface"
 	ModifyNetworkInterfaceAttribute = "ModifyNetworkInterfaceAttribute"
 	UnassignPrivateIpAddresses      = "UnassignPrivateIpAddresses"
+	MaxAttempts                     = 5
 )
 
 var syslogAttr = []any{logfields.LogSubsys, "ec2"}
@@ -804,9 +807,18 @@ func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, add
 		return nil, err
 	}
 	assignedIPs := make([]string, addresses)
+	assignedIPsMap := make(map[string]struct{}, len(assignedIPs))
 	for i, ip := range output.AssignedPrivateIpAddresses {
 		assignedIPs[i] = aws.ToString(ip.PrivateIpAddress)
+		assignedIPsMap[aws.ToString(ip.PrivateIpAddress)] = struct{}{}
 	}
+	c.waitForENIAddressState(
+		ctx,
+		eniID,
+		assignedIPsMap,
+		isSubset,
+		"Can't verify with AWS after adding the IPs to ENI",
+	)
 	return assignedIPs, nil
 }
 
@@ -821,7 +833,19 @@ func (c *Client) UnassignPrivateIpAddresses(ctx context.Context, eniID string, a
 	sinceStart := spanstat.Start()
 	_, err := c.ec2Client.UnassignPrivateIpAddresses(ctx, input)
 	c.metricsAPI.ObserveAPICall(UnassignPrivateIpAddresses, deriveStatus(err), sinceStart.Seconds())
-	return err
+	if err != nil {
+		return err
+	}
+	addToRemoveMap := listToMap(addresses)
+
+	c.waitForENIAddressState(
+		ctx,
+		eniID,
+		addToRemoveMap,
+		isDisjoint,
+		"Can't verify with AWS after removing the IPs from ENI",
+	)
+	return nil
 }
 
 func (c *Client) AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error {
@@ -982,4 +1006,93 @@ func (c *Client) GetInstanceTypes(ctx context.Context) ([]ec2_types.InstanceType
 		result = append(result, output.InstanceTypes...)
 	}
 	return result, nil
+}
+
+// waitForENIAddressState waits for the IP addresses on an ENI to reach a desired state.
+// It uses an exponential backoff retry mechanism.
+func (c *Client) waitForENIAddressState(
+	ctx context.Context,
+	eniID string,
+	ipsToCheck map[string]struct{},
+	checkFunc func(subset, superset map[string]struct{}) bool,
+	timeoutMsg string,
+) {
+	bo := &backoff.Exponential{
+		Min: 1 * time.Second,
+		Max: 5 * time.Second,
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			c.logger.Warn("Context canceled while waiting for ENI state",
+				logfields.Error, ctx.Err())
+			return
+		default:
+			if bo.Attempt() > MaxAttempts {
+				c.logger.Warn("Timed out while waiting for ENI state",
+					logfields.Message, timeoutMsg,
+					logfields.ENI, eniID)
+				return
+			}
+
+			ipsOnENIMap, err := c.getIpsOnENI(ctx, eniID)
+			if err != nil {
+				// Log the error and retry
+				c.logger.Warn("Failed to get IPs on ENI, will retry",
+					logfields.Message, err,
+					logfields.ENI, eniID)
+				bo.Wait(ctx)
+				continue
+			}
+
+			if checkFunc(ipsToCheck, ipsOnENIMap) {
+				return // Success
+			}
+			bo.Wait(ctx)
+		}
+	}
+}
+func (c *Client) getIpsOnENI(ctx context.Context, eniID string) (map[string]struct{}, error) {
+	readInput := &ec2.DescribeNetworkInterfacesInput{
+		NetworkInterfaceIds: []string{eniID},
+	}
+	readOutput, err := c.ec2Client.DescribeNetworkInterfaces(ctx, readInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe network interface %s: %w", eniID, err)
+	}
+	if len(readOutput.NetworkInterfaces) != 1 {
+		return nil, fmt.Errorf("expected 1 network interface for ENI ID %s, but got %d", eniID, len(readOutput.NetworkInterfaces))
+	}
+	privateIPs := readOutput.NetworkInterfaces[0].PrivateIpAddresses
+	ipsOnENIMap := make(map[string]struct{}, len(privateIPs))
+	for _, v := range privateIPs {
+		ipsOnENIMap[aws.ToString(v.PrivateIpAddress)] = struct{}{}
+	}
+	return ipsOnENIMap, nil
+}
+
+func isSubset(subset, superset map[string]struct{}) bool {
+	for key := range subset {
+		if _, exist := superset[key]; !exist {
+			return false
+		}
+	}
+	return true
+}
+
+func isDisjoint(subset, superset map[string]struct{}) bool {
+	for key := range subset {
+		if _, exist := superset[key]; exist {
+			return false
+		}
+	}
+	return true
+}
+
+func listToMap(list []string) map[string]struct{} {
+	result := make(map[string]struct{}, len(list))
+	for _, v := range list {
+		result[v] = struct{}{}
+	}
+	return result
 }
