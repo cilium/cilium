@@ -1,0 +1,50 @@
+{{$NIGHTHAWK_DOCKER_IMAGE := DefaultParam .CL2_NIGHTHAWK_DOCKER_IMAGE "docker.io/envoyproxy/nighthawk-dev:ee3f687f3485cf72f0c4262def369dfd89ad7ed1@sha256:b13687c0ac49025777ae8ed669b28fbf03626830d959e7452ec408d54ad8ffd1"}}
+{{$PIN_TO_LABELLED_NODES := DefaultParam .CL2_PIN_WORKLOADS_TO_LABELLED_NODES false}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/name: http-server
+    index: "{{.Index}}"
+    group: {{.group}}
+spec:
+  replicas: {{.replicas}}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: http-server
+      index: "{{.Index}}"
+      group: {{.group}}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: http-server
+        index: "{{.Index}}"
+        group: {{.group}}
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: http-server
+                index: "{{.Index}}"
+            topologyKey: kubernetes.io/hostname
+      {{ if $PIN_TO_LABELLED_NODES }}
+      nodeSelector:
+        role.scaffolding/http-perf-server: "true"
+      {{ end }}
+      containers:
+      - image: {{ $NIGHTHAWK_DOCKER_IMAGE }}
+        name: {{.Name}}
+        command: ["nighthawk_test_server"]
+        args:
+          - "-c"
+          - "/etc/nighthawk/nighthawk.yaml"
+        ports:
+        - name: http
+          containerPort: 10080
+        - name: admin
+          containerPort: 10001
+      terminationGracePeriodSeconds: 1
