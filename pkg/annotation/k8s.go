@@ -218,6 +218,9 @@ const (
 	CECInjectCiliumFilters      = CECPrefix + "/inject-cilium-filters"
 	CECIsL7LB                   = CECPrefix + "/is-l7lb"
 	CECUseOriginalSourceAddress = CECPrefix + "/use-original-source-address"
+
+	// GlobalNamespace is the annotation used to mark namespaces for global export in ClusterMesh
+	GlobalNamespace = ClusterMeshPrefix + "/global"
 )
 
 // CiliumPrefixRegex is a regex matching Cilium specific annotations.

@@ -1807,4 +1807,16 @@ const (
 	Fraction = "fraction"
 
 	Rate = "rate"
+
+	IsGlobal = "isGlobal"
+
+	HasAnnotation = "hasAnnotation"
+
+	FilteringActive = "filteringActive"
+
+	NamespacesToCleanup = "namespacesToCleanup"
+
+	NamespacesToBackfill = "namespacesToBackfill"
+
+	DeletedNamespace = "deletedNamespace"
 )
