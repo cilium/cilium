@@ -59,6 +59,14 @@ func (s *Feature) detectClusterWideComponents(ctx context.Context) ([]*models.Me
 	}
 	metrics = append(metrics, kubeProxyMetric)
 
+	// Detect openshift
+	openshiftValue := s.detectOpenShift(ctx)
+	openshiftMetric := &models.Metric{
+		Name:  "openshift_enabled",
+		Value: openshiftValue,
+	}
+	metrics = append(metrics, openshiftMetric)
+
 	return metrics, nil
 }
 
@@ -80,6 +88,21 @@ func (s *Feature) detectKubeProxy(ctx context.Context) float64 {
 		return 0
 	}
 	return 1
+}
+
+// detectOpenShift detects if it's an openshift cluster.
+// Returns 1 if openshift is detected, 0 if not detected.
+func (s *Feature) detectOpenShift(ctx context.Context) float64 {
+	apiList, err := s.client.GetServerGroups()
+	if err == nil {
+		apiGroups := apiList.Groups
+		for i := range apiGroups {
+			if apiGroups[i].Name == "route.openshift.io" {
+				return 1
+			}
+		}
+	}
+	return 0
 }
 
 // PrintFeatureStatus prints encryption status from all/specific cilium agent pods.
