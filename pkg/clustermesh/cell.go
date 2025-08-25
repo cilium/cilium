@@ -26,6 +26,9 @@ var Cell = cell.Module(
 	"clustermesh",
 	"ClusterMesh is the Cilium multicluster implementation",
 
+	// Include the namespace watcher cell
+	NamespaceWatcherCell,
+
 	cell.Provide(
 		common.DefaultRemoteClientFactory,
 		NewClusterMesh,
