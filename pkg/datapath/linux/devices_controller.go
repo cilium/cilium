@@ -476,7 +476,8 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 				r.Src, _ = netip.AddrFromSlice(u.Src)
 				r.Gw, _ = netip.AddrFromSlice(u.Gw)
 
-				if u.Type == unix.RTM_NEWROUTE {
+				switch u.Type {
+				case unix.RTM_NEWROUTE:
 					_, _, err := dc.params.RouteTable.Insert(txn, &r)
 					if err != nil {
 						dc.log.Warn("Failed to insert route",
@@ -484,7 +485,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 							logfields.Route, r,
 						)
 					}
-				} else if u.Type == unix.RTM_DELROUTE {
+				case unix.RTM_DELROUTE:
 					_, _, err := dc.params.RouteTable.Delete(txn, &r)
 					if err != nil {
 						dc.log.Warn("Failed to delete route",
@@ -515,7 +516,8 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 				}
 				n.IPAddr, _ = netip.AddrFromSlice(u.IP)
 
-				if u.Type == unix.RTM_NEWNEIGH {
+				switch u.Type {
+				case unix.RTM_NEWNEIGH:
 					_, _, err := dc.params.NeighborTable.Insert(txn, &n)
 					if err != nil {
 						dc.log.Warn("Failed to insert neighbor",
@@ -523,7 +525,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 							logfields.Neighbor, n,
 						)
 					}
-				} else if u.Type == unix.RTM_DELNEIGH {
+				case unix.RTM_DELNEIGH:
 					_, _, err := dc.params.NeighborTable.Delete(txn, &n)
 					if err != nil {
 						dc.log.Warn("Failed to delete neighbor",
