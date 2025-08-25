@@ -252,9 +252,10 @@ const (
 	TraceReason_REPLY                TraceReason = 3
 	TraceReason_RELATED              TraceReason = 4
 	// Deprecated: Marked as deprecated in flow/flow.proto.
-	TraceReason_REOPENED        TraceReason = 5
-	TraceReason_SRV6_ENCAP      TraceReason = 6
-	TraceReason_SRV6_DECAP      TraceReason = 7
+	TraceReason_REOPENED   TraceReason = 5
+	TraceReason_SRV6_ENCAP TraceReason = 6
+	TraceReason_SRV6_DECAP TraceReason = 7
+	// Deprecated: Marked as deprecated in flow/flow.proto.
 	TraceReason_ENCRYPT_OVERLAY TraceReason = 8
 )
 
@@ -5701,7 +5702,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"TO_NETWORK\x10\v\x12\x0f\n" +
 	"\vFROM_CRYPTO\x10\f\x12\r\n" +
-	"\tTO_CRYPTO\x10\r*\xa0\x01\n" +
+	"\tTO_CRYPTO\x10\r*\xa4\x01\n" +
 	"\vTraceReason\x12\x18\n" +
 	"\x14TRACE_REASON_UNKNOWN\x10\x00\x12\a\n" +
 	"\x03NEW\x10\x01\x12\x0f\n" +
@@ -5712,8 +5713,8 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"SRV6_ENCAP\x10\x06\x12\x0e\n" +
 	"\n" +
-	"SRV6_DECAP\x10\a\x12\x13\n" +
-	"\x0fENCRYPT_OVERLAY\x10\b*H\n" +
+	"SRV6_DECAP\x10\a\x12\x17\n" +
+	"\x0fENCRYPT_OVERLAY\x10\b\x1a\x02\b\x01*H\n" +
 	"\n" +
 	"L7FlowType\x12\x13\n" +
 	"\x0fUNKNOWN_L7_TYPE\x10\x00\x12\v\n" +
