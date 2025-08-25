@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 	"maps"
+	"net/netip"
 	"slices"
 	"strings"
 
@@ -200,6 +201,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 		logfields.LRPType, lrpConfigTypeString(lrp.LRPType),
 		logfields.LRPFrontends, lrp.FrontendMappings,
 		logfields.LRPLocalEndpointSelector, lrp.BackendSelector,
+		logfields.LRPPreferredIPaddresses, lrp.PreferredIPaddresses,
 		logfields.LRPBackendPorts, lrp.BackendPorts,
 		logfields.ServiceID, lrp.ServiceID,
 	)
@@ -319,7 +321,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 	// namespace (more efficient than having a separate namespace index for pods).
 	podsSameNamespace, watch := c.p.Pods.PrefixWatch(wtxn, daemonk8s.PodByName(lrpID.Namespace(), ""))
 	ws.Add(watch)
-
+	preferredIPaddresses := lrp.PreferredIPaddresses
 	var matchingPods []podInfo
 	for pod := range podsSameNamespace {
 		if len(pod.Namespace) != len(lrp.ID.Namespace()) {
@@ -327,7 +329,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 			break
 		}
 		if lrp.BackendSelector.Matches(labels.Set(pod.Labels)) {
-			matchingPods = append(matchingPods, getPodInfo(pod))
+			matchingPods = append(matchingPods, getPodInfo(pod, preferredIPaddresses))
 		}
 	}
 	c.updateRedirectBackends(wtxn, ws, lrp, matchingPods)
@@ -552,8 +554,18 @@ type podAddr struct {
 	portName string
 }
 
-func podAddrs(pod *slim_corev1.Pod) (addrs []podAddr) {
-	podIPs := k8sUtils.ValidIPs(pod.Status)
+// podAddrs builds pod addresses using either preferredIPaddresses or pod status IPs.
+// If preferredIPaddresses is provided, it uses those IPs; otherwise, it uses the pod's status IPs.
+func podAddrs(pod *slim_corev1.Pod, preferredIPaddresses []netip.Addr) (addrs []podAddr) {
+	var podIPs []string
+	if len(preferredIPaddresses) != 0 {
+		for _, ip := range preferredIPaddresses {
+			podIPs = append(podIPs, ip.String())
+		}
+	} else {
+		podIPs = k8sUtils.ValidIPs(pod.Status)
+	}
+
 	if len(podIPs) == 0 {
 		// IPs not available yet.
 		return nil
@@ -590,11 +602,13 @@ type podInfo struct {
 	labels         map[string]string
 }
 
-func getPodInfo(pod daemonk8s.LocalPod) podInfo {
+// getPodInfo creates a new podInfo with the appropriate IP address selection logic.
+// If preferredIPaddresses is provided, it uses those IPs; otherwise, it uses the pod's status IPs.
+func getPodInfo(pod daemonk8s.LocalPod, preferredIPaddresses []netip.Addr) podInfo {
 	return podInfo{
 		namespace:      pod.Namespace,
 		namespacedName: pod.Namespace + "/" + pod.Name,
-		addrs:          podAddrs(pod.Pod),
+		addrs:          podAddrs(pod.Pod, preferredIPaddresses),
 		labels:         pod.Labels,
 	}
 }

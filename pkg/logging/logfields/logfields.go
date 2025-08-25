@@ -734,6 +734,8 @@ const (
 	LRPLocalEndpointSelector = "lrpLocalEndpointSelector"
 
 	// LRPBackendPorts are the parsed backend ports of the Local Redirect Policy.
+	LRPPreferredIPaddresses = "lrpPreferredIPaddresses"
+	// LRPBackendPorts are the parsed backend ports of the Local Redirect Policy.
 	LRPBackendPorts = "lrpBackendPorts"
 
 	// LRPType is the type of the Local Redirect Policy.
