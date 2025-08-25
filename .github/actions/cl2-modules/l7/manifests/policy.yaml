@@ -1,0 +1,34 @@
+{{$policyDirectionEgress := DefaultParam .policyDirectionEgress false}}
+
+{{$policyAppName := .policyAppName}}
+{{$rulesPerPolicy := .rulesPerPolicy}}
+
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/name: {{$policyAppName}}
+    index: "{{.Index}}"
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{$policyAppName}}
+      index: "{{.Index}}"
+  {{ if $policyDirectionEgress }}
+  egress:
+  {{ else }}
+  ingress:
+  {{ end }}
+  - toPorts:
+    - ports:
+      - port: "10000"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/echo"
+        {{ range $ruleIndex := Loop $rulesPerPolicy }}
+        - method: "GET"
+          path: "/echo/{{$ruleIndex}}"
+        {{ end }}
