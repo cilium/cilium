@@ -55,7 +55,7 @@ func (s *bgpAdvertisements) Name() string {
 func (s *bgpAdvertisements) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
-	t.ForEachIPFamily(func(ipFamily features.IPFamily) {
+	t.ForEachEnabledIPFamily(func(ipFamily features.IPFamily) {
 		defer func() {
 			s.cleanup(ctx, t)
 		}()

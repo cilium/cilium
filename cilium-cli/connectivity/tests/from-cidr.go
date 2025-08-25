@@ -34,7 +34,7 @@ func (f *fromCIDRToPod) Run(ctx context.Context, t *check.Test) {
 	i := 0
 
 	for _, pod := range t.Context().EchoPods() {
-		t.ForEachIPFamily(func(ipFam features.IPFamily) {
+		t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 			ep := check.HTTPEndpoint(
 				"http-endpoint",
 				// scheme://[ip:port]/path

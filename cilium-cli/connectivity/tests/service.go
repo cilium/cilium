@@ -52,7 +52,7 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.ForEachIPFamily(func(ipFamily features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFamily features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFamily, i), &pod, svc, ipFamily).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommand(svc))
 
@@ -227,7 +227,7 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 		}
 	}
 
-	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+	t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 
 		for _, addr := range addrs {
 			if features.GetIPFamily(addr.Address) != ipFam {
