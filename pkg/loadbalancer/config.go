@@ -530,9 +530,6 @@ type ExternalConfig struct {
 	EnableSocketLB                         bool
 	EnableSocketLBPodConnectionTermination bool
 	EnableHealthCheckLoadBalancerIP        bool
-
-	// The following options will be removed in v1.19
-	EnableHostPort bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
@@ -541,12 +538,11 @@ func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalC
 		ZoneMapper:                             cfg,
 		EnableIPv4:                             cfg.EnableIPv4,
 		EnableIPv6:                             cfg.EnableIPv6,
-		KubeProxyReplacement:                   kprCfg.KubeProxyReplacement == option.KubeProxyReplacementTrue || kprCfg.EnableNodePort,
+		KubeProxyReplacement:                   kprCfg.KubeProxyReplacement || kprCfg.EnableNodePort,
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
 		EnableSocketLB:                         kprCfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
 		EnableHealthCheckLoadBalancerIP:        cfg.EnableHealthCheckLoadBalancerIP,
-		EnableHostPort:                         kprCfg.EnableHostPort,
 	}
 }
 

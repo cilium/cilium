@@ -77,7 +77,7 @@ func (r config) Flags(flags *pflag.FlagSet) {
 // status HTTP endpoint exposed on addr.
 // This endpoint reports the agent health status with the timestamp.
 func registerKubeProxyHealthzHTTPService(params kubeProxyHealthParams) error {
-	if params.Config.KubeProxyReplacementHealthzBindAddress == "" || params.KPRConfig.KubeProxyReplacement == option.KubeProxyReplacementFalse {
+	if params.Config.KubeProxyReplacementHealthzBindAddress == "" || !params.KPRConfig.KubeProxyReplacement {
 		return nil
 	}
 

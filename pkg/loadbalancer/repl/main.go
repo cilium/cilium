@@ -99,7 +99,7 @@ var Hive = hive.New(
 		},
 		func() kpr.KPRConfig {
 			return kpr.KPRConfig{
-				KubeProxyReplacement: option.KubeProxyReplacementTrue,
+				KubeProxyReplacement: true,
 			}
 		},
 		func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig {

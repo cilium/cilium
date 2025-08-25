@@ -817,17 +817,17 @@ func TestUpdateEncryptionMode(t *testing.T) {
 func TestUpdateKubeProxyReplacement(t *testing.T) {
 	tests := []struct {
 		name                       string
-		enableKubeProxyReplacement string
+		enableKubeProxyReplacement bool
 		expected                   float64
 	}{
 		{
 			name:                       "KubeProxyReplacement enabled",
-			enableKubeProxyReplacement: "true",
+			enableKubeProxyReplacement: true,
 			expected:                   1,
 		},
 		{
 			name:                       "KubeProxyReplacement disabled",
-			enableKubeProxyReplacement: "false",
+			enableKubeProxyReplacement: false,
 			expected:                   0,
 		},
 	}
