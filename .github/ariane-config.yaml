@@ -106,6 +106,9 @@ triggers:
   /ci-ces-migrate:
     workflows:
     - tests-ces-migrate.yaml
+  /l7-perf(\s+(?:\s*version=[-+.0-9a-z]+)?(?:\s*sha=[a-f0-9]+)?)?:
+    workflows:
+    - l7-perf.yaml
 
 schedule:
   nightly:

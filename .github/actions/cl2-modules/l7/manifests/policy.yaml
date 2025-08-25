@@ -1,0 +1,36 @@
+{{$rulesPerPolicy := AddInt (DefaultParam .rulesPerPolicy 0) 0}}
+
+{{$policyAppName := .policyAppName}}
+
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/name: {{$policyAppName}}
+    index: "{{.Index}}"
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{$policyAppName}}
+      index: "{{.Index}}"
+  ingress:
+  - toPorts:
+    - ports:
+      - port: "10080"
+        protocol: TCP
+      {{ if eq $rulesPerPolicy 0 }}
+      rules:
+        http: [{}]
+      {{ else }}
+      rules:
+        http:
+        - method: "GET"
+          path: "/echo"
+        {{ range $ruleIndex := Loop $rulesPerPolicy }}
+        - method: "GET"
+          path: "/echo/{{$ruleIndex}}"
+          headers:
+          - "X-NIGHTHAWK-PERF-TEST-CLIENT: {{$ruleIndex}}"
+        {{ end }}
+      {{ end }}
