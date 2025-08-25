@@ -1,0 +1,223 @@
+{{$action := .action}}
+{{$perfClientRunDuration := .perfClientRunDuration}}
+
+{{$NETPOL_LATENCY_THRESHOLD := DefaultParam .CL2_NETPOL_LATENCY_THRESHOLD 1}}
+
+{{$MEDIAN_CILIUM_AGENT_CPU_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_AGENT_MEDIAN_CPU_USAGE_THRESHOLD 0.25}}
+{{$MEDIAN_CILIUM_AGENT_MEM_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_AGENT_MEDIAN_MEM_USAGE_THRESHOLD 250}}
+
+{{$CILIUM_PROXY_MEDIAN_MEM_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_PROXY_MEDIAN_MEM_USAGE_THRESHOLD 100}}
+{{$CILIUM_PROXY_MAX_CPU_USAGE_THRESHOLD := DefaultParam .CL2_CCILIUM_PROXY_MAX_CPU_USAGE_THRESHOLD 1.0}}
+
+{{$ENABLE_VIOLATIONS := DefaultParam .CL2_ENABLE_VIOLATIONS true}}
+
+steps:
+- name: {{$action}} Cilium Agent Policy implementation delay
+  measurements:
+  - identifier: PolicyImplementationDelay
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Policy Implementation Delay
+      metricVersion: v1
+      unit: s
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: histogram_quantile(0.99, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
+        threshold: {{$NETPOL_LATENCY_THRESHOLD}}
+      - name: P90
+        query: histogram_quantile(0.90, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
+      - name: P50
+        query: histogram_quantile(0.50, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
+
+  - identifier: CiliumCPUUsage
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Agent Average CPU Usage
+      metricVersion: v1
+      unit: cpu
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: quantile(0.99, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+      - name: P90
+        query: quantile(0.90, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+      - name: P50
+        query: quantile(0.50, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+        threshold: {{$MEDIAN_CILIUM_AGENT_CPU_USAGE_THRESHOLD}}
+
+  - identifier: CiliumMemUsage
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Agent Max Memory Usage
+      metricVersion: v1
+      unit: MB
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: quantile(0.99, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
+      - name: P90
+        query: quantile(0.90, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
+      - name: P50
+        query: quantile(0.5, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
+        threshold: {{$MEDIAN_CILIUM_AGENT_MEM_USAGE_THRESHOLD}}
+
+  - identifier: CiliumProxyMemUsage
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Envoy Proxy Max Memory Usage
+      metricVersion: v1
+      unit: MB
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: quantile(0.99, max_over_time(envoy_server_memory_physical_size[%v]) / 1024 / 1024)
+      - name: P90
+        query: quantile(0.90, max_over_time(envoy_server_memory_physical_size[%v]) / 1024 / 1024)
+      - name: P50
+        query: quantile(0.5, max_over_time(envoy_server_memory_physical_size[%v]) / 1024 / 1024)
+        threshold: {{$CILIUM_PROXY_MEDIAN_MEM_USAGE_THRESHOLD}}
+
+  - identifier: CiliumProxyCPUUsage
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Envoy Proxy Max CPU Usage
+      metricVersion: v1
+      unit: cpu
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: Total (Max)
+        query: max(avg_over_time(rate(container_cpu_usage_seconds_total{container="cilium-envoy"}[1m])[%v:10s]))
+        threshold: {{$CILIUM_PROXY_MAX_CPU_USAGE_THRESHOLD}}
+      - name: User (Max)
+        query: max(avg_over_time(rate(container_cpu_user_seconds_total{container="cilium-envoy"}[1m])[%v:10s]))
+      - name: System (Max)
+        query: max(avg_over_time(rate(container_cpu_system_seconds_total{container="cilium-envoy"}[1m])[%v:10s]))
+
+  - identifier: CiliumProxyRequestProcessingTime
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Envoy Proxy Request Processing Time
+      metricVersion: v1
+      unit: ms
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: Upstream P99
+        query: histogram_quantile(0.99, sum(rate(envoy_cluster_upstream_rq_time_bucket{envoy_cluster_name="ingress-cluster"}[%v])) by (le))
+      - name: Upstream P90
+        query: histogram_quantile(0.90, sum(rate(envoy_cluster_upstream_rq_time_bucket{envoy_cluster_name="ingress-cluster"}[%v])) by (le))
+      - name: Upstream P50
+        query: histogram_quantile(0.50, sum(rate(envoy_cluster_upstream_rq_time_bucket{envoy_cluster_name="ingress-cluster"}[%v])) by (le))
+      - name: Downstream P99
+        query: histogram_quantile(0.99, sum(rate(envoy_http_downstream_rq_time_bucket{envoy_http_conn_manager_prefix="proxy"}[%v])) by (le))
+      - name: Downstream P90
+        query: histogram_quantile(0.90, sum(rate(envoy_http_downstream_rq_time_bucket{envoy_http_conn_manager_prefix="proxy"}[%v])) by (le))
+      - name: Downstream P50
+        query: histogram_quantile(0.50, sum(rate(envoy_http_downstream_rq_time_bucket{envoy_http_conn_manager_prefix="proxy"}[%v])) by (le))
+      # (Downstream - Upstream) gives approximate time envoy spent processing the request.
+      - name: P90 Envoy Request Processing Time
+        query: histogram_quantile(0.90, sum(rate(envoy_http_downstream_rq_time_bucket{envoy_http_conn_manager_prefix="proxy"}[%v])) by (le)) - histogram_quantile(0.90, sum(rate(envoy_cluster_upstream_rq_time_bucket{envoy_cluster_name="ingress-cluster"}[%v])) by (le))
+        threshold: 10
+
+  - identifier: HTTPPerfClientLatency
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: HTTP Perf Client Latency
+      metricVersion: v1
+      unit: us
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: Baseline P99
+        query: quantile(0.99, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="without-l7-policy", scope="global"}) by (quantile))
+      - name: Baseline P90
+        query: quantile(0.90, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="without-l7-policy", scope="global"}) by (quantile))
+      - name: Baseline P50
+        query: quantile(0.50, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="without-l7-policy", scope="global"}) by (quantile))
+      - name: EmptyL7VisibilityPolicy P99
+        query: quantile(0.99, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-visibility-policy", scope="global"}) by (quantile))
+      - name: EmptyL7VisibilityPolicy P90
+        query: quantile(0.90, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-visibility-policy", scope="global"}) by (quantile))
+      - name: EmptyL7VisibilityPolicy P50
+        query: quantile(0.50, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-visibility-policy", scope="global"}) by (quantile))
+      - name: L7Policy P99
+        query: quantile(0.99, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-policy", scope="global"}) by (quantile))
+      - name: L7Policy P90
+        query: quantile(0.90, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-policy", scope="global"}) by (quantile))
+      - name: L7Policy P50
+        query: quantile(0.50, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-policy", scope="global"}) by (quantile))
+
+  - identifier: HTTPPerfClientLatencyImpact
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Policy impact on HTTP Perf Client Latency
+      metricVersion: v1
+      unit: ratio
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: quantile(0.99, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-policy", scope="global"}) by (quantile)) / quantile(0.99, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="without-l7-policy", scope="global"}) by (quantile))
+      - name: P90
+        query: quantile(0.90, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-policy", scope="global"}) by (quantile)) / quantile(0.90, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="without-l7-policy", scope="global"}) by (quantile))
+        threshold: 12 # 12x impact on Latency
+      - name: P50
+        query: quantile(0.5, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-policy", scope="global"}) by (quantile)) / quantile(0.5, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="without-l7-policy", scope="global"}) by (quantile))
+        threshold: 12 # 12x impact on Latency
+
+  - identifier: HTTPPerfClientRequestThroughput
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Avg HTTP Perf Client Throughput per Server Instance
+      metricVersion: v1
+      unit: count
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: Baseline RPS
+        query: avg(sum(nighthawk_benchmark_http_2xx{scenario="without-l7-policy", scope="global"}) by (server)) / {{$perfClientRunDuration}}
+      - name: EmptyL7VisibilityPolicy RPS
+        query: avg(sum(nighthawk_benchmark_http_2xx{scenario="with-l7-visibility-policy", scope="global"}) by (server)) / {{$perfClientRunDuration}}
+      - name: L7Policy RPS
+        query: avg(sum(nighthawk_benchmark_http_2xx{scenario="with-l7-policy", scope="global"}) by (server)) / {{$perfClientRunDuration}}
+
+  - identifier: HTTPPerfClientRequestThroughputImpact
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Policy impact on HTTP Perf Client Throughput
+      metricVersion: v1
+      unit: ratio
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: Successful Requests with L7 visibility policy
+        query: sum(nighthawk_benchmark_http_2xx{scenario="without-l7-policy", scope="global"}) / sum(nighthawk_benchmark_http_2xx{scenario="with-l7-visibility-policy", scope="global"})
+        threshold: 8 # 8x impact on Throughput
+      - name: Successful Requests with L7 Policy
+        query: sum(nighthawk_benchmark_http_2xx{scenario="without-l7-policy", scope="global"}) / sum(nighthawk_benchmark_http_2xx{scenario="with-l7-policy", scope="global"})
+        threshold: 8 # 8x impact on Throughput
+
+  - identifier: HTTPPerfClientUnsuccessfulRequests
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Unsuccessful HTTP Requests
+      metricVersion: v1
+      unit: ratio
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: Unsuccessful HTTP Requests
+        query: sum(nighthawk_benchmark_http_1xx{scenario="with-l7-policy", scope="global"}) + sum(nighthawk_benchmark_http_3xx{scenario="with-l7-policy", scope="global"}) + sum(nighthawk_benchmark_http_4xx{scenario="with-l7-policy", scope="global"}) + sum(nighthawk_benchmark_http_5xx{scenario="with-l7-policy", scope="global"}) + sum(nighthawk_benchmark_http_xxx{scenario="with-l7-policy", scope="global"})
+        threshold: 0
+      - name: Connection Timeouts
+        query: sum(nighthawk_upstream_cx_connect_timeout{scenario=~"with-l7-visibility-policy|with-l7-policy", scope="global"})
+        threshold: 0
+      - name: Connection Failures
+        query: sum(nighthawk_upstream_cx_connect_fail{scenario=~"with-l7-visibility-policy|with-l7-policy", scope="global"})
+        threshold: 0
