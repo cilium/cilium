@@ -35,7 +35,8 @@ var (
 			mcsapi.ServiceExportResource,
 			operatorK8s.EndpointsResource,
 			CiliumNodeResource,
-			k8s.CiliumIdentityResource,
+			CiliumIdentityResource,
+			k8s.NamespaceResource,
 			// The CiliumSlimEndpoint and CiliumEndpointSlice resource constructors in the agent depend
 			// on the LocalNodeStore to index its cache. In the clustermesh-apiserver, there is no
 			// cell providing LocalNodeStore, so we provide the resources with separate
@@ -55,6 +56,7 @@ type Resources struct {
 	Endpoints            resource.Resource[*k8s.Endpoints]
 	CiliumNodes          resource.Resource[*cilium_api_v2.CiliumNode]
 	CiliumIdentities     resource.Resource[*cilium_api_v2.CiliumIdentity]
+	Namespaces           resource.Resource[*slim_corev1.Namespace]
 	CiliumSlimEndpoints  resource.Resource[*types.CiliumEndpoint]
 	CiliumEndpointSlices resource.Resource[*cilium_api_v2a1.CiliumEndpointSlice]
 }

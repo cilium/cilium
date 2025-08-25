@@ -17,6 +17,7 @@ import (
 	discoveryv1 "k8s.io/client-go/kubernetes/typed/discovery/v1"
 	discoverylisters "k8s.io/client-go/listers/discovery/v1"
 
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -57,7 +58,7 @@ func newEndpointSliceMeshController(
 	ctx context.Context, logger *slog.Logger, cfg EndpointSliceSyncConfig,
 	meshPodInformer *meshPodInformer, meshNodeInformer *meshNodeInformer,
 	clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service],
-	globalServices *common.GlobalServiceCache,
+	globalServices *common.GlobalServiceCache, namespaceWatcher clustermesh.GlobalNamespaceTracker,
 ) (*endpointslice.Controller, *meshServiceInformer, informers.SharedInformerFactory) {
 	meshClient := meshClient{clientset}
 
@@ -65,7 +66,7 @@ func newEndpointSliceMeshController(
 	endpointSliceInformer := factory.Discovery().V1().EndpointSlices()
 
 	meshServiceInformer := newMeshServiceInformer(
-		logger, globalServices, services, meshNodeInformer,
+		logger, globalServices, services, meshNodeInformer, namespaceWatcher,
 	)
 
 	controller := endpointslice.NewControllerWithName(

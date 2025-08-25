@@ -10,7 +10,21 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	cache "k8s.io/client-go/tools/cache"
+
+	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
+
+// newNamespaceWatcher creates a namespace watcher for endpointslicesync if namespaces resource is available.
+func newNamespaceWatcher(namespaces resource.Resource[*slim_corev1.Namespace]) clustermesh.GlobalNamespaceTracker {
+	if namespaces == nil {
+		return nil
+	}
+	watcher := clustermesh.NewNamespaceWatcherFromEnv()
+	watcher.SetNamespaceResource(namespaces)
+	return watcher
+}
 
 func registerEndpointSliceSync(_ cell.Lifecycle, params endpointSliceSyncParams) {
 	if !params.Clientset.IsEnabled() || params.ClusterMesh == nil || !params.ClusterMeshEnableEndpointSync {
@@ -18,6 +32,9 @@ func registerEndpointSliceSync(_ cell.Lifecycle, params endpointSliceSyncParams)
 	}
 
 	params.Logger.Info("Endpoint Slice Cluster Mesh synchronization enabled")
+
+	// Initialize namespace tracker for global service filtering
+	namespaceWatcher := newNamespaceWatcher(params.Namespaces)
 
 	meshPodInformer := newMeshPodInformer(params.Logger, params.ClusterMesh.GlobalServices())
 	params.ClusterMesh.RegisterClusterServiceUpdateHook(meshPodInformer.onClusterServiceUpdate)
@@ -31,7 +48,7 @@ func registerEndpointSliceSync(_ cell.Lifecycle, params endpointSliceSyncParams)
 		endpointSliceMeshController, meshServiceInformer, endpointSliceInformerFactory := newEndpointSliceMeshController(
 			ctx, params.Logger, params.EndpointSliceSyncConfig, meshPodInformer,
 			meshNodeInformer, params.Clientset,
-			params.Services, params.ClusterMesh.GlobalServices(),
+			params.Services, params.ClusterMesh.GlobalServices(), namespaceWatcher,
 		)
 
 		endpointSliceInformerFactory.Start(ctx.Done())

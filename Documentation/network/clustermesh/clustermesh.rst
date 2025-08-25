@@ -288,8 +288,9 @@ Next Steps
 
 Logical next steps to explore from here are:
 
- * :ref:`gs_clustermesh_services`
- * :ref:`gs_clustermesh_network_policy`
+ * :ref:`gs_clustermesh_services` - Learn about global services and load-balancing
+ * :ref:`namespace_export_control` - Configure namespace-based export control for enhanced security
+ * :ref:`gs_clustermesh_network_policy` - Apply network policies across clusters
 
 Troubleshooting
 ###############

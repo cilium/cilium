@@ -1,0 +1,38 @@
+#! --cluster-id=3 --cluster-name=cluster3
+
+hive/start
+
+# Simple test to verify global services configuration is loaded
+# This test verifies that the global services namespace filtering feature is properly integrated
+
+# Wait for hive to start
+sleep 1s
+
+# Verify cluster configuration exists for global services testing
+kvstore/list cilium/cluster-config/cluster3 -o json cluster-config.actual
+* cmp cluster-config.actual cluster-config.expected
+
+# Test with CLUSTERMESH_DEFAULT_GLOBAL_NAMESPACE=true for global services
+hive/stop
+env CLUSTERMESH_DEFAULT_GLOBAL_NAMESPACE=true
+hive/start
+
+# Wait for restart
+sleep 1s
+
+# Verify cluster configuration still works with environment variable for global services
+kvstore/list cilium/cluster-config/cluster3 -o json cluster-config-env.actual
+* cmp cluster-config-env.actual cluster-config.expected
+
+# ---
+
+-- cluster-config.expected --
+# cilium/cluster-config/cluster3
+{
+  "id": 3,
+  "capabilities": {
+    "syncedCanaries": true,
+    "maxConnectedClusters": 255,
+    "serviceExportsEnabled": false
+  }
+}

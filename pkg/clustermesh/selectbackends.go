@@ -30,14 +30,21 @@ type ClusterMeshSelectBackends struct {
 
 func (sb ClusterMeshSelectBackends) SelectBackends(bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
 	defaultBackends := sb.w.DefaultSelectBackends(bes, svc, optionalFrontend)
-	affinity := annotation.GetAnnotationServiceAffinity(svc)
+
+	// Check if this is a global service considering namespace filtering
+	isGlobalService := IsGlobalServiceWithNamespaceFilter(svc, svc.Name.Namespace())
+	affinity := annotation.GetAnnotationServiceAffinityWithNamespaceFilter(
+		svc, svc.Name.Namespace(),
+		GetGlobalNamespaceTracker().IsGlobalNamespace,
+		GetGlobalNamespaceTracker().IsFilteringActive,
+	)
 
 	useLocal := true
 	localActiveBackends := 0
 	useRemote := false
 
 	switch {
-	case !annotation.GetAnnotationIncludeExternal(svc):
+	case !isGlobalService:
 		useRemote = false
 	case affinity == annotation.ServiceAffinityNone:
 		useRemote = true

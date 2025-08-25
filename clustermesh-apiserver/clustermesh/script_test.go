@@ -62,6 +62,7 @@ func TestScript(t *testing.T) {
 
 		h := hive.New(
 			cell.Config(cmtypes.DefaultClusterInfo),
+			cell.Config(operator.ClusterMeshConfig{}),
 			cell.Config(operator.MCSAPIConfig{}),
 			cell.Invoke(cmtypes.ClusterInfo.Validate),
 

@@ -14,6 +14,8 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -50,6 +52,7 @@ var Cell = cell.Module(
 
 	cell.ProvidePrivate(newServiceMerger),
 	cell.Invoke(registerServicesInitialized),
+	cell.Invoke(initializeNamespaceTracker),
 
 	cell.Config(types.DefaultQuirks),
 	cell.Invoke(func(info types.ClusterInfo, dcfg *option.DaemonConfig, cnimgr cni.CNIConfigManager, log *slog.Logger, quirks types.QuirksConfig) error {
@@ -64,3 +67,16 @@ var Cell = cell.Module(
 	cell.Invoke(nodeManagerNotifier),
 	cell.Invoke(injectSelectBackends),
 )
+
+// initializeNamespaceTracker sets up the namespace resource for the global namespace tracker
+func initializeNamespaceTracker(params initializeNamespaceTrackerParams) {
+	if params.Namespaces != nil {
+		SetGlobalNamespaceResource(params.Namespaces)
+	}
+}
+
+type initializeNamespaceTrackerParams struct {
+	cell.In
+
+	Namespaces resource.Resource[*slim_corev1.Namespace] `optional:"true"`
+}

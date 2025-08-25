@@ -5,6 +5,8 @@ package clustermesh
 
 import (
 	"errors"
+	"os"
+	"strconv"
 
 	"github.com/cilium/hive/cell"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
@@ -67,6 +70,22 @@ var Cell = cell.Module(
 var Synchronization = cell.Module(
 	"clustermesh-synchronization",
 	"Synchronize information from Kubernetes to KVStore",
+
+	// Namespace watcher for tracking global namespaces
+	cell.Group(
+		cell.Provide(
+			newNamespaceWatcherConfig,
+			func(p clustermesh.NamespaceWatcherParams, config clustermesh.NamespaceWatcherConfig) clustermesh.GlobalNamespaceTracker {
+				return clustermesh.RegisterNamespaceWatcher(clustermesh.NamespaceWatcherParams{
+					In:         p.In,
+					Logger:     p.Logger,
+					JobGroup:   p.JobGroup,
+					Namespaces: p.Namespaces,
+					Config:     config,
+				})
+			},
+		),
+	),
 
 	cell.Group(
 		cell.Provide(
@@ -153,4 +172,20 @@ var pprofConfig = pprof.Config{
 	PprofPort:                 option.PprofPortClusterMesh,
 	PprofMutexProfileFraction: 0,
 	PprofBlockProfileRate:     0,
+}
+
+type namespaceWatcherConfigParams struct {
+	cell.In
+}
+
+func newNamespaceWatcherConfig(params namespaceWatcherConfigParams) clustermesh.NamespaceWatcherConfig {
+	// Read the configuration from environment variable following the same pattern as cluster-id
+	defaultGlobal := false // Default to false for security
+	if envVal := os.Getenv("CLUSTERMESH_DEFAULT_GLOBAL_NAMESPACE"); envVal != "" {
+		if parsed, err := strconv.ParseBool(envVal); err == nil {
+			defaultGlobal = parsed
+		}
+	}
+
+	return clustermesh.NamespaceWatcherConfig{DefaultGlobalNamespace: defaultGlobal}
 }

@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/hive"
@@ -116,10 +117,12 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	globalService := common.NewGlobalServiceCache(hivetest.Logger(t), metric.NewGauge(metric.GaugeOpts{}))
 	podInformer := newMeshPodInformer(logger, globalService)
 	nodeInformer := newMeshNodeInformer(logger)
+	// For testing purposes, we'll use nil namespaceWatcher to maintain backwards compatibility
+	var namespaceWatcher clustermesh.GlobalNamespaceTracker = nil
 	controller, serviceInformer, endpointsliceInformer := newEndpointSliceMeshController(
 		context.Background(), logger,
 		EndpointSliceSyncConfig{ClusterMeshMaxEndpointsPerSlice: 100},
-		podInformer, nodeInformer, fakeClient, services, globalService,
+		podInformer, nodeInformer, fakeClient, services, globalService, namespaceWatcher,
 	)
 	endpointsliceInformer.Start(context.Background().Done())
 	go serviceInformer.Start(context.Background())
