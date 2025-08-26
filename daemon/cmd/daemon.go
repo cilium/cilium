@@ -269,7 +269,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
-	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, params.KPRConfig.EnableNodePort)
+	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade)
 
 	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
 		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
@@ -533,9 +533,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 		var err error
 		switch {
-		case !params.KPRConfig.EnableNodePort:
-			err = fmt.Errorf("BPF masquerade requires NodePort (--%s=\"true\")",
-				option.EnableNodePort)
 		case len(option.Config.MasqueradeInterfaces) > 0:
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.MasqueradeInterfaces, option.Devices)

@@ -219,9 +219,6 @@ const (
 	// EnableHostLegacyRouting enables the old routing path via stack.
 	EnableHostLegacyRouting = "enable-host-legacy-routing"
 
-	// EnableNodePort enables NodePort services implemented by Cilium in BPF
-	EnableNodePort = "enable-node-port"
-
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic", "native", or "best-effort")
 	NodePortAcceleration = "node-port-acceleration"
@@ -2057,7 +2054,7 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
-	return kprCfg.EnableNodePort || c.EnableHostFirewall || wireguardEnabled ||
+	return kprCfg.KubeProxyReplacement || c.EnableBPFMasquerade || c.EnableHostFirewall || wireguardEnabled ||
 		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSec
 }
 
@@ -2083,7 +2080,7 @@ func (c *DaemonConfig) NeedIngressOnWireGuardDevice(kprCfg kpr.KPRConfig, wiregu
 	// from the remote node, we need to attach bpf_host to the Cilium's WG
 	// netdev (otherwise, the WG netdev after decrypting the reply will pass
 	// it to the stack which drops the packet).
-	if kprCfg.EnableNodePort && c.EncryptNode {
+	if kprCfg.KubeProxyReplacement && c.EncryptNode {
 		return true
 	}
 
@@ -2104,7 +2101,7 @@ func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kprCfg kpr.KPRConfig, wiregua
 
 	// Attaching cil_to_wireguard to cilium_wg0 egress is required for handling
 	// the rev-NAT xlations when encrypting KPR traffic.
-	if kprCfg.EnableNodePort && c.EnableL7Proxy && kprCfg.KubeProxyReplacement {
+	if c.EnableL7Proxy && kprCfg.KubeProxyReplacement {
 		return true
 	}
 
@@ -2243,11 +2240,11 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired(kprCfg kpr.KPRConfig, wiregua
 	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
 
 	// XDP needs IPV4_DIRECT_ROUTING when building tunnel headers:
-	if kprCfg.EnableNodePort && c.NodePortAcceleration != NodePortAccelerationDisabled {
+	if kprCfg.KubeProxyReplacement && c.NodePortAcceleration != NodePortAccelerationDisabled {
 		return true
 	}
 
-	return kprCfg.EnableNodePort || BPFHostRoutingEnabled || wireguardEnabled
+	return kprCfg.KubeProxyReplacement || BPFHostRoutingEnabled || wireguardEnabled
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {

@@ -198,7 +198,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	ipv4Nat, ipv6Nat := nat.GlobalMaps(d.metricsRegistry, option.Config.EnableIPv4,
-		option.Config.EnableIPv6, d.kprCfg.EnableNodePort)
+		option.Config.EnableIPv6, d.kprCfg.KubeProxyReplacement || option.Config.EnableBPFMasquerade)
 	if ipv4Nat != nil {
 		if err := ipv4Nat.Create(); err != nil {
 			return fmt.Errorf("initializing ipv4nat map: %w", err)
@@ -210,11 +210,13 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if d.kprCfg.EnableNodePort {
+	if d.kprCfg.KubeProxyReplacement {
 		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing neighbors map: %w", err)
 		}
+	}
+	if d.kprCfg.KubeProxyReplacement || option.Config.EnableBPFMasquerade {
 		if err := nat.CreateRetriesMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing NAT retries map: %w", err)
