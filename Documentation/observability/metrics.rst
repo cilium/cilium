@@ -47,6 +47,9 @@ if you want to disable them, set Helm value ``operator.prometheus.enabled=false`
      --set prometheus.enabled=true \\
      --set operator.prometheus.enabled=true
 
+For information on how to configure which specific metrics are enabled or disabled
+using Helm, see the :ref:`Helm Configuration<metrics_helm_configuration>` section.
+
 The ports can be configured via ``prometheus.port``,
 ``envoy.prometheus.port``, or ``operator.prometheus.port`` respectively.
 
@@ -257,6 +260,11 @@ To expose any metrics, invoke ``cilium-agent`` with the
 passing an empty IP (e.g. ``:9962``) will bind the server to all available
 interfaces (there is usually only one in a container).
 
+.. note::
+
+   When using Helm to deploy Cilium, you can configure metrics using the
+   ``prometheus.metrics`` Helm value. See the :ref:`Helm Configuration<metrics_helm_configuration>` section for details.
+
 To customize ``cilium-agent`` metrics, configure the ``--metrics`` option with
 ``"+metric_a -metric_b -metric_c"``, where ``+/-`` means to enable/disable
 the metric. For example, for really large clusters, users may consider to
@@ -266,6 +274,41 @@ disable the following two metrics as they generate too much data:
 - ``cilium_node_connectivity_latency_seconds``
 
 You can then configure the agent with ``--metrics="-cilium_node_connectivity_status -cilium_node_connectivity_latency_seconds"``.
+
+.. _metrics_helm_configuration:
+
+Helm Configuration
+~~~~~~~~~~~~~~~~~~
+
+When installing or upgrading Cilium using Helm, you can configure which metrics
+are enabled or disabled using the ``prometheus.metrics`` Helm value. This option
+allows you to customize the default metric list by enabling or disabling specific
+metrics.
+
+The ``prometheus.metrics`` value expects a space-separated list of metrics with
+``+`` or ``-`` prefixes to enable or disable them respectively. For example:
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set prometheus.enabled=true \\
+     --set prometheus.metrics="-node_health_connectivity_status -node_health_connectivity_latency_seconds"
+
+This configuration disables the two metrics mentioned above that can generate
+too much data in large clusters.
+
+You can also enable additional metrics that are disabled by default:
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set prometheus.enabled=true \\
+     --set prometheus.metrics="+bpf_syscall_duration_seconds +fqdn_active_names"
+
+For more information about available metrics and their default states, see the
+Exported Metrics section below.
 
 Feature Metrics
 ~~~~~~~~~~~~~~~
@@ -314,6 +357,29 @@ is enabled.
 Exported Metrics
 ^^^^^^^^^^^^^^^^
 
+Configuring Metrics with Helm
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When installing or upgrading Cilium using Helm, you can configure which metrics
+are enabled or disabled using the ``prometheus.metrics`` option. This allows you
+to customize the default metric list by enabling or disabling specific metrics.
+
+The ``prometheus.metrics`` value expects a space-separated list of metrics with
+``+`` or ``-`` prefixes to enable or disable them respectively.
+
+Common configurations:
+
+- **Disable connectivity metrics for large clusters:**
+  ``--set prometheus.metrics="-node_health_connectivity_status -node_health_connectivity_latency_seconds"``
+
+- **Enable additional metrics that are disabled by default:**
+  ``--set prometheus.metrics="+bpf_syscall_duration_seconds +fqdn_active_names"``
+
+- **Disable multiple metrics:**
+  ``--set prometheus.metrics="-endpoint_max_ifindex -fqdn_active_names -fqdn_active_ips"``
+
+For detailed configuration options and examples, see the :ref:`Helm Configuration<metrics_helm_configuration>` section.
+
 Endpoint
 ~~~~~~~~
 
@@ -334,6 +400,11 @@ for this field. If Cilium is running on such a kernel, this metric will be
 enabled by default. It can be used to implement an alert if the ifindex is
 approaching the limit of 65535. This may be the case in instances of
 significant Endpoint churn.
+
+.. note::
+
+   To disable the ``endpoint_max_ifindex`` metric, use:
+   ``--set prometheus.metrics="-endpoint_max_ifindex"``
 
 Services
 ~~~~~~~~
@@ -364,6 +435,12 @@ Name                                          Labels                            
 ``node_health_connectivity_status``           ``source_cluster``, ``source_node_name``, ``type``, ``status``                                                                                                         Enabled    Number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
 ``node_health_connectivity_latency_seconds``  ``source_cluster``, ``source_node_name``, ``type``, ``address_type``, ``protocol``                                                                                     Enabled    Histogram of the last observed latency between the current Cilium agent and other Cilium nodes in seconds
 ============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
+
+.. note::
+
+   These connectivity metrics can generate significant data in large clusters.
+   To disable them, use:
+   ``--set prometheus.metrics="-node_health_connectivity_status -node_health_connectivity_latency_seconds"``
 
 Clustermesh
 ~~~~~~~~~~~
@@ -608,6 +685,12 @@ Name                               Labels                           Default     
 ``fqdn_alive_zombie_connections``  ``endpoint``                     Disabled     Number of IPs associated with domains that have expired (by TTL) yet still associated with an active connection (aka zombie), per endpoint
 ``fqdn_selectors``                                                  Enabled      Number of registered ToFQDN selectors
 ================================== ================================ ============ ========================================================
+
+.. note::
+
+   The FQDN metrics ``fqdn_active_names``, ``fqdn_active_ips``, and ``fqdn_alive_zombie_connections``
+   are disabled by default as they can generate high cardinality data. To enable them, use:
+   ``--set prometheus.metrics="+fqdn_active_names +fqdn_active_ips +fqdn_alive_zombie_connections"``
 
 Jobs
 ~~~~
