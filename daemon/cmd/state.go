@@ -303,7 +303,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 
 	endpointsToRegenerate := make([]*endpoint.Endpoint, 0, len(state.restored))
 	for _, ep := range state.restored {
-		if ep.IsHost() && option.Config.EnableIPSec {
+		if ep.IsHost() && d.ipsecAgent.Enabled() {
 			// To support v1.18 VinE upgrades, we need to restore the host
 			// endpoint before any other endpoint, to ensure a drop-less upgrade.
 			// This is because in v1.18 'bpf_lxc' programs stop issuing IPsec hooks
