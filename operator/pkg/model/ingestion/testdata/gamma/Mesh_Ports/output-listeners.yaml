@@ -1,0 +1,31 @@
+- hostname: '*'
+  name: gateway-conformance-mesh-echo-v1-80
+  port: 80
+  routes:
+  - backends:
+    - app_protocol: http
+      name: echo-v1
+      namespace: gateway-conformance-mesh
+      port:
+        port: 80
+    hostnames:
+    - '*'
+    path_match: {}
+    response_header_modifier:
+      headers_to_set:
+      - name: X-Header-Set
+        value: v1
+    timeout: {}
+  service:
+    type: ClusterIP
+  sources:
+  - kind: Service
+    name: echo-v1
+    namespace: gateway-conformance-mesh
+    version: v1
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: mesh-ports
+    namespace: gateway-conformance-mesh
+    version: v1
+  gamma: true

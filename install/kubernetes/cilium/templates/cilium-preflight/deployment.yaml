@@ -1,0 +1,112 @@
+{{- if and .Values.preflight.enabled .Values.preflight.validateCNPs }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cilium-pre-flight-check
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.preflight.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-pre-flight-check
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-pre-flight-check-deployment
+      kubernetes.io/cluster-service: "true"
+  template:
+    metadata:
+      {{- with .Values.preflight.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app.kubernetes.io/part-of: cilium
+        k8s-app: cilium-pre-flight-check-deployment
+        kubernetes.io/cluster-service: "true"
+        app.kubernetes.io/name: cilium-pre-flight-check
+        {{- with .Values.commonLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.preflight.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: cnp-validator
+          image: {{ include "cilium.image" .Values.preflight.image | quote }}
+          imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
+          command: ["/bin/sh"]
+          args:
+          - -ec
+          - |
+            cilium-dbg preflight validate-cnp;
+            touch /tmp/ready-validate-cnp;
+            sleep 1h;
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready-validate-cnp
+            initialDelaySeconds: {{ .Values.preflight.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.preflight.readinessProbe.periodSeconds }}
+          {{- with .Values.preflight.extraVolumeMounts }}
+          volumeMounts:
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          env:
+          {{- if and .Values.k8sServiceHostRef.name .Values.k8sServiceHostRef.key }}
+          - name: KUBERNETES_SERVICE_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.k8sServiceHostRef.name }}
+                key: {{ .Values.k8sServiceHostRef.key }}
+          - name: KUBERNETES_SERVICE_PORT
+            value: {{ include "k8sServicePort" . }}
+          {{- end }}
+            {{- if .Values.k8sServiceHost }}
+          - name: KUBERNETES_SERVICE_HOST
+            value: {{ include "k8sServiceHost" . }}
+          - name: KUBERNETES_SERVICE_PORT
+            value: {{ include "k8sServicePort" . }}
+          {{- end }}
+          {{- with .Values.preflight.extraEnv }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
+          {{- with .Values.preflight.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
+      {{- with .Values.preflight.extraVolumes }}
+      volumes:
+      {{- toYaml . | trim | nindent 6 }}
+      {{- end }}
+      hostNetwork: true
+      restartPolicy: Always
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-cluster-critical") }}
+      serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.preflight.automount }}
+      terminationGracePeriodSeconds: {{ .Values.preflight.terminationGracePeriodSeconds }}
+      {{- with .Values.preflight.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.preflight.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.preflight.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+{{- end }}

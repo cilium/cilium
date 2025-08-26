@@ -1,0 +1,36 @@
+#! --devices=dummy+
+
+# Test that if the user specifies a device wildcard, then all devices not matching the wildcard
+# will be marked as non-selected.
+
+# Start the hive
+hive start
+
+# Add dummy0 interface - matches devices wildcard.
+exec ip link add dummy0 type dummy
+exec ip addr add 192.168.0.1/24 dev dummy0
+exec ip link set dummy0 up
+
+# Add dummy1 interface - does not match devices wildcard.
+exec ip link add nonviable type dummy
+exec ip addr add 192.168.1.1/24 dev nonviable
+exec ip link set nonviable up
+
+# Add eth0 interface - does not match devices wildcard.
+# This device satisfies the autodetection rule, but should not be included
+# because the force-device-detection option is not enabled.
+exec ip link add eth0 type dummy
+exec ip addr add 1.2.3.4/24 dev eth0
+exec ip link set eth0 up
+
+# Verify selected devices. Only the one matching the wildcard is expected to be selected.
+db/cmp --grep='^(lo|dummy|eth|nonviable)' devices devices.table
+
+# ---------------------------------------------
+
+-- devices.table --
+Name        Selected   Type
+lo          false      device
+dummy0      true       dummy
+nonviable   false      dummy
+eth0        false      dummy

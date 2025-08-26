@@ -1,0 +1,15 @@
+metadata:
+  annotations:
+    ingress.cilium.io/tls-passthrough: "true"
+  creationTimestamp: null
+  name: sslpassthru-ingress
+  namespace: dummy-namespace
+spec:
+  defaultBackend:
+    service:
+      name: default-backend
+      port:
+        number: 8080
+  ingressClassName: cilium
+status:
+  loadBalancer: {}

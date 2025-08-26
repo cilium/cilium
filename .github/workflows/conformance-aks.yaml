@@ -1,0 +1,392 @@
+name: Conformance AKS (ci-aks)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  push:
+    branches:
+      - 'renovate/main-**'
+  # Run every 8 hours
+  schedule:
+    - cron:  '0 0/8 * * *'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+  # Required to generate OIDC tokens for `az` authentication
+  id-token: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+  cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
+  test_concurrency: 5
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  generate-matrix:
+    name: Generate Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      empty: ${{ steps.set-matrix.outputs.empty }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          work_dir=".github/actions/azure"
+          destination_directory="/tmp/generated/azure"
+          mkdir -p "${destination_directory}"
+
+          yq -o=json "${work_dir}/k8s-versions.yaml" | jq . > "${destination_directory}/azure.json"
+
+      - name: Generate Matrix
+        run: |
+          cd /tmp/generated/azure
+
+          # Use complete matrix in case of scheduled run
+          # main -> event_name = schedule
+          # other stable branches -> PR-number starting with v (e.g. v1.14)
+          # shellcheck disable=SC2193
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* ]];then
+            jq '{ "include": [ .include[] | select(.disabled==null) ] }' azure.json > /tmp/matrix.json
+          else
+            jq '{ "include": [ .include[] | select(.default) ] }' azure.json > /tmp/matrix.json
+          fi
+
+          echo "Generated matrix:"
+          cat /tmp/matrix.json
+
+      - name: Login to Azure
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          creds: ${{ secrets.AZURE_PR_SP_CREDS }}
+
+      - name: Filter Matrix
+        id: set-matrix
+        run: |
+          cp /tmp/matrix.json /tmp/result.json
+          jq -c '.include[]' /tmp/matrix.json | while read i; do
+            VERSION=$(echo $i | jq -r '.version')
+            LOCATION=$(echo $i | jq -r '.location')
+            # Don't use LTS versions for AKS, it requires premium tier
+            az aks get-versions --location $LOCATION --query "values[?contains(capabilities.supportPlan,'KubernetesOfficial')].version" > /tmp/output
+            if grep -q -F $VERSION /tmp/output; then
+              echo "Version $VERSION is valid for location $LOCATION"
+            else
+              echo "::notice::Removing version $VERSION as it's not valid for location $LOCATION"
+              jq 'del(.include[] | select(.version == "'$VERSION'"))' /tmp/result.json > /tmp/result.json.tmp
+              mv /tmp/result.json.tmp /tmp/result.json
+            fi
+          done
+          echo "Filtered matrix:"
+          cat /tmp/result.json
+          echo "matrix=$(jq -c . < /tmp/result.json)" >> $GITHUB_OUTPUT
+          echo "empty=$(jq '(.include | length) == 0' /tmp/result.json)" >> $GITHUB_OUTPUT
+
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci operator-azure-ci hubble-relay-ci cilium-cli-ci
+
+  installation-and-connectivity:
+    name: Installation and Connectivity Test
+    needs: [generate-matrix, wait-for-images]
+    if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      job_name: "Installation and Connectivity Test"
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
+
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Override cluster name
+        run: |
+          # Extend default name with matrix index to avoid cluster name conflicts
+          NAME=${{ env.name }}-${{ matrix.index }}
+          echo "name=${NAME}" >> "$GITHUB_ENV"
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            OWNER="${{ inputs.PR-number }}"
+          else
+            OWNER="${{ github.ref_name }}"
+            OWNER="${OWNER//[.\/]/-}"
+          fi
+
+          # We explicity set the cluster-pool Pod CIDR here to not clash with the AKS default Service CIDRs
+          # which are 10.0.0.0/16 and fd12:3456:789a:1::/108
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --datapath-mode=aks-byocni \
+            --helm-set cluster.name=${{ env.name }} \
+            --helm-set loadBalancer.l7.backend=envoy \
+            --helm-set=azure.resourceGroup=${{ env.name }} \
+            --helm-set=ipv4.enabled=true \
+            --helm-set=ipv6.enabled=true \
+            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
+            --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --hubble=false --collect-sysdump-on-failure --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8"
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
+
+      - name: Login to Azure
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          creds: ${{ secrets.AZURE_PR_SP_CREDS }}
+
+      - name: Create AKS cluster
+        run: |
+          # Create group
+          az group create \
+            --name ${{ env.name }} \
+            --location ${{ matrix.location }} \
+            --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
+
+          # Create AKS cluster
+          az aks create \
+            --resource-group ${{ env.name }} \
+            --name ${{ env.name }} \
+            --location ${{ matrix.location }} \
+            --kubernetes-version ${{ matrix.version }} \
+            --network-plugin none \
+            --node-count 2 \
+            --ip-families ipv4,ipv6 \
+            ${{ env.cost_reduction }} \
+            --generate-ssh-keys
+
+      - name: Get cluster credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ env.name }} \
+            --name ${{ env.name }}
+
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@6e65fa094c051aee03959dc9a75e66213e9050c7 # v0.18.4
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Enable Relay
+        run: |
+          cilium hubble enable
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait --interactive=false --wait-duration=10m
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
+      - name: Run sequential connectivity test (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --test "seq-.*" \
+          --junit-file "cilium-junits/${{ env.job_name }}-sequential-clear (${{ join(matrix.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
+
+      - name: Run concurrent connectivity test (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --test-concurrency=${{ env.test_concurrency }} \
+          --test "!seq-.*" \
+          --junit-file "cilium-junits/${{ env.job_name }}-concurrent-clear (${{ join(matrix.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
+
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1"
+
+      - name: Clean up Cilium
+        run: |
+          cilium uninstall --wait
+
+      - name: Create custom IPsec secret
+        run: |
+          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
+
+      - name: Install Cilium with encryption
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --helm-set encryption.enabled=true \
+            --helm-set encryption.type=ipsec
+
+      - name: Enable Relay
+        run: |
+          cilium hubble enable
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait --interactive=false --wait-duration=10m
+
+      - name: Run sequential connectivity test with IPSec (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
+          --test "seq-.*" \
+          --junit-file "cilium-junits/${{ env.job_name }}-sequential-ipsec (${{ join(matrix.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
+
+      - name: Run concurrent connectivity test with IPSec (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
+          --test-concurrency=${{ env.test_concurrency }} \
+          --test "!seq-.*" \
+          --junit-file "cilium-junits/${{ env.job_name }}-concurrent-ipsec (${{ join(matrix.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
+
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2"
+          job_status: "${{ job.status }}"
+
+      - name: Clean up AKS
+        if: ${{ always() }}
+        run: |
+          az group delete --name ${{ env.name }} --yes --no-wait
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: installation-and-connectivity
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.installation-and-connectivity.result }}

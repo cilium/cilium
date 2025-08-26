@@ -1,0 +1,825 @@
+name: Cilium Cluster Mesh upgrade (ci-clustermesh)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
+  push:
+    branches:
+      - main
+      - ft/main/**
+      - 'renovate/main-**'
+    paths-ignore:
+      - 'Documentation/**'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - push: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  clusterName1: cluster1
+  clusterName2: cluster2
+  contextName1: kind-cluster1
+  contextName2: kind-cluster2
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci clustermesh-apiserver-ci
+
+  upgrade-and-downgrade:
+    name: "Upgrade and Downgrade Test"
+    needs: wait-for-images
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    env:
+      job_name: "Installation and Connectivity Test"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: '1'
+            encryption: 'disabled'
+            kube-proxy: 'iptables'
+            external-kvstore: false
+            max-connected-clusters: 255
+            cm-auth-mode: 'legacy'
+
+          - name: '2'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          # Currently, ipsec requires to synchronously regenerate the host
+          # endpoint to ensure ordering (#25735). Given that this is a blocking
+          # operation, we cannot wait for full clustermesh synchronization
+          # for an extended period of time, as that would prevent the agents from
+          # becoming ready (and new pods scheduled). This means that we will
+          # experience cross-cluster connection drops during upgrades/downgrades,
+          # given that the timeout is too low to account for the initialization
+          # of a new clustermesh-apiserver replica (while it is enough to prevent
+          # issues in case of agent restarts, if all remote clusters are ready,
+          # as well as when connecting to an external kvstore as in this case).
+          - name: '3'
+            encryption: 'ipsec'
+            kube-proxy: 'iptables'
+            external-kvstore: true
+            max-connected-clusters: 255
+
+          - name: '4'
+            encryption: 'wireguard'
+            kube-proxy: 'iptables'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'cluster'
+
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up newest settings
+        id: newest-vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./untrusted/cilium-newest/install/kubernetes/cilium
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
+          echo "downgrade_version=${CILIUM_DOWNGRADE_VERSION}" >> $GITHUB_OUTPUT
+
+          # * Monitor aggregation is set to medium to avoid the performance penalty
+          #   in the testing environment due to the relatively high traffic load.
+          # * We explicitly configure the IPAM mode to prevent it from being
+          #   reset to the default value on upgrade/downgrade due to --reset-values.
+          # * We explicitly configure the sync timeout to a higher value to
+          #   give enough time to the clustermesh-apiserver to restart after
+          #   the upgrade/downgrade before that agents regenerate the endpoints.
+          # * We configure the maximum number of unavailable agents to 1 to slow
+          #   down the rollout process and highlight possible connection disruption
+          #   occurring in the meanwhile.
+          CILIUM_INSTALL_DEFAULTS=" \
+            --set=debug.enabled=true \
+            --set=hubble.enabled=true \
+            --set=routingMode=tunnel \
+            --set=tunnelProtocol=vxlan \
+            --set=ipv4.enabled=true \
+            --set=ipv6.enabled=true \
+            --set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
+            --set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
+            --set=ipam.mode=kubernetes \
+            --set=operator.replicas=1 \
+            --set=updateStrategy.rollingUpdate.maxUnavailable=1 \
+            --set=clustermesh.useAPIServer=${{ !matrix.external-kvstore }} \
+            --set=clustermesh.maxConnectedClusters=${{ matrix.max-connected-clusters }} \
+            --set=clustermesh.config.enabled=true \
+            --set=extraConfig.clustermesh-sync-timeout=10m \
+            --set=clustermesh.apiserver.readinessProbe.periodSeconds=1 \
+            --set=clustermesh.apiserver.kvstoremesh.readinessProbe.periodSeconds=1 \
+            --set=clustermesh.apiserver.updateStrategy.rollingUpdate.maxSurge=1 `# Use surge update strategy to enable clients to failover` \
+            --set=clustermesh.apiserver.updateStrategy.rollingUpdate.maxUnavailable=0 \
+            --set=clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode }} \
+          "
+
+          # Run only a limited subset of tests to reduce the amount of time
+          # required. The full suite is run in conformance-clustermesh.
+          CONNECTIVITY_TEST_DEFAULTS=" \
+            --hubble=false \
+            --flow-validation=disabled \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --test='no-interrupted-connections' \
+            --test='no-unexpected-packet-drops' \
+            --test='check-log-errors' \
+            --test='no-policies/' \
+            --test='no-policies-extra/' \
+            --test='allow-all-except-world/' \
+            --test='client-ingress/' \
+            --test='client-egress/' \
+            --test='cluster-entity-multi-cluster/' \
+            --test='!/pod-to-world' \
+            --test='!/pod-to-cidr' \
+            --collect-sysdump-on-failure"
+
+          CILIUM_INSTALL_ENCRYPTION=""
+          if [ "${{ matrix.encryption }}" != "disabled" ]; then
+            CILIUM_INSTALL_ENCRYPTION=" \
+              --set=encryption.enabled=true \
+              --set=encryption.type=${{ matrix.encryption }}"
+          fi
+
+          echo "cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_ENCRYPTION}" >> $GITHUB_OUTPUT
+          echo "connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS}" >> $GITHUB_OUTPUT
+
+      - name: Generate Kind configuration files
+        run: |
+          PODCIDR=10.242.0.0/16,fd00:10:242::/48 \
+            SVCCIDR=10.243.0.0/16,fd00:10:243::/112 \
+            IPFAMILY=dual \
+            KUBEPROXYMODE=${{ matrix.kube-proxy }} \
+            envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-cluster1.yaml
+
+          PODCIDR=10.244.0.0/16,fd00:10:244::/48 \
+            SVCCIDR=10.245.0.0/16,fd00:10:245::/112 \
+            IPFAMILY=dual \
+            KUBEPROXYMODE=${{ matrix.kube-proxy }} \
+            envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-cluster2.yaml
+
+      - name: Create Kind cluster 1
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          cluster_name: ${{ env.clusterName1 }}
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ./.github/kind-config-cluster1.yaml
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Create Kind cluster 2
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          cluster_name: ${{ env.clusterName2 }}
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ./.github/kind-config-cluster2.yaml
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@6e65fa094c051aee03959dc9a75e66213e9050c7 # v0.18.4
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ inputs.SHA || github.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Label one of the nodes as external to the cluster
+        # Currently, we only use external nodes for the north/south
+        # conn-disrupt-test, which requires KPR to be enabled.
+        if: matrix.kube-proxy == 'none'
+        run: |
+          kubectl --context ${{ env.contextName1 }} label node \
+            ${{ env.clusterName1 }}-worker2 cilium.io/no-schedule=true
+          kubectl --context ${{ env.contextName2 }} label node \
+            ${{ env.clusterName2 }}-worker2 cilium.io/no-schedule=true
+
+      # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
+      # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
+      # Additionally, this is also required to workaround
+      # https://github.com/cilium/cilium/issues/23283#issuecomment-1597282247.
+      - name: Configure the coredns nameservers
+        run: |
+          COREDNS_PATCH="
+          spec:
+            template:
+              spec:
+                dnsPolicy: None
+                dnsConfig:
+                  nameservers:
+                  - 8.8.4.4
+                  - 8.8.8.8
+          "
+
+          kubectl --context ${{ env.contextName1 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
+          kubectl --context ${{ env.contextName2 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
+
+      - name: Create the IPSec secret in both clusters
+        if: matrix.encryption == 'ipsec'
+        run: |
+          SECRET="3+ rfc4106(gcm(aes)) $(openssl rand -hex 20) 128"
+          kubectl --context ${{ env.contextName1 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
+          kubectl --context ${{ env.contextName2 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
+
+      - name: Start kvstore clusters
+        id: kvstore
+        if: matrix.external-kvstore
+        uses: ./.github/actions/kvstore
+        with:
+          clusters: 2
+
+      - name: Create the secret containing the kvstore credentials
+        if: matrix.external-kvstore
+        run: |
+          kubectl --context ${{ env.contextName1 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
+          kubectl --context ${{ env.contextName2 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
+
+      - name: Set clustermesh connection parameters
+        id: clustermesh-vars
+        run: |
+          # Let's retrieve in advance the parameters to mesh the two clusters, so
+          # that we don't need to do that through the CLI in a second step, as it
+          # would be reset during upgrade (as we are resetting the values).
+
+          # Explicitly configure the NodePorts to make sure that they are different
+          # in each cluster, to workaround #24692
+          PORT1=32379
+          PORT2=32380
+
+          CILIUM_INSTALL_CLUSTER1=" \
+            --set cluster.name=${{ env.clusterName1 }} \
+            --set cluster.id=1 \
+            --set clustermesh.apiserver.service.nodePort=$PORT1 \
+          "
+
+          CILIUM_INSTALL_CLUSTER2=" \
+            --set cluster.name=${{ env.clusterName2 }} \
+            --set cluster.id=${{ matrix.max-connected-clusters }} \
+            --set clustermesh.apiserver.service.nodePort=$PORT2 \
+          "
+
+          CILIUM_INSTALL_COMMON=" \
+            --set clustermesh.config.clusters[0].name=${{ env.clusterName1 }} \
+            --set clustermesh.config.clusters[1].name=${{ env.clusterName2 }} \
+          "
+
+          if [ "${{ matrix.external-kvstore }}" == "true" ]; then
+            CILIUM_INSTALL_COMMON="$CILIUM_INSTALL_COMMON \
+              ${{ steps.kvstore.outputs.cilium_install_clustermesh }}"
+          else
+            IP1=$(kubectl --context ${{ env.contextName1 }} get nodes \
+              ${{ env.clusterName1 }}-worker -o wide --no-headers | awk '{ print $6 }')
+            IP2=$(kubectl --context ${{ env.contextName2 }} get nodes \
+              ${{ env.clusterName2 }}-worker -o wide --no-headers | awk '{ print $6 }')
+
+            CILIUM_INSTALL_COMMON="$CILIUM_INSTALL_COMMON \
+              --set clustermesh.config.clusters[0].ips={$IP1} \
+              --set clustermesh.config.clusters[0].port=$PORT1 \
+              --set clustermesh.config.clusters[1].ips={$IP2} \
+              --set clustermesh.config.clusters[1].port=$PORT2 \
+            "
+          fi
+
+          echo cilium_install_cluster1="$CILIUM_INSTALL_CLUSTER1 $CILIUM_INSTALL_COMMON" >> $GITHUB_OUTPUT
+          echo cilium_install_cluster2="$CILIUM_INSTALL_CLUSTER2 $CILIUM_INSTALL_COMMON" >> $GITHUB_OUTPUT
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.newest-vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted/cilium-newest
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.vars.outputs.downgrade_version }}
+          persist-credentials: false
+          path: untrusted/cilium-downgrade
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Retrieve downgrade target SHA
+        id: downgrade-branch
+        run: |
+          echo "sha=$(cd untrusted/cilium-downgrade && git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set up downgrade settings
+        id: downgrade-vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ steps.downgrade-branch.outputs.sha }}
+          chart-dir: ./untrusted/cilium-downgrade/install/kubernetes/cilium
+
+      - name: Wait for images to be available (downgrade)
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci clustermesh-apiserver-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.downgrade-branch.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+
+      - name: Install Cilium ${{ steps.vars.outputs.downgrade_version }} in cluster1
+        id: install-cilium-cluster1
+        env:
+          KVSTORE_ID: 1
+        run: |
+          cilium --context ${{ env.contextName1 }} install \
+            ${{ steps.downgrade-vars.outputs.cilium_install_defaults }} \
+            ${{ steps.vars.outputs.cilium_install_defaults }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
+            --nodes-without-cilium
+
+      - name: Copy the Cilium CA secret to cluster2, as they must match
+        if: ${{ !matrix.external-kvstore }}
+        run: |
+          kubectl --context ${{ env.contextName1 }} get secret -n kube-system cilium-ca -o yaml |
+            kubectl --context ${{ env.contextName2 }} create -f -
+
+      - name: Install Cilium in cluster2
+        env:
+          KVSTORE_ID: 2
+        run: |
+          cilium --context ${{ env.contextName2 }} install \
+            ${{ steps.newest-vars.outputs.cilium_install_defaults }} \
+            ${{ steps.vars.outputs.cilium_install_defaults }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster2 }} \
+            --nodes-without-cilium
+
+      - name: Wait for cluster mesh status to be ready
+        run: |
+          cilium --context ${{ env.contextName1 }} status --wait --interactive=false --wait-duration=10m
+          cilium --context ${{ env.contextName2 }} status --wait --interactive=false --wait-duration=10m
+          cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
+          cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
+      - name: Run connectivity test - pre-upgrade (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium --context ${{ env.contextName1 }} connectivity test \
+            --multi-cluster=${{ env.contextName2 }} \
+            ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --junit-file "cilium-junits/${{ env.job_name }} - pre-upgrade (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests pre-upgrade (${{ join(matrix.*, ', ') }})"
+
+          # Create pods which establish long lived connections. They will be used by
+          # subsequent connectivity tests with --include-conn-disrupt-test to catch any
+          # interruption in such flows.
+          cilium --context ${{ env.contextName1 }} connectivity test \
+            --multi-cluster=${{ env.contextName2 }} --hubble=false \
+            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --conn-disrupt-test-setup \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            --conn-disrupt-dispatch-interval 0ms
+
+      - name: Features tested on cluster 1
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 1"
+
+      - name: Features tested on cluster 2
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2"
+
+
+      - name: Upgrade Cilium in cluster1
+        env:
+          KVSTORE_ID: 1
+        run: |
+          cilium --context ${{ env.contextName1 }} upgrade --reset-values \
+            ${{ steps.newest-vars.outputs.cilium_install_defaults }} \
+            ${{ steps.vars.outputs.cilium_install_defaults }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
+            --nodes-without-cilium
+
+      - name: Wait for cluster mesh status to be ready
+        run: |
+          cilium --context ${{ env.contextName1 }} status --wait --interactive=false --wait-duration=10m
+          cilium --context ${{ env.contextName2 }} status --wait --interactive=false --wait-duration=10m
+          cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
+          cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
+
+      - name: Set cilium connectivity test namespace
+        id: cilium-cli
+        run: |
+          NAMESPACE=$(kubectl get namespace -l "app.kubernetes.io/name=cilium-cli" -o name | sort | cut -d / -f 2 | head -1)
+          echo namespace="$NAMESPACE" >> $GITHUB_OUTPUT
+
+      - name: Write the Service manifest for testing failover
+        if: ${{ !matrix.external-kvstore }}
+        run: |
+          cat << EOF > echo-failover.yaml
+          apiVersion: v1
+          kind: Service
+          metadata:
+            annotations:
+              service.cilium.io/global: "true"
+            labels:
+              kind: echo
+              context: failover
+            name: echo-other-node-failover
+            namespace: ${{ steps.cilium-cli.outputs.namespace }}
+          spec:
+            ipFamilies:
+            - IPv4
+            - IPv6
+            ipFamilyPolicy: PreferDualStack
+            ports:
+            - name: http
+              port: 80
+              protocol: TCP
+              targetPort: 8080
+            selector:
+              name: echo-other-node
+            sessionAffinity: None
+            type: ClusterIP
+          EOF
+
+      - name: Restart clustermesh-apiserver and ensure client can connect to new Service
+        if: ${{ !matrix.external-kvstore }}
+        run: |
+          echo "Restarting clustermesh-apiserver deployments"
+          kubectl --context ${{ env.contextName2 }} -n kube-system rollout restart deployment -l k8s-app=clustermesh-apiserver
+          kubectl --context ${{ env.contextName2 }} -n kube-system rollout status deployment -l k8s-app=clustermesh-apiserver
+
+          echo "Deploying a global Service to test failover"
+          kubectl --context ${{ env.contextName1 }} apply -f echo-failover.yaml
+          kubectl --context ${{ env.contextName2 }} apply -f echo-failover.yaml
+
+          echo "Testing client connection to global Service"
+          kubectl --context ${{ env.contextName1 }} -n ${{ steps.cilium-cli.outputs.namespace }} exec deploy/client -i -- curl -s -v --connect-timeout 2 --max-time 5 --retry-max-time 60 --retry-all-errors --retry 10 --output /dev/null --fail echo-other-node-failover
+
+          # Clean up the service so that it can be re-deployed in subsequent steps
+          kubectl --context ${{ env.contextName1 }} delete -f echo-failover.yaml
+          kubectl --context ${{ env.contextName2 }} delete -f echo-failover.yaml
+
+      - name: Disable kvstoremesh on cluster1
+        if: ${{ !matrix.external-kvstore }}
+        env:
+          KVSTORE_ID: 1
+        run: |
+          cilium --context ${{ env.contextName1 }} upgrade --reset-values \
+            ${{ steps.newest-vars.outputs.cilium_install_defaults }} \
+            ${{ steps.vars.outputs.cilium_install_defaults }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
+            --set clustermesh.apiserver.kvstoremesh.enabled=false \
+            --nodes-without-cilium
+
+      - name: Wait for cluster mesh status to be ready
+        if: ${{ !matrix.external-kvstore }}
+        run: |
+          cilium --context ${{ env.contextName1 }} status --wait --interactive=false --wait-duration=10m
+          cilium --context ${{ env.contextName2 }} status --wait --interactive=false --wait-duration=10m
+          cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
+          cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
+
+      - name: Restart clustermesh-apiserver and ensure client can connect to new Service
+        if: ${{ !matrix.external-kvstore }}
+        run: |
+          echo "Restarting clustermesh-apiserver deployments"
+          kubectl --context ${{ env.contextName2 }} -n kube-system rollout restart deployment -l k8s-app=clustermesh-apiserver
+          kubectl --context ${{ env.contextName2 }} -n kube-system rollout status deployment -l k8s-app=clustermesh-apiserver
+
+          echo "Deploying a global Service to test failover"
+          kubectl --context ${{ env.contextName1 }} apply -f echo-failover.yaml
+          kubectl --context ${{ env.contextName2 }} apply -f echo-failover.yaml
+
+          echo "Testing client connection to global Service"
+          kubectl --context ${{ env.contextName1 }} -n ${{ steps.cilium-cli.outputs.namespace }} exec deploy/client -i -- curl -s -v --connect-timeout 2 --max-time 5 --retry-max-time 60 --retry-all-errors --retry 10 --output /dev/null --fail echo-other-node-failover
+
+          # Clean up the service so that it can be re-deployed in subsequent steps
+          kubectl --context ${{ env.contextName1 }} delete -f echo-failover.yaml
+          kubectl --context ${{ env.contextName2 }} delete -f echo-failover.yaml
+
+      - name: Gather additional troubleshooting information
+        run: |
+          kubectl --context ${{ env.contextName1 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName2 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName1 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --previous --ignore-errors --timestamps
+
+      - name: Run connectivity test - post-upgrade (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium --context ${{ env.contextName1 }} connectivity test \
+            --multi-cluster=${{ env.contextName2 }} \
+            ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            --junit-file "cilium-junits/${{ env.job_name }} - post upgrade (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests post-upgrade (${{ join(matrix.*, ', ') }})"
+
+          # Create pods which establish long lived connections. They will be used by
+          # subsequent connectivity tests with --include-conn-disrupt-test to catch any
+          # interruption in such flows.
+          cilium --context ${{ env.contextName1 }} connectivity test \
+            --multi-cluster=${{ env.contextName2 }} --hubble=false \
+            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --conn-disrupt-test-setup \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            --conn-disrupt-dispatch-interval 0ms
+
+      - name: Features tested on cluster 1 - post upgrade
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1 - post upgrade"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 1 - post upgrade"
+
+      - name: Features tested on cluster 2 - post upgrade
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2 - post upgrade"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2 - post upgrade"
+
+
+      # Perform an additional "stress" test, scaling the clustermesh-apiservers in both clusters
+      # to zero replicas, and restarting all agents. Existing connections should not be disrupted.
+      - name: Scale the clustermesh-apiserver replicas to 0
+        if: ${{ !matrix.external-kvstore }}
+        run: |
+          kubectl --context ${{ env.contextName1 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
+          kubectl --context ${{ env.contextName2 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
+
+      - name: Rollout Cilium agents in both clusters
+        run: |
+          kubectl --context ${{ env.contextName1 }} rollout restart -n kube-system ds/cilium
+          kubectl --context ${{ env.contextName2 }} rollout restart -n kube-system ds/cilium
+
+          # Wait until all agents successfully restarted before scaling the replicas again
+          kubectl --context ${{ env.contextName1 }} rollout status -n kube-system ds/cilium --timeout=10m
+          kubectl --context ${{ env.contextName2 }} rollout status -n kube-system ds/cilium --timeout=10m
+
+      - name: Scale the clustermesh-apiserver replicas back to 1
+        if: ${{ !matrix.external-kvstore }}
+        run: |
+          kubectl --context ${{ env.contextName1 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 1
+          kubectl --context ${{ env.contextName2 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 1
+
+      - name: Wait for cluster mesh status to be ready
+        run: |
+          cilium --context ${{ env.contextName1 }} status --wait --interactive=false --wait-duration=10m
+          cilium --context ${{ env.contextName2 }} status --wait --interactive=false --wait-duration=10m
+          cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
+          cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
+
+      - name: Gather additional troubleshooting information
+        run: |
+          kubectl --context ${{ env.contextName1 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName2 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName1 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --previous --ignore-errors --timestamps
+
+      - name: Run connectivity test - stress-test (${{ join(matrix.*, ', ') }})
+        run: |
+          # Only check that no long living connection was disrupted
+          cilium --context ${{ env.contextName1 }} connectivity test \
+            --multi-cluster=${{ env.contextName2 }} \
+            --hubble=false \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --flow-validation=disabled \
+            --test='no-interrupted-connections' \
+            --test='no-unexpected-packet-drops' \
+            --include-conn-disrupt-test \
+            --include-conn-disrupt-test-ns-traffic \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            --junit-file "cilium-junits/${{ env.job_name }} - stress test (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests stess-test (${{ join(matrix.*, ', ') }})"
+
+          # Create pods which establish long lived connections. They will be used by
+          # subsequent connectivity tests with --include-conn-disrupt-test to catch any
+          # interruption in such flows.
+          cilium --context ${{ env.contextName1 }} connectivity test \
+            --multi-cluster=${{ env.contextName2 }} --hubble=false \
+            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --conn-disrupt-test-setup \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            --conn-disrupt-dispatch-interval 0ms
+
+      - name: Features tested on cluster 1 - stress-test
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1 - stress-test"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 1 - stress-test"
+
+      - name: Features tested on cluster 2 - stress-test
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2 - stress-test"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2 - stress-test"
+
+
+      - name: Downgrade Cilium in cluster1 to ${{ steps.vars.outputs.downgrade_version }} and enable kvstoremesh again
+        env:
+          KVSTORE_ID: 1
+        run: |
+          cilium --context ${{ env.contextName1 }} upgrade --reset-values \
+            ${{ steps.downgrade-vars.outputs.cilium_install_defaults }} \
+            ${{ steps.vars.outputs.cilium_install_defaults }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
+            --nodes-without-cilium
+
+      - name: Wait for cluster mesh status to be ready
+        run: |
+          cilium --context ${{ env.contextName1 }} status --wait --interactive=false --wait-duration=10m
+          cilium --context ${{ env.contextName2 }} status --wait --interactive=false --wait-duration=10m
+          cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
+          cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
+
+      - name: Gather additional troubleshooting information
+        run: |
+          kubectl --context ${{ env.contextName1 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName2 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
+          kubectl --context ${{ env.contextName1 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --timestamps
+          kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --previous --ignore-errors --timestamps
+
+      - name: Run connectivity test - post-downgrade (${{ join(matrix.*, ', ') }})
+        run: |
+          cilium --context ${{ env.contextName1 }} connectivity test \
+            --multi-cluster=${{ env.contextName2 }} \
+            ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            --junit-file "cilium-junits/${{ env.job_name }} - post downgrade (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests post-downgrade (${{ join(matrix.*, ', ') }})"
+
+      - name: Features tested on cluster 1 - post-downgrade
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1 - post-downgrade"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 1 - post-downgrade"
+
+      - name: Features tested on cluster 2 - post-downgrade
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2 - post-downgrade"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2 - post-downgrade"
+
+
+      - name: Post-test information gathering
+        if: ${{ !success() && steps.install-cilium-cluster1.outcome != 'skipped' }}
+        run: |
+          cilium --context ${{ env.contextName1 }} status
+          cilium --context ${{ env.contextName1 }} clustermesh status
+          cilium --context ${{ env.contextName2 }} status
+          cilium --context ${{ env.contextName2 }} clustermesh status
+
+          kubectl config use-context ${{ env.contextName1 }}
+          kubectl get pods --all-namespaces -o wide
+          cilium sysdump --output-filename cilium-sysdump-context1-final-${{ join(matrix.*, '-') }}
+
+          kubectl config use-context ${{ env.contextName2 }}
+          kubectl get pods --all-namespaces -o wide
+          cilium sysdump --output-filename cilium-sysdump-context2-final-${{ join(matrix.*, '-') }}
+
+          if [ "${{ matrix.external-kvstore }}" == "true" ]; then
+            for i in {1..2}; do
+              echo
+              echo "# Retrieving logs from kvstore$i docker container"
+              docker logs kvstore$i
+            done
+          fi
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "${{ matrix.name }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
+          capture_sysdump: false
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: upgrade-and-downgrade
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.upgrade-and-downgrade.result }}

@@ -1,0 +1,11 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "from-world-to-role-public"
+spec:
+  endpointSelector:
+    matchLabels:
+      role: public
+  ingress:
+    - fromEntities:
+      - world

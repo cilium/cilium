@@ -1,0 +1,350 @@
+metadata:
+  creationTimestamp: null
+  labels:
+    cilium.io/use-original-source-address: "false"
+  name: cilium-ingress-dummy-namespace-dummy-ingress
+  namespace: dummy-namespace
+spec:
+  backendServices:
+  - name: another-dummy-backend
+    namespace: dummy-namespace
+    number:
+    - "8081"
+  - name: default-backend
+    namespace: dummy-namespace
+    number:
+    - "8080"
+  - name: dummy-backend
+    namespace: dummy-namespace
+    number:
+    - "8080"
+  nodeSelector:
+    matchLabels:
+      a: b
+  resources:
+  - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    additionalAddresses:
+    - address:
+        socketAddress:
+          address: '::'
+          portValue: 80
+    - address:
+        socketAddress:
+          address: 0.0.0.0
+          portValue: 443
+    - address:
+        socketAddress:
+          address: '::'
+          portValue: 443
+    address:
+      socketAddress:
+        address: 0.0.0.0
+        portValue: 80
+    filterChains:
+    - filterChainMatch:
+        transportProtocol: raw_buffer
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          commonHttpProtocolOptions:
+            maxStreamDuration: 0s
+          httpFilters:
+          - name: envoy.filters.http.grpc_web
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+          - name: envoy.filters.http.grpc_stats
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+              emitFilterState: true
+              enableUpstreamStats: true
+          - name: envoy.filters.http.router
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          internalAddressConfig:
+            cidrRanges:
+            - addressPrefix: 10.0.0.0
+              prefixLen: 8
+            - addressPrefix: 172.16.0.0
+              prefixLen: 12
+            - addressPrefix: 192.168.0.0
+              prefixLen: 16
+            - addressPrefix: 127.0.0.1
+              prefixLen: 32
+            - addressPrefix: ::1
+              prefixLen: 128
+          rds:
+            routeConfigName: listener-insecure
+          statPrefix: listener-insecure
+          streamIdleTimeout: 300s
+          upgradeConfigs:
+          - upgradeType: websocket
+          useRemoteAddress: true
+    - filterChainMatch:
+        serverNames:
+        - another-very-secure.server.com
+        - not-in-use.another-very-secure.server.com
+        transportProtocol: tls
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          commonHttpProtocolOptions:
+            maxStreamDuration: 0s
+          httpFilters:
+          - name: envoy.filters.http.grpc_web
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+          - name: envoy.filters.http.grpc_stats
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+              emitFilterState: true
+              enableUpstreamStats: true
+          - name: envoy.filters.http.router
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          internalAddressConfig:
+            cidrRanges:
+            - addressPrefix: 10.0.0.0
+              prefixLen: 8
+            - addressPrefix: 172.16.0.0
+              prefixLen: 12
+            - addressPrefix: 192.168.0.0
+              prefixLen: 16
+            - addressPrefix: 127.0.0.1
+              prefixLen: 32
+            - addressPrefix: ::1
+              prefixLen: 128
+          rds:
+            routeConfigName: listener-secure
+          statPrefix: listener-secure
+          streamIdleTimeout: 300s
+          upgradeConfigs:
+          - upgradeType: websocket
+          useRemoteAddress: true
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          commonTlsContext:
+            tlsCertificateSdsSecretConfigs:
+            - name: cilium-secrets/dummy-namespace-tls-another-very-secure-server-com
+    - filterChainMatch:
+        serverNames:
+        - very-secure.server.com
+        transportProtocol: tls
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          commonHttpProtocolOptions:
+            maxStreamDuration: 0s
+          httpFilters:
+          - name: envoy.filters.http.grpc_web
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+          - name: envoy.filters.http.grpc_stats
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+              emitFilterState: true
+              enableUpstreamStats: true
+          - name: envoy.filters.http.router
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          internalAddressConfig:
+            cidrRanges:
+            - addressPrefix: 10.0.0.0
+              prefixLen: 8
+            - addressPrefix: 172.16.0.0
+              prefixLen: 12
+            - addressPrefix: 192.168.0.0
+              prefixLen: 16
+            - addressPrefix: 127.0.0.1
+              prefixLen: 32
+            - addressPrefix: ::1
+              prefixLen: 128
+          rds:
+            routeConfigName: listener-secure
+          statPrefix: listener-secure
+          streamIdleTimeout: 300s
+          upgradeConfigs:
+          - upgradeType: websocket
+          useRemoteAddress: true
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          commonTlsContext:
+            tlsCertificateSdsSecretConfigs:
+            - name: cilium-secrets/dummy-namespace-tls-very-secure-server-com
+    listenerFilters:
+    - name: envoy.filters.listener.tls_inspector
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+    name: listener
+    socketOptions:
+    - description: Enable TCP keep-alive (default to enabled)
+      intValue: "1"
+      level: "1"
+      name: "9"
+    - description: TCP keep-alive idle time (in seconds) (defaults to 10s)
+      intValue: "10"
+      level: "6"
+      name: "4"
+    - description: TCP keep-alive probe intervals (in seconds) (defaults to 5s)
+      intValue: "5"
+      level: "6"
+      name: "5"
+    - description: TCP keep-alive probe max failures.
+      intValue: "10"
+      level: "6"
+      name: "6"
+  - '@type': type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+    name: listener-insecure
+    virtualHosts:
+    - domains:
+      - '*'
+      name: '*'
+      routes:
+      - match:
+          path: /dummy-path
+        route:
+          cluster: dummy-namespace:dummy-backend:8080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          pathSeparatedPrefix: /another-dummy-path
+        route:
+          cluster: dummy-namespace:another-dummy-backend:8081
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          prefix: /
+        route:
+          cluster: dummy-namespace:default-backend:8080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+  - '@type': type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+    name: listener-secure
+    virtualHosts:
+    - domains:
+      - another-very-secure.server.com
+      - another-very-secure.server.com:*
+      name: another-very-secure.server.com
+      routes:
+      - match:
+          path: /dummy-path
+        route:
+          cluster: dummy-namespace:dummy-backend:8080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          pathSeparatedPrefix: /another-dummy-path
+        route:
+          cluster: dummy-namespace:another-dummy-backend:8081
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          prefix: /
+        route:
+          cluster: dummy-namespace:default-backend:8080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+    - domains:
+      - not-in-use.another-very-secure.server.com
+      - not-in-use.another-very-secure.server.com:*
+      name: not-in-use.another-very-secure.server.com
+      routes:
+      - match:
+          path: /dummy-path
+        route:
+          cluster: dummy-namespace:dummy-backend:8080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          pathSeparatedPrefix: /another-dummy-path
+        route:
+          cluster: dummy-namespace:another-dummy-backend:8081
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          prefix: /
+        route:
+          cluster: dummy-namespace:default-backend:8080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+    - domains:
+      - very-secure.server.com
+      - very-secure.server.com:*
+      name: very-secure.server.com
+      routes:
+      - match:
+          path: /dummy-path
+        route:
+          cluster: dummy-namespace:dummy-backend:8080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          pathSeparatedPrefix: /another-dummy-path
+        route:
+          cluster: dummy-namespace:another-dummy-backend:8081
+          maxStreamDuration:
+            maxStreamDuration: 0s
+      - match:
+          prefix: /
+        route:
+          cluster: dummy-namespace:default-backend:8080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: dummy-namespace/another-dummy-backend:8081
+    name: dummy-namespace:another-dummy-backend:8081
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: dummy-namespace/default-backend:8080
+    name: dummy-namespace:default-backend:8080
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: dummy-namespace/dummy-backend:8080
+    name: dummy-namespace:dummy-backend:8080
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+  services:
+  - listener: ""
+    name: cilium-ingress-dummy-ingress
+    namespace: dummy-namespace
+    ports:
+    - 80
+    - 443

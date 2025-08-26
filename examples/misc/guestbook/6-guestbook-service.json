@@ -1,0 +1,19 @@
+{
+    "kind":"Service",
+    "apiVersion":"v1",
+    "metadata":{
+        "name":"guestbook",
+        "labels":{
+            "k8s-app.guestbook":"web"
+        }
+    },
+    "spec":{
+        "ports": [{
+            "port":80,
+            "targetPort":"http-server"
+        }],
+        "selector":{
+            "k8s-app.guestbook":"web"
+        }
+    }
+}

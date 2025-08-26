@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bgp-config
+  namespace: kube-system
+data:
+  config.yaml: |
+    peers:
+      - peer-address: {{ .RouterIP }}
+        peer-asn: 64512
+        my-asn: 64512
+        node-selectors:
+        - match-expressions:
+          - key: cilium.io/ci-node
+            operator: Exists
+    address-pools:
+      - name: default
+        protocol: bgp
+        addresses:
+          - 192.168.1.150/29

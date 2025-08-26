@@ -1,0 +1,79 @@
+{{- $secretSyncEnabled := eq (include "secretSyncEnabled" .) "true" -}}
+
+{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create .Values.ingressController.enabled .Values.ingressController.secretsNamespace.sync .Values.ingressController.secretsNamespace.name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cilium-operator-ingress-secrets
+  namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.operator.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cilium-operator-ingress-secrets
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.operator.name | quote }}
+  namespace: {{ include "cilium.namespace" . }}
+{{- end }}
+
+{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create .Values.gatewayAPI.enabled .Values.gatewayAPI.secretsNamespace.sync .Values.gatewayAPI.secretsNamespace.name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cilium-operator-gateway-secrets
+  namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.operator.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cilium-operator-gateway-secrets
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.operator.name | quote }}
+  namespace: {{ include "cilium.namespace" . }}
+{{- end }}
+
+{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create $secretSyncEnabled .Values.tls.secretsNamespace.name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cilium-operator-tlsinterception-secrets
+  namespace: {{ .Values.tls.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.operator.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cilium-operator-tlsinterception-secrets
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.operator.name | quote }}
+  namespace: {{ include "cilium.namespace" . }}
+{{- end }}

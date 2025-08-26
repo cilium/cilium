@@ -1,0 +1,40 @@
+name: Image CI Cache Cleaner
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+  schedule:
+    # Run the GC every Monday at 6am
+    - cron: "0 6 * * 1"
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  cache-cleaner:
+    name: Clean Image Cache
+    runs-on: ubuntu-24.04
+    permissions:
+      # `actions:write` permission is required to delete caches
+      #   See also: https://docs.github.com/en/rest/actions/cache?apiVersion=2022-11-28#delete-a-github-actions-cache-for-a-repository-using-a-cache-id
+      actions: write
+      contents: read
+    steps:
+      - name: Clean cache from GitHub
+        shell: bash
+        run: |
+          gh extension install actions/gh-actions-cache
+
+          REPO=${{ github.repository }}
+          set +e
+          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-go- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); do
+            gh actions-cache delete ${cache} -R $REPO -B ${{ github.event.repository.default_branch }} --confirm || true
+          done
+          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-ccache- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); do
+            gh actions-cache delete ${cache} -R $REPO -B ${{ github.event.repository.default_branch }} --confirm || true
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

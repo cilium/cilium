@@ -1,0 +1,141 @@
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: reference-grant-wrong-namespace
+  namespace: gateway-conformance-infra
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: TLSRoute
+      namespace: gateway-conformance-infra
+  to:
+    - group: ""
+      kind: Service
+      name: tls-backend
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: reference-grant-wrong-from-group
+  namespace: gateway-conformance-app-backend
+spec:
+  from:
+    - group: not-the-group-youre-looking-for
+      kind: TLSRoute
+      namespace: gateway-conformance-infra
+  to:
+    - group: ""
+      kind: Service
+      name: tls-backend
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: reference-grant-wrong-from-kind
+  namespace: gateway-conformance-app-backend
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      namespace: gateway-conformance-infra
+  to:
+    - group: ""
+      kind: Service
+      name: tls-backend
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: reference-grant-wrong-from-namespace
+  namespace: gateway-conformance-app-backend
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: TLSRoute
+      namespace: not-the-namespace-youre-looking-for
+  to:
+    - group: ""
+      kind: Service
+      name: tls-backend
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: reference-grant-wrong-to-group
+  namespace: gateway-conformance-app-backend
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: TLSRoute
+      namespace: gateway-conformance-infra
+  to:
+    - group: not-the-group-youre-looking-for
+      kind: Service
+      name: tls-backend
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: reference-grant-wrong-to-kind
+  namespace: gateway-conformance-app-backend
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: TLSRoute
+      namespace: gateway-conformance-infra
+  to:
+    - group: ""
+      kind: Secret
+      name: tls-backend
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: reference-grant-wrong-to-name
+  namespace: gateway-conformance-app-backend
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: TLSRoute
+      namespace: gateway-conformance-infra
+  to:
+    - group: ""
+      kind: Service
+      name: not-the-service-youre-looking-for
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: gateway-conformance-infra-test
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-tlsroute-referencegrant
+  hostnames:
+    - abc.example.com
+  rules:
+    - backendRefs:
+        - name: tls-backend
+          namespace: gateway-conformance-app-backend
+          port: 443
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway-tlsroute-referencegrant
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: https
+      port: 443
+      protocol: TLS
+      hostname: "*.example.com"
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+      tls:
+        mode: Passthrough

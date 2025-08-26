@@ -1,0 +1,11 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-to-entities-host
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toEntities:
+    - host

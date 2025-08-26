@@ -1,0 +1,11 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "dev-to-kube-apiserver"
+spec:
+  endpointSelector:
+    matchLabels:
+      env: dev
+  egress:
+    - toEntities:
+      - kube-apiserver

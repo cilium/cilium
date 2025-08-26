@@ -1,0 +1,43 @@
+metadata:
+  annotations:
+    ingress.cilium.io/insecure-node-port: "30000"
+    ingress.cilium.io/secure-node-port: "30001"
+    ingress.cilium.io/service-type: NodePort
+  creationTimestamp: null
+  name: dummy-ingress
+  namespace: dummy-namespace
+  uid: d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e
+spec:
+  defaultBackend:
+    service:
+      name: default-backend
+      port:
+        number: 8080
+  ingressClassName: cilium
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: dummy-backend
+            port:
+              number: 8080
+        path: /dummy-path
+        pathType: Exact
+      - backend:
+          service:
+            name: another-dummy-backend
+            port:
+              number: 8081
+        path: /another-dummy-path
+        pathType: Prefix
+  tls:
+  - hosts:
+    - very-secure.server.com
+    secretName: tls-very-secure-server-com
+  - hosts:
+    - another-very-secure.server.com
+    - not-in-use.another-very-secure.server.com
+    secretName: tls-another-very-secure-server-com
+status:
+  loadBalancer: {}

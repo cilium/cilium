@@ -1,0 +1,9 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "ingress-entity-deny"
+spec:
+  endpointSelector: {}
+  egressDeny:
+    - toEntities:
+        - ingress

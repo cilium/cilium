@@ -1,0 +1,99 @@
+db/insert health allok.yaml
+
+# Should be all ok
+* health/ok
+
+db/insert health degraded.yaml
+
+# Adding degraded module should fail
+!* health/ok
+
+db/insert health module1.yaml
+
+# Check output
+health --output=out
+sed ' \(.*\)' '' out
+cmp all.expected.txt out
+
+health --output=out agent.m0
+sed ' \(.*\)' '' out
+cmp m0.expected.txt out
+
+health --output=out --levels=degraded 
+sed ' \(.*\)' '' out
+cmp degraded.expected.txt out
+
+-- allok.yaml --
+id:
+    module:
+        - agent
+        - m0
+    component:
+        - c0
+level: OK
+message: ok
+error: ""
+lastok: 2025-04-01T21:28:00.000000000-07:00
+updated: 2025-04-01T21:28:00.000000000-07:00
+stopped: 0001-01-01T00:00:00Z
+final: ""
+count: 1
+-- degraded.yaml --
+id:
+    module:
+        - agent
+        - m0
+    component:
+        - c1
+level: Degraded 
+message: no! 
+error: "err"
+lastok: 2025-04-01T21:28:00.000000000-07:00
+updated: 2025-04-01T21:28:00.000000000-07:00
+stopped: 0001-01-01T00:00:00Z
+final: ""
+count: 1
+-- degraded.txt --
+agent
+└── m0
+    ├── c0                                          [OK] ok (2m27s, x1)
+    └── c1                                          [DEGRADED] no! (2m27s, x1)
+
+-- ok.yaml --
+agent
+└── m0
+    └── c0                                          [OK] ok (3m14s, x1)
+-- module1.yaml --
+id:
+    module:
+        - agent
+        - m1
+    component:
+        - c1
+level: OK 
+message: yay 
+error: ""
+lastok: 2025-04-01T21:28:00.000000000-07:00
+updated: 2025-04-01T21:28:00.000000000-07:00
+stopped: 0001-01-01T00:00:00Z
+final: ""
+count: 1
+-- all.expected.txt --
+agent
+├── m0
+│   ├── c0                                          [OK] ok
+│   └── c1                                          [DEGRADED] no!
+└── m1
+    └── c1                                          [OK] yay
+
+-- m0.expected.txt --
+agent
+└── m0
+    ├── c0                                          [OK] ok
+    └── c1                                          [DEGRADED] no!
+
+-- degraded.expected.txt --
+agent
+└── m0
+    └── c1                                          [DEGRADED] no!
+

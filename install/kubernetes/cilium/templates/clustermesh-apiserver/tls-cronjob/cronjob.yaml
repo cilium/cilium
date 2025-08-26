@@ -1,0 +1,22 @@
+{{- if and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.tls.auto.enabled (eq .Values.clustermesh.apiserver.tls.auto.method "cronJob") .Values.clustermesh.apiserver.tls.auto.schedule }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: clustermesh-apiserver-generate-certs
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.clustermesh.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    k8s-app: clustermesh-apiserver-generate-certs
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  schedule: {{ .Values.clustermesh.apiserver.tls.auto.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+{{- include "clustermesh-apiserver-generate-certs.job.spec" . | nindent 4 }}
+{{- end }}

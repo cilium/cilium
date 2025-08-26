@@ -1,0 +1,418 @@
+name: Conformance GKE (ci-gke)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  push:
+    branches:
+      - 'renovate/main-**'
+  # Run every 8 hours
+  schedule:
+    - cron:  '0 2/8 * * *'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+  USE_GKE_GCLOUD_AUTH_PLUGIN: True
+  # renovate: datasource=docker depName=google/cloud-sdk
+  gcloud_version: 528.0.0
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  generate-matrix:
+    name: Generate Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      empty: ${{ steps.set-matrix.outputs.empty }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          work_dir=".github/actions/gke"
+          destination_directory="/tmp/generated/gke"
+          mkdir -p "${destination_directory}"
+
+          # shellcheck disable=SC2010
+          ls ${work_dir}/*.yaml | grep -v 'schema\|classic' | while read file;do
+            filename=$(basename "$file")
+            new_filename="${filename%.yaml}.json"
+            yq -o=json "${file}" | jq . > "${destination_directory}/${new_filename}"
+          done
+
+          # Merge 2 files into one
+          jq -s "add" ${destination_directory}/*.json > "${destination_directory}/gke.json"
+
+      - name: Generate Matrix
+        run: |
+          cd /tmp/generated/gke
+
+          # Use complete matrix in case of scheduled run
+          # main -> event_name = schedule
+          # other stable branches -> PR-number starting with v (e.g. v1.14)
+          VERSIONS=$(echo ${{ inputs.extra-args }} | awk -F'=' '{print $2}')
+          # shellcheck disable=SC2193
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* || "$VERSIONS" == "all" ]];then
+            cp gke.json /tmp/matrix.json
+          else
+            jq '{ "k8s": [ .k8s[] | select(.default) ], "config": .config}' gke.json > /tmp/matrix.json
+          fi
+
+          echo "Generated matrix:"
+          cat /tmp/matrix.json
+
+      - name: Set up gcloud credentials
+        id: 'auth'
+        uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193 # v2.1.10
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PR_SA }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a # v2.1.4
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          version: ${{ env.gcloud_version }}
+
+      - name: Filter Matrix
+        id: set-matrix
+        run: |
+          CHANNEL=$(echo ${{ inputs.extra-args }} | grep "channel" | awk -F'=' '{print $2}' | tr '[:lower:]' '[:upper:]')
+          if [ "$CHANNEL" == "" ];then
+            FILTER="channels.channel=REGULAR"
+          elif [ "$CHANNEL" == "NONE" ];then
+            FILTER=""
+          else
+            FILTER="channels.channel=$CHANNEL"
+          fi
+          cp /tmp/matrix.json /tmp/result.json
+          jq -c '.k8s[]' /tmp/matrix.json | while read i; do
+            VERSION=$(echo $i | jq -r '.version')
+            ZONE=$(echo $i | jq -r '.zone')
+            gcloud --quiet container get-server-config \
+              --flatten="channels" --filter="$FILTER" \
+              --format="yaml(channels.validVersions)" --zone $ZONE > /tmp/output
+            if grep -q -F $VERSION /tmp/output; then
+              echo "Version $VERSION is valid for zone $ZONE"
+            else
+              echo "::notice::Removing version $VERSION as it's not valid for zone $ZONE"
+              jq 'del(.k8s[] | select(.version == "'$VERSION'"))' /tmp/result.json > /tmp/result.json.tmp
+              mv /tmp/result.json.tmp /tmp/result.json
+            fi
+          done
+          echo "Filtered matrix:"
+          cat /tmp/result.json
+
+          echo "matrix=$(jq -c . < /tmp/result.json)" >> $GITHUB_OUTPUT
+          echo "empty=$(jq '(.k8s | length) == 0' /tmp/result.json)" >> $GITHUB_OUTPUT
+
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci operator-generic-ci hubble-relay-ci
+
+  installation-and-connectivity:
+    name: Installation and Connectivity Test
+    needs: [generate-matrix, wait-for-images]
+    if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      job_name: "Installation and Connectivity Test"
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
+
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            OWNER="${{ inputs.PR-number }}"
+          else
+            OWNER="${{ github.ref_name }}"
+            OWNER="${OWNER//[.\/]/-}"
+          fi
+
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set=cluster.name=${{ env.clusterName }}-${{ matrix.config.index }} \
+            --helm-set=hubble.relay.enabled=true \
+            --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
+            --helm-set loadBalancer.l7.backend=envoy \
+            --wait=false"
+
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --external-target google.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4"
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
+
+      - name: Set up gcloud credentials
+        id: 'auth'
+        uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193 # v2.1.10
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PR_SA }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a # v2.1.4
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          version: ${{ env.gcloud_version }}
+
+      - name: Install gke-gcloud-auth-plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin
+
+      - name: Display gcloud CLI info
+        run: |
+          gcloud info
+
+      - name: Create GKE cluster
+        id: create-cluster
+        run: |
+          gcloud container clusters create ${{ env.clusterName }}-${{ matrix.config.index }} \
+            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
+            --zone ${{ matrix.k8s.zone }} \
+            --cluster-version ${{ matrix.k8s.version }} \
+            --enable-ip-alias \
+            --create-subnetwork="range=/26" \
+            --cluster-ipv4-cidr="/21" \
+            --services-ipv4-cidr="/24" \
+            --image-type COS_CONTAINERD \
+            --num-nodes ${{ matrix.config.nodes || 2 }} \
+            --machine-type e2-custom-2-4096 \
+            --disk-type pd-standard \
+            --disk-size 20GB \
+            --node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute \
+            --no-enable-insecure-kubelet-readonly-port
+
+          native_cidr="$(gcloud container clusters describe ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }} --format 'value(clusterIpv4Cidr)')"
+          echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
+
+      - name: Create ESP allow firewall rule
+        if: ${{ matrix.config.type == 'tunnel-ipsec' }}
+        run: |
+          cluster_name=${{ env.clusterName }}-${{ matrix.config.index }}
+          cluster_zone=${{ matrix.k8s.zone }}
+          hash=$(gcloud container clusters describe $cluster_name --zone=$cluster_zone --format="value(id)")
+          hash="${hash:0:8}"
+          echo $hash
+          cluster_node_target_tag=gke-${cluster_name}-${hash}-node
+          echo $cluster_node_target_tag
+          firewall_rule_name=gke-${cluster_name}-${hash}-allow-esp
+
+          gcloud compute firewall-rules create $firewall_rule_name \
+            --network default \
+            --direction INGRESS \
+            --action ALLOW \
+            --rules esp \
+            --priority 1000 \
+            --source-ranges 0.0.0.0/0 \
+            --target-tags $cluster_node_target_tag
+
+      - name: Get cluster credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }}
+
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@6e65fa094c051aee03959dc9a75e66213e9050c7 # v0.18.4
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Create custom IPsec secret
+        if: ${{ matrix.config.type == 'ipsec' || matrix.config.type == 'tunnel-ipsec' }}
+        run: |
+          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.config.cilium-install-opts }} \
+          --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }}
+
+      - name: Wait for Cilium to be ready
+        run: |
+          cilium status --wait --interactive=false --wait-duration=10m
+          kubectl get pods -n kube-system
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
+      - name: Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})"
+
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }})"
+          job_status: "${{ job.status }}"
+
+      - name: Clean up ESP allow firewall rule
+        if: ${{ matrix.config.type == 'tunnel-ipsec' }}
+        run: |
+          cluster_name=${{ env.clusterName }}-${{ matrix.config.index }}
+          cluster_zone=${{ matrix.k8s.zone }}
+          hash=$(gcloud container clusters describe $cluster_name --zone=$cluster_zone --format="value(id)")
+          hash="${hash:0:8}"
+          firewall_rule_name=gke-${cluster_name}-${hash}-allow-esp
+
+          gcloud compute firewall-rules delete --quiet $firewall_rule_name
+        shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
+
+      - name: Clean up GKE
+        if: ${{ always() }}
+        run: |
+          while [ "$(gcloud container operations list --zone ${{ matrix.k8s.zone }} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-${{ matrix.config.index }}" --format="value(name)")" ];do
+            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
+          done
+          gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }} --quiet --async
+        shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: installation-and-connectivity
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.installation-and-connectivity.result }}

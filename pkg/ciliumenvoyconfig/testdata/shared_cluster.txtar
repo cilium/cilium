@@ -1,0 +1,413 @@
+# Test sharing of a cluster resource between two CiliumEnvoyConfigs.
+
+# Add a node address for NodePort services
+db/insert node-addresses addrv4.yaml
+
+# Start the hive and wait for tables to be synchronized before adding k8s objects.
+hive start
+
+# Set up the services and endpoints
+k8s/add service.yaml
+db/cmp services services.table
+k8s/add endpointslice.yaml
+db/cmp backends backends.table
+
+# cecA.yaml adds a listener and redirects the service to it,
+k8s/add cecA.yaml
+
+# Wait for ingestion before we add cecB.yaml.
+!* db/empty envoy-resources
+
+# cecB.yaml adds an internal listener and just pulls the backends without
+# redirection.
+k8s/add cecB.yaml
+db/cmp ciliumenvoyconfigs cec.table
+db/cmp envoy-resources envoy-resources.table
+
+# Check that both services are now redirected to proxy.
+db/cmp services services_redirected.table
+db/cmp frontends frontends.table
+
+# Check BPF maps. The service should have L7 redirect set.
+lb/maps-dump lbmaps.out
+* cmp lbmaps.out lbmaps.expected
+
+# Check that right updates towards Envoy happened.
+# We should have two listeners and one cluster.
+* envoy/cmp envoy1.expected
+
+# Removing cecA.yaml won't affect the endpoints of cecB.yaml.
+k8s/delete cecA.yaml
+db/cmp envoy-resources envoy-resources-only-b.table
+
+# Check envoy updates. Should still have a listener-b and endpoints.
+* envoy/cmp envoy2.expected
+
+# Removing cecB.yaml will clean up everything.
+k8s/delete cecB.yaml
+
+# Tables are empty
+* db/empty ciliumenvoyconfigs envoy-resources
+
+# No resources for Envoy
+* envoy/cmp envoy3.expected
+
+# ---------------------------------------------
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- services.table --
+Name        Flags
+test/echo   
+
+-- services_redirected.table --
+Name        Flags
+test/echo   ProxyRedirect=1000 (ports: [80])
+
+-- backends.table --
+Address
+10.244.1.1:25/TCP
+10.244.1.1:8080/TCP
+
+-- frontends.table --
+Address               Type        ServiceName   PortName   Status  Backends
+0.0.0.0:30725/TCP     NodePort    test/echo     smtp       Done    10.244.1.1:25/TCP
+0.0.0.0:30781/TCP     NodePort    test/echo     http       Done    10.244.1.1:8080/TCP
+10.96.50.104:25/TCP   ClusterIP   test/echo     smtp       Done    10.244.1.1:25/TCP
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:8080/TCP
+
+-- cec.table --
+Name                    Services     BackendServices
+test/listener-a         test/echo
+test/listener-b                      test/echo
+
+-- envoy-resources.table --
+Name                        Listeners                  Endpoints                     References                        Status   Error
+backendsync:test/echo                                  test/echo:80: 10.244.1.1      test/listener-a, test/listener-b  Done
+cec:test/listener-a         test/listener-a/listener                                                                   Done
+cec:test/listener-b         test/listener-b/listener                                                                   Done
+
+
+-- envoy-resources-only-b.table --
+Name                        Listeners                  Endpoints                     References       Status   Error
+backendsync:test/echo                                  test/echo:80: 10.244.1.1      test/listener-b  Done
+cec:test/listener-b         test/listener-b/listener                                                  Done
+
+-- cecA.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: listener-a
+  namespace: test
+spec:
+  services:
+    - name: echo
+      namespace: test
+      cec: listener
+      ports:
+      - 80
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: listener
+    - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+      connectTimeout: 5s
+      name: test:echo:80
+      edsClusterConfig:
+        serviceName: test/echo:80
+
+-- cecB.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: listener-b
+  namespace: test
+spec:
+  backendServices:
+    - name: echo
+      namespace: test
+      number:
+      - "80"
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: listener
+    - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+      connectTimeout: 5s
+      name: test:echo:80
+      edsClusterConfig:
+        serviceName: test/echo:80
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: smtp
+    nodePort: 30725
+    port: 25
+    protocol: TCP
+    targetPort: 25
+  selector:
+    name: echo
+  type: NodePort
+status:
+  loadBalancer: {}
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+- name: smtp
+  port: 25
+  protocol: TCP
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=10.244.1.1:25/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.1:8080/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30725
+REV: ID=2 ADDR=1.1.1.1:30725
+REV: ID=3 ADDR=0.0.0.0:30781
+REV: ID=4 ADDR=1.1.1.1:30781
+REV: ID=5 ADDR=10.96.50.104:25
+REV: ID=6 ADDR=10.96.50.104:80
+SVC: ID=1 ADDR=0.0.0.0:30725/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30725/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=2 ADDR=1.1.1.1:30725/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30725/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=NodePort+l7-load-balancer
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+l7-load-balancer
+SVC: ID=5 ADDR=10.96.50.104:25/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=10.96.50.104:25/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=10.96.50.104:80/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+SVC: ID=6 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
+-- envoy1.expected --
+policy-trigger-count:
+  2
+clusters:test/listener-a/test:echo:80:
+  name: "test/listener-a/test:echo:80"
+  eds_cluster_config: {
+    service_name: "test/echo:80"
+  }
+  connect_timeout: {
+    seconds: 5
+  }
+  circuit_breakers: {
+    thresholds: {
+      max_retries: {
+        value: 128
+      }
+    }
+  }
+  typed_extension_protocol_options: {
+    key: "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+    value: {
+      [type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions]: {
+        use_downstream_protocol_config: {
+          http2_protocol_options: {}
+        }
+        http_filters: {
+          name: "cilium.l7policy"
+          typed_config: {
+            [type.googleapis.com/cilium.L7Policy]: {
+              access_log_path: "envoy/sockets/access_log.sock"
+            }
+          }
+        }
+        http_filters: {
+          name: "envoy.filters.http.upstream_codec"
+          typed_config: {
+            [type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec]: {}
+          }
+        }
+      }
+    }
+  }
+  
+clusters:test/listener-b/test:echo:80:
+  name: "test/listener-b/test:echo:80"
+  eds_cluster_config: {
+    service_name: "test/echo:80"
+  }
+  connect_timeout: {
+    seconds: 5
+  }
+  circuit_breakers: {
+    thresholds: {
+      max_retries: {
+        value: 128
+      }
+    }
+  }
+  
+endpoints:test/echo:80:
+  cluster_name: "test/echo:80"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+listener:test/listener-a/listener:
+  name: "test/listener-a/listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        is_l7lb: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
+listener:test/listener-b/listener:
+  name: "test/listener-b/listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
+-- envoy2.expected --
+policy-trigger-count:
+  3
+clusters:test/listener-b/test:echo:80:
+  name: "test/listener-b/test:echo:80"
+  eds_cluster_config: {
+    service_name: "test/echo:80"
+  }
+  connect_timeout: {
+    seconds: 5
+  }
+  circuit_breakers: {
+    thresholds: {
+      max_retries: {
+        value: 128
+      }
+    }
+  }
+  
+endpoints:test/echo:80:
+  cluster_name: "test/echo:80"
+  endpoints: {
+    lb_endpoints: {
+      endpoint: {
+        address: {
+          socket_address: {
+            address: "10.244.1.1"
+            port_value: 8080
+          }
+        }
+      }
+    }
+  }
+  
+listener:test/listener-b/listener:
+  name: "test/listener-b/listener"
+  address: {
+    socket_address: {
+      address: "127.0.0.1"
+      port_value: 1000
+    }
+  }
+  additional_addresses: {
+    address: {
+      socket_address: {
+        address: "::1"
+        port_value: 1000
+      }
+    }
+  }
+  listener_filters: {
+    name: "cilium.bpf_metadata"
+    typed_config: {
+      [type.googleapis.com/cilium.BpfMetadata]: {
+        bpf_root: "/sys/fs/bpf"
+        use_original_source_address: true
+        proxy_id: 1000
+        ipcache_name: "cilium_ipcache_v2"
+      }
+    }
+  }
+  
+-- envoy3.expected --
+policy-trigger-count:
+  4

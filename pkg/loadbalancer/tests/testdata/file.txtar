@@ -1,0 +1,95 @@
+#! --lb-state-file=$WORK/state.yaml --lb-state-file-interval=10ms
+#
+# Tests the --lb-state-file mechanism to populate the load-balancing state from a file on disk.
+#
+
+hive/start
+
+# Starting with a missing state file. Tables should be empty
+db/empty services backends frontends
+
+# Switch to state with 1 service and 1 backend
+# Using 'mv' to atomically swap the file so we won't read partial files. This is what
+# a production implementation using this facility must do as well.
+mv state1.yaml state.yaml
+
+# Wait for synchronization
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+# Check BPF maps
+lb/maps-dump maps.actual
+* cmp maps.actual maps.expected
+
+# Drop the endpoints
+sed '^endpoints' '^not-endpoints' state.yaml
+
+# Backend table should be empty now
+* db/empty backends
+
+# Empty file will clear everything
+mv state_empty.yaml state.yaml
+
+# Everything is empty
+* db/empty services frontends backends
+lb/maps-dump maps.actual
+* empty maps.actual
+
+###
+
+-- services.table --
+Name        Source   PortNames   TrafficPolicy   Flags
+test/echo   api      http=80     Cluster
+
+-- frontends.table --
+Address            Type          ServiceName   PortName   Backends         RedirectTo   Status    Error
+172.16.1.1:80/TCP  LoadBalancer  test/echo     http       2.2.2.2:80/TCP                Done
+
+-- backends.table --
+Address          Instances          Shadows   NodeName
+2.2.2.2:80/TCP   test/echo (http)
+
+-- state_empty.yaml --
+-- state1.yaml --
+services:
+  # Since we don't rely on the k8s api machinery, the definition can be quite minimal:
+  - metadata:
+      name: echo
+      namespace: test
+    spec:
+      ports:
+      - name: http
+        port: 80
+        protocol: TCP
+        targetPort: 80
+      type: LoadBalancer
+    status:
+      loadBalancer:
+        ingress:
+        - ip: 172.16.1.1
+
+endpoints:
+  - metadata:
+      labels:
+        kubernetes.io/service-name: echo
+      name: echo-ep1
+      namespace: test
+    addressType: IPv4
+    endpoints:
+    - addresses:
+      - 2.2.2.2
+      conditions:
+        ready: true
+        serving: true
+        terminating: false
+    ports:
+    - name: http
+      port: 80
+      protocol: TCP
+
+-- maps.expected --
+BE: ID=1 ADDR=2.2.2.2:80/TCP STATE=active
+REV: ID=1 ADDR=172.16.1.1:80
+SVC: ID=1 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=1 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer

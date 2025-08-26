@@ -1,0 +1,66 @@
+name: Create EKS nodegroup
+description: Create EKS nodegroup
+inputs:
+  cluster_name:
+    description: ''
+    required: true
+  region:
+    description: ''
+    required: true
+  owner:
+    description: ''
+    required: true
+  version:
+    description: ''
+    required: false
+    default: ''
+  spot:
+    description: ''
+    required: false
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - name: Create EKS nodegroup
+      shell: bash
+      run: |
+        cat <<EOF > eks-nodegroups.yaml
+        apiVersion: eksctl.io/v1alpha5
+        kind: ClusterConfig
+
+        metadata:
+          name: ${{ inputs.cluster_name }}
+          region: ${{ inputs.region }}
+          version: "${{ inputs.version }}"
+          tags:
+           usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
+           owner: "${{ inputs.owner }}"
+
+        managedNodeGroups:
+        - name: ng-amd64
+          instanceTypes:
+           - t3a.medium
+          desiredCapacity: 2
+          spot: ${{ inputs.spot }}
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 25
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
+        - name: ng-arm64
+          instanceTypes:
+           - t4g.medium
+          desiredCapacity: 1
+          spot: ${{ inputs.spot }}
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 25
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
+        EOF
+
+        eksctl create nodegroup -f ./eks-nodegroups.yaml

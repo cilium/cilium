@@ -1,0 +1,56 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: secure-empire-elasticsearch
+  namespace: default
+specs:
+- endpointSelector:
+    matchLabels:
+      component: elasticsearch
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: spaceship
+    toPorts:
+    - ports:
+      - port: "9200"
+        protocol: TCP
+      rules:
+        http:
+        - method: ^PUT$
+          path: ^/spaceship_diagnostics/stats/.*$
+  - fromEndpoints:
+    - matchLabels:
+        app: empire-hq
+    toPorts:
+    - ports:
+      - port: "9200"
+        protocol: TCP
+      rules:
+        http:
+        - method: ^GET$
+          path: ^/spaceship_diagnostics/_search/??.*$
+        - method: ^GET$
+          path: ^/troop_logs/_search/??.*$
+  - fromEndpoints:
+    - matchLabels:
+        app: outpost
+    toPorts:
+    - ports:
+      - port: "9200"
+        protocol: TCP
+      rules:
+        http:
+        - method: ^PUT$
+          path: ^/troop_logs/log/.*$
+- egress:
+  - toEndpoints:
+    - matchExpressions:
+      - key: k8s:io.kubernetes.pod.namespace
+        operator: Exists
+  - toEntities:
+    - cluster
+    - host
+  endpointSelector: {}
+  ingress:
+  - {}

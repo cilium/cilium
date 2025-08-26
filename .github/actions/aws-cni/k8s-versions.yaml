@@ -1,0 +1,15 @@
+# List of k8s version for EKS tests
+---
+include:
+  - version: "1.30"
+    region: us-west-1
+  - version: "1.31"
+    region: us-east-2
+  - version: "1.32"
+    region: ca-central-1
+    default: true
+    kpr: true
+  - version: "1.33"
+    region: us-east-1
+    default: true
+    wireguard: true

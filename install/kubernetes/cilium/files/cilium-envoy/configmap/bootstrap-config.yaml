@@ -1,0 +1,306 @@
+node:
+  id: "host~127.0.0.1~no-id~localdomain"
+  cluster: "ingress-cluster"
+staticResources:
+  listeners:
+  {{- if .Values.envoy.prometheus.enabled }}
+  - name: "envoy-prometheus-metrics-listener"
+    address:
+      socketAddress:
+        address: {{ .Values.ipv4.enabled | ternary "0.0.0.0" "::" | quote }}
+        portValue: {{ .Values.envoy.prometheus.port }}
+    {{- if and .Values.ipv4.enabled .Values.ipv6.enabled }}
+    additionalAddresses:
+    - address:
+        socketAddress:
+          address: "::"
+          portValue: {{ .Values.envoy.prometheus.port }}
+    {{- end }}
+    filterChains:
+    - filters:
+      - name: "envoy.filters.network.http_connection_manager"
+        typedConfig:
+          "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+          statPrefix: "envoy-prometheus-metrics-listener"
+          routeConfig:
+            virtualHosts:
+            - name: "prometheus_metrics_route"
+              domains:
+              - "*"
+              routes:
+              - name: "prometheus_metrics_route"
+                match:
+                  prefix: "/metrics"
+                route:
+                  cluster: "/envoy-admin"
+                  prefixRewrite: "/stats/prometheus"
+          httpFilters:
+          - name: "envoy.filters.http.router"
+            typedConfig:
+              "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+          internalAddressConfig:
+            cidrRanges:
+            {{- if .Values.ipv4.enabled }}
+            - addressPrefix: "10.0.0.0"
+              prefixLen: 8
+            - addressPrefix: "172.16.0.0"
+              prefixLen: 12
+            - addressPrefix: "192.168.0.0"
+              prefixLen: 16
+            - addressPrefix: "127.0.0.1"
+              prefixLen: 32
+            {{- end }}
+            {{- if .Values.ipv6.enabled }}
+            - addressPrefix: "::1"
+              prefixLen: 128
+            {{- end }}
+          streamIdleTimeout: "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s"
+  {{- end }}
+  {{- if and .Values.envoy.debug.admin.enabled }}
+  - name: "envoy-admin-listener"
+    address:
+      socketAddress:
+        address: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+        portValue: {{ .Values.envoy.debug.admin.port }}
+    {{- if and .Values.ipv4.enabled .Values.ipv6.enabled }}
+    additionalAddresses:
+    - address:
+        socketAddress:
+          address: "::1"
+          portValue: {{ .Values.envoy.debug.admin.port }}
+    {{- end }}
+    filterChains:
+    - filters:
+      - name: "envoy.filters.network.http_connection_manager"
+        typedConfig:
+          "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+          statPrefix: "envoy-admin-listener"
+          routeConfig:
+            virtual_hosts:
+            - name: "admin_route"
+              domains:
+              - "*"
+              routes:
+              - name: "admin_route"
+                match:
+                  prefix: "/"
+                route:
+                  cluster: "/envoy-admin"
+                  prefixRewrite: "/"
+          httpFilters:
+          - name: "envoy.filters.http.router"
+            typedConfig:
+              "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+          internalAddressConfig:
+            cidrRanges:
+            {{- if .Values.ipv4.enabled }}
+            - addressPrefix: "10.0.0.0"
+              prefixLen: 8
+            - addressPrefix: "172.16.0.0"
+              prefixLen: 12
+            - addressPrefix: "192.168.0.0"
+              prefixLen: 16
+            - addressPrefix: "127.0.0.1"
+              prefixLen: 32
+            {{- end }}
+            {{- if .Values.ipv6.enabled }}
+            - addressPrefix: "::1"
+              prefixLen: 128
+            {{- end }}
+          streamIdleTimeout: "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s"
+  {{- end }}
+  - name: "envoy-health-listener"
+    address:
+      socketAddress:
+        address: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+        portValue: {{ .Values.envoy.healthPort }}
+    {{- if and .Values.ipv4.enabled .Values.ipv6.enabled }}
+    additionalAddresses:
+    - address:
+        socketAddress:
+          address: "::1"
+          portValue: {{ .Values.envoy.healthPort }}
+    {{- end }}
+    filterChains:
+    - filters:
+      - name: "envoy.filters.network.http_connection_manager"
+        typedConfig:
+          "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+          statPrefix: "envoy-health-listener"
+          routeConfig:
+            virtual_hosts:
+            - name: "health"
+              domains:
+              - "*"
+              routes:
+              - name: "health"
+                match:
+                  prefix: "/healthz"
+                route:
+                  cluster: "/envoy-admin"
+                  prefixRewrite: "/ready"
+          httpFilters:
+          - name: "envoy.filters.http.router"
+            typedConfig:
+              "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+          internalAddressConfig:
+            cidrRanges:
+            {{- if .Values.ipv4.enabled }}
+            - addressPrefix: "10.0.0.0"
+              prefixLen: 8
+            - addressPrefix: "172.16.0.0"
+              prefixLen: 12
+            - addressPrefix: "192.168.0.0"
+              prefixLen: 16
+            - addressPrefix: "127.0.0.1"
+              prefixLen: 32
+            {{- end }}
+            {{- if .Values.ipv6.enabled }}
+            - addressPrefix: "::1"
+              prefixLen: 128
+            {{- end }}
+          streamIdleTimeout: "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s"
+  clusters:
+  - name: "ingress-cluster"
+    type: "ORIGINAL_DST"
+    connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
+    circuitBreakers:
+      thresholds:
+      - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
+    lbPolicy: "CLUSTER_PROVIDED"
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+        commonHttpProtocolOptions:
+          idleTimeout: "{{ .Values.envoy.idleTimeoutDurationSeconds }}s"
+          maxConnectionDuration: "{{ .Values.envoy.maxConnectionDurationSeconds }}s"
+          maxRequestsPerConnection: {{ .Values.envoy.maxRequestsPerConnection }}
+        useDownstreamProtocolConfig: {}
+    cleanupInterval: "{{ .Values.envoy.connectTimeoutSeconds }}.500s"
+  - name: "egress-cluster-tls"
+    type: "ORIGINAL_DST"
+    connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
+    circuitBreakers:
+      thresholds:
+      - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
+    lbPolicy: "CLUSTER_PROVIDED"
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+        commonHttpProtocolOptions:
+          idleTimeout: "{{ .Values.envoy.idleTimeoutDurationSeconds }}s"
+          maxConnectionDuration: "{{ .Values.envoy.maxConnectionDurationSeconds }}s"
+          maxRequestsPerConnection: {{ .Values.envoy.maxRequestsPerConnection }}
+        upstreamHttpProtocolOptions: {}
+        useDownstreamProtocolConfig: {}
+    cleanupInterval: "{{ .Values.envoy.connectTimeoutSeconds }}.500s"
+    transportSocket:
+      name: "cilium.tls_wrapper"
+      typedConfig:
+        "@type": "type.googleapis.com/cilium.UpstreamTlsWrapperContext"
+  - name: "egress-cluster"
+    type: "ORIGINAL_DST"
+    connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
+    circuitBreakers:
+      thresholds:
+      - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
+    lbPolicy: "CLUSTER_PROVIDED"
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+        commonHttpProtocolOptions:
+          idleTimeout: "{{ .Values.envoy.idleTimeoutDurationSeconds }}s"
+          maxConnectionDuration: "{{ .Values.envoy.maxConnectionDurationSeconds }}s"
+          maxRequestsPerConnection: {{ .Values.envoy.maxRequestsPerConnection }}
+        useDownstreamProtocolConfig: {}
+    cleanupInterval: "{{ .Values.envoy.connectTimeoutSeconds }}.500s"
+  - name: "ingress-cluster-tls"
+    type: "ORIGINAL_DST"
+    connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
+    circuitBreakers:
+      thresholds:
+      - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
+    lbPolicy: "CLUSTER_PROVIDED"
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+        commonHttpProtocolOptions:
+          idleTimeout: "{{ .Values.envoy.idleTimeoutDurationSeconds }}s"
+          maxConnectionDuration: "{{ .Values.envoy.maxConnectionDurationSeconds }}s"
+          maxRequestsPerConnection: {{ .Values.envoy.maxRequestsPerConnection }}
+        upstreamHttpProtocolOptions: {}
+        useDownstreamProtocolConfig: {}
+    cleanupInterval: "{{ .Values.envoy.connectTimeoutSeconds }}.500s"
+    transportSocket:
+      name: "cilium.tls_wrapper"
+      typedConfig:
+        "@type": "type.googleapis.com/cilium.UpstreamTlsWrapperContext"
+  - name: "xds-grpc-cilium"
+    type: "STATIC"
+    connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
+    loadAssignment:
+      clusterName: "xds-grpc-cilium"
+      endpoints:
+      - lbEndpoints:
+        - endpoint:
+            address:
+              pipe:
+                path: "/var/run/cilium/envoy/sockets/xds.sock"
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+        explicitHttpConfig:
+          http2ProtocolOptions: {}
+  - name: "/envoy-admin"
+    type: "STATIC"
+    connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
+    loadAssignment:
+      clusterName: "/envoy-admin"
+      endpoints:
+      - lbEndpoints:
+        - endpoint:
+            address:
+              pipe:
+                path: "/var/run/cilium/envoy/sockets/admin.sock"
+dynamicResources:
+  ldsConfig:
+    initialFetchTimeout: "{{ .Values.envoy.initialFetchTimeoutSeconds }}s"
+    apiConfigSource:
+      apiType: "GRPC"
+      transportApiVersion: "V3"
+      grpcServices:
+      - envoyGrpc:
+          clusterName: "xds-grpc-cilium"
+      setNodeOnFirstMessageOnly: true
+    resourceApiVersion: "V3"
+  cdsConfig:
+    initialFetchTimeout: "{{ .Values.envoy.initialFetchTimeoutSeconds }}s"
+    apiConfigSource:
+      apiType: "GRPC"
+      transportApiVersion: "V3"
+      grpcServices:
+      - envoyGrpc:
+          clusterName: "xds-grpc-cilium"
+      setNodeOnFirstMessageOnly: true
+    resourceApiVersion: "V3"
+bootstrapExtensions:
+- name: "envoy.bootstrap.internal_listener"
+  typedConfig:
+    "@type": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener"
+overloadManager:
+  resourceMonitors:
+  - name: "envoy.resource_monitors.global_downstream_max_connections"
+    typedConfig:
+      "@type": "type.googleapis.com/envoy.extensions.resource_monitors.downstream_connections.v3.DownstreamConnectionsConfig"
+      max_active_downstream_connections: "50000"
+applicationLogConfig:
+  logFormat:
+    {{- if .Values.envoy.log.format_json }}
+    jsonFormat: {{ .Values.envoy.log.format_json | toJson }}
+    {{- else }}
+    textFormat: "{{ .Values.envoy.log.format }}"
+    {{- end }}
+admin:
+  address:
+    pipe:
+      path: "/var/run/cilium/envoy/sockets/admin.sock"

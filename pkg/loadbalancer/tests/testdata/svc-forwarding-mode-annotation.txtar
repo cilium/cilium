@@ -1,0 +1,106 @@
+#! --lb-test-fault-probability=0.0 --bpf-lb-mode-annotation
+
+# Start the test application
+hive start
+
+# Add service w/o "service.cilium.io/forwarding-mode"
+k8s/add service.yaml endpointslice.yaml
+db/cmp frontends frontends.table
+db/cmp services services.table
+
+# Check maps
+lb/maps-dump maps.actual
+* cmp maps.actual maps_snat.expected
+
+# Set the forwarding mode to DSR
+sed 'placeholder: placeholder' 'service.cilium.io/forwarding-mode: dsr' service.yaml
+k8s/update service.yaml
+db/cmp services services_dsr.table
+
+# Check maps
+lb/maps-dump maps.actual
+* cmp maps.actual maps_dsr.expected
+
+#####
+
+-- services.table --
+Name         Source   TrafficPolicy   Flags
+test/echo    k8s      Cluster
+
+-- services_dsr.table --
+Name         Source   TrafficPolicy   Flags
+test/echo    k8s      Cluster         ForwardingMode=dsr
+
+-- frontends.table --
+Address               Type         ServiceName   PortName   Status  Backends
+0.0.0.0:30781/TCP     NodePort     test/echo     http       Done    10.244.1.1:80/TCP
+10.96.50.104:80/TCP   ClusterIP    test/echo     http       Done    10.244.1.1:80/TCP
+172.16.1.1:80/TCP     LoadBalancer test/echo     http       Done    10.244.1.1:80/TCP
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    placeholder: placeholder
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- maps_snat.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30781
+REV: ID=2 ADDR=10.96.50.104:80
+REV: ID=3 ADDR=172.16.1.1:80
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=3 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+-- maps_dsr.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30781
+REV: ID=2 ADDR=10.96.50.104:80
+REV: ID=3 ADDR=172.16.1.1:80
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable+dsr
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable+dsr
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+dsr
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+dsr
+SVC: ID=3 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+dsr
+SVC: ID=3 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+dsr

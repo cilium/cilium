@@ -1,0 +1,4 @@
+[build]
+  base = "Documentation/"
+  publish = "_build/html"
+  command = "make html-netlify"

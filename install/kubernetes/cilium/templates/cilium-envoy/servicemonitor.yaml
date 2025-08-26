@@ -1,0 +1,52 @@
+{{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
+{{- if and $envoyDS (not .Values.preflight.enabled) .Values.envoy.prometheus.enabled .Values.envoy.prometheus.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cilium-envoy
+  namespace: {{ .Values.envoy.prometheus.serviceMonitor.namespace | default (include "cilium.namespace" .) }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-envoy
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.envoy.prometheus.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- if or .Values.envoy.prometheus.serviceMonitor.annotations .Values.envoy.annotations }}
+  annotations:
+    {{- with .Values.envoy.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.envoy.prometheus.serviceMonitor.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-envoy
+  namespaceSelector:
+    matchNames:
+    - {{ include "cilium.namespace" . }}
+  endpoints:
+  - port: envoy-metrics
+    interval: {{ .Values.envoy.prometheus.serviceMonitor.interval | quote }}
+    {{- if .Values.envoy.prometheus.serviceMonitor.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.envoy.prometheus.serviceMonitor.scrapeTimeout | quote }}
+    {{- end }}
+    honorLabels: true
+    path: /metrics
+    {{- with .Values.envoy.prometheus.serviceMonitor.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.envoy.prometheus.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  targetLabels:
+  - k8s-app
+{{- end }}
