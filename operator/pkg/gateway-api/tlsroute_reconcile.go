@@ -27,7 +27,9 @@ import (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := r.logger.With(logfields.Controller, tlsRoute, logfields.Resource, req.NamespacedName)
+	scopedLog := r.logger.With(
+		logfields.Resource, req.NamespacedName,
+	)
 	scopedLog.Info("Reconciling TLSRoute")
 
 	// Fetch the TLSRoute instance
