@@ -683,20 +683,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, restoredEndpoints, fmt.Errorf("error while initializing daemon: %w", err)
 	}
 
-	if option.Config.EnableVTEP {
-		// Start controller to setup and periodically verify VTEP
-		// endpoints and routes.
-		syncVTEPControllerGroup := controller.NewGroup("sync-vtep")
-		d.controllers.UpdateController(
-			syncVTEPControllerGroup.Name,
-			controller.ControllerParams{
-				Group:       syncVTEPControllerGroup,
-				DoFunc:      syncVTEP(d.logger, d.metricsRegistry),
-				RunInterval: time.Minute,
-				Context:     d.ctx,
-			})
-	}
-
 	// Start the host IP synchronization. Blocks until the initial synchronization
 	// has finished.
 	if err := params.SyncHostIPs.StartAndWaitFirst(ctx); err != nil {

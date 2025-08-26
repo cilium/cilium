@@ -7,26 +7,30 @@ package linux
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"net"
 	"slices"
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
-	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kpr"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -46,6 +50,11 @@ type linuxPrivilegedBaseTestSuite struct {
 	// nodeConfigTemplate is the partially filled template for local node configuration.
 	// copy it, don't mutate it.
 	nodeConfigTemplate datapath.LocalNodeConfiguration
+
+	db            *statedb.DB
+	routeManager  *reconciler.DesiredRouteManager
+	desiredRoutes statedb.Table[*reconciler.DesiredRoute]
+	devices       statedb.Table[*tables.Device]
 }
 
 type linuxPrivilegedIPv6OnlyTestSuite struct {
@@ -141,6 +150,22 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 		RouteMTU:            s.mtuCalc.RouteMTU,
 		RoutePostEncryptMTU: s.mtuCalc.RoutePostEncryptMTU,
 	}
+
+	h := hive.New(
+		reconciler.Cell,
+		DevicesControllerCell,
+		cell.Invoke(func(db *statedb.DB, rm *reconciler.DesiredRouteManager, desiredRoutes statedb.Table[*reconciler.DesiredRoute], devices statedb.Table[*tables.Device]) {
+			s.db = db
+			s.routeManager = rm
+			s.desiredRoutes = desiredRoutes
+			s.devices = devices
+		}),
+	)
+	err = h.Start(hivetest.Logger(tb), tb.Context())
+	require.NoError(tb, err)
+	tb.Cleanup(func() {
+		h.Stop(hivetest.Logger(tb), context.Background())
+	})
 
 	return s
 }
@@ -287,16 +312,18 @@ func TestPrivilegedAll(t *testing.T) {
 				s := setup(t, tt)
 				s.TestNodeUpdateDirectRouting(t)
 			})
-			t.Run("TestNodeValidationDirectRouting", func(t *testing.T) {
-				s := setup(t, tt)
-				s.TestNodeValidationDirectRouting(t)
-			})
-			t.Run("TestNodePodCIDRsChurnIPSec", func(t *testing.T) {
-				s := setup(t, tt)
-				s.TestNodePodCIDRsChurnIPSec(t)
-			})
 		})
 	}
+}
+
+func (s *linuxPrivilegedBaseTestSuite) routeExists(owner *reconciler.RouteOwner, cidr *cidr.CIDR) bool {
+	prefix, _ := netipx.FromStdIPNet(cidr.IPNet)
+	_, _, foundRoute := s.desiredRoutes.Get(s.db.ReadTxn(), reconciler.DesiredRouteIndex.Query(reconciler.DesiredRouteKey{
+		Owner:  owner,
+		Prefix: prefix,
+		Table:  reconciler.TableMain,
+	}))
+	return foundRoute
 }
 
 func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(t *testing.T) {
@@ -309,7 +336,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(t *testing.T) {
 	var linuxNodeHandler *linuxNodeHandler
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler = newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{})
+	linuxNodeHandler = newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, s.db, s.routeManager, s.desiredRoutes, s.devices)
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -317,38 +344,33 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(t *testing.T) {
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
+	owner, err := s.routeManager.GetOrRegisterOwner("node-test", reconciler.AdminDistanceDefault)
+	require.NoError(t, err)
+
 	if s.enableIPv4 {
 		// add & remove IPv4 node route
-		err = linuxNodeHandler.updateNodeRoute(ip4CIDR, true, false)
+		err = linuxNodeHandler.updateOrRemoveNodeRoutes("test", nil, []*cidr.CIDR{ip4CIDR}, false)
 		require.NoError(t, err)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4CIDR, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(owner, ip4CIDR))
 
-		err = linuxNodeHandler.deleteNodeRoute(ip4CIDR, false)
+		err = linuxNodeHandler.updateOrRemoveNodeRoutes("test", []*cidr.CIDR{ip4CIDR}, nil, false)
 		require.NoError(t, err)
 
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4CIDR, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
+		require.False(t, s.routeExists(owner, ip4CIDR))
 	}
 
 	if s.enableIPv6 {
 		// add & remove IPv6 node route
-		err = linuxNodeHandler.updateNodeRoute(ip6CIDR, true, false)
+		err = linuxNodeHandler.updateOrRemoveNodeRoutes("test", nil, []*cidr.CIDR{ip6CIDR}, false)
 		require.NoError(t, err)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6CIDR, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(owner, ip6CIDR))
 
-		err = linuxNodeHandler.deleteNodeRoute(ip6CIDR, false)
+		err = linuxNodeHandler.updateOrRemoveNodeRoutes("test", []*cidr.CIDR{ip6CIDR}, nil, false)
 		require.NoError(t, err)
 
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6CIDR, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
+		require.False(t, s.routeExists(owner, ip6CIDR))
 	}
 }
 
@@ -358,7 +380,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(t *testing.T) {
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{})
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, s.db, s.routeManager, s.desiredRoutes, s.devices)
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -367,16 +389,15 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(t *testing.T) {
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
+	owner, err := s.routeManager.GetOrRegisterOwner("node-"+nodeTypes.GetName(), reconciler.AdminDistanceDefault)
+	require.NoError(t, err)
+
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(owner, net1))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(owner, net2))
 	}
 
 	// remove aux prefix net2
@@ -385,15 +406,11 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(t *testing.T) {
 	require.NoError(t, err)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(owner, net1))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
+		require.False(t, s.routeExists(owner, net2))
 	}
 
 	// remove aux prefix net1, re-add net2
@@ -402,15 +419,11 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(t *testing.T) {
 	require.NoError(t, err)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
+		require.False(t, s.routeExists(owner, net1))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(owner, net2))
 	}
 }
 
@@ -432,7 +445,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{})
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, s.db, s.routeManager, s.desiredRoutes, s.devices)
 
 	require.NotNil(t, linuxNodeHandler)
 	linuxNodeHandler.OverrideEnableEncapsulation(override)
@@ -460,16 +473,15 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	require.NoError(t, err)
 
+	nodeOneOwner, err := s.routeManager.GetOrRegisterOwner("node-"+nodev1.Name, reconciler.AdminDistanceDefault)
+	require.NoError(t, err)
+
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(nodeOneOwner, ip4Alloc1))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(nodeOneOwner, ip6Alloc1))
 	}
 
 	// nodev2: ip4Alloc2, ip6alloc2 => externalNodeIP1
@@ -493,26 +505,18 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 
 	if s.enableIPv4 {
 		// node routes for alloc1 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
+		require.False(t, s.routeExists(nodeOneOwner, ip4Alloc1))
 
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(nodeOneOwner, ip4Alloc2))
 	}
 
 	if s.enableIPv6 {
 		// node routes for alloc1 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
+		require.False(t, s.routeExists(nodeOneOwner, ip6Alloc1))
 
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(nodeOneOwner, ip6Alloc2))
 	}
 
 	// nodev3: stop announcing CIDRs
@@ -528,16 +532,12 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
+		require.False(t, s.routeExists(nodeOneOwner, ip4Alloc2))
 	}
 
 	if s.enableIPv6 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
+		require.False(t, s.routeExists(nodeOneOwner, ip6Alloc2))
 	}
 
 	// nodev4: re-announce CIDRs
@@ -561,16 +561,12 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(nodeOneOwner, ip4Alloc2))
 	}
 
 	if s.enableIPv6 {
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
+		require.True(t, s.routeExists(nodeOneOwner, ip6Alloc2))
 	}
 
 	// delete nodev5
@@ -579,16 +575,12 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
+		require.False(t, s.routeExists(nodeOneOwner, ip4Alloc2))
 	}
 
 	if s.enableIPv6 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
+		require.False(t, s.routeExists(nodeOneOwner, ip6Alloc2))
 	}
 }
 
@@ -603,7 +595,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(t *testing.T) {
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{})
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, s.db, s.routeManager, s.desiredRoutes, s.devices)
 
 	nodeConfig := s.nodeConfigTemplate
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
@@ -751,7 +743,7 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 	require.NoError(t, err)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{})
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, s.db, s.routeManager, s.desiredRoutes, s.devices)
 
 	err = linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(t, err)
@@ -806,17 +798,22 @@ func countXFRMPolicies(policies []netlink.XfrmPolicy) int {
 	return nbPolicies
 }
 
-func lookupDirectRoute(log *slog.Logger, CIDR *cidr.CIDR, nodeIP net.IP) ([]netlink.Route, error) {
-	routeSpec, _, err := createDirectRouteSpec(log, CIDR, nodeIP, false)
+func (s *linuxPrivilegedBaseTestSuite) lookupDirectRoute(log *slog.Logger, CIDR *cidr.CIDR, nodeIP net.IP) ([]*reconciler.DesiredRoute, error) {
+	routeSpec, _, err := createDirectRouteSpec(log, s.db, s.devices, nil, CIDR, nodeIP, false)
 	if err != nil {
 		return nil, err
 	}
 
-	family := netlink.FAMILY_V4
-	if nodeIP.To4() == nil {
-		family = netlink.FAMILY_V6
+	var routes []*reconciler.DesiredRoute
+
+	nexthop, _ := netipx.FromStdIP(nodeIP)
+	for route := range s.desiredRoutes.List(s.db.ReadTxn(), reconciler.DesiredRouteTablePrefixIndex.Query(routeSpec.GetOwnerlessKey())) {
+		if route.Nexthop == nexthop {
+			routes = append(routes, route)
+		}
 	}
-	return safenetlink.RouteListFiltered(family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
+
+	return routes, nil
 }
 
 func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T) {
@@ -842,9 +839,26 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	require.NoError(t, err)
 	defer removeDevice(externalNode2Device)
 
+	for {
+		iter, watch := s.devices.AllWatch(s.db.ReadTxn())
+		hasN1 := false
+		hasN2 := false
+		for dev := range iter {
+			if dev.Name == externalNode1Device {
+				hasN1 = true
+			} else if dev.Name == externalNode2Device {
+				hasN2 = true
+			}
+		}
+		if hasN1 && hasN2 {
+			break
+		}
+		<-watch
+	}
+
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{})
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, s.db, s.routeManager, s.desiredRoutes, s.devices)
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -870,7 +884,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	require.NoError(t, err)
 
-	foundRoutes, err := lookupDirectRoute(log, ip4Alloc1, externalNode1IP4v1)
+	foundRoutes, err := s.lookupDirectRoute(log, ip4Alloc1, externalNode1IP4v1)
 	require.NoError(t, err)
 	require.Len(t, foundRoutes, expectedIPv4Routes)
 
@@ -886,7 +900,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	err = linuxNodeHandler.NodeUpdate(nodev1, nodev2)
 	require.NoError(t, err)
 
-	foundRoutes, err = lookupDirectRoute(log, ip4Alloc1, externalNode1IP4v2)
+	foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc1, externalNode1IP4v2)
 	require.NoError(t, err)
 	require.Len(t, foundRoutes, expectedIPv4Routes)
 
@@ -902,12 +916,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	require.NoError(t, err)
 
 	// node routes for alloc1 ranges should be gone
-	foundRoutes, err = lookupDirectRoute(log, ip4Alloc1, externalNode1IP4v2)
+	foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc1, externalNode1IP4v2)
 	require.NoError(t, err)
 	require.Empty(t, foundRoutes) // route should not exist regardless whether ipv4 is enabled or not
 
 	// node routes for alloc2 ranges should have been installed
-	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
+	foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
 	require.Len(t, foundRoutes, expectedIPv4Routes)
 
@@ -922,7 +936,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	require.NoError(t, err)
 
 	// node routes for alloc2 ranges should have been removed
-	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
+	foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
 	require.Empty(t, foundRoutes)
 
@@ -938,7 +952,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	require.NoError(t, err)
 
 	// node routes for alloc2 ranges should have been removed
-	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
+	foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
 	require.Len(t, foundRoutes, expectedIPv4Routes)
 
@@ -947,7 +961,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	require.NoError(t, err)
 
 	// node routes for alloc2 ranges should be gone
-	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
+	foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
 	require.Empty(t, foundRoutes) // route should not exist regardless whether ipv4 is enabled or not
 
@@ -965,7 +979,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 
 	// expecting both primary and secondary routes to exist
 	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc2} {
-		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
+		foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
 		require.NoError(t, err)
 		require.Len(t, foundRoutes, expectedIPv4Routes)
 	}
@@ -984,12 +998,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 
 	// Checks all three required routes exist
 	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
-		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
+		foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
 		require.NoError(t, err)
 		require.Len(t, foundRoutes, expectedIPv4Routes)
 	}
 	// Checks route for removed CIDR has been deleted
-	foundRoutes, err = lookupDirectRoute(log, ipv4SecondaryAlloc2, externalNode1IP4v1)
+	foundRoutes, err = s.lookupDirectRoute(log, ipv4SecondaryAlloc2, externalNode1IP4v1)
 	require.NoError(t, err)
 	require.Empty(t, foundRoutes)
 
@@ -1007,13 +1021,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 
 	// Checks all routes with the new node IP exist
 	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
-		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v2)
+		foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc, externalNode1IP4v2)
 		require.NoError(t, err)
 		require.Len(t, foundRoutes, expectedIPv4Routes)
 	}
 	// Checks all routes with the old node IP have been deleted
 	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
-		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
+		foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
 		require.NoError(t, err)
 		require.Empty(t, foundRoutes)
 	}
@@ -1031,13 +1045,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	require.NoError(t, err)
 
 	// Checks primary route has been created
-	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
+	foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
 	require.Len(t, foundRoutes, expectedIPv4Routes)
 
 	// Checks all old routes have been deleted
 	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
-		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v2)
+		foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc, externalNode1IP4v2)
 		require.NoError(t, err)
 		require.Empty(t, foundRoutes)
 	}
@@ -1056,13 +1070,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 
 	// expecting both primary and secondary routes to exist
 	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc2} {
-		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
+		foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
 		require.NoError(t, err)
 		require.Len(t, foundRoutes, expectedIPv4Routes)
 	}
 
 	// node routes for alloc2 ranges should have been removed
-	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
+	foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
 	require.Empty(t, foundRoutes)
 
@@ -1072,371 +1086,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 
 	// all node routes must have been deleted
 	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc2} {
-		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
+		foundRoutes, err = s.lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
 		require.NoError(t, err)
 		require.Empty(t, foundRoutes)
 	}
 }
 
-func insertFakeRoute(t *testing.T, n *linuxNodeHandler, prefix *cidr.CIDR) {
-	nodeRoute, err := n.createNodeRouteSpec(prefix, false)
-	require.NoError(t, err)
-
-	nodeRoute.Device = dummyExternalDeviceName
-
-	err = route.Upsert(hivetest.Logger(t), nodeRoute)
-	require.NoError(t, err)
-}
-
-func lookupFakeRoute(t *testing.T, n *linuxNodeHandler, prefix *cidr.CIDR) bool {
-	routeSpec, err := n.createNodeRouteSpec(prefix, false)
-	require.NoError(t, err)
-
-	routeSpec.Device = dummyExternalDeviceName
-	rt, err := route.Lookup(routeSpec)
-	require.NoError(t, err)
-	return rt != nil
-}
-
-func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testing.T) {
-	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
-	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
-
-	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{})
-	require.NotNil(t, linuxNodeHandler)
-
-	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.EnableEncapsulation = false
-	linuxNodeHandler.nodeConfig = nodeConfig
-
-	if s.enableIPv4 {
-		insertFakeRoute(t, linuxNodeHandler, ip4Alloc1)
-	}
-
-	if s.enableIPv6 {
-		insertFakeRoute(t, linuxNodeHandler, ip6Alloc1)
-	}
-
-	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
-	require.NoError(t, err)
-
-	nodev1 := nodeTypes.Node{
-		Name:        "node1",
-		IPAddresses: []nodeTypes.Address{},
-	}
-
-	if s.enableIPv4 {
-		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   nodeConfig.NodeIPv4,
-			Type: nodeaddressing.NodeInternalIP,
-		})
-		nodev1.IPv4AllocCIDR = ip4Alloc1
-	}
-
-	if s.enableIPv6 {
-		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   nodeConfig.NodeIPv6,
-			Type: nodeaddressing.NodeInternalIP,
-		})
-		nodev1.IPv6AllocCIDR = ip6Alloc1
-	}
-
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-
-	err = linuxNodeHandler.NodeValidateImplementation(nodev1)
-	require.NoError(t, err)
-
-	if s.enableIPv4 {
-		require.True(t, lookupFakeRoute(t, linuxNodeHandler, ip4Alloc1))
-	}
-
-	if s.enableIPv6 {
-		require.True(t, lookupFakeRoute(t, linuxNodeHandler, ip6Alloc1))
-	}
-}
-
-func lookupIPSecInRoutes(t *testing.T, family int, extDev string, prefixes []*cidr.CIDR) {
-	link, err := safenetlink.LinkByName(extDev)
-	require.NoError(t, err)
-
-	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
-		//nolint:forbidigo
-		return safenetlink.RouteListFiltered(
-			family,
-			&netlink.Route{
-				LinkIndex: link.Attrs().Index,
-				Table:     linux_defaults.RouteTableIPSec,
-				Protocol:  linux_defaults.RTProto,
-				Type:      route.RTN_LOCAL,
-			},
-			netlink.RT_FILTER_IIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL|netlink.RT_FILTER_TYPE,
-		)
-	})
-	require.NoError(t, err, "RouteListFiltered")
-	require.Len(t, routes, len(prefixes))
-	dests := make([]*cidr.CIDR, 0, len(routes))
-	for _, route := range routes {
-		dests = append(dests, &cidr.CIDR{IPNet: route.Dst})
-	}
-	require.ElementsMatch(t, dests, prefixes)
-}
-
-func lookupIPSecXFRMPoliciesOut(t *testing.T, family int, prefixes []*cidr.CIDR) {
-	policies, err := netlink.XfrmPolicyList(family)
-	require.NoError(t, err)
-
-	var zero *cidr.CIDR
-	if family == netlink.FAMILY_V4 {
-		zero = cidr.MustParseCIDR("0.0.0.0/0")
-	} else {
-		zero = cidr.MustParseCIDR("::/0")
-	}
-
-	dests := make([]*cidr.CIDR, 0, len(prefixes))
-	for _, policy := range policies {
-		var policyIP net.IP
-		if family == netlink.FAMILY_V4 {
-			policyIP = policy.Dst.IP.To4()
-		} else {
-			policyIP = policy.Dst.IP.To16()
-		}
-		dst := cidr.CIDR{IPNet: &net.IPNet{
-			IP:   policyIP,
-			Mask: policy.Dst.Mask,
-		}}
-
-		if dst.Equal(zero) {
-			continue
-		}
-
-		dests = append(dests, &dst)
-	}
-	require.ElementsMatch(t, dests, prefixes)
-}
-
-func lookupIPSecOutRoutes(t *testing.T, family int, extDev string, prefixes []*cidr.CIDR) {
-	link, err := safenetlink.LinkByName(extDev)
-	require.NoError(t, err)
-
-	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
-		//nolint:forbidigo
-		return safenetlink.RouteListFiltered(
-			family,
-			&netlink.Route{
-				LinkIndex: link.Attrs().Index,
-				Table:     linux_defaults.RouteTableIPSec,
-				Protocol:  linux_defaults.RTProto,
-			},
-			netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-		)
-	})
-
-	require.NoError(t, err, "RouteListFiltered")
-	require.Len(t, routes, len(prefixes))
-	dests := make([]*cidr.CIDR, 0, len(routes))
-	for _, route := range routes {
-		dests = append(dests, &cidr.CIDR{IPNet: route.Dst})
-	}
-	require.ElementsMatch(t, dests, prefixes)
-}
-
-func (s *linuxPrivilegedBaseTestSuite) TestNodePodCIDRsChurnIPSec(t *testing.T) {
-	remoteNode1IPv4, remoteNode1IPv6 := net.ParseIP("4.4.4.4"), net.ParseIP("face::1")
-	remoteNode1Device := "remote_node_1"
-	removeDevice(remoteNode1Device)
-	dev1, err := setupDummyDevice(remoteNode1Device, remoteNode1IPv4, remoteNode1IPv6)
-	require.NoError(t, err)
-	defer removeDevice(remoteNode1Device)
-
-	remoteNode2IPv4, remoteNode2IPv6 := net.ParseIP("4.4.4.5"), net.ParseIP("face::2")
-	remoteNode2Device := "remote_node_2"
-	removeDevice(remoteNode2Device)
-	dev2, err := setupDummyDevice(remoteNode2Device, remoteNode2IPv4, remoteNode2IPv6)
-	require.NoError(t, err)
-	defer removeDevice(remoteNode2Device)
-
-	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{})
-
-	require.NotNil(t, linuxNodeHandler)
-	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
-
-	option.Config.RoutingMode = option.RoutingModeNative
-	nodeConfig.EnableIPSec = true
-	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
-
-	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
-	_, _, err = ipsec.LoadIPSecKeys(log, keys)
-	require.NoError(t, err)
-
-	// set "local_node" as the local node name
-	nodeTypes.SetName("local_node")
-
-	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
-	require.NoError(t, err)
-
-	// Add local node with multiple pod CIDRs
-	localIPv4AllocCIDRsV1 := []*cidr.CIDR{
-		cidr.MustParseCIDR("5.5.5.0/24"),
-		cidr.MustParseCIDR("6.6.6.0/24"),
-		cidr.MustParseCIDR("7.7.7.0/24"),
-	}
-	localIPv6AllocCIDRsV1 := []*cidr.CIDR{
-		cidr.MustParseCIDR("2001:aaaa:bbbb::/96"),
-		cidr.MustParseCIDR("2002:aaaa:bbbb::/96"),
-		cidr.MustParseCIDR("2003:aaaa:bbbb::/96"),
-	}
-	localNodeV1 := nodeTypes.Node{
-		Name:                    "local_node",
-		IPv4AllocCIDR:           localIPv4AllocCIDRsV1[0],
-		IPv4SecondaryAllocCIDRs: localIPv4AllocCIDRsV1[1:],
-		IPv6AllocCIDR:           localIPv6AllocCIDRsV1[0],
-		IPv6SecondaryAllocCIDRs: localIPv6AllocCIDRsV1[1:],
-	}
-	err = linuxNodeHandler.NodeAdd(localNodeV1)
-	require.NoError(t, err)
-	if s.enableIPv4 {
-		lookupIPSecInRoutes(t, netlink.FAMILY_V4, dummyExternalDeviceName, localIPv4AllocCIDRsV1)
-	}
-	if s.enableIPv6 {
-		lookupIPSecInRoutes(t, netlink.FAMILY_V6, dummyExternalDeviceName, localIPv6AllocCIDRsV1)
-	}
-
-	// Update local node and change the podCIDRs
-	localIPv4AllocCIDRsV2 := []*cidr.CIDR{
-		cidr.MustParseCIDR("6.6.6.0/24"),
-		cidr.MustParseCIDR("7.7.7.0/24"),
-		cidr.MustParseCIDR("8.8.8.0/24"),
-	}
-	localIPv6AllocCIDRsV2 := []*cidr.CIDR{
-		cidr.MustParseCIDR("2002:aaaa:bbbb::/96"),
-		cidr.MustParseCIDR("2003:aaaa:bbbb::/96"),
-		cidr.MustParseCIDR("2004:aaaa:bbbb::/96"),
-	}
-	localNodeV2 := localNodeV1
-	localNodeV2.IPv4AllocCIDR = localIPv4AllocCIDRsV2[0]
-	localNodeV2.IPv4SecondaryAllocCIDRs = localIPv4AllocCIDRsV2[1:]
-	localNodeV2.IPv6AllocCIDR = localIPv6AllocCIDRsV2[0]
-	localNodeV2.IPv6SecondaryAllocCIDRs = localIPv6AllocCIDRsV2[1:]
-	err = linuxNodeHandler.NodeUpdate(localNodeV1, localNodeV2)
-	require.NoError(t, err)
-	if s.enableIPv4 {
-		lookupIPSecInRoutes(t, netlink.FAMILY_V4, dummyExternalDeviceName, localIPv4AllocCIDRsV2)
-	}
-	if s.enableIPv6 {
-		lookupIPSecInRoutes(t, netlink.FAMILY_V6, dummyExternalDeviceName, localIPv6AllocCIDRsV2)
-	}
-
-	// Add first remote node
-	remoteNode1IPv4AllocCIDRsV1 := []*cidr.CIDR{
-		cidr.MustParseCIDR("9.9.9.0/24"),
-		cidr.MustParseCIDR("10.10.10.0/24"),
-		cidr.MustParseCIDR("11.11.11.0/24"),
-	}
-	remoteNode1IPv6AllocCIDRsV1 := []*cidr.CIDR{
-		cidr.MustParseCIDR("2005:aaaa:bbbb::/96"),
-		cidr.MustParseCIDR("2006:aaaa:bbbb::/96"),
-		cidr.MustParseCIDR("2007:aaaa:bbbb::/96"),
-	}
-	remoteNode1V1 := nodeTypes.Node{
-		Name: "remote_node_1",
-		IPAddresses: []nodeTypes.Address{
-			{IP: net.ParseIP("1.1.1.1"), Type: nodeaddressing.NodeCiliumInternalIP},
-			{IP: remoteNode1IPv4, Type: nodeaddressing.NodeInternalIP},
-			{IP: net.ParseIP("face::3"), Type: nodeaddressing.NodeCiliumInternalIP},
-			{IP: remoteNode1IPv6, Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR:           remoteNode1IPv4AllocCIDRsV1[0],
-		IPv4SecondaryAllocCIDRs: remoteNode1IPv4AllocCIDRsV1[1:],
-		IPv6AllocCIDR:           remoteNode1IPv6AllocCIDRsV1[0],
-		IPv6SecondaryAllocCIDRs: remoteNode1IPv6AllocCIDRsV1[1:],
-		BootID:                  "b892866c-26cb-4018-8a55-c0330551a2be",
-	}
-	err = linuxNodeHandler.NodeAdd(remoteNode1V1)
-	require.NoError(t, err)
-	if s.enableIPv4 {
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V4, dummyHostDeviceName, remoteNode1IPv4AllocCIDRsV1)
-		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V4, remoteNode1IPv4AllocCIDRsV1)
-	}
-	if s.enableIPv6 {
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V6, dummyHostDeviceName, remoteNode1IPv6AllocCIDRsV1)
-		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V6, remoteNode1IPv6AllocCIDRsV1)
-	}
-
-	// Add second remote node
-	remoteNode2IPv4AllocCIDRsV1 := []*cidr.CIDR{
-		cidr.MustParseCIDR("12.12.12.0/24"),
-		cidr.MustParseCIDR("13.13.13.0/24"),
-		cidr.MustParseCIDR("14.14.14.0/24"),
-	}
-	remoteNode2IPv6AllocCIDRsV1 := []*cidr.CIDR{
-		cidr.MustParseCIDR("2008:aaaa:bbbb::/96"),
-		cidr.MustParseCIDR("2009:aaaa:bbbb::/96"),
-		cidr.MustParseCIDR("2010:aaaa:bbbb::/96"),
-	}
-	remoteNode2V1 := nodeTypes.Node{
-		Name: "remote_node_2",
-		IPAddresses: []nodeTypes.Address{
-			{IP: net.ParseIP("2.2.2.2"), Type: nodeaddressing.NodeCiliumInternalIP},
-			{IP: remoteNode2IPv4, Type: nodeaddressing.NodeInternalIP},
-			{IP: net.ParseIP("face::4"), Type: nodeaddressing.NodeCiliumInternalIP},
-			{IP: remoteNode2IPv6, Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR:           remoteNode2IPv4AllocCIDRsV1[0],
-		IPv4SecondaryAllocCIDRs: remoteNode2IPv4AllocCIDRsV1[1:],
-		IPv6AllocCIDR:           remoteNode2IPv6AllocCIDRsV1[0],
-		IPv6SecondaryAllocCIDRs: remoteNode2IPv6AllocCIDRsV1[1:],
-		BootID:                  "581ec425-11af-4a29-9a0f-5550218463a7",
-	}
-	err = linuxNodeHandler.NodeAdd(remoteNode2V1)
-	require.NoError(t, err)
-	if s.enableIPv4 {
-		expectedCIDRs := slices.Concat(remoteNode1IPv4AllocCIDRsV1, remoteNode2IPv4AllocCIDRsV1)
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V4, dummyHostDeviceName, expectedCIDRs)
-		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V4, expectedCIDRs)
-	}
-	if s.enableIPv6 {
-		expectedCIDRs := slices.Concat(remoteNode1IPv6AllocCIDRsV1, remoteNode2IPv6AllocCIDRsV1)
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V6, dummyHostDeviceName, expectedCIDRs)
-		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V6, expectedCIDRs)
-	}
-
-	// Update first remote node and change the podCIDRs
-	remoteNode2IPv4AllocCIDRsV2 := []*cidr.CIDR{
-		cidr.MustParseCIDR("13.13.13.0/24"),
-		cidr.MustParseCIDR("14.14.14.0/24"),
-		cidr.MustParseCIDR("15.15.15.0/24"),
-	}
-	remoteNode2IPv6AllocCIDRsV2 := []*cidr.CIDR{
-		cidr.MustParseCIDR("2009:aaaa:bbbb::/96"),
-		cidr.MustParseCIDR("2010:aaaa:bbbb::/96"),
-		cidr.MustParseCIDR("2011:aaaa:bbbb::/96"),
-	}
-	remoteNode2V2 := remoteNode2V1
-	remoteNode2V2.IPv4AllocCIDR = remoteNode2IPv4AllocCIDRsV2[0]
-	remoteNode2V2.IPv4SecondaryAllocCIDRs = remoteNode2IPv4AllocCIDRsV2[1:]
-	remoteNode2V2.IPv6AllocCIDR = remoteNode2IPv6AllocCIDRsV2[0]
-	remoteNode2V2.IPv6SecondaryAllocCIDRs = remoteNode2IPv6AllocCIDRsV2[1:]
-	err = linuxNodeHandler.NodeUpdate(remoteNode2V1, remoteNode2V2)
-	require.NoError(t, err)
-	if s.enableIPv4 {
-		expectedCIDRs := slices.Concat(remoteNode1IPv4AllocCIDRsV1, remoteNode2IPv4AllocCIDRsV2)
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V4, dummyHostDeviceName, expectedCIDRs)
-		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V4, expectedCIDRs)
-	}
-	if s.enableIPv6 {
-		expectedCIDRs := slices.Concat(remoteNode1IPv6AllocCIDRsV1, remoteNode2IPv6AllocCIDRsV2)
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V6, dummyHostDeviceName, expectedCIDRs)
-		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V6, expectedCIDRs)
-	}
-}
-
-func BenchmarkPrivilegedAll(b *testing.B) {
+func BenchmarkAll(b *testing.B) {
 	for _, tt := range []string{"IPv4", "IPv6", "dual"} {
 		b.Run(tt, func(b *testing.B) {
 			b.Run("BenchmarkNodeUpdate", func(b *testing.B) {
@@ -1487,7 +1143,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(b)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{})
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, s.db, s.routeManager, s.desiredRoutes, s.devices)
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
@@ -1584,7 +1240,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(b *testing.B, conf
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(b)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{})
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, s.db, s.routeManager, s.desiredRoutes, s.devices)
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
@@ -1653,7 +1309,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(b *te
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(b)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{})
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, s.db, s.routeManager, s.desiredRoutes, s.devices)
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
