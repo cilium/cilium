@@ -575,7 +575,9 @@ func (n *Node) createInterface(ctx context.Context, a *AllocationAction) (create
 	toAllocate, errCondition, err := n.ops.CreateInterface(ctx, a, scopedLog)
 	if err != nil {
 		n.manager.metricsAPI.AllocationAttempt(createInterfaceAndAllocateIP, errCondition, string(a.PoolID), metrics.SinceInSeconds(start))
-		scopedLog.Warningf("Unable to create interface on instance: %s", err)
+		// IP Allocation can fail due to outdated information (cloud provider APIs are eventually consistent) about the available capacity.
+		// Since we eventually recover from this, use log level info. For more details see https://github.com/cilium/cilium/issues/36428
+		scopedLog.Infof("Unable to create interface on instance: %s", err)
 		return false, err
 	}
 
@@ -943,10 +945,12 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 		}
 
 		n.manager.metricsAPI.AllocationAttempt(allocateIP, failed, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
+		// IP Allocation can fail due to outdated information (cloud provider APIs are eventually consistent) about the available capacity.
+		// Since we eventually recover from this, use log level info. For more details see https://github.com/cilium/cilium/issues/36428
 		scopedLog.WithFields(logrus.Fields{
 			"selectedInterface": a.allocation.InterfaceID,
 			"ipsToAllocate":     a.allocation.IPv4.AvailableForAllocation,
-		}).WithError(err).Warning("Unable to assign additional IPs to interface, will create new interface")
+		}).WithError(err).Info("Unable to assign additional IPs to interface, will create new interface")
 	}
 
 	return n.createInterface(ctx, a.allocation)
