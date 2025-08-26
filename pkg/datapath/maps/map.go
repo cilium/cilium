@@ -187,7 +187,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		}...)
 	}
 
-	if !ms.kprCfg.EnableNodePort {
+	if !ms.kprCfg.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
 		maps = append(maps, []string{"cilium_snat_v4_external", "cilium_snat_v6_external"}...)
 	}
 
