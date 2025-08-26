@@ -358,7 +358,7 @@ Exported Metrics
 ^^^^^^^^^^^^^^^^
 
 Configuring Metrics with Helm
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When installing or upgrading Cilium using Helm, you can configure which metrics
 are enabled or disabled using the ``prometheus.metrics`` option. This allows you
