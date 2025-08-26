@@ -4363,9 +4363,6 @@
         },
         "enableHealthCheckLoadBalancerIP": {
           "type": "boolean"
-        },
-        "enabled": {
-          "type": "boolean"
         }
       },
       "type": "object"
