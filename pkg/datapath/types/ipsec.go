@@ -18,6 +18,13 @@ type IPsecAgent interface {
 	DeleteXfrmPolicyOut(nodeID uint16, dst *net.IPNet) error
 }
 
+type IPsecConfig interface {
+	Enabled() bool
+	EncryptedOverlayEnabled() bool
+	UseCiliumInternalIP() bool
+	DNSProxyInsecureSkipTransparentModeCheckEnabled() bool
+}
+
 type IPSecDir uint32
 
 type IPSecParameters struct {

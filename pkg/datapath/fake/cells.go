@@ -61,6 +61,7 @@ var Cell = cell.Module(
 		func() ipset.Manager { return &fakeTypes.IPSet{} },
 		func() types.BandwidthManager { return &fakeTypes.BandwidthManager{} },
 		func() types.IPsecAgent { return &fakeTypes.IPsecAgent{} },
+		func() types.IPsecConfig { return &fakeTypes.IPsecConfig{} },
 		func() mtu.MTU { return &fakeTypes.MTU{} },
 		func() wgTypes.WireguardAgent { return &fakeTypes.WireguardAgent{} },
 		func() wgTypes.WireguardConfig { return &fakeTypes.WireguardConfig{} },
