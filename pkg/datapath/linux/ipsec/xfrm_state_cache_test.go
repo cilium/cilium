@@ -26,7 +26,7 @@ func newTestableXfrmStateListCache(ttl time.Duration, clock clock.PassiveClock) 
 	}
 }
 
-func TestXfrmStateListCache(t *testing.T) {
+func TestPrivilegedXfrmStateListCache(t *testing.T) {
 	setupIPSecSuitePrivileged(t)
 
 	backupOption := option.Config.EnableIPSecXfrmStateCaching
@@ -106,7 +106,7 @@ func TestXfrmStateListCache(t *testing.T) {
 	require.Empty(t, stateList)
 }
 
-func TestXfrmStateListCacheDisabled(t *testing.T) {
+func TestPrivilegedXfrmStateListCacheDisabled(t *testing.T) {
 	setupIPSecSuitePrivileged(t)
 
 	backupOption := option.Config.EnableIPSecXfrmStateCaching
