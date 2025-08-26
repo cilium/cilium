@@ -1357,7 +1357,7 @@ type daemonParams struct {
 	ClusterInfo         cmtypes.ClusterInfo
 	TunnelConfig        tunnel.Config
 	BandwidthManager    datapath.BandwidthManager
-	IPsecKeyCustodian   datapath.IPsecKeyCustodian
+	IPsecAgent          datapath.IPsecAgent
 	MTU                 mtu.MTU
 	Sysctl              sysctl.Sysctl
 	SyncHostIPs         *syncHostIPs
