@@ -28,8 +28,7 @@ import (
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
-		logfields.Controller: "httpRoute",
-		logfields.Resource:   req.NamespacedName,
+		logfields.ParentResource: req.NamespacedName,
 	})
 	scopedLog.Info("Reconciling HTTPRoute")
 

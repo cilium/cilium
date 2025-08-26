@@ -451,7 +451,7 @@ jobs:
             exit 0
           fi
           find . -type f -iname 'feature-status-*.json' | while IFS= read -r file; do
-            mv "\$file" "./${{ env.job_name }}-\${file##*/feature-status-}"
+            mv "\$file" "./feature-status-${{ env.job_name }}-\${file##*/feature-status-}"
           done
           EOF
           chmod +x run-in-lvm.sh

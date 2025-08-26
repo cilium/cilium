@@ -37,8 +37,7 @@ const (
 
 func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	scopedLog := r.logger.WithFields(logrus.Fields{
-		logfields.Controller: "ingress",
-		logfields.Resource:   req.NamespacedName,
+		logfields.Resource: req.NamespacedName,
 	})
 
 	scopedLog.Info("Reconciling Ingress")

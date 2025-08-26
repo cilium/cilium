@@ -32,8 +32,7 @@ import (
 // in parent Gateway for further processing.
 func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
-		logfields.Controller: grpcRoute,
-		logfields.Resource:   req.NamespacedName,
+		logfields.ParentResource: req.NamespacedName,
 	})
 	scopedLog.Info("Reconciling GRPCRoute")
 

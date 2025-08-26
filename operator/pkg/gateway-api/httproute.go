@@ -182,8 +182,7 @@ func (r *httpRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
 func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: "httpRoute",
-			logfields.Resource:   client.ObjectKeyFromObject(o),
+			logfields.Resource: client.ObjectKeyFromObject(o),
 		})
 		hrList := &gatewayv1.HTTPRouteList{}
 
@@ -212,8 +211,7 @@ func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 func (r *httpRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: "httpRoute",
-			logfields.Resource:   client.ObjectKeyFromObject(o),
+			logfields.Resource: client.ObjectKeyFromObject(o),
 		})
 		hrList := &gatewayv1.HTTPRouteList{}
 

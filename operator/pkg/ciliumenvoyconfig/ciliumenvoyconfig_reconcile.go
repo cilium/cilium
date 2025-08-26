@@ -25,8 +25,7 @@ const (
 
 func (r *ciliumEnvoyConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	scopedLog := r.logger.WithFields(logrus.Fields{
-		logfields.Controller: "ciliumenvoyconfig",
-		logfields.Resource:   req.NamespacedName,
+		logfields.Resource: req.NamespacedName,
 	})
 	scopedLog.Info("Starting reconciliation")
 
