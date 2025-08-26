@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/testutils"
