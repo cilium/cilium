@@ -8,6 +8,7 @@ import (
 )
 
 type IPsecAgent interface {
+	Enabled() bool
 	AuthKeySize() int
 	SPI() uint8
 	StartBackgroundJobs(NodeHandler) error

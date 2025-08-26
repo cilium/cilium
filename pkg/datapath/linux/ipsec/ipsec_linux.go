@@ -193,7 +193,7 @@ func (a *Agent) Start(cell.HookContext) error {
 	if !a.config.EncryptNode {
 		a.deleteIPsecEncryptRoute()
 	}
-	if !a.config.EnableIPSec {
+	if !a.Enabled() {
 		return nil
 	}
 
@@ -215,7 +215,7 @@ func (a *Agent) Start(cell.HookContext) error {
 
 // StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
 func (a *Agent) StartBackgroundJobs(handler types.NodeHandler) error {
-	if !a.config.EnableIPSec {
+	if !a.Enabled() {
 		return nil
 	}
 	if err := a.startKeyfileWatcher(handler); err != nil {
@@ -235,6 +235,10 @@ func (a *Agent) AuthKeySize() int {
 
 func (a *Agent) SPI() uint8 {
 	return a.spi
+}
+
+func (a *Agent) Enabled() bool {
+	return a.config.EnableIPSec
 }
 
 func (a *Agent) getGlobalIPsecKey(ip net.IP) *ipSecKey {
