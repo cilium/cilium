@@ -351,7 +351,7 @@ func CompareCmd(db *DB) script.Cmd {
 			if err != nil {
 				return nil, fmt.Errorf("ReadFile(%s): %w", args[1], err)
 			}
-			lines := strings.Split(string(data), "\n")
+			lines := strings.Split(s.ExpandEnv(string(data), false), "\n")
 			lines = slices.DeleteFunc(lines, func(line string) bool {
 				return strings.TrimSpace(line) == ""
 			})
