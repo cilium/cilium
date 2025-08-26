@@ -28,14 +28,10 @@ const (
 	TunnelPort         Feature = "tunnel-port"
 	EndpointRoutes     Feature = "endpoint-routes"
 
-	KPRMode                 Feature = "kpr-mode"
-	KPRExternalIPs          Feature = "kpr-external-ips"
-	KPRHostPort             Feature = "kpr-hostport"
+	KPR                     Feature = "kpr"
 	KPRSocketLB             Feature = "kpr-socket-lb"
 	KPRSocketLBHostnsOnly   Feature = "kpr-socket-lb-hostns-only"
-	KPRNodePort             Feature = "kpr-nodeport"
 	KPRNodePortAcceleration Feature = "kpr-nodeport-acceleration"
-	KPRSessionAffinity      Feature = "kpr-session-affinity"
 
 	BPFLBExternalClusterIP Feature = "bpf-lb-external-clusterip"
 
@@ -197,7 +193,7 @@ func (fs Set) DeriveFeatures() error {
 		Enabled: (fs[CNIChaining].Enabled && fs[CNIChaining].Mode == "portmap" &&
 			// cilium/cilium#12541: Host firewall doesn't work with portmap CNI chaining
 			!fs[HostFirewall].Enabled) ||
-			fs[KPRHostPort].Enabled,
+			fs[KPR].Enabled,
 	}
 
 	return nil
