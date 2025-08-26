@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -31,9 +32,10 @@ type params struct {
 	JobGroup       job.Group
 	LocalNodeStore *node.LocalNodeStore
 	Config         *option.DaemonConfig
+	EncryptMap     encrypt.EncryptMap
 }
 
 // newIPsecAgent returns the [*Agent] as an interface [types.IPsecAgent].
 func newIPsecAgent(p params) types.IPsecAgent {
-	return newAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore, p.Config)
+	return newAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore, p.Config, p.EncryptMap)
 }
