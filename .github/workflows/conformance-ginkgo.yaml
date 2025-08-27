@@ -276,9 +276,7 @@ jobs:
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ needs.setup-vars.outputs.SHA }}
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          ci-version: ${{ needs.setup-vars.outputs.SHA }}
 
       - name: Copy cilium-cli
         shell: bash
@@ -442,41 +440,26 @@ jobs:
             kubectl get pods --all-namespaces -o wide
             tar -zcf "test_results-${{ env.job_name }}.tar.gz" /host/test/test_results
 
-      - name: Prepare script to run inside lvm
-        if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
+      - name: Fetch tested features
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         shell: bash
         run: |
-          cat <<EOF > run-in-lvm.sh
-          #!/usr/bin/env bash
-          cd /host
-          if ! find /host/test/test_results -type f -iname 'feature-status-*.json' | grep -q .; then
-            exit 0
-          fi
+          sudo chown $USER:$USER -R ./test
           find . -type f -iname 'feature-status-*.json' | while IFS= read -r file; do
-            mv "\$file" "./feature-status-${{ env.job_name }}-\${file##*/feature-status-}"
+            basename_file=$(basename "$file")
+            suffix="${basename_file#feature-status-}"
+            new_filename="features-tested-${{ env.job_name }}-${suffix}"
+            # Truncate filename to 250 characters max
+            if [ ${#new_filename} -gt 250 ]; then
+              new_filename="${new_filename:0:250}"
+            fi
+            # Check if file already exists and fail if it does
+            if [ -f "./${new_filename}" ]; then
+              echo "Error: File ./${new_filename} already exists. Aborting to prevent overwrite."
+              exit 1
+            fi
+            mv "$file" "./${new_filename}"
           done
-          EOF
-          chmod +x run-in-lvm.sh
-
-      - name: Fetch features tested
-        if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
-        continue-on-error: true
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host
-            ./run-in-lvm.sh
-
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdumps-${{ matrix.k8s-version }}-${{matrix.focus}}
-          path: |
-            cilium-sysdump-*.zip
-            bugtool-*.tar.gz
-            test_results-*.tar.gz
 
       - name: Fetch JUnits
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
@@ -487,72 +470,31 @@ jobs:
           junit_filename="${{ env.job_name }}.xml"
           for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
 
-      - name: Upload JUnits [junit]
-        if: ${{ always() }}
+      - name: Upload artifacts
+        if: ${{ !success() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: cilium-junits-${{ matrix.k8s-version }}-${{matrix.focus}}
-          path: cilium-junits/*.xml
+          name: cilium-sysdumps-bugtool-${{ matrix.k8s-version }}-${{matrix.focus}}
+          path: |
+            bugtool-*.tar.gz
+            test_results-*.tar.gz
 
-      - name: Upload features tested
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: features-tested-${{ matrix.k8s-version }}-${{matrix.focus}}
-          path: ${{ env.job_name }}*.json
+          capture_features_tested: 'false'
+          capture_sysdump: 'false'
+          artifacts_suffix: "${{ env.job_name }}"
+          job_status: "${{ job.status }}"
 
-      - name: Publish Test Results As GitHub Summary
-        if: ${{ always() }}
-        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
-        with:
-          junit-directory: "cilium-junits"
-
-  merge-upload:
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
-    name: Merge and Upload Artifacts
-    runs-on: ubuntu-24.04
     needs: setup-and-test
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-      - name: Merge JUnits
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-junits
-          pattern: cilium-junits-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge Features tested
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: features-tested
-          pattern: features-tested-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-          separate-directories: true
-
-  commit-status-final:
-    if: ${{ always() }}
-    name: Commit Status Final
-    needs: setup-and-test
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Determine final commit status
-        id: commit-status
-        shell: bash
-        run: |
-          # When one of the prerequisites of setup-and-test fails, then that
-          # job gets skipped. Let's convert the status so that we correctly
-          # report that as a proper failure.
-          if [ "${{ needs.setup-and-test.result }}" != "skipped" ]; then
-            echo "status=${{ needs.setup-and-test.result }}" >> $GITHUB_OUTPUT
-          else
-            echo "status=failure" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ steps.commit-status.outputs.status }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.setup-and-test.result }}
