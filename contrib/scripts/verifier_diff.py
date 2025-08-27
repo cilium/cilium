@@ -5,150 +5,148 @@
 """
 verifier_diff.py
 
-Compares two eBPF verifier log files and visualizes the difference in
-instruction counts per function between test runs.
+Compares two eBPF verifier log files and visualizes the number of verified
+instructions between the two runs per function and program build.
+This script accepts two JSON files, `main.json` and `patch.json`,
+supposedly run before and after a code change, and creates an output directory
+containing all the plots.
+Running verifier tests locally would output a resulting JSON file under
+`/tmp/verifier-complexity*/verifier-complexity.json`. As an alternative, these
+JSON files can be obtained from CI runs.
 
 Usage:
-    python verifier_diff.py main.log patch.log
+    python verifier_diff.py main.json patch.json
 """
 
 import os
-import re
 import argparse
 import shutil
-import pandas as pd
+import json
+import numpy as np
 import matplotlib.pyplot as plt
 import datetime
 import logging
 
 
-def extract_verifier_data(log_content: str) -> dict[tuple[str, str], int]:
+def load_json(file_path) -> dict:
     """
-    Extracts instruction counts per function from a verifier log.
+    Load JSON data from a file.
 
     Args:
-        log_content (str): Raw content of a verifier test log.
+        file_path (str): Path to the JSON file.
 
     Returns:
-        dict[tuple[str, str], int]: Mapping of (test_name, function_name)
-                                    to instruction count.
+        dict: Parsed JSON data.
     """
-    test_split_pattern = r"(=== RUN\s+TestVerifier/[^\n]+)"
-    test_blocks = re.split(test_split_pattern, log_content)[1:]
-    test_data = {}
-
-    for i in range(0, len(test_blocks), 2):
-        run_line = test_blocks[i].strip()
-        test_name = run_line.replace("=== RUN   TestVerifier/", "")
-        test_log = test_blocks[i + 1]
-
-        matches = re.findall(
-            r"verifier_test\.go:\d+: ([\w:]+): processed (\d+) insns", test_log
-        )
-
-        for func, insn in matches:
-            test_data[(test_name, func)] = int(insn)
-
-    return test_data
+    with open(file_path, "r") as f:
+        return json.load(f)
 
 
-def compare_logs(file_before: str, file_after: str, output_dir: str) -> None:
+def organize_data(data) -> dict:
     """
-    Compares and stores instruction counts from two verifier logs into a CSV.
+    Organize data into dict keyed by (collection, build, load, program).
 
     Args:
-        file_before (str): Path to the "before" verifier log.
-        file_after (str): Path to the "after" verifier log.
-        output_dir (str): Directory to save the resulting CSV file.
+        data (list): List of JSON entries.
 
     Returns:
-        None
+        dict: Organized data.
     """
-    with open(file_before) as f:
-        log_before = f.read()
-    with open(file_after) as f:
-        log_after = f.read()
+    organized = {}
+    for entry in data:
+        key = (entry["collection"], entry["build"],
+               entry["load"], entry["program"])
+        organized[key] = entry["insns_processed"]
+    return organized
 
-    data_before = extract_verifier_data(log_before)
-    data_after = extract_verifier_data(log_after)
 
-    all_keys = set(data_before.keys()).union(data_after.keys())
-    diff_data = []
+def plot_comparison(file1: str, file2: str, outdir: str):
+    """Plot comparison of eBPF verifier logs.
 
-    for key in sorted(all_keys):
-        has_before = key in data_before
-        has_after = key in data_after
+    Args:
+        file1 (str): Path to the first JSON file.
+        file2 (str): Path to the second JSON file.
+        outdir (str): Output directory for the plots.
+    """
+    data1 = organize_data(load_json(file1))
+    data2 = organize_data(load_json(file2))
 
-        if not has_before or not has_after:
-            logging.warning("Entry {} missing in {}; skipping.".format(
-                key, file_before if not has_before else file_after))
+    # Collect all unique (collection, build, load) triples
+    groups = set((c, b, l) for c, b, l, _ in data1.keys()) | set(
+        (c, b, l) for c, b, l, _ in data2.keys())
+
+    for collection, build, load in groups:
+        # Collect all programs for this collection/build/load
+        programs = sorted(set(
+            [p for c, b, l, p in data1.keys()
+             if c == collection and b == build and l == load] +
+            [p for c, b, l, p in data2.keys()
+             if c == collection and b == build and l == load]
+        ))
+
+        if not programs:
+            logging.info(
+                f"No programs found for collection {collection}, "
+                f"build {build}, load {load}, skipping.")
             continue
 
-        insns_before = data_before[key]
-        insns_after = data_after[key]
-        insns_diff = insns_after - insns_before
+        before_vals = []
+        after_vals = []
+        filtered_programs = []
 
-        diff_data.append(
-            [key[0], key[1], insns_before, insns_after, insns_diff])
+        for prog in programs:
+            v1 = data1.get((collection, build, load, prog), 0)
+            v2 = data2.get((collection, build, load, prog), 0)
+            if v1 == v2:
+                logging.info(
+                    f"Program {prog} unchanged ({v1}) for "
+                    f"collection {collection}, build {build}, "
+                    f"load {load}, skipping.")
+                continue  # skip unchanged values
+            filtered_programs.append(prog)
+            before_vals.append(v1)
+            after_vals.append(v2)
 
-    df = pd.DataFrame(diff_data, columns=[
-        "Test", "Function", "Insns_Before", "Insns_After", "Insns_Diff"
-    ])
-    csv_path = os.path.join(output_dir, "insns_diff.csv")
-    df.to_csv(csv_path, index=False)
-    logging.info(f"Verifier instructions difference saved as CSV.")
+        if not filtered_programs:  # skip if all values unchanged
+            logging.info(
+                f"All programs unchanged for collection {collection} "
+                f"build {build} load {load}, skipping.")
+            continue
 
+        # Plot
+        y_pos = np.arange(len(filtered_programs))
+        height = 0.35  # thickness of bars
 
-def plot_insns_diff(output_dir: str) -> None:
-    """
-    Generates and saves horizontal bar plots showing instruction count delta.
-    Functions with the same number of verified instructions are omitted.
+        plt.figure(figsize=(12, len(filtered_programs) * 0.5))
+        bars_before = plt.barh(y_pos + height/2, before_vals,
+                               height, label="Before", alpha=0.7)
+        bars_after = plt.barh(y_pos - height/2, after_vals,
+                              height, label="After", alpha=0.7)
 
-    Args:
-        output_dir (str): Output directory.
+        plt.yticks(y_pos, filtered_programs)
+        plt.xlabel("insns_processed")
+        plt.title(f"Collection {collection} - Build {build} - Load {load}")
+        plt.legend()
 
-    Returns:
-        None
-    """
-    df = pd.read_csv(os.path.join(output_dir, "insns_diff.csv"))
-
-    df = df[df["Insns_Diff"] != 0]
-    df = df[~((df["Insns_Before"] == 0) & (df["Insns_After"] == 0))]
-
-    for test_name, test_df in df.groupby("Test"):
-        plt.figure(figsize=(12, 8), constrained_layout=True)
-        colors = test_df["Insns_Diff"].apply(
-            lambda x: "green" if x > 0 else "red")
-        bars = plt.barh(test_df["Function"],
-                        test_df["Insns_Diff"], color=colors)
-
-        for bar, insn_count in zip(bars, test_df["Insns_After"]):
+        # Add text labels at the end of bars
+        max_val = max(before_vals + after_vals)
+        for bar in bars_before:
             width = bar.get_width()
-            xpos = width + 1 if width >= 0 else width - 1
-            ha = "left" if width >= 0 else "right"
-            plt.text(
-                xpos,
-                bar.get_y() + bar.get_height() / 2,
-                f"({insn_count})",
-                va="center",
-                ha=ha,
-                fontsize=8,
-                color="black"
-            )
+            plt.text(width + max_val * 0.01, bar.get_y() + bar.get_height()/2,
+                     f"{width}", va="center", ha="left", fontsize=8)
 
-        plt.xlabel("Verifier Instructions Difference (After - Before)\n"
-                   "(Instructions After shown in brackets)")
-        plt.ylabel("Function Name")
-        plt.title(f"Program and Config: {test_name}")
+        for bar in bars_after:
+            width = bar.get_width()
+            plt.text(width + max_val * 0.01, bar.get_y() + bar.get_height()/2,
+                     f"{width}", va="center", ha="left", fontsize=8)
 
-        filename = test_name.replace("/", "_") + ".png"
-        chart_path = os.path.join(output_dir, filename)
-        plt.savefig(chart_path)
+        plt.tight_layout()
+        build_dir = os.path.join(outdir, collection, f"build{build}")
+        os.makedirs(build_dir, exist_ok=True)
+        outfile = os.path.join(build_dir, f"load{load}.png")
+        plt.savefig(outfile)
         plt.close()
-
-        logging.info(f"Saved chart: {filename}.")
-
-    logging.info(f"All charts successfully saved.")
+        logging.info(f"Saved plot: {outfile}")
 
 
 def setup_output_dir(file_after: str, file_before: str) -> str:
@@ -195,8 +193,7 @@ def main():
 
     output_dir = setup_output_dir(args.file_after, args.file_before)
 
-    compare_logs(args.file_before, args.file_after, output_dir)
-    plot_insns_diff(output_dir)
+    plot_comparison(args.file_before, args.file_after, output_dir)
 
 
 if __name__ == "__main__":
