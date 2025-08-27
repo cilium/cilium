@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
@@ -52,7 +53,9 @@ func FuzzLabelsfilterPkg(f *testing.F) {
 
 		lbls := labels.Map2Labels(stringMap, source)
 
-		file, err := os.Create("file")
+		baseDir := t.TempDir()
+		path := filepath.Join(baseDir, "cilium_fuzz_labelsfilter")
+		file, err := os.Create(path)
 		if err != nil {
 			return
 		}
@@ -63,7 +66,7 @@ func FuzzLabelsfilterPkg(f *testing.F) {
 			return
 		}
 
-		err = ParseLabelPrefixCfg(slog.New(slog.DiscardHandler), prefixes, nodePrefixes, "file")
+		err = ParseLabelPrefixCfg(slog.New(slog.DiscardHandler), prefixes, nodePrefixes, path)
 		if err != nil {
 			fmt.Println(err)
 			return
