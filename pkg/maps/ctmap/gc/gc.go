@@ -122,6 +122,7 @@ func (gc *GC) Enable() {
 		ipv6 := gc.ipv6
 		triggeredBySignal := false
 		var gcPrev time.Time
+		var cachedGCInterval time.Duration
 		for {
 			var (
 				maxDeleteRatio float64
@@ -182,12 +183,13 @@ func (gc *GC) Enable() {
 			}
 
 			// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
-			interval := ctmap.GetInterval(gc.logger, gcInterval, maxDeleteRatio)
+			interval := ctmap.GetInterval(gc.logger, gcInterval, cachedGCInterval, maxDeleteRatio)
 			if success && ipv4 == gc.ipv4 && ipv6 == gc.ipv6 {
 				for _, e := range eps {
 					e.MarkCTGCTime(gcStart, time.Now().Add(interval))
 				}
 			}
+			cachedGCInterval = interval
 
 			if initialScan {
 				close(initialScanComplete)
