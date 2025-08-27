@@ -24,7 +24,7 @@ runs:
   using: "composite"
   steps:
     - name: Features tested
-      if: ${{ always() && inputs.capture_features_tested }}
+      if: ${{ always() && inputs.capture_features_tested == 'true' }}
       uses: ./.github/actions/feature-status
       with:
         title: "Summary of all features tested"
