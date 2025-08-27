@@ -17,7 +17,9 @@ limitations under the License.
 package http
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"net"
 	"net/url"
 	"strings"
@@ -58,6 +60,10 @@ type ExpectedResponse struct {
 
 	// User Given TestCase name
 	TestCaseName string
+
+	// ServerName indicates the hostname to which the client attempts to connect,
+	// and which is seen by the backend.
+	ServerName string
 }
 
 // Request can be used as both the request to make and a means to verify
@@ -70,6 +76,8 @@ type Request struct {
 	Headers          map[string]string
 	UnfollowRedirect bool
 	Protocol         string
+	Body             string
+	SNI              string
 }
 
 // ExpectedRequest defines expected properties of a request that reaches a backend.
@@ -111,6 +119,17 @@ func MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, r roundtripp
 	WaitForConsistentResponse(t, r, req, expected, timeoutConfig.RequiredConsecutiveSuccesses, timeoutConfig.MaxTimeToConsistency)
 }
 
+// MakeRequestAndExpectFailure makes a request with the given parameters.
+// This function needs to ensure that after the system is stable the Request is
+// not returning http 200 StatusCode.
+func MakeRequestAndExpectFailure(t *testing.T, r roundtripper.RoundTripper, timeoutConfig config.TimeoutConfig, gwAddr string, expected ExpectedResponse) {
+	t.Helper()
+
+	req := MakeRequest(t, &expected, gwAddr, "HTTP", "http")
+
+	WaitForConsistentFailureResponse(t, r, req, 5, timeoutConfig.MaxTimeToConsistency)
+}
+
 func MakeRequest(t *testing.T, expected *ExpectedResponse, gwAddr, protocol, scheme string) roundtripper.Request {
 	t.Helper()
 
@@ -129,7 +148,7 @@ func MakeRequest(t *testing.T, expected *ExpectedResponse, gwAddr, protocol, sch
 	path, query, _ := strings.Cut(expected.Request.Path, "?")
 	reqURL := url.URL{Scheme: scheme, Host: CalculateHost(t, gwAddr, scheme), Path: path, RawQuery: query}
 
-	tlog.Logf(t, "Making %s request to %s", expected.Request.Method, reqURL.String())
+	tlog.Logf(t, "Making %s request to host %s via %s", expected.Request.Method, expected.Request.Host, reqURL.String())
 
 	req := roundtripper.Request{
 		T:                t,
@@ -139,6 +158,7 @@ func MakeRequest(t *testing.T, expected *ExpectedResponse, gwAddr, protocol, sch
 		Protocol:         expected.Request.Protocol,
 		Headers:          map[string][]string{},
 		UnfollowRedirect: expected.Request.UnfollowRedirect,
+		Body:             expected.Request.Body,
 	}
 
 	if expected.Request.Headers != nil {
@@ -170,7 +190,10 @@ func CalculateHost(t *testing.T, gwAddr, scheme string) string {
 		host, port, err = net.SplitHostPort(gwAddr)
 	}
 	if err != nil {
-		tlog.Logf(t, "Failed to parse host %q: %v", gwAddr, err)
+		// An address without a port causes an error, but it's fine for some cases.
+		if !strings.Contains(err.Error(), "missing port in address") {
+			tlog.Logf(t, "Failed to parse host %q: %v", gwAddr, err)
+		}
 		return gwAddr
 	}
 	if strings.ToLower(scheme) == "http" && port == "80" {
@@ -241,7 +264,7 @@ func WaitForConsistentResponse(t *testing.T, r roundtripper.RoundTripper, req ro
 			return false
 		}
 
-		if err := CompareRequest(t, &req, cReq, cRes, expected); err != nil {
+		if err := CompareRoundTrip(t, &req, cReq, cRes, expected); err != nil {
 			tlog.Logf(t, "Response expectation failed for request: %+v  not ready yet: %v (after %v)", req, err, elapsed)
 			return false
 		}
@@ -251,14 +274,37 @@ func WaitForConsistentResponse(t *testing.T, r roundtripper.RoundTripper, req ro
 	tlog.Logf(t, "Request passed")
 }
 
-func CompareRequest(t *testing.T, req *roundtripper.Request, cReq *roundtripper.CapturedRequest, cRes *roundtripper.CapturedResponse, expected ExpectedResponse) error {
+// WaitForConsistentFailureResponse repeats the provided request for the given
+// period of time and ensures an error is returned each time. This function fails
+// when HTTP Status OK (200) is returned.
+func WaitForConsistentFailureResponse(t *testing.T, r roundtripper.RoundTripper, req roundtripper.Request, threshold int, maxTimeToConsistency time.Duration) {
+	AwaitConvergence(t, threshold, maxTimeToConsistency, func(elapsed time.Duration) bool {
+		_, cRes, err := r.CaptureRoundTrip(req)
+		if err != nil {
+			tlog.Logf(t, "Request failed, not ready yet: %v (after %v)", err.Error(), elapsed)
+			return false
+		}
+		if roundtripper.IsTimeoutError(cRes.StatusCode) {
+			tlog.Logf(t, "Response expectation failed for request: %+v  not ready yet: %v (after %v)", req, cRes.StatusCode, elapsed)
+			return false
+		}
+		if cRes.StatusCode == 200 { // http:StatusCode OK
+			t.Fatalf("Request %+v should failed, returned HTTP Status OK (200) instead", req)
+			return false
+		}
+		return true
+	})
+	tlog.Logf(t, "Expectation for failing Request are met")
+}
+
+func CompareRoundTrip(t *testing.T, req *roundtripper.Request, cReq *roundtripper.CapturedRequest, cRes *roundtripper.CapturedResponse, expected ExpectedResponse) error {
 	if roundtripper.IsTimeoutError(cRes.StatusCode) {
 		if roundtripper.IsTimeoutError(expected.Response.StatusCode) {
 			return nil
 		}
 	}
 	if expected.Response.StatusCode != cRes.StatusCode {
-		return fmt.Errorf("expected status code to be %d, got %d", expected.Response.StatusCode, cRes.StatusCode)
+		return fmt.Errorf("expected status code to be %d, got %d. CRes: %v", expected.Response.StatusCode, cRes.StatusCode, cRes)
 	}
 	if cRes.StatusCode == 200 {
 		// The request expected to arrive at the backend is
@@ -351,6 +397,10 @@ func CompareRequest(t *testing.T, req *roundtripper.Request, cReq *roundtripper.
 		if !strings.HasPrefix(cReq.Pod, expected.Backend) {
 			return fmt.Errorf("expected pod name to start with %s, got %s", expected.Backend, cReq.Pod)
 		}
+
+		if expected.ExpectedRequest.SNI != "" && expected.ExpectedRequest.SNI != cReq.TLS.ServerName {
+			return fmt.Errorf("expected SNI %q to be equal to %q", cReq.TLS.ServerName, expected.ExpectedRequest.SNI)
+		}
 	} else if roundtripper.IsRedirect(cRes.StatusCode) {
 		if expected.RedirectRequest == nil {
 			return nil
@@ -428,5 +478,56 @@ func setRedirectRequestDefaults(req *roundtripper.Request, cRes *roundtripper.Ca
 
 	if expected.RedirectRequest.Path == "" {
 		expected.RedirectRequest.Path = req.URL.Path
+	}
+}
+
+// addEntropy adds jitter to the request by adding either a delay up to 1 second, or a random header value, or both.
+func AddEntropy(exp *ExpectedResponse) error {
+	randomNumber := func(limit int64) (*int64, error) {
+		number, err := rand.Int(rand.Reader, big.NewInt(limit))
+		if err != nil {
+			return nil, err
+		}
+		n := number.Int64()
+		return &n, nil
+	}
+
+	// adds a delay
+	delay := func(limit int64) error {
+		randomSleepDuration, err := randomNumber(limit)
+		if err != nil {
+			return err
+		}
+		time.Sleep(time.Duration(*randomSleepDuration) * time.Millisecond)
+		return nil
+	}
+	// adds random header value
+	randomHeader := func(limit int64) error {
+		randomHeaderValue, err := randomNumber(limit)
+		if err != nil {
+			return err
+		}
+		exp.Request.Headers = make(map[string]string)
+		exp.Request.Headers["X-Jitter"] = fmt.Sprintf("%d", *randomHeaderValue)
+		return nil
+	}
+
+	random, err := randomNumber(3)
+	if err != nil {
+		return err
+	}
+
+	switch *random {
+	case 0:
+		return delay(1000)
+	case 1:
+		return randomHeader(10000)
+	case 2:
+		if err := delay(1000); err != nil {
+			return err
+		}
+		return randomHeader(10000)
+	default:
+		return fmt.Errorf("invalid random value: %d", *random)
 	}
 }

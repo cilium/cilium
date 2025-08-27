@@ -33,13 +33,16 @@ import (
 // used to specify additional processing steps. Backends specify where matching
 // requests should be routed.
 type HTTPRoute struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the desired state of HTTPRoute.
+	// +required
 	Spec HTTPRouteSpec `json:"spec"`
 
 	// Status defines the current state of HTTPRoute.
+	// +optional
 	Status HTTPRouteStatus `json:"status,omitempty"`
 }
 
@@ -111,12 +114,14 @@ type HTTPRouteSpec struct {
 	// Support: Core
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
 	Hostnames []Hostname `json:"hostnames,omitempty"`
 
 	// Rules are a list of HTTP matchers, filters and actions.
 	//
 	// +optional
+	// +listType=atomic
 	// <gateway:experimental:validation:XValidation:message="Rule name must be unique within the route",rule="self.all(l1, !has(l1.name) || self.exists_one(l2, has(l2.name) && l1.name == l2.name))">
 	// +kubebuilder:validation:MaxItems=16
 	// +kubebuilder:default={{matches: {{path: {type: "PathPrefix", value: "/"}}}}}
@@ -138,7 +143,6 @@ type HTTPRouteRule struct {
 	//
 	// Support: Extended
 	// +optional
-	// <gateway:experimental>
 	Name *SectionName `json:"name,omitempty"`
 
 	// Matches define conditions used for matching the rule against incoming
@@ -199,6 +203,7 @@ type HTTPRouteRule struct {
 	// parent a request is coming from, a HTTP 404 status code MUST be returned.
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=64
 	// +kubebuilder:default={{path:{ type: "PathPrefix", value: "/"}}}
 	Matches []HTTPRouteMatch `json:"matches,omitempty"`
@@ -241,6 +246,7 @@ type HTTPRouteRule struct {
 	// Support: Core
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
 	// +kubebuilder:validation:XValidation:message="May specify either httpRouteFilterRequestRedirect or httpRouteFilterRequestRewrite, but not both",rule="!(self.exists(f, f.type == 'RequestRedirect') && self.exists(f, f.type == 'URLRewrite'))"
 	// +kubebuilder:validation:XValidation:message="RequestHeaderModifier filter cannot be repeated",rule="self.filter(f, f.type == 'RequestHeaderModifier').size() <= 1"
@@ -286,6 +292,7 @@ type HTTPRouteRule struct {
 	// Support for weight: Core
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
 	BackendRefs []HTTPBackendRef `json:"backendRefs,omitempty"`
 
@@ -380,6 +387,7 @@ type HTTPRouteRetry struct {
 	// Support: Extended
 	//
 	// +optional
+	// +listType=atomic
 	Codes []HTTPRouteRetryStatusCode `json:"codes,omitempty"`
 
 	// Attempts specifies the maximum number of times an individual request
@@ -609,12 +617,14 @@ type HTTPHeaderMatch struct {
 	// Generally, proxies should follow the guidance from the RFC:
 	// https://www.rfc-editor.org/rfc/rfc7230.html#section-3.2.2 regarding
 	// processing a repeated header, with special handling for "Set-Cookie".
+	// +required
 	Name HTTPHeaderName `json:"name"`
 
 	// Value is the value of HTTP Header to be matched.
 	//
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=4096
+	// +required
 	Value string `json:"value"`
 }
 
@@ -676,12 +686,14 @@ type HTTPQueryParamMatch struct {
 	//
 	// Users SHOULD NOT route traffic based on repeated query params to guard
 	// themselves against potential differences in the implementations.
+	// +required
 	Name HTTPHeaderName `json:"name"`
 
 	// Value is the value of HTTP query param to be matched.
 	//
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=1024
+	// +required
 	Value string `json:"value"`
 }
 
@@ -831,6 +843,7 @@ type HTTPRouteFilter struct {
 	// +unionDiscriminator
 	// +kubebuilder:validation:Enum=RequestHeaderModifier;ResponseHeaderModifier;RequestMirror;RequestRedirect;URLRewrite;ExtensionRef
 	// <gateway:experimental:validation:Enum=RequestHeaderModifier;ResponseHeaderModifier;RequestMirror;RequestRedirect;URLRewrite;ExtensionRef;CORS>
+	// +required
 	Type HTTPRouteFilterType `json:"type"`
 
 	// RequestHeaderModifier defines a schema for a filter that modifies request
@@ -978,12 +991,14 @@ type HTTPHeader struct {
 	// with an equivalent header name MUST be ignored. Due to the
 	// case-insensitivity of header names, "foo" and "Foo" are considered
 	// equivalent.
+	// +required
 	Name HTTPHeaderName `json:"name"`
 
 	// Value is the value of HTTP Header to be matched.
 	//
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=4096
+	// +required
 	Value string `json:"value"`
 }
 
@@ -1102,6 +1117,7 @@ type HTTPPathModifier struct {
 	// Reason of `UnsupportedValue`.
 	//
 	// +kubebuilder:validation:Enum=ReplaceFullPath;ReplacePrefixMatch
+	// +required
 	Type HTTPPathModifierType `json:"type"`
 
 	// ReplaceFullPath specifies the value with which to replace the full path
@@ -1209,6 +1225,9 @@ type HTTPRequestRedirectFilter struct {
 	// Support: Extended
 	//
 	// +optional
+	//
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
 	Port *PortNumber `json:"port,omitempty"`
 
 	// StatusCode is the HTTP status code to be used in response.
@@ -1275,6 +1294,7 @@ type HTTPRequestMirrorFilter struct {
 	// Support: Extended for Kubernetes Service
 	//
 	// Support: Implementation-specific for any other resource
+	// +required
 	BackendRef BackendObjectReference `json:"backendRef"`
 
 	// Percent represents the percentage of requests that should be
@@ -1345,9 +1365,9 @@ type HTTPCORSFilter struct {
 	// Therefore, the client doesn't attempt the actual cross-origin request.
 	//
 	// The `Access-Control-Allow-Origin` response header can only use `*`
-	// wildcard as value when the `AllowCredentials` field is unspecified.
+	// wildcard as value when the `AllowCredentials` field is false or omitted.
 	//
-	// When the `AllowCredentials` field is specified and `AllowOrigins` field
+	// When the `AllowCredentials` field is true and `AllowOrigins` field
 	// specified with the `*` wildcard, the gateway must return a single origin
 	// in the value of the `Access-Control-Allow-Origin` response header,
 	// instead of specifying the `*` wildcard. The value of the header
@@ -1357,22 +1377,23 @@ type HTTPCORSFilter struct {
 	// Support: Extended
 	// +listType=set
 	// +kubebuilder:validation:MaxItems=64
+	// +optional
 	AllowOrigins []AbsoluteURI `json:"allowOrigins,omitempty"`
 
 	// AllowCredentials indicates whether the actual cross-origin request allows
 	// to include credentials.
 	//
-	// The only valid value for the `Access-Control-Allow-Credentials` response
-	// header is true (case-sensitive).
+	// When set to true, the gateway will include the `Access-Control-Allow-Credentials`
+	// response header with value true (case-sensitive).
 	//
-	// If the credentials are not allowed in cross-origin requests, the gateway
-	// will omit the header `Access-Control-Allow-Credentials` entirely rather
-	// than setting its value to false.
+	// When set to false or omitted the gateway will omit the header
+	// `Access-Control-Allow-Credentials` entirely (this is the standard CORS
+	// behavior).
 	//
 	// Support: Extended
 	//
 	// +optional
-	AllowCredentials TrueField `json:"allowCredentials,omitempty"`
+	AllowCredentials *bool `json:"allowCredentials,omitempty"`
 
 	// AllowMethods indicates which HTTP methods are supported for accessing the
 	// requested resource.
@@ -1401,9 +1422,9 @@ type HTTPCORSFilter struct {
 	// side.
 	//
 	// The `Access-Control-Allow-Methods` response header can only use `*`
-	// wildcard as value when the `AllowCredentials` field is unspecified.
+	// wildcard as value when the `AllowCredentials` field is false or omitted.
 	//
-	// When the `AllowCredentials` field is specified and `AllowMethods` field
+	// When the `AllowCredentials` field is true and `AllowMethods` field
 	// specified with the `*` wildcard, the gateway must specify one HTTP method
 	// in the value of the Access-Control-Allow-Methods response header. The
 	// value of the header `Access-Control-Allow-Methods` is same as the
@@ -1418,6 +1439,7 @@ type HTTPCORSFilter struct {
 	// +listType=set
 	// +kubebuilder:validation:MaxItems=9
 	// +kubebuilder:validation:XValidation:message="AllowMethods cannot contain '*' alongside other methods",rule="!('*' in self && self.size() > 1)"
+	// +optional
 	AllowMethods []HTTPMethodWithWildcard `json:"allowMethods,omitempty"`
 
 	// AllowHeaders indicates which HTTP request headers are supported for
@@ -1443,9 +1465,9 @@ type HTTPCORSFilter struct {
 	//
 	// A wildcard indicates that the requests with all HTTP headers are allowed.
 	// The `Access-Control-Allow-Headers` response header can only use `*`
-	// wildcard as value when the `AllowCredentials` field is unspecified.
+	// wildcard as value when the `AllowCredentials` field is false or omitted.
 	//
-	// When the `AllowCredentials` field is specified and `AllowHeaders` field
+	// When the `AllowCredentials` field is true and `AllowHeaders` field
 	// specified with the `*` wildcard, the gateway must specify one or more
 	// HTTP headers in the value of the `Access-Control-Allow-Headers` response
 	// header. The value of the header `Access-Control-Allow-Headers` is same as
@@ -1459,6 +1481,7 @@ type HTTPCORSFilter struct {
 	//
 	// +listType=set
 	// +kubebuilder:validation:MaxItems=64
+	// +optional
 	AllowHeaders []HTTPHeaderName `json:"allowHeaders,omitempty"`
 
 	// ExposeHeaders indicates which HTTP response headers can be exposed
@@ -1488,8 +1511,7 @@ type HTTPCORSFilter struct {
 	//
 	// A wildcard indicates that the responses with all HTTP headers are exposed
 	// to clients. The `Access-Control-Expose-Headers` response header can only
-	// use `*` wildcard as value when the `AllowCredentials` field is
-	// unspecified.
+	// use `*` wildcard as value when the `AllowCredentials` field is false or omitted.
 	//
 	// Support: Extended
 	//
@@ -1590,8 +1612,8 @@ type HTTPBackendRef struct {
 	// Filters field in HTTPRouteRule.)
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
-	// +kubebuilder:validation:XValidation:message="May specify either httpRouteFilterRequestRedirect or httpRouteFilterRequestRewrite, but not both",rule="!(self.exists(f, f.type == 'RequestRedirect') && self.exists(f, f.type == 'URLRewrite'))"
 	// +kubebuilder:validation:XValidation:message="May specify either httpRouteFilterRequestRedirect or httpRouteFilterRequestRewrite, but not both",rule="!(self.exists(f, f.type == 'RequestRedirect') && self.exists(f, f.type == 'URLRewrite'))"
 	// +kubebuilder:validation:XValidation:message="RequestHeaderModifier filter cannot be repeated",rule="self.filter(f, f.type == 'RequestHeaderModifier').size() <= 1"
 	// +kubebuilder:validation:XValidation:message="ResponseHeaderModifier filter cannot be repeated",rule="self.filter(f, f.type == 'ResponseHeaderModifier').size() <= 1"

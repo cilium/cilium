@@ -31,11 +31,13 @@ import (
 	"github.com/stretchr/testify/require"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
@@ -69,7 +71,7 @@ type ConformanceTestSuite struct {
 	BaseManifests            string
 	MeshManifests            string
 	Applier                  kubernetes.Applier
-	SupportedFeatures        sets.Set[features.FeatureName]
+	SupportedFeatures        FeaturesSet
 	TimeoutConfig            config.TimeoutConfig
 	SkipTests                sets.Set[string]
 	SkipProvisionalTests     bool
@@ -78,6 +80,11 @@ type ConformanceTestSuite struct {
 	ManifestFS               []fs.FS
 	UsableNetworkAddresses   []v1beta1.GatewaySpecAddress
 	UnusableNetworkAddresses []v1beta1.GatewaySpecAddress
+
+	// If SupportedFeatures are automatically determined from GWC Status.
+	// This will be required to report in future iterations as the passing
+	// will be determined based on this.
+	supportedFeaturesSource supportedFeaturesSource
 
 	// mode is the operating mode of the implementation.
 	// The default value for it is "default".
@@ -142,8 +149,8 @@ type ConformanceOptions struct {
 	// CleanupBaseResources indicates whether or not the base test
 	// resources such as Gateways should be cleaned up after the run.
 	CleanupBaseResources       bool
-	SupportedFeatures          sets.Set[features.FeatureName]
-	ExemptFeatures             sets.Set[features.FeatureName]
+	SupportedFeatures          FeaturesSet
+	ExemptFeatures             FeaturesSet
 	EnableAllSupportedFeatures bool
 	TimeoutConfig              config.TimeoutConfig
 	// SkipTests contains all the tests not to be run and can be used to opt out
@@ -172,6 +179,8 @@ type ConformanceOptions struct {
 	ConformanceProfiles sets.Set[ConformanceProfileName]
 }
 
+type FeaturesSet = sets.Set[features.FeatureName]
+
 const (
 	// undefinedKeyword is set in the ConformanceReport "GatewayAPIVersion" and
 	// "GatewayAPIChannel" fields in case it's not possible to figure out the actual
@@ -179,18 +188,43 @@ const (
 	undefinedKeyword = "UNDEFINED"
 )
 
+// SupportedFeaturesSource represents the source from which supported features are derived.
+// It is used to distinguish between them being inferred from GWC Status or manually
+// supplied for the conformance report.
+type supportedFeaturesSource string
+
+const (
+	supportedFeaturesSourceManual   supportedFeaturesSource = "Manual"
+	supportedFeaturesSourceInferred supportedFeaturesSource = "Inferred"
+)
+
 // NewConformanceTestSuite is a helper to use for creating a new ConformanceTestSuite.
 func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite, error) {
-	// test suite callers are required to provide either:
-	// - one conformance profile via the flag '-conformance-profiles'
-	// - a list of supported features via the flag '-supported-features'
-	// - an explicit test to run via the flag '-run-test'
-	// - all features are being tested via the flag '-all-features'
-	if options.SupportedFeatures.Len() == 0 &&
-		options.ConformanceProfiles.Len() == 0 &&
-		!options.EnableAllSupportedFeatures &&
-		options.RunTest == "" {
-		return nil, fmt.Errorf("no conformance profile, supported features, explicit tests were provided so no tests could be selected")
+	supportedFeatures := options.SupportedFeatures.Difference(options.ExemptFeatures)
+	source := supportedFeaturesSourceManual
+	if options.EnableAllSupportedFeatures {
+		supportedFeatures = features.SetsToNamesSet(features.AllFeatures)
+	} else if shouldInferSupportedFeatures(&options) {
+		var err error
+		supportedFeatures, err = fetchSupportedFeatures(options.Client, options.GatewayClassName)
+		if err != nil {
+			return nil, fmt.Errorf("cannot infer supported features: %w", err)
+		}
+
+		// If Mesh features are populated in the GatewayClass we remove them from the supported features set.
+		meshFeatureNames := features.SetsToNamesSet(features.MeshCoreFeatures, features.MeshExtendedFeatures)
+		for _, f := range supportedFeatures.UnsortedList() {
+			if meshFeatureNames.Has(f) {
+				supportedFeatures.Delete(f)
+				fmt.Printf("WARNING: Mesh feature %q should not be populated in GatewayClass, skipping...", f)
+			}
+		}
+		source = supportedFeaturesSourceInferred
+	}
+
+	// If features were not inferred from Status, it's a GWC issue.
+	if source == supportedFeaturesSourceInferred && supportedFeatures.Len() == 0 {
+		return nil, fmt.Errorf("no supported features were determined for test suite")
 	}
 
 	config.SetupTimeoutConfig(&options.TimeoutConfig)
@@ -224,19 +258,6 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 		mode = options.Mode
 	}
 
-	// test suite callers can potentially just run all tests by saying they
-	// cover all features, if they don't they'll need to have provided a
-	// conformance profile or at least some specific features they support.
-	if options.EnableAllSupportedFeatures {
-		options.SupportedFeatures = features.SetsToNamesSet(features.AllFeatures)
-	} else if options.SupportedFeatures == nil {
-		options.SupportedFeatures = sets.New[features.FeatureName]()
-	}
-
-	for feature := range options.ExemptFeatures {
-		options.SupportedFeatures.Delete(feature)
-	}
-
 	suite := &ConformanceTestSuite{
 		Client:           options.Client,
 		ClientOptions:    options.ClientOptions,
@@ -254,7 +275,7 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 			NamespaceAnnotations: options.NamespaceAnnotations,
 			AddressType:          options.AddressType,
 		},
-		SupportedFeatures:           options.SupportedFeatures,
+		SupportedFeatures:           supportedFeatures,
 		TimeoutConfig:               options.TimeoutConfig,
 		SkipTests:                   sets.New(options.SkipTests...),
 		RunTest:                     options.RunTest,
@@ -270,6 +291,7 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 		mode:                        mode,
 		apiVersion:                  apiVersion,
 		apiChannel:                  apiChannel,
+		supportedFeaturesSource:     source,
 		Hook:                        options.Hook,
 	}
 
@@ -288,12 +310,12 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 		for _, f := range conformanceProfile.ExtendedFeatures.UnsortedList() {
 			if options.SupportedFeatures.Has(f) {
 				if suite.extendedSupportedFeatures[conformanceProfileName] == nil {
-					suite.extendedSupportedFeatures[conformanceProfileName] = sets.New[features.FeatureName]()
+					suite.extendedSupportedFeatures[conformanceProfileName] = FeaturesSet{}
 				}
 				suite.extendedSupportedFeatures[conformanceProfileName].Insert(f)
 			} else {
 				if suite.extendedUnsupportedFeatures[conformanceProfileName] == nil {
-					suite.extendedUnsupportedFeatures[conformanceProfileName] = sets.New[features.FeatureName]()
+					suite.extendedUnsupportedFeatures[conformanceProfileName] = FeaturesSet{}
 				}
 				suite.extendedUnsupportedFeatures[conformanceProfileName].Insert(f)
 			}
@@ -365,6 +387,12 @@ func (suite *ConformanceTestSuite) Setup(t *testing.T, tests []ConformanceTest) 
 		secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-infra", "tls-passthrough-checks-certificate", []string{"abc.example.com"})
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
 		secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-app-backend", "tls-passthrough-checks-certificate", []string{"abc.example.com"})
+		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
+		caConfigMapBST, _, _ := kubernetes.MustCreateCACertConfigMap(t, "gateway-conformance-infra", "backend-tls-mismatch-certificate", []string{"nex.example.com"})
+		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{caConfigMapBST}, suite.Cleanup)
+		caConfigMap, ca, caPrivKey := kubernetes.MustCreateCACertConfigMap(t, "gateway-conformance-infra", "backend-tls-checks-certificate", []string{"abc.example.com"})
+		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{caConfigMap}, suite.Cleanup)
+		secret = kubernetes.MustCreateCASignedCertSecret(t, "gateway-conformance-infra", "tls-checks-certificate", []string{"abc.example.com"}, ca, caPrivKey)
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
 
 		tlog.Logf(t, "Test Setup: Ensuring Gateways and Pods from base manifests are ready")
@@ -440,6 +468,9 @@ func (suite *ConformanceTestSuite) Run(t *testing.T, tests []ConformanceTest) er
 	sleepForTestIsolation := false
 	for _, test := range tests {
 		res := testSucceeded
+		if suite.RunTest != "" && test.ShortName != suite.RunTest {
+			res = testSkipped
+		}
 		if suite.SkipTests.Has(test.ShortName) {
 			res = testSkipped
 		}
@@ -571,6 +602,37 @@ func ParseConformanceProfiles(p string) sets.Set[ConformanceProfileName] {
 		res.Insert(ConformanceProfileName(value))
 	}
 	return res
+}
+
+func fetchSupportedFeatures(client client.Client, gatewayClassName string) (FeaturesSet, error) {
+	if gatewayClassName == "" {
+		return nil, fmt.Errorf("GatewayClass name must be provided to fetch supported features")
+	}
+	gwc := &gatewayv1.GatewayClass{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: gatewayClassName}, gwc)
+	if err != nil {
+		return nil, fmt.Errorf("fetchSupportedFeatures(): %w", err)
+	}
+
+	fs := FeaturesSet{}
+	for _, feature := range gwc.Status.SupportedFeatures {
+		fs.Insert(features.FeatureName(feature.Name))
+	}
+	fmt.Printf("Supported features for GatewayClass %s: %v\n", gatewayClassName, fs.UnsortedList())
+	return fs, nil
+}
+
+// shouldInferSupportedFeatures checks if any flags were supplied for manually
+// picking what to test. Inferred supported features are only used when no flags
+// are set.
+func shouldInferSupportedFeatures(opts *ConformanceOptions) bool {
+	if opts == nil {
+		return false
+	}
+	return !opts.EnableAllSupportedFeatures &&
+		opts.SupportedFeatures.Len() == 0 &&
+		opts.ExemptFeatures.Len() == 0 &&
+		opts.RunTest == ""
 }
 
 // getAPIVersionAndChannel iterates over all the crds installed in the cluster and check the version and channel annotations.

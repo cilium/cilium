@@ -144,6 +144,7 @@ func logOptions(t *testing.T, opts suite.ConformanceOptions) {
 	t.Logf("  Enable All Features: %t", opts.EnableAllSupportedFeatures)
 	t.Logf("  Supported Features: %v", opts.SupportedFeatures.UnsortedList())
 	t.Logf("  ExemptFeatures: %v", opts.ExemptFeatures.UnsortedList())
+	t.Logf("  ConformanceProfiles: %v", opts.ConformanceProfiles.UnsortedList())
 }
 
 func writeReport(logf func(string, ...any), report confv1.ConformanceReport, output string) error {
