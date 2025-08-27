@@ -112,6 +112,13 @@ func New(params parameters) *GC {
 
 // Enable enables the connection tracking garbage collection.
 func (gc *GC) Enable() {
+	gc.enable(gc.runGC, true)
+}
+
+func (gc *GC) enable(
+	runGC func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool),
+	runMapPressureDaemon bool,
+) {
 	var (
 		initialScan         = true
 		initialScanComplete = make(chan struct{})
@@ -178,8 +185,8 @@ func (gc *GC) Enable() {
 			}
 
 			if len(eps) > 0 || initialScan {
-				gc.logger.Info("Starting initial GC of connection tracking")
-				maxDeleteRatio, success = gc.runGC(ipv4, ipv6, triggeredBySignal, gcFilter)
+				gc.logger.Info("Starting GC of connection tracking", logfields.First, initialScan)
+				maxDeleteRatio, success = runGC(ipv4, ipv6, triggeredBySignal, gcFilter)
 			}
 
 			// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
@@ -248,13 +255,15 @@ func (gc *GC) Enable() {
 		}
 	}()
 
-	// Wait until after initial scan is complete prior to starting ctmap metrics controller.
-	go func() {
-		<-initialScanComplete
-		gc.logger.Info("Initial scan of connection tracking completed, starting ctmap pressure metrics controller")
-		// Not supporting BPF map pressure for local CT maps as of yet.
-		ctmap.CalculateCTMapPressure(gc.controllerManager, gc.metricsRegistry, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
-	}()
+	if runMapPressureDaemon {
+		// Wait until after initial scan is complete prior to starting ctmap metrics controller.
+		go func() {
+			<-initialScanComplete
+			gc.logger.Info("Initial scan of connection tracking completed, starting ctmap pressure metrics controller")
+			// Not supporting BPF map pressure for local CT maps as of yet.
+			ctmap.CalculateCTMapPressure(gc.controllerManager, gc.metricsRegistry, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
+		}()
+	}
 }
 
 func (gc *GC) Run(m *ctmap.Map, filter ctmap.GCFilter) (int, error) {
