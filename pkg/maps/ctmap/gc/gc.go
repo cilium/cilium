@@ -110,6 +110,14 @@ func New(params parameters) *GC {
 	return gc
 }
 
+// A full GC pass is when we perform GC on any and all
+// enabled IP families.
+// Partial passes can happen as a result of datapath
+// signals on particular families (i.e. ct or nat).
+func (gc *GC) isFullGC(ipv4, ipv6 bool) bool {
+	return ipv4 == gc.ipv4 && ipv6 == gc.ipv6
+}
+
 // Enable enables the connection tracking garbage collection.
 func (gc *GC) Enable() {
 	gc.enable(gc.runGC, true)
@@ -129,6 +137,7 @@ func (gc *GC) enable(
 		ipv6 := gc.ipv6
 		triggeredBySignal := false
 		var gcPrev time.Time
+		var forceFullGCTTL time.Time
 		var cachedGCInterval time.Duration
 		for {
 			var (
@@ -189,14 +198,33 @@ func (gc *GC) enable(
 				maxDeleteRatio, success = runGC(ipv4, ipv6, triggeredBySignal, gcFilter)
 			}
 
-			// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
 			interval := ctmap.GetInterval(gc.logger, gcInterval, cachedGCInterval, maxDeleteRatio)
-			if success && ipv4 == gc.ipv4 && ipv6 == gc.ipv6 {
+			if success && gc.isFullGC(ipv4, ipv6) {
+				// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
+				nextGCTime := time.Now().Add(interval)
 				for _, e := range eps {
-					e.MarkCTGCTime(gcStart, time.Now().Add(interval))
+					e.MarkCTGCTime(gcStart, nextGCTime)
+				}
+
+				forceFullGCTTL = time.Now().Add(interval)
+				// full pass so we reset our cached GC interval.
+				cachedGCInterval = interval
+			} else if !initialScan {
+				// If we did not succeed, or it wasn't a full pass then we take the
+				// minimum of the new interval and any remaining time on the last interval
+				// clock - effectively running out the clock of the previous interval.
+				// This is because in a partial GC pass one of the IP families has not been
+				// tended to, so to avoid potentially starving GC on one of the IP families
+				// we do this to ensure it is eventually run.
+				forceInterval := max(0, time.Until(forceFullGCTTL))
+				if forceInterval < interval {
+					interval = forceInterval
+				} else {
+					// partial pass, but the new interval is less than any leftover ttl so
+					// we cache this as well.
+					cachedGCInterval = interval
 				}
 			}
-			cachedGCInterval = interval
 
 			if initialScan {
 				close(initialScanComplete)
