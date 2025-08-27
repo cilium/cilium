@@ -287,12 +287,16 @@ jobs:
         with:
           job: "${{ env.job_name }}-${{ matrix.ipFamily }}"
 
-      - name: Post-test information gathering
-        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
+      - name: Create Cilium JUnits Directory
+        if: ${{ steps.install-cilium.outcome != 'skipped' }}
         run: |
           # Move the all artifacts to cilium-junits directory since that's the
           # directory used in the common post steps.
           mv _artifacts cilium-junits
+
+      - name: Post-test information gathering
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
           mkdir -p ./_artifacts/logs
           /usr/local/bin/kind export logs --name  ${{ env.cluster_name }} --verbosity=3 ./_artifacts/logs
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
