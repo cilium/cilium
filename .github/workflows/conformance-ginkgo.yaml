@@ -274,9 +274,7 @@ jobs:
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ needs.setup-vars.outputs.SHA }}
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          ci-version: ${{ needs.setup-vars.outputs.SHA }}
 
       - name: Copy cilium-cli
         shell: bash
@@ -442,31 +440,26 @@ jobs:
             kubectl get pods --all-namespaces -o wide
             tar -zcf "test_results-${{ env.job_name }}.tar.gz" /host/test/test_results
 
-      - name: Prepare script to run inside lvm
-        if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
+      - name: Fetch tested features
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         shell: bash
         run: |
-          cat <<EOF > run-in-lvm.sh
-          #!/usr/bin/env bash
-          cd /host
-          if ! find /host/test/test_results -type f -iname 'feature-status-*.json' | grep -q .; then
-            exit 0
-          fi
+          sudo chown $USER:$USER -R ./test
           find . -type f -iname 'feature-status-*.json' | while IFS= read -r file; do
-            mv "\$file" "./feature-status-${{ env.job_name }}-\${file##*/feature-status-}"
+            basename_file=$(basename "$file")
+            suffix="${basename_file#feature-status-}"
+            new_filename="features-tested-${{ env.job_name }}-${suffix}"
+            # Truncate filename to 250 characters max
+            if [ ${#new_filename} -gt 250 ]; then
+              new_filename="${new_filename:0:250}"
+            fi
+            # Check if file already exists and fail if it does
+            if [ -f "./${new_filename}" ]; then
+              echo "Error: File ./${new_filename} already exists. Aborting to prevent overwrite."
+              exit 1
+            fi
+            mv "$file" "./${new_filename}"
           done
-          EOF
-          chmod +x run-in-lvm.sh
-
-      - name: Fetch features tested
-        if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
-        continue-on-error: true
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host
-            ./run-in-lvm.sh
 
       - name: Upload artifacts
         if: ${{ !success() }}
