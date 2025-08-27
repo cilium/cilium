@@ -455,6 +455,15 @@ const (
 	// without any backends
 	ServiceNoBackendResponseDrop = "drop"
 
+	// PolicyDenyResponse is the name of the option to pick how to handle traffic denied by policy
+	PolicyDenyResponse = "policy-deny-response"
+
+	// PolicyDenyResponseReject is the name of the option to reject traffic denied by policy with an ICMP response
+	PolicyDenyResponseReject = "reject"
+
+	// PolicyDenyResponseDrop is the name of the option to drop traffic denied by policy
+	PolicyDenyResponseDrop = "drop"
+
 	// MaxInternalTimerDelay sets a maximum on all periodic timers in
 	// the agent in order to flush out timer-related bugs in the agent.
 	MaxInternalTimerDelay = "max-internal-timer-delay"
@@ -1915,6 +1924,9 @@ type DaemonConfig struct {
 	// ServiceNoBackendResponse determines how we handle traffic to a service with no backends.
 	ServiceNoBackendResponse string
 
+	// PolicyDenyResponse determines how we handle traffic denied by policy.
+	PolicyDenyResponse string
+
 	// EnableNodeSelectorLabels enables use of the node label based identity
 	EnableNodeSelectorLabels bool
 
@@ -2653,6 +2665,14 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	}
 
 	c.populateLoadBalancerSettings(logger, vp)
+	c.PolicyDenyResponse = vp.GetString(PolicyDenyResponse)
+	switch c.PolicyDenyResponse {
+	case PolicyDenyResponseReject, PolicyDenyResponseDrop:
+	case "":
+		c.PolicyDenyResponse = defaults.PolicyDenyResponse
+	default:
+		logging.Fatal(logger, "Invalid value for --%s: %s (must be 'reject' or 'drop')", PolicyDenyResponse, c.PolicyDenyResponse)
+	}
 	c.EgressMultiHomeIPRuleCompat = vp.GetBool(EgressMultiHomeIPRuleCompat)
 	c.InstallUplinkRoutesForDelegatedIPAM = vp.GetBool(InstallUplinkRoutesForDelegatedIPAM)
 

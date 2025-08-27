@@ -490,6 +490,9 @@ const (
 	// The value is aligned to 3 cache-lines, see above comment in TracePayloadLen.
 	TracePayloadLenOverlay = 192
 
+	// PolicyDenyResponse is the default response for policy denials
+	PolicyDenyResponse = "drop"
+
 	// Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation.
 	UseCiliumInternalIPForIPsec = false
 
