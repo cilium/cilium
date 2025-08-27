@@ -569,12 +569,6 @@ jobs:
           # The cilium-cli creates files owned by the root user when run as a container.
           sudo chmod --recursive +r ./report
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "features-${{ matrix.test_type }}"
-
       - name: Get sysdump
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
         run: |
@@ -585,20 +579,14 @@ jobs:
             --extra-label-selectors=app.kubernetes.io/name=egw-external-target
           sudo chmod +r cilium-sysdump-final.zip
 
-      - name: Upload sysdump
-        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdump-${{ matrix.test_type }}-${{ github.run_attempt }}
-          path: cilium-sysdump-final.zip
-          retention-days: 5
-
-      - name: Upload features tested
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: features-tested-${{ matrix.test_type }}
-          path: features-*.json
+          artifacts_suffix: "final"
+          job_status: "${{ job.status }}"
+          junits-directory: 'report'
+          capture_sysdump: 'false'
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
