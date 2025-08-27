@@ -215,6 +215,7 @@ jobs:
           always_capture_sysdump: true
           artifacts_suffix: "final"
           job_status: "${{ job.status }}"
+          junits-directory: 'report'
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
