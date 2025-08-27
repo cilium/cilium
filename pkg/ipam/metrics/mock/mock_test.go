@@ -4,6 +4,7 @@
 package mock
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,4 +29,8 @@ func TestMock(t *testing.T) {
 	require.Equal(t, 5, api.Nodes("at-capacity"))
 	api.IncResyncCount()
 	require.Equal(t, int64(1), api.ResyncCount())
+	api.GetRemainingIPs("s-1", "ipv4", big.NewInt(100))
+	key := "poolName=s-1, family=ipv4"
+	got := api.remainingIPs[key]
+	require.Equal(t, 0, got.Cmp(big.NewInt(100)))
 }

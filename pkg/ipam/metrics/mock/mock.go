@@ -5,6 +5,7 @@ package mock
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
@@ -28,6 +29,7 @@ type mockMetrics struct {
 	nodeIPAvailable       map[string]int
 	nodeIPUsed            map[string]int
 	nodeIPNeeded          map[string]int
+	remainingIPs          map[string]*big.Int
 }
 
 type histogram struct {
@@ -49,6 +51,7 @@ func NewMockMetrics() *mockMetrics {
 		nodeIPAvailable:       map[string]int{},
 		nodeIPUsed:            map[string]int{},
 		nodeIPNeeded:          map[string]int{},
+		remainingIPs:          map[string]*big.Int{},
 	}
 }
 
@@ -56,6 +59,16 @@ func (m *mockMetrics) GetAllocationAttempts(typ, status, subnetID string) int64 
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	return m.allocationAttempts[fmt.Sprintf("type=%s, status=%s, subnetId=%s", typ, status, subnetID)].count
+}
+
+func (m *mockMetrics) GetRemainingIPs(poolName string, family string, remaining *big.Int) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	key := fmt.Sprintf("poolName=%s, family=%s", poolName, family)
+	if _, ok := m.remainingIPs[key]; !ok {
+		m.remainingIPs[key] = new(big.Int)
+	}
+	m.remainingIPs[key].Set(remaining)
 }
 
 func (m *mockMetrics) AllocationAttempt(typ, status, subnetID string, observer float64) {

@@ -5,15 +5,20 @@ package multipool
 
 import (
 	"math/big"
+	"net/http/httptest"
 	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestPoolAllocator(t *testing.T) {
@@ -350,6 +355,209 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	assert.ErrorContains(t, err, `failed to parse CIDR of pool "ipv4-only"`)
 }
 
+type mockMetricsAPI struct {
+	calls []struct {
+		poolName  string
+		family    string
+		remaining *big.Int
+	}
+}
+
+func (m *mockMetricsAPI) SetRemainingIPs(poolName, family string, remaining *big.Int) {
+	m.calls = append(m.calls, struct {
+		poolName  string
+		family    string
+		remaining *big.Int
+	}{
+		poolName:  poolName,
+		family:    family,
+		remaining: new(big.Int).Set(remaining),
+	})
+}
+
+func (m *mockMetricsAPI) reset() {
+	m.calls = m.calls[:0]
+}
+
+func TestPoolAllocator_getRemainingIPs(t *testing.T) {
+	originalIPAM := option.Config.IPAM
+	defer func() {
+		option.Config.IPAM = originalIPAM
+	}()
+
+	option.Config.IPAM = ipamOption.IPAMMultiPool
+
+	// Test 1: Test without metrics
+	p := NewPoolAllocator(hivetest.Logger(t))
+	assert.NotPanics(t, func() {
+		p.getRemainingIPs()
+	}, "getRemainingIPs should not panic without metrics")
+
+	// Test 2: Testing with metrics
+	mockMetrics := &mockMetricsAPI{}
+	p = NewPoolAllocator(hivetest.Logger(t))
+	// inject mock metrics API so getRemainingIPs calls will be recorded
+	p.SetMetricsAPI(mockMetrics)
+
+	err := p.UpsertPool("test-pool",
+		[]string{"10.0.0.0/16"}, 24,
+		[]string{"fd00::/80"}, 96,
+	)
+	assert.NoError(t, err)
+
+	mockMetrics.reset()
+	p.getRemainingIPs()
+
+	assert.GreaterOrEqual(t, len(mockMetrics.calls), 2, "Should have called metrics for both IPv4 and IPv6")
+
+	var ipv4Call, ipv6Call *struct {
+		poolName  string
+		family    string
+		remaining *big.Int
+	}
+
+	for i := range mockMetrics.calls {
+		call := &mockMetrics.calls[i]
+		if call.poolName == "test-pool" {
+			if call.family == "ipv4" {
+				ipv4Call = call
+			} else if call.family == "ipv6" {
+				ipv6Call = call
+			}
+		}
+	}
+
+	assert.NotNil(t, ipv4Call, "Should have IPv4 metrics call")
+	assert.NotNil(t, ipv6Call, "Should have IPv6 metrics call")
+
+	if ipv4Call != nil {
+		assert.Equal(t, "test-pool", ipv4Call.poolName)
+		assert.Equal(t, "ipv4", ipv4Call.family)
+		assert.GreaterOrEqual(t, ipv4Call.remaining.Cmp(big.NewInt(0)), 0, "IPv4 remaining should be non-negative")
+	}
+	if ipv6Call != nil {
+		assert.Equal(t, "test-pool", ipv6Call.poolName)
+		assert.Equal(t, "ipv6", ipv6Call.family)
+		assert.GreaterOrEqual(t, ipv6Call.remaining.Cmp(big.NewInt(0)), 0, "IPv6 remaining should be non-negative")
+	}
+
+	// Test 3: Test with different IPAM mode
+	option.Config.IPAM = "different-mode"
+	// disable metrics API on the allocator to simulate no metrics being emitted
+	p.SetMetricsAPI(nil)
+	mockMetrics.reset()
+	p.getRemainingIPs()
+	assert.Empty(t, mockMetrics.calls, "Should not call metrics with different IPAM mode")
+
+	// Test 4: Test with nil metricsAPI
+	option.Config.IPAM = ipamOption.IPAMMultiPool
+	pNoMetrics := NewPoolAllocator(hivetest.Logger(t))
+	assert.NotPanics(t, func() {
+		pNoMetrics.getRemainingIPs()
+	}, "Should not panic with nil metricsAPI")
+}
+
+func TestCidrPool_Methods(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t))
+
+	err := p.UpsertPool("test-pool",
+		[]string{"10.0.0.0/16"}, 24,
+		[]string{"fd00::/80"}, 96,
+	)
+	assert.NoError(t, err)
+
+	pool := p.pools["test-pool"]
+
+	// Test GetAvailableAddrsV4()
+	availableV4 := pool.GetAvailableAddrsV4()
+	assert.NotNil(t, availableV4)
+	assert.True(t, availableV4.Cmp(big.NewInt(0)) >= 0, "Available IPv4 should be non-negative")
+
+	// Test GetAvailableAddrsV6()
+	availableV6 := pool.GetAvailableAddrsV6()
+	assert.NotNil(t, availableV6)
+	assert.True(t, availableV6.Cmp(big.NewInt(0)) >= 0, "Available IPv6 should be non-negative")
+
+	// Test allocatedV4()
+	allocatedV4 := pool.allocatedV4()
+	assert.NotNil(t, allocatedV4)
+	assert.True(t, allocatedV4.Cmp(big.NewInt(0)) >= 0, "Allocated IPv4 should be non-negative")
+
+	// Test allocatedV6()
+	allocatedV6 := pool.allocatedV6()
+	assert.NotNil(t, allocatedV6)
+	assert.True(t, allocatedV6.Cmp(big.NewInt(0)) >= 0, "Allocated IPv6 should be non-negative")
+
+	remainingV4 := new(big.Int).Sub(availableV4, allocatedV4)
+	remainingV6 := new(big.Int).Sub(availableV6, allocatedV6)
+
+	assert.True(t, remainingV4.Cmp(big.NewInt(0)) >= 0, "Remaining IPv4 should be non-negative")
+	assert.True(t, remainingV6.Cmp(big.NewInt(0)) >= 0, "Remaining IPv6 should be non-negative")
+}
+
+const ipamSubsystem = "ipam"
+
+type remainingIPsMetric struct {
+	RemainingIPs *prometheus.GaugeVec
+}
+
+func NewremainingIPsMetric(namespace string) *remainingIPsMetric {
+	return &remainingIPsMetric{
+		RemainingIPs: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: ipamSubsystem,
+			Name:      "remaining_ips",
+			Help:      "Number of remaining IPs in the IPAM pool labeled by family",
+		}, []string{"pool", "family"}),
+	}
+}
+
+func (p *remainingIPsMetric) SetRemainingIPs(poolName string, family string, remaining *big.Int) {
+	f, _ := new(big.Float).SetInt(remaining).Float64()
+	p.RemainingIPs.WithLabelValues(poolName, family).Set(f)
+}
+
+func TestPoolAllocator_PrometheusIntegration(t *testing.T) {
+	originalIPAM := option.Config.IPAM
+	defer func() {
+		option.Config.IPAM = originalIPAM
+	}()
+	option.Config.IPAM = ipamOption.IPAMMultiPool
+
+	metricsAPI := NewremainingIPsMetric("cilium")
+
+	testRegistry := prometheus.NewRegistry()
+	testRegistry.MustRegister(metricsAPI.RemainingIPs)
+
+	p := NewPoolAllocator(hivetest.Logger(t))
+
+	err := p.UpsertPool("browser-test",
+		[]string{"10.0.0.0/16"}, 24,
+		[]string{"fd00::/80"}, 96,
+	)
+	assert.NoError(t, err)
+
+	p.SetMetricsAPI(metricsAPI)
+
+	p.getRemainingIPs()
+
+	handler := promhttp.HandlerFor(testRegistry, promhttp.HandlerOpts{})
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+
+	assert.Equal(t, 200, recorder.Code)
+	body := recorder.Body.String()
+
+	assert.Contains(t, body, "cilium_ipam_remaining_ips")
+	assert.Contains(t, body, `pool="browser-test"`)
+	assert.Contains(t, body, `family="ipv4"`)
+	assert.Contains(t, body, `family="ipv6"`)
+
+	t.Logf("Metrics accessible via browser:\n%s", body)
+}
+
 func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	p := NewPoolAllocator(hivetest.Logger(t))
 
@@ -503,6 +711,29 @@ func Test_addrsInPrefix(t *testing.T) {
 
 // TestUpdateCIDRSets_ShrinkPool ensures that shrinking a pool does not
 // trigger a nil dereference in updateCIDRSets.
+
+// Definition for prometheusMetricsAPI and its SetRemainingIPs implementation
+type prometheusMetricsAPI struct {
+	gauge *prometheus.GaugeVec
+}
+
+func (p *prometheusMetricsAPI) SetRemainingIPs(poolName, family string, remaining *big.Int) {
+	f, _ := new(big.Float).SetInt(remaining).Float64()
+	p.gauge.WithLabelValues(poolName, family).Set(f)
+}
+
+// NewPrometheusMetricsAPI returns a prometheusMetricsAPI with the correct metric name and labels.
+func NewPrometheusMetricsAPI(namespace string) *prometheusMetricsAPI {
+	return &prometheusMetricsAPI{
+		gauge: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: ipamSubsystem,
+			Name:      "pool_remaining_ips",
+			Help:      "Number of remaining IPs in the IPAM pool labeled by family",
+		}, []string{"pool_name", "family"}),
+	}
+}
+
 func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
 	p := NewPoolAllocator(hivetest.Logger(t))
 
