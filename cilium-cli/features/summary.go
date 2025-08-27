@@ -242,6 +242,8 @@ func extractZip(zipPath, destDir string) error {
 			}
 			continue
 		}
+		// Create directories
+		os.MkdirAll(filepath.Dir(destPath), os.ModePerm)
 
 		// Extract files
 		destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())

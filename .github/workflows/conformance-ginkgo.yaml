@@ -530,6 +530,7 @@ jobs:
           name: features-tested
           pattern: features-tested-*
           token: ${{ secrets.GITHUB_TOKEN }}
+          separate-directories: true
 
   commit-status-final:
     if: ${{ always() }}
