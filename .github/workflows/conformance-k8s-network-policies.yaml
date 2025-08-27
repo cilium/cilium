@@ -168,3 +168,4 @@ jobs:
         with:
           artifacts_suffix: "${{ env.job_name }}"
           job_status: "${{ job.status }}"
+          junits-directory: 'test/k8s/manifests/netpol-cyclonus/cyclonus-results'
