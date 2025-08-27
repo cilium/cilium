@@ -360,6 +360,12 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb
 			if portNameMatches != nil && !portNameMatches(addr.portName) {
 				continue
 			}
+			portNumberMatches := slices.ContainsFunc(lrp.BackendPorts, func(p bePortInfo) bool {
+				return p.l4Addr.Port == addr.Port() && p.l4Addr.Protocol == addr.Protocol()
+			})
+			if !portNumberMatches {
+				continue
+			}
 			beps = append(beps, lb.BackendParams{
 				Address:   addr.L3n4Addr,
 				State:     lb.BackendStateActive,
