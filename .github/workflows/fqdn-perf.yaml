@@ -265,24 +265,13 @@ jobs:
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             2>&1 | tee cl2-output.txt
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }}"
-
-      - name: Get sysdump
-        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        run: |
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-final
-
-      - name: Upload features tested
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: features-tested
-          path: ${{ env.job_name }}*.json
+          artifacts_suffix: "${{ env.job_name }}"
+          job_status: "${{ job.status }}"
+          junits-directory: 'report'
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
