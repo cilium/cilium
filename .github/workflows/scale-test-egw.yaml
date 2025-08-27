@@ -70,11 +70,11 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.25.0
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.212.0
+  eksctl_version: v0.214.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.33.4
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 534.0.0
+  gcloud_version: 536.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
@@ -293,7 +293,7 @@ jobs:
           export_environment_variables: true
 
       - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@cb1e50a9932213ecece00a606661ae9ca44f3397 # v2.2.0
+        uses: google-github-actions/setup-gcloud@26f734c2779b00b7dda794207734c511110a4368 # v3.0.0
         with:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
@@ -602,7 +602,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@87a9ed3bcb8f6fb2c046a7a6bf5f409628d33a67 # main
+        uses: cilium/scale-tests-action/export-results@77f681a8844c33457aeef90a19143a441e803a9a # main
         with:
           test_name: ${{ steps.vars.outputs.test_name }}
           tested_sha: ${{ steps.vars.outputs.SHA }}
