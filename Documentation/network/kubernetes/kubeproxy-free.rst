@@ -798,6 +798,7 @@ annotation mode with SNAT default would look as follows:
             --namespace kube-system \\
             --set routingMode=native \\
             --set kubeProxyReplacement=true \\
+            --set loadBalancer.acceleration=native \\
             --set loadBalancer.mode=snat \\
             --set loadBalancer.dsrDispatch=ipip \\
             --set bpf.lbModeAnnotation=true \\
