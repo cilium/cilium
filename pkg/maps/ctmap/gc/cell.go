@@ -30,4 +30,8 @@ var Cell = cell.Module(
 		// Provide the reduced interface used by the GC logic.
 		func(mgr endpointmanager.EndpointManager) EndpointManager { return mgr },
 	),
+
+	cell.Provide(newCTMapGCScanner),
+	cell.Invoke(func(_ *ctmapGCScanner) {
+	}),
 )

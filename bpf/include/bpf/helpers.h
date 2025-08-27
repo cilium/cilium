@@ -39,6 +39,10 @@ static void *BPF_FUNC(map_lookup_percpu_elem, void *map, const void *key,
 static long BPF_FUNC(for_each_map_elem, void *map, void *callback_fn,
 		     void *callback_ctx, __u64 flags);
 
+static long BPF_FUNC(map_push_elem, void *map, const void *value, __u64 flags);
+
+static long BPF_FUNC(seq_printf, void *file, const void *fmt, __u32 fmt_size, const void *data, __u32 data_len);
+
 /* Time access */
 static __u64 BPF_FUNC(ktime_get_ns);
 static __u64 BPF_FUNC(ktime_get_boot_ns);
@@ -117,3 +121,12 @@ static long BPF_FUNC(loop, __u32 nr_loops, void *callback_fn, void *callback_ctx
 static void *BPF_FUNC(ringbuf_reserve, void *ringbuf, __u64 size, __u64 flags);
 static void BPF_FUNC(ringbuf_submit, void *data, __u64 flags);
 static void BPF_FUNC(ringbuf_discard, void *data, __u64 flags);
+
+struct bpf_iter__bpf_map_elem {
+        __bpf_md_ptr(struct bpf_iter_meta *, meta);
+        __bpf_md_ptr(struct bpf_map *, map);
+        __bpf_md_ptr(void *, key);
+        __bpf_md_ptr(void *, value);
+};
+
+

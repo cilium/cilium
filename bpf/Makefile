@@ -202,6 +202,14 @@ bpf_sock_term.o:: bpf_sock_term.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
+bpf_ctmap_gc.o:: bpf_ctmap_gc.c
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+	
+bpf_ctmap_gc_sweep.o:: bpf_ctmap_gc_sweep.c
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
 bpf_overlay.o:: bpf_overlay.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_OVERLAY_OPTIONS} ${CLANG_FLAGS} -c $< -o $@

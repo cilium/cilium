@@ -1436,7 +1436,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	bootstrapStats.enableConntrack.Start()
 	d.logger.Info("Starting connection tracking garbage collector")
-	params.CTNATMapGC.Enable()
+	//params.CTNATMapGC.Enable()
 	params.CTNATMapGC.Observe4().Observe(d.ctx, ctmap.NatMapNext4, func(err error) {})
 	params.CTNATMapGC.Observe6().Observe(d.ctx, ctmap.NatMapNext6, func(err error) {})
 	bootstrapStats.enableConntrack.End(true)
