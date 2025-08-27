@@ -458,20 +458,20 @@ func getAddresses(logger *slog.Logger) []string {
 	addresses := make([]string, 0, 2)
 
 	if option.Config.EnableIPv4 {
-		if ipv4 := node.GetInternalIPv4(logger); ipv4 != nil {
-			addresses = append(addresses, ipv4.String())
+		if ip := node.GetInternalIPv4(logger); ip != nil {
+			addresses = append(addresses, ip.String())
 		} else {
-			// if Get ipv4 fails, then listen on all ipv4 addr.
-			addresses = append(addresses, "0.0.0.0")
+			// if Get ipv4 fails, then listen on all addresses.
+			return nil
 		}
 	}
 
 	if option.Config.EnableIPv6 {
-		if ipv6 := node.GetInternalIPv6(logger); ipv6 != nil {
-			addresses = append(addresses, ipv6.String())
+		if ip := node.GetInternalIPv6(logger); ip != nil {
+			addresses = append(addresses, ip.String())
 		} else {
-			// if Get ipv6 fails, then listen on all ipv6 addr.
-			addresses = append(addresses, "::")
+			// if Get ipv6 fails, then listen on all addresses.
+			return nil
 		}
 	}
 
