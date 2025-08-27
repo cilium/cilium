@@ -1658,11 +1658,50 @@ NUM CONNECTED NODES: N/A
 func TestPrinter_WriteLostEventsResponse(t *testing.T) {
 	buf := bytes.Buffer{}
 	gfr := &observerpb.GetFlowsResponse{
+		Time: &timestamppb.Timestamp{
+			Seconds: 1234,
+			Nanos:   567800000,
+		},
 		ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
 			LostEvents: &observerpb.LostEvent{
 				Source:        observerpb.LostEventSource_HUBBLE_RING_BUFFER,
 				NumEventsLost: 1,
 				Cpu:           wrapperspb.Int32(5),
+			},
+		},
+	}
+	gfrWithNode := &observerpb.GetFlowsResponse{
+		Time: &timestamppb.Timestamp{
+			Seconds: 1234,
+			Nanos:   567800000,
+		},
+		NodeName: "node-name",
+		ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
+			LostEvents: &observerpb.LostEvent{
+				Source:        observerpb.LostEventSource_HUBBLE_RING_BUFFER,
+				NumEventsLost: 1,
+				Cpu:           wrapperspb.Int32(5),
+			},
+		},
+	}
+	gfrWithTimestamps := &observerpb.GetFlowsResponse{
+		Time: &timestamppb.Timestamp{
+			Seconds: 1234,
+			Nanos:   567800000,
+		},
+		ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
+			LostEvents: &observerpb.LostEvent{
+				Source:        observerpb.LostEventSource_HUBBLE_RING_BUFFER,
+				NumEventsLost: 1,
+				Cpu:           wrapperspb.Int32(5),
+				First: &timestamppb.Timestamp{
+					Seconds: 1230,
+					Nanos:   567800000,
+				},
+				Last: &timestamppb.Timestamp{
+					Seconds: 1238,
+					Nanos:   567800000,
+				},
 			},
 		},
 	}
@@ -1673,7 +1712,6 @@ func TestPrinter_WriteLostEventsResponse(t *testing.T) {
 		name     string
 		options  []Option
 		args     args
-		wantErr  bool
 		expected string
 	}{
 		{
@@ -1682,23 +1720,23 @@ func TestPrinter_WriteLostEventsResponse(t *testing.T) {
 				WithColor("never"),
 				Writer(&buf),
 			},
-			args:    args{gfr},
-			wantErr: false,
+			args: args{gfr},
 			expected: `
-TIMESTAMP   SOURCE               DESTINATION   TYPE          VERDICT   SUMMARY
-            HUBBLE_RING_BUFFER                 EVENTS LOST             CPU(5) - 1`,
-		}, {
+TIMESTAMP             SOURCE               DESTINATION   TYPE          VERDICT   SUMMARY
+Jan  1 00:20:34.567   HUBBLE_RING_BUFFER   -             EVENTS LOST   -         CPU(5) - 1`,
+		},
+		{
 			name: "compact",
 			options: []Option{
 				Compact(),
 				WithColor("never"),
 				Writer(&buf),
 			},
-			args:    args{gfr},
-			wantErr: false,
+			args: args{gfr},
 			expected: `
-EVENTS LOST: HUBBLE_RING_BUFFER CPU(5) 1`,
-		}, {
+Jan  1 00:20:34.567 EVENTS LOST: HUBBLE_RING_BUFFER CPU(5) 1`,
+		},
+		{
 			name: "json",
 			options: []Option{
 				JSONPB(),
@@ -1706,9 +1744,9 @@ EVENTS LOST: HUBBLE_RING_BUFFER CPU(5) 1`,
 				Writer(&buf),
 			},
 			args:     args{gfr},
-			wantErr:  false,
-			expected: `{"lost_events":{"source":"HUBBLE_RING_BUFFER","num_events_lost":"1","cpu":5}}`,
-		}, {
+			expected: `{"lost_events":{"source":"HUBBLE_RING_BUFFER","num_events_lost":"1","cpu":5},"time":"1970-01-01T00:20:34.567800Z"}`,
+		},
+		{
 			name: "jsonpb",
 			options: []Option{
 				JSONPB(),
@@ -1716,32 +1754,152 @@ EVENTS LOST: HUBBLE_RING_BUFFER CPU(5) 1`,
 				Writer(&buf),
 			},
 			args:     args{gfr},
-			wantErr:  false,
-			expected: `{"lost_events":{"source":"HUBBLE_RING_BUFFER","num_events_lost":"1","cpu":5}}`,
-		}, {
+			expected: `{"lost_events":{"source":"HUBBLE_RING_BUFFER","num_events_lost":"1","cpu":5},"time":"1970-01-01T00:20:34.567800Z"}`,
+		},
+		{
 			name: "dict",
 			options: []Option{
 				Dict(),
 				WithColor("never"),
 				Writer(&buf),
 			},
-			args:    args{gfr},
-			wantErr: false,
+			args: args{gfr},
 			expected: `
-  TIMESTAMP: 
+  TIMESTAMP: Jan  1 00:20:34.567
      SOURCE: HUBBLE_RING_BUFFER
        TYPE: EVENTS LOST
-    VERDICT: 
+    VERDICT: -
     SUMMARY: CPU(5) - 1`,
+		},
+		// with node name
+		{
+			name: "tabular with node",
+			options: []Option{
+				WithColor("never"),
+				WithNodeName(),
+				Writer(&buf),
+			},
+			args: args{gfrWithNode},
+			expected: `
+TIMESTAMP             NODE        SOURCE               DESTINATION   TYPE          VERDICT   SUMMARY
+Jan  1 00:20:34.567   node-name   HUBBLE_RING_BUFFER   -             EVENTS LOST   -         CPU(5) - 1`,
+		},
+		{
+			name: "compact with node",
+			options: []Option{
+				Compact(),
+				WithColor("never"),
+				WithNodeName(),
+				Writer(&buf),
+			},
+			args: args{gfrWithNode},
+			expected: `
+Jan  1 00:20:34.567 EVENTS LOST: HUBBLE_RING_BUFFER CPU(5) 1`,
+		},
+		{
+			name: "json with node",
+			options: []Option{
+				JSONPB(),
+				WithColor("never"),
+				WithNodeName(),
+				Writer(&buf),
+			},
+			args:     args{gfrWithNode},
+			expected: `{"lost_events":{"source":"HUBBLE_RING_BUFFER","num_events_lost":"1","cpu":5},"node_name":"node-name","time":"1970-01-01T00:20:34.567800Z"}`,
+		},
+		{
+			name: "jsonpb with node",
+			options: []Option{
+				JSONPB(),
+				WithColor("never"),
+				WithNodeName(),
+				Writer(&buf),
+			},
+			args:     args{gfrWithNode},
+			expected: `{"lost_events":{"source":"HUBBLE_RING_BUFFER","num_events_lost":"1","cpu":5},"node_name":"node-name","time":"1970-01-01T00:20:34.567800Z"}`,
+		},
+		{
+			name: "dict with node",
+			options: []Option{
+				Dict(),
+				WithColor("never"),
+				WithNodeName(),
+				Writer(&buf),
+			},
+			args: args{gfrWithNode},
+			expected: `
+  TIMESTAMP: Jan  1 00:20:34.567
+       NODE: node-name
+     SOURCE: HUBBLE_RING_BUFFER
+       TYPE: EVENTS LOST
+    VERDICT: -
+    SUMMARY: CPU(5) - 1`,
+		},
+		// with lost event timestamps
+		{
+			name: "tabular with timestamps",
+			options: []Option{
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args: args{gfrWithTimestamps},
+			expected: `
+TIMESTAMP             SOURCE               DESTINATION   TYPE          VERDICT   SUMMARY
+Jan  1 00:20:34.567   HUBBLE_RING_BUFFER   -             EVENTS LOST   -         CPU(5) - 1 (first: Jan  1 00:20:30.567, last: Jan  1 00:20:38.567)`,
+		},
+		{
+			name: "compact with timestamps",
+			options: []Option{
+				Compact(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args: args{gfrWithTimestamps},
+			expected: `
+Jan  1 00:20:34.567 EVENTS LOST: HUBBLE_RING_BUFFER CPU(5) 1 (first: Jan  1 00:20:30.567, last: Jan  1 00:20:38.567)`,
+		},
+		{
+			name: "json with timestamps",
+			options: []Option{
+				JSONPB(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args:     args{gfrWithTimestamps},
+			expected: `{"lost_events":{"source":"HUBBLE_RING_BUFFER","num_events_lost":"1","cpu":5,"first":"1970-01-01T00:20:30.567800Z","last":"1970-01-01T00:20:38.567800Z"},"time":"1970-01-01T00:20:34.567800Z"}`,
+		},
+		{
+			name: "jsonpb with timestamps",
+			options: []Option{
+				JSONPB(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args:     args{gfrWithTimestamps},
+			expected: `{"lost_events":{"source":"HUBBLE_RING_BUFFER","num_events_lost":"1","cpu":5,"first":"1970-01-01T00:20:30.567800Z","last":"1970-01-01T00:20:38.567800Z"},"time":"1970-01-01T00:20:34.567800Z"}`,
+		},
+		{
+			name: "dict with timestamps",
+			options: []Option{
+				Dict(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args: args{gfrWithTimestamps},
+			expected: `
+  TIMESTAMP: Jan  1 00:20:34.567
+     SOURCE: HUBBLE_RING_BUFFER
+       TYPE: EVENTS LOST
+    VERDICT: -
+    SUMMARY: CPU(5) - 1 (first: Jan  1 00:20:30.567, last: Jan  1 00:20:38.567)`,
 		},
 	}
 	for _, tt := range tests {
 		buf.Reset()
 		t.Run(tt.name, func(t *testing.T) {
 			p := New(tt.options...)
-			if err := p.WriteLostEvent(tt.args.le); (err != nil) != tt.wantErr {
-				t.Errorf("WriteServerStatusResponse() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			err := p.WriteLostEvent(tt.args.le)
+			require.NoError(t, err)
 			require.NoError(t, p.Close())
 			require.Equal(t, strings.TrimSpace(tt.expected), strings.TrimSpace(buf.String()))
 		})
