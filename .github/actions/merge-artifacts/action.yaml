@@ -15,6 +15,12 @@ inputs:
     required: true
     description: 'If true, the artifacts that were merged will be deleted'
     default: 'true'
+  separate-directories:
+    required: false
+    description: |
+      If true, the artifacts will be merged into separate directories.
+      If false, the artifacts will be merged into the root of the destination.
+    default: 'false'
 
 runs:
   using: composite
@@ -54,4 +60,4 @@ runs:
         pattern: ${{ inputs.pattern }}
         retention-days: 5
         delete-merged: ${{ inputs.delete-merged }}
-
+        separate-directories: ${{ inputs.separate-directories }}
