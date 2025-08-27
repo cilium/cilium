@@ -7,8 +7,10 @@ import (
 	"context"
 	"log/slog"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
+	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -28,11 +30,19 @@ func (a *Allocator) Init(ctx context.Context, logger *slog.Logger, _ *metrics.Re
 	return nil
 }
 
-func (a *Allocator) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, _ *metrics.Registry) (allocator.NodeEventHandler, error) {
+func (a *Allocator) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, reg *metrics.Registry) (allocator.NodeEventHandler, error) {
+	var iMetrics metricsAPI
+	if operatorOption.Config.EnableMetrics {
+		remainingIPsMetric := ipamMetrics.NewremainingIPsMetric(metrics.Namespace)
+		reg.Register(remainingIPsMetric.RemainingIPs)
+		iMetrics = remainingIPsMetric
+	}
+	a.poolAlloc.SetMetricsAPI(iMetrics)
 	return NewNodeHandler(a.logger, a.poolAlloc, getterUpdater), nil
 }
 
 func (a *Allocator) UpsertPool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error {
+
 	var ipv4CIDRs, ipv6CIDRs []string
 	var ipv4MaskSize, ipv6MaskSize int
 
