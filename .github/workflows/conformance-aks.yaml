@@ -232,13 +232,13 @@ jobs:
             --helm-set kubeProxyReplacement=true \
             --helm-set=bpf.masquerade=true \
             --helm-set=ipv4.enabled=true \
-            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16"
+            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.8.0/22"
           if [[ "${{ matrix.egw }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" ${{ env.EGRESS_GATEWAY_HELM_VALUES }}"
           fi
           if [[ "${{ matrix.ipv6 }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=ipv6.enabled=true \
-                                      --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
+                                      --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00:0:0:20::/64"
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
