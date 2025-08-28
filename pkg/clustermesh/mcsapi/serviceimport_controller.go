@@ -232,14 +232,14 @@ func mergedPortsToMCSPorts(mergedPorts []portMerge) []mcsapiv1alpha1.ServicePort
 	return ports
 }
 
-func getServiceImportStatus(svcExportByCluster operator.ServiceExportsByCluster) mcsapiv1alpha1.ServiceImportStatus {
+func getClustersStatus(svcExportByCluster operator.ServiceExportsByCluster) []mcsapiv1alpha1.ClusterStatus {
 	clusters := []mcsapiv1alpha1.ClusterStatus{}
 	for _, cluster := range slices.Sorted(maps.Keys(svcExportByCluster)) {
 		clusters = append(clusters, mcsapiv1alpha1.ClusterStatus{
 			Cluster: cluster,
 		})
 	}
-	return mcsapiv1alpha1.ServiceImportStatus{Clusters: clusters}
+	return clusters
 }
 
 func derefSessionAffinity(sessionAffinityConfig *corev1.SessionAffinityConfig) *int32 {
@@ -488,10 +488,18 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 		return controllerruntime.Fail(err)
 	}
 
-	newStatus := getServiceImportStatus(svcExportByCluster)
-	if !reflect.DeepEqual(svcImport.Status, newStatus) {
-		svcImport.Status = newStatus
-		if err := r.Client.Status().Update(ctx, svcImport); err != nil {
+	desired := svcImport.DeepCopy()
+	desired.Status.Clusters = getClustersStatus(svcExportByCluster)
+	if len(svcImport.Spec.IPs) == 0 {
+		meta.SetStatusCondition(&desired.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
+			mcsapiv1alpha1.ServiceImportConditionReady,
+			metav1.ConditionFalse,
+			mcsapiv1alpha1.ServiceImportReasonPending,
+			"Waiting for the derived Service to be created",
+		))
+	}
+	if !reflect.DeepEqual(svcImport.Status, desired.Status) {
+		if err := r.Client.Status().Patch(ctx, desired, client.MergeFrom(svcImport)); err != nil {
 			return controllerruntime.Fail(err)
 		}
 	}
