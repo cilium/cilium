@@ -1089,10 +1089,10 @@ sigs.k8s.io/kustomize/api v0.20.1 h1:iWP1Ydh3/lmldBnH/S5RXgT98vWYMaTUL1ADcr+Sv7I
 sigs.k8s.io/kustomize/api v0.20.1/go.mod h1:t6hUFxO+Ph0VxIk1sKp1WS0dOjbPCtLJ4p8aADLwqjM=
 sigs.k8s.io/kustomize/kyaml v0.20.1 h1:PCMnA2mrVbRP3NIB6v9kYCAc38uvFLVs8j/CD567A78=
 sigs.k8s.io/kustomize/kyaml v0.20.1/go.mod h1:0EmkQHRUsJxY8Ug9Niig1pUMSCGHxQ5RklbpV/Ri6po=
-sigs.k8s.io/mcs-api v0.3.0 h1:LjRvgzjMrvO1904GP6XBJSnIX221DJMyQlZOYt9LAnM=
-sigs.k8s.io/mcs-api v0.3.0/go.mod h1:zZ5CK8uS6HaLkxY4HqsmcBHfzHuNMrY2uJy8T7jffK4=
-sigs.k8s.io/mcs-api/controllers v0.0.0-20250908090929-79efdd37ed2b h1:SGufLhphw+FS0rVHtCCOMlNqoKNYUpZ639FJqlIA1wo=
-sigs.k8s.io/mcs-api/controllers v0.0.0-20250908090929-79efdd37ed2b/go.mod h1:IEVANHiCGLNsCWuPsZCJhCVzeWavUmxpJ8XgpTt9MpM=
+sigs.k8s.io/mcs-api v0.3.1-0.20250908090929-79efdd37ed2b h1:w9u8OrCeb+WjmF/6KHWtKGj6nEGF8XUxlghztKW87TQ=
+sigs.k8s.io/mcs-api v0.3.1-0.20250908090929-79efdd37ed2b/go.mod h1:zZ5CK8uS6HaLkxY4HqsmcBHfzHuNMrY2uJy8T7jffK4=
+sigs.k8s.io/mcs-api/controllers v0.0.0-20250731081715-a807ec696257 h1:xxfmazcj83RrfIPC5nAjBpe/0/hI/m+/GaGV+ekJHGQ=
+sigs.k8s.io/mcs-api/controllers v0.0.0-20250731081715-a807ec696257/go.mod h1:58tAw+r41eczKabKA5KwwLabGlO6YLbtkYtKif9sDr0=
 sigs.k8s.io/randfill v1.0.0 h1:JfjMILfT8A6RbawdsK2JXGBR5AQVfd+9TbzrlneTyrU=
 sigs.k8s.io/randfill v1.0.0/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
 sigs.k8s.io/structured-merge-diff/v6 v6.3.0 h1:jTijUJbW353oVOd9oTlifJqOGEkUw2jB/fXCbTiQEco=
