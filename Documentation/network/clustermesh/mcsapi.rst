@@ -18,7 +18,7 @@ Prerequisites
 You need to have a functioning Cluster Mesh setup, please follow the
 :ref:`gs_clustermesh` guide to set it up.
 
-Make sure you are running CoreDNS 1.12.2 or later.
+Make sure you are running CoreDNS 1.12.2 or later (installed by default from Kubernetes 1.35).
 
 You first need to install the required MCS-API CRDs:
 
