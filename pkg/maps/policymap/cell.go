@@ -49,7 +49,7 @@ func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
 }
 
 type Factory interface {
-	OpenEndpoint(id uint16) (*PolicyMap, error)
+	OpenEndpoint(id uint16) (PolicyMap, error)
 	RemoveEndpoint(id uint16) error
 
 	PolicyMaxEntries() int
@@ -77,7 +77,7 @@ func newFactory(logger *slog.Logger, stats *StatsMap, policyMapEntries int) *fac
 // OpenEndpoint opens (or creates) a policy for the specified endpoint, which
 // is used to govern which peer identities can communicate with the endpoint
 // protected by this map.
-func (f *factory) OpenEndpoint(id uint16) (*PolicyMap, error) {
+func (f *factory) OpenEndpoint(id uint16) (PolicyMap, error) {
 	m, err := newPolicyMap(f.logger, id, f.policyMapEntries, f.stats)
 	if err != nil {
 		return nil, err

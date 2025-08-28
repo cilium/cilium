@@ -29,7 +29,7 @@ func createStatsMapForTest(maxStatsEntries int) (*StatsMap, error) {
 	return m, m.OpenOrCreate()
 }
 
-func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
+func setupPolicyMapPrivilegedTestSuite(tb testing.TB) PolicyMap {
 	testutils.PrivilegedTest(tb)
 
 	logger := hivetest.Logger(tb)
@@ -92,7 +92,7 @@ func TestPrivilegedPolicyMapDumpToSlice(t *testing.T) {
 func TestPrivilegedDeleteNonexistentKey(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 	key := newKey(trafficdirection.Ingress, 27, u8proto.TCP, 80, SinglePortPrefixLen)
-	err := testMap.Map.Delete(&key)
+	err := testMap.DeleteKey(key)
 	require.Error(t, err)
 	var errno unix.Errno
 	require.ErrorAs(t, err, &errno)
