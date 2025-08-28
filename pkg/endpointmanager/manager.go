@@ -831,6 +831,24 @@ func (mgr *endpointManager) initHostEndpointLabels(ctx context.Context, ep *endp
 	mgr.startNodeLabelsObserver(ln.Labels)
 }
 
+// WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
+// this function is called to be at a given policy revision.
+// New endpoints appearing while waiting are ignored.
+func (mgr *endpointManager) WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
+	eps := mgr.GetEndpoints()
+	for i := range eps {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-eps[i].WaitForPolicyRevision(ctx, rev, nil):
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+		}
+	}
+	return nil
+}
+
 // EndpointExists returns whether the endpoint with id exists.
 func (mgr *endpointManager) EndpointExists(id uint16) bool {
 	return mgr.LookupCiliumID(id) != nil
