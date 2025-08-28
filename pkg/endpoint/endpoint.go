@@ -2750,3 +2750,65 @@ func (e *Endpoint) GetContainerNetnsPath() string {
 func (e *Endpoint) SetContainerNetnsPath(path string) {
 	e.containerNetnsPath = path
 }
+
+// CopyFromTemplate creates a copy of the calling Endpoint object and returns
+// it. This is used to create Endpoint objects without going through the New*()
+// code path which is useful in tests.
+func (e *Endpoint) CopyFromTemplate() *Endpoint {
+	if e == nil {
+		return nil
+	}
+
+	clone := &Endpoint{
+		DNSHistory:   e.DNSHistory,
+		DNSZombies:   e.DNSZombies,
+		ID:           e.ID,
+		IPv4:         e.IPv4,
+		IPv6:         e.IPv6,
+		K8sNamespace: e.K8sNamespace,
+		K8sPodName:   e.K8sPodName,
+
+		aliveCancel:        e.aliveCancel,
+		aliveCtx:           e.aliveCtx,
+		allocator:          e.allocator,
+		compilationLock:    e.compilationLock,
+		controllers:        e.controllers,
+		createdAt:          e.createdAt,
+		ctMapGC:            e.ctMapGC,
+		dnsRulesAPI:        e.dnsRulesAPI,
+		dockerEndpointID:   e.dockerEndpointID,
+		dockerNetworkID:    e.dockerNetworkID,
+		epBuildQueue:       e.epBuildQueue,
+		forcePolicyCompute: e.forcePolicyCompute,
+		hasBPFProgram:      e.hasBPFProgram,
+		identityManager:    e.identityManager,
+		ifIndex:            e.ifIndex,
+		ifName:             e.ifName,
+		kvstoreSyncher:     e.kvstoreSyncher,
+		loader:             e.loader,
+		lxcMap:             e.lxcMap,
+		monitorAgent:       e.monitorAgent,
+		nodeMAC:            e.nodeMAC,
+		orchestrator:       e.orchestrator,
+		policyFetcher:      e.policyFetcher,
+		policyMapFactory:   e.policyMapFactory,
+		policyRepo:         e.policyRepo,
+		proxy:              e.proxy,
+		state:              e.state,
+	}
+	clone.containerID.Store(e.containerID.Load())
+	clone.logger.Store(e.logger.Load())
+
+	clone.mutex = lock.RWMutex{}
+	clone.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
+	clone.labels = labels.NewOpLabels()
+	clone.status = NewEndpointStatus()
+	if e.controllers == nil {
+		clone.controllers = controller.NewManager()
+	}
+	clone.desiredPolicy = policy.NewEndpointPolicy(e.logger.Load(), e.policyRepo)
+	clone.realizedPolicy = clone.desiredPolicy
+	clone.initialEnvoyPolicyComputed = make(chan struct{})
+
+	return clone
+}
