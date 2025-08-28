@@ -1166,7 +1166,7 @@ func (c *Collector) Run() error {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumNamespace, c.Options.CNIConfigMapName, metav1.GetOptions{})
 				if err != nil && k8sErrors.IsNotFound(err) {
-					c.logDebug("CNI configmap %s not found: %w", c.Options.CNIConfigMapName, err)
+					c.logDebug("CNI configmap %s not found: %v", c.Options.CNIConfigMapName, err)
 					return nil
 				}
 				if err != nil {
