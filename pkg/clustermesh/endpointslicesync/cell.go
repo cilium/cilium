@@ -41,6 +41,7 @@ type endpointSliceSyncParams struct {
 
 	Clientset   k8sClient.Clientset
 	Services    resource.Resource[*slim_corev1.Service]
+	Namespaces  resource.Resource[*slim_corev1.Namespace] `optional:"true"`
 	ClusterMesh operator.ClusterMesh
 }
 

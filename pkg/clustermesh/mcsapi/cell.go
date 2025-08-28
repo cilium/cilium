@@ -17,6 +17,7 @@ import (
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -51,9 +52,10 @@ type mcsAPIParams struct {
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
 
-	Logger          *slog.Logger
-	JobGroup        job.Group
-	MetricsRegistry *metrics.Registry
+	Logger           *slog.Logger
+	JobGroup         job.Group
+	MetricsRegistry  *metrics.Registry
+	NamespaceTracker clustermesh.GlobalNamespaceTracker `optional:"true"`
 }
 
 var requiredGVK = []schema.GroupVersionKind{
@@ -132,7 +134,7 @@ func registerMCSAPIController(params mcsAPIParams) error {
 	params.ClusterMesh.RegisterClusterServiceExportDeleteHook(remoteClusterServiceSource.onClusterServiceExportEvent)
 	svcImportReconciler := newMCSAPIServiceImportReconciler(
 		params.CtrlRuntimeManager, params.Logger, params.ClusterInfo.Name,
-		params.ClusterMesh.GlobalServiceExports(), remoteClusterServiceSource,
+		params.ClusterMesh.GlobalServiceExports(), remoteClusterServiceSource, params.NamespaceTracker,
 	)
 
 	params.JobGroup.Add(job.OneShot("mcsapi-main", func(ctx context.Context, health cell.Health) error {

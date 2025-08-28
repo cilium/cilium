@@ -78,6 +78,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "local-only",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
@@ -98,6 +101,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "delete-local",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
@@ -123,6 +129,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "basic",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
@@ -152,6 +161,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "svcimport-exist",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
@@ -185,6 +197,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "conflict-type-remove",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
@@ -202,6 +217,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "conflict-type",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
@@ -219,6 +237,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "conflict-port-name",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
@@ -239,6 +260,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "conflict-port-appprotocol",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
@@ -259,6 +283,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "conflict-duplicated-port-name",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
@@ -280,6 +307,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "conflict-session-affinity",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
@@ -297,6 +327,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "conflict-session-affinity-config",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityClientIP,
@@ -322,6 +355,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "conflict-annotations",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 			},
 
@@ -341,6 +377,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "conflict-labels",
 					Namespace: "default",
+					Annotations: map[string]string{
+						"service.cilium.io/global": "true",
+					},
 				},
 			},
 		}

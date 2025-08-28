@@ -15,6 +15,7 @@ import (
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -200,12 +201,27 @@ func isHeadless(svc *slim_corev1.Service) bool {
 }
 
 type DefaultClusterServiceConverter struct {
-	cinfo cmtypes.ClusterInfo
+	cinfo            cmtypes.ClusterInfo
+	namespaceTracker clustermesh.GlobalNamespaceTracker
 }
 
 // Convert implements ClusterServiceConverter.
 func (d DefaultClusterServiceConverter) Convert(k8sService *slim_corev1.Service, getEndpoints func(namespace, name string) []*k8s.Endpoints) (out *serviceStore.ClusterService, toUpsert bool) {
-	if shared := annotation.GetAnnotationShared(k8sService); !shared {
+	// For a service to be considered global, it must satisfy both conditions per CFP-39876:
+	// 1. It must be annotated with service.cilium.io/global: "true"
+	// 2. It must reside within a global namespace when namespace filtering is active
+	var shared bool
+	if d.namespaceTracker != nil {
+		shared = annotation.GetAnnotationSharedWithNamespaceFilter(
+			k8sService, k8sService.Namespace,
+			d.namespaceTracker.IsGlobalNamespace,
+			d.namespaceTracker.IsFilteringActive,
+		)
+	} else {
+		shared = annotation.GetAnnotationShared(k8sService)
+	}
+
+	if !shared {
 		return d.ForDeletion(k8sService), false
 	}
 
@@ -259,6 +275,12 @@ func (d DefaultClusterServiceConverter) ForDeletion(k8sService *slim_corev1.Serv
 
 var _ ClusterServiceConverter = DefaultClusterServiceConverter{}
 
-func newClusterServiceConverter(cinfo cmtypes.ClusterInfo) ClusterServiceConverter {
-	return DefaultClusterServiceConverter{cinfo}
+type ClusterServiceConverterParams struct {
+	cell.In
+	ClusterInfo      cmtypes.ClusterInfo
+	NamespaceTracker clustermesh.GlobalNamespaceTracker `optional:"true"`
+}
+
+func newClusterServiceConverter(params ClusterServiceConverterParams) ClusterServiceConverter {
+	return DefaultClusterServiceConverter{cinfo: params.ClusterInfo, namespaceTracker: params.NamespaceTracker}
 }
