@@ -39,7 +39,7 @@ func testPingHost(ctx context.Context, t *check.Test, ct *check.ConnectivityTest
 	i := 0
 	for _, client := range ct.ClientPods() {
 		for _, dst := range ct.HostNetNSPodsByNode() {
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("ping-%s-%d", ipFam, i), &client, &dst, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, ct.PingCommand(dst, ipFam))
 				})
@@ -78,7 +78,7 @@ func testIngressNoSNAT(ctx context.Context, t *check.Test, ct *check.Connectivit
 				// convert the service to a ServiceExternalIP as we want to access it through its external IP
 				echo := echo.ToNodeportService(node)
 
-				t.ForEachIPFamily(func(ipFam features.IPFamily) {
+				t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 					t.NewAction(s, fmt.Sprintf("curl-echo-service-%s-%d", ipFam, i), &client, echo, ipFam).Run(func(a *check.Action) {
 						a.ExecInPod(ctx, a.CurlCommand(echo))
 					})
@@ -102,7 +102,7 @@ func testIngressNoSNATDirectRouting(ctx context.Context, t *check.Test, ct *chec
 		i := 0
 		for _, client := range ct.ExternalEchoPods() {
 			for _, echo := range ct.EchoPods() {
-				t.ForEachIPFamily(func(ipFam features.IPFamily) {
+				t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 					t.NewAction(s, fmt.Sprintf("curl-echo-pod-%s-%d", ipFam, i), &client, echo, ipFam).Run(func(a *check.Action) {
 						a.ExecInPod(ctx, a.CurlCommand(echo))
 					})
@@ -251,12 +251,9 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 	for _, client := range ct.ClientPods() {
 		for _, externalEchoSvc := range ct.EchoExternalServices() {
 			externalEcho := externalEchoSvc.ToEchoIPService()
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				gatewayIP := egressGatewayNodeInternalIP
 				if ipFam == features.IPFamilyV6 {
-					if !ipv6Enabled {
-						return
-					}
 					gatewayIP = egressGatewayNodeInternalIPv6
 				}
 				t.NewAction(s, fmt.Sprintf("curl-external-echo-service-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
@@ -278,12 +275,9 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		for _, externalEcho := range ct.ExternalEchoPods() {
 			externalEcho := externalEcho.ToEchoIPPod()
 
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				gatewayIP := egressGatewayNodeInternalIP
 				if ipFam == features.IPFamilyV6 {
-					if !ipv6Enabled {
-						return
-					}
 					gatewayIP = egressGatewayNodeInternalIPv6
 				}
 				t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
@@ -571,12 +565,9 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 
 		for _, externalEchoSvc := range ct.EchoExternalServices() {
 			externalEcho := externalEchoSvc.ToEchoIPService()
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				gatewayIP := assignedGateway.internalIP
 				if ipFam == features.IPFamilyV6 {
-					if !ipv6Enabled {
-						return
-					}
 					gatewayIP = assignedGateway.internalIPsv6
 				}
 				t.NewAction(s, fmt.Sprintf("curl-external-echo-service-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
@@ -603,12 +594,9 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 
 		for _, externalEcho := range ct.ExternalEchoPods() {
 			externalEcho := externalEcho.ToEchoIPPod()
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				gatewayIP := assignedGateway.internalIP
 				if ipFam == features.IPFamilyV6 {
-					if !ipv6Enabled {
-						return
-					}
 					gatewayIP = assignedGateway.internalIPsv6
 				}
 				t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
@@ -771,12 +759,9 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		for _, externalEcho := range ct.ExternalEchoPods() {
 			externalEcho := externalEcho.ToEchoIPPod()
 
-			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 				hostIP := net.ParseIP(client.Pod.Status.HostIP)
 				if ipFam == features.IPFamilyV6 {
-					if !ipv6Enabled {
-						return
-					}
 					for _, addr := range client.Pod.Status.HostIPs {
 						if ip := net.ParseIP(addr.IP); ip != nil && ip.To4() == nil {
 							hostIP = ip
