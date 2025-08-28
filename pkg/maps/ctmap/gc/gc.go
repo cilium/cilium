@@ -178,7 +178,7 @@ func (gc *GC) Enable() {
 
 			if len(eps) > 0 || initialScan {
 				gc.logger.Info("Starting GC of connection tracking", logfields.First, initialScan)
-				maxDeleteRatio, success = gc.runGC(ipv4, ipv6, triggeredBySignal, gcFilter)
+				maxDeleteRatio, success = gc.runGC(ipv4, ipv6, triggeredBySignal, gcFilter, initialScan)
 			}
 
 			// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
@@ -276,7 +276,7 @@ func (gc *GC) Observe6() stream.Observable[ctmap.GCEvent] {
 //
 // If `isIPv6` is set specifies that is the IPv6 map. `filter` represents the
 // filter type to be used while looping all CT entries.
-func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter, initialScan bool) (maxDeleteRatio float64, success bool) {
 	success = true
 
 	maps := ctmap.GlobalMaps(ipv4, ipv6)
@@ -291,7 +291,7 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 		if err != nil {
 			success = false
 			msg := "Skipping CT garbage collection"
-			if os.IsNotExist(err) {
+			if os.IsNotExist(err) && initialScan {
 				gc.logger.Debug(msg,
 					logfields.Path, path,
 					logfields.Error, err,
@@ -319,11 +319,11 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 			if ratio > maxDeleteRatio {
 				maxDeleteRatio = ratio
 			}
-			gc.logger.Debug("Deleted filtered entries from map",
-				logfields.Path, path,
-				logfields.Count, deleted,
-			)
 		}
+		gc.logger.Debug("Deleted filtered entries from map",
+			logfields.Path, path,
+			logfields.Count, deleted,
+		)
 	}
 
 	if triggeredBySignal {

@@ -957,7 +957,9 @@ func (e *Endpoint) garbageCollectConntrack(filter ctmap.GCFilter) {
 		}
 		defer m.Close()
 
-		e.ctMapGC.Run(m, filter)
+		if _, err := e.ctMapGC.Run(m, filter); err != nil {
+			e.getLogger().Error("failed to run endpoint ctmap gc", logfields.Error, err)
+		}
 	}
 }
 
