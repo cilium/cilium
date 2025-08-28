@@ -51,7 +51,7 @@ func TestParseKernelVersion(t *testing.T) {
 		{" 6.0.0-generic ", mustHaveVersion(t, "6.0.0")},
 	}
 	for _, tt := range flagtests {
-		s, err := parseKernelVersion(tt.in)
+		s, err := ParseKernelVersion(tt.in)
 		require.NoError(t, err)
 		require.Equal(t, tt.out, s)
 	}
