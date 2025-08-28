@@ -5,7 +5,6 @@ package mcsapi
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"testing"
 	"time"
@@ -540,6 +539,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			SessionAffinityConfig: nil,
 		}, svcImport.Spec)
 		require.Len(t, svcImport.Status.Clusters, 1)
+		require.True(t, meta.IsStatusConditionFalse(svcImport.Status.Conditions, string(mcsapiv1alpha1.ServiceImportConditionReady)))
 
 		svcExport, err := getServiceExport(c, key)
 		require.NoError(t, err)
@@ -565,6 +565,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svcImport)
 		require.Len(t, svcImport.Status.Clusters, 1)
+		require.True(t, meta.IsStatusConditionFalse(svcImport.Status.Conditions, string(mcsapiv1alpha1.ServiceImportConditionReady)))
 		require.Equal(t, remoteClusterName, svcImport.Status.Clusters[0].Cluster)
 	})
 
@@ -722,6 +723,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svcImport)
 		require.Len(t, svcImport.Status.Clusters, 1)
+		require.True(t, meta.IsStatusConditionFalse(svcImport.Status.Conditions, string(mcsapiv1alpha1.ServiceImportConditionReady)))
 		require.Equal(t, remoteClusterName, svcImport.Status.Clusters[0].Cluster)
 
 		globalServiceExports.OnUpdate(&mcsapitypes.MCSAPIServiceSpec{
@@ -772,7 +774,6 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		require.True(t, maps.Equal(svcImport.Labels, map[string]string{
 			"exported-label": "",
 		}))
-		fmt.Println(svcImport.Annotations)
 		require.True(t, maps.Equal(svcImport.Annotations, map[string]string{
 			mcsapicontrollers.DerivedServiceAnnotation: "",
 			"exported-annotation":                      "",

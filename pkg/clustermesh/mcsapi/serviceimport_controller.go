@@ -232,14 +232,14 @@ func mergedPortsToMCSPorts(mergedPorts []portMerge) []mcsapiv1alpha1.ServicePort
 	return ports
 }
 
-func getServiceImportStatus(svcExportByCluster operator.ServiceExportsByCluster) mcsapiv1alpha1.ServiceImportStatus {
-	clusters := []mcsapiv1alpha1.ClusterStatus{}
+func getClustersStatus(svcExportByCluster operator.ServiceExportsByCluster) []mcsapiv1alpha1.ClusterStatus {
+	clusters := make([]mcsapiv1alpha1.ClusterStatus, 0, len(svcExportByCluster))
 	for _, cluster := range slices.Sorted(maps.Keys(svcExportByCluster)) {
 		clusters = append(clusters, mcsapiv1alpha1.ClusterStatus{
 			Cluster: cluster,
 		})
 	}
-	return mcsapiv1alpha1.ServiceImportStatus{Clusters: clusters}
+	return clusters
 }
 
 func derefSessionAffinity(sessionAffinityConfig *corev1.SessionAffinityConfig) *int32 {
@@ -475,7 +475,8 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 	svcImport.Spec.SessionAffinityConfig = oldestClusterSvc.SessionAffinityConfig.DeepCopy()
 	svcImport.Labels = maps.Clone(oldestClusterSvc.Labels)
 	annotations := maps.Clone(oldestClusterSvc.Annotations)
-	if _, ok := svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]; ok {
+	_, derivedSvcAnnotationExists := svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
+	if derivedSvcAnnotationExists {
 		if annotations == nil {
 			annotations = map[string]string{}
 		}
@@ -488,9 +489,24 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 		return controllerruntime.Fail(err)
 	}
 
-	newStatus := getServiceImportStatus(svcExportByCluster)
-	if !reflect.DeepEqual(svcImport.Status, newStatus) {
-		svcImport.Status = newStatus
+	svcImportStatusOriginal := svcImport.Status.DeepCopy()
+	svcImport.Status.Clusters = getClustersStatus(svcExportByCluster)
+	if derivedSvcAnnotationExists {
+		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
+			mcsapiv1alpha1.ServiceImportConditionReady,
+			metav1.ConditionTrue,
+			mcsapiv1alpha1.ServiceImportReasonReady,
+			"ServiceImport is ready",
+		))
+	} else {
+		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
+			mcsapiv1alpha1.ServiceImportConditionReady,
+			metav1.ConditionFalse,
+			mcsapiv1alpha1.ServiceImportReasonPending,
+			"Waiting for the derived Service to be created",
+		))
+	}
+	if !reflect.DeepEqual(svcImportStatusOriginal, svcImport.Status) {
 		if err := r.Client.Status().Update(ctx, svcImport); err != nil {
 			return controllerruntime.Fail(err)
 		}
