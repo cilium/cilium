@@ -289,7 +289,7 @@ type Endpoint struct {
 
 	// policyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
-	policyMap *policymap.PolicyMap
+	policyMap policymap.PolicyMap
 
 	// PolicyMapPressureUpdater updates the policymap pressure metric.
 	PolicyMapPressureUpdater policyMapPressureUpdater

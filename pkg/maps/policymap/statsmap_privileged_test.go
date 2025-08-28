@@ -10,10 +10,10 @@ import (
 )
 
 func TestPrivilegedStatMap(t *testing.T) {
-	policyMap := setupPolicyMapPrivilegedTestSuite(t)
-	require.NotNil(t, policyMap)
+	pm := setupPolicyMapPrivilegedTestSuite(t)
+	require.NotNil(t, pm)
 
-	testMap := policyMap.stats
+	testMap := (pm.(*policyMap)).stats
 	require.NotNil(t, testMap)
 
 	fooKey := newKey(1, 1, 1, 1, SinglePortPrefixLen)
