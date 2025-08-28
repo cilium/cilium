@@ -39,13 +39,24 @@ var Cell = cell.Module(
 	"endpoint-manager",
 	"Manages the collection of local endpoints",
 
+	defaultGroup,
+	cell.Invoke(
+		registerNamespaceUpdater,
+	),
+)
+
+var TestCell = cell.Module(
+	"test-endpoint-manager",
+	"Manages the collection of local endpoints",
+
+	defaultGroup,
+)
+
+var defaultGroup = cell.Group(
 	cell.Config(defaultEndpointManagerConfig),
 	cell.Provide(newDefaultEndpointManager),
 	cell.Provide(endpoint.NewEndpointBuildQueue),
 	cell.ProvidePrivate(newEndpointSynchronizer),
-	cell.Invoke(
-		registerNamespaceUpdater,
-	),
 )
 
 type EndpointsLookup interface {
