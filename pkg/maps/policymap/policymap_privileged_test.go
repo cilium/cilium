@@ -29,7 +29,7 @@ func createStatsMapForTest(maxStatsEntries int) (*StatsMap, error) {
 	return m, m.OpenOrCreate()
 }
 
-func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
+func setupPolicyMapPrivilegedTestSuite(tb testing.TB) PolicyMap {
 	testutils.PrivilegedTest(tb)
 
 	logger := hivetest.Logger(tb)
