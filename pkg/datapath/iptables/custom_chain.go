@@ -130,7 +130,7 @@ func (c *customChain) doAdd(prog runnable) error {
 	return nil
 }
 
-func (c *customChain) add(ipv4, ipv6 bool) error {
+func (c *customChain) add(ipv4, ipv6 bool, ip4tables, ip6tables iptablesInterface) error {
 	if ipv4 {
 		if err := c.doAdd(ip4tables); err != nil {
 			return err
@@ -162,7 +162,7 @@ func (c *customChain) doRename(prog runnable, newName string) error {
 	return nil
 }
 
-func (c *customChain) rename(ipv4, ipv6 bool, name string) error {
+func (c *customChain) rename(ipv4, ipv6 bool, name string, ip4tables, ip6tables iptablesInterface) error {
 	if ipv4 {
 		if err := c.doRename(ip4tables, name); err != nil {
 			return err
@@ -201,7 +201,7 @@ func (c *customChain) doRemove(prog iptablesInterface) error {
 	return nil
 }
 
-func (c *customChain) remove(ipv4, ipv6 bool) error {
+func (c *customChain) remove(ipv4, ipv6 bool, ip4tables, ip6tables iptablesInterface) error {
 	if ipv4 {
 		if err := c.doRemove(ip4tables); err != nil {
 			return err
@@ -233,7 +233,7 @@ func (c *customChain) doInstallFeeder(prog iptablesInterface, prepend bool) erro
 	return nil
 }
 
-func (c *customChain) installFeeder(ipv4, ipv6, prepend bool) error {
+func (c *customChain) installFeeder(ipv4, ipv6, prepend bool, ip4tables, ip6tables iptablesInterface) error {
 	if ipv4 {
 		if err := c.doInstallFeeder(ip4tables, prepend); err != nil {
 			return err
