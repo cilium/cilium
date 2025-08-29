@@ -796,11 +796,25 @@ func parseSource(str string, delim byte) (src, next string) {
 		return "", str
 	}
 
-	// if source is not "any", or "k8s" or "cidr" means user might have configured
-	// their resources with labels that has either "." or ":" delimiters
-	// e.g: app.kubernetes.io/name: bar
-	// return "", "str"
-	if str[:i] != LabelSourceAny && str[:i] != LabelSourceK8s && str[:i] != LabelSourceCIDR {
+	// Determine whether the prefix before the delimiter is a recognized source.
+	// If it is not one of the supported well-known sources, treat the whole
+	// string as an (unspecified-source) key so that user-provided labels like
+	// app.kubernetes.io/name are preserved intact instead of incorrectly
+	// classifying "app" as a source.
+	// gh-issue: https://github.com/cilium/cilium/issues/41151
+	switch candidate := str[:i]; candidate {
+	case LabelSourceAny,
+		LabelSourceK8s,
+		LabelSourceCIDR,
+		LabelSourceCIDRGroup,
+		LabelSourceReserved,
+		LabelSourceContainer,
+		LabelSourceCNI,
+		LabelSourceNode,
+		LabelSourceFQDN,
+		LabelSourceDirectory:
+		// Add if any new sources are introduced.
+	default:
 		return "", str
 	}
 
