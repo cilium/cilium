@@ -2656,6 +2656,11 @@ func (in *PortInfo) DeepCopy() *PortInfo {
 func (in *RedirectBackend) DeepCopyInto(out *RedirectBackend) {
 	*out = *in
 	in.LocalEndpointSelector.DeepCopyInto(&out.LocalEndpointSelector)
+	if in.PreferredIPaddresses != nil {
+		in, out := &in.PreferredIPaddresses, &out.PreferredIPaddresses
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.ToPorts != nil {
 		in, out := &in.ToPorts, &out.ToPorts
 		*out = make([]PortInfo, len(*in))

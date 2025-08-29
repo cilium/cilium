@@ -116,6 +116,14 @@ spec:
                         type: object
                     type: object
                     x-kubernetes-map-type: atomic
+                  preferredIPaddresses:
+                    description: |-
+                      PreferredIPAddresses is a list of IP addresses used to override the Pod IP assigned by Kubernetes.
+                      This is useful when redirecting pod traffic to a DaemonSet running in the host network namespace,
+                      listening on the loopback interface or other interfaces for which Cilium cannot obtain the IP from Kubernetes.
+                    items:
+                      type: string
+                    type: array
                   toPorts:
                     description: |-
                       ToPorts is a list of L4 ports with protocol of node local pod(s) where traffic
