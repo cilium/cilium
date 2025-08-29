@@ -6,6 +6,7 @@ package shell
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -84,6 +85,10 @@ func (sh shell) listener(ctx context.Context, health cell.Health) error {
 	for ctx.Err() == nil {
 		conn, err := l.Accept()
 		if err != nil {
+			// If context is cancelled, the listener was closed gracefully
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return nil
+			}
 			return fmt.Errorf("accept failed: %w", err)
 		}
 		sh.jg.Add(job.OneShot(
