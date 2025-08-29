@@ -95,6 +95,9 @@ triggers:
   /ci-ces-migrate:
     workflows:
     - tests-ces-migrate.yaml
+  /l7-perf:
+    workflows:
+    - l7-perf.yaml
 
 schedule:
   nightly:
