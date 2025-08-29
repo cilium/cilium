@@ -43,14 +43,6 @@ func LoadCollectionSpec(logger *slog.Logger, path string) (*ebpf.CollectionSpec,
 		return nil, fmt.Errorf("checking for unspecified programs: %w", err)
 	}
 
-	if err := removeUnreachableTailcalls(logger, spec); err != nil {
-		return nil, fmt.Errorf("removing unreachable tail calls: %w", err)
-	}
-
-	if err := resolveTailCalls(spec); err != nil {
-		return nil, fmt.Errorf("resolving tail calls: %w", err)
-	}
-
 	return spec, nil
 }
 
@@ -135,27 +127,17 @@ func resolveTailCalls(spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
-// removeUnreachableTailcalls removes tail calls that are not reachable from
-// entrypoint programs. This is done by traversing the call graph of the
-// entrypoint programs and marking all reachable tail calls. Any tail call that
-// is not marked is removed from the CollectionSpec.
-func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
+// removeUnusedTailcalls removes tail calls that are not reachable from
+// entrypoint programs.
+func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
 	type tail struct {
 		referenced bool
 		visited    bool
 		spec       *ebpf.ProgramSpec
 	}
 
-	// Build a map of entrypoint programs annotated with __section_entry.
-	entrypoints := make(map[string]*ebpf.ProgramSpec)
-	for _, prog := range spec.Programs {
-		if isEntrypoint(prog) {
-			entrypoints[prog.Name] = prog
-		}
-	}
-
 	// Build a map of tail call slots to ProgramSpecs.
-	tailcalls := make(map[uint32]*tail)
+	tails := make(map[uint32]*tail)
 	for _, prog := range spec.Programs {
 		if !isTailCall(prog) {
 			continue
@@ -166,15 +148,39 @@ func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) 
 			return fmt.Errorf("getting tail call slot: %w", err)
 		}
 
-		tailcalls[slot] = &tail{
+		tails[slot] = &tail{
 			spec: prog,
 		}
 	}
 
 	// Discover all tailcalls that are reachable from the given program.
 	visit := func(prog *ebpf.ProgramSpec, tailcalls map[uint32]*tail) error {
-		// We look back from any tailcall, so we expect there to always be 3 instructions ahead of any tail call instr.
-		for i := 3; i < len(prog.Instructions); i++ {
+		// Load Blocks computed after compilation, or compute new ones.
+		bl, err := analyze.MakeBlocks(prog.Instructions)
+		if err != nil {
+			return fmt.Errorf("computing Blocks for Program %s: %w", prog.Name, err)
+		}
+
+		// Analyze reachability given the VariableSpecs provided at load time.
+		bl, err = analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
+		if err != nil {
+			return fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
+		}
+
+		const windowSize = 3
+
+		i := -1
+		for _, live := range bl.LiveInstructions(prog.Instructions) {
+			i++
+			if !live {
+				continue
+			}
+
+			if i <= windowSize {
+				// Not enough instructions to backtrack yet.
+				continue
+			}
+
 			// The `tail_call_static` C function is always used to call tail calls when
 			// the map index is known at compile time.
 			// Due to inline ASM this generates the following instructions:
@@ -232,18 +238,21 @@ func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) 
 	}
 
 	// Discover all tailcalls that are reachable from the entrypoints.
-	for _, prog := range entrypoints {
-		if err := visit(prog, tailcalls); err != nil {
+	for _, prog := range spec.Programs {
+		if !isEntrypoint(prog) {
+			continue
+		}
+		if err := visit(prog, tails); err != nil {
 			return err
 		}
 	}
 
 	// Keep visiting tailcalls until no more are discovered.
 reset:
-	for _, tailcall := range tailcalls {
+	for _, tailcall := range tails {
 		// If a tailcall is referenced by an entrypoint or another tailcall we should visit it
 		if tailcall.referenced && !tailcall.visited {
-			if err := visit(tailcall.spec, tailcalls); err != nil {
+			if err := visit(tailcall.spec, tails); err != nil {
 				return err
 			}
 			tailcall.visited = true
@@ -255,7 +264,7 @@ reset:
 	}
 
 	// Remove all tailcalls that are not referenced.
-	for _, tailcall := range tailcalls {
+	for _, tailcall := range tails {
 		if !tailcall.referenced {
 			logger.Debug(
 				"unreferenced tail call, deleting",
@@ -367,6 +376,14 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	if err := applyConstants(spec, opts.Constants); err != nil {
 		return nil, nil, fmt.Errorf("applying variable overrides: %w", err)
+	}
+
+	if err := removeUnusedTailcalls(logger, spec); err != nil {
+		return nil, nil, fmt.Errorf("removing unused tail calls: %w", err)
+	}
+
+	if err := resolveTailCalls(spec); err != nil {
+		return nil, nil, fmt.Errorf("resolving tail calls: %w", err)
 	}
 
 	keep, err := removeUnusedMaps(spec, opts.Keep)

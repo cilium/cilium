@@ -1,10 +1,12 @@
 #include <bpf/ctx/skb.h>
 #include "common.h"
 
+#include <lib/static_data.h>
+
 #include <bpf/tailcall.h>
 #include <lib/tailcall.h>
 
-volatile const int global_var = 0;
+DECLARE_CONFIG(bool, use_tail_b, "Use tailcall B or C")
 
 #define TAIL_A 0
 #define TAIL_B 1
@@ -36,7 +38,7 @@ static int b(void *ctx) {
 
 __declare_tail(TAIL_A)
 static int a(void *ctx) {
-        if (global_var == 0x01) {
+        if (CONFIG(use_tail_b)) {
                 tail_call_static(ctx, cilium_calls, TAIL_B);
         } else {
                 tail_call_static(ctx, cilium_calls, TAIL_C);
