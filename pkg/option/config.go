@@ -1978,8 +1978,7 @@ type DaemonConfig struct {
 
 	// PolicyCIDRMatchMode is the list of entities that can be selected by CIDR policy.
 	// Currently supported values:
-	// - world
-	// - world, remote-node
+	// - nodes
 	PolicyCIDRMatchMode []string
 
 	// MaxConnectedClusters sets the maximum number of clusters that can be
