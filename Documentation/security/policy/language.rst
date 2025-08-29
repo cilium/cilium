@@ -39,7 +39,8 @@ can talk to each other. Layer 3 policies can be specified using the following me
 
 * `DNS based`: Selects remote, non-cluster, peers using DNS names converted to
   IPs via DNS lookups. It shares all limitations of the `CIDR based` rules
-  above. DNS information is acquired by routing DNS traffic via a proxy.
+  above. DNS information is acquired by routing DNS traffic via `DNS Proxy`
+  with a separate policy rule.
   DNS TTLs are respected.
 
 .. _Endpoints based:
@@ -761,7 +762,7 @@ Below is the same SSL error while trying to connect to ``cilium.io`` from curl.
 Layer 7 Examples
 ================
 
-Layer 7 policy rules are embedded into `l4_policy` rules and can be specified
+Layer 7 policy rules are embedded into Layer 4 rules and can be specified
 for ingress and egress. ``L7Rules`` structure is a base type containing an
 enumeration of protocol specific fields.
 
@@ -959,7 +960,7 @@ DNS Policy and IP Discovery
 
 Policy may be applied to DNS traffic, allowing or disallowing specific DNS
 query names or patterns of names (other DNS fields, such as query type, are not
-considered). This policy is effected via a DNS proxy, which is also used to
+considered). This policy is effected via a `DNS Proxy`, which is also used to
 collect IPs used to populate L3 `DNS based`_ ``toFQDNs`` rules.
 
 .. note::  While Layer 7 DNS policy can be applied without any other Layer 3
@@ -1026,24 +1027,23 @@ respecting TTL.
 .. _DNS Proxy:
 
 DNS Proxy
-"""""""""
-  A DNS Proxy intercepts egress DNS traffic and records IPs seen in the
-  responses. This interception is, itself, a separate policy rule governing the
-  DNS requests, and must be specified separately. For details on how to enforce
-  policy on DNS requests and configuring the DNS proxy, see `Layer 7
-  Examples`_.
+~~~~~~~~~
+A DNS Proxy in the agent intercepts egress DNS traffic and records IPs seen
+in the responses. This interception is, itself, a separate policy rule governing
+DNS requests, and must be specified separately. For details on how to enforce
+policy on DNS requests and configuring the DNS proxy, see `Layer 7 Examples`_.
 
-  Only IPs in intercepted DNS responses to an application will be allowed in
-  the Cilium policy rules. For a given domain name, IPs from responses to all
-  pods managed by a Cilium instance are allowed by policy (respecting TTLs).
-  This ensures that allowed IPs are consistent with those returned to
-  applications. The DNS Proxy is the only method to allow IPs from responses
-  allowed by wildcard L7 DNS ``matchPattern`` rules for use in ``toFQDNs``
-  rules.
+Only IPs in intercepted DNS responses to an application will be allowed in
+the Cilium policy rules. For a given domain name, IPs from responses to all
+pods managed by a Cilium instance are allowed by policy (respecting TTLs).
+This ensures that allowed IPs are consistent with those returned to
+applications. The DNS Proxy is the only method to allow IPs from responses
+allowed by wildcard L7 DNS ``matchPattern`` rules for use in ``toFQDNs``
+rules.
 
-  The following example obtains DNS data by interception without blocking any
-  DNS requests. It allows L3 connections to ``cilium.io``, ``sub.cilium.io``
-  and any subdomains of ``sub.cilium.io``.
+The following example obtains DNS data by interception without blocking any
+DNS requests. It allows L3 connections to ``cilium.io``, ``sub.cilium.io``
+and any subdomains of ``sub.cilium.io``.
 
 .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.yaml
   :language: yaml
@@ -1184,8 +1184,36 @@ Host Policies
 
 Host policies take the form of a :ref:`CiliumClusterwideNetworkPolicy` with a
 :ref:`NodeSelector` instead of an :ref:`EndpointSelector`. Host policies can
-have layer 3 and layer 4 rules on both ingress and egress. They cannot have
-layer 7 rules.
+have layer 3 and layer 4 rules on both ingress and egress. They can also have
+layer 7 DNS rules, but no other kinds of layer 7 rules.
+
+.. attention::
+
+    Adding layer 7 DNS rules to a host policy enables :ref:`DNS based`
+    host policies at the cost of making all host DNS requests go through
+    the :ref:`DNS Proxy` provided in each Cilium agent.
+    This includes DNS requests for kube-apiserver if it is configured as a FQDN
+    (e.g. in managed Kubernetes clusters) by critical processes such as kubelet.
+    This has important implications for the proper functioning of the node,
+    because while Cilium agent is restarting, :ref:`DNS Proxy` is not available,
+    and all DNS requests redirected to it will time out.
+
+    - When upgrading Cilium agent image on a set of nodes, the new image must be
+      :ref:`pre-pulled <pre_flight>`, because kubelet will not be able to contact
+      the container registry after it stops the old Cilium agent pod.
+
+    - If Kubernetes feature gate `KubeletEnsureSecretPulledImages`_ is enabled
+      and kubelet is configured with `image credential providers`_ relying on
+      remote authentication and authorization services (common in managed Kubernetes),
+      image pull credentials verification policy must be configured in such a way
+      that the Cilium agent image is exempted from image credential verification.
+      Otherwise kubelet may be unable to verify image pull credentials for the new
+      Cilium agent pod, and it will fail to start (rendering the node unusable)
+      despite the new agent image having been pre-pulled.
+
+
+.. _KubeletEnsureSecretPulledImages: https://kubernetes.io/docs/concepts/containers/images/#ensureimagepullcredentialverification
+.. _image credential providers: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider
 
 Host policies apply to all the nodes selected by their :ref:`NodeSelector`. In
 each selected node, they apply only to the host namespace, including
