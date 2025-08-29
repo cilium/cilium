@@ -247,6 +247,7 @@ check_deps:
 	@$(CILIUM_CLI) --help > /dev/null 2>&1 || ( echo "ERROR: '$(CILIUM_CLI)' not found. Please install it." && exit 1)
 
 include Makefile.kind
+include Makefile.dev
 
 -include Makefile.docker
 

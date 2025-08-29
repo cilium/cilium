@@ -123,6 +123,10 @@ type Map struct {
 	group string
 }
 
+func (m *Map) Raw() *ebpf.Map {
+	return m.m
+}
+
 func (m *Map) Type() ebpf.MapType {
 	if m.m != nil {
 		return m.m.Type()
@@ -263,6 +267,36 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 			ValueSize:  uint32(valueSize),
 			MaxEntries: uint32(maxEntries),
 			Flags:      flags,
+		},
+		name:  path.Base(name),
+		key:   mapKey,
+		value: mapValue,
+		group: name,
+	}
+}
+
+// NewMapWithExtra creates a new Map instance - object representing a BPF map
+func NewMapWithExtra(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
+	maxEntries int, flags uint32, extra uint64) *Map {
+
+	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
+	defaultSlogLogger := logging.DefaultSlogLogger
+	keySize := reflect.TypeOf(mapKey).Elem().Size()
+	valueSize := reflect.TypeOf(mapValue).Elem().Size()
+
+	return &Map{
+		Logger: defaultSlogLogger.With(
+			logfields.BPFMapPath, name,
+			logfields.BPFMapName, name,
+		),
+		spec: &ebpf.MapSpec{
+			Type:       mapType,
+			Name:       path.Base(name),
+			KeySize:    uint32(keySize),
+			ValueSize:  uint32(valueSize),
+			MaxEntries: uint32(maxEntries),
+			Flags:      flags,
+			MapExtra:   extra,
 		},
 		name:  path.Base(name),
 		key:   mapKey,

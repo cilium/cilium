@@ -876,6 +876,7 @@ func mapSpecFromBTF(es *elfSection, vs *btf.VarSecinfo, def *btf.Struct, spec *b
 		keySize, valueSize uint32
 		mapType            MapType
 		flags, maxEntries  uint32
+		mapExtra           uint64
 		pinType            PinType
 		innerMapSpec       *MapSpec
 		contents           []MapKV
@@ -1035,7 +1036,14 @@ func mapSpecFromBTF(es *elfSection, vs *btf.VarSecinfo, def *btf.Struct, spec *b
 			}
 
 		case "map_extra":
-			return nil, fmt.Errorf("BTF map definition: field %s: %w", member.Name, ErrNotSupported)
+			// return nil, fmt.Errorf("BTF map definition: field %s: %w", member.Name, ErrNotSupported)
+			// Key needs to be nil and keySize needs to be 0 for key_size to be
+			// considered a valid member.
+			m, err := uintFromBTF(member.Type)
+			if err != nil {
+				return nil, fmt.Errorf("can't get BTF max entries: %w", err)
+			}
+			mapExtra = uint64(m)
 
 		default:
 			return nil, fmt.Errorf("unrecognized field %s in BTF map definition", member.Name)
@@ -1060,6 +1068,7 @@ func mapSpecFromBTF(es *elfSection, vs *btf.VarSecinfo, def *btf.Struct, spec *b
 		KeySize:    keySize,
 		ValueSize:  valueSize,
 		MaxEntries: maxEntries,
+		MapExtra:   mapExtra,
 		Flags:      flags,
 		Key:        key,
 		Value:      value,
