@@ -43,14 +43,6 @@ func LoadCollectionSpec(logger *slog.Logger, path string) (*ebpf.CollectionSpec,
 		return nil, fmt.Errorf("checking for unspecified programs: %w", err)
 	}
 
-	if err := removeUnreachableTailcalls(logger, spec); err != nil {
-		return nil, fmt.Errorf("removing unreachable tail calls: %w", err)
-	}
-
-	if err := resolveTailCalls(spec); err != nil {
-		return nil, fmt.Errorf("resolving tail calls: %w", err)
-	}
-
 	return spec, nil
 }
 
@@ -135,11 +127,9 @@ func resolveTailCalls(spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
-// removeUnreachableTailcalls removes tail calls that are not reachable from
-// entrypoint programs. This is done by traversing the call graph of the
-// entrypoint programs and marking all reachable tail calls. Any tail call that
-// is not marked is removed from the CollectionSpec.
-func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
+// removeUnusedTailcalls removes tail calls that are not reachable from
+// entrypoint programs.
+func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
 	type tail struct {
 		referenced bool
 		visited    bool
@@ -173,8 +163,38 @@ func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) 
 
 	// Discover all tailcalls that are reachable from the given program.
 	visit := func(prog *ebpf.ProgramSpec, tailcalls map[uint32]*tail) error {
-		// We look back from any tailcall, so we expect there to always be 3 instructions ahead of any tail call instr.
-		for i := 3; i < len(prog.Instructions); i++ {
+		// Load Blocks computed after compilation, or compute new ones.
+		bl, err := analyze.MakeBlocks(prog.Instructions)
+		if err != nil {
+			return fmt.Errorf("computing Blocks for Program %s: %w", prog.Name, err)
+		}
+
+		// Analyze reachability given the VariableSpecs provided at load time.
+		bl, err = analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
+		if err != nil {
+			return fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
+		}
+
+		var window []*asm.Instruction
+		const windowSize = 3
+
+		i := -1
+		for ins, live := range bl.LiveInstructions(prog.Instructions) {
+			i++
+			if !live {
+				continue
+			}
+
+			// create a sliding window of live instructions
+			window = append(window, ins)
+			if len(window) < windowSize {
+				continue
+			}
+			if len(window) > windowSize {
+				copy(window, window[1:])
+				window = window[:windowSize]
+			}
+
 			// The `tail_call_static` C function is always used to call tail calls when
 			// the map index is known at compile time.
 			// Due to inline ASM this generates the following instructions:
@@ -184,19 +204,19 @@ func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) 
 			//   call tail_call
 
 			// Find the tail call instruction.
-			inst := prog.Instructions[i]
+			inst := window[windowSize-1]
 			if !inst.IsBuiltinCall() || inst.Constant != int64(asm.FnTailCall) {
 				continue
 			}
 
 			// Check that the previous instruction is a mov of the tail call index.
-			movIdx := prog.Instructions[i-1]
+			movIdx := window[windowSize-2]
 			if movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
 				continue
 			}
 
 			// Check that the instruction before that is the load of the tail call map.
-			movR2 := prog.Instructions[i-2]
+			movR2 := window[windowSize-3]
 			if movR2.OpCode != asm.LoadImmOp(asm.DWord) || movR2.Src != asm.PseudoMapFD {
 				continue
 			}
@@ -367,6 +387,14 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	if err := applyConstants(spec, opts.Constants); err != nil {
 		return nil, nil, fmt.Errorf("applying variable overrides: %w", err)
+	}
+
+	if err := removeUnusedTailcalls(logger, spec); err != nil {
+		return nil, nil, fmt.Errorf("removing unused tail calls: %w", err)
+	}
+
+	if err := resolveTailCalls(spec); err != nil {
+		return nil, nil, fmt.Errorf("resolving tail calls: %w", err)
 	}
 
 	keep, err := removeUnusedMaps(spec, opts.Keep)
