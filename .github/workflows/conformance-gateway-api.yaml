@@ -140,6 +140,24 @@ jobs:
           image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
 
+      - name: Debug setup
+        timeout-minutes: 30
+        run: |
+          sudo apt -y update && sudo apt -y install systemd-coredump
+          go install github.com/go-delve/delve/cmd/dlv@latest
+
+          git clone https://github.com/containerd/containerd
+          cd containerd && git checkout cb1076646aa3740577fafbf3d914198b7fe8e3f7
+
+          GODEBUG=1 make
+
+          docker build -t debug-kindest-node:v1.34.0 -f- . << EOF
+          FROM quay.io/cilium/kindest-node:v1.34.0@sha256:e58d0c3aa61582e797222ae6499ef6228d480eea910f9ffa4894f3d6e68161a6
+          RUN apt -y update && apt -y install systemd-coredump
+          COPY bin/containerd /usr/local/bin/containerd
+          RUN chmod +x /usr/local/bin/containerd
+          EOF
+
       - name: Set image tag
         id: vars
         run: |
@@ -180,7 +198,8 @@ jobs:
         with:
           cluster_name: kind
           version: ${{ env.KIND_VERSION }}
-          node_image: ${{ env.KIND_K8S_IMAGE }}
+          # node_image: ${{ env.KIND_K8S_IMAGE }}
+          node_image: debug-kindest-node:v1.34.0
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ${{ env.kind_config }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
@@ -341,12 +360,20 @@ jobs:
           kind export logs ${log_export_dir} --name=kind
           zip -r "${log_export_dir}.zip" ${log_export_dir}
 
+          coredumpctl list
+
       - name: Upload Kind Cluster logs
         if: ${{ always() && job.status == 'failure' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: "kind-cluster-logs"
           path: kind-logs-${{ join(matrix.*, '-') }}.zip
+
+      - name: Setup upterm session
+        uses: owenthereal/action-upterm@v1
+        if: ${{ always() && job.status == 'failure' }}
+        with:
+          wait-timeout-minutes: 10
 
   merge-upload-and-status:
     name: Merge Upload and Status
