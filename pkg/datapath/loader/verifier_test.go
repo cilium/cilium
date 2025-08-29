@@ -172,7 +172,7 @@ func compileAndLoad[T any](perm buildPermutation[T], collection, source, output 
 
 		t.Logf("Compiled %s program: %s", collection, objFileName)
 
-		spec, err := bpf.LoadCollectionSpec(log, objFileName)
+		spec, err := ebpf.LoadCollectionSpec(objFileName)
 		if err != nil {
 			t.Fatalf("Failed to load BPF collection spec: %v", err)
 		}

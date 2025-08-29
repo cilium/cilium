@@ -300,8 +300,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 }
 
 func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
-	logger := hivetest.Logger(t)
-	spec, err := bpf.LoadCollectionSpec(logger, elfPath)
+	spec, err := ebpf.LoadCollectionSpec(elfPath)
 	if err != nil {
 		t.Fatalf("load spec %s: %v", elfPath, err)
 	}

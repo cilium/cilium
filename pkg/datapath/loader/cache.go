@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/ebpf"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
@@ -226,7 +225,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 
 	obj.path = path
 
-	obj.spec, err = bpf.LoadCollectionSpec(o.logger, path)
+	obj.spec, err = ebpf.LoadCollectionSpec(path)
 	if err != nil {
 		return nil, "", fmt.Errorf("load eBPF ELF %s: %w", path, err)
 	}
