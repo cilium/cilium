@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/stretchr/testify/assert"
@@ -413,7 +414,8 @@ func TestL34Decode(t *testing.T) {
 	// ff02::1:ff00:b3e5   f00d::a10:0:0:9195   L3/4
 	d2 := []byte{
 		4, 5, 168, 11, 95, 22, 242, 184, 86, 0, 0, 0, 86, 0, 0, 0, 104, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 51, 255, 0, 179, 229, 18, 145,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		51, 51, 255, 0, 179, 229, 18, 145,
 		6, 226, 34, 26, 134, 221, 96, 0, 0, 0, 0, 32, 58, 255, 255, 2, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 1, 255, 0, 179, 229, 240, 13, 0, 0, 0, 0, 0, 0, 10,
 		16, 0, 0, 0, 0, 145, 149, 135, 0, 80, 117, 0, 0, 0, 0, 240, 13, 0, 0, 0,
@@ -498,16 +500,27 @@ func BenchmarkL34Decode(b *testing.B) {
 }
 
 func TestDecodeTraceNotify(t *testing.T) {
-	for _, c := range []struct {
+	testCases := []struct {
 		Name       string
 		IsL3Device bool
-	}{{"L3Device", true}, {"L2Device", false}} {
+	}{
+		{
+			Name:       "L3Device",
+			IsL3Device: true,
+		},
+		{
+			Name:       "L2Device",
+			IsL3Device: false,
+		},
+	}
+
+	for _, c := range testCases {
 		t.Run(c.Name, func(t *testing.T) {
 			tn := monitor.TraceNotify{
 				Type:     byte(monitorAPI.MessageTypeTrace),
 				SrcLabel: 123,
 				DstLabel: 456,
-				Version:  monitor.TraceNotifyVersion1,
+				Version:  monitor.TraceNotifyVersion2,
 			}
 			lay := []gopacket.SerializableLayer{
 				&layers.Ethernet{
@@ -570,78 +583,151 @@ func TestDecodeTraceNotify(t *testing.T) {
 }
 
 func TestDecodeDropNotify(t *testing.T) {
-	for _, c := range []struct {
-		Name       string
-		IsL3Device bool
-	}{{"L3Device", true}, {"L2Device", false}} {
-		t.Run(c.Name, func(t *testing.T) {
-			dn := monitor.DropNotify{
-				Type:     byte(monitorAPI.MessageTypeDrop),
-				File:     1, // bpf_host.c
-				Line:     42,
-				SrcLabel: 123,
-				DstLabel: 456,
-				Version:  monitor.DropNotifyVersion2,
-			}
-			lay := []gopacket.SerializableLayer{
-				&layers.Ethernet{
-					SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
-					DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
-					EthernetType: layers.EthernetTypeIPv4,
-				},
-				&layers.IPv4{
-					Version:  4,
-					IHL:      5,
-					Length:   49,
-					Id:       0xCECB,
-					TTL:      64,
-					Protocol: layers.IPProtocolUDP,
-					SrcIP:    net.IPv4(1, 2, 3, 4),
-					DstIP:    net.IPv4(1, 2, 3, 4),
-				},
-				&layers.UDP{
-					SrcPort: 23939,
-					DstPort: 32412,
-				},
+	packetBuffer := gopacket.NewSerializeBuffer()
+	if err := gopacket.SerializeLayers(packetBuffer,
+		gopacket.SerializeOptions{},
+		&layers.Ethernet{
+			SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+			DstMAC:       net.HardwareAddr{4, 5, 6, 7, 8, 9},
+			EthernetType: layers.EthernetTypeIPv4,
+		},
+		&layers.IPv4{
+			IHL:   5,
+			SrcIP: net.IPv4(1, 2, 3, 4),
+			DstIP: net.IPv4(1, 2, 3, 4),
+		},
+	); err != nil {
+		t.Fatalf("SerializeLayers(...) buffer: %v", err)
+	}
+
+	SrcLabel := identity.NumericIdentity(123)
+	DstLabel := identity.NumericIdentity(456)
+
+	dropNotify := func(version uint16, iptraceid ...uint64) monitor.DropNotify {
+		var id uint64
+		if len(iptraceid) > 0 {
+			id = iptraceid[0]
+		}
+
+		return monitor.DropNotify{
+			Type:      byte(monitorAPI.MessageTypeDrop),
+			File:      1, // bpf_host.c
+			Version:   version,
+			SrcLabel:  SrcLabel,
+			DstLabel:  DstLabel,
+			IPTraceID: id,
+		}
+	}
+	identityGetter := &testutils.FakeIdentityGetter{
+		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
+			m := map[identity.NumericIdentity][]string{
+				SrcLabel: {"k8s:src=label"},
+				DstLabel: {"k8s:dst=label"},
 			}
 
-			if c.IsL3Device {
-				dn.Flags = monitor.TraceNotifyFlagIsL3Device
-				lay = lay[1:]
+			v, ok := m[identity.NumericIdentity(securityIdentity)]
+			if !ok {
+				return nil, fmt.Errorf("identity not found for %d", securityIdentity)
 			}
+			return &identity.Identity{Labels: labels.NewLabelsFromModel(v)}, nil
+		},
+	}
 
+	testCases := []struct {
+		name      string
+		dn        any
+		srcLabels []string
+		dstLabels []string
+		want      *flowpb.Flow
+	}{
+		{
+			name:      "v3",
+			dn:        dropNotify(3),
+			srcLabels: []string{"k8s:src=label"},
+			dstLabels: []string{"k8s:dst=label"},
+			want: &flowpb.Flow{
+				Verdict: flowpb.Verdict_DROPPED,
+				Ethernet: &flowpb.Ethernet{
+					Source:      "01:02:03:04:05:06",
+					Destination: "04:05:06:07:08:09",
+				},
+				IP: &flowpb.IP{
+					Source:      "1.2.3.4",
+					Destination: "1.2.3.4",
+					IpVersion:   flowpb.IPVersion_IPv4,
+				},
+				Source: &flowpb.Endpoint{
+					Identity: 123,
+					Labels:   []string{"k8s:src=label"},
+				},
+				Destination: &flowpb.Endpoint{
+					Identity: 456,
+					Labels:   []string{"k8s:dst=label"},
+				},
+				Type: flowpb.FlowType_L3_L4,
+				EventType: &flowpb.CiliumEventType{
+					Type: 1,
+				},
+				Summary: "IPv4",
+				File:    &flowpb.FileInfo{Name: "bpf_host.c"},
+			},
+		},
+		{
+			name:      "v2 with IP Trace ID",
+			dn:        dropNotify(3, 0x12345678),
+			srcLabels: []string{"k8s:src=label"},
+			dstLabels: []string{"k8s:dst=label"},
+			want: &flowpb.Flow{
+				Verdict: flowpb.Verdict_DROPPED,
+				Ethernet: &flowpb.Ethernet{
+					Source:      "01:02:03:04:05:06",
+					Destination: "04:05:06:07:08:09",
+				},
+				IP: &flowpb.IP{
+					Source:      "1.2.3.4",
+					Destination: "1.2.3.4",
+					IpVersion:   flowpb.IPVersion_IPv4,
+				},
+				Source: &flowpb.Endpoint{
+					Identity: 123,
+					Labels:   []string{"k8s:src=label"},
+				},
+				Destination: &flowpb.Endpoint{
+					Identity: 456,
+					Labels:   []string{"k8s:dst=label"},
+				},
+				Type:      flowpb.FlowType_L3_L4,
+				EventType: &flowpb.CiliumEventType{Type: 1},
+				Summary:   "IPv4",
+				File:      &flowpb.FileInfo{Name: "bpf_host.c"},
+				IpTraceId: &flowpb.IPTraceID{
+					TraceId: 0x12345678,
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			n := tc.dn
 			buf := &bytes.Buffer{}
-			err := binary.Write(buf, byteorder.Native, &dn)
-			require.NoError(t, err)
-			buffer := gopacket.NewSerializeBuffer()
-			err = gopacket.SerializeLayers(buffer, gopacket.SerializeOptions{}, lay...)
-			require.NoError(t, err)
-			buf.Write(buffer.Bytes())
-			require.NoError(t, err)
-			identityGetter := &testutils.FakeIdentityGetter{
-				OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
-					if securityIdentity == uint32(dn.SrcLabel) {
-						return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:src=label"})}, nil
-					} else if securityIdentity == uint32(dn.DstLabel) {
-						return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
-					}
-					return nil, fmt.Errorf("identity not found for %d", securityIdentity)
-				},
+			if err := binary.Write(buf, byteorder.Native, n); err != nil {
+				t.Fatalf("Write(...) %T to buffer: %v", n, err)
 			}
 
+			buf.Write(packetBuffer.Bytes())
 			parser, err := New(hivetest.Logger(t), &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("New parser: %v", err)
+			}
 
 			f := &flowpb.Flow{}
-			err = parser.Decode(buf.Bytes(), f)
-			require.NoError(t, err)
-			assert.Equal(t, []string{"k8s:src=label"}, f.GetSource().GetLabels())
-			assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
-			assert.NotNil(t, f.GetFile())
-			assert.Equal(t, "bpf_host.c", f.GetFile().GetName())
-			assert.Equal(t, uint32(42), f.GetFile().GetLine())
-			assert.Equal(t, uint32(23939), f.GetL4().GetUDP().GetSourcePort())
-			assert.Equal(t, uint32(32412), f.GetL4().GetUDP().GetDestinationPort())
+			if err := parser.Decode(buf.Bytes(), f); err != nil {
+				t.Fatalf("parser.Decode(bytes, f): %v", err)
+			}
+
+			if diff := cmp.Diff(tc.want, f, cmpopts.IgnoreFields(flowpb.Flow{}, "File"), protocmp.Transform()); diff != "" {
+				t.Errorf("Unexpected diff (-want +got):\n%s", diff)
+			}
 		})
 	}
 }
@@ -2186,6 +2272,46 @@ func TestDecode_TraceNotify(t *testing.T) {
 				TraceReason:           flowpb.TraceReason_SRV6_ENCAP,
 				TrafficDirection:      flowpb.TrafficDirection_EGRESS,
 				TraceObservationPoint: flowpb.TraceObservationPoint_TO_STACK,
+			},
+		},
+		{
+			name: "v2_from_lxc",
+			event: monitor.TraceNotify{
+				Type:     byte(monitorAPI.MessageTypeTrace),
+				Source:   localEP,
+				ObsPoint: monitorAPI.TraceFromLxc,
+				Reason:   monitor.TraceReasonUnknown,
+				Version:  monitor.TraceNotifyVersion2,
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					SubType: 5,
+				},
+				Source:                &flowpb.Endpoint{ID: 1234},
+				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
+			},
+		},
+		{
+			name: "v2_from_lxc_with_ip_trace_id",
+			event: monitor.TraceNotify{
+				Type:      byte(monitorAPI.MessageTypeTrace),
+				Source:    localEP,
+				ObsPoint:  monitorAPI.TraceFromLxc,
+				Reason:    monitor.TraceReasonUnknown,
+				Version:   monitor.TraceNotifyVersion2,
+				IPTraceID: 1234,
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					SubType: 5,
+				},
+				Source:                &flowpb.Endpoint{ID: 1234},
+				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
+				IpTraceId: &flowpb.IPTraceID{
+					TraceId: 1234,
+				},
 			},
 		},
 	}
