@@ -647,7 +647,7 @@ func TestUpdateCIDRPolicyModeToNode(t *testing.T) {
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultCIDRPolicies {
-				counter, err := metrics.NPCIDRPoliciesToNodes.GetMetricWithLabelValues(mode)
+				counter, err := metrics.NPCIDRPoliciesMode.GetMetricWithLabelValues(mode)
 				assert.NoError(t, err)
 
 				counterValue := counter.Get()
