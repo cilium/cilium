@@ -849,13 +849,20 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-#ifndef ENABLE_IPV6_FRAGMENTS
 	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+#ifndef ENABLE_IPV6_FRAGMENTS
 	if (fraginfo < 0)
 		return (int)fraginfo;
-	if (ipfrag_is_fragment(fraginfo))
+#endif
+	if (fraginfo == 0 && ipfrag_is_fragment(fraginfo)) {
+#ifndef ENABLE_IPV6_FRAGMENTS
 		return DROP_FRAG_NOSUPPORT;
 #endif
+		send_trace_notify(ctx, TRACE_FROM_LXC, SECLABEL_IPV6,
+			  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+			  ctx->ingress_ifindex, TRACE_REASON_FRAGMENTS,
+			  0, bpf_htons(ETH_P_IP));
+	}
 
 	/* Handle special ICMPv6 NDP messages, and all remaining packets
 	 * are subjected to forwarding into the container.
@@ -1411,11 +1418,17 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
  * AND a IPv4 fragmented packet is received,
  * then drop the packet.
  */
-#ifndef ENABLE_IPV4_FRAGMENTS
 	fraginfo = ipfrag_encode_ipv4(ip4);
-	if (ipfrag_is_fragment(fraginfo))
+	if (ipfrag_is_fragment(fraginfo)) {
+#ifndef ENABLE_IPV4_FRAGMENTS
 		return DROP_FRAG_NOSUPPORT;
 #endif
+
+		send_trace_notify(ctx, TRACE_FROM_LXC, SECLABEL_IPV4,
+			  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+			  ctx->ingress_ifindex, TRACE_REASON_FRAGMENTS,
+			  0, bpf_htons(ETH_P_IP));
+	} 
 
 #ifdef ENABLE_L7_LB
 	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
