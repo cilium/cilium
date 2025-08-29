@@ -178,6 +178,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
+          cluster_name: kind
           version: ${{ env.KIND_VERSION }}
           node_image: ${{ env.KIND_K8S_IMAGE }}
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
@@ -329,6 +330,23 @@ jobs:
         with:
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
+
+      - name: Post-test kind cluster logs export
+        if: ${{ always() && job.status == 'failure' }}
+        shell: bash {0}
+        run: |
+          echo "=== Exporting kind cluster logs ==="
+          log_export_dir="kind-logs-${{ join(matrix.*, '-') }}"
+
+          kind export logs ${log_export_dir} --name=kind
+          zip -r "${log_export_dir}.zip" ${log_export_dir}
+
+      - name: Upload Kind Cluster logs
+        if: ${{ always() && job.status == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: "kind-cluster-logs"
+          path: kind-logs-${{ join(matrix.*, '-') }}.zip
 
   merge-upload-and-status:
     name: Merge Upload and Status
