@@ -291,7 +291,8 @@ struct remote_endpoint_info {
 	__u8		flag_skip_tunnel:1,
 			flag_has_tunnel_ep:1,
 			flag_ipv6_tunnel_ep:1,
-			pad2:5;
+			flag_remote_cluster:1,
+			pad2:4;
 };
 
 /*
