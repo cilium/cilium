@@ -18,6 +18,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/pkg/counter"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/build"
 	"github.com/cilium/cilium/pkg/hubble/container"
@@ -289,12 +290,12 @@ func (s *LocalObserverServer) GetFlows(
 	start := time.Now()
 	ring := s.GetRingBuffer()
 
-	i := uint64(0)
+	eventCount := uint64(0)
 	if log.Enabled(context.Background(), slog.LevelDebug) {
 		defer func() {
 			log.Debug(
 				"GetFlows finished",
-				logfields.NumberOfFlows, i,
+				logfields.NumberOfFlows, eventCount,
 				logfields.BufferSize, ring.Cap(),
 				logfields.Whitelist, logFilters(req.Whitelist),
 				logfields.Blacklist, logFilters(req.Blacklist),
@@ -328,8 +329,35 @@ func (s *LocalObserverServer) GetFlows(
 		mask.Alloc(flow.ProtoReflect())
 	}
 
+	// Setup a counter to rate-limit sending lost events to at most
+	// once every s.opts.LostEventSendInterval.
+	lostEventCounter := counter.NewIntervalRangeCounter(s.opts.LostEventSendInterval)
+
 nextEvent:
-	for ; ; i++ {
+	for {
+		now := time.Now()
+
+		if lostEventCounter.IsElapsed(now) {
+			count := lostEventCounter.Clear()
+			if count.Count > 0 {
+				resp := &observerpb.GetFlowsResponse{
+					Time:     timestamppb.New(now),
+					NodeName: nodeTypes.GetAbsoluteNodeName(),
+					ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
+						LostEvents: &flowpb.LostEvent{
+							Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+							NumEventsLost: count.Count,
+							First:         timestamppb.New(count.First),
+							Last:          timestamppb.New(count.Last),
+						},
+					},
+				}
+				if err = server.Send(resp); err != nil {
+					return err
+				}
+			}
+		}
+
 		e, err := eventsReader.Next(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -342,6 +370,7 @@ nextEvent:
 
 		switch ev := e.Event.(type) {
 		case *flowpb.Flow:
+			eventCount++
 			eventsReader.eventCount++
 			for _, f := range s.opts.OnFlowDelivery {
 				stop, err := f.OnFlowDelivery(ctx, ev)
@@ -370,12 +399,21 @@ nextEvent:
 			// when a query asks for 20 events, then lost events should not be
 			// accounted for as they are not events per se but an indication
 			// that some event was lost).
-			resp = &observerpb.GetFlowsResponse{
-				Time:     e.Timestamp,
-				NodeName: nodeTypes.GetAbsoluteNodeName(),
-				ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
-					LostEvents: ev,
-				},
+
+			// We only want to rate-limit lost events that originate from the
+			// ring buffer. Other lost events should be rate-limited closer to
+			// the emitting source, if needed.
+			switch ev.Source {
+			case flowpb.LostEventSource_HUBBLE_RING_BUFFER:
+				lostEventCounter.Increment(now)
+			default:
+				resp = &observerpb.GetFlowsResponse{
+					Time:     e.Timestamp,
+					NodeName: nodeTypes.GetAbsoluteNodeName(),
+					ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
+						LostEvents: ev,
+					},
+				}
 			}
 		}
 
@@ -408,12 +446,12 @@ func (s *LocalObserverServer) GetAgentEvents(
 	log := s.GetLogger()
 	ring := s.GetRingBuffer()
 
-	i := uint64(0)
+	eventCount := uint64(0)
 	if log.Enabled(context.Background(), slog.LevelDebug) {
 		defer func() {
 			log.Debug(
 				"GetAgentEvents finished",
-				logfields.NumberOfAgentEvents, i,
+				logfields.NumberOfAgentEvents, eventCount,
 				logfields.BufferSize, ring.Cap(),
 				logfields.Took, time.Since(start),
 			)
@@ -433,7 +471,7 @@ func (s *LocalObserverServer) GetAgentEvents(
 		return err
 	}
 
-	for ; ; i++ {
+	for {
 		e, err := eventsReader.Next(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -444,6 +482,7 @@ func (s *LocalObserverServer) GetAgentEvents(
 
 		switch ev := e.Event.(type) {
 		case *flowpb.AgentEvent:
+			eventCount++
 			eventsReader.eventCount++
 			resp := &observerpb.GetAgentEventsResponse{
 				Time:       e.Timestamp,
@@ -476,12 +515,12 @@ func (s *LocalObserverServer) GetDebugEvents(
 	log := s.GetLogger()
 	ring := s.GetRingBuffer()
 
-	i := uint64(0)
+	eventCount := uint64(0)
 	if log.Enabled(context.Background(), slog.LevelDebug) {
 		defer func() {
 			log.Debug(
 				"GetDebugEvents finished",
-				logfields.NumberOfDebugEvents, i,
+				logfields.NumberOfDebugEvents, eventCount,
 				logfields.BufferSize, ring.Cap(),
 				logfields.Took, time.Since(start),
 			)
@@ -501,7 +540,7 @@ func (s *LocalObserverServer) GetDebugEvents(
 		return err
 	}
 
-	for ; ; i++ {
+	for {
 		e, err := eventsReader.Next(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -512,6 +551,7 @@ func (s *LocalObserverServer) GetDebugEvents(
 
 		switch ev := e.Event.(type) {
 		case *flowpb.DebugEvent:
+			eventCount++
 			eventsReader.eventCount++
 			resp := &observerpb.GetDebugEventsResponse{
 				Time:       e.Timestamp,
@@ -550,15 +590,23 @@ var (
 	_ genericRequest = (*observerpb.GetDebugEventsRequest)(nil)
 )
 
-// eventsReader reads flows using a RingReader. It applies the GetFlows request
+// eventsReader reads events using a RingReader. It applies the request
 // criteria (blacklist, whitelist, follow, ...) before returning events.
 type eventsReader struct {
-	ringReader           *container.RingReader
+	ringReader *container.RingReader
+
+	// request criteria
 	whitelist, blacklist filters.FilterFuncs
 	maxEvents            uint64
 	follow, timeRange    bool
-	eventCount           uint64
 	since, until         *time.Time
+
+	// eventCount is updated by the reader user to keep track of how many
+	// successful reads happened. This is because the reader does not know
+	// the underlying Event type the user is looking for. When maxEvents is
+	// non-zero, we use this counter to infer when the limit is reached from
+	// Next() and return io.EOF.
+	eventCount uint64
 }
 
 // newEventsReader creates a new eventsReader that uses the given RingReader to
