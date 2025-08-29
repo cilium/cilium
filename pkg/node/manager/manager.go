@@ -711,6 +711,11 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			key = n.EncryptionKey
 		}
 
+		endpointFlags := ipcacheTypes.EndpointFlags{}
+		if n.Cluster != m.conf.ClusterName {
+			endpointFlags.SetRemoteCluster(true)
+		}
+
 		// We expect the node manager to have a source of either Kubernetes,
 		// CustomResource, or KVStore. Prioritize the KVStore source over the
 		// rest as it is the strongest source, i.e. only trigger datapath
@@ -742,7 +747,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.ipcache.UpsertMetadata(prefixCluster, n.Source, resource,
 			lbls,
 			ipcacheTypes.TunnelPeer{Addr: tunnelIP},
-			ipcacheTypes.EncryptKey(key))
+			ipcacheTypes.EncryptKey(key),
+			endpointFlags)
 		if nodeIdentityOverride {
 			m.ipcache.OverrideIdentity(prefixCluster, nodeLabels, n.Source, resource)
 		}
@@ -939,7 +945,7 @@ func (m *manager) podCIDREntries(source source.Source, resource ipcacheTypes.Res
 // in podCIDRsAdded.
 // Removes ipset entry associated with oldNode if it is not present in ipsetEntries.
 //
-// The removal logic in this function should mirror the upsert logic in NodeUpdated.
+// The removal logic in this function should mirror the upsert logic in nodeAddressHasTunnelIP.
 func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
 	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix,
 ) {
@@ -991,10 +997,16 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			oldKey = oldNode.EncryptionKey
 		}
 
+		oldEndpointFlags := ipcacheTypes.EndpointFlags{}
+		if oldNode.Cluster != m.conf.ClusterName {
+			oldEndpointFlags.SetRemoteCluster(true)
+		}
+
 		m.ipcache.RemoveMetadata(oldPrefixCluster, resource,
 			oldNodeLabels,
 			ipcacheTypes.TunnelPeer{Addr: oldTunnelIP},
-			ipcacheTypes.EncryptKey(oldKey))
+			ipcacheTypes.EncryptKey(oldKey),
+			oldEndpointFlags)
 		if oldNodeIdentityOverride {
 			m.ipcache.RemoveIdentityOverride(oldPrefixCluster, oldNodeLabels, resource)
 		}
