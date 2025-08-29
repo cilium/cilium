@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Authors of Hubble
 
+.DEFAULT_GOAL := all
+
 CURR_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
 
 include $(CURR_DIR)/../Makefile.defs
@@ -11,7 +13,7 @@ TARGET := hubble
 
 all: $(TARGET)
 
-.PHONY: all $(TARGET) release local-release clean
+.PHONY: all $(TARGET) release local-release clean install
 
 
 SUBDIRS_HUBBLE_CLI := .
@@ -20,15 +22,12 @@ TARGET_DIR=.
 GIT_BRANCH = $(shell command -v git >/dev/null 2>&1 && git rev-parse --abbrev-ref HEAD 2> /dev/null)
 GIT_HASH = $(shell command -v git >/dev/null 2>&1 && git rev-parse --short HEAD 2> /dev/null)
 
-GOOS ?=
-GOARCH ?=
-
 GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/hubble/pkg.GitBranch=$(GIT_BRANCH)" \
 					-X "github.com/cilium/cilium/hubble/pkg.GitHash=$(GIT_HASH)" \
 					-X "github.com/cilium/cilium/hubble/pkg.Version=v$(VERSION)"
 
 $(TARGET):
-	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO_BUILD) -o $(TARGET_DIR)/$(@)$(EXT) $(SUBDIRS_HUBBLE_CLI)
+	$(GO_BUILD) -o $(TARGET_DIR)/$(@)$(EXT) $(SUBDIRS_HUBBLE_CLI)
 
 release:
 	cd $(CURR_DIR)/../ && \
@@ -62,5 +61,20 @@ local-release: clean
 		rm -r release/$$OS; \
 	done;
 
+install: install-binary install-bash-completion-only
+
+install-binary:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+
+install-bash-completion: $(TARGET) install-bash-completion-only
+
+install-bash-completion-only:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(CONFDIR)/bash_completion.d
+	./$(TARGET) completion bash > $(TARGET)_bash_completion
+	$(QUIET)$(INSTALL) -m 0644 -T $(TARGET)_bash_completion $(DESTDIR)$(CONFDIR)/bash_completion.d/$(TARGET)
+
 clean:
-	rm -f $(TARGET)
+	@$(ECHO_CLEAN)
+	-$(QUIET)rm -f $(TARGET)
+	$(QUIET)$(GO_CLEAN)
