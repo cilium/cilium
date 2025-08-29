@@ -1068,8 +1068,8 @@ sigs.k8s.io/kustomize/api v0.19.0 h1:F+2HB2mU1MSiR9Hp1NEgoU2q9ItNOaBJl0I4Dlus5SQ
 sigs.k8s.io/kustomize/api v0.19.0/go.mod h1:/BbwnivGVcBh1r+8m3tH1VNxJmHSk1PzP5fkP6lbL1o=
 sigs.k8s.io/kustomize/kyaml v0.19.0 h1:RFge5qsO1uHhwJsu3ipV7RNolC7Uozc0jUBC/61XSlA=
 sigs.k8s.io/kustomize/kyaml v0.19.0/go.mod h1:FeKD5jEOH+FbZPpqUghBP8mrLjJ3+zD3/rf9NNu1cwY=
-sigs.k8s.io/mcs-api v0.1.1-0.20250610011024-38bab5ba476b h1:Yw4HHwvbgioWqvyUauZM4pvf2QrMNM38ILbKV46Niio=
-sigs.k8s.io/mcs-api v0.1.1-0.20250610011024-38bab5ba476b/go.mod h1:zZ5CK8uS6HaLkxY4HqsmcBHfzHuNMrY2uJy8T7jffK4=
+sigs.k8s.io/mcs-api v0.2.1-0.20250826145214-0d87c31a767d h1:agQ9c0aqUsfj6FbPmYRsVOq1QacrIXoL/tinGY684Aw=
+sigs.k8s.io/mcs-api v0.2.1-0.20250826145214-0d87c31a767d/go.mod h1:zZ5CK8uS6HaLkxY4HqsmcBHfzHuNMrY2uJy8T7jffK4=
 sigs.k8s.io/mcs-api/controllers v0.0.0-20250731081715-a807ec696257 h1:xxfmazcj83RrfIPC5nAjBpe/0/hI/m+/GaGV+ekJHGQ=
 sigs.k8s.io/mcs-api/controllers v0.0.0-20250731081715-a807ec696257/go.mod h1:58tAw+r41eczKabKA5KwwLabGlO6YLbtkYtKif9sDr0=
 sigs.k8s.io/randfill v0.0.0-20250304075658-069ef1bbf016/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
