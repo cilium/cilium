@@ -6,3 +6,6 @@ operator:
     override: "localhost:5000/cilium/operator-generic:local"
     pullPolicy: Never
     suffix: ""
+vtep:
+  enabled: true
+  mask: "255.255.255.0"

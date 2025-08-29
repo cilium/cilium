@@ -226,6 +226,7 @@ cilium-agent hive [flags]
       --underlay-protocol string                                  IP family for the underlay ("ipv4" or "ipv6") (default "ipv4")
       --use-full-tls-context                                      If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.
       --wireguard-persistent-keepalive duration                   The Wireguard keepalive interval as a Go duration string
+      --vtep-policy-reconciliation-trigger-interval duration      Time between triggers of vtep policy state reconciliations (default 1s)
       --write-cni-conf-when-ready string                          Write the CNI configuration to the specified path when agent is ready
 ```
 
