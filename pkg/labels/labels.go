@@ -795,6 +795,15 @@ func parseSource(str string, delim byte) (src, next string) {
 		}
 		return "", str
 	}
+
+	// if source is not "any", or "k8s" or "cidr" means user might have configured
+	// their resources with labels that has either "." or ":" delimiters
+	// e.g: app.kubernetes.io/name: bar
+	// return "", "str"
+	if str[:i] != LabelSourceAny && str[:i] != LabelSourceK8s && str[:i] != LabelSourceCIDR {
+		return "", str
+	}
+
 	return str[:i], str[i+1:]
 }
 
