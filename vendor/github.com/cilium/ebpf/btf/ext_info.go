@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/internal"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // ExtInfos contains ELF section metadata.
@@ -406,6 +407,7 @@ func LoadFuncInfos(reader io.Reader, bo binary.ByteOrder, recordNum uint32, spec
 	if err != nil {
 		return FuncOffsets{}, fmt.Errorf("parsing BTF func info: %w", err)
 	}
+	spew.Dump(recordNum, fis)
 
 	return newFuncOffsets(fis, spec)
 }

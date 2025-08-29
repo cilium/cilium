@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/ebpf/internal/platform"
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // The *Info structs expose metadata about a program or map. Most
@@ -477,6 +478,10 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 		}
 	}
 
+	spew.Dump(info)
+	spew.Dump(info2)
+	spew.Dump(pi)
+
 	return &pi, nil
 }
 
@@ -635,6 +640,10 @@ func (pi *ProgramInfo) Instructions() (asm.Instructions, error) {
 			spec, err := btfh.Spec(nil)
 			if err != nil {
 				return nil, fmt.Errorf("unable to get BTF spec: %w", err)
+			}
+
+			for _, typ := range spec.All() {
+				spew.Dump(typ)
 			}
 
 			lineInfos, err := btf.LoadLineInfos(
