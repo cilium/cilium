@@ -389,6 +389,7 @@ As well, any remaining Operator k8s workqueue metrics that use the label ``queue
 * The metric ``workqueue_work_duration_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_work_duration_seconds``, the label ``queue_name`` has been renamed to ``name``.
 
 * ``k8s_client_rate_limiter_duration_seconds`` no longer has labels ``path`` and ``method``.
+* ``hubble_icmp_total`` has been fixed to correctly use ``family`` label value ``IPv6`` on ``ICMPv6`` flows instead of ``IPv4``.
 
 The following metrics:
 * ``cilium_agent_clustermesh_global_services``
