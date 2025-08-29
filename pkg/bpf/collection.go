@@ -24,27 +24,6 @@ const (
 	callsMap = "cilium_calls"
 )
 
-// LoadCollectionSpec loads the eBPF ELF at the given path and parses it into a
-// CollectionSpec. This spec is only a blueprint of the contents of the ELF and
-// does not represent any live resources that have been loaded into the kernel.
-//
-// This is a wrapper around ebpf.LoadCollectionSpec that populates the object's
-// calls map with programs marked with the __declare_tail() annotation. It
-// performs static reachability analysis of tail call programs. Any unreachable
-// tail call program is removed from the spec.
-func LoadCollectionSpec(logger *slog.Logger, path string) (*ebpf.CollectionSpec, error) {
-	spec, err := ebpf.LoadCollectionSpec(path)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := checkUnspecifiedPrograms(spec); err != nil {
-		return nil, fmt.Errorf("checking for unspecified programs: %w", err)
-	}
-
-	return spec, nil
-}
-
 // checkUnspecifiedPrograms returns an error if any of the programs in the spec
 // are of the UnspecifiedProgram type.
 func checkUnspecifiedPrograms(spec *ebpf.CollectionSpec) error {
@@ -204,6 +183,10 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	if opts == nil {
 		opts = &CollectionOptions{}
+	}
+
+	if err := checkUnspecifiedPrograms(spec); err != nil {
+		return nil, nil, fmt.Errorf("checking for unspecified programs: %w", err)
 	}
 
 	opts.populateMapReplacements()

@@ -700,7 +700,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(logger, overlayObj)
+	spec, err := ebpf.LoadCollectionSpec(overlayObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
@@ -747,7 +747,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(logger, wireguardObj)
+	spec, err := ebpf.LoadCollectionSpec(wireguardObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
 	}

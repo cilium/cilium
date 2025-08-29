@@ -61,7 +61,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, kprCfg kpr.KPRConfig) err
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(logger, filepath.Join(option.Config.StateDir, "bpf_sock.o"))
+	spec, err := ebpf.LoadCollectionSpec(filepath.Join(option.Config.StateDir, "bpf_sock.o"))
 	if err != nil {
 		return fmt.Errorf("failed to load collection spec for bpf_sock.o: %w", err)
 	}
