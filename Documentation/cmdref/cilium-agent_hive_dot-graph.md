@@ -154,6 +154,8 @@ cilium-agent hive dot-graph [flags]
       --ip-masq-agent-config-path string                          ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
       --iptables-lock-timeout duration                            Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --iptables-random-fully                                     Set iptables flag random-fully on masquerading rules
+      --ipv4-masquerade-src-exclusion-cidrs string                IPv4 CIDR for source IPs that should be excluded from masquerading
+      --ipv6-masquerade-src-exclusion-cidrs string                IPv6 CIDR for source IPs that should be excluded from masquerading
       --k8s-api-server-urls strings                               Kubernetes API server URLs
       --k8s-client-burst int                                      Burst value allowed for the K8s client (default 20)
       --k8s-client-connection-keep-alive duration                 Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
