@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 
 	"github.com/cilium/cilium/pkg/bpf/analyze"
@@ -24,35 +23,6 @@ import (
 const (
 	callsMap = "cilium_calls"
 )
-
-// LoadCollectionSpec loads the eBPF ELF at the given path and parses it into a
-// CollectionSpec. This spec is only a blueprint of the contents of the ELF and
-// does not represent any live resources that have been loaded into the kernel.
-//
-// This is a wrapper around ebpf.LoadCollectionSpec that populates the object's
-// calls map with programs marked with the __declare_tail() annotation. It
-// performs static reachability analysis of tail call programs. Any unreachable
-// tail call program is removed from the spec.
-func LoadCollectionSpec(logger *slog.Logger, path string) (*ebpf.CollectionSpec, error) {
-	spec, err := ebpf.LoadCollectionSpec(path)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := checkUnspecifiedPrograms(spec); err != nil {
-		return nil, fmt.Errorf("checking for unspecified programs: %w", err)
-	}
-
-	if err := removeUnreachableTailcalls(logger, spec); err != nil {
-		return nil, fmt.Errorf("removing unreachable tail calls: %w", err)
-	}
-
-	if err := resolveTailCalls(spec); err != nil {
-		return nil, fmt.Errorf("resolving tail calls: %w", err)
-	}
-
-	return spec, nil
-}
 
 // checkUnspecifiedPrograms returns an error if any of the programs in the spec
 // are of the UnspecifiedProgram type.
@@ -130,141 +100,6 @@ func resolveTailCalls(spec *ebpf.CollectionSpec) error {
 		slots[slot] = struct{}{}
 
 		ms.Contents = append(ms.Contents, ebpf.MapKV{Key: slot, Value: name})
-	}
-
-	return nil
-}
-
-// removeUnreachableTailcalls removes tail calls that are not reachable from
-// entrypoint programs. This is done by traversing the call graph of the
-// entrypoint programs and marking all reachable tail calls. Any tail call that
-// is not marked is removed from the CollectionSpec.
-func removeUnreachableTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
-	type tail struct {
-		referenced bool
-		visited    bool
-		spec       *ebpf.ProgramSpec
-	}
-
-	// Build a map of entrypoint programs annotated with __section_entry.
-	entrypoints := make(map[string]*ebpf.ProgramSpec)
-	for _, prog := range spec.Programs {
-		if isEntrypoint(prog) {
-			entrypoints[prog.Name] = prog
-		}
-	}
-
-	// Build a map of tail call slots to ProgramSpecs.
-	tailcalls := make(map[uint32]*tail)
-	for _, prog := range spec.Programs {
-		if !isTailCall(prog) {
-			continue
-		}
-
-		slot, err := tailCallSlot(prog)
-		if err != nil {
-			return fmt.Errorf("getting tail call slot: %w", err)
-		}
-
-		tailcalls[slot] = &tail{
-			spec: prog,
-		}
-	}
-
-	// Discover all tailcalls that are reachable from the given program.
-	visit := func(prog *ebpf.ProgramSpec, tailcalls map[uint32]*tail) error {
-		// We look back from any tailcall, so we expect there to always be 3 instructions ahead of any tail call instr.
-		for i := 3; i < len(prog.Instructions); i++ {
-			// The `tail_call_static` C function is always used to call tail calls when
-			// the map index is known at compile time.
-			// Due to inline ASM this generates the following instructions:
-			//   Mov R1, Rx
-			//   Mov R2, <map>
-			//   Mov R3, <index>
-			//   call tail_call
-
-			// Find the tail call instruction.
-			inst := prog.Instructions[i]
-			if !inst.IsBuiltinCall() || inst.Constant != int64(asm.FnTailCall) {
-				continue
-			}
-
-			// Check that the previous instruction is a mov of the tail call index.
-			movIdx := prog.Instructions[i-1]
-			if movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
-				continue
-			}
-
-			// Check that the instruction before that is the load of the tail call map.
-			movR2 := prog.Instructions[i-2]
-			if movR2.OpCode != asm.LoadImmOp(asm.DWord) || movR2.Src != asm.PseudoMapFD {
-				continue
-			}
-
-			ref := movR2.Reference()
-
-			// Ignore static tail calls made to maps that are not the calls map
-			if ref != callsMap {
-				logger.Debug(
-					"skipping tail call into map other than the calls map",
-					logfields.Section, prog.SectionName,
-					logfields.Prog, prog.Name,
-					logfields.Instruction, i,
-					logfields.Reference, ref,
-				)
-				continue
-			}
-
-			tc := tailcalls[uint32(movIdx.Constant)]
-			if tc == nil {
-				return fmt.Errorf(
-					"potential missed tail call in program %s to slot %d at insn %d",
-					prog.Name,
-					movIdx.Constant,
-					i,
-				)
-			}
-
-			tc.referenced = true
-		}
-
-		return nil
-	}
-
-	// Discover all tailcalls that are reachable from the entrypoints.
-	for _, prog := range entrypoints {
-		if err := visit(prog, tailcalls); err != nil {
-			return err
-		}
-	}
-
-	// Keep visiting tailcalls until no more are discovered.
-reset:
-	for _, tailcall := range tailcalls {
-		// If a tailcall is referenced by an entrypoint or another tailcall we should visit it
-		if tailcall.referenced && !tailcall.visited {
-			if err := visit(tailcall.spec, tailcalls); err != nil {
-				return err
-			}
-			tailcall.visited = true
-
-			// Visiting this tail call might have caused tail calls earlier in the list to become referenced, but this
-			// loop already skipped them. So reset the loop. If we already visited a tailcall we will ignore them anyway.
-			goto reset
-		}
-	}
-
-	// Remove all tailcalls that are not referenced.
-	for _, tailcall := range tailcalls {
-		if !tailcall.referenced {
-			logger.Debug(
-				"unreferenced tail call, deleting",
-				logfields.Section, tailcall.spec.SectionName,
-				logfields.Prog, tailcall.spec.Name,
-			)
-
-			delete(spec.Programs, tailcall.spec.Name)
-		}
 	}
 
 	return nil
@@ -350,6 +185,10 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		opts = &CollectionOptions{}
 	}
 
+	if err := checkUnspecifiedPrograms(spec); err != nil {
+		return nil, nil, fmt.Errorf("checking for unspecified programs: %w", err)
+	}
+
 	opts.populateMapReplacements()
 
 	logger.Debug("Loading Collection into kernel",
@@ -367,6 +206,14 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	if err := applyConstants(spec, opts.Constants); err != nil {
 		return nil, nil, fmt.Errorf("applying variable overrides: %w", err)
+	}
+
+	if err := removeUnusedTailcalls(logger, spec); err != nil {
+		return nil, nil, fmt.Errorf("removing unused tail calls: %w", err)
+	}
+
+	if err := resolveTailCalls(spec); err != nil {
+		return nil, nil, fmt.Errorf("resolving tail calls: %w", err)
 	}
 
 	keep, err := removeUnusedMaps(spec, opts.Keep)
