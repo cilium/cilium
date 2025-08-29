@@ -7,33 +7,33 @@ set -eu
 # in its scope and they are therefore renamed.
 # When run locally by developers with go test -fuzz then the renaming is not necessary.
 # Ciliums OSS-Fuzz integration can be found here: https://github.com/google/oss-fuzz/tree/master/projects/cilium
+cd $SRC/go-118-fuzz-build
+go build
+mv go-118-fuzz-build $GOPATH/bin/go-118-fuzz-build_v2
 
+pushd cmd/convertLibFuzzerTestcaseToStdLibGo
+  go build . && mv convertLibFuzzerTestcaseToStdLibGo $GOPATH/bin/
+popd
+pushd cmd/addStdLibCorpusToFuzzer
+  go build . && mv addStdLibCorpusToFuzzer $GOPATH/bin/
+popd
 
-ln -s "$SRC"/cilium/pkg/policy/distillery_test{,_fuzz}.go
-ln -s "$SRC"/cilium/pkg/policy/l4_filter_test{,_fuzz}.go
-ln -s "$SRC"/cilium/pkg/policy/l4_test{,_fuzz}.go
-ln -s "$SRC"/cilium/pkg/policy/mapstate_test{,_fuzz}.go
-ln -s "$SRC"/cilium/pkg/policy/repository_test{,_fuzz}.go
-ln -s "$SRC"/cilium/pkg/policy/resolve_test{,_fuzz}.go
-ln -s "$SRC"/cilium/pkg/policy/resolve_deny_test{,_fuzz}.go
-ln -s "$SRC"/cilium/pkg/policy/rule_test{,_fuzz}.go
-ln -s "$SRC"/cilium/pkg/policy/selectorcache_test{,_fuzz}.go
+cd $SRC/cilium
 
-
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/container/bitlpm FuzzUint8 FuzzUint8
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/fqdn/matchpattern FuzzMatchpatternValidate FuzzMatchpatternValidate
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/fqdn/matchpattern FuzzMatchpatternValidateWithoutCache FuzzMatchpatternValidateWithoutCache
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/fqdn/namemanager FuzzMapSelectorsToNamesLocked FuzzMapSelectorsToNamesLocked
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/hubble/parser FuzzParserDecode FuzzParserDecode
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2 FuzzCiliumClusterwideNetworkPolicyParse FuzzCiliumClusterwideNetworkPolicyParse
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2 FuzzCiliumNetworkPolicyParse FuzzCiliumNetworkPolicyParse
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels FuzzLabelsParse FuzzLabelsParse
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/labels FuzzNewLabels FuzzNewLabels
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/labelsfilter FuzzLabelsfilterPkg FuzzLabelsfilterPkg
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/loadbalancer FuzzJSONBackend FuzzJSONBackend
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/loadbalancer FuzzJSONFrontend FuzzJSONFrontend
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/loadbalancer FuzzJSONService FuzzJSONService
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/monitor/format FuzzFormatEvent FuzzFormatEvent
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzAccumulateMapChange FuzzAccumulateMapChange
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzDenyPreferredInsert FuzzDenyPreferredInsert
-compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzResolvePolicy FuzzResolvePolicy
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/container/bitlpm FuzzUint8 FuzzUint8
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/fqdn/matchpattern FuzzMatchpatternValidate FuzzMatchpatternValidate
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/fqdn/matchpattern FuzzMatchpatternValidateWithoutCache FuzzMatchpatternValidateWithoutCache
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/fqdn/namemanager FuzzMapSelectorsToNamesLocked FuzzMapSelectorsToNamesLocked
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/hubble/parser FuzzParserDecode FuzzParserDecode
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2 FuzzCiliumClusterwideNetworkPolicyParse FuzzCiliumClusterwideNetworkPolicyParse
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2 FuzzCiliumNetworkPolicyParse FuzzCiliumNetworkPolicyParse
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels FuzzLabelsParse FuzzLabelsParse
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/labels FuzzNewLabels FuzzNewLabels
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/labelsfilter FuzzLabelsfilterPkg FuzzLabelsfilterPkg
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/loadbalancer FuzzJSONBackend FuzzJSONBackend
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/loadbalancer FuzzJSONFrontend FuzzJSONFrontend
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/loadbalancer FuzzJSONService FuzzJSONService
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/monitor/format FuzzFormatEvent FuzzFormatEvent
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/policy FuzzAccumulateMapChange FuzzAccumulateMapChange
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/policy FuzzDenyPreferredInsert FuzzDenyPreferredInsert
+compile_native_go_fuzzer_v2 github.com/cilium/cilium/pkg/policy FuzzResolvePolicy FuzzResolvePolicy
