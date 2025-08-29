@@ -14,10 +14,10 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestRemoveUnreachableTailcalls(t *testing.T) {
+func TestRemoveUnusedTailcalls(t *testing.T) {
 	logger := hivetest.Logger(t)
 	// Use upstream LoadCollectionSpec to defer the call to
-	// removeUnreachableTailcalls.
+	// removeUnusedTailcalls.
 	spec, err := ebpf.LoadCollectionSpec("testdata/unreachable-tailcall.o")
 	require.NoError(t, err)
 
@@ -28,14 +28,37 @@ func TestRemoveUnreachableTailcalls(t *testing.T) {
 	assert.Contains(t, spec.Programs, "d")
 	assert.Contains(t, spec.Programs, "e")
 
-	require.NoError(t, removeUnreachableTailcalls(logger, spec))
+	cpy := spec.Copy()
+	obj := struct {
+		UseTailB *ebpf.VariableSpec `ebpf:"__config_use_tail_b"`
+	}{}
+	require.NoError(t, cpy.Assign(&obj))
+	require.NoError(t, obj.UseTailB.Set(true))
 
-	assert.Contains(t, spec.Programs, "cil_entry")
-	assert.Contains(t, spec.Programs, "a")
-	assert.Contains(t, spec.Programs, "b")
-	assert.Contains(t, spec.Programs, "c")
-	assert.NotContains(t, spec.Programs, "d")
-	assert.NotContains(t, spec.Programs, "e")
+	require.NoError(t, removeUnusedTailcalls(logger, cpy))
+
+	assert.Contains(t, cpy.Programs, "cil_entry")
+	assert.Contains(t, cpy.Programs, "a")
+	assert.Contains(t, cpy.Programs, "b")
+	assert.Contains(t, cpy.Programs, "c")
+	assert.NotContains(t, cpy.Programs, "d")
+	assert.NotContains(t, cpy.Programs, "e")
+
+	cpy = spec.Copy()
+	obj = struct {
+		UseTailB *ebpf.VariableSpec `ebpf:"__config_use_tail_b"`
+	}{}
+	require.NoError(t, cpy.Assign(&obj))
+	require.NoError(t, obj.UseTailB.Set(false))
+
+	require.NoError(t, removeUnusedTailcalls(logger, cpy))
+
+	assert.Contains(t, cpy.Programs, "cil_entry")
+	assert.Contains(t, cpy.Programs, "a")
+	assert.NotContains(t, cpy.Programs, "b")
+	assert.Contains(t, cpy.Programs, "c")
+	assert.NotContains(t, cpy.Programs, "d")
+	assert.NotContains(t, cpy.Programs, "e")
 }
 
 func TestPrivilegedUpgradeMap(t *testing.T) {
