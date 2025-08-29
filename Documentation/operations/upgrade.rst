@@ -363,6 +363,7 @@ Changed Metrics
 ~~~~~~~~~~~~~~~
 
 * ``k8s_client_rate_limiter_duration_seconds`` no longer has labels ``path`` and ``method``.
+* ``hubble_icmp_total`` has been fixed to correctly use ``family`` label value ``IPv6`` on `ICMPv6` flows instead of ``IPv4``.
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
