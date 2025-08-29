@@ -582,18 +582,31 @@ gateway-api-conformance: ## Run Gateway API conformance tests.
 		-json \
 	| tparse -progress
 
-BPF_TEST_FILE ?= ""
-BPF_TEST_DUMP_CTX ?= ""
-BPF_TEST_VERBOSE ?= 0
+BPF_TEST_FILE ?=
+BPF_TEST_DUMP_CTX ?=
+BPF_TEST_FLAGS ?=
+SUDO ?= sudo
+TRACE_PIPE_LOG := bpf/tests/output/trace_pipe.log
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
-	DOCKER_ARGS="--privileged -v /sys:/sys" RUN_AS_ROOT=1 contrib/scripts/builder.sh \
-		$(MAKE) $(SUBMAKEOPTS) -j$(shell nproc) -C bpf/tests/ run \
-			"BPF_TEST_FILE=$(BPF_TEST_FILE)" \
-			"BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" \
-			"LOG_CODEOWNERS=$(LOG_CODEOWNERS)" \
-			"JUNIT_PATH=$(JUNIT_PATH)" \
-			"V=$(BPF_TEST_VERBOSE)"
+	contrib/scripts/builder.sh \
+		env MAKEFLAGS="$(filter-out --jobserver-auth=%,$(MAKEFLAGS))" \
+		make $(SUBMAKEOPTS) -C bpf/tests/ all
+	# All the below is intentionally chained into a single command with backslashes.
+	$(QUIET) set -eu -o pipefail; \
+	$(SUDO) sh -c 'exec cat /sys/kernel/debug/tracing/trace_pipe > $(ROOT_DIR)/$(TRACE_PIPE_LOG)' & \
+	TRACE_PIPE_PID="$$!"; \
+	trap 'kill "$$TRACE_PIPE_PID"' EXIT; \
+	$(SUDO) $(GO) test ./bpf/tests/bpftest -bpf-test-path $(ROOT_DIR)/bpf/tests \
+		$(GO_TEST_FLAGS) \
+		$(and $(filter 1,$(V)),-test.v) \
+		$(and $(RUN),-run $(RUN)) \
+		$(and $(BPF_TEST_DUMP_CTX),-dump-ctx) \
+		$(and $(BPF_TEST_FILE),-test $(BPF_TEST_FILE)) \
+		$(BPF_TEST_FLAGS) | $(GOTEST_FORMATTER); STATUS=$$?; \
+	contrib/scripts/builder.sh \
+		bpf/tests/scapy/trace_diff_pkts.py $(TRACE_PIPE_LOG); \
+	exit $$STATUS
 
 run-builder: ## Drop into a shell inside a container running the cilium-builder image.
 	DOCKER_ARGS="-it" contrib/scripts/builder.sh bash

@@ -10,6 +10,8 @@ space := $(empty) $(empty)
 comma := ,
 join-with-comma = $(subst $(space),$(comma),$(strip $1))
 
+shellquote = '$(subst ','\'',$(1))'
+
 define newline
 
 
@@ -108,7 +110,7 @@ ifneq ($(shell command -v go-junit-report),)
 		>(go-junit-report -parser gojson \
 			-code-owners=$(CODEOWNERS_PATH) \
 			-code-owners-prefix github.com/cilium/cilium/ \
-			-out "$(JUNIT_PATH)") \
+			-out $(call shellquote,$(JUNIT_PATH))) \
 		>($(GO) run $(ROOT_DIR)/tools/testowners \
 			--code-owners=$(CODEOWNERS_PATH)) \
 		>(tparse $(GOTEST_FORMATTER_FLAGS)) \
