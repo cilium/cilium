@@ -8,6 +8,9 @@
 #include "drop.h"
 #include "dbg.h"
 #include "eps.h"
+#ifdef POLICY_REJECT_RESPONSE
+#include "icmp.h"
+#endif
 
 #ifndef EFFECTIVE_EP_ID
 #define EFFECTIVE_EP_ID 0
@@ -291,6 +294,21 @@ policy_can_ingress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 
 		ret = CTX_ACT_OK;
 		*audited = 1;
 	}
+#else
+#ifdef POLICY_REJECT_RESPONSE
+	if (IS_ERR(ret)) {
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
+
+#ifdef ENABLE_IPV4
+		if (ethertype == ETH_P_IP)
+			return tail_call_internal(ctx, CILIUM_CALL_IPV4_POLICY_DENIED, NULL);
+#endif
+#ifdef ENABLE_IPV6
+		if (ethertype == ETH_P_IPV6)
+			return tail_call_internal(ctx, CILIUM_CALL_IPV6_POLICY_DENIED, NULL);
+#endif
+	}
+#endif /* POLICY_REJECT_RESPONSE */
 #endif
 
 	return ret;
@@ -351,6 +369,21 @@ policy_can_egress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 d
 		ret = CTX_ACT_OK;
 		*audited = 1;
 	}
+#else
+#ifdef POLICY_REJECT_RESPONSE
+	if (IS_ERR(ret)) {
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
+
+#ifdef ENABLE_IPV4
+		if (ethertype == ETH_P_IP)
+			return tail_call_internal(ctx, CILIUM_CALL_IPV4_POLICY_DENIED, NULL);
+#endif
+#ifdef ENABLE_IPV6
+		if (ethertype == ETH_P_IPV6)
+			return tail_call_internal(ctx, CILIUM_CALL_IPV6_POLICY_DENIED, NULL);
+#endif
+	}
+#endif /* POLICY_REJECT_RESPONSE */
 #endif
 	return ret;
 }
@@ -376,3 +409,66 @@ static __always_inline int policy_can_egress4(struct __ctx_buff *ctx, const void
 				 tuple->nexthdr, l4_off, match_type, audited,
 				 ext_err, proxy_port);
 }
+
+#ifdef POLICY_REJECT_RESPONSE
+
+#ifdef ENABLE_IPV4
+static __always_inline
+int __tail_policy_denied_ipv4(struct __ctx_buff *ctx)
+{
+	int ret;
+
+	ret = generate_icmp4_reply(ctx, ICMP_DEST_UNREACH, ICMP_PKT_FILTERED);
+	if (ret != CTX_ACT_OK)
+		return ret;
+
+	/* Redirect ICMP to the interface we received it on. */
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ctx_get_ifindex(ctx));
+	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+}
+
+__declare_tail(CILIUM_CALL_IPV4_POLICY_DENIED)
+int tail_policy_denied_ipv4(struct __ctx_buff *ctx)
+{
+	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	int ret;
+
+	ret = __tail_policy_denied_ipv4(ctx);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, src_sec_identity, ret,
+			METRIC_INGRESS);
+
+	return ret;
+}
+#endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+static __always_inline
+int __tail_policy_denied_ipv6(struct __ctx_buff *ctx)
+{
+	int ret;
+
+	ret = generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_ADM_PROHIBITED);
+	if (ret != CTX_ACT_OK)
+		return ret;
+
+	/* Redirect ICMP to the interface we received it on. */
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ctx_get_ifindex(ctx));
+	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+}
+
+__declare_tail(CILIUM_CALL_IPV6_POLICY_DENIED)
+int tail_policy_denied_ipv6(struct __ctx_buff *ctx)
+{
+	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	int ret;
+
+	ret = __tail_policy_denied_ipv6(ctx);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, src_sec_identity, ret,
+			METRIC_INGRESS);
+
+	return ret;
+}
+#endif /* ENABLE_IPV6 */
+#endif /* POLICY_REJECT_RESPONSE */
