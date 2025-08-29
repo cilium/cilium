@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/version"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -40,7 +39,7 @@ type Metrics struct {
 	NPLocalRedirectPolicyEnabled metric.Gauge
 	NPMutualAuthEnabled          metric.Gauge
 	NPNonDefaultDenyEnabled      metric.Gauge
-	NPCIDRPoliciesToNodes        metric.Vec[metric.Gauge]
+	NPCIDRPoliciesMode           metric.Vec[metric.Gauge]
 
 	ACLBTransparentEncryption       metric.Vec[metric.Gauge]
 	ACLBKubeProxyReplacementEnabled metric.Gauge
@@ -104,6 +103,8 @@ const (
 	networkIPv4      = "ipv4-only"
 	networkIPv6      = "ipv6-only"
 	networkDualStack = "ipv4-ipv6-dual-stack"
+
+	networkCIDRPoliciesNodes = "nodes"
 
 	advConnNetEncIPSec     = "ipsec"
 	advConnNetEncWireGuard = "wireguard"
@@ -176,8 +177,7 @@ var (
 	}
 
 	defaultCIDRPolicies = []string{
-		string(api.EntityWorld),
-		string(api.EntityRemoteNode),
+		networkCIDRPoliciesNodes,
 	}
 
 	defaultEncryptionModes = []string{
@@ -396,7 +396,7 @@ func NewMetrics(withDefaults bool) Metrics {
 			Name:      "non_defaultdeny_policies_enabled",
 		}),
 
-		NPCIDRPoliciesToNodes: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+		NPCIDRPoliciesMode: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
 			Help:      "Mode to apply CIDR Policies to Nodes",
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
@@ -1042,7 +1042,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 	}
 
 	for _, mode := range config.PolicyCIDRMatchMode {
-		m.NPCIDRPoliciesToNodes.WithLabelValues(mode).Set(1)
+		m.NPCIDRPoliciesMode.WithLabelValues(mode).Set(1)
 	}
 
 	strictMode := "false"
