@@ -267,10 +267,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.KubeProxyReplacement)
 	option.BindEnv(vp, option.KubeProxyReplacement)
 
-	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium")
-	flags.MarkHidden(option.EnableNodePort)
-	option.BindEnv(vp, option.EnableNodePort)
-
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(vp, option.EnablePolicy)
 

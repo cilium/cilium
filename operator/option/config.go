@@ -183,10 +183,6 @@ const (
 	// is used to provide hints for misconfiguration.
 	KubeProxyReplacement = "kube-proxy-replacement"
 
-	// EnableNodePort is equivalent to the cilium-agent option, and
-	// is used to provide hints for misconfiguration.
-	EnableNodePort = "enable-node-port"
-
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace = "cilium-pod-namespace"
 
@@ -292,10 +288,9 @@ type OperatorConfig struct {
 	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
 	IPAMAutoCreateCiliumPodIPPools map[string]string
 
-	// KubeProxyReplacement or NodePort are required to implement cluster
+	// KubeProxyReplacement is required to implement cluster
 	// Ingress (or equivalent Gateway API functionality)
 	KubeProxyReplacement bool
-	EnableNodePort       bool
 
 	// AWS options
 
@@ -449,7 +444,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	// Gateways and Ingress
 	c.KubeProxyReplacement = vp.GetBool(KubeProxyReplacement)
-	c.EnableNodePort = vp.GetBool(EnableNodePort)
 
 	// AWS options
 

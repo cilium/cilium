@@ -1,8 +1,7 @@
 Prerequisites
 #############
 
-* Cilium must be configured with NodePort enabled, using
-  ``nodePort.enabled=true`` or by enabling the kube-proxy replacement with
+* Cilium must be configured with the kube-proxy replacement, using
   ``kubeProxyReplacement=true``. For more information, see :ref:`kube-proxy
   replacement <kubeproxy-free>`.
 * Cilium must be configured with the L7 proxy enabled using ``l7Proxy=true``

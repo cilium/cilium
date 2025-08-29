@@ -166,31 +166,14 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	if kpr := st.KubeProxyReplacement; kpr != nil {
 		mode = strings.ToLower(kpr.Mode)
 		if f := kpr.Features; f != nil {
-			if f.ExternalIPs != nil {
-				result[features.KPRExternalIPs] = features.Status{Enabled: f.ExternalIPs.Enabled}
-			}
-			if f.HostPort != nil {
-				result[features.KPRHostPort] = features.Status{Enabled: f.HostPort.Enabled}
-			}
-			if f.NodePort != nil {
-				result[features.KPRNodePort] = features.Status{Enabled: f.NodePort.Enabled}
-				acceleration := strings.ToLower(f.NodePort.Acceleration)
-				result[features.KPRNodePortAcceleration] = features.Status{
-					Enabled: mode != "false" && acceleration != "disabled",
-					Mode:    mode,
-				}
-			}
-			if f.SessionAffinity != nil {
-				result[features.KPRSessionAffinity] = features.Status{Enabled: f.SessionAffinity.Enabled}
-			}
 			if f.SocketLB != nil {
 				result[features.KPRSocketLB] = features.Status{Enabled: f.SocketLB.Enabled}
 				result[features.KPRSocketLBHostnsOnly] = features.Status{Enabled: f.BpfSocketLBHostnsOnly}
 			}
 		}
 	}
-	result[features.KPRMode] = features.Status{
-		Enabled: mode != "false" && mode != "disabled",
+	result[features.KPR] = features.Status{
+		Enabled: mode == "true" || mode == "strict",
 		Mode:    mode,
 	}
 
