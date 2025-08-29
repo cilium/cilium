@@ -112,6 +112,7 @@ cilium-agent [flags]
       --enable-bbr-hostns-only                                    Enable BBR only in the host network namespace.
       --enable-bgp-control-plane                                  Enable the BGP control plane.
       --enable-bgp-control-plane-status-report                    Enable the BGP control plane status reporting (default true)
+      --enable-bgp-legacy-origin-attribute                        Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-bpf-clock-probe                                    Enable BPF clock source probing for more efficient tick retrieval
       --enable-bpf-masquerade                                     Masquerade packets from endpoints leaving the host with BPF instead of iptables
       --enable-bpf-tproxy                                         Enable BPF-based proxy redirection (beta), if support available
@@ -295,7 +296,7 @@ cilium-agent [flags]
       --k8s-require-ipv6-pod-cidr                                 Require IPv6 PodCIDR to be specified in node resource
       --k8s-service-proxy-name string                             Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --keep-config                                               When restoring state, keeps containers' configuration in place
-      --kube-proxy-replacement string                             Enable kube-proxy replacement (default "false")
+      --kube-proxy-replacement                                    Enable kube-proxy replacement
       --kube-proxy-replacement-healthz-bind-address string        The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.
       --kvstore string                                            Key-value store type
       --kvstore-lease-ttl duration                                Time-to-live for the KVstore lease. (default 15m0s)

@@ -147,9 +147,10 @@ func TransformToCiliumEndpoint(obj any) (any, error) {
 				enc := concreteObj.Status.Encryption
 				return &enc
 			}(),
-			Identity:   concreteObj.Status.Identity,
-			Networking: concreteObj.Status.Networking,
-			NamedPorts: concreteObj.Status.NamedPorts,
+			Identity:       concreteObj.Status.Identity,
+			Networking:     concreteObj.Status.Networking,
+			NamedPorts:     concreteObj.Status.NamedPorts,
+			ServiceAccount: concreteObj.Status.ServiceAccount,
 		}, nil
 	case *types.CiliumEndpoint:
 		return obj, nil
@@ -182,9 +183,10 @@ func TransformToCiliumEndpoint(obj any) (any, error) {
 					enc := ciliumEndpoint.Status.Encryption
 					return &enc
 				}(),
-				Identity:   ciliumEndpoint.Status.Identity,
-				Networking: ciliumEndpoint.Status.Networking,
-				NamedPorts: ciliumEndpoint.Status.NamedPorts,
+				Identity:       ciliumEndpoint.Status.Identity,
+				Networking:     ciliumEndpoint.Status.Networking,
+				NamedPorts:     ciliumEndpoint.Status.NamedPorts,
+				ServiceAccount: ciliumEndpoint.Status.ServiceAccount,
 			},
 		}, nil
 	default:
@@ -206,11 +208,12 @@ func ConvertCEPToCoreCEP(cep *cilium_v2.CiliumEndpoint) *cilium_v2alpha1.CoreCil
 		identityID = cep.Status.Identity.ID
 	}
 	return &cilium_v2alpha1.CoreCiliumEndpoint{
-		Name:       cep.GetName(),
-		Networking: epNetworking,
-		Encryption: cep.Status.Encryption,
-		IdentityID: identityID,
-		NamedPorts: cep.Status.NamedPorts.DeepCopy(),
+		Name:           cep.GetName(),
+		Networking:     epNetworking,
+		Encryption:     cep.Status.Encryption,
+		IdentityID:     identityID,
+		NamedPorts:     cep.Status.NamedPorts.DeepCopy(),
+		ServiceAccount: cep.Status.ServiceAccount,
 	}
 }
 
@@ -228,7 +231,8 @@ func ConvertCoreCiliumEndpointToTypesCiliumEndpoint(ccep *cilium_v2alpha1.CoreCi
 		Identity: &cilium_v2.EndpointIdentity{
 			ID: ccep.IdentityID,
 		},
-		Networking: ccep.Networking,
-		NamedPorts: ccep.NamedPorts,
+		Networking:     ccep.Networking,
+		NamedPorts:     ccep.NamedPorts,
+		ServiceAccount: ccep.ServiceAccount,
 	}
 }

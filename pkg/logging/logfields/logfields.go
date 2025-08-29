@@ -1156,6 +1156,10 @@ const (
 
 	HTTPRoute = "httpRoute"
 
+	TLSRoute = "tlsRoute"
+
+	GRPCRoute = "grpcRoute"
+
 	Secret = "secret"
 
 	Nodes = "nodes"
@@ -1803,4 +1807,6 @@ const (
 	Fraction = "fraction"
 
 	Rate = "rate"
+
+	KPRConfiguration = "kprConfiguration"
 )

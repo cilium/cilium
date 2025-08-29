@@ -401,9 +401,10 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	if logger.Enabled(context.Background(), slog.LevelDebug) {
 		if err := verifyUnusedMaps(coll, keep); err != nil {
-			return nil, nil, fmt.Errorf("verifying unused maps: %w", err)
+			logger.Debug(fmt.Sprintf("verifying unused maps: %v", err))
+		} else {
+			logger.Debug("Verified no unused maps after loading Collection")
 		}
-		logger.Debug("Verified no unused maps after loading Collection")
 	}
 
 	// Collect Maps that need their bpffs pins replaced. Pull out Map objects

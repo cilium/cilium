@@ -70,11 +70,11 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.25.0
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.212.0
+  eksctl_version: v0.214.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.33.4
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 534.0.0
+  gcloud_version: 536.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
@@ -293,7 +293,7 @@ jobs:
           export_environment_variables: true
 
       - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@cb1e50a9932213ecece00a606661ae9ca44f3397 # v2.2.0
+        uses: google-github-actions/setup-gcloud@26f734c2779b00b7dda794207734c511110a4368 # v3.0.0
         with:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
@@ -569,12 +569,6 @@ jobs:
           # The cilium-cli creates files owned by the root user when run as a container.
           sudo chmod --recursive +r ./report
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "features-${{ matrix.test_type }}"
-
       - name: Get sysdump
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
         run: |
@@ -585,24 +579,18 @@ jobs:
             --extra-label-selectors=app.kubernetes.io/name=egw-external-target
           sudo chmod +r cilium-sysdump-final.zip
 
-      - name: Upload sysdump
-        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdump-${{ matrix.test_type }}-${{ github.run_attempt }}
-          path: cilium-sysdump-final.zip
-          retention-days: 5
-
-      - name: Upload features tested
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: features-tested-${{ matrix.test_type }}
-          path: features-*.json
+          artifacts_suffix: "final"
+          job_status: "${{ job.status }}"
+          junits-directory: 'report'
+          capture_sysdump: 'false'
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@87a9ed3bcb8f6fb2c046a7a6bf5f409628d33a67 # main
+        uses: cilium/scale-tests-action/export-results@77f681a8844c33457aeef90a19143a441e803a9a # main
         with:
           test_name: ${{ steps.vars.outputs.test_name }}
           tested_sha: ${{ steps.vars.outputs.SHA }}

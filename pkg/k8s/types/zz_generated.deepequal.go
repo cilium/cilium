@@ -46,6 +46,10 @@ func (in *CiliumEndpoint) deepEqual(other *CiliumEndpoint) bool {
 		}
 	}
 
+	if in.ServiceAccount != other.ServiceAccount {
+		return false
+	}
+
 	return true
 }
 

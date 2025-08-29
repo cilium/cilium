@@ -275,9 +275,17 @@
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
-     - ``{"enabled":false,"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
+     - ``{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
      - Enables the BGP control plane.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute`
+     - Legacy BGP ORIGIN attribute settings (BGPv2 only)
+     - object
+     - ``{"enabled":false}``
+   * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute.enabled`
+     - Enable/Disable advertising LoadBalancerIP routes with the legacy BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0). Enable for compatibility with the legacy behavior of MetalLB integration.
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane.routerIDAllocation`
@@ -1451,7 +1459,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:ba771a73604d1947a8f87f623e93a7c3baf00146528a54838121e99ea271df7d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.0-1754998290-11299b59706d4ccb2cbbc2a6cd548709655098ea","useDigest":true}``
+     - ``{"digest":"sha256:be8de2fd5fee672b4371494dfe742840a8b7e935806013424c367dd533b5727a","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.1-1755991022-2b90dbb2c668eba4aaf54b18e85862e51b6ea06e","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -2943,7 +2951,7 @@
    * - :spelling:ignore:`nodeinit.image`
      - node-init image.
      - object
-     - ``{"digest":"sha256:5e111ecc2cfa7fa017ecd38a25e17e9639776b4e097c2af99ba3cc71b9ba92e4","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}``
+     - ``{"digest":"sha256:0c91245afb3a4ff78b5cc8c09226806e94a9a10eb0adb74a85e0eeed2a5cae8c","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}``
    * - :spelling:ignore:`nodeinit.nodeSelector`
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -3267,7 +3275,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:ba771a73604d1947a8f87f623e93a7c3baf00146528a54838121e99ea271df7d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.0-1754998290-11299b59706d4ccb2cbbc2a6cd548709655098ea","useDigest":true}``
+     - ``{"digest":"sha256:be8de2fd5fee672b4371494dfe742840a8b7e935806013424c367dd533b5727a","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.1-1755991022-2b90dbb2c668eba4aaf54b18e85862e51b6ea06e","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list

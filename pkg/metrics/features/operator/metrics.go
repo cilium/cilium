@@ -82,21 +82,21 @@ type featureMetrics interface {
 
 func (m Metrics) update(params enabledFeatures, config *option.OperatorConfig) {
 	if config.EnableGatewayAPI {
-		m.ACLBGatewayAPIEnabled.Add(1)
+		m.ACLBGatewayAPIEnabled.Set(1)
 	}
 	if params.IsIngressControllerEnabled() {
-		m.ACLBIngressControllerEnabled.Add(1)
+		m.ACLBIngressControllerEnabled.Set(1)
 	}
 	if params.IsLBIPAMEnabled() {
-		m.ACLBIPAMEnabled.Add(1)
+		m.ACLBIPAMEnabled.Set(1)
 	}
 	if params.GetLoadBalancerL7() != "" {
-		m.ACLBL7AwareTrafficManagementEnabled.Add(1)
+		m.ACLBL7AwareTrafficManagementEnabled.Set(1)
 	}
 	if params.IsNodeIPAMEnabled() {
-		m.ACLBNodeIPAMEnabled.Add(1)
+		m.ACLBNodeIPAMEnabled.Set(1)
 	}
 	if k8sVersionStr := params.K8sVersion(); k8sVersionStr != "" {
-		m.CPKubernetesVersion.WithLabelValues(k8sVersionStr).Add(1)
+		m.CPKubernetesVersion.WithLabelValues(k8sVersionStr).Set(1)
 	}
 }

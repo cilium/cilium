@@ -215,6 +215,13 @@ static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __u16 proto 
 #define revalidate_data(ctx, data, data_end, ip)			\
 	revalidate_data_l3_off(ctx, data, data_end, ip, ETH_HLEN)
 
+/* arp is different from the above as we also want to pull in the payload.
+ * Returns true if 'ctx' is long enough to be valid ARP packet, false otherwise.
+ */
+#define revalidate_data_arp_pull(ctx, data, data_end, arp)		\
+	__revalidate_data_pull(ctx, data, data_end, (void **)arp,	\
+		ETH_HLEN + sizeof(struct arphdr), sizeof(**arp), true)
+
 #define ENDPOINT_KEY_IPV4 1
 #define ENDPOINT_KEY_IPV6 2
 
@@ -820,7 +827,15 @@ struct ct_entry {
 	__u32 last_rx_report;
 };
 
-#define IPPROTO_ANY	0	/* For service lookup with ANY L4 protocol */
+/* We previously tolerated services with no specified L4 protocol (IPPROTO_ANY).
+ *
+ * This was deprecated, and we now re-purpose IPPROTO_ANY such that when combined with
+ * a zero L4 Destination Port, we can encode a wild-card service entry. This informs
+ * the data path to drop flows towards IPs we know about, but on services we don't.
+ */
+#define IPPROTO_ANY	0
+#define LB_SVC_WILDCARD_PROTO IPPROTO_ANY
+#define LB_SVC_WILDCARD_DPORT 0
 
 struct lb6_key {
 	union v6addr address;	/* Service virtual IPv6 address */

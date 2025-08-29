@@ -448,6 +448,22 @@ microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	@echo "  DEPLOY image to microk8s ($(LOCAL_OPERATOR_IMAGE))"
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_OPERATOR_IMAGE)
 
+.PHONY: check-fuzz
+check-fuzz: # Check that fuzzers are added to the tree correctly.
+	@$(ECHO_CHECK) contrib/scripts/check-fuzz.sh
+	$(QUIET) contrib/scripts/check-fuzz.sh
+
+.PHONY: fuzz
+ifneq ($(V),0)
+fuzz: export DEBUG=1
+endif
+ifneq ($(GOTEST_FORMATTER),cat)
+fuzz: export FUZZ_ARGS=-json
+endif
+fuzz: check-fuzz # Run fuzzer tests briefly for FUZZ_TIME seconds
+	@$(ECHO_CHECK) go-fuzz
+	./test/fuzzing/go-fuzz.sh | $(GOTEST_FORMATTER)
+
 precheck: ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
@@ -483,6 +499,7 @@ endif
 	$(QUIET)$(GO) run ./tools/slogloggercheck .
 	@$(ECHO_CHECK) contrib/scripts/check-fipsonly.sh
 	$(QUIET) contrib/scripts/check-fipsonly.sh
+	$(MAKE) check-fuzz
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
@@ -550,8 +567,20 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"dev-docker-operator-*-image-debug","Build platform specific cilium-operator debug images(alibabacloud, aws, azure, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 
-.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder
+.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder gateway-api-conformance
 force :;
+
+gateway-api-conformance: ## Run Gateway API conformance tests.
+	@$(ECHO_CHECK) running Gateway API conformance tests...
+	GATEWAY_API_CONFORMANCE_TESTS=1 \
+	GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES} \
+	GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES} \
+	$(GO) test -p 4 -v ./operator/pkg/gateway-api \
+		$(GATEWAY_TEST_FLAGS) \
+		-test.run "TestConformance" \
+		-test.timeout=29m \
+		-json \
+	| tparse -progress
 
 BPF_TEST_FILE ?= ""
 BPF_TEST_DUMP_CTX ?= ""

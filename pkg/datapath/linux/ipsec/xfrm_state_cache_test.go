@@ -12,6 +12,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 
@@ -26,7 +27,7 @@ func newTestableXfrmStateListCache(ttl time.Duration, clock clock.PassiveClock) 
 	}
 }
 
-func TestXfrmStateListCache(t *testing.T) {
+func TestPrivilegedXfrmStateListCache(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
 	backupOption := option.Config.EnableIPSecXfrmStateCaching
@@ -106,7 +107,7 @@ func TestXfrmStateListCache(t *testing.T) {
 	require.Empty(t, stateList)
 }
 
-func TestXfrmStateListCacheDisabled(t *testing.T) {
+func TestPrivilegedXfrmStateListCacheDisabled(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
 	backupOption := option.Config.EnableIPSecXfrmStateCaching
@@ -135,7 +136,7 @@ func TestXfrmStateListCacheDisabled(t *testing.T) {
 }
 
 func cleanIPSecStatesAndPolicies(t *testing.T) {
-	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	xfrmStateList, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		t.Fatalf("Can't list XFRM states: %v", err)
 	}
@@ -147,7 +148,7 @@ func cleanIPSecStatesAndPolicies(t *testing.T) {
 
 	}
 
-	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	xfrmPolicyList, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		t.Fatalf("Can't list XFRM policies: %v", err)
 	}

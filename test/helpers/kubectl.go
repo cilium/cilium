@@ -4387,10 +4387,10 @@ func (kub *Kubectl) CollectFeatures() {
 	// is installed in test VM images, we can remove this.
 	res := kub.ExecContext(ctx, fmt.Sprintf("cilium-cli features status -o markdown --output-file='%s/feature-status-%s.md'", testPath, ginkgoext.GetTestName()))
 	if !res.WasSuccessful() {
-		log.WithError(res.GetError()).Errorf("failed to collect feature status")
+		log.WithError(res.GetError()).Errorf("failed to collect feature status :%s", res.CombineOutput().String())
 	}
 	res = kub.ExecContext(ctx, fmt.Sprintf("cilium-cli features status -o json --output-file='%s/feature-status-%s.json'", testPath, ginkgoext.GetTestName()))
 	if !res.WasSuccessful() {
-		log.WithError(res.GetError()).Errorf("failed to collect feature status")
+		log.WithError(res.GetError()).Errorf("failed to collect feature status :%s", res.CombineOutput().String())
 	}
 }

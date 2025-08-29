@@ -55,7 +55,7 @@ func (kc *keyCustodian) Start(cell.HookContext) error {
 	}
 
 	var err error
-	kc.authKeySize, kc.spi, err = LoadIPSecKeysFile(kc.log, option.Config.IPSecKeyFile)
+	kc.authKeySize, kc.spi, err = LoadIPSecKeysFile(option.Config.IPSecKeyFile)
 	if err != nil {
 		return err
 	}

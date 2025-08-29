@@ -7,6 +7,9 @@ dario.cat/mergo
 # github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 ## explicit; go 1.20
 github.com/AdaLogics/go-fuzz-headers
+# github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20230306123547-8075edf89bb0
+## explicit; go 1.18
+github.com/AdamKorcz/go-118-fuzz-build/testing
 # github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.2
 ## explicit; go 1.23.0
 github.com/Azure/azure-sdk-for-go/sdk/azcore
@@ -855,7 +858,7 @@ github.com/go-openapi/swag
 # github.com/go-openapi/validate v0.24.0
 ## explicit; go 1.20
 github.com/go-openapi/validate
-# github.com/go-viper/mapstructure/v2 v2.3.0
+# github.com/go-viper/mapstructure/v2 v2.4.0
 ## explicit; go 1.18
 github.com/go-viper/mapstructure/v2
 github.com/go-viper/mapstructure/v2/internal/errors

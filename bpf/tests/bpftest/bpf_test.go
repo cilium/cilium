@@ -308,7 +308,8 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 			continue
 		}
 
-		t.Logf("Skipping program '%s' of type '%s': BPF_PROG_RUN not supported", p.Name, p.Type)
+		t.Logf("Skipping program '%s' of type '%s': BPF_PROG_RUN not supported on program type",
+			p.Name, p.Type)
 		delete(spec.Programs, n)
 	}
 

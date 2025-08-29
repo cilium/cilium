@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -55,7 +56,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	// Ignore deleting Gateway, this can happen when foregroundDeletion is enabled
 	// The reconciliation loop will automatically kick off for related Gateway resources.
 	if originalSvc.GetDeletionTimestamp() != nil {
-		scopedLog.Info("Gateway is being deleted, doing nothing")
+		scopedLog.InfoContext(ctx, "Gateway is being deleted, doing nothing")
 		return controllerruntime.Success()
 	}
 
@@ -76,7 +77,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return controllerruntime.Success()
 	}
 
-	scopedLog.Debug("Service exists and is a GAMMA Service", relevantHTTPRoutes, len(httpRouteList.Items))
+	scopedLog.DebugContext(ctx, "Service exists and is a GAMMA Service", relevantHTTPRoutes, len(httpRouteList.Items))
 
 	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
 	servicesList := &corev1.ServiceList{}
@@ -118,7 +119,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
 	}
 
-	if err = r.ensureEndpoints(ctx, cep); err != nil {
+	if err = r.ensureEndpointSlice(ctx, cep); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
 	}
@@ -128,7 +129,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return controllerruntime.Fail(fmt.Errorf("failed to update Gamma Service status: %w", err))
 	}
 
-	scopedLog.Info("Successfully reconciled GAMMA Service")
+	scopedLog.InfoContext(ctx, "Successfully reconciled GAMMA Service")
 	return controllerruntime.Success()
 }
 
@@ -212,10 +213,11 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 	return nil
 }
 
-func (r *gammaReconciler) ensureEndpoints(ctx context.Context, desired *corev1.Endpoints) error {
+func (r *gammaReconciler) ensureEndpointSlice(ctx context.Context, desired *discoveryv1.EndpointSlice) error {
 	ep := desired.DeepCopy()
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, ep, func() error {
-		ep.Subsets = desired.Subsets
+		ep.Endpoints = desired.Endpoints
+		ep.Ports = desired.Ports
 		ep.OwnerReferences = desired.OwnerReferences
 		setMergedLabelsAndAnnotations(ep, desired)
 		return nil

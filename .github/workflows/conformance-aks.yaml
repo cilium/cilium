@@ -247,24 +247,13 @@ jobs:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
       - name: Create AKS cluster
-        run: |
-          # Create group
-          az group create \
-            --name ${{ env.name }} \
-            --location ${{ matrix.location }} \
-            --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
-
-          # Create AKS cluster
-          az aks create \
-            --resource-group ${{ env.name }} \
-            --name ${{ env.name }} \
-            --location ${{ matrix.location }} \
-            --kubernetes-version ${{ matrix.version }} \
-            --network-plugin none \
-            --node-count 2 \
-            --ip-families ipv4,ipv6 \
-            ${{ env.cost_reduction }} \
-            --generate-ssh-keys
+        uses: ./.github/actions/setup-aks-cluster
+        with:
+          cluster_name: ${{ env.name }}
+          location: ${{ matrix.location }}
+          version: ${{ matrix.version }}
+          tags: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}"
+          taints: ${{ env.cost_reduction }}
 
       - name: Get cluster credentials
         run: |

@@ -1,0 +1,60 @@
+name: Create an AKS cluster
+description: Create an AKS cluster
+inputs:
+  cluster_name:
+    description: ''
+    required: true
+  location:
+    description: ''
+    required: true
+  version:
+    description: ''
+    required: false
+    default: ''
+  node_count:
+    description: ''
+    required: false
+    default: 2
+  tags:
+    description: ''
+    required: false
+    default: ''
+  taints:
+    description: ''
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Create AKS cluster
+      shell: bash
+      run: |
+        TAGS=""
+        VERSION=""
+
+        if [[ -n "${{ inputs.tags }}" ]]; then
+          TAGS="--tags ${{ inputs.tags }}"
+        fi
+
+        if [[ -n "${{ inputs.version }}" ]]; then
+          VERSION="--kubernetes-version ${{ inputs.version }}"
+        fi
+
+        # Create group
+        az group create \
+          --name ${{ inputs.cluster_name }} \
+          --location ${{ inputs.location }} \
+          $TAGS
+
+        # Create AKS cluster
+        az aks create \
+          --resource-group ${{ inputs.cluster_name }} \
+          --name ${{ inputs.cluster_name }} \
+          --location ${{ inputs.location }} \
+          $VERSION \
+          --network-plugin none \
+          --node-count ${{ inputs.node_count }} \
+          --ip-families ipv4,ipv6 \
+          ${{ inputs.taints }} \
+          --generate-ssh-keys
+

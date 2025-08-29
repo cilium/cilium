@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/cell"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -22,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
-func CiliumEndpointResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumEndpoint], error) {
+func CiliumEndpointResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumEndpoint], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -35,7 +36,7 @@ func CiliumEndpointResource(lc cell.Lifecycle, cs client.Clientset, opts ...func
 		CiliumEndpointIndexIdentity: identityIndexFunc,
 	}
 	return resource.New[*cilium_api_v2.CiliumEndpoint](
-		lc, lw, resource.WithMetric("CiliumEndpoint"), resource.WithIndexers(indexers)), nil
+		lc, lw, mp, resource.WithMetric("CiliumEndpoint"), resource.WithIndexers(indexers)), nil
 }
 
 func identityIndexFunc(obj any) ([]string, error) {
@@ -50,7 +51,7 @@ func identityIndexFunc(obj any) ([]string, error) {
 	return nil, fmt.Errorf("%w - found %T", errors.New("object is not a *cilium_api_v2.CiliumEndpoint"), obj)
 }
 
-func CiliumEndpointSliceResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice], error) {
+func CiliumEndpointSliceResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -58,10 +59,10 @@ func CiliumEndpointSliceResource(lc cell.Lifecycle, cs client.Clientset, opts ..
 		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumEndpointSliceList](cs.CiliumV2alpha1().CiliumEndpointSlices()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](lc, lw, resource.WithMetric("CiliumEndpointSlice")), nil
+	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](lc, lw, mp, resource.WithMetric("CiliumEndpointSlice")), nil
 }
 
-func CiliumNodeResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNode], error) {
+func CiliumNodeResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNode], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -69,12 +70,12 @@ func CiliumNodeResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*me
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](cs.CiliumV2().CiliumNodes()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumNode](lc, lw,
+	return resource.New[*cilium_api_v2.CiliumNode](lc, lw, mp,
 		resource.WithMetric("CiliumNode"),
 	), nil
 }
 
-func CiliumBGPClusterConfigResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumBGPClusterConfig], error) {
+func CiliumBGPClusterConfigResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumBGPClusterConfig], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -83,10 +84,10 @@ func CiliumBGPClusterConfigResource(lc cell.Lifecycle, cs client.Clientset, opts
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumBGPClusterConfigList](cs.CiliumV2().CiliumBGPClusterConfigs()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumBGPClusterConfig](lc, lw, resource.WithMetric("CiliumBGPClusterConfig")), nil
+	return resource.New[*cilium_api_v2.CiliumBGPClusterConfig](lc, lw, mp, resource.WithMetric("CiliumBGPClusterConfig")), nil
 }
 
-func CiliumBGPNodeConfigOverrideResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumBGPNodeConfigOverride], error) {
+func CiliumBGPNodeConfigOverrideResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumBGPNodeConfigOverride], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -95,10 +96,10 @@ func CiliumBGPNodeConfigOverrideResource(lc cell.Lifecycle, cs client.Clientset,
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumBGPNodeConfigOverrideList](cs.CiliumV2().CiliumBGPNodeConfigOverrides()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumBGPNodeConfigOverride](lc, lw, resource.WithMetric("CiliumBGPNodeConfigOverride")), nil
+	return resource.New[*cilium_api_v2.CiliumBGPNodeConfigOverride](lc, lw, mp, resource.WithMetric("CiliumBGPNodeConfigOverride")), nil
 }
 
-func PodResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Pod], error) {
+func PodResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Pod], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -114,14 +115,14 @@ func PodResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.Li
 		PodNodeNameIndex: PodNodeNameIndexFunc,
 	}
 
-	return resource.New[*slim_corev1.Pod](lc, lw,
+	return resource.New[*slim_corev1.Pod](lc, lw, mp,
 			resource.WithMetric("Pod"),
 			resource.WithIndexers(indexers),
 		),
 		nil
 }
 
-func LBIPPoolsResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool], error) {
+func LBIPPoolsResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -129,12 +130,12 @@ func LBIPPoolsResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*met
 		utils.ListerWatcherFromTyped(cs.CiliumV2().CiliumLoadBalancerIPPools()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumLoadBalancerIPPool](lc, lw, resource.WithMetric("CiliumLoadBalancerIPPool")), nil
+	return resource.New[*cilium_api_v2.CiliumLoadBalancerIPPool](lc, lw, mp, resource.WithMetric("CiliumLoadBalancerIPPool")), nil
 }
 
 const ServiceIndex = "service"
 
-func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (resource.Resource[*k8s.Endpoints], error) {
+func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg k8s.ConfigParams, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*k8s.Endpoints], error) {
 	return k8s.EndpointsResourceWithIndexers(
 		logger,
 		lc,
@@ -150,6 +151,6 @@ func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg k8s.Config, c
 				return []string{eps.ServiceName.String()}, nil
 			},
 		},
+		mp,
 	)
-
 }

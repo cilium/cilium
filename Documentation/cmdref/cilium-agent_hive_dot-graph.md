@@ -61,6 +61,7 @@ cilium-agent hive dot-graph [flags]
       --enable-bandwidth-manager                                  Enable BPF bandwidth manager
       --enable-bbr                                                Enable BBR for the bandwidth manager
       --enable-bbr-hostns-only                                    Enable BBR only in the host network namespace.
+      --enable-bgp-legacy-origin-attribute                        Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-cilium-api-server-access strings                   List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-health-api-server-access strings            List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-drift-checker                                      Enables support for config drift checker (default true)
@@ -161,7 +162,7 @@ cilium-agent hive dot-graph [flags]
       --k8s-heartbeat-timeout duration                            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                                Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                             Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
-      --kube-proxy-replacement string                             Enable kube-proxy replacement (default "false")
+      --kube-proxy-replacement                                    Enable kube-proxy replacement
       --kube-proxy-replacement-healthz-bind-address string        The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.
       --kvstore string                                            Key-value store type
       --kvstore-lease-ttl duration                                Time-to-live for the KVstore lease. (default 15m0s)
