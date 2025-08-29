@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/kubectl/pkg/util/podutils"
+	metricsapi "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
@@ -622,6 +624,52 @@ func (c *Collector) Run() error {
 				}
 				if err := c.WriteString(kubernetesMetricsFileName, result); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes metrics: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Kubernetes nodes memory/cpu usage",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				// Use the raw client to get the table format directly from the metrics API
+				// This gives us the same output as kubectl top nodes
+				result, err := c.Client.GetRaw(ctx, "/apis/metrics.k8s.io/v1beta1/nodes")
+				if err != nil {
+					return fmt.Errorf("failed to collect Kubernetes nodes memory/cpu usage: %w", err)
+				}
+
+				// Parse the JSON response and format as table
+				output, err := c.formatNodeMetricsAsTable(result)
+				if err != nil {
+					return fmt.Errorf("failed to format node memory/cpu usage metrics: %w", err)
+				}
+
+				if err := c.WriteString(kubernetesTopNodesFileName, output); err != nil {
+					return fmt.Errorf("failed to collect Kubernetes nodes memory/cpu usage: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Kubernetes pods memory/cpu usage",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				// Use the raw client to get the table format directly from the metrics API
+				// This gives us the same output as kubectl top pods
+				result, err := c.Client.GetRaw(ctx, "/apis/metrics.k8s.io/v1beta1/pods")
+				if err != nil {
+					return fmt.Errorf("failed to collect Kubernetes pods memory/cpu usage: %w", err)
+				}
+
+				// Parse the JSON response and format as table
+				output, err := c.formatPodMetricsAsTable(result)
+				if err != nil {
+					return fmt.Errorf("failed to format pod memory/cpu usage metrics: %w", err)
+				}
+
+				if err := c.WriteString(kubernetesTopPodsFileName, output); err != nil {
+					return fmt.Errorf("failed to collect Kubernetes pods memory/cpu usage: %w", err)
 				}
 				return nil
 			},
@@ -3292,6 +3340,119 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 		"Retry limit for file copying operations. If set to -1, copying will be retried indefinitely. Useful for collecting sysdump while on unreliable connection.")
 
 	hooks.AddSysdumpFlags(cmd.Flags())
+}
+
+// formatMetricsAsTable formats the raw metrics JSON into a table format like kubectl top nodes
+func (c *Collector) formatNodeMetricsAsTable(rawMetrics string) (string, error) {
+	// Parse the metrics JSON
+	var nodeMetrics metricsapi.NodeMetricsList
+	if err := json.Unmarshal([]byte(rawMetrics), &nodeMetrics); err != nil {
+		return "", fmt.Errorf("failed to parse metrics JSON: %w", err)
+	}
+
+	// Get node information to calculate percentages
+	nodes, err := c.Client.ListNodes(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get nodes: %w", err)
+	}
+
+	// Create a map of node names to their capacity
+	nodeCapacities := make(map[string]corev1.ResourceList)
+	for _, node := range nodes.Items {
+		nodeCapacities[node.Name] = node.Status.Capacity
+	}
+
+	var sb strings.Builder
+	sb.WriteString("NAME            CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)\n")
+
+	for _, metric := range nodeMetrics.Items {
+		name := metric.Name
+		if len(name) > 15 {
+			name = name[:12] + "..."
+		}
+
+		// Get current usage
+		cpuUsage := metric.Usage[corev1.ResourceCPU]
+		memUsage := metric.Usage[corev1.ResourceMemory]
+
+		cpuMillis := cpuUsage.MilliValue()
+		memBytes := memUsage.Value()
+		memMi := float64(memBytes) / (1024 * 1024)
+
+		// Calculate percentages if we have capacity info
+		cpuPercent := "<unknown>"
+		memPercent := "<unknown>"
+
+		if capacity, exists := nodeCapacities[metric.Name]; exists {
+			if cpuCap := capacity[corev1.ResourceCPU]; !cpuCap.IsZero() {
+				cpuCapMillis := cpuCap.MilliValue()
+				cpuPct := float64(cpuMillis) / float64(cpuCapMillis) * 100
+				cpuPercent = fmt.Sprintf("%.0f%%", cpuPct)
+			}
+
+			if memCap := capacity[corev1.ResourceMemory]; !memCap.IsZero() {
+				memCapBytes := memCap.Value()
+				memPct := float64(memBytes) / float64(memCapBytes) * 100
+				memPercent = fmt.Sprintf("%.0f%%", memPct)
+			}
+		}
+
+		sb.WriteString(fmt.Sprintf("%-15s %-12s %-8s %-15s %s\n",
+			name,
+			fmt.Sprintf("%dm", cpuMillis),
+			cpuPercent,
+			fmt.Sprintf("%dMi", int64(memMi)),
+			memPercent))
+	}
+
+	return sb.String(), nil
+}
+
+// formatPodMetricsAsTable formats the raw pod metrics JSON into a table format like kubectl top pods
+func (c *Collector) formatPodMetricsAsTable(rawMetrics string) (string, error) {
+	// Parse the metrics JSON
+	var podMetrics metricsapi.PodMetricsList
+	if err := json.Unmarshal([]byte(rawMetrics), &podMetrics); err != nil {
+		return "", fmt.Errorf("failed to parse pod metrics JSON: %w", err)
+	}
+
+	var sb strings.Builder
+	sb.WriteString("NAMESPACE      NAME                                 CPU(cores)   MEMORY(bytes)\n")
+
+	for _, metric := range podMetrics.Items {
+		namespace := metric.Namespace
+		if len(namespace) > 14 {
+			namespace = namespace[:11] + "..."
+		}
+
+		name := metric.Name
+		if len(name) > 36 {
+			name = name[:33] + "..."
+		}
+
+		// Sum CPU and memory usage across all containers in the pod
+		var totalCPUMillis int64
+		var totalMemBytes int64
+
+		for _, container := range metric.Containers {
+			if cpuUsage, exists := container.Usage[corev1.ResourceCPU]; exists {
+				totalCPUMillis += cpuUsage.MilliValue()
+			}
+			if memUsage, exists := container.Usage[corev1.ResourceMemory]; exists {
+				totalMemBytes += memUsage.Value()
+			}
+		}
+
+		memMi := float64(totalMemBytes) / (1024 * 1024)
+
+		sb.WriteString(fmt.Sprintf("%-14s %-36s %-12s %dMi\n",
+			namespace,
+			name,
+			fmt.Sprintf("%dm", totalCPUMillis),
+			int64(memMi)))
+	}
+
+	return sb.String(), nil
 }
 
 // Hooks to extend cilium-cli with additional sysdump tasks and related flags.
