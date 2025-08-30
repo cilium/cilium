@@ -810,8 +810,11 @@ latter rule will have no effect.
 .. note:: Layer 7 rules support port ranges, except for DNS rules.
 
 .. note:: In `HostPolicies`, i.e. policies that use :ref:`NodeSelector`,
-          only DNS layer 7 rules are currently supported.
-          Other types of layer 7 rules are not supported in `HostPolicies`.
+          only DNS layer 7 rules are currently functional.
+          Other types of layer 7 rules cannot be specified in `HostPolicies`.
+
+          Host layer 7 DNS policies are a beta feature.
+          Please provide feedback and file a GitHub issue if you experience any problems.
 
 .. note:: Layer 7 policies will proxy traffic through a node-local :ref:`envoy`
           instance, which will either be deployed as a DaemonSet or embedded in the agent pod.
@@ -1186,6 +1189,11 @@ Host policies take the form of a :ref:`CiliumClusterwideNetworkPolicy` with a
 :ref:`NodeSelector` instead of an :ref:`EndpointSelector`. Host policies can
 have layer 3 and layer 4 rules on both ingress and egress. They can also have
 layer 7 DNS rules, but no other kinds of layer 7 rules.
+
+.. note::
+
+    Host L7 DNS policies are a beta feature.
+    Please provide feedback and file a GitHub issue if you experience any problems.
 
 .. attention::
 
