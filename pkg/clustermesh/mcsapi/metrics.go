@@ -32,6 +32,10 @@ func registerMCSAPICollector(registry *metrics.Registry, logger *slog.Logger, cl
 			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, "", "serviceimport_info"),
 			"Information about ServiceImport in the local cluster",
 			[]string{"serviceimport", "namespace"}, nil),
+		serviceImportStatusCondition: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, "", "serviceimport_status_condition"),
+			"Status Condition of ServiceImport in the local cluster",
+			[]string{"serviceimport", "namespace", "condition", "status"}, nil),
 	})
 }
 
@@ -42,12 +46,14 @@ type mcsAPICollector struct {
 	serviceExportInfo            *prometheus.Desc
 	serviceExportStatusCondition *prometheus.Desc
 	serviceImportInfo            *prometheus.Desc
+	serviceImportStatusCondition *prometheus.Desc
 }
 
 func (c *mcsAPICollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.serviceExportInfo
 	ch <- c.serviceExportStatusCondition
 	ch <- c.serviceImportInfo
+	ch <- c.serviceImportStatusCondition
 }
 
 func (c *mcsAPICollector) Collect(ch chan<- prometheus.Metric) {
@@ -103,5 +109,19 @@ func (c *mcsAPICollector) Collect(ch chan<- prometheus.Metric) {
 			return
 		}
 		ch <- metric
+		for _, condition := range svcImport.Status.Conditions {
+			metric, err := prometheus.NewConstMetric(
+				c.serviceImportStatusCondition,
+				prometheus.GaugeValue,
+				1,
+				svcImport.Name, svcImport.Namespace,
+				string(condition.Type), string(condition.Status),
+			)
+			if err != nil {
+				c.logger.Error("Failed to generate ServiceImport metrics", logfields.Error, err)
+				return
+			}
+			ch <- metric
+		}
 	}
 }
