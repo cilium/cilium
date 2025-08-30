@@ -617,6 +617,17 @@ By default Cilium uses special ExternalIP mitigation for CVE-2020-8554 MITM vuln
 This may affect connectivity targeted to ExternalIP on the same cluster.
 This mitigation can be disabled by setting ``bpf.disableExternalIPMitigation`` to ``true``.
 
+For help to choice the Dispatch, the following table specifies DSR Dispatch Mode supported
+following Routing mode (Native/Tunnel) and Tunnel Protocol.
+
+================== ======= ================ ==============
+DSR Dispatch Mode  Native  Tunnel (Geneve)  Tunnel (VXLAN)
+================== ======= ================ ==============
+Option (OPT)       ✅      ❌               ❌
+Geneve             ✅      ✅               ❌
+================== ======= ================ ==============
+
+
 .. _DSR mode with Option:
 
 Direct Server Return (DSR) with IPv4 option / IPv6 extension Header
