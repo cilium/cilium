@@ -101,20 +101,19 @@ func ScriptCmds(epm EndpointManager, template *endpoint.Endpoint) map[string]scr
 				Args:    "policy-rev",
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
-				allArgs := []string(args)
-				if len(allArgs) != 1 {
-					return nil, fmt.Errorf("expected one arg but got %v, see usage details", len(allArgs))
+				if len(args) != 1 {
+					return nil, fmt.Errorf("expected one arg but got %v, see usage details", len(args))
 				}
-				rev, err := strconv.Atoi(allArgs[0])
+				rev, err := strconv.ParseUint(args[0], 10, 64)
 				if err != nil {
-					return nil, fmt.Errorf("atoi: %w", err)
+					return nil, fmt.Errorf("parse policy-rev: %w", err)
 				}
 				wg := epm.RegenerateAllEndpoints(&regeneration.ExternalRegenerationMetadata{
 					Reason:            "simulate regeneration of all endpoints from script command",
 					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 					ParentContext:     s.Context(),
 
-					PolicyRevisionToWaitFor: uint64(rev),
+					PolicyRevisionToWaitFor: rev,
 				})
 				return func(s *script.State) (stdout string, stderr string, err error) {
 					wg.Wait()
