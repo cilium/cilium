@@ -1,0 +1,95 @@
+hive/start
+db/show health
+
+# Initialize state: create host and health endpoints.
+identity/allocate reserved:host,reserved:kube-apiserver
+identity/allocate reserved:health
+endpoint/create 1 reserved:host,reserved:kube-apiserver
+endpoint/create 4 reserved:health
+
+# Import initial policy. Neither host nor health endpoint should have their
+# policy recomputed as this policy does not select them.
+k8s/add policy.yaml
+policy/import policy.yaml
+
+# Create first real endpoint selected by policy.yaml. Policy computation for
+# this endpoint should be at 2 now.
+env id1_labels=k8s:io.kubernetes.pod.namespace=default,k8s:foo=bar
+identity/allocate ${id1_labels}
+env --from-stdout id1
+endpoint/create ${id1} ${id1_labels}
+
+# Simulate an update to policy.yaml. Endpoint should be at policy revision 3.
+replace 'policy' 'p2' policy.yaml
+policy/import policy.yaml
+# Add new policy that does not select foo=bar endpoint. Policy revision should
+# stay at 3.
+policy/import allow-env-prod.yaml
+
+# Create second real endpoint selected by policy.yaml. Policy computation for
+# this endpoint should be at 4.
+env id2_labels=k8s:io.kubernetes.pod.namespace=default,k8s:baz=bar
+identity/allocate ${id2_labels}
+env --from-stdout id2
+endpoint/create ${id2} ${id2_labels}
+
+# Simulate two changes to allow-env-prod.yaml. No endpoint's policy revision
+# should change. Policy repo revision should be at 6 now.
+replace 'allow-env-prod' 'p3' allow-env-prod.yaml
+policy/import allow-env-prod.yaml
+replace 'allow-env-prod' 'p4' allow-env-prod.yaml
+policy/import allow-env-prod.yaml
+
+policyrepo/bump-revision
+policy/compute-all
+endpoint/regen-all 7
+
+db/cmp policy-computations policy.table
+
+-- policy.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "policy"
+  namespace: "default"
+spec:
+  endpointSelector: {}
+  egress:
+    - toEndpoints:
+      - matchLabels: {}
+    - toEndpoints:
+      - matchLabels:
+          "k8s:io.kubernetes.pod.namespace": kube-system
+          "k8s:k8s-app": kube-dns
+      toPorts:
+      - ports:
+        - port: "53"
+          protocol: "UDP"
+        rules:
+          dns:
+          - matchPattern: "*"
+    - toFQDNs:
+      - matchPattern: "*"
+      - matchPattern: "ifconfig.co"
+    - toCIDR:
+      - "1.1.1.1/32"
+
+-- allow-env-prod.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "allow-env-prod"
+  namespace: "default"
+spec:
+  endpointSelector:
+    matchLabels:
+      env: prod
+  egress:
+  - {}
+
+-- policy.table --
+Identity	Revision	Err
+1	1
+4	1
+${id1}	3
+${id2}	4
