@@ -233,7 +233,7 @@ func mergedPortsToMCSPorts(mergedPorts []portMerge) []mcsapiv1alpha1.ServicePort
 }
 
 func getClustersStatus(svcExportByCluster operator.ServiceExportsByCluster) []mcsapiv1alpha1.ClusterStatus {
-	clusters := []mcsapiv1alpha1.ClusterStatus{}
+	clusters := make([]mcsapiv1alpha1.ClusterStatus, 0, len(svcExportByCluster))
 	for _, cluster := range slices.Sorted(maps.Keys(svcExportByCluster)) {
 		clusters = append(clusters, mcsapiv1alpha1.ClusterStatus{
 			Cluster: cluster,
