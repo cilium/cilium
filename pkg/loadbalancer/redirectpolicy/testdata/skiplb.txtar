@@ -216,7 +216,7 @@ spec:
       matchLabels:
         app: proxy
     toPorts:
-      - port: "8080"
+      - port: "80"
         name: "tcp"
         protocol: TCP
 
