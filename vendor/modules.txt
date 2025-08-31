@@ -852,9 +852,42 @@ github.com/go-openapi/spec
 # github.com/go-openapi/strfmt v0.23.0
 ## explicit; go 1.20
 github.com/go-openapi/strfmt
-# github.com/go-openapi/swag v0.23.1
-## explicit; go 1.20
+# github.com/go-openapi/swag v0.24.1
+## explicit; go 1.20.0
 github.com/go-openapi/swag
+# github.com/go-openapi/swag/cmdutils v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/cmdutils
+# github.com/go-openapi/swag/conv v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/conv
+# github.com/go-openapi/swag/fileutils v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/fileutils
+# github.com/go-openapi/swag/jsonname v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/jsonname
+# github.com/go-openapi/swag/jsonutils v0.24.0
+## explicit; go 1.20
+github.com/go-openapi/swag/jsonutils
+# github.com/go-openapi/swag/loading v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/loading
+# github.com/go-openapi/swag/mangling v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/mangling
+# github.com/go-openapi/swag/netutils v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/netutils
+# github.com/go-openapi/swag/stringutils v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/stringutils
+# github.com/go-openapi/swag/typeutils v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/typeutils
+# github.com/go-openapi/swag/yamlutils v0.24.0
+## explicit; go 1.20
+github.com/go-openapi/swag/yamlutils
 # github.com/go-openapi/validate v0.24.0
 ## explicit; go 1.20
 github.com/go-openapi/validate
@@ -1115,6 +1148,7 @@ github.com/mackerelio/go-osstat/loadavg
 github.com/mackerelio/go-osstat/memory
 # github.com/mailru/easyjson v0.9.0
 ## explicit; go 1.20
+github.com/mailru/easyjson
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
@@ -1415,7 +1449,7 @@ github.com/spiffe/spire-api-sdk/proto/spire/api/types
 # github.com/stoewer/go-strcase v1.3.0
 ## explicit; go 1.11
 github.com/stoewer/go-strcase
-# github.com/stretchr/testify v1.10.0
+# github.com/stretchr/testify v1.11.1
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
