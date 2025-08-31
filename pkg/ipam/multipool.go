@@ -263,7 +263,7 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 
 	k8sController := controller.NewManager()
 	k8sUpdater, err := trigger.NewTrigger(trigger.Parameters{
-		MinInterval: 15 * time.Second,
+		MinInterval: conf.IPAMCiliumNodeUpdateRate,
 		TriggerFunc: func(reasons []string) {
 			k8sController.TriggerController(multiPoolControllerName)
 		},
