@@ -1403,7 +1403,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 
-	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_wireguard(ctx))
+	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_encrypted(ctx))
 		src_sec_identity = HOST_ID;
 #ifdef ENABLE_IDENTITY_MARK
 	else if (magic == MARK_MAGIC_IDENTITY)
