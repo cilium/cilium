@@ -27,7 +27,7 @@
 #define NODE_MAC mac_two
 #define LOCAL_BACKEND_MAC mac_three
 
-#define ctx_redirect mock_ctx_redirect
+#define redirect_neigh mock_redirect_neigh
 
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
@@ -37,8 +37,10 @@ struct {
 } redirect_ifindex_map __section_maps_btf;
 
 static __always_inline __maybe_unused int
-mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
+mock_redirect_neigh(int ifindex,
+		    __maybe_unused struct bpf_redir_neigh *params,
+		    __maybe_unused int plen,
+		    __maybe_unused __u32 flags)
 {
 	__u32 key = 0;
 	__u32 *value = map_lookup_elem(&redirect_ifindex_map, &key);
