@@ -389,47 +389,46 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       const struct ipv4_nat_target *target,
 			       struct trace_ctx *trace)
 {
+	struct ipv4_nat_entry *lookup_result;
+	struct ipv4_ct_tuple otuple = {};
 	void *map;
+	int ret;
 
 	map = get_cluster_snat_map_v4(target->cluster_id);
 	if (!map)
 		return DROP_SNAT_NO_MAP_FOUND;
 
 	*state = __snat_lookup(map, tuple);
+	if (!*state)
+		return DROP_NAT_NO_MAPPING;
 
-	if (*state) {
-		struct ipv4_nat_entry *lookup_result;
+	/* Check for the original SNAT entry. If it is missing (e.g. due to LRU
+	 * eviction), it must be restored before returning.
+	 */
+	otuple.saddr = (*state)->to_daddr;
+	otuple.sport = (*state)->to_dport;
+	otuple.daddr = tuple->saddr;
+	otuple.dport = tuple->sport;
+	otuple.nexthdr = tuple->nexthdr;
+	otuple.flags = TUPLE_F_OUT;
+
+	lookup_result = __snat_lookup(map, &otuple);
+	if (!lookup_result) {
 		struct ipv4_nat_entry ostate;
-		struct ipv4_ct_tuple otuple = {};
-		int ret;
 
-		/* Check for the original SNAT entry. If it is missing (e.g. due to LRU
-		 * eviction), it must be restored before returning.
-		 */
-		otuple.saddr = (*state)->to_daddr;
-		otuple.sport = (*state)->to_dport;
-		otuple.daddr = tuple->saddr;
-		otuple.dport = tuple->sport;
-		otuple.nexthdr = tuple->nexthdr;
-		otuple.flags = TUPLE_F_OUT;
+		memset(&ostate, 0, sizeof(ostate));
+		ostate.to_saddr = tuple->daddr;
+		ostate.to_sport = tuple->dport;
+		ostate.common.needs_ct = (*state)->common.needs_ct;
+		ostate.common.created = bpf_mono_now();
 
-		lookup_result = __snat_lookup(map, &otuple);
-		if (!lookup_result) {
-			memset(&ostate, 0, sizeof(ostate));
-			ostate.to_saddr = tuple->daddr;
-			ostate.to_sport = tuple->dport;
-			ostate.common.needs_ct = (*state)->common.needs_ct;
-			ostate.common.created = bpf_mono_now();
-
-			ret = __snat_create(map, &otuple, &ostate, false);
-			if (ret < 0)
-				return DROP_NAT_NO_MAPPING;
-		}
+		ret = __snat_create(map, &otuple, &ostate, false);
+		if (ret < 0)
+			return DROP_NAT_NO_MAPPING;
 	}
 
-	if (*state && (*state)->common.needs_ct) {
+	if ((*state)->common.needs_ct) {
 		struct ipv4_ct_tuple tuple_revsnat;
-		int ret;
 
 		memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
 		tuple_revsnat.daddr = (*state)->to_daddr;
@@ -449,10 +448,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		trace->reason = (enum trace_reason)ret;
 	}
 
-	if (*state)
-		return 0;
-
-	return DROP_NAT_NO_MAPPING;
+	return 0;
 }
 
 static __always_inline int
@@ -1425,41 +1421,41 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       __u32 off,
 			       struct trace_ctx *trace)
 {
+	struct ipv6_nat_entry *lookup_result;
+	struct ipv6_ct_tuple otuple = {};
+	int ret;
+
 	*state = snat_v6_lookup(tuple);
+	if (!*state)
+		return DROP_NAT_NO_MAPPING;
 
-	if (*state) {
-		struct ipv6_nat_entry *lookup_result;
+	/* Check for the original SNAT entry. If it is missing (e.g. due to LRU
+	 * eviction), it must be restored before returning.
+	 */
+	otuple.saddr = (*state)->to_daddr;
+	otuple.sport = (*state)->to_dport;
+	otuple.daddr = tuple->saddr;
+	otuple.dport = tuple->sport;
+	otuple.nexthdr = tuple->nexthdr;
+	otuple.flags = TUPLE_F_OUT;
+
+	lookup_result = snat_v6_lookup(&otuple);
+	if (!lookup_result) {
 		struct ipv6_nat_entry ostate;
-		struct ipv6_ct_tuple otuple = {};
-		int ret;
 
-		/* Check for the original SNAT entry. If it is missing (e.g. due to LRU
-		 * eviction), it must be restored before returning.
-		 */
-		otuple.saddr = (*state)->to_daddr;
-		otuple.sport = (*state)->to_dport;
-		otuple.daddr = tuple->saddr;
-		otuple.dport = tuple->sport;
-		otuple.nexthdr = tuple->nexthdr;
-		otuple.flags = TUPLE_F_OUT;
+		memset(&ostate, 0, sizeof(ostate));
+		ostate.to_saddr = tuple->daddr;
+		ostate.to_sport = tuple->dport;
+		ostate.common.needs_ct = (*state)->common.needs_ct;
+		ostate.common.created = bpf_mono_now();
 
-		lookup_result = snat_v6_lookup(&otuple);
-		if (!lookup_result) {
-			memset(&ostate, 0, sizeof(ostate));
-			ostate.to_saddr = tuple->daddr;
-			ostate.to_sport = tuple->dport;
-			ostate.common.needs_ct = (*state)->common.needs_ct;
-			ostate.common.created = bpf_mono_now();
-
-			ret = __snat_create(&cilium_snat_v6_external, &otuple, &ostate, false);
-			if (ret < 0)
-				return DROP_NAT_NO_MAPPING;
-		}
+		ret = __snat_create(&cilium_snat_v6_external, &otuple, &ostate, false);
+		if (ret < 0)
+			return DROP_NAT_NO_MAPPING;
 	}
 
-	if (*state && (*state)->common.needs_ct) {
+	if ((*state)->common.needs_ct) {
 		struct ipv6_ct_tuple tuple_revsnat;
-		int ret;
 
 		memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
 		ipv6_addr_copy(&tuple_revsnat.daddr, &(*state)->to_daddr);
@@ -1479,10 +1475,7 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		trace->reason = (enum trace_reason)ret;
 	}
 
-	if (*state)
-		return 0;
-
-	return DROP_NAT_NO_MAPPING;
+	return 0;
 }
 
 static __always_inline int
