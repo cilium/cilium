@@ -67,7 +67,7 @@ type ClusterService struct {
 	Backends map[string]PortConfiguration `json:"backends"`
 
 	// Hostnames is map indexed by the backend IP address
-	Hostnames map[string]string `json:"hostnames"`
+	Hostnames map[string]string `json:"hostnames,omitempty"`
 
 	// Zones is map indexed by the backend IP address
 	Zones map[string]BackendZone `json:"zones,omitempty"`
