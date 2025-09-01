@@ -390,7 +390,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       struct trace_ctx *trace)
 {
 	struct ipv4_nat_entry *lookup_result;
-	struct ipv4_ct_tuple otuple = {};
+	struct ipv4_ct_tuple tmp_tuple = {};
 	void *map;
 	int ret;
 
@@ -405,14 +405,14 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 	/* Check for the original SNAT entry. If it is missing (e.g. due to LRU
 	 * eviction), it must be restored before returning.
 	 */
-	otuple.saddr = (*state)->to_daddr;
-	otuple.sport = (*state)->to_dport;
-	otuple.daddr = tuple->saddr;
-	otuple.dport = tuple->sport;
-	otuple.nexthdr = tuple->nexthdr;
-	otuple.flags = TUPLE_F_OUT;
+	tmp_tuple.saddr = (*state)->to_daddr;
+	tmp_tuple.sport = (*state)->to_dport;
+	tmp_tuple.daddr = tuple->saddr;
+	tmp_tuple.dport = tuple->sport;
+	tmp_tuple.nexthdr = tuple->nexthdr;
+	tmp_tuple.flags = TUPLE_F_OUT;
 
-	lookup_result = __snat_lookup(map, &otuple);
+	lookup_result = __snat_lookup(map, &tmp_tuple);
 	if (!lookup_result) {
 		struct ipv4_nat_entry ostate;
 
@@ -422,24 +422,22 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		ostate.common.needs_ct = (*state)->common.needs_ct;
 		ostate.common.created = bpf_mono_now();
 
-		ret = __snat_create(map, &otuple, &ostate, false);
+		ret = __snat_create(map, &tmp_tuple, &ostate, false);
 		if (ret < 0)
 			return DROP_NAT_NO_MAPPING;
 	}
 
 	if ((*state)->common.needs_ct) {
-		struct ipv4_ct_tuple tuple_revsnat;
-
-		memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
-		tuple_revsnat.daddr = (*state)->to_daddr;
-		tuple_revsnat.dport = (*state)->to_dport;
+		memcpy(&tmp_tuple, tuple, sizeof(tmp_tuple));
+		tmp_tuple.daddr = (*state)->to_daddr;
+		tmp_tuple.dport = (*state)->to_dport;
 
 		/* CT expects a tuple with the source and destination ports reversed,
 		 * while NAT uses normal tuples that match packet headers.
 		 */
-		ipv4_ct_tuple_swap_ports(&tuple_revsnat);
+		ipv4_ct_tuple_swap_ports(&tmp_tuple);
 
-		ret = ct_lazy_lookup4(get_ct_map4(&tuple_revsnat), &tuple_revsnat, ctx,
+		ret = ct_lazy_lookup4(get_ct_map4(&tmp_tuple), &tmp_tuple, ctx,
 				      fraginfo, off, CT_INGRESS, SCOPE_REVERSE,
 				      CT_ENTRY_ANY, NULL, &trace->monitor);
 		if (ret < 0)
@@ -1422,7 +1420,7 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       struct trace_ctx *trace)
 {
 	struct ipv6_nat_entry *lookup_result;
-	struct ipv6_ct_tuple otuple = {};
+	struct ipv6_ct_tuple tmp_tuple = {};
 	int ret;
 
 	*state = snat_v6_lookup(tuple);
@@ -1432,14 +1430,14 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 	/* Check for the original SNAT entry. If it is missing (e.g. due to LRU
 	 * eviction), it must be restored before returning.
 	 */
-	otuple.saddr = (*state)->to_daddr;
-	otuple.sport = (*state)->to_dport;
-	otuple.daddr = tuple->saddr;
-	otuple.dport = tuple->sport;
-	otuple.nexthdr = tuple->nexthdr;
-	otuple.flags = TUPLE_F_OUT;
+	tmp_tuple.saddr = (*state)->to_daddr;
+	tmp_tuple.sport = (*state)->to_dport;
+	tmp_tuple.daddr = tuple->saddr;
+	tmp_tuple.dport = tuple->sport;
+	tmp_tuple.nexthdr = tuple->nexthdr;
+	tmp_tuple.flags = TUPLE_F_OUT;
 
-	lookup_result = snat_v6_lookup(&otuple);
+	lookup_result = snat_v6_lookup(&tmp_tuple);
 	if (!lookup_result) {
 		struct ipv6_nat_entry ostate;
 
@@ -1449,24 +1447,22 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		ostate.common.needs_ct = (*state)->common.needs_ct;
 		ostate.common.created = bpf_mono_now();
 
-		ret = __snat_create(&cilium_snat_v6_external, &otuple, &ostate, false);
+		ret = __snat_create(&cilium_snat_v6_external, &tmp_tuple, &ostate, false);
 		if (ret < 0)
 			return DROP_NAT_NO_MAPPING;
 	}
 
 	if ((*state)->common.needs_ct) {
-		struct ipv6_ct_tuple tuple_revsnat;
-
-		memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
-		ipv6_addr_copy(&tuple_revsnat.daddr, &(*state)->to_daddr);
-		tuple_revsnat.dport = (*state)->to_dport;
+		memcpy(&tmp_tuple, tuple, sizeof(tmp_tuple));
+		ipv6_addr_copy(&tmp_tuple.daddr, &(*state)->to_daddr);
+		tmp_tuple.dport = (*state)->to_dport;
 
 		/* CT expects a tuple with the source and destination ports reversed,
 		 * while NAT uses normal tuples that match packet headers.
 		 */
-		ipv6_ct_tuple_swap_ports(&tuple_revsnat);
+		ipv6_ct_tuple_swap_ports(&tmp_tuple);
 
-		ret = ct_lazy_lookup6(get_ct_map6(&tuple_revsnat), &tuple_revsnat, ctx,
+		ret = ct_lazy_lookup6(get_ct_map6(&tmp_tuple), &tmp_tuple, ctx,
 				      fraginfo, off, CT_INGRESS, SCOPE_REVERSE,
 				      CT_ENTRY_ANY, NULL, &trace->monitor);
 		if (ret < 0)
