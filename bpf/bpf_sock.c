@@ -300,12 +300,12 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock4_skip_xlate(svc, orig_key.address))
 		return -EPERM;
 
-#ifdef ENABLE_LOCAL_REDIRECT_POLICY
+#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE)
 	if (lb4_svc_is_localredirect(svc) &&
 	    lb4_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx_full),
 					   orig_key.address, orig_key.dport))
 		return -ENXIO;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY && HAVE_NETNS_COOKIE*/
 
 #ifdef ENABLE_L7_LB
 	/* Do not perform service translation at socker layer for
