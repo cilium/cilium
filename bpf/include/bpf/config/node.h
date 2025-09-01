@@ -31,3 +31,5 @@ NODE_CONFIG(bool, supports_fib_lookup_skip_neigh,
 	    "Whether or not BPF_FIB_LOOKUP_SKIP_NEIGH is supported.")
 
 NODE_CONFIG(__u8, tracing_ip_option_type, "The IP option type to use for packet tracing")
+
+NODE_CONFIG(bool, policy_deny_response_enabled, "Enable ICMP responses for policy-denied traffic")

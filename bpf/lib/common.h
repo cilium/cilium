@@ -649,6 +649,7 @@ enum {
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
 #define CB_SRV6_SID_1		CB_SRC_LABEL	/* Alias, non-overlapping */
+#define CB_VERDICT		CB_SRC_LABEL	/* Alias, non-overlapping */
 	CB_1,
 #define	CB_DELIVERY_REDIRECT	CB_1		/* Alias, non-overlapping */
 #define	CB_NAT_46X64		CB_1		/* Alias, non-overlapping */
