@@ -1173,6 +1173,7 @@ func (kc *keyCustodian) setIPSecSPI(spi uint8) error {
 		kc.log.Warn("cilium_encrypt_state map updated failed", logfields.Error, err)
 		return err
 	}
+	kc.spi = spi
 	return nil
 }
 
