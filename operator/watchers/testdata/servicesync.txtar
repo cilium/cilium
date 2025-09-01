@@ -171,7 +171,6 @@ ports:
     }
   },
   "backends": {},
-  "hostnames": {},
   "labels": {},
   "selector": {
     "name": "echo"
@@ -202,7 +201,6 @@ ports:
       }
     }
   },
-  "hostnames": {},
   "zones": {
     "10.244.1.1": {
       "zone": "zone1",
