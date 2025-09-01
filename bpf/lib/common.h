@@ -576,19 +576,6 @@ enum metric_dir {
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
-
-/* The mark is used to indicate that the WireGuard tunnel device is done
- * encrypting a packet. The MSB invades the Kubernetes mark "space" which is
- * fine, as it's not used by K8s. See pkg/datapath/linux/linux_defaults/mark.go
- * for more details.
- *
- * NOTE: from v1.18 we reuse MARK_MAGIC_ENCRYPT for WireGuard-encrypted packets,
- * but we still need this value to handle upgrades from v1.17.
- *
- * TODO: can be removed in v1.19 in favor of MARK_MAGIC_ENCRYPT.
- */
-#define MARK_MAGIC_WG_ENCRYPTED		0x1E00
-
 /* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
  * being mutual exclusive given former is only under DSR. Used to push health
  * probe packets to ipip tunnel device & to avoid looping back.
