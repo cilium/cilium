@@ -2825,6 +2825,11 @@ tunnelSourcePortRange: 0-0
 #  - reject (default)
 #  - drop
 serviceNoBackendResponse: reject
+# -- Configure what the response should be to ipv4 egress traffic denied by policy.
+# Possible values:
+#  - none (default)
+#  - icmp
+policyDenyResponse: none
 # -- Configure the underlying network MTU to overwrite auto-detected MTU.
 # This value doesn't change the host network interface MTU i.e. eth0 or ens0.
 # It changes the MTU for cilium_net@cilium_host, cilium_host@cilium_net,
