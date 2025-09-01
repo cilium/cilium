@@ -28,6 +28,7 @@
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
 #include "lib/icmp6.h"
+#include "lib/icmp.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/l3.h"
@@ -1040,8 +1041,18 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						   auth_type);
 		}
 
-		if (verdict != CTX_ACT_OK)
+		if (verdict != CTX_ACT_OK) {
+			/* If policy_deny_response_enabled is set and the packet has been denied,
+			 * respond with an ICMPv4 "Destination Unreachable"
+			 */
+			if (CONFIG(policy_deny_response_enabled) &&
+			    (verdict == DROP_POLICY || verdict == DROP_POLICY_DENY)) {
+				ctx_store_meta(ctx, CB_VERDICT, verdict);
+				return tail_call_internal(ctx, CILIUM_CALL_IPV4_POLICY_DENIED,
+							ext_err);
+			}
 			return verdict;
+		}
 
 		break;
 	case CT_RELATED:
@@ -2468,5 +2479,27 @@ out:
 
 	return ret;
 }
+
+#ifdef ENABLE_IPV4
+__declare_tail(CILIUM_CALL_IPV4_POLICY_DENIED)
+int tail_policy_denied_ipv4(struct __ctx_buff *ctx)
+{
+	int ret;
+	__u32 verdict = ctx_load_meta(ctx, CB_VERDICT);
+
+	ret = generate_icmp4_reply(ctx, ICMP_DEST_UNREACH, ICMP_PKT_FILTERED);
+	if (!ret) {
+		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ctx_get_ifindex(ctx));
+		ret = redirect_self(ctx);
+
+		if (!IS_ERR(ret)) {
+			update_metrics(ctx_full_len(ctx), METRIC_EGRESS, __DROP_REASON(verdict));
+			return ret;
+		}
+	}
+
+	return send_drop_notify_error(ctx, SECLABEL_IPV4, ret, METRIC_EGRESS);
+}
+#endif /* ENABLE_IPV4 */
 
 BPF_LICENSE("Dual BSD/GPL");

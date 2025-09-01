@@ -11,6 +11,8 @@ package config
 type Node struct {
 	// Index of the interface used to connect nodes in the cluster.
 	DirectRoutingDevIfindex uint32 `config:"direct_routing_dev_ifindex"`
+	// Enable ICMP responses for policy-denied traffic.
+	PolicyDenyResponseEnabled bool `config:"policy_deny_response_enabled"`
 	// Internal IPv6 router address assigned to the cilium_host interface.
 	RouterIPv6 [16]byte `config:"router_ipv6"`
 	// IPv4 source address used for SNAT when a Pod talks to itself over a Service.
@@ -28,7 +30,7 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0x0,
+	return &Node{0x0, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
