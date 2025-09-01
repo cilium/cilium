@@ -47,7 +47,6 @@
 #include "lib/lb.h"
 #include "lib/drop.h"
 #include "lib/trace.h"
-#include "lib/csum.h"
 #include "lib/srv6.h"
 #include "lib/encap.h"
 #include "lib/eps.h"

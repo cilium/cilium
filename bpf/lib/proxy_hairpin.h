@@ -10,7 +10,6 @@
 #include "eth.h"
 #include "dbg.h"
 #include "trace.h"
-#include "csum.h"
 #include "l3.h"
 #include "l4.h"
 
