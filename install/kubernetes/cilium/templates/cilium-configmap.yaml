@@ -558,6 +558,10 @@ data:
   service-no-backend-response: "{{ .Values.serviceNoBackendResponse }}"
 {{- end}}
 
+{{- if .Values.policyDenyResponse }}
+  policy-deny-response: "{{ .Values.policyDenyResponse }}"
+{{- end}}
+
 {{- if .Values.MTU }}
   mtu: {{ .Values.MTU | quote }}
 {{- end }}
