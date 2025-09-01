@@ -10,7 +10,6 @@
 #include "eth.h"
 #include "dbg.h"
 #include "trace.h"
-#include "csum.h"
 #include "l4.h"
 #include "proxy.h"
 #include "proxy_hairpin.h"
