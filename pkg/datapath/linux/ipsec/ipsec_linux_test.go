@@ -149,6 +149,7 @@ func TestPrivilegedLoadKeys(t *testing.T) {
 		kc := &keyCustodian{log: hivetest.Logger(t)}
 		err = kc.setIPSecSPI(spi)
 		require.NoError(t, err)
+		require.Equal(t, spi, kc.spi)
 		UnsetTestIPSecKey()
 	}
 }
