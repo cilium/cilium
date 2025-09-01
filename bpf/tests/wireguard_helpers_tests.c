@@ -91,7 +91,7 @@ int check2(struct __ctx_buff *ctx)
 
 	assert(!ctx_mark_is_wireguard(ctx));
 
-	ctx->mark = MARK_MAGIC_WG_ENCRYPTED;
+	ctx->mark = MARK_MAGIC_ENCRYPT;
 
 	assert(ctx_mark_is_wireguard(ctx));
 
