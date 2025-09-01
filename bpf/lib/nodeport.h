@@ -17,7 +17,6 @@
 #include "egress_gateway.h"
 #include "eps.h"
 #include "conntrack.h"
-#include "csum.h"
 #include "encap.h"
 #include "identity.h"
 #include "trace.h"
