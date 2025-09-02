@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"time"
 
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
@@ -49,9 +50,33 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 		return errors.New("IP not compatible")
 	}
 
-	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
+	var (
+		ifindex int
+		err     error
+	)
+	for i := range 10 {
+		ifindex_, err_ := retrieveIfIndexFromMAC(info.logger, info.MasterIfMAC, mtu)
+		if err_ == nil {
+			info.logger.Info("found ifindex",
+				"index", ifindex_,
+				"mac", info.MasterIfMAC,
+			)
+			ifindex = ifindex_
+			break
+		}
+
+		info.logger.Info("ifindex not found",
+			"index", ifindex_,
+		)
+
+		if i == 0 {
+			err = fmt.Errorf("unable to find ifindex for interface MAC: %w", err_)
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 	if err != nil {
-		return fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
+		// fail if ifindex was not found at first try
+		return err
 	}
 
 	var ipWithMask net.IPNet
@@ -132,7 +157,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, compat bool, rx statedb.ReadTxn, routes statedb.Table[*tables.Route]) (*statedb.WatchSet, error) {
 	set := statedb.NewWatchSet()
 
-	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
+	ifindex, err := retrieveIfIndexFromMAC(info.logger, info.MasterIfMAC, mtu)
 	if err != nil {
 		return set, fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
 	}
@@ -423,7 +448,7 @@ next:
 // given MAC address, excluding Linux slave devices. This is useful for
 // creating rules and routes in order to specify the table. When the ifindex is
 // found, the device is brought up and its MTU is set.
-func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
+func retrieveIfIndexFromMAC(logger *slog.Logger, mac mac.MAC, mtu int) (int, error) {
 	var link netlink.Link
 
 	links, err := safenetlink.LinkList()
@@ -432,9 +457,23 @@ func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
 	}
 
 	for _, l := range links {
+		logger.Info("link found",
+			"Name", l.Attrs().Name,
+			"Index", l.Attrs().Index,
+			"HardwareAddr", l.Attrs().HardwareAddr,
+			"Flags", l.Attrs().Flags,
+			"RawFlags", l.Attrs().RawFlags,
+			"ParentIndex", l.Attrs().ParentIndex,
+			"MasterIndex", l.Attrs().MasterIndex,
+			"Alias", l.Attrs().Alias,
+			"AltNames", l.Attrs().AltNames,
+			"OperState", l.Attrs().OperState,
+		)
+
 		// Linux slave devices have the same MAC address as their master
 		// device, but we want the master device.
 		if l.Attrs().RawFlags&unix.IFF_SLAVE != 0 {
+			logger.Info("skipping slave device")
 			continue
 		}
 		if l.Attrs().HardwareAddr.String() == mac.String() {
