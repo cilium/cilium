@@ -8,15 +8,18 @@ import (
 	"errors"
 	"net/netip"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -59,6 +62,12 @@ func (fr fakeResource[T]) Events(ctx context.Context, opts ...resource.EventsOpt
 
 func (fr fakeResource[T]) Store(context.Context) (resource.Store[T], error) {
 	return nil, errors.New("not implemented")
+}
+
+func addPolicyAndReconcile(tb testing.TB, egressGatewayManager *Manager, policies fakeResource[*Policy], params *policyParams) {
+	currentRun := egressGatewayManager.reconciliationEventsCount.Load()
+	addPolicy(tb, policies, params)
+	waitForReconciliationRun(tb, egressGatewayManager, currentRun)
 }
 
 func addPolicy(tb testing.TB, policies fakeResource[*Policy], params *policyParams) {
@@ -207,6 +216,12 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 	return cegp, policy
 }
 
+func addEndpointAndReconcile(tb testing.TB, egressGatewayManager *Manager, endpoints fakeResource[*k8sTypes.CiliumEndpoint], ep *k8sTypes.CiliumEndpoint) {
+	currentRun := egressGatewayManager.reconciliationEventsCount.Load()
+	addEndpoint(tb, endpoints, ep)
+	waitForReconciliationRun(tb, egressGatewayManager, currentRun)
+}
+
 func addEndpoint(tb testing.TB, endpoints fakeResource[*k8sTypes.CiliumEndpoint], ep *k8sTypes.CiliumEndpoint) {
 	endpoints.process(tb, resource.Event[*k8sTypes.CiliumEndpoint]{
 		Kind:   resource.Upsert,
@@ -214,9 +229,39 @@ func addEndpoint(tb testing.TB, endpoints fakeResource[*k8sTypes.CiliumEndpoint]
 	})
 }
 
+func deleteEndpointAndReconcile(tb testing.TB, egressGatewayManager *Manager, endpoints fakeResource[*k8sTypes.CiliumEndpoint], ep *k8sTypes.CiliumEndpoint) {
+	currentRun := egressGatewayManager.reconciliationEventsCount.Load()
+	deleteEndpoint(tb, endpoints, ep)
+	waitForReconciliationRun(tb, egressGatewayManager, currentRun)
+}
+
 func deleteEndpoint(tb testing.TB, endpoints fakeResource[*k8sTypes.CiliumEndpoint], ep *k8sTypes.CiliumEndpoint) {
 	endpoints.process(tb, resource.Event[*k8sTypes.CiliumEndpoint]{
 		Kind:   resource.Delete,
 		Object: ep,
 	})
+}
+
+func addNodeAndReconcile(tb testing.TB, k *EgressGatewayTestSuite, egressGatewayManager *Manager, node *nodeTypes.Node) {
+	currentRun := egressGatewayManager.reconciliationEventsCount.Load()
+	k.nodes.process(tb, resource.Event[*cilium_api_v2.CiliumNode]{
+		Kind:   resource.Upsert,
+		Object: node.ToCiliumNode(),
+	})
+	waitForReconciliationRun(tb, egressGatewayManager, currentRun)
+}
+
+func waitForReconciliationRun(tb testing.TB, egressGatewayManager *Manager, currentRun uint64) uint64 {
+	for range 100 {
+		count := egressGatewayManager.reconciliationEventsCount.Load()
+		if count > currentRun {
+			return count
+		}
+
+		// TODO: investigate why increasing the timeout was necessary to add IPv6 tests.
+		time.Sleep(30 * time.Millisecond)
+	}
+
+	tb.Fatal("Reconciliation is taking too long to run")
+	return 0
 }
