@@ -130,7 +130,7 @@ func RegisterSyncWaiter(p SyncWaiterParams) {
 	)
 }
 
-func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
+func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc, config common.ClusterConfig) common.RemoteCluster {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	synced := newSynced()

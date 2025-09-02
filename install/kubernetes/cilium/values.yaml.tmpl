@@ -3349,6 +3349,8 @@ clustermesh:
     #   cluster1:
     #     # -- Whether to enable this cluster in the mesh. Optional, defaults to true.
     #     enabled: true
+    #     # -- Whether to prefer external IPs for node in this cluster. (default false)
+    #     preferExternalIPs: false
     #     # -- Address of the cluster, use this if you created DNS records for
     #     # the cluster Clustermesh API server.
     #     address: cluster1.mesh.cilium.io
@@ -3370,6 +3372,8 @@ clustermesh:
     # clusters:
     #   # -- Name of the cluster
     # - name: cluster1
+    #   # -- Whether to prefer external IPs for node in this cluster. (default false)
+    #   preferExternalIPs: false
     #   # -- Address of the cluster, use this if you created DNS records for
     #   # the cluster Clustermesh API server.
     #   address: cluster1.mesh.cilium.io

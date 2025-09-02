@@ -36,6 +36,7 @@ func getEndpointNetworking(logger *slog.Logger, mdlNetworking *models.EndpointNe
 	}
 
 	networking.NodeIP = node.GetCiliumEndpointNodeIP(logger)
+	networking.NodeExternalIP = node.GetCiliumEndpointNodeExternalIP(logger)
 
 	for i, pair := range mdlNetworking.Addressing {
 		networking.Addressing[i] = &cilium_v2.AddressPair{

@@ -1046,6 +1046,11 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					e.runlock()
 					return controller.NewExitReason("Failed to get node IP")
 				}
+				hostExternalIP, err := netip.ParseAddr(node.GetCiliumEndpointNodeExternalIP(logger))
+				if err != nil {
+					e.runlock()
+					return controller.NewExitReason("Failed to get node external IP")
+				}
 				key := node.GetEndpointEncryptKeyIndex(logger, e.wgConfig)
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
@@ -1063,6 +1068,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				params := &ipcache.UpsertParams{
 					IP:                endpointIP,
 					HostIP:            hostIP,
+					HostExternalIP:    hostExternalIP,
 					ID:                ID,
 					Key:               key,
 					Metadata:          metadata,

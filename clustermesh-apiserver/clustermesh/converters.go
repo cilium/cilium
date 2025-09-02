@@ -188,6 +188,7 @@ func ciliumEndpointMapper(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
 					entry := identity.IPIdentityPair{
 						IP:                net.ParseIP(ip),
 						HostIP:            net.ParseIP(n.NodeIP),
+						HostExternalIP:    net.ParseIP(n.NodeExternalIP),
 						K8sNamespace:      endpoint.Namespace,
 						K8sPodName:        endpoint.Name,
 						K8sServiceAccount: endpoint.ServiceAccount,
@@ -236,6 +237,7 @@ func ciliumEndpointSliceMapper(endpointslice *cilium_api_v2a1.CiliumEndpointSlic
 						entry := identity.IPIdentityPair{
 							IP:                net.ParseIP(ip),
 							HostIP:            net.ParseIP(n.NodeIP),
+							HostExternalIP:    net.ParseIP(n.NodeExternalIP),
 							K8sNamespace:      endpointslice.Namespace,
 							K8sPodName:        endpoint.Name,
 							ID:                identity.NumericIdentity(endpoint.IdentityID),

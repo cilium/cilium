@@ -1916,6 +1916,9 @@ func (in *EndpointNetworking) DeepEqual(other *EndpointNetworking) bool {
 	if in.NodeIP != other.NodeIP {
 		return false
 	}
+	if in.NodeExternalIP != other.NodeExternalIP {
+		return false
+	}
 
 	return true
 }

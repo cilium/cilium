@@ -125,6 +125,36 @@ func (o *NodeObserver) OnDelete(k store.NamedKey) {
 	}
 }
 
+// ClusterMeshNodeObserver implements the store.Observer interface and delegates update
+// and deletion events to the node object itself.
+type ClusterMeshNodeObserver struct {
+	manager          NodeManager
+	preferExternalIP bool
+}
+
+// NewNodeObserver returns a new NodeObserver associated with the specified
+// node manager
+func NewClusterMeshNodeObserver(manager NodeManager, preferExternalIP bool) *ClusterMeshNodeObserver {
+	return &ClusterMeshNodeObserver{manager: manager, preferExternalIP: preferExternalIP}
+}
+
+func (o *ClusterMeshNodeObserver) OnUpdate(k store.Key) {
+	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() {
+		nodeCopy := n.DeepCopy()
+		nodeCopy.Source = source.ClusterMesh
+		nodeCopy.PreferExternalIP = o.preferExternalIP
+		o.manager.NodeUpdated(*nodeCopy)
+	}
+}
+
+func (o *ClusterMeshNodeObserver) OnDelete(k store.NamedKey) {
+	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() {
+		nodeCopy := n.DeepCopy()
+		nodeCopy.Source = source.ClusterMesh
+		o.manager.NodeDeleted(*nodeCopy)
+	}
+}
+
 // NodeManager is the interface that the manager of nodes has to implement
 type NodeManager interface {
 	// NodeUpdated is called when the store detects a change in node

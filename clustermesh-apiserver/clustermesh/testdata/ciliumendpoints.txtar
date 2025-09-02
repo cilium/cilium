@@ -57,6 +57,7 @@ status:
     - ipv4: 10.244.1.79
       ipv6: fd00:10:244:1::d643
     node: 172.18.0.3
+    node-external: 172.42.0.3
   service-account: default
   state: ready
 
@@ -79,6 +80,7 @@ status:
     - ipv4: 10.244.2.74
       ipv6: fd00:10:244:2::e024
     node: 172.18.0.2
+    node-external: 172.18.0.2
   service-account: default
   state: ready
 
@@ -99,6 +101,7 @@ status:
     - ipv4: 10.244.2.91
       ipv6: fd00:10:244:2::e4b4
     node: 172.18.0.2
+    node-external: 172.18.0.2
   service-account: default
   state: ready
 
@@ -108,6 +111,7 @@ status:
   "IP": "10.244.1.79",
   "Mask": null,
   "HostIP": "172.18.0.3",
+  "HostExternalIP": "172.42.0.3",
   "ID": 199472,
   "Key": 0,
   "Metadata": "",
@@ -120,6 +124,7 @@ status:
   "IP": "10.244.2.74",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199475,
   "Key": 5,
   "Metadata": "",
@@ -132,6 +137,7 @@ status:
   "IP": "fd00:10:244:1::d643",
   "Mask": null,
   "HostIP": "172.18.0.3",
+  "HostExternalIP": "172.42.0.3",
   "ID": 199472,
   "Key": 0,
   "Metadata": "",
@@ -144,6 +150,7 @@ status:
   "IP": "fd00:10:244:2::e024",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199475,
   "Key": 5,
   "Metadata": "",
@@ -157,6 +164,7 @@ status:
   "IP": "10.244.1.80",
   "Mask": null,
   "HostIP": "172.18.0.3",
+  "HostExternalIP": "172.42.0.3",
   "ID": 199472,
   "Key": 0,
   "Metadata": "",
@@ -169,6 +177,7 @@ status:
   "IP": "10.244.2.74",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199475,
   "Key": 5,
   "Metadata": "",
@@ -181,6 +190,7 @@ status:
   "IP": "fd00:10:244:2::e024",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199475,
   "Key": 5,
   "Metadata": "",
@@ -194,6 +204,7 @@ status:
   "IP": "10.244.1.80",
   "Mask": null,
   "HostIP": "172.18.0.3",
+  "HostExternalIP": "172.42.0.3",
   "ID": 199472,
   "Key": 0,
   "Metadata": "",
@@ -206,6 +217,7 @@ status:
   "IP": "10.244.2.74",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199475,
   "Key": 5,
   "Metadata": "",
@@ -218,6 +230,7 @@ status:
   "IP": "10.244.2.91",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199472,
   "Key": 0,
   "Metadata": "",
@@ -230,6 +243,7 @@ status:
   "IP": "fd00:10:244:2::e024",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199475,
   "Key": 5,
   "Metadata": "",
@@ -242,6 +256,7 @@ status:
   "IP": "fd00:10:244:2::e4b4",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199472,
   "Key": 0,
   "Metadata": "",
@@ -255,6 +270,7 @@ status:
   "IP": "10.244.1.80",
   "Mask": null,
   "HostIP": "172.18.0.3",
+  "HostExternalIP": "172.42.0.3",
   "ID": 199472,
   "Key": 0,
   "Metadata": "",
@@ -267,6 +283,7 @@ status:
   "IP": "10.244.2.91",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199472,
   "Key": 0,
   "Metadata": "",
@@ -279,6 +296,7 @@ status:
   "IP": "fd00:10:244:2::e4b4",
   "Mask": null,
   "HostIP": "172.18.0.2",
+  "HostExternalIP": "172.18.0.2",
   "ID": 199472,
   "Key": 0,
   "Metadata": "",

@@ -54,7 +54,7 @@ func validateNodes(fnh *fakeTypes.FakeNodeHandler) error {
 	}
 
 	if !podCIDR.Equal(minimal.IPv4AllocCIDR) {
-		return fmt.Errorf("cidr mismatch: %q vs %q", podCIDR, minimal)
+		return fmt.Errorf("cidr mismatch: %q vs %v", podCIDR, minimal)
 	}
 
 	return nil
