@@ -9,9 +9,9 @@ k8s/add service.yaml endpointslice.yaml
 db/cmp services services-before.table
 db/cmp frontends frontends-before.table
 
-# Add service-name based redirect. The existing frontends should not be affected
+# Add the redirects. The existing frontends should not be affected
 # by this since no local pods exist.
-k8s/add lrp-svc.yaml
+k8s/add lrp-svc.yaml lrp-addr.yaml
 db/cmp localredirectpolicies lrp.table
 db/cmp services services.table
 db/cmp frontends frontends-before.table
@@ -20,7 +20,8 @@ db/cmp frontends frontends-before.table
 k8s/add pod.yaml
 db/cmp frontends frontends.table
 
-# Removing the pod will remove the redirection.
+# Removing the pod will remove the redirections and revert
+# back to the earlier state.
 k8s/delete pod.yaml
 db/cmp frontends frontends-before.table
  
@@ -45,9 +46,27 @@ spec:
       - port: "80"
         name: "tcp"
         protocol: TCP
-      - port: "70"
-        name: "udp"
-        protocol: UDP
+
+-- lrp-addr.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr"
+  namespace: "test"
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "8080"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        protocol: TCP
 
 -- pod.yaml --
 apiVersion: v1
@@ -65,9 +84,6 @@ spec:
         - containerPort: 80
           name: tcp
           protocol: TCP
-        - containerPort: 70
-          name: udp
-          protocol: UDP
   nodeName: testnode
 status:
   hostIP: 172.19.0.3
@@ -80,11 +96,6 @@ status:
   - ip: 2001::1
   qosClass: BestEffort
   startTime: "2024-07-10T16:20:42Z"
-  conditions:
-  - lastProbeTime: null
-    lastTransitionTime: '2019-07-08T09:41:59Z'
-    status: 'True'
-    type: Ready
 
 -- service.yaml --
 apiVersion: v1
@@ -93,9 +104,9 @@ metadata:
   name: echo
   namespace: test
 spec:
-  clusterIP: 169.254.169.254
+  clusterIP: 1.1.1.1
   clusterIPs:
-  - 169.254.169.254
+  - 1.1.1.1
   - 1001::1
   externalTrafficPolicy: Cluster
   internalTrafficPolicy: Cluster
@@ -108,10 +119,6 @@ spec:
     port: 8080
     protocol: TCP
     targetPort: 8080
-  - name: udp
-    port: 7070
-    protocol: UDP
-    targetPort: 7070
   selector:
     name: echo
   sessionAffinity: None
@@ -138,12 +145,10 @@ ports:
 - name: tcp
   port: 8080
   protocol: TCP
-- name: udp
-  port: 7070
-  protocol: UDP
 
 -- lrp.table --
 Name           Type     FrontendType                Frontends
+test/lrp-addr  address  addr-single-port            169.254.169.254:8080/TCP
 test/lrp-svc   service  all
 
 -- services-before.table --
@@ -152,19 +157,17 @@ test/echo                     k8s
 
 -- services.table --
 Name                          Source
-test/echo                     k8s   
+test/echo                     k8s
+test/lrp-addr:local-redirect  k8s
 test/lrp-svc:local-redirect   k8s   
 
 -- frontends-before.table --
 Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
-169.254.169.254:7070/UDP   ClusterIP   test/echo     udp        10.244.1.1:7070/UDP                                 Done
-169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                                 Done
-[1001::1]:7070/UDP         ClusterIP   test/echo     udp                                                            Done
+1.1.1.1:8080/TCP           ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                                 Done
 [1001::1]:8080/TCP         ClusterIP   test/echo     tcp                                                            Done
 
 -- frontends.table --
-Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
-169.254.169.254:7070/UDP   ClusterIP   test/echo     udp        10.244.2.1:70/UDP     test/lrp-svc:local-redirect   Done
-169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
-[1001::1]:7070/UDP         ClusterIP   test/echo     udp        [2001::1]:70/UDP      test/lrp-svc:local-redirect   Done
-[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:80/TCP      test/lrp-svc:local-redirect   Done
+Address                  Type          ServiceName                  PortName   Backends              RedirectTo                    Status
+1.1.1.1:8080/TCP         ClusterIP     test/echo                    tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
+169.254.169.254:8080/TCP LocalRedirect test/lrp-addr:local-redirect            10.244.2.1:80/TCP                                   Done
+[1001::1]:8080/TCP       ClusterIP     test/echo                    tcp        [2001::1]:80/TCP      test/lrp-svc:local-redirect   Done
