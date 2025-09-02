@@ -280,7 +280,7 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 		t.Debug("Encapsulation before WG encryption")
 	}
 
-	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+	t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks, true, wgEncap)
 	})
 }
@@ -469,7 +469,7 @@ func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 
-	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+	t.ForEachEnabledIPFamily(func(ipFam features.IPFamily) {
 
 		// Test pod-to-remote-host (ICMP Echo instead of HTTP because a remote host
 		// does not have a HTTP server running)
