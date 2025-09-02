@@ -116,7 +116,7 @@ int srv6_decap_to_pod_ipv4_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_srv6_decap_to_pod_ipv4")
 int srv6_decap_to_pod_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 {
-	union v6addr sid;
+	union v6addr sid __align_stack_8;
 	__u32 vrf_id = 1;
 
 	memcpy(sid.addr, (const void *)SID, sizeof(sid.addr));
@@ -393,7 +393,7 @@ int srv6_decap_to_service_ipv4_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_srv6_decap_to_service_ipv4")
 int srv6_decap_to_service_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 {
-	union v6addr sid;
+	union v6addr sid __align_stack_8;
 	__u32 vrf_id = 1;
 
 	memcpy(sid.addr, (const void *)SID, sizeof(sid.addr));
