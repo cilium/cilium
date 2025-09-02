@@ -803,12 +803,41 @@ func (ct *ConnectivityTest) detectNodesWithoutCiliumIPs() error {
 	return nil
 }
 
+func (ct *ConnectivityTest) getDefaultGateway(ctx context.Context, podNamespace, podName string, ipv4 bool) (string, error) {
+	var cmd []string
+	if ipv4 {
+		cmd = []string{"sh", "-c", "ip -4 route show default | awk '{print $3}'"}
+	} else {
+		cmd = []string{"sh", "-c", "ip -6 route show default | awk '{print $3}'"}
+	}
+
+	out, err := ct.client.ExecInPod(ctx, podNamespace, podName, hostNetNSDeploymentNameNonCilium, cmd)
+	if err != nil {
+		return "", fmt.Errorf("failed to detect default gateway (ipv4=%v): %w", ipv4, err)
+	}
+
+	gw := strings.TrimSpace(out.String())
+	if gw == "" {
+		return "", fmt.Errorf("no default gateway found (ipv4=%v)", ipv4)
+	}
+	return gw, nil
+}
+
 func (ct *ConnectivityTest) modifyStaticRoutesForNodesWithoutCilium(ctx context.Context, verb string) error {
 	for _, e := range ct.params.PodCIDRs {
 		for withoutCilium := range ct.nodesWithoutCilium {
 			pod := ct.hostNetNSPodsByNode[withoutCilium]
-			_, err := ct.client.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, hostNetNSDeploymentNameNonCilium,
-				[]string{"ip", "route", verb, e.CIDR, "via", e.HostIP},
+			// Derive gateway for podCIDR family
+			ip, _, err := net.ParseCIDR(e.CIDR)
+			if err != nil {
+				return fmt.Errorf("failed to parse pod cidr %s: %w", e.CIDR, err)
+			}
+			gw, err := ct.getDefaultGateway(ctx, pod.Pod.Namespace, pod.Pod.Name, ip.To4() != nil)
+			if err != nil {
+				return fmt.Errorf("failed to get gateway for node %s: %w", withoutCilium, err)
+			}
+			_, err = ct.client.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, hostNetNSDeploymentNameNonCilium,
+				[]string{"ip", "route", verb, e.CIDR, "via", gw},
 			)
 			ct.Debugf("Modifying (%s) static route on nodes without Cilium (%v): %v",
 				verb, withoutCilium,
