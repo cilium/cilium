@@ -90,10 +90,12 @@ Replace values with the constants defined in `pkt_defs.py` (e.g.MACs, IPs). Add
 any new value necessary in `pkt_defs.py`:
 
 ```
-l2_announce6_ns = Ether(dst=l2_announce6_ns_mmac, src=mac_one)/                \
-                  IPv6(src=v6_ext_node_one, dst=l2_announce6_ns_ma, hlim=255)/ \
-                  ICMPv6ND_NS(tgt=v6_svc_one)/                                 \
-                  ICMPv6NDOptSrcLLAddr(lladdr=mac_one)
+l2_announce6_ns = (
+    Ether(dst=l2_announce6_ns_mmac, src=mac_one) /
+    IPv6(src=v6_ext_node_one, dst=l2_announce6_ns_ma, hlim=255) /
+    ICMPv6ND_NS(tgt=v6_svc_one) /
+    ICMPv6NDOptSrcLLAddr(lladdr=mac_one)
+)
 ```
 
 Run the test and adjust the scapy packet until it passes.
@@ -104,10 +106,12 @@ If the expected packet in the `_check` function is different than the injected,
 define the new packet. You can take as reference the injected packet.
 
 ```
-l2_announce6_na = Ether(dst=mac_one, src=mac_two)/                             \
-                  IPv6(src=v6_svc_one, dst=v6_ext_node_one, hlim=255)/         \
-                  ICMPv6ND_NA(R=0, S=1, O=1, tgt=v6_svc_one)/                  \
-                  ICMPv6NDOptDstLLAddr(lladdr=mac_two)
+l2_announce6_na = (
+    Ether(dst=mac_one, src=mac_two) /
+    IPv6(src=v6_svc_one, dst=v6_ext_node_one, hlim=255) /
+    ICMPv6ND_NA(R=0, S=1, O=1, tgt=v6_svc_one) /
+    ICMPv6NDOptDstLLAddr(lladdr=mac_two)
+)
 ```
 
 Add the `ASSERT_CTX_BUF_*()` after the current assertions but before
