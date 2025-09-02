@@ -2693,6 +2693,11 @@ func (e *Endpoint) SetPropertyValue(key string, value any) any {
 	defer e.mutex.RWMutex.Unlock()
 	old := e.properties[key]
 	e.properties[key] = value
+
+	// endpoint properties are also stored on disk, thus
+	// make sure updated properties are persisted
+	e.SyncEndpointHeaderFile()
+
 	return old
 }
 
