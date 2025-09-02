@@ -638,7 +638,10 @@ ct_recreate6:
 	case CT_RELATED:
 	case CT_REPLY:
 #ifdef ENABLE_NODEPORT
-		/* See comment in handle_ipv4_from_lxc(). */
+		/* See comment in handle_ipv4_from_lxc().
+		 *
+		 * Needed for compatibility with pre-v1.19 CT entries.
+		 */
 		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
@@ -1676,10 +1679,6 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	}
 
 	if (ret == CT_NEW) {
-#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPSEC)
-		ct_state_new.node_port = ct_has_nodeport_egress_entry6(get_ct_map6(tuple),
-								       tuple, NULL, false);
-#endif /* ENABLE_NODEPORT && ENABLE_IPSEC */
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
@@ -2019,13 +2018,10 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	}
 
 	if (ret == CT_NEW) {
-#if defined(ENABLE_NODEPORT) && (defined(ENABLE_IPSEC) || defined(ENABLE_SRV6))
-		/* Needed for hostport support, until
-		 * https://github.com/cilium/cilium/issues/32897 is fixed.
-		 */
+#if defined(ENABLE_NODEPORT) && defined(ENABLE_SRV6)
 		ct_state_new.node_port = ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
 								       tuple, NULL, false);
-#endif /* ENABLE_NODEPORT && ENABLE_IPSEC */
+#endif /* ENABLE_NODEPORT && ENABLE_SRV6 */
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
