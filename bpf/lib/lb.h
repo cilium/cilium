@@ -647,40 +647,58 @@ struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 }
 
 static __always_inline
+bool lb6_key_is_wildcard(const struct lb6_key *key)
+{
+	return unlikely(key->dport == LB_SVC_WILDCARD_DPORT &&
+			key->proto == LB_SVC_WILDCARD_PROTO);
+}
+
+static __always_inline
+void lb6_key_to_wildcard(struct lb6_key *key, __u8 *proto, __u16 *dport)
+{
+	*proto = key->proto;
+	*dport = key->dport;
+
+	key->dport = LB_SVC_WILDCARD_DPORT;
+	key->proto = LB_SVC_WILDCARD_PROTO;
+}
+
+static __always_inline
+void lb6_wildcard_to_key(struct lb6_key *key, __u8 proto, __u16 dport)
+{
+	key->proto = proto;
+	key->dport = dport;
+}
+
+static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 				       const bool east_west)
 {
 	struct lb6_service *svc;
+	__u16 dport;
+	__u8 proto;
 
 	key->backend_slot = 0;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb6_lookup_service(key);
 	if (!svc) {
-		__u8 orig_proto = key->proto;
-		__u16 orig_dport = key->dport;
-
-		key->dport = LB_SVC_WILDCARD_DPORT;
-		key->proto = LB_SVC_WILDCARD_PROTO;
-
-		svc = __lb6_lookup_service(key);
-
-		/* If wildcard lookup was successful, we return the wildcard service while
-		 * leaving the modified dport/proto values in the key. A wildcard service
-		 * entry will have no backends and so caller should trigger a drop.
+		/* If wildcard lookup was successful, we return the wildcard
+		 * service while leaving the modified dport/proto values in
+		 * the key. A wildcard service entry will have no backends
+		 * and so caller should trigger a drop.
 		 */
+		lb6_key_to_wildcard(key, &proto, &dport);
+		svc = __lb6_lookup_service(key);
 		if (svc)
 			return svc;
 
-		key->dport = orig_dport;
-		key->proto = orig_proto;
-
-		/* If we have no external scope for this, it's safe to return NULL here
-		 * because there can't be an internal scope. (For now.)
+		/* If we have no external scope for this, it's safe to return
+		 * NULL here because there can't be an internal scope today.
 		 */
+		lb6_wildcard_to_key(key, proto, dport);
 		return NULL;
 	}
-
 	if (!east_west || !lb6_svc_is_two_scopes(svc))
 		return svc;
 
@@ -1366,40 +1384,58 @@ struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 }
 
 static __always_inline
+bool lb4_key_is_wildcard(const struct lb4_key *key)
+{
+	return unlikely(key->dport == LB_SVC_WILDCARD_DPORT &&
+			key->proto == LB_SVC_WILDCARD_PROTO);
+}
+
+static __always_inline
+void lb4_key_to_wildcard(struct lb4_key *key, __u8 *proto, __u16 *dport)
+{
+	*proto = key->proto;
+	*dport = key->dport;
+
+	key->dport = LB_SVC_WILDCARD_DPORT;
+	key->proto = LB_SVC_WILDCARD_PROTO;
+}
+
+static __always_inline
+void lb4_wildcard_to_key(struct lb4_key *key, __u8 proto, __u16 dport)
+{
+	key->proto = proto;
+	key->dport = dport;
+}
+
+static __always_inline
 struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 				       const bool east_west)
 {
 	struct lb4_service *svc;
+	__u16 dport;
+	__u8 proto;
 
 	key->backend_slot = 0;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb4_lookup_service(key);
 	if (!svc) {
-		__u8 orig_proto = key->proto;
-		__u16 orig_dport = key->dport;
-
-		key->dport = LB_SVC_WILDCARD_DPORT;
-		key->proto = LB_SVC_WILDCARD_PROTO;
-
-		svc = __lb4_lookup_service(key);
-
-		/* If wildcard lookup was successful, we return the wildcard service while
-		 * leaving the modified dport/proto values in the key. A wildcard service
-		 * entry will have no backends and so caller should trigger a drop.
+		/* If wildcard lookup was successful, we return the wildcard
+		 * service while leaving the modified dport/proto values in
+		 * the key. A wildcard service entry will have no backends
+		 * and so caller should trigger a drop.
 		 */
+		lb4_key_to_wildcard(key, &proto, &dport);
+		svc = __lb4_lookup_service(key);
 		if (svc)
 			return svc;
 
-		key->dport = orig_dport;
-		key->proto = orig_proto;
-
-		/* If we have no external scope for this, it's safe to return NULL here
-		 * because there can't be an internal scope. (For now.)
+		/* If we have no external scope for this, it's safe to return
+		 * NULL here because there can't be an internal scope today.
 		 */
+		lb4_wildcard_to_key(key, proto, dport);
 		return NULL;
 	}
-
 	if (!east_west || !lb4_svc_is_two_scopes(svc))
 		return svc;
 
