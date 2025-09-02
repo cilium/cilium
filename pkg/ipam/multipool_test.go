@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -633,7 +634,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	v4Cidrs := make([]*cidr.CIDR, 10)
 	v6Cidrs := make([]*cidr.CIDR, 10)
 	cidrPodCIDRs := make([]types.IPAMPodCIDR, 0, 20)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		c4 := cidr.MustParseCIDR(fmt.Sprintf("10.0.100.%d/32", i))
 		v4Cidrs[i] = c4
 		cidrPodCIDRs = append(cidrPodCIDRs, types.IPAMPodCIDR(c4.String()))
@@ -674,7 +675,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	<-events // first upsert (initial node)
 
 	// Allocate 5 IPv4 and 5 IPv6 IPs
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		ip4 := net.ParseIP(fmt.Sprintf("10.0.100.%d", i))
 		_, err := mgr.allocateIP(ip4, fmt.Sprintf("pod4-%d", i), "default", IPv4, false)
 		assert.NoError(t, err)
@@ -698,13 +699,10 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	assert.Len(t, alloc[0].CIDRs, 12, "should retain 12 CIDRs (6 per family)")
 
 	// Verify that all in-use CIDRs are still present
-	remaining := map[string]struct{}{}
-	for _, c := range alloc[0].CIDRs {
-		remaining[string(c)] = struct{}{}
-	}
-	for i := 0; i < 5; i++ {
-		assert.Contains(t, remaining, v4Cidrs[i].String(), "in-use CIDR %s should not be released", v4Cidrs[i].String())
-		assert.Contains(t, remaining, v6Cidrs[i].String(), "in-use CIDR %s should not be released", v6Cidrs[i].String())
+	remaining := set.NewSet(alloc[0].CIDRs...)
+	for i := range 5 {
+		assert.True(t, remaining.Has(types.IPAMPodCIDR(v4Cidrs[i].String())), "in-use CIDR %s should not be released", v4Cidrs[i].String())
+		assert.True(t, remaining.Has(types.IPAMPodCIDR(v6Cidrs[i].String())), "in-use CIDR %s should not be released", v6Cidrs[i].String())
 	}
 }
 

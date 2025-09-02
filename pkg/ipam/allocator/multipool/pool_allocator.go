@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sort"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/types"
@@ -28,11 +29,13 @@ type cidrPool struct {
 	v6MaskSize int
 }
 
-type cidrSet map[netip.Prefix]struct{}
+type cidrSet struct {
+	set.Set[netip.Prefix]
+}
 
 func (c cidrSet) PodCIDRSlice() []types.IPAMPodCIDR {
-	cidrs := make([]types.IPAMPodCIDR, 0, len(c))
-	for cidr := range c {
+	cidrs := make([]types.IPAMPodCIDR, 0, c.Len())
+	for cidr := range c.Members() {
 		cidrs = append(cidrs, types.IPAMPodCIDR(cidr.String()))
 	}
 	slices.Sort(cidrs)
@@ -42,7 +45,7 @@ func (c cidrSet) PodCIDRSlice() []types.IPAMPodCIDR {
 // availableAddrs returns the number of available addresses in this set
 func (c cidrSet) availableAddrs() *big.Int {
 	total := big.NewInt(0)
-	for p := range c {
+	for p := range c.Members() {
 		total.Add(total, addrsInPrefix(p))
 	}
 	return total
@@ -53,7 +56,7 @@ type cidrSets struct {
 	v6 cidrSet
 }
 
-type poolToCIDRs map[string]cidrSets // poolName -> list of allocated CIDRs
+type poolToCIDRs map[string]*cidrSets // poolName -> list of allocated CIDRs
 
 type errAllocatorNotReady struct{}
 
@@ -169,24 +172,24 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 			for node, pools := range p.nodes {
 				for pool, allocatedCIDRSets := range pools {
 					if isV6 {
-						if _, ok := allocatedCIDRSets.v6[prefix]; ok {
+						if allocatedCIDRSets.v6.Has(prefix) {
 							p.logger.Warn(
 								"CIDR from pool still in use by node",
 								logfields.CIDR, prefix,
 								logfields.PoolName, pool,
 								logfields.Node, node,
 							)
-							delete(p.nodes[node][pool].v6, prefix)
+							p.nodes[node][pool].v6.Remove(prefix)
 						}
 					} else {
-						if _, ok := allocatedCIDRSets.v4[prefix]; ok {
+						if allocatedCIDRSets.v4.Has(prefix) {
 							p.logger.Warn(
 								"CIDR from pool still in use by node",
 								logfields.CIDR, prefix,
 								logfields.PoolName, pool,
 								logfields.Node, node,
 							)
-							delete(p.nodes[node][pool].v4, prefix)
+							p.nodes[node][pool].v4.Remove(prefix)
 						}
 					}
 				}
@@ -291,9 +294,9 @@ func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
 	// handing out the same CIDR twice.
 	var err error
 
-	allocatedSet := make(map[string]map[netip.Prefix]struct{}, len(cn.Spec.IPAM.Pools.Allocated))
+	allocatedSet := make(map[string]set.Set[netip.Prefix], len(cn.Spec.IPAM.Pools.Allocated))
 	for _, allocatedPool := range cn.Spec.IPAM.Pools.Allocated {
-		allocatedSet[allocatedPool.Pool] = make(map[netip.Prefix]struct{}, len(allocatedPool.CIDRs))
+		var poolSet set.Set[netip.Prefix]
 
 		for _, cidrStr := range allocatedPool.CIDRs {
 			prefix, parseErr := netip.ParsePrefix(string(cidrStr))
@@ -308,13 +311,15 @@ func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
 				err = errors.Join(err, occupyErr)
 			}
 
-			allocatedSet[allocatedPool.Pool][prefix] = struct{}{}
+			poolSet.Insert(prefix)
 		}
+		allocatedSet[allocatedPool.Pool] = poolSet
 	}
 
 	// release any cidrs no longer present in allocatedPool
 	for poolName := range p.nodes[cn.Name] {
-		retainErrs := p.retainCIDRs(cn.Name, poolName, allocatedSet[poolName])
+		poolSet := allocatedSet[poolName]
+		retainErrs := p.retainCIDRs(cn.Name, poolName, poolSet)
 		if retainErrs != nil {
 			err = errors.Join(err, retainErrs)
 		}
@@ -370,10 +375,10 @@ func (p *PoolAllocator) ReleaseNode(nodeName string) error {
 			continue
 		}
 
-		for cidr := range cidrs.v4 {
+		for cidr := range cidrs.v4.Members() {
 			err = errors.Join(err, releaseCIDR(pool.v4, cidr))
 		}
-		for cidr := range cidrs.v6 {
+		for cidr := range cidrs.v6.Members() {
 			err = errors.Join(err, releaseCIDR(pool.v6, cidr))
 		}
 	}
@@ -409,9 +414,9 @@ func (p *PoolAllocator) isAllocated(targetNode, sourcePool string, cidr netip.Pr
 	var found bool
 	switch {
 	case cidr.Addr().Is4():
-		_, found = p.nodes[targetNode][sourcePool].v4[cidr]
+		found = p.nodes[targetNode][sourcePool].v4.Has(cidr)
 	case cidr.Addr().Is6():
-		_, found = p.nodes[targetNode][sourcePool].v6[cidr]
+		found = p.nodes[targetNode][sourcePool].v6.Has(cidr)
 	}
 	return found
 }
@@ -425,18 +430,15 @@ func (p *PoolAllocator) markAllocated(targetNode, sourcePool string, cidr netip.
 
 	cidrs, ok := pools[sourcePool]
 	if !ok {
-		cidrs = cidrSets{
-			v4: cidrSet{},
-			v6: cidrSet{},
-		}
+		cidrs = &cidrSets{}
 		pools[sourcePool] = cidrs
 	}
 
 	switch {
 	case cidr.Addr().Is4():
-		cidrs.v4[cidr] = struct{}{}
+		cidrs.v4.Insert(cidr)
 	case cidr.Addr().Is6():
-		cidrs.v6[cidr] = struct{}{}
+		cidrs.v6.Insert(cidr)
 	}
 }
 
@@ -453,13 +455,13 @@ func (p *PoolAllocator) markReleased(targetNode, sourcePool string, cidr netip.P
 
 	switch {
 	case cidr.Addr().Is4():
-		delete(cidrs.v4, cidr)
+		cidrs.v4.Remove(cidr)
 	case cidr.Addr().Is6():
-		delete(cidrs.v6, cidr)
+		cidrs.v6.Remove(cidr)
 	}
 
 	// remove pool reference if it is now empty
-	if len(cidrs.v4) == 0 && len(cidrs.v6) == 0 {
+	if cidrs.v4.Empty() && cidrs.v6.Empty() {
 		delete(pools, sourcePool)
 	}
 }
@@ -528,9 +530,9 @@ func (p *PoolAllocator) occupyCIDR(targetNode, sourcePool string, cidr netip.Pre
 }
 
 // retainCIDRs releases all CIDRs in sourcePool of targetNode if they are _not_ present in the retain set
-func (p *PoolAllocator) retainCIDRs(targetNode, sourcePool string, retain map[netip.Prefix]struct{}) (err error) {
-	for prefix := range p.nodes[targetNode][sourcePool].v4 {
-		if _, ok := retain[prefix]; ok {
+func (p *PoolAllocator) retainCIDRs(targetNode, sourcePool string, retain set.Set[netip.Prefix]) (err error) {
+	for prefix := range p.nodes[targetNode][sourcePool].v4.Members() {
+		if retain.Has(prefix) {
 			continue
 		}
 
@@ -539,8 +541,8 @@ func (p *PoolAllocator) retainCIDRs(targetNode, sourcePool string, retain map[ne
 			err = errors.Join(err, releaseErr)
 		}
 	}
-	for prefix := range p.nodes[targetNode][sourcePool].v6 {
-		if _, ok := retain[prefix]; ok {
+	for prefix := range p.nodes[targetNode][sourcePool].v6.Members() {
+		if retain.Has(prefix) {
 			continue
 		}
 

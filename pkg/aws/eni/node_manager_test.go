@@ -17,6 +17,7 @@ import (
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/ipam"
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -53,18 +54,12 @@ var (
 		{
 			ID:               "rt-1",
 			VirtualNetworkID: "vpc-1",
-			Subnets: map[string]struct{}{
-				"subnet-1": {},
-				"subnet-2": {},
-			},
+			Subnets:          set.NewSet("subnet-1", "subnet-2"),
 		},
 		{
 			ID:               "rt-2",
 			VirtualNetworkID: "vpc-1",
-			Subnets: map[string]struct{}{
-				"subnet-3": {},
-				"subnet-4": {},
-			},
+			Subnets:          set.NewSet("subnet-3", "subnet-4"),
 		},
 	}
 	k8sapi     = &k8sMock{}

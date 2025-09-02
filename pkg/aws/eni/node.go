@@ -974,12 +974,12 @@ func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 	var bestSubnet *ipamTypes.Subnet
 
 	for _, routeTable := range n.manager.routeTables {
-		if _, ok := routeTable.Subnets[nodeSubnetID]; ok && routeTable.VirtualNetworkID == n.k8sObj.Spec.ENI.VpcID {
+		if routeTable.Subnets.Has(nodeSubnetID) && routeTable.VirtualNetworkID == n.k8sObj.Spec.ENI.VpcID {
 			for _, subnetID := range n.k8sObj.Spec.ENI.SubnetIDs {
 				if subnetID == nodeSubnetID {
 					continue
 				}
-				if _, ok := routeTable.Subnets[subnetID]; ok {
+				if routeTable.Subnets.Has(subnetID) {
 					subnet := n.manager.subnets[subnetID]
 					if bestSubnet == nil || subnet.AvailableAddresses > bestSubnet.AvailableAddresses {
 						bestSubnet = subnet
@@ -1006,8 +1006,8 @@ func (n *Node) checkSubnetInSameRouteTableWithNodeSubnet(subnet *ipamTypes.Subne
 	defer n.manager.mutex.RUnlock()
 
 	for _, routeTable := range n.manager.routeTables {
-		if _, ok := routeTable.Subnets[n.k8sObj.Spec.ENI.NodeSubnetID]; ok && routeTable.VirtualNetworkID == n.k8sObj.Spec.ENI.VpcID {
-			if _, ok := routeTable.Subnets[subnet.ID]; ok {
+		if routeTable.Subnets.Has(n.k8sObj.Spec.ENI.NodeSubnetID) && routeTable.VirtualNetworkID == n.k8sObj.Spec.ENI.VpcID {
+			if routeTable.Subnets.Has(subnet.ID) {
 				return true
 			}
 		}
