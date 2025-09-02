@@ -1,3 +1,5 @@
+.. _ingress_reference:
+
 Reference
 #########
 
@@ -54,20 +56,28 @@ ensure that both steps are allowed, and that traffic is allowed from ``world`` t
 ``ingress``, and from ``ingress`` to identities in the cluster (like the
 ``productpage`` identity in the image above).
 
+.. warning::
+   Be aware that that the client's source IP is **not** preserved by the ingress, so 
+   ``ciliumclusterwidenetworkpolicies.cilium.io``, ``ciliumnetworkpolicies.cilium.io`` 
+   and ``networkpolicies.networking.k8s.io`` can not match on it at the backend node 
+   (see also `GH#34786 <https://github.com/cilium/cilium/issues/34786>`__ for further 
+   details).
+
 Please see the :ref:`gs_ingress_and_network_policy` for more details for Ingress,
 although the same principles also apply for Gateway API.
 
 Source IP Visibility
 ********************
 
-.. Note::
-
-    By default, source IP visibility for Cilium ingress config, both Ingress
-    and Gateway API, should *just work* on most installations. Read this section
-    for more information on requirements and relevant settings.
+When Cilium Ingress forwards traffic towards Pods within the cluster, the original source IP is not preserved, so 
+``ciliumclusterwidenetworkpolicies.cilium.io``, ``ciliumnetworkpolicies.cilium.io`` 
+and ``networkpolicies.networking.k8s.io`` can not match on the source IP at the backend node. See :gh-issue:`34786` for more information about this limitation.
 
 Having a backend be able to deduce what IP address the actual request came from
-is important for most applications.
+is important for most applications. However, when traffic is sent through
+an Ingress proxy, the original source IP address is not preserved in the IP
+headers when forwarding the traffic to a backend. Instead, the source IP
+address is preserved in an HTTP header.
 
 By default, Cilium's Envoy instances are configured to append the visible source
 address of incoming HTTP connections to the ``X-Forwarded-For`` header, using the
