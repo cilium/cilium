@@ -734,24 +734,13 @@ ct_recreate6:
 		/* See comment in handle_ipv4_from_lxc(). */
 		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
 		    identity_is_remote_node(*dst_sec_identity))
-			goto encrypt_to_stack;
+			goto pass_to_stack_hostfw;
 #endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
 
-		if (info && info->flag_has_tunnel_ep) {
-			/* Two cases exist here either
-			 * (a) the packet needs IPSec encap so push ctx to stack for encap, or
-			 * (b) packet was redirected to tunnel device so return.
-			 */
-			ret = encap_and_redirect_lxc(ctx, info, SECLABEL_IPV6,
-						     *dst_sec_identity, &trace,
-						     bpf_htons(ETH_P_IPV6));
-			switch (ret) {
-			case CTX_ACT_OK:
-				goto encrypt_to_stack;
-			default:
-				return ret;
-			}
-		}
+		if (info && info->flag_has_tunnel_ep)
+			return encap_and_redirect_lxc(ctx, info, SECLABEL_IPV6,
+						      *dst_sec_identity, &trace,
+						      bpf_htons(ETH_P_IPV6));
 	}
 #endif
 	if (is_defined(ENABLE_HOST_ROUTING)) {
@@ -798,9 +787,7 @@ pass_to_stack:
 	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 #endif
 
-#ifdef TUNNEL_MODE
-encrypt_to_stack:
-#endif
+pass_to_stack_hostfw: __maybe_unused
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, *dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 			  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
@@ -1274,7 +1261,7 @@ skip_vtep:
 		 */
 		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
 		    identity_is_remote_node(*dst_sec_identity))
-			goto encrypt_to_stack;
+			goto pass_to_stack_hostfw;
 #endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
@@ -1295,18 +1282,13 @@ skip_vtep:
 			ret = encap_and_redirect_lxc(ctx, info, SECLABEL_IPV4,
 						     *dst_sec_identity, &trace,
 						     bpf_htons(ETH_P_IP));
-			switch (ret) {
-			case CTX_ACT_OK:
-				/* IPsec, pass up to stack for XFRM processing. */
-				goto encrypt_to_stack;
+
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-			case CTX_ACT_REDIRECT:
+			if (ret == CTX_ACT_REDIRECT)
 				ctx_set_cluster_id_mark(ctx, cluster_id);
-				fallthrough;
 #endif
-			default:
-				return ret;
-			}
+
+			return ret;
 		}
 	}
 #endif /* TUNNEL_MODE */
@@ -1358,9 +1340,7 @@ pass_to_stack:
 	set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
 #endif
 
-#if defined(TUNNEL_MODE)
-encrypt_to_stack:
-#endif
+pass_to_stack_hostfw: __maybe_unused
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, *dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 			  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
