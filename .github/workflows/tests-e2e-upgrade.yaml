@@ -433,17 +433,18 @@ jobs:
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
-      - name: Setup conn-disrupt-test before downgrading
-        uses: ./.github/actions/conn-disrupt-test-setup
-
       - name: Features tested before downgrade
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested before downgrade"
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before downgrade"
 
+      - name: Setup conn-disrupt-test before downgrading
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        uses: ./.github/actions/conn-disrupt-test-setup
+
       - name: Start unencrypted packets check for downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # disable the check for proxy traffic.
@@ -451,7 +452,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
 
 
-      - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
+      - name: Downgrade to Cilium ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
@@ -466,7 +467,7 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Assert that no unencrypted packets are leaked during downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
@@ -514,6 +515,7 @@ jobs:
         uses: ./.github/actions/bpftrace/check
 
       - name: Features tested after downgrade
+        if: ${{ matrix.skip-upgrade != 'true' }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested after downgrade"
