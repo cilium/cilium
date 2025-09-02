@@ -648,7 +648,7 @@ struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key,
-				       const bool scope_switch)
+				       const bool east_west)
 {
 	struct lb6_service *svc;
 
@@ -681,7 +681,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 		return NULL;
 	}
 
-	if (!scope_switch || !lb6_svc_is_two_scopes(svc))
+	if (!east_west || !lb6_svc_is_two_scopes(svc))
 		return svc;
 
 	key->scope = LB_LOOKUP_SCOPE_INT;
@@ -1161,7 +1161,7 @@ static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
  */
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key __maybe_unused,
-				       const bool scope_switch __maybe_unused)
+				       const bool east_west __maybe_unused)
 {
 	return NULL;
 }
@@ -1367,7 +1367,7 @@ struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 
 static __always_inline
 struct lb4_service *lb4_lookup_service(struct lb4_key *key,
-				       const bool scope_switch)
+				       const bool east_west)
 {
 	struct lb4_service *svc;
 
@@ -1400,7 +1400,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 		return NULL;
 	}
 
-	if (!scope_switch || !lb4_svc_is_two_scopes(svc))
+	if (!east_west || !lb4_svc_is_two_scopes(svc))
 		return svc;
 
 	key->scope = LB_LOOKUP_SCOPE_INT;
