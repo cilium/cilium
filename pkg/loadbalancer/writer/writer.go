@@ -268,6 +268,13 @@ func (w *Writer) UpsertFrontend(txn WriteTxn, params loadbalancer.FrontendParams
 	return w.upsertFrontendParams(txn, params, svc)
 }
 
+func (w *Writer) DeleteFrontend(txn WriteTxn, addr loadbalancer.L3n4Addr) {
+	fe, _, found := w.fes.Get(txn, loadbalancer.FrontendByAddress(addr))
+	if found {
+		w.fes.Delete(txn, fe)
+	}
+}
+
 func (w *Writer) UpdateBackendHealth(txn WriteTxn, serviceName loadbalancer.ServiceName, backend loadbalancer.L3n4Addr, healthy bool) (bool, error) {
 	be, _, ok := w.bes.Get(txn, loadbalancer.BackendByAddress(backend))
 	if !ok {
