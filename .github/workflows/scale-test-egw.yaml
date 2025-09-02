@@ -583,7 +583,7 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "final"
+          artifacts_suffix: "final-${{ matrix.test_type }}"
           job_status: "${{ job.status }}"
           junits-directory: 'report'
           capture_sysdump: 'false'
