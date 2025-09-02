@@ -10,8 +10,21 @@ nodes:
         kind: InitConfiguration
         nodeRegistration:
           taints: []
+          kubeletExtraArgs:
+            v: "9"
   - role: worker
+    kubeadmConfigPatches:
+      - |
+        apiVersion: kubeadm.k8s.io/v1beta3
+        kind: JoinConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            v: "9"
 networking:
   disableDefaultCNI: true
   podSubnet: "10.244.0.0/16"
   serviceSubnet: "10.245.0.0/16"
+containerdConfigPatches:
+  - |
+    [debug]
+      level = "trace"

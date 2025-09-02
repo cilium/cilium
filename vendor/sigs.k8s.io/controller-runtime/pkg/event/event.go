@@ -40,6 +40,9 @@ type GenericEvent = TypedGenericEvent[client.Object]
 type TypedCreateEvent[object any] struct {
 	// Object is the object from the event
 	Object object
+
+	// IsInInitialList is true if the Create event was triggered by the initial list.
+	IsInInitialList bool
 }
 
 // TypedUpdateEvent is an event where a Kubernetes object was updated. TypedUpdateEvent should be generated

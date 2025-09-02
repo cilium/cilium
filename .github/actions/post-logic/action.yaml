@@ -19,6 +19,9 @@ inputs:
   junits-directory:
     description: "Directory where JUnit XML files are stored."
     default: cilium-junits
+  collect_kind_logs:
+    description: "Export and collect kind cluster logs"
+    default: "false"
 
 runs:
   using: "composite"
