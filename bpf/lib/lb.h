@@ -683,6 +683,9 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb6_lookup_service(key);
 	if (!svc) {
+		if (east_west)
+			return NULL;
+
 		/* If wildcard lookup was successful, we return the wildcard
 		 * service while leaving the modified dport/proto values in
 		 * the key. A wildcard service entry will have no backends
@@ -1420,6 +1423,9 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb4_lookup_service(key);
 	if (!svc) {
+		if (east_west)
+			return NULL;
+
 		/* If wildcard lookup was successful, we return the wildcard
 		 * service while leaving the modified dport/proto values in
 		 * the key. A wildcard service entry will have no backends
