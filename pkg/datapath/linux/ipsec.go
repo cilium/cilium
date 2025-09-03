@@ -218,7 +218,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 		params.DestSubnet = cidr
 		params.SourceTunnelIP = &localIP
 		params.DestTunnelIP = &remoteIP
-		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
 			statesUpdated = false
@@ -232,7 +232,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
 	params = types.NewIPSecParameters(template)
@@ -241,7 +241,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &remoteCiliumInternalIP
 	params.DestTunnelIP = &localCiliumInternalIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in CiliumInternalIPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -250,7 +250,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	// we just need to update the tunnel ips here...
 	params.SourceTunnelIP = &remoteNodeInternalIP
 	params.DestTunnelIP = &localNodeInternalIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in NodeInternalIPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -312,7 +312,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 		params.DestSubnet = remoteCIDR
 		params.SourceTunnelIP = &localIP
 		params.DestTunnelIP = &remoteIP
-		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "ADD out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
 			statesUpdated = false
@@ -320,7 +320,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	for _, remoteCIDR := range cidr.CIDRsToIPNets(removedCIDRs) {
-		if err := n.ipsecAgent.DeleteXfrmPolicyOut(n.log, nodeID, remoteCIDR); err != nil {
+		if err := n.ipsecAgent.DeleteXfrmPolicyOut(nodeID, remoteCIDR); err != nil {
 			nodeIDStr := fmt.Sprintf("0x%x", nodeID)
 			scopedLog := n.log.With(
 				logfields.Reason, "v4 XFRM policy OUT deletion",
@@ -341,7 +341,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
 	params = types.NewIPSecParameters(template)
@@ -350,7 +350,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &remoteIP
 	params.DestTunnelIP = &localIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -380,7 +380,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	params.DestSubnet = remoteOverlayIPExactMatch
 	params.SourceTunnelIP = &localUnderlayIP
 	params.DestTunnelIP = &remoteUnderlayIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -392,7 +392,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &remoteUnderlayIP
 	params.DestTunnelIP = &localUnderlayIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay in IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -497,7 +497,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 		params.DestSubnet = cidr
 		params.SourceTunnelIP = &localIP
 		params.DestTunnelIP = &remoteIP
-		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
 			statesUpdated = false
@@ -510,7 +510,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -522,7 +522,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &remoteCiliumInternalIP
 	params.DestTunnelIP = &localCiliumInternalIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in CiliumInternalIPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -531,7 +531,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	// we just need to update the tunnel ips here...
 	params.SourceTunnelIP = &remoteNodeInternalIP
 	params.DestTunnelIP = &localNodeInternalIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in NodeInternalIPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -591,7 +591,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 		params.DestSubnet = remoteCIDR
 		params.SourceTunnelIP = &localIP
 		params.DestTunnelIP = &remoteIP
-		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
 			statesUpdated = false
@@ -599,7 +599,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	for _, remoteCIDR := range cidr.CIDRsToIPNets(removedCIDRs) {
-		if err := n.ipsecAgent.DeleteXfrmPolicyOut(n.log, nodeID, remoteCIDR); err != nil {
+		if err := n.ipsecAgent.DeleteXfrmPolicyOut(nodeID, remoteCIDR); err != nil {
 			nodeIDStr := fmt.Sprintf("0x%x", nodeID)
 			scopedLog := n.log.With(
 				logfields.Reason, "v6 XFRM policy OUT deletion",
@@ -620,7 +620,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -632,7 +632,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &remoteIP
 	params.DestTunnelIP = &localIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -662,7 +662,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	params.DestSubnet = remoteOverlayIPExactMatch
 	params.SourceTunnelIP = &localUnderlayIP
 	params.DestTunnelIP = &remoteUnderlayIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -674,7 +674,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &remoteUnderlayIP
 	params.DestTunnelIP = &localUnderlayIP
-	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay in IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -881,7 +881,7 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) error {
 	if nodeID == 0 {
 		scopedLog.Warn("No node ID found for node.")
 	} else {
-		errs = errors.Join(errs, n.ipsecAgent.DeleteIPsecEndpoint(n.log, nodeID))
+		errs = errors.Join(errs, n.ipsecAgent.DeleteIPsecEndpoint(nodeID))
 	}
 
 	// This is only needed in IPAM modes where we install one route per
