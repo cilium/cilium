@@ -5,6 +5,7 @@ package set
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -274,4 +275,43 @@ func TestSet(t *testing.T) {
 		}
 	}
 	require.True(t, set2.Empty())
+}
+
+func TestSet_String(t *testing.T) {
+	tests := []struct {
+		name             string
+		intSet           Set[int]
+		expected         string
+		expectedElements []string
+	}{
+		{
+			name:     "returns empty string on empty set",
+			intSet:   NewSet[int](),
+			expected: "",
+		},
+		{
+			name:     "returns single set element as string",
+			intSet:   NewSet(1),
+			expected: "1",
+		},
+		{
+			name:             "returns multi-element set as string",
+			intSet:           NewSet(1, 2, 3),
+			expectedElements: []string{"1", "2", "3"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := tt.intSet.String()
+			if tt.expected != "" {
+				require.Equal(t, tt.expected, output)
+			} else if tt.expectedElements != nil {
+				for _, e := range tt.expectedElements {
+					require.Contains(t, output, e)
+					require.Len(t, strings.Split(output, ","), len(tt.expectedElements))
+				}
+			}
+		})
+	}
 }
