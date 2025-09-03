@@ -186,14 +186,14 @@ func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.Local
 
 func (a *Agent) Start(cell.HookContext) error {
 	if !option.Config.EncryptNode {
-		DeleteIPsecEncryptRoute(a.log)
+		a.deleteIPsecEncryptRoute(a.log)
 	}
 	if !option.Config.EnableIPSec {
 		return nil
 	}
 
 	var err error
-	a.authKeySize, a.spi, err = a.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
+	a.authKeySize, a.spi, err = a.loadIPSecKeysFile(option.Config.IPSecKeyFile)
 	if err != nil {
 		return err
 	}
@@ -602,7 +602,7 @@ func (a *Agent) ipSecReplacePolicyIn(params *types.IPSecParameters) error {
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func (a *Agent) IpSecReplacePolicyFwd(params *types.IPSecParameters) error {
+func (a *Agent) ipsecReplacePolicyFwd(params *types.IPSecParameters) error {
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
 	key := a.getGlobalIPsecKey(net.IP{})
@@ -795,7 +795,7 @@ func (a *Agent) safeDeleteXfrmState(log *slog.Logger, state *netlink.XfrmState, 
 	return a.xfrmStateCache.XfrmStateDel(state)
 }
 
-func ipsecDeleteXfrmPolicy(log *slog.Logger, nodeID uint16) error {
+func (a *Agent) ipsecDeleteXfrmPolicy(log *slog.Logger, nodeID uint16) error {
 	scopedLog := log.With(
 		logfields.NodeID, nodeID,
 	)
@@ -888,7 +888,7 @@ func (a *Agent) UpsertIPsecEndpoint(log *slog.Logger, params *types.IPSecParamet
 		}
 
 		if params.Dir&IPSecDirFwd != 0 {
-			if err = a.IpSecReplacePolicyFwd(params); err != nil {
+			if err = a.ipsecReplacePolicyFwd(params); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy fwd: %w", err)
 				}
@@ -913,7 +913,7 @@ func (a *Agent) UpsertIPsecEndpoint(log *slog.Logger, params *types.IPSecParamet
 // DeleteIPsecEndpoint deletes a endpoint associated with the remote IP address
 func (a *Agent) DeleteIPsecEndpoint(log *slog.Logger, nodeID uint16) error {
 	log = log.With(logfields.LogSubsys, subsystem)
-	return errors.Join(a.ipsecDeleteXfrmState(log, nodeID), ipsecDeleteXfrmPolicy(log, nodeID))
+	return errors.Join(a.ipsecDeleteXfrmState(log, nodeID), a.ipsecDeleteXfrmPolicy(log, nodeID))
 }
 
 func isXfrmPolicyCilium(policy netlink.XfrmPolicy) bool {
@@ -1051,10 +1051,10 @@ func decodeIPSecKey(keyRaw string) (int, []byte, error) {
 	return len(keyTrimmed), key, err
 }
 
-// LoadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
+// loadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
 // is to put a key per line as follows, (auth-algo auth-key enc-algo enc-key)
 // Returns the authentication overhead in bytes, the key ID, and an error.
-func (a *Agent) LoadIPSecKeysFile(path string) (int, uint8, error) {
+func (a *Agent) loadIPSecKeysFile(path string) (int, uint8, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return 0, 0, err
@@ -1200,9 +1200,9 @@ func (a *Agent) setIPSecSPI(spi uint8) error {
 	return nil
 }
 
-// DeleteIPsecEncryptRoute removes nodes in main routing table by walking
+// deleteIPsecEncryptRoute removes nodes in main routing table by walking
 // routes and matching route protocol type.
-func DeleteIPsecEncryptRoute(log *slog.Logger) {
+func (a *Agent) deleteIPsecEncryptRoute(log *slog.Logger) {
 	log = log.With(logfields.LogSubsys, subsystem)
 	filter := &netlink.Route{
 		Protocol: route.EncryptRouteProtocol,
@@ -1234,7 +1234,7 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				continue
 			}
 
-			_, spi, err := a.LoadIPSecKeysFile(keyfilePath)
+			_, spi, err := a.loadIPSecKeysFile(keyfilePath)
 			if err != nil {
 				health.Degraded(fmt.Sprintf("Failed to load keyfile %q", keyfilePath), err)
 				a.log.Error("Failed to load IPsec keyfile", logfields.Error, err)
