@@ -17,6 +17,9 @@ limitations under the License.
 package metrics
 
 import (
+	"strconv"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -42,8 +45,8 @@ var (
 	depth = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Subsystem: WorkQueueSubsystem,
 		Name:      DepthKey,
-		Help:      "Current depth of workqueue",
-	}, []string{"name", "controller"})
+		Help:      "Current depth of workqueue by workqueue and priority",
+	}, []string{"name", "controller", "priority"})
 
 	adds = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Subsystem: WorkQueueSubsystem,
@@ -52,17 +55,23 @@ var (
 	}, []string{"name", "controller"})
 
 	latency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Subsystem: WorkQueueSubsystem,
-		Name:      QueueLatencyKey,
-		Help:      "How long in seconds an item stays in workqueue before being requested",
-		Buckets:   prometheus.ExponentialBuckets(10e-9, 10, 12),
+		Subsystem:                       WorkQueueSubsystem,
+		Name:                            QueueLatencyKey,
+		Help:                            "How long in seconds an item stays in workqueue before being requested",
+		Buckets:                         prometheus.ExponentialBuckets(10e-9, 10, 12),
+		NativeHistogramBucketFactor:     1.1,
+		NativeHistogramMaxBucketNumber:  100,
+		NativeHistogramMinResetDuration: 1 * time.Hour,
 	}, []string{"name", "controller"})
 
 	workDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Subsystem: WorkQueueSubsystem,
-		Name:      WorkDurationKey,
-		Help:      "How long in seconds processing an item from workqueue takes.",
-		Buckets:   prometheus.ExponentialBuckets(10e-9, 10, 12),
+		Subsystem:                       WorkQueueSubsystem,
+		Name:                            WorkDurationKey,
+		Help:                            "How long in seconds processing an item from workqueue takes.",
+		Buckets:                         prometheus.ExponentialBuckets(10e-9, 10, 12),
+		NativeHistogramBucketFactor:     1.1,
+		NativeHistogramMaxBucketNumber:  100,
+		NativeHistogramMinResetDuration: 1 * time.Hour,
 	}, []string{"name", "controller"})
 
 	unfinished = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -103,7 +112,7 @@ func init() {
 type WorkqueueMetricsProvider struct{}
 
 func (WorkqueueMetricsProvider) NewDepthMetric(name string) workqueue.GaugeMetric {
-	return depth.WithLabelValues(name, name)
+	return depth.WithLabelValues(name, name, "") // no priority
 }
 
 func (WorkqueueMetricsProvider) NewAddsMetric(name string) workqueue.CounterMetric {
@@ -128,4 +137,34 @@ func (WorkqueueMetricsProvider) NewLongestRunningProcessorSecondsMetric(name str
 
 func (WorkqueueMetricsProvider) NewRetriesMetric(name string) workqueue.CounterMetric {
 	return retries.WithLabelValues(name, name)
+}
+
+type MetricsProviderWithPriority interface {
+	workqueue.MetricsProvider
+
+	NewDepthMetricWithPriority(name string) DepthMetricWithPriority
+}
+
+// DepthMetricWithPriority represents a depth metric with priority.
+type DepthMetricWithPriority interface {
+	Inc(priority int)
+	Dec(priority int)
+}
+
+var _ MetricsProviderWithPriority = WorkqueueMetricsProvider{}
+
+func (WorkqueueMetricsProvider) NewDepthMetricWithPriority(name string) DepthMetricWithPriority {
+	return &depthWithPriorityMetric{lvs: []string{name, name}}
+}
+
+type depthWithPriorityMetric struct {
+	lvs []string
+}
+
+func (g *depthWithPriorityMetric) Inc(priority int) {
+	depth.WithLabelValues(append(g.lvs, strconv.Itoa(priority))...).Inc()
+}
+
+func (g *depthWithPriorityMetric) Dec(priority int) {
+	depth.WithLabelValues(append(g.lvs, strconv.Itoa(priority))...).Dec()
 }
