@@ -487,11 +487,7 @@ func (r *resource[T]) resourceName() string {
 		return r.opts.name
 	}
 
-	// We create a new pointer to the reconciled resource type.
-	// For example, with resource[*cilium_api_v2.CiliumNode] new(T) returns **cilium_api_v2.CiliumNode
-	// and *new(T) is nil. So we create a new pointer using reflect.New()
-	o := *new(T)
-	sourceObj := reflect.New(reflect.TypeOf(o).Elem()).Interface().(T)
+	sourceObj := reflect.New(reflect.TypeFor[T]().Elem()).Interface().(T)
 
 	gvk, err := apiutil.GVKForObject(sourceObj, scheme)
 	if err != nil {
