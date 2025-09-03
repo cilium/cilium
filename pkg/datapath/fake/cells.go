@@ -57,7 +57,7 @@ var Cell = cell.Module(
 		func() types.IptablesManager { return &fakeTypes.FakeIptablesManager{} },
 		func() ipset.Manager { return &fakeTypes.IPSet{} },
 		func() types.BandwidthManager { return &fakeTypes.BandwidthManager{} },
-		func() types.IPsecKeyCustodian { return &ipsecKeyCustodian{} },
+		func() types.IPsecAgent { return &ipsecAgent{} },
 		func() mtu.MTU { return &fakeTypes.MTU{} },
 		func() wgTypes.WireguardAgent { return &fakeTypes.WireguardAgent{} },
 		func() wgTypes.WireguardConfig { return &fakeTypes.WireguardConfig{} },
