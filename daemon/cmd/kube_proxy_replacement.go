@@ -256,7 +256,7 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) error {
+func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, ipsecEnabled bool) error {
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
 	if option.Config.EnableMKE && kprCfg.EnableSocketLB {
@@ -267,7 +267,7 @@ func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 		msg := ""
 		switch {
 		// Needs host stack for packet handling.
-		case option.Config.EnableIPSec:
+		case ipsecEnabled:
 			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
 		// Non-BPF masquerade requires netfilter and hence CT.
 		case option.Config.IptablesMasqueradingEnabled():

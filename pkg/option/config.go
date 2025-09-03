@@ -2052,9 +2052,9 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
-func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
+func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig, wireguardEnabled, ipsecEnabled bool) bool {
 	return kprCfg.KubeProxyReplacement || c.EnableBPFMasquerade || c.EnableHostFirewall || wireguardEnabled ||
-		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSec
+		c.EnableL2Announcements || c.ForceDeviceRequired || ipsecEnabled
 }
 
 // NeedIngressOnWireGuardDevice returns true if the agent needs to attach

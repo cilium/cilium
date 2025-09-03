@@ -184,7 +184,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	// the code below, specific to EncryptInterface. Specifically, we will load
 	// bpf_host code in reloadHostDatapath onto the physical devices as selected
 	// by configuration.
-	if !option.Config.EnableIPSec || option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard) {
+	if !lnc.EnableIPSec || option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard, lnc.EnableIPSec) {
 		return nil
 	}
 

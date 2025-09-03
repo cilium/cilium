@@ -132,6 +132,8 @@ type Daemon struct {
 
 	lbConfig loadbalancer.Config
 	kprCfg   kpr.KPRConfig
+
+	ipsecAgent datapath.IPsecAgent
 }
 
 func (d *Daemon) init() error {
@@ -227,7 +229,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	// EncryptedOverlay feature must check the TunnelProtocol if enabled, since
 	// it only supports VXLAN right now.
-	if option.Config.EncryptionEnabled() && option.Config.EnableIPSecEncryptedOverlay {
+	if params.IPsecAgent.Enabled() && option.Config.EnableIPSecEncryptedOverlay {
 		if !option.Config.TunnelingEnabled() {
 			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling mode")
 		}
@@ -237,47 +239,47 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	// WireGuard and IPSec are mutually exclusive.
-	if option.Config.EnableIPSec && params.WGAgent.Enabled() {
+	if params.IPsecAgent.Enabled() && params.WGAgent.Enabled() {
 		return nil, nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, option.EnableIPSecName)
 	}
 
 	if !option.Config.DNSProxyInsecureSkipTransparentModeCheck {
-		if option.Config.EnableIPSec && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
+		if params.IPsecAgent.Enabled() && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
 			return nil, nil, fmt.Errorf("IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
 		}
 	}
 
-	if option.Config.EnableIPSec && option.Config.TunnelingEnabled() {
+	if params.IPsecAgent.Enabled() && option.Config.TunnelingEnabled() {
 		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
 			return nil, nil, fmt.Errorf("IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later): %w", err)
 		}
 	}
 
-	if option.Config.EnableIPSecEncryptedOverlay && !option.Config.EnableIPSec {
+	if option.Config.EnableIPSecEncryptedOverlay && !params.IPsecAgent.Enabled() {
 		params.Logger.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
 	}
 
 	if option.Config.EnableHostFirewall {
-		if option.Config.EnableIPSec {
+		if params.IPsecAgent.Enabled() {
 			return nil, nil, fmt.Errorf("IPSec cannot be used with the host firewall.")
 		}
 	}
 
 	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
-		if option.Config.EnableIPSec {
+		if params.IPsecAgent.Enabled() {
 			return nil, nil, fmt.Errorf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableIPSecName)
 		}
 	}
 
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
 	// that may be added or removed at runtime.
-	if option.Config.EnableIPSec &&
+	if params.IPsecAgent.Enabled() &&
 		!option.Config.TunnelingEnabled() &&
 		len(option.Config.EncryptInterface) == 0 &&
 		// If devices are required, we don't look at the EncryptInterface, as we
 		// don't load bpf_network in loader.reinitializeIPSec. Instead, we load
 		// bpf_host onto physical devices as chosen by configuration.
-		!option.Config.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled()) &&
+		!option.Config.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled(), params.IPsecAgent.Enabled()) &&
 		option.Config.IPAM != ipamOption.IPAMENI {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(params.Logger)
 		if err != nil {
@@ -341,6 +343,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		maglevConfig:      params.MaglevConfig,
 		lbConfig:          params.LBConfig,
 		kprCfg:            params.KPRConfig,
+		ipsecAgent:        params.IPsecAgent,
 		ciliumHealth:      params.CiliumHealth,
 		endpointAPIFence:  params.EndpointAPIFence,
 	}
@@ -537,7 +540,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	drdName := ""
 	directRoutingDevice, _ := params.DirectRoutingDevice.Get(ctx, rxn)
 	if directRoutingDevice == nil {
-		if option.Config.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled()) {
+		if option.Config.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled(), params.IPsecAgent.Enabled()) {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
 				option.DirectRoutingDevice)
@@ -551,7 +554,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	nativeDevices, _ := datapathTables.SelectedDevices(d.devices, rxn)
-	if err := finishKubeProxyReplacementInit(params.Logger, params.Sysctl, nativeDevices, drdName, d.lbConfig, d.kprCfg); err != nil {
+	if err := finishKubeProxyReplacementInit(params.Logger, params.Sysctl, nativeDevices, drdName, d.lbConfig, d.kprCfg, params.IPsecAgent.Enabled()); err != nil {
 		d.logger.Error("failed to finalise LB initialization", logfields.Error, err)
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
