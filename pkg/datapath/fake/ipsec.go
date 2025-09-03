@@ -7,21 +7,18 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
-type ipsecKeyCustodian struct{}
+type ipsecAgent struct{}
 
-// AuthKeySize implements types.IPsecKeyCustodian.
-func (*ipsecKeyCustodian) AuthKeySize() int {
-	return 256 // vaguely probable.
+func (*ipsecAgent) AuthKeySize() int {
+	return 16
 }
 
-// SPI implements types.IPsecKeyCustodian.
-func (*ipsecKeyCustodian) SPI() uint8 {
+func (*ipsecAgent) SPI() uint8 {
 	return 4
 }
 
-// StartBackgroundJobs implements types.IPsecKeyCustodian.
-func (*ipsecKeyCustodian) StartBackgroundJobs(types.NodeHandler) error {
+func (*ipsecAgent) StartBackgroundJobs(types.NodeHandler) error {
 	return nil
 }
 
-var _ types.IPsecKeyCustodian = &ipsecKeyCustodian{}
+var _ types.IPsecAgent = &ipsecAgent{}

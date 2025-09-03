@@ -640,7 +640,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				params.Clientset,
 				nodeTypes.GetName(),
 				latestLocalNode.Node,
-				params.IPsecKeyCustodian.SPI())
+				params.IPsecAgent.SPI())
 		}
 		if err != nil {
 			d.logger.Warn("Cannot annotate k8s node with CIDR range", logfields.Error, err)
@@ -710,7 +710,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}()
 	}
 
-	if err := params.IPsecKeyCustodian.StartBackgroundJobs(params.NodeHandler); err != nil {
+	if err := params.IPsecAgent.StartBackgroundJobs(params.NodeHandler); err != nil {
 		d.logger.Error("Unable to start IPsec key watcher", logfields.Error, err)
 	}
 

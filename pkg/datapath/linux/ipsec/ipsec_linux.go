@@ -1168,12 +1168,12 @@ func parseSPI(spiStr string) (uint8, int, error) {
 	return uint8(spi), 0, nil
 }
 
-func (kc *keyCustodian) setIPSecSPI(spi uint8) error {
+func (a *Agent) setIPSecSPI(spi uint8) error {
 	if err := encrypt.MapUpdateContext(0, spi); err != nil {
-		kc.log.Warn("cilium_encrypt_state map updated failed", logfields.Error, err)
+		a.log.Warn("cilium_encrypt_state map updated failed", logfields.Error, err)
 		return err
 	}
-	kc.spi = spi
+	a.spi = spi
 	return nil
 }
 
@@ -1203,7 +1203,7 @@ func DeleteIPsecEncryptRoute(log *slog.Logger) {
 	}
 }
 
-func (kc *keyCustodian) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler datapath.NodeHandler, health cell.Health) error {
+func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler datapath.NodeHandler, health cell.Health) error {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -1214,7 +1214,7 @@ func (kc *keyCustodian) keyfileWatcher(ctx context.Context, watcher *fswatcher.W
 			_, spi, err := LoadIPSecKeysFile(keyfilePath)
 			if err != nil {
 				health.Degraded(fmt.Sprintf("Failed to load keyfile %q", keyfilePath), err)
-				kc.log.Error("Failed to load IPsec keyfile", logfields.Error, err)
+				a.log.Error("Failed to load IPsec keyfile", logfields.Error, err)
 				continue
 			}
 
@@ -1232,14 +1232,14 @@ func (kc *keyCustodian) keyfileWatcher(ctx context.Context, watcher *fswatcher.W
 
 			// Push SPI update into BPF datapath now that XFRM state
 			// is configured.
-			if err := kc.setIPSecSPI(spi); err != nil {
+			if err := a.setIPSecSPI(spi); err != nil {
 				health.Degraded("Failed to set IPsec SPI", err)
-				kc.log.Error("Failed to set IPsec SPI", logfields.Error, err)
+				a.log.Error("Failed to set IPsec SPI", logfields.Error, err)
 				continue
 			}
 			health.OK("Watching keyfiles")
 		case err := <-watcher.Errors:
-			kc.log.Warn("Error encountered while watching file with fsnotify",
+			a.log.Warn("Error encountered while watching file with fsnotify",
 				logfields.Error, err,
 				logfields.Path, keyfilePath,
 			)
@@ -1252,18 +1252,18 @@ func (kc *keyCustodian) keyfileWatcher(ctx context.Context, watcher *fswatcher.W
 	}
 }
 
-func (kc *keyCustodian) startKeyfileWatcher(keyfilePath string, nodeHandler datapath.NodeHandler) error {
+func (a *Agent) startKeyfileWatcher(keyfilePath string, nodeHandler datapath.NodeHandler) error {
 	if !option.Config.EnableIPsecKeyWatcher {
 		return nil
 	}
 
-	watcher, err := fswatcher.New(kc.log, []string{keyfilePath})
+	watcher, err := fswatcher.New(a.log, []string{keyfilePath})
 	if err != nil {
 		return err
 	}
 
-	kc.jobs.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, health cell.Health) error {
-		return kc.keyfileWatcher(ctx, watcher, keyfilePath, nodeHandler, health)
+	a.jobs.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, health cell.Health) error {
+		return a.keyfileWatcher(ctx, watcher, keyfilePath, nodeHandler, health)
 	}))
 
 	return nil

@@ -3,7 +3,7 @@
 
 package types
 
-type IPsecKeyCustodian interface {
+type IPsecAgent interface {
 	AuthKeySize() int
 	SPI() uint8
 	StartBackgroundJobs(NodeHandler) error
