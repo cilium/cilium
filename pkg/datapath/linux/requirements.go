@@ -103,6 +103,10 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for bpf_get_netns_cookie() (Linux 5.7.0 or newer)")
 		}
 
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnSkAssign) != nil {
+			return errors.New("Require support for bpf_sk_assign() (Linux 5.7.0 or newer)")
+		}
+
 		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnCsumLevel) != nil {
 			return errors.New("Require support for bpf_csum_level() (Linux 5.8.0 or newer)")
 		}
