@@ -103,6 +103,7 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 				fakeTypes.NewNodeAddressing,
 				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
 				NewHeaderfileWriter,
+				func() datapath.IPsecConfig { return fakeTypes.IPsecConfig{} },
 			),
 			kpr.Cell,
 			cell.Invoke(func(writer_ datapath.ConfigWriter) {

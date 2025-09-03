@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -51,8 +52,8 @@ const (
 )
 
 // newMap will construct a bpf.Map that is not open or created yet.
-func newMap(lc cell.Lifecycle, dc *option.DaemonConfig) *encryptMap {
-	if !dc.EnableIPSec {
+func newMap(lc cell.Lifecycle, ipsecCfg datapath.IPsecConfig, dc *option.DaemonConfig) *encryptMap {
+	if !ipsecCfg.Enabled() {
 		return &encryptMap{}
 	}
 

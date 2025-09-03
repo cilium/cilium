@@ -494,7 +494,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		logging.Fatal(l.logger, "C and Go structs alignment check failed", logfields.Error, err)
 	}
 
-	if option.Config.EnableIPSec {
+	if lnc.EnableIPSec {
 		if err := compileNetwork(ctx, l.logger); err != nil {
 			logging.Fatal(l.logger, "failed to compile encryption programs", logfields.Error, err)
 		}
@@ -518,7 +518,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 
 	// Reinstall proxy rules for any running proxies if needed
 	if option.Config.EnableL7Proxy {
-		if err := p.ReinstallRoutingRules(ctx, lnc.RouteMTU); err != nil {
+		if err := p.ReinstallRoutingRules(ctx, lnc.RouteMTU, lnc.EnableIPSec); err != nil {
 			return err
 		}
 	}

@@ -27,6 +27,7 @@ type WriterParams struct {
 	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
 	Sysctl             sysctl.Sysctl
 	KPRConfig          kpr.KPRConfig
+	IPSecConfig        datapath.IPsecConfig
 }
 
 var Cell = cell.Module(

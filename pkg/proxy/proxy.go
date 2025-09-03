@@ -70,12 +70,12 @@ func createProxy(
 	}
 }
 
-func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int) error {
+func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled bool) error {
 	ln, err := p.localNodeStore.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve local node: %w", err)
 	}
-	return ReinstallRoutingRules(p.logger, ln, mtu)
+	return ReinstallRoutingRules(p.logger, ln, mtu, ipsecEnabled)
 }
 
 func (p *Proxy) GetListenerProxyPort(listener string) uint16 {

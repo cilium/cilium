@@ -741,7 +741,6 @@ func TestNodeEncryption(t *testing.T) {
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(logger, &option.DaemonConfig{
 		EncryptNode: true,
-		EnableIPSec: true,
 	}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
 	require.NoError(t, err)
 	mngr.Subscribe(dp)

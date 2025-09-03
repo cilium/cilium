@@ -229,7 +229,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	// EncryptedOverlay feature must check the TunnelProtocol if enabled, since
 	// it only supports VXLAN right now.
-	if params.IPsecAgent.Enabled() && option.Config.EnableIPSecEncryptedOverlay {
+	if params.IPsecAgent.Enabled() && params.IPSecConfig.EncryptedOverlayEnabled() {
 		if !option.Config.TunnelingEnabled() {
 			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling mode")
 		}
@@ -243,7 +243,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, option.EnableIPSecName)
 	}
 
-	if !option.Config.DNSProxyInsecureSkipTransparentModeCheck {
+	if !params.IPSecConfig.DNSProxyInsecureSkipTransparentModeCheckEnabled() {
 		if params.IPsecAgent.Enabled() && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
 			return nil, nil, fmt.Errorf("IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
 		}
@@ -255,7 +255,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
-	if option.Config.EnableIPSecEncryptedOverlay && !params.IPsecAgent.Enabled() {
+	if params.IPSecConfig.EncryptedOverlayEnabled() && !params.IPsecAgent.Enabled() {
 		params.Logger.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
 	}
 

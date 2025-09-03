@@ -196,7 +196,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 
 	// Check if we should use the NodeInternalIPs instead of the
 	// CiliumInternalIPs for the IPsec encapsulation.
-	if !option.Config.UseCiliumInternalIPForIPsec {
+	if !n.ipsecCfg.UseCiliumInternalIP() {
 		localIP = localNodeInternalIP
 		remoteIP = remoteNodeInternalIP
 	}
@@ -475,7 +475,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 
 	// Check if we should use the NodeInternalIPs instead of the
 	// CiliumInternalIPs for the IPsec encapsulation.
-	if !option.Config.UseCiliumInternalIPForIPsec {
+	if !n.ipsecCfg.UseCiliumInternalIP() {
 		localIP = localNodeInternalIP
 		remoteIP = remoteNodeInternalIP
 	}

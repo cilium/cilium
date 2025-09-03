@@ -26,7 +26,6 @@ type GetNodesSuite struct {
 
 var fakeConfig = &option.DaemonConfig{
 	RoutingMode: option.RoutingModeTunnel,
-	EnableIPSec: true,
 	EncryptNode: true,
 }
 

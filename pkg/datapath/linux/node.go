@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -73,6 +74,8 @@ type linuxNodeHandler struct {
 	enableEncapsulation func(node *nodeTypes.Node) bool
 
 	kprCfg kpr.KPRConfig
+
+	ipsecCfg datapath.IPsecConfig
 }
 
 var (
@@ -98,7 +101,7 @@ func NewNodeHandler(
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent)
+	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeTypes.IPsecConfig{})
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
@@ -121,6 +124,7 @@ func newNodeHandler(
 	nodeMap nodemap.MapV2,
 	kprCfg kpr.KPRConfig,
 	ipsecAgent datapath.IPsecAgent,
+	ipsecCfg datapath.IPsecConfig,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                  log,
@@ -135,6 +139,7 @@ func newNodeHandler(
 		ipsecUpdateNeeded:    map[nodeTypes.Identity]bool{},
 		kprCfg:               kprCfg,
 		ipsecAgent:           ipsecAgent,
+		ipsecCfg:             ipsecCfg,
 	}
 }
 
