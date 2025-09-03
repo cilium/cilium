@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -238,6 +239,34 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// WireGuard and IPSec are mutually exclusive.
 	if option.Config.EnableIPSec && params.WGAgent.Enabled() {
 		return nil, nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, option.EnableIPSecName)
+	}
+
+	if !option.Config.DNSProxyInsecureSkipTransparentModeCheck {
+		if option.Config.EnableIPSec && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
+			return nil, nil, fmt.Errorf("IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
+		}
+	}
+
+	if option.Config.EnableIPSec && option.Config.TunnelingEnabled() {
+		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
+			return nil, nil, fmt.Errorf("IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later): %w", err)
+		}
+	}
+
+	if option.Config.EnableIPSecEncryptedOverlay && !option.Config.EnableIPSec {
+		params.Logger.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
+	}
+
+	if option.Config.EnableHostFirewall {
+		if option.Config.EnableIPSec {
+			return nil, nil, fmt.Errorf("IPSec cannot be used with the host firewall.")
+		}
+	}
+
+	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
+		if option.Config.EnableIPSec {
+			return nil, nil, fmt.Errorf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableIPSecName)
+		}
 	}
 
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
