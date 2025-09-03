@@ -90,7 +90,6 @@ const (
 
 	networkChainingModeNone        = "none"
 	networkChainingModeAWSCNI      = "aws-cni"
-	networkChainingModeAWSVPCCNI   = "aws-vpc-cni"
 	networkChainingModeCalico      = "calico"
 	networkChainingModeFlannel     = "flannel"
 	networkChainingModeGenericVeth = "generic-veth"
@@ -145,7 +144,6 @@ var (
 	defaultChainingModes = []string{
 		networkChainingModeNone,
 		networkChainingModeAWSCNI,
-		networkChainingModeAWSVPCCNI,
 		networkChainingModeCalico,
 		networkChainingModeFlannel,
 		networkChainingModeGenericVeth,
