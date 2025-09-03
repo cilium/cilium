@@ -144,6 +144,7 @@ type Agent struct {
 	log       *slog.Logger
 	localNode *node.LocalNodeStore
 	jobs      job.Group
+	config    *option.DaemonConfig
 
 	// These are initialized in [newAgent].
 	authKeySize int
@@ -168,11 +169,12 @@ type Agent struct {
 }
 
 // newAgent creates a new IPSec agent.
-func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.LocalNodeStore) *Agent {
+func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.LocalNodeStore, c *option.DaemonConfig) *Agent {
 	ipsec := &Agent{
 		log:       log,
 		localNode: lns,
 		jobs:      jg,
+		config:    c,
 
 		authKeySize:          0,
 		spi:                  0,
@@ -185,15 +187,15 @@ func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.Local
 }
 
 func (a *Agent) Start(cell.HookContext) error {
-	if !option.Config.EncryptNode {
+	if !a.config.EncryptNode {
 		a.deleteIPsecEncryptRoute()
 	}
-	if !option.Config.EnableIPSec {
+	if !a.config.EnableIPSec {
 		return nil
 	}
 
 	var err error
-	a.authKeySize, a.spi, err = a.loadIPSecKeysFile(option.Config.IPSecKeyFile)
+	a.authKeySize, a.spi, err = a.loadIPSecKeysFile(a.config.IPSecKeyFile)
 	if err != nil {
 		return err
 	}
@@ -210,7 +212,7 @@ func (a *Agent) Start(cell.HookContext) error {
 
 // StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
 func (a *Agent) StartBackgroundJobs(handler types.NodeHandler) error {
-	if !option.Config.EnableIPSec {
+	if !a.config.EnableIPSec {
 		return nil
 	}
 	if err := a.startKeyfileWatcher(handler); err != nil {
@@ -1268,11 +1270,11 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 }
 
 func (a *Agent) startKeyfileWatcher(nodeHandler types.NodeHandler) error {
-	if !option.Config.EnableIPsecKeyWatcher {
+	if !a.config.EnableIPsecKeyWatcher {
 		return nil
 	}
 
-	keyfilePath := option.Config.IPSecKeyFile
+	keyfilePath := a.config.IPSecKeyFile
 	watcher, err := fswatcher.New(a.log, []string{keyfilePath})
 	if err != nil {
 		return err
@@ -1316,7 +1318,7 @@ func (a *Agent) ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bo
 
 	// If the key was deleted less than the IPSec key deletion delay
 	// time ago, it should not be reclaimed
-	if reclaimTimestamp.Sub(keyRemovalTime) < option.Config.IPsecKeyRotationDuration {
+	if reclaimTimestamp.Sub(keyRemovalTime) < a.config.IPsecKeyRotationDuration {
 		return false
 	}
 
