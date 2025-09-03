@@ -13,6 +13,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/ipam/types"
@@ -37,16 +38,14 @@ type podCIDRPool struct {
 	logger       *slog.Logger
 	mutex        lock.Mutex
 	ipAllocators []*ipallocator.Range
-	released     map[string]struct{} // key is a CIDR string, e.g. 10.20.30.0/24
-	removed      map[string]struct{} // key is a CIDR string, e.g. 10.20.30.0/24
+	released     set.Set[string] // elements are CIDR strings, e.g. 10.20.30.0/24
+	removed      set.Set[string] // elements are CIDR strings, e.g. 10.20.30.0/24
 }
 
 // newPodCIDRPool creates a new pod CIDR pool.
 func newPodCIDRPool(logger *slog.Logger) *podCIDRPool {
 	return &podCIDRPool{
-		logger:   logger,
-		released: map[string]struct{}{},
-		removed:  map[string]struct{}{},
+		logger: logger,
 	}
 }
 
@@ -73,7 +72,7 @@ func (p *podCIDRPool) allocateNext() (net.IP, error) {
 	for _, ipAllocator := range p.ipAllocators {
 		cidrNet := ipAllocator.CIDR()
 		cidrStr := cidrNet.String()
-		if _, removed := p.removed[cidrStr]; removed {
+		if p.removed.Has(cidrStr) {
 			continue
 		}
 		if ipAllocator.Free() == 0 {
@@ -105,7 +104,7 @@ func (p *podCIDRPool) hasAvailableIPs() bool {
 	for _, ipAllocator := range p.ipAllocators {
 		cidrNet := ipAllocator.CIDR()
 		cidrStr := cidrNet.String()
-		if _, removed := p.removed[cidrStr]; removed {
+		if p.removed.Has(cidrStr) {
 			continue
 		}
 		if ipAllocator.Free() > 0 {
@@ -151,7 +150,7 @@ func (p *podCIDRPool) dump() (ipToOwner map[string]string, usedIPs, freeIPs, num
 		cidrNet := ipAllocator.CIDR()
 		cidrStr := cidrNet.String()
 		usedIPs += ipAllocator.Used()
-		if _, removed := p.removed[cidrStr]; !removed {
+		if !p.removed.Has(cidrStr) {
 			freeIPs += ipAllocator.Free()
 		}
 		ipAllocator.ForEach(func(ip net.IP) {
@@ -171,7 +170,7 @@ func (p *podCIDRPool) capacity() (freeIPs int) {
 	for _, ipAllocator := range p.ipAllocators {
 		cidrNet := ipAllocator.CIDR()
 		cidrStr := cidrNet.String()
-		if _, removed := p.removed[cidrStr]; !removed {
+		if !p.removed.Has(cidrStr) {
 			freeIPs += ipAllocator.Free()
 		}
 	}
@@ -201,7 +200,7 @@ func (p *podCIDRPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 		// not take us below the release threshold, then release it immediately
 		free := ipAllocator.Free()
 		if ipAllocator.Used() == 0 && totalFree-free >= neededIPs {
-			p.released[cidrStr] = struct{}{}
+			p.released.Insert(cidrStr)
 			totalFree -= free
 			p.logger.Debug("releasing pod CIDR", logfields.CIDR, cidrStr)
 		} else {
@@ -226,7 +225,7 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 
 	// Parse the pod CIDRs, ignoring invalid CIDRs, and de-duplicating them.
 	cidrNets := make([]*net.IPNet, 0, len(podCIDRs))
-	cidrStrSet := make(map[string]struct{}, len(podCIDRs))
+	var cidrStrSet set.Set[string]
 	for _, podCIDR := range podCIDRs {
 		_, cidr, err := net.ParseCIDR(podCIDR)
 		if err != nil {
@@ -237,7 +236,7 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 			)
 			continue
 		}
-		if _, ok := cidrStrSet[cidr.String()]; ok {
+		if cidrStrSet.Has(cidr.String()) {
 			p.logger.Error(
 				"ignoring duplicate pod CIDR",
 				logfields.CIDR, podCIDRs,
@@ -245,17 +244,17 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 			continue
 		}
 		cidrNets = append(cidrNets, cidr)
-		cidrStrSet[cidr.String()] = struct{}{}
+		cidrStrSet.Insert(cidr.String())
 	}
 
 	// Forget any released pod CIDRs no longer present in the CRD.
-	for cidrStr := range p.released {
-		if _, ok := cidrStrSet[cidrStr]; !ok {
+	for cidrStr := range p.released.Members() {
+		if !cidrStrSet.Has(cidrStr) {
 			p.logger.Debug(
 				"removing released pod CIDR",
 				logfields.CIDR, cidrStr,
 			)
-			delete(p.released, cidrStr)
+			p.released.Remove(cidrStr)
 		}
 
 		if option.Config.EnableUnreachableRoutes {
@@ -273,13 +272,13 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 	newIPAllocators := make([]*ipallocator.Range, 0, len(podCIDRs))
 
 	// addedCIDRs is the set of pod CIDRs that have a corresponding allocator
-	existingAllocators := make(map[string]struct{}, len(p.ipAllocators))
+	var existingAllocators set.Set[string]
 
 	// Add existing IP allocators to newIPAllocators in order.
 	for _, ipAllocator := range p.ipAllocators {
 		cidrNet := ipAllocator.CIDR()
 		cidrStr := cidrNet.String()
-		if _, ok := cidrStrSet[cidrStr]; !ok {
+		if !cidrStrSet.Has(cidrStr) {
 			if ipAllocator.Used() == 0 {
 				continue
 			}
@@ -287,16 +286,16 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 				"in-use pod CIDR was removed from spec",
 				logfields.CIDR, cidrStr,
 			)
-			p.removed[cidrStr] = struct{}{}
+			p.removed.Insert(cidrStr)
 		}
 		newIPAllocators = append(newIPAllocators, ipAllocator)
-		existingAllocators[cidrStr] = struct{}{}
+		existingAllocators.Insert(cidrStr)
 	}
 
 	// Create and add new IP allocators to newIPAllocators.
 	for _, cidrNet := range cidrNets {
 		cidrStr := cidrNet.String()
-		if _, ok := existingAllocators[cidrStr]; ok {
+		if existingAllocators.Has(cidrStr) {
 			continue
 		}
 		ipAllocator := ipallocator.NewCIDRRange(cidrNet)
@@ -305,7 +304,7 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 				"skipping too-small pod CIDR",
 				logfields.CIDR, cidrNet,
 			)
-			p.released[cidrNet.String()] = struct{}{}
+			p.released.Insert(cidrNet.String())
 			continue
 		}
 		p.logger.Debug(
@@ -313,7 +312,7 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 			logfields.CIDR, cidrStr,
 		)
 		newIPAllocators = append(newIPAllocators, ipAllocator)
-		existingAllocators[cidrStr] = struct{}{} // Protect against duplicate CIDRs.
+		existingAllocators.Insert(cidrStr) // Protect against duplicate CIDRs.
 	}
 
 	if len(p.ipAllocators) > 0 && len(newIPAllocators) == 0 {
