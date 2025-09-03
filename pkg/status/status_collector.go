@@ -893,7 +893,7 @@ func (d *statusCollector) getProbes() []Probe {
 			Name: "encryption",
 			Probe: func(ctx context.Context) (any, error) {
 				switch {
-				case d.statusParams.DaemonConfig.EnableIPSec:
+				case d.statusParams.IPsecConfig.Enabled():
 					return &models.EncryptionStatus{
 						Mode: models.EncryptionStatusModeIPsec,
 					}, nil

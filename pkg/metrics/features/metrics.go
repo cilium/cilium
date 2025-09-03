@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -971,10 +972,10 @@ func NewMetrics(withDefaults bool) Metrics {
 }
 
 type featureMetrics interface {
-	update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig)
+	update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig)
 }
 
-func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig) {
+func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig) {
 	networkMode := networkModeDirectRouting
 	if config.TunnelingEnabled() {
 		switch params.TunnelProtocol() {
@@ -1055,7 +1056,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		node2nodeEnabled = "true"
 	}
 
-	if config.EnableIPSec {
+	if ipsecCfg.Enabled() {
 		m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncIPSec, node2nodeEnabled, strictMode).Set(1)
 	}
 	if wgCfg.Enabled() {

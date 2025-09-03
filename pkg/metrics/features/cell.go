@@ -94,6 +94,7 @@ type featuresParams struct {
 	L2PodAnnouncement   gneigh.L2PodAnnouncementConfig
 	DynamicConfigSource dynamicconfig.ConfigSource
 	WgConfig            wgTypes.WireguardConfig
+	IPsecConfig         types.IPsecConfig
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.EncapProtocol {

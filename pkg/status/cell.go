@@ -74,6 +74,7 @@ type statusParams struct {
 	DaemonConfig *option.DaemonConfig
 	LBConfig     loadbalancer.Config
 	KPRConfig    kpr.KPRConfig
+	IPsecConfig  datapath.IPsecConfig
 
 	DaemonConfigPromise promise.Promise[*option.DaemonConfig]
 

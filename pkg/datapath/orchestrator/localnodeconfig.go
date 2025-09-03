@@ -55,6 +55,7 @@ func newLocalNodeConfig(
 	maglevConfig maglev.Config,
 	mtuTbl statedb.Table[mtu.RouteMTU],
 	wgCfg wgTypes.WireguardConfig,
+	ipsecCfg datapath.IPsecConfig,
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -118,8 +119,8 @@ func newLocalNodeConfig(
 		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
 		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
 		EnableWireguard:              wgCfg.Enabled(),
-		EnableIPSec:                  config.EnableIPSec,
-		EnableIPSecEncryptedOverlay:  config.EnableIPSecEncryptedOverlay,
+		EnableIPSec:                  ipsecCfg.Enabled(),
+		EnableIPSecEncryptedOverlay:  ipsecCfg.EncryptedOverlayEnabled(),
 		EncryptNode:                  config.EncryptNode,
 		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
 		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),

@@ -1345,6 +1345,7 @@ type daemonParams struct {
 	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
 	EndpointAPIFence    endpointapi.Fence
+	IPSecConfig         datapath.IPsecConfig
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
