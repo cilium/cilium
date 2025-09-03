@@ -44,7 +44,7 @@ type MTU interface {
 type mtuParams struct {
 	cell.In
 
-	IPsec        types.IPsecKeyCustodian
+	IPsec        types.IPsecAgent
 	CNI          cni.CNIConfigManager
 	TunnelConfig tunnel.Config
 
