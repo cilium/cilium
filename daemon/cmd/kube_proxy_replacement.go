@@ -199,12 +199,6 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
 		probes.HaveIPv6Support()
 
-		if option.Config.EnableMKE {
-			if probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil {
-				return fmt.Errorf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
-			}
-		}
-
 		option.Config.EnableSocketLBPeer = true
 		if option.Config.EnableIPv4 {
 			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCgroupInet4GetPeername); err != nil {
