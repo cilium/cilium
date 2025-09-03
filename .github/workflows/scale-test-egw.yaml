@@ -79,7 +79,7 @@ env:
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 38f6ed0ddf54dc548187536c385d2d722e265dad
+  egw_utils_ref: ebe06a35f96ed5458603c2744b91d1b86cc6c2a4
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
