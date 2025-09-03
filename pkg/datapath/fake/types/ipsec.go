@@ -9,7 +9,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
-type IPsecAgent struct{}
+type IPsecAgent struct {
+	EnableIPsec bool
+}
 
 func (*IPsecAgent) AuthKeySize() int {
 	return 16
@@ -37,6 +39,10 @@ func (a *IPsecAgent) DeleteXFRM(reqID int) error {
 
 func (a *IPsecAgent) DeleteXfrmPolicyOut(nodeID uint16, dst *net.IPNet) error {
 	return nil
+}
+
+func (a *IPsecAgent) Enabled() bool {
+	return a.EnableIPsec
 }
 
 var _ types.IPsecAgent = &IPsecAgent{}
