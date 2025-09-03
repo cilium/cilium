@@ -14,6 +14,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -122,7 +123,18 @@ func (r *mcsAPIServiceReconciler) patchServiceImport(
 	}
 
 	if updated {
-		return r.Client.Patch(ctx, desired, client.MergeFrom(svcImport))
+		if err := r.Client.Patch(ctx, desired, client.MergeFrom(svcImport)); err != nil {
+			return err
+		}
+	}
+
+	if meta.SetStatusCondition(&desired.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
+		mcsapiv1alpha1.ServiceImportConditionReady,
+		metav1.ConditionTrue,
+		mcsapiv1alpha1.ServiceImportReasonReady,
+		"ServiceImport is ready",
+	)) {
+		return r.Client.Status().Patch(ctx, svcImport, client.MergeFrom(svcImport))
 	}
 	return nil
 }

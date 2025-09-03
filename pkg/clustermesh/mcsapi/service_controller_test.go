@@ -250,6 +250,7 @@ func testScheme() *runtime.Scheme {
 func Test_mcsDerivedService_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithObjects(mcsFixtures...).
+		WithStatusSubresource(&mcsapiv1alpha1.ServiceImport{}).
 		WithScheme(testScheme()).
 		Build()
 	r := &mcsAPIServiceReconciler{

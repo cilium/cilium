@@ -24,8 +24,8 @@ You first need to install the required MCS-API CRDs:
 
    .. code-block:: shell-session
 
-      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/62ede9a032dcfbc41b3418d7360678cb83092498/config/crd/multicluster.x-k8s.io_serviceexports.yaml
-      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/62ede9a032dcfbc41b3418d7360678cb83092498/config/crd/multicluster.x-k8s.io_serviceimports.yaml
+      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/0d87c31a767db9a59c93f2ab5ad8e825d5aae217/config/crd/multicluster.x-k8s.io_serviceexports.yaml
+      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/0d87c31a767db9a59c93f2ab5ad8e825d5aae217/config/crd/multicluster.x-k8s.io_serviceimports.yaml
 
 
 To install Cilium with MCS-API support, run:
