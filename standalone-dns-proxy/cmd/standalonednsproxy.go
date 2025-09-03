@@ -57,8 +57,10 @@ func NewStandaloneDNSProxy(params standaloneDNSProxyParams) *StandaloneDNSProxy 
 func (sdp *StandaloneDNSProxy) StartStandaloneDNSProxy() error {
 	sdp.logger.Info("Starting standalone DNS proxy")
 
-	// start the connection handler
-	sdp.connHandler.StartConnection()
+	// watch the connection state and start the DNS proxy once connected
+	for !sdp.connHandler.IsConnected() {
+		time.Sleep(2 * time.Second)
+	}
 
 	// Wait for the connection to be established and start the proxy, will be added in future PRs
 	// Note: This is a placeholder for the actual implementation.
