@@ -65,6 +65,7 @@ type HeaderfileWriter struct {
 	nodeExtraDefineFns []dpdef.Fn
 	sysctl             sysctl.Sysctl
 	kprCfg             kpr.KPRConfig
+	ipsecConfig        datapath.IPsecConfig
 }
 
 func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
@@ -82,6 +83,7 @@ func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
 		log:                p.Log,
 		sysctl:             p.Sysctl,
 		kprCfg:             p.KPRConfig,
+		ipsecConfig:        p.IPSecConfig,
 	}, nil
 }
 
@@ -236,10 +238,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_SCTP"] = "1"
 	}
 
-	if option.Config.EnableIPSec {
+	if cfg.EnableIPSec {
 		cDefinesMap["ENABLE_IPSEC"] = "1"
 
-		if option.Config.EnableIPSecEncryptedOverlay {
+		if h.ipsecConfig.EncryptedOverlayEnabled() {
 			cDefinesMap["ENABLE_ENCRYPTED_OVERLAY"] = "1"
 		}
 	}

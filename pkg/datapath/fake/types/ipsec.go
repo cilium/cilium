@@ -9,6 +9,11 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
+var (
+	_ types.IPsecAgent  = &IPsecAgent{}
+	_ types.IPsecConfig = &IPsecConfig{}
+)
+
 type IPsecAgent struct {
 	EnableIPsec bool
 }
@@ -45,4 +50,25 @@ func (a *IPsecAgent) Enabled() bool {
 	return a.EnableIPsec
 }
 
-var _ types.IPsecAgent = &IPsecAgent{}
+type IPsecConfig struct {
+	EnableIPsec                              bool
+	EncryptedOverlay                         bool
+	UseCiliumInternalIPForIPsec              bool
+	DNSProxyInsecureSkipTransparentModeCheck bool
+}
+
+func (c IPsecConfig) Enabled() bool {
+	return c.EnableIPsec
+}
+
+func (c IPsecConfig) EncryptedOverlayEnabled() bool {
+	return c.EncryptedOverlay
+}
+
+func (c IPsecConfig) UseCiliumInternalIP() bool {
+	return c.UseCiliumInternalIPForIPsec
+}
+
+func (c IPsecConfig) DNSProxyInsecureSkipTransparentModeCheckEnabled() bool {
+	return c.DNSProxyInsecureSkipTransparentModeCheck
+}

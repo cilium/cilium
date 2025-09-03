@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	fakeencryptmap "github.com/cilium/cilium/pkg/maps/encrypt/fake"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -145,7 +144,7 @@ type Agent struct {
 	log        *slog.Logger
 	localNode  *node.LocalNodeStore
 	jobs       job.Group
-	config     *option.DaemonConfig
+	config     Config
 	encryptMap encrypt.EncryptMap
 
 	// These are initialized in [newAgent].
@@ -171,7 +170,7 @@ type Agent struct {
 }
 
 // newAgent creates a new IPSec agent.
-func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.LocalNodeStore, c *option.DaemonConfig, em encrypt.EncryptMap) *Agent {
+func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.LocalNodeStore, c Config, em encrypt.EncryptMap) *Agent {
 	ipsec := &Agent{
 		log:        log,
 		localNode:  lns,
@@ -183,7 +182,7 @@ func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.Local
 		spi:                  0,
 		ipSecKeysGlobal:      map[string]*ipSecKey{},
 		ipSecKeysRemovalTime: map[uint8]time.Time{},
-		xfrmStateCache:       NewXfrmStateListCache(time.Minute),
+		xfrmStateCache:       NewXfrmStateListCache(time.Minute, c.EnableIPsecXfrmStateCaching),
 	}
 	lc.Append(ipsec)
 	return ipsec
@@ -198,7 +197,7 @@ func (a *Agent) Start(cell.HookContext) error {
 	}
 
 	var err error
-	a.authKeySize, a.spi, err = a.loadIPSecKeysFile(a.config.IPSecKeyFile)
+	a.authKeySize, a.spi, err = a.loadIPSecKeysFile(a.config.IPsecKeyFile)
 	if err != nil {
 		return err
 	}
@@ -238,7 +237,7 @@ func (a *Agent) SPI() uint8 {
 }
 
 func (a *Agent) Enabled() bool {
-	return a.config.EnableIPSec
+	return a.config.Enabled()
 }
 
 func (a *Agent) getGlobalIPsecKey(ip net.IP) *ipSecKey {
@@ -1279,7 +1278,7 @@ func (a *Agent) startKeyfileWatcher(nodeHandler types.NodeHandler) error {
 		return nil
 	}
 
-	keyfilePath := a.config.IPSecKeyFile
+	keyfilePath := a.config.IPsecKeyFile
 	watcher, err := fswatcher.New(a.log, []string{keyfilePath})
 	if err != nil {
 		return err
@@ -1441,7 +1440,7 @@ func NewTestIPsecAgent(tb testing.TB) *Agent {
 		spi:                  0,
 		ipSecKeysGlobal:      map[string]*ipSecKey{},
 		ipSecKeysRemovalTime: map[uint8]time.Time{},
-		xfrmStateCache:       NewXfrmStateListCache(time.Minute),
+		xfrmStateCache:       NewXfrmStateListCache(time.Minute, true),
 	}
 
 	tb.Cleanup(func() {
