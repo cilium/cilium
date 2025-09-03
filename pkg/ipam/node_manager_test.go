@@ -673,6 +673,10 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		return releasedIP != ""
 	}, 10*time.Second, time.Second)
 
+	// Actually run the IP maintenance process to mark the IP for release
+	err = node.MaintainIPPool(context.Background())
+	require.NoError(t, err)
+
 	node.PopulateIPReleaseStatus(node.resource)
 
 	node.mutex.Lock()
