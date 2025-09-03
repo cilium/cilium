@@ -223,13 +223,6 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 				return fmt.Errorf("BPF host-reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer: %w", err)
 			}
 		}
-
-		if option.Config.EnableSocketLBTracing {
-			if probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
-				option.Config.EnableSocketLBTracing = false
-				logger.Info("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
-			}
-		}
 	} else {
 		option.Config.EnableSocketLBTracing = false
 		option.Config.EnableSocketLBPodConnectionTermination = false
