@@ -19,6 +19,7 @@ import (
 )
 
 func Test_sortedByResourceIDsAndSource(t *testing.T) {
+	t.Parallel()
 	pi := newPrefixInfo()
 	pim := pi.byResource
 	pim["a-restored-uid"] = &resourceInfo{
@@ -68,6 +69,7 @@ func Test_sortedByResourceIDsAndSource(t *testing.T) {
 }
 
 func TestFlatten(t *testing.T) {
+	t.Parallel()
 	ipA := netip.MustParseAddr("1.2.3.4")
 	ipB := netip.MustParseAddr("1.2.3.5")
 
@@ -234,6 +236,7 @@ func TestFlatten(t *testing.T) {
 }
 
 func TestResourceHas(t *testing.T) {
+	t.Parallel()
 	flagsT := ipcacheTypes.EndpointFlags{}
 	flagsT.SetSkipTunnel(true)
 
