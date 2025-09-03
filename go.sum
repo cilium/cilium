@@ -1049,6 +1049,8 @@ k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff h1:/usPimJzUKKu+m+TE36gUy
 k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff/go.mod h1:5jIi+8yX4RIb8wk3XwBo5Pq2ccx4FP10ohkbSKCZoK8=
 k8s.io/kubectl v0.33.4 h1:nXEI6Vi+oB9hXxoAHyHisXolm/l1qutK3oZQMak4N98=
 k8s.io/kubectl v0.33.4/go.mod h1:Xe7P9X4DfILvKmlBsVqUtzktkI56lEj22SJW7cFy6nE=
+k8s.io/metrics v0.33.4 h1:eJ6UdTpKTUQVZbKpUdm5ve39aPpAvvNwLrs13oQcWKc=
+k8s.io/metrics v0.33.4/go.mod h1:NO/lgFtyIPTurz56debdSh5qRqRfpO8MlkMpau1Ue8U=
 k8s.io/utils v0.0.0-20250604170112-4c0f3b243397 h1:hwvWFiBzdWw1FhfY1FooPn3kzWuJ8tmbZBHi4zVsl1Y=
 k8s.io/utils v0.0.0-20250604170112-4c0f3b243397/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 oras.land/oras-go/v2 v2.6.0 h1:X4ELRsiGkrbeox69+9tzTu492FMUu7zJQW6eJU+I2oc=

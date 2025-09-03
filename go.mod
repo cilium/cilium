@@ -132,6 +132,7 @@ require (
 	k8s.io/endpointslice v0.33.3
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.33.4
+	k8s.io/metrics v0.33.4
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/gateway-api v1.3.1-0.20250611112659-17a60f668a0d
