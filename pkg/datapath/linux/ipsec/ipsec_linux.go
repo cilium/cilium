@@ -41,10 +41,8 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type IPSecDir uint32
-
 const (
-	IPSecDirIn IPSecDir = 1 << iota
+	IPSecDirIn types.IPSecDir = 1 << iota
 	IPSecDirOut
 	IPSecDirFwd
 
@@ -94,57 +92,6 @@ type ipSecKey struct {
 type oldXfrmStateKey struct {
 	Spi int
 	Dst [16]byte
-}
-
-type IPSecParameters struct {
-	// The BootID for the local host is used to determine if creation of the
-	// policy should occur and for key derivation purposes.
-	LocalBootID string
-	// The BootID for the remote host is used to determine if creation of the
-	// policy should occur and for key derivation purposes.
-	RemoteBootID string
-	// The direction of the created XFRM policy.
-	Dir IPSecDir
-	// The source subnet selector for the XFRM policy/state
-	SourceSubnet *net.IPNet
-	// The destination subnet selector for the XFRM policy/state
-	DestSubnet *net.IPNet
-	// The source security gateway IP used to define an IPsec tunnel mode SA
-	// For OUT policies this is the resulting source address of an ESP encrypted
-	// packet.
-	// For IN/FWD this should identify the source SA address of the state which
-	// decrypted the the packet.
-	SourceTunnelIP *net.IP
-	// The destination security gateway IP used to define an IPsec tunnel mode SA
-	// For OUT policies this is the resulting destination address of an ESP encrypted
-	// packet.
-	// For IN/FWD this should identify the destination SA address of the state which
-	// decrypted the the packet.
-	DestTunnelIP *net.IP
-	// The ReqID used for the resulting XFRM policy/state
-	ReqID int
-	// The remote node ID used for SPI identification and appropriate packet
-	// mark matching.
-	RemoteNodeID uint16
-	// Whether to use a zero output mark or not.
-	// This is useful when you want the resulting encrypted packet to immediately
-	// handled by the stack and not Cilium's datapath.
-	ZeroOutputMark bool
-	// Whether the remote has been rebooted, this is used for bookkeping and
-	// informs the policy/state creation methods whether the creation should
-	// take place.
-	RemoteRebooted bool
-}
-
-// Creates a new IPSecParameters.
-// If template is provided make a copy of it instead of returning a new empty
-// structure.
-func NewIPSecParamaters(template *IPSecParameters) *IPSecParameters {
-	var p IPSecParameters
-	if template != nil {
-		p = *template
-	}
-	return &p
 }
 
 var (
@@ -592,7 +539,7 @@ func xfrmMarkEqual(mark1, mark2 *netlink.XfrmMark) bool {
 	return mark1 == nil || (mark1.Value == mark2.Value && mark1.Mask == mark2.Mask)
 }
 
-func ipSecReplaceStateIn(log *slog.Logger, params *IPSecParameters) (uint8, error) {
+func ipSecReplaceStateIn(log *slog.Logger, params *types.IPSecParameters) (uint8, error) {
 	key, err := getNodeIPsecKey(*params.SourceTunnelIP, *params.DestTunnelIP, params.RemoteBootID, params.LocalBootID)
 	if err != nil {
 		return 0, err
@@ -620,7 +567,7 @@ func ipSecReplaceStateIn(log *slog.Logger, params *IPSecParameters) (uint8, erro
 	return key.Spi, xfrmStateReplace(log, state, params.RemoteRebooted)
 }
 
-func ipSecReplaceStateOut(log *slog.Logger, params *IPSecParameters) (uint8, error) {
+func ipSecReplaceStateOut(log *slog.Logger, params *types.IPSecParameters) (uint8, error) {
 	key, err := getNodeIPsecKey(*params.SourceTunnelIP, *params.DestTunnelIP, params.LocalBootID, params.RemoteBootID)
 	if err != nil {
 		return 0, err
@@ -637,7 +584,7 @@ func ipSecReplaceStateOut(log *slog.Logger, params *IPSecParameters) (uint8, err
 	return key.Spi, xfrmStateReplace(log, state, params.RemoteRebooted)
 }
 
-func ipSecReplacePolicyIn(params *IPSecParameters) error {
+func ipSecReplacePolicyIn(params *types.IPSecParameters) error {
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
 	key := getGlobalIPsecKey(params.DestSubnet.IP)
@@ -654,7 +601,7 @@ func ipSecReplacePolicyIn(params *IPSecParameters) error {
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func IpSecReplacePolicyFwd(params *IPSecParameters) error {
+func IpSecReplacePolicyFwd(params *types.IPSecParameters) error {
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
 	key := getGlobalIPsecKey(net.IP{})
@@ -735,7 +682,7 @@ func generateDecryptMark(decryptBit uint32, nodeID uint16) *netlink.XfrmMark {
 	}
 }
 
-func ipSecReplacePolicyOut(params *IPSecParameters) error {
+func ipSecReplacePolicyOut(params *types.IPSecParameters) error {
 	// TODO: Remove old policy pointing to target net
 
 	// We can use the global IPsec key here because we are not going to
@@ -913,7 +860,7 @@ func ipsecDeleteXfrmPolicy(log *slog.Logger, nodeID uint16) error {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPsecEndpoint(log *slog.Logger, params *IPSecParameters) (uint8, error) {
+func UpsertIPsecEndpoint(log *slog.Logger, params *types.IPSecParameters) (uint8, error) {
 	log = log.With(logfields.LogSubsys, subsystem)
 
 	var spi uint8
