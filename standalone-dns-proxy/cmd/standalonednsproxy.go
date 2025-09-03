@@ -58,8 +58,8 @@ func NewStandaloneDNSProxy(params standaloneDNSProxyParams) *StandaloneDNSProxy 
 func (sdp *StandaloneDNSProxy) StartStandaloneDNSProxy() error {
 	sdp.logger.Info("Starting standalone DNS proxy")
 
-	// start the connection handler
-	sdp.connHandler.StartConnection()
+	// watch the connection state and start the DNS proxy once connected
+	sdp.jobGroup.Add(job.OneShot("sdp-connection-watcher", sdp.WatchConnection, job.WithShutdown()))
 
 	// Wait for the connection to be established and start the proxy, will be added in future PRs
 	// Note: This is a placeholder for the actual implementation.
@@ -73,6 +73,25 @@ func (sdp *StandaloneDNSProxy) StartStandaloneDNSProxy() error {
 
 	sdp.logger.Info("Standalone DNS proxy started")
 	return nil
+}
+
+// watchConnection watches the connection state
+func (sdp *StandaloneDNSProxy) WatchConnection(ctx context.Context, _ cell.Health) error {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			sdp.logger.Info("Stopping connection watcher")
+			return nil
+		case <-ticker.C:
+			if sdp.connHandler.IsConnected() {
+				sdp.logger.Info("Connection to Cilium agent established")
+				return nil
+			}
+		}
+	}
 }
 
 // WatchDNSRulesTable watches the DNS rules table for changes and updates the DNS proxy accordingly
