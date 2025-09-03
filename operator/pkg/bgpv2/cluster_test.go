@@ -1568,14 +1568,16 @@ func TestRouterIDAllocation(t *testing.T) {
 				}
 				assert.Equal(c, tt.InitExpectedRouterIDs, InitNodesRouterIDs)
 			}, TestTimeout, 100*time.Millisecond)
-			// cleanup the cluster configs
-			if tt.FinalClusterConfigs != nil {
-				for _, clusterConfig := range tt.FinalClusterConfigs {
-					config := clusterConfig
-					upsertBGPCC(req, ctx, f, config)
-				}
-			}
+
 			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+				// NOTE: upserting cluster configs in "eventually" to workaround race between
+				// resource.Events and resource.Store, where store can contain outdated resource
+				// version even after receiving an event for the new version.
+				if tt.FinalClusterConfigs != nil {
+					for _, clusterConfig := range tt.FinalClusterConfigs {
+						upsertBGPCC(req, ctx, f, clusterConfig)
+					}
+				}
 				NodeConfigs, err := f.bgpnClient.List(ctx, meta_v1.ListOptions{})
 				if !assert.NoError(c, err) {
 					return
