@@ -16,8 +16,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -1155,13 +1153,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	if option.Config.EnableIPv6FragmentsTracking {
 		if !option.Config.EnableIPv6 {
 			option.Config.EnableIPv6FragmentsTracking = false
-		}
-	}
-
-	if option.Config.EnableBPFTProxy {
-		if probes.HaveProgramHelper(logger, ebpf.SchedCLS, asm.FnSkAssign) != nil {
-			option.Config.EnableBPFTProxy = false
-			logger.Info("Disabled support for BPF TProxy due to missing kernel support for socket assign (Linux 5.7 or later)")
 		}
 	}
 
