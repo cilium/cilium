@@ -111,6 +111,10 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for bpf_get_cgroup_classid() (Linux 5.7.0 or newer)")
 		}
 
+		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
+			return errors.New("Require support for bpf_perf_event_output() (Linux 5.7.0 or newer)")
+		}
+
 		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnCsumLevel) != nil {
 			return errors.New("Require support for bpf_csum_level() (Linux 5.8.0 or newer)")
 		}
