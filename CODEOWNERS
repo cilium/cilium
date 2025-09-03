@@ -594,6 +594,7 @@ Makefile* @cilium/build
 /pkg/maglev @cilium/sig-lb
 /pkg/maps/ @cilium/sig-datapath
 /pkg/maps/egressmap @cilium/egress-gateway
+/pkg/maps/encrypt @cilium/ipsec
 /pkg/mcastmanager @cilium/sig-datapath
 /pkg/metrics @cilium/metrics
 /pkg/monitor @cilium/sig-datapath
