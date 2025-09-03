@@ -365,6 +365,9 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse excluded CIDR %s: %w", cidr, err)
 		}
+		if cidr.Addr().Is6() && !v6Needed {
+			return nil, fmt.Errorf("excluded CIDR %s is an IPv6 address but no IPv6 destination CIDRs were specified", cidr)
+		}
 		excludedCIDRs = append(excludedCIDRs, cidr)
 	}
 
