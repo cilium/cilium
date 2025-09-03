@@ -4,7 +4,6 @@
 package types
 
 import (
-	"log/slog"
 	"net"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -24,19 +23,19 @@ func (*IPsecAgent) StartBackgroundJobs(types.NodeHandler) error {
 	return nil
 }
 
-func (a *IPsecAgent) UpsertIPsecEndpoint(log *slog.Logger, params *types.IPSecParameters) (uint8, error) {
+func (a *IPsecAgent) UpsertIPsecEndpoint(params *types.IPSecParameters) (uint8, error) {
 	return 0, nil
 }
 
-func (a *IPsecAgent) DeleteIPsecEndpoint(log *slog.Logger, nodeID uint16) error {
+func (a *IPsecAgent) DeleteIPsecEndpoint(nodeID uint16) error {
 	return nil
 }
 
-func (a *IPsecAgent) DeleteXFRM(log *slog.Logger, reqID int) error {
+func (a *IPsecAgent) DeleteXFRM(reqID int) error {
 	return nil
 }
 
-func (a *IPsecAgent) DeleteXfrmPolicyOut(log *slog.Logger, nodeID uint16, dst *net.IPNet) error {
+func (a *IPsecAgent) DeleteXfrmPolicyOut(nodeID uint16, dst *net.IPNet) error {
 	return nil
 }
 
