@@ -769,6 +769,11 @@ func GetInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval t
 	return newInterval
 }
 
+var (
+	MinGCInterval      = defaults.ConntrackGCMinInterval
+	GCIntervalRounding = time.Second
+)
+
 func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
 	interval = prevInterval
 
@@ -782,14 +787,13 @@ func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (inte
 			maxDeleteRatio = 0.9
 		}
 		// 25%..90% => 1.3x..10x shorter
-		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(time.Second), defaults.ConntrackGCMinInterval)
-
+		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(GCIntervalRounding), MinGCInterval)
 	case maxDeleteRatio < 0.05:
 		// When less than 5% of entries were deleted, increase the
 		// interval. Use a simple 1.5x multiplier to start growing slowly
 		// as a new node may not be seeing workloads yet and thus the
 		// scan will return a low deletion ratio at first.
-		interval = min(time.Duration(float64(interval)*1.5).Round(time.Second), defaults.ConntrackGCMaxLRUInterval)
+		interval = min(time.Duration(float64(interval)*1.5).Round(GCIntervalRounding), defaults.ConntrackGCMaxLRUInterval)
 	}
 
 	return
