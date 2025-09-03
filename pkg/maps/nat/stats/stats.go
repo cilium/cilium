@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/stream"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -128,14 +127,6 @@ type params struct {
 }
 
 func newStats(params params) (*Stats, error) {
-	if err := probes.HaveBatchAPI(); err != nil {
-		if errors.Is(err, probes.ErrNotSupported) {
-			params.Logger.Info("nat-stats is not supported", logfields.Error, err)
-			return nil, nil
-		}
-		params.Logger.Error("could not probe for nat-stats feature", logfields.Error, err)
-	}
-
 	if params.Config.NATMapStatInterval == 0 {
 		return nil, nil
 	}

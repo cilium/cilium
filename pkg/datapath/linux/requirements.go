@@ -98,6 +98,10 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for bpf_jiffies64 (Linux 5.6.0 or newer)")
 		}
 
+		if probes.HaveBatchAPI() != nil {
+			return errors.New("Require support for BPF_MAP_LOOKUP_BATCH (Linux 5.6.0 or newer)")
+		}
+
 		if probes.HaveProgramHelper(log, ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
 			probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 			return errors.New("Require support for bpf_get_netns_cookie() (Linux 5.7.0 or newer)")
