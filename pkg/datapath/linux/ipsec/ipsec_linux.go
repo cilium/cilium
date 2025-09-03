@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
+	fakeencryptmap "github.com/cilium/cilium/pkg/maps/encrypt/fake"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/resiliency"
@@ -141,10 +142,11 @@ type Agent struct {
 	ipSecLock lock.RWMutex
 
 	// These are provided in [newAgent].
-	log       *slog.Logger
-	localNode *node.LocalNodeStore
-	jobs      job.Group
-	config    *option.DaemonConfig
+	log        *slog.Logger
+	localNode  *node.LocalNodeStore
+	jobs       job.Group
+	config     *option.DaemonConfig
+	encryptMap encrypt.EncryptMap
 
 	// These are initialized in [newAgent].
 	authKeySize int
@@ -169,12 +171,13 @@ type Agent struct {
 }
 
 // newAgent creates a new IPSec agent.
-func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.LocalNodeStore, c *option.DaemonConfig) *Agent {
+func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.LocalNodeStore, c *option.DaemonConfig, em encrypt.EncryptMap) *Agent {
 	ipsec := &Agent{
-		log:       log,
-		localNode: lns,
-		jobs:      jg,
-		config:    c,
+		log:        log,
+		localNode:  lns,
+		jobs:       jg,
+		config:     c,
+		encryptMap: em,
 
 		authKeySize:          0,
 		spi:                  0,
@@ -1065,10 +1068,6 @@ func (a *Agent) LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 	a.ipSecLock.Lock()
 	defer a.ipSecLock.Unlock()
 
-	if err := encrypt.MapCreate(); err != nil {
-		return 0, 0, fmt.Errorf("Encrypt map create failed: %w", err)
-	}
-
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
@@ -1187,7 +1186,9 @@ func parseSPI(spiStr string) (uint8, int, error) {
 }
 
 func (a *Agent) setIPSecSPI(spi uint8) error {
-	if err := encrypt.MapUpdateContext(0, spi); err != nil {
+	k := encrypt.EncryptKey{Key: 0}
+	v := encrypt.EncryptValue{KeyID: spi}
+	if err := a.encryptMap.Update(k, v); err != nil {
 		a.log.Warn("cilium_encrypt_state map updated failed", logfields.Error, err)
 		return err
 	}
@@ -1427,9 +1428,10 @@ func (a *Agent) onTimer(ctx context.Context) error {
 
 func NewTestIPsecAgent(tb testing.TB) *Agent {
 	agent := &Agent{
-		log:       hivetest.Logger(tb),
-		localNode: nil,
-		jobs:      nil,
+		log:        hivetest.Logger(tb),
+		localNode:  nil,
+		jobs:       nil,
+		encryptMap: fakeencryptmap.NewFakeEncryptMap(),
 
 		authKeySize:          0,
 		spi:                  0,
