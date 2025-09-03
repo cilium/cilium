@@ -249,6 +249,7 @@ kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium
 			kind load docker-image quay.io/cilium/cilium-ci:latest -n $$cluster_name --nodes $$node; \
 		done; \
 		$(CILIUM_CLI) --context=kind-$$cluster_name uninstall >/dev/null 2>&1 || true; \
+		sleep 5; \
 		$(CILIUM_CLI) install --context=kind-$$cluster_name \
 			--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 			$(KIND_VALUES_FAST_FILES) \
