@@ -4,6 +4,7 @@
 package types
 
 import (
+	"log/slog"
 	"net"
 )
 
@@ -11,6 +12,10 @@ type IPsecAgent interface {
 	AuthKeySize() int
 	SPI() uint8
 	StartBackgroundJobs(NodeHandler) error
+	UpsertIPsecEndpoint(log *slog.Logger, params *IPSecParameters) (uint8, error)
+	DeleteIPsecEndpoint(log *slog.Logger, nodeID uint16) error
+	DeleteXFRM(log *slog.Logger, reqID int) error
+	DeleteXfrmPolicyOut(log *slog.Logger, nodeID uint16, dst *net.IPNet) error
 }
 
 type IPSecDir uint32
