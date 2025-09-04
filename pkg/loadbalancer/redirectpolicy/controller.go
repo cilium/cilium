@@ -169,8 +169,10 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 				if chanIsClosed(fesInitWatch) {
 					// Mark desired SkipLBs as initialized to allow pruning
 					c.desiredSkipLBInit(wtxn)
+
+					// All initializers marked done, we can stop tracking these.
+					initWatches = nil
 				}
-				initWatches = nil
 			}
 		}
 
