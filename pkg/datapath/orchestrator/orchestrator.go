@@ -176,8 +176,9 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 					}
 				}
 				if agentConfig.EnableIPv6 {
+					loopback := n.Local.ServiceLoopbackIPv6 != nil
 					ipv6GW := n.GetCiliumInternalIP(true) != nil
-					if !ipv6GW {
+					if !ipv6GW || !loopback {
 						return false
 					}
 				}

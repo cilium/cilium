@@ -743,6 +743,9 @@ const (
 	// ServiceLoopbackIPv4 is the address to use for service loopback SNAT
 	ServiceLoopbackIPv4 = "ipv4-service-loopback-address"
 
+	// ServiceLoopbackIPv6 is the address to use for service loopback SNAT
+	ServiceLoopbackIPv6 = "ipv6-service-loopback-address"
+
 	// LocalRouterIPv4 is the link-local IPv4 address to use for Cilium router device
 	LocalRouterIPv4 = "local-router-ipv4"
 
@@ -1555,6 +1558,9 @@ type DaemonConfig struct {
 	// ServiceLoopbackIPv4 is the address to use for service loopback SNAT
 	ServiceLoopbackIPv4 string
 
+	// ServiceLoopbackIPv6 is the address to use for service loopback SNAT
+	ServiceLoopbackIPv6 string
+
 	// LocalRouterIPv4 is the link-local IPv4 address used for Cilium's router device
 	LocalRouterIPv4 string
 
@@ -1910,6 +1916,7 @@ var (
 		FixedIdentityMapping:            make(map[string]string),
 		LogOpt:                          make(map[string]string),
 		ServiceLoopbackIPv4:             defaults.ServiceLoopbackIPv4,
+		ServiceLoopbackIPv6:             defaults.ServiceLoopbackIPv6,
 		EnableEndpointRoutes:            defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:                 defaults.AnnotateK8sNode,
 		AutoCreateCiliumNodeResource:    defaults.AutoCreateCiliumNodeResource,
@@ -2515,6 +2522,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.LibDir = vp.GetString(LibDir)
 	c.LogSystemLoadConfig = vp.GetBool(LogSystemLoadConfigName)
 	c.ServiceLoopbackIPv4 = vp.GetString(ServiceLoopbackIPv4)
+	c.ServiceLoopbackIPv6 = vp.GetString(ServiceLoopbackIPv6)
 	c.LocalRouterIPv4 = vp.GetString(LocalRouterIPv4)
 	c.LocalRouterIPv6 = vp.GetString(LocalRouterIPv6)
 	c.EnableBPFClockProbe = vp.GetBool(EnableBPFClockProbe)

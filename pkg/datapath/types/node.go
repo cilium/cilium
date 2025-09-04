@@ -70,6 +70,11 @@ type LocalNodeConfiguration struct {
 	// Immutable at runtime.
 	ServiceLoopbackIPv4 net.IP
 
+	// ServiceLoopbackIPv6 is the source address used for SNAT when a Pod talks to itself
+	// over a Service.
+	// Immutable at runtime.
+	ServiceLoopbackIPv6 net.IP
+
 	// Devices is the native network devices selected for datapath use.
 	// Mutable at runtime.
 	Devices []*tables.Device
