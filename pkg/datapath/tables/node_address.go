@@ -350,7 +350,7 @@ func (n *nodeAddressController) reconcile() (<-chan struct{}, <-chan struct{}) {
 		// We are only interested in local routes, which are used for IPs that are assigned
 		// to the host (e.g. on GCE). These routes are in the local table, have host scope,
 		// and have no source address.
-		if route.Scope != uint8(RT_SCOPE_HOST) || route.Src.IsValid() {
+		if route.Scope != RT_SCOPE_HOST || route.Src.IsValid() {
 			continue
 		}
 

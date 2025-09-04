@@ -97,39 +97,39 @@ Destination   Source   Gateway   LinkIndex   Table   Scope   Priority
 
 -- routes_dummy0.table --
 Destination      Source        Gateway   Table   Scope   Priority
-192.168.0.1/32   192.168.0.1             255     254     0
+192.168.0.1/32   192.168.0.1             local   host    0
 
 -- routes_dummy01.table --
-Destination        Source        Gateway         Table   Scope   Priority
-0.0.0.0/0                        192.168.1.254   254     0       0
-192.168.1.0/24     192.168.1.1                   254     253     0
-192.168.1.253/32                                 254     253     0
-192.168.1.254/32                                 254     253     0
-192.168.0.1/32     192.168.0.1                   255     254     0
-192.168.1.1/32     192.168.1.1                   255     254     0
-192.168.1.2/32     192.168.1.1                   255     254     0
-192.168.1.255/32   192.168.1.1                   255     253     0
-ff00::/8                                         255     0       256
+Destination        Source        Gateway         Table   Scope      Priority
+0.0.0.0/0                        192.168.1.254   main    universe   0
+192.168.1.0/24     192.168.1.1                   main    link       0
+192.168.1.253/32                                 main    link       0
+192.168.1.254/32                                 main    link       0
+192.168.0.1/32     192.168.0.1                   local   host       0
+192.168.1.1/32     192.168.1.1                   local   host       0
+192.168.1.2/32     192.168.1.1                   local   host       0
+192.168.1.255/32   192.168.1.1                   local   link       0
+ff00::/8                                         local   universe   256
 
 -- routes_table254_link3_254.table --
 Destination        Source   Gateway   Table   Scope   Priority
-192.168.1.254/32                      254     253
+192.168.1.254/32                      main    link
 -- routes_table254_link3_all.table --
-Destination        Source        Gateway         Table   Scope   Priority
-0.0.0.0/0                        192.168.1.254   254     0       0
-192.168.1.0/24     192.168.1.1                   254     253     0
-192.168.1.253/32                                 254     253     0
-192.168.1.254/32                                 254     253     0
+Destination        Source        Gateway         Table   Scope      Priority
+0.0.0.0/0                        192.168.1.254   main    universe   0
+192.168.1.0/24     192.168.1.1                   main    link       0
+192.168.1.253/32                                 main    link       0
+192.168.1.254/32                                 main    link       0
 -- routes_link3.table --
-Destination        Source        Gateway         Table   Scope   Priority
-192.168.1.254/32                                 254     253     0
-192.168.1.253/32                                 254     253     0
-192.168.1.0/24     192.168.1.1                   254     253     0
-0.0.0.0/0                        192.168.1.254   254     0       0
-192.168.1.1/32     192.168.1.1                   255     254     0
-192.168.1.2/32     192.168.1.1                   255     254     0
-192.168.1.255/32   192.168.1.1                   255     253     0
-ff00::/8                                         255     0       0
+Destination        Source        Gateway         Table   Scope      Priority
+192.168.1.254/32                                 main    link       0
+192.168.1.253/32                                 main    link       0
+192.168.1.0/24     192.168.1.1                   main    link       0
+0.0.0.0/0                        192.168.1.254   main    universe   0
+192.168.1.1/32     192.168.1.1                   local   host       0
+192.168.1.2/32     192.168.1.1                   local   host       0
+192.168.1.255/32   192.168.1.1                   local   link       0
+ff00::/8                                         local   universe   0
 -- routes_placeholder --
 
 
