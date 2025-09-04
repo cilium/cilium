@@ -211,7 +211,7 @@ jobs:
 
   call-post-release:
     name: Call Post-Release Tool
-    uses: ./.github/workflows/release.yaml
+    uses: cilium/cilium/.github/workflows/release.yaml@main
     needs: image-digests
     with:
       step: "4-post-release"
@@ -219,7 +219,7 @@ jobs:
 
   call-publish-helm:
     name: Publish Helm Chart
-    uses: ./.github/workflows/release.yaml
+    uses: cilium/cilium/.github/workflows/release.yaml@main
     needs: image-digests
     with:
       step: "5-publish-helm"
