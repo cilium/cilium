@@ -488,6 +488,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.monitor = 0,
 	};
 	bool __maybe_unused skip_tunnel = false;
+	bool hairpin_flow = false;
 	enum ct_status ct_status;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
@@ -519,7 +520,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 #ifdef ENABLE_PER_PACKET_LB
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
 	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, true);
-	/* No hairpin/loopback support for IPv6, see lb6_local(). */
+	hairpin_flow = ct_state_new.loopback;
 #endif /* ENABLE_PER_PACKET_LB */
 
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
@@ -552,6 +553,15 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			break;
 		}
 #endif /* ENABLE_L7_LB */
+
+		/* When an endpoint connects to itself via service clusterIP, we need
+		 * to skip the policy enforcement. If we didn't, the user would have to
+		 * define policy rules to allow pods to talk to themselves. We still
+		 * want to execute the conntrack logic so that replies can be correctly
+		 * matched.
+		 */
+		if (hairpin_flow)
+			break;
 
 		/* If the packet is in the establishing direction and it's destined
 		 * within the cluster, it must match policy or be dropped. If it's
@@ -676,6 +686,8 @@ ct_recreate6:
 	}
 #endif /* ENABLE_SRV6 */
 
+	hairpin_flow |= ct_state->loopback;
+
 	/* L7 LB does L7 policy enforcement, so we only redirect packets
 	 * NOT from L7 LB.
 	 */
@@ -700,16 +712,28 @@ ct_recreate6:
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
-	if (is_defined(ENABLE_ROUTING) || is_defined(ENABLE_HOST_ROUTING)) {
+	if (is_defined(ENABLE_ROUTING) || hairpin_flow || is_defined(ENABLE_HOST_ROUTING)) {
 		struct endpoint_info *ep;
+		union v6addr daddr;
 
+		ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
+
+		/* Loopback replies are addressed to config service_loopback_ipv6, so
+		 * an endpoint lookup with ip6->daddr won't work.
+		 *
+		 * But as it is loopback traffic, the clientIP and backendIP
+		 * are identical and we can just use the packet's saddr
+		 * for the destination endpoint lookup.
+		 */
+		if (ct_status == CT_REPLY && hairpin_flow)
+			ipv6_addr_copy(&daddr, (union v6addr *)&ip6->saddr);
 		/* Lookup IPv6 address, this will return a match if:
 		 *  - The destination IP address belongs to a local endpoint managed by
 		 *    cilium
 		 *  - The destination IP address is an IP address associated with the
 		 *    host itself.
 		 */
-		ep = lookup_ip6_endpoint(ip6);
+		ep = __lookup_ip6_endpoint(&daddr);
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
@@ -1565,6 +1589,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	__u8 auth_type = 0;
+	__maybe_unused union v6addr loopback_addr;
 
 	fraginfo = ipv6_get_fraginfo(ctx, ip6);
 	if (fraginfo < 0)
@@ -1615,8 +1640,9 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		if (unlikely(ct_state->rev_nat_index)) {
 			int ret2;
 
-			ret2 = lb6_rev_nat(ctx, l4_off,
-					   ct_state->rev_nat_index, tuple,
+			ret2 = lb6_rev_nat(ctx, l4_off, ct_state->rev_nat_index,
+					   ct_state->loopback,
+					   tuple,
 					   ipfrag_has_l4_header(fraginfo), CT_INGRESS);
 			if (IS_ERR(ret2))
 				return ret2;
@@ -1630,6 +1656,19 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		 */
 		if (tc_index_from_ingress_proxy(ctx))
 			break;
+
+#if defined(ENABLE_PER_PACKET_LB)
+		loopback_addr = CONFIG(service_loopback_ipv6);
+		if (ret == CT_NEW &&
+		    ipv6_addr_equals((union v6addr *)&ip6->saddr, &loopback_addr) &&
+		    ct_has_loopback_egress_entry6(get_ct_map6(tuple), tuple)) {
+			ct_state_new.loopback = true;
+			break;
+		}
+
+		if (unlikely(ct_state->loopback))
+			break;
+#endif /* ENABLE_PER_PACKET_LB */
 
 		verdict = policy_can_ingress6(ctx, &cilium_policy_v2, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV6,

@@ -954,7 +954,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 
-		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
+		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index, false,
 				  &tuple, ipfrag_has_l4_header(fraginfo),
 				  dir);
 		if (IS_ERR(ret))
