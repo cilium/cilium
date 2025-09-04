@@ -123,6 +123,14 @@ enum {
 				 * arg3: proxy port (in host byte order)
 				 */
 	DBG_SKIP_POLICY,	/**/
+	DBG_SUBNET_CHECK,	/* arg1: saddr (last 4 bytes for IPv6)
+				 * arg2: daddr (last 4 bytes for IPv6)
+				 * arg3: bool (same subnet)
+				 */
+	DBG_TUNNEL_TRACE,	/* arg1: saddr (last 4 bytes for IPv6)
+				 * arg2: daddr (last 4 bytes for IPv6)
+				 * arg3: int (ret)
+				 */
 };
 
 /* Capture types */

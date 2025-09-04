@@ -440,6 +440,9 @@ const (
 	// RoutingMode is the name of the option to choose between native routing and tunneling mode
 	RoutingMode = "routing-mode"
 
+	// SubnetTopologyFilePath is the path to the file containing the subnet topology
+	SubnetTopologyFilePath = "subnet-topology-file-path"
+
 	// ServiceNoBackendResponse is the name of the option to pick how to handle traffic for services
 	// without any backends
 	ServiceNoBackendResponse = "service-no-backend-response"
@@ -1013,6 +1016,9 @@ const (
 
 	// RoutingModeTunnel specifies tunneling mode
 	RoutingModeTunnel = "tunnel"
+
+	// RoutingModeHybrid specifies hybrid routing mode
+	RoutingModeHybrid = "hybrid"
 )
 
 const (
@@ -1157,8 +1163,9 @@ type DaemonConfig struct {
 	EncryptInterface   []string // Set of network facing interface to encrypt over
 	EncryptNode        bool     // Set to true for encrypting node IP traffic
 
-	DatapathMode string // Datapath mode
-	RoutingMode  string // Routing mode
+	DatapathMode           string // Datapath mode
+	RoutingMode            string // Routing mode
+	SubnetTopologyFilePath string // Path to the subnet topology file
 
 	DryMode bool // Do not create BPF maps, devices, ..
 
@@ -1992,7 +1999,13 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	// tunneling because, in unit tests, RoutingMode is usually not set and we
 	// would like for TunnelingEnabled to default to the actual default
 	// (tunneling is enabled) in that case.
+	// Note: tunneling is enabled for hybrid routing mode.
 	return c.RoutingMode != RoutingModeNative
+}
+
+// IsRoutingModeTunnel returns true if the routing mode is tunnel.
+func (c *DaemonConfig) IsRoutingModeTunnel() bool {
+	return c.RoutingMode == RoutingModeTunnel
 }
 
 // AreDevicesRequired returns true if the agent needs to attach to the native
@@ -2260,10 +2273,10 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	}
 
 	switch c.RoutingMode {
-	case RoutingModeNative, RoutingModeTunnel:
+	case RoutingModeNative, RoutingModeTunnel, RoutingModeHybrid:
 	default:
-		return fmt.Errorf("invalid routing mode %q, valid modes = {%q, %q}",
-			c.RoutingMode, RoutingModeTunnel, RoutingModeNative)
+		return fmt.Errorf("invalid routing mode %q, valid modes = {%q, %q, %q}",
+			c.RoutingMode, RoutingModeTunnel, RoutingModeNative, RoutingModeHybrid)
 	}
 
 	cinfo := clustermeshTypes.ClusterInfo{
@@ -2605,6 +2618,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.TCFilterPriority = uint16(tcFilterPrio)
 
 	c.RoutingMode = vp.GetString(RoutingMode)
+	c.SubnetTopologyFilePath = vp.GetString(SubnetTopologyFilePath)
 
 	if vp.IsSet(AddressScopeMax) {
 		c.AddressScopeMax, err = ip.ParseScope(vp.GetString(AddressScopeMax))
