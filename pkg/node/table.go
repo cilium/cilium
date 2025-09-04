@@ -75,6 +75,9 @@ type LocalNodeInfo struct {
 	// ServiceLoopbackIPv4 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
 	ServiceLoopbackIPv4 net.IP
+	// ServiceLoopbackIPv6 is the source address used for SNAT when a Pod talks to
+	// itself through a Service.
+	ServiceLoopbackIPv6 net.IP
 	// IsBeingDeleted indicates that the local node is being deleted.
 	IsBeingDeleted bool
 	// UnderlayProtocol is the IP family of our underlay.
