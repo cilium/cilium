@@ -992,6 +992,8 @@ These values are shared with pkg/monitor/api/datapath_debug.go and bpf/lib/dbg.h
 | DBG_SK_ASSIGN | 64 |  |
 | DBG_L7_LB | 65 |  |
 | DBG_SKIP_POLICY | 66 |  |
+| DBG_LB6_LOOPBACK_SNAT | 67 |  |
+| DBG_LB6_LOOPBACK_SNAT_REV | 68 |  |
 
 
 
