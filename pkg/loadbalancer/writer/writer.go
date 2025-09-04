@@ -477,9 +477,9 @@ func (w *Writer) DefaultSelectBackends(bes iter.Seq2[loadbalancer.BackendParams,
 				continue
 			}
 			if fe != nil {
-				if fe.PortName != "" {
+				if fe.PortName != "" && len(be.PortNames) > 0 {
 					// A backend with specific port name requested. Look up what this backend
-					// is called for this service.
+					// is called for this service when the backend has multiple (named) ports.
 					if !slices.Contains(be.PortNames, string(fe.PortName)) {
 						continue
 					}
