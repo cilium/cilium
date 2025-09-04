@@ -7,9 +7,12 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/fqdn/lookup"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/client"
 )
 
@@ -28,14 +31,22 @@ type clientParams struct {
 	cell.In
 
 	Logger       *slog.Logger
-	IPToIdentity statedb.RWTable[client.IPtoIdentity]
+	IPToIdentity statedb.RWTable[client.IPtoEndpointInfo]
 	DB           *statedb.DB
+	JobGroup     job.Group
 }
 
 func newRulesClient(params clientParams) lookup.ProxyLookupHandler {
-	return &rulesClient{
-		Logger:            params.Logger,
-		IPtoIdentityTable: params.IPToIdentity,
-		DB:                params.DB,
+	r := &rulesClient{
+		logger:            params.Logger,
+		ipToIdentityTable: params.IPToIdentity,
+		db:                params.DB,
+		prefixLengths:     counter.DefaultPrefixLengthCounter(),
 	}
+
+	params.JobGroup.Add(job.OneShot("sdp-watch-ip-endpoint-mapping", r.watchIPToEndpointTable,
+		job.WithRetry(3, &job.ExponentialBackoff{Min: 5 * time.Second, Max: 10 * time.Second}),
+		job.WithShutdown()))
+
+	return r
 }
