@@ -23,7 +23,7 @@ import (
 func TestCreatecreateGRPCClient(t *testing.T) {
 	logger := slog.Default()
 
-	client := createGRPCClient(logger, nil, nil)
+	client := createGRPCClient(logger, nil, nil, nil)
 
 	require.NotNil(t, client)
 }
@@ -255,30 +255,78 @@ func TestUpdateDNSRules(t *testing.T) {
 	}
 }
 
+func updateMapping(t *testing.T, client *GRPCClient, id uint64, ident identity.NumericIdentity, ip string) {
+	t.Helper()
+	ipBytes, err := netip.MustParsePrefix(ip).MarshalBinary()
+	require.NoError(t, err)
+	input := []*pb.IdentityToEndpointMapping{
+		{
+			Identity: ident.Uint32(),
+			EndpointInfo: []*pb.EndpointInfo{
+				{
+					Id: id,
+					Ip: [][]byte{ipBytes},
+				},
+			},
+		},
+	}
+
+	err = client.updateIPToEndpoint(input)
+	require.NoError(t, err)
+}
+
+func checkMapping(t *testing.T, client *GRPCClient, ip string, expectedID uint64, expectedIdent identity.NumericIdentity, shouldExist bool) {
+	t.Helper()
+	rtxn := client.db.ReadTxn()
+	prefix, err := netip.ParsePrefix(ip)
+	require.NoError(t, err)
+	mapping, _, found := client.ipToEndpointTable.Get(rtxn, IdIPToEndpointIndex.Query(prefix))
+	if shouldExist {
+		require.True(t, found)
+		require.Equal(t, prefix, mapping.IP)
+		require.Equal(t, expectedIdent, mapping.Endpoint.Identity)
+		require.Equal(t, expectedID, mapping.Endpoint.ID)
+	} else {
+		require.False(t, found)
+	}
+}
+
 func TestNewIPtoIdentityTable(t *testing.T) {
 	// Create a new StateDB instance
 	db := statedb.New()
 
 	// Test successful table creation
-	table, err := newIPtoIdentityTable(db)
+	ipTable, err := NewIPtoEndpointTable(db)
 	require.NoError(t, err)
-	require.NotNil(t, table)
+	require.NotNil(t, ipTable)
 
-	// Test table insertion and retrieval
-	txn := db.WriteTxn(table)
-	ip := netip.MustParseAddr("192.168.1.1")
-	ipToIdentity := IPtoIdentity{
-		IP:       ip,
-		Identity: identity.NumericIdentity(200),
+	// Create DNSRules and IPtoIdentity tables
+	dnsTable, err := newDNSRulesTable(db)
+	require.NoError(t, err)
+	require.NotNil(t, dnsTable)
+
+	logger := hivetest.Logger(t)
+	client := &GRPCClient{
+		logger:            logger,
+		db:                db,
+		ipToEndpointTable: ipTable,
 	}
-	_, _, err = table.Insert(txn, ipToIdentity)
-	require.NoError(t, err)
-	txn.Commit()
 
-	// Read back the data
-	rtxn := db.ReadTxn()
-	mapping, _, found := table.Get(rtxn, idIPToIdentityIndex.Query(ip))
-	require.True(t, found)
-	require.Equal(t, ip, mapping.IP)
-	require.Equal(t, identity.NumericIdentity(200), mapping.Identity)
+	// Initial check - table should be empty
+	checkMapping(t, client, "192.168.1.1/32", 100, identity.NumericIdentity(1), false)
+	checkMapping(t, client, "192.168.1.2/32", 200, identity.NumericIdentity(2), false)
+
+	// Expected: 1 entry for 192.168.1.1, identity 1, ID 100
+	updateMapping(t, client, 100, identity.NumericIdentity(1), "192.168.1.1/32")
+	checkMapping(t, client, "192.168.1.1/32", 100, identity.NumericIdentity(1), true)
+	checkMapping(t, client, "192.168.1.2/32", 200, identity.NumericIdentity(2), false)
+
+	// Expected: 1 entry for 192.168.1.2, identity 2, ID 200
+	updateMapping(t, client, 200, identity.NumericIdentity(2), "192.168.1.2/32")
+	checkMapping(t, client, "192.168.1.2/32", 200, identity.NumericIdentity(2), true)
+	checkMapping(t, client, "192.168.1.1/32", 100, identity.NumericIdentity(1), false)
+
+	// Update mapping - modify existing entry
+	updateMapping(t, client, 200, identity.NumericIdentity(3), "192.168.1.2/32")
+	checkMapping(t, client, "192.168.1.2/32", 200, identity.NumericIdentity(3), true)
 }
