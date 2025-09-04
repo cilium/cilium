@@ -123,6 +123,8 @@ enum {
 				 * arg3: proxy port (in host byte order)
 				 */
 	DBG_SKIP_POLICY,	/**/
+	DBG_LB6_LOOPBACK_SNAT,
+	DBG_LB6_LOOPBACK_SNAT_REV,
 };
 
 /* Capture types */
