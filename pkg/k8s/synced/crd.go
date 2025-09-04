@@ -77,8 +77,6 @@ func agentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v2.CECName))
 	}
 	if option.Config.EnableBGPControlPlane {
-		result = append(result, CRDResourceName(v2alpha1.BGPPName))
-		// BGPv2 CRDs
 		result = append(result, CRDResourceName(v2.BGPCCName))
 		result = append(result, CRDResourceName(v2.BGPAName))
 		result = append(result, CRDResourceName(v2.BGPPCName))

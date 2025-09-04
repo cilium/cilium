@@ -20,7 +20,6 @@ type CiliumV2alpha1Interface interface {
 	CiliumBGPNodeConfigsGetter
 	CiliumBGPNodeConfigOverridesGetter
 	CiliumBGPPeerConfigsGetter
-	CiliumBGPPeeringPoliciesGetter
 	CiliumCIDRGroupsGetter
 	CiliumEndpointSlicesGetter
 	CiliumGatewayClassConfigsGetter
@@ -53,10 +52,6 @@ func (c *CiliumV2alpha1Client) CiliumBGPNodeConfigOverrides() CiliumBGPNodeConfi
 
 func (c *CiliumV2alpha1Client) CiliumBGPPeerConfigs() CiliumBGPPeerConfigInterface {
 	return newCiliumBGPPeerConfigs(c)
-}
-
-func (c *CiliumV2alpha1Client) CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInterface {
-	return newCiliumBGPPeeringPolicies(c)
 }
 
 func (c *CiliumV2alpha1Client) CiliumCIDRGroups() CiliumCIDRGroupInterface {

@@ -58,9 +58,6 @@ const (
 	// CNCCRDName is the full name of the CiliumNodeConfig CRD.
 	CNCCRDName = k8sconstv2.CNCKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
-	// BGPPCRDName is the full name of the BGPP CRD.
-	BGPPCRDName = k8sconstv2alpha1.BGPPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
-
 	// BGPClusterConfigCRDName is the full name of the BGP Cluster Config CRD.
 	BGPClusterConfigCRDName = k8sconstv2.BGPCCKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
@@ -146,10 +143,6 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 		synced.CRDResourceName(k8sconstv2.CECName): {
 			Name:     CECCRDName,
 			FullName: k8sconstv2.CECName,
-		},
-		synced.CRDResourceName(k8sconstv2alpha1.BGPPName): {
-			Name:     BGPPCRDName,
-			FullName: k8sconstv2alpha1.BGPPName,
 		},
 		synced.CRDResourceName(k8sconstv2.BGPCCName): {
 			Name:     BGPClusterConfigCRDName,
@@ -246,9 +239,6 @@ var (
 	//go:embed crds/v2/ciliumenvoyconfigs.yaml
 	crdsv2Ciliumenvoyconfigs []byte
 
-	//go:embed crds/v2alpha1/ciliumbgppeeringpolicies.yaml
-	crdsv2Alpha1Ciliumbgppeeringpolicies []byte
-
 	//go:embed crds/v2/ciliumbgpclusterconfigs.yaml
 	crdsv2Ciliumbgpclusterconfigs []byte
 
@@ -313,8 +303,6 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv2Ciliumclusterwideenvoyconfigs
 	case CECCRDName:
 		crdBytes = crdsv2Ciliumenvoyconfigs
-	case BGPPCRDName:
-		crdBytes = crdsv2Alpha1Ciliumbgppeeringpolicies
 	case BGPClusterConfigCRDName:
 		crdBytes = crdsv2Ciliumbgpclusterconfigs
 	case BGPPeerConfigCRDName:

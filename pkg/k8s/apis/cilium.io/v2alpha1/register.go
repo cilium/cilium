@@ -29,17 +29,6 @@ const (
 	// CESName is the full name of Cilium Endpoint Slice
 	CESName = CESPluralName + "." + CustomResourceDefinitionGroup
 
-	// Cilium BGP Peering Policy (BGPP)
-
-	// BGPPPluralName is the plural name of Cilium BGP Peering Policy
-	BGPPPluralName = "ciliumbgppeeringpolicies"
-
-	// BGPPKindDefinition is the kind name of Cilium BGP Peering Policy
-	BGPPKindDefinition = "CiliumBGPPeeringPolicy"
-
-	// BGPPName is the full name of Cilium BGP Peering Policy
-	BGPPName = BGPPPluralName + "." + CustomResourceDefinitionGroup
-
 	// BGPClusterConfig (BGPCC)
 	BGPCCPluralName     = "ciliumbgpclusterconfigs"
 	BGPCCKindDefinition = "CiliumBGPClusterConfig"
@@ -156,8 +145,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&CiliumEndpointSlice{},
 		&CiliumEndpointSliceList{},
-		&CiliumBGPPeeringPolicy{},
-		&CiliumBGPPeeringPolicyList{},
 		&CiliumLoadBalancerIPPool{},
 		&CiliumLoadBalancerIPPoolList{},
 		&CiliumL2AnnouncementPolicy{},

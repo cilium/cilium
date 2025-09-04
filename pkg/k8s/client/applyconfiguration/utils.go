@@ -213,8 +213,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &ciliumiov2alpha1.CiliumBGPFamilyWithAdvertsApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPInstance"):
 		return &ciliumiov2alpha1.CiliumBGPInstanceApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPNeighbor"):
-		return &ciliumiov2alpha1.CiliumBGPNeighborApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPNeighborGracefulRestart"):
 		return &ciliumiov2alpha1.CiliumBGPNeighborGracefulRestartApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPNodeConfig"):
@@ -239,8 +237,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &ciliumiov2alpha1.CiliumBGPNodeSpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPNodeStatus"):
 		return &ciliumiov2alpha1.CiliumBGPNodeStatusApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPPathAttributes"):
-		return &ciliumiov2alpha1.CiliumBGPPathAttributesApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPPeer"):
 		return &ciliumiov2alpha1.CiliumBGPPeerApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPPeerConfig"):
@@ -249,18 +245,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &ciliumiov2alpha1.CiliumBGPPeerConfigSpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPPeerConfigStatus"):
 		return &ciliumiov2alpha1.CiliumBGPPeerConfigStatusApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPPeeringPolicy"):
-		return &ciliumiov2alpha1.CiliumBGPPeeringPolicyApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPPeeringPolicySpec"):
-		return &ciliumiov2alpha1.CiliumBGPPeeringPolicySpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPTimers"):
 		return &ciliumiov2alpha1.CiliumBGPTimersApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPTimersState"):
 		return &ciliumiov2alpha1.CiliumBGPTimersStateApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPTransport"):
 		return &ciliumiov2alpha1.CiliumBGPTransportApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPVirtualRouter"):
-		return &ciliumiov2alpha1.CiliumBGPVirtualRouterApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumCIDRGroup"):
 		return &ciliumiov2alpha1.CiliumCIDRGroupApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CiliumCIDRGroupSpec"):

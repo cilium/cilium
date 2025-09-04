@@ -38,7 +38,6 @@ var (
 			LBIPPoolsResource,
 			k8s.CiliumIdentityResource,
 			k8s.CiliumPodIPPoolResource,
-			k8s.CiliumBGPPeeringPolicyResource,
 			CiliumBGPClusterConfigResource,
 			k8s.CiliumBGPAdvertisementResource,
 			k8s.CiliumBGPPeerConfigResource,

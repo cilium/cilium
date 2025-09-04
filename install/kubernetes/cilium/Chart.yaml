@@ -104,13 +104,6 @@ annotations:
       description: |
         CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
         nodes indicated by a label selector.
-    - kind: CiliumBGPPeeringPolicy
-      version: v2alpha1
-      name: ciliumbgppeeringpolicies.cilium.io
-      displayName: Cilium BGP Peering Policy
-      description: |
-        Cilium BGP Peering Policy instructs Cilium to create specific BGP peering
-        configurations.
     - kind: CiliumBGPClusterConfig
       version: v2alpha1
       name: ciliumbgpclusterconfigs.cilium.io
