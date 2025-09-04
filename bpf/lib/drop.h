@@ -21,8 +21,9 @@
 #include "ratelimit.h"
 #include "tailcall.h"
 #include "classifiers.h"
+#include "trace_helpers.h"
 
-#define NOTIFY_DROP_VER 2
+#define NOTIFY_DROP_VER 3
 
 struct drop_notify {
 	NOTIFY_CAPTURE_HDR
@@ -38,6 +39,7 @@ struct drop_notify {
 				* move to flags_lower/flags_upper).
 				*/
 	__u8		pad2[3];
+	__u64		ip_trace_id;
 };
 
 #ifdef DROP_NOTIFY
@@ -63,6 +65,7 @@ int tail_drop_notify(struct __ctx_buff *ctx)
 {
 	/* Mask needed to calm verifier. */
 	__u32 error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
+	__u64 ip_trace_id = load_ip_trace_id();
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len;
 	__u32 meta4 = ctx_load_meta(ctx, 4);
@@ -99,6 +102,7 @@ int tail_drop_notify(struct __ctx_buff *ctx)
 		.ext_error      = (__s8)(__u8)(error >> 8),
 		.ifindex        = ctx_get_ifindex(ctx),
 		.flags          = flags,
+		.ip_trace_id    = ip_trace_id,
 	};
 
 	ctx_event_output(ctx, &cilium_events,
