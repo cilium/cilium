@@ -8,6 +8,7 @@
 #include <netdev_config.h>
 
 #include "lib/common.h"
+#include "lib/exits.h"
 #include "lib/trace.h"
 #include "lib/encrypt.h"
 
@@ -92,5 +93,7 @@ out:
 
 	return ret;
 }
+
+EXIT_HANDLER();
 
 BPF_LICENSE("Dual BSD/GPL");

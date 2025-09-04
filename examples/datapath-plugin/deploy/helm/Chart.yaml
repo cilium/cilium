@@ -1,0 +1,22 @@
+apiVersion: v2
+name: cilium-datapath-plugin
+displayName: Cilium Datapath Plugin
+home: https://cilium.io/
+version: 0.0.1
+appVersion: 0.0.1
+kubeVersion: ">= 1.21.0-0"
+icon: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo-solo.svg
+description: A Cilium datapath plugin example
+keywords:
+  - BPF
+  - eBPF
+  - Kubernetes
+  - Networking
+  - Security
+  - Observability
+  - Troubleshooting
+sources:
+  - https://github.com/cilium/cilium
+links:
+  - name: eBPF.io
+    url: https://ebpf.io/

@@ -31,6 +31,7 @@
 #include "lib/edt.h"
 #include "lib/encrypt.h"
 #include "lib/eps.h"
+#include "lib/exits.h"
 #include "lib/ipv6.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
@@ -857,5 +858,7 @@ out:
 						  METRIC_EGRESS);
 	return ret;
 }
+
+EXIT_HANDLER();
 
 BPF_LICENSE("Dual BSD/GPL");

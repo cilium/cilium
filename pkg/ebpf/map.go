@@ -24,14 +24,15 @@ type MapSpec = ciliumebpf.MapSpec
 type PinType = ciliumebpf.PinType
 
 const (
-	Hash       = ciliumebpf.Hash
-	PerCPUHash = ciliumebpf.PerCPUHash
-	Array      = ciliumebpf.Array
-	HashOfMaps = ciliumebpf.HashOfMaps
-	LPMTrie    = ciliumebpf.LPMTrie
-	LRUHash    = ciliumebpf.LRUHash
-	LRUCPUHash = ciliumebpf.LRUCPUHash
-	RingBuf    = ciliumebpf.RingBuf
+	Hash        = ciliumebpf.Hash
+	PerCPUHash  = ciliumebpf.PerCPUHash
+	Array       = ciliumebpf.Array
+	PerCPUArray = ciliumebpf.PerCPUArray
+	HashOfMaps  = ciliumebpf.HashOfMaps
+	LPMTrie     = ciliumebpf.LPMTrie
+	LRUHash     = ciliumebpf.LRUHash
+	LRUCPUHash  = ciliumebpf.LRUCPUHash
+	RingBuf     = ciliumebpf.RingBuf
 
 	PinNone   = ciliumebpf.PinNone
 	PinByName = ciliumebpf.PinByName
