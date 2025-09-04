@@ -850,18 +850,6 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 			)
 		}
 	}
-	// Cleanup previous cil_from_netdev from v1.17.
-	// TODO: remove this in v1.19/v1.18.1.
-	if err := detachSKBProgram(logger, device, symbolFromHostNetdevEp,
-		linkDir, netlink.HANDLE_MIN_INGRESS); err != nil {
-		logger.Error("",
-			logfields.Error, err,
-			logfields.Device, device,
-		)
-	}
-	// Cleanup previous calls map from v1.17.
-	// TODO: remove this in v1.19/v1.18.1.
-	cleanCallsMaps(fmt.Sprintf("cilium_calls_wireguard_%d", identity.ReservedIdentityWorld))
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
