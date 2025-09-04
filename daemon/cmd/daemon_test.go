@@ -22,6 +22,7 @@ import (
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/dial"
@@ -131,6 +132,7 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 		),
 		fakeDatapath.Cell,
 		neighbor.ForwardableIPCell,
+		reconciler.TableCell,
 		cell.Provide(neighbor.NewCommonTestConfig(true, false)),
 		prefilter.Cell,
 		monitorAgent.Cell,

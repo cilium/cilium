@@ -1,0 +1,51 @@
+netns/create otherns
+
+link/add veth0 veth --peername eth0 --peerns otherns
+link/add veth1 veth --peername eth1 --peerns otherns
+
+addr/add 192.168.1.1/24 veth0
+addr/add 192.168.1.0/24 --netns otherns eth0
+addr/add 192.168.2.1/24 veth1
+addr/add 192.168.2.0/24 --netns otherns eth1
+
+link/set lo up
+link/set veth0 up
+link/set eth0 --netns otherns up
+link/set veth1 up
+link/set eth1 --netns otherns up
+
+hive start
+db/initialized
+
+add-owner owner1
+add-route owner1 route1.yaml
+
+# Wait until the route is reconciled
+route/list --table=2000
+* cmp stdout route1.txt
+
+# Delete the route
+route/del --table=2000 10.2.3.4/32
+
+# It should be re-added
+route/list --table=2000
+* cmp stdout route1.txt
+
+# modify the route to add mtu
+route/replace --table=2000 --mtu=1000 --dev veth1 --proto kernel 10.2.3.4/32
+
+# It should be reverted back
+route/list --table=2000
+* cmp stdout route1.txt
+
+# Stop hive properly
+hive/stop
+
+-- route1.yaml --
+table: 2000
+prefix: "10.2.3.4/32"
+adminDistance: 100
+device: veth1
+
+-- route1.txt --
+10.2.3.4/32 dev veth1 scope universe table 2000
