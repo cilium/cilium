@@ -469,9 +469,11 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 				r := tables.Route{
 					Table:     tables.RouteTable(u.Table),
 					LinkIndex: index,
-					Scope:     uint8(u.Scope),
+					Type:      tables.RouteType(u.Route.Type),
+					Scope:     tables.RouteScope(u.Scope),
 					Dst:       ipnetToPrefix(u.Family, u.Dst),
 					Priority:  u.Priority,
+					MTU:       u.MTU,
 				}
 				r.Src, _ = netip.AddrFromSlice(u.Src)
 				r.Gw, _ = netip.AddrFromSlice(u.Gw)
@@ -494,6 +496,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 						)
 					}
 				}
+
 			case netlink.NeighUpdate:
 				if dc.deadLinkIndexes.Has(u.LinkIndex) {
 					// Ignore neighbor updates for a device that has been removed
@@ -570,7 +573,6 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 			for r := range routes {
 				dc.params.RouteTable.Delete(txn, r)
 			}
-
 			// Remove all neighbors for the device. For a deleted device netlink does not
 			// always send complete set of neighbor delete messages.
 			neighbors := dc.params.NeighborTable.List(txn, tables.NeighborLinkIndex.Query(d.Index))
