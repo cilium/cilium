@@ -526,6 +526,7 @@ enum {
 #define REASON_DECRYPTING			12
 #define REASON_ENCRYPTING			13
 #define REASON_LB_REVNAT_DELETE		14
+#define REASON_MTU_ERROR_MSG			15
 
 /* Lookup scope for externalTrafficPolicy=Local */
 #define LB_LOOKUP_SCOPE_EXT	0
