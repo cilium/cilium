@@ -539,8 +539,11 @@ ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 		tuple->dport = 0;
 
 		switch (type) {
-		case ICMPV6_DEST_UNREACH:
 		case ICMPV6_PKT_TOOBIG:
+			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(dir),
+				       REASON_MTU_ERROR_MSG);
+			fallthrough;
+		case ICMPV6_DEST_UNREACH:
 		case ICMPV6_TIME_EXCEED:
 		case ICMPV6_PARAMPROB:
 			tuple->flags |= TUPLE_F_RELATED;
@@ -799,12 +802,15 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		tuple->dport = 0;
 
 		switch (type) {
+		case ICMP_FRAG_NEEDED:
+			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(dir),
+				       REASON_MTU_ERROR_MSG);
+			break;
 		case ICMP_DEST_UNREACH:
 		case ICMP_TIME_EXCEEDED:
 		case ICMP_PARAMETERPROB:
 			tuple->flags |= TUPLE_F_RELATED;
 			break;
-
 		case ICMP_ECHOREPLY:
 			tuple->sport = identifier;
 			break;
