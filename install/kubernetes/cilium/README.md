@@ -118,9 +118,9 @@ contributors across the globe, there is almost always someone available to help.
 | bandwidthManager.bbr | bool | `false` | Activate BBR TCP congestion control for Pods |
 | bandwidthManager.bbrHostNamespaceOnly | bool | `false` | Activate BBR TCP congestion control for Pods in the host namespace only. |
 | bandwidthManager.enabled | bool | `false` | Enable bandwidth manager infrastructure (also prerequirement for BBR) |
-| bgpControlPlane | object | `{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}` | This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs. |
+| bgpControlPlane | object | `{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}` | This feature set enables virtual BGP routers to be created via BGP CRDs. |
 | bgpControlPlane.enabled | bool | `false` | Enables the BGP control plane. |
-| bgpControlPlane.legacyOriginAttribute | object | `{"enabled":false}` | Legacy BGP ORIGIN attribute settings (BGPv2 only) |
+| bgpControlPlane.legacyOriginAttribute | object | `{"enabled":false}` | Legacy BGP ORIGIN attribute settings |
 | bgpControlPlane.legacyOriginAttribute.enabled | bool | `false` | Enable/Disable advertising LoadBalancerIP routes with the legacy BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0). Enable for compatibility with the legacy behavior of MetalLB integration. |
 | bgpControlPlane.routerIDAllocation | object | `{"ipPool":"","mode":"default"}` | BGP router-id allocation mode |
 | bgpControlPlane.routerIDAllocation.ipPool | string | `""` | IP pool to allocate the BGP router-id from when the mode is ip-pool. |
@@ -128,8 +128,8 @@ contributors across the globe, there is almost always someone available to help.
 | bgpControlPlane.secretsNamespace | object | `{"create":false,"name":"kube-system"}` | SecretsNamespace is the namespace which BGP support will retrieve secrets from. |
 | bgpControlPlane.secretsNamespace.create | bool | `false` | Create secrets namespace for BGP secrets. |
 | bgpControlPlane.secretsNamespace.name | string | `"kube-system"` | The name of the secret namespace to which Cilium agents are given read access |
-| bgpControlPlane.statusReport | object | `{"enabled":true}` | Status reporting settings (BGPv2 only) |
-| bgpControlPlane.statusReport.enabled | bool | `true` | Enable/Disable BGPv2 status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false. |
+| bgpControlPlane.statusReport | object | `{"enabled":true}` | Status reporting settings |
+| bgpControlPlane.statusReport.enabled | bool | `true` | Enable/Disable BGP status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false. |
 | bpf.authMapMax | int | `524288` | Configure the maximum number of entries in auth map. |
 | bpf.autoMount.enabled | bool | `true` | Enable automatic mount of BPF filesystem When `autoMount` is enabled, the BPF filesystem is mounted at `bpf.root` path on the underlying host and inside the cilium agent pod. If users disable `autoMount`, it's expected that users have mounted bpffs filesystem at the specified `bpf.root` volume, and then the volume will be mounted inside the cilium agent pod at the same path. |
 | bpf.ctAccounting | bool | `false` | Enable CT accounting for packets and bytes |

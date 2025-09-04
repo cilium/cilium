@@ -482,8 +482,7 @@ l2podAnnouncements:
   interface: "eth0"
   # -- A regular expression matching interfaces used for sending Gratuitous ARP pod announcements
   # interfacePattern: ""
-# -- This feature set enables virtual BGP routers to be created via
-# CiliumBGPPeeringPolicy CRDs.
+# -- This feature set enables virtual BGP routers to be created via BGP CRDs.
 bgpControlPlane:
   # -- Enables the BGP control plane.
   enabled: false
@@ -493,9 +492,9 @@ bgpControlPlane:
     create: false
     # -- The name of the secret namespace to which Cilium agents are given read access
     name: kube-system
-  # -- Status reporting settings (BGPv2 only)
+  # -- Status reporting settings
   statusReport:
-    # -- Enable/Disable BGPv2 status reporting
+    # -- Enable/Disable BGP status reporting
     # It is recommended to enable status reporting in general, but if you have any issue
     # such as high API server load, you can disable it by setting this to false.
     enabled: true
@@ -505,7 +504,7 @@ bgpControlPlane:
     mode: "default"
     # -- IP pool to allocate the BGP router-id from when the mode is ip-pool.
     ipPool: ""
-  # -- Legacy BGP ORIGIN attribute settings (BGPv2 only)
+  # -- Legacy BGP ORIGIN attribute settings
   legacyOriginAttribute:
     # -- Enable/Disable advertising LoadBalancerIP routes with the legacy
     # BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0).

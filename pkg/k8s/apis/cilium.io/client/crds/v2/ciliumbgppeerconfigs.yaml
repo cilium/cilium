@@ -82,9 +82,6 @@ spec:
                         Advertisements selects group of BGP Advertisement(s) to advertise for this family.
 
                         If not specified, no advertisements are sent for this family.
-
-                        This field is ignored in CiliumBGPNeighbor which is used in CiliumBGPPeeringPolicy.
-                        Use CiliumBGPPeeringPolicy advertisement options instead.
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector
@@ -393,9 +390,6 @@ spec:
                         Advertisements selects group of BGP Advertisement(s) to advertise for this family.
 
                         If not specified, no advertisements are sent for this family.
-
-                        This field is ignored in CiliumBGPNeighbor which is used in CiliumBGPPeeringPolicy.
-                        Use CiliumBGPPeeringPolicy advertisement options instead.
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector

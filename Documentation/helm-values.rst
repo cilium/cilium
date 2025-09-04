@@ -273,7 +273,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane`
-     - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
+     - This feature set enables virtual BGP routers to be created via BGP CRDs.
      - object
      - ``{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
@@ -281,7 +281,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute`
-     - Legacy BGP ORIGIN attribute settings (BGPv2 only)
+     - Legacy BGP ORIGIN attribute settings
      - object
      - ``{"enabled":false}``
    * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute.enabled`
@@ -313,11 +313,11 @@
      - string
      - ``"kube-system"``
    * - :spelling:ignore:`bgpControlPlane.statusReport`
-     - Status reporting settings (BGPv2 only)
+     - Status reporting settings
      - object
      - ``{"enabled":true}``
    * - :spelling:ignore:`bgpControlPlane.statusReport.enabled`
-     - Enable/Disable BGPv2 status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false.
+     - Enable/Disable BGP status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false.
      - bool
      - ``true``
    * - :spelling:ignore:`bpf.authMapMax`
