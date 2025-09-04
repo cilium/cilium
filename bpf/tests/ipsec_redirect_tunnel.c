@@ -9,8 +9,7 @@
 
 /* must define `HAVE_ENCAP 1` before including 'lib/encrypt.h'.
  * lib/encrypt.h eventually imports overloadable_skb.h which exposes
- * ctx_is_overlay and ctx_is_overlay_encrypted, utilized within
- * 'ipsec_maybe_redirect_to_encrypt'
+ * ctx_is_overlay, utilized within 'ipsec_maybe_redirect_to_encrypt'
  */
 #define HAVE_ENCAP 1
 #include "lib/encrypt.h"
@@ -34,15 +33,6 @@ int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool outer_ipv4
 		.encrypt_key = BAD_SPI,
 	};
 	map_update_elem(&cilium_encrypt_state, &ret, &cfg, BPF_ANY);
-
-	/* Ensure we simply return from 'ipsec_maybe_redirect_to_encrypt' if
-	 * the 'MARK_MAGIC_OVERLAY_ENCRYPTED' mark is set.
-	 */
-	TEST("overlay-encrypted-mark-set", {
-		ctx->mark = MARK_MAGIC_OVERLAY_ENCRYPTED;
-		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
-		assert(ret == CTX_ACT_OK);
-	})
 
 	/*
 	 * Ensure encryption mark is set for overlay traffic with source
