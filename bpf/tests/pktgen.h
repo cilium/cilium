@@ -68,6 +68,7 @@ volatile const __u8 mac_zero[] = mac_zero_addr;
 #define v4_pod_three	IPV4(192, 168, 0, 3)
 
 #define v4_svc_loopback	IPV4(10, 245, 255, 31)
+#define v6_svc_loopback {0xfd, 0x05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 
 #define v4_all	IPV4(0, 0, 0, 0)
 
