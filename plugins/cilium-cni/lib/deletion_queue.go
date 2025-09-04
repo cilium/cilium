@@ -41,7 +41,7 @@ type DeletionFallbackClient struct {
 
 // the timeout for connecting and obtaining the lock
 // the default of 30 seconds is too long; kubelet will time us out before then
-const timeoutSeconds = 10
+const timeoutDuration = 1500 * time.Millisecond
 
 // the maximum number of queued deletions allowed, to protect against kubelet insanity
 const maxDeletionFiles = 256
@@ -72,7 +72,7 @@ func (dc *DeletionFallbackClient) tryConnect() error {
 		return nil
 	}
 
-	c, err := dc.newCiliumClientFn(timeoutSeconds * time.Second)
+	c, err := dc.newCiliumClientFn(timeoutDuration)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (dc *DeletionFallbackClient) tryQueueLock() (*lockfile.Lockfile, error) {
 		return nil, fmt.Errorf("failed to open lockfile %s: %w", dc.deleteQueueLockfile, err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutSeconds*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
 	defer cancel()
 
 	err = lf.Lock(ctx, false) // get the shared lock
