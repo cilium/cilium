@@ -57,7 +57,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __s8 *ext_err __maybe_unused)
 {
 	int ret, l3_off = ETH_HLEN;
-	struct remote_endpoint_info *info;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
 	struct endpoint_info *ep;
@@ -98,7 +97,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 	/* Maybe overwrite the REMOTE_NODE_ID with
 	 * KUBE_APISERVER_NODE_ID to support upgrade. After v1.12,
 	 * identity_is_remote_node() should be removed.
@@ -106,9 +104,14 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	 * A packet that has DSR info and comes from `world` may have specific identity when
 	 * a CNP that is using CIDR rules is applied.
 	 */
-	if (info && (identity_is_remote_node(*identity) ||
-		     (is_dsr && identity_is_world_ipv6(*identity))))
-		*identity = info->sec_identity;
+	if (identity_is_remote_node(*identity) ||
+	    (is_dsr && identity_is_world_ipv6(*identity))) {
+		struct remote_endpoint_info *info;
+
+		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
+		if (info)
+			*identity = info->sec_identity;
+	}
 
 #ifdef ENABLE_IPSEC
 	if (ip6->nexthdr != IPPROTO_ESP)
@@ -287,7 +290,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 				       __u32 *identity,
 				       __s8 *ext_err __maybe_unused)
 {
-	struct remote_endpoint_info *info;
 	void *data_end, *data;
 	struct iphdr *ip4;
 	struct endpoint_info *ep;
@@ -339,8 +341,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-
 #ifdef ENABLE_VTEP
 	{
 		struct vtep_key vkey = {};
@@ -381,9 +381,14 @@ skip_vtep:
 #endif
 
 	/* See comment at equivalent code in handle_ipv6() */
-	if (info && (identity_is_remote_node(*identity) ||
-		     (is_dsr && identity_is_world_ipv4(*identity))))
-		*identity = info->sec_identity;
+	if (identity_is_remote_node(*identity) ||
+	    (is_dsr && identity_is_world_ipv4(*identity))) {
+		struct remote_endpoint_info *info;
+
+		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+		if (info)
+			*identity = info->sec_identity;
+	}
 
 #ifdef ENABLE_IPSEC
 	if (ip4->protocol != IPPROTO_ESP)
