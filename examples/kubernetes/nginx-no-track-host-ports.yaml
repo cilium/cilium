@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example
+  annotations:
+    network.cilium.io/no-track-host-ports: "8080/tcp,80/tcp,443/tcp"
+spec:
+  hostNetwork: true
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: nginx
