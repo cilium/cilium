@@ -15,6 +15,8 @@ type Node struct {
 	RouterIPv6 [16]byte `config:"router_ipv6"`
 	// IPv4 source address used for SNAT when a Pod talks to itself over a Service.
 	ServiceLoopbackIPv4 [4]byte `config:"service_loopback_ipv4"`
+	// IPv6 source address used for SNAT when a Pod talks to itself over a Service.
+	ServiceLoopbackIPv6 [16]byte `config:"service_loopback_ipv6"`
 	// Whether or not BPF_FIB_LOOKUP_SKIP_NEIGH is supported.
 	SupportsFibLookupSkipNeigh bool `config:"supports_fib_lookup_skip_neigh"`
 	// Length of payload to capture when tracing native packets.
@@ -26,5 +28,7 @@ type Node struct {
 func NewNode() *Node {
 	return &Node{0x0,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		[4]byte{0x0, 0x0, 0x0, 0x0}, false, 0x0, 0x0}
+		[4]byte{0x0, 0x0, 0x0, 0x0},
+		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		false, 0x0, 0x0}
 }
