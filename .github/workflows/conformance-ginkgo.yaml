@@ -283,7 +283,9 @@ jobs:
       - name: Copy cilium-cli
         shell: bash
         run: |
-          cp -f /usr/local/bin/cilium ./cilium-cli-bin
+          cid=$(docker create ${{ env.CILIUM_CLI_IMAGE_REPO }}:${{ needs.setup-vars.outputs.SHA }} ls)
+          docker cp $cid:/usr/local/bin/cilium "$PWD/cilium-cli-bin"
+          docker rm $cid
 
       - name: Install helm
         shell: bash
