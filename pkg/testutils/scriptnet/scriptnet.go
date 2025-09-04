@@ -111,19 +111,20 @@ func (nsm *NetNSManager) Commands() map[string]script.Cmd {
 	}
 
 	return map[string]script.Cmd{
-		"netns/list":   netNSListCmd(nsm),
-		"netns/create": netNSCreateCmd(nsm),
-		"netns/switch": netNSSwitchCmd(nsm),
-		"link/list":    linkListCmd(nsm),
-		"link/add":     linkAddCmd(nsm),
-		"link/set":     linkSetCmd(nsm),
-		"link/del":     linkDelCmd(nsm),
-		"addr/add":     addAddCmd(nsm),
-		"route/list":   routeListCmd(nsm),
-		"route/add":    routeAddCmd(nsm),
-		"route/del":    routeDelCmd(nsm),
-		"sysctl/get":   sysctlGetCmd(nsm),
-		"sysctl/set":   sysctlSetCmd(nsm),
+		"netns/list":    netNSListCmd(nsm),
+		"netns/create":  netNSCreateCmd(nsm),
+		"netns/switch":  netNSSwitchCmd(nsm),
+		"link/list":     linkListCmd(nsm),
+		"link/add":      linkAddCmd(nsm),
+		"link/set":      linkSetCmd(nsm),
+		"link/del":      linkDelCmd(nsm),
+		"addr/add":      addAddCmd(nsm),
+		"route/list":    routeListCmd(nsm),
+		"route/add":     routeAddCmd(nsm),
+		"route/replace": routeReplaceCmd(nsm),
+		"route/del":     routeDelCmd(nsm),
+		"sysctl/get":    sysctlGetCmd(nsm),
+		"sysctl/set":    sysctlSetCmd(nsm),
 	}
 }
 
@@ -657,6 +658,10 @@ func routeListCmd(nsm *NetNSManager) script.Cmd {
 						fmt.Fprintf(&sb, " src %s", route.Src)
 					}
 
+					if route.MTU != 0 {
+						fmt.Fprintf(&sb, " mtu %d", route.MTU)
+					}
+
 					switch route.Table {
 					case unix.RT_TABLE_MAIN:
 						fmt.Fprintf(&sb, " table main")
@@ -667,6 +672,11 @@ func routeListCmd(nsm *NetNSManager) script.Cmd {
 					default:
 						fmt.Fprintf(&sb, " table %d", route.Table)
 					}
+
+					if route.Priority != 0 {
+						fmt.Fprintf(&sb, " priority %d", route.Priority)
+					}
+
 					fmt.Fprintf(&sb, "\n")
 				}
 
@@ -680,6 +690,92 @@ func routeListCmd(nsm *NetNSManager) script.Cmd {
 	)
 }
 
+func routeFlags(fs *pflag.FlagSet) {
+	fs.String("gateway", "", "Gateway IP address for the route")
+	fs.String("dev", "", "Device name for the route")
+	fs.String("table", "main", "Table to add the route to")
+	fs.Int("mtu", 0, "MTU for the route")
+	fs.String("proto", "", "Protocol for the route")
+}
+
+func routeFromFlags(destination string, fs *pflag.FlagSet) (*netlink.Route, error) {
+	route := &netlink.Route{}
+
+	var err error
+	route.Dst, err = netlink.ParseIPNet(destination)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse destination %q: %w", destination, err)
+	}
+
+	gatewayStr, err := fs.GetString("gateway")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway flag: %w", err)
+	}
+	if gatewayStr != "" {
+		gatewayIP := net.ParseIP(gatewayStr)
+		if gatewayIP == nil {
+			return nil, fmt.Errorf("invalid gateway IP address %q", gatewayStr)
+		}
+		route.Gw = gatewayIP
+	}
+
+	devName, err := fs.GetString("dev")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dev flag: %w", err)
+	}
+	if devName != "" {
+		link, err := safenetlink.LinkByName(devName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find device %q: %w", devName, err)
+		}
+		route.LinkIndex = link.Attrs().Index
+	}
+
+	tableStr, err := fs.GetString("table")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get table flag: %w", err)
+	}
+	switch tableStr {
+	case "main":
+		route.Table = unix.RT_TABLE_MAIN
+	case "local":
+		route.Table = unix.RT_TABLE_LOCAL
+	case "default":
+		route.Table = unix.RT_TABLE_DEFAULT
+	default:
+		route.Table, err = strconv.Atoi(tableStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid table %q: must be an integer or one of 'main', 'local', 'default'", tableStr)
+		}
+	}
+
+	route.MTU, err = fs.GetInt("mtu")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get mtu flag: %w", err)
+	}
+
+	protoStr, err := fs.GetString("proto")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get proto flag: %w", err)
+	}
+	if protoStr != "" {
+		switch protoStr {
+		case "kernel":
+			route.Protocol = unix.RTPROT_KERNEL
+		case "static":
+			route.Protocol = unix.RTPROT_STATIC
+		default:
+			protoNum, err := strconv.Atoi(protoStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid proto %q: must be an integer or one of 'kernel', 'static'", protoStr)
+			}
+			route.Protocol = netlink.RouteProtocol(protoNum)
+		}
+	}
+
+	return route, nil
+}
+
 func routeAddCmd(nsm *NetNSManager) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
@@ -687,8 +783,7 @@ func routeAddCmd(nsm *NetNSManager) script.Cmd {
 			Args:    "<destination>",
 			Flags: func(fs *pflag.FlagSet) {
 				fs.String("netns", "", "Execute in the specified network namespace")
-				fs.String("gateway", "", "Gateway IP address for the route")
-				fs.String("dev", "", "Device name for the route")
+				routeFlags(fs)
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
@@ -696,37 +791,10 @@ func routeAddCmd(nsm *NetNSManager) script.Cmd {
 				return nil, script.ErrUsage
 			}
 
-			route := &netlink.Route{}
-
 			destination := args[0]
-			var err error
-			route.Dst, err = netlink.ParseIPNet(destination)
+			route, err := routeFromFlags(destination, s.Flags)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse destination %q: %w", destination, err)
-			}
-
-			gatewayStr, err := s.Flags.GetString("gateway")
-			if err != nil {
-				return nil, fmt.Errorf("failed to get gateway flag: %w", err)
-			}
-			if gatewayStr != "" {
-				gatewayIP := net.ParseIP(gatewayStr)
-				if gatewayIP == nil {
-					return nil, fmt.Errorf("invalid gateway IP address %q", gatewayStr)
-				}
-				route.Gw = gatewayIP
-			}
-
-			devName, err := s.Flags.GetString("dev")
-			if err != nil {
-				return nil, fmt.Errorf("failed to get dev flag: %w", err)
-			}
-			if devName != "" {
-				link, err := safenetlink.LinkByName(devName)
-				if err != nil {
-					return nil, fmt.Errorf("failed to find device %q: %w", devName, err)
-				}
-				route.LinkIndex = link.Attrs().Index
+				return nil, err
 			}
 
 			nsName, err := s.Flags.GetString("netns")
@@ -750,6 +818,53 @@ func routeAddCmd(nsm *NetNSManager) script.Cmd {
 
 			return func(s *script.State) (stdout string, stderr string, err error) {
 				return fmt.Sprintf("Added route %s\n", destination), "", nil
+			}, nil
+		},
+	)
+}
+
+func routeReplaceCmd(nsm *NetNSManager) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Replace an existing route",
+			Args:    "<destination>",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.String("netns", "", "Execute in the specified network namespace")
+				routeFlags(fs)
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 1 {
+				return nil, script.ErrUsage
+			}
+
+			destination := args[0]
+			route, err := routeFromFlags(destination, s.Flags)
+			if err != nil {
+				return nil, err
+			}
+
+			nsName, err := s.Flags.GetString("netns")
+			if err != nil {
+				return nil, fmt.Errorf("failed to get netns flag: %w", err)
+			}
+			if nsName == "" {
+				nsName = nsm.currentNamespaceName()
+			}
+
+			err = nsm.exec(nsName, func() error {
+				if err := netlink.RouteReplace(route); err != nil {
+					return fmt.Errorf("failed to replace route %s: %w", destination, err)
+				}
+
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			return func(s *script.State) (stdout string, stderr string, err error) {
+				return fmt.Sprintf("Replaced route %s\n", destination), "", nil
 			}, nil
 		},
 	)
