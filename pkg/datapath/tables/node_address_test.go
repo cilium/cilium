@@ -1110,7 +1110,7 @@ func TestNodeAddressFromRoute(t *testing.T) {
 			route := &Route{
 				LinkIndex: testDevice.Index,
 				Dst:       routeBasedPrefix,
-				Scope:     uint8(RT_SCOPE_HOST),
+				Scope:     RT_SCOPE_HOST,
 				Table:     RT_TABLE_LOCAL,
 			}
 			if tc.customizeRoute != nil {
