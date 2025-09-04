@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"os"
-	"path/filepath"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -167,11 +165,6 @@ func LoadNodeMapV2(logger *slog.Logger) (MapV2, error) {
 	}
 
 	return &nodeMapV2{bpfMap: bpfMap}, nil
-}
-
-// Clean up the v1 map. TODO remove this in v1.19.
-func (m *nodeMapV2) migrateV1(NodeMapName string) {
-	os.Remove(filepath.Join(bpf.TCGlobalsPath(), NodeMapName))
 }
 
 func (m *nodeMapV2) init() error {
