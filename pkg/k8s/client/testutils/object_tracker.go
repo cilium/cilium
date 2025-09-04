@@ -6,6 +6,7 @@ package testutils
 import (
 	"encoding/json"
 	"fmt"
+	"iter"
 	"log/slog"
 	"reflect"
 	"strconv"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/util/jsonpath"
 
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -72,6 +74,7 @@ func newStateDBObjectTracker(db *statedb.DB, log *slog.Logger) (*statedbObjectTr
 
 type object struct {
 	objectId
+	kind    string
 	deleted bool
 	o       runtime.Object
 }
@@ -131,6 +134,30 @@ var (
 		Unique: true,
 	}
 )
+
+type gvrk struct {
+	schema.GroupVersionResource
+	kind string
+}
+
+func (g gvrk) groupVersionKind() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   g.Group,
+		Version: g.Version,
+		Kind:    g.kind,
+	}
+}
+
+func (s *statedbObjectTracker) getGVRKs() iter.Seq[gvrk] {
+	rs := container.NewInsertOrderedMap[schema.GroupVersionResource, gvrk]()
+	for obj := range s.tbl.All(s.db.ReadTxn()) {
+		rs.Insert(obj.gvr, gvrk{
+			GroupVersionResource: obj.gvr,
+			kind:                 obj.kind,
+		})
+	}
+	return rs.Values()
+}
 
 // For returns a object tracker for a specific use-case (domain) that is separate from others.
 func (s *statedbObjectTracker) For(domain string, scheme *runtime.Scheme, decoder runtime.Decoder) *statedbObjectTracker {
@@ -219,7 +246,9 @@ func (s *statedbObjectTracker) Add(obj runtime.Object) error {
 
 		s.tbl.Insert(wtxn, object{
 			objectId: newObjectId(s.domain, gvr, objMeta.GetNamespace(), objMeta.GetName()),
-			o:        obj})
+			o:        obj,
+			kind:     gvk.Kind,
+		})
 	}
 	return nil
 }
@@ -282,6 +311,18 @@ func (s *statedbObjectTracker) Create(gvr schema.GroupVersionResource, obj runti
 		logfieldClientset, s.domain,
 		logfields.Object, obj)
 
+	gvks, _, err := s.scheme.ObjectKinds(obj)
+	if err != nil {
+		s.log.Debug("Create", logfields.Error, err)
+		return err
+	}
+	if len(gvks) == 0 {
+		err = fmt.Errorf("no kind found for %+v", gvr)
+		s.log.Debug("Create", logfields.Error, err)
+		return err
+	}
+	gvk := gvks[0]
+
 	obj = obj.DeepCopyObject()
 	newMeta, err := meta.Accessor(obj)
 	if err != nil {
@@ -296,7 +337,9 @@ func (s *statedbObjectTracker) Create(gvr schema.GroupVersionResource, obj runti
 	newMeta.SetResourceVersion(strconv.FormatUint(version, 10))
 	old, found, _ := s.tbl.Insert(wtxn, object{
 		objectId: newObjectId(s.domain, gvr, ns, newMeta.GetName()),
-		o:        obj})
+		o:        obj,
+		kind:     gvk.Kind,
+	})
 	if found && !old.deleted {
 		wtxn.Abort()
 		gr := gvr.GroupResource()
@@ -370,6 +413,9 @@ func (s *statedbObjectTracker) List(gvr schema.GroupVersionResource, gvk schema.
 	}
 
 	list, err := s.scheme.New(listGVK)
+	if err != nil {
+		list, err = testutils.KubernetesScheme.New(listGVK)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -446,6 +492,18 @@ func (s *statedbObjectTracker) Update(gvr schema.GroupVersionResource, obj runti
 }
 
 func (s *statedbObjectTracker) updateOrPatch(what string, gvr schema.GroupVersionResource, obj runtime.Object, ns string, opts ...metav1.UpdateOptions) error {
+	gvks, _, err := s.scheme.ObjectKinds(obj)
+	if err != nil {
+		s.log.Debug(what, logfields.Error, err)
+		return err
+	}
+	if len(gvks) == 0 {
+		err = fmt.Errorf("no kind found for %+v", gvr)
+		s.log.Debug(what, logfields.Error, err)
+		return err
+	}
+	gvk := gvks[0]
+
 	obj = obj.DeepCopyObject()
 	newMeta, err := meta.Accessor(obj)
 	if err != nil {
@@ -464,7 +522,9 @@ func (s *statedbObjectTracker) updateOrPatch(what string, gvr schema.GroupVersio
 		logfields.Object, obj,
 		logfieldResourceVersion, version)
 
-	oldObj, found, _ := s.tbl.Insert(wtxn, object{objectId: newObjectId(s.domain, gvr, ns, newMeta.GetName()), o: obj})
+	oldObj, found, _ := s.tbl.Insert(wtxn,
+		object{objectId: newObjectId(s.domain, gvr, ns, newMeta.GetName()), o: obj, kind: gvk.Kind},
+	)
 	if !found || oldObj.deleted {
 		wtxn.Abort()
 		gr := gvr.GroupResource()

@@ -31,7 +31,6 @@ import (
 	mcsapi_fake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
 	k8sYaml "sigs.k8s.io/yaml"
 
-	"github.com/cilium/cilium/pkg/container"
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	slim_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
@@ -76,6 +75,8 @@ type FakeClientset struct {
 	*CiliumFakeClientset
 	*APIExtFakeClientset
 	k8sclient.ClientsetGetters
+
+	ot *statedbObjectTracker
 
 	SlimFakeClientset *SlimFakeClientset
 
@@ -156,6 +157,7 @@ func NewFakeClientsetWithVersion(log *slog.Logger, ot *statedbObjectTracker, ver
 	client.SlimFakeClientset.Resources = resources
 	client.CiliumFakeClientset.Resources = resources
 	client.APIExtFakeClientset.Resources = resources
+	client.ot = ot
 
 	otx := ot.For("*", testutils.Scheme, testutils.Decoder())
 	prependReactors(client.SlimFakeClientset, otx)
@@ -238,9 +240,6 @@ func showGVR(gvr schema.GroupVersionResource) string {
 }
 
 func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
-	// Use a InsertOrderedMap to keep e.g. k8s/summary output stable.
-	seenResources := container.NewInsertOrderedMap[schema.GroupVersionKind, schema.GroupVersionResource]()
-
 	addUpdateOrDelete := func(s *script.State, action string, files []string) error {
 		for _, file := range files {
 			b, err := os.ReadFile(s.Path(file))
@@ -261,7 +260,6 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 			if err != nil {
 				return fmt.Errorf("accessor: %w", err)
 			}
-			seenResources.Insert(*gvk, gvr)
 
 			name := objMeta.GetName()
 			ns := objMeta.GetNamespace()
@@ -373,14 +371,14 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 				}
 
 				var gvr schema.GroupVersionResource
-				for _, r := range seenResources.All() {
-					res := showGVR(r)
+				for gvrk := range fc.ot.getGVRKs() {
+					res := showGVR(gvrk.GroupVersionResource)
 					if res == args[0] {
-						gvr = r
+						gvr = gvrk.GroupVersionResource
 						break
 					} else if strings.Contains(res, args[0]) {
 						s.Logf("Using closest match %q\n", res)
-						gvr = r
+						gvr = gvrk.GroupVersionResource
 						break
 					}
 				}
@@ -435,16 +433,16 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 
 				var gvr schema.GroupVersionResource
 				var gvk schema.GroupVersionKind
-				for k, r := range seenResources.All() {
-					res := showGVR(r)
+				for gvrk := range fc.ot.getGVRKs() {
+					res := showGVR(gvrk.GroupVersionResource)
 					if res == args[0] {
-						gvr = r
-						gvk = k
+						gvr = gvrk.GroupVersionResource
+						gvk = gvrk.groupVersionKind()
 						break
 					} else if strings.Contains(res, args[0]) {
 						s.Logf("Using closest match %q\n", res)
-						gvr = r
-						gvk = k
+						gvr = gvrk.GroupVersionResource
+						gvk = gvrk.groupVersionKind()
 						break
 					}
 				}
@@ -490,11 +488,11 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 				}
 				for _, tc := range fc.trackers {
 					fmt.Fprintf(out, "%s:\n", tc.domain)
-					for gvk, gvr := range seenResources.All() {
-						objs, err := tc.tracker.List(gvr, gvk, "")
+					for gvrk := range fc.ot.getGVRKs() {
+						objs, err := tc.tracker.List(gvrk.GroupVersionResource, gvrk.groupVersionKind(), "")
 						if err == nil {
 							lst, _ := meta.ExtractList(objs)
-							fmt.Fprintf(out, "- %s: %d\n", showGVR(gvr), len(lst))
+							fmt.Fprintf(out, "- %s: %d\n", showGVR(gvrk.GroupVersionResource), len(lst))
 						}
 					}
 				}
@@ -509,8 +507,8 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
 				return func(s *script.State) (stdout string, stderr string, err error) {
 					var buf strings.Builder
-					for _, gvr := range seenResources.All() {
-						fmt.Fprintf(&buf, "%s\n", showGVR(gvr))
+					for gvrk := range fc.ot.getGVRKs() {
+						fmt.Fprintf(&buf, "%s\n", showGVR(gvrk.GroupVersionResource))
 					}
 					stdout = buf.String()
 					return
