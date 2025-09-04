@@ -379,9 +379,14 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb
 				continue
 			}
 			beps = append(beps, lb.BackendParams{
-				Address:   addr.L3n4Addr,
-				State:     lb.BackendStateActive,
-				PortNames: []string{addr.portName},
+				Address: addr.L3n4Addr,
+				State:   lb.BackendStateActive,
+				PortNames: func() []string {
+					if addr.portName != "" {
+						return []string{addr.portName}
+					}
+					return []string{}
+				}(),
 			})
 		}
 	}
