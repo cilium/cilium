@@ -144,6 +144,9 @@ func (f RemoteEndpointInfoFlags) String() string {
 	if f&FlagIPv6TunnelEndpoint != 0 {
 		flags += "ipv6tunnel,"
 	}
+	if f&FlagRemoteCluster != 0 {
+		flags += "remotecluster,"
+	}
 
 	if flags == "" {
 		return "<none>"
@@ -162,6 +165,9 @@ const (
 	// FlagIPv6TunnelEndpoint is set when the tunnel endpoint IP address
 	// is an IPv6 address.
 	FlagIPv6TunnelEndpoint
+	// FlagRemoteCluster is set when the node is in a remote cluster.
+	// It's always unset when clustermesh is disabled or for pods.
+	FlagRemoteCluster
 )
 
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
