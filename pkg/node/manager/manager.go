@@ -490,8 +490,10 @@ func (m *manager) restoreNodeCheckpoint() {
 	// separate, let whatever init needs to happen occur and once we're synced
 	// to k8s, compare the restored nodes to the live ones.
 	for _, n := range nodeCheckpoint {
-		n.Source = source.Restored
-		m.restoredNodes[n.Identity()] = n
+		if !n.IsLocal() {
+			n.Source = source.Restored
+			m.restoredNodes[n.Identity()] = n
+		}
 	}
 }
 
@@ -554,7 +556,9 @@ func (m *manager) checkpoint() error {
 	w := jsoniter.ConfigFastest.NewEncoder(bw)
 	ns := make([]nodeTypes.Node, 0, len(m.nodes))
 	for _, n := range m.nodes {
-		ns = append(ns, n.node)
+		if !n.node.IsLocal() {
+			ns = append(ns, n.node)
+		}
 	}
 	if err := w.Encode(ns); err != nil {
 		return fmt.Errorf("failed to encode node checkpoint: %w", err)
