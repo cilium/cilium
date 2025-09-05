@@ -121,7 +121,6 @@ func generateConfig(p connectorParams, cc *ConnectorConfig) error {
 			totalHeadroom, math.MaxUint16)
 	}
 
-	// Cache the values
 	cc.podDeviceHeadroom = uint16(totalHeadroom)
 	cc.podDeviceTailroom = uint16(totalTailroom)
 	return nil
