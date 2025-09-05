@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 type MTUConfiguration interface {
@@ -202,6 +203,8 @@ type LocalNodeConfiguration struct {
 	MaglevConfig maglev.Config
 
 	KPRConfig kpr.KPRConfig
+
+	SvcRouteConfig svcrouteconfig.RoutesConfig
 }
 
 func (cfg *LocalNodeConfiguration) DeviceNames() []string {

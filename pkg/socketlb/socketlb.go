@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 const (
@@ -58,7 +57,7 @@ func cgroupLinkPath() string {
 // options have changed.
 // It expects bpf_sock.c to be compiled previously, so that bpf_sock.o is present
 // in the Runtime dir.
-func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeConfiguration, svcCfg svcrouteconfig.RoutesConfig) error {
+func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeConfiguration) error {
 	if err := os.MkdirAll(cgroupLinkPath(), 0777); err != nil {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
@@ -69,7 +68,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 	}
 
 	cfg := config.NewBPFSock(config.NodeConfig(lnc))
-	cfg.EnableNoServiceEndpointsRoutable = svcCfg.EnableNoServiceEndpointsRoutable
+	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 
 	coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
