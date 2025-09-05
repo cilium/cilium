@@ -122,8 +122,10 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 
 	initializeSlog(logOpts, loggers)
 
-	// always suppress the default logger so libraries don't print things
-	slog.SetLogLoggerLevel(LevelPanic)
+	if !debug {
+		// always suppress the default logger so libraries don't print things
+		slog.SetLogLoggerLevel(LevelPanic)
+	}
 
 	// Iterate through all provided loggers and configure them according
 	// to user-provided settings.
@@ -138,7 +140,7 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 		}
 	}
 
-	lock.SetLogger(DefaultSlogLogger)
+	lock.SetLogger(slog.Default())
 
 	// Bridge klog to slog. Note that this will open multiple pipes and fork
 	// background goroutines that are not cleaned up.

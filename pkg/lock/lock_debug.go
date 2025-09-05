@@ -15,8 +15,6 @@ import (
 	"time"
 
 	"github.com/sasha-s/go-deadlock"
-
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -99,11 +97,11 @@ func printStackTo(sec float64, stack []byte, writer io.Writer) {
 		goRoutineNumber = stack[:goroutineLine]
 	}
 
-	logger.Debug(
+	// Don't use the logger here as it might use locks itself, causing false positive deadlock detection
+	fmt.Fprintf(writer, "[LOCK-DEBUG] %s duration=%.2fs goroutine=%s\n",
 		selfishThresholdMsg,
-		logfields.Duration, sec,
-		logfields.Goroutine, string(goRoutineNumber[len("goroutine"):len(goRoutineNumber)-1]),
-	)
+		sec,
+		string(goRoutineNumber[len("goroutine"):len(goRoutineNumber)-1]))
 
 	// A stack trace is usually in the following format:
 	// goroutine 1432 [running]:

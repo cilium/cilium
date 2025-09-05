@@ -2,6 +2,31 @@ name: Conformance Ginkgo (ci-ginkgo)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  workflow_call:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+        type: string
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+        type: string
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+        type: string
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+        type: string
+      is-workflow-call:
+        description: "Distinguish if it's a workflow_call event."
+        required: false
+        type: boolean
+        default: true
+
   workflow_dispatch:
     inputs:
       PR-number:
@@ -17,9 +42,11 @@ on:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
         default: '{}'
+
   push:
     branches:
       - 'renovate/main-**'
+
   # Run every 8 hours
   schedule:
     - cron:  '0 1/8 * * *'
@@ -263,6 +290,21 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Set up job variables
+        id: vars
+        run: |
+          # Check if detect-race is requested via extra-args
+          DETECT_RACE=$(echo '${{ inputs.extra-args }}' | jq -r '.["detect-race"] // empty')
+          if [[ "$DETECT_RACE" == "true" ]]; then
+            echo "::notice::Race detection enabled - appending -race suffix to image tags"
+            IMAGE_TAG_SUFFIX="-race"
+          else
+            IMAGE_TAG_SUFFIX=""
+          fi
+
+          echo image_tag_suffix=${IMAGE_TAG_SUFFIX} >> $GITHUB_OUTPUT
+          echo detect_race=${DETECT_RACE} >> $GITHUB_OUTPUT
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -406,17 +448,22 @@ jobs:
             # GitHub actions do not support IPv6 connectivity to outside
             # world.
             export CILIUM_NO_IPV6_OUTSIDE=true
+            # Race detection variables - only set when race detection is enabled
+            if [[ "${{ steps.vars.outputs.detect_race }}" == "true" ]]; then
+              export RACE=1
+              export LOCKDEBUG=1
+            fi
             echo "/root/go/bin/ginkgo \
              --focus=\"${{ matrix.cliFocus }}\" \
              --skip=\"${{ matrix.cliSkip }}\" \
              --seed=1679952881 \
              -v -- \
              -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-             -cilium.tag=${{ needs.setup-vars.outputs.SHA }}  \
+             -cilium.tag=${{ needs.setup-vars.outputs.SHA }}${{ steps.vars.outputs.image_tag_suffix }}  \
              -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-             -cilium.operator-tag=${{ needs.setup-vars.outputs.SHA }} \
+             -cilium.operator-tag=${{ needs.setup-vars.outputs.SHA }}${{ steps.vars.outputs.image_tag_suffix }} \
              -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-             -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }} \
+             -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }}${{ steps.vars.outputs.image_tag_suffix }} \
              -cilium.kubeconfig=/root/.kube/config \
              -cilium.operator-suffix=-ci ${{ env.CILIUM_GINKGO_EXTRA_ARGS }}"
 
@@ -426,11 +473,11 @@ jobs:
                --ginkgo.seed=1679952881 \
                --ginkgo.v -- \
                -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-               -cilium.tag=${{ needs.setup-vars.outputs.SHA }}  \
+               -cilium.tag=${{ needs.setup-vars.outputs.SHA }}${{ steps.vars.outputs.image_tag_suffix }}  \
                -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-               -cilium.operator-tag=${{ needs.setup-vars.outputs.SHA }} \
+               -cilium.operator-tag=${{ needs.setup-vars.outputs.SHA }}${{ steps.vars.outputs.image_tag_suffix }} \
                -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-               -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }} \
+               -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }}${{ steps.vars.outputs.image_tag_suffix }} \
                -cilium.kubeconfig=/root/.kube/config \
                -cilium.operator-suffix=-ci ${{ env.CILIUM_GINKGO_EXTRA_ARGS }}
 
@@ -494,7 +541,7 @@ jobs:
 
   merge-upload-and-status:
     name: Merge Upload and Status
-    if: ${{ always() }}
+    if: ${{ always() && !inputs.is-workflow-call }}
     needs: setup-and-test
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
