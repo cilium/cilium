@@ -143,7 +143,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return fmt.Errorf("retrieving device %s: %w", xdpDev, err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(logger, objPath)
+	spec, err := ebpf.LoadCollectionSpec(objPath)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}

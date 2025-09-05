@@ -14,30 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestRemoveUnreachableTailcalls(t *testing.T) {
-	logger := hivetest.Logger(t)
-	// Use upstream LoadCollectionSpec to defer the call to
-	// removeUnreachableTailcalls.
-	spec, err := ebpf.LoadCollectionSpec("testdata/unreachable-tailcall.o")
-	require.NoError(t, err)
-
-	assert.Contains(t, spec.Programs, "cil_entry")
-	assert.Contains(t, spec.Programs, "a")
-	assert.Contains(t, spec.Programs, "b")
-	assert.Contains(t, spec.Programs, "c")
-	assert.Contains(t, spec.Programs, "d")
-	assert.Contains(t, spec.Programs, "e")
-
-	require.NoError(t, removeUnreachableTailcalls(logger, spec))
-
-	assert.Contains(t, spec.Programs, "cil_entry")
-	assert.Contains(t, spec.Programs, "a")
-	assert.Contains(t, spec.Programs, "b")
-	assert.Contains(t, spec.Programs, "c")
-	assert.NotContains(t, spec.Programs, "d")
-	assert.NotContains(t, spec.Programs, "e")
-}
-
 func TestPrivilegedUpgradeMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
@@ -55,7 +31,7 @@ func TestPrivilegedUpgradeMap(t *testing.T) {
 	}, ebpf.MapOptions{PinPath: temp})
 	require.NoError(t, err)
 
-	spec, err := LoadCollectionSpec(logger, "testdata/upgrade-map.o")
+	spec, err := ebpf.LoadCollectionSpec("testdata/upgrade-map.o")
 	require.NoError(t, err)
 
 	// Use LoadAndAssign to make sure commit works through map upgrades. This is a
