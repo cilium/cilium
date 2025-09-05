@@ -33,12 +33,6 @@
   {{- end }}
   {{- $defaultBpfCtTcpMax = 0 -}}
   {{- $defaultBpfCtAnyMax = 0 -}}
-  {{- $defaultKubeProxyReplacement = "probe" -}}
-{{- end -}}
-
-{{- /* Default values when 1.9 was initially deployed */ -}}
-{{- if semverCompare ">=1.9" (default "1.9" .Values.upgradeCompatibility) -}}
-  {{- $defaultKubeProxyReplacement = "probe" -}}
 {{- end -}}
 
 {{- /* Default values when 1.10 was initially deployed */ -}}
@@ -52,7 +46,6 @@
   {{- if .Values.azure.enabled }}
       {{- $azureUsePrimaryAddress = "false" -}}
   {{- end }}
-  {{- $defaultKubeProxyReplacement = "disabled" -}}
   {{- $defaultDNSProxyEnableTransparentMode = "true" -}}
 {{- end -}}
 
