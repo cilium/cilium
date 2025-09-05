@@ -25,7 +25,7 @@ However, as Rancher is using a custom
 with independent release cycles, Cilium power-users might want to use an
 out-of-band Cilium installation instead, based on the official
 `Cilium Helm chart <https://github.com/cilium/charts>`__,
-on top of their Rancher-managed RKE1/RKE2 downstream clusters.
+on top of their Rancher-managed RKE2 downstream clusters.
 This guide explains how to achieve this.
 
 .. note::
@@ -33,12 +33,10 @@ This guide explains how to achieve this.
     This guide only shows a step-by-step guide for Rancher-managed (**non-standalone**)
     **RKE2** clusters.
 
-    However, for a legacy RKE1 cluster, it's even easier. You also need to edit
-    the cluster YAML and change ``network.cni`` to ``none`` as described in the
-    :ref:`RKE 1 standalone guide<rke1_cni_none>`, but there's no need to copy over
-    a Control Plane node local KubeConfig manually. Luckily, Rancher allows access
-    to RKE1 clusters in ``Updating`` state, which are not ready yet. Hence, there's
-    no chicken-egg issue to resolve.
+.. note::
+
+    This guide shows how to install Cilium on Rancher-managed Custom Clusters.
+    However, this method also applies to clusters created with providers such as VMware vSphere.
 
 Prerequisites
 =============
@@ -59,41 +57,78 @@ On the Cluster creation page select to create a new ``Custom`` cluster:
 
 .. image:: images/rancher_existing_nodes.png
 
-When the ``Create Custom`` page opens, provide at least a name for the cluster.
+When the ``Create Custom`` page opens, provide a name for the cluster. 
+In the same ``Basics`` section, expand ``Container Network`` drop down list and select ``none``.
+
+.. image:: images/rancher_select_cni.png
+
 Go through the other configuration options and configure the ones that are
 relevant for your setup.
 
-Next to the ``Cluster Options`` section click the box to ``Edit as YAML``.
-The configuration for the cluster will open up in an editor in the window.
+Add ``HelmChart`` manifests to install Cilium using the RKE2 built-in Helm Operator. 
+Go to the ``Additional Manifests`` section and paste the following YAML. Add relevant values for your Cilium installation.
 
-.. image:: images/rancher_edit_as_yaml.png
+.. code-block:: yaml
 
-Within the ``Cluster`` CustomResource (``provisioning.cattle.io/v1``), the relevant
-parts to change are ``spec.rkeConfig.machineGlobalConfig.cni``,
-``spec.rkeConfig.machineGlobalConfig.tls-san``, and optionally
-``spec.rkeConfig.chartValues.rke2-calico`` and
-``spec.rkeConfig.machineGlobalConfig.disable-kube-proxy``:
+    ---
+    apiVersion: catalog.cattle.io/v1
+    kind: ClusterRepo
+    metadata:
+      name: cilium
+    spec:
+      url: https://helm.cilium.io
+    ---
+    apiVersion: helm.cattle.io/v1
+    kind: HelmChart
+    metadata:
+      name: cilium
+      namespace: kube-system
+    spec:
+      targetNamespace: kube-system
+      createNamespace: false
+      version: v1.18.0
+      chart: cilium
+      repo: https://helm.cilium.io
+      bootstrap: true
+      valuesContent: |-
+      # paste your Cilium values here:
+        k8sServiceHost: 127.0.0.1
+        k8sServicePort: 6443
+        kubeProxyReplacement: true
 
-.. image:: images/rancher_delete_network_plugin.png
+.. image:: images/rancher_additional_manifests.png
 
-It's required to add a DNS record, pointing to the Control Plane node IP(s)
-or an L4 load-balancer in front of them, under
-``spec.rkeConfig.machineGlobalConfig.tls-san``, as that's required to resolve
-a chicken-egg issue further down the line.
+.. note::
 
-Ensure that ``spec.rkeConfig.machineGlobalConfig.cni`` is set to ``none`` and
-``spec.rkeConfig.machineGlobalConfig.tls-san`` lists the mentioned DNS record:
+    ``k8sServiceHost`` should be set to ``127.0.0.1`` and ``k8sServicePort`` to ``6443``. Cilium Agent running on control plane nodes will use local address for communication with Kubernetes API process.
+    On Control Plane nodes you can verify this by running:
 
-.. image:: images/rancher_network_plugin_none.png
+    .. code-block:: shell-session
 
-Optionally, if ``spec.rkeConfig.chartValues.rke2-calico`` is not empty, remove the
-full object as you won't deploy Rancher's default CNI. At the same time, change
-``spec.rkeConfig.machineGlobalConfig.disable-kube-proxy`` to ``true`` in case you
-want to run :ref:`Cilium without Kube-Proxy<kubeproxy-free>`.
+      $ sudo ss -tulpn | grep 6443
+      tcp   LISTEN 0      4096                 *:6443             *:*    users:(("kube-apiserver",pid=124481,fd=3))
 
-Make any additional changes to the configuration that are appropriate for your
-environment. When you are ready, click ``Create`` and Rancher will create the
-cluster.
+
+    While On worker nodes, Cilium Agent will use the local address to communicate with ``rke2`` process, which is listening on port ``6443``. The process ``rke2`` proxies requests to the Kubernetes API server running on the Control Plane node(s):
+
+    .. code-block:: shell-session
+      
+      $ sudo ss -tulpn | grep 6443
+      tcp   LISTEN 0      4096         127.0.0.1:6443       0.0.0.0:*    users:(("rke2",pid=113574,fd=8)) 
+
+
+Click the ``Edit as YAML`` box at the bottom of the page.
+The cluster configuration will open in an editor within the window.
+
+Within the ``Cluster`` Custom Resource (``provisioning.cattle.io/v1``), 
+verify the ``rkeConfig`` section. It should consist of the manifests that you added to the ``Additional Manifests`` section.
+
+If you like to disable the default kube-proxy and your Cilium configuration enables :ref:`Kube-Proxy Replacement <kubeproxy-free>`, check the ``spec.rkeConfig.machineGlobalConfig`` section and set
+``spec.rkeConfig.machineGlobalConfig.disable-kube-proxy`` to ``true``.
+
+.. image:: images/rancher_config_yaml.png
+
+When you are ready, click ``Create`` and Rancher will create the cluster.
 
 .. image:: images/rancher_cluster_state_provisioning.png
 
@@ -105,116 +140,48 @@ Do not forget to select the correct node roles. Rancher comes with the default t
 deploy all three roles (``etcd``, ``Control Plane``, and ``Worker``), which is often
 not what you want for multi-node clusters.
 
-.. image:: images/rancher_add_nodes.png
+.. image:: images/rancher_registration_command.png
 
 A few seconds after you added at least a single node, you should see the new node(s)
-in the ``Machines`` tab. The machine will be stuck in ``Reconciling`` state and
-won't become ``Active``:
-
-.. image:: images/rancher_node_not_ready.png
-
-That's expected as there's no CNI running on this cluster yet. Unfortunately, this also
-means critical pods like ``rke2-coredns-rke2-coredns-*`` and ``cattle-cluster-agent-*`` 
-are stuck in ``PENDING`` state. Hence, the downstream cluster is not yet able
-to register itself on Rancher.
-
-As a next step, you need to resolve this chicken-egg issue by directly accessing
-the downstream cluster's Kubernetes API, without going via Rancher. Rancher will not allow
-access to this downstream cluster, as it's still in ``Updating`` state. That's why you
-can't use the downstream cluster's KubeConfig provided by the Rancher management console/UI.
-
-Copy ``/etc/rancher/rke2/rke2.yaml`` from the first downstream cluster Control Plane
-node to your jump/bastion host where you have ``helm`` installed and can access the
-Cilium Helm charts.
-
-.. code-block:: shell-session
-
-    scp root@<cp-node-1-ip>:/etc/rancher/rke2/rke2.yaml .
-
-Search and replace ``127.0.0.1`` (``clusters[0].cluster.server``) with the
-already mentioned DNS record pointing to the Control Plane / L4 load-balancer IP(s).
-
-.. code-block:: yaml
-
-    apiVersion: v1
-    clusters:
-    - cluster:
-        certificate-authority-data: LS0...S0K
-        server: https://127.0.0.1:6443
-    name: default
-    contexts: {}
-
-Check if you can access the Kubernetes API:
-
-.. code-block:: shell-session
-
-    export KUBECONFIG=$(pwd)/my-cluster-kubeconfig.yaml
-    kubectl get nodes
-    NAME                    STATUS     ROLES                       AGE   VERSION
-    rancher-demo-node       NotReady   control-plane,etcd,master   44m   v1.27.8+rke2r1
-
-If successful, you can now install Cilium via Helm CLI:
-
-.. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      -f my-cluster-cilium-values.yaml
+in the ``Machines`` tab. Cilium CNI will be installed during the cluster bootstrap process 
+by Helm Operator, which creates a Kubernetes Job that will install Cilium on the cluster.
 
 After a few minutes, you should see that the node changed to the ``Ready`` status:
 
 .. code-block:: shell-session
 
-    kubectl get nodes
-    NAME                    STATUS   ROLES                       AGE   VERSION
-    rancher-demo-node       Ready    control-plane,etcd,master   48m   v1.27.8+rke2r1
+    kubectl get nodes -A
+    NAME            STATUS   ROLES                              AGE   VERSION
+    ip-10-1-1-167   Ready    control-plane,etcd,master,worker   41m   v1.32.6+rke2r1
+    ip-10-1-1-231   Ready    control-plane,etcd,master,worker   41m   v1.32.6+rke2r1
+    ip-10-1-1-50    Ready    control-plane,etcd,master,worker   45m   v1.32.6+rke2r1
 
 Back in the Rancher UI, you should see that the cluster changed to the healthy
 ``Active`` status:
 
-.. image:: images/rancher_my_cluster_active.png
+.. image:: images/rancher_cluster_created.png
 
-That's it. You can now normally work with this cluster as if you
-installed the CNI the default Rancher way. Additional nodes can now be added
-straightaway and the "local Control Plane RKE2 KubeConfig" workaround
-is not required anymore.
+That's it! You can now work with this cluster as if you had installed the CNI using the default Rancher method. 
+You can scale the cluster up or down, add or remove nodes, and so on.
 
-Optional: Add Cilium to Rancher Registries
-==========================================
+Verify Cilium Installation
+==========================
 
-One small, optional convenience item would be to add the Cilium Helm repository
-to Rancher so that, in the future, Cilium can easily be upgraded via Rancher UI.
+After the installation, the Cilium repository and Helm release will be tracked by Rancher. You can manage the Cilium lifecycle
+using the Rancher UI. To verify that Cilium is installed, check the Cilium app in the Rancher UI.
 
-You have two options available:
-
-**Option 1**: Navigate to ``Cluster Management`` -> ``Advanced`` -> ``Repositories`` and
-click the ``Create`` button:
-
-.. image:: images/rancher_add_repository.png
-
-**Option 2**: Alternatively, you can also just add the Cilium Helm repository
-on a single cluster by navigating to ``<your-cluster>`` -> ``Apps`` -> ``Repositories``:
-
-.. image:: images/rancher_add_repository_cluster.png
-
-For either option, in the window that opens, add the official Cilium Helm chart
-repository (``https://helm.cilium.io``) to the Rancher repository list:
-
-.. image:: images/rancher_add_cilium_repository.png
-
-Once added, you should see the Cilium repository in the repositories list:
-
-.. image:: images/rancher_repositories_list_success.png
-
-If you now head to ``<your-cluster>`` -> ``Apps`` -> ``Installed Apps``, you
-should see the ``cilium`` app. Ensure ``All Namespaces`` or
-``Project: System -> kube-system`` is selected at the top of the page.
+Navigate to ``<your-cluster>`` -> ``Apps`` -> ``Installed Apps``. From the top drop-down menu, select
+``All Namespaces`` or ``Project: System -> kube-system`` to see the Cilium app.
 
 .. image:: images/rancher_cluster_cilium_app.png
 
-Since you added the Cilium repository, you will now see a small hint on this app entry
+The Cilium Helm repository has been added to Rancher within the ``Additional Manifests`` section.
+
+.. image:: images/rancher_cilium_repo.png
+  
+Once the new Cilium version will be available, you will now see a small hint on this app entry
 when there's a new Cilium version released. You can then upgrade directly via Rancher UI.
 
 .. image:: images/rancher_cluster_cilium_app_upgrade.png
 
-.. image:: images/rancher_cluster_cilium_app_upgrade_version.png
+.. image:: images/rancher_cluster_cilium_app_upgrade_versions.png
