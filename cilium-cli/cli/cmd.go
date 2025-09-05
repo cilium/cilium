@@ -15,6 +15,8 @@ import (
 	"github.com/cilium/cilium/pkg/cmdref"
 )
 
+const ciliumNamespaceEnvVar = "CILIUM_NAMESPACE"
+
 var (
 	contextName       string
 	namespace         string
@@ -91,7 +93,12 @@ Perform a connectivity test
 	}
 
 	cmd.PersistentFlags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
-	cmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
+
+	defaultNamespace := "kube-system"
+	if envNamespace := os.Getenv(ciliumNamespaceEnvVar); envNamespace != "" {
+		defaultNamespace = envNamespace
+	}
+	cmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", defaultNamespace, "Namespace Cilium is running in. Can also be set via CILIUM_NAMESPACE env var")
 	cmd.PersistentFlags().StringVar(&impersonateAs, "as", "", "Username to impersonate for the operation. User could be a regular user or a service account in a namespace.")
 	cmd.PersistentFlags().StringArrayVar(&impersonateGroups, "as-group", []string{}, "Group to impersonate for the operation, this flag can be repeated to specify multiple groups.")
 	cmd.PersistentFlags().StringVar(&helmReleaseName, "helm-release-name", "cilium", "Helm release name")
