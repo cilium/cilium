@@ -13,32 +13,27 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 
 	"k8s.io/utils/clock"
 	baseclocktest "k8s.io/utils/clock/testing"
 )
 
-func newTestableXfrmStateListCache(ttl time.Duration, clock clock.PassiveClock) *xfrmStateListCache {
+func newTestableXfrmStateListCache(ttl time.Duration, enableCaching bool, clock clock.PassiveClock) *xfrmStateListCache {
 	return &xfrmStateListCache{
-		ttl:   ttl,
-		clock: clock,
+		ttl:           ttl,
+		enableCaching: enableCaching,
+		clock:         clock,
 	}
 }
 
 func TestPrivilegedXfrmStateListCache(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
-	backupOption := option.Config.EnableIPSecXfrmStateCaching
-	defer func() {
-		option.Config.EnableIPSecXfrmStateCaching = backupOption
-	}()
-	option.Config.EnableIPSecXfrmStateCaching = true
-
 	fakeClock := baseclocktest.NewFakeClock(time.Now())
 	xfrmStateCache := newTestableXfrmStateListCache(
 		time.Second,
+		true,
 		fakeClock,
 	)
 
@@ -110,14 +105,9 @@ func TestPrivilegedXfrmStateListCache(t *testing.T) {
 func TestPrivilegedXfrmStateListCacheDisabled(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
-	backupOption := option.Config.EnableIPSecXfrmStateCaching
-	defer func() {
-		option.Config.EnableIPSecXfrmStateCaching = backupOption
-	}()
-	option.Config.EnableIPSecXfrmStateCaching = false
-
 	xfrmStateCache := newTestableXfrmStateListCache(
 		time.Second,
+		false,
 		baseclocktest.NewFakeClock(time.Now()),
 	)
 

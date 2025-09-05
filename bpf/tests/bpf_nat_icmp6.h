@@ -103,8 +103,6 @@ struct {
  */
 __always_inline int gen_pmtu_pkt(struct pktgen *builder, int l4_type)
 {
-	struct ethhdr *l2 = NULL;
-	struct ipv6hdr *outer_l3 = NULL;
 	struct ipv6hdr *inner_l3 = NULL;
 	struct icmp6hdr *l4 = NULL;
 	struct tcphdr *inner_l4 = NULL;
@@ -112,22 +110,14 @@ __always_inline int gen_pmtu_pkt(struct pktgen *builder, int l4_type)
 	struct sctphdr *inner_l4_sctp = NULL;
 	void *data = NULL;
 
-	l2 = pktgen__push_ethhdr(builder);
-	if (!l2)
-		return TEST_FAIL;
-
-	outer_l3 = pktgen__push_default_ipv6hdr(builder);
-	if (!outer_l3)
-		return TEST_FAIL;
-
-	outer_l3->nexthdr = IPPROTO_ICMPV6;
-	ipv6hdr__set_addrs(outer_l3, (__u8 *)v6_ext_node_one, (__u8 *)v6_node_one);
-
-	l4 = pktgen__push_icmp6hdr(builder);
+	l4 = pktgen__push_ipv6_icmp6_packet(builder,
+					    (__u8 *)mac_one,
+					    (__u8 *)mac_two,
+					    (__u8 *)v6_ext_node_one,
+					    (__u8 *)v6_node_one,
+					    ICMPV6_PKT_TOOBIG);
 	if (!l4)
 		return TEST_FAIL;
-
-	l4->icmp6_type = ICMPV6_PKT_TOOBIG;
 
 	inner_l3 = pktgen__push_default_ipv6hdr(builder);
 	if (!inner_l3)

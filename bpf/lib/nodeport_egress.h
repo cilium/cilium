@@ -209,7 +209,7 @@ skip_fib:
 		trace->monitor = monitor;
 
 		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info,
-				    ipfrag_has_l4_header(fraginfo), CT_EGRESS);
+				    ipfrag_has_l4_header(fraginfo), CT_EGRESS, false);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -357,23 +357,8 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 				return ret;
 
 			if (ret != DROP_CT_UNKNOWN_PROTO &&
-			    ct_is_reply4(get_ct_map4(&tuple), &tuple)) {
-				/* Look up the parent interface's MAC address and set it as the
-				 * source MAC address of the packet. We will assume the destination
-				 * MAC address is still correct. This assumption only holds if the
-				 * current and parent interfaces are on the same L2 network such as
-				 * in EKS.
-				 */
-				union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(ep->parent_ifindex);
-
-				if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
-					return DROP_WRITE_ERROR;
-
-				/* For EKS we don't have to rewrite the dmac. Once we require a 5.10
-				 * kernel, this can turn into bpf_redirect_neigh() for robustness.
-				 */
-				return ctx_redirect(ctx, ep->parent_ifindex, 0);
-			}
+			    ct_is_reply4(get_ct_map4(&tuple), &tuple))
+				return redirect_neigh(ep->parent_ifindex, NULL, 0, 0);
 		}
 	}
 

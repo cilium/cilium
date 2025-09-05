@@ -100,10 +100,14 @@
         "bufbuild/buf", // Protocol buffer toolkit
         "docker.io/alpine/socat", // Alpine socat package
         "docker.io/library/busybox", // Official busybox image
+        "eksctl-io/eksctl", // EKS CLI tool
         "go", // golang version directive upgrade in go.mod
         "google/cloud-sdk", // google cloud-sdk official package name
+        "google-github-actions/auth", // Google GitHub Actions auth
+        "google-github-actions/setup-gcloud", // Google GitHub Actions gcloud setup
         "grpc-ecosystem/grpc-health-probe", // Grpc ecosystem
         "kindest/node", // official kindest images
+        "kubernetes/kubernetes", // Kubernetes official releases
         "kubernetes-sigs/kind", // official kind dependencies
         "quay.io/cilium/cilium-envoy", // Cilium's Envoy proxy
         "quay.io/frrouting/frr", // FRRouting package

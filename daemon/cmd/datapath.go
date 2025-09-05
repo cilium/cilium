@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -232,12 +231,6 @@ func (d *Daemon) initMaps() error {
 	if option.Config.EnableIPv6FragmentsTracking {
 		if err := fragmap.InitMap6(d.metricsRegistry, option.Config.FragmentsMapEntries); err != nil {
 			return fmt.Errorf("initializing fragments map: %w", err)
-		}
-	}
-
-	if option.Config.EnableIPSec {
-		if err := encrypt.MapCreate(); err != nil {
-			return fmt.Errorf("initializing IPsec map: %w", err)
 		}
 	}
 

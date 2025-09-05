@@ -120,6 +120,8 @@ const (
 	Multicast Feature = "multicast-enabled"
 
 	L7LoadBalancer Feature = "loadbalancer-l7"
+
+	RHEL Feature = "rhel"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)

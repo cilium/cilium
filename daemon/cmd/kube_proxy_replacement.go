@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -256,7 +257,7 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) error {
+func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, ipsecEnabled bool) error {
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
 	if option.Config.EnableMKE && kprCfg.EnableSocketLB {
@@ -267,8 +268,8 @@ func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 		msg := ""
 		switch {
 		// Needs host stack for packet handling.
-		case option.Config.EnableIPSec:
-			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
+		case ipsecEnabled:
+			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", datapath.EnableIPSec)
 		// Non-BPF masquerade requires netfilter and hence CT.
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)

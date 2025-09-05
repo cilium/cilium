@@ -343,6 +343,8 @@ const DebugEventType_DBG_SK_LOOKUP6 = flow.DebugEventType_DBG_SK_LOOKUP6
 const DebugEventType_DBG_SK_ASSIGN = flow.DebugEventType_DBG_SK_ASSIGN
 const DebugEventType_DBG_L7_LB = flow.DebugEventType_DBG_L7_LB
 const DebugEventType_DBG_SKIP_POLICY = flow.DebugEventType_DBG_SKIP_POLICY
+const DebugEventType_DBG_LB6_LOOPBACK_SNAT = flow.DebugEventType_DBG_LB6_LOOPBACK_SNAT
+const DebugEventType_DBG_LB6_LOOPBACK_SNAT_REV = flow.DebugEventType_DBG_LB6_LOOPBACK_SNAT_REV
 
 var DebugEventType_name = flow.DebugEventType_name
 var DebugEventType_value = flow.DebugEventType_value

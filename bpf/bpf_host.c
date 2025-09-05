@@ -974,47 +974,6 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV4 */
 
-#if defined(ENABLE_IPSEC) && defined(TUNNEL_MODE)
-static __always_inline int
-do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
-{
-	struct trace_ctx trace = {
-		.reason = TRACE_REASON_ENCRYPTED,
-		.monitor = 0,
-	};
-	struct remote_endpoint_info *ep = NULL;
-	void *data, *data_end;
-	struct ipv6hdr *ip6 __maybe_unused;
-	struct iphdr *ip4 __maybe_unused;
-
-	if (!eth_is_supported_ethertype(proto))
-		return DROP_UNSUPPORTED_L2;
-
-	switch (proto) {
-# ifdef ENABLE_IPV6
-	case bpf_htons(ETH_P_IPV6):
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
-		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		break;
-# endif /* ENABLE_IPV6 */
-# ifdef ENABLE_IPV4
-	case bpf_htons(ETH_P_IP):
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-		ep = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		break;
-# endif /* ENABLE_IPV4 */
-	}
-	if (!ep || !ep->flag_has_tunnel_ep)
-		return DROP_NO_TUNNEL_ENDPOINT;
-
-	ctx->mark = 0;
-
-	return encap_and_redirect_with_nodeid(ctx, ep, src_id, 0, &trace, proto);
-}
-#endif /* ENABLE_IPSEC && TUNNEL_MODE */
-
 #ifdef ENABLE_L2_ANNOUNCEMENTS
 static __always_inline
 int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
@@ -1364,18 +1323,10 @@ int cil_from_host(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPSEC
 	if (magic == MARK_MAGIC_ENCRYPT) {
-		ret = CTX_ACT_OK;
-
 		send_trace_notify(ctx, TRACE_FROM_STACK, identity, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
 				  TRACE_REASON_ENCRYPTED, 0, proto);
-
-# ifdef TUNNEL_MODE
-		ret = do_netdev_encrypt_encap(ctx, proto, identity);
-		if (IS_ERR(ret))
-			return send_drop_notify_error(ctx, identity, ret, METRIC_EGRESS);
-# endif /* TUNNEL_MODE */
-		return ret;
+		return CTX_ACT_OK;
 	}
 #endif /* ENABLE_IPSEC */
 
@@ -1403,7 +1354,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 
-	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_wireguard(ctx))
+	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_encrypted(ctx))
 		src_sec_identity = HOST_ID;
 #ifdef ENABLE_IDENTITY_MARK
 	else if (magic == MARK_MAGIC_IDENTITY)
@@ -1649,7 +1600,7 @@ skip_egress_gateway:
 	 * Skip redirect to the WireGuard tunnel device if the pkt has been
 	 * already encrypted.
 	 * After the packet has been encrypted, the WG tunnel device
-	 * will set the MARK_MAGIC_WG_ENCRYPTED skb mark. So, to avoid
+	 * will set the MARK_MAGIC_ENCRYPT skb mark. So, to avoid
 	 * looping forever (e.g., bpf_host@eth0 => cilium_wg0 =>
 	 * bpf_host@eth0 => ...; this happens when eth0 is used to send
 	 * encrypted WireGuard UDP packets), we check whether the mark
@@ -1680,7 +1631,7 @@ skip_egress_gateway:
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_mark_is_wireguard(ctx)) {
+	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_mark_is_encrypted(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.

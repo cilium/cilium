@@ -42,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
@@ -694,7 +693,7 @@ func (m *Manager) installStaticProxyRules() error {
 		}
 
 		// No conntrack for proxy forward traffic that is heading to cilium_host
-		if option.Config.EnableIPSec {
+		if m.sharedCfg.EnableIPSec {
 			if err := ip4tables.runProg([]string{
 				"-t", "raw",
 				"-A", ciliumOutputRawChain,
@@ -803,7 +802,7 @@ func (m *Manager) installStaticProxyRules() error {
 		}
 
 		// No conntrack for proxy forward traffic that is heading to cilium_host
-		if option.Config.EnableIPSec {
+		if m.sharedCfg.EnableIPSec {
 			if err := ip6tables.runProg([]string{
 				"-t", "raw",
 				"-A", ciliumOutputRawChain,

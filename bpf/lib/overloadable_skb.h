@@ -255,14 +255,20 @@ static __always_inline bool ctx_is_overlay_encrypted(const struct __sk_buff *ctx
 	return (ctx->mark & MARK_MAGIC_KEY_MASK) == MARK_MAGIC_OVERLAY_ENCRYPTED;
 }
 
+static __always_inline bool ctx_mark_is_encrypted(const struct __sk_buff *ctx)
+{
+	if (!is_defined(ENABLE_WIREGUARD) && !is_defined(ENABLE_IPSEC))
+		return false;
+
+	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT;
+}
+
 static __always_inline bool ctx_mark_is_wireguard(const struct __sk_buff *ctx)
 {
 	if (!is_defined(ENABLE_WIREGUARD))
 		return false;
 
-	/* Handle upgrades from v1.17, where we still use MARK_MAGIC_WG_ENCRYPTED. */
-	return (ctx->mark & MARK_MAGIC_WG_ENCRYPTED) == MARK_MAGIC_WG_ENCRYPTED ||
-			(ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT;
+	return ctx_mark_is_encrypted(ctx);
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON

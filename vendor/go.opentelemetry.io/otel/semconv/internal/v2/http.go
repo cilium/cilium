@@ -91,8 +91,7 @@ func (c *HTTPConv) ClientRequest(req *http.Request) []attribute.KeyValue {
 	}
 	attrs := make([]attribute.KeyValue, 0, n)
 
-	attrs = append(attrs, c.method(req.Method))
-	attrs = append(attrs, c.proto(req.Proto))
+	attrs = append(attrs, c.method(req.Method), c.proto(req.Proto))
 
 	var u string
 	if req.URL != nil {
@@ -103,9 +102,11 @@ func (c *HTTPConv) ClientRequest(req *http.Request) []attribute.KeyValue {
 		// Restore any username/password info that was removed.
 		req.URL.User = userinfo
 	}
-	attrs = append(attrs, c.HTTPURLKey.String(u))
-
-	attrs = append(attrs, c.NetConv.PeerName(peer))
+	attrs = append(
+		attrs,
+		c.HTTPURLKey.String(u),
+		c.NetConv.PeerName(peer),
+	)
 	if port > 0 {
 		attrs = append(attrs, c.NetConv.PeerPort(port))
 	}
@@ -191,10 +192,13 @@ func (c *HTTPConv) ServerRequest(server string, req *http.Request) []attribute.K
 	}
 	attrs := make([]attribute.KeyValue, 0, n)
 
-	attrs = append(attrs, c.method(req.Method))
-	attrs = append(attrs, c.scheme(req.TLS != nil))
-	attrs = append(attrs, c.proto(req.Proto))
-	attrs = append(attrs, c.NetConv.HostName(host))
+	attrs = append(
+		attrs,
+		c.method(req.Method),
+		c.scheme(req.TLS != nil),
+		c.proto(req.Proto),
+		c.NetConv.HostName(host),
+	)
 
 	if hostPort > 0 {
 		attrs = append(attrs, c.NetConv.HostPort(hostPort))
@@ -294,7 +298,7 @@ func (c *HTTPConv) ResponseHeader(h http.Header) []attribute.KeyValue {
 	return c.header("http.response.header", h)
 }
 
-func (c *HTTPConv) header(prefix string, h http.Header) []attribute.KeyValue {
+func (*HTTPConv) header(prefix string, h http.Header) []attribute.KeyValue {
 	key := func(k string) attribute.Key {
 		k = strings.ToLower(k)
 		k = strings.ReplaceAll(k, "-", "_")
@@ -311,7 +315,7 @@ func (c *HTTPConv) header(prefix string, h http.Header) []attribute.KeyValue {
 
 // ClientStatus returns a span status code and message for an HTTP status code
 // value received by a client.
-func (c *HTTPConv) ClientStatus(code int) (codes.Code, string) {
+func (*HTTPConv) ClientStatus(code int) (codes.Code, string) {
 	stat, valid := validateHTTPStatusCode(code)
 	if !valid {
 		return stat, fmt.Sprintf("Invalid HTTP status code %d", code)
@@ -322,7 +326,7 @@ func (c *HTTPConv) ClientStatus(code int) (codes.Code, string) {
 // ServerStatus returns a span status code and message for an HTTP status code
 // value returned by a server. Status codes in the 400-499 range are not
 // returned as errors.
-func (c *HTTPConv) ServerStatus(code int) (codes.Code, string) {
+func (*HTTPConv) ServerStatus(code int) (codes.Code, string) {
 	stat, valid := validateHTTPStatusCode(code)
 	if !valid {
 		return stat, fmt.Sprintf("Invalid HTTP status code %d", code)

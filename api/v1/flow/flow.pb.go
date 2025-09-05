@@ -1215,6 +1215,8 @@ const (
 	DebugEventType_DBG_SK_ASSIGN                       DebugEventType = 64
 	DebugEventType_DBG_L7_LB                           DebugEventType = 65
 	DebugEventType_DBG_SKIP_POLICY                     DebugEventType = 66
+	DebugEventType_DBG_LB6_LOOPBACK_SNAT               DebugEventType = 67
+	DebugEventType_DBG_LB6_LOOPBACK_SNAT_REV           DebugEventType = 68
 )
 
 // Enum value maps for DebugEventType.
@@ -1287,6 +1289,8 @@ var (
 		64: "DBG_SK_ASSIGN",
 		65: "DBG_L7_LB",
 		66: "DBG_SKIP_POLICY",
+		67: "DBG_LB6_LOOPBACK_SNAT",
+		68: "DBG_LB6_LOOPBACK_SNAT_REV",
 	}
 	DebugEventType_value = map[string]int32{
 		"DBG_EVENT_UNKNOWN":                   0,
@@ -1356,6 +1360,8 @@ var (
 		"DBG_SK_ASSIGN":                       64,
 		"DBG_L7_LB":                           65,
 		"DBG_SKIP_POLICY":                     66,
+		"DBG_LB6_LOOPBACK_SNAT":               67,
+		"DBG_LB6_LOOPBACK_SNAT_REV":           68,
 	}
 )
 
@@ -5532,7 +5538,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\"SOCK_XLATE_POINT_PRE_DIRECTION_FWD\x10\x01\x12'\n" +
 	"#SOCK_XLATE_POINT_POST_DIRECTION_FWD\x10\x02\x12&\n" +
 	"\"SOCK_XLATE_POINT_PRE_DIRECTION_REV\x10\x03\x12'\n" +
-	"#SOCK_XLATE_POINT_POST_DIRECTION_REV\x10\x04*\x81\r\n" +
+	"#SOCK_XLATE_POINT_POST_DIRECTION_REV\x10\x04*\xbb\r\n" +
 	"\x0eDebugEventType\x12\x15\n" +
 	"\x11DBG_EVENT_UNKNOWN\x10\x00\x12\x0f\n" +
 	"\vDBG_GENERIC\x10\x01\x12\x16\n" +
@@ -5601,7 +5607,9 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x0eDBG_SK_LOOKUP6\x10?\x12\x11\n" +
 	"\rDBG_SK_ASSIGN\x10@\x12\r\n" +
 	"\tDBG_L7_LB\x10A\x12\x13\n" +
-	"\x0fDBG_SKIP_POLICY\x10BB&Z$github.com/cilium/cilium/api/v1/flowb\x06proto3"
+	"\x0fDBG_SKIP_POLICY\x10B\x12\x19\n" +
+	"\x15DBG_LB6_LOOPBACK_SNAT\x10C\x12\x1d\n" +
+	"\x19DBG_LB6_LOOPBACK_SNAT_REV\x10DB&Z$github.com/cilium/cilium/api/v1/flowb\x06proto3"
 
 var (
 	file_flow_flow_proto_rawDescOnce sync.Once

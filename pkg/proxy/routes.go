@@ -54,8 +54,8 @@ var (
 
 // ReinstallRoutingRules ensures the presence of routing rules and tables needed
 // to route packets to and from the L7 proxy.
-func ReinstallRoutingRules(logger *slog.Logger, localNode node.LocalNode, mtu int) error {
-	fromIngressProxy, fromEgressProxy := requireFromProxyRoutes()
+func ReinstallRoutingRules(logger *slog.Logger, localNode node.LocalNode, mtu int, ipsecEnabled bool) error {
+	fromIngressProxy, fromEgressProxy := requireFromProxyRoutes(ipsecEnabled)
 
 	// Use the provided mtu (RouteMTU) only with both ingress and egress proxy.
 	if !fromIngressProxy || !fromEgressProxy {
@@ -115,9 +115,9 @@ func ReinstallRoutingRules(logger *slog.Logger, localNode node.LocalNode, mtu in
 	return nil
 }
 
-func requireFromProxyRoutes() (fromIngressProxy, fromEgressProxy bool) {
-	fromIngressProxy = (option.Config.EnableEnvoyConfig || option.Config.EnableIPSec) && !option.Config.TunnelingEnabled()
-	fromEgressProxy = option.Config.EnableIPSec && !option.Config.TunnelingEnabled()
+func requireFromProxyRoutes(ipsecEnabled bool) (fromIngressProxy, fromEgressProxy bool) {
+	fromIngressProxy = (option.Config.EnableEnvoyConfig || ipsecEnabled) && !option.Config.TunnelingEnabled()
+	fromEgressProxy = ipsecEnabled && !option.Config.TunnelingEnabled()
 	return
 }
 
