@@ -1,0 +1,101 @@
+{{$PIN_TO_LABELLED_NODES := DefaultParam .CL2_PIN_WORKLOADS_TO_LABELLED_NODES false}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/name: http-server
+    index: "{{.Index}}"
+    group: {{.group}}
+spec:
+  replicas: {{.replicas}}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: http-server
+      index: "{{.Index}}"
+      group: {{.group}}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: http-server
+        index: "{{.Index}}"
+        group: {{.group}}
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: http-server
+                index: "{{.Index}}"
+            topologyKey: kubernetes.io/hostname
+      {{ if $PIN_TO_LABELLED_NODES }}
+      nodeSelector:
+        role.scaffolding/http-perf-server: "true"
+      {{ end }}
+      containers:
+      - image: "envoyproxy/nighthawk-dev"
+        name: {{.Name}}
+        # FIXME: https://github.com/envoyproxy/nighthawk/pull/1407
+        # command: ["nighthawk_test_server"]
+        # args:
+        #   - "-c"
+        #   - "/etc/nighthawk/nighthawk.yaml"
+        command: ["/bin/bash"]
+        args:
+          - "-c"
+          - |
+            #!/usr/bin/env bash
+
+            mkdir -p /etc/nighthawk
+            cat <<EOF > /etc/nighthawk/nighthawk.yaml
+            admin:
+              access_log_path: /tmp/nighthawk_test_server_admin_access.log
+              profile_path: /tmp/nighthawk_test_server.prof
+              address:
+                socket_address: { address: 0.0.0.0, port_value: 10001 }
+            static_resources:
+              listeners:
+                - address:
+                    socket_address:
+                      address: 0.0.0.0
+                      port_value: 10000
+                  filter_chains:
+                    - filters:
+                        - name: envoy.filters.network.http_connection_manager
+                          typed_config:
+                            "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                            generate_request_id: false
+                            codec_type: AUTO
+                            stat_prefix: ingress_http
+                            route_config:
+                              name: local_route
+                              virtual_hosts:
+                                - name: service
+                                  domains:
+                                    - "*"
+                            http_filters:
+                              - name: dynamic-delay
+                                typed_config:
+                                  "@type": type.googleapis.com/nighthawk.server.DynamicDelayConfiguration
+                                  static_delay: 0s
+                              - name: test-server # before envoy.router because order matters!
+                                typed_config:
+                                  "@type": type.googleapis.com/nighthawk.server.ResponseOptions
+                                  response_body_size: 10
+                                  v3_response_headers:
+                                    - { header: { key: "x-nh", value: "1" } }
+                              - name: envoy.filters.http.router
+                                typed_config:
+                                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                                  dynamic_stats: false
+            EOF
+
+            nighthawk_test_server -c /etc/nighthawk/nighthawk.yaml
+        ports:
+        - name: http
+          containerPort: 10000
+        - name: admin
+          containerPort: 10001
+      terminationGracePeriodSeconds: 1
