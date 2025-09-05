@@ -193,6 +193,18 @@ func (c *Cache) Clear(typeURL string) (version uint64, updated bool) {
 	return c.version, cacheIsUpdated
 }
 
+func (c *Cache) HasAny(typeURL string) bool {
+	c.locker.Lock()
+	defer c.locker.Unlock()
+
+	for k := range c.resources {
+		if typeURL == AnyTypeURL || k.typeURL == typeURL {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, resourceNames []string) (*VersionedResources, error) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
