@@ -12,6 +12,7 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
