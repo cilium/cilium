@@ -67,7 +67,10 @@ type ClusterService struct {
 	Backends map[string]PortConfiguration `json:"backends"`
 
 	// Hostnames is map indexed by the backend IP address
-	Hostnames map[string]string `json:"hostnames"`
+	Hostnames map[string]string `json:"hostnames,omitempty"`
+
+	// Zones is map indexed by the backend IP address
+	Zones map[string]BackendZone `json:"zones,omitempty"`
 
 	// Labels are the labels of the service
 	Labels map[string]string `json:"labels"`
@@ -162,6 +165,44 @@ func (s *ClusterService) validate() error {
 	return nil
 }
 
+// BackendZone locates the backend to a specific zone and specifies what zones
+// the backend should be used in for topology aware routing.
+//
+// WARNING - STABLE API: Changing the structure or values of this will
+// break backwards compatibility
+//
+// +k8s:deepcopy-gen=true
+type BackendZone struct {
+	// Zone where backend is located.
+	Zone string `json:"zone"`
+
+	// ForZones where this backend should be consumed in
+	ForZones []ForZone `json:"forZones"`
+}
+
+func (bz *BackendZone) ToLBBackendZone() loadbalancer.BackendZone {
+	forZones := make([]string, 0, len(bz.ForZones))
+	for _, forZone := range bz.ForZones {
+		forZones = append(forZones, forZone.Name)
+	}
+	return loadbalancer.BackendZone{
+		Zone:     bz.Zone,
+		ForZones: forZones,
+	}
+}
+
+// ForZone provides information about which zones should consume this endpoint.
+// We are using a struct similar to Kubernetes API to reduce the likelihood of
+// introducing a breaking change.
+//
+// WARNING - STABLE API: Changing the structure or values of this will
+// break backwards compatibility
+//
+// +k8s:deepcopy-gen=true
+type ForZone struct {
+	Name string `json:"name"`
+}
+
 // NewClusterService returns a new cluster service definition
 func NewClusterService(name, namespace string) ClusterService {
 	return ClusterService{
@@ -170,6 +211,7 @@ func NewClusterService(name, namespace string) ClusterService {
 		Frontends: map[string]PortConfiguration{},
 		Backends:  map[string]PortConfiguration{},
 		Hostnames: map[string]string{},
+		Zones:     map[string]BackendZone{},
 		Labels:    map[string]string{},
 		Selector:  map[string]string{},
 	}
