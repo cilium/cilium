@@ -1571,11 +1571,7 @@ func (ct *ConnectivityTest) createTestConnDisruptClientDeploymentForNSTraffic(ct
 			var errs error
 			np := uint16(svc.Spec.Ports[0].NodePort)
 			addrs := slices.Clone(n.node.Status.Addresses)
-			hasNetworkPolicies, err := ct.hasNetworkPolicies(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to check if any netpol exists: %w", err)
-			}
-			ct.ForEachIPFamily(hasNetworkPolicies, func(family features.IPFamily) {
+			ct.ForEachIPFamily(func(family features.IPFamily) {
 				for _, addr := range addrs {
 					if features.GetIPFamily(addr.Address) != family {
 						continue
@@ -1736,36 +1732,6 @@ func (ct *ConnectivityTest) GetConnDisruptEgressPolicyEntries(ctx context.Contex
 	}
 
 	return targetEntries, nil
-}
-
-func (ct *ConnectivityTest) hasNetworkPolicies(ctx context.Context) (bool, error) {
-	for _, client := range ct.Clients() {
-		cnps, err := client.ListCiliumNetworkPolicies(ctx, ct.params.TestNamespace, metav1.ListOptions{Limit: 1})
-		if err != nil {
-			return false, err
-		}
-		if len(cnps.Items) > 0 {
-			return true, nil
-		}
-
-		ccnps, err := client.ListCiliumClusterwideNetworkPolicies(ctx, metav1.ListOptions{Limit: 1})
-		if err != nil {
-			return false, err
-		}
-		if len(ccnps.Items) > 0 {
-			return true, nil
-		}
-
-		nps, err := client.ListNetworkPolicies(ctx, metav1.ListOptions{Limit: 1})
-		if err != nil {
-			return false, err
-		}
-		if len(nps.Items) > 0 {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 func (ct *ConnectivityTest) createClientPerfDeployment(ctx context.Context, name string, nodeName string, hostNetwork bool) error {

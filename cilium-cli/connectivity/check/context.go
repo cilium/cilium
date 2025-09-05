@@ -1316,7 +1316,7 @@ func (ct *ConnectivityTest) KillMulticastTestSender() []string {
 	return cmd
 }
 
-func (ct *ConnectivityTest) ForEachIPFamily(hasNetworkPolicies bool, do func(features.IPFamily)) {
+func (ct *ConnectivityTest) ForEachIPFamily(do func(features.IPFamily)) {
 	ipFams := features.GetIPFamilies(ct.Params().IPFamilies)
 
 	for _, ipFam := range ipFams {
