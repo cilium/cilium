@@ -452,15 +452,6 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[loadba
 			if checkZoneHints && !slices.Contains(be.Zone.ForZones, *thisZone) {
 				continue
 			}
-			if fe != nil {
-				if fe.PortName != "" {
-					// A backend with specific port name requested. Look up what this backend
-					// is called for this service.
-					if !slices.Contains(be.PortNames, string(fe.PortName)) {
-						continue
-					}
-				}
-			}
 			if !yield(be, rev) {
 				return
 			}
