@@ -368,7 +368,7 @@ jobs:
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }})"
-          job_status: "${{ job.status }}"
+          job_status: "failure"
 
       - name: Clean up ESP allow firewall rule
         if: ${{ always() && matrix.config.type == 'tunnel-ipsec' }}
