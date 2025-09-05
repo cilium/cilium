@@ -157,6 +157,8 @@ cilium-agent hive [flags]
       --ipsec-key-rotation-duration duration                      Maximum duration of the IPsec key rotation. The previous key will be removed after that delay. (default 5m0s)
       --iptables-lock-timeout duration                            Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --iptables-random-fully                                     Set iptables flag random-fully on masquerading rules
+      --ipv4-masquerade-src-exclusion-cidrs string                Comma-separated list of IPv4 source CIDRs that should be excluded from masquerade. Source IPs from these CIDRs will not be masqueraded when egressing the node.
+      --ipv6-masquerade-src-exclusion-cidrs string                Comma-separated list of IPv6 source CIDRs that should be excluded from masquerade. Source IPs from these CIDRs will not be masqueraded when egressing the node.
       --k8s-api-server-urls strings                               Kubernetes API server URLs
       --k8s-client-burst int                                      Burst value allowed for the K8s client (default 20)
       --k8s-client-connection-keep-alive duration                 Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
