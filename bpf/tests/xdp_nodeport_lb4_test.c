@@ -24,6 +24,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "bpf_xdp.c"
 #include "lib/nodeport.h"
 
+ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
+
 #include "lib/lb.h"
 
 struct {
