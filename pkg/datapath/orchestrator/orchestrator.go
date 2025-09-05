@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -109,6 +110,7 @@ type orchestratorParams struct {
 	XDPConfig           xdp.Config
 	LBConfig            loadbalancer.Config
 	KPRConfig           kpr.KPRConfig
+	SvcRouteConfig      svcrouteconfig.RoutesConfig
 	MaglevConfig        maglev.Config
 	WgConfig            wgTypes.WireguardConfig
 	IPsecConfig         datapath.IPsecConfig
@@ -210,6 +212,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.XDPConfig,
 			o.params.LBConfig,
 			o.params.KPRConfig,
+			o.params.SvcRouteConfig,
 			o.params.MaglevConfig,
 			o.params.MTU,
 			o.params.WgConfig,
