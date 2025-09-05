@@ -20,6 +20,7 @@ import (
 	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -76,6 +77,7 @@ type configModifyApiHandlerParams struct {
 	TunnelConfig    tunnel.Config
 	BandwidthConfig datapath.BandwidthConfig
 	WgConfig        wgTypes.WireguardConfig
+	ConnectorConfig *connector.ConnectorConfig
 
 	EventHandler *ConfigModifyEventHandler
 }
@@ -101,6 +103,7 @@ func newConfigModifyApiHandler(params configModifyApiHandlerParams) configModify
 			tunnelConfig:    params.TunnelConfig,
 			bandwidthConfig: params.BandwidthConfig,
 			wgConfig:        params.WgConfig,
+			connectorConfig: params.ConnectorConfig,
 		},
 		PatchConfigHandler: &patchConfigHandler{
 			logger:       params.Logger,
@@ -346,6 +349,7 @@ type getConfigHandler struct {
 	tunnelConfig    tunnel.Config
 	bandwidthConfig datapath.BandwidthConfig
 	wgConfig        wgTypes.WireguardConfig
+	connectorConfig *connector.ConnectorConfig
 }
 
 func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.Responder {
@@ -406,6 +410,8 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		GSOIPV4MaxSize:                      int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
 		IPLocalReservedPorts:                h.getIPLocalReservedPorts(),
 		EnableBBRHostNamespaceOnly:          h.bandwidthConfig.EnableBBRHostnsOnly,
+		DeviceHeadroom:                      int64(h.connectorConfig.GetPodDeviceHeadroom()),
+		DeviceTailroom:                      int64(h.connectorConfig.GetPodDeviceTailroom()),
 	}
 
 	cfg := &models.DaemonConfiguration{
