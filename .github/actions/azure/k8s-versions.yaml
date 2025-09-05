@@ -3,12 +3,15 @@
 include:
   - version: "1.30"
     location: westus3
+    default: true
     index: 1
   - version: "1.31"
     location: westus2
+    default: true
     index: 2
   - version: "1.32"
     location: eastus2
+    default: true
     index: 3
   - version: "1.33"
     location: eastus

@@ -376,7 +376,7 @@ jobs:
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ join(matrix.*, '-') }}"
-          job_status: "${{ job.status }}"
+          job_status: "failure"
           capture_features_tested: false
 
   merge-upload-and-status:
