@@ -15,6 +15,8 @@
 
 #define FROM_NETDEV 0
 
+ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
+
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
 	__uint(key_size, sizeof(__u32));
