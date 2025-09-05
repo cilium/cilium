@@ -138,11 +138,6 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	mode := ""
 	if st.CniChaining != nil {
 		mode = st.CniChaining.Mode
-	} else {
-		// Cilium versions prior to v1.12 do not expose the CNI chaining mode in
-		// cilium status, it's only available in the ConfigMap, which we
-		// inherit here
-		mode = result[features.CNIChaining].Mode
 	}
 
 	result[features.CNIChaining] = features.Status{
