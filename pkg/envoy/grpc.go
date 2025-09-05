@@ -93,7 +93,8 @@ func (s *xdsGRPCServer) DeltaListeners(stream envoy_service_listener.ListenerDis
 }
 
 func (s *xdsGRPCServer) StreamListeners(stream envoy_service_listener.ListenerDiscoveryService_StreamListenersServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, ListenerTypeURL)
+	// Listeners should start serving only after Clusters have been ACKed.
+	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, ListenerTypeURL, ClusterTypeURL)
 }
 
 func (s *xdsGRPCServer) FetchListeners(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -107,7 +108,7 @@ func (s *xdsGRPCServer) DeltaRoutes(stream envoy_service_route.RouteDiscoverySer
 }
 
 func (s *xdsGRPCServer) StreamRoutes(stream envoy_service_route.RouteDiscoveryService_StreamRoutesServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, RouteTypeURL)
+	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, RouteTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchRoutes(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -121,7 +122,7 @@ func (s *xdsGRPCServer) DeltaClusters(stream envoy_service_cluster.ClusterDiscov
 }
 
 func (s *xdsGRPCServer) StreamClusters(stream envoy_service_cluster.ClusterDiscoveryService_StreamClustersServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, ClusterTypeURL)
+	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, ClusterTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchClusters(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -135,7 +136,7 @@ func (s *xdsGRPCServer) DeltaEndpoints(stream envoy_service_endpoint.EndpointDis
 }
 
 func (s *xdsGRPCServer) StreamEndpoints(stream envoy_service_endpoint.EndpointDiscoveryService_StreamEndpointsServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, EndpointTypeURL)
+	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, EndpointTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchEndpoints(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -149,7 +150,7 @@ func (s *xdsGRPCServer) DeltaSecrets(stream envoy_service_secret.SecretDiscovery
 }
 
 func (s *xdsGRPCServer) StreamSecrets(stream envoy_service_secret.SecretDiscoveryService_StreamSecretsServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, SecretTypeURL)
+	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, SecretTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchSecrets(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -159,7 +160,7 @@ func (s *xdsGRPCServer) FetchSecrets(ctx context.Context, req *envoy_service_dis
 }
 
 func (s *xdsGRPCServer) StreamNetworkPolicies(stream cilium.NetworkPolicyDiscoveryService_StreamNetworkPoliciesServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, NetworkPolicyTypeURL)
+	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, NetworkPolicyTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchNetworkPolicies(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -169,7 +170,7 @@ func (s *xdsGRPCServer) FetchNetworkPolicies(ctx context.Context, req *envoy_ser
 }
 
 func (s *xdsGRPCServer) StreamNetworkPolicyHosts(stream cilium.NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, NetworkPolicyHostsTypeURL)
+	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, NetworkPolicyHostsTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchNetworkPolicyHosts(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
