@@ -42,7 +42,7 @@ cilium [flags]
       --helm-release-name string   Helm release name (default "cilium")
   -h, --help                       help for cilium
       --kubeconfig string          Path to the kubeconfig file
-  -n, --namespace string           Namespace Cilium is running in (default "kube-system")
+  -n, --namespace string           Namespace Cilium is running in. Can also be set via CILIUM_NAMESPACE env var (default "kube-system")
 ```
 
 ### SEE ALSO
