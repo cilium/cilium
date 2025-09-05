@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
+	"github.com/cilium/cilium/pkg/maps/vtep_policy"
 )
 
 // Cell contains all cells which are providing BPF Maps.
@@ -75,8 +76,11 @@ var Cell = cell.Module(
 	// Provides access to policy maps.
 	policymap.Cell,
 
-	// Provides access to the encryption map.
+  // Provides access to the encryption map.
 	encrypt.Cell,
+  
+  // Provides access to vtep policy maps
+	vtep_policy.Cell,
 )
 
 type mapApiHandlerOut struct {
