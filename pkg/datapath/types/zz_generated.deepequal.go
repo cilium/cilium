@@ -303,5 +303,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		return false
 	}
 
+	if in.SvcRouteConfig != other.SvcRouteConfig {
+		return false
+	}
+
 	return true
 }
