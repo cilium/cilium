@@ -1687,7 +1687,7 @@ hubble:
     # -- Enable prometheus metrics for hubble-relay on the configured port at
     # /metrics
     prometheus:
-      enabled: false
+      enabled: true
       port: 9966
       serviceMonitor:
         # -- Enable service monitors.
@@ -2331,7 +2331,7 @@ pprof:
 # -- Configure prometheus metrics on the configured port at /metrics
 prometheus:
   metricsService: false
-  enabled: false
+  enabled: true
   port: 9962
   serviceMonitor:
     # -- Enable service monitors.
