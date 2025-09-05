@@ -1571,11 +1571,7 @@ func (ct *ConnectivityTest) createTestConnDisruptClientDeploymentForNSTraffic(ct
 			var errs error
 			np := uint16(svc.Spec.Ports[0].NodePort)
 			addrs := slices.Clone(n.node.Status.Addresses)
-			hasNetworkPolicies, err := ct.hasNetworkPolicies(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to check if any netpol exists: %w", err)
-			}
-			ct.ForEachIPFamily(hasNetworkPolicies, func(family features.IPFamily) {
+			ct.ForEachIPFamily(func(family features.IPFamily) {
 				for _, addr := range addrs {
 					if features.GetIPFamily(addr.Address) != family {
 						continue
