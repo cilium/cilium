@@ -3,12 +3,11 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG TESTER_IMAGE=quay.io/cilium/image-tester:1755531540-60ee83e@sha256:1b05459281d6613acb8573b2cd7f488a0d224eebf031770babbfc6a294501cf7
 ARG GOLANG_IMAGE=docker.io/library/golang:1.25.0@sha256:5502b0e56fca23feba76dbc5387ba59c593c02ccc2f0f7355871ea9a0852cebe
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:24.04@sha256:9cbed754112939e914291337b5e554b07ad7c392491dba6daf25eef1332a22e8
 
-ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1755973935-c5bf38b@sha256:40f98e82b2fdeb4936776792ee0dedaacab1892c2d689748a1745e3ee911cecf
-ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:5a9c4852a21287686009bfe1cdc1fed6e7aabdea@sha256:188e398ee30456373530698d0d29de66dda0c4428068ea430027ceb7e9c15b7c
+ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1755027449-dfe66ec@sha256:6a8632f1772dee0f1f287dd84f4010347c19f350347487603f16210674a3a787
+ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:1755027374-a7874bb@sha256:fd086a4b94e5e076039fbb32ce31edbcc8d443fab522965ab5643034f36d3c41
 ARG CILIUM_IPTABLES_IMAGE=quay.io/cilium/iptables:1331e9b1b03f70c9d8b08626d9a7126963f86478@sha256:d761d967243aced2729adde1e332a9c9def6baeb61f5f6cde5758b04e9a79355
 
 FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
@@ -54,13 +53,6 @@ COPY --from=bpftool-dist /usr/local/bin/bpftool /usr/local/bin/bpftool
 ARG TARGETPLATFORM
 COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/loopback /cni/loopback
 COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/gops /bin/gops
-
-FROM ${TESTER_IMAGE} AS test
-COPY --from=rootfs / /
-COPY --from=llvm-dist /test /test
-COPY --from=bpftool-dist /test /test
-RUN /test/bin/cst -C /test/llvm
-RUN /test/bin/cst -C /test/bpftool
 
 FROM scratch
 LABEL maintainer="maintainer@cilium.io"
