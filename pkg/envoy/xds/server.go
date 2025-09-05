@@ -33,6 +33,10 @@ var (
 	// a type URL from an ADS stream.
 	ErrNoADSTypeURL = errors.New("type URL is required for ADS")
 
+	// ErrMismatchingTypeURL is the error returned when receiving a request with
+	// an unexpected type URL.
+	ErrMismatchingTypeURL = errors.New("mismatching type URL")
+
 	// ErrUnknownTypeURL is the error returned when receiving a request with
 	// an unknown type URL.
 	ErrUnknownTypeURL = errors.New("unknown type URL")
@@ -129,7 +133,7 @@ func getXDSRequestFields(req *envoy_service_discovery.DiscoveryRequest) logrus.F
 }
 
 // HandleRequestStream receives and processes the requests from an xDS stream.
-func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, defaultTypeURL string) error {
+func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, defaultTypeURL, afterTypeURL string) error {
 	// increment stream count
 	streamID := s.lastStreamID.Add(1)
 
@@ -178,7 +182,7 @@ func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, default
 		}
 	}(reqStreamLog)
 
-	return s.processRequestStream(ctx, reqStreamLog, stream, reqCh, defaultTypeURL)
+	return s.processRequestStream(ctx, reqStreamLog, stream, reqCh, defaultTypeURL, afterTypeURL)
 }
 
 // perTypeStreamState is the state maintained per resource type for each
@@ -198,7 +202,7 @@ type perTypeStreamState struct {
 
 // processRequestStream processes the requests in an xDS stream from a channel.
 func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Entry, stream Stream,
-	reqCh <-chan *envoy_service_discovery.DiscoveryRequest, defaultTypeURL string,
+	reqCh <-chan *envoy_service_discovery.DiscoveryRequest, defaultTypeURL, afterTypeURL string,
 ) error {
 	// The request state for every type URL.
 	typeStates := make([]perTypeStreamState, len(s.watchers))
@@ -256,7 +260,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 		i++
 	}
 
-	streamLog.Info("starting xDS stream processing")
+	streamLog.WithField(logfields.XDSTypeURL, defaultTypeURL).Info("starting xDS stream processing")
 
 	nodeIP := ""
 	firstRequest := true
@@ -296,6 +300,12 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 					return ErrInvalidNodeFormat
 				}
 				streamLog.WithFields(getXDSRequestFields(req)).Info("Received first request in a new xDS stream")
+
+				// delay responding to the first request until 'afterTypeURL' has
+				// been acked, if any
+				if afterTypeURL != "" {
+					s.ackObservers[afterTypeURL].WaitForFirstAck(ctx, nodeIP, afterTypeURL)
+				}
 			}
 
 			requestLog := streamLog.WithFields(getXDSRequestFields(req))
@@ -335,6 +345,11 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			if defaultTypeURL == AnyTypeURL && typeURL == "" {
 				requestLog.Error("no type URL given in ADS request")
 				return ErrNoADSTypeURL
+			}
+
+			if defaultTypeURL != AnyTypeURL && typeURL != defaultTypeURL {
+				requestLog.Error("mismatching type URL given in xDS request")
+				return ErrMismatchingTypeURL
 			}
 
 			index, exists := typeIndexes[typeURL]
