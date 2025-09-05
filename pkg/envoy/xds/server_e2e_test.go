@@ -10,8 +10,11 @@ import (
 	"testing"
 	"time"
 
+	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_config_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -100,7 +103,7 @@ func TestRequestAllResources(t *testing.T) {
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -223,7 +226,7 @@ func TestAck(t *testing.T) {
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -344,7 +347,7 @@ func TestRequestSomeResources(t *testing.T) {
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -514,7 +517,7 @@ func TestUpdateRequestResources(t *testing.T) {
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -614,7 +617,7 @@ func TestRequestStaleNonce(t *testing.T) {
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -738,7 +741,7 @@ func TestNAck(t *testing.T) {
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -864,7 +867,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -991,7 +994,7 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -1058,7 +1061,7 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -1083,7 +1086,7 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	// Start processing new stream
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -1144,7 +1147,7 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -1204,5 +1207,329 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	case <-ctx.Done():
 		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
 	case <-streamDone:
+	}
+}
+
+func toAny(pb proto.Message) *anypb.Any {
+	a, err := anypb.New(pb)
+	if err != nil {
+		panic(err.Error())
+	}
+	return a
+}
+
+func TestWaitForAck(t *testing.T) {
+	ListenerTypeURL := "type.googleapis.com/envoy.config.listener.v3.Listener"
+	ClusterTypeURL := "type.googleapis.com/envoy.config.cluster.v3.Cluster"
+
+	// Test the case where the xDS server receives request for Listeners before Clusters, where
+	// we must wait responding on Listeners stream for the first ACK on the Clusters stream to
+	// have been received.
+
+	var err error
+	var resp *envoy_service_discovery.DiscoveryResponse
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
+
+	ldsCache := NewCache()
+	ldsMutator := NewAckingResourceMutatorWrapper(ldsCache)
+	ldsStreamCtx, ldsCloseStream := context.WithCancel(ctx)
+	ldsStream := NewMockStream(ldsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer ldsStream.Close()
+	ldsStreamDone := make(chan struct{})
+
+	cdsCache := NewCache()
+	cdsMutator := NewAckingResourceMutatorWrapper(cdsCache)
+	cdsStreamCtx, cdsCloseStream := context.WithCancel(ctx)
+	cdsStream := NewMockStream(cdsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer cdsStream.Close()
+	cdsStreamDone := make(chan struct{})
+
+	server := NewServer(map[string]*ResourceTypeConfiguration{
+		ListenerTypeURL: {Source: ldsCache, AckObserver: ldsMutator},
+		ClusterTypeURL:  {Source: cdsCache, AckObserver: cdsMutator},
+	},
+		nil)
+
+	// Run the server's stream handlers concurrently.
+	go func() {
+		defer close(ldsStreamDone)
+		err := server.HandleRequestStream(ctx, ldsStream, ListenerTypeURL, ClusterTypeURL)
+		require.NoError(t, err)
+	}()
+	go func() {
+		defer close(cdsStreamDone)
+		err := server.HandleRequestStream(ctx, cdsStream, ClusterTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	// Create Listener with reference to a cluster
+	clusterName := "cluster1"
+
+	clusterConf := &envoy_config_cluster.Cluster{
+		Name: clusterName,
+	}
+
+	listenerConf := &envoy_config_listener.Listener{
+		Name: "listener1",
+		FilterChains: []*envoy_config_listener.FilterChain{{
+			Filters: []*envoy_config_listener.Filter{{
+				Name: "envoy.filters.network.tcp_proxy",
+				ConfigType: &envoy_config_listener.Filter_TypedConfig{
+					TypedConfig: toAny(&envoy_config_tcp.TcpProxy{
+						StatPrefix: "tcp_proxy",
+						ClusterSpecifier: &envoy_config_tcp.TcpProxy_Cluster{
+							Cluster: clusterName,
+						},
+					}),
+				},
+			}},
+		}},
+	}
+
+	cdsCallback, cdsComp := newCompCallback()
+	cdsMutator.Upsert(ClusterTypeURL, clusterConf.Name, clusterConf, []string{node0}, wg, cdsCallback)
+	require.Condition(t, isNotCompletedComparison(cdsComp))
+
+	ldsCallback, ldsComp := newCompCallback()
+	ldsMutator.Upsert(ListenerTypeURL, listenerConf.Name, listenerConf, []string{node0}, wg, ldsCallback)
+	require.Condition(t, isNotCompletedComparison(ldsComp))
+
+	// Request listener resources, with a version higher than the version currently
+	// in Cilium's cache. This happens after the server restarts but the
+	// xDS client survives and continues to request the same version.
+	// First request on a new stream has an empty ResponseNonce!
+	ldsReq := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       ListenerTypeURL,
+		VersionInfo:   "15",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err = ldsStream.SendRequest(ldsReq)
+	require.NoError(t, err)
+
+	// Expecting a LDS response in a goroutine
+	ldsDoneCh := make(chan struct{})
+	go func() {
+		resp, err = ldsStream.RecvResponse()
+		require.NoError(t, err)
+		require.Equal(t, resp.VersionInfo, resp.Nonce)
+		require.Condition(t, responseCheck(resp, "16", []proto.Message{listenerConf}, false, ListenerTypeURL))
+
+		// Check that the completion was not NACKed
+		require.NoError(t, ldsComp.Err())
+
+		// send LDS ACK
+		ldsReq = &envoy_service_discovery.DiscoveryRequest{
+			TypeUrl:       ListenerTypeURL,
+			VersionInfo:   "16",
+			Node:          nodes[node0],
+			ResourceNames: nil,
+			ResponseNonce: "16",
+		}
+		err = ldsStream.SendRequest(ldsReq)
+		require.NoError(t, err)
+
+		close(ldsDoneCh)
+	}()
+
+	time.Sleep(time.Millisecond)
+
+	// Request cluster resources, with a version higher than the version currently
+	// in Cilium's cache. This happens after the server restarts but the
+	// xDS client survives and continues to request the same version.
+	// First request on a new stream has an empty ResponseNonce!
+	cdsReq := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       ClusterTypeURL,
+		VersionInfo:   "30",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err = cdsStream.SendRequest(cdsReq)
+	require.NoError(t, err)
+
+	// Expecting a CDS response
+	resp, err = cdsStream.RecvResponse()
+	require.NoError(t, err)
+	require.Equal(t, resp.VersionInfo, resp.Nonce)
+	require.Condition(t, responseCheck(resp, "31", []proto.Message{clusterConf}, false, ClusterTypeURL))
+
+	// Check that the completion was not NACKed
+	require.NoError(t, cdsComp.Err())
+
+	// Check that LDS response has not been received before the CDS ACK is sent
+	ldsResponseReceived := false
+	select {
+	case <-ldsDoneCh:
+		ldsResponseReceived = true
+	default:
+	}
+	require.False(t, ldsResponseReceived)
+
+	// send CDS ACK
+	cdsReq = &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       ClusterTypeURL,
+		VersionInfo:   "31",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "31",
+	}
+	err = cdsStream.SendRequest(cdsReq)
+	require.NoError(t, err)
+
+	// Wait for the LDS goroutine to be done
+	select {
+	case <-ctx.Done():
+		t.Errorf("LDS goroutine did not end in time")
+	case <-ldsDoneCh:
+	}
+
+	// Wait for the ACKs to have been processed
+	err = wg.Wait()
+	require.NoError(t, err)
+
+	// Close the streams.
+	cdsCloseStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", ClusterTypeURL)
+	case <-cdsStreamDone:
+	}
+
+	ldsCloseStream()
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", ListenerTypeURL)
+	case <-ldsStreamDone:
+	}
+}
+
+func TestWaitForAckNoClusters(t *testing.T) {
+	ListenerTypeURL := "type.googleapis.com/envoy.config.listener.v3.Listener"
+	ClusterTypeURL := "type.googleapis.com/envoy.config.cluster.v3.Cluster"
+
+	// Test the case where the xDS server receives request for Listeners when there are no
+	// clusters. In this case the listener response must be sent without any wait.
+
+	var err error
+	var resp *envoy_service_discovery.DiscoveryResponse
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
+
+	ldsCache := NewCache()
+	ldsMutator := NewAckingResourceMutatorWrapper(ldsCache)
+	ldsStreamCtx, ldsCloseStream := context.WithCancel(ctx)
+	ldsStream := NewMockStream(ldsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer ldsStream.Close()
+	ldsStreamDone := make(chan struct{})
+
+	cdsCache := NewCache()
+	cdsMutator := NewAckingResourceMutatorWrapper(cdsCache)
+	cdsStreamCtx, cdsCloseStream := context.WithCancel(ctx)
+	cdsStream := NewMockStream(cdsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer cdsStream.Close()
+	cdsStreamDone := make(chan struct{})
+
+	server := NewServer(map[string]*ResourceTypeConfiguration{
+		ListenerTypeURL: {Source: ldsCache, AckObserver: ldsMutator},
+		ClusterTypeURL:  {Source: cdsCache, AckObserver: cdsMutator},
+	},
+		nil)
+
+	// Run the server's stream handlers concurrently.
+	go func() {
+		defer close(ldsStreamDone)
+		err := server.HandleRequestStream(ctx, ldsStream, ListenerTypeURL, ClusterTypeURL)
+		require.NoError(t, err)
+	}()
+	go func() {
+		defer close(cdsStreamDone)
+		err := server.HandleRequestStream(ctx, cdsStream, ClusterTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	// Create Listener with reference to a static cluster
+	clusterName := "static_cluster"
+
+	listenerConf := &envoy_config_listener.Listener{
+		Name: "listener1",
+		FilterChains: []*envoy_config_listener.FilterChain{{
+			Filters: []*envoy_config_listener.Filter{{
+				Name: "envoy.filters.network.tcp_proxy",
+				ConfigType: &envoy_config_listener.Filter_TypedConfig{
+					TypedConfig: toAny(&envoy_config_tcp.TcpProxy{
+						StatPrefix: "tcp_proxy",
+						ClusterSpecifier: &envoy_config_tcp.TcpProxy_Cluster{
+							Cluster: clusterName,
+						},
+					}),
+				},
+			}},
+		}},
+	}
+
+	ldsCallback, ldsComp := newCompCallback()
+	ldsMutator.Upsert(ListenerTypeURL, listenerConf.Name, listenerConf, []string{node0}, wg, ldsCallback)
+	require.Condition(t, isNotCompletedComparison(ldsComp))
+
+	// Request listener resources, with a version higher than the version currently
+	// in Cilium's cache. This happens after the server restarts but the
+	// xDS client survives and continues to request the same version.
+	// First request on a new stream has an empty ResponseNonce!
+	ldsReq := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       ListenerTypeURL,
+		VersionInfo:   "15",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err = ldsStream.SendRequest(ldsReq)
+	require.NoError(t, err)
+
+	// Expecting a LDS response
+	resp, err = ldsStream.RecvResponse()
+	require.NoError(t, err)
+	require.Equal(t, resp.VersionInfo, resp.Nonce)
+	require.Condition(t, responseCheck(resp, "16", []proto.Message{listenerConf}, false, ListenerTypeURL))
+
+	// Check that the completion was not NACKed
+	require.NoError(t, ldsComp.Err())
+
+	// send LDS ACK
+	ldsReq = &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       ListenerTypeURL,
+		VersionInfo:   "16",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "16",
+	}
+	err = ldsStream.SendRequest(ldsReq)
+	require.NoError(t, err)
+
+	// Wait for the ACKs to have been processed
+	err = wg.Wait()
+	require.NoError(t, err)
+
+	// Close the streams.
+	cdsCloseStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", ClusterTypeURL)
+	case <-cdsStreamDone:
+	}
+
+	ldsCloseStream()
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", ListenerTypeURL)
+	case <-ldsStreamDone:
 	}
 }
