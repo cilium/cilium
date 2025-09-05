@@ -77,6 +77,11 @@ func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName stri
 		// Ensure that packets leaving the pod's networking namespace are
 		// scrubbed.
 		PeerScrub: netlink.NETKIT_SCRUB_DEFAULT,
+		// Configure the headroom and tailroom, which should be calculated to
+		// appropriate values by the agent, taking into account things like
+		// tunneling and encryption.
+		DesiredHeadroom: uint16(cfg.DeviceHeadroom),
+		DesiredTailroom: uint16(cfg.DeviceTailroom),
 	}
 	peerAttr := &netlink.LinkAttrs{
 		Name:         peerIfName,
@@ -101,6 +106,8 @@ func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName stri
 
 	logger.Debug("Created netkit pair",
 		logfields.NetkitPair, []string{peerIfName, lxcIfName},
+		logfields.DeviceHeadroom, netkit.DesiredHeadroom,
+		logfields.DeviceTailroom, netkit.DesiredTailroom,
 	)
 
 	// Disable reverse path filter on the host side netkit peer to allow
