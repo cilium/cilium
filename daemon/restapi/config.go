@@ -103,6 +103,7 @@ func newConfigModifyApiHandler(params configModifyApiHandlerParams) configModify
 			tunnelConfig:    params.TunnelConfig,
 			bandwidthConfig: params.BandwidthConfig,
 			wgConfig:        params.WgConfig,
+			connectorConfig: params.ConnectorConfig,
 		},
 		PatchConfigHandler: &patchConfigHandler{
 			logger:       params.Logger,
@@ -348,6 +349,7 @@ type getConfigHandler struct {
 	tunnelConfig    tunnel.Config
 	bandwidthConfig datapath.BandwidthConfig
 	wgConfig        wgTypes.WireguardConfig
+	connectorConfig types.ConnectorConfig
 }
 
 func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.Responder {
@@ -408,6 +410,8 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		GSOIPV4MaxSize:                      int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
 		IPLocalReservedPorts:                h.getIPLocalReservedPorts(),
 		EnableBBRHostNamespaceOnly:          h.bandwidthConfig.EnableBBRHostnsOnly,
+		DeviceHeadroom:                      int64(h.connectorConfig.GetPodDeviceHeadroom()),
+		DeviceTailroom:                      int64(h.connectorConfig.GetPodDeviceTailroom()),
 	}
 
 	cfg := &models.DaemonConfiguration{
