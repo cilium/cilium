@@ -64,6 +64,17 @@ func newConnectorConfig(p connectorParams) (*ConnectorConfig, error) {
 	cc := &ConnectorConfig{}
 
 	if supportsTunedBufferMargins(p.DaemonConfig.DatapathMode) {
+		// TODO: We need a way of validating that we can rely on the kernel
+		// to report buffer margins via netlink generic attributes. If we can't
+		// rely on the kernel here, we should probably error out in future.
+		//
+		// In an ideal world we'd have something like nk.SupportsScrub() in
+		// the upstream netlink library, but that would need to be done at
+		// a generic level and probably isn't acceptable to the maintainer.
+		//
+		// A better approach might be to just try create a dummy netkit
+		// interface with some magic headroom value, and check we can read
+		// it back.
 		p.Lifecycle.Append(cell.Hook{
 			OnStart: func(cell.HookContext) error {
 				return generateConnectorConfig(p, cc)
@@ -108,7 +119,6 @@ func generateConnectorConfig(p connectorParams, cc *ConnectorConfig) error {
 		return fmt.Errorf("connector total tailroom %d exeeds maximum value %d", totalHeadroom, math.MaxUint16)
 	}
 
-	// Cache the values
 	cc.podDeviceHeadroom = uint16(totalHeadroom)
 	cc.podDeviceTailroom = uint16(totalTailroom)
 	return nil
