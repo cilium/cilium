@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
+	"strings"
 
 	"github.com/cilium/statedb"
 
@@ -58,6 +60,8 @@ func newLocalNodeConfig(
 	mtuTbl statedb.Table[mtu.RouteMTU],
 	wgCfg wgTypes.WireguardConfig,
 	ipsecCfg datapath.IPsecConfig,
+	ipv4MasqSrcExclCIDRs string,
+	ipv6MasqSrcExclCIDRs string,
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -79,6 +83,29 @@ func newLocalNodeConfig(
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
 	}
 
+	// Parse Masquerade Source Exclusion CIDRs
+	parsedIPv4MasqSrcExclCIDRs := make([]*cidr.CIDR, 0)
+	if ipv4MasqSrcExclCIDRs != "" {
+		for _, ipv4MasqSrcExclCIDRs := range strings.Split(ipv4MasqSrcExclCIDRs, ",") {
+			_, parsedCIDR, err := net.ParseCIDR(ipv4MasqSrcExclCIDRs)
+			if err != nil {
+				return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("Invalid IPv4 masquerade source exclusion CIDR %q: %w", ipv4MasqSrcExclCIDRs, err)
+			}
+			parsedIPv4MasqSrcExclCIDRs = append(parsedIPv4MasqSrcExclCIDRs, cidr.NewCIDR(parsedCIDR))
+		}
+	}
+
+	parsedIPv6MasqSrcExclCIDRs := make([]*cidr.CIDR, 0)
+	if ipv6MasqSrcExclCIDRs != "" {
+		for _, ipv6MasqSrcExclCIDRs := range strings.Split(ipv6MasqSrcExclCIDRs, ",") {
+			_, parsedCIDR, err := net.ParseCIDR(ipv6MasqSrcExclCIDRs)
+			if err != nil {
+				return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("Invalid IPv6 masquerade source exclusion CIDR %q: %w", ipv6MasqSrcExclCIDRs, err)
+			}
+			parsedIPv6MasqSrcExclCIDRs = append(parsedIPv6MasqSrcExclCIDRs, cidr.NewCIDR(parsedCIDR))
+		}
+	}
+
 	nativeDevices, devsWatch := tables.SelectedDevices(devices, txn)
 	nodeAddrsIter, addrsWatch := nodeAddresses.AllWatch(txn)
 	mtuRoute, _, mtuWatch, _ := mtuTbl.GetWatch(txn, mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
@@ -96,41 +123,43 @@ func newLocalNodeConfig(
 	}
 
 	return datapath.LocalNodeConfiguration{
-		NodeIPv4:                     localNode.GetNodeIP(false),
-		NodeIPv6:                     localNode.GetNodeIP(true),
-		CiliumInternalIPv4:           localNode.GetCiliumInternalIP(false),
-		CiliumInternalIPv6:           localNode.GetCiliumInternalIP(true),
-		AllocCIDRIPv4:                localNode.IPv4AllocCIDR,
-		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
-		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
-		NativeRoutingCIDRIPv6:        datapath.RemoteSNATDstAddrExclusionCIDRv6(localNode),
-		ServiceLoopbackIPv4:          node.GetServiceLoopbackIPv4(logger),
-		ServiceLoopbackIPv6:          node.GetServiceLoopbackIPv6(logger),
-		Devices:                      nativeDevices,
-		NodeAddresses:                statedb.Collect(nodeAddrsIter),
-		DirectRoutingDevice:          directRoutingDevice,
-		DeriveMasqIPAddrFromDevice:   masqInterface,
-		HostEndpointID:               node.GetEndpointID(),
-		DeviceMTU:                    mtuRoute.DeviceMTU,
-		RouteMTU:                     mtuRoute.RouteMTU,
-		RoutePostEncryptMTU:          mtuRoute.RoutePostEncryptMTU,
-		AuxiliaryPrefixes:            auxPrefixes,
-		EnableIPv4:                   config.EnableIPv4,
-		EnableIPv6:                   config.EnableIPv6,
-		EnableEncapsulation:          config.TunnelingEnabled(),
-		EnableAutoDirectRouting:      config.EnableAutoDirectRouting,
-		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
-		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
-		EnableWireguard:              wgCfg.Enabled(),
-		EnableIPSec:                  ipsecCfg.Enabled(),
-		EnableIPSecEncryptedOverlay:  ipsecCfg.EncryptedOverlayEnabled(),
-		EncryptNode:                  config.EncryptNode,
-		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
-		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
-		XDPConfig:                    xdpConfig,
-		LBConfig:                     lbConfig,
-		KPRConfig:                    kprCfg,
-		SvcRouteConfig:               svcCfg,
-		MaglevConfig:                 maglevConfig,
+		NodeIPv4:                        localNode.GetNodeIP(false),
+		NodeIPv6:                        localNode.GetNodeIP(true),
+		CiliumInternalIPv4:              localNode.GetCiliumInternalIP(false),
+		CiliumInternalIPv6:              localNode.GetCiliumInternalIP(true),
+		AllocCIDRIPv4:                   localNode.IPv4AllocCIDR,
+		AllocCIDRIPv6:                   localNode.IPv6AllocCIDR,
+		NativeRoutingCIDRIPv4:           datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
+		NativeRoutingCIDRIPv6:           datapath.RemoteSNATDstAddrExclusionCIDRv6(localNode),
+		ServiceLoopbackIPv4:             node.GetServiceLoopbackIPv4(logger),
+		ServiceLoopbackIPv6:             node.GetServiceLoopbackIPv6(logger),
+		Devices:                         nativeDevices,
+		NodeAddresses:                   statedb.Collect(nodeAddrsIter),
+		DirectRoutingDevice:             directRoutingDevice,
+		DeriveMasqIPAddrFromDevice:      masqInterface,
+		HostEndpointID:                  node.GetEndpointID(),
+		DeviceMTU:                       mtuRoute.DeviceMTU,
+		RouteMTU:                        mtuRoute.RouteMTU,
+		RoutePostEncryptMTU:             mtuRoute.RoutePostEncryptMTU,
+		AuxiliaryPrefixes:               auxPrefixes,
+		EnableIPv4:                      config.EnableIPv4,
+		EnableIPv6:                      config.EnableIPv6,
+		EnableEncapsulation:             config.TunnelingEnabled(),
+		EnableAutoDirectRouting:         config.EnableAutoDirectRouting,
+		DirectRoutingSkipUnreachable:    config.DirectRoutingSkipUnreachable,
+		EnableLocalNodeRoute:            config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
+		EnableWireguard:                 wgCfg.Enabled(),
+		EnableIPSec:                     ipsecCfg.Enabled(),
+		EnableIPSecEncryptedOverlay:     ipsecCfg.EncryptedOverlayEnabled(),
+		EncryptNode:                     config.EncryptNode,
+		IPv4PodSubnets:                  cidr.NewCIDRSlice(config.IPv4PodSubnets),
+		IPv6PodSubnets:                  cidr.NewCIDRSlice(config.IPv6PodSubnets),
+		XDPConfig:                       xdpConfig,
+		LBConfig:                        lbConfig,
+		KPRConfig:                       kprCfg,
+		SvcRouteConfig:                  svcCfg,
+		MaglevConfig:                    maglevConfig,
+		IPv4MasqueradeSrcExclusionCIDRs: parsedIPv4MasqSrcExclCIDRs,
+		IPv6MasqueradeSrcExclusionCIDRs: parsedIPv6MasqSrcExclCIDRs,
 	}, common.MergeChannels(watchChans...), nil
 }

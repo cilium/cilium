@@ -6,6 +6,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -19,10 +20,13 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -304,4 +308,48 @@ func BenchmarkPrivilegedReplaceDatapath(b *testing.B) {
 		}
 		coll.Close()
 	}
+}
+
+// TestPrivilegedReloadSourceExclusionMaps verifies that reloadNATSourceExclusionMaps initializes,
+// reconciles deletions, and inserts CIDRs into NAT exclusion maps according to LocalNodeConfiguration.
+func TestPrivilegedReloadNATSourceExclusionMaps(t *testing.T) {
+	initBpffs(t)
+
+	require.NoError(t, rlimit.RemoveMemlock())
+
+	logger := hivetest.Logger(t)
+
+	// Initial config with one IPv4 and one IPv6 exclusion CIDR
+	lnc := datapath.LocalNodeConfiguration{
+		IPv4MasqueradeSrcExclusionCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("10.0.0.0/8")},
+		IPv6MasqueradeSrcExclusionCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("fd00::/8")},
+	}
+
+	require.NoError(t, reloadNATSourceExclusionMaps(logger, &lnc))
+
+	_, v4a, err := net.ParseCIDR("10.0.0.0/8")
+	require.NoError(t, err)
+	_, v6a, err := net.ParseCIDR("fd00::/8")
+	require.NoError(t, err)
+
+	em, err := nat.EnsureDefaultSourceExclusionMaps(logger)
+	require.NoError(t, err)
+
+	require.NotNil(t, em)
+	require.NotNil(t, em.IPv4)
+	require.NotNil(t, em.IPv6)
+	require.True(t, em.IPv4.CIDRExists(*v4a))
+	require.True(t, em.IPv6.CIDRExists(*v6a))
+
+	// Update to a different IPv4 exclusion and reconcile
+	lnc.IPv4MasqueradeSrcExclusionCIDRs = []*cidr.CIDR{cidr.MustParseCIDR("192.0.2.0/24")}
+	require.NoError(t, reloadNATSourceExclusionMaps(logger, &lnc))
+
+	_, v4b, err := net.ParseCIDR("192.0.2.0/24")
+	require.NoError(t, err)
+
+	// Old IPv4 removed, new IPv4 present; IPv6 unchanged remains present
+	require.False(t, em.IPv4.CIDRExists(*v4a))
+	require.True(t, em.IPv4.CIDRExists(*v4b))
+	require.True(t, em.IPv6.CIDRExists(*v6a))
 }
