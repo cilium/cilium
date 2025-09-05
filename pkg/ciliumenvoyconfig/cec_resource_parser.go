@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/envoy"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -75,7 +76,7 @@ type parserParams struct {
 	LocalNodeStore *node.LocalNodeStore
 
 	CecConfig   CECConfig
-	EnvoyConfig envoy.ProxyConfig
+	EnvoyConfig envoyCfg.ProxyConfig
 }
 
 func newCECResourceParser(params parserParams) *CECResourceParser {

@@ -466,14 +466,11 @@ func (r *BPFLBMaps) DeleteRevNat(key RevNatKey) error {
 	var err error
 	switch key.(type) {
 	case *RevNat4Key:
-		err = r.revNat4Map.Delete(key)
+		_, err = r.revNat4Map.SilentDelete(key)
 	case *RevNat6Key:
-		err = r.revNat6Map.Delete(key)
+		_, err = r.revNat6Map.SilentDelete(key)
 	default:
 		panic("unknown RevNatKey")
-	}
-	if errors.Is(err, ebpf.ErrKeyNotExist) {
-		return nil
 	}
 	return err
 }
@@ -511,14 +508,11 @@ func (r *BPFLBMaps) DeleteBackend(key BackendKey) error {
 	var err error
 	switch key.(type) {
 	case *Backend4KeyV3:
-		err = r.backend4Map.Delete(key)
+		_, err = r.backend4Map.SilentDelete(key)
 	case *Backend6KeyV3:
-		err = r.backend6Map.Delete(key)
+		_, err = r.backend6Map.SilentDelete(key)
 	default:
 		panic("unknown BackendKey")
-	}
-	if errors.Is(err, ebpf.ErrKeyNotExist) {
-		return nil
 	}
 	return err
 }
@@ -587,10 +581,7 @@ func (r *BPFLBMaps) UpdateService(key ServiceKey, value ServiceValue) error {
 
 // DeleteAffinityMatch implements lbmaps.
 func (r *BPFLBMaps) DeleteAffinityMatch(key *AffinityMatchKey) error {
-	err := r.affinityMatchMap.Delete(key)
-	if errors.Is(err, ebpf.ErrKeyNotExist) {
-		return nil
-	}
+	_, err := r.affinityMatchMap.SilentDelete(key)
 	return err
 }
 
@@ -609,14 +600,11 @@ func (r *BPFLBMaps) DeleteSourceRange(key SourceRangeKey) error {
 	var err error
 	switch key.(type) {
 	case *SourceRangeKey4:
-		err = r.sourceRange4Map.Delete(key)
+		_, err = r.sourceRange4Map.SilentDelete(key)
 	case *SourceRangeKey6:
-		err = r.sourceRange6Map.Delete(key)
+		_, err = r.sourceRange6Map.SilentDelete(key)
 	default:
 		panic("unknown SourceRangeKey")
-	}
-	if errors.Is(err, ebpf.ErrKeyNotExist) {
-		return nil
 	}
 	return err
 }
@@ -672,10 +660,7 @@ func (r *BPFLBMaps) DeleteMaglev(key MaglevOuterKey, ipv6 bool) error {
 	if ipv6 {
 		ebpfmap = r.maglev6Map
 	}
-	err := ebpfmap.Delete(outerKey)
-	if errors.Is(err, ebpf.ErrKeyNotExist) {
-		return nil
-	}
+	_, err := ebpfmap.SilentDelete(outerKey)
 	return err
 }
 

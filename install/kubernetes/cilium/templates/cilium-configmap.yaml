@@ -1215,6 +1215,7 @@ data:
   enable-bgp-control-plane-status-report: {{ .Values.bgpControlPlane.statusReport.enabled | quote }}
   bgp-router-id-allocation-mode: {{ .Values.bgpControlPlane.routerIDAllocation.mode | quote }}
   bgp-router-id-allocation-ip-pool: {{ .Values.bgpControlPlane.routerIDAllocation.ipPool | quote }}
+  enable-bgp-legacy-origin-attribute: {{ .Values.bgpControlPlane.legacyOriginAttribute.enabled | quote }}
 {{- end }}
 
 {{- if .Values.pmtuDiscovery.enabled }}

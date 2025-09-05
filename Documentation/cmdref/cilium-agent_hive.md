@@ -52,6 +52,7 @@ cilium-agent hive [flags]
       --enable-bandwidth-manager                                  Enable BPF bandwidth manager
       --enable-bbr                                                Enable BBR for the bandwidth manager
       --enable-bbr-hostns-only                                    Enable BBR only in the host network namespace.
+      --enable-bgp-legacy-origin-attribute                        Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-cilium-api-server-access strings                   List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-health-api-server-access strings            List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-drift-checker                                      Enables support for config drift checker (default true)
