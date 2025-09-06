@@ -23,9 +23,8 @@ type Operation int
 
 const (
 	AllOperations Operation = iota
-	GetInstance
 	GetInstances
-	GetVpcsAndSubnets
+	GetNodesSubnets
 	AssignPrivateIpAddressesVMSS
 	MaxOperation
 )
@@ -39,26 +38,20 @@ type API struct {
 	mutex     lock.RWMutex
 	subnets   map[string]*subnet
 	instances *ipamTypes.InstanceMap
-	vnets     map[string]*ipamTypes.VirtualNetwork
 	errors    map[Operation]error
 	delaySim  *helpers.DelaySimulator
 	limiter   *rate.Limiter
 }
 
-func NewAPI(subnets []*ipamTypes.Subnet, vnets []*ipamTypes.VirtualNetwork) *API {
+func NewAPI(subnets []*ipamTypes.Subnet) *API {
 	api := &API{
 		instances: ipamTypes.NewInstanceMap(),
 		subnets:   map[string]*subnet{},
-		vnets:     map[string]*ipamTypes.VirtualNetwork{},
 		errors:    map[Operation]error{},
 		delaySim:  helpers.NewDelaySimulator(),
 	}
 
 	api.UpdateSubnets(subnets)
-
-	for _, v := range vnets {
-		api.vnets[v.ID] = v
-	}
 
 	return api
 }
@@ -126,28 +119,6 @@ func (a *API) rateLimit() {
 	}
 }
 
-func (a *API) GetInstance(ctx context.Context, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
-	a.rateLimit()
-	a.delaySim.Delay(GetInstance)
-
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
-
-	if err, ok := a.errors[GetInstance]; ok {
-		return nil, err
-	}
-
-	instance := ipamTypes.Instance{}
-	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
-	if err := a.instances.ForeachInterface(instanceID, func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
-		instance.Interfaces[interfaceID] = iface
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return instance.DeepCopy(), nil
-}
-
 func (a *API) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
 	a.rateLimit()
 	a.delaySim.Delay(GetInstances)
@@ -162,31 +133,28 @@ func (a *API) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*i
 	return a.instances.DeepCopy(), nil
 }
 
-func (a *API) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error) {
+func (a *API) GetNodesSubnets(ctx context.Context, subnetIDs []string) (ipamTypes.SubnetMap, error) {
 	a.rateLimit()
-	a.delaySim.Delay(GetVpcsAndSubnets)
+	a.delaySim.Delay(GetNodesSubnets)
 
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
-	if err, ok := a.errors[GetVpcsAndSubnets]; ok {
-		return nil, nil, err
+	if err, ok := a.errors[GetNodesSubnets]; ok {
+		return nil, err
 	}
 
-	vnets := ipamTypes.VirtualNetworkMap{}
 	subnets := ipamTypes.SubnetMap{}
 
-	for _, s := range a.subnets {
-		sd := s.subnet.DeepCopy()
-		sd.AvailableAddresses = s.allocator.Free()
-		subnets[sd.ID] = sd
+	for _, subnetID := range subnetIDs {
+		if s, exists := a.subnets[subnetID]; exists {
+			sd := s.subnet.DeepCopy()
+			sd.AvailableAddresses = s.allocator.Free()
+			subnets[sd.ID] = sd
+		}
 	}
 
-	for _, v := range a.vnets {
-		vnets[v.ID] = v.DeepCopy()
-	}
-
-	return vnets, subnets, nil
+	return subnets, nil
 }
 
 func (a *API) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error {
@@ -225,7 +193,7 @@ func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName
 			return fmt.Errorf("subnet %s does not exist", subnetID)
 		}
 
-		for range addresses {
+		for i := 0; i < addresses; i++ {
 			ip, err := s.allocator.AllocateNext()
 			if err != nil {
 				panic("Unable to allocate IP from allocator")
