@@ -190,7 +190,7 @@ func (a *API) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMa
 	return vnets, subnets, nil
 }
 
-func (a *API) GetNodesSubnets(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error) {
+func (a *API) GetNodesSubnets(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.SubnetMap, error) {
 	a.rateLimit()
 	a.delaySim.Delay(GetNodesSubnets)
 
@@ -198,31 +198,26 @@ func (a *API) GetNodesSubnets(ctx context.Context, nodeSubnetIDs []string) (ipam
 	defer a.mutex.RUnlock()
 
 	if err, ok := a.errors[GetNodesSubnets]; ok {
-		return nil, nil, err
+		return nil, err
 	}
 
-	vnets := ipamTypes.VirtualNetworkMap{}
 	subnets := ipamTypes.SubnetMap{}
 
 	// Only return subnets that match the requested subnet IDs
-	subnetIDSet := make(map[string]bool)
+	subnetIDSet := make(map[string]struct{})
 	for _, id := range nodeSubnetIDs {
-		subnetIDSet[id] = true
+		subnetIDSet[id] = struct{}{}
 	}
 
 	for _, s := range a.subnets {
-		if subnetIDSet[s.subnet.ID] {
+		if _, exists := subnetIDSet[s.subnet.ID]; exists {
 			sd := s.subnet.DeepCopy()
 			sd.AvailableAddresses = s.allocator.Free()
 			subnets[sd.ID] = sd
 		}
 	}
 
-	for _, v := range a.vnets {
-		vnets[v.ID] = v.DeepCopy()
-	}
-
-	return vnets, subnets, nil
+	return subnets, nil
 }
 
 func (a *API) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error {

@@ -513,14 +513,13 @@ func parseSubnetID(subnetID string) (resourceGroup, vnetName, subnetName string,
 }
 
 // GetNodesSubnets retrieves subnets for the given node network interfaces using targeted subnet queries
-func (c *Client) GetNodesSubnets(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error) {
-	vnets := ipamTypes.VirtualNetworkMap{}
+func (c *Client) GetNodesSubnets(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.SubnetMap, error) {
 	subnets := ipamTypes.SubnetMap{}
 	
 	// Deduplicate subnet IDs
-	subnetSet := make(map[string]bool)
+	subnetSet := make(map[string]struct{})
 	for _, subnetID := range nodeSubnetIDs {
-		subnetSet[subnetID] = true
+		subnetSet[subnetID] = struct{}{}
 	}
 	
 	for subnetID := range subnetSet {
@@ -546,20 +545,13 @@ func (c *Client) GetNodesSubnets(ctx context.Context, nodeSubnetIDs []string) (i
 			continue
 		}
 		
-		// Create virtual network entry if not exists
-		vnetID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", 
-			strings.Split(subnetID, "/")[2], resourceGroup, vnetName)
-		if _, exists := vnets[vnetID]; !exists {
-			vnets[vnetID] = &ipamTypes.VirtualNetwork{ID: vnetID}
-		}
-		
 		// Parse and add subnet
 		if s := parseSubnet(&subnet); s != nil {
 			subnets[*subnet.ID] = s
 		}
 	}
 	
-	return vnets, subnets, nil
+	return subnets, nil
 }
 
 func generateIpConfigName() string {
