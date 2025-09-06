@@ -71,7 +71,8 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 		OnStop: func(hc cell.HookContext) error {
 			cancel()
 
-			return ipc.Shutdown()
+			ipc.Shutdown()
+			return nil
 		},
 	})
 
