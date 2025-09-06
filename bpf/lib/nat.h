@@ -473,6 +473,10 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 	if (ctx_store_bytes(ctx, l3_off + addr_off, &new_addr, 4, 0) < 0)
 		return DROP_WRITE_ERROR;
 
+	/* Amend the L3 checksum due to changing the addresses. */
+	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
+		return DROP_CSUM_L3;
+
 	if (has_l4_header) {
 		int flags = BPF_F_PSEUDO_HDR;
 		struct csum_offset csum = {};
@@ -515,10 +519,6 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 		    csum_l4_replace(ctx, l4_off, &csum, 0, sum, flags) < 0)
 			return DROP_CSUM_L4;
 	}
-
-	/* Amend the L3 checksum due to changing the addresses. */
-	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
-		return DROP_CSUM_L3;
 
 	return 0;
 }
