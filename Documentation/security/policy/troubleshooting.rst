@@ -99,6 +99,9 @@ In the above example, for one of the ``deathstar`` pods the endpoint id is 568. 
 Troubleshooting ``toFQDNs`` rules
 =================================
 
+``toFQDNs`` rules do nothing if there is no :ref:`L7 DNS rule <DNS Obtaining Data>`
+covering the endpoint.
+
 The effect of ``toFQDNs`` may change long after a policy is applied, as DNS
 data changes. This can make it difficult to debug unexpectedly blocked
 connections, or transient failures. Cilium provides CLI tools to introspect
