@@ -20,6 +20,7 @@ type AzureAPI interface {
 	GetInstance(ctx context.Context, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error)
 	GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error)
 	GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error)
+	GetNodesSubnets(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error)
 	AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error
 	AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error
 }
@@ -87,13 +88,8 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string) time.Time {
 	resyncStart := time.Now()
 
-	vnets, subnets, err := m.api.GetVpcsAndSubnets(ctx)
-	if err != nil {
-		m.logger.Warn("Unable to synchronize Azure virtualnetworks list", logfields.Error, err)
-		return time.Time{}
-	}
-
-	instance, err := m.api.GetInstance(ctx, subnets, instanceID)
+	// First get the instance with empty subnet map to extract subnet IDs
+	instance, err := m.api.GetInstance(ctx, ipamTypes.SubnetMap{}, instanceID)
 	if err != nil {
 		m.logger.Warn("Unable to synchronize Azure instance interface list",
 			logfields.Error, err,
@@ -101,12 +97,51 @@ func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string
 		)
 		return time.Time{}
 	}
+	
+	// Extract subnet IDs from this instance
+	instanceMap := ipamTypes.NewInstanceMap()
+	instanceMap.UpdateInstance(instanceID, instance)
+	nodeSubnetIDs := m.extractSubnetIDs(instanceMap)
+	
+	// Query targeted subnets or fall back to full discovery
+	var vnets ipamTypes.VirtualNetworkMap
+	var subnets ipamTypes.SubnetMap
+	
+	if len(nodeSubnetIDs) > 0 {
+		vnets, subnets, err = m.api.GetNodesSubnets(ctx, nodeSubnetIDs)
+		if err != nil {
+			m.logger.Warn("Unable to synchronize targeted Azure subnets for instance, falling back to full VNet discovery",
+				logfields.Error, err, logfields.InstanceID, instanceID)
+			vnets, subnets, err = m.api.GetVpcsAndSubnets(ctx)
+			if err != nil {
+				m.logger.Warn("Unable to synchronize Azure virtualnetworks list", logfields.Error, err)
+				return time.Time{}
+			}
+		}
+	} else {
+		vnets, subnets, err = m.api.GetVpcsAndSubnets(ctx)
+		if err != nil {
+			m.logger.Warn("Unable to synchronize Azure virtualnetworks list", logfields.Error, err)
+			return time.Time{}
+		}
+	}
+	
+	// Re-query instance with discovered subnets for complete information
+	instance, err = m.api.GetInstance(ctx, subnets, instanceID)
+	if err != nil {
+		m.logger.Warn("Unable to synchronize Azure instance interface list with subnet information",
+			logfields.Error, err,
+			logfields.InstanceID, instanceID,
+		)
+		return time.Time{}
+	}
 
 	m.logger.Info(
-		"Synchronized Azure IPAM information for the corresponding instance",
+		"Synchronized Azure IPAM information for the corresponding instance using targeted subnet discovery",
 		logfields.InstanceID, instanceID,
 		logfields.NumVirtualNetworks, len(vnets),
 		logfields.NumSubnets, len(subnets),
+		"targeted_subnets", len(nodeSubnetIDs),
 	)
 
 	m.mutex.Lock()
@@ -118,27 +153,75 @@ func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string
 	return resyncStart
 }
 
-// resyncInstances performs a full sync of all instances
+// extractSubnetIDs extracts unique subnet IDs from node network interfaces
+func (m *InstancesManager) extractSubnetIDs(instances *ipamTypes.InstanceMap) []string {
+	subnetIDs := make(map[string]bool)
+	
+	instances.ForeachAddress("", func(instanceID, interfaceID, ip, poolID string, address ipamTypes.Address) error {
+		if poolID != "" {
+			subnetIDs[poolID] = true
+		}
+		return nil
+	})
+	
+	result := make([]string, 0, len(subnetIDs))
+	for id := range subnetIDs {
+		result = append(result, id)
+	}
+	return result
+}
+
+// resyncInstances performs a full sync of all instances using three-phase strategy
 func (m *InstancesManager) resyncInstances(ctx context.Context) time.Time {
 	resyncStart := time.Now()
 
-	vnets, subnets, err := m.api.GetVpcsAndSubnets(ctx)
-	if err != nil {
-		m.logger.Warn("Unable to synchronize Azure virtualnetworks list", logfields.Error, err)
-		return time.Time{}
-	}
-
-	instances, err := m.api.GetInstances(ctx, subnets)
+	// Phase 1: Get all node instances (still using existing method as fallback)
+	instances, err := m.api.GetInstances(ctx, ipamTypes.SubnetMap{})
 	if err != nil {
 		m.logger.Warn("Unable to synchronize Azure instances list", logfields.Error, err)
 		return time.Time{}
 	}
+	
+	// Phase 2: Extract subnet IDs from node interfaces
+	nodeSubnetIDs := m.extractSubnetIDs(instances)
+	
+	// Phase 3: Query targeted subnets
+	var vnets ipamTypes.VirtualNetworkMap
+	var subnets ipamTypes.SubnetMap
+	
+	if len(nodeSubnetIDs) > 0 {
+		vnets, subnets, err = m.api.GetNodesSubnets(ctx, nodeSubnetIDs)
+		if err != nil {
+			m.logger.Warn("Unable to synchronize targeted Azure subnets, falling back to full VNet discovery", logfields.Error, err)
+			// Fallback to full VNet discovery if targeted approach fails
+			vnets, subnets, err = m.api.GetVpcsAndSubnets(ctx)
+			if err != nil {
+				m.logger.Warn("Unable to synchronize Azure virtualnetworks list", logfields.Error, err)
+				return time.Time{}
+			}
+		}
+	} else {
+		// No node subnets found, fallback to full discovery
+		vnets, subnets, err = m.api.GetVpcsAndSubnets(ctx)
+		if err != nil {
+			m.logger.Warn("Unable to synchronize Azure virtualnetworks list", logfields.Error, err)
+			return time.Time{}
+		}
+	}
+
+	// Re-query instances with discovered subnets for complete information
+	instances, err = m.api.GetInstances(ctx, subnets)
+	if err != nil {
+		m.logger.Warn("Unable to synchronize Azure instances list with subnet information", logfields.Error, err)
+		return time.Time{}
+	}
 
 	m.logger.Info(
-		"Synchronized Azure IPAM information",
+		"Synchronized Azure IPAM information using targeted subnet discovery",
 		logfields.NumInstances, instances.NumInstances(),
 		logfields.NumVirtualNetworks, len(vnets),
 		logfields.NumSubnets, len(subnets),
+		"targeted_subnets", len(nodeSubnetIDs),
 	)
 
 	m.mutex.Lock()

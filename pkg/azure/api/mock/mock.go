@@ -26,6 +26,7 @@ const (
 	GetInstance
 	GetInstances
 	GetVpcsAndSubnets
+	GetNodesSubnets
 	AssignPrivateIpAddressesVMSS
 	MaxOperation
 )
@@ -180,6 +181,41 @@ func (a *API) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMa
 		sd := s.subnet.DeepCopy()
 		sd.AvailableAddresses = s.allocator.Free()
 		subnets[sd.ID] = sd
+	}
+
+	for _, v := range a.vnets {
+		vnets[v.ID] = v.DeepCopy()
+	}
+
+	return vnets, subnets, nil
+}
+
+func (a *API) GetNodesSubnets(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error) {
+	a.rateLimit()
+	a.delaySim.Delay(GetNodesSubnets)
+
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	if err, ok := a.errors[GetNodesSubnets]; ok {
+		return nil, nil, err
+	}
+
+	vnets := ipamTypes.VirtualNetworkMap{}
+	subnets := ipamTypes.SubnetMap{}
+
+	// Only return subnets that match the requested subnet IDs
+	subnetIDSet := make(map[string]bool)
+	for _, id := range nodeSubnetIDs {
+		subnetIDSet[id] = true
+	}
+
+	for _, s := range a.subnets {
+		if subnetIDSet[s.subnet.ID] {
+			sd := s.subnet.DeepCopy()
+			sd.AvailableAddresses = s.allocator.Free()
+			subnets[sd.ID] = sd
+		}
 	}
 
 	for _, v := range a.vnets {

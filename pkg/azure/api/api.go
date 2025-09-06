@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
+	"regexp"
 	"strings"
 	"time"
 
@@ -36,6 +37,7 @@ const (
 	virtualMachineScaleSetVMsGet    = "VirtualMachineScaleSetVMs.Get"
 	virtualMachineScaleSetVMsUpdate = "VirtualMachineScaleSetVMs.Update"
 	virtualNetworksListAll          = "VirtualNetworks.ListAll"
+	subnetsGet                      = "Subnets.Get"
 
 	interfacesListVirtualMachineScaleSetNetworkInterfaces   = "Interfaces.ListVirtualMachineScaleSetNetworkInterfaces"
 	interfacesListVirtualMachineScaleSetVMNetworkInterfaces = "Interfaces.ListVirtualMachineScaleSetVMNetworkInterfaces"
@@ -46,6 +48,7 @@ type Client struct {
 	resourceGroup             string
 	interfaces                *armnetwork.InterfacesClient
 	virtualNetworks           *armnetwork.VirtualNetworksClient
+	subnets                   *armnetwork.SubnetsClient
 	virtualMachineScaleSetVMs *armcompute.VirtualMachineScaleSetVMsClient
 	virtualMachineScaleSets   *armcompute.VirtualMachineScaleSetsClient
 	limiter                   *helpers.APILimiter
@@ -128,6 +131,11 @@ func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID 
 		return nil, err
 	}
 
+	subnetsClient, err := armnetwork.NewSubnetsClient(subscriptionID, credential, armClientOptions)
+	if err != nil {
+		return nil, err
+	}
+
 	virtualMachineScaleSetVMsClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscriptionID, credential, armClientOptions)
 	if err != nil {
 		return nil, err
@@ -142,6 +150,7 @@ func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID 
 		resourceGroup:             resourceGroup,
 		interfaces:                interfacesClient,
 		virtualNetworks:           virtualNetworksClient,
+		subnets:                   subnetsClient,
 		virtualMachineScaleSetVMs: virtualMachineScaleSetVMsClient,
 		virtualMachineScaleSets:   virtualMachineScaleSetsClient,
 		metricsAPI:                metrics,
@@ -489,6 +498,68 @@ func (c *Client) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetwor
 	}
 
 	return vpcs, subnets, nil
+}
+
+// parseSubnetID parses an Azure subnet ID and returns the resource group, virtual network, and subnet name.
+// Azure subnet ID format: /subscriptions/{subscription}/resourceGroups/{resourceGroup}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet}
+func parseSubnetID(subnetID string) (resourceGroup, vnetName, subnetName string, err error) {
+	// Use regex to extract components from Azure subnet ID
+	re := `^/subscriptions/[^/]+/resourceGroups/([^/]+)/providers/Microsoft\.Network/virtualNetworks/([^/]+)/subnets/([^/]+)$`
+	matches := regexp.MustCompile(re).FindStringSubmatch(subnetID)
+	if len(matches) != 4 {
+		return "", "", "", fmt.Errorf("invalid Azure subnet ID format: %s", subnetID)
+	}
+	return matches[1], matches[2], matches[3], nil
+}
+
+// GetNodesSubnets retrieves subnets for the given node network interfaces using targeted subnet queries
+func (c *Client) GetNodesSubnets(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error) {
+	vnets := ipamTypes.VirtualNetworkMap{}
+	subnets := ipamTypes.SubnetMap{}
+	
+	// Deduplicate subnet IDs
+	subnetSet := make(map[string]bool)
+	for _, subnetID := range nodeSubnetIDs {
+		subnetSet[subnetID] = true
+	}
+	
+	for subnetID := range subnetSet {
+		// Parse subnet ID to get resource group, VNet, and subnet name
+		resourceGroup, vnetName, subnetName, err := parseSubnetID(subnetID)
+		if err != nil {
+			continue // Skip invalid subnet IDs
+		}
+		
+		// Query the specific subnet
+		c.limiter.Limit(ctx, subnetsGet)
+		sinceStart := spanstat.Start()
+		
+		result, err := c.subnets.Get(ctx, resourceGroup, vnetName, subnetName, nil)
+		c.metricsAPI.ObserveAPICall(subnetsGet, deriveStatus(err), sinceStart.Seconds())
+		
+		if err != nil {
+			continue // Skip failed subnet queries
+		}
+		
+		subnet := result.Subnet
+		if subnet.ID == nil {
+			continue
+		}
+		
+		// Create virtual network entry if not exists
+		vnetID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", 
+			strings.Split(subnetID, "/")[2], resourceGroup, vnetName)
+		if _, exists := vnets[vnetID]; !exists {
+			vnets[vnetID] = &ipamTypes.VirtualNetwork{ID: vnetID}
+		}
+		
+		// Parse and add subnet
+		if s := parseSubnet(&subnet); s != nil {
+			subnets[*subnet.ID] = s
+		}
+	}
+	
+	return vnets, subnets, nil
 }
 
 func generateIpConfigName() string {
