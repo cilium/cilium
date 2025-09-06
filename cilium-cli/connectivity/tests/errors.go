@@ -53,9 +53,6 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
 		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService}
-	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
-		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
-	}
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
