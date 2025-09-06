@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -21,13 +22,16 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 
@@ -46,7 +50,7 @@ type FQDNDataServer struct {
 	// grpcServer is the grpc server for the standalone DNS proxy
 	grpcServer *grpc.Server
 
-	endpointManager endpointmanager.EndpointManager
+	endpointsLookup endpointmanager.EndpointsLookup
 
 	// db is the database used to store the policy rules table
 	db *statedb.DB
@@ -87,18 +91,34 @@ type FQDNDataServer struct {
 }
 
 type PolicyRules struct {
-	Identity identity.NumericIdentity
-	SelPol   policy.SelectorPolicy
+	Identity    identity.NumericIdentity
+	PolicyRules []*pb.DNSPolicy
 }
 
 // TableHeader implements statedb.TableWritable.
 func (p PolicyRules) TableHeader() []string {
-	return []string{"Identity"}
+	return []string{"Identity", "PolicyRules"}
 }
 
 // TableRow implements statedb.TableWritable.
 func (p PolicyRules) TableRow() []string {
-	return []string{p.Identity.String()}
+	var policyDetails []string
+	for i, rule := range p.PolicyRules {
+		var servers []string
+		for _, server := range rule.DnsServers {
+			servers = append(servers, fmt.Sprintf("identity:%d port:%d proto:%d",
+				server.DnsServerIdentity, server.DnsServerPort, server.DnsServerProto))
+		}
+
+		policyDetail := fmt.Sprintf("Rule[%d]: Patterns:%v Servers:[%s]",
+			i, rule.DnsPattern, strings.Join(servers, ","))
+		policyDetails = append(policyDetails, policyDetail)
+	}
+
+	return []string{
+		p.Identity.String(),
+		strings.Join(policyDetails, " | "),
+	}
 }
 
 var _ statedb.TableWritable = PolicyRules{}
@@ -125,8 +145,8 @@ func (i identityToIPs) TableRow() []string {
 var _ statedb.TableWritable = identityToIPs{}
 
 const (
-	PolicyRulesTableName   = "policy-rules"
-	IdentityToIPsTableName = "identity-to-ip"
+	PolicyRulesTableName   = "sdp-policy-rules"
+	IdentityToIPsTableName = "sdp-identity-to-ip"
 )
 
 var (
@@ -185,7 +205,7 @@ type PolicyUpdater interface {
 	// gRPC server. These rules are sent to the standalone DNS proxy.
 	// This is currently being called whenever there is a policy regeneration event
 	// for an endpoint.
-	UpdatePolicyRules(map[identity.NumericIdentity]policy.SelectorPolicy, bool) error
+	UpdatePolicyRules(map[identity.NumericIdentity]policy.SelectorPolicy) error
 
 	// IsEnabled returns true if the standalone DNS proxy is enabled
 	IsEnabled() bool
@@ -199,11 +219,11 @@ var closedWatchChannel = func() <-chan struct{} {
 
 // StreamPolicyState is a bidirectional streaming RPC to subscribe to DNS policies
 // SDP calls this method to subscribe to DNS policies
-// For each stream, we subscribe to the changes in the policy rules table and send the current state of the DNS rules to the client.
+// For each stream, we subscribe to the changes in the policy rules table and identity to IPs mapping.
 // The flow of the method is as follows:
-//  1. Send the current state of the DNS rules to the client.
-//  2. Subscribe to the changes in the policy rules table and wait for changes.
-//  3. For each change in the policy rules table, send the current state of the DNS rules to the client.
+//  1. Send the current state of the DNS rules and identity to IPs mapping to the client.
+//  2. Subscribe to the changes in the policy rules table and identity to IPs mapping.
+//  3. For each change in the policy rules table or identity to IPs mapping, send the current state of the DNS rules and identity to IPs mapping to the client.
 //  4. If the stream context is done, return.
 func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateServer) error {
 	streamCtx, cancel := context.WithCancel(stream.Context())
@@ -213,20 +233,25 @@ func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateS
 	defer limiter.Stop()
 
 	rulesWatch := closedWatchChannel
-
+	changeWatch := closedWatchChannel
 	for {
 
 		select {
 		case <-streamCtx.Done():
 			return streamCtx.Err()
 		case <-rulesWatch:
-			// If there are changes in the policy rules table, we will send the current state
-			// of the DNS policies to the client.
-			rules, watch := s.policyRulesTable.AllWatch(s.db.ReadTxn())
-			if err := s.sendAndRecvAckForDNSPolicies(stream, rules); err != nil {
-				return err
-			}
-			rulesWatch = watch
+		case <-changeWatch:
+		}
+		// If there are changes in the policy rules table or identity to IPs mapping, we will send the current state
+		// of the DNS rules and identity to IPs mapping to the client.
+		txn := s.db.ReadTxn()
+		identityToIPs, watch := s.identityToIPsTable.AllWatch(txn)
+		changeWatch = watch
+		rules, watch := s.policyRulesTable.AllWatch(txn)
+		rulesWatch = watch
+
+		if err := s.sendAndRecvAckForDNSPolicies(stream, rules, identityToIPs); err != nil {
+			return err
 		}
 		// Limit the rate at which we send the full snapshots
 		if err := limiter.Wait(streamCtx); err != nil {
@@ -238,11 +263,89 @@ func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateS
 
 // sendAndRecvAckForDNSPolicies sends the current state of the DNS policies to the client
 // and waits for the ACK from the client.
-// Note: this method is sending constant test data on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
-func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamPolicyStateServer, rules iter.Seq2[PolicyRules, statedb.Revision]) error {
+// It builds the egress L7 DNS policies with endpoint information based on the identity to IPs mapping.
+// There are two main phases in this function:
+//  1. Process the identity to IPs mapping and build a map of endpoint IDs to their IPs. This is sent to the client for
+//     lookup for the ip to endpoint IDs/endpoint identity mapping while serving the DNS req.
+//  2. Process the policy rules and build the egress L7 DNS policies with source endpoint information.
+func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamPolicyStateServer, rules iter.Seq2[PolicyRules, statedb.Revision], identityToIPs iter.Seq2[identityToIPs, statedb.Revision]) error {
 	requestID := uuid.New().String()
+
+	// Build egress L7 DNS policies with endpoint information
+	var egressL7DnsPolicy []*pb.DNSPolicy
+	var identityToEndpointMapping []*pb.IdentityToEndpointMapping
+
+	// Process identity to IPs mappings - build both for quick lookup map and endpoint mappings
+	identityIPMap := make(map[identity.NumericIdentity][]netip.Prefix)
+
+	for identityIP := range identityToIPs {
+		var prefixes []netip.Prefix
+		endpointToIPsBytes := make(map[uint64][][]byte) // Group IPs by endpoint ID for this identity
+
+		// Process each IP prefix and group by endpoint ID
+		for prefix := range identityIP.IPs.All() {
+			prefixes = append(prefixes, prefix)
+
+			ip := prefix.Addr()
+			ep := s.endpointsLookup.LookupIP(ip)
+			if ep != nil {
+				epID := uint64(ep.GetID())
+				endpointToIPsBytes[epID] = append(endpointToIPsBytes[epID], ip.AsSlice())
+			}
+		}
+
+		// Store prefixes for DNS policy processing
+		identityIPMap[identityIP.Identity] = prefixes
+
+		// Create EndpointInfo structures to be sent to the client
+		var endpointInfos []*pb.EndpointInfo
+		for epID, ipBytes := range endpointToIPsBytes {
+			endpointInfo := &pb.EndpointInfo{
+				Id: epID,
+				Ip: ipBytes,
+			}
+			endpointInfos = append(endpointInfos, endpointInfo)
+		}
+
+		// Add identity to endpoint mapping if there are endpoint infos
+		if len(endpointInfos) > 0 {
+			identityToEndpointMapping = append(identityToEndpointMapping, &pb.IdentityToEndpointMapping{
+				Identity:     identityIP.Identity.Uint32(),
+				EndpointInfo: endpointInfos,
+			})
+		}
+	}
+
+	// Process each policy rule to build DNS policies
+	for rule := range rules {
+		for _, dnsPolicy := range rule.PolicyRules {
+			// Get the IPs associated with this identity
+			epIPs := identityIPMap[rule.Identity]
+
+			// For each IP, find the corresponding endpoint and create DNS policy
+			for _, prefix := range epIPs {
+				ip := prefix.Addr()
+				ep := s.endpointsLookup.LookupIP(ip)
+				if ep == nil {
+					// If the endpoint is not found, log a warning
+					s.log.Debug("Endpoint not found for IP", logfields.IPAddr, ip)
+					continue
+				}
+
+				// Create DNS policy with endpoint information
+				egressL7DnsPolicy = append(egressL7DnsPolicy, &pb.DNSPolicy{
+					SourceEndpointId: uint32(ep.GetID()),
+					DnsServers:       dnsPolicy.DnsServers,
+					DnsPattern:       dnsPolicy.DnsPattern,
+				})
+			}
+		}
+	}
+
 	policyState := &pb.PolicyState{
-		RequestId: requestID,
+		RequestId:                 requestID,
+		EgressL7DnsPolicy:         egressL7DnsPolicy,
+		IdentityToEndpointMapping: identityToEndpointMapping,
 	}
 
 	if err := stream.Send(policyState); err != nil {
@@ -282,7 +385,7 @@ func NewServer(params serverParams) *FQDNDataServer {
 
 	fqdnDataServer := &FQDNDataServer{
 		port:               params.Config.StandaloneDNSProxyServerPort,
-		endpointManager:    params.EndpointManager,
+		endpointsLookup:    params.EndpointsLookup,
 		updateOnDNSMsg:     params.DNSRequestHandler,
 		log:                params.Logger,
 		prefixLengths:      counter.DefaultPrefixLengthCounter(),
@@ -390,27 +493,32 @@ func (s *FQDNDataServer) deleteFromIdentityToIPLocked(txn statedb.WriteTxn, iden
 	return nil
 }
 
-// UpdatePolicyRules updates the current state of the DNS rules with the given policies and sends the current state of the DNS rules to the client
-// This method is called:
-// 1. when the DNS rules are updated during the endpoint regeneration, we store the state of the DNS rules with flag rulesUpdate as true
-// 2. when the client subscribes to DNS policies, we send the current state of the DNS rules to the client(flag rulesUpdate as false)
-// 3. when the IP identity cache changes, we update the current state of the identity to IP mapping and send the current state of the DNS rules to
-// the client(flag rulesUpdate as false)
-// Note: this method is sending constant test data on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
-func (s *FQDNDataServer) UpdatePolicyRules(policies map[identity.NumericIdentity]policy.SelectorPolicy, rulesUpdate bool) error {
-	// This is a temporary implementation to send the current state of the DNS rules to the client and used for testing
+// UpdatePolicyRules updates the current state of the DNS rules with the given policies in the policy rules table.
+// This method is called when the DNS rules are updated during the endpoint regeneration, we store the state of the DNS rules.
+func (s *FQDNDataServer) UpdatePolicyRules(policies map[identity.NumericIdentity]policy.SelectorPolicy) error {
 	wtxn := s.db.WriteTxn(s.policyRulesTable)
 	defer wtxn.Abort()
-	for id, selPol := range policies {
-		_, _, err := s.policyRulesTable.Insert(wtxn, PolicyRules{
-			Identity: id,
-			SelPol:   selPol,
-		})
+
+	for secID, selectorPolicy := range policies {
+		dnsPolicies, err := s.buildDNSPoliciesForIdentity(selectorPolicy)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to build DNS policies for identity %d: %w", secID, err)
 		}
 
+		if len(dnsPolicies) == 0 {
+			// If no DNS policies found, delete the policy rules for this identity
+			// since we are getting the snapshot of the policies.
+			if err := s.deletePolicyRules(wtxn, secID); err != nil {
+				return fmt.Errorf("failed to delete policy rules for identity %d: %w", secID, err)
+			}
+		} else {
+			// Insert/update policy rules for this identity
+			if err := s.insertPolicyRules(wtxn, secID, dnsPolicies); err != nil {
+				return fmt.Errorf("failed to insert policy rules for identity %d: %w", secID, err)
+			}
+		}
 	}
+
 	wtxn.Commit()
 	return nil
 }
@@ -419,14 +527,169 @@ func (s *FQDNDataServer) IsEnabled() bool {
 	return s != nil && s.enabled
 }
 
+// buildDNSPoliciesForIdentity extracts DNS policies from a selector policy
+func (s *FQDNDataServer) buildDNSPoliciesForIdentity(selectorPolicy policy.SelectorPolicy) ([]*pb.DNSPolicy, error) {
+	dnsPolicies := make([]*pb.DNSPolicy, 0)
+
+	if selectorPolicy == nil {
+		return dnsPolicies, nil
+	}
+
+	for l4Filter, policyTuple := range selectorPolicy.RedirectFilters() {
+		if !s.isDNSPolicy(policyTuple.Policy) {
+			continue
+		}
+		dnsPolicy := s.buildDNSPolicyFromL4Filter(l4Filter, policyTuple)
+		if dnsPolicy == nil {
+			return nil, fmt.Errorf("failed to build DNS policy from L4 filter")
+		}
+
+		dnsPolicies = append(dnsPolicies, dnsPolicy)
+	}
+
+	return dnsPolicies, nil
+}
+
+// isDNSPolicy checks if the given policy is a DNS policy
+func (s *FQDNDataServer) isDNSPolicy(psp *policy.PerSelectorPolicy) bool {
+	return psp != nil && psp.L7Parser == policy.ParserTypeDNS
+}
+
+// buildDNSPolicyFromL4Filter creates a DNS policy from L4 filter and policy tuple
+func (s *FQDNDataServer) buildDNSPolicyFromL4Filter(l4Filter *policy.L4Filter, policyTuple policy.PerSelectorPolicyTuple) *pb.DNSPolicy {
+	dnsServers := s.buildDNSServers(l4Filter, policyTuple.Selector)
+	dnsPatterns := s.extractDNSPatterns(policyTuple.Policy)
+
+	return &pb.DNSPolicy{
+		DnsServers: dnsServers,
+		DnsPattern: dnsPatterns,
+	}
+}
+
+// buildDNSServers creates the list of DNS servers from L4 filter and cache selector
+func (s *FQDNDataServer) buildDNSServers(l4Filter *policy.L4Filter, cacheSelector policy.CachedSelector) []*pb.DNSServer {
+	if cacheSelector == nil || len(cacheSelector.GetSelections(versioned.Latest())) == 0 {
+		// No cache selector - return single server without identity
+		return []*pb.DNSServer{
+			{
+				DnsServerPort:  uint32(l4Filter.GetPort()),
+				DnsServerProto: uint32(l4Filter.U8Proto),
+			},
+		}
+	}
+	selections := cacheSelector.GetSelections(versioned.Latest())
+	dnsServers := make([]*pb.DNSServer, 0, len(selections))
+
+	for _, selection := range selections {
+		server := &pb.DNSServer{
+			DnsServerIdentity: selection.Uint32(),
+			DnsServerPort:     uint32(l4Filter.GetPort()),
+			DnsServerProto:    uint32(l4Filter.U8Proto),
+		}
+		dnsServers = append(dnsServers, server)
+	}
+	return dnsServers
+}
+
+// extractDNSPatterns extracts DNS patterns from the policy DNS rules
+func (s *FQDNDataServer) extractDNSPatterns(selectorPolicy *policy.PerSelectorPolicy) []string {
+	var patterns []string
+	if selectorPolicy == nil || selectorPolicy.DNS == nil {
+		return patterns
+	}
+
+	for _, dnsRule := range selectorPolicy.DNS {
+		if dnsRule.MatchPattern != "" {
+			patterns = append(patterns, dnsRule.MatchPattern)
+		}
+		if dnsRule.MatchName != "" {
+			patterns = append(patterns, dnsRule.MatchName)
+		}
+	}
+
+	return patterns
+}
+
+// insertPolicyRules inserts the policy rules into the database
+func (s *FQDNDataServer) insertPolicyRules(writeTxn statedb.WriteTxn, secID identity.NumericIdentity, dnsPolicies []*pb.DNSPolicy) error {
+	rules := PolicyRules{
+		Identity:    secID,
+		PolicyRules: dnsPolicies,
+	}
+
+	_, _, err := s.policyRulesTable.Insert(writeTxn, rules)
+	return err
+}
+
+// deletePolicyRules deletes the policy rules for the given identity from the database
+func (s *FQDNDataServer) deletePolicyRules(writeTxn statedb.WriteTxn, secID identity.NumericIdentity) error {
+	existing, _, found := s.policyRulesTable.Get(writeTxn, PolicyRulesIndex.Query(secID))
+	if !found {
+		// Identity not found in table, nothing to delete
+		s.log.Debug("Policy rules not found for identity, skipping deletion", logfields.Identity, secID.Uint32())
+		return nil
+	}
+
+	_, _, err := s.policyRulesTable.Delete(writeTxn, existing)
+	if err != nil {
+		return fmt.Errorf("failed to delete policy rules: %w", err)
+	}
+
+	s.log.Debug("Deleted policy rules for identity", logfields.Identity, secID.Uint32())
+	return nil
+}
+
 // UpdateMappingRequest updates the FQDN mapping with the given data
 // SDP sends the fqdn mapping to cilium agent
 // Steps to update the mapping:
 // 1. Get the endpoint from the IP
 // 2. If the endpoint is not found, return an error
 // 3. If the IPs are not empty, update the cilium agent with the mapping
-// Note: this method is left empty on purpose and will be updated with the actual implementation in the future PRs for the standalone DNS proxy
+// Note: Not all metrics are reported by the standalone dns proxy yet and will be added in the future.
 func (s *FQDNDataServer) UpdateMappingRequest(ctx context.Context, mappings *pb.FQDNMapping) (*pb.UpdateMappingResponse, error) {
+	now := time.Now()
+	var ips []netip.Addr
+	stat := dnsproxy.ProxyRequestContext{DataSource: accesslog.DNSSourceStandaloneProxy}
+
+	sourceIP := mappings.GetSourceIp()
+	if sourceIP == nil {
+		s.log.Error("Source IP is nil in FQDN mapping")
+		return &pb.UpdateMappingResponse{
+			Response: pb.ResponseCode_RESPONSE_CODE_ERROR_INVALID_ARGUMENT,
+		}, fmt.Errorf("source IP is nil in FQDN mapping")
+	}
+
+	endpointAddr := netip.MustParseAddr(string(sourceIP))
+	ep := s.endpointsLookup.LookupIP(endpointAddr)
+	if ep == nil {
+		s.log.Error("Endpoint not found for IP", logfields.IPAddr, endpointAddr)
+		return &pb.UpdateMappingResponse{
+			Response: pb.ResponseCode_RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND,
+		}, fmt.Errorf("endpoint not found for IP: %s", mappings.SourceIp)
+	}
+
+	recordIps := mappings.GetRecordIp()
+	if len(recordIps) == 0 {
+		return &pb.UpdateMappingResponse{
+			Response: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
+		}, nil
+	}
+
+	for _, ip := range recordIps {
+		ips = append(ips, netip.MustParseAddr(string(ip)))
+	}
+
+	if len(mappings.GetFqdn()) == 0 {
+		s.log.Error("FQDN is nil or empty in FQDN mapping")
+		return &pb.UpdateMappingResponse{
+			Response: pb.ResponseCode_RESPONSE_CODE_ERROR_INVALID_ARGUMENT,
+		}, fmt.Errorf("FQDN is nil or empty in FQDN mapping")
+	}
+
+	if mappings.GetResponseCode() == dns.RcodeSuccess {
+		s.updateOnDNSMsg.UpdateOnDNSMsg(now, ep, mappings.GetFqdn(), ips, int(mappings.GetTtl()), &stat)
+	}
+
 	return &pb.UpdateMappingResponse{
 		Response: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
 	}, nil

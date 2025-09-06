@@ -37,8 +37,8 @@ func TestNewDNSRulesTable(t *testing.T) {
 	// Test table insertion and retrieval
 	txn := db.WriteTxn(table)
 	dnsRule := service.PolicyRules{
-		Identity: identity.NumericIdentity(100),
-		SelPol:   nil,
+		Identity:    identity.NumericIdentity(100),
+		PolicyRules: nil,
 	}
 	_, _, err = table.Insert(txn, dnsRule)
 	require.NoError(t, err)
@@ -49,7 +49,7 @@ func TestNewDNSRulesTable(t *testing.T) {
 	rule, _, found := table.Get(rtxn, service.PolicyRulesIndex.Query(identity.NumericIdentity(100)))
 	require.True(t, found)
 	require.Equal(t, identity.NumericIdentity(100), rule.Identity)
-	require.Nil(t, rule.SelPol)
+	require.Nil(t, rule.PolicyRules)
 }
 
 // Note: In the future PRs, the test case will be updated to actually check the ip<>identity mapping scenarios.
