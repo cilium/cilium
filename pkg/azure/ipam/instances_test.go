@@ -164,7 +164,7 @@ func iteration2(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 	mngr.Resync(t.Context())
 }
 
-func TestGetVpcsAndSubnets(t *testing.T) {
+func TestSubnetDiscovery(t *testing.T) {
 	api := apimock.NewAPI(subnets, vnets)
 	require.NotNil(t, api)
 
@@ -177,13 +177,16 @@ func TestGetVpcsAndSubnets(t *testing.T) {
 
 	iteration1(t, api, mngr)
 
+	// Only subnets referenced by actual instances should be discovered
+	// iteration1 creates instances using only subnet-1, not subnet-2 or subnet-3
 	require.NotNil(t, mngr.subnets["subnet-1"])
-	require.NotNil(t, mngr.subnets["subnet-2"])
-	require.Nil(t, mngr.subnets["subnet-3"])
+	require.Nil(t, mngr.subnets["subnet-2"]) // Should NOT be discovered (no instances use it)
+	require.Nil(t, mngr.subnets["subnet-3"]) // Should NOT be discovered (no instances use it)
 
 	iteration2(t, api, mngr)
 
+	// iteration2 uses subnet-1 and subnet-3, but still NOT subnet-2
 	require.NotNil(t, mngr.subnets["subnet-1"])
-	require.NotNil(t, mngr.subnets["subnet-2"])
+	require.Nil(t, mngr.subnets["subnet-2"]) // Still should NOT be discovered (no instances use it)
 	require.NotNil(t, mngr.subnets["subnet-3"])
 }
