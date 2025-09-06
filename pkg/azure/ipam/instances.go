@@ -18,7 +18,7 @@ import (
 // AzureAPI is the API surface used of the Azure API
 type AzureAPI interface {
 	GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error)
-	GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error)
+	GetNodesSubnets(ctx context.Context, subnetIDs []string) (ipamTypes.SubnetMap, error)
 	AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error
 	AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error
 }
@@ -28,7 +28,6 @@ type AzureAPI interface {
 type InstancesManager struct {
 	mutex     lock.RWMutex
 	instances *ipamTypes.InstanceMap
-	vnets     ipamTypes.VirtualNetworkMap
 	subnets   ipamTypes.SubnetMap
 	api       AzureAPI
 }
@@ -66,7 +65,26 @@ func (m *InstancesManager) GetPoolQuota() (quota ipamTypes.PoolQuotaMap) {
 	return pool
 }
 
-// Resync fetches the list of EC2 instances and subnets and updates the local
+// extractSubnetIDs extracts unique subnet IDs from instance interfaces
+func (m *InstancesManager) extractSubnetIDs(instances *ipamTypes.InstanceMap) []string {
+	subnetIDs := make(map[string]struct{})
+
+	instances.ForeachAddress("", func(instanceID, interfaceID, ip, poolID string, addressObj ipamTypes.Address) error {
+		if poolID != "" {
+			subnetIDs[poolID] = struct{}{}
+		}
+		return nil
+	})
+
+	result := make([]string, 0, len(subnetIDs))
+	for subnetID := range subnetIDs {
+		result = append(result, subnetID)
+	}
+
+	return result
+}
+
+// Resync fetches the list of Azure instances and subnets and updates the local
 // cache in the instanceManager. It returns the time when the resync has
 // started or time.Time{} if it did not complete.
 func (m *InstancesManager) Resync(ctx context.Context) time.Time {
@@ -74,26 +92,41 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	defer m.mutex.Unlock()
 	resyncStart := time.Now()
 
-	vnets, subnets, err := m.api.GetVpcsAndSubnets(ctx)
-	if err != nil {
-		log.WithError(err).Warning("Unable to synchronize Azure virtualnetworks list")
-		return time.Time{}
-	}
-
-	instances, err := m.api.GetInstances(ctx, subnets)
+	// Phase 1: Get instances to discover which subnets are actually in use
+	// This provides subnet IDs without requiring subnet details upfront
+	instances, err := m.api.GetInstances(ctx, ipamTypes.SubnetMap{})
 	if err != nil {
 		log.WithError(err).Warning("Unable to synchronize Azure instances list")
 		return time.Time{}
 	}
 
+	// Extract subnet IDs from the instances we found
+	subnetIDs := m.extractSubnetIDs(instances)
+
+	// Phase 2: Query only the specific subnets that are actually used
+	subnets, err := m.api.GetNodesSubnets(ctx, subnetIDs)
+	if err != nil {
+		log.WithError(err).Warning("Unable to synchronize Azure subnets list")
+		// Continue with empty subnets map rather than failing completely
+		subnets = ipamTypes.SubnetMap{}
+	}
+
+	// Phase 3: Re-parse instances with subnet details to populate CIDR and gateway info
+	if len(subnets) > 0 {
+		instances, err = m.api.GetInstances(ctx, subnets)
+		if err != nil {
+			log.WithError(err).Warning("Unable to re-synchronize Azure instances with subnet details")
+			return time.Time{}
+		}
+	}
+
 	log.WithFields(logrus.Fields{
-		"numInstances":       instances.NumInstances(),
-		"numVirtualNetworks": len(vnets),
-		"numSubnets":         len(subnets),
+		"numInstances": instances.NumInstances(),
+		"numSubnets":   len(subnets),
+		"subnetIDs":    subnetIDs,
 	}).Info("Synchronized Azure IPAM information")
 
 	m.instances = instances
-	m.vnets = vnets
 	m.subnets = subnets
 
 	return resyncStart

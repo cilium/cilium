@@ -35,10 +35,6 @@ var (
 		{ID: "s-2", CIDR: cidr.MustParseCIDR("2.2.0.0/16"), VirtualNetworkID: "vpc-1"},
 		{ID: "s-3", CIDR: cidr.MustParseCIDR("3.3.3.3/16"), VirtualNetworkID: "vpc-1"},
 	}
-
-	testVnet = &ipamTypes.VirtualNetwork{
-		ID: "vpc-1",
-	}
 )
 
 type k8sMock struct {
@@ -144,7 +140,7 @@ func TestIpamPreAllocate8(t *testing.T) {
 	minAllocate := 0
 	toUse := 7
 
-	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVnet})
+	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet})
 	instances := NewInstancesManager(api)
 	require.NotNil(t, instances)
 
@@ -206,7 +202,7 @@ func TestIpamMinAllocate10(t *testing.T) {
 	minAllocate := 10
 	toUse := 7
 
-	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVnet})
+	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet})
 	instances := NewInstancesManager(api)
 	require.NotNil(t, instances)
 
@@ -290,7 +286,7 @@ func TestIpamManyNodes(t *testing.T) {
 				numNodes    = 2
 				minAllocate = 1
 			)
-			api := apimock.NewAPI(testSubnets, []*ipamTypes.VirtualNetwork{testVnet})
+			api := apimock.NewAPI(testSubnets)
 			instances := NewInstancesManager(api)
 			require.NotNil(t, instances)
 
@@ -304,11 +300,19 @@ func TestIpamManyNodes(t *testing.T) {
 			allInstances := ipamTypes.NewInstanceMap()
 
 			for i := range state {
+				// Give each interface at least one existing IP address to match real-world behavior
+				// where instances start with primary IP addresses.
 				resource := &types.AzureInterface{
 					Name:          "eth0",
 					SecurityGroup: "sg1",
-					Addresses:     []types.AzureAddress{},
-					State:         types.StateSucceeded,
+					Addresses: []types.AzureAddress{
+						{
+							IP:     fmt.Sprintf("1.1.%d.10", i+1), // Each node gets an IP in subnet s-1
+							Subnet: "s-1",
+							State:  types.StateSucceeded,
+						},
+					},
+					State: types.StateSucceeded,
 				}
 				resource.SetID(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i))
 				allInstances.Update(fmt.Sprintf("vm%d", i), ipamTypes.InterfaceRevision{
@@ -362,7 +366,7 @@ func TestIpamManyNodes(t *testing.T) {
 }
 
 func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rateLimit float64, burst int) {
-	api := apimock.NewAPI(testSubnets, []*ipamTypes.VirtualNetwork{testVnet})
+	api := apimock.NewAPI(testSubnets)
 	api.SetDelay(apimock.AllOperations, delay)
 	api.SetLimiter(rateLimit, burst)
 

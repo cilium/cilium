@@ -5,10 +5,14 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -19,6 +23,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
@@ -34,13 +39,38 @@ import (
 var (
 	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, "azure-api")
 	userAgent = fmt.Sprintf("cilium/%s", version.Version)
+
+	// azureAPIVersion is automatically detected from the imported Azure SDK package at build time
+	azureAPIVersion = detectAzureAPIVersion()
 )
+
+// detectAzureAPIVersion gets the imported Azure SDK version
+func detectAzureAPIVersion() string {
+	// Use reflection to get the package path of the network client
+	// This happens once at package initialization, not on every call
+	clientType := reflect.TypeOf((*network.SubnetsClient)(nil)).Elem()
+	packagePath := clientType.PkgPath()
+
+	// Extract version from package path: github.com/Azure/azure-sdk-for-go/services/network/mgmt/{VERSION}/network
+	versionPattern := regexp.MustCompile(`/mgmt/([0-9]{4}-[0-9]{2}-[0-9]{2})/`)
+	if matches := versionPattern.FindStringSubmatch(packagePath); len(matches) > 1 {
+		detectedVersion := matches[1]
+		log.WithField("apiVersion", detectedVersion).Info("Detected Azure API version from imported SDK package")
+		return detectedVersion
+	}
+
+	// This should never happen unless the SDK package structure changes dramatically
+	log.Warning("Could not detect Azure API version from SDK package, using fallback")
+	return "2021-08-01"
+}
 
 // Client represents an Azure API client
 type Client struct {
+	subscriptionID  string
 	resourceGroup   string
 	interfaces      network.InterfacesClient
 	virtualnetworks network.VirtualNetworksClient
+	subnets         network.SubnetsClient
 	vmss            compute.VirtualMachineScaleSetVMsClient
 	vmscalesets     compute.VirtualMachineScaleSetsClient
 	limiter         *helpers.APILimiter
@@ -82,9 +112,11 @@ func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID 
 	}
 
 	c := &Client{
+		subscriptionID:  subscriptionID,
 		resourceGroup:   resourceGroup,
 		interfaces:      network.NewInterfacesClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
 		virtualnetworks: network.NewVirtualNetworksClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
+		subnets:         network.NewSubnetsClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
 		vmss:            compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
 		vmscalesets:     compute.NewVirtualMachineScaleSetsClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
 		metricsAPI:      metrics,
@@ -101,6 +133,8 @@ func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID 
 	c.interfaces.AddToUserAgent(userAgent)
 	c.virtualnetworks.Authorizer = authorizer
 	c.virtualnetworks.AddToUserAgent(userAgent)
+	c.subnets.Authorizer = authorizer
+	c.subnets.AddToUserAgent(userAgent)
 	c.vmss.Authorizer = authorizer
 	c.vmss.AddToUserAgent(userAgent)
 	c.vmscalesets.Authorizer = authorizer
@@ -280,6 +314,29 @@ func deriveGatewayIP(subnetIP net.IP) string {
 	return net.IPv4(addr[0], addr[1], addr[2], addr[3]+1).String()
 }
 
+// azureSubnetIDRegex matches Azure subnet resource IDs and captures resource group, vnet and subnet names
+var azureSubnetIDRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/([^/]+)/providers/Microsoft\.Network/virtualNetworks/([^/]+)/subnets/([^/]+)$`)
+
+// expectedCaptureGroups is the expected number of regex capture groups plus the full match
+// (full match + resourceGroup + virtualNetworkName + subnetName = 4 total)
+const expectedCaptureGroups = 4
+
+// parseSubnetID extracts the resource group, virtual network name and subnet name from an Azure subnet ID.
+// Captures resourceGroup, virtualNetworkName and subnetName from the full Azure resource ID.
+// Expected format: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}
+func parseSubnetID(subnetID string) (resourceGroupName, vnetName, subnetName string, err error) {
+	matches := azureSubnetIDRegex.FindStringSubmatch(subnetID)
+	if len(matches) != expectedCaptureGroups {
+		return "", "", "", fmt.Errorf("invalid Azure subnet ID format: %s", subnetID)
+	}
+
+	resourceGroupName = matches[1]
+	vnetName = matches[2]
+	subnetName = matches[3]
+
+	return resourceGroupName, vnetName, subnetName, nil
+}
+
 // GetInstances returns the list of all instances including all attached
 // interfaces as instanceMap
 func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
@@ -297,30 +354,6 @@ func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) 
 	}
 
 	return instances, nil
-}
-
-// describeVpcs lists all VPCs
-func (c *Client) describeVpcs(ctx context.Context) ([]network.VirtualNetwork, error) {
-	c.limiter.Limit(ctx, "VirtualNetworks.List")
-
-	sinceStart := spanstat.Start()
-	result, err := c.virtualnetworks.ListAllComplete(ctx)
-	c.metricsAPI.ObserveAPICall("virtualnetworks.ListAll", deriveStatus(err), sinceStart.Seconds())
-	if err != nil {
-		return nil, err
-	}
-
-	var vpcs []network.VirtualNetwork
-	for result.NotDone() {
-		if err != nil {
-			return nil, err
-		}
-
-		vpcs = append(vpcs, result.Value())
-		err = result.Next()
-	}
-
-	return vpcs, nil
 }
 
 func parseSubnet(subnet *network.Subnet) (s *ipamTypes.Subnet) {
@@ -343,37 +376,259 @@ func parseSubnet(subnet *network.Subnet) (s *ipamTypes.Subnet) {
 	return
 }
 
-// GetVpcsAndSubnets retrieves and returns all Vpcs
-func (c *Client) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error) {
-	vpcs := ipamTypes.VirtualNetworkMap{}
+// GetNodesSubnets retrieves subnet information for node interfaces by making targeted API calls
+// instead of listing all VNets subscription-wide. This method only queries the specific subnets
+// that are referenced by existing node network interfaces.
+// Uses raw HTTP pagination to accurately handle subnets with many IP configurations
+// and Azure may return pagination links in the response.
+// This method is used to get the subnet details for node interfaces.
+func (c *Client) GetNodesSubnets(ctx context.Context, subnetIDs []string) (ipamTypes.SubnetMap, error) {
 	subnets := ipamTypes.SubnetMap{}
 
-	vpcList, err := c.describeVpcs(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for _, v := range vpcList {
-		if v.ID == nil {
+	for _, subnetID := range subnetIDs {
+		// Parse subnet ID to extract resource group, vnet and subnet names
+		resourceGroup, vnetName, subnetName, err := parseSubnetID(subnetID)
+		if err != nil {
+			log.WithError(err).WithField("subnetID", subnetID).Warning("Failed to parse subnet ID, skipping")
 			continue
 		}
 
-		vpc := &ipamTypes.VirtualNetwork{ID: *v.ID}
-		vpcs[vpc.ID] = vpc
+		// Use pagination-aware subnet query for accurate IP configuration counting
+		subnet, err := c.getSubnetWithPagination(ctx, c.subscriptionID, resourceGroup, vnetName, subnetName)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				"subnetID":      subnetID,
+				"resourceGroup": resourceGroup,
+				"vnetName":      vnetName,
+				"subnetName":    subnetName,
+			}).Warning("Failed to get subnet details, skipping")
+			continue
+		}
 
-		if v.Subnets != nil {
-			for _, subnet := range *v.Subnets {
-				if subnet.ID == nil {
-					continue
+		if subnet != nil {
+			subnets[subnetID] = subnet
+			log.WithFields(logrus.Fields{
+				"subnetID":           subnetID,
+				"availableAddresses": subnet.AvailableAddresses,
+				"cidr":               subnet.CIDR,
+			}).Debug("Successfully retrieved subnet details with pagination")
+		}
+	}
+
+	return subnets, nil
+}
+
+// subnetResponseRaw represents the raw HTTP response structure for subnet API calls
+type subnetResponseRaw struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	Properties struct {
+		AddressPrefix    *string              `json:"addressPrefix,omitempty"`
+		AddressPrefixes  *[]string            `json:"addressPrefixes,omitempty"`
+		IPConfigurations []ipConfigurationRef `json:"ipConfigurations,omitempty"`
+	} `json:"properties"`
+	NextLink string `json:"nextLink,omitempty"`
+}
+
+// ipConfigurationRef represents a reference to an IP configuration in the raw response
+type ipConfigurationRef struct {
+	ID string `json:"id"`
+}
+
+// getSubnetWithPagination retrieves a subnet with full IP configuration pagination using raw HTTP calls
+// Azure may return nextLink if more than some amount of IP configuration limit
+func (c *Client) getSubnetWithPagination(ctx context.Context, subscriptionID, resourceGroup, vnetName, subnetName string) (*ipamTypes.Subnet, error) {
+	// Build initial API URL using the same version as SDK
+	baseURL := fmt.Sprintf("https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/%s",
+		subscriptionID, resourceGroup, vnetName, subnetName)
+
+	initialURL := fmt.Sprintf("%s?api-version=%s", baseURL, azureAPIVersion)
+
+	log := log.WithFields(logrus.Fields{
+		"subscriptionID": subscriptionID,
+		"resourceGroup":  resourceGroup,
+		"vnetName":       vnetName,
+		"subnetName":     subnetName,
+		"apiVersion":     azureAPIVersion,
+		"subsys":         "azure-pagination",
+	})
+
+	log.Info("Starting subnet pagination query.")
+
+	// Collect all IP configurations across all pages
+	var allIPConfigs []ipConfigurationRef
+	var firstPageSubnetInfo *subnetResponseRaw
+	pageCount := 0
+	nextURL := initialURL
+
+	for nextURL != "" {
+		pageCount++
+		pageLog := log.WithField("page", pageCount)
+
+		// Create HTTP request
+		req, err := http.NewRequestWithContext(ctx, "GET", nextURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request for page %d: %w", pageCount, err)
+		}
+
+		// Add authentication using the same mechanism as the SDK
+		// Get a bearer token from the authorizer
+		if bearerAuth, ok := c.subnets.Client.Authorizer.(*autorest.BearerAuthorizer); ok {
+			if tokenProvider := bearerAuth.TokenProvider(); tokenProvider != nil {
+				token := tokenProvider.OAuthToken()
+				if token == "" {
+					return nil, fmt.Errorf("failed to get OAuth token for page %d: token is empty", pageCount)
 				}
-				if s := parseSubnet(&subnet); s != nil {
-					subnets[*subnet.ID] = s
-				}
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+			}
+		} else {
+			// For other authorizer types, we'll have to fallback to the SDK method
+			pageLog.Warning("Non-bearer authorizer detected - falling back to SDK method for this subnet")
+			return nil, fmt.Errorf("unsupported authorizer type for pagination - please use bearer token authentication")
+		}
+
+		req.Header.Set("User-Agent", c.subnets.Client.UserAgent)
+		req.Header.Set("Accept", "application/json")
+
+		pageLog.WithField("url", nextURL).Debug("Making paginated HTTP request")
+
+		// Make HTTP request
+		c.limiter.Limit(ctx, "Subnets.GetWithPagination")
+		sinceStart := spanstat.Start()
+
+		httpClient := &http.Client{Timeout: 30 * time.Second}
+		resp, err := httpClient.Do(req)
+
+		c.metricsAPI.ObserveAPICall("Subnets.GetWithPagination", deriveStatus(err), sinceStart.Seconds())
+
+		if err != nil {
+			return nil, fmt.Errorf("HTTP request failed for page %d: %w", pageCount, err)
+		}
+		defer resp.Body.Close()
+
+		// Check HTTP status
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("HTTP request failed for page %d with status %d: %s", pageCount, resp.StatusCode, string(body))
+		}
+
+		// Read response body
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body for page %d: %w", pageCount, err)
+		}
+
+		// Parse JSON response
+		var subnetResp subnetResponseRaw
+		if err := json.Unmarshal(body, &subnetResp); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response for page %d: %w", pageCount, err)
+		}
+
+		// Store subnet metadata from the first page
+		if pageCount == 1 {
+			firstPageSubnetInfo = &subnetResp
+		}
+
+		// Add IP configurations from this page
+		ipConfigsOnPage := len(subnetResp.Properties.IPConfigurations)
+		allIPConfigs = append(allIPConfigs, subnetResp.Properties.IPConfigurations...)
+
+		pageLog.WithFields(logrus.Fields{
+			"ipConfigsOnPage": ipConfigsOnPage,
+			"totalSoFar":      len(allIPConfigs),
+			"hasNextLink":     subnetResp.NextLink != "",
+		}).Info("Processed subnet pagination page")
+
+		// Check for next page
+		nextURL = subnetResp.NextLink
+		if nextURL != "" {
+			// Sanity check nextLink format as mentioned in requirements
+			if !strings.Contains(nextURL, "$skiptoken") && !strings.Contains(nextURL, "skiptoken") {
+				pageLog.WithField("suspiciousNextLink", nextURL).Warning("Suspicious nextLink format detected, stopping pagination for safety")
+				break
 			}
 		}
 	}
 
-	return vpcs, subnets, nil
+	totalIPConfigs := len(allIPConfigs)
+
+	// Final logging with nextLink-based pagination detection
+	paginationUsed := pageCount > 1
+	log.WithFields(logrus.Fields{
+		"totalPages":     pageCount,
+		"totalIPConfigs": totalIPConfigs,
+		"paginationUsed": paginationUsed,
+	}).Info("Completed subnet pagination query")
+
+	// Log pagination details based on actual response behavior
+	if paginationUsed {
+		log.WithFields(logrus.Fields{
+			"totalIPConfigs": totalIPConfigs,
+			"pageCount":      pageCount,
+		}).Info("Pagination was required - subnet has more IP configurations than single page limit")
+	} else {
+		log.WithField("totalIPConfigs", totalIPConfigs).Debug("No pagination needed - all IP configurations retrieved in single page")
+	}
+
+	// Ensure we have subnet info from the first page
+	if firstPageSubnetInfo == nil {
+		return nil, fmt.Errorf("no subnet information retrieved from first page")
+	}
+
+	// Build final subnet object using the first page subnet info and total IP config count
+	subnet := &ipamTypes.Subnet{
+		ID:   firstPageSubnetInfo.ID,
+		Name: firstPageSubnetInfo.Name,
+	}
+
+	// Parse CIDR from the first page subnet info
+	if firstPageSubnetInfo.Properties.AddressPrefix != nil {
+		c, err := cidr.ParseCIDR(*firstPageSubnetInfo.Properties.AddressPrefix)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse CIDR %s: %w", *firstPageSubnetInfo.Properties.AddressPrefix, err)
+		}
+		subnet.CIDR = c
+		// Calculate available addresses using total IP configurations from all pages
+		subnet.AvailableAddresses = c.AvailableIPs() - totalIPConfigs
+	}
+
+	log.WithFields(logrus.Fields{
+		"subnetCIDR":         subnet.CIDR,
+		"totalIPConfigs":     totalIPConfigs,
+		"availableAddresses": subnet.AvailableAddresses,
+	}).Debug("Built final subnet object with accurate IP configuration count from all pages")
+
+	return subnet, nil
+}
+
+// parseSubnetWithIPCount converts Azure subnet to Cilium format with custom IP config count
+func parseSubnetWithIPCount(subnet *network.Subnet, ipConfigCount int) *ipamTypes.Subnet {
+	s := &ipamTypes.Subnet{}
+	if subnet.ID != nil {
+		s.ID = *subnet.ID
+	}
+	if subnet.Name != nil {
+		s.Name = *subnet.Name
+	}
+
+	if subnet.AddressPrefix != nil {
+		c, err := cidr.ParseCIDR(*subnet.AddressPrefix)
+		if err != nil {
+			return nil
+		}
+		s.CIDR = c
+		// Use the accurate IP config count from pagination
+		s.AvailableAddresses = c.AvailableIPs() - ipConfigCount
+	}
+
+	return s
+}
+
+// emptyRequest creates an empty autorest request for authentication purposes
+func emptyRequest() *http.Request {
+	req, _ := http.NewRequest("GET", "", nil)
+	return req
 }
 
 func generateIpConfigName() string {
