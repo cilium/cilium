@@ -111,6 +111,7 @@ type orchestratorParams struct {
 	KPRConfig           kpr.KPRConfig
 	MaglevConfig        maglev.Config
 	WgConfig            wgTypes.WireguardConfig
+	IPsecConfig         datapath.IPsecConfig
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -175,8 +176,9 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 					}
 				}
 				if agentConfig.EnableIPv6 {
+					loopback := n.Local.ServiceLoopbackIPv6 != nil
 					ipv6GW := n.GetCiliumInternalIP(true) != nil
-					if !ipv6GW {
+					if !ipv6GW || !loopback {
 						return false
 					}
 				}
@@ -211,6 +213,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.MaglevConfig,
 			o.params.MTU,
 			o.params.WgConfig,
+			o.params.IPsecConfig,
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)

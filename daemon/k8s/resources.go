@@ -7,6 +7,9 @@ import (
 	"github.com/cilium/hive/cell"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/util/workqueue"
+
+	envoy "github.com/cilium/cilium/pkg/envoy/config"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -30,6 +33,7 @@ var (
 		"Agent Kubernetes resources",
 
 		cell.Config(k8s.DefaultConfig),
+		cell.Provide(provideK8sWatchConfig),
 		LocalNodeCell,
 		cell.Provide(
 			k8s.ServiceResource,
@@ -49,9 +53,9 @@ var (
 		"Agent Kubernetes local node resources",
 
 		cell.Provide(
-			func(lc cell.Lifecycle, cs client.Clientset) (LocalNodeResource, error) {
+			func(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (LocalNodeResource, error) {
 				return k8s.NodeResource(
-					lc, cs,
+					lc, cs, mp,
 					func(opts *metav1.ListOptions) {
 						opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
 					},
@@ -68,6 +72,18 @@ var (
 		),
 	)
 )
+
+// provideK8sWatchConfig creates k8s.ServiceWatchConfig with headless service watch
+// enabled only if features relying on it (Gateway API, Ingress) are enabled.
+//
+// This reduces the load on apiserver in clusters that use headless services
+// and don't use Ingress nor Gateway.
+// See: https://github.com/cilium/cilium/issues/40763
+func provideK8sWatchConfig(envoyCfg envoy.SecretSyncConfig) k8s.ServiceWatchConfig {
+	return k8s.ServiceWatchConfig{
+		EnableHeadlessServiceWatch: envoyCfg.EnableGatewayAPI || envoyCfg.EnableIngressController,
+	}
+}
 
 // LocalNodeResource is a resource.Resource[*slim_corev1.Node] but one which will only stream updates for the node object
 // associated with the node we are currently running on.

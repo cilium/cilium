@@ -673,6 +673,10 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		return releasedIP != ""
 	}, 10*time.Second, time.Second)
 
+	// Actually run the IP maintenance process to mark the IP for release
+	err = node.MaintainIPPool(context.Background())
+	require.NoError(t, err)
+
 	node.PopulateIPReleaseStatus(node.resource)
 
 	// Verify it's marked for release in the CiliumNode resource
@@ -681,6 +685,10 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 
 	// Fake acknowledge IP for release like agent would
 	testipam.FakeAcknowledgeReleaseIps(node.resource)
+
+	// Run maintenance process again to process the acknowledgment
+	err = node.MaintainIPPool(context.Background())
+	require.NoError(t, err)
 
 	// Resync one more time to process acknowledgements.
 	node.instanceSync.Trigger()

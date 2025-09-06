@@ -4,7 +4,6 @@
 package reflectors
 
 import (
-	"context"
 	"fmt"
 	"iter"
 	"log/slog"
@@ -67,7 +66,7 @@ func isHeadless(svc *slim_corev1.Service) bool {
 	return headless
 }
 
-func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig, rawlog *slog.Logger, localNodeStore *node.LocalNodeStore, svc *slim_corev1.Service, source source.Source) (s *loadbalancer.Service, fes []loadbalancer.FrontendParams) {
+func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig, rawlog *slog.Logger, localNode *node.LocalNode, svc *slim_corev1.Service, source source.Source) (s *loadbalancer.Service, fes []loadbalancer.FrontendParams) {
 	// Lazily construct the augmented logger as we very rarely log here. This improves throughput by 20% and avoids an allocation.
 	log := sync.OnceValue(func() *slog.Logger {
 		return rawlog.With(
@@ -100,12 +99,11 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		}
 	}
 
-	if localNodeStore != nil {
-		if nodeMatches, err := CheckServiceNodeExposure(localNodeStore, svc.Annotations); err != nil {
+	if localNode != nil {
+		if nodeMatches, err := CheckServiceNodeExposure(localNode, svc.Annotations); err != nil {
 			log().Warn("Ignoring node service exposure", logfields.Error, err)
 		} else if !nodeMatches {
 			return nil, nil
-
 		}
 	}
 
@@ -497,19 +495,14 @@ func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 
 // CheckServiceNodeExposure returns true if the service should be installed onto the
 // local node, and false if the node should ignore and not install the service.
-func CheckServiceNodeExposure(localNodeStore *node.LocalNodeStore, annotations map[string]string) (bool, error) {
+func CheckServiceNodeExposure(localNode *node.LocalNode, annotations map[string]string) (bool, error) {
 	if serviceAnnotationValue, serviceAnnotationExists := annotations[annotation.ServiceNodeSelectorExposure]; serviceAnnotationExists {
-		ln, err := localNodeStore.Get(context.Background())
-		if err != nil {
-			return false, fmt.Errorf("failed to retrieve local node: %w", err)
-		}
-
 		selector, err := k8sLabels.Parse(serviceAnnotationValue)
 		if err != nil {
 			return false, fmt.Errorf("failed to parse node label annotation: %w", err)
 		}
 
-		if selector.Matches(k8sLabels.Set(ln.Labels)) {
+		if selector.Matches(k8sLabels.Set(localNode.Labels)) {
 			return true, nil
 		}
 
@@ -518,12 +511,7 @@ func CheckServiceNodeExposure(localNodeStore *node.LocalNodeStore, annotations m
 	}
 
 	if serviceAnnotationValue, serviceAnnotationExists := annotations[annotation.ServiceNodeExposure]; serviceAnnotationExists {
-		ln, err := localNodeStore.Get(context.Background())
-		if err != nil {
-			return false, fmt.Errorf("failed to retrieve local node: %w", err)
-		}
-
-		nodeLabelValue, nodeLabelExists := ln.Labels[annotation.ServiceNodeExposure]
+		nodeLabelValue, nodeLabelExists := localNode.Labels[annotation.ServiceNodeExposure]
 		if !nodeLabelExists || nodeLabelValue != serviceAnnotationValue {
 			return false, nil
 		}

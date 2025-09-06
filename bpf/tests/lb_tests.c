@@ -204,7 +204,12 @@ int test_lb4_proto_mismatch_wild_single_scope(__maybe_unused struct __ctx_buff *
 			  BACKEND_COUNT, REVNAT_INDEX);
 
 	service = lb4_lookup_service(&key, true);
+	assert(!service);
+	assert(key.scope == LB_LOOKUP_SCOPE_EXT);
+	assert(key.proto == IPPROTO_UDP);
+	assert(key.dport == FRONTEND_PORT);
 
+	service = lb4_lookup_service(&key, false);
 	assert(service);
 	assert(key.scope == LB_LOOKUP_SCOPE_EXT);
 	assert(key.proto == LB_SVC_WILDCARD_PROTO);
@@ -238,7 +243,12 @@ int test_lb4_proto_mismatch_wild_dual_scope(__maybe_unused struct __ctx_buff *ct
 			  BACKEND_COUNT, REVNAT_INDEX);
 
 	service = lb4_lookup_service(&key, true);
+	assert(!service);
+	assert(key.scope == LB_LOOKUP_SCOPE_EXT);
+	assert(key.proto == IPPROTO_UDP);
+	assert(key.dport == FRONTEND_PORT);
 
+	service = lb4_lookup_service(&key, false);
 	assert(service);
 	assert(key.scope == LB_LOOKUP_SCOPE_EXT);
 	assert(key.proto == LB_SVC_WILDCARD_PROTO);

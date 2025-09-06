@@ -69,7 +69,7 @@ const (
 	NodePortModeName = "node-port-mode"
 
 	// LoadBalancerDSRDispatchName is the config option for setting the method for
-	// pushing packets to backends under DSR ("opt" or "ipip")
+	// pushing packets to backends under DSR ("opt", "ipip", "geneve")
 	LoadBalancerDSRDispatchName = "bpf-lb-dsr-dispatch"
 
 	// ExternalClusterIPName is the name of the option to enable
@@ -176,7 +176,7 @@ type UserConfig struct {
 	LBAlgorithm string `mapstructure:"bpf-lb-algorithm"`
 
 	// DSRDispatch indicates the method for pushing packets to
-	// backends under DSR ("opt" or "ipip")
+	// backends under DSR ("opt", "ipip", "geneve")
 	DSRDispatch string `mapstructure:"bpf-lb-dsr-dispatch"`
 
 	// ExternalClusterIP enables routing to ClusterIP services from outside
@@ -538,7 +538,7 @@ func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalC
 		ZoneMapper:                             cfg,
 		EnableIPv4:                             cfg.EnableIPv4,
 		EnableIPv6:                             cfg.EnableIPv6,
-		KubeProxyReplacement:                   kprCfg.KubeProxyReplacement || kprCfg.EnableNodePort,
+		KubeProxyReplacement:                   kprCfg.KubeProxyReplacement,
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
 		EnableSocketLB:                         kprCfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,

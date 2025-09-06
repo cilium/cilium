@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -195,13 +196,13 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 
 	// Check if we should use the NodeInternalIPs instead of the
 	// CiliumInternalIPs for the IPsec encapsulation.
-	if !option.Config.UseCiliumInternalIPForIPsec {
+	if !n.ipsecCfg.UseCiliumInternalIP() {
 		localIP = localNodeInternalIP
 		remoteIP = remoteNodeInternalIP
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
-	template := &ipsec.IPSecParameters{
+	template := &types.IPSecParameters{
 		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
@@ -211,13 +212,13 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	}
 
 	for _, cidr := range n.nodeConfig.GetIPv4PodSubnets() {
-		params := ipsec.NewIPSecParamaters(template)
+		params := types.NewIPSecParameters(template)
 		params.Dir = ipsec.IPSecDirOut
 		params.SourceSubnet = wildcardCIDR
 		params.DestSubnet = cidr
 		params.SourceTunnelIP = &localIP
 		params.DestTunnelIP = &remoteIP
-		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
 			statesUpdated = false
@@ -225,22 +226,22 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	}
 
 	// insert fwd rule
-	params := ipsec.NewIPSecParamaters(template)
+	params := types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
-	params = ipsec.NewIPSecParamaters(template)
+	params = types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &remoteCiliumInternalIP
 	params.DestTunnelIP = &localCiliumInternalIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in CiliumInternalIPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -249,7 +250,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	// we just need to update the tunnel ips here...
 	params.SourceTunnelIP = &remoteNodeInternalIP
 	params.DestTunnelIP = &localNodeInternalIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in NodeInternalIPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -292,7 +293,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
-	template := &ipsec.IPSecParameters{
+	template := &types.IPSecParameters{
 		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
@@ -305,13 +306,13 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	// since some other ipsec related parameters beside the remote CIDR might have been changed
 	// (e.g: RemoteBootID, RemoteNodeID and so on)
 	for _, remoteCIDR := range cidr.CIDRsToIPNets(newNode.GetIPv4AllocCIDRs()) {
-		params := ipsec.NewIPSecParamaters(template)
+		params := types.NewIPSecParameters(template)
 		params.Dir = ipsec.IPSecDirOut
 		params.SourceSubnet = wildcardCIDR
 		params.DestSubnet = remoteCIDR
 		params.SourceTunnelIP = &localIP
 		params.DestTunnelIP = &remoteIP
-		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "ADD out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
 			statesUpdated = false
@@ -319,7 +320,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	for _, remoteCIDR := range cidr.CIDRsToIPNets(removedCIDRs) {
-		if err := ipsec.DeleteXfrmPolicyOut(n.log, nodeID, remoteCIDR); err != nil {
+		if err := n.ipsecAgent.DeleteXfrmPolicyOut(nodeID, remoteCIDR); err != nil {
 			nodeIDStr := fmt.Sprintf("0x%x", nodeID)
 			scopedLog := n.log.With(
 				logfields.Reason, "v4 XFRM policy OUT deletion",
@@ -334,22 +335,22 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	// insert fwd rule
-	params := ipsec.NewIPSecParamaters(template)
+	params := types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
-	params = ipsec.NewIPSecParamaters(template)
+	params = types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &remoteIP
 	params.DestTunnelIP = &localIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -373,25 +374,25 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	localOverlayIPExactMatch := &net.IPNet{IP: localUnderlayIP, Mask: exactMatchMaskIPv4}
 	remoteOverlayIPExactMatch := &net.IPNet{IP: remoteUnderlayIP, Mask: exactMatchMaskIPv4}
 
-	params = ipsec.NewIPSecParamaters(template)
+	params = types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirOut
 	params.SourceSubnet = localOverlayIPExactMatch
 	params.DestSubnet = remoteOverlayIPExactMatch
 	params.SourceTunnelIP = &localUnderlayIP
 	params.DestTunnelIP = &remoteUnderlayIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay out IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
 	}
 
-	params = ipsec.NewIPSecParamaters(template)
+	params = types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &remoteUnderlayIP
 	params.DestTunnelIP = &localUnderlayIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay in IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -474,13 +475,13 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 
 	// Check if we should use the NodeInternalIPs instead of the
 	// CiliumInternalIPs for the IPsec encapsulation.
-	if !option.Config.UseCiliumInternalIPForIPsec {
+	if !n.ipsecCfg.UseCiliumInternalIP() {
 		localIP = localNodeInternalIP
 		remoteIP = remoteNodeInternalIP
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
-	template := &ipsec.IPSecParameters{
+	template := &types.IPSecParameters{
 		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
@@ -490,38 +491,38 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	}
 
 	for _, cidr := range n.nodeConfig.GetIPv6PodSubnets() {
-		params := ipsec.NewIPSecParamaters(template)
+		params := types.NewIPSecParameters(template)
 		params.Dir = ipsec.IPSecDirOut
 		params.SourceSubnet = wildcardCIDR6
 		params.DestSubnet = cidr
 		params.SourceTunnelIP = &localIP
 		params.DestTunnelIP = &remoteIP
-		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
 			statesUpdated = false
 		}
 	}
 
-	params := ipsec.NewIPSecParamaters(template)
+	params := types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR6
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
 	}
 
-	params = ipsec.NewIPSecParamaters(template)
+	params = types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR6
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &remoteCiliumInternalIP
 	params.DestTunnelIP = &localCiliumInternalIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in CiliumInternalIPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -530,7 +531,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	// we just need to update the tunnel ips here...
 	params.SourceTunnelIP = &remoteNodeInternalIP
 	params.DestTunnelIP = &localNodeInternalIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in NodeInternalIPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -571,7 +572,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
-	template := &ipsec.IPSecParameters{
+	template := &types.IPSecParameters{
 		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
@@ -584,13 +585,13 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	// since some other ipsec related parameters beside the remote CIDR might have been changed
 	// (e.g: RemoteBootID, RemoteNodeID and so on)
 	for _, remoteCIDR := range cidr.CIDRsToIPNets(newNode.GetIPv6AllocCIDRs()) {
-		params := ipsec.NewIPSecParamaters(template)
+		params := types.NewIPSecParameters(template)
 		params.Dir = ipsec.IPSecDirOut
 		params.SourceSubnet = wildcardCIDR6
 		params.DestSubnet = remoteCIDR
 		params.SourceTunnelIP = &localIP
 		params.DestTunnelIP = &remoteIP
-		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+		spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
 			statesUpdated = false
@@ -598,7 +599,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	for _, remoteCIDR := range cidr.CIDRsToIPNets(removedCIDRs) {
-		if err := ipsec.DeleteXfrmPolicyOut(n.log, nodeID, remoteCIDR); err != nil {
+		if err := n.ipsecAgent.DeleteXfrmPolicyOut(nodeID, remoteCIDR); err != nil {
 			nodeIDStr := fmt.Sprintf("0x%x", nodeID)
 			scopedLog := n.log.With(
 				logfields.Reason, "v6 XFRM policy OUT deletion",
@@ -613,25 +614,25 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	// insert forward policy
-	params := ipsec.NewIPSecParamaters(template)
+	params := types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR6
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
 	}
 
-	params = ipsec.NewIPSecParamaters(template)
+	params = types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR6
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &remoteIP
 	params.DestTunnelIP = &localIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -655,25 +656,25 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	localOverlayIPExactMatch := &net.IPNet{IP: localUnderlayIP, Mask: exactMatchMaskIPv6}
 	remoteOverlayIPExactMatch := &net.IPNet{IP: remoteUnderlayIP, Mask: exactMatchMaskIPv6}
 
-	params = ipsec.NewIPSecParamaters(template)
+	params = types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirOut
 	params.SourceSubnet = localOverlayIPExactMatch
 	params.DestSubnet = remoteOverlayIPExactMatch
 	params.SourceTunnelIP = &localUnderlayIP
 	params.DestTunnelIP = &remoteUnderlayIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay out IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
 	}
 
-	params = ipsec.NewIPSecParamaters(template)
+	params = types.NewIPSecParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &remoteUnderlayIP
 	params.DestTunnelIP = &localUnderlayIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay in IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
@@ -880,7 +881,7 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) error {
 	if nodeID == 0 {
 		scopedLog.Warn("No node ID found for node.")
 	} else {
-		errs = errors.Join(errs, ipsec.DeleteIPsecEndpoint(n.log, nodeID))
+		errs = errors.Join(errs, n.ipsecAgent.DeleteIPsecEndpoint(nodeID))
 	}
 
 	// This is only needed in IPAM modes where we install one route per

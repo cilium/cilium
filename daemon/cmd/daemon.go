@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -131,6 +132,8 @@ type Daemon struct {
 
 	lbConfig loadbalancer.Config
 	kprCfg   kpr.KPRConfig
+
+	ipsecAgent datapath.IPsecAgent
 }
 
 func (d *Daemon) init() error {
@@ -226,7 +229,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	// EncryptedOverlay feature must check the TunnelProtocol if enabled, since
 	// it only supports VXLAN right now.
-	if option.Config.EncryptionEnabled() && option.Config.EnableIPSecEncryptedOverlay {
+	if params.IPsecAgent.Enabled() && params.IPSecConfig.EncryptedOverlayEnabled() {
 		if !option.Config.TunnelingEnabled() {
 			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling mode")
 		}
@@ -236,19 +239,47 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	// WireGuard and IPSec are mutually exclusive.
-	if option.Config.EnableIPSec && params.WGAgent.Enabled() {
-		return nil, nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, option.EnableIPSecName)
+	if params.IPsecAgent.Enabled() && params.WGAgent.Enabled() {
+		return nil, nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
+	}
+
+	if !params.IPSecConfig.DNSProxyInsecureSkipTransparentModeCheckEnabled() {
+		if params.IPsecAgent.Enabled() && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
+			return nil, nil, fmt.Errorf("IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
+		}
+	}
+
+	if params.IPsecAgent.Enabled() && option.Config.TunnelingEnabled() {
+		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
+			return nil, nil, fmt.Errorf("IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later): %w", err)
+		}
+	}
+
+	if params.IPSecConfig.EncryptedOverlayEnabled() && !params.IPsecAgent.Enabled() {
+		params.Logger.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
+	}
+
+	if option.Config.EnableHostFirewall {
+		if params.IPsecAgent.Enabled() {
+			return nil, nil, fmt.Errorf("IPSec cannot be used with the host firewall.")
+		}
+	}
+
+	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
+		if params.IPsecAgent.Enabled() {
+			return nil, nil, fmt.Errorf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, datapath.EnableIPSec)
+		}
 	}
 
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
 	// that may be added or removed at runtime.
-	if option.Config.EnableIPSec &&
+	if params.IPsecAgent.Enabled() &&
 		!option.Config.TunnelingEnabled() &&
 		len(option.Config.EncryptInterface) == 0 &&
 		// If devices are required, we don't look at the EncryptInterface, as we
 		// don't load bpf_network in loader.reinitializeIPSec. Instead, we load
 		// bpf_host onto physical devices as chosen by configuration.
-		!option.Config.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled()) &&
+		!option.Config.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled(), params.IPsecAgent.Enabled()) &&
 		option.Config.IPAM != ipamOption.IPAMENI {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(params.Logger)
 		if err != nil {
@@ -269,7 +300,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
-	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, params.KPRConfig.EnableNodePort)
+	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade)
 
 	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
 		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
@@ -312,6 +343,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		maglevConfig:      params.MaglevConfig,
 		lbConfig:          params.LBConfig,
 		kprCfg:            params.KPRConfig,
+		ipsecAgent:        params.IPsecAgent,
 		ciliumHealth:      params.CiliumHealth,
 		endpointAPIFence:  params.EndpointAPIFence,
 	}
@@ -508,7 +540,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	drdName := ""
 	directRoutingDevice, _ := params.DirectRoutingDevice.Get(ctx, rxn)
 	if directRoutingDevice == nil {
-		if option.Config.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled()) {
+		if option.Config.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled(), params.IPsecAgent.Enabled()) {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
 				option.DirectRoutingDevice)
@@ -522,7 +554,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	nativeDevices, _ := datapathTables.SelectedDevices(d.devices, rxn)
-	if err := finishKubeProxyReplacementInit(params.Logger, params.Sysctl, nativeDevices, drdName, d.lbConfig, d.kprCfg); err != nil {
+	if err := finishKubeProxyReplacementInit(params.Logger, params.Sysctl, nativeDevices, drdName, d.lbConfig, d.kprCfg, params.IPsecAgent.Enabled()); err != nil {
 		d.logger.Error("failed to finalise LB initialization", logfields.Error, err)
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
@@ -533,9 +565,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 		var err error
 		switch {
-		case !params.KPRConfig.EnableNodePort:
-			err = fmt.Errorf("BPF masquerade requires NodePort (--%s=\"true\")",
-				option.EnableNodePort)
 		case len(option.Config.MasqueradeInterfaces) > 0:
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.MasqueradeInterfaces, option.Devices)
@@ -643,7 +672,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				params.Clientset,
 				nodeTypes.GetName(),
 				latestLocalNode.Node,
-				params.IPsecKeyCustodian.SPI())
+				params.IPsecAgent.SPI())
 		}
 		if err != nil {
 			d.logger.Warn("Cannot annotate k8s node with CIDR range", logfields.Error, err)
@@ -713,7 +742,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}()
 	}
 
-	if err := params.IPsecKeyCustodian.StartBackgroundJobs(params.NodeHandler); err != nil {
+	if err := params.IPsecAgent.StartBackgroundJobs(params.NodeHandler); err != nil {
 		d.logger.Error("Unable to start IPsec key watcher", logfields.Error, err)
 	}
 

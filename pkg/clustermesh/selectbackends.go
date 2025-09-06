@@ -28,8 +28,8 @@ type ClusterMeshSelectBackends struct {
 	w *writer.Writer
 }
 
-func (sb ClusterMeshSelectBackends) SelectBackends(bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
-	defaultBackends := sb.w.DefaultSelectBackends(bes, svc, optionalFrontend)
+func (sb ClusterMeshSelectBackends) SelectBackends(txn statedb.ReadTxn, bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
+	defaultBackends := sb.w.DefaultSelectBackends(txn, bes, svc, optionalFrontend)
 	affinity := annotation.GetAnnotationServiceAffinity(svc)
 
 	useLocal := true

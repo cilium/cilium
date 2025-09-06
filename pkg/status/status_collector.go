@@ -303,7 +303,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
 		BpfSocketLBHostnsOnly: d.statusParams.DaemonConfig.BPFSocketLBHostnsOnly,
 	}
-	if d.statusParams.KPRConfig.EnableNodePort {
+	if d.statusParams.KPRConfig.KubeProxyReplacement {
 		features.NodePort.Enabled = true
 		features.NodePort.Mode = strings.ToUpper(d.statusParams.LBConfig.LBMode)
 		switch d.statusParams.LBConfig.DSRDispatch {
@@ -359,7 +359,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		}
 		features.Nat46X64.Service = svc
 	}
-	if d.statusParams.KPRConfig.EnableNodePort {
+	if d.statusParams.KPRConfig.KubeProxyReplacement {
 		if d.statusParams.LBConfig.AlgorithmAnnotation {
 			features.Annotations = append(features.Annotations, annotation.ServiceLoadBalancingAlgorithm)
 		}
@@ -893,7 +893,7 @@ func (d *statusCollector) getProbes() []Probe {
 			Name: "encryption",
 			Probe: func(ctx context.Context) (any, error) {
 				switch {
-				case d.statusParams.DaemonConfig.EnableIPSec:
+				case d.statusParams.IPsecConfig.Enabled():
 					return &models.EncryptionStatus{
 						Mode: models.EncryptionStatusModeIPsec,
 					}, nil

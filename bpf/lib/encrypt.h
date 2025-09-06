@@ -79,9 +79,8 @@ set_ipsec_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
 }
 
 static __always_inline int
-set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi,
-		  struct remote_endpoint_info *info, __u32 seclabel,
-		  bool use_meta, bool use_spi_from_map)
+set_ipsec_encrypt(struct __ctx_buff *ctx, struct remote_endpoint_info *info,
+		  __u32 seclabel, bool use_meta)
 {
 	/* IPSec is performed by the stack on any packets with the
 	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
@@ -93,13 +92,13 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi,
 
 	struct node_value *node_value = NULL;
 	__u32 mark;
+	__u8 spi;
 
 	node_value = lookup_node(info);
 	if (!node_value || !node_value->id)
 		return DROP_NO_NODE_ID;
 
-	if (use_spi_from_map)
-		spi = get_min_encrypt_key(node_value->spi);
+	spi = get_min_encrypt_key(node_value->spi);
 
 	mark = ipsec_encode_encryption_mark(spi, node_value->id);
 
@@ -343,7 +342,7 @@ overlay_encrypt:
 	 * supports rhel 8.6 'use_meta' can be flipped back to false and we
 	 * can rely only on the mark.
 	 */
-	ret = set_ipsec_encrypt(ctx, 0, dst, src_sec_identity, true, true);
+	ret = set_ipsec_encrypt(ctx, dst, src_sec_identity, true);
 	if (ret != CTX_ACT_OK)
 		return ret;
 

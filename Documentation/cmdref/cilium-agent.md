@@ -112,6 +112,7 @@ cilium-agent [flags]
       --enable-bbr-hostns-only                                    Enable BBR only in the host network namespace.
       --enable-bgp-control-plane                                  Enable the BGP control plane.
       --enable-bgp-control-plane-status-report                    Enable the BGP control plane status reporting (default true)
+      --enable-bgp-legacy-origin-attribute                        Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-bpf-clock-probe                                    Enable BPF clock source probing for more efficient tick retrieval
       --enable-bpf-masquerade                                     Masquerade packets from endpoints leaving the host with BPF instead of iptables
       --enable-bpf-tproxy                                         Enable BPF-based proxy redirection (beta), if support available
@@ -141,7 +142,7 @@ cilium-agent [flags]
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-ip-masq-agent                                      Enable BPF ip-masq-agent
       --enable-ipip-termination                                   Enable plain IPIP/IP6IP6 termination
-      --enable-ipsec                                              Enable IPsec support
+      --enable-ipsec                                              Enable IPsec
       --enable-ipsec-encrypted-overlay                            Enable IPsec encrypted overlay. If enabled tunnel traffic will be encrypted before leaving the host. Requires ipsec and tunnel mode vxlan to be enabled.
       --enable-ipsec-key-watcher                                  Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations. (default true)
       --enable-ipv4                                               Enable IPv4 support (default true)
@@ -282,6 +283,7 @@ cilium-agent [flags]
       --ipv6-node string                                          IPv6 address of node (default "auto")
       --ipv6-pod-subnets strings                                  List of IPv6 pod subnets to preconfigure for encryption
       --ipv6-range string                                         Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96 (default "auto")
+      --ipv6-service-loopback-address string                      IPv6 source address to use for SNAT when a Pod talks to itself over a Service. (default "fe80::1")
       --ipv6-service-range string                                 Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
       --k8s-api-server-urls strings                               Kubernetes API server URLs
       --k8s-client-burst int                                      Burst value allowed for the K8s client (default 20)

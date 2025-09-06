@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func parseBoolStatus(s string) bool {
@@ -166,31 +168,14 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	if kpr := st.KubeProxyReplacement; kpr != nil {
 		mode = strings.ToLower(kpr.Mode)
 		if f := kpr.Features; f != nil {
-			if f.ExternalIPs != nil {
-				result[features.KPRExternalIPs] = features.Status{Enabled: f.ExternalIPs.Enabled}
-			}
-			if f.HostPort != nil {
-				result[features.KPRHostPort] = features.Status{Enabled: f.HostPort.Enabled}
-			}
-			if f.NodePort != nil {
-				result[features.KPRNodePort] = features.Status{Enabled: f.NodePort.Enabled}
-				acceleration := strings.ToLower(f.NodePort.Acceleration)
-				result[features.KPRNodePortAcceleration] = features.Status{
-					Enabled: mode != "false" && acceleration != "disabled",
-					Mode:    mode,
-				}
-			}
-			if f.SessionAffinity != nil {
-				result[features.KPRSessionAffinity] = features.Status{Enabled: f.SessionAffinity.Enabled}
-			}
 			if f.SocketLB != nil {
 				result[features.KPRSocketLB] = features.Status{Enabled: f.SocketLB.Enabled}
 				result[features.KPRSocketLBHostnsOnly] = features.Status{Enabled: f.BpfSocketLBHostnsOnly}
 			}
 		}
 	}
-	result[features.KPRMode] = features.Status{
-		Enabled: mode != "false" && mode != "disabled",
+	result[features.KPR] = features.Status{
+		Enabled: mode == "true" || mode == "strict",
 		Mode:    mode,
 	}
 
@@ -214,6 +199,25 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	result[features.EncryptionPod] = features.Status{
 		Enabled: mode != "disabled",
 		Mode:    mode,
+	}
+
+	return nil
+}
+
+func (ct *ConnectivityTest) extractFeaturesFromUname(ctx context.Context, ciliumPod Pod, result features.Set) error {
+	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
+		defaults.AgentContainerName, []string{"uname", "-r"})
+	if err != nil {
+		return fmt.Errorf("failed to fetch uname -r: %w", err)
+	}
+
+	kernelVersion, err := version.ParseKernelVersion(stdout.String())
+	if err != nil {
+		return fmt.Errorf("failed to parse kernel version: %w", err)
+	}
+
+	result[features.RHEL] = features.Status{
+		Enabled: versioncheck.MustCompile("<=4.18.0")(kernelVersion),
 	}
 
 	return nil
@@ -372,6 +376,10 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 			return err
 		}
 		err = ct.extractFeaturesFromCiliumStatus(ctx, ciliumPod, features)
+		if err != nil {
+			return err
+		}
+		err = ct.extractFeaturesFromUname(ctx, ciliumPod, features)
 		if err != nil {
 			return err
 		}

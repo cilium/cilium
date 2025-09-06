@@ -17,7 +17,6 @@
 #include "egress_gateway.h"
 #include "eps.h"
 #include "conntrack.h"
-#include "csum.h"
 #include "encap.h"
 #include "identity.h"
 #include "trace.h"
@@ -955,7 +954,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 
-		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
+		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index, false,
 				  &tuple, ipfrag_has_l4_header(fraginfo),
 				  dir);
 		if (IS_ERR(ret))
@@ -1480,12 +1479,12 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	svc = lb6_lookup_service(&key, false);
 	if (svc) {
-		/* Check if the identified service is a wildcard entry. This means
-		 * we have no protocol-level service entry, meaning we should drop
-		 * the traffic to avoid it being punted back to the network and re-
-		 * delivered to is in a loop.
+		/* Check if the identified service is a wildcard entry. This
+		 * means we have no protocol-level service entry, meaning we
+		 * should drop the traffic to avoid it being punted back to
+		 * the network and re-delivered to is in a loop.
 		 */
-		if (key.dport == LB_SVC_WILDCARD_DPORT) {
+		if (lb6_key_is_wildcard(&key)) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return DROP_NO_SERVICE;
 		}
@@ -2849,12 +2848,12 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	svc = lb4_lookup_service(&key, false);
 	if (svc) {
-		/* Check if the identified service is a wildcard entry. This means
-		 * we have no protocol-level service entry, meaning we should drop
-		 * the traffic to avoid it being punted back to the network and re-
-		 * delivered to is in a loop.
+		/* Check if the identified service is a wildcard entry. This
+		 * means we have no protocol-level service entry, meaning we
+		 * should drop the traffic to avoid it being punted back to
+		 * the network and re-delivered to is in a loop.
 		 */
-		if (key.dport == LB_SVC_WILDCARD_DPORT) {
+		if (lb4_key_is_wildcard(&key)) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return DROP_NO_SERVICE;
 		}

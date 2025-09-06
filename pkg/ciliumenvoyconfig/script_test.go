@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/envoy"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
@@ -79,7 +80,8 @@ func TestScript(t *testing.T) {
 			metrics.Cell,
 			maglev.Cell,
 			cell.Config(CECConfig{}),
-			cell.Config(envoy.ProxyConfig{}),
+			cell.Config(envoyCfg.SecretSyncConfig{}),
+			cell.Config(envoyCfg.ProxyConfig{}),
 
 			lbcell.Cell,
 
@@ -99,7 +101,6 @@ func TestScript(t *testing.T) {
 				func() kpr.KPRConfig {
 					return kpr.KPRConfig{
 						KubeProxyReplacement: true,
-						EnableNodePort:       true,
 					}
 				},
 				func() *loadbalancer.TestConfig {

@@ -22,7 +22,6 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -62,6 +61,7 @@ type params struct {
 	CiliumIdentity      resource.Resource[*cilium_api_v2.CiliumIdentity]
 	CiliumEndpoint      resource.Resource[*cilium_api_v2.CiliumEndpoint]
 	CiliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
+	MetricsProvider     workqueue.MetricsProvider
 }
 
 type Controller struct {
@@ -89,6 +89,8 @@ type Controller struct {
 	oldNSSecurityLabels map[string]labels.Labels
 
 	enqueueTimeTracker *EnqueueTimeTracker
+
+	workqueueMetricsProvider workqueue.MetricsProvider
 }
 
 func registerController(p params) {
@@ -106,18 +108,19 @@ func registerController(p params) {
 	}
 
 	cidController := &Controller{
-		logger:              p.Logger,
-		clientset:           p.Clientset,
-		namespace:           p.Namespace,
-		pod:                 p.Pod,
-		jobGroup:            p.JobGroup,
-		metrics:             p.Metrics,
-		ciliumIdentity:      p.CiliumIdentity,
-		ciliumEndpoint:      p.CiliumEndpoint,
-		ciliumEndpointSlice: p.CiliumEndpointSlice,
-		oldNSSecurityLabels: make(map[string]labels.Labels),
-		cesEnabled:          p.SharedCfg.EnableCiliumEndpointSlice,
-		enqueueTimeTracker:  &EnqueueTimeTracker{clock: clock.RealClock{}, enqueuedAt: make(map[string]time.Time)},
+		logger:                   p.Logger,
+		clientset:                p.Clientset,
+		namespace:                p.Namespace,
+		pod:                      p.Pod,
+		jobGroup:                 p.JobGroup,
+		metrics:                  p.Metrics,
+		ciliumIdentity:           p.CiliumIdentity,
+		ciliumEndpoint:           p.CiliumEndpoint,
+		ciliumEndpointSlice:      p.CiliumEndpointSlice,
+		oldNSSecurityLabels:      make(map[string]labels.Labels),
+		cesEnabled:               p.SharedCfg.EnableCiliumEndpointSlice,
+		enqueueTimeTracker:       &EnqueueTimeTracker{clock: clock.RealClock{}, enqueuedAt: make(map[string]time.Time)},
+		workqueueMetricsProvider: p.MetricsProvider,
 	}
 
 	cidController.initializeQueues()
@@ -126,7 +129,8 @@ func registerController(p params) {
 }
 
 func (c *Controller) Start(ctx cell.HookContext) error {
-	c.logger.InfoContext(ctx, "Starting CID controller Operator")
+	c.logger.InfoContext(ctx, "Starting CID controller Operator",
+		logfields.CESFeatureEnabled, c.cesEnabled)
 	defer utilruntime.HandleCrash()
 
 	// The Cilium Identity (CID) controller running in cilium-operator is
@@ -171,7 +175,7 @@ func (c *Controller) initializeQueues() {
 		workqueue.NewTypedItemExponentialFailureRateLimiter[QueuedItem](defaultSyncBackOff, maxSyncBackOff),
 		workqueue.TypedRateLimitingQueueConfig[QueuedItem]{
 			Name:            "ciliumidentity_resource",
-			MetricsProvider: metrics.MetricsProvider,
+			MetricsProvider: c.workqueueMetricsProvider,
 		})
 }
 

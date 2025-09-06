@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -198,7 +197,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	ipv4Nat, ipv6Nat := nat.GlobalMaps(d.metricsRegistry, option.Config.EnableIPv4,
-		option.Config.EnableIPv6, d.kprCfg.EnableNodePort)
+		option.Config.EnableIPv6, d.kprCfg.KubeProxyReplacement || option.Config.EnableBPFMasquerade)
 	if ipv4Nat != nil {
 		if err := ipv4Nat.Create(); err != nil {
 			return fmt.Errorf("initializing ipv4nat map: %w", err)
@@ -210,11 +209,13 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if d.kprCfg.EnableNodePort {
+	if d.kprCfg.KubeProxyReplacement {
 		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing neighbors map: %w", err)
 		}
+	}
+	if d.kprCfg.KubeProxyReplacement || option.Config.EnableBPFMasquerade {
 		if err := nat.CreateRetriesMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing NAT retries map: %w", err)
@@ -230,12 +231,6 @@ func (d *Daemon) initMaps() error {
 	if option.Config.EnableIPv6FragmentsTracking {
 		if err := fragmap.InitMap6(d.metricsRegistry, option.Config.FragmentsMapEntries); err != nil {
 			return fmt.Errorf("initializing fragments map: %w", err)
-		}
-	}
-
-	if option.Config.EnableIPSec {
-		if err := encrypt.MapCreate(); err != nil {
-			return fmt.Errorf("initializing IPsec map: %w", err)
 		}
 	}
 

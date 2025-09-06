@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -43,12 +44,7 @@ func setupIPSecSuitePrivileged(tb testing.TB, ipFamily string) {
 	}
 
 	tb.Cleanup(func() {
-		UnsetTestIPSecKey()
 		node.UnsetTestLocalNodeStore()
-		err := DeleteXFRM(log, AllReqID)
-		if err != nil {
-			tb.Errorf("Failed cleaning XFRM state: %v", err)
-		}
 	})
 }
 
@@ -111,16 +107,18 @@ func TestPrivilegedAll(t *testing.T) {
 func TestPrivilegedLoadKeysNoFile(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
-	_, _, err := LoadIPSecKeysFile(path)
+	a := NewTestIPsecAgent(t)
+	_, _, err := a.loadIPSecKeysFile(path)
 	require.True(t, os.IsNotExist(err))
 }
 
 func testInvalidLoadKeys(t *testing.T) {
+	a := NewTestIPsecAgent(t)
 	keys := bytes.NewReader(invalidKeysDat)
-	_, _, err := LoadIPSecKeys(keys)
+	_, _, err := a.LoadIPSecKeys(keys)
 	require.Error(t, err)
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   remoteNodeID,
@@ -134,7 +132,7 @@ func testInvalidLoadKeys(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.Error(t, err)
 }
 
@@ -144,27 +142,30 @@ func TestPrivilegedLoadKeys(t *testing.T) {
 	testCases := [][]byte{keysDat, keysNullDat, keysAeadDat, keysAeadDat256}
 	for _, testCase := range testCases {
 		keys := bytes.NewReader(testCase)
-		_, spi, err := LoadIPSecKeys(keys)
+		a := NewTestIPsecAgent(t)
+		_, spi, err := a.LoadIPSecKeys(keys)
 		require.NoError(t, err)
-		err = SetIPSecSPI(log, spi)
+		err = a.setIPSecSPI(spi)
 		require.NoError(t, err)
-		UnsetTestIPSecKey()
+		require.Equal(t, spi, a.spi)
 	}
 }
 
 func TestPrivilegedLoadKeysLenChange(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
+	a := NewTestIPsecAgent(t)
 	keys := bytes.NewReader(append(keysDat, keysNullDat...))
-	_, _, err := LoadIPSecKeys(keys)
+	_, _, err := a.LoadIPSecKeys(keys)
 	require.ErrorContains(t, err, "invalid key rotation: key length must not change")
 }
 
 func TestPrivilegedLoadKeysSameSPI(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
+	a := NewTestIPsecAgent(t)
 	keys := bytes.NewReader(keysSameSpiDat)
-	_, _, err := LoadIPSecKeys(keys)
+	_, _, err := a.LoadIPSecKeys(keys)
 	require.ErrorContains(t, err, "invalid SPI: changing IPSec keys requires incrementing the key id")
 }
 
@@ -214,10 +215,11 @@ func testUpsertIPSecEquals(t *testing.T) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal[remote.IP.String()] = key
-	ipSecKeysGlobal[""] = key
+	a := NewTestIPsecAgent(t)
+	a.ipSecKeysGlobal[remote.IP.String()] = key
+	a.ipSecKeysGlobal[""] = key
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   remoteNodeID,
@@ -231,7 +233,7 @@ func testUpsertIPSecEquals(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
@@ -239,7 +241,7 @@ func testUpsertIPSecEquals(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, result)
 
-	err = DeleteXFRM(log, AllReqID)
+	err = a.DeleteXFRM(AllReqID)
 	require.NoError(t, err)
 
 	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
@@ -252,10 +254,10 @@ func testUpsertIPSecEquals(t *testing.T) {
 		Auth:  nil,
 	}
 
-	ipSecKeysGlobal[remote.IP.String()] = key
-	ipSecKeysGlobal[""] = key
+	a.ipSecKeysGlobal[remote.IP.String()] = key
+	a.ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
@@ -290,11 +292,12 @@ func testUpsertIPSecEndpointOut(t *testing.T) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal[local.IP.String()] = key
-	ipSecKeysGlobal[remote.IP.String()] = key
-	ipSecKeysGlobal[""] = key
+	a := NewTestIPsecAgent(t)
+	a.ipSecKeysGlobal[local.IP.String()] = key
+	a.ipSecKeysGlobal[remote.IP.String()] = key
+	a.ipSecKeysGlobal[""] = key
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
@@ -308,7 +311,7 @@ func testUpsertIPSecEndpointOut(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	encryptionMark := generateEncryptMark(key.Spi, params.RemoteNodeID)
@@ -404,11 +407,12 @@ func testUpsertIPSecEndpointFwd(t *testing.T) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal[local.IP.String()] = key
-	ipSecKeysGlobal[remote.IP.String()] = key
-	ipSecKeysGlobal[""] = key
+	a := NewTestIPsecAgent(t)
+	a.ipSecKeysGlobal[local.IP.String()] = key
+	a.ipSecKeysGlobal[remote.IP.String()] = key
+	a.ipSecKeysGlobal[""] = key
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
@@ -422,7 +426,7 @@ func testUpsertIPSecEndpointFwd(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	tmpls := []netlink.XfrmPolicyTmpl{
@@ -497,11 +501,12 @@ func testUpsertIPSecEndpointIn(t *testing.T) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal[local.IP.String()] = key
-	ipSecKeysGlobal[remote.IP.String()] = key
-	ipSecKeysGlobal[""] = key
+	a := NewTestIPsecAgent(t)
+	a.ipSecKeysGlobal[local.IP.String()] = key
+	a.ipSecKeysGlobal[remote.IP.String()] = key
+	a.ipSecKeysGlobal[""] = key
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
@@ -515,7 +520,7 @@ func testUpsertIPSecEndpointIn(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	// Confirm state was created with correct marks.
@@ -584,7 +589,7 @@ func testUpsertIPSecEndpointIn(t *testing.T) {
 }
 
 func testUpsertIPSecKeyMissing(t *testing.T) {
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   remoteNodeID,
@@ -598,7 +603,8 @@ func testUpsertIPSecKeyMissing(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err := UpsertIPsecEndpoint(log, params)
+	a := NewTestIPsecAgent(t)
+	_, err := a.UpsertIPsecEndpoint(params)
 	require.ErrorContains(t, err, "unable to replace local state: global IPsec key missing")
 }
 
@@ -614,11 +620,12 @@ func testUpdateExistingIPSecEndpoint(t *testing.T) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal[local.IP.String()] = key
-	ipSecKeysGlobal[remote.IP.String()] = key
-	ipSecKeysGlobal[""] = key
+	a := NewTestIPsecAgent(t)
+	a.ipSecKeysGlobal[local.IP.String()] = key
+	a.ipSecKeysGlobal[remote.IP.String()] = key
+	a.ipSecKeysGlobal[""] = key
 
-	params := &IPSecParameters{
+	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
@@ -632,10 +639,10 @@ func testUpdateExistingIPSecEndpoint(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 
 	// test updateExisting (xfrm delete + add)
-	_, err = UpsertIPsecEndpoint(log, params)
+	_, err = a.UpsertIPsecEndpoint(params)
 	require.NoError(t, err)
 }

@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -357,25 +356,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableUnreachableRoutes, false, "Add unreachable routes on pod deletion")
 	option.BindEnv(vp, option.EnableUnreachableRoutes)
 
-	flags.Bool(option.EnableIPSecName, defaults.EnableIPSec, "Enable IPsec support")
-	option.BindEnv(vp, option.EnableIPSecName)
-
-	flags.String(option.IPSecKeyFileName, "", "Path to IPsec key file")
-	option.BindEnv(vp, option.IPSecKeyFileName)
-
-	flags.Duration(option.IPsecKeyRotationDuration, defaults.IPsecKeyRotationDuration, "Maximum duration of the IPsec key rotation. The previous key will be removed after that delay.")
-	option.BindEnv(vp, option.IPsecKeyRotationDuration)
-
-	flags.Bool(option.EnableIPsecKeyWatcher, defaults.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
-	option.BindEnv(vp, option.EnableIPsecKeyWatcher)
-
-	flags.Bool(option.EnableIPSecXfrmStateCaching, defaults.EnableIPSecXfrmStateCaching, "Enable XfrmState cache for IPSec. Significantly reduces CPU usage in large clusters.")
-	flags.MarkHidden(option.EnableIPSecXfrmStateCaching)
-	option.BindEnv(vp, option.EnableIPSecXfrmStateCaching)
-
-	flags.Bool(option.EnableIPSecEncryptedOverlay, defaults.EnableIPSecEncryptedOverlay, "Enable IPsec encrypted overlay. If enabled tunnel traffic will be encrypted before leaving the host. Requires ipsec and tunnel mode vxlan to be enabled.")
-	option.BindEnv(vp, option.EnableIPSecEncryptedOverlay)
-
 	flags.Bool(option.EnableL2Announcements, false, "Enable L2 announcements")
 	option.BindEnv(vp, option.EnableL2Announcements)
 
@@ -542,6 +522,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.ServiceLoopbackIPv4, defaults.ServiceLoopbackIPv4, "IPv4 source address to use for SNAT "+
 		"when a Pod talks to itself over a Service.")
 	option.BindEnv(vp, option.ServiceLoopbackIPv4)
+
+	flags.String(option.ServiceLoopbackIPv6, defaults.ServiceLoopbackIPv6, "IPv6 source address to use for SNAT "+
+		"when a Pod talks to itself over a Service.")
+	option.BindEnv(vp, option.ServiceLoopbackIPv6)
 
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv4Masquerade)
@@ -731,10 +715,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DNSProxyEnableTransparentMode, defaults.DNSProxyEnableTransparentMode, "Enable DNS proxy transparent mode")
 	option.BindEnv(vp, option.DNSProxyEnableTransparentMode)
 
-	flags.Bool(option.DNSProxyInsecureSkipTransparentModeCheck, false, "Allows DNS proxy transparent mode to be disabled even if encryption is enabled. Enabling this flag and disabling DNS proxy transparent mode will cause proxied DNS traffic to leave the node unencrypted.")
-	flags.MarkHidden(option.DNSProxyInsecureSkipTransparentModeCheck)
-	option.BindEnv(vp, option.DNSProxyInsecureSkipTransparentModeCheck)
-
 	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "Size of EventQueue per-endpoint")
 	option.BindEnv(vp, option.EndpointQueueSize)
 
@@ -806,10 +786,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableICMPRules, defaults.EnableICMPRules, "Enable ICMP-based rule support for Cilium Network Policies")
 	flags.MarkHidden(option.EnableICMPRules)
 	option.BindEnv(vp, option.EnableICMPRules)
-
-	flags.Bool(option.UseCiliumInternalIPForIPsec, defaults.UseCiliumInternalIPForIPsec, "Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation")
-	flags.MarkHidden(option.UseCiliumInternalIPForIPsec)
-	option.BindEnv(vp, option.UseCiliumInternalIPForIPsec)
 
 	flags.Bool(option.BypassIPAvailabilityUponRestore, false, "Bypasses the IP availability error within IPAM upon endpoint restore")
 	flags.MarkHidden(option.BypassIPAvailabilityUponRestore)
@@ -1154,22 +1130,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, "L7 proxy requires iptables rules (--install-iptables-rules=\"true\")")
 	}
 
-	if !option.Config.DNSProxyInsecureSkipTransparentModeCheck {
-		if option.Config.EnableIPSec && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
-			logging.Fatal(logger, "IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
-		}
-	}
-
-	if option.Config.EnableIPSec && option.Config.TunnelingEnabled() {
-		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
-			logging.Fatal(logger, "IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later).", logfields.Error, err)
-		}
-	}
-
-	if option.Config.EnableIPSecEncryptedOverlay && !option.Config.EnableIPSec {
-		logger.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
-	}
-
 	if option.Config.EnableRemoteNodeMasquerade && !option.Config.EnableBPFMasquerade {
 		logging.Fatal(logger, "Option "+option.EnableRemoteNodeMasquerade+" requires BPF masquerade to be enabled ("+option.EnableBPFMasquerade+")")
 	}
@@ -1183,12 +1143,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	if option.Config.EnableSRv6 {
 		if !option.Config.EnableIPv6 {
 			logging.Fatal(logger, "SRv6 requires IPv6.")
-		}
-	}
-
-	if option.Config.EnableHostFirewall {
-		if option.Config.EnableIPSec {
-			logging.Fatal(logger, "IPSec cannot be used with the host firewall.")
 		}
 	}
 
@@ -1218,9 +1172,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		}
 		if !option.Config.EnableEndpointRoutes {
 			logging.Fatal(logger, fmt.Sprintf("Cannot specify %s or %s  without %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableEndpointRoutes))
-		}
-		if option.Config.EnableIPSec {
-			logging.Fatal(logger, fmt.Sprintf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableIPSecName))
 		}
 	}
 
@@ -1357,7 +1308,7 @@ type daemonParams struct {
 	ClusterInfo         cmtypes.ClusterInfo
 	TunnelConfig        tunnel.Config
 	BandwidthManager    datapath.BandwidthManager
-	IPsecKeyCustodian   datapath.IPsecKeyCustodian
+	IPsecAgent          datapath.IPsecAgent
 	MTU                 mtu.MTU
 	Sysctl              sysctl.Sysctl
 	SyncHostIPs         *syncHostIPs
@@ -1371,6 +1322,7 @@ type daemonParams struct {
 	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
 	EndpointAPIFence    endpointapi.Fence
+	IPSecConfig         datapath.IPsecConfig
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {

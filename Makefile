@@ -37,7 +37,7 @@ SUBDIRS := $(filter-out $(foreach dir,$(SUBDIRS),$(dir)/%),$(SUBDIRS))
 # Because is treated as a Go package pattern, the special '...' sequence is supported,
 # meaning 'all subpackages of the given package'.
 TESTPKGS ?= ./...
-UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/...
+UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/... ./pkg/datapath/loader/... ./pkg/datapath/neighbor/test/...
 
 GOTEST_BASE := -timeout 720s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
@@ -582,14 +582,14 @@ gateway-api-conformance: ## Run Gateway API conformance tests.
 		-json \
 	| tparse -progress
 
-BPF_TEST_FILE ?= ""
+BPF_TEST ?= ""
 BPF_TEST_DUMP_CTX ?= ""
 BPF_TEST_VERBOSE ?= 0
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
 	DOCKER_ARGS="--privileged -v /sys:/sys" RUN_AS_ROOT=1 contrib/scripts/builder.sh \
 		$(MAKE) $(SUBMAKEOPTS) -j$(shell nproc) -C bpf/tests/ run \
-			"BPF_TEST_FILE=$(BPF_TEST_FILE)" \
+			"BPF_TEST=$(BPF_TEST)" \
 			"BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" \
 			"LOG_CODEOWNERS=$(LOG_CODEOWNERS)" \
 			"JUNIT_PATH=$(JUNIT_PATH)" \
