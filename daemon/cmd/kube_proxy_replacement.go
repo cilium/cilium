@@ -175,10 +175,6 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, sysctl sysctl.Sysctl) error {
 
 	if kprCfg.KubeProxyReplacement {
-		if probes.HaveProgramHelper(logger, ebpf.SchedCLS, asm.FnFibLookup) != nil {
-			return fmt.Errorf("BPF NodePort services needs kernel 4.17.0 or newer")
-		}
-
 		if err := checkNodePortAndEphemeralPortRanges(lbConfig, sysctl); err != nil {
 			return err
 		}
@@ -204,13 +200,6 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
 		probes.HaveIPv6Support()
 
-		if option.Config.EnableMKE {
-			if probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
-				probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
-				return fmt.Errorf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
-			}
-		}
-
 		option.Config.EnableSocketLBPeer = true
 		if option.Config.EnableIPv4 {
 			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCgroupInet4GetPeername); err != nil {
@@ -233,13 +222,6 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 			}
 			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupUDP6Recvmsg); err != nil {
 				return fmt.Errorf("BPF host-reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer: %w", err)
-			}
-		}
-
-		if option.Config.EnableSocketLBTracing {
-			if probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
-				option.Config.EnableSocketLBTracing = false
-				logger.Info("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
 			}
 		}
 	} else {
