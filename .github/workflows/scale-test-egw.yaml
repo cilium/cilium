@@ -74,7 +74,7 @@ env:
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.34.0
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 536.0.1
+  gcloud_version: 537.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
@@ -280,7 +280,7 @@ jobs:
           fi
 
       - name: Install Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version: ${{ env.go_version }}
 
@@ -313,7 +313,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        uses: aws-actions/configure-aws-credentials@a03048d87541d1d9fcf2ecf528a4a65ba9bd7838 # v5.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
@@ -590,7 +590,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@77f681a8844c33457aeef90a19143a441e803a9a # main
+        uses: cilium/scale-tests-action/export-results@082339e175a65c282c44c13bf875822e23911359 # main
         with:
           test_name: ${{ steps.vars.outputs.test_name }}
           tested_sha: ${{ steps.vars.outputs.SHA }}
@@ -601,7 +601,7 @@ jobs:
       # Refresh credentials
       - name: Set up AWS CLI credentials
         if:  ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        uses: aws-actions/configure-aws-credentials@a03048d87541d1d9fcf2ecf528a4a65ba9bd7838 # v5.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
