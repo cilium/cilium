@@ -1019,7 +1019,9 @@ type BlobAttributeValue struct {
 // store volumes to attach to an instance at launch.
 type BlockDeviceMapping struct {
 
-	// The device name (for example, /dev/sdh or xvdh ).
+	// The device name. For available device names, see [Device names for volumes].
+	//
+	// [Device names for volumes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
 	DeviceName *string
 
 	// Parameters used to automatically set up EBS volumes when the instance is
@@ -2384,6 +2386,12 @@ type ClientVpnConnection struct {
 	// The IP address of the client.
 	ClientIp *string
 
+	// The IPv6 address assigned to the client connection when using a dual-stack
+	// Client VPN endpoint. This field is only populated when the endpoint is
+	// configured for dual-stack addressing, and the client is using IPv6 for
+	// connectivity.
+	ClientIpv6Address *string
+
 	// The ID of the Client VPN endpoint to which the client is connected.
 	ClientVpnEndpointId *string
 
@@ -2506,6 +2514,11 @@ type ClientVpnEndpoint struct {
 	// Information about the DNS servers to be used for DNS resolution.
 	DnsServers []string
 
+	// The IP address type of the Client VPN endpoint. Possible values are ipv4 for
+	// IPv4 addressing only, ipv6 for IPv6 addressing only, or dual-stack for both
+	// IPv4 and IPv6 addressing.
+	EndpointIpAddressType EndpointIpAddressType
+
 	// The IDs of the security groups for the target network.
 	SecurityGroupIds []string
 
@@ -2535,6 +2548,11 @@ type ClientVpnEndpoint struct {
 
 	// Any tags assigned to the Client VPN endpoint.
 	Tags []Tag
+
+	// The IP address type of the Client VPN endpoint. Possible values are either ipv4
+	// for IPv4 addressing only, ipv6 for IPv6 addressing only, or dual-stack for both
+	// IPv4 and IPv6 addressing.
+	TrafficIpAddressType TrafficIpAddressType
 
 	// The transport protocol used by the Client VPN endpoint.
 	TransportProtocol TransportProtocol
@@ -4300,6 +4318,12 @@ type EbsBlockDeviceResponse struct {
 // Describes the Amazon EBS features supported by the instance type.
 type EbsInfo struct {
 
+	// Indicates whether the instance type features a shared or dedicated Amazon EBS
+	// volume attachment limit. For more information, see [Amazon EBS volume limits for Amazon EC2 instances]in the Amazon EC2 User Guide.
+	//
+	// [Amazon EBS volume limits for Amazon EC2 instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/volume_limits.html
+	AttachmentLimitType AttachmentLimitType
+
 	// Describes the optimized EBS performance for the instance type.
 	EbsOptimizedInfo *EbsOptimizedInfo
 
@@ -4311,6 +4335,12 @@ type EbsInfo struct {
 
 	// Indicates whether Amazon EBS encryption is supported.
 	EncryptionSupport EbsEncryptionSupport
+
+	// Indicates the maximum number of Amazon EBS volumes that can be attached to the
+	// instance type. For more information, see [Amazon EBS volume limits for Amazon EC2 instances]in the Amazon EC2 User Guide.
+	//
+	// [Amazon EBS volume limits for Amazon EC2 instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/volume_limits.html
+	MaximumEbsAttachments *int32
 
 	// Indicates whether non-volatile memory express (NVMe) is supported.
 	NvmeSupport EbsNvmeSupport
@@ -5527,11 +5557,16 @@ type FleetCapacityReservation struct {
 // Describes an EC2 Fleet.
 type FleetData struct {
 
-	// The progress of the EC2 Fleet. If there is an error, the status is error . After
-	// all requests are placed, the status is pending_fulfillment . If the size of the
-	// EC2 Fleet is equal to or greater than its target capacity, the status is
-	// fulfilled . If the size of the EC2 Fleet is decreased, the status is
-	// pending_termination while instances are terminating.
+	// The progress of the EC2 Fleet.
+	//
+	// For fleets of type instant , the status is fulfilled after all requests are
+	// placed, regardless of whether target capacity is met (this is the only possible
+	// status for instant fleets).
+	//
+	// For fleets of type request or maintain , the status is pending_fulfillment
+	// after all requests are placed, fulfilled when the fleet size meets or exceeds
+	// target capacity, pending_termination while instances are terminating when fleet
+	// size is decreased, and error if there's an error.
 	ActivityStatus FleetActivityStatus
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
@@ -7120,6 +7155,149 @@ type ImageRecycleBinInfo struct {
 	noSmithyDocumentSerde
 }
 
+// A resource that is referencing an image.
+type ImageReference struct {
+
+	// The Amazon Resource Name (ARN) of the resource referencing the image.
+	Arn *string
+
+	// The ID of the referenced image.
+	ImageId *string
+
+	// The type of resource referencing the image.
+	ResourceType ImageReferenceResourceType
+
+	noSmithyDocumentSerde
+}
+
+// The configuration and status of an image usage report.
+type ImageUsageReport struct {
+
+	// The IDs of the Amazon Web Services accounts that were specified when the report
+	// was created.
+	AccountIds []string
+
+	// The date and time when the report was created.
+	CreationTime *time.Time
+
+	// The date and time when Amazon EC2 will delete the report (30 days after the
+	// report was created).
+	ExpirationTime *time.Time
+
+	// The ID of the image that was specified when the report was created.
+	ImageId *string
+
+	// The ID of the report.
+	ReportId *string
+
+	// The resource types that were specified when the report was created.
+	ResourceTypes []ImageUsageResourceType
+
+	// The current state of the report. Possible values:
+	//
+	//   - available - The report is available to view.
+	//
+	//   - pending - The report is being created and not available to view.
+	//
+	//   - error - The report could not be created.
+	State *string
+
+	// Provides additional details when the report is in an error state.
+	StateReason *string
+
+	// Any tags assigned to the report.
+	Tags []Tag
+
+	noSmithyDocumentSerde
+}
+
+// A single entry in an image usage report, detailing how an image is being used
+// by a specific Amazon Web Services account and resource type.
+type ImageUsageReportEntry struct {
+
+	// The ID of the account that uses the image.
+	AccountId *string
+
+	// The ID of the image.
+	ImageId *string
+
+	// The date and time the report creation was initiated.
+	ReportCreationTime *time.Time
+
+	// The ID of the report.
+	ReportId *string
+
+	// The type of resource ( ec2:Instance or ec2:LaunchTemplate ).
+	ResourceType *string
+
+	// The number of times resources of this type reference this image in the account.
+	UsageCount *int64
+
+	noSmithyDocumentSerde
+}
+
+// A resource type to include in the report. Associated options can also be
+// specified if the resource type is a launch template.
+type ImageUsageResourceType struct {
+
+	// The resource type.
+	//
+	// Valid values: ec2:Instance | ec2:LaunchTemplate
+	ResourceType *string
+
+	// The options that affect the scope of the report. Valid only when ResourceType
+	// is ec2:LaunchTemplate .
+	ResourceTypeOptions []ImageUsageResourceTypeOption
+
+	noSmithyDocumentSerde
+}
+
+// The options that affect the scope of the report.
+type ImageUsageResourceTypeOption struct {
+
+	// The name of the option.
+	OptionName *string
+
+	// The number of launch template versions to check.
+	OptionValues []string
+
+	noSmithyDocumentSerde
+}
+
+// The options that affect the scope of the report.
+type ImageUsageResourceTypeOptionRequest struct {
+
+	// The name of the option.
+	//
+	// Valid value: version-depth - The number of launch template versions to check.
+	OptionName *string
+
+	// A value for the specified option.
+	//
+	// Valid values: Integers between 1 and 10000
+	//
+	// Default: 20
+	OptionValues []string
+
+	noSmithyDocumentSerde
+}
+
+// A resource type to include in the report. Associated options can also be
+// specified if the resource type is a launch template.
+type ImageUsageResourceTypeRequest struct {
+
+	// The resource type.
+	//
+	// Valid values: ec2:Instance | ec2:LaunchTemplate
+	ResourceType *string
+
+	// The options that affect the scope of the report. Valid only when ResourceType
+	// is ec2:LaunchTemplate .
+	ResourceTypeOptions []ImageUsageResourceTypeOptionRequest
+
+	noSmithyDocumentSerde
+}
+
 // The request information of license configurations.
 type ImportImageLicenseConfigurationRequest struct {
 
@@ -7691,7 +7869,7 @@ type InstanceAttachmentEnaSrdUdpSpecification struct {
 // Describes a block device mapping.
 type InstanceBlockDeviceMapping struct {
 
-	// The device name (for example, /dev/sdh or xvdh ).
+	// The device name.
 	DeviceName *string
 
 	// Parameters used to automatically set up EBS volumes when the instance is
@@ -7704,7 +7882,9 @@ type InstanceBlockDeviceMapping struct {
 // Describes a block device mapping entry.
 type InstanceBlockDeviceMappingSpecification struct {
 
-	// The device name (for example, /dev/sdh or xvdh ).
+	// The device name. For available device names, see [Device names for volumes].
+	//
+	// [Device names for volumes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
 	DeviceName *string
 
 	// Parameters used to automatically set up EBS volumes when the instance is
@@ -13057,8 +13237,10 @@ type ModifyTransitGatewayOptions struct {
 	// table.
 	DefaultRouteTableAssociation DefaultRouteTableAssociationValue
 
-	// Enable or disable automatic propagation of routes to the default propagation
-	// route table.
+	// Indicates whether resource attachments automatically propagate routes to the
+	// default propagation route table. Enabled by default. If
+	// defaultRouteTablePropagation is set to enable , Amazon Web Services Transit
+	// Gateway will create the default transit gateway route table.
 	DefaultRouteTablePropagation DefaultRouteTablePropagationValue
 
 	// Enable or disable DNS support.
@@ -15043,9 +15225,9 @@ type Placement struct {
 
 	// The Availability Zone of the instance.
 	//
-	// Either AvailabilityZone or AvailabilityZoneId can be specified, but not both.
-	// If neither is specified, Amazon EC2 automatically selects an Availability Zone
-	// based on the load balancing criteria for the Region.
+	// On input, you can specify AvailabilityZone or AvailabilityZoneId , but not both.
+	// If you specify neither one, Amazon EC2 automatically selects an Availability
+	// Zone for you.
 	//
 	// This parameter is not supported for [CreateFleet].
 	//
@@ -15054,21 +15236,23 @@ type Placement struct {
 
 	// The ID of the Availability Zone of the instance.
 	//
-	// Either AvailabilityZone or AvailabilityZoneId can be specified, but not both.
-	// If neither is specified, Amazon EC2 automatically selects an Availability Zone
-	// based on the load balancing criteria for the Region.
+	// On input, you can specify AvailabilityZone or AvailabilityZoneId , but not both.
+	// If you specify neither one, Amazon EC2 automatically selects an Availability
+	// Zone for you.
 	//
 	// This parameter is not supported for [CreateFleet].
 	//
 	// [CreateFleet]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet
 	AvailabilityZoneId *string
 
-	// The ID of the placement group that the instance is in. If you specify GroupId ,
-	// you can't specify GroupName .
+	// The ID of the placement group that the instance is in.
+	//
+	// On input, you can specify GroupId or GroupName , but not both.
 	GroupId *string
 
-	// The name of the placement group that the instance is in. If you specify
-	// GroupName , you can't specify GroupId .
+	// The name of the placement group that the instance is in.
+	//
+	// On input, you can specify GroupId or GroupName , but not both.
 	GroupName *string
 
 	// The ID of the Dedicated Host on which the instance resides.
@@ -15081,8 +15265,8 @@ type Placement struct {
 
 	// The ARN of the host resource group in which to launch the instances.
 	//
-	// If you specify this parameter, either omit the Tenancy parameter or set it to
-	// host .
+	// On input, if you specify this parameter, either omit the Tenancy parameter or
+	// set it to host .
 	//
 	// This parameter is not supported for [CreateFleet].
 	//
@@ -16566,6 +16750,54 @@ type ResourceStatementRequest struct {
 
 	// The resources.
 	Resources []string
+
+	noSmithyDocumentSerde
+}
+
+// The options that affect the scope of the response.
+type ResourceTypeOption struct {
+
+	// The name of the option.
+	//
+	//   - For ec2:Instance :
+	//
+	// Specify state-name - The current state of the EC2 instance.
+	//
+	//   - For ec2:LaunchTemplate :
+	//
+	// Specify version-depth - The number of launch template versions to check,
+	//   starting from the most recent version.
+	OptionName ImageReferenceOptionName
+
+	// A value for the specified option.
+	//
+	//   - For state-name :
+	//
+	//   - Valid values: pending | running | shutting-down | terminated | stopping |
+	//   stopped
+	//
+	//   - Default: All states
+	//
+	//   - For version-depth :
+	//
+	//   - Valid values: Integers between 1 and 10000
+	//
+	//   - Default: 10
+	OptionValues []string
+
+	noSmithyDocumentSerde
+}
+
+// A resource type to check for image references. Associated options can also be
+// specified if the resource type is an EC2 instance or launch template.
+type ResourceTypeRequest struct {
+
+	// The resource type.
+	ResourceType ImageReferenceResourceType
+
+	// The options that affect the scope of the response. Valid only when ResourceType
+	// is ec2:Instance or ec2:LaunchTemplate .
+	ResourceTypeOptions []ResourceTypeOption
 
 	noSmithyDocumentSerde
 }
@@ -20817,15 +21049,16 @@ type TransitGatewayOptions struct {
 	AutoAcceptSharedAttachments AutoAcceptSharedAttachmentsValue
 
 	// Indicates whether resource attachments are automatically associated with the
-	// default association route table. Enabled by default. If
-	// defaultRouteTableAssociation is set to enable , Amazon Web Services Transit
-	// Gateway will create the default transit gateway route table.
+	// default association route table. Enabled by default. Either
+	// defaultRouteTableAssociation or defaultRouteTablePropagation must be set to
+	// enable for Amazon Web Services Transit Gateway to create the default transit
+	// gateway route table.
 	DefaultRouteTableAssociation DefaultRouteTableAssociationValue
 
 	// Indicates whether resource attachments automatically propagate routes to the
 	// default propagation route table. Enabled by default. If
 	// defaultRouteTablePropagation is set to enable , Amazon Web Services Transit
-	// Gateway will create the default transit gateway route table.
+	// Gateway creates the default transit gateway route table.
 	DefaultRouteTablePropagation DefaultRouteTablePropagationValue
 
 	// Indicates whether DNS support is enabled.
