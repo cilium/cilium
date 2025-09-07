@@ -36,16 +36,6 @@ type CreateClientVpnEndpointInput struct {
 	// This member is required.
 	AuthenticationOptions []types.ClientVpnAuthenticationRequest
 
-	// The IPv4 address range, in CIDR notation, from which to assign client IP
-	// addresses. The address range cannot overlap with the local CIDR of the VPC in
-	// which the associated subnet is located, or the routes that you add manually. The
-	// address range cannot be changed after the Client VPN endpoint has been created.
-	// Client CIDR range must have a size of at least /22 and must not be greater than
-	// /12.
-	//
-	// This member is required.
-	ClientCidrBlock *string
-
 	// Information about the client connection logging options.
 	//
 	// If you enable client connection logging, data about client connections is sent
@@ -68,6 +58,14 @@ type CreateClientVpnEndpointInput struct {
 	//
 	// This member is required.
 	ServerCertificateArn *string
+
+	// The IPv4 address range, in CIDR notation, from which to assign client IP
+	// addresses. The address range cannot overlap with the local CIDR of the VPC in
+	// which the associated subnet is located, or the routes that you add manually. The
+	// address range cannot be changed after the Client VPN endpoint has been created.
+	// Client CIDR range must have a size of at least /22 and must not be greater than
+	// /12.
+	ClientCidrBlock *string
 
 	// The options for managing connection authorization for new client connections.
 	ClientConnectOptions *types.ClientConnectOptions
@@ -114,6 +112,12 @@ type CreateClientVpnEndpointInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The IP address type for the Client VPN endpoint. Valid values are ipv4
+	// (default) for IPv4 addressing only, ipv6 for IPv6 addressing only, or dual-stack
+	// for both IPv4 and IPv6 addressing. When set to dual-stack, clients can connect
+	// to the endpoint using either IPv4 or IPv6 addresses..
+	EndpointIpAddressType types.EndpointIpAddressType
+
 	// The IDs of one or more security groups to apply to the target network. You must
 	// also specify the ID of the VPC that contains the security groups.
 	SecurityGroupIds []string
@@ -142,6 +146,12 @@ type CreateClientVpnEndpointInput struct {
 
 	// The tags to apply to the Client VPN endpoint during creation.
 	TagSpecifications []types.TagSpecification
+
+	// The IP address type for traffic within the Client VPN tunnel. Valid values are
+	// ipv4 (default) for IPv4 traffic only, ipv6 for IPv6 addressing only, or
+	// dual-stack for both IPv4 and IPv6 traffic. When set to dual-stack , clients can
+	// access both IPv4 and IPv6 resources through the VPN .
+	TrafficIpAddressType types.TrafficIpAddressType
 
 	// The transport protocol to be used by the VPN session.
 	//
