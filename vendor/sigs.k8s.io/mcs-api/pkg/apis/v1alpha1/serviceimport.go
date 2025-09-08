@@ -21,6 +21,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// ServiceImportPluralName is the plural name of ServiceImport
+	ServiceImportPluralName = "serviceimports"
+	// ServiceImportKindName is the kind name of ServiceImport
+	ServiceImportKindName = "ServiceImport"
+	// ServiceImportFullName is the full name of ServiceImport
+	ServiceImportFullName = ServiceImportPluralName + "." + GroupName
+)
+
+// ServiceImportVersionedName is the versioned name of ServiceImport
+var ServiceImportVersionedName = ServiceImportKindName + "/" + GroupVersion.Version
+
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName={svcim,svcimport}
@@ -120,6 +132,12 @@ type ServiceImportStatus struct {
 	// +listType=map
 	// +listMapKey=cluster
 	Clusters []ClusterStatus `json:"clusters,omitempty"`
+	// +optional
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // ClusterStatus contains service configuration mapped to a specific source cluster
@@ -141,3 +159,59 @@ type ServiceImportList struct {
 	// +listType=set
 	Items []ServiceImport `json:"items"`
 }
+
+// ServiceImportConditionType is a type of condition associated with a
+// ServiceImport. This type should be used with the ServiceImportStatus.Conditions
+// field.
+type ServiceImportConditionType string
+
+// ServiceImportConditionReason defines the set of reasons that explain why a
+// particular ServiceImport condition type has been raised.
+type ServiceImportConditionReason string
+
+// NewServiceImportCondition creates a new ServiceImport condition
+func NewServiceImportCondition(t ServiceImportConditionType, status metav1.ConditionStatus, reason ServiceImportConditionReason, msg string) metav1.Condition {
+	return metav1.Condition{
+		Type:               string(t),
+		Status:             status,
+		Reason:             string(reason),
+		Message:            msg,
+		LastTransitionTime: metav1.Now(),
+	}
+}
+
+const (
+	// ServiceImportConditionReady is true when the Service Import is ready.
+	//
+	//
+	// Possible reasons for this condition to be true are:
+	//
+	// * "Ready"
+	//
+	// Possible reasons for this condition to be False are:
+	//
+	// * "Pending"
+	// * "IPFamilyNotSupported"
+	//
+	// Possible reasons for this condition to be Unknown are:
+	//
+	// * "Pending"
+	//
+	// Controllers may raise this condition with other reasons,
+	// but should prefer to use the reasons listed above to improve
+	// interoperability.
+	ServiceImportConditionReady ServiceImportConditionType = "Ready"
+
+	// ServiceImportReasonReady is used with the "Ready" condition when the
+	// condition is True.
+	ServiceImportReasonReady ServiceImportConditionReason = "Ready"
+
+	// ServiceImportReasonPending is used with the "Ready" condition when
+	// the ServiceImport is in the process of being created or updated.
+	ServiceImportReasonPending ServiceImportConditionReason = "Pending"
+
+	// ServiceImportReasonIPFamilyNotSupported is used with the "Ready"
+	// condition when the service can not be imported due to IP families
+	// mismatch.
+	ServiceImportReasonIPFamilyNotSupported ServiceImportConditionReason = "IPFamilyNotSupported"
+)
