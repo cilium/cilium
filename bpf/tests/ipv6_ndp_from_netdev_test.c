@@ -50,6 +50,26 @@ struct test_args {
 };
 
 /*
+ * Generic
+ */
+static __always_inline
+bool __check_ret_code(const struct __ctx_buff *ctx, const __u32 exp_rc)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		return false;
+
+	status_code = data;
+	return *status_code == exp_rc;
+}
+
+/*
  * These tests make sure that ND packets directed to a Pod IP are answered
  * directly from BPF.
  */
@@ -86,20 +106,9 @@ int ipv6_from_netdev_ns_pod_setup(struct __ctx_buff *ctx)
 CHECK("tc", "011_ipv6_from_netdev_ns_pod")
 int ipv6_from_netdev_ns_pod_check(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
 	BUF_DECL(V6_NDP_POD_NA_LLOPT, v6_ndp_pod_na_llopt);
 
@@ -135,20 +144,9 @@ int ipv6_from_netdev_ns_pod_setup_noopt(struct __ctx_buff *ctx)
 CHECK("tc", "011_ipv6_from_netdev_ns_pod_noopt")
 int ipv6_from_netdev_ns_pod_check_noopt(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
 	/* Note we always return NA with llopt */
 	BUF_DECL(V6_NDP_POD_NA_LLOPT_NS_NOOPT, v6_ndp_pod_na_llopt);
@@ -195,20 +193,9 @@ int ipv6_from_netdev_ns_pod_setup_mcast(struct __ctx_buff *ctx)
 CHECK("tc", "012_ipv6_from_netdev_ns_pod_mcast")
 int ipv6_from_netdev_ns_pod_check_mcast(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
 	/* Note we always return NA with llopt */
 	BUF_DECL(V6_NDP_POD_NA_MCAST_NS_NOOPT, v6_ndp_pod_na_llopt);
@@ -244,20 +231,9 @@ int ipv6_from_netdev_ns_pod_setup_mcast_noopt(struct __ctx_buff *ctx)
 CHECK("tc", "012_ipv6_from_netdev_ns_pod_mcast_noopt")
 int ipv6_from_netdev_ns_pod_check_mcast_noopt(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
 	/* Note we always return NA with llopt */
 	BUF_DECL(V6_NDP_POD_NA_MCAST_LLOPT, v6_ndp_pod_na_llopt);
@@ -310,20 +286,9 @@ int ipv6_from_netdev_ns_node_ip_setup(struct __ctx_buff *ctx)
 CHECK("tc", "0211_ipv6_from_netdev_ns_node_ip")
 int ipv6_from_netdev_ns_node_ip_check(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_OK);
+	assert(__check_ret_code(ctx, CTX_ACT_OK));
 
 	/* Packet should not be modified */
 	BUF_DECL(V6_NDP_NODE_NS_LLOPT_PASS, v6_ndp_node_ns_llopt);
@@ -361,20 +326,9 @@ int ipv6_from_netdev_ns_node_ip_setup_noopt(struct __ctx_buff *ctx)
 CHECK("tc", "0212_ipv6_from_netdev_ns_node_ip_noopt")
 int ipv6_from_netdev_ns_node_ip_check_noopt(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_OK);
+	assert(__check_ret_code(ctx, CTX_ACT_OK));
 
 	/* Packet should not be modified */
 	BUF_DECL(V6_NDP_NODE_NS_PASS, v6_ndp_node_ns);
@@ -422,20 +376,9 @@ int ipv6_from_netdev_ns_node_ip_setup_mcast(struct __ctx_buff *ctx)
 CHECK("tc", "022_ipv6_from_netdev_ns_node_ip_mcast")
 int ipv6_from_netdev_ns_node_ip_check_mcast(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_OK);
+	assert(__check_ret_code(ctx, CTX_ACT_OK));
 
 	/* Packet should not be modified */
 	BUF_DECL(V6_NDP_NODE_NS_MCAST_LLOPT_PASS, v6_ndp_node_ns_mcast_llopt);
@@ -472,20 +415,9 @@ int ipv6_from_netdev_ns_node_ip_setup_mcast_noopt(struct __ctx_buff *ctx)
 CHECK("tc", "022_ipv6_from_netdev_ns_node_ip_mcast_noopt")
 int ipv6_from_netdev_ns_node_ip_check_mcast_noopt(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_OK);
+	assert(__check_ret_code(ctx, CTX_ACT_OK));
 
 	/* Packet should not be modified */
 	BUF_DECL(V6_NDP_NODE_NS_MCAST_PASS, v6_ndp_node_ns_mcast);
