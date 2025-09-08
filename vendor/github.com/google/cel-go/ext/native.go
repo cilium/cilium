@@ -609,7 +609,8 @@ func newNativeTypes(fieldNameHandler NativeTypesFieldNameHandler, rawType reflec
 	var iterateStructMembers func(reflect.Type)
 	iterateStructMembers = func(t reflect.Type) {
 		if k := t.Kind(); k == reflect.Pointer || k == reflect.Slice || k == reflect.Array || k == reflect.Map {
-			t = t.Elem()
+			iterateStructMembers(t.Elem())
+			return
 		}
 		if t.Kind() != reflect.Struct {
 			return
