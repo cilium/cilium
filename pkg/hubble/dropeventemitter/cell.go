@@ -46,7 +46,10 @@ type config struct {
 var defaultConfig = config{
 	EnableK8sDropEvents:   false,
 	K8sDropEventsInterval: 2 * time.Minute,
-	K8sDropEventsReasons:  []string{"auth_required", "policy_denied"},
+	K8sDropEventsReasons: []string{
+		strings.ToLower(flowpb.DropReason_AUTH_REQUIRED.String()),
+		strings.ToLower(flowpb.DropReason_POLICY_DENIED.String()),
+	},
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
@@ -102,7 +105,7 @@ func newDropEventEmitter(p params) FlowProcessor {
 		logfields.Reasons, p.Config.K8sDropEventsReasons,
 	)
 
-	flowProcessor := new(p.Config.K8sDropEventsInterval, p.Config.K8sDropEventsReasons, p.Clientset, p.K8sWatcher)
+	flowProcessor := new(p.Logger, p.Config.K8sDropEventsInterval, p.Config.K8sDropEventsReasons, p.Clientset, p.K8sWatcher)
 	p.Lifecycle.Append(cell.Hook{
 		OnStop: func(hc cell.HookContext) error {
 			flowProcessor.Shutdown()
