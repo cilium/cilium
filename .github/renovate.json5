@@ -264,7 +264,8 @@
         "sigs.k8s.io/gateway-api",
         // Stop updating envoy control plane packages until they pushed the
         // tag to stop go mod from erroring. See https://github.com/cilium/cilium/issues/41574
-        "github.com/envoyproxy/go-control-plane"
+        "github.com/envoyproxy/go-control-plane/contrib",
+        "github.com/envoyproxy/go-control-plane/envoy"
       ],
       "matchPackagePatterns": [
         // We can't update these libraries until github.com/shoenig/go-m1cpu
