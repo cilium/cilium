@@ -123,7 +123,7 @@ int icmp6_send_ndisc_adv(struct __ctx_buff *ctx, int nh_off,
 	__u8 opts[8], opts_old[8];
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	union v6addr target_ip;
-	__be32 sum;
+	__be32 sum = 0;
 
 	/*
 	 * According to RFC4861, sections 4.3 and 7.2.2 unicast neighbour
@@ -138,8 +138,15 @@ int icmp6_send_ndisc_adv(struct __ctx_buff *ctx, int nh_off,
 	 */
 	if (ctx_load_bytes(ctx, nh_off + ICMP6_ND_OPTS, opts_old,
 			   sizeof(opts_old)) < 0) {
+		__be32 plen_old = 0;
+		__be32 plen = bpf_htonl(8);
+
 		if (icmp6_ndisc_adv_addopt(ctx) < 0)
 			return DROP_INVALID;
+
+		/* Account for the pseudoheader change in payload length */
+		sum = csum_diff(&plen_old, sizeof(__be32), &plen,
+				sizeof(__be32), 0);
 	}
 
 	if (ctx_load_bytes(ctx, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old,
@@ -171,11 +178,9 @@ int icmp6_send_ndisc_adv(struct __ctx_buff *ctx, int nh_off,
 			    sizeof(icmp6hdr), 0) < 0)
 		return DROP_WRITE_ERROR;
 
-	/* fixup checksums */
-	sum = csum_diff(&icmp6hdr_old, sizeof(icmp6hdr_old),
-			&icmp6hdr, sizeof(icmp6hdr), 0);
-	if (l4_csum_replace(ctx, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-		return DROP_CSUM_L4;
+	/* ICMPv6 header has changed */
+	sum = csum_diff(&icmp6hdr_old, sizeof(icmp6hdr_old), &icmp6hdr,
+			sizeof(icmp6hdr), sum);
 
 	/* get old options */
 	if (ctx_load_bytes(ctx, nh_off + ICMP6_ND_OPTS, opts_old,
@@ -195,8 +200,8 @@ int icmp6_send_ndisc_adv(struct __ctx_buff *ctx, int nh_off,
 	if (ctx_store_bytes(ctx, nh_off + ICMP6_ND_OPTS, opts, sizeof(opts), 0) < 0)
 		return DROP_WRITE_ERROR;
 
-	/* fixup checksum */
-	sum = csum_diff(opts_old, sizeof(opts_old), opts, sizeof(opts), 0);
+	/* Options have changed */
+	sum = csum_diff(opts_old, sizeof(opts_old), opts, sizeof(opts), sum);
 	if (l4_csum_replace(ctx, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
