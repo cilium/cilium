@@ -40,15 +40,15 @@
  */
 #define ASSERT_CTX_BUF_OFF(NAME, FIRST_LAYER, CTX, OFF, BUF_NAME, LEN)		\
 	do {									\
-		void *__data = (void *)(long)(CTX)->data;			\
-		void *__data_end = (void *)(long)(CTX)->data_end;		\
-		__data += OFF;							\
+		void *__DATA = (void *)(long)(CTX)->data;			\
+		void *__DATA_END = (void *)(long)(CTX)->data_end;		\
+		__DATA += OFF;							\
 		bool ok = true;							\
 		__u16 _len = LEN;						\
 										\
-		if (__data + (LEN) > __data_end) {				\
+		if (__DATA + (LEN) > __DATA_END) {				\
 			ok = false;						\
-			_len = (__u16)(data_end - __data);			\
+			_len = (__u16)(__DATA_END - __DATA);			\
 			test_log("CTX len (%d) - offset (%d) < LEN (%d)",	\
 				 _len + OFF, OFF, LEN);				\
 		}								\
@@ -57,7 +57,7 @@
 			test_log("Buffer '" #BUF_NAME "' of len (%d) < LEN"	\
 				 " (%d)", sizeof(BUF(BUF_NAME)), LEN);		\
 		}								\
-		if (ok && memcmp(__data, &BUF(BUF_NAME), LEN) != 0) {		\
+		if (ok && memcmp(__DATA, &BUF(BUF_NAME), LEN) != 0) {		\
 			ok = false;						\
 			test_log("CTX and buffer '" #BUF_NAME			\
 				 "' content mismatch ");			\
