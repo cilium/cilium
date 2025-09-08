@@ -5,6 +5,7 @@ package dropeventemitter
 
 import (
 	"context"
+	"log/slog"
 	"slices"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	metaslimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slimscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -28,10 +30,10 @@ type dropEventEmitter struct {
 	recorder    record.EventRecorder
 	k8sWatcher  watchers.CacheAccessK8SWatcher
 
-	reasons []string
+	reasons []flowpb.DropReason
 }
 
-func new(interval time.Duration, reasons []string, k8s client.Clientset, watcher watchers.CacheAccessK8SWatcher) *dropEventEmitter {
+func new(log *slog.Logger, interval time.Duration, reasons []string, k8s client.Clientset, watcher watchers.CacheAccessK8SWatcher) *dropEventEmitter {
 	broadcaster := record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{
 		BurstSize:            1,
 		QPS:                  1 / float32(interval.Seconds()),
@@ -41,11 +43,20 @@ func new(interval time.Duration, reasons []string, k8s client.Clientset, watcher
 	})
 	broadcaster.StartRecordingToSink(&typedv1.EventSinkImpl{Interface: k8s.CoreV1().Events("")})
 
+	rs := make([]flowpb.DropReason, 0, len(reasons))
+	for _, reason := range reasons {
+		if v, ok := flowpb.DropReason_value[strings.ToUpper(reason)]; ok {
+			rs = append(rs, flowpb.DropReason(v))
+		} else {
+			log.Warn("Ignoring invalid drop reason", logfields.Reason, reason)
+		}
+	}
+
 	return &dropEventEmitter{
 		broadcaster: broadcaster,
 		recorder:    broadcaster.NewRecorder(slimscheme.Scheme, v1.EventSource{Component: "cilium"}),
 		k8sWatcher:  watcher,
-		reasons:     reasons,
+		reasons:     rs,
 	}
 }
 
@@ -56,16 +67,15 @@ func (e *dropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) e
 	default:
 	}
 
-	reason := strings.ToLower(flow.DropReasonDesc.String())
-
 	// Only handle packet drops due to policy related to a Pod
 	if flow.Verdict != flowpb.Verdict_DROPPED ||
-		!slices.Contains(e.reasons, reason) ||
+		!slices.Contains(e.reasons, flow.GetDropReasonDesc()) ||
 		(flow.TrafficDirection == flowpb.TrafficDirection_INGRESS && flow.Destination.PodName == "") ||
 		(flow.TrafficDirection == flowpb.TrafficDirection_EGRESS && flow.Source.PodName == "") {
 		return nil
 	}
 
+	reason := strings.ToLower(flow.DropReasonDesc.String())
 	if flow.TrafficDirection == flowpb.TrafficDirection_INGRESS {
 		message := "Incoming packet dropped (" + reason + ") from " +
 			endpointToString(flow.IP.Source, flow.Source) + " " +
