@@ -5,6 +5,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"fmt"
@@ -407,6 +408,52 @@ func TestIngressCommonRuleDeepEqual(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.expected, tc.in.DeepEqual(tc.other))
+		})
+	}
+}
+
+func TestIngressCommonRuleMarshalling(t *testing.T) {
+	testCases := []struct {
+		name     string
+		in       *IngressCommonRule
+		expected string
+	}{
+		{
+			name: "ToCIDRSet is nil",
+			in: &IngressCommonRule{
+				FromCIDRSet: nil,
+			},
+			expected: `{}`,
+		},
+		{
+			name: "ToCIDRSet is empty",
+			in: &IngressCommonRule{
+				FromCIDRSet: []CIDRRule{},
+			},
+			expected: `{"fromCIDRSet":[]}`,
+		},
+		{
+			name: "ToCIDRSet has CIDR",
+			in: &IngressCommonRule{
+				FromCIDRSet: []CIDRRule{
+					{
+						Cidr: "192.168.1.0/24",
+					},
+				},
+			},
+			expected: `{"fromCIDRSet":[{"cidr":"192.168.1.0/24"}]}`,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := json.Marshal(tc.in)
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, string(data))
+
+			rule := IngressCommonRule{}
+			err = json.Unmarshal(data, &rule)
+			require.NoError(t, err)
+			require.True(t, tc.in.DeepEqual(&rule))
 		})
 	}
 }
