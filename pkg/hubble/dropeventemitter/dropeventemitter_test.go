@@ -176,7 +176,7 @@ func TestProcessFlow(t *testing.T) {
 				IncludeObject: true,
 			}
 			e := &dropEventEmitter{
-				reasons:    []string{"policy_denied"},
+				reasons:    []flowpb.DropReason{flowpb.DropReason_POLICY_DENIED},
 				recorder:   fakeRecorder,
 				k8sWatcher: &fakeK8SWatcher{},
 			}
