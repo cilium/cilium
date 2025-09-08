@@ -114,6 +114,7 @@
         "registry.k8s.io/coredns/coredns", // CoreDNS official image
         "renovatebot/github-action", // Renovate's GH action
         "renovatebot/renovate", // Renovate's bot name
+        "ghcr.io/renovatebot/renovate", // Renovate's container image
       ],
       "matchPackagePrefixes": [
         "actions/", // GitHub's official GH actions
