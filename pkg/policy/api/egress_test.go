@@ -5,6 +5,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"testing"
@@ -103,7 +104,11 @@ func TestCreateDerivativeWithoutErrorAndNoIPs(t *testing.T) {
 
 	newRule, err := eg.CreateDerivative(context.TODO())
 	require.NoError(t, err)
-	require.Equal(t, &EgressRule{}, newRule)
+	require.Equal(t, &EgressRule{
+		EgressCommonRule: EgressCommonRule{
+			ToCIDRSet: CIDRRuleSlice{},
+		},
+	}, newRule)
 }
 
 func TestIsLabelBasedEgress(t *testing.T) {
@@ -470,6 +475,52 @@ func TestEgressCommonRuleDeepEqual(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.expected, tc.in.DeepEqual(tc.other))
+		})
+	}
+}
+
+func TestEgressCommonRuleMarshalling(t *testing.T) {
+	testCases := []struct {
+		name     string
+		in       *EgressCommonRule
+		expected string
+	}{
+		{
+			name: "ToCIDRSet is nil",
+			in: &EgressCommonRule{
+				ToCIDRSet: nil,
+			},
+			expected: `{}`,
+		},
+		{
+			name: "ToCIDRSet is empty",
+			in: &EgressCommonRule{
+				ToCIDRSet: []CIDRRule{},
+			},
+			expected: `{"toCIDRSet":[]}`,
+		},
+		{
+			name: "ToCIDRSet has CIDR",
+			in: &EgressCommonRule{
+				ToCIDRSet: []CIDRRule{
+					{
+						Cidr: "192.168.1.0/24",
+					},
+				},
+			},
+			expected: `{"toCIDRSet":[{"cidr":"192.168.1.0/24"}]}`,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := json.Marshal(tc.in)
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, string(data))
+
+			rule := EgressCommonRule{}
+			err = json.Unmarshal(data, &rule)
+			require.NoError(t, err)
+			require.True(t, tc.in.DeepEqual(&rule))
 		})
 	}
 }
