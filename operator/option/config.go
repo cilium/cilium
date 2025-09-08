@@ -363,6 +363,8 @@ type OperatorConfig struct {
 	ProxyIdleTimeoutSeconds int
 
 	// ProxyStreamIdleTimeoutSeconds is the stream idle timeout for the proxy to upstream cluster
+	// A value of 0 will completely disable the connection manager stream idle timeout.
+	// A value of -1 will ignore the stream idle timeout and use whatever is default in Envoy (currently 300s).
 	ProxyStreamIdleTimeoutSeconds int
 
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
@@ -416,9 +418,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		c.ProxyIdleTimeoutSeconds = DefaultProxyIdleTimeoutSeconds
 	}
 	c.ProxyStreamIdleTimeoutSeconds = vp.GetInt(ProxyStreamIdleTimeoutSeconds)
-	if c.ProxyStreamIdleTimeoutSeconds == 0 {
-		c.ProxyStreamIdleTimeoutSeconds = DefaultProxyStreamIdleTimeoutSeconds
-	}
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
 	c.TaintSyncWorkers = vp.GetInt(TaintSyncWorkers)
 	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
