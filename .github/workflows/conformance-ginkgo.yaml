@@ -274,12 +274,16 @@ jobs:
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          ci-version: ${{ needs.setup-vars.outputs.SHA }}
+          image-tag: ${{ needs.setup-vars.outputs.SHA }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Copy cilium-cli
         shell: bash
         run: |
-          cp -f /usr/local/bin/cilium ./cilium-cli-bin
+          cid=$(docker create ${{ env.CILIUM_CLI_IMAGE_REPO }}:${{ needs.setup-vars.outputs.SHA }} ls)
+          docker cp $cid:/usr/local/bin/cilium "$PWD/cilium-cli-bin"
+          docker rm $cid
 
       - name: Install helm
         shell: bash
