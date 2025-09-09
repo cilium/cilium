@@ -534,6 +534,10 @@ bool icmp6_ndisc_validate(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 	struct ethhdr *eth = ctx_data(ctx);
 	union macaddr *dmac;
 
+	/* On l2-less devices there is no MAC address, and we cannot proceed */
+	if (sizeof(struct ethhdr) != ETH_HLEN)
+		return false;
+
 	if ((void *)eth + ETH_HLEN > ctx_data_end(ctx))
 		return false;
 
