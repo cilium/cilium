@@ -329,6 +329,7 @@ func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchS
 						Type:        lb.SVCTypeLocalRedirect,
 						ServiceName: lrpServiceName,
 						ServicePort: feM.feAddr.Port(),
+						PortName:    feM.fePort,
 					},
 				)
 				if err != nil {
