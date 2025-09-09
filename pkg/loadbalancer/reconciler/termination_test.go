@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -90,12 +89,7 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 					EnableIPv6:                             true,
 				}
 			},
-			func() kpr.KPRConfig {
-				return kpr.KPRConfig{
-					KubeProxyReplacement: true,
-					EnableSocketLB:       true,
-				}
-			},
+
 			func() netnsOps {
 				return netnsOps{
 					current: func() (*netns.NetNS, error) {
@@ -258,11 +252,13 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 
 	extConfig := loadbalancer.ExternalConfig{
 		BPFSocketLBHostnsOnly:                  false,
-		EnableSocketLB:                         true,
 		EnableSocketLBPodConnectionTermination: true,
 		EnableIPv4:                             true,
 		EnableIPv6:                             true,
 	}
+
+	userConfig := loadbalancer.DefaultUserConfig
+	userConfig.KubeProxyReplacement = true
 
 	// Set up the LBMaps implementation. Since we're running privileged this will
 	// use an unpinned real BPF map.
@@ -271,7 +267,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 		metrics.Cell,
 		maglev.Cell,
 		lbmaps.Cell,
-		cell.Config(loadbalancer.DefaultUserConfig),
+		cell.Config(userConfig),
 		cell.Config(loadbalancer.DeprecatedConfig{}),
 		cell.Provide(
 			loadbalancer.NewBackendsTable,

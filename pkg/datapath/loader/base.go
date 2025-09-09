@@ -184,7 +184,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	// the code below, specific to EncryptInterface. Specifically, we will load
 	// bpf_host code in reloadHostDatapath onto the physical devices as selected
 	// by configuration.
-	if !lnc.EnableIPSec || option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard, lnc.EnableIPSec) {
+	if !lnc.EnableIPSec || option.Config.AreDevicesRequired(lnc.LBConfig.KubeProxyReplacement, lnc.EnableWireguard, lnc.EnableIPSec) {
 		return nil
 	}
 
@@ -465,12 +465,12 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
 	defer cancel()
 
-	if lnc.KPRConfig.EnableSocketLB {
+	if lnc.LBConfig.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
 		if err := compileWithOptions(ctx, l.logger, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
 			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)
 		}
-		if err := socketlb.Enable(l.logger, l.sysctl, lnc.KPRConfig); err != nil {
+		if err := socketlb.Enable(l.logger, l.sysctl, lnc.LBConfig); err != nil {
 			return err
 		}
 	} else {

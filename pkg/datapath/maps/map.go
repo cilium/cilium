@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -53,18 +52,16 @@ type MapSweeper struct {
 	endpointManager
 	bwManager dptypes.BandwidthManager
 	lbConfig  loadbalancer.Config
-	kprCfg    kpr.KPRConfig
 }
 
 // NewMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
+func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config) *MapSweeper {
 	return &MapSweeper{
 		logger:          defaultLogger.With(logfields.LogSubsys, "datapath-maps"),
 		endpointManager: g,
 		bwManager:       bwm,
 		lbConfig:        lbConfig,
-		kprCfg:          kprCfg,
 	}
 }
 
@@ -187,7 +184,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		}...)
 	}
 
-	if !ms.kprCfg.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
+	if !ms.lbConfig.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
 		maps = append(maps, []string{"cilium_snat_v4_external", "cilium_snat_v6_external"}...)
 	}
 

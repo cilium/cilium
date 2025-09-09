@@ -276,7 +276,7 @@ func (d *statusCollector) getCNIChainingStatus() *models.CNIChainingStatus {
 
 func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *models.KubeProxyReplacement {
 	mode := models.KubeProxyReplacementModeFalse
-	if d.statusParams.KPRConfig.KubeProxyReplacement {
+	if d.statusParams.LBConfig.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeTrue
 	}
 
@@ -303,7 +303,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
 		BpfSocketLBHostnsOnly: d.statusParams.DaemonConfig.BPFSocketLBHostnsOnly,
 	}
-	if d.statusParams.KPRConfig.KubeProxyReplacement {
+	if d.statusParams.LBConfig.KubeProxyReplacement {
 		features.NodePort.Enabled = true
 		features.NodePort.Mode = strings.ToUpper(d.statusParams.LBConfig.LBMode)
 		switch d.statusParams.LBConfig.DSRDispatch {
@@ -334,11 +334,11 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		features.NodePort.PortMin = int64(d.statusParams.LBConfig.NodePortMin)
 		features.NodePort.PortMax = int64(d.statusParams.LBConfig.NodePortMax)
 	}
-	if d.statusParams.KPRConfig.KubeProxyReplacement {
+	if d.statusParams.LBConfig.KubeProxyReplacement {
 		features.HostPort.Enabled = true
 		features.ExternalIPs.Enabled = true
 	}
-	if d.statusParams.KPRConfig.EnableSocketLB {
+	if d.statusParams.LBConfig.EnableSocketLB {
 		features.SocketLB.Enabled = true
 		features.SocketLBTracing.Enabled = true
 	}
@@ -359,7 +359,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		}
 		features.Nat46X64.Service = svc
 	}
-	if d.statusParams.KPRConfig.KubeProxyReplacement {
+	if d.statusParams.LBConfig.KubeProxyReplacement {
 		if d.statusParams.LBConfig.AlgorithmAnnotation {
 			features.Annotations = append(features.Annotations, annotation.ServiceLoadBalancingAlgorithm)
 		}

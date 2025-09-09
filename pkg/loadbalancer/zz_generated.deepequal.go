@@ -136,6 +136,12 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.InitWaitTimeout != other.InitWaitTimeout {
 		return false
 	}
+	if in.KubeProxyReplacement != other.KubeProxyReplacement {
+		return false
+	}
+	if in.EnableSocketLB != other.EnableSocketLB {
+		return false
+	}
 
 	return true
 }

@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -214,6 +213,9 @@ type UserConfig struct {
 	// thus may need to first reconcile the Kubernetes services to connect to ClusterMesh (if endpoints have changed
 	// while agent was down).
 	InitWaitTimeout time.Duration `mapstructure:"lb-init-wait-timeout"`
+
+	KubeProxyReplacement bool
+	EnableSocketLB       bool `mapstructure:"bpf-lb-sock"`
 }
 
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
@@ -327,6 +329,9 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Duration("lb-init-wait-timeout", def.InitWaitTimeout, "Amount of time to wait for initialization before reconciling BPF maps")
 	flags.MarkHidden("lb-init-wait-timeout")
+
+	flags.Bool("kube-proxy-replacement", def.KubeProxyReplacement, "Enable kube-proxy replacement")
+	flags.Bool("bpf-lb-sock", def.EnableSocketLB, "Enable socket-based LB for E/W traffic")
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
@@ -352,6 +357,10 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig Depreca
 			cfg.LBAffinityMapEntries,
 			cfg.LBSourceRangeMapEntries,
 			cfg.LBMaglevMapEntries)
+	}
+
+	if userConfig.KubeProxyReplacement {
+		cfg.EnableSocketLB = true
 	}
 
 	// Dynamically size the SockRevNat map if not set by the user.
@@ -499,6 +508,9 @@ var DefaultUserConfig = UserConfig{
 	EnableServiceTopology: false,
 
 	InitWaitTimeout: 1 * time.Minute,
+
+	KubeProxyReplacement: false,
+	EnableSocketLB:       false,
 }
 
 var DefaultConfig = Config{
@@ -522,25 +534,21 @@ type ExternalConfig struct {
 	ZoneMapper
 
 	EnableIPv4, EnableIPv6                 bool
-	KubeProxyReplacement                   bool
 	NodePortMin, NodePortMax               uint16
 	NodePortAlg                            string
 	LoadBalancerAlgorithmAnnotation        bool
 	BPFSocketLBHostnsOnly                  bool
-	EnableSocketLB                         bool
 	EnableSocketLBPodConnectionTermination bool
 	EnableHealthCheckLoadBalancerIP        bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
-func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalConfig {
+func NewExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
 		ZoneMapper:                             cfg,
 		EnableIPv4:                             cfg.EnableIPv4,
 		EnableIPv6:                             cfg.EnableIPv6,
-		KubeProxyReplacement:                   kprCfg.KubeProxyReplacement,
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
-		EnableSocketLB:                         kprCfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
 		EnableHealthCheckLoadBalancerIP:        cfg.EnableHealthCheckLoadBalancerIP,
 	}

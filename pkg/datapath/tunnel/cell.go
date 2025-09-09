@@ -6,7 +6,6 @@ package tunnel
 import (
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -32,9 +31,9 @@ var Cell = cell.Module(
 
 		// Enable tunnel configuration when DSR Geneve is enabled (this is currently
 		// handled here, as the corresponding logic has not yet been modularized).
-		func(kpr kpr.KPRConfig, lbcfg loadbalancer.Config) EnablerOut {
+		func(lbcfg loadbalancer.Config) EnablerOut {
 			return NewEnabler(
-				kpr.KubeProxyReplacement &&
+				lbcfg.KubeProxyReplacement &&
 					lbcfg.LoadBalancerUsesDSR() &&
 					lbcfg.DSRDispatch == loadbalancer.DSRDispatchGeneve,
 				// The datapath logic takes care of the MTU overhead. So no need to

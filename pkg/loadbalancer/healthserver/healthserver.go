@@ -100,8 +100,7 @@ func ChooseHealthServerLoopbackAddressForTesting() netip.Addr {
 }
 
 func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) error {
-	extCfg := s.params.ExtConfig
-	if !extCfg.KubeProxyReplacement || !s.params.Config.EnableHealthCheckNodePort {
+	if !s.params.Config.KubeProxyReplacement || !s.params.Config.EnableHealthCheckNodePort {
 		return nil
 	}
 
@@ -169,7 +168,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 					s.params.Writer.DeleteBackendsOfService(wtxn, healthServiceName, source.Local)
 					s.params.Writer.DeleteServiceAndFrontends(wtxn, healthServiceName)
 					wtxn.Commit()
-				} else if extCfg.EnableHealthCheckLoadBalancerIP {
+				} else if s.params.ExtConfig.EnableHealthCheckLoadBalancerIP {
 					// Create a LoadBalancer service to expose the health server on the $LB_VIP.
 					// For NodePort we don't need anything as the HealthServer is already listening on
 					// all node addresses.

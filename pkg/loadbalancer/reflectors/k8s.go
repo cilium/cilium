@@ -166,7 +166,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 			podName := obj.Namespace + "/" + obj.Name
 			if change.Deleted {
 				rh.update(podName, nil)
-				if p.ExtConfig.KubeProxyReplacement {
+				if p.Config.KubeProxyReplacement {
 					if err := deleteHostPort(p, txn, obj); err != nil {
 						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
 							logfields.Error, err)
@@ -178,7 +178,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 					// Pod has been terminated. Clean up the HostPort already even before the Pod object
 					// has been removed to free up the HostPort for other pods.
 					rh.update(podName, nil)
-					if p.ExtConfig.KubeProxyReplacement {
+					if p.Config.KubeProxyReplacement {
 						if err := deleteHostPort(p, txn, obj); err != nil {
 							p.Log.Error("BUG: Unexpected failure in deleteHostPort",
 								logfields.Error, err)
@@ -193,7 +193,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 						continue
 					}
 
-					if p.ExtConfig.KubeProxyReplacement {
+					if p.Config.KubeProxyReplacement {
 						err = upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
 					}
 					rh.update(podName, err)

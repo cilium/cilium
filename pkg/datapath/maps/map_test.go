@@ -13,7 +13,6 @@ import (
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -190,7 +189,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testEPManager := newTestEPManager(tt.paths)
 			bwManager := newTestBWManager()
-			sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+			sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig)
 
 			for _, ep := range tt.endpoints {
 				testEPManager.addEndpoint(ep)
@@ -225,7 +224,7 @@ func TestRemoveDisabledMaps(t *testing.T) {
 			"cilium_policy_01234",
 		}
 		bwManager := newTestBWManager()
-		sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+		sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig)
 
 		sweeper.RemoveDisabledMaps()
 		require.Equal(t, depricatedMaps, testEPManager.removedPaths)
