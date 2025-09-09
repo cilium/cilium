@@ -329,6 +329,13 @@ func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchS
 						Type:        lb.SVCTypeLocalRedirect,
 						ServiceName: lrpServiceName,
 						ServicePort: feM.feAddr.Port(),
+						//if we only have one frontend mapping, we dont need the frontend port name so it will not check the port name in the backend ports
+						PortName: func() lb.FEPortName {
+							if len(lrp.FrontendMappings) > 1 {
+								return feM.fePort
+							}
+							return lb.FEPortName("")
+						}(),
 					},
 				)
 				if err != nil {
