@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/netip"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -189,6 +191,46 @@ type restoredIPRule struct {
 
 // map from EP IPs to *Endpoint
 type restoredEPs map[netip.Addr]*endpoint.Endpoint
+
+// DNSServerIdentity contains the identities of the DNS servers and used to
+// determine if a DNS request is allowed or not from standalone DNS proxy.
+// It adheres the interface policy.CachedSelector and reuses the
+// in agent dns proxy filtering path.
+type DNSServerIdentity struct {
+	Identities identity.NumericIdentitySlice
+}
+
+func (d DNSServerIdentity) Selects(_ *versioned.VersionHandle, identity identity.NumericIdentity) bool {
+	return slices.Contains(d.Identities, identity)
+}
+
+func (d DNSServerIdentity) String() string {
+	identityStrings := make([]string, len(d.Identities))
+	for i, id := range d.Identities {
+		identityStrings[i] = strconv.FormatUint(uint64(id), 10)
+	}
+	return strings.Join(identityStrings, ",")
+}
+
+// Not being used in the standalone dns proxy path
+func (d DNSServerIdentity) IsWildcard() bool {
+	return false
+}
+
+// Not being used in the standalone dns proxy path
+func (d DNSServerIdentity) IsNone() bool {
+	return false
+}
+
+// Not being used in the standalone dns proxy path
+func (d DNSServerIdentity) GetSelections(_ *versioned.VersionHandle) identity.NumericIdentitySlice {
+	return d.Identities
+}
+
+// Not being used in the standalone dns proxy path
+func (d DNSServerIdentity) GetMetadataLabels() labels.LabelArray {
+	return nil
+}
 
 // asIPRule returns a new restore.IPRule representing the rules, including the provided IP map.
 func asIPRule(r *regexp.Regexp, IPs map[restore.RuleIPOrCIDR]struct{}) restore.IPRule {

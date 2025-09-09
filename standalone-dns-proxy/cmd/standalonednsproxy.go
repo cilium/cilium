@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"iter"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -12,9 +13,9 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
-	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/client"
 )
@@ -32,7 +33,7 @@ type StandaloneDNSProxy struct {
 
 	// dnsRulesTable is the table that holds DNS rules received from the Cilium agent
 	// It is used by the DNS proxy to enforce DNS policies
-	dnsRulesTable statedb.RWTable[service.PolicyRules]
+	dnsRulesTable statedb.RWTable[client.DNSRules]
 	db            *statedb.DB
 	jobGroup      job.Group
 }
@@ -91,8 +92,11 @@ func (sdp *StandaloneDNSProxy) WatchDNSRulesTable(ctx context.Context, _ cell.He
 			sdp.logger.Info("Stopping DNS rules table watcher")
 			return nil
 		case <-rulesWatch:
-			_, newWatch := sdp.dnsRulesTable.AllWatch(sdp.db.ReadTxn())
+			rules, newWatch := sdp.dnsRulesTable.AllWatch(sdp.db.ReadTxn())
 			// Update the DNS proxy with the latest rules
+			if err := sdp.updateDNSRules(rules); err != nil {
+				sdp.logger.Error("Failed to update DNS rules", logfields.Error, err)
+			}
 			rulesWatch = newWatch
 		}
 
@@ -115,5 +119,27 @@ func (sdp *StandaloneDNSProxy) StopStandaloneDNSProxy() error {
 	sdp.connHandler.StopConnection()
 
 	sdp.logger.Info("Standalone DNS proxy stopped")
+	return nil
+}
+
+func (sdp *StandaloneDNSProxy) updateDNSRules(dnsRules iter.Seq2[client.DNSRules, statedb.Revision]) (retErr error) {
+	var revertFuncs revert.RevertStack
+	defer func() {
+		if retErr != nil {
+			sdp.logger.Error("Failed to update DNS rules, reverting changes", logfields.Error, retErr)
+			if rErr := revertFuncs.Revert(); rErr != nil {
+				sdp.logger.Error("Failed to revert DNS rules changes", logfields.Error, rErr)
+			}
+		}
+	}()
+
+	for rule := range dnsRules {
+		revertFunc, err := sdp.dnsProxier.UpdateAllowed(uint64(rule.EndpointID), rule.PortProto, rule.DNSRule)
+		if err != nil {
+			retErr = err
+			return
+		}
+		revertFuncs.Push(revertFunc)
+	}
 	return nil
 }

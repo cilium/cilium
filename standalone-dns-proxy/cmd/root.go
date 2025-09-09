@@ -105,7 +105,7 @@ type standaloneDNSProxyParams struct {
 	JobGroup          job.Group
 	ConnectionHandler client.ConnectionHandler
 	DNSProxier        proxy.DNSProxier
-	DNSRulesTable     statedb.RWTable[service.PolicyRules]
+	DNSRulesTable     statedb.RWTable[client.DNSRules]
 	DB                *statedb.DB
 }
 
