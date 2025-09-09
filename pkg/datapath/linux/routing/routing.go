@@ -201,6 +201,20 @@ func (info *RoutingInfo) gatewayRoutes(ifindex, tableID int) []*netlink.Route {
 	}
 
 	// IPv6 routes
+	defaultIpv6Route := &netlink.Route{
+		Dst:      &net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
+		Table:    tableID,
+		Gw:       info.Gateway,
+		Protocol: linux_defaults.RTProto,
+	}
+
+	// Only set LinkIndex for link-local gateways. The kernel needs the interface
+	// index to route to link-local addresses since they're not tied to a specific
+	// interface
+	if info.Gateway.IsLinkLocalUnicast() {
+		defaultIpv6Route.LinkIndex = ifindex
+	}
+
 	return []*netlink.Route{
 		{
 			LinkIndex: ifindex,
@@ -209,13 +223,7 @@ func (info *RoutingInfo) gatewayRoutes(ifindex, tableID int) []*netlink.Route {
 			Table:     tableID,
 			Protocol:  linux_defaults.RTProto,
 		},
-
-		{
-			Dst:      &net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
-			Table:    tableID,
-			Gw:       info.Gateway,
-			Protocol: linux_defaults.RTProto,
-		},
+		defaultIpv6Route,
 	}
 
 }
