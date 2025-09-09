@@ -280,12 +280,19 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
-      - name: Copy cilium-cli
+      - name: Copy cilium-cli from CI docker image
+        if: ${{ env.CILIUM_CLI_VERSION == '' }}
         shell: bash
         run: |
           cid=$(docker create ${{ env.CILIUM_CLI_IMAGE_REPO }}:${{ needs.setup-vars.outputs.SHA }} ls)
           docker cp $cid:/usr/local/bin/cilium "$PWD/cilium-cli-bin"
           docker rm $cid
+
+      - name: Copy cilium-cli from released binary
+        if: ${{ env.CILIUM_CLI_VERSION != '' }}
+        shell: bash
+        run: |
+          cp /usr/local/bin/cilium "$PWD/cilium-cli-bin"
 
       - name: Install helm
         shell: bash
