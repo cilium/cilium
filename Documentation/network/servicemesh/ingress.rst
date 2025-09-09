@@ -183,11 +183,18 @@ Supported Ingress Annotations
        | ``enforce-ingress-https`` configuration
        | file setting (or ``ingressController.enforceHttps``
        | in Helm).
-       | 
+       |
        | Any host with TLS config will have redirects to
        | HTTPS configured for each match specified in the
        | Ingress.
      - unspecified
+   * - ``ingress.cilium.io/request-timeout``
+     - | Request timeout in seconds for Ingress backend HTTP requests.
+       |
+       | Note that if the annotation is present, it will override
+       | any value set by the ``ingress-default-request-timeout`` operator flag.
+       | If neither is set, defaults to ``0`` (no limit)
+     - ``0``
 
 Additionally, cloud-provider specific annotations for the LoadBalancer Service
 are supported.
@@ -334,7 +341,7 @@ Cilium's Ingress features:
 
    http
    ingress-and-network-policy
-   path-types   
+   path-types
    grpc
    tls-termination
    tls-default-certificate
