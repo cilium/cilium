@@ -24,11 +24,17 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 
 func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	return func(yield func(*config.BPFHost) bool) {
-		for permutation := range permute(2) {
+		for permutation := range permute(3) {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.SecctxFromIPCache = permutation[0]
 			cfg.EnableRemoteNodeMasquerade = permutation[1]
+			if permutation[2] {
+				cfg.EthHeaderLength = 0
+			} else {
+				cfg.EthHeaderLength = 14
+			}
+
 			if !yield(cfg) {
 				return
 			}
