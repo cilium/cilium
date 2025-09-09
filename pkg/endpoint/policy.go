@@ -743,44 +743,18 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 	// If this endpoint's security ID has a policy update, we must regenerate. Otherwise,
 	// bump the policy revision directly (as long as we didn't miss an update somehow).
 	if !idsToRegen.Has(secID) {
-		if e.policyRevision < fromRev {
-			if e.state == StateWaitingToRegenerate || e.state == StateRestoring {
-				// We can log this at less severity since a regeneration was already queued.
-				// This can happen if two policy updates come in quick succession, with the first
-				// affecting this endpoint and the second not.
-				e.getLogger().Info(
-					"Endpoint missed a policy revision; triggering regeneration",
-					logfields.PolicyRevision, fromRev,
-				)
-			} else {
-				// TODO: We can hit this case when for example a change occurs
-				// in policy update and a CEC occur (one after the other, most
-				// likely) where both of these operations bump the policy
-				// revision. Let's say we were at 1 and then policy change
-				// bumps to 2 and then CEC bumps to 3. We warn when we detect
-				// this case and the endpoint has not been updated or has been
-				// queued to regenerate to get to revision 3 most likely
-				// because the CEC change does not actually affect this
-				// endpoint.
-				//
-				// Ignoring the policy revision here may cause fetching from
-				// the policy computer to be stuck in the loop waiting for the
-				// selectorPolicy to have the matching revision.
-				e.getLogger().Warn(
-					"Endpoint missed a policy revision; triggering regeneration",
-					logfields.PolicyRevision, fromRev,
-				)
-			}
-		} else {
-			e.getLogger().Debug(
-				"Policy update is a no-op, bumping policyRevision",
-				logfields.PolicyRevision, toRev,
-			)
-			e.setPolicyRevision(toRev)
+		// TODO: We may not need this anymore, testing it out.
+		// TODO: Maybe we should reevaluate all the policy revisions stored
+		// inside the endpoint since it has been fairly simplified with the
+		// async policy computations.
+		e.getLogger().Debug(
+			"Policy update is a no-op, bumping policyRevision",
+			logfields.PolicyRevision, toRev,
+		)
+		e.setPolicyRevision(toRev)
 
-			unlock()
-			return
-		}
+		unlock()
+		return
 	}
 
 	// TODO: Everything seems to be working as expected. Resolve all TODOs and
