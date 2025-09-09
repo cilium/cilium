@@ -13,7 +13,7 @@ include:
     location: eastus2
     index: 3
     default: true
-    ipv6: false
+    ipv6: true
     egw: true
   - version: "1.33"
     location: eastus
