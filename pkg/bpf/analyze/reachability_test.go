@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 // Simple example with a `__config_use_map_b` Variable acting as a feature flag.
@@ -224,6 +225,36 @@ func TestReachabilityLongJump(t *testing.T) {
 	assert.True(t, enabled.isLive(1))
 	assert.False(t, enabled.isLive(2))
 	assert.True(t, enabled.isLive(3))
+}
+
+// Test that Reachability can be called concurrently. This is a regression test
+// for data races in Blocks and Block. Block should never be modified by
+// reachability analysis as it is shared across all users of (copies of) a
+// CollectionSpec.
+func TestReachabilityConcurrent(t *testing.T) {
+	spec, err := ebpf.LoadCollectionSpec("../testdata/unused-map-pruning.o")
+	require.NoError(t, err)
+
+	obj := struct {
+		Program *ebpf.ProgramSpec  `ebpf:"sample_program"`
+		UseMapB *ebpf.VariableSpec `ebpf:"__config_use_map_b"`
+	}{}
+	require.NoError(t, spec.Assign(&obj))
+
+	// Predict first branch as taken.
+	obj.UseMapB.Set(true)
+
+	blocks, err := computeBlocks(obj.Program.Instructions)
+	require.NoError(t, err)
+
+	var eg errgroup.Group
+	for range 2 {
+		eg.Go(func() error {
+			_, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
+			return err
+		})
+	}
+	require.NoError(t, eg.Wait())
 }
 
 func BenchmarkReachability(b *testing.B) {
