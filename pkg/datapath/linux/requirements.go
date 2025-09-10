@@ -71,6 +71,10 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for bpf_get_current_cgroup_id() (Linux 4.18 or newer)")
 		}
 
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnFibLookup) != nil {
+			return errors.New("Require support for bpf_fib_lookup() (Linux 4.18 or newer)")
+		}
+
 		if probes.HaveDeadCodeElim() != nil {
 			return errors.New("Require support for dead code elimination (Linux 5.1 or newer)")
 		}
@@ -94,9 +98,25 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for bpf_jiffies64 (Linux 5.6.0 or newer)")
 		}
 
+		if probes.HaveBatchAPI() != nil {
+			return errors.New("Require support for BPF_MAP_LOOKUP_BATCH (Linux 5.6.0 or newer)")
+		}
+
 		if probes.HaveProgramHelper(log, ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
 			probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 			return errors.New("Require support for bpf_get_netns_cookie() (Linux 5.7.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnSkAssign) != nil {
+			return errors.New("Require support for bpf_sk_assign() (Linux 5.7.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil {
+			return errors.New("Require support for bpf_get_cgroup_classid() (Linux 5.7.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
+			return errors.New("Require support for bpf_perf_event_output() (Linux 5.7.0 or newer)")
 		}
 
 		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnCsumLevel) != nil {

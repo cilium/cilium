@@ -215,6 +215,11 @@ func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.
 	if val, ok := svc.Annotations[nodeSvcLBMatchLabelsAnnotation]; ok {
 		parsedLabels, err := labels.Parse(val)
 		if err != nil {
+			scopedLog.ErrorContext(
+				ctx, "Failed to parse match-node-labels annotation",
+				logfields.Value, val,
+				logfields.Error, err,
+			)
 			return []corev1.Node{}, err
 		}
 		nodeListOptions.LabelSelector = parsedLabels
@@ -225,19 +230,34 @@ func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.
 		return []corev1.Node{}, err
 	}
 	if len(nodes.Items) == 0 {
-		scopedLog.WarnContext(ctx, "No Nodes found with configured label selector", logfields.Labels, nodeListOptions.LabelSelector)
+		scopedLog.WarnContext(
+			ctx, "No Nodes found with configured label selector",
+			logfields.Labels, nodeListOptions.LabelSelector,
+		)
 	}
 
 	relevantNodes := []corev1.Node{}
 	for _, node := range nodes.Items {
 		if !shouldIncludeNode(&node) {
+			scopedLog.DebugContext(
+				ctx, "Skipping Node to be deleted or excluded from load balancers",
+				logfields.NodeName, node.Name,
+			)
 			continue
 		}
 		if endpointSliceNames != nil && !endpointSliceNames.Has(node.Name) {
+			scopedLog.DebugContext(
+				ctx, "Skipping Node with no pods running on and local externalTrafficPolicy",
+				logfields.NodeName, node.Name,
+			)
 			continue
 		}
 
 		relevantNodes = append(relevantNodes, node)
+	}
+
+	if len(nodes.Items) > 0 && len(relevantNodes) == 0 {
+		scopedLog.WarnContext(ctx, "No Nodes found after filtering out deleted or excluded nodes")
 	}
 	return relevantNodes, nil
 }

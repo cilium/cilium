@@ -4,6 +4,7 @@
 package xds
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -43,6 +44,9 @@ type ResourceVersionAckObserver interface {
 
 	// MarkRestoreCompleted clears the 'restore' state so that updates are acked normally.
 	MarkRestoreCompleted()
+
+	// WaitForFirstAck() blocks until the given node has acked the first ACK.
+	WaitForFirstAck(ctx context.Context, node string, typeURL string)
 }
 
 // AckingResourceMutatorRevertFunc is a function which reverts the effects of
@@ -113,6 +117,11 @@ type AckingResourceMutatorWrapper struct {
 	// e.g. "127.0.0.1" for the host proxy.
 	ackedVersions map[string]uint64
 
+	// ackedNodes has a channel for each node for which someone is waiting for the first ACK to
+	// be received. The channel is closed after the first ACK has been received, and set to
+	// 'nil' to avoid closing the channel more than once.
+	ackedNodes map[string]chan struct{}
+
 	// pendingCompletions is the list of updates that are pending completion.
 	pendingCompletions map[*completion.Completion]*pendingCompletion
 
@@ -143,6 +152,7 @@ func NewAckingResourceMutatorWrapper(logger *slog.Logger, mutator ResourceMutato
 		logger:             logger,
 		mutator:            mutator,
 		ackedVersions:      make(map[string]uint64),
+		ackedNodes:         make(map[string]chan struct{}),
 		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
 		metrics:            metrics,
 	}
@@ -161,6 +171,45 @@ func (m *AckingResourceMutatorWrapper) MarkRestoreCompleted() {
 	defer m.locker.Unlock()
 
 	m.restoring = false
+}
+
+func (m *AckingResourceMutatorWrapper) WaitForFirstAck(ctx context.Context, node string, typeURL string) {
+	// No wait if there are no resources of the given type
+	if !m.mutator.HasAny(typeURL) {
+		return
+	}
+
+	m.locker.Lock()
+	ch, exists := m.ackedNodes[node]
+	// This can happen before the first request from the node is received, so we must initialize
+	// a channel here if one does not exist for the node.
+	if !exists {
+		ch = make(chan struct{})
+		m.ackedNodes[node] = ch
+	}
+	m.locker.Unlock()
+
+	logger := m.logger.With(
+		logfields.XDSClientNode, node,
+		logfields.XDSTypeURL, typeURL,
+	)
+
+	// ch can be 'nil' to avoid closing the channel more than once. If so, the first ACK has
+	// already been received.
+	if ch == nil {
+		logger.Info("WaitForFirstAck: first ACK has already been received, no need to wait")
+		return
+	}
+
+	logger.Info("WaitForFirstAck: Waiting until first ACK has been received")
+	// wait after m.locker has been released!
+	select {
+	case <-ctx.Done():
+		logger.Info("WaitForFirstAck: canceling wait for the first ACK due to expired context")
+	case <-ch:
+		// ACK was received
+		logger.Info("WaitForFirstAck: resuming after receiving the first ACK")
+	}
 }
 
 // AddVersionCompletion adds a completion to wait for any ACK for the
@@ -206,6 +255,10 @@ func (m *AckingResourceMutatorWrapper) DeleteNode(nodeID string) {
 	defer m.locker.Unlock()
 
 	delete(m.ackedVersions, nodeID)
+	if ch, exists := m.ackedNodes[nodeID]; exists && ch != nil {
+		close(ch)
+	}
+	delete(m.ackedNodes, nodeID)
 }
 
 func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc {
@@ -388,6 +441,24 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 	// node at all.
 	if previouslyAckedVersion, exists := m.ackedVersions[nodeIP]; !exists || previouslyAckedVersion < ackVersion {
 		m.ackedVersions[nodeIP] = ackVersion
+
+		// Signal reception of an ACK (exluding the version 0, or any NACKs).
+		if previouslyAckedVersion < ackVersion {
+			ch, exists := m.ackedNodes[nodeIP]
+			if !exists || ch != nil {
+				m.logger.Info("HandleResourceVersionAck: first ACK received",
+					logfields.XDSClientNode, nodeIP,
+					logfields.XDSTypeURL, typeURL,
+					logfields.XDSAckedVersion, ackVersion,
+				)
+			}
+			// nil the channel (if any) to mark the reception of the ACK
+			m.ackedNodes[nodeIP] = nil
+			if exists && ch != nil {
+				// Wake up any waiters
+				close(ch)
+			}
+		}
 	}
 
 	remainingCompletions := make(map[*completion.Completion]*pendingCompletion, len(m.pendingCompletions))

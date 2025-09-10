@@ -481,7 +481,7 @@ steers traffic to a local DNS node-cache which runs as a normal pod.
         need to modify those to match your deployment if they are different.
 
 After all ``node-local-dns`` pods are in ready status, DNS traffic will now go to the local node-cache first.
-You can verify by checking the DNS cache's metrics ``coredns_dns_request_count_total`` via curling
+You can verify by checking the DNS cache's metrics ``coredns_dns_requests_total`` via curling
 ``<node-local-dns pod IP>:9253/metrics``, the metric should increment as new DNS requests being issued from
 application pods are now redirected to the ``node-local-dns`` pod.
 

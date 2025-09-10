@@ -114,6 +114,7 @@
         "registry.k8s.io/coredns/coredns", // CoreDNS official image
         "renovatebot/github-action", // Renovate's GH action
         "renovatebot/renovate", // Renovate's bot name
+        "ghcr.io/renovatebot/renovate", // Renovate's container image
       ],
       "matchPackagePrefixes": [
         "actions/", // GitHub's official GH actions
@@ -260,7 +261,11 @@
         // https://github.com/google/go-licenses/issues/205
         "github.com/google/go-licenses",
         // We update this dependency manually together with conformance test changes
-        "sigs.k8s.io/gateway-api"
+        "sigs.k8s.io/gateway-api",
+        // Stop updating envoy control plane packages until they pushed the
+        // tag to stop go mod from erroring. See https://github.com/cilium/cilium/issues/41574
+        "github.com/envoyproxy/go-control-plane/contrib",
+        "github.com/envoyproxy/go-control-plane/envoy"
       ],
       "matchPackagePatterns": [
         // We can't update these libraries until github.com/shoenig/go-m1cpu
@@ -484,6 +489,16 @@
         "quay.io/lvh-images/kind"
       ],
       "versioning": "regex:^((?<compatibility>[a-z0-9-.]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$"
+    },
+    {
+      // Disable updates for rhel8.6 for both complexity-test and kind
+      // since new versions are making the tests to fail.
+      "enabled": false,
+      "matchPackageNames": [
+        "quay.io/lvh-images/complexity-test",
+        "quay.io/lvh-images/kind"
+      ],
+      "matchCurrentVersion": "/^rhel8\\.6-.*$/"
     },
     {
       "groupName": "stable lvh-images",

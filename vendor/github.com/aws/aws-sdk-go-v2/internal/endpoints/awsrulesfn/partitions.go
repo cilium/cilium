@@ -112,6 +112,13 @@ var partitions = []Partition{
 				SupportsFIPS:       nil,
 				SupportsDualStack:  nil,
 			},
+			"ap-southeast-6": {
+				Name:               nil,
+				DnsSuffix:          nil,
+				DualStackDnsSuffix: nil,
+				SupportsFIPS:       nil,
+				SupportsDualStack:  nil,
+			},
 			"ap-southeast-7": {
 				Name:               nil,
 				DnsSuffix:          nil,
@@ -304,7 +311,7 @@ var partitions = []Partition{
 			DnsSuffix:            "amazonaws.eu",
 			DualStackDnsSuffix:   "api.amazonwebservices.eu",
 			SupportsFIPS:         true,
-			SupportsDualStack:    false,
+			SupportsDualStack:    true,
 			ImplicitGlobalRegion: "eusc-de-east-1",
 		},
 		Regions: map[string]RegionOverrides{
