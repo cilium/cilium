@@ -170,7 +170,6 @@ type Block struct {
 	predecessors []*Block
 	branch       *Block
 	fthrough     *Block
-	predict      uint8
 }
 
 func (b *Block) leader(insns asm.Instructions) *leader {
@@ -312,17 +311,6 @@ func (b *Block) Dump(insns asm.Instructions) string {
 		sb.WriteString("\n")
 	}
 
-	if b.predict != 0 {
-		sb.WriteString("Predict: ")
-		switch b.predict {
-		case 1:
-			sb.WriteString("branch taken\n")
-		case 2:
-			sb.WriteString("fallthrough taken\n")
-		default:
-		}
-	}
-
 	return sb.String()
 }
 
@@ -350,6 +338,10 @@ type Blocks struct {
 
 	// l is a bitmap tracking reachable blocks.
 	l bitmap
+
+	// j is a bitmap tracking predicted jumps. If the nth bit is 1, the jump
+	// at the end of block n is predicted to always be taken.
+	j bitmap
 }
 
 // LiveInstructions returns a sequence of [asm.Instruction]s held by Blocks. The
@@ -439,7 +431,20 @@ func (bl *Blocks) Dump(insns asm.Instructions) string {
 	for _, block := range bl.b {
 		sb.WriteString(fmt.Sprintf("\n=== Block %d ===\n", block.id))
 		sb.WriteString(block.Dump(insns))
-		sb.WriteString(fmt.Sprintf("Live: %t\n", bl.l.get(uint64(block.id))))
+
+		// No reachability information yet.
+		if len(bl.l) == 0 {
+			continue
+		}
+
+		sb.WriteString(fmt.Sprintf("Live: %t, ", bl.l.get(uint64(block.id))))
+		sb.WriteString("branch: ")
+		if bl.j.get(uint64(block.id)) {
+			sb.WriteString("jump")
+		} else {
+			sb.WriteString("fallthrough")
+		}
+		sb.WriteString("\n")
 	}
 	return sb.String()
 }
