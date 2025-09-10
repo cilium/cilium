@@ -122,7 +122,6 @@ out:
 	return ret;
 }
 
-#if !defined(NODEPORT_EGRESS_REVDNAT_ONLY)
 __declare_tail(CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
@@ -151,7 +150,6 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 
 	return ret;
 }
-#endif
 
 static __always_inline int
 nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
