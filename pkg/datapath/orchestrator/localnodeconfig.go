@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -52,6 +53,7 @@ func newLocalNodeConfig(
 	xdpConfig xdp.Config,
 	lbConfig loadbalancer.Config,
 	kprCfg kpr.KPRConfig,
+	svcCfg svcrouteconfig.RoutesConfig,
 	maglevConfig maglev.Config,
 	mtuTbl statedb.Table[mtu.RouteMTU],
 	wgCfg wgTypes.WireguardConfig,
@@ -128,6 +130,7 @@ func newLocalNodeConfig(
 		XDPConfig:                    xdpConfig,
 		LBConfig:                     lbConfig,
 		KPRConfig:                    kprCfg,
+		SvcRouteConfig:               svcCfg,
 		MaglevConfig:                 maglevConfig,
 	}, common.MergeChannels(watchChans...), nil
 }

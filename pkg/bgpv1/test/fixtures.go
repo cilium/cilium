@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 // cilium BGP config
@@ -186,6 +187,9 @@ func newFixture(t testing.TB, ctx context.Context, conf fixtureConfig) (*fixture
 
 		// CiliumLoadBalancerIPPool
 		cell.Provide(k8sPkg.LBIPPoolsResource),
+
+		// Routes config
+		cell.Config(svcrouteconfig.DefaultConfig),
 
 		// cilium node
 		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset, mp workqueue.MetricsProvider) daemon_k8s.LocalCiliumNodeResource {

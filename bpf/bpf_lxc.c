@@ -127,14 +127,17 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 				l4_off, &key, &tuple, svc, &ct_state_new,
 				false, &cluster_id, ext_err, ENDPOINT_NETNS_COOKIE);
 
+		if (IS_ERR(ret)) {
+			if (ret == DROP_NO_SERVICE) {
+				if (!CONFIG(enable_no_service_endpoints_routable))
+					return handle_nonroutable_endpoints_v4(svc);
 #ifdef SERVICE_NO_BACKEND_RESPONSE
-		if (ret == DROP_NO_SERVICE)
-			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
-						 ext_err);
+				ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
+							 ext_err);
 #endif
-
-		if (IS_ERR(ret))
+			}
 			return ret;
+		}
 	}
 skip_service_lookup:
 	/* Store state to be picked up on the continuation tail call. */
@@ -200,14 +203,17 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 				l4_off, &key, &tuple, svc, &ct_state_new,
 				false, ext_err, ENDPOINT_NETNS_COOKIE);
 
+		if (IS_ERR(ret)) {
+			if (ret == DROP_NO_SERVICE) {
+				if (!CONFIG(enable_no_service_endpoints_routable))
+					return handle_nonroutable_endpoints_v6(svc);
 #ifdef SERVICE_NO_BACKEND_RESPONSE
-		if (ret == DROP_NO_SERVICE)
-			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
-						 ext_err);
+				ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
+							 ext_err);
 #endif
-
-		if (IS_ERR(ret))
+			}
 			return ret;
+		}
 	}
 
 skip_service_lookup:

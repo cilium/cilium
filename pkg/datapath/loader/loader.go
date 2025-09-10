@@ -173,7 +173,7 @@ func bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguration) (masq4, m
 // netdevRewrites prepares configuration data for attaching bpf_host.c to the
 // specified externally-facing network device.
 func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (*config.BPFHost, map[string]string) {
-	cfg := config.NewBPFHost(nodeConfig(lnc))
+	cfg := config.NewBPFHost(config.NodeConfig(lnc))
 
 	// External devices can be L2-less, in which case it won't have a MAC address
 	// and its ethernet header length is set to 0.
@@ -209,6 +209,7 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
+	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
@@ -338,7 +339,7 @@ func reloadHostEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath
 // ciliumHostRewrites prepares configuration data for attaching bpf_host.c to
 // the cilium_host network device.
 func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (*config.BPFHost, map[string]string) {
-	cfg := config.NewBPFHost(nodeConfig(lnc))
+	cfg := config.NewBPFHost(config.NodeConfig(lnc))
 
 	em := ep.GetNodeMAC()
 	if len(em) != 6 {
@@ -410,7 +411,7 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 // ciliumNetRewrites prepares configuration data for attaching bpf_host.c to
 // the cilium_net network device.
 func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (*config.BPFHost, map[string]string) {
-	cfg := config.NewBPFHost(nodeConfig(lnc))
+	cfg := config.NewBPFHost(config.NodeConfig(lnc))
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
@@ -425,6 +426,7 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
@@ -566,7 +568,7 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 // endpointRewrites prepares configuration data for attaching bpf_lxc.c to the
 // specified workload endpoint.
 func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (*config.BPFLXC, map[string]string) {
-	cfg := config.NewBPFLXC(nodeConfig(lnc))
+	cfg := config.NewBPFLXC(config.NodeConfig(lnc))
 
 	if ep.IPv4Address().IsValid() {
 		cfg.EndpointIPv4 = ep.IPv4Address().As4()
@@ -593,6 +595,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 	cfg.PolicyVerdictLogFilter = ep.GetPolicyVerdictLogFilter()
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
+	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
@@ -705,10 +708,11 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
 
-	cfg := config.NewBPFOverlay(nodeConfig(lnc))
+	cfg := config.NewBPFOverlay(config.NodeConfig(lnc))
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
@@ -752,7 +756,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
 	}
 
-	cfg := config.NewBPFWireguard(nodeConfig(lnc))
+	cfg := config.NewBPFWireguard(config.NodeConfig(lnc))
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
 	if !option.Config.EnableHostLegacyRouting {

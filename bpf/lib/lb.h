@@ -398,6 +398,18 @@ bool lb6_svc_is_l7_loadbalancer(const struct lb6_service *svc __maybe_unused)
 #endif
 }
 
+static __always_inline
+bool lb4_svc_is_external(const struct lb4_service *svc __maybe_unused)
+{
+	return svc->flags & (SVC_FLAG_EXTERNAL_IP | SVC_FLAG_LOADBALANCER | SVC_FLAG_NODEPORT);
+}
+
+static __always_inline
+bool lb6_svc_is_external(const struct lb6_service *svc __maybe_unused)
+{
+	return svc->flags & (SVC_FLAG_EXTERNAL_IP | SVC_FLAG_LOADBALANCER | SVC_FLAG_NODEPORT);
+}
+
 static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 					       __be16 old_port, __be16 port, int l4_off,
 					       struct csum_offset *csum_off)
@@ -2420,3 +2432,29 @@ __wsum icmp_wsum_accumulate(void *data_start, void *data_end, int sample_len)
 }
 
 #endif /* SERVICE_NO_BACKEND_RESPONSE */
+
+static __always_inline
+int handle_nonroutable_endpoints_v4(struct lb4_service *svc)
+{
+	if ((lb4_svc_is_external(svc) &&
+	     (svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE)) ||
+	   (!lb4_svc_is_external(svc) &&
+	    (svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE))) {
+		return DROP_NO_SERVICE;
+	}
+	/* continue via the slowpath */
+	return CTX_ACT_OK;
+}
+
+static __always_inline
+int handle_nonroutable_endpoints_v6(struct lb6_service *svc)
+{
+	if ((lb6_svc_is_external(svc) &&
+	     (svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE)) ||
+	   (!lb6_svc_is_external(svc) &&
+	    (svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE))) {
+		return DROP_NO_SERVICE;
+	}
+	/* continue via the slowpath */
+	return CTX_ACT_OK;
+}
