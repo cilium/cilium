@@ -695,6 +695,15 @@ bpf:
   # [0] will allow all VLAN id's without any filtering.
   # @default -- `[]`
   vlanBypass: ~
+  # -- Configure the IP tracing option type.
+  # This option is used to specify the IP option type to use for tracing.
+  # The value must be an integer between 0 and 255.
+  # @schema
+  # type: [null, integer]
+  # minimum: 0
+  # maximum: 255
+  # @schema
+  monitorTraceIPOption: 0
   # -- (bool) Disable ExternalIP mitigation (CVE-2020-8554)
   # @default -- `false`
   disableExternalIPMitigation: false
