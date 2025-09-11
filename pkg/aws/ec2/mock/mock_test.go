@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -157,18 +158,12 @@ func TestGetRouteTables(t *testing.T) {
 		{
 			ID:               "rt-1",
 			VirtualNetworkID: "vpc-1",
-			Subnets: map[string]struct{}{
-				"subnet-1": {},
-				"subnet-2": {},
-			},
+			Subnets:          set.NewSet("subnet-1", "subnet-2"),
 		},
 		{
 			ID:               "rt-2",
 			VirtualNetworkID: "vpc-2",
-			Subnets: map[string]struct{}{
-				"subnet-3": {},
-				"subnet-4": {},
-			},
+			Subnets:          set.NewSet("subnet-3", "subnet-4"),
 		},
 	}
 

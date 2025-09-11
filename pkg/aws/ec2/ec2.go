@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipPkg "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -318,7 +319,7 @@ func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instan
 
 // describeNetworkInterfacesFromInstances lists all ENIs matching filtered EC2 instances
 func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]ec2_types.NetworkInterface, error) {
-	enisFromInstances := make(map[string]struct{})
+	var enisFromInstances set.Set[string]
 
 	instanceAttrs := &ec2.DescribeInstancesInput{}
 	if len(c.instancesFilters) > 0 {
@@ -339,15 +340,10 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 		for _, r := range output.Reservations {
 			for _, i := range r.Instances {
 				for _, ifs := range i.NetworkInterfaces {
-					enisFromInstances[aws.ToString(ifs.NetworkInterfaceId)] = struct{}{}
+					enisFromInstances.Insert(aws.ToString(ifs.NetworkInterfaceId))
 				}
 			}
 		}
-	}
-
-	enisListFromInstances := make([]string, 0, len(enisFromInstances))
-	for k := range enisFromInstances {
-		enisListFromInstances = append(enisListFromInstances, k)
 	}
 
 	ENIAttrs := &ec2.DescribeNetworkInterfacesInput{
@@ -360,8 +356,8 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 			},
 		},
 	}
-	if len(enisListFromInstances) > 0 {
-		ENIAttrs.NetworkInterfaceIds = enisListFromInstances
+	if enisFromInstances.Len() > 0 {
+		ENIAttrs.NetworkInterfaceIds = enisFromInstances.AsSlice()
 	} else if operatorOption.Config.AWSPaginationEnabled {
 		// MaxResults is incompatible with NetworkInterfaceIds
 		ENIAttrs.MaxResults = aws.Int32(defaults.ENIMaxResultsPerApiCall)
@@ -677,12 +673,11 @@ func (c *Client) GetRouteTables(ctx context.Context) (ipamTypes.RouteTableMap, e
 		routeTable := &ipamTypes.RouteTable{
 			ID:               aws.ToString(rt.RouteTableId),
 			VirtualNetworkID: aws.ToString(rt.VpcId),
-			Subnets:          map[string]struct{}{},
 		}
 
 		for _, association := range rt.Associations {
 			if association.SubnetId != nil && association.AssociationState.State == ec2_types.RouteTableAssociationStateCodeAssociated {
-				routeTable.Subnets[aws.ToString(association.SubnetId)] = struct{}{}
+				routeTable.Subnets.Insert(aws.ToString(association.SubnetId))
 			}
 		}
 

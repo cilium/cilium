@@ -5,8 +5,10 @@ package types
 
 import (
 	"fmt"
+	"maps"
 	"net/netip"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -386,9 +388,7 @@ func (in *Subnet) DeepCopyInto(out *Subnet) {
 	if in.Tags != nil {
 		in, out := &in.Tags, &out.Tags
 		*out = make(Tags, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
+		maps.Copy(*out, *in)
 	}
 }
 
@@ -447,6 +447,9 @@ type VirtualNetworkMap map[string]*VirtualNetwork
 // RouteTable is a representation of a route table but only for the purpose of
 // to check the subnets are in the same route table. It is not a full
 // representation of a route table.
+//
+// +k8s:deepcopy-gen=false
+// +deepequal-gen=false
 type RouteTable struct {
 	// ID is the ID of the route table
 	ID string
@@ -455,8 +458,44 @@ type RouteTable struct {
 	VirtualNetworkID string
 
 	// Subnets maps subnet IDs to their presence in this route table
-	// +deepequal-gen=false
-	Subnets map[string]struct{}
+	Subnets set.Set[string]
+}
+
+// DeepEqual is a deepequal function, deeply comparing the
+// receiver with other. in must be non-nil.
+func (in *RouteTable) DeepEqual(other *RouteTable) bool {
+	if other == nil {
+		return false
+	}
+
+	if in.ID != other.ID {
+		return false
+	}
+	if in.VirtualNetworkID != other.VirtualNetworkID {
+		return false
+	}
+
+	if !in.Subnets.Equal(other.Subnets) {
+		return false
+	}
+
+	return true
+}
+
+// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *RouteTable) DeepCopyInto(out *RouteTable) {
+	*out = *in
+	out.Subnets = in.Subnets.Clone()
+}
+
+// DeepCopy is a deepcopy function, copying the receiver, creating a new RouteTable.
+func (in *RouteTable) DeepCopy() *RouteTable {
+	if in == nil {
+		return nil
+	}
+	out := new(RouteTable)
+	in.DeepCopyInto(out)
+	return out
 }
 
 // RouteTableMap indexes route tables by their ID

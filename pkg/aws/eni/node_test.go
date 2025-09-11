@@ -11,6 +11,7 @@ import (
 
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	"github.com/cilium/cilium/pkg/aws/eni/types"
+	"github.com/cilium/cilium/pkg/container/set"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -50,17 +51,12 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 		"rt-1": &ipamTypes.RouteTable{
 			ID:               "rt-1",
 			VirtualNetworkID: "vpc-1",
-			Subnets: map[string]struct{}{
-				"subnet-1": {},
-				"subnet-2": {},
-			},
+			Subnets:          set.NewSet("subnet-1", "subnet-2"),
 		},
 		"rt-2": &ipamTypes.RouteTable{
 			ID:               "rt-2",
 			VirtualNetworkID: "vpc-2",
-			Subnets: map[string]struct{}{
-				"subnet-3": {},
-			},
+			Subnets:          set.NewSet("subnet-3"),
 		},
 	}
 
@@ -109,17 +105,12 @@ func Test_checkSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 		"rt-1": &ipamTypes.RouteTable{
 			ID:               "rt-1",
 			VirtualNetworkID: "vpc-1",
-			Subnets: map[string]struct{}{
-				"subnet-1": {},
-				"subnet-2": {},
-			},
+			Subnets:          set.NewSet("subnet-1", "subnet-2"),
 		},
 		"rt-2": &ipamTypes.RouteTable{
 			ID:               "rt-2",
 			VirtualNetworkID: "vpc-2",
-			Subnets: map[string]struct{}{
-				"subnet-3": {},
-			},
+			Subnets:          set.NewSet("subnet-3"),
 		},
 	}
 
