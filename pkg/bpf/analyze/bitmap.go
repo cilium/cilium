@@ -4,6 +4,7 @@
 package analyze
 
 import (
+	"math/bits"
 	"unsafe"
 )
 
@@ -43,4 +44,13 @@ func (b bitmap) get(i uint64) bool {
 	}
 
 	return b[word]&(1<<(bit)) != 0
+}
+
+// popcount returns the number of bits set to true in the bitmap.
+func (b bitmap) popcount() uint64 {
+	var count int
+	for _, w := range b {
+		count += bits.OnesCount64(w)
+	}
+	return uint64(count)
 }
