@@ -156,6 +156,11 @@ func (rc *remoteCluster) Stop() {
 	rc.wg.Wait()
 }
 
+func (rc *remoteCluster) RevokeCache(ctx context.Context) {
+	rc.services.watcher.Drain()
+	rc.serviceExports.watcher.Drain()
+}
+
 func (rc *remoteCluster) Remove(ctx context.Context) {
 	if rc.disableDrainOnDisconnection {
 		rc.logger.Warn("Remote cluster disconnected, but cached data removal is disabled. " +

@@ -94,6 +94,7 @@ cilium-operator-azure hive [flags]
       --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
       --policy-default-local-cluster                         Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-secrets-namespace string                      Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
+      --remote-cluster-cache-ttl duration                    The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked (default).
       --shell-sock-path string                               Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
       --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
       --synchronize-k8s-nodes                                Perform GC of stale node entries from the KVStore (default true)
