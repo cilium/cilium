@@ -55,13 +55,13 @@ func removeUnusedMaps(spec *ebpf.CollectionSpec, keep *set.Set[string]) (*set.Se
 		}
 
 		// Analyze reachability given the VariableSpecs provided at load time.
-		bl, err = analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
+		r, err := analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
 		if err != nil {
 			return nil, fmt.Errorf("reachability analysis for program %s: %w", name, err)
 		}
 
 		// Record which maps are still referenced after reachability analysis.
-		for ins, live := range bl.LiveInstructions(prog.Instructions) {
+		for ins, live := range r.LiveInstructions(prog.Instructions) {
 			if !ins.IsLoadFromMap() {
 				continue
 			}

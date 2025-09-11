@@ -40,7 +40,6 @@ func TestMakeBlocksSimple(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.EqualValues(t, 1, b.count())
-	assert.Nil(t, b.LiveInstructions(insns))
 
 	block := b.first()
 	assert.EqualValues(t, 0, block.id)

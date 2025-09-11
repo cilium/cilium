@@ -335,36 +335,6 @@ func getBlock(ins *asm.Instruction) *Block {
 // Blocks is a list of basic blocks.
 type Blocks struct {
 	b []*Block
-
-	// l is a bitmap tracking reachable blocks.
-	l bitmap
-
-	// j is a bitmap tracking predicted jumps. If the nth bit is 1, the jump
-	// at the end of block n is predicted to always be taken.
-	j bitmap
-}
-
-// LiveInstructions returns a sequence of [asm.Instruction]s held by Blocks. The
-// bool value indicates if the instruction is live (reachable), false if it's
-// not.
-//
-// Returns nil if block reachability hasn't been computed yet.
-func (bl *Blocks) LiveInstructions(insns asm.Instructions) iter.Seq2[*asm.Instruction, bool] {
-	if len(bl.l) == 0 {
-		return nil
-	}
-
-	return func(yield func(*asm.Instruction, bool) bool) {
-		for _, b := range bl.b {
-			for i := range insns[b.start : b.end+1] {
-				ins := &insns[b.start+i]
-				live := bl.l.get(b.id)
-				if !yield(ins, live) {
-					return
-				}
-			}
-		}
-	}
 }
 
 func newBlocks(cap uint64) *Blocks {
@@ -405,23 +375,6 @@ func (bl *Blocks) last() *Block {
 	return bl.b[len(bl.b)-1]
 }
 
-func (bl *Blocks) isLive(id uint64) bool {
-	if id >= bl.count() {
-		return false
-	}
-	return bl.l.get(id)
-}
-
-func (bl *Blocks) countLive() uint64 {
-	var count uint64
-	for i := range uint64(len(bl.b)) {
-		if bl.l.get(i) {
-			count++
-		}
-	}
-	return count
-}
-
 func (bl *Blocks) String() string {
 	return bl.Dump(nil)
 }
@@ -431,19 +384,6 @@ func (bl *Blocks) Dump(insns asm.Instructions) string {
 	for _, block := range bl.b {
 		sb.WriteString(fmt.Sprintf("\n=== Block %d ===\n", block.id))
 		sb.WriteString(block.Dump(insns))
-
-		// No reachability information yet.
-		if len(bl.l) == 0 {
-			continue
-		}
-
-		sb.WriteString(fmt.Sprintf("Live: %t, ", bl.l.get(uint64(block.id))))
-		sb.WriteString("branch: ")
-		if bl.j.get(uint64(block.id)) {
-			sb.WriteString("jump")
-		} else {
-			sb.WriteString("fallthrough")
-		}
 		sb.WriteString("\n")
 	}
 	return sb.String()

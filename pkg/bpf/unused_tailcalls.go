@@ -49,7 +49,7 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 		}
 
 		// Analyze reachability given the VariableSpecs provided at load time.
-		bl, err = analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
+		r, err := analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
 		if err != nil {
 			return fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
 		}
@@ -57,7 +57,7 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 		const windowSize = 3
 
 		i := -1
-		for _, live := range bl.LiveInstructions(prog.Instructions) {
+		for _, live := range r.LiveInstructions(prog.Instructions) {
 			i++
 			if !live {
 				continue
