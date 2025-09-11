@@ -12,6 +12,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/healthconfig"
+
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -37,6 +39,7 @@ type localNodeSynchronizerParams struct {
 	K8sLocalNode       agentK8s.LocalNodeResource
 	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
 	IPsecConfig        datapath.IPsecConfig
+	HealthConfig       healthconfig.CiliumHealthConfig
 }
 
 // localNodeSynchronizer performs the bootstrapping of the LocalNodeStore,
@@ -214,7 +217,8 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 			}
 		}
 
-		if ini.Config.EnableHealthChecking && ini.Config.EnableEndpointHealthChecking {
+		if ini.localNodeSynchronizerParams.HealthConfig.IsHealthCheckingEnabled() &&
+			ini.localNodeSynchronizerParams.HealthConfig.IsEndpointHealthCheckingEnabled() {
 			if ini.Config.EnableIPv4 {
 				node.IPv4HealthIP = net.ParseIP(k8sCiliumNode.Spec.HealthAddressing.IPv4)
 			}

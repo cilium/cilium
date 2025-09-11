@@ -237,7 +237,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 func (d *Daemon) allocateHealthIPs() error {
 	bootstrapStats.healthCheck.Start()
 	defer bootstrapStats.healthCheck.End(true)
-	if !option.Config.EnableHealthChecking || !option.Config.EnableEndpointHealthChecking {
+	if !d.healthConfig.IsHealthCheckingEnabled() || !d.healthConfig.IsEndpointHealthCheckingEnabled() {
 		return nil
 	}
 	var healthIPv4, healthIPv6 net.IP
