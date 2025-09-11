@@ -5,6 +5,7 @@ package groups
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -61,6 +62,17 @@ func createDerivativeCNP(ctx context.Context, logger *slog.Logger, clusterName s
 	}
 
 	derivativeCNP.Specs, err = createAPIRules(ctx, rules)
+	data, err := json.Marshal(derivativeCNP)
+	if err == nil {
+		logger.With("Policy", string(data)).Info("***** Generated Derivative CNP")
+	}
+
+	if len(derivativeCNP.Specs) > 0 && len(derivativeCNP.Specs[0].Egress) > 0 {
+		eg := derivativeCNP.Specs[0].Egress[0]
+		logger.With("ToCIDRSetNil", eg.ToCIDRSet == nil).
+			With("ToCIDRSetLength", len(eg.ToCIDRSet)).
+			Info("***** Derivative CNP with Egress Rule")
+	}
 
 	return derivativeCNP, err
 }

@@ -68,7 +68,7 @@ type IngressCommonRule struct {
 	// connections from 10.0.0.0/8 except from IPs in subnet 10.96.0.0/12.
 	//
 	// +kubebuilder:validation:Optional
-	FromCIDRSet CIDRRuleSlice `json:"fromCIDRSet,omitempty"`
+	FromCIDRSet CIDRRuleSlice `json:"fromCIDRSet,omitzero"`
 
 	// FromEntities is a list of special entities which the endpoint subject
 	// to the rule is allowed to receive connections from. Supported entities are
@@ -314,9 +314,9 @@ func (e *IngressRule) CreateDerivative(ctx context.Context) (*IngressRule, error
 	if err != nil {
 		return &IngressRule{}, err
 	}
-	newRule.FromCIDRSet = append(e.FromCIDRSet, cidrSet...)
+	newRule.FromCIDRSet = append(newRule.FromCIDRSet, cidrSet...)
 	newRule.FromGroups = nil
-	e.SetAggregatedSelectors()
+
 	return newRule, nil
 }
 
@@ -334,8 +334,8 @@ func (e *IngressDenyRule) CreateDerivative(ctx context.Context) (*IngressDenyRul
 	if err != nil {
 		return &IngressDenyRule{}, err
 	}
-	newRule.FromCIDRSet = append(e.FromCIDRSet, cidrSet...)
+	newRule.FromCIDRSet = append(newRule.FromCIDRSet, cidrSet...)
 	newRule.FromGroups = nil
-	e.SetAggregatedSelectors()
+
 	return newRule, nil
 }
