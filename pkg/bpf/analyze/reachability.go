@@ -6,6 +6,8 @@ package analyze
 import (
 	"errors"
 	"fmt"
+	"iter"
+	"strings"
 	"unique"
 
 	"github.com/cilium/ebpf"
@@ -92,7 +94,40 @@ func VariableSpecs(variables map[string]*ebpf.VariableSpec) map[string]VariableS
 	return variablesMap
 }
 
-// Reachability returns a copy of blocks with populated reachability information.
+type Reachable struct {
+	blocks *Blocks
+
+	// l is a bitmap tracking reachable blocks.
+	l bitmap
+
+	// j is a bitmap tracking predicted jumps. If the nth bit is 1, the jump
+	// at the end of block n is predicted to always be taken.
+	j bitmap
+}
+
+func (r *Reachable) isLive(id uint64) bool {
+	if id >= r.blocks.count() {
+		return false
+	}
+	return r.l.get(id)
+}
+
+func (r *Reachable) countAll() uint64 {
+	return r.blocks.count()
+}
+
+func (r *Reachable) countLive() uint64 {
+	var count uint64
+	for i := range uint64(len(r.blocks.b)) {
+		if r.l.get(i) {
+			count++
+		}
+	}
+	return count
+}
+
+// Reachability determines whether or not each Block in blocks is reachable
+// given the variables.
 //
 // Reachability of blocks is determined by predicting branches on BPF runtime
 // constants. A subsequent call to [Blocks.LiveInstructions] will iterate over
@@ -111,7 +146,7 @@ func VariableSpecs(variables map[string]*ebpf.VariableSpec) map[string]VariableS
 //	LoadMapValue dst: Rx, fd: 0 off: {offset of variable} <{name of global data map}>
 //	LdXMem{B,H,W,DW} dst: Ry src: Rx off: 0
 //	J{OP}IMM dst: Ry off:{relative jump offset} imm: {constant value}
-func Reachability(blocks *Blocks, insns asm.Instructions, variables map[string]VariableSpec) (*Blocks, error) {
+func Reachability(blocks *Blocks, insns asm.Instructions, variables map[string]VariableSpec) (*Reachable, error) {
 	if blocks == nil || blocks.count() == 0 {
 		return nil, errors.New("nil or empty blocks")
 	}
@@ -119,14 +154,6 @@ func Reachability(blocks *Blocks, insns asm.Instructions, variables map[string]V
 	if len(insns) == 0 {
 		return nil, errors.New("nil or empty instructions")
 	}
-
-	if len(blocks.l) != 0 {
-		return nil, errors.New("reachability already computed")
-	}
-
-	// Copy Blocks to avoid modifying the original, since they're often stored in
-	// instruction metadata in a cached CollectionSpec.
-	blocks = blocks.Copy()
 
 	// Variables in the CollectionSpec are identified by name. However,
 	// instructions refer to variables by map name and offset. Build a reverse
@@ -149,10 +176,52 @@ func Reachability(blocks *Blocks, insns asm.Instructions, variables map[string]V
 		return nil, fmt.Errorf("predicting blocks: %w", err)
 	}
 
-	blocks.l = live
-	blocks.j = jumps
+	return &Reachable{
+		blocks: blocks,
+		l:      live,
+		j:      jumps,
+	}, nil
+}
 
-	return blocks, nil
+// LiveInstructions returns a sequence of [asm.Instruction]s held by Blocks. The
+// bool value indicates if the instruction is live (reachable), false if it's
+// not.
+//
+// Returns nil if block reachability hasn't been computed yet.
+func (r *Reachable) LiveInstructions(insns asm.Instructions) iter.Seq2[*asm.Instruction, bool] {
+	if len(r.l) == 0 {
+		return nil
+	}
+
+	return func(yield func(*asm.Instruction, bool) bool) {
+		for _, b := range r.blocks.b {
+			for i := range insns[b.start : b.end+1] {
+				ins := &insns[b.start+i]
+				live := r.l.get(b.id)
+				if !yield(ins, live) {
+					return
+				}
+			}
+		}
+	}
+}
+
+func (r *Reachable) Dump(insns asm.Instructions) string {
+	var sb strings.Builder
+	for _, block := range r.blocks.b {
+		sb.WriteString(fmt.Sprintf("\n=== Block %d ===\n", block.id))
+		sb.WriteString(block.Dump(insns))
+
+		sb.WriteString(fmt.Sprintf("Live: %t, ", r.l.get(uint64(block.id))))
+		sb.WriteString("branch: ")
+		if r.j.get(uint64(block.id)) {
+			sb.WriteString("jump")
+		} else {
+			sb.WriteString("fallthrough")
+		}
+		sb.WriteString("\n")
+	}
+	return sb.String()
 }
 
 // findBranch pulls exactly one instruction and checks if it's a branch
