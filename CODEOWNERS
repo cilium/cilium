@@ -558,6 +558,7 @@ Makefile* @cilium/build
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
 /pkg/gops/ @cilium/sig-agent
 /pkg/health/ @cilium/sig-agent
+/pkg/healthconfig/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
 /pkg/hubble/ @cilium/sig-hubble
 /pkg/hubble/metrics @cilium/hubble-metrics
