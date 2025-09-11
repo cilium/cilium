@@ -9,14 +9,17 @@ import (
 	"maps"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/hive"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -32,6 +35,19 @@ func TestScript(t *testing.T) {
 		func(t testing.TB, args []string) *script.Engine {
 			h := hive.New(
 				FakeClientCell(),
+
+				// Also add an object through the clientset interface to check that it can be seen and retrieved
+				// using the k8s commands.
+				cell.Invoke(func(cs *FakeClientset) error {
+					_, err := cs.CiliumFakeClientset.CiliumV2().CiliumNodes().Create(
+						ctx,
+						&v2.CiliumNode{
+							ObjectMeta: metav1.ObjectMeta{Name: "test"},
+						},
+						metav1.CreateOptions{},
+					)
+					return err
+				}),
 			)
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 			h.RegisterFlags(flags)
