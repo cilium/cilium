@@ -156,6 +156,7 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 	}
 
 	rc.RemoteCluster = cm.conf.NewRemoteCluster(name, rc.status)
+	rc.ttlChecker = newTTLChecker(rc.logger, cm.conf.ClusterMeshCacheTTL, rc.RevokeCache)
 	return rc
 }
 

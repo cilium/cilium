@@ -156,6 +156,15 @@ func (rc *remoteCluster) Stop() {
 	rc.wg.Wait()
 }
 
+// RevokeCache performs a partial revocation of the remote cluster's cache, draining only remote
+// services and serviceExports. This prevents the kvstoremesh from keeping services in the kvstore
+// for clusters with potentially stale service backends. Other resources are left intact to reduce
+// churn and avoid disrupting existing connections like active IPsec security associations.
+func (rc *remoteCluster) RevokeCache(ctx context.Context) {
+	rc.services.watcher.Drain()
+	rc.serviceExports.watcher.Drain()
+}
+
 func (rc *remoteCluster) Remove(ctx context.Context) {
 	if rc.disableDrainOnDisconnection {
 		rc.logger.Warn("Remote cluster disconnected, but cached data removal is disabled. " +

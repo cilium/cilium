@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/pflag"
@@ -21,14 +22,21 @@ import (
 type Config struct {
 	// ClusterMeshConfig is the path to the clustermesh configuration directory.
 	ClusterMeshConfig string
+
+	// ClusterMeshCacheTTL is the time to live for the cache of a remote cluster after connectivity
+	// is lost. If the connection is not re-established within this duration, the cached data is
+	// revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked.
+	ClusterMeshCacheTTL time.Duration
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String("clustermesh-config", def.ClusterMeshConfig, "Path to the ClusterMesh configuration directory")
+	flags.Duration("clustermesh-cache-ttl", def.ClusterMeshCacheTTL, "The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked.")
 }
 
 var DefaultConfig = Config{
-	ClusterMeshConfig: "",
+	ClusterMeshConfig:   "",
+	ClusterMeshCacheTTL: 0,
 }
 
 // clusterLifecycle is the interface to implement in order to receive cluster

@@ -89,6 +89,14 @@ func (rc *remoteCluster) Stop() {
 	rc.synced.Stop()
 }
 
+// RevokeCache performs a partial revocation of the remote cluster's cache, draining only remote
+// services and serviceExports. This prevents the operator from maintaining state for potentially
+// stale services.
+func (rc *remoteCluster) RevokeCache(ctx context.Context) {
+	rc.remoteServices.Drain()
+	rc.remoteServiceExports.Drain()
+}
+
 func (rc *remoteCluster) Remove(context.Context) {
 	for _, clusterDeleteHook := range rc.clusterDeleteHooks {
 		clusterDeleteHook(rc.name)
