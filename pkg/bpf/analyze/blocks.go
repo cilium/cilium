@@ -333,23 +333,10 @@ func getBlock(ins *asm.Instruction) *Block {
 }
 
 // Blocks is a list of basic blocks.
-type Blocks struct {
-	b []*Block
-}
+type Blocks []*Block
 
-func newBlocks(cap uint64) *Blocks {
-	if cap == 0 {
-		// Provide capacity for at least one block.
-		cap = 1
-	}
-
-	return &Blocks{
-		b: make([]*Block, 0, cap),
-	}
-}
-
-func (bl *Blocks) count() uint64 {
-	return uint64(len(bl.b))
+func (bl Blocks) count() uint64 {
+	return uint64(len(bl))
 }
 
 func (bl *Blocks) add(b *Block) {
@@ -358,46 +345,35 @@ func (bl *Blocks) add(b *Block) {
 	}
 
 	b.id = uint64(bl.count())
-	bl.b = append(bl.b, b)
+	*bl = append(*bl, b)
 }
 
-func (bl *Blocks) first() *Block {
-	if len(bl.b) == 0 {
+func (bl Blocks) first() *Block {
+	if len(bl) == 0 {
 		return nil
 	}
-	return bl.b[0]
+	return bl[0]
 }
 
-func (bl *Blocks) last() *Block {
-	if len(bl.b) == 0 {
+func (bl Blocks) last() *Block {
+	if len(bl) == 0 {
 		return nil
 	}
-	return bl.b[len(bl.b)-1]
+	return bl[len(bl)-1]
 }
 
-func (bl *Blocks) String() string {
+func (bl Blocks) String() string {
 	return bl.Dump(nil)
 }
 
-func (bl *Blocks) Dump(insns asm.Instructions) string {
+func (bl Blocks) Dump(insns asm.Instructions) string {
 	var sb strings.Builder
-	for _, block := range bl.b {
+	for _, block := range bl {
 		sb.WriteString(fmt.Sprintf("\n=== Block %d ===\n", block.id))
 		sb.WriteString(block.Dump(insns))
 		sb.WriteString("\n")
 	}
 	return sb.String()
-}
-
-// Copy returns a shallow copy of the block list. Reachability information is
-// not copied.
-//
-// Individual blocks are attached to leader and edge [asm.Instruction] metadata
-// and should not be modified.
-func (bl *Blocks) Copy() *Blocks {
-	return &Blocks{
-		b: slices.Clone(bl.b),
-	}
 }
 
 // MakeBlocks returns a list of basic blocks of instructions that are always
@@ -406,7 +382,7 @@ func (bl *Blocks) Copy() *Blocks {
 //
 // Blocks are created by finding branches and jump targets in the given insns
 // and cutting up the instruction stream accordingly.
-func MakeBlocks(insns asm.Instructions) (*Blocks, error) {
+func MakeBlocks(insns asm.Instructions) (Blocks, error) {
 	if len(insns) == 0 {
 		return nil, errors.New("insns is empty, cannot compute blocks")
 	}
@@ -428,7 +404,7 @@ func MakeBlocks(insns asm.Instructions) (*Blocks, error) {
 }
 
 // computeBlocks computes the basic blocks from the given instruction stream.
-func computeBlocks(insns asm.Instructions) (*Blocks, error) {
+func computeBlocks(insns asm.Instructions) (Blocks, error) {
 	targets, err := rawJumpTargets(insns)
 	if err != nil {
 		return nil, fmt.Errorf("collecting jump targets: %w", err)
@@ -457,7 +433,7 @@ type blocksKey struct{}
 // given insns.
 //
 // If insns is empty, does nothing.
-func storeBlocks(insns asm.Instructions, bl *Blocks) error {
+func storeBlocks(insns asm.Instructions, bl Blocks) error {
 	if len(insns) == 0 {
 		return errors.New("insns is empty, cannot store Blocks")
 	}
@@ -471,12 +447,12 @@ func storeBlocks(insns asm.Instructions, bl *Blocks) error {
 // given insns.
 //
 // If no Blocks is present, returns nil.
-func loadBlocks(insns asm.Instructions) *Blocks {
+func loadBlocks(insns asm.Instructions) Blocks {
 	if len(insns) == 0 {
 		return nil
 	}
 
-	blocks, ok := insns[0].Metadata.Get(blocksKey{}).(*Blocks)
+	blocks, ok := insns[0].Metadata.Get(blocksKey{}).(Blocks)
 	if !ok {
 		return nil
 	}
@@ -625,8 +601,9 @@ func tagLeadersAndEdges(insns asm.Instructions, targets rawTargets) error {
 // instruction and finalizes the current one when it reaches an edge
 // instruction. No blocks are pointing to each other yet, this is done in a
 // subsequent step.
-func allocateBlocks(insns asm.Instructions) (*Blocks, error) {
-	blocks := newBlocks(0)
+func allocateBlocks(insns asm.Instructions) (Blocks, error) {
+	// Expect at least one block.
+	blocks := make(Blocks, 0, 1)
 
 	var block *Block
 	i := insns.Iterate()
@@ -683,14 +660,14 @@ func maybeFinalizeBlock(blk *Block, i *asm.InstructionIterator) {
 // predecessors, branch and fallthrough targets based on the relationships
 // between instructions identified in prior steps. Assumes that blocks have been
 // allocated and that the leaders and edges have been tagged.
-func connectBlocks(blocks *Blocks, insns asm.Instructions) error {
+func connectBlocks(blocks Blocks, insns asm.Instructions) error {
 	if blocks.count() == 0 {
 		return errors.New("no blocks to connect, this is a bug")
 	}
 
 	// Wire all blocks together by setting their predecessors, branch and
 	// fallthrough targets.
-	for _, blk := range blocks.b {
+	for _, blk := range blocks {
 		// Predecessors of the first instruction are the block's predecessors.
 		leader := blk.leader(insns)
 		if leader == nil {

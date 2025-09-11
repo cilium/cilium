@@ -95,7 +95,7 @@ func VariableSpecs(variables map[string]*ebpf.VariableSpec) map[string]VariableS
 }
 
 type Reachable struct {
-	blocks *Blocks
+	blocks Blocks
 
 	// l is a bitmap tracking reachable blocks.
 	l bitmap
@@ -117,13 +117,7 @@ func (r *Reachable) countAll() uint64 {
 }
 
 func (r *Reachable) countLive() uint64 {
-	var count uint64
-	for i := range uint64(len(r.blocks.b)) {
-		if r.l.get(i) {
-			count++
-		}
-	}
-	return count
+	return r.l.popcount()
 }
 
 // Reachability determines whether or not each Block in blocks is reachable
@@ -146,7 +140,7 @@ func (r *Reachable) countLive() uint64 {
 //	LoadMapValue dst: Rx, fd: 0 off: {offset of variable} <{name of global data map}>
 //	LdXMem{B,H,W,DW} dst: Ry src: Rx off: 0
 //	J{OP}IMM dst: Ry off:{relative jump offset} imm: {constant value}
-func Reachability(blocks *Blocks, insns asm.Instructions, variables map[string]VariableSpec) (*Reachable, error) {
+func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]VariableSpec) (*Reachable, error) {
 	if blocks == nil || blocks.count() == 0 {
 		return nil, errors.New("nil or empty blocks")
 	}
@@ -194,7 +188,7 @@ func (r *Reachable) LiveInstructions(insns asm.Instructions) iter.Seq2[*asm.Inst
 	}
 
 	return func(yield func(*asm.Instruction, bool) bool) {
-		for _, b := range r.blocks.b {
+		for _, b := range r.blocks {
 			for i := range insns[b.start : b.end+1] {
 				ins := &insns[b.start+i]
 				live := r.l.get(b.id)
@@ -208,7 +202,7 @@ func (r *Reachable) LiveInstructions(insns asm.Instructions) iter.Seq2[*asm.Inst
 
 func (r *Reachable) Dump(insns asm.Instructions) string {
 	var sb strings.Builder
-	for _, block := range r.blocks.b {
+	for _, block := range r.blocks {
 		sb.WriteString(fmt.Sprintf("\n=== Block %d ===\n", block.id))
 		sb.WriteString(block.Dump(insns))
 
