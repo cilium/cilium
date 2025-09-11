@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
@@ -35,6 +36,7 @@ type fqdnProxyBootstrapperParams struct {
 	DNSProxy          proxy.DNSProxier
 	Health            cell.Health
 	DNSRequestHandler messagehandler.DNSMessageHandler
+	FQDNConfig        service.FQDNConfig
 }
 
 type fqdnProxyBootstrapper struct {
@@ -43,8 +45,8 @@ type fqdnProxyBootstrapper struct {
 	proxy      proxy.DNSProxier
 	proxyPorts *proxyports.ProxyPorts
 	handler    messagehandler.DNSMessageHandler
-
-	restored chan struct{}
+	fqdnConfig service.FQDNConfig
+	restored   chan struct{}
 }
 
 // newFQDNProxyBootstrapper handles initializing the DNS proxy in concert with the daemon.
@@ -56,8 +58,8 @@ func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBoots
 		proxy:      params.DNSProxy,
 		proxyPorts: params.ProxyPorts,
 		handler:    params.DNSRequestHandler,
-
-		restored: make(chan struct{}),
+		fqdnConfig: params.FQDNConfig,
+		restored:   make(chan struct{}),
 	}
 
 	// Do not start the proxy in dry mode or if L7 proxy is disabled.
@@ -124,7 +126,7 @@ func (b *fqdnProxyBootstrapper) startProxy(ctx context.Context, health cell.Heal
 
 	// A configured proxy wantPort takes precedence over using the previous wantPort.
 	// An existing (restored-from-disk) port is used on a best-effort basis
-	wantPort := uint16(option.Config.ToFQDNsProxyPort)
+	wantPort := uint16(b.fqdnConfig.ToFQDNsProxyPort)
 	if wantPort == 0 {
 		var isStatic bool
 		// Try reuse previous DNS proxy port number
