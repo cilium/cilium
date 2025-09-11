@@ -559,6 +559,14 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)
 
+	type podServices struct {
+		service loadbalancer.Service
+		bes     []loadbalancer.BackendParams
+		fes     sets.Set[loadbalancer.FrontendParams]
+	}
+
+	servicesForThisPod := make(map[loadbalancer.ServiceName]*podServices)
+
 	updatedServices := sets.New[loadbalancer.ServiceName]()
 	for _, c := range containers {
 		for _, p := range c.Ports {
@@ -589,10 +597,24 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 					pod.ObjectMeta.UID),
 			)
 
+			svc, ok := servicesForThisPod[serviceName]
+			if !ok {
+				servicesForThisPod[serviceName] = &podServices{
+					service: loadbalancer.Service{
+						ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+						IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+						Name:             serviceName,
+						LoopbackHostPort: false,
+						Source:           source.Kubernetes,
+					},
+					fes: sets.Set[loadbalancer.FrontendParams]{},
+				}
+				svc = servicesForThisPod[serviceName]
+			}
+
 			var ipv4, ipv6 bool
 
 			// Construct the backends from the pod IPs and container ports.
-			var bes []loadbalancer.BackendParams
 			for _, podIP := range podIPs {
 				addr, err := cmtypes.ParseAddrCluster(podIP)
 				if err != nil {
@@ -614,10 +636,8 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 					),
 					Weight: loadbalancer.DefaultBackendWeight,
 				}
-				bes = append(bes, bep)
+				svc.bes = append(svc.bes, bep)
 			}
-
-			loopbackHostport := false
 
 			feIP := net.ParseIP(p.HostIP)
 			if feIP != nil && feIP.IsLoopback() && !netnsCookie() {
@@ -642,7 +662,12 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 					} else {
 						feIP = net.IPv6zero
 					}
-					loopbackHostport = true
+					svc.service.LoopbackHostPort = true
+				} else if svc.service.LoopbackHostPort {
+					// if it's not a loopback but the service was previously marked with LoopbackHostPort, then it's
+					// an unsupported combination
+					log.Warn("service with LoopbackHostPort not supported for port with non-loopback address")
+					continue
 				}
 				feIPs = append(feIPs, feIP)
 			} else if feIP == nil {
@@ -653,8 +678,6 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 					feIPs = append(feIPs, net.IPv6zero)
 				}
 			}
-
-			fes := make([]loadbalancer.FrontendParams, 0, len(feIPs))
 
 			for _, feIP := range feIPs {
 				addr := cmtypes.MustAddrClusterFromIP(feIP)
@@ -669,26 +692,22 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 					),
 					ServicePort: uint16(p.HostPort),
 				}
-				fes = append(fes, fe)
-			}
 
-			svc := &loadbalancer.Service{
-				ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-				IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-				Name:             serviceName,
-				LoopbackHostPort: loopbackHostport,
-				Source:           source.Kubernetes,
-			}
-
-			err = writer.UpsertServiceAndFrontends(wtxn, svc, fes...)
-			if err != nil {
-				return fmt.Errorf("UpsertServiceAndFrontends: %w", err)
-			}
-			if err := writer.SetBackends(wtxn, serviceName, source.Kubernetes, bes...); err != nil {
-				return fmt.Errorf("SetBackends: %w", err)
+				svc.fes.Insert(fe)
 			}
 
 			updatedServices.Insert(serviceName)
+		}
+	}
+
+	for serviceName, svc := range servicesForThisPod {
+		err := writer.UpsertServiceAndFrontends(wtxn, &svc.service, svc.fes.UnsortedList()...)
+		if err != nil {
+			return fmt.Errorf("UpsertServiceAndFrontends: %w", err)
+		}
+
+		if err := writer.SetBackends(wtxn, serviceName, source.Kubernetes, svc.bes...); err != nil {
+			return fmt.Errorf("SetBackends: %w", err)
 		}
 	}
 
