@@ -9,6 +9,7 @@ import (
 
 // Linux specific constants used in Linux datapath
 const (
+	// jrife: here are routing table IDs
 	// RouteTableIPSec is the default table ID to use for IPSec routing rules
 	RouteTableIPSec = 200
 

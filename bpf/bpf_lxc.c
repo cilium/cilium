@@ -29,6 +29,7 @@
 #include "lib/ipv4.h"
 #include "lib/icmp6.h"
 #include "lib/eth.h"
+#include "lib/exits.h"
 #include "lib/dbg.h"
 #include "lib/l3.h"
 #include "lib/local_delivery.h"
@@ -2462,5 +2463,7 @@ out:
 
 	return ret;
 }
+
+EXIT_HANDLER();
 
 BPF_LICENSE("Dual BSD/GPL");

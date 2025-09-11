@@ -43,6 +43,9 @@ type epInfoCache struct {
 	ifIndex                int
 	parentIfIndex          int
 	netNsCookie            uint64
+	k8sNamespace           string
+	k8sPodName             string
+	containerName          string
 
 	// endpoint is used to get the endpoint's logger.
 	//
@@ -59,13 +62,16 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		return &epInfoCache{
 			revision: e.nextPolicyRevision,
 
-			id:       e.GetID(),
-			identity: e.getIdentity(),
-			ifIndex:  e.GetIfIndex(),
-			mac:      e.GetNodeMAC(),
-			ipv4:     e.IPv4Address(),
-			ipv6:     e.IPv6Address(),
-			atHostNS: true,
+			id:            e.GetID(),
+			identity:      e.getIdentity(),
+			ifIndex:       e.GetIfIndex(),
+			mac:           e.GetNodeMAC(),
+			ipv4:          e.IPv4Address(),
+			ipv6:          e.IPv6Address(),
+			atHostNS:      true,
+			k8sNamespace:  e.GetK8sNamespace(),
+			k8sPodName:    e.GetK8sPodName(),
+			containerName: e.GetContainerName(),
 
 			endpoint: e,
 		}
@@ -90,6 +96,9 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		ifIndex:                e.ifIndex,
 		parentIfIndex:          e.parentIfIndex,
 		netNsCookie:            e.NetNsCookie,
+		k8sNamespace:           e.GetK8sNamespace(),
+		k8sPodName:             e.GetK8sPodName(),
+		containerName:          e.GetContainerName(),
 
 		endpoint: e,
 	}
@@ -189,4 +198,16 @@ func (ep *epInfoCache) IsHost() bool {
 
 func (ep *epInfoCache) IsAtHostNS() bool {
 	return ep.atHostNS
+}
+
+func (ep *epInfoCache) GetK8sNamespace() string {
+	return ep.k8sNamespace
+}
+
+func (ep *epInfoCache) GetK8sPodName() string {
+	return ep.k8sPodName
+}
+
+func (ep *epInfoCache) GetContainerName() string {
+	return ep.containerName
 }

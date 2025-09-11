@@ -33,52 +33,42 @@ func parentToAttachType(parent uint32) ebpf.AttachType {
 
 // upsertTCXProgram updates or creates a new tcx attachment for prog to device.
 // Returns [link.ErrNotSupported] if tcx is not supported on the node.
-func upsertTCXProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32) error {
-	err := updateTCX(logger, prog, progName, bpffsDir)
+func upsertTCXProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32, anchor link.Anchor) (link.Link, error) {
+	l, err := updateTCX(logger, prog, progName, bpffsDir)
 	if err == nil {
 		// Link was updated, nothing left to do.
-		return nil
+		return l, nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
 		// Unrecoverable error, surface to the caller.
-		return fmt.Errorf("updating tcx program: %w", err)
+		return nil, fmt.Errorf("updating tcx program: %w", err)
 	}
 
-	return attachTCX(logger, device, prog, progName, bpffsDir, parentToAttachType(parent))
+	return attachTCX(logger, device, prog, progName, bpffsDir, parentToAttachType(parent), anchor)
 }
 
 // attachTCX creates a new tcx attachment for prog to device at the given attach
 // type. It pins the resulting link object to progName in bpffsDir.
 //
 // progName is typically the Program's key in CollectionSpec.Programs.
-func attachTCX(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, attach ebpf.AttachType) error {
+func attachTCX(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, attach ebpf.AttachType, anchor link.Anchor) (link.Link, error) {
 	if err := bpf.MkdirBPF(bpffsDir); err != nil {
-		return fmt.Errorf("creating bpffs link dir for tcx attachment to device %s: %w", device.Attrs().Name, err)
+		return nil, fmt.Errorf("creating bpffs link dir for tcx attachment to device %s: %w", device.Attrs().Name, err)
 	}
 
 	l, err := link.AttachTCX(link.TCXOptions{
 		Program:   prog,
 		Attach:    attach,
 		Interface: device.Attrs().Index,
-		Anchor:    link.Tail(),
+		Anchor:    anchor,
 	})
 	if err != nil {
-		return fmt.Errorf("attaching tcx: %w", err)
+		return nil, fmt.Errorf("attaching tcx: %w", err)
 	}
-
-	defer func() {
-		// The program was successfully attached using tcx. Closing a link does not
-		// detach the program if the link is pinned.
-		if err := l.Close(); err != nil {
-			logger.Warn("Failed to close tcx link for program",
-				logfields.ProgName, progName,
-			)
-		}
-	}()
 
 	pin := filepath.Join(bpffsDir, progName)
 	if err := l.Pin(pin); err != nil {
-		return fmt.Errorf("pinning link at %s for program %s : %w", pin, progName, err)
+		return nil, fmt.Errorf("pinning link at %s for program %s : %w", pin, progName, err)
 	}
 
 	logger.Info("Program attached to device using tcx",
@@ -86,7 +76,7 @@ func attachTCX(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, pro
 		logfields.Device, device.Attrs().Name,
 	)
 
-	return nil
+	return l, nil
 }
 
 // updateTCX attempts to update an existing tcx link called progName in
@@ -94,7 +84,7 @@ func attachTCX(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, pro
 //
 // Returns nil if the update was successful. Returns an error wrapping
 // [os.ErrNotExist] if the link is defunct or missing.
-func updateTCX(logger *slog.Logger, prog *ebpf.Program, progName, bpffsDir string) error {
+func updateTCX(logger *slog.Logger, prog *ebpf.Program, progName, bpffsDir string) (link.Link, error) {
 	// Attempt to open and update an existing link.
 	pin := filepath.Join(bpffsDir, progName)
 	err := bpf.UpdateLink(pin, prog)
@@ -104,7 +94,7 @@ func updateTCX(logger *slog.Logger, prog *ebpf.Program, progName, bpffsDir strin
 	// to proceed.
 	case errors.Is(err, unix.ENOLINK):
 		if err := os.Remove(pin); err != nil {
-			return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
+			return nil, fmt.Errorf("unpinning defunct link %s: %w", pin, err)
 		}
 
 		logger.Info("Unpinned defunct link for program",
@@ -113,7 +103,7 @@ func updateTCX(logger *slog.Logger, prog *ebpf.Program, progName, bpffsDir strin
 		)
 
 		// Wrap in os.ErrNotExist so the caller needs to look for one error.
-		return fmt.Errorf("unpinned defunct link: %w", os.ErrNotExist)
+		return nil, fmt.Errorf("unpinned defunct link: %w", os.ErrNotExist)
 
 	// No existing link found, continue trying to create one.
 	case errors.Is(err, os.ErrNotExist):
@@ -121,17 +111,23 @@ func updateTCX(logger *slog.Logger, prog *ebpf.Program, progName, bpffsDir strin
 			logfields.Link, pin,
 			logfields.ProgName, progName,
 		)
-		return err
+		return nil, err
 
 	case err != nil:
-		return fmt.Errorf("updating link %s for program %s: %w", pin, progName, err)
+		return nil, fmt.Errorf("updating link %s for program %s: %w", pin, progName, err)
 	}
 
 	logger.Info("Updated link for program",
 		logfields.Link, pin,
 		logfields.ProgName, progName,
 	)
-	return nil
+
+	l, err := link.LoadPinnedLink(pin, &ebpf.LoadPinOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("opening pinned link %s: %w", pin, err)
+	}
+
+	return l, nil
 }
 
 // hasCiliumTCXLinks returns true if device has a Cilium-managed tcx program
