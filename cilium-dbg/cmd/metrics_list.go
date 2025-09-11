@@ -32,4 +32,5 @@ func init() {
 	MetricsCmd.AddCommand(MetricsListCmd)
 	MetricsListCmd.Flags().StringVarP(&matchPattern, "match-pattern", "p", "", "Show only metrics whose names match matchpattern")
 	command.AddOutputOption(MetricsListCmd)
+	shell.AddShellSockOption(MetricsListCmd)
 }
