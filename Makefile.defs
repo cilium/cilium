@@ -184,21 +184,27 @@ CGO_ENABLED ?= 0
 GOEXPERIMENT ?=
 
 # Support CGO cross-compiling for amd64 and arm64 targets
-CGO_CC =
+GO_BUILD_ENV = CGO_ENABLED=$(CGO_ENABLED)
 CROSS_ARCH =
 ifneq ($(GOARCH),$(NATIVE_ARCH))
     CROSS_ARCH = $(GOARCH)
 endif
 ifeq ($(CROSS_ARCH),arm64)
-    CGO_CC = CC=aarch64-linux-gnu-gcc
+    GO_BUILD_ENV += CC=aarch64-linux-gnu-gcc
 else ifeq ($(CROSS_ARCH),amd64)
-    CGO_CC = CC=x86_64-linux-gnu-gcc
+    GO_BUILD_ENV += CC=x86_64-linux-gnu-gcc
+endif
+
+ifneq ($(GOARCH),)
+    GO_BUILD_ENV += GOARCH=$(GOARCH)
+endif
+
+ifneq ($(GOOS),)
+    GO_BUILD_ENV += GOOS=$(GOOS)
 endif
 
 ifneq ($(GOEXPERIMENT),)
-    GO_BUILD = GOEXPERIMENT=$(GOEXPERIMENT) CGO_ENABLED=$(CGO_ENABLED) $(CGO_CC) $(GO) build
-else
-    GO_BUILD = CGO_ENABLED=$(CGO_ENABLED) $(CGO_CC) $(GO) build
+    GO_BUILD_ENV += GOEXPERIMENT=$(GOEXPERIMENT)
 endif
 
 ifneq ($(RACE),)
@@ -231,7 +237,7 @@ ifeq ($(NOOPT),1)
     GO_BUILD_FLAGS += -gcflags="all=-N -l"
 endif
 
-GO_BUILD += $(GO_BUILD_FLAGS)
+GO_BUILD = $(GO_BUILD_ENV) $(GO) build $(GO_BUILD_FLAGS)
 
 GO_TEST = CGO_ENABLED=0 $(GO) test $(GO_TEST_FLAGS)
 GO_CLEAN = $(GO) clean $(GO_CLEAN_FLAGS)
