@@ -78,17 +78,17 @@ func TestBlocksMultiplePredecessors(t *testing.T) {
 	assert.Empty(t, first.predecessors)
 	assert.Equal(t, 0, first.start)
 	assert.Equal(t, 1, first.end)
-	assert.Equal(t, blocks.b[2], first.branch)
-	assert.Equal(t, blocks.b[1], first.fthrough)
+	assert.Equal(t, blocks[2], first.branch)
+	assert.Equal(t, blocks[1], first.fthrough)
 
-	second := blocks.b[1]
+	second := blocks[1]
 	assert.EqualValues(t, 1, second.id)
 	assert.Len(t, second.predecessors, 1)
 	assert.Equal(t, first, second.predecessors[0])
 	assert.Equal(t, 2, second.start)
 	assert.Equal(t, 3, second.end)
-	assert.Equal(t, blocks.b[2], second.branch)
-	assert.Equal(t, blocks.b[2], second.fthrough)
+	assert.Equal(t, blocks[2], second.branch)
+	assert.Equal(t, blocks[2], second.fthrough)
 
 	last := blocks.last()
 	assert.EqualValues(t, 2, last.id)
