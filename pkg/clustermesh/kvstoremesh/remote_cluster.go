@@ -156,6 +156,51 @@ func (rc *remoteCluster) Stop() {
 	rc.wg.Wait()
 }
 
+func (rc *remoteCluster) RevokeCache(ctx context.Context) {
+	const retries = 5
+	var (
+		retry   = 0
+		backoff = 2 * time.Second
+	)
+	prefixes := []string{
+		path.Join(kvstore.StateToCachePrefix(serviceStore.ServiceStorePrefix), rc.name),
+		path.Join(kvstore.StateToCachePrefix(mcsapitypes.ServiceExportStorePrefix), rc.name),
+	}
+	for {
+		var err error
+		for _, prefix := range prefixes {
+			if err := rc.localBackend.DeletePrefix(ctx, prefix+"/"); err != nil {
+				err = fmt.Errorf("deleting prefix %q: %w", prefix+"/", err)
+				break
+			}
+		}
+
+		switch {
+		case err == nil:
+			rc.logger.Info("Successfully revoked cached services from kvstore")
+			return
+		case ctx.Err() != nil:
+			return
+		case retry == retries:
+			rc.logger.Error(
+				"Failed to remove cached data from kvstore, despite retries. Reconnecting to the "+
+					"same cluster without first restarting KVStoreMesh may lead to inconsistencies",
+				logfields.Error, err,
+			)
+			return
+		}
+
+		rc.logger.Warn("Failed to remove cached data from kvstore, retrying", logfields.Error, err)
+		select {
+		case <-rc.clock.After(backoff):
+			retry++
+			backoff *= 2
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func (rc *remoteCluster) Remove(ctx context.Context) {
 	if rc.disableDrainOnDisconnection {
 		rc.logger.Warn("Remote cluster disconnected, but cached data removal is disabled. " +

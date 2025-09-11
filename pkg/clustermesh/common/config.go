@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/pflag"
@@ -18,17 +19,29 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-type Config struct {
+const (
 	// ClusterMeshConfig is the path to the clustermesh configuration directory.
-	ClusterMeshConfig string
-}
+	ClusterMeshConfig = "clustermesh-config"
 
-func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.String("clustermesh-config", def.ClusterMeshConfig, "Path to the ClusterMesh configuration directory")
+	// RemoteClusterCacheTTL is the time to live for the cache of a remote cluster after
+	// connectivity is lost. If the connection is not re-established within this duration, the
+	// cached data is revoked to prevent stale state
+	RemoteClusterCacheTTL = "remote-cluster-cache-ttl"
+)
+
+type Config struct {
+	ClusterMeshConfig     string        `mapstructure:"clustermesh-config"`
+	RemoteClusterCacheTTL time.Duration `mapstructure:"remote-cluster-cache-ttl"`
 }
 
 var DefaultConfig = Config{
-	ClusterMeshConfig: "",
+	ClusterMeshConfig:     "",
+	RemoteClusterCacheTTL: 0,
+}
+
+func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.String(ClusterMeshConfig, def.ClusterMeshConfig, "Path to the ClusterMesh configuration directory")
+	flags.Duration(RemoteClusterCacheTTL, def.RemoteClusterCacheTTL, "The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked (default).")
 }
 
 // clusterLifecycle is the interface to implement in order to receive cluster
