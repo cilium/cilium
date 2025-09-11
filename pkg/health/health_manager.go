@@ -11,6 +11,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/healthconfig"
+
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
@@ -62,6 +64,8 @@ type ciliumHealthManager struct {
 
 	ctrlMgr      *controller.Manager
 	ciliumHealth *CiliumHealth
+
+	healthConfig healthconfig.CiliumHealthConfig
 }
 
 type ciliumHealthParams struct {
@@ -77,6 +81,7 @@ type ciliumHealthParams struct {
 	EndpointCreator endpointcreator.EndpointCreator
 	EndpointManager endpointmanager.EndpointManager
 	K8sClientSet    k8sClient.Clientset
+	Config          healthconfig.CiliumHealthConfig
 }
 
 func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
@@ -90,6 +95,7 @@ func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 		endpointCreator: params.EndpointCreator,
 		endpointManager: params.EndpointManager,
 		k8sClientSet:    params.K8sClientSet,
+		healthConfig:    params.Config,
 	}
 
 	return h
@@ -106,7 +112,7 @@ func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxroutin
 	h.ciliumHealth = ch
 
 	// If endpoint health checking is disabled, the virtual endpoint does not need to be launched
-	if !option.Config.EnableEndpointHealthChecking {
+	if !h.healthConfig.IsEndpointHealthCheckingEnabled() {
 		return nil
 	}
 
