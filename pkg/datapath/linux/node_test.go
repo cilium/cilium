@@ -17,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -52,7 +52,7 @@ func TestCreateNodeRoute(t *testing.T) {
 	}
 	log := hivetest.Logger(t)
 
-	nodeHandler := newNodeHandler(log, dpConfig, nil, kpr.KPRConfig{}, &fakeTypes.IPsecAgent{}, fakeTypes.IPsecConfig{})
+	nodeHandler := newNodeHandler(log, dpConfig, nil, loadbalancer.DefaultConfig, &fakeTypes.IPsecAgent{}, fakeTypes.IPsecConfig{})
 	nodeHandler.NodeConfigurationChanged(nodeConfig)
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")

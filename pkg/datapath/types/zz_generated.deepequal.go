@@ -299,9 +299,5 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		return false
 	}
 
-	if in.KPRConfig != other.KPRConfig {
-		return false
-	}
-
 	return true
 }

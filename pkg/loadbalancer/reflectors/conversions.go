@@ -223,7 +223,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 	// NOTE: We always want to do ClusterIP services even when full kube-proxy replacement is disabled.
 	// See https://github.com/cilium/cilium/issues/16197 for context.
 
-	if extCfg.KubeProxyReplacement {
+	if cfg.KubeProxyReplacement {
 		// NodePort
 		if (svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer) &&
 			expType.CanExpose(slim_corev1.ServiceTypeNodePort) {

@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -54,7 +53,6 @@ func fixture(t testing.TB) (p testParams) {
 			tables.NewNodeAddressTable,
 			statedb.RWTable[tables.NodeAddress].ToTable,
 			source.NewSources,
-			func() kpr.KPRConfig { return kpr.KPRConfig{} },
 		),
 		cell.Invoke(func(p_ testParams) { p = p_ }),
 	)

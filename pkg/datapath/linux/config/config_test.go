@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -106,7 +105,6 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 				NewHeaderfileWriter,
 				func() datapath.IPsecConfig { return fakeTypes.IPsecConfig{} },
 			),
-			kpr.Cell,
 			cell.Invoke(func(writer_ datapath.ConfigWriter) {
 				writer = writer_
 			}),
