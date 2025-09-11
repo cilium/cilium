@@ -146,6 +146,14 @@ func (rc *remoteCluster) Stop() {
 	rc.synced.Stop()
 }
 
+// RevokeCache performs a partial revocation of the remote cluster's cache, draining only remote
+// services. This prevents the agent from load-balancing to potentially stale service backends.
+// Other resources are left intact to reduce churn and avoid disrupting existing connections like
+// active IPsec security associations.
+func (rc *remoteCluster) RevokeCache(ctx context.Context) {
+	rc.remoteServices.Drain()
+}
+
 func (rc *remoteCluster) Remove(context.Context) {
 	// Draining shall occur only when the configuration for the remote cluster
 	// is removed, and not in case the agent is shutting down, otherwise we
