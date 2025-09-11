@@ -82,7 +82,17 @@ static __always_inline int ipv4_hdrlen(const struct iphdr *ip4)
 static __always_inline bool ipv4_is_in_subnet(__be32 addr,
 					      __be32 subnet, int prefixlen)
 {
-	return (addr & bpf_htonl(~((1 << (32 - prefixlen)) - 1))) == subnet;
+	__u32 mask;
+
+	/* normalize prefixlen into [0,32] */
+	if (prefixlen <= 0)
+		mask = 0U;
+	else if (prefixlen >= 32)
+		mask = ~0U;
+	else
+		mask = (~0U) << (32 - prefixlen);
+
+	return (addr & bpf_htonl(mask)) == subnet;
 }
 
 #ifdef ENABLE_IPV4_FRAGMENTS
