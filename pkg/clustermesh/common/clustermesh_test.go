@@ -39,6 +39,10 @@ func (f *fakeRemoteCluster) Stop() {
 	}
 }
 
+func (f *fakeRemoteCluster) RevokeCache(ctx context.Context) {
+	f.Remove(ctx)
+}
+
 func (f *fakeRemoteCluster) Remove(ctx context.Context) {
 	if f.onRemove != nil {
 		f.onRemove(ctx)

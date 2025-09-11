@@ -6,6 +6,7 @@ package types
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/spf13/pflag"
 
@@ -22,20 +23,27 @@ const (
 
 	// OptMaxConnectedClusters is the name of the OptMaxConnectedClusters option
 	OptMaxConnectedClusters = "max-connected-clusters"
+
+	// OptRemoteClusterCacheTTL is the time to live for the cache of a remote cluster after
+	// connectivity is lost. If the connection is not re-established within this duration, the
+	// cached data is revoked to prevent stale state
+	OptRemoteClusterCacheTTL = "remote-cluster-cache-ttl"
 )
 
 // ClusterInfo groups together the ClusterID and the ClusterName
 type ClusterInfo struct {
-	ID                   uint32 `mapstructure:"cluster-id"`
-	Name                 string `mapstructure:"cluster-name"`
-	MaxConnectedClusters uint32 `mapstructure:"max-connected-clusters"`
+	ID                    uint32        `mapstructure:"cluster-id"`
+	Name                  string        `mapstructure:"cluster-name"`
+	MaxConnectedClusters  uint32        `mapstructure:"max-connected-clusters"`
+	RemoteClusterCacheTTL time.Duration `mapstructure:"remote-cluster-cache-ttl"`
 }
 
 // DefaultClusterInfo represents the default ClusterInfo values.
 var DefaultClusterInfo = ClusterInfo{
-	ID:                   0,
-	Name:                 defaults.ClusterName,
-	MaxConnectedClusters: defaults.MaxConnectedClusters,
+	ID:                    0,
+	Name:                  defaults.ClusterName,
+	MaxConnectedClusters:  defaults.MaxConnectedClusters,
+	RemoteClusterCacheTTL: 0,
 }
 
 // Flags implements the cell.Flagger interface, to register the given flags.
@@ -43,6 +51,7 @@ func (def ClusterInfo) Flags(flags *pflag.FlagSet) {
 	flags.Uint32(OptClusterID, def.ID, "Unique identifier of the cluster")
 	flags.String(OptClusterName, def.Name, "Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character.")
 	flags.Uint32(OptMaxConnectedClusters, def.MaxConnectedClusters, "Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511].")
+	flags.Duration(OptRemoteClusterCacheTTL, def.RemoteClusterCacheTTL, "The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked (default).")
 }
 
 // Validate validates that the ClusterID is in the valid range (including ClusterID == 0),
