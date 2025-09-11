@@ -85,6 +85,8 @@ func init() {
 		"ipv4_revnat_entry":    {lbmap.SockRevNat4Value{}},
 		"ipv6_revnat_tuple":    {lbmap.SockRevNat6Key{}},
 		"ipv6_revnat_entry":    {lbmap.SockRevNat6Value{}},
+		"ipv4_sockets_tuple":   {lbmap.Sock4Key{}},
+		"ipv6_sockets_tuple":   {lbmap.Sock6Key{}},
 		"v6addr": {
 			neighborsmap.Key6{},
 			srv6map.PolicyValue{},

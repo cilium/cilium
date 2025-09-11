@@ -5,10 +5,12 @@ package link
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/internal/sys"
+	"github.com/cilium/ebpf/internal/sysenc"
 )
 
 type IterOptions struct {
@@ -23,6 +25,8 @@ type IterOptions struct {
 	// Map specifies the target map for bpf_map_elem and sockmap iterators.
 	// It may be nil.
 	Map *ebpf.Map
+
+	KeyPrefix any
 }
 
 // AttachIter attaches a BPF seq_file iterator.
@@ -39,6 +43,16 @@ func AttachIter(opts IterOptions) (*Iter, error) {
 			return nil, fmt.Errorf("invalid map: %w", sys.ErrClosedFd)
 		}
 		info.map_fd = uint32(mapFd)
+	}
+	if opts.KeyPrefix != nil {
+		info.key_prefix_len = uint32(reflect.TypeOf(opts.KeyPrefix).Size())
+		buf, err := sysenc.Marshal(opts.KeyPrefix, int(info.key_prefix_len))
+		if err != nil {
+			return nil, fmt.Errorf("marshaling key prefix: %w", err)
+		}
+
+		info.key_prefix = buf.Pointer()
+		fmt.Printf("JORDAN: %+v\n", buf.Bytes())
 	}
 
 	attr := sys.LinkCreateIterAttr{
@@ -82,5 +96,7 @@ func (it *Iter) Open() (io.ReadCloser, error) {
 
 // union bpf_iter_link_info.map
 type bpfIterLinkInfoMap struct {
-	map_fd uint32
+	map_fd         uint32
+	key_prefix     sys.Pointer
+	key_prefix_len uint32
 }

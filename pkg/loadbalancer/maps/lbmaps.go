@@ -106,6 +106,10 @@ type sockRevNatMaps interface {
 	SockRevNat() (*bpf.Map, *bpf.Map)
 }
 
+type sockMaps interface {
+	Sock() (*bpf.Map, *bpf.Map)
+}
+
 // LBMaps defines the map operations performed by the reconciliation.
 // Depending on this interface instead of on the underlying maps allows
 // testing the implementation with a fake map or injected errors.
@@ -117,6 +121,7 @@ type LBMaps interface {
 	sourceRangeMaps
 	maglevMaps
 	sockRevNatMaps
+	sockMaps
 
 	IsEmpty() bool
 }
@@ -136,6 +141,7 @@ type BPFLBMaps struct {
 	affinityMatchMap                 *bpf.Map
 	affinity4Map, affinity6Map       *bpf.Map
 	sockRevNat4Map, sockRevNat6Map   *bpf.Map
+	sock4Map, sock6Map               *bpf.Map
 	sourceRange4Map, sourceRange6Map *bpf.Map
 	maglev4Map, maglev6Map           *bpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
 
@@ -292,6 +298,30 @@ func NewSockRevNat6Map(maxEntries int) *bpf.Map {
 	)
 }
 
+func NewSock4Map(maxEntries int) *bpf.Map {
+	return bpf.NewMapWithExtra(
+		Sock4MapName,
+		ebpf.SockHash,
+		&Sock4Key{},
+		&SockValue{},
+		maxEntries,
+		0,
+		uint64(SizeofSock4KeyPrefix),
+	)
+}
+
+func NewSock6Map(maxEntries int) *bpf.Map {
+	return bpf.NewMapWithExtra(
+		Sock6MapName,
+		ebpf.SockHash,
+		&Sock6Key{},
+		&SockValue{},
+		maxEntries,
+		0,
+		uint64(SizeofSock6KeyPrefix),
+	)
+}
+
 func NewMaglevOuterMap(name string, maxEntries int, innerSpec *ebpf.MapSpec) *bpf.Map {
 	return bpf.NewMapWithInnerSpec(
 		name,
@@ -323,6 +353,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.revNat4Map, NewRevNat4Map, r.Cfg.LBRevNatEntries},
 		{&r.maglev4Map, newMaglev4, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat4Map, NewSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sock4Map, NewSock4Map, (1 << 20)},
 		{&r.affinity4Map, newAffinity4Map, r.Cfg.LBAffinityMapEntries},
 	}
 	v6Maps := []mapDesc{
@@ -331,6 +362,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.revNat6Map, NewRevNat6Map, r.Cfg.LBRevNatEntries},
 		{&r.maglev6Map, newMaglev6, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat6Map, NewSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sock6Map, NewSock6Map, (1 << 20)},
 		{&r.affinity6Map, newAffinity6Map, r.Cfg.LBAffinityMapEntries},
 	}
 	affinityMap := mapDesc{&r.affinityMatchMap, NewAffinityMatchMap, r.Cfg.LBAffinityMapEntries}
@@ -745,6 +777,10 @@ func (r *BPFLBMaps) SockRevNat() (*bpf.Map, *bpf.Map) {
 	return r.sockRevNat4Map, r.sockRevNat6Map
 }
 
+func (r *BPFLBMaps) Sock() (*bpf.Map, *bpf.Map) {
+	return r.sock4Map, r.sock6Map
+}
+
 // MaglevInnerMap represents a maglev inner map.
 type MaglevInnerMap struct {
 	*ebpf.Map
@@ -973,6 +1009,10 @@ func (f *FaultyLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16)
 
 func (f *FaultyLBMaps) SockRevNat() (*bpf.Map, *bpf.Map) {
 	return f.impl.SockRevNat()
+}
+
+func (f *FaultyLBMaps) Sock() (*bpf.Map, *bpf.Map) {
+	return f.impl.Sock()
 }
 
 // LookupBackend implements LBMaps.
@@ -1246,6 +1286,10 @@ func (f *FakeLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) b
 }
 
 func (f *FakeLBMaps) SockRevNat() (*bpf.Map, *bpf.Map) {
+	return nil, nil
+}
+
+func (f *FakeLBMaps) Sock() (*bpf.Map, *bpf.Map) {
 	return nil, nil
 }
 
