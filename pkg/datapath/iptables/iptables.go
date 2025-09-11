@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/command/exec"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -78,6 +80,10 @@ var (
 			},
 		}
 	}
+
+	noTrackSupportedProtos = []lb.L4Type{
+		lb.TCP, lb.UDP,
+	}
 )
 
 const (
@@ -118,12 +124,6 @@ func (ipt *ipt) initArgs(ctx context.Context, waitSeconds int) {
 		}
 	}
 }
-
-// package name is iptables so we use ip4tables internally for "iptables"
-var (
-	ip4tables = &ipt{prog: "iptables", ipset: ipset.CiliumNodeIPSetV4}
-	ip6tables = &ipt{prog: "ip6tables", ipset: ipset.CiliumNodeIPSetV6}
-)
 
 func (ipt *ipt) getProg() string {
 	return ipt.prog
@@ -254,12 +254,45 @@ func (m *Manager) removeCiliumRules(table string, prog runnable, match string) e
 	return nil
 }
 
+type podAndNameSpace struct {
+	podName, namespace string
+}
+
+// noTrackHostPortsByPod stores the ports passed in with the annotation /no-track-host-ports
+// indexed by pod name+namespace
+type noTrackHostPortsByPod map[podAndNameSpace]set.Set[lb.L4Addr]
+
+func (ports noTrackHostPortsByPod) flatten() set.Set[lb.L4Addr] {
+	result := set.Set[lb.L4Addr]{}
+
+	for _, p := range ports {
+		result.Merge(p)
+	}
+
+	return result
+}
+
+func (ports noTrackHostPortsByPod) exclude(key podAndNameSpace) noTrackHostPortsByPod {
+	result := make(noTrackHostPortsByPod)
+
+	for k, p := range ports {
+		if key == k {
+			continue
+		}
+		result[k] = p
+	}
+
+	return result
+}
+
 // Manager manages the iptables-related configuration for Cilium.
 type Manager struct {
 	logger *slog.Logger
 	// This lock ensures there are no concurrent executions of the doInstallRules() and
 	// GetProxyPort() methods.
 	lock lock.Mutex
+
+	ip4tables, ip6tables iptablesInterface
 
 	sysctl sysctl.Sysctl
 
@@ -280,13 +313,15 @@ type Manager struct {
 }
 
 type reconcilerParams struct {
-	clock          clock.WithTicker
-	localNodeStore *node.LocalNodeStore
-	db             *statedb.DB
-	devices        statedb.Table[*tables.Device]
-	proxies        chan reconciliationRequest[proxyInfo]
-	addNoTrackPod  chan reconciliationRequest[noTrackPodInfo]
-	delNoTrackPod  chan reconciliationRequest[noTrackPodInfo]
+	clock               clock.WithTicker
+	localNodeStore      *node.LocalNodeStore
+	db                  *statedb.DB
+	devices             statedb.Table[*tables.Device]
+	proxies             chan reconciliationRequest[proxyInfo]
+	addNoTrackPod       chan reconciliationRequest[noTrackPodInfo]
+	delNoTrackPod       chan reconciliationRequest[noTrackPodInfo]
+	addNoTrackHostPorts chan reconciliationRequest[noTrackHostPortsPodInfo]
+	delNoTrackHostPorts chan reconciliationRequest[podAndNameSpace]
 }
 
 type params struct {
@@ -317,17 +352,25 @@ func newIptablesManager(p params) datapath.IptablesManager {
 		sharedCfg: p.SharedCfg,
 		argsInit:  lock.NewStoppableWaitGroup(),
 		reconcilerParams: reconcilerParams{
-			clock:          clock.RealClock{},
-			localNodeStore: p.LocalNodeStore,
-			db:             p.DB,
-			devices:        p.Devices,
-			proxies:        make(chan reconciliationRequest[proxyInfo]),
-			addNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
-			delNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
+			clock:               clock.RealClock{},
+			localNodeStore:      p.LocalNodeStore,
+			db:                  p.DB,
+			devices:             p.Devices,
+			proxies:             make(chan reconciliationRequest[proxyInfo]),
+			addNoTrackPod:       make(chan reconciliationRequest[noTrackPodInfo]),
+			delNoTrackPod:       make(chan reconciliationRequest[noTrackPodInfo]),
+			addNoTrackHostPorts: make(chan reconciliationRequest[noTrackHostPortsPodInfo]),
+			delNoTrackHostPorts: make(chan reconciliationRequest[podAndNameSpace]),
 		},
 		haveIp6tables:    true,
 		cniConfigManager: p.CNIConfigManager,
 	}
+
+	ip4tables := &ipt{prog: "iptables", ipset: ipset.CiliumNodeIPSetV4}
+	ip6tables := &ipt{prog: "ip6tables", ipset: ipset.CiliumNodeIPSetV6}
+
+	iptMgr.ip4tables = ip4tables
+	iptMgr.ip6tables = ip6tables
 
 	// init iptables/ip6tables wait arguments before using them in the reconciler or in the manager (e.g: GetProxyPorts)
 	initDone := iptMgr.argsInit.Add()
@@ -365,6 +408,8 @@ func newIptablesManager(p params) datapath.IptablesManager {
 				iptMgr.doInstallProxyRules,
 				iptMgr.installNoTrackRules,
 				iptMgr.removeNoTrackRules,
+				iptMgr.setNoTrackHostPorts,
+				iptMgr.removeNoTrackHostPorts,
 			)
 		}),
 	)
@@ -394,7 +439,7 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 	}
 
 	for _, table := range []string{"nat", "mangle", "raw", "filter"} {
-		if err := ip4tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
+		if err := m.ip4tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
 			if m.sharedCfg.InstallIptRules {
 				m.logger.Warn("iptables table is not available on this system",
 					logfields.Error, err,
@@ -405,7 +450,7 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 	}
 
 	for _, table := range []string{"mangle", "raw", "filter"} {
-		if err := ip6tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
+		if err := m.ip6tables.runProg([]string{"-t", table, "-L", "-n"}); err != nil {
 			if m.sharedCfg.InstallIptRules {
 				m.logger.Debug("ip6tables table is not available on this system",
 					logfields.Error, err,
@@ -438,7 +483,7 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 		}
 	}
 
-	if err := ip4tables.runProg([]string{"-t", "mangle", "-L", "-m", "socket", "-n"}); err != nil {
+	if err := m.ip4tables.runProg([]string{"-t", "mangle", "-L", "-m", "socket", "-n"}); err != nil {
 		if m.sharedCfg.InstallIptRules {
 			m.logger.Warn("iptables match socket is not available (try installing xt_socket kernel module)", logfields.Error, err)
 		}
@@ -474,6 +519,8 @@ func (m *Manager) Stop(ctx cell.HookContext) error {
 	close(m.reconcilerParams.proxies)
 	close(m.reconcilerParams.addNoTrackPod)
 	close(m.reconcilerParams.delNoTrackPod)
+	close(m.reconcilerParams.addNoTrackHostPorts)
+	close(m.reconcilerParams.delNoTrackHostPorts)
 	return nil
 }
 
@@ -505,12 +552,12 @@ func (m *Manager) removeRules(prefix string) error {
 	// Set of tables that have had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
-		if err := m.removeCiliumRules(t, ip4tables, prefix+"CILIUM_"); err != nil {
+		if err := m.removeCiliumRules(t, m.ip4tables, prefix+"CILIUM_"); err != nil {
 			return err
 		}
 
 		if m.haveIp6tables {
-			if err := m.removeCiliumRules(t, ip6tables, prefix+"CILIUM_"); err != nil {
+			if err := m.removeCiliumRules(t, m.ip6tables, prefix+"CILIUM_"); err != nil {
 				return err
 			}
 		}
@@ -518,7 +565,7 @@ func (m *Manager) removeRules(prefix string) error {
 
 	for _, c := range ciliumChains {
 		c.name = prefix + c.name
-		if err := c.remove(true, m.haveIp6tables); err != nil {
+		if err := c.remove(true, m.haveIp6tables, m.ip4tables, m.ip6tables); err != nil {
 			return err
 		}
 	}
@@ -529,7 +576,7 @@ func (m *Manager) removeRules(prefix string) error {
 // renameChains renames iptables chains installed by Cilium.
 func (m *Manager) renameChains(prefix string) error {
 	for _, c := range ciliumChains {
-		if err := c.rename(true, m.haveIp6tables, prefix+c.name); err != nil {
+		if err := c.rename(true, m.haveIp6tables, prefix+c.name, m.ip4tables, m.ip6tables); err != nil {
 			return err
 		}
 	}
@@ -650,7 +697,7 @@ func (m *Manager) installStaticProxyRules() error {
 
 	if m.sharedCfg.EnableIPv4 {
 		// No conntrack for traffic to proxy
-		if err := ip4tables.runProg([]string{
+		if err := m.ip4tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumPreRawChain,
 			"-m", "mark", "--mark", matchToProxy,
@@ -661,7 +708,7 @@ func (m *Manager) installStaticProxyRules() error {
 
 		// Explicit ACCEPT for the proxy traffic. Needed when the INPUT defaults to DROP.
 		// Matching needs to be the same as for the NOTRACK rule above.
-		if err := ip4tables.runProg([]string{
+		if err := m.ip4tables.runProg([]string{
 			"-t", "filter",
 			"-A", ciliumInputChain,
 			"-m", "mark", "--mark", matchToProxy,
@@ -671,7 +718,7 @@ func (m *Manager) installStaticProxyRules() error {
 		}
 
 		// No conntrack for proxy return traffic that is heading to lxc+
-		if err := ip4tables.runProg([]string{
+		if err := m.ip4tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
 			"-o", "lxc+",
@@ -682,7 +729,7 @@ func (m *Manager) installStaticProxyRules() error {
 		}
 
 		// No conntrack for proxy return traffic that is heading to cilium_host
-		if err := ip4tables.runProg([]string{
+		if err := m.ip4tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
 			"-o", defaults.HostDevice,
@@ -694,7 +741,7 @@ func (m *Manager) installStaticProxyRules() error {
 
 		// No conntrack for proxy forward traffic that is heading to cilium_host
 		if m.sharedCfg.EnableIPSec {
-			if err := ip4tables.runProg([]string{
+			if err := m.ip4tables.runProg([]string{
 				"-t", "raw",
 				"-A", ciliumOutputRawChain,
 				"-o", defaults.HostDevice,
@@ -706,7 +753,7 @@ func (m *Manager) installStaticProxyRules() error {
 		}
 
 		// No conntrack for proxy upstream traffic that is heading to lxc+
-		if err := ip4tables.runProg([]string{
+		if err := m.ip4tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
 			"-o", "lxc+",
@@ -717,7 +764,7 @@ func (m *Manager) installStaticProxyRules() error {
 		}
 
 		// No conntrack for proxy upstream traffic that is heading to cilium_host
-		if err := ip4tables.runProg([]string{
+		if err := m.ip4tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
 			"-o", defaults.HostDevice,
@@ -729,7 +776,7 @@ func (m *Manager) installStaticProxyRules() error {
 
 		// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
 		// Matching needs to be the same as for the NOTRACK rule above.
-		if err := ip4tables.runProg([]string{
+		if err := m.ip4tables.runProg([]string{
 			"-t", "filter",
 			"-A", ciliumOutputChain,
 			"-m", "mark", "--mark", matchFromProxy,
@@ -740,7 +787,7 @@ func (m *Manager) installStaticProxyRules() error {
 
 		// Explicit ACCEPT for the l7 proxy upstream traffic. Needed when the OUTPUT defaults to DROP.
 		// TODO: See if this is really needed. We do not have an ACCEPT for normal proxy upstream traffic.
-		if err := ip4tables.runProg([]string{
+		if err := m.ip4tables.runProg([]string{
 			"-t", "filter",
 			"-A", ciliumOutputChain,
 			"-m", "mark", "--mark", matchL7ProxyUpstream,
@@ -751,7 +798,7 @@ func (m *Manager) installStaticProxyRules() error {
 
 		if m.haveSocketMatch {
 			// Direct inbound TPROXYed traffic towards the socket
-			if err := ip4tables.runProg(m.inboundProxyRedirectRule("-A")); err != nil {
+			if err := m.ip4tables.runProg(m.inboundProxyRedirectRule("-A")); err != nil {
 				return err
 			}
 		}
@@ -759,7 +806,7 @@ func (m *Manager) installStaticProxyRules() error {
 
 	if m.sharedCfg.EnableIPv6 {
 		// No conntrack for traffic to ingress proxy
-		if err := ip6tables.runProg([]string{
+		if err := m.ip6tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumPreRawChain,
 			"-m", "mark", "--mark", matchToProxy,
@@ -770,7 +817,7 @@ func (m *Manager) installStaticProxyRules() error {
 
 		// Explicit ACCEPT for the proxy traffic. Needed when the INPUT defaults to DROP.
 		// Matching needs to be the same as for the NOTRACK rule above.
-		if err := ip6tables.runProg([]string{
+		if err := m.ip6tables.runProg([]string{
 			"-t", "filter",
 			"-A", ciliumInputChain,
 			"-m", "mark", "--mark", matchToProxy,
@@ -780,7 +827,7 @@ func (m *Manager) installStaticProxyRules() error {
 		}
 
 		// No conntrack for proxy return traffic that is heading to lxc+
-		if err := ip6tables.runProg([]string{
+		if err := m.ip6tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
 			"-o", "lxc+",
@@ -791,7 +838,7 @@ func (m *Manager) installStaticProxyRules() error {
 		}
 
 		// No conntrack for proxy return traffic that is heading to cilium_host
-		if err := ip6tables.runProg([]string{
+		if err := m.ip6tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
 			"-o", defaults.HostDevice,
@@ -803,7 +850,7 @@ func (m *Manager) installStaticProxyRules() error {
 
 		// No conntrack for proxy forward traffic that is heading to cilium_host
 		if m.sharedCfg.EnableIPSec {
-			if err := ip6tables.runProg([]string{
+			if err := m.ip6tables.runProg([]string{
 				"-t", "raw",
 				"-A", ciliumOutputRawChain,
 				"-o", defaults.HostDevice,
@@ -815,7 +862,7 @@ func (m *Manager) installStaticProxyRules() error {
 		}
 
 		// No conntrack for proxy upstream traffic that is heading to lxc+
-		if err := ip6tables.runProg([]string{
+		if err := m.ip6tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
 			"-o", "lxc+",
@@ -826,7 +873,7 @@ func (m *Manager) installStaticProxyRules() error {
 		}
 
 		// No conntrack for proxy upstream traffic that is heading to cilium_host
-		if err := ip6tables.runProg([]string{
+		if err := m.ip6tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
 			"-o", defaults.HostDevice,
@@ -838,7 +885,7 @@ func (m *Manager) installStaticProxyRules() error {
 
 		// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
 		// Matching needs to be the same as for the NOTRACK rule above.
-		if err := ip6tables.runProg([]string{
+		if err := m.ip6tables.runProg([]string{
 			"-t", "filter",
 			"-A", ciliumOutputChain,
 			"-m", "mark", "--mark", matchFromProxy,
@@ -849,7 +896,7 @@ func (m *Manager) installStaticProxyRules() error {
 
 		if m.haveSocketMatch {
 			// Direct inbound TPROXYed traffic towards the socket
-			if err := ip6tables.runProg(m.inboundProxyRedirectRule("-A")); err != nil {
+			if err := m.ip6tables.runProg(m.inboundProxyRedirectRule("-A")); err != nil {
 				return err
 			}
 		}
@@ -897,13 +944,13 @@ var tproxyMatch = regexp.MustCompile("CILIUM_PRE_mangle .*cilium: TPROXY")
 // copies old proxy rules
 func (m *Manager) copyProxyRules(oldChain string, match string) error {
 	if m.sharedCfg.EnableIPv4 {
-		if err := m.doCopyProxyRules(ip4tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain); err != nil {
+		if err := m.doCopyProxyRules(m.ip4tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain); err != nil {
 			return err
 		}
 	}
 
 	if m.sharedCfg.EnableIPv6 {
-		if err := m.doCopyProxyRules(ip6tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain); err != nil {
+		if err := m.doCopyProxyRules(m.ip6tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain); err != nil {
 			return err
 		}
 	}
@@ -1112,6 +1159,30 @@ func (m *Manager) RemoveNoTrackRules(ip netip.Addr, port uint16) {
 	<-reconciled
 }
 
+func (m *Manager) AddNoTrackHostPorts(namespace, name string, ports []string) {
+	if !m.sharedCfg.InstallNoConntrackIptRules {
+		return
+	}
+
+	podName := podAndNameSpace{podName: name, namespace: namespace}
+
+	reconciled := make(chan struct{})
+	m.reconcilerParams.addNoTrackHostPorts <- reconciliationRequest[noTrackHostPortsPodInfo]{noTrackHostPortsPodInfo{podName, ports}, reconciled}
+	<-reconciled
+}
+
+func (m *Manager) RemoveNoTrackHostPorts(namespace, name string) {
+	if !m.sharedCfg.InstallNoConntrackIptRules {
+		return
+	}
+
+	podName := podAndNameSpace{podName: name, namespace: namespace}
+
+	reconciled := make(chan struct{})
+	m.reconcilerParams.delNoTrackHostPorts <- reconciliationRequest[podAndNameSpace]{podName, reconciled}
+	<-reconciled
+}
+
 func (m *Manager) InstallProxyRules(proxyPort uint16, name string) {
 	reconciled := make(chan struct{})
 	m.reconcilerParams.proxies <- reconciliationRequest[proxyInfo]{proxyInfo{name, proxyPort}, reconciled}
@@ -1126,12 +1197,12 @@ func (m *Manager) doInstallProxyRules(proxyPort uint16, name string) error {
 	}
 
 	if m.sharedCfg.EnableIPv4 {
-		if err := m.addProxyRules(ip4tables, "127.0.0.1", proxyPort, name); err != nil {
+		if err := m.addProxyRules(m.ip4tables, "127.0.0.1", proxyPort, name); err != nil {
 			return err
 		}
 	}
 	if m.sharedCfg.EnableIPv6 {
-		if err := m.addProxyRules(ip6tables, "::1", proxyPort, name); err != nil {
+		if err := m.addProxyRules(m.ip6tables, "::1", proxyPort, name); err != nil {
 			return err
 		}
 	}
@@ -1142,9 +1213,9 @@ func (m *Manager) doInstallProxyRules(proxyPort uint16, name string) error {
 // GetProxyPorts enumerates all existing TPROXY rules in the datapath installed earlier with
 // InstallProxyRules and returns all proxy ports found.
 func (m *Manager) GetProxyPorts() map[string]uint16 {
-	prog := ip4tables
+	prog := m.ip4tables
 	if !m.sharedCfg.EnableIPv4 {
-		prog = ip6tables
+		prog = m.ip6tables
 	}
 
 	return m.doGetProxyPorts(prog)
@@ -1200,12 +1271,12 @@ func (m *Manager) getDeliveryInterface(ifName string) string {
 
 func (m *Manager) installForwardChainRules(ifName, localDeliveryInterface, forwardChain string) error {
 	if m.sharedCfg.EnableIPv4 {
-		if err := m.installForwardChainRulesIpX(ip4tables, ifName, localDeliveryInterface, forwardChain); err != nil {
+		if err := m.installForwardChainRulesIpX(m.ip4tables, ifName, localDeliveryInterface, forwardChain); err != nil {
 			return err
 		}
 	}
 	if m.sharedCfg.EnableIPv6 {
-		return m.installForwardChainRulesIpX(ip6tables, ifName, localDeliveryInterface, forwardChain)
+		return m.installForwardChainRulesIpX(m.ip6tables, ifName, localDeliveryInterface, forwardChain)
 	}
 
 	return nil
@@ -1313,7 +1384,7 @@ func (m *Manager) installMasqueradeRules(
 			devices = m.sharedCfg.MasqueradeInterfaces
 		}
 		family := netlink.FAMILY_V4
-		if prog == ip6tables {
+		if prog == m.ip6tables {
 			family = netlink.FAMILY_V6
 		}
 		initialPass := true
@@ -1459,7 +1530,7 @@ func (m *Manager) installMasqueradeRules(
 	}
 
 	loopbackAddr := "127.0.0.1"
-	if prog == ip6tables {
+	if prog == m.ip6tables {
 		loopbackAddr = "::1"
 	}
 
@@ -1599,7 +1670,7 @@ func (m *Manager) doInstallRules(state desiredState, firstInit bool) error {
 func (m *Manager) installRules(state desiredState) error {
 	// Install new rules
 	for _, c := range ciliumChains {
-		if err := c.add(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6); err != nil {
+		if err := c.add(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6, m.ip4tables, m.ip6tables); err != nil {
 			// do not return error for chain creation that are linked to disabled feeder rules
 			if isDisabledChain(m.cfg.DisableIptablesFeederRules, c.hook) {
 				m.logger.Warn(
@@ -1613,7 +1684,7 @@ func (m *Manager) installRules(state desiredState) error {
 		}
 	}
 
-	if err := m.installTunnelNoTrackRules(ip4tables, ip6tables); err != nil {
+	if err := m.installTunnelNoTrackRules(m.ip4tables, m.ip6tables); err != nil {
 		return fmt.Errorf("cannot install tunnel no track rules: %w", err)
 	}
 
@@ -1632,12 +1703,12 @@ func (m *Manager) installRules(state desiredState) error {
 	}
 
 	if m.sharedCfg.EnableIPv4 {
-		if err := m.installHostTrafficMarkRule(ip4tables); err != nil {
+		if err := m.installHostTrafficMarkRule(m.ip4tables); err != nil {
 			return fmt.Errorf("cannot install host traffic mark rule: %w", err)
 		}
 
 		if m.sharedCfg.IptablesMasqueradingIPv4Enabled && state.localNodeInfo.internalIPv4 != nil {
-			if err := m.installMasqueradeRules(ip4tables, state.devices.UnsortedList(), localDeliveryInterface,
+			if err := m.installMasqueradeRules(m.ip4tables, state.devices.UnsortedList(), localDeliveryInterface,
 				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv4NativeRoutingCIDR, state.localNodeInfo.ipv4AllocCIDR),
 				state.localNodeInfo.ipv4AllocCIDR,
 				state.localNodeInfo.internalIPv4.String(),
@@ -1648,12 +1719,12 @@ func (m *Manager) installRules(state desiredState) error {
 	}
 
 	if m.sharedCfg.EnableIPv6 {
-		if err := m.installHostTrafficMarkRule(ip6tables); err != nil {
+		if err := m.installHostTrafficMarkRule(m.ip6tables); err != nil {
 			return fmt.Errorf("cannot install host traffic mark rule: %w", err)
 		}
 
 		if m.sharedCfg.IptablesMasqueradingIPv6Enabled && state.localNodeInfo.internalIPv6 != nil {
-			if err := m.installMasqueradeRules(ip6tables, state.devices.UnsortedList(), localDeliveryInterface,
+			if err := m.installMasqueradeRules(m.ip6tables, state.devices.UnsortedList(), localDeliveryInterface,
 				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv6NativeRoutingCIDR, state.localNodeInfo.ipv6AllocCIDR),
 				state.localNodeInfo.ipv6AllocCIDR,
 				state.localNodeInfo.internalIPv6.String(),
@@ -1681,7 +1752,7 @@ func (m *Manager) installRules(state desiredState) error {
 
 	podsCIDR := state.localNodeInfo.ipv4NativeRoutingCIDR
 	if m.sharedCfg.InstallNoConntrackIptRules && podsCIDR != "" {
-		if err := m.addNoTrackPodTrafficRules(ip4tables, podsCIDR); err != nil {
+		if err := m.addNoTrackPodTrafficRules(m.ip4tables, podsCIDR); err != nil {
 			return fmt.Errorf("cannot install pod traffic no CT rules: %w", err)
 		}
 	}
@@ -1690,6 +1761,16 @@ func (m *Manager) installRules(state desiredState) error {
 		if err := m.installNoTrackRules(noTrackPodInfo.ip, noTrackPodInfo.port); err != nil {
 			return err
 		}
+	}
+
+	noTrackPorts := groupL4AddrsByProto(state.noTrackHostPorts.flatten().AsSlice())
+	for _, proto := range noTrackSupportedProtos {
+		if ports, ok := noTrackPorts[proto]; ok && len(ports) > 0 {
+			if err := m.installHostNoTrackRules(proto, ports); err != nil {
+				return err
+			}
+		}
+
 	}
 
 	for _, c := range ciliumChains {
@@ -1702,7 +1783,7 @@ func (m *Manager) installRules(state desiredState) error {
 			continue
 		}
 
-		if err := c.installFeeder(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6, m.cfg.PrependIptablesChains); err != nil {
+		if err := c.installFeeder(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6, m.cfg.PrependIptablesChains, m.ip4tables, m.ip6tables); err != nil {
 			return fmt.Errorf("cannot install feeder rule: %w", err)
 		}
 	}
@@ -1744,7 +1825,7 @@ func (m *Manager) addCiliumAcceptXfrmRules() error {
 		return nil
 	}
 
-	insertAcceptXfrm := func(ipt *ipt, table, chain string) error {
+	insertAcceptXfrm := func(ipt iptablesInterface, table, chain string) error {
 		matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
 		matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 
@@ -1771,13 +1852,13 @@ func (m *Manager) addCiliumAcceptXfrmRules() error {
 		switch chain.table {
 		case "filter", "nat":
 			if m.sharedCfg.EnableIPv4 {
-				if err := insertAcceptXfrm(ip4tables, chain.table, chain.name); err != nil {
+				if err := insertAcceptXfrm(m.ip4tables, chain.table, chain.name); err != nil {
 					return err
 				}
 			}
 			// ip6tables chain exists only if chain.ipv6 is true
 			if m.sharedCfg.EnableIPv6 && chain.ipv6 {
-				if err := insertAcceptXfrm(ip6tables, chain.table, chain.name); err != nil {
+				if err := insertAcceptXfrm(m.ip6tables, chain.table, chain.name); err != nil {
 					return err
 				}
 			}
@@ -1788,12 +1869,12 @@ func (m *Manager) addCiliumAcceptXfrmRules() error {
 
 func (m *Manager) addCiliumNoTrackXfrmRules() (err error) {
 	if m.sharedCfg.EnableIPv4 {
-		if err = m.ciliumNoTrackXfrmRules(ip4tables, "-I"); err != nil {
+		if err = m.ciliumNoTrackXfrmRules(m.ip4tables, "-I"); err != nil {
 			return
 		}
 	}
 	if m.sharedCfg.EnableIPv6 {
-		return m.ciliumNoTrackXfrmRules(ip6tables, "-I")
+		return m.ciliumNoTrackXfrmRules(m.ip6tables, "-I")
 	}
 	return nil
 }
@@ -1805,9 +1886,9 @@ func (m *Manager) installNoTrackRules(addr netip.Addr, port uint16) error {
 		return nil
 	}
 
-	prog := ip4tables
+	prog := m.ip4tables
 	if addr.Is6() {
-		prog = ip6tables
+		prog = m.ip6tables
 	}
 	for _, p := range noTrackPorts(port) {
 		if err := m.endpointNoTrackRules(prog, "-A", addr.String(), p); err != nil {
@@ -1824,9 +1905,9 @@ func (m *Manager) removeNoTrackRules(addr netip.Addr, port uint16) error {
 		return nil
 	}
 
-	prog := ip4tables
+	prog := m.ip4tables
 	if addr.Is6() {
-		prog = ip6tables
+		prog = m.ip6tables
 	}
 	for _, p := range noTrackPorts(port) {
 		if err := m.endpointNoTrackRules(prog, "-D", addr.String(), p); err != nil {
@@ -1889,7 +1970,7 @@ func (m *Manager) addCiliumENIRules() error {
 	// Note: these rules need the xt_connmark module (iptables usually
 	// loads it when required, unless loading modules after boot has been
 	// disabled).
-	if err := ip4tables.runProg([]string{
+	if err := m.ip4tables.runProg([]string{
 		"-t", "mangle",
 		"-A", ciliumPreMangleChain,
 		"-i", iface.Attrs().Name,
@@ -1899,7 +1980,7 @@ func (m *Manager) addCiliumENIRules() error {
 		return err
 	}
 
-	return ip4tables.runProg([]string{
+	return m.ip4tables.runProg([]string{
 		"-t", "mangle",
 		"-A", ciliumPreMangleChain,
 		"-i", "lxc+",
@@ -1971,4 +2052,169 @@ func allEgressMasqueradeCmds(allocRange string, snatDstExclusionCIDR string,
 		cmds = append(cmds, cmd)
 	}
 	return cmds
+}
+
+// hostNoTrackMultiPorts installs or removes a notrack rule matching multiple ports.
+// the use case for this is to skip conntrack when a pod uses hostNetwork to improve performance (pps/rps)
+// since conntrack affects the performance under load - which can occur under DDoS or traffic spikes for instance.
+func (m *Manager) hostNoTrackMultiPorts(prog iptablesInterface, cmd, proto string, ports []uint16) error {
+	// sort the slice containing the ports, and turn them into strings
+	slices.Sort(ports)
+	strPorts := make([]string, len(ports))
+	for i, p := range ports {
+		strPorts[i] = strconv.FormatUint(uint64(p), 10)
+	}
+
+	if err := prog.runProg([]string{
+		"-t", "raw",
+		cmd, ciliumPreRawChain,
+		"-p", strings.ToLower(proto),
+		"--match", "multiport",
+		"--dports", strings.Join(strPorts, ","),
+		"-m", "comment", "--comment", "cilium no-track-host-ports",
+		"-j", "CT",
+		"--notrack"}); err != nil {
+		return err
+	}
+
+	if err := prog.runProg([]string{
+		"-t", "raw",
+		cmd, ciliumOutputRawChain,
+		"-p", strings.ToLower(proto),
+		"--match", "multiport",
+		"--sports", strings.Join(strPorts, ","),
+		"-m", "comment", "--comment", "cilium no-track-host-ports return traffic",
+		"-j", "CT",
+		"--notrack"}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// groupL4AddrsByProto iterates over a slice of ports and returns a map with the port numbers
+// grouped by protocol.
+func groupL4AddrsByProto(ports []lb.L4Addr) map[lb.L4Type][]uint16 {
+	result := make(map[lb.L4Type][]uint16)
+
+	for _, p := range ports {
+		result[p.Protocol] = append(result[p.Protocol], p.Port)
+	}
+
+	return result
+}
+
+// replaceNoTrackHostPortRules replaces noTrackHostPort rules on a state change. the new ruleset is added, and the previous one is removed.
+func (m *Manager) replaceNoTrackHostPortRules(oldPorts, newPorts map[lb.L4Type][]uint16) error {
+	for _, proto := range noTrackSupportedProtos {
+		oldP := set.NewSet(oldPorts[proto]...)
+		newP := set.NewSet(newPorts[proto]...)
+
+		if newP.Equal(oldP) {
+			continue
+		}
+
+		if !newP.Empty() {
+			if err := m.installHostNoTrackRules(proto, newP.AsSlice()); err != nil {
+				return err
+			}
+		}
+
+		if !oldP.Empty() {
+			if err := m.cleanupHostNoTrackRules(proto, oldP.AsSlice()); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// installHostNoTrackRules installs a hostNoTrack multiport rule
+func (m *Manager) installHostNoTrackRules(proto lb.L4Type, p []uint16) error {
+	if m.sharedCfg.EnableIPv4 {
+		if err := m.hostNoTrackMultiPorts(m.ip4tables, "-A", proto, p); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 {
+		if err := m.hostNoTrackMultiPorts(m.ip6tables, "-A", proto, p); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// cleanupHostNoTrackRules cleans up a hostNoTrack multiport rule
+func (m *Manager) cleanupHostNoTrackRules(proto lb.L4Type, p []uint16) error {
+	if m.sharedCfg.EnableIPv4 {
+		if err := m.hostNoTrackMultiPorts(m.ip4tables, "-D", proto, p); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 {
+		if err := m.hostNoTrackMultiPorts(m.ip6tables, "-D", proto, p); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// removeNoTrackHostPorts removes notrack rules if the global set changes after removing an entry for the pod.
+func (m *Manager) removeNoTrackHostPorts(currentState noTrackHostPortsByPod, podName podAndNameSpace) error {
+	oldPorts := groupL4AddrsByProto(currentState.flatten().AsSlice())
+	delete(currentState, podName)
+	newPorts := groupL4AddrsByProto(currentState.flatten().AsSlice())
+
+	return m.replaceNoTrackHostPortRules(oldPorts, newPorts)
+}
+
+// setNoTrackHostPorts ensures that the notrack rules for host network pods are in place.
+// it removes the previous ruleset and adds the new ruleset if the global set of ports have changed.
+func (m *Manager) setNoTrackHostPorts(currentState noTrackHostPortsByPod, podName podAndNameSpace, ports []string) error {
+	parsedPorts := make([]lb.L4Addr, 0, len(ports))
+
+	for _, p := range ports {
+		if p == "" {
+			continue
+		}
+
+		parsed, err := lb.L4AddrFromString(p)
+		if err != nil {
+			return fmt.Errorf("failed to parse port/proto for %s: %w", p, err)
+		}
+
+		switch parsed.Protocol {
+		case lb.TCP, lb.UDP:
+			parsedPorts = append(parsedPorts, parsed)
+		default:
+			return fmt.Errorf("protocol %s is not unsupported for no-track-host-ports", parsed.Protocol)
+		}
+	}
+
+	newSet := set.NewSet(parsedPorts...)
+	if newSet.Empty() {
+		return m.removeNoTrackHostPorts(currentState, podName)
+	}
+
+	currentPodPorts, ok := currentState[podName]
+	if ok && currentPodPorts.Equal(newSet) {
+		// no changes
+		return nil
+	}
+
+	// grab the previously installed state
+	oldPorts := groupL4AddrsByProto(currentState.flatten().AsSlice())
+
+	// update current state, since we now know it has changed (or is a new entry altogether)
+	currentState[podName] = newSet
+
+	newPorts := groupL4AddrsByProto(currentState.flatten().AsSlice())
+
+	return m.replaceNoTrackHostPortRules(oldPorts, newPorts)
+
 }

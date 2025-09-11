@@ -365,6 +365,20 @@ To enable the iptables connection-tracking bypass:
              --set installNoConntrackIptablesRules=true \\
              --set kubeProxyReplacement=true
 
+If a Pod has the ``hostNetwork`` flag enabled, the ports for which connection tracking should be skipped
+must be explicitly listed using the ``network.cilium.io/no-track-host-ports`` annotation:
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      annotations:
+        network.cilium.io/no-track-host-ports: "999/tcp,8123/tcp"
+
+.. note::
+    Only UDP and TCP transport protocols are supported with the network.cilium.io/no-track-host-ports annotation at the time of writing.
+
 Hubble
 ======
 
