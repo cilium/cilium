@@ -156,6 +156,24 @@ func (rc *remoteCluster) Stop() {
 	rc.wg.Wait()
 }
 
+func (rc *remoteCluster) RevokeCache(ctx context.Context) {
+	rc.services.watcher.Drain()
+	rc.serviceExports.watcher.Drain()
+
+	prefixes := []string{
+		path.Join(kvstore.StateToCachePrefix(serviceStore.ServiceStorePrefix), rc.name),
+		path.Join(kvstore.StateToCachePrefix(mcsapitypes.ServiceExportStorePrefix), rc.name),
+	}
+	for _, prefix := range prefixes {
+		if err := rc.localBackend.DeletePrefix(ctx, prefix+"/"); err != nil {
+			err = fmt.Errorf("deleting prefix %q: %w", prefix+"/", err)
+			rc.logger.Error("Failed to remove cached data from kvstore, retrying", logfields.Error, err)
+			break
+		}
+	}
+
+}
+
 func (rc *remoteCluster) Remove(ctx context.Context) {
 	if rc.disableDrainOnDisconnection {
 		rc.logger.Warn("Remote cluster disconnected, but cached data removal is disabled. " +

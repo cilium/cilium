@@ -37,6 +37,7 @@ clustermesh-apiserver kvstoremesh [flags]
       --pprof-mutex-profile-fraction int             Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --pprof-port uint16                            Port that pprof listens on (default 6064)
       --prometheus-serve-addr string                 Address to serve Prometheus metrics
+      --remote-cluster-cache-ttl duration            The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked (default).
       --shell-sock-path string                       Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 
