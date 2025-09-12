@@ -102,7 +102,7 @@ jobs:
         include:
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8.6-20250812.093650'
+            kernel: 'rhel8.10-20251031.120020'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
@@ -249,7 +249,7 @@ jobs:
 
           - name: '13'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8.6-20250812.093650'
+            kernel: 'rhel8.10-20251031.120020'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
