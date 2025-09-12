@@ -450,23 +450,33 @@ func NewServer(logger *slog.Logger, config Config) (*Server, error) {
 // If it fails to get either of internal node address, it returns "0.0.0.0" if ipv4 or "::" if ipv6.
 func getAddresses(logger *slog.Logger) []string {
 	addresses := make([]string, 0, 2)
+	var ip4Addr, ip6Addr string
 
 	if option.Config.EnableIPv4 {
-		if ipv4 := node.GetInternalIPv4(logger); ipv4 != nil {
-			addresses = append(addresses, ipv4.String())
-		} else {
-			// if Get ipv4 fails, then listen on all ipv4 addr.
-			addresses = append(addresses, "0.0.0.0")
-		}
+	    if ip4 := node.GetInternalIPv4(logger); ip4 != nil {
+	        ip4Addr = ip4.String()
+	    } else {
+	        ip4Addr = "0.0.0.0"
+	    }
 	}
 
 	if option.Config.EnableIPv6 {
-		if ipv6 := node.GetInternalIPv6(logger); ipv6 != nil {
-			addresses = append(addresses, ipv6.String())
-		} else {
-			// if Get ipv6 fails, then listen on all ipv6 addr.
-			addresses = append(addresses, "::")
-		}
+	    if ip6 := node.GetInternalIPv6(logger); ip6 != nil {
+	        ip6Addr = ip6.String()
+	    } else {
+	        ip6Addr = "::"
+	    }
+	}
+
+	if ip4Addr == "0.0.0.0" && ip6Addr == "::" {
+	    ip4Addr = "" // drop IPv4 wildcard
+	}
+
+	if ip6Addr != "" {
+	    addresses = append(addresses, ip6Addr)
+	}
+	if ip4Addr != "" {
+	    addresses = append(addresses, ip4Addr)
 	}
 
 	return addresses
