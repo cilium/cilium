@@ -3232,6 +3232,10 @@
      - policyCIDRMatchMode is a list of entities that may be selected by CIDR selector. The possible value is "nodes".
      - string
      - ``nil``
+   * - :spelling:ignore:`policyDenyResponse`
+     - Configure what the response should be to ipv4 egress traffic denied by policy. Possible values:  - none (default)  - icmp
+     - string
+     - ``"none"``
    * - :spelling:ignore:`policyEnforcementMode`
      - The agent can be put into one of the three policy enforcement modes: default, always and never. ref: https://docs.cilium.io/en/stable/security/policy/intro/#policy-enforcement-modes
      - string

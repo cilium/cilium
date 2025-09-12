@@ -473,6 +473,9 @@ const (
 	// The value is aligned to 3 cache-lines, see above comment in TracePayloadLen.
 	TracePayloadLenOverlay = 192
 
+	// PolicyDenyResponse is the default action for ipv4 egress policy denials (drop packets silently)
+	PolicyDenyResponse = "none"
+
 	// TunnelPortVXLAN is the default VXLAN port
 	TunnelPortVXLAN uint16 = 8472
 	// TunnelPortGeneve is the default Geneve port

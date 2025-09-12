@@ -594,6 +594,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.ServiceNoBackendResponse)
 
 	flags.Int(option.TracePayloadlen, defaults.TracePayloadLen, "Length of payload to capture when tracing native packets.")
+
+	flags.String(option.PolicyDenyResponse, defaults.PolicyDenyResponse, "How to handle ipv4 egress traffic dropped by policy: either drop the packet (\"none\") or reject with an ICMP Destination Unreachable (\"icmp\")")
+	option.BindEnv(vp, option.PolicyDenyResponse)
+
 	option.BindEnv(vp, option.TracePayloadlen)
 
 	flags.Int(option.TracePayloadlenOverlay, defaults.TracePayloadLenOverlay, "Length of payload to capture when tracing overlay packets.")

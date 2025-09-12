@@ -169,7 +169,7 @@ int nodeport_no_backend2_reply_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_no_backend2_reply")
 int nodeport_no_backend2_reply_setup(struct __ctx_buff *ctx)
 {
-	if (__tail_no_service_ipv4(ctx))
+	if (generate_icmp4_reply(ctx, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH))
 		return TEST_ERROR;
 
 	/* Jump into the entrypoint */
