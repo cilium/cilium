@@ -36,6 +36,8 @@ type CiliumHealthConfig interface {
 	IsHealthCheckingEnabled() bool
 	// IsEndpointHealthCheckingEnabled checks whether enables active checks to virtual health endpoints are enabled
 	IsEndpointHealthCheckingEnabled() bool
+	// IsActiveHealthCheckingEnabled checks whether periodic active health checks are enabled
+	IsActiveHealthCheckingEnabled() bool
 }
 
 func (c Config) IsHealthCheckingEnabled() bool {
@@ -44,6 +46,10 @@ func (c Config) IsHealthCheckingEnabled() bool {
 
 func (c Config) IsEndpointHealthCheckingEnabled() bool {
 	return c.EnableEndpointHealthChecking
+}
+
+func (c Config) IsActiveHealthCheckingEnabled() bool {
+	return true
 }
 
 func (c Config) Flags(flags *pflag.FlagSet) {
