@@ -3998,6 +3998,9 @@
       },
       "type": "object"
     },
+    "ipTracingOptionType": {
+      "type": "integer"
+    },
     "ipam": {
       "properties": {
         "ciliumNodeUpdateRate": {

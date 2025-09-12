@@ -2600,6 +2600,10 @@
      - Configure the eBPF-based ip-masq-agent
      - object
      - ``{"enabled":false}``
+   * - :spelling:ignore:`ipTracingOptionType`
+     - Configure the IP tracing option type. This option is used to specify the IP option type to use for tracing. The value must be an integer between 1 and 255.
+     - int
+     - ``0``
    * - :spelling:ignore:`ipam.ciliumNodeUpdateRate`
      - Maximum rate at which the CiliumNode custom resource is updated.
      - string

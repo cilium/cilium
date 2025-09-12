@@ -1149,6 +1149,10 @@ gke:
 healthChecking: true
 # -- TCP port for the agent health API. This is not the port for cilium-health.
 healthPort: 9879
+# -- Configure the IP tracing option type.
+# This option is used to specify the IP option type to use for tracing.
+# The value must be an integer between 1 and 255.
+ipTracingOptionType: 0
 # -- Number of ICMP requests sent for each health check before marking a node or endpoint unreachable.
 healthCheckICMPFailureThreshold: 3
 # -- Configure the host firewall.
