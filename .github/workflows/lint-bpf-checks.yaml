@@ -2,11 +2,27 @@ name: BPF Checks
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request: {}
+  pull_request:
+    paths:
+      - '.github/workflows/lint-bpf-checks.yaml'
+      - 'bpf/**'
+      - 'contrib/coccinelle/**'
+      - 'contrib/scripts/builder.sh'
+      - 'images/**'
+      - 'pkg/bpf/**'
+      - 'Makefile*'
   push:
     branches:
       - main
       - ft/main/**
+    paths:
+      - '.github/workflows/lint-bpf-checks.yaml'
+      - 'bpf/**'
+      - 'contrib/coccinelle/**'
+      - 'contrib/scripts/builder.sh'
+      - 'images/**'
+      - 'pkg/bpf/**'
+      - 'Makefile*'
   merge_group:
     types: [checks_requested]
 
