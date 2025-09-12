@@ -15,6 +15,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type testEPManager struct {
@@ -230,4 +232,40 @@ func TestRemoveDisabledMaps(t *testing.T) {
 		sweeper.RemoveDisabledMaps()
 		require.Equal(t, depricatedMaps, testEPManager.removedPaths)
 	})
+}
+
+func TestRemoveDisabledMaps_RemovesSourceExclusionMapV4(t *testing.T) {
+	testEPManager := newTestEPManager([]string{nat.SourceExclusionMapNameIPv4})
+	bwManager := newTestBWManager()
+	sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+
+	origV4 := option.Config.EnableIPv4
+	origV6 := option.Config.EnableIPv6
+	option.Config.EnableIPv4 = false
+	option.Config.EnableIPv6 = true
+	t.Cleanup(func() {
+		option.Config.EnableIPv4 = origV4
+		option.Config.EnableIPv6 = origV6
+	})
+
+	sweeper.RemoveDisabledMaps()
+	require.Equal(t, []string{nat.SourceExclusionMapNameIPv4}, testEPManager.removedPaths)
+}
+
+func TestRemoveDisabledMaps_RemovesSourceExclusionMapV6(t *testing.T) {
+	testEPManager := newTestEPManager([]string{nat.SourceExclusionMapNameIPv6})
+	bwManager := newTestBWManager()
+	sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+
+	origV4 := option.Config.EnableIPv4
+	origV6 := option.Config.EnableIPv6
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = false
+	t.Cleanup(func() {
+		option.Config.EnableIPv4 = origV4
+		option.Config.EnableIPv6 = origV6
+	})
+
+	sweeper.RemoveDisabledMaps()
+	require.Equal(t, []string{nat.SourceExclusionMapNameIPv6}, testEPManager.removedPaths)
 }

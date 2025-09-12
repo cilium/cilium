@@ -202,6 +202,14 @@ type LocalNodeConfiguration struct {
 	MaglevConfig maglev.Config
 
 	KPRConfig kpr.KPRConfig
+
+	// IPv4MasqueradeSrcExclusionCIDRs is a list of IPv4 source CIDRs that should be excluded
+	// from masquerade.
+	IPv4MasqueradeSrcExclusionCIDRs []*cidr.CIDR
+
+	// IPv6MasqueradeSrcExclusionCIDRs is a list of IPv6 source CIDRs that should be excluded
+	// from masquerade.
+	IPv6MasqueradeSrcExclusionCIDRs []*cidr.CIDR
 }
 
 func (cfg *LocalNodeConfiguration) DeviceNames() []string {
@@ -214,6 +222,14 @@ func (cfg *LocalNodeConfiguration) GetIPv4PodSubnets() []*net.IPNet {
 
 func (cfg *LocalNodeConfiguration) GetIPv6PodSubnets() []*net.IPNet {
 	return cidr.CIDRsToIPNets(cfg.IPv6PodSubnets)
+}
+
+func (cfg *LocalNodeConfiguration) GetIPv4MasqueradeSrcExclusionCIDRs() []*net.IPNet {
+	return cidr.CIDRsToIPNets(cfg.IPv4MasqueradeSrcExclusionCIDRs)
+}
+
+func (cfg *LocalNodeConfiguration) GetIPv6MasqueradeSrcExclusionCIDRs() []*net.IPNet {
+	return cidr.CIDRsToIPNets(cfg.IPv6MasqueradeSrcExclusionCIDRs)
 }
 
 // NodeHandler handles node related events such as addition, update or deletion
