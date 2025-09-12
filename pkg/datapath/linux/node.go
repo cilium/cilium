@@ -671,22 +671,12 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 				return err
 			}
 		}
-		rule.Mark = linux_defaults.RouteMarkEncrypt
-		if err := route.ReplaceRule(rule); err != nil {
-			n.log.Error("Replace IPv4 route encrypt rule failed", logfields.Error, err)
-			return err
-		}
 	}
 
 	if n.nodeConfig.EnableIPv6 {
 		rule.Mark = linux_defaults.RouteMarkDecrypt
 		if err := route.ReplaceRuleIPv6(rule); err != nil {
 			n.log.Error("Replace IPv6 route decrypt rule failed", logfields.Error, err)
-			return err
-		}
-		rule.Mark = linux_defaults.RouteMarkEncrypt
-		if err := route.ReplaceRuleIPv6(rule); err != nil {
-			n.log.Error("Replace IPv6 route ecrypt rule failed", logfields.Error, err)
 			return err
 		}
 	}
@@ -708,6 +698,11 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 
 	if err := n.updateOrRemoveNodeRoutes(prevConfig.AuxiliaryPrefixes, newConfig.AuxiliaryPrefixes, true); err != nil {
 		return fmt.Errorf("failed to update or remove node routes: %w", err)
+	}
+
+	// Clean up stale IP rules for IPsec. This can be removed in the v1.20 release.
+	if err := n.removeEncryptRules(); err != nil {
+		n.log.Warn("Cannot cleanup previous encryption rule state.", logfields.Error, err)
 	}
 
 	if newConfig.EnableIPSec {
@@ -732,8 +727,8 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		}
 		n.registerIpsecMetricOnce()
 	} else {
-		if err := n.removeEncryptRules(); err != nil {
-			n.log.Warn("Cannot cleanup previous encryption rule state.", logfields.Error, err)
+		if err := n.removeDecryptRules(); err != nil {
+			n.log.Warn("Cannot cleanup previous decryption rule state.", logfields.Error, err)
 		}
 		if err := n.ipsecAgent.DeleteXFRM(ipsec.AllReqID); err != nil {
 			return fmt.Errorf("failed to delete xfrm policies on node configuration changed: %w", err)
