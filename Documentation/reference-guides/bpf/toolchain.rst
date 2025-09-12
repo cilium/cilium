@@ -151,24 +151,22 @@ Compiling iproute2
 ``````````````````
 
 Similar to the ``net`` (fixes only) and ``net-next`` (new features) kernel trees,
-the iproute2 git tree has two branches, namely ``master`` and ``net-next``. The
-``master`` branch is based on the ``net`` tree and the ``net-next`` branch is
-based against the ``net-next`` kernel tree. This is necessary, so that changes
-in header files can be synchronized in the iproute2 tree.
+iproute2 is split into two separate trees, namely ``iproute`` and ``iproute2-next``.
+The ``iproute2`` repository is based on the ``net`` tree and the ``iproute2-next``
+repository is based against the ``net-next`` kernel tree. This is necessary,
+so that changes in header files can be synchronized in the iproute2 tree.
 
-In order to clone the iproute2 ``master`` branch, the following command can
-be used:
+To clone the stable ``iproute2`` repository:
 
 .. code-block:: shell-session
 
     $ git clone https://git.kernel.org/pub/scm/network/iproute2/iproute2.git
 
-Similarly, to clone into mentioned ``net-next`` branch of iproute2, run the
-following:
+Similarly, to clone the mentioned development ``iproute2-next`` tree:
 
 .. code-block:: shell-session
 
-    $ git clone -b net-next https://git.kernel.org/pub/scm/network/iproute2/iproute2.git
+    $ git clone https://git.kernel.org/pub/scm/network/iproute2/iproute2-next.git
 
 After that, proceed with the build and installation:
 
