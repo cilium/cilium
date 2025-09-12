@@ -211,10 +211,11 @@ func (info *RoutingInfo) gatewayRoutes(ifindex, tableID int) []*netlink.Route {
 		},
 
 		{
-			Dst:      &net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
-			Table:    tableID,
-			Gw:       info.Gateway,
-			Protocol: linux_defaults.RTProto,
+			Dst:       &net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
+			Table:     tableID,
+			Gw:        info.Gateway,
+			Protocol:  linux_defaults.RTProto,
+			LinkIndex: ifindex,
 		},
 	}
 
