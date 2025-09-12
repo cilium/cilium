@@ -2,7 +2,7 @@ name: 'Resolve Kernel Version'
 description: 'Resolves short kernel version to full timestamped version'
 inputs:
   kernel:
-    description: 'Short kernel version (e.g., 5.10, 6.1, rhel8.6)'
+    description: 'Short kernel version (e.g., 5.10, 6.1, rhel8.10)'
     required: true
 outputs:
   full:
