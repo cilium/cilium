@@ -1,6 +1,6 @@
 kernels:
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  rhel8.6: 'rhel8.6-20250812.093650'
+  rhel8.10: 'rhel8.10-20251031.120020'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   5.4: '5.4-20251031.120020'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
