@@ -22,6 +22,7 @@ import (
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -57,6 +58,7 @@ type endpointCreator struct {
 	monitorAgent     monitoragent.Agent
 	policyMapFactory policymap.Factory
 	policyRepo       policy.PolicyRepository
+	policyFetcher    compute.PolicyRecomputer
 	ipcache          *ipcache.IPCache
 	proxy            endpoint.EndpointProxy
 	allocator        cache.IdentityAllocator
@@ -86,6 +88,7 @@ type endpointManagerParams struct {
 	MonitorAgent        monitoragent.Agent
 	PolicyMapFactory    policymap.Factory
 	PolicyRepo          policy.PolicyRepository
+	PolicyFetcher       compute.PolicyRecomputer
 	IPCache             *ipcache.IPCache
 	Proxy               *proxy.Proxy
 	Allocator           cache.IdentityAllocator
@@ -110,6 +113,7 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 		monitorAgent:     p.MonitorAgent,
 		policyMapFactory: p.PolicyMapFactory,
 		policyRepo:       p.PolicyRepo,
+		policyFetcher:    p.PolicyFetcher,
 		ipcache:          p.IPCache,
 		proxy:            p.Proxy,
 		allocator:        p.Allocator,
@@ -135,6 +139,7 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 		c.monitorAgent,
 		c.policyMapFactory,
 		c.policyRepo,
+		c.policyFetcher,
 		c.ipcache,
 		c.proxy,
 		c.allocator,
@@ -160,6 +165,7 @@ func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, erro
 		c.monitorAgent,
 		c.policyMapFactory,
 		c.policyRepo,
+		c.policyFetcher,
 		c.ipcache,
 		c.proxy,
 		c.allocator,
@@ -185,6 +191,7 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 		c.monitorAgent,
 		c.policyMapFactory,
 		c.policyRepo,
+		c.policyFetcher,
 		c.ipcache,
 		c.proxy,
 		c.allocator,
@@ -220,6 +227,7 @@ func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 		c.monitorAgent,
 		c.policyMapFactory,
 		c.policyRepo,
+		c.policyFetcher,
 		c.ipcache,
 		c.proxy,
 		c.allocator,

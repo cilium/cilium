@@ -4,6 +4,7 @@
 package policy
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -197,15 +198,23 @@ func (cip *cachedSelectorPolicy) getPolicy() *selectorPolicy {
 	return cip.policy.Load()
 }
 
+// setPolicyWithManualRelease updates the policy reference and returns the old policy
+// if it needs to be released by the caller. This is the base implementation.
+func (cip *cachedSelectorPolicy) setPolicyWithManualRelease(policy *selectorPolicy) (oldPolicy *selectorPolicy, needsRelease bool) {
+	oldPolicy = cip.policy.Swap(policy)
+	needsRelease = oldPolicy != nil
+	return
+}
+
 // setPolicy updates the reference to the SelectorPolicy that is cached.
 // Calls Detach() on the old policy, if any. It passes the endpointID of
 // the endpoint that initiated the old selector policy detach. Since detach
 // can trigger endpoint regenerations of all it users, this ensures
 // that endpoints do not continuously update themselves.
 func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy, endpointID uint64) {
-	oldPolicy := cip.policy.Swap(policy)
-	if oldPolicy != nil {
+	if oldPolicy, needsRelease := cip.setPolicyWithManualRelease(policy); needsRelease {
 		// Release the references the previous policy holds on the selector cache.
-		oldPolicy.detach(false, endpointID)
+		// oldPolicy.detach(false, endpointID)
+		fmt.Printf("chris debug: setPolicy needs release for %+v oldPolicy=%+v ID=%v\n", policy, oldPolicy, endpointID)
 	}
 }
