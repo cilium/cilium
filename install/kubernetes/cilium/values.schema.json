@@ -4206,6 +4206,12 @@
     "kubeConfigPath": {
       "type": "string"
     },
+    "kubeProxyReplacement": {
+      "type": [
+        "string",
+        "boolean"
+      ]
+    },
     "kubeProxyReplacementHealthzBindAddr": {
       "type": "string"
     },
