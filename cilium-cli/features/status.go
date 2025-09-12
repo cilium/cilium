@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	cmdMetricsList = []string{"cilium", "metrics", "list", "-p", "cilium_feature", "-o", "json"}
+	subCmdMetricsList = []string{"metrics", "list", "-p", "cilium_.*feature", "-o", "json"}
 )
 
 // perDeployNodeMetrics maps a deployment name to their node metrics
@@ -247,7 +247,8 @@ func (s *Feature) fetchStatusConcurrently(ctx context.Context, pods []corev1.Pod
 }
 
 func (s *Feature) fetchCiliumFeatureMetricsFromPod(ctx context.Context, pod corev1.Pod) ([]*models.Metric, error) {
-	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmdMetricsList)
+	agentCmd := append([]string{"cilium"}, subCmdMetricsList...)
+	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, agentCmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to features status from %s: %w", pod.Name, err)
 	}
@@ -266,8 +267,8 @@ func (s *Feature) fetchCiliumOperatorFeatureMetricsFromPod(ctx context.Context, 
 			return nil, fmt.Errorf("operator command not found in Cilium Operator pod. Use --operator-container-command to define it")
 		}
 	}
-	cmd := []string{operatorCmd, "metrics", "list", "-p", "cilium_operator_feature", "-o", "json"}
-	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.OperatorContainerName, cmd)
+	operatorCmds := append([]string{operatorCmd}, subCmdMetricsList...)
+	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.OperatorContainerName, operatorCmds)
 	if err != nil && !strings.Contains(err.Error(), "level=debug") {
 		return []*models.Metric{}, fmt.Errorf("failed to get features status from %s: %w", pod.Name, err)
 	}
