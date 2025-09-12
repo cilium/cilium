@@ -23,6 +23,7 @@ Manage transparent encryption
 ### SEE ALSO
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
+* [cilium-dbg encrypt dump-xfrm](cilium-dbg_encrypt_dump-xfrm.md)	 - Dump structured XFRM states for test facilitation (internal use only)
 * [cilium-dbg encrypt flush](cilium-dbg_encrypt_flush.md)	 - Flushes the current IPsec state
 * [cilium-dbg encrypt status](cilium-dbg_encrypt_status.md)	 - Display the current encryption state
 
