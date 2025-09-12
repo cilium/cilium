@@ -161,6 +161,12 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	policyMap4 := egressmap.CreatePrivatePolicyMap4(lc, nil, egressmap.DefaultPolicyConfig)
 	policyMap6 := egressmap.CreatePrivatePolicyMap6(lc, nil, egressmap.DefaultPolicyConfig)
 
+	// For testing, enable both IPv4 and IPv6
+	ipFamilySupport := IPFamilySupport{
+		IPv4: true,
+		IPv6: true,
+	}
+
 	k.manager, err = newEgressGatewayManager(Params{
 		Logger:            logger,
 		Lifecycle:         lc,
@@ -173,7 +179,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		Nodes:             k.nodes,
 		Endpoints:         k.endpoints,
 		Sysctl:            k.sysctl,
-	})
+	}, ipFamilySupport)
 	require.NoError(t, err)
 	require.NotNil(t, k.manager)
 
