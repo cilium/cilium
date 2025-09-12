@@ -147,10 +147,6 @@ enum {
 #define EVENT_SOURCE 0
 #endif
 
-#ifdef DEBUG
-#include "events.h"
-#endif
-
 #include "notify.h"
 
 struct debug_msg {
@@ -166,9 +162,14 @@ struct debug_capture_msg {
 	__u32		arg2;
 };
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_TAGGED)
+#include "events.h"
 #include "common.h"
 #include "utils.h"
+
+#ifdef DEBUG_TAGGED
+#include "trace_helpers.h"
+#endif
 
 /* This takes both literals and modifiers, e.g.,
  * printk("hello\n");
@@ -194,6 +195,10 @@ struct debug_capture_msg {
 static __always_inline void cilium_dbg(struct __ctx_buff *ctx, __u8 type,
 				       __u32 arg1, __u32 arg2)
 {
+#ifdef DEBUG_TAGGED
+	if (!load_ip_trace_id())
+		return;
+#endif
 	struct debug_msg msg = {
 		__notify_common_hdr(CILIUM_NOTIFY_DBG_MSG, type),
 		.arg1	= arg1,
@@ -207,6 +212,10 @@ static __always_inline void cilium_dbg(struct __ctx_buff *ctx, __u8 type,
 static __always_inline void cilium_dbg3(struct __ctx_buff *ctx, __u8 type,
 					__u32 arg1, __u32 arg2, __u32 arg3)
 {
+#ifdef DEBUG_TAGGED
+	if (!load_ip_trace_id())
+		return;
+#endif
 	struct debug_msg msg = {
 		__notify_common_hdr(CILIUM_NOTIFY_DBG_MSG, type),
 		.arg1	= arg1,
@@ -222,6 +231,11 @@ static __always_inline void cilium_dbg3(struct __ctx_buff *ctx, __u8 type,
 static __always_inline void cilium_dbg_capture2(struct __ctx_buff *ctx, __u8 type,
 						__u32 arg1, __u32 arg2)
 {
+#ifdef DEBUG_TAGGED
+	if (!load_ip_trace_id())
+		return;
+#endif
+
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
 	struct debug_capture_msg msg = {
@@ -241,6 +255,7 @@ static __always_inline void cilium_dbg_capture(struct __ctx_buff *ctx, __u8 type
 {
 	cilium_dbg_capture2(ctx, type, arg1, 0);
 }
+
 #else
 # define printk(fmt, ...)					\
 		do { } while (0)
