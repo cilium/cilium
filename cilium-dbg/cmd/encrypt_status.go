@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
+//go:build linux
+// +build linux
+
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"reflect"
@@ -21,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
@@ -51,8 +56,33 @@ var encryptStatusCmd = &cobra.Command{
 	},
 }
 
+var encryptDumpXfrmCmd = &cobra.Command{
+	Use:   "dump-xfrm",
+	Short: "Dump structured XFRM states for test facilitation (internal use only)",
+	Long: `Dump structured XFRM states for test facilitation.
+
+This command extracts XFRM state information and outputs it in JSON format
+for use by integration tests. Only Cilium-managed states (ReqID == 1) are
+included in the output.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		common.RequireRootPrivilege("cilium encrypt dump-xfrm")
+		states, err := dumpXfrmStates()
+		if err != nil {
+			Fatalf("Cannot dump XFRM states: %s", err)
+		}
+
+		output, err := json.Marshal(states)
+		if err != nil {
+			Fatalf("Cannot marshal XFRM states to JSON: %s", err)
+		}
+
+		fmt.Println(string(output))
+	},
+}
+
 func init() {
 	EncryptCmd.AddCommand(encryptStatusCmd)
+	EncryptCmd.AddCommand(encryptDumpXfrmCmd)
 	command.AddOutputOption(encryptStatusCmd)
 }
 
@@ -240,4 +270,49 @@ func printEncryptionStatus(status models.EncryptionStatus) {
 			fmt.Printf("\tNumber of peers: %d\n", s.PeerCount)
 		}
 	}
+}
+
+// dumpXfrmStates extracts XFRM state information using netlink
+func dumpXfrmStates() ([]types.XfrmStateInfo, error) {
+	states, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list XFRM states: %w", err)
+	}
+
+	var ciliumStates []types.XfrmStateInfo
+	for _, state := range states {
+		// Only include Cilium-managed states (ReqID == 1)
+		if state.Reqid == 1 {
+			stateInfo := types.XfrmStateInfo{
+				Src:   state.Src.String(),
+				Dst:   state.Dst.String(),
+				SPI:   uint32(state.Spi),
+				ReqID: uint32(state.Reqid),
+			}
+
+			// Extract algorithm and key information
+			if state.Auth != nil {
+				stateInfo.AuthAlg = state.Auth.Name
+				if len(state.Auth.Key) > 0 {
+					stateInfo.AuthKey = fmt.Sprintf("%x", state.Auth.Key)
+				}
+			}
+			if state.Crypt != nil {
+				stateInfo.CryptAlg = state.Crypt.Name
+				if len(state.Crypt.Key) > 0 {
+					stateInfo.CryptKey = fmt.Sprintf("%x", state.Crypt.Key)
+				}
+			}
+			if state.Aead != nil {
+				stateInfo.AeadAlg = state.Aead.Name
+				if len(state.Aead.Key) > 0 {
+					stateInfo.AeadKey = fmt.Sprintf("%x", state.Aead.Key)
+				}
+			}
+
+			ciliumStates = append(ciliumStates, stateInfo)
+		}
+	}
+
+	return ciliumStates, nil
 }
