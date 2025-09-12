@@ -56,7 +56,7 @@ func (h *ciliumHealthManager) launchCiliumNodeHealth(spec *healthApi.Spec, initi
 		HealthAPISpec: spec,
 	}
 
-	ch.server, err = server.NewServer(h.logger, config)
+	ch.server, err = server.NewServer(h.logger, config, h.healthConfig.IsActiveHealthCheckingEnabled())
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate cilium-health server: %w", err)
 	}
