@@ -3233,8 +3233,7 @@ func (c *DaemonConfig) validateVTEP(vp *viper.Viper) error {
 	vtepCidrMask := vp.GetString(VtepMask)
 	vtepMACs := vp.GetStringSlice(VtepMAC)
 
-	if (len(vtepEndpoints) < 1) ||
-		len(vtepEndpoints) != len(vtepCIDRs) ||
+	if len(vtepEndpoints) != len(vtepCIDRs) ||
 		len(vtepEndpoints) != len(vtepMACs) {
 		return fmt.Errorf("VTEP configuration must have the same number of Endpoint, VTEP and MAC configurations (Found %d endpoints, %d MACs, %d CIDR ranges)", len(vtepEndpoints), len(vtepMACs), len(vtepCIDRs))
 	}
