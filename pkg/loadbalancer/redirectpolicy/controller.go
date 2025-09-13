@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 	"maps"
+	"net/netip"
 	"slices"
 	"strings"
 
@@ -281,7 +282,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 			continue
 		}
 		if types.Matches(lrp.BackendSelector, ciliumLabels.K8sSet(pod.Labels)) {
-			matchingPods = append(matchingPods, getPodInfo(pod))
+			matchingPods = append(matchingPods, getPodInfo(pod, lrp.BackendIP))
 		}
 	}
 	c.updateRedirectBackends(wtxn, lrp, matchingPods)
@@ -614,14 +615,21 @@ type podAddr struct {
 	portName string
 }
 
-func podAddrs(pod *slim_corev1.Pod) (addrs []podAddr) {
+func getPodBackendAddrs(pod *slim_corev1.Pod, toIP netip.Addr) (addrs []podAddr) {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	if len(podIPs) == 0 {
 		// IPs not available yet.
 		return nil
 	}
 	for _, podIP := range podIPs {
-		addrCluster, err := cmtypes.ParseAddrCluster(podIP)
+		var (
+			addrCluster cmtypes.AddrCluster
+			err         error
+		)
+		if toIP.IsValid() {
+			podIP = toIP.String()
+		}
+		addrCluster, err = cmtypes.ParseAddrCluster(podIP)
 		if err != nil {
 			continue
 		}
@@ -652,11 +660,11 @@ type podInfo struct {
 	labels         map[string]string
 }
 
-func getPodInfo(pod daemonk8s.LocalPod) podInfo {
+func getPodInfo(pod daemonk8s.LocalPod, toIP netip.Addr) podInfo {
 	return podInfo{
 		namespace:      pod.Namespace,
 		namespacedName: pod.Namespace + "/" + pod.Name,
-		addrs:          podAddrs(pod.Pod),
+		addrs:          getPodBackendAddrs(pod.Pod, toIP),
 		labels:         pod.Labels,
 	}
 }
