@@ -188,7 +188,7 @@ const (
 // lower number signifies a wider scope with RT_SCOPE_UNIVERSE (0) being
 // the widest.
 //
-// This defaults to RT_SCOPE_LINK-1 (defaults.AddressScopeMax) and can be
+// This defaults to RT_SCOPE_HOST (defaults.AddressScopeMax) and can be
 // set by the user with --local-max-addr-scope.
 type AddressScopeMax uint8
 
