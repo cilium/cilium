@@ -4,6 +4,7 @@
 package manager
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -1426,20 +1427,22 @@ func TestNodesStartupPruning(t *testing.T) {
 	checkNodeFileMatches := func(t *testing.T, stateDir string, nodes ...nodeTypes.Node) {
 		path := filepath.Join(stateDir, nodesFilename)
 
-		// Wait until the file exists. The node deletion triggers the write, hence
-		// this shouldn't take long.
+		var prevBytes []byte
+
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			assert.FileExists(c, path)
-		}, time.Second, 10*time.Millisecond)
-		nwf, err := os.Open(path)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			nwf.Close()
-		})
-		var nl []nodeTypes.Node
-		assert.NoError(t, json.NewDecoder(nwf).Decode(&nl))
-		assert.ElementsMatch(t, nodes, nl)
-		require.NoError(t, os.Remove(path))
+			checkpointBytes, err := os.ReadFile(path)
+			assert.NoError(c, err)
+
+			if bytes.Equal(checkpointBytes, prevBytes) {
+				c.FailNow()
+			}
+
+			prevBytes = checkpointBytes
+
+			var nl []nodeTypes.Node
+			assert.NoError(c, json.Unmarshal(checkpointBytes, &nl))
+			assert.ElementsMatch(c, nodes, nl)
+		}, time.Second*2, 100*time.Millisecond)
 	}
 
 	t.Run("cluster nodes synced first", func(t *testing.T) {
