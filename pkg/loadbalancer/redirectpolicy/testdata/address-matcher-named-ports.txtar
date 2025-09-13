@@ -35,7 +35,7 @@ k8s/delete lrp-addr.yaml
 # Tables and maps should now be empty.
 * db/empty services frontends backends localredirectpolicies
 
-# Add LRP with single named port.
+# Add LRP with single named port and container has more than one ports to cover https://github.com/cilium/cilium/issues/41407.
 k8s/add lrp-addr-single.yaml
 k8s/add pod-single.yaml
 
@@ -177,6 +177,8 @@ spec:
       image: nginx
       ports:
         - containerPort: 50
+          protocol: TCP
+        - containerPort: 51
           protocol: TCP
   nodeName: testnode
 status:
