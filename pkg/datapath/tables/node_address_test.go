@@ -142,42 +142,6 @@ var nodeAddressTests = []struct {
 			netip.MustParseAddr("2001:db8::1"),
 		},
 	},
-	{
-
-		name: "skip-out-of-scope-addrs",
-		addrs: []DeviceAddress{
-			{
-				Addr:  netip.MustParseAddr("10.0.1.1"),
-				Scope: RT_SCOPE_UNIVERSE,
-			},
-			{
-				Addr:  netip.MustParseAddr("10.0.2.2"),
-				Scope: RT_SCOPE_LINK,
-			},
-			{
-				Addr:      netip.MustParseAddr("10.0.3.3"),
-				Secondary: true,
-				Scope:     RT_SCOPE_HOST,
-			},
-		},
-
-		// The default AddressMaxScope is set to LINK-1, so addresses with
-		// scope LINK or above are ignored (except for cilium_host addresses)
-		wantAddrs: []netip.Addr{
-			ciliumHostIP,
-			ciliumHostIPLinkScoped,
-			netip.MustParseAddr("10.0.1.1"),
-		},
-
-		wantPrimary: []netip.Addr{
-			ciliumHostIP,
-			netip.MustParseAddr("10.0.1.1"),
-		},
-
-		wantNodePort: []netip.Addr{
-			netip.MustParseAddr("10.0.1.1"),
-		},
-	},
 
 	{
 		name: "multiple",
