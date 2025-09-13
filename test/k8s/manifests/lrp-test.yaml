@@ -151,7 +151,7 @@ metadata:
     id: be3
     role: lrpAddrBackend
 spec:
-  # Host networked backends test kiam like use cases.
+  # Host networked backends test use cases.
   hostNetwork: true
   containers:
     - name: web

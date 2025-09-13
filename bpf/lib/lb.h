@@ -1832,9 +1832,9 @@ lb4_to_lb6(struct __ctx_buff *ctx __maybe_unused,
  * namespace. Currently only v4 and v4-in-v6, but no plain v6 is supported.
  *
  * For example, in EKS cluster, a local-redirect service exists with the AWS
- * metadata IP, port as the frontend <169.254.169.254, 80> and kiam proxy as a
- * backend Pod. When traffic destined to the frontend originates from the kiam
- * Pod in namespace ns1 (host ns when the kiam proxy Pod is deployed in
+ * metadata IP, port as the frontend <169.254.169.254, 80> and the proxy as a
+ * backend Pod. When traffic destined to the frontend originates from the
+ * Pod in namespace ns1 (host ns when the proxy Pod is deployed in
  * hostNetwork mode or regular Pod ns) and the Pod is selected as a backend, the
  * traffic would get looped back to the proxy Pod.
  */
