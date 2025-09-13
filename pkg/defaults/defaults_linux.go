@@ -10,5 +10,5 @@ import (
 const (
 	// AddressScopeMax controls the maximum address scope for addresses to be
 	// considered local ones with HOST_ID in the ipcache
-	AddressScopeMax = int(netlink.SCOPE_LINK) - 1
+	AddressScopeMax = int(netlink.SCOPE_HOST)
 )
