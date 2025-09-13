@@ -38,6 +38,7 @@ type RemoteCluster interface {
 
 	Stop()
 	Remove(ctx context.Context)
+	RevokeCache(ctx context.Context)
 }
 
 // remoteCluster represents another cluster other than the cluster the agent is
@@ -59,6 +60,15 @@ type remoteCluster struct {
 	resolvers []dial.Resolver
 
 	controllers *controller.Manager
+
+	// cacheTTL is the time to live for the cache of a remote cluster after
+	// connectivity to the remote kvstore is lost. If the connection is not
+	// re-established within this duration, the cached data is revoked to
+	// prevent stale state.
+	cacheTTL time.Duration
+
+	// cacheTTLTimer is the timer that triggers the cache invalidation.
+	cacheTTLTimer *time.Timer
 
 	// wg is used to wait for the termination of the goroutines spawned by the
 	// controller upon reconnection for long running background tasks.
@@ -142,10 +152,26 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				// connection
 				rc.logger.Debug("Waiting for connection to be established")
 
+				var timerC <-chan time.Time
+				rc.mutex.RLock()
+				if rc.cacheTTLTimer != nil {
+					timerC = rc.cacheTTLTimer.C
+				}
+				rc.mutex.RUnlock()
+
 				var err error
 				select {
 				case err = <-errChan:
 				case err = <-clusterLock.errors:
+				case <-timerC:
+					err = fmt.Errorf("remote cluster cache TTL timeout exceeded %v", rc.cacheTTL)
+					rc.logger.Warn("Unable to establish etcd connection to remote cluster before cached TTL. Removing cached data.", logfields.Error, err)
+					rc.RevokeCache(ctx)
+					rc.mutex.Lock()
+					rc.cacheTTLTimer = nil
+					rc.mutex.Unlock()
+				case <-ctx.Done():
+					return ctx.Err()
 				}
 
 				if err != nil {
@@ -166,6 +192,11 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				rc.mutex.Lock()
 				rc.backend = backend
 				rc.etcdClusterID = etcdClusterID
+				if rc.cacheTTLTimer != nil {
+					rc.logger.Debug("Connection re-established, stopping cache TTL timer")
+					rc.cacheTTLTimer.Stop()
+					rc.cacheTTLTimer = nil
+				}
 				rc.mutex.Unlock()
 
 				ctx, cancel := context.WithCancel(ctx)
@@ -256,6 +287,10 @@ func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOp
 		rc.metricLastFailureTimestamp.SetToCurrentTime()
 		rc.metricTotalFailures.Set(float64(rc.failures))
 		rc.metricReadinessStatus.Set(metrics.BoolToFloat64(rc.isReadyLocked()))
+		if rc.cacheTTL > 0 && rc.cacheTTLTimer == nil {
+			rc.logger.Warn("Starting cache TTL timer", "configured TTL", rc.cacheTTL)
+			rc.cacheTTLTimer = time.NewTimer(rc.cacheTTL)
+		}
 		rc.mutex.Unlock()
 
 		rc.restartRemoteConnection()

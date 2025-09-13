@@ -146,6 +146,10 @@ func (rc *remoteCluster) Stop() {
 	rc.synced.Stop()
 }
 
+func (rc *remoteCluster) RevokeCache(ctx context.Context) {
+	rc.Remove(ctx)
+}
+
 func (rc *remoteCluster) Remove(context.Context) {
 	// Draining shall occur only when the configuration for the remote cluster
 	// is removed, and not in case the agent is shutting down, otherwise we

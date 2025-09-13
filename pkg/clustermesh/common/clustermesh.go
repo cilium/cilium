@@ -142,6 +142,7 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		name:                         name,
 		configPath:                   path,
 		clusterSizeDependantInterval: cm.conf.ClusterSizeDependantInterval,
+		cacheTTL:                     cm.conf.ClusterInfo.RemoteClusterCacheTTL,
 
 		resolvers: cm.conf.Resolvers,
 
