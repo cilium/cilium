@@ -13,8 +13,7 @@ import (
 type bgpControlPlane struct{}
 
 func (t bgpControlPlane) build(ct *check.ConnectivityTest, _ map[string]string) {
-	// prefix the test name with `seq-` to run it sequentially
-	newTest("seq-bgp-control-plane-v1", ct).
+	newTest("bgp-control-plane-v1", ct).
 		WithCondition(func() bool {
 			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) && ct.Params().IncludeUnsafeTests
 		}).
@@ -24,8 +23,7 @@ func (t bgpControlPlane) build(ct *check.ConnectivityTest, _ map[string]string) 
 		).
 		WithScenarios(tests.BGPAdvertisements(1))
 
-	// prefix the test name with `seq-` to run it sequentially
-	newTest("seq-bgp-control-plane-v2", ct).
+	newTest("bgp-control-plane-v2", ct).
 		WithCondition(func() bool {
 			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) && ct.Params().IncludeUnsafeTests
 		}).
