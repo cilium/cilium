@@ -269,7 +269,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 			break
 		}
 		if lrp.BackendSelector.Matches(labels.Set(pod.Labels)) {
-			matchingPods = append(matchingPods, getPodInfo(pod))
+			matchingPods = append(matchingPods, getPodInfo(pod, lrp.BackendPorts))
 		}
 	}
 	c.updateRedirectBackends(wtxn, ws, lrp, matchingPods)
@@ -587,19 +587,33 @@ type podAddr struct {
 	portName string
 }
 
-func podAddrs(pod *slim_corev1.Pod) (addrs []podAddr) {
+func getPodBackendAddrs(pod *slim_corev1.Pod, beports []bePortInfo) (addrs []podAddr) {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	if len(podIPs) == 0 {
 		// IPs not available yet.
 		return nil
 	}
 	for _, podIP := range podIPs {
-		addrCluster, err := cmtypes.ParseAddrCluster(podIP)
+		var (
+			addrCluster cmtypes.AddrCluster
+			err         error
+		)
+		addrCluster, err = cmtypes.ParseAddrCluster(podIP)
 		if err != nil {
 			continue
 		}
 		for _, container := range pod.Spec.Containers {
 			for _, port := range container.Ports {
+				// If an override exists in beports, try to use it instead
+				for _, p := range beports {
+					if p.l4Addr.Port == uint16(port.ContainerPort) && p.l4Addr.Protocol == lb.L4Type(port.Protocol) {
+						if p.overrideIP != nil {
+							if ac, err := cmtypes.ParseAddrCluster(p.overrideIP.String()); err == nil {
+								addrCluster = ac
+							}
+						}
+					}
+				}
 				l4addr := lb.NewL4Addr(lb.L4Type(port.Protocol), uint16(port.ContainerPort))
 				addr := podAddr{
 					L3n4Addr: lb.NewL3n4Addr(
@@ -625,11 +639,11 @@ type podInfo struct {
 	labels         map[string]string
 }
 
-func getPodInfo(pod daemonk8s.LocalPod) podInfo {
+func getPodInfo(pod daemonk8s.LocalPod, beports []bePortInfo) podInfo {
 	return podInfo{
 		namespace:      pod.Namespace,
 		namespacedName: pod.Namespace + "/" + pod.Name,
-		addrs:          podAddrs(pod.Pod),
+		addrs:          getPodBackendAddrs(pod.Pod, beports),
 		labels:         pod.Labels,
 	}
 }
