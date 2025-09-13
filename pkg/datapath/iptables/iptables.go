@@ -1566,7 +1566,7 @@ func (m *Manager) installMasqueradeRules(
 	// This is required for:
 	//  - portmap/host if both source and destination are
 	//    on the same node
-	//  - kiam if source and server are on the same node
+	//  - some proxy if source and server are on the same node
 	if !m.sharedCfg.EnableEndpointRoutes {
 		if err := prog.runProg([]string{
 			"-t", "nat",
