@@ -8,11 +8,13 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	hubbleDefaults "github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
+	peercell "github.com/cilium/cilium/pkg/hubble/peer/cell"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -88,3 +90,17 @@ func getDefaultMonitorQueueSize(numCPU int) int {
 	monitorQueueSize := min(numCPU*ciliumDefaults.MonitorQueueSizePerCPU, ciliumDefaults.MonitorQueueSizePerCPUMaximum)
 	return monitorQueueSize
 }
+
+// ConfigProviders provides configuration objects for Hubble components.
+// This group creates and provides configuration structs by combining
+// different configuration sources (hubble config, TLS config, etc.).
+var ConfigProviders = cell.Group(
+	// Provide HubbleConfig struct for peer service and other components
+	cell.ProvidePrivate(func(cfg config, tlsCfg certloaderConfig) *peercell.HubbleConfig {
+		return &peercell.HubbleConfig{
+			ListenAddress:   cfg.ListenAddress,
+			PreferIpv6:      cfg.PreferIpv6,
+			EnableServerTLS: !tlsCfg.DisableServerTLS,
+		}
+	}),
+)
