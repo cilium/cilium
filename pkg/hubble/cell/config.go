@@ -40,6 +40,16 @@ type config struct {
 	PreferIpv6 bool `mapstructure:"hubble-prefer-ipv6"`
 }
 
+// GetListenAddress implements the HubbleConfig interface
+func (c config) GetListenAddress() string {
+	return c.ListenAddress
+}
+
+// GetPreferIPv6 implements the HubbleConfig interface
+func (c config) GetPreferIPv6() bool {
+	return c.PreferIpv6
+}
+
 var defaultConfig = config{
 	EnableHubble: false,
 	// Hubble internals (parser, ringbuffer) configuration

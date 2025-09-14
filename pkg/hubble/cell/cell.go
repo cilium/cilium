@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	parsercell "github.com/cilium/cilium/pkg/hubble/parser/cell"
+	peercell "github.com/cilium/cilium/pkg/hubble/peer/cell"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -52,6 +53,9 @@ var Cell = cell.Module(
 
 	// Drop event emitter flow processor
 	dropeventemitter.Cell,
+
+	// Peer service for handling peer discovery and notifications
+	peercell.Cell,
 )
 
 // The core cell group, which contains the Hubble integration and the
@@ -90,6 +94,8 @@ type hubbleParams struct {
 	GRPCMetrics          *grpc_prometheus.ServerMetrics
 	MetricsFlowProcessor metrics.FlowProcessor
 
+	PeerService peercell.PeerService
+
 	Config config
 }
 
@@ -99,7 +105,7 @@ type HubbleIntegration interface {
 }
 
 func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
-	h, err := new(
+	h, err := createHubbleIntegration(
 		params.IdentityAllocator,
 		params.EndpointManager,
 		params.IPCache,
@@ -114,6 +120,7 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.PayloadParser,
 		params.GRPCMetrics,
 		params.MetricsFlowProcessor,
+		params.PeerService,
 		params.Config,
 		params.Logger,
 	)
