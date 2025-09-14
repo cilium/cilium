@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
-	"strconv"
 	"sync/atomic"
 
 	"github.com/go-openapi/strfmt"
@@ -33,8 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
-	"github.com/cilium/cilium/pkg/hubble/peer"
-	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
+	peercell "github.com/cilium/cilium/pkg/hubble/peer/cell"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -80,12 +77,13 @@ type hubbleIntegration struct {
 	// exposed by the Hubble metrics server (from hubble-metrics cell).
 	grpcMetrics          *grpc_prometheus.ServerMetrics
 	metricsFlowProcessor metrics.FlowProcessor
+	peerService          peercell.PeerService
 
 	config config
 }
 
-// new creates and return a new hubbleIntegration.
-func new(
+// createHubbleIntegration creates and return a new hubbleIntegration.
+func createHubbleIntegration(
 	identityAllocator identitycell.CachingIdentityAllocator,
 	endpointManager endpointmanager.EndpointManager,
 	ipcache *ipcache.IPCache,
@@ -100,6 +98,7 @@ func new(
 	payloadParser parser.Decoder,
 	grpcMetrics *grpc_prometheus.ServerMetrics,
 	metricsFlowProcessor metrics.FlowProcessor,
+	peerService peercell.PeerService,
 	config config,
 	log *slog.Logger,
 ) (*hubbleIntegration, error) {
@@ -129,6 +128,7 @@ func new(
 		payloadParser:        payloadParser,
 		grpcMetrics:          grpcMetrics,
 		metricsFlowProcessor: metricsFlowProcessor,
+		peerService:          peerService,
 		config:               config,
 		log:                  log,
 	}
@@ -284,32 +284,11 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	// This server can be used by the Hubble CLI when invoked from within the
 	// cilium Pod, typically in troubleshooting scenario.
 	sockPath := "unix://" + h.config.SocketPath
-	var peerServiceOptions []serviceoption.Option
-	if !tlsEnabled {
-		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
-	}
-	if h.config.PreferIpv6 {
-		peerServiceOptions = append(peerServiceOptions, serviceoption.WithAddressFamilyPreference(serviceoption.AddressPreferIPv6))
-	}
-	if addr := h.config.ListenAddress; addr != "" {
-		port, err := getPort(h.config.ListenAddress)
-		if err != nil {
-			// TODO: bubble up the error and/or set cell health as degraded
-			h.log.Warn(
-				"Hubble server will not pass port information in change notifications on exposed Hubble peer service",
-				logfields.Error, err,
-				logfields.Address, addr,
-			)
-		} else {
-			peerServiceOptions = append(peerServiceOptions, serviceoption.WithHubblePort(port))
-		}
-	}
-	peerSvc := peer.NewService(h.nodeManager, peerServiceOptions...)
 	localSrvOpts = append(localSrvOpts,
 		serveroption.WithUnixSocketListener(h.log, sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(hubbleObserver),
-		serveroption.WithPeerService(peerSvc),
+		serveroption.WithPeerService(h.peerService.Service()),
 		serveroption.WithInsecure(),
 		serveroption.WithGRPCUnaryInterceptor(serverVersionUnaryInterceptor()),
 		serveroption.WithGRPCStreamInterceptor(serverVersionStreamInterceptor()),
@@ -334,7 +313,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	go func() {
 		<-ctx.Done()
 		localSrv.Stop()
-		peerSvc.Close()
+		h.peerService.Service().Close()
 	}()
 
 	// configure another hubble server listening on TCP. This server is
@@ -349,7 +328,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		options := []serveroption.Option{
 			serveroption.WithTCPListener(address),
 			serveroption.WithHealthService(),
-			serveroption.WithPeerService(peerSvc),
+			serveroption.WithPeerService(h.peerService.Service()),
 			serveroption.WithObserverService(hubbleObserver),
 			serveroption.WithGRPCUnaryInterceptor(serverVersionUnaryInterceptor()),
 			serveroption.WithGRPCStreamInterceptor(serverVersionStreamInterceptor()),
@@ -393,18 +372,6 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	}
 
 	return hubbleObserver, nil
-}
-
-func getPort(addr string) (int, error) {
-	_, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		return 0, fmt.Errorf("parse host address and port: %w", err)
-	}
-	portNum, err := strconv.Atoi(port)
-	if err != nil {
-		return 0, fmt.Errorf("parse port number: %w", err)
-	}
-	return portNum, nil
 }
 
 var serverVersionHeader = metadata.Pairs(defaults.GRPCMetadataServerVersionKey, build.ServerVersion.SemVer())
