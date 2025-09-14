@@ -9,50 +9,58 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/go-openapi/runtime"
-
+	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock/lockfile"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-type ciliumClient interface {
-	EndpointDeleteMany(*models.EndpointBatchDeleteRequest) error
-}
+type endpointDeleter func(params *endpoint.DeleteEndpointParams) error
 
-type newCiliumClientFn func(time.Duration) (ciliumClient, error)
+const (
+	// Max time to wait for deletion queue lock acquisition.
+	queueLockWaitTimeout time.Duration = 3 * time.Second
+
+	// The maximum number of queued deletions allowed, to protect against kubelet insanity.
+	maxDeletionFiles int = 256
+)
 
 type DeletionFallbackClient struct {
 	logger *slog.Logger
-	cli    ciliumClient
 
 	deleteQueueDir      string
 	deleteQueueLockfile string
 
-	newCiliumClientFn newCiliumClientFn
+	endpointDeleter endpointDeleter
 }
-
-// the timeout for connecting and obtaining the lock
-// the default of 30 seconds is too long; kubelet will time us out before then
-const timeoutSeconds = 10
-
-// the maximum number of queued deletions allowed, to protect against kubelet insanity
-const maxDeletionFiles = 256
 
 var (
 	// Indicates a non-recoverable error for DeletionFallbackClient.
 	ErrClientFailure = errors.New("client failed")
 )
 
-func newCiliumClient(timeout time.Duration) (ciliumClient, error) {
-	return client.NewDefaultClientWithTimeout(timeout)
+func deleteCiliumEndpoint(params *endpoint.DeleteEndpointParams) error {
+	c, err := client.NewDefaultClient()
+	// Creating a cilium client can only fail during cilium socket path parsing.
+	// This is either configured from environment variable(CILIUM_SOCK) or has
+	// the default value - /var/run/cilium/cilium.sock
+	if err != nil {
+		return err
+	}
+
+	_, partialFailure, err := c.Endpoint.DeleteEndpoint(params)
+	if partialFailure != nil {
+		return partialFailure
+	}
+
+	return err
 }
 
 // NewDeletionFallbackClient creates a new deletion client.
@@ -63,21 +71,8 @@ func NewDeletionFallbackClient(logger *slog.Logger) *DeletionFallbackClient {
 		deleteQueueDir:      defaults.DeleteQueueDir,
 		deleteQueueLockfile: defaults.DeleteQueueLockfile,
 
-		newCiliumClientFn: newCiliumClient,
+		endpointDeleter: deleteCiliumEndpoint,
 	}
-}
-
-func (dc *DeletionFallbackClient) tryConnect() error {
-	if dc.cli != nil {
-		return nil
-	}
-
-	c, err := dc.newCiliumClientFn(timeoutSeconds * time.Second)
-	if err != nil {
-		return err
-	}
-	dc.cli = c
-	return nil
 }
 
 func (dc *DeletionFallbackClient) tryQueueLock() (*lockfile.Lockfile, error) {
@@ -98,7 +93,7 @@ func (dc *DeletionFallbackClient) tryQueueLock() (*lockfile.Lockfile, error) {
 		return nil, fmt.Errorf("failed to open lockfile %s: %w", dc.deleteQueueLockfile, err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutSeconds*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), queueLockWaitTimeout)
 	defer cancel()
 
 	err = lf.Lock(ctx, false) // get the shared lock
@@ -131,9 +126,7 @@ func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDe
 		return err
 	}
 
-	// If the Endpoint Deletion request to cilium-agent failed, fallback to
-	// queuing the deletion.
-	dc.logger.Debug("Failed to delete Endpoints batch",
+	dc.logger.Debug("Failed to delete Endpoints batch, queueing request",
 		logfields.Request, req,
 		logfields.Error, err,
 	)
@@ -144,40 +137,55 @@ func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDe
 	}
 	defer lf.Unlock()
 
-	// We have the lock now, we can retry deleting the endpoints.
+	// We have the lock now.
+	// Retry deleting the endpoint batch, in case cilium-agent is able to process the
+	// request now.
 	fallback, err = dc.deleteEndpointsBatch(req)
-
-	// Only enqueue the Deletion request if the failure is API server related, so cilium-agent
-	// can process the request when DeletionQueue is replayed.
-	if fallback {
-		err = dc.enqueueDeletionRequestLocked(req)
-		if err != nil {
-			return fmt.Errorf("%w: %w", ErrClientFailure, err)
-		}
+	if !fallback {
+		dc.logger.Debug("Endpoint batch delete processed on second attempt", logfields.Error, err)
+		return err
 	}
 
-	return err
+	// Enqueue the deletion request to be replayed by cilium-agent during startup.
+	err = dc.enqueueDeletionRequestLocked(req)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrClientFailure, err)
+	}
+
+	return nil
 }
 
 // deleteEndpointsBatch attempts to connect to cilium api and request endpoint deletion for the provided
 // request. If either the connection fails or Endpoint API is not available, this method returns true
 // indicating the caller to attempt fallback logic.
 func (dc *DeletionFallbackClient) deleteEndpointsBatch(req *models.EndpointBatchDeleteRequest) (bool, error) {
-	if err := dc.tryConnect(); err != nil {
-		// Failed to setup cilium client.
-		return true, err
-	}
+	delParams := endpoint.NewDeleteEndpointParams().WithEndpoint(req).WithTimeout(api.ClientTimeout)
 
-	err := dc.cli.EndpointDeleteMany(req)
+	err := dc.endpointDeleter(delParams)
 	if err != nil {
-		status, ok := err.(runtime.ClientResponseStatus)
-		if !ok || !status.IsCode(http.StatusServiceUnavailable) {
-			// Propagate unhandled server side Endpoint delete errors.
-			return false, err
-		}
+		var (
+			partialErrs *endpoint.DeleteEndpointErrors
+			notFoundErr *endpoint.DeleteEndpointNotFound
+			invalidErr  *endpoint.DeleteEndpointInvalid
 
-		// Endpoint API is unavailable.
-		return true, err
+			serviceUnavailableErr *endpoint.DeleteEndpointServiceUnavailable
+			tooManyReqErr         *endpoint.DeleteEndpointTooManyRequests
+		)
+
+		switch {
+		// Partial failure. Don't fallback, log and bubble up error.
+		case errors.As(err, &partialErrs):
+			return false, err
+		// Don't fallback for known non-retryable errors.
+		case errors.As(err, &notFoundErr), errors.As(err, &invalidErr):
+			return false, err
+		// Attempt fallback if endpoint service didn't get a chance to process the request.
+		case errors.As(err, &serviceUnavailableErr), errors.As(err, &tooManyReqErr):
+			return true, err
+		// For unknown or connection related failures always attempt fallback.
+		default:
+			return true, err
+		}
 	}
 
 	// Endpoint deleted successfully.

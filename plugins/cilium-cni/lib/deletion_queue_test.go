@@ -53,41 +53,22 @@ func (e *errorMock) call() error {
 	}
 }
 
-type fakeCiliumClient struct {
+type fakeCiliumEndpointDeleter struct {
 	errorMock
 }
 
-func (f *fakeCiliumClient) EndpointDeleteMany(_ *models.EndpointBatchDeleteRequest) error {
+func (f *fakeCiliumEndpointDeleter) deleteEndpoint(_ *endpoint.DeleteEndpointParams) error {
 	return f.call()
 }
 
-type fakeCiliumClientCreator struct {
-	errorMock
-
-	clientErrorMock errorMock
-}
-
-func (f *fakeCiliumClientCreator) ToString() string {
-	errMockStrs := []string{"Never", "Once", "Always"}
-
-	return fmt.Sprintf("NewClient: %s, EndpointDelete: %s",
-		errMockStrs[f.errorMock.errorCase],
-		errMockStrs[f.clientErrorMock.errorCase])
-}
-
-func (f *fakeCiliumClientCreator) newClient(_ time.Duration) (ciliumClient, error) {
-	err := f.call()
-	if err != nil {
-		return nil, err
-	}
-
-	return &fakeCiliumClient{f.clientErrorMock}, nil
+func (f *fakeCiliumEndpointDeleter) toString() string {
+	return fmt.Sprintf("[Error: %s, ErrorCase: %v]", f.err, f.errorCase)
 }
 
 func TestDeletionFallbackClient(t *testing.T) {
 	logger := hivetest.Logger(t)
 
-	newDeletionClient := func(newClientFn newCiliumClientFn, testDir string) DeletionFallbackClient {
+	newDeletionClient := func(testEndpointDeleter endpointDeleter, testDir string) DeletionFallbackClient {
 		deleteQueueLockfile := path.Join(testDir, "lockfile")
 		return DeletionFallbackClient{
 			logger: logger,
@@ -95,88 +76,125 @@ func TestDeletionFallbackClient(t *testing.T) {
 			deleteQueueDir:      testDir,
 			deleteQueueLockfile: deleteQueueLockfile,
 
-			newCiliumClientFn: newClientFn,
+			endpointDeleter: testEndpointDeleter,
 		}
 	}
 
-	newClientErr := errors.New("error creating cilium client")
-	newClientErrorNever := errorMock{
-		errorCase: errorCaseNever,
-	}
-	newClientErrorOnce := errorMock{
-		errorCase: errorCaseOnce,
-		err:       newClientErr,
-	}
-	newClientErrorAlways := errorMock{
-		errorCase: errorCaseAlways,
-		err:       newClientErr,
-	}
-
-	deletionClientErr := &endpoint.DeleteEndpointServiceUnavailable{}
-	deletionClientErrorNever := errorMock{
-		errorCase: errorCaseNever,
-	}
-	deletionClientErrorOnce := errorMock{
-		errorCase: errorCaseOnce,
-		err:       deletionClientErr,
-	}
-	deletionClientErrorAlways := errorMock{
-		errorCase: errorCaseAlways,
-		err:       deletionClientErr,
-	}
-
+	unknownError := errors.New("unknown error")
 	tt := []struct {
-		newClientCreator    fakeCiliumClientCreator
+		endpointDeleter     fakeCiliumEndpointDeleter
 		shouldQueueDeletion bool
+		shouldFail          bool
 	}{
 		{
-			newClientCreator: fakeCiliumClientCreator{
-				errorMock:       newClientErrorNever,
-				clientErrorMock: deletionClientErrorNever,
+			endpointDeleter: fakeCiliumEndpointDeleter{
+				errorMock: errorMock{
+					errorCase: errorCaseNever,
+					err:       nil,
+				},
 			},
 			shouldQueueDeletion: false,
+			shouldFail:          false,
 		},
 		{
-			newClientCreator: fakeCiliumClientCreator{
-				errorMock:       newClientErrorNever,
-				clientErrorMock: deletionClientErrorOnce,
+			endpointDeleter: fakeCiliumEndpointDeleter{
+				errorMock: errorMock{
+					errorCase: errorCaseOnce,
+					err:       &endpoint.DeleteEndpointNotFound{},
+				},
 			},
 			shouldQueueDeletion: false,
+			shouldFail:          true,
 		},
 		{
-			newClientCreator: fakeCiliumClientCreator{
-				errorMock:       newClientErrorNever,
-				clientErrorMock: deletionClientErrorAlways,
-			},
-			shouldQueueDeletion: true,
-		},
-		{
-			newClientCreator: fakeCiliumClientCreator{
-				errorMock:       newClientErrorOnce,
-				clientErrorMock: deletionClientErrorNever,
+			endpointDeleter: fakeCiliumEndpointDeleter{
+				errorMock: errorMock{
+					errorCase: errorCaseAlways,
+					err:       &endpoint.DeleteEndpointNotFound{},
+				},
 			},
 			shouldQueueDeletion: false,
+			shouldFail:          true,
 		},
 		{
-			newClientCreator: fakeCiliumClientCreator{
-				errorMock:       newClientErrorOnce,
-				clientErrorMock: deletionClientErrorOnce,
+			endpointDeleter: fakeCiliumEndpointDeleter{
+				errorMock: errorMock{
+					errorCase: errorCaseOnce,
+					err:       &endpoint.DeleteEndpointInvalid{},
+				},
 			},
-			shouldQueueDeletion: true,
+			shouldQueueDeletion: false,
+			shouldFail:          true,
 		},
 		{
-			newClientCreator: fakeCiliumClientCreator{
-				errorMock:       newClientErrorOnce,
-				clientErrorMock: deletionClientErrorAlways,
+			endpointDeleter: fakeCiliumEndpointDeleter{
+				errorMock: errorMock{
+					errorCase: errorCaseAlways,
+					err:       &endpoint.DeleteEndpointInvalid{},
+				},
 			},
-			shouldQueueDeletion: true,
+			shouldQueueDeletion: false,
+			shouldFail:          true,
 		},
 		{
-			newClientCreator: fakeCiliumClientCreator{
-				errorMock:       newClientErrorAlways,
-				clientErrorMock: deletionClientErrorNever,
+			endpointDeleter: fakeCiliumEndpointDeleter{
+				errorMock: errorMock{
+					errorCase: errorCaseOnce,
+					err:       &endpoint.DeleteEndpointServiceUnavailable{},
+				},
+			},
+			shouldQueueDeletion: false,
+			shouldFail:          false,
+		},
+		{
+			endpointDeleter: fakeCiliumEndpointDeleter{
+				errorMock: errorMock{
+					errorCase: errorCaseAlways,
+					err:       &endpoint.DeleteEndpointServiceUnavailable{},
+				},
 			},
 			shouldQueueDeletion: true,
+			shouldFail:          false,
+		},
+		{
+			endpointDeleter: fakeCiliumEndpointDeleter{
+				errorMock: errorMock{
+					errorCase: errorCaseOnce,
+					err:       &endpoint.DeleteEndpointTooManyRequests{},
+				},
+			},
+			shouldQueueDeletion: false,
+			shouldFail:          false,
+		},
+		{
+			endpointDeleter: fakeCiliumEndpointDeleter{
+				errorMock: errorMock{
+					errorCase: errorCaseAlways,
+					err:       &endpoint.DeleteEndpointTooManyRequests{},
+				},
+			},
+			shouldQueueDeletion: true,
+			shouldFail:          false,
+		},
+		{
+			endpointDeleter: fakeCiliumEndpointDeleter{
+				errorMock: errorMock{
+					errorCase: errorCaseOnce,
+					err:       unknownError,
+				},
+			},
+			shouldQueueDeletion: false,
+			shouldFail:          false,
+		},
+		{
+			endpointDeleter: fakeCiliumEndpointDeleter{
+				errorMock: errorMock{
+					errorCase: errorCaseAlways,
+					err:       unknownError,
+				},
+			},
+			shouldQueueDeletion: true,
+			shouldFail:          false,
 		},
 	}
 
@@ -192,14 +210,18 @@ func TestDeletionFallbackClient(t *testing.T) {
 	deleteQueueFilename := fmt.Sprintf("%x.delete", h.Sum(nil))
 
 	for _, tc := range tt {
-		testName := tc.newClientCreator.ToString()
+		testName := tc.endpointDeleter.toString()
 
 		t.Run(testName, func(t *testing.T) {
 			testDir := t.TempDir()
 
-			dc := newDeletionClient(tc.newClientCreator.newClient, testDir)
+			dc := newDeletionClient(tc.endpointDeleter.deleteEndpoint, testDir)
 
 			err = dc.EndpointDeleteMany(deleteReq)
+			if tc.shouldFail {
+				require.ErrorIs(t, err, tc.endpointDeleter.err)
+				return
+			}
 			require.NoError(t, err)
 
 			deleteQueueFile := path.Join(testDir, deleteQueueFilename)
