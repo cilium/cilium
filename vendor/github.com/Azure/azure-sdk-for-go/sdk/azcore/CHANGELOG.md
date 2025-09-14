@@ -1,5 +1,16 @@
 # Release History
 
+## 1.19.1 (2025-09-11)
+
+### Bugs Fixed
+
+* Fixed resource identifier parsing for provider-specific resource hierarchies containing "resourceGroups" segments.
+
+### Other Changes
+
+* Improved error fall-back for improperly authored long-running operations.
+* Upgraded dependencies.
+
 ## 1.19.0 (2025-08-21)
 
 ### Features Added
