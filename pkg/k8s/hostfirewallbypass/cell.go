@@ -13,7 +13,7 @@ import (
 // Provides a host firewall bypass for k8s Clientset
 // when accessing Kubernetes objects.
 var Cell = cell.Module(
-	"k8s-host-firewall-bypaass",
+	"k8s-host-firewall-bypass",
 	"Kubernetes host firewall bypass",
 
 	cell.Config(config{
