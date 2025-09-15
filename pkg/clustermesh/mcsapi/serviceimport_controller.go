@@ -29,6 +29,7 @@ import (
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -363,6 +364,21 @@ func setInvalidStatus(conditions *[]metav1.Condition, reason mcsapiv1alpha1.Serv
 	return meta.RemoveStatusCondition(conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict)) || changed
 }
 
+// checkLocalSvcValidForExport checks if the local service is valid for export.
+// The logic here MUST be kept up to date with the logic in checkLocalSlimSvcValidForExport.
+func checkLocalSvcValidForExport(localSvc *corev1.Service) (bool, mcsapiv1alpha1.ServiceExportConditionReason, string) {
+	if localSvc.Spec.Type == corev1.ServiceTypeExternalName {
+		return false, mcsapiv1alpha1.ServiceExportReasonInvalidServiceType, "Service type ExternalName is not supported"
+	}
+	return true, "", ""
+}
+
+// checkLocalSvcValidForExport checks if the local service is valid for export.
+// The logic here MUST be kept up to date with the logic in checkLocalSvcValidForExport.
+func checkLocalSlimSvcValidForExport(localSvc *slim_corev1.Service) bool {
+	return localSvc.Spec.Type != slim_corev1.ServiceTypeExternalName
+}
+
 func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	nsExists, err := r.doesNamespaceExist(ctx, req)
 	if err != nil {
@@ -406,17 +422,11 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 			return controllerruntime.Success()
 		}
-		localSvcSpec := fromServiceToMCSAPIServiceSpec(localSvc, r.cluster, svcExport)
-		if svcExportByCluster == nil {
-			svcExportByCluster = operator.ServiceExportsByCluster{}
-		}
-		svcExportByCluster[r.cluster] = localSvcSpec
-
-		if localSvc.Spec.Type == corev1.ServiceTypeExternalName {
+		if validForExport, reason, msg := checkLocalSvcValidForExport(localSvc); !validForExport {
 			if setInvalidStatus(
 				&svcExport.Status.Conditions,
-				mcsapiv1alpha1.ServiceExportReasonInvalidServiceType,
-				"Service type ExternalName is not supported",
+				reason,
+				msg,
 			) {
 				if err := r.Client.Status().Update(ctx, svcExport); err != nil {
 					return controllerruntime.Fail(err)
@@ -424,6 +434,12 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 			return controllerruntime.Success()
 		}
+
+		localSvcSpec := fromServiceToMCSAPIServiceSpec(localSvc, r.cluster, svcExport)
+		if svcExportByCluster == nil {
+			svcExportByCluster = operator.ServiceExportsByCluster{}
+		}
+		svcExportByCluster[r.cluster] = localSvcSpec
 	}
 
 	orderedSvcExports := orderSvcExportByPriority(svcExportByCluster)
