@@ -11,9 +11,10 @@ cilium-dbg metrics list [flags]
 ### Options
 
 ```
-  -h, --help                   help for list
-  -p, --match-pattern string   Show only metrics whose names match matchpattern
-  -o, --output string          json| yaml| jsonpath='{}'
+  -h, --help                     help for list
+  -p, --match-pattern string     Show only metrics whose names match matchpattern
+  -o, --output string            json| yaml| jsonpath='{}'
+      --shell-sock-path string   Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 
 ### Options inherited from parent commands
