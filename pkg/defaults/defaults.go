@@ -366,6 +366,9 @@ const (
 	// ENIMaxResultsPerApiCall is the maximum number of ENI objects to fetch per DescribeNetworkInterfaces API call
 	ENIMaxResultsPerApiCall = 1000
 
+	// SecurityGroupMaxResultsPerApiCall is the maximum number of security group objects to fetch per DescribeSecurityGroups API call
+	SecurityGroupMaxResultsPerApiCall = 1000
+
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
 
