@@ -28,6 +28,7 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/observer"
+	"github.com/cilium/cilium/pkg/hubble/observer/namespace"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
@@ -95,8 +96,8 @@ func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.Lo
 	queueSize := numFlows
 
 	pp := noopParser(t)
-	nsMgr := observer.NewNamespaceManager()
-	s, err := observer.NewLocalServer(pp, nsMgr, log,
+	nsManager := namespace.NewManager()
+	s, err := observer.NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity65535),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
