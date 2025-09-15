@@ -223,7 +223,7 @@ func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamType
 		}
 	}
 	if operatorOption.Config.AWSPaginationEnabled {
-		input.MaxResults = aws.Int32(defaults.ENIMaxResultsPerApiCall)
+		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
 	}
 
 	input.Filters = append(input.Filters, ec2_types.Filter{
@@ -264,7 +264,7 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamType
 		},
 	}
 	if operatorOption.Config.AWSPaginationEnabled {
-		input.MaxResults = aws.Int32(defaults.ENIMaxResultsPerApiCall)
+		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
 	}
 	if len(c.subnetsFilters) > 0 {
 		subnetsIDs := make([]string, 0, len(subnets))
@@ -364,7 +364,7 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 		ENIAttrs.NetworkInterfaceIds = enisListFromInstances
 	} else if operatorOption.Config.AWSPaginationEnabled {
 		// MaxResults is incompatible with NetworkInterfaceIds
-		ENIAttrs.MaxResults = aws.Int32(defaults.ENIMaxResultsPerApiCall)
+		ENIAttrs.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
 	}
 
 	var result []ec2_types.NetworkInterface
@@ -924,7 +924,11 @@ func createAWSTagSlice(tags map[string]string) []ec2_types.Tag {
 
 func (c *Client) describeSecurityGroups(ctx context.Context) ([]ec2_types.SecurityGroup, error) {
 	var result []ec2_types.SecurityGroup
-	paginator := ec2.NewDescribeSecurityGroupsPaginator(c.ec2Client, &ec2.DescribeSecurityGroupsInput{})
+	input := &ec2.DescribeSecurityGroupsInput{}
+	if operatorOption.Config.AWSPaginationEnabled {
+		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
+	}
+	paginator := ec2.NewDescribeSecurityGroupsPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
 		c.limiter.Limit(ctx, DescribeSecurityGroups)
 		sinceStart := spanstat.Start()
