@@ -33,6 +33,17 @@ kvstore/delete cilium/state/services/v1/cluster2/test/echo
 db/cmp backends backends-3.table
 db/cmp frontends frontends-with-clusterservice-3.table
 
+# Marking the cluster service as not shared causes the remote backends to be removed
+cp clusterservice3.json clusterservice3_v2.json
+sed '"shared": true' '"shared": false' clusterservice3_v2.json
+kvstore/update cilium/state/services/v1/cluster3/test/echo clusterservice3_v2.json
+db/cmp frontends frontends.table
+
+# Switch back for next test
+kvstore/update cilium/state/services/v1/cluster3/test/echo clusterservice3.json
+db/cmp backends backends-3.table
+db/cmp frontends frontends-with-clusterservice-3.table
+
 # Removing the last cluster service gets us back to starting point
 kvstore/delete cilium/state/services/v1/cluster3/test/echo
 db/cmp frontends frontends.table
