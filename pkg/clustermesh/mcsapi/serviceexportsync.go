@@ -213,6 +213,9 @@ func (s *serviceExportSync) syncMCSAPIServiceSpec(
 	if !exist {
 		return s.store.DeleteKey(ctx, types.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
 	}
+	if !checkLocalSlimSvcValidForExport(svc) {
+		return s.store.DeleteKey(ctx, types.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
+	}
 
 	mcsAPISvcSpec := types.FromCiliumServiceToMCSAPIServiceSpec(s.clusterName, svc, svcExport)
 	return s.store.UpsertKey(ctx, mcsAPISvcSpec)
