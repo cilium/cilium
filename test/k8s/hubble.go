@@ -261,6 +261,15 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 			flows := getFlowsFromRelay(fmt.Sprintf(
 				"--last 1 --type trace:from-endpoint --from-pod %s/%s --to-fqdn %s",
 				namespaceForTest, appPods[helpers.App2], fqdnTarget))
+			var newFlows []*observerpb.GetFlowsResponse
+			for i := range flows {
+				// Ignore lost events, as they are not relevant to this test.
+				if flows[i].GetLostEvents() != nil {
+					continue
+				}
+				newFlows = append(newFlows, flows[i])
+			}
+			flows = newFlows
 			Expect(flows).To(HaveLen(1))
 			Expect(flows[0].GetFlow().Destination.Identity).To(BeNumerically(">=", identity.MinimalNumericIdentity))
 		})
