@@ -19,16 +19,32 @@ permissions:
   contents: read
   # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
   id-token: write
+  # To be able to check if base images were built
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || (github.event_name == 'merge_group' && github.run_id) }}
   cancel-in-progress: true
 
 jobs:
+  wait-for-base-images:
+    name: Wait for lint checks
+    uses: ./.github/workflows/wait-for-status-check.yaml
+    with:
+      # Only run this job if the event is pull_request_target.
+      # This is to avoid waiting for base images on push to main or merge_group
+      # events as the lint-images-base does not run on those events.
+      if: ${{ github.event_name == 'pull_request_target' }}
+      sha: ${{ github.event.pull_request.head.sha || github.sha }}
+      lint-workflows: "lint-images-base.yaml"
+      timeout-minutes: 2
+      poll-interval: 15
+
   build-and-push-prs:
     timeout-minutes: 45
     name: Build and Push Images
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
+    needs: wait-for-base-images
     strategy:
       matrix:
         include:
