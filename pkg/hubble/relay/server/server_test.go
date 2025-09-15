@@ -28,7 +28,6 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/observer"
-	"github.com/cilium/cilium/pkg/hubble/observer/namespace"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
@@ -95,9 +94,8 @@ func getRandomEndpoint() *testutils.FakeEndpointInfo {
 func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.LocalObserverServer {
 	queueSize := numFlows
 
-	pp := noopParser(t)
-	nsManager := namespace.NewManager()
-	s, err := observer.NewLocalServer(pp, nsManager, log,
+	pp, nm := noopParser(t), testutils.NoopNamespaceManager
+	s, err := observer.NewLocalServer(pp, nm, log,
 		observeroption.WithMaxFlows(container.Capacity65535),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
