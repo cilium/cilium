@@ -24,6 +24,7 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	hubv1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
+	"github.com/cilium/cilium/pkg/hubble/observer/namespace"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
@@ -35,7 +36,7 @@ import (
 )
 
 var (
-	nsManager = NewNamespaceManager()
+	nsManager = namespace.NewManager()
 )
 
 func noopParser(t *testing.T) *parser.Parser {
@@ -734,7 +735,7 @@ func TestLocalObserverServer_NodeLabels(t *testing.T) {
 
 func TestLocalObserverServer_GetNamespaces(t *testing.T) {
 	pp := noopParser(t)
-	nsManager := NewNamespaceManager()
+	nsManager := namespace.NewManager()
 	nsManager.AddNamespace(&observerpb.Namespace{
 		Namespace: "zzz",
 	})
@@ -783,7 +784,7 @@ func Benchmark_TrackNamespaces(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	nsManager := NewNamespaceManager()
+	nsManager := namespace.NewManager()
 	s, err := NewLocalServer(pp, nsManager, hivetest.Logger(b), observeroption.WithMaxFlows(container.Capacity1))
 	if err != nil {
 		b.Fatal(err)

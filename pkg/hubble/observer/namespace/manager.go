@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-package observer
+package namespace
 
 import (
 	"context"
@@ -12,14 +12,12 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var _ NamespaceManager = &namespaceManager{}
-
 const (
-	checkNamespaceAgeFrequency = 5 * time.Minute
-	namespaceTTL               = time.Hour
+	cleanupInterval = 5 * time.Minute
+	namespaceTTL    = 1 * time.Hour
 )
 
-type NamespaceManager interface {
+type Manager interface {
 	GetNamespaces() []*observerpb.Namespace
 	AddNamespace(*observerpb.Namespace)
 }
@@ -35,7 +33,7 @@ type namespaceManager struct {
 	nowFunc    func() time.Time
 }
 
-func NewNamespaceManager() *namespaceManager {
+func NewManager() *namespaceManager {
 	return &namespaceManager{
 		namespaces: make(map[string]namespaceRecord),
 		nowFunc:    time.Now,
@@ -43,7 +41,7 @@ func NewNamespaceManager() *namespaceManager {
 }
 
 func (m *namespaceManager) Run(ctx context.Context) {
-	ticker := time.NewTicker(checkNamespaceAgeFrequency)
+	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
 	for {
 		select {
