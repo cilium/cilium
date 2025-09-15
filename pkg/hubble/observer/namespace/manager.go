@@ -4,17 +4,11 @@
 package namespace
 
 import (
-	"context"
 	"sort"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
-)
-
-const (
-	cleanupInterval = 5 * time.Minute
-	namespaceTTL    = 1 * time.Hour
 )
 
 type Manager interface {
@@ -42,29 +36,15 @@ func NewManager() *namespaceManager {
 	}
 }
 
-func (m *namespaceManager) Run(ctx context.Context) {
-	ticker := time.NewTicker(cleanupInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			// periodically remove any namespaces which haven't been seen in flows
-			// for the last hour
-			m.cleanupNamespaces()
-		}
-	}
-}
-
+// cleanupNamespaces remove all namespaces not seen in flows for the last hour.
 func (m *namespaceManager) cleanupNamespaces() {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	for key, record := range m.namespaces {
 		if record.added.Add(namespaceTTL).Before(m.nowFunc()) {
 			delete(m.namespaces, key)
 		}
 	}
-	m.mu.Unlock()
 }
 
 func (m *namespaceManager) GetNamespaces() []*observerpb.Namespace {
