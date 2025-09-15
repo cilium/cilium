@@ -187,16 +187,15 @@ Recommended Controls
 Limited-privilege Host Attacker
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In this scenario, the attacker is someone with the ability to run
-arbitrary code with direct access to the host PID or network namespace
-(or both), but without "root" privileges that would allow them to
-disable Cilium components or undermine the eBPF and other kernel state
-Cilium relies on.
+In this scenario, the attacker is someone with the ability to run arbitrary
+code with direct access to the host PID or network namespace (or both), but
+without "root"-equivalent privileges that would allow them to disable Cilium
+components or undermine the eBPF and other kernel state Cilium relies on.
 
 This level of access could exist for a variety of reasons, including:
 
--  Pods or other containers running in the host PID or network
-   namespace, but not with "root" privileges. This includes
+-  Pods or other containers running in the host PID or network namespace,
+   but without "root" privileges or capabilities. This includes
    ``hostNetwork: true`` and ``hostPID: true`` containers.
 -  Non-"root" SSH or other console access to a node.
 -  A containerized workload that has "escaped" the container namespace
@@ -303,7 +302,8 @@ the local host. This access could exist for several reasons, including:
 -  A containerized workload that has escaped the container namespace as
    a privileged user.
 -  Pods running with ``privileged: true`` or other significant
-   capabilities like ``CAP_SYS_ADMIN`` or ``CAP_BPF``.
+   capabilities like ``CAP_BPF``, ``CAP_NET_ADMIN``, ``CAP_NET_RAW``, or
+   ``CAP_SYS_ADMIN``.
 
 .. image:: images/cilium_threat_model_root.png
 
