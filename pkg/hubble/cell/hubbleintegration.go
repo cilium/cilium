@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
 	"github.com/cilium/cilium/pkg/hubble/observer"
+	"github.com/cilium/cilium/pkg/hubble/observer/namespace"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/peer"
@@ -264,12 +265,12 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	// for explicit ordering of known dependencies
 	observerOpts = append(observerOpts, h.observerOptions...)
 
-	namespaceManager := observer.NewNamespaceManager()
-	go namespaceManager.Run(ctx)
+	nsManager := namespace.NewManager()
+	go nsManager.Run(ctx)
 
 	hubbleObserver, err := observer.NewLocalServer(
 		h.payloadParser,
-		namespaceManager,
+		nsManager,
 		h.log,
 		observerOpts...,
 	)
