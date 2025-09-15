@@ -17,10 +17,12 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/cilium/cilium/pkg/defaults"
+	baseshell "github.com/cilium/cilium/pkg/shell"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
 )
+
+var config = baseshell.DefaultConfig
 
 var ShellCmd = &cobra.Command{
 	Use:   "shell [command] [args]...",
@@ -43,7 +45,7 @@ func dialShell(w io.Writer) (net.Conn, error) {
 	for {
 		var err error
 		var d net.Dialer
-		conn, err = d.DialContext(ctx, "unix", defaults.ShellSockPath)
+		conn, err = d.DialContext(ctx, "unix", config.ShellSockPath)
 		if err == nil {
 			break
 		}
@@ -224,4 +226,9 @@ func printShellGreeting(term *term.Terminal) {
 	fmt.Fprint(term, Green+" \\__"+Blue+"/¯¯\\"+Magenta+"__/"+Reset+"\n")
 	fmt.Fprint(term, Blue+Blue+Blue+"    \\__/"+Reset+"\n")
 	fmt.Fprint(term, "\n")
+}
+
+// AddShellSockOption adds the --shell-sock-path to the command.
+func AddShellSockOption(cmd *cobra.Command) {
+	config.Flags(cmd.Flags())
 }
