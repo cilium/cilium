@@ -33,6 +33,8 @@ type namespaceManager struct {
 	nowFunc    func() time.Time
 }
 
+// NOTE: there are still a couple of places where we need to construct a
+// functional ns manager outside of Hive/Cell, i.e. testing and Hubble Relay.
 func NewManager() *namespaceManager {
 	return &namespaceManager{
 		namespaces: make(map[string]namespaceRecord),

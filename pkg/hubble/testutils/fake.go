@@ -487,3 +487,33 @@ var NoopPodMetadataGetter = FakePodMetadataGetter{
 		return nil
 	},
 }
+
+// FakeNamespaceManager is used for unit tests that need a namespace.Manager.
+type FakeNamespaceManager struct {
+	OnGetNamespaces func() []*observerpb.Namespace
+	OnAddNamespace  func(*observerpb.Namespace)
+}
+
+// GetNamespaces implements namespace.Manager.
+func (f *FakeNamespaceManager) GetNamespaces() []*observerpb.Namespace {
+	if f.OnGetNamespaces != nil {
+		return f.OnGetNamespaces()
+	}
+	panic("OnGetNamespaces not set")
+}
+
+// AddNamespace implements namespace.Manager.
+func (f *FakeNamespaceManager) AddNamespace(ns *observerpb.Namespace) {
+	if f.OnAddNamespace != nil {
+		f.OnAddNamespace(ns)
+	}
+	panic("OnAddNamespace not set")
+}
+
+// NoopNamespaceManager always return an empty namespace list.
+var NoopNamespaceManager = &FakeNamespaceManager{
+	OnGetNamespaces: func() []*observerpb.Namespace {
+		return nil
+	},
+	OnAddNamespace: func(_ *observerpb.Namespace) {},
+}
