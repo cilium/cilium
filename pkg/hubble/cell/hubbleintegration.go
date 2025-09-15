@@ -76,6 +76,8 @@ type hubbleIntegration struct {
 
 	// payloadParser is used to decode monitor events into Hubble events.
 	payloadParser parser.Decoder
+	// nsManager is used to monitor the namespaces seen in Hubble flows.
+	nsManager namespace.Manager
 
 	// GRPC metrics are registered on the Hubble gRPC server and are
 	// exposed by the Hubble metrics server (from hubble-metrics cell).
@@ -99,6 +101,7 @@ func new(
 	exporterBuilders []*exportercell.FlowLogExporterBuilder,
 	dropEventEmitter dropeventemitter.FlowProcessor,
 	payloadParser parser.Decoder,
+	nsManager namespace.Manager,
 	grpcMetrics *grpc_prometheus.ServerMetrics,
 	metricsFlowProcessor metrics.FlowProcessor,
 	config config,
@@ -120,14 +123,15 @@ func new(
 		endpointManager:      endpointManager,
 		ipcache:              ipcache,
 		cgroupManager:        cgroupManager,
-		dropEventEmitter:     dropEventEmitter,
 		nodeManager:          nodeManager,
 		nodeLocalStore:       nodeLocalStore,
 		monitorAgent:         monitorAgent,
 		tlsConfigPromise:     tlsConfigPromise,
 		observerOptions:      observerOptions,
 		exporters:            exporters,
+		dropEventEmitter:     dropEventEmitter,
 		payloadParser:        payloadParser,
+		nsManager:            nsManager,
 		grpcMetrics:          grpcMetrics,
 		metricsFlowProcessor: metricsFlowProcessor,
 		config:               config,
@@ -264,12 +268,9 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	// for explicit ordering of known dependencies
 	observerOpts = append(observerOpts, h.observerOptions...)
 
-	nsManager := namespace.NewManager()
-	go nsManager.Run(ctx)
-
 	hubbleObserver, err := observer.NewLocalServer(
 		h.payloadParser,
-		nsManager,
+		h.nsManager,
 		h.log,
 		observerOpts...,
 	)
