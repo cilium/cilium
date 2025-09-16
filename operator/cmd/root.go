@@ -43,6 +43,7 @@ import (
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/kvstore/locksweeper"
+	"github.com/cilium/cilium/operator/pkg/kvstore/nodesgc"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
@@ -310,6 +311,9 @@ var (
 			// configuration to describe, in form of prometheus metrics, which
 			// features are enabled on the operator.
 			features.Cell,
+
+			// GC of stale node entries in the KVStore
+			nodesgc.Cell,
 		),
 	)
 
@@ -533,7 +537,6 @@ type params struct {
 	cell.In
 	Lifecycle                cell.Lifecycle
 	Clientset                k8sClient.Clientset
-	KVStoreClient            kvstore.Client
 	Resources                operatorK8s.Resources
 	SvcResolver              *dial.ServiceResolver
 	CfgClusterMeshPolicy     cmtypes.PolicyConfig
@@ -549,7 +552,6 @@ func registerLegacyOnLeader(p params) {
 		ctx:                      ctx,
 		cancel:                   cancel,
 		clientset:                p.Clientset,
-		kvstoreClient:            p.KVStoreClient,
 		resources:                p.Resources,
 		cfgClusterMeshPolicy:     p.CfgClusterMeshPolicy,
 		workqueueMetricsProvider: p.WorkQueueMetricsProvider,
@@ -567,7 +569,6 @@ type legacyOnLeader struct {
 	ctx                      context.Context
 	cancel                   context.CancelFunc
 	clientset                k8sClient.Clientset
-	kvstoreClient            kvstore.Client
 	wg                       sync.WaitGroup
 	resources                operatorK8s.Resources
 	cfgClusterMeshPolicy     cmtypes.PolicyConfig
@@ -611,7 +612,6 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 
 	var (
 		nodeManager allocator.NodeEventHandler
-		withKVStore bool
 	)
 
 	legacy.logger.InfoContext(ctx,
@@ -650,10 +650,6 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 		nodeManager = nm
 	}
 
-	if legacy.kvstoreClient.IsEnabled() && legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sNodes {
-		withKVStore = true
-	}
-
 	if legacy.clientset.IsEnabled() &&
 		(operatorOption.Config.RemoveCiliumNodeTaints || operatorOption.Config.SetCiliumIsUpCondition) {
 		legacy.logger.InfoContext(ctx,
@@ -669,7 +665,7 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 			watcherLogger)
 	}
 
-	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.logger, legacy.clientset, legacy.kvstoreClient, nodeManager, withKVStore, legacy.workqueueMetricsProvider)
+	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.logger, legacy.clientset, nodeManager, legacy.workqueueMetricsProvider)
 
 	if legacy.clientset.IsEnabled() {
 		// ciliumNodeSynchronizer uses operatorWatchers.PodStore for IPAM surge
@@ -681,7 +677,7 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 		}
 		operatorWatchers.PodStore = podStore.CacheStore()
 
-		if err := ciliumNodeSynchronizer.Start(legacy.ctx, &legacy.wg, podStore); err != nil {
+		if err := ciliumNodeSynchronizer.Start(legacy.ctx, &legacy.wg); err != nil {
 			logging.Fatal(legacy.logger, "Unable to setup cilium node synchronizer", logfields.Error, err)
 		}
 
