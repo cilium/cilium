@@ -1878,6 +1878,7 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, fraginfo_t fr
 					 l4_off, target, trace, ext_err);
 	if (ret < 0)
 		return ret;
+	/* GH-40991: Verifier workaround for RHEL8.6 kernel: */
 	if (!state)
 		return DROP_NAT_NO_MAPPING;
 
