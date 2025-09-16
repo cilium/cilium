@@ -4,6 +4,7 @@
 package ciliumendpointslice
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/identity/key"
@@ -147,6 +148,7 @@ func (c *cesManager) UpsertPodWithIdentity(pod *slim_corev1.Pod, nodeName string
 		logfields.CEPName, cepName.string(),
 		logfields.CESName, cesName.string(),
 	)
+	fmt.Println(c.cache.DumpState())
 	return []CESKey{NewCESKey(cesName.string(), pod.Namespace)}
 }
 
@@ -166,6 +168,7 @@ func (c *cesManager) upsertPodIntoCES(pod *slim_corev1.Pod) (CEPName, CESName) {
 			logfields.CEPName, cepName.string(),
 			logfields.CESName, cesName.string(),
 		)
+		fmt.Println(c.cache.DumpState())
 		return cepName, cesName
 	}
 
@@ -176,6 +179,7 @@ func (c *cesManager) upsertPodIntoCES(pod *slim_corev1.Pod) (CEPName, CESName) {
 	if cesName == "" {
 		cesName = c.createCES("", pod.Namespace)
 	}
+	fmt.Println(c.cache.DumpState())
 	return cepName, cesName
 }
 
@@ -193,6 +197,7 @@ func (c *cesManager) RemovePodMapping(pod *slim_corev1.Pod) []CESKey {
 		if c.cache.countCEPsInCES(cesName) == 0 {
 			c.cache.deleteCES(cesName)
 		}
+		fmt.Println(c.cache.DumpState())
 		return []CESKey{NewCESKey(cesName.string(), pod.Namespace)}
 	}
 	return nil
@@ -201,21 +206,34 @@ func (c *cesManager) RemovePodMapping(pod *slim_corev1.Pod) []CESKey {
 func (c *cesManager) UpdateNodeMapping(node *cilium_v2.CiliumNode) []CESKey {
 	newKey := EncryptionKey(node.Spec.Encryption.Key)
 	name := NodeName(node.Name)
-	return c.cache.insertNode(name, newKey)
+	//return
+	x := c.cache.insertNode(name, newKey)
+	fmt.Println(c.cache.DumpState())
+	return x
 }
 
 func (c *cesManager) RemoveNodeMapping(node *cilium_v2.CiliumNode) []CESKey {
-	return c.cache.deleteNode(NodeName(node.Name))
+	name := NodeName(node.Name)
+	//return
+	x := c.cache.deleteNode(name)
+	fmt.Println(c.cache.DumpState())
+	return x
 }
 
 func (c *cesManager) UpdateIdentityMapping(id *cilium_v2.CiliumIdentity) []CESKey {
 	cidName, gidLabels := cidToGidLabels(id)
-	return c.cache.insertCID(cidName, gidLabels)
+	//return
+	x := c.cache.insertCID(cidName, gidLabels)
+	fmt.Println(c.cache.DumpState())
+	return x
 }
 
 func (c *cesManager) RemoveIdentityMapping(id *cilium_v2.CiliumIdentity) []CESKey {
 	cidName, gidLabels := cidToGidLabels(id)
-	return c.cache.deleteCID(cidName, gidLabels)
+	//return
+	x := c.cache.deleteCID(cidName, gidLabels)
+	fmt.Println(c.cache.DumpState())
+	return x
 }
 
 func (c *cesManager) GetCESInNs(ns *slim_corev1.Namespace) []CESKey {
@@ -224,6 +242,7 @@ func (c *cesManager) GetCESInNs(ns *slim_corev1.Namespace) []CESKey {
 
 func (c *cesManager) RemoveNamespaceMapping(ns *slim_corev1.Namespace) {
 	c.cache.deleteNs(ns.GetName())
+	fmt.Println(c.cache.DumpState())
 }
 
 func cidToGidLabels(id *cilium_v2.CiliumIdentity) (CID, Label) {
@@ -272,6 +291,7 @@ func (c *cesManager) initializeMappingForCES(ces *cilium_v2a1.CiliumEndpointSlic
 func (c *cesManager) initializeMappingPodToNode(cepName CEPName, nodeName NodeName, ces CESName, cid CID, gidLabels Label, encryptionKey EncryptionKey) {
 	c.cache.upsertCEP(cepName, ces, nodeName, gidLabels, cid)
 	c.cache.insertNode(nodeName, encryptionKey)
+	fmt.Println(c.cache.DumpState())
 }
 
 func (c *cesManager) initializeMappingCEPtoCES(cep *cilium_v2a1.CoreCiliumEndpoint, ns string, ces CESName) {
