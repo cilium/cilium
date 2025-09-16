@@ -130,16 +130,6 @@ func (ro ruleOrigin) Merge(other ruleOrigin) ruleOrigin {
 
 var NilRuleOrigin = newRuleOrigin(RuleMeta{labels: "[]"})
 
-type testOrigin map[CachedSelector]labels.LabelArrayList
-
-func OriginForTest(m testOrigin) map[CachedSelector]ruleOrigin {
-	res := make(map[CachedSelector]ruleOrigin, len(m))
-	for cs, lbls := range m {
-		res[cs] = makeRuleOrigin(lbls, nil)
-	}
-	return res
-}
-
 // stringLabels is an interned labels.LabelArray.String()
 type stringLabels unique.Handle[labels.LabelArrayListString]
 
