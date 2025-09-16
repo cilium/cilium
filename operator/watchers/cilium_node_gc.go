@@ -5,7 +5,6 @@ package watchers
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -13,13 +12,13 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -67,7 +66,7 @@ func (c *ciliumNodeGCCandidate) Delete(nodeName string) {
 }
 
 // RunCiliumNodeGC performs garbage collector for cilium node resource
-func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, ciliumNodeStore cache.Store, interval time.Duration, logger *slog.Logger,
+func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, ciliumNodes resource.Resource[*cilium_v2.CiliumNode], interval time.Duration, logger *slog.Logger,
 	mp workqueue.MetricsProvider) {
 	nodesInit(wg, clientset.Slim(), ctx.Done(), mp)
 
@@ -75,6 +74,11 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 	select {
 	case <-slimNodeStoreSynced:
 	case <-ctx.Done():
+		return
+	}
+
+	ciliumNodeStore, err := ciliumNodes.Store(ctx)
+	if err != nil {
 		return
 	}
 
@@ -102,9 +106,13 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 	}()
 }
 
-func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterface, ciliumNodeStore cache.Store,
+func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterface, ciliumNodeStore resource.Store[*cilium_v2.CiliumNode],
 	nodeGetter slimNodeGetter, interval time.Duration, candidateStore *ciliumNodeGCCandidate, logger *slog.Logger) error {
-	for _, nodeName := range ciliumNodeStore.ListKeys() {
+	iter := ciliumNodeStore.IterKeys()
+	for iter.Next() {
+		key := iter.Key()
+		nodeName := key.Name
+
 		scopedLog := logger.With(logfields.NodeName, nodeName)
 		_, err := nodeGetter.GetK8sSlimNode(nodeName)
 		if err == nil {
@@ -117,15 +125,9 @@ func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterfac
 			return err
 		}
 
-		obj, _, err := ciliumNodeStore.GetByKey(nodeName)
+		cn, _, err := ciliumNodeStore.GetByKey(key)
 		if err != nil {
 			scopedLog.ErrorContext(ctx, "Unable to fetch CiliumNode from store", logfields.Error, err)
-			return err
-		}
-
-		cn, ok := obj.(*cilium_v2.CiliumNode)
-		if !ok {
-			scopedLog.ErrorContext(ctx, fmt.Sprintf("Object stored in store is not *cilium_v2.CiliumNode but %T", obj))
 			return err
 		}
 
