@@ -404,8 +404,12 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb
 	newCount := len(beps)
 	orphanCount := 0
 	for be := range c.p.Writer.Backends().List(wtxn, lb.BackendByServiceName(lrpServiceName)) {
+		inst := be.GetInstance(lrpServiceName)
+		if inst == nil {
+			continue
+		}
 		if slices.ContainsFunc(beps, func(bep lb.BackendParams) bool {
-			return bep.Address == be.Address
+			return inst.DeepEqual(&bep)
 		}) {
 			newCount--
 		} else {
