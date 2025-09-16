@@ -17,6 +17,7 @@ import (
 	ipamapi "github.com/cilium/cilium/pkg/ipam/api"
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	"github.com/cilium/cilium/pkg/ipmasq"
+	k8sResources "github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -32,6 +33,7 @@ var Cell = cell.Module(
 
 	cell.Provide(newIPAddressManager),
 	cell.Provide(newIPAMAPIHandler),
+	cell.Provide(k8sResources.CiliumPodIPPoolResource),
 
 	// IPAM metadata manager, determines which IPAM pool a pod should allocate from
 	ipamMetadata.Cell,
