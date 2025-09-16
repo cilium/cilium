@@ -868,15 +868,3 @@ func parseSelectLabel(str string, delim byte) Label {
 
 	return lbl
 }
-
-// generateLabelString generates the string representation of a label with
-// the provided source, key, and value in the format "source:key=value".
-func generateLabelString(source, key, value string) string {
-	return source + ":" + key + "=" + value
-}
-
-// GenerateK8sLabelString generates the string representation of a label with
-// the provided source, key, and value in the format "LabelSourceK8s:key=value".
-func GenerateK8sLabelString(k, v string) string {
-	return generateLabelString(LabelSourceK8s, k, v)
-}
