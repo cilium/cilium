@@ -1679,11 +1679,12 @@ func (ipam *LBIPAM) updatePoolCounts(pool *cilium_api_v2.CiliumLoadBalancerIPPoo
 		totalCounts.Used += used
 	}
 
-	if ipam.setPoolCondition(pool, ciliumPoolIPsTotalCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Total.String()) ||
-		ipam.setPoolCondition(pool, ciliumPoolIPsAvailableCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Available.String()) ||
-		ipam.setPoolCondition(pool, ciliumPoolIPsUsedCondition, meta_v1.ConditionUnknown, "noreason", strconv.FormatUint(totalCounts.Used, 10)) {
-		modifiedPoolStatus = true
-	}
+	totalChanged := ipam.setPoolCondition(pool, ciliumPoolIPsTotalCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Total.String())
+	availableChanged := ipam.setPoolCondition(pool, ciliumPoolIPsAvailableCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Available.String())
+	usedChanged := ipam.setPoolCondition(pool, ciliumPoolIPsUsedCondition, meta_v1.ConditionUnknown, "noreason", strconv.FormatUint(totalCounts.Used, 10))
+	modifiedPoolStatus = totalChanged ||
+		availableChanged ||
+		usedChanged
 
 	available, _ := new(big.Float).SetInt(totalCounts.Available).Float64()
 	ipam.metrics.AvailableIPs.WithLabelValues(pool.Name).Set(available)
