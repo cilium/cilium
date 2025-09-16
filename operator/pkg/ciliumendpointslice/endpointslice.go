@@ -433,6 +433,17 @@ func (c *Controller) syncCESsInLocalCacheNoCeps(ctx context.Context) error {
 		c.logger.WarnContext(ctx, "Error getting CiliumNode Store", logfields.Error, err)
 		return err
 	}
+	podStore, err := c.pods.Store(ctx)
+	if err != nil {
+		c.logger.WarnContext(ctx, "Error getting Pod Store", logfields.Error, err)
+		return err
+	}
+
+	nsStore, err := c.namespace.Store(ctx)
+	if err != nil {
+		c.logger.WarnContext(ctx, "Error getting Namespace Store", logfields.Error, err)
+		return err
+	}
 
 	cidToLabels := make(map[CID]string)
 	for _, cid := range cidStore.List() {
@@ -445,6 +456,26 @@ func (c *Controller) syncCESsInLocalCacheNoCeps(ctx context.Context) error {
 		fmt.Println("Initializing mapping for CES:", ces.Name)
 		c.manager.initializeMappingForCES(ces)
 		for _, cep := range ces.Endpoints {
+			// Skip if namespace no longer exists
+			_, exists, err := nsStore.GetByKey(resource.Key{Name: ces.Namespace})
+			if err != nil {
+				c.logger.WarnContext(ctx, "Error getting Namespace from Store", logfields.Error, err)
+				continue
+			}
+			if !exists {
+				continue
+			}
+
+			// Skip adding CEP to cache if the associated pod no longer exists.
+			_, exists, err = podStore.GetByKey(resource.Key{Name: cep.Name, Namespace: ces.Namespace})
+			if err != nil {
+				c.logger.WarnContext(ctx, "Error getting Pod from Store", logfields.Error, err)
+				continue
+			}
+			if !exists {
+				continue
+			}
+
 			identityid := strconv.FormatInt(cep.IdentityID, 10)
 			labels := cidToLabels[CID(identityid)]
 

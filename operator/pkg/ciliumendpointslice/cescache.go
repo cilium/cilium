@@ -4,6 +4,8 @@
 package ciliumendpointslice
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -83,6 +85,31 @@ func newCESCache() *CESCache {
 		globalIdLabelsToCIDSet: make(map[string]*SecIDs),
 		cidToGidLabels:         make(map[CID]string),
 	}
+}
+
+func (c *CESCache) DumpState() string {
+	s := "===== CESCache =====\n"
+	s += "CEP Data\n"
+	for cep, data := range c.cepData {
+		s += fmt.Sprintf("  %s: { CES: %s, Node: %s, Labels: %s }\n", cep, data.ces, data.node, data.labels)
+	}
+	s += "CES Data\n"
+	for ces, data := range c.cesData {
+		s += fmt.Sprintf("  %s: { CEPs: %s, Namespace: %s }\n", ces, data.ceps, data.ns)
+	}
+	s += "Node Data\n"
+	for node, data := range c.nodeData {
+		s += fmt.Sprintf("  %s: { CEPs: %s, Key: %d }\n", node, data.ceps, data.key)
+	}
+	s += "Global ID Labels to CID Set\n"
+	for labels, data := range c.globalIdLabelsToCIDSet {
+		s += fmt.Sprintf("  %s: { SelectedID: %d, IDs: %s, CEPs: %s }\n", labels, data.selectedID, data.ids, data.ceps)
+	}
+	s += "CID to Global ID Labels\n"
+	for cid, labels := range c.cidToGidLabels {
+		s += fmt.Sprintf("  %d: %s\n", cid, labels)
+	}
+	return s
 }
 
 // Add CEP to cache, map to CES name and node name
