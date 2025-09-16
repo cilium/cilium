@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/cobra"
@@ -60,7 +59,6 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis"
@@ -610,10 +608,6 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 		}()
 	}
 
-	var (
-		nodeManager allocator.NodeEventHandler
-	)
-
 	legacy.logger.InfoContext(ctx,
 		"Initializing IPAM",
 		logfields.Mode, option.Config.IPAM,
@@ -647,7 +641,17 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 			logging.Fatal(legacy.logger, fmt.Sprintf("Unable to start %s allocator", ipamMode), logfields.Error, err)
 		}
 
-		nodeManager = nm
+		legacy.wg.Go(func() {
+			// The NodeEventHandler uses operatorWatchers.PodStore for IPAM surge allocation.
+			podStore, err := legacy.resources.Pods.Store(legacy.ctx)
+			if err != nil {
+				logging.Fatal(legacy.logger, "Unable to retrieve Pod store from Pod resource watcher", logfields.Error, err)
+			}
+			operatorWatchers.PodStore = podStore.CacheStore()
+
+			withResync := option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMMultiPool
+			watchCiliumNodes(legacy.ctx, legacy.resources.CiliumNodes, nm, withResync)
+		})
 	}
 
 	if legacy.clientset.IsEnabled() &&
@@ -665,43 +669,11 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 			watcherLogger)
 	}
 
-	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.logger, legacy.clientset, nodeManager, legacy.workqueueMetricsProvider)
-
 	if legacy.clientset.IsEnabled() {
-		// ciliumNodeSynchronizer uses operatorWatchers.PodStore for IPAM surge
-		// allocation. Initializing PodStore from Pod resource is temporary until
-		// ciliumNodeSynchronizer is migrated to a cell.
-		podStore, err := legacy.resources.Pods.Store(legacy.ctx)
-		if err != nil {
-			logging.Fatal(legacy.logger, "Unable to retrieve Pod store from Pod resource watcher", logfields.Error, err)
-		}
-		operatorWatchers.PodStore = podStore.CacheStore()
-
-		if err := ciliumNodeSynchronizer.Start(legacy.ctx, &legacy.wg); err != nil {
-			logging.Fatal(legacy.logger, "Unable to setup cilium node synchronizer", logfields.Error, err)
-		}
-
 		if operatorOption.Config.NodesGCInterval != 0 {
 			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, legacy.resources.CiliumNodes,
 				operatorOption.Config.NodesGCInterval, watcherLogger, legacy.workqueueMetricsProvider)
 		}
-	}
-
-	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMMultiPool {
-		// We will use CiliumNodes as the source of truth for the podCIDRs.
-		// Once the CiliumNodes are synchronized with the operator we will
-		// be able to watch for K8s Node events which they will be used
-		// to create the remaining CiliumNodes.
-		<-ciliumNodeSynchronizer.ciliumNodeManagerQueueSynced
-
-		// We don't want CiliumNodes that don't have podCIDRs to be
-		// allocated with a podCIDR already being used by another node.
-		// For this reason we will call Resync after all CiliumNodes are
-		// synced with the operator to signal the node manager, since it
-		// knows all podCIDRs that are currently set in the cluster, that
-		// it can allocate podCIDRs for the nodes that don't have a podCIDR
-		// set.
-		nodeManager.Resync(legacy.ctx, time.Time{})
 	}
 
 	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD ||
