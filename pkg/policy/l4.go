@@ -601,15 +601,6 @@ type ChangeState struct {
 	old     mapStateMap // Old values of all modified or deleted keys, if not nil
 }
 
-// NewRevertState returns an empty ChangeState suitable for reverting MapState changes.
-// The private 'old' field is initialized so that old state can be restored if need be.
-func NewRevertState() ChangeState {
-	return ChangeState{
-		Adds: make(Keys),
-		old:  make(mapStateMap),
-	}
-}
-
 func (c *ChangeState) Empty() bool {
 	return len(c.Adds)+len(c.Deletes)+len(c.old) == 0
 }
