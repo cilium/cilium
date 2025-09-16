@@ -21,7 +21,6 @@
 #include "lib/common.h"
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
-#include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/trace.h"
 #include "lib/l3.h"
