@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:5569a29cea6b3ad50aeb03102aaf3dc03841197c@sha256:b15dbedb7c49816c74a765e2f6ecdb9359763b8e4e4328d794f48b9cefae9804
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:ee484150bfea467ef6c29ccb59178fd3cac26fdc@sha256:45d93e06a8d9bd5d43fc9d6513c52a45b86a51fc960d27715fdf1eff0ac1ef72
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:3e90e76f982236ce802e6e7e6097135fe514490d@sha256:6c2151c03bc81a03a8930d1c8aa6d9f8e46a2b07bcad7a4640f25ef79c4e565f
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:dd09c8d3ef349a909fbcdc99279516baef153f22@sha256:c056d064cb47c97acd607343db5457e1d49d9338d6d8a87e93e23cc93f052c73
 ARG GOLANG_IMAGE=docker.io/library/golang:1.24.7@sha256:5e9d14d681c3224276f0c8e318525ef6fc96b47fbcbb89f8bec0e402e18ea8bf
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:9f1bfe736009afb1fbb562718bbc42ea07d37d8e@sha256:a666a7a01a2dc610c3ab6e32f25ca5e294201f3cbbc01f233320c527955deee3
@@ -17,7 +17,7 @@ FROM ${CILIUM_RUNTIME_IMAGE} AS rootfs
 
 # Change the number to force the generation of a new git-tree SHA. Useful when
 # we want to re-run 'apt-get upgrade' for stale images.
-ENV FORCE_BUILD=2
+ENV FORCE_BUILD=3
 
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
