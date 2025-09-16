@@ -256,6 +256,23 @@ func (s *CidrSet) IsAllocated(cidr *net.IPNet) (bool, error) {
 	}
 	return true, nil
 }
+func (s *CidrSet) CountAllocatedIPsInPrefix(cidr *net.IPNet) (*big.Int, error) {
+	begin, end, err := s.getBeginningAndEndIndices(cidr)
+	if err != nil {
+		return nil, err
+	}
+
+	s.Lock()
+	defer s.Unlock()
+
+	count := big.NewInt(0)
+	for i := begin; i <= end; i++ {
+		if s.used.Bit(i) == 1 {
+			count.Add(count, big.NewInt(1))
+		}
+	}
+	return count, nil
+}
 
 // Release releases the given CIDR range.
 func (s *CidrSet) Release(cidr *net.IPNet) error {

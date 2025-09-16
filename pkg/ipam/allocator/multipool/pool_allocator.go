@@ -14,18 +14,86 @@ import (
 
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/trigger"
 )
 
 type cidrPool struct {
-	v4         []cidralloc.CIDRAllocator
-	v6         []cidralloc.CIDRAllocator
-	v4MaskSize int
-	v6MaskSize int
+	v4                        []cidralloc.CIDRAllocator
+	v6                        []cidralloc.CIDRAllocator
+	v4MaskSize                int
+	v6MaskSize                int
+	CountAllocatedIPsInPrefix func(cidr *netip.Prefix) *big.Int
+}
+
+type metricsAPI interface {
+	RemainingIPSTrigger() trigger.MetricsObserver
+	SetRemainingIPs(poolName, family string, remaining *big.Int)
+}
+
+func (p *PoolAllocator) getRemainingIPs() {
+	if p.metricsAPI != nil && option.Config.IPAM == ipamOption.IPAMMultiPool {
+		for poolName, pool := range p.pools {
+			for _, family := range []string{"ipv4", "ipv6"} {
+				var remaining *big.Int
+				if family == "ipv4" {
+					availablev4 := pool.GetAvailableAddrsV4()
+					allocatedv4 := pool.allocatedV4()
+					remaining = new(big.Int).Sub(availablev4, allocatedv4)
+				} else {
+					availablev6 := pool.GetAvailableAddrsV6()
+					allocatedv6 := pool.allocatedV6()
+					remaining = new(big.Int).Sub(availablev6, allocatedv6)
+				}
+
+				if remaining.Sign() < 0 {
+					remaining = big.NewInt(0)
+				}
+
+				p.metricsAPI.SetRemainingIPs(poolName, family, remaining)
+			}
+		}
+	}
+}
+
+func (c cidrPool) allocatedV4() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v4 {
+		cidrBlock := f.Prefix()
+		total.Add(total, c.CountAllocatedIPsInPrefix(&cidrBlock))
+	}
+	return total
+}
+
+func (c cidrPool) allocatedV6() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v6 {
+		cidrBlock := f.Prefix()
+		total.Add(total, c.CountAllocatedIPsInPrefix(&cidrBlock))
+	}
+	return total
+
+}
+
+func (c cidrPool) GetAvailableAddrsV4() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v4 {
+		total.Add(total, addrsInPrefix(f.Prefix()))
+	}
+	return total
+}
+
+func (c cidrPool) GetAvailableAddrsV6() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v6 {
+		total.Add(total, addrsInPrefix(f.Prefix()))
+	}
+	return total
 }
 
 type cidrSet map[netip.Prefix]struct{}
@@ -94,18 +162,29 @@ func addrsInPrefix(p netip.Prefix) *big.Int {
 }
 
 type PoolAllocator struct {
-	logger *slog.Logger
-	mutex  lock.RWMutex
-	pools  map[string]cidrPool    // poolName -> pool
-	nodes  map[string]poolToCIDRs // nodeName -> pool -> cidrs
-	ready  bool
+	logger                    *slog.Logger
+	mutex                     lock.RWMutex
+	pools                     map[string]cidrPool    // poolName -> pool
+	nodes                     map[string]poolToCIDRs // nodeName -> pool -> cidrs
+	ready                     bool
+	metricsAPI                metricsAPI
+	CountAllocatedIPsInPrefix func(cidr *netip.Prefix) *big.Int
 }
 
-func NewPoolAllocator(logger *slog.Logger) *PoolAllocator {
+func NewPoolAllocator(logger *slog.Logger, optionalMetricsAPI ...metricsAPI) *PoolAllocator {
+	var metricsAPI metricsAPI
+	if len(optionalMetricsAPI) > 0 {
+		metricsAPI = optionalMetricsAPI[0]
+	}
+
 	return &PoolAllocator{
-		logger: logger,
-		pools:  map[string]cidrPool{},
-		nodes:  map[string]poolToCIDRs{},
+		logger:     logger,
+		pools:      map[string]cidrPool{},
+		nodes:      map[string]poolToCIDRs{},
+		metricsAPI: metricsAPI,
+		CountAllocatedIPsInPrefix: func(cidr *netip.Prefix) *big.Int {
+			return big.NewInt(0)
+		},
 	}
 }
 
@@ -127,11 +206,13 @@ func (p *PoolAllocator) addPool(poolName string, ipv4CIDRs []string, ipv4MaskSiz
 	}
 
 	p.pools[poolName] = cidrPool{
-		v4:         v4,
-		v6:         v6,
-		v4MaskSize: ipv4MaskSize,
-		v6MaskSize: ipv6MaskSize,
+		v4:                        v4,
+		v6:                        v6,
+		v4MaskSize:                ipv4MaskSize,
+		v6MaskSize:                ipv6MaskSize,
+		CountAllocatedIPsInPrefix: p.CountAllocatedIPsInPrefix,
 	}
+	p.getRemainingIPs()
 
 	return nil
 }
@@ -245,11 +326,13 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 	}
 
 	p.pools[poolName] = cidrPool{
-		v4:         v4,
-		v6:         v6,
-		v4MaskSize: ipv4MaskSize,
-		v6MaskSize: ipv6MaskSize,
+		v4:                        v4,
+		v6:                        v6,
+		v4MaskSize:                ipv4MaskSize,
+		v6MaskSize:                ipv6MaskSize,
+		CountAllocatedIPsInPrefix: p.CountAllocatedIPsInPrefix,
 	}
+	p.getRemainingIPs()
 	return nil
 }
 
@@ -279,6 +362,7 @@ func (p *PoolAllocator) DeletePool(poolName string) error {
 	}
 
 	delete(p.pools, poolName)
+	p.getRemainingIPs()
 	return nil
 }
 
@@ -353,6 +437,7 @@ func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
 			}
 		}
 	}
+	p.getRemainingIPs()
 	return err
 }
 
@@ -380,7 +465,7 @@ func (p *PoolAllocator) ReleaseNode(nodeName string) error {
 
 	// Remove bookkeeping for this node
 	delete(p.nodes, nodeName)
-
+	p.getRemainingIPs()
 	return err
 }
 

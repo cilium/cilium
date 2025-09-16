@@ -5,10 +5,13 @@ package multipool
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
+	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -23,16 +26,31 @@ type Allocator struct {
 }
 
 func (a *Allocator) Init(ctx context.Context, logger *slog.Logger, _ *metrics.Registry) error {
-	a.poolAlloc = NewPoolAllocator(logger)
+	a.poolAlloc = NewPoolAllocator(logger, nil)
 	a.logger = logger.With(subsysLogAttr...)
 	return nil
 }
 
-func (a *Allocator) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, _ *metrics.Registry) (allocator.NodeEventHandler, error) {
+func (a *Allocator) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, reg *metrics.Registry) (allocator.NodeEventHandler, error) {
+	var metricsIPAM metricsAPI
+	if operatorOption.Config.EnableMetrics {
+		triggerMetricsIPAM := ipamMetrics.NewTriggerMetricsIPAM(metrics.Namespace, "remaining_ips")
+		triggerMetricsIPAM.MultipoolRegister(reg)
+		metricsIPAM = triggerMetricsIPAM
+	} else {
+		metricsIPAM = &ipamMetrics.NoOpMetrics{}
+	}
+
+	a.poolAlloc = NewPoolAllocator(a.logger, metricsIPAM)
+
 	return NewNodeHandler(a.logger, a.poolAlloc, getterUpdater), nil
 }
 
 func (a *Allocator) UpsertPool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error {
+	if a.poolAlloc == nil {
+		return fmt.Errorf("allocator not initialized")
+	}
+
 	var ipv4CIDRs, ipv6CIDRs []string
 	var ipv4MaskSize, ipv6MaskSize int
 
