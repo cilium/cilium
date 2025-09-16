@@ -101,12 +101,64 @@ func TestPoolInternalConflict(t *testing.T) {
 	}
 }
 
+// TestPoolConditions asserts that when a pool is created, the expected conditions are set on the pool status.
+func TestPoolConditions(t *testing.T) {
+	fixture := mkTestFixture(t, true, false)
+
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
+	fixture.UpsertPool(t, poolA)
+	poolA = fixture.GetPool("pool-a")
+	var (
+		conflict  bool
+		total     bool
+		available bool
+		used      bool
+	)
+	for _, c := range poolA.Status.Conditions {
+		switch c.Type {
+		case ciliumPoolConflict:
+			conflict = c.Message == "" && c.Status == meta_v1.ConditionFalse && c.Reason == "resolved"
+		case ciliumPoolIPsTotalCondition:
+			total = c.Message == "256" && c.Status == meta_v1.ConditionUnknown && c.Reason == "noreason"
+		case ciliumPoolIPsAvailableCondition:
+			available = c.Message == "256" && c.Status == meta_v1.ConditionUnknown && c.Reason == "noreason"
+		case ciliumPoolIPsUsedCondition:
+			used = c.Message == "0" && c.Status == meta_v1.ConditionUnknown && c.Reason == "noreason"
+		}
+	}
+	assert.True(t, conflict, "Expected pool to be marked as non-conflicting")
+	assert.True(t, total, "Expected pool to have total condition set")
+	assert.True(t, available, "Expected pool to have available condition set")
+	assert.True(t, used, "Expected pool to have used condition set")
+}
+
 // TestAllocHappyPath tests that an existing service will first get an IPv4 address assigned, then when they request
 // an IPv6 instead, the IPv4 is freed and an IPv6 is allocated for them.
 func TestAllocHappyPath(t *testing.T) {
-	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24", "FF::0/48"})
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24", "FF::0/120"})
 	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
+
+	// Assert correct counts on the pool after creation
+	{
+		poolA := fixture.GetPool("pool-a")
+		var (
+			used, available, total uint64
+		)
+		for _, c := range poolA.Status.Conditions {
+			switch c.Type {
+			case ciliumPoolIPsTotalCondition:
+				total, _ = strconv.ParseUint(c.Message, 10, 64)
+			case ciliumPoolIPsAvailableCondition:
+				available, _ = strconv.ParseUint(c.Message, 10, 64)
+			case ciliumPoolIPsUsedCondition:
+				used, _ = strconv.ParseUint(c.Message, 10, 64)
+			}
+		}
+		require.Equal(t, uint64(512), total)
+		require.Equal(t, uint64(512), available)
+		require.Equal(t, uint64(0), used)
+	}
 
 	// Initially request only an IPv4
 	policy := slim_core_v1.IPFamilyPolicySingleStack
@@ -147,6 +199,27 @@ func TestAllocHappyPath(t *testing.T) {
 		t.Error("Unexpected condition status assigned to service")
 	}
 
+	// Assert correct counts on the pool after allocation
+	{
+		poolA := fixture.GetPool("pool-a")
+		var (
+			used, available, total uint64
+		)
+		for _, c := range poolA.Status.Conditions {
+			switch c.Type {
+			case ciliumPoolIPsTotalCondition:
+				total, _ = strconv.ParseUint(c.Message, 10, 64)
+			case ciliumPoolIPsAvailableCondition:
+				available, _ = strconv.ParseUint(c.Message, 10, 64)
+			case ciliumPoolIPsUsedCondition:
+				used, _ = strconv.ParseUint(c.Message, 10, 64)
+			}
+		}
+		require.Equal(t, uint64(512), total)
+		require.Equal(t, uint64(511), available)
+		require.Equal(t, uint64(1), used)
+	}
+
 	// Switch to requesting an IPv6 address
 	svcA.Spec.IPFamilies = []slim_core_v1.IPFamily{
 		slim_core_v1.IPv6Protocol,
@@ -161,6 +234,27 @@ func TestAllocHappyPath(t *testing.T) {
 
 	if net.ParseIP(svcA.Status.LoadBalancer.Ingress[0].IP).To4() != nil {
 		t.Error("Expected service to receive a IPv6 address")
+	}
+
+	// Assert correct counts on the pool after freeing IPv4 and allocating IPv6
+	{
+		poolA := fixture.GetPool("pool-a")
+		var (
+			used, available, total uint64
+		)
+		for _, c := range poolA.Status.Conditions {
+			switch c.Type {
+			case ciliumPoolIPsTotalCondition:
+				total, _ = strconv.ParseUint(c.Message, 10, 64)
+			case ciliumPoolIPsAvailableCondition:
+				available, _ = strconv.ParseUint(c.Message, 10, 64)
+			case ciliumPoolIPsUsedCondition:
+				used, _ = strconv.ParseUint(c.Message, 10, 64)
+			}
+		}
+		require.Equal(t, uint64(512), total)
+		require.Equal(t, uint64(511), available)
+		require.Equal(t, uint64(1), used)
 	}
 
 	// Switch back to requesting an IPv4 address
@@ -178,6 +272,27 @@ func TestAllocHappyPath(t *testing.T) {
 
 	if net.ParseIP(svcA.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
 		t.Error("Expected service to receive a IPv4 address")
+	}
+
+	// Assert correct counts on the pool after freeing IPv6 and allocating IPv5
+	{
+		poolA := fixture.GetPool("pool-a")
+		var (
+			used, available, total uint64
+		)
+		for _, c := range poolA.Status.Conditions {
+			switch c.Type {
+			case ciliumPoolIPsTotalCondition:
+				total, _ = strconv.ParseUint(c.Message, 10, 64)
+			case ciliumPoolIPsAvailableCondition:
+				available, _ = strconv.ParseUint(c.Message, 10, 64)
+			case ciliumPoolIPsUsedCondition:
+				used, _ = strconv.ParseUint(c.Message, 10, 64)
+			}
+		}
+		require.Equal(t, uint64(512), total)
+		require.Equal(t, uint64(511), available)
+		require.Equal(t, uint64(1), used)
 	}
 }
 
