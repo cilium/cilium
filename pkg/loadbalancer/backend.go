@@ -22,6 +22,8 @@ const (
 )
 
 // BackendParams defines the parameters of a backend for insertion into the backends table.
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type BackendParams struct {
 	Address L3n4Addr
 
@@ -55,6 +57,7 @@ type BackendParams struct {
 	Unhealthy bool
 
 	// UnhealthyUpdatedAt is the timestamp for when [Unhealthy] was last updated.
+	// +deepequal-gen=false
 	UnhealthyUpdatedAt *time.Time
 }
 
@@ -78,8 +81,21 @@ func (bep *BackendParams) GetZone() string {
 	return bep.Zone.Zone
 }
 
+func (bep *BackendParams) GetUnhealthyUpdatedAt() time.Time {
+	if bep.UnhealthyUpdatedAt == nil {
+		return time.Time{}
+	}
+	return *bep.UnhealthyUpdatedAt
+}
+
+func (bep *BackendParams) DeepEqual(other *BackendParams) bool {
+	return bep.deepEqual(other) &&
+		bep.GetUnhealthyUpdatedAt().Equal(other.GetUnhealthyUpdatedAt())
+}
+
 // BackendZone locates the backend to a specific zone and specifies what zones
 // the backend should be used in for topology aware routing.
+// +deepequal-gen=true
 type BackendZone struct {
 	// Zone where backend is located.
 	Zone string
