@@ -46,7 +46,7 @@ rules:
   - get
   - list
   - watch
-{{- if and .Values.hubble.enabled .Values.hubble.dropEventEmitter.enabled }}
+{{- if or (eq .Values.ipam.mode "multi-pool") (and .Values.hubble.enabled .Values.hubble.dropEventEmitter.enabled) }}
 - apiGroups:
   - ""
   resources:

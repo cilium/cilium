@@ -4,16 +4,24 @@
 package metadata
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"strings"
 
 	"github.com/cilium/statedb"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam"
+	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -21,6 +29,12 @@ type ManagerStoppedError struct{}
 
 func (m *ManagerStoppedError) Error() string {
 	return "ipam-metadata-manager has been stopped"
+}
+
+type ManagerPoolsNotSyncedError struct{}
+
+func (m *ManagerPoolsNotSyncedError) Error() string {
+	return "ipam-metadata-manager has not synced all pod IP pools yet"
 }
 
 type ResourceNotFound struct {
@@ -57,7 +71,28 @@ type manager struct {
 	db         *statedb.DB
 	pods       statedb.Table[k8s.LocalPod]
 	namespaces statedb.Table[k8s.Namespace]
+
+	// compiledPools is a map of pools and their selectors that have been compiled
+	// from CiliumPodIPPool resources. It is protected by a RWMutex.
+	compiledPools map[string]compiledPool
+	poolMu        lock.RWMutex
+	// poolsSynced shows whether the manager has received a Sync event from the poolInformer.
+	// GetIPPoolForPod will return an error until the poolInformer has received a Sync event.
+	poolsSynced bool
 }
+
+type compiledPool struct {
+	name              string
+	podSelector       slim_labels.Selector
+	namespaceSelector slim_labels.Selector
+	hasV4             bool
+	hasV6             bool
+}
+
+const (
+	podNamespaceLabel = "io.kubernetes.pod.namespace"
+	podNameLabel      = "io.kubernetes.pod.name"
+)
 
 func splitK8sPodName(owner string) (namespace, name string, ok bool) {
 	// Require namespace/name format
@@ -93,6 +128,9 @@ func determinePoolByAnnotations(annotations map[string]string, family ipam.Famil
 }
 
 func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string, err error) {
+	if !m.poolsSynced {
+		return "", &ManagerPoolsNotSyncedError{}
+	}
 	if family != ipam.IPv6 && family != ipam.IPv4 {
 		return "", fmt.Errorf("invalid IP family: %s", family)
 	}
@@ -100,7 +138,7 @@ func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string
 	namespace, name, ok := splitK8sPodName(owner)
 	if !ok {
 		m.logger.Debug(
-			"IPAM metadata request for invalid pod name, falling back to default pool",
+			"pool selector: IPAM metadata request for invalid pod name, falling back to default pool",
 			logfields.Owner, owner,
 		)
 		return ipam.PoolDefault().String(), nil
@@ -113,17 +151,216 @@ func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string
 	if !found {
 		return "", &ResourceNotFound{Resource: "Pod", Namespace: namespace, Name: name}
 	} else if ippool, ok := determinePoolByAnnotations(pod.Annotations, family); ok {
+		m.logger.Debug("pool selector: found pool by pod annotation",
+			logfields.Owner, owner,
+			logfields.K8sNamespace, namespace,
+			logfields.Name, name,
+			logfields.PoolName, ippool,
+		)
 		return ippool, nil
 	}
 
 	// Check annotation on namespace
 	podNamespace, _, found := m.namespaces.Get(txn, k8s.NamespaceIndex.Query(namespace))
 	if !found {
+		m.logger.Debug("pool selector: namespace not found",
+			logfields.Owner, owner,
+			logfields.K8sNamespace, namespace,
+		)
 		return "", &ResourceNotFound{Resource: "Namespace", Name: namespace}
 	} else if ippool, ok := determinePoolByAnnotations(podNamespace.Annotations, family); ok {
+		m.logger.Debug("pool selector: found pool by namespace annotation",
+			logfields.Owner, owner,
+			logfields.K8sNamespace, namespace,
+			logfields.PoolName, ippool,
+		)
 		return ippool, nil
 	}
 
-	// Fallback to default pool
-	return ipam.PoolDefault().String(), nil
+	podLabels := maps.Clone(pod.Labels)
+	if podLabels == nil {
+		podLabels = make(map[string]string)
+	}
+	// Add synthetic fields for selectors
+	podLabels[podNamespaceLabel] = namespace
+	podLabels[podNameLabel] = name
+	m.logger.Debug("pool selector: evaluating selectors for pod",
+		logfields.Owner, owner,
+		logfields.Family, family,
+		logfields.Labels, podLabels,
+	)
+	var matches []string
+	m.poolMu.RLock()
+	for _, cp := range m.compiledPools {
+		if family == ipam.IPv4 && !cp.hasV4 {
+			m.logger.Debug("pool selector: CiliumPodIPPool does not have IPv4",
+				logfields.Owner, owner,
+				logfields.PoolName, cp.name,
+			)
+			continue
+		}
+		if family == ipam.IPv6 && !cp.hasV6 {
+			m.logger.Debug("pool selector: CiliumPodIPPool does not have IPv6",
+				logfields.Owner, owner,
+				logfields.PoolName, cp.name,
+			)
+			continue
+		}
+		// Check if pod matches the pool's podSelector (if specified)
+		podMatches := cp.podSelector == nil || cp.podSelector.Matches(labels.Set(podLabels))
+
+		// Check if namespace matches the pool's namespaceSelector (if specified)
+		namespaceMatches := cp.namespaceSelector == nil || cp.namespaceSelector.Matches(labels.Set(podNamespace.Labels))
+
+		if podMatches && namespaceMatches {
+			matches = append(matches, cp.name)
+			m.logger.Debug("pool selector: pod matches selectors",
+				logfields.PoolName, cp.name,
+				logfields.Owner, owner,
+				logfields.PodSelector, cp.podSelector,
+				logfields.NamespaceSelector, cp.namespaceSelector,
+				logfields.Matches, matches,
+			)
+		}
+	}
+	m.poolMu.RUnlock()
+
+	switch len(matches) {
+	case 0:
+		// Check if pod or namespace requires pool match
+		podRequiresMatch := pod.Annotations[annotation.IPAMRequirePoolMatch] == "true"
+		namespaceRequiresMatch := podNamespace.Annotations[annotation.IPAMRequirePoolMatch] == "true"
+		if podRequiresMatch || namespaceRequiresMatch {
+			var annotationLocation string
+			if podRequiresMatch {
+				annotationLocation = "pod"
+			} else {
+				annotationLocation = "namespace"
+			}
+			return "", fmt.Errorf("no matching CiliumPodIPPool found for pod %s (family=%s) and require-pool-match annotation is set on %s", owner, family, annotationLocation)
+		}
+		// Fallback to default pool
+		m.logger.Debug("pool selector: no matches, falling back to default pool",
+			logfields.Owner, owner,
+		)
+		return ipam.PoolDefault().String(), nil
+	case 1:
+		m.logger.Debug("pool selector: found matching pool",
+			logfields.Owner, owner,
+			logfields.PoolName, matches[0],
+		)
+		return matches[0], nil
+	default:
+		// If multiple pools match, fail the allocation
+		m.logger.Error("pool selector: multiple pools matched; refusing to choose a pool",
+			logfields.Owner, owner,
+			logfields.Matches, matches,
+		)
+		return "", fmt.Errorf("multiple CiliumPodIPPools match pod %s (family=%s): %v", owner, family, matches)
+	}
+}
+
+// handlePoolEvent handles individual CiliumPodIPPool events and maintains internal selector state.
+func (m *manager) handlePoolEvent(ctx context.Context, event resource.Event[*cilium_v2alpha1.CiliumPodIPPool]) error {
+	var err error
+	defer func() {
+		event.Done(err)
+	}()
+
+	switch event.Kind {
+	case resource.Sync:
+		m.logger.Debug("pool watcher: pools synced")
+		m.poolsSynced = true
+	case resource.Upsert:
+		if setErr := m.compilePool(event.Object); setErr != nil {
+			err = setErr
+		}
+	case resource.Delete:
+		m.deleteCompiledPool(event.Object.Name)
+	}
+	return nil
+}
+
+func (m *manager) compilePool(p *cilium_v2alpha1.CiliumPodIPPool) error {
+	m.logger.Debug("pool watcher: upserting pool",
+		logfields.PoolName, p.Name,
+	)
+
+	// Compile selectors
+	var podSelector slim_labels.Selector
+	var namespaceSelector slim_labels.Selector
+
+	hasPodSelector := p.Spec.PodSelector != nil
+	hasNamespaceSelector := p.Spec.NamespaceSelector != nil
+	if !hasPodSelector && !hasNamespaceSelector {
+		m.logger.Debug("pool watcher: pool has no pod or namespace selectors; ignoring",
+			logfields.PoolName, p.Name,
+		)
+		m.deleteCompiledPool(p.Name)
+		return nil
+	}
+	if hasPodSelector {
+		sel, err := slim_meta_v1.LabelSelectorAsSelector(p.Spec.PodSelector)
+		if err != nil {
+			m.logger.Error("pool watcher: failed to compile podSelector for CiliumPodIPPool; ignoring selector",
+				logfields.PoolName, p.Name,
+				logfields.Error, err)
+			return err
+		}
+		podSelector = sel
+	}
+
+	if hasNamespaceSelector {
+		sel, err := slim_meta_v1.LabelSelectorAsSelector(p.Spec.NamespaceSelector)
+		if err != nil {
+			m.logger.Error("pool watcher: failed to compile namespaceSelector for CiliumPodIPPool; ignoring selector",
+				logfields.PoolName, p.Name,
+				logfields.Error, err)
+			return err
+		}
+		namespaceSelector = sel
+	}
+
+	cp := compiledPool{
+		name:              p.Name,
+		podSelector:       podSelector,
+		namespaceSelector: namespaceSelector,
+		hasV4:             p.Spec.IPv4 != nil,
+		hasV6:             p.Spec.IPv6 != nil,
+	}
+
+	m.setCompiledPool(cp)
+
+	return nil
+}
+
+func (m *manager) setCompiledPool(p compiledPool) {
+	m.poolMu.Lock()
+	m.compiledPools[p.name] = p
+	m.logger.Debug("pool watcher: upserted pool",
+		logfields.PoolName, p.name,
+		logfields.PodSelector, p.podSelector,
+		logfields.NamespaceSelector, p.namespaceSelector,
+		logfields.IPv4, p.hasV4,
+		logfields.IPv6, p.hasV6,
+		logfields.CompiledPools, m.compiledPools,
+	)
+	m.poolMu.Unlock()
+}
+
+func (m *manager) deleteCompiledPool(name string) {
+	m.poolMu.Lock()
+	delete(m.compiledPools, name)
+	m.logger.Debug("pool watcher: pool deleted",
+		logfields.PoolName, name,
+		logfields.CompiledPools, m.compiledPools,
+	)
+	m.poolMu.Unlock()
+}
+
+func (m *manager) getCompiledPool(name string) (compiledPool, bool) {
+	m.poolMu.RLock()
+	defer m.poolMu.RUnlock()
+	cp, ok := m.compiledPools[name]
+	return cp, ok
 }
