@@ -195,10 +195,8 @@ static __always_inline bool
 strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 	struct remote_endpoint_info __maybe_unused *dest_info, __maybe_unused *src_info;
 	bool __maybe_unused in_strict_cidr = false;
+	struct iphdr __maybe_unused *ip4;
 	void *data, *data_end;
-#ifdef ENABLE_IPV4
-	struct iphdr *ip4;
-#endif
 
 	switch (proto) {
 #ifdef ENABLE_IPV4
