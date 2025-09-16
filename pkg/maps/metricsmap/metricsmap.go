@@ -62,6 +62,9 @@ const (
 	dirIngress = 1
 	dirEgress  = 2
 	dirService = 3
+
+	forwardedFragmentedPacket = 9
+	forwardedMTUErrorMessage  = 15
 )
 
 // direction is the metrics direction i.e ingress (to an endpoint),
@@ -133,6 +136,16 @@ func (k *Key) IsDrop() bool {
 	return k.Reason == monitorAPI.DropInvalid || k.Reason >= monitorAPI.DropMin
 }
 
+// IsFragNeeded checks if the reason is realted to a mtu error message (frag-needed or pkt-too-big).
+func (k *Key) IsFragNeeded() bool {
+	return k.Reason == forwardedMTUErrorMessage
+}
+
+// IsFragmentedCount checks if the reason is forwarded packets with fragmentation.
+func (k *Key) IsFragmentedCount() bool {
+	return k.Reason == forwardedFragmentedPacket
+}
+
 // Count returns the sum of all the per-CPU count values
 func (vs Values) Count() uint64 {
 	c := uint64(0)
@@ -163,6 +176,9 @@ type metricsmapCollector struct {
 	droppedByteDesc  *prometheus.Desc
 	forwardCountDesc *prometheus.Desc
 	forwardByteDesc  *prometheus.Desc
+
+	fragmentedCountDesc *prometheus.Desc
+	fragNeededCountDesc *prometheus.Desc
 }
 
 func newMetricsMapCollector(logger *slog.Logger) prometheus.Collector {
@@ -186,6 +202,16 @@ func newMetricsMapCollector(logger *slog.Logger) prometheus.Collector {
 		forwardByteDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "forward_bytes_total"),
 			"Total forwarded bytes, tagged by ingress/egress direction",
+			[]string{metrics.LabelDirection}, nil,
+		),
+		fragNeededCountDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, "", "mtu_error_message_total"),
+			"Total number of icmp fragmentation-needed or icmpv6 packet-too-big messages processed",
+			[]string{metrics.LabelDirection}, nil,
+		),
+		fragmentedCountDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, "", "fragmented_count_total"),
+			"Total number of fragmented packets processed by datapath",
 			[]string{metrics.LabelDirection}, nil,
 		),
 	}
@@ -258,6 +284,12 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 	drop := make(promMetrics[dropLabels])
 	fwd := make(promMetrics[forwardLabels])
 
+	// Aside from general fwd/drop metrics, we expose a couple special case metrics that
+	// are useful for those operating cilium. Specifically, exposing number of fragmented
+	// packets and icmp frag-needed/pkt-too-big messages processed by the datapath.
+	fragNeededCount := make(promMetrics[forwardLabels])
+	fragmentedPacketsCount := make(promMetrics[forwardLabels])
+
 	err := Metrics.IterateWithCallback(func(key *Key, values *Values) {
 		if key.IsDrop() {
 			labelSet := dropLabels{
@@ -273,6 +305,13 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 			direction: key.Direction(),
 		}
 		fwd.sum(labelSet, values)
+
+		if key.IsFragNeeded() {
+			fragNeededCount.sum(labelSet, values)
+		}
+		if key.IsFragmentedCount() {
+			fragmentedPacketsCount.sum(labelSet, values)
+		}
 	})
 	if err != nil {
 		mc.logger.Warn("Failed to read metrics from BPF map", logfields.Error, err)
@@ -289,6 +328,14 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 		mc.updateCounterMetric(mc.droppedCountDesc, ch, value.count, labels.reason, labels.direction)
 		mc.updateCounterMetric(mc.droppedByteDesc, ch, value.bytes, labels.reason, labels.direction)
 	}
+
+	for labels, value := range fragmentedPacketsCount {
+		mc.updateCounterMetric(mc.fragmentedCountDesc, ch, value.count, labels.direction)
+	}
+
+	for labels, value := range fragNeededCount {
+		mc.updateCounterMetric(mc.fragNeededCountDesc, ch, value.count, labels.direction)
+	}
 }
 
 func (mc *metricsmapCollector) updateCounterMetric(desc *prometheus.Desc, metricsChan chan<- prometheus.Metric, value float64, labelValues ...string) {
@@ -304,6 +351,8 @@ func (mc *metricsmapCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- mc.forwardCountDesc
 	ch <- mc.droppedCountDesc
 	ch <- mc.droppedByteDesc
+	ch <- mc.fragNeededCountDesc
+	ch <- mc.fragmentedCountDesc
 }
 
 func InitMap(logger *slog.Logger) {
