@@ -182,12 +182,6 @@ func (pair *IPIdentityPair) PrefixString() string {
 	return ipstr + "/" + strconv.Itoa(ones)
 }
 
-// RequiresGlobalIdentity returns true if the label combination requires a
-// global identity
-func RequiresGlobalIdentity(lbls labels.Labels) bool {
-	return ScopeForLabels(lbls) == IdentityScopeGlobal
-}
-
 // ScopeForLabels returns the identity scope to be used for the label set.
 // If all labels are either CIDR or reserved, then returns the CIDR scope.
 // Note: This assumes the caller has already called LookupReservedIdentityByLabels;
