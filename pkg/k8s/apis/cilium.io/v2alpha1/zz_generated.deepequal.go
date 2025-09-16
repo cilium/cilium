@@ -1634,6 +1634,22 @@ func (in *IPPoolSpec) DeepEqual(other *IPPoolSpec) bool {
 		}
 	}
 
+	if (in.PodSelector == nil) != (other.PodSelector == nil) {
+		return false
+	} else if in.PodSelector != nil {
+		if !in.PodSelector.DeepEqual(other.PodSelector) {
+			return false
+		}
+	}
+
+	if (in.NamespaceSelector == nil) != (other.NamespaceSelector == nil) {
+		return false
+	} else if in.NamespaceSelector != nil {
+		if !in.NamespaceSelector.DeepEqual(other.NamespaceSelector) {
+			return false
+		}
+	}
+
 	return true
 }
 

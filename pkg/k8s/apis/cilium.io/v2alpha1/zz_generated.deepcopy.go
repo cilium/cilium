@@ -2045,6 +2045,16 @@ func (in *IPPoolSpec) DeepCopyInto(out *IPPoolSpec) {
 		*out = new(IPv6PoolSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PodSelector != nil {
+		in, out := &in.PodSelector, &out.PodSelector
+		*out = new(v1.LabelSelector)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.NamespaceSelector != nil {
+		in, out := &in.NamespaceSelector, &out.NamespaceSelector
+		*out = new(v1.LabelSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

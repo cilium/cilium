@@ -20,18 +20,34 @@ Architecture
 .. image:: multi-pool.png
     :align: center
 
-When running in the Multi-Pool IPAM mode, Cilium will use the ``ipam.cilium.io/ip-pool`` annotation
-on pods and namespaces to determine the IPAM pool from which a pod's IP is allocated from.
+When running in the Multi-Pool IPAM mode, Cilium chooses the pool for a pod in the
+following precedence order:
 
-  1. If there is an ``ipam.cilium.io/ip-pool=A`` annotation on the pod itself, Cilium will
-     allocate the pod's IP from the pool named ``A``.
-  2. If there is no annotation on the pod, but the namespace of the pod has an
-     ``ipam.cilium.io/ip-pool=B`` annotation, Cilium will
-     allocate the pod's IP from the pool named ``B``.
-  3. If neither the pod nor the namespace have a ``ipam.cilium.io/ip-pool`` annotation,
-     the pod's IP will be allocated from the pool named ``default``.
+  1. You can explicitly name the pool for a pod using the ``ipam.cilium.io/ip-pool=<pool-name>`` annotation, 
+     either on the pod or the namespace of the pod. You can specify different pools for IPv4 and IPv6 using the 
+     ``ipam.cilium.io/ipv4-pool=<pool-name>`` and ``ipam.cilium.io/ipv6-pool=<pool-name>`` annotations.
+  2. You can define label selectors via ``spec.podSelector`` and/or ``spec.namespaceSelector`` to specify which 
+     pods can get IPs from the pool. If both selectors are defined, both the pod and its namespace must match 
+     their respective selectors in order for the pod to be allocated an IP from the pool.
 
-The annotation is only considered when a pod is created. Changing the ``ip-pool``
+     In addition to the pod labels, you may also match against these two synthetic labels that Cilium adds for convenience:
+
+     * ``io.kubernetes.pod.namespace`` – the namespace of the pod
+     * ``io.kubernetes.pod.name`` – the name of the pod
+
+     In the case that your pool is not known to Cilium at the time of IP allocation, either due to race conditions or 
+     misconfiguration, the pod will be allocated an IP from the default pool. If this is undesired behaviour, you can set the 
+     ``ipam.cilium.io/require-pool-match="true"`` annotation on the pod or namespace to block IP allocation until the pod matches 
+     a non-default pool.
+
+     A pod must match exactly one pool for a given IP family. If it matches more than one pool,
+     IP allocation fails and an error is logged. Therefore you must ensure that you do not have
+     overlapping selectors in your pools.
+
+  3. If neither the pod nor the namespace have an explicit IP pool annotation, or if the pod or namespace don't match
+     any selectors, the pod's IP will be allocated from the pool named ``default``.
+
+The annotations are only considered when a pod is created. Changing the ``ip-pool``
 annotation on an already running pod has no effect.
 
 The ``CiliumNode`` resource is extended with an additional ``spec.ipam.pools`` section:
