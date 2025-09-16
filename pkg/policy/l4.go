@@ -224,14 +224,6 @@ func getAuthType(auth *api.Authentication) (bool, AuthType) {
 	}
 }
 
-// getAuthType returns the AuthType of the L4Filter.
-func (a *PerSelectorPolicy) getAuthType() (bool, AuthType) {
-	if a == nil {
-		return false, types.AuthTypeDisabled
-	}
-	return getAuthType(a.Authentication)
-}
-
 // GetAuthRequirement returns the AuthRequirement of the L4Filter.
 func (a *PerSelectorPolicy) getAuthRequirement() AuthRequirement {
 	if a == nil {
