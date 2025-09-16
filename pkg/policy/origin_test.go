@@ -11,6 +11,14 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
+func OriginForTest(m map[CachedSelector]labels.LabelArrayList) map[CachedSelector]ruleOrigin {
+	res := make(map[CachedSelector]ruleOrigin, len(m))
+	for cs, lbls := range m {
+		res[cs] = makeRuleOrigin(lbls, nil)
+	}
+	return res
+}
+
 func TestRuleOrigin(t *testing.T) {
 	lbls1 := labels.NewLabelsFromSortedList("k8s:a=1;k8s:b=1").LabelArray()
 	lbls2 := labels.NewLabelsFromSortedList("k8s:a=2;k8s:b=2").LabelArray()
