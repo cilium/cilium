@@ -79,6 +79,28 @@ func TestL4Addr_Equals(t *testing.T) {
 	}
 }
 
+func TestL3n4Addr_DeepEqual(t *testing.T) {
+	var v4, v6 L3n4Addr
+	require.NoError(t, v4.ParseFromString("1.1.1.1:80/TCP"))
+	require.NoError(t, v6.ParseFromString("[2001::1]:80/TCP"))
+
+	assert.True(t, v4.DeepEqual(&v4))
+	assert.True(t, v6.DeepEqual(&v6))
+	assert.False(t, v4.DeepEqual(&v6))
+	assert.False(t, v6.DeepEqual(&v4))
+
+	var nilp *L3n4Addr
+	assert.True(t, nilp.DeepEqual(nil))
+	assert.False(t, nilp.DeepEqual(&v4))
+
+	var v4_2, v6_2 L3n4Addr
+	require.NoError(t, v4_2.ParseFromString("1.1.1.1:80/TCP"))
+	require.NoError(t, v6_2.ParseFromString("[2001::1]:80/TCP"))
+
+	assert.True(t, v4.DeepEqual(&v4_2))
+	assert.True(t, v6.DeepEqual(&v6_2))
+}
+
 func TestL3n4Addr_Bytes(t *testing.T) {
 	v4 := cmtypes.MustParseAddrCluster("1.1.1.1")
 	v4c3 := cmtypes.MustParseAddrCluster("1.1.1.1@3")

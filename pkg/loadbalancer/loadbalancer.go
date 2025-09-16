@@ -832,6 +832,16 @@ func (l L3n4Addr) AddrCluster() cmtypes.AddrCluster {
 	return l.rep().addrCluster
 }
 
+func (l *L3n4Addr) DeepEqual(other *L3n4Addr) bool {
+	if l == nil && other == nil {
+		return true
+	}
+	if other == nil || l == nil {
+		return false
+	}
+	return *l == *other
+}
+
 // NewL3n4Addr creates a new L3n4Addr.
 func NewL3n4Addr(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, scope uint8) L3n4Addr {
 	lbport := NewL4Addr(protocol, portNumber)
