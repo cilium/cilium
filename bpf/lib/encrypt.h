@@ -113,16 +113,12 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, struct remote_endpoint_info *info,
 static __always_inline int
 do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 {
+	struct ipv6hdr __maybe_unused *ip6;
+	struct iphdr __maybe_unused *ip4;
 	void *data, *data_end;
 	__u8 protocol = 0;
 	__u16 node_id = 0;
 	bool decrypted;
-#ifdef ENABLE_IPV6
-	struct ipv6hdr *ip6;
-#endif
-#ifdef ENABLE_IPV4
-	struct iphdr *ip4;
-#endif
 
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 
