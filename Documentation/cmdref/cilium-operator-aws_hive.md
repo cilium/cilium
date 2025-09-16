@@ -95,6 +95,7 @@ cilium-operator-aws hive [flags]
       --policy-default-local-cluster                         Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-secrets-namespace string                      Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
+      --synchronize-k8s-nodes                                Perform GC of stale node entries from the KVStore (default true)
       --validate-network-policy                              Whether to enable or disable the informational network policy validator (default true)
 ```
 

@@ -49,9 +49,6 @@ const (
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
 
-	// SyncK8sNodes synchronizes k8s nodes into the kvstore
-	SyncK8sNodes = "synchronize-k8s-nodes"
-
 	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
 	UnmanagedPodWatcherInterval = "unmanaged-pod-watcher-interval"
 
@@ -231,9 +228,6 @@ type OperatorConfig struct {
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices bool
 
-	// SyncK8sNodes synchronizes k8s nodes into the kvstore
-	SyncK8sNodes bool
-
 	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
 	UnmanagedPodWatcherInterval int
 
@@ -401,7 +395,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
-	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)
 	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)
 	c.NodeCIDRMaskSizeIPv4 = vp.GetInt(NodeCIDRMaskSizeIPv4)
 	c.NodeCIDRMaskSizeIPv6 = vp.GetInt(NodeCIDRMaskSizeIPv6)
