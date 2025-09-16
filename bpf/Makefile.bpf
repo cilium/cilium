@@ -49,7 +49,7 @@ force:
 # TODO: revert addition of ignore MACRO_ARG_REUSE below once cilium-checkpatch
 # image is updated to ignore it.
 #
-CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:1755701578-b97bd7a@sha256:5c4df794425e29962aac25fd5c005fd39d737232121688ba8d08878f4815b232
+CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:1755701578-b97bd7a@sha256:f1332fa6edbbd40882a59ceae4a7843a4095bd62288363740e84b82708624c50
 ifneq ($(CHECKPATCH_DEBUG),)
   # Run script with "bash -x"
   CHECKPATCH_IMAGE_AND_ENTRY := \
