@@ -83,7 +83,7 @@ contributors across the globe, there is almost always someone available to help.
 | authentication.mutual.spire.install.agent.tolerations | list | `[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/master"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/control-plane"},{"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true"},{"key":"CriticalAddonsOnly","operator":"Exists"}]` | SPIRE agent tolerations configuration By default it follows the same tolerations as the agent itself to allow the Cilium agent on this node to connect to SPIRE. ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
 | authentication.mutual.spire.install.enabled | bool | `true` | Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true |
 | authentication.mutual.spire.install.existingNamespace | bool | `false` | SPIRE namespace already exists. Set to true if Helm should not create, manage, and import the SPIRE namespace. |
-| authentication.mutual.spire.install.initImage | object | `{"digest":"sha256:303337d3d52898b33018796d760d3a01c2dcc87973dd66ec22fe78ae1e8429c9","override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/library/busybox","tag":"1.36.1","useDigest":true}` | init container image of SPIRE agent and server |
+| authentication.mutual.spire.install.initImage | object | `{"digest":"sha256:4b8407fadd8100c61b097d63efe992b2c033e7d371c9117f7a9462fe87e31176","override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/library/busybox","tag":"1.36.1","useDigest":true}` | init container image of SPIRE agent and server |
 | authentication.mutual.spire.install.namespace | string | `"cilium-spire"` | SPIRE namespace to install into |
 | authentication.mutual.spire.install.server.affinity | object | `{}` | SPIRE server affinity configuration |
 | authentication.mutual.spire.install.server.annotations | object | `{}` | SPIRE server annotations |
@@ -353,7 +353,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.extraVolumes | list | `[]` | Additional envoy volumes. |
 | envoy.healthPort | int | `9878` | TCP port for the health API. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:e34e4768ff6005d7c4c963240a0d8035fcd0a74f9c993624a00199a83c343336","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.9-1757593597-298d4cf0a4058d027aa846ef3647123e8411d2b0","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:06fbc4e55d926dd82ff2a0049919248dcc6be5354609b09012b01bc9c5b0ee28","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.9-1757932127-3c04e8f2f1027d106b96f8ef4a0215e81dbaaece","useDigest":true}` | Envoy container image. |
 | envoy.initialFetchTimeoutSeconds | int | `30` | Time in seconds after which the initial fetch on an xDS stream is considered timed out |
 | envoy.livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | envoy.livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
@@ -693,7 +693,7 @@ contributors across the globe, there is almost always someone available to help.
 | nodeinit.extraEnv | list | `[]` | Additional nodeinit environment variables. |
 | nodeinit.extraVolumeMounts | list | `[]` | Additional nodeinit volumeMounts. |
 | nodeinit.extraVolumes | list | `[]` | Additional nodeinit volumes. |
-| nodeinit.image | object | `{"digest":"sha256:0c91245afb3a4ff78b5cc8c09226806e94a9a10eb0adb74a85e0eeed2a5cae8c","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}` | node-init image. |
+| nodeinit.image | object | `{"digest":"sha256:5bdca3c2dec2c79f58d45a7a560bf1098c2126350c901379fe850b7f78d3d757","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}` | node-init image. |
 | nodeinit.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
 | nodeinit.podAnnotations | object | `{}` | Annotations to be added to node-init pods. |
 | nodeinit.podLabels | object | `{}` | Labels to be added to node-init pods. |

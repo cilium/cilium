@@ -135,7 +135,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:303337d3d52898b33018796d760d3a01c2dcc87973dd66ec22fe78ae1e8429c9","override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/library/busybox","tag":"1.36.1","useDigest":true}``
+     - ``{"digest":"sha256:4b8407fadd8100c61b097d63efe992b2c033e7d371c9117f7a9462fe87e31176","override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/library/busybox","tag":"1.36.1","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -1215,7 +1215,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:e34e4768ff6005d7c4c963240a0d8035fcd0a74f9c993624a00199a83c343336","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.9-1757593597-298d4cf0a4058d027aa846ef3647123e8411d2b0","useDigest":true}``
+     - ``{"digest":"sha256:06fbc4e55d926dd82ff2a0049919248dcc6be5354609b09012b01bc9c5b0ee28","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.9-1757932127-3c04e8f2f1027d106b96f8ef4a0215e81dbaaece","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -2575,7 +2575,7 @@
    * - :spelling:ignore:`nodeinit.image`
      - node-init image.
      - object
-     - ``{"digest":"sha256:0c91245afb3a4ff78b5cc8c09226806e94a9a10eb0adb74a85e0eeed2a5cae8c","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}``
+     - ``{"digest":"sha256:5bdca3c2dec2c79f58d45a7a560bf1098c2126350c901379fe850b7f78d3d757","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}``
    * - :spelling:ignore:`nodeinit.nodeSelector`
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
