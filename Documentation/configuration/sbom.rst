@@ -16,10 +16,10 @@ insight into the software supply chain and any potential concerns related to
 license compliance and security that might exist.
 
 The Cilium SBOM is generated using the `syft`_ tool. To learn more about SBOM, see
-`what an SBOM can do for you`_.
+`what is an SBOM`_.
 
 .. _`syft`: https://github.com/anchore/syft
-.. _`what an SBOM can do for you`: https://www.chainguard.dev/unchained/what-an-sbom-can-do-for-you
+.. _`what is an SBOM`: https://edu.chainguard.dev/open-source/sbom/what-is-an-sbom/
 
 Prerequisites
 =============
