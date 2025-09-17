@@ -1458,6 +1458,9 @@
           },
           "type": "object"
         },
+        "cacheTTL": {
+          "type": "string"
+        },
         "config": {
           "properties": {
             "clusters": {
