@@ -135,8 +135,6 @@ const (
 	UserAgentFeatureCredentialsAwsSdkStore          = "y" // n/a (this is used by .NET based sdk)
 	UserAgentFeatureCredentialsHTTP                 = "z"
 	UserAgentFeatureCredentialsIMDS                 = "0"
-
-	UserAgentFeatureBearerServiceEnvVars = "3"
 )
 
 var credentialSourceToFeature = map[aws.CredentialSource]UserAgentFeature{

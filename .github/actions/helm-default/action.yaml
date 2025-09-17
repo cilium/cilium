@@ -85,7 +85,7 @@ runs:
         fi
 
         if [ "${{ inputs.debug }}" == "true" ]; then
-          CILIUM_INSTALL_DEFAULTS+=" --helm-set=debug.enabled=true \
+          CILIUM_INSTALL_DEFAULTS+=" --helm-set=debug.enabled=false \
             --helm-set=debug.verbose=envoy"
         fi
 
