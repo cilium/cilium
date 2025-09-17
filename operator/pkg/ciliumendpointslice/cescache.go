@@ -117,6 +117,7 @@ func (c *CESCache) addCEP(cepName CEPName, cesName CESName, nodeName NodeName, g
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	fmt.Println("addCEP called:", cepName, cesName, nodeName, gidLabels)
 	c.updateCEPInCache(cepName, nodeName, gidLabels, cesName)
 }
 
@@ -125,6 +126,7 @@ func (c *CESCache) upsertCEP(cepName CEPName, cesName CESName, nodeName NodeName
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	fmt.Println("upsertCEP called:", cepName, cesName, nodeName, gidLabels, cid)
 	c.updateCEPInCache(cepName, nodeName, gidLabels, cesName)
 	if c.globalIdLabelsToCIDSet[gidLabels].selectedID == "" {
 		c.globalIdLabelsToCIDSet[gidLabels].selectedID = cid
@@ -184,6 +186,7 @@ func (c *CESCache) insertNode(nodeName NodeName, encryptionKey EncryptionKey) []
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	fmt.Println("insertNode called:", nodeName, encryptionKey)
 	if _, ok := c.nodeData[nodeName]; !ok {
 		c.nodeData[nodeName] = &NodeData{
 			ceps: sets.New[CEPName](),
@@ -257,6 +260,7 @@ func (c *CESCache) deleteNode(nodeName NodeName) []CESKey {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	fmt.Println("deleteNode called:", nodeName)
 	if nodeData, ok := c.nodeData[nodeName]; ok {
 		cesKeys := c.getCESForCEPs(nodeData.ceps)
 		delete(c.nodeData, nodeName)
