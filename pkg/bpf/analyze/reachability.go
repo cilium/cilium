@@ -217,15 +217,15 @@ func (r *Reachable) Dump(insns asm.Instructions) string {
 	return sb.String()
 }
 
-// findBranch pulls exactly one instruction and checks if it's a branch
+// findBranch backtracks exactly one instruction and checks if it's a branch
 // instruction comparing a register against an immediate value. Returns
 // the instruction if it met the criteria, nil otherwise.
-func findBranch(pull func() (*asm.Instruction, bool)) *asm.Instruction {
+func findBranch(iter *BlockIterator) *asm.Instruction {
 	// Only the last instruction of a block can be a branch instruction.
-	branch, ok := pull()
-	if !ok {
+	if !iter.Previous() {
 		return nil
 	}
+	branch := iter.Instruction()
 
 	switch branch.OpCode.JumpOp() {
 	case asm.Exit, asm.Call, asm.Ja, asm.InvalidJumpOp:
@@ -240,14 +240,15 @@ func findBranch(pull func() (*asm.Instruction, bool)) *asm.Instruction {
 	return branch
 }
 
-// findDereference pulls instructions until it finds a memory load (dereference)
-// into the given dst register.
+// findDereference backtracks instructions until it finds a memory load
+// (dereference) into the given dst register.
 //
 // Since all CONFIG() variables are `volatile`, the compiler should emit a
 // dereference before every branch instruction. These typically occur in the
 // same basic block, albeit with a few unrelated instructions in between.
-func findDereference(pull func() (*asm.Instruction, bool), dst asm.Register) *asm.Instruction {
-	for ins, ok := pull(); ok; ins, ok = pull() {
+func findDereference(iter *BlockIterator, dst asm.Register) *asm.Instruction {
+	for iter.Previous() {
+		ins := iter.Instruction()
 		op := ins.OpCode
 		if op.Class().IsLoad() && op.Mode() == asm.MemMode && ins.Dst == dst {
 			return ins
@@ -264,8 +265,8 @@ func findDereference(pull func() (*asm.Instruction, bool), dst asm.Register) *as
 	return nil
 }
 
-// findMapLoad pulls instructions until it finds a map load instruction that
-// populates the given src register.
+// findMapLoad backtracks instructions until it finds a map load instruction
+// that populates the given src register.
 //
 // Even though CONFIG() variables are declared volatile, the compiler may still
 // decide to reuse the register containing the map pointer for multiple
@@ -274,8 +275,9 @@ func findDereference(pull func() (*asm.Instruction, bool), dst asm.Register) *as
 //
 // Note: the compiler should favor reconstructing the map pointer over spilling
 // to the stack, so we don't consider stack spilling.
-func findMapLoad(pull func() (*asm.Instruction, bool), src asm.Register) *asm.Instruction {
-	for ins, ok := pull(); ok; ins, ok = pull() {
+func findMapLoad(iter *BlockIterator, src asm.Register) *asm.Instruction {
+	for iter.Previous() {
+		ins := iter.Instruction()
 		if ins.Dst == src {
 			if ins.IsLoadFromMap() {
 				return ins
@@ -320,19 +322,19 @@ func visitBlock(b *Block, blocks Blocks, insns asm.Instructions, vars map[mapOff
 	}
 	live.set(b.id, true)
 
-	pull := b.backward(insns)
+	iter := b.iterateGlobal(blocks, insns)
 
-	branch := findBranch(pull)
+	branch := findBranch(iter)
 	if branch == nil {
 		return unpredictableBlock(b, blocks, insns, vars, live, jumps)
 	}
 
-	deref := findDereference(pull, branch.Dst)
+	deref := findDereference(iter, branch.Dst)
 	if deref == nil {
 		return unpredictableBlock(b, blocks, insns, vars, live, jumps)
 	}
 
-	load := findMapLoad(pull, deref.Src)
+	load := findMapLoad(iter, deref.Src)
 	if load == nil {
 		return unpredictableBlock(b, blocks, insns, vars, live, jumps)
 	}
