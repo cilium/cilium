@@ -16,7 +16,7 @@ type CEPName resource.Key
 type CESKey resource.Key
 type CESName string
 
-type NodeIP string
+type NodeName string
 type EncryptionKey int
 type CID string
 
@@ -47,7 +47,7 @@ type NodeData struct {
 // CEPData contains the CES, node and labels associated with the corecep.
 type CEPData struct {
 	ces    CESName
-	node   NodeIP
+	node   NodeName
 	labels string
 }
 
@@ -66,7 +66,7 @@ type CESCache struct {
 	nsData  map[string]sets.Set[CESName]
 	// nodeData is used to map node name to all CiliumEndpoints on the node
 	// and the known encryption key associated with it
-	nodeData map[NodeIP]*NodeData
+	nodeData map[NodeName]*NodeData
 	// globalIdLabelsToCIDSet maps a set of labels to the CEPs and CIDs associated with it.
 	// Compatible with Agent's CID management which can cause duplicate CIDs.
 	globalIdLabelsToCIDSet map[string]*SecIDs
@@ -79,26 +79,26 @@ func newCESCache() *CESCache {
 		cepData:                make(map[CEPName]*CEPData),
 		cesData:                make(map[CESName]*CESData),
 		nsData:                 make(map[string]sets.Set[CESName]),
-		nodeData:               make(map[NodeIP]*NodeData),
+		nodeData:               make(map[NodeName]*NodeData),
 		globalIdLabelsToCIDSet: make(map[string]*SecIDs),
 		cidToGidLabels:         make(map[CID]string),
 	}
 }
 
 // Add CEP to cache, map to CES name and node name
-func (c *CESCache) addCEP(cepName CEPName, cesName CESName, nodeIP NodeIP, gidLabels string) {
+func (c *CESCache) addCEP(cepName CEPName, cesName CESName, nodeName NodeName, gidLabels string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.updateCEPInCache(cepName, nodeIP, gidLabels, cesName)
+	c.updateCEPInCache(cepName, nodeName, gidLabels, cesName)
 }
 
 // Add or update CEP in cache, map to CES name, node name and associated CID
-func (c *CESCache) upsertCEP(cepName CEPName, cesName CESName, nodeIP NodeIP, gidLabels string, cid CID) {
+func (c *CESCache) upsertCEP(cepName CEPName, cesName CESName, nodeName NodeName, gidLabels string, cid CID) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.updateCEPInCache(cepName, nodeIP, gidLabels, cesName)
+	c.updateCEPInCache(cepName, nodeName, gidLabels, cesName)
 	if c.globalIdLabelsToCIDSet[gidLabels].selectedID == "" {
 		c.globalIdLabelsToCIDSet[gidLabels].selectedID = cid
 	}
@@ -108,7 +108,7 @@ func (c *CESCache) upsertCEP(cepName CEPName, cesName CESName, nodeIP NodeIP, gi
 
 // Updates known information about CEP in local cache, without CID information. Cache lock should be held by caller.
 // Handles the cases where the CEP node or labels may have changed.
-func (c *CESCache) updateCEPInCache(cepName CEPName, nodeIP NodeIP, gidLabels string, cesName CESName) {
+func (c *CESCache) updateCEPInCache(cepName CEPName, nodeName NodeName, gidLabels string, cesName CESName) {
 	if cepData, ok := c.cepData[cepName]; ok {
 		// If CEP was previously mapped to different CES, clear.
 		if oldCES := cepData.ces; oldCES != cesName {
@@ -116,7 +116,7 @@ func (c *CESCache) updateCEPInCache(cepName CEPName, nodeIP NodeIP, gidLabels st
 		}
 
 		// If CEP was previously mapped to different node, clear.
-		if oldNode := cepData.node; oldNode != nodeIP {
+		if oldNode := cepData.node; oldNode != nodeName {
 			c.nodeData[oldNode].ceps.Delete(cepName)
 		}
 
@@ -129,18 +129,18 @@ func (c *CESCache) updateCEPInCache(cepName CEPName, nodeIP NodeIP, gidLabels st
 
 	c.cepData[cepName] = &CEPData{
 		ces:    cesName,
-		node:   nodeIP,
+		node:   nodeName,
 		labels: gidLabels,
 	}
 
 	c.cesData[cesName].ceps.Insert(cepName)
 
-	if _, ok := c.nodeData[nodeIP]; !ok {
-		c.nodeData[nodeIP] = &NodeData{
+	if _, ok := c.nodeData[nodeName]; !ok {
+		c.nodeData[nodeName] = &NodeData{
 			ceps: sets.New[CEPName](),
 		}
 	}
-	c.nodeData[nodeIP].ceps.Insert(cepName)
+	c.nodeData[nodeName].ceps.Insert(cepName)
 
 	if _, ok := c.globalIdLabelsToCIDSet[gidLabels]; !ok {
 		c.globalIdLabelsToCIDSet[gidLabels] = &SecIDs{
@@ -153,21 +153,21 @@ func (c *CESCache) updateCEPInCache(cepName CEPName, nodeIP NodeIP, gidLabels st
 }
 
 // Update encryption key for node and return all affected CES whose CEPs are on that node.
-func (c *CESCache) insertNode(nodeIP NodeIP, encryptionKey EncryptionKey) []CESKey {
+func (c *CESCache) insertNode(nodeName NodeName, encryptionKey EncryptionKey) []CESKey {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if _, ok := c.nodeData[nodeIP]; !ok {
-		c.nodeData[nodeIP] = &NodeData{
+	if _, ok := c.nodeData[nodeName]; !ok {
+		c.nodeData[nodeName] = &NodeData{
 			ceps: sets.New[CEPName](),
 			key:  encryptionKey,
 		}
 		return nil
 	}
 
-	if c.nodeData[nodeIP].key != encryptionKey {
-		c.nodeData[nodeIP].key = encryptionKey
-		return c.getCESForCEPs(c.nodeData[nodeIP].ceps)
+	if c.nodeData[nodeName].key != encryptionKey {
+		c.nodeData[nodeName].key = encryptionKey
+		return c.getCESForCEPs(c.nodeData[nodeName].ceps)
 	}
 	return nil
 }
@@ -226,13 +226,13 @@ func (c *CESCache) deleteCEP(cepName CEPName) {
 }
 
 // Remove node from cache and return affected CES
-func (c *CESCache) deleteNode(nodeIP NodeIP) []CESKey {
+func (c *CESCache) deleteNode(nodeName NodeName) []CESKey {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if nodeData, ok := c.nodeData[nodeIP]; ok {
+	if nodeData, ok := c.nodeData[nodeName]; ok {
 		cesKeys := c.getCESForCEPs(nodeData.ceps)
-		delete(c.nodeData, nodeIP)
+		delete(c.nodeData, nodeName)
 		return cesKeys
 	}
 	return nil
@@ -290,10 +290,10 @@ func (c *CESCache) hasCEP(cepName CEPName) bool {
 	return ok
 }
 
-func (c *CESCache) hasNode(nodeIP NodeIP) bool {
+func (c *CESCache) hasNode(nodeName NodeName) bool {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	_, ok := c.nodeData[nodeIP]
+	_, ok := c.nodeData[nodeName]
 	return ok
 }
 

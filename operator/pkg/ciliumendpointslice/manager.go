@@ -134,7 +134,7 @@ func (c *cesManager) RemoveCEPMapping(cep *cilium_v2a1.CoreCiliumEndpoint, ns st
 func (c *cesManager) AddPodMapping(pod *slim_corev1.Pod, nodeName string, cidKey *key.GlobalIdentity) {
 	cepName, cesName := c.upsertPodIntoCES(pod)
 	gidLabels := cidKey.GetKey()
-	c.cache.addCEP(cepName, cesName, NodeIP(nodeName), gidLabels)
+	c.cache.addCEP(cepName, cesName, NodeName(nodeName), gidLabels)
 }
 
 // UpsertPodWithIdentity is used to insert coreCEP in local cache, this may result in creating a new
@@ -142,7 +142,7 @@ func (c *cesManager) AddPodMapping(pod *slim_corev1.Pod, nodeName string, cidKey
 func (c *cesManager) UpsertPodWithIdentity(pod *slim_corev1.Pod, nodeName string, cid *cilium_v2.CiliumIdentity) []CESKey {
 	cepName, cesName := c.upsertPodIntoCES(pod)
 	cidName, gidLabels := cidToGidLabels(cid)
-	c.cache.upsertCEP(cepName, cesName, NodeIP(nodeName), gidLabels, cidName)
+	c.cache.upsertCEP(cepName, cesName, NodeName(nodeName), gidLabels, cidName)
 	c.logger.Debug("CEP mapped to CES",
 		logfields.CEPName, cepName.string(),
 		logfields.CESName, cesName.string(),
@@ -200,12 +200,12 @@ func (c *cesManager) RemovePodMapping(pod *slim_corev1.Pod) []CESKey {
 
 func (c *cesManager) UpdateNodeMapping(node *cilium_v2.CiliumNode) []CESKey {
 	newKey := EncryptionKey(node.Spec.Encryption.Key)
-	name := NodeIP(node.Name)
+	name := NodeName(node.Name)
 	return c.cache.insertNode(name, newKey)
 }
 
 func (c *cesManager) RemoveNodeMapping(node *cilium_v2.CiliumNode) []CESKey {
-	return c.cache.deleteNode(NodeIP(node.Name))
+	return c.cache.deleteNode(NodeName(node.Name))
 }
 
 func (c *cesManager) UpdateIdentityMapping(id *cilium_v2.CiliumIdentity) []CESKey {
@@ -269,7 +269,7 @@ func (c *cesManager) initializeMappingForCES(ces *cilium_v2a1.CiliumEndpointSlic
 	return c.createCES(ces.Name, ces.Namespace)
 }
 
-func (c *cesManager) initializeMappingPodToNode(cepName CEPName, nodeName NodeIP, ces CESName, cid CID, gidLabels string, encryptionKey EncryptionKey) {
+func (c *cesManager) initializeMappingPodToNode(cepName CEPName, nodeName NodeName, ces CESName, cid CID, gidLabels string, encryptionKey EncryptionKey) {
 	c.cache.upsertCEP(cepName, ces, nodeName, gidLabels, cid)
 	c.cache.insertNode(nodeName, encryptionKey)
 }

@@ -17,6 +17,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
+	op_k8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/k8s"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -427,6 +428,12 @@ func (c *Controller) syncCESsInLocalCacheNoCeps(ctx context.Context) error {
 		return err
 	}
 
+	cnodeStore, err := c.ciliumNodes.Store(ctx)
+	if err != nil {
+		c.logger.WarnContext(ctx, "Error getting CiliumNode Store", logfields.Error, err)
+		return err
+	}
+
 	cidToLabels := make(map[CID]string)
 	for _, cid := range cidStore.List() {
 		fmt.Println("Parsing CID:", cid.Name)
@@ -440,7 +447,13 @@ func (c *Controller) syncCESsInLocalCacheNoCeps(ctx context.Context) error {
 		for _, cep := range ces.Endpoints {
 			identityid := strconv.FormatInt(cep.IdentityID, 10)
 			labels := cidToLabels[CID(identityid)]
-			c.manager.initializeMappingPodToNode(NewCEPName(cep.Name, ces.Namespace), NodeIP(cep.Networking.NodeIP), CESName(ces.Name), CID(identityid), labels, EncryptionKey(cep.Encryption.Key))
+
+			nodeObj, err := cnodeStore.ByIndex(op_k8s.CiliumNodeIPIndex, cep.Networking.NodeIP)
+			if err != nil {
+				c.logger.WarnContext(ctx, "Error getting CiliumNode by IP", logfields.Error, err)
+				continue
+			}
+			c.manager.initializeMappingPodToNode(NewCEPName(cep.Name, ces.Namespace), NodeName(nodeObj[0].Name), CESName(ces.Name), CID(identityid), labels, EncryptionKey(cep.Encryption.Key))
 		}
 	}
 
