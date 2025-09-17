@@ -195,20 +195,32 @@ func (b *Block) len() int {
 	return max(b.end-b.start+1, 0)
 }
 
-func (b *Block) iterate(insns asm.Instructions) *asm.InstructionIterator {
+func (b *Block) iterateLocal(insns asm.Instructions) *BlockIterator {
 	if b.start < 0 || b.end < 0 || b.start >= len(insns) || b.end >= len(insns) {
 		return nil
 	}
 
-	i := insns[b.start : b.end+1].Iterate()
+	return &BlockIterator{
+		block:  b,
+		insns:  insns,
+		index:  b.start,
+		offset: b.raw,
+		local:  true,
+	}
+}
 
-	// Setting these fields correctly allows the insn printer to show correct
-	// raw offsets of instructions matching verifier output. Makes debugging
-	// significantly easier.
-	i.Index = b.start
-	i.Offset = b.raw
-
-	return i
+func (b *Block) iterateGlobal(blocks Blocks, insns asm.Instructions) *BlockIterator {
+	if b.start < 0 || b.end < 0 || b.start >= len(insns) || b.end >= len(insns) {
+		return nil
+	}
+	return &BlockIterator{
+		blocks: blocks,
+		block:  b,
+		insns:  insns,
+		index:  b.start,
+		offset: b.raw,
+		local:  false,
+	}
 }
 
 // predecessor returns the previous Block in the control flow if there is
@@ -291,18 +303,18 @@ func (b *Block) Dump(insns asm.Instructions) string {
 
 	if len(insns) != 0 {
 		sb.WriteString("Instructions:\n")
-		i := b.iterate(insns)
+		i := b.iterateLocal(insns)
 		for i.Next() {
-			if i.Ins.Symbol() != "" {
-				fmt.Fprintf(&sb, "\t%s:\n", i.Ins.Symbol())
+			if i.Instruction().Symbol() != "" {
+				fmt.Fprintf(&sb, "\t%s:\n", i.Instruction().Symbol())
 			}
-			if src := i.Ins.Source(); src != nil {
+			if src := i.Instruction().Source(); src != nil {
 				line := strings.TrimSpace(src.String())
 				if line != "" {
 					fmt.Fprintf(&sb, "\t%*s; %s\n", 4, " ", line)
 				}
 			}
-			fmt.Fprintf(&sb, "\t%*d: %v\n", 4, i.Offset, i.Ins)
+			fmt.Fprintf(&sb, "\t%*d: %v\n", 4, i.Offset(), i.Instruction())
 		}
 		sb.WriteString("\n")
 	} else {
@@ -322,6 +334,178 @@ func (b *Block) Dump(insns asm.Instructions) string {
 	}
 
 	return sb.String()
+}
+
+// BlockIterator is an iterator over the instructions in a block or a list of
+// blocks.
+//
+// It can be configured to iterate locally within a block or globally across
+// multiple blocks. When iterating globally, it will roll over to the next or
+// previous block when reaching the end or start of the current block,
+// respectively.
+//
+// The iterator tracks the raw instruction offset of the current instruction
+// when iterating forwards, but not when iterating backwards since that would
+// require summing up instruction sizes from the start of the block. Raw offsets
+// are only used for dumping instructions in forward order.
+type BlockIterator struct {
+	blocks Blocks
+	block  *Block
+
+	insns asm.Instructions
+
+	ins   *asm.Instruction
+	index int
+
+	// offset is zero when backtracking to predecessors or when iterating
+	// backwards from the end of a block (e.g. with a new iterator).
+	offset asm.RawInstructionOffset
+
+	local bool
+}
+
+func (i *BlockIterator) Instruction() *asm.Instruction {
+	return i.ins
+}
+
+func (i *BlockIterator) Index() int {
+	return i.index
+}
+
+func (i *BlockIterator) Offset() asm.RawInstructionOffset {
+	return i.offset
+}
+
+func (i *BlockIterator) Clone() *BlockIterator {
+	return &BlockIterator{
+		i.blocks,
+		i.block,
+		i.insns,
+		i.ins,
+		i.index,
+		i.offset,
+		i.local,
+	}
+}
+
+// nextBlock pulls the next block by identifier, if it exists. Otherwise,
+// returns false.
+//
+// Positions the iterator at the start of the next block. Offset is updated to
+// the raw offset of the first instruction in the next block.
+func (i *BlockIterator) nextBlock() bool {
+	if i.block == nil {
+		return false
+	}
+
+	if i.block.id+1 >= i.blocks.count() {
+		return false
+	}
+	next := i.blocks[i.block.id+1]
+
+	i.block = next
+	i.index = i.block.start
+	i.offset = i.block.raw
+	i.ins = &i.insns[i.index]
+
+	return true
+}
+
+// prevBlock pulls the previous block in the control flow if there is exactly
+// one predecessor, otherwise returns false.
+//
+// Positions the iterator at the end of the previous block. Offset is set to 0
+// since backtracking requires summing up instruction sizes from the start of
+// the block.
+func (i *BlockIterator) prevBlock() bool {
+	if i.block == nil {
+		return false
+	}
+
+	prev := i.block.predecessor()
+	if prev == nil || prev == i.block {
+		return false
+	}
+
+	i.block = prev
+	i.index = i.block.end
+
+	// Raw offset tracking disabled for backtracking since it requires summing
+	// up instruction sizes from the start of the block. Raw offsets are only
+	// used for dumping instructions in forward order.
+	i.offset = 0
+
+	i.ins = &i.insns[i.index]
+
+	return true
+}
+
+// Next advances the iterator to the next instruction in the block. If the end
+// of the block is reached, it will either stop (if iterating locally) or roll
+// over to the next block (if iterating globally).
+func (i *BlockIterator) Next() bool {
+	if i.block == nil || i.index < i.block.start || i.index > i.block.end {
+		return false
+	}
+
+	// First call to Next with this iterator, pull the first insn and return.
+	if i.ins == nil {
+		i.ins = &i.insns[i.index]
+		return true
+	}
+
+	if i.index+1 > i.block.end {
+		if !i.local {
+			// Iterating globally, roll over to the next block if it exists.
+			return i.nextBlock()
+		}
+
+		// Iterating locally, stop here.
+		return false
+	}
+
+	i.index++
+	i.offset += asm.RawInstructionOffset(i.ins.Size() / asm.InstructionSize)
+	i.ins = &i.insns[i.index]
+
+	return true
+}
+
+func (i *BlockIterator) Previous() bool {
+	if i.block == nil || i.index < i.block.start || i.index > i.block.end {
+		return false
+	}
+
+	if i.ins == nil {
+		i.index = i.block.end
+		i.ins = &i.insns[i.index]
+
+		// Raw offset tracking disabled for backtracking since it requires summing
+		// up instruction sizes from the start of the block. Raw offsets are only
+		// used for dumping instructions in forward order.
+		i.offset = 0
+
+		return true
+	}
+
+	if i.index-1 < i.block.start {
+		if !i.local {
+			// Iterating globally, roll over to the previous block if it exists.
+			return i.prevBlock()
+		}
+
+		// Iterating locally, stop here.
+		return false
+	}
+
+	i.index--
+	i.ins = &i.insns[i.index]
+
+	// Prevent offset underflow.
+	raw := asm.RawInstructionOffset(i.ins.Size() / asm.InstructionSize)
+	i.offset = min(i.offset, i.offset-raw)
+
+	return true
 }
 
 // getBlock retrieves the block associated with an instruction. It checks both
@@ -370,6 +554,13 @@ func (bl Blocks) last() *Block {
 		return nil
 	}
 	return bl[len(bl)-1]
+}
+
+func (bl Blocks) iterate(insns asm.Instructions) *BlockIterator {
+	if len(bl) == 0 {
+		return nil
+	}
+	return bl.first().iterateGlobal(bl, insns)
 }
 
 func (bl Blocks) String() string {
