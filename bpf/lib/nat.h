@@ -1373,6 +1373,21 @@ out:
 	return ret;
 }
 
+/* Stores large structures to optimize stack usage. */
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, struct ipv6_nat_entry);
+} nodeport_nat_entry_storage __section_maps_btf;
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, struct ipv6_ct_tuple);
+} nodeport_ct_entry_storage __section_maps_btf;
+
 static __always_inline int
 snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 			   struct ipv6_ct_tuple *tuple,
@@ -1414,25 +1429,34 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 
 	if (*state) {
 		int ret;
-		struct ipv6_ct_tuple rtuple = {};
+		struct ipv6_ct_tuple *rtuple;
+	    __u32 zero;
 
-		set_v6_rtuple(tuple, *state, &rtuple);
+	    rtuple = map_lookup_elem(&nodeport_ct_entry_storage, &zero);
+	    if (!rtuple)
+			return DROP_INVALID;
+
+		set_v6_rtuple(tuple, *state, rtuple);
+
 		if (ipv6_addr_equals(&target->addr, &(*state)->to_saddr) &&
 		    needs_ct == (*state)->common.needs_ct) {
 			/* Check for the reverse SNAT entry. If it is missing (e.g. due to LRU
 			 * eviction), it must be restored before returning.
 			 */
-			struct ipv6_nat_entry rstate;
+			struct ipv6_nat_entry *rstate;
 			struct ipv6_nat_entry *lookup_result;
 
-			lookup_result = snat_v6_lookup(&rtuple);
+	        rstate = map_lookup_elem(&nodeport_nat_entry_storage, &zero);
+            if (!rstate)
+                return DROP_INVALID;
+			lookup_result = snat_v6_lookup(rtuple);
 			if (!lookup_result) {
 				memset(&rstate, 0, sizeof(rstate));
-				rstate.to_daddr = tuple->saddr;
-				rstate.to_dport = tuple->sport;
-				rstate.common.needs_ct = needs_ct;
-				rstate.common.created = bpf_mono_now();
-				ret = __snat_create(&cilium_snat_v6_external, &rtuple, &rstate,
+				rstate->to_daddr = tuple->saddr;
+				rstate->to_dport = tuple->sport;
+				rstate->common.needs_ct = needs_ct;
+				rstate->common.created = bpf_mono_now();
+				ret = __snat_create(&cilium_snat_v6_external, rtuple, rstate,
 						    false);
 				if (ret < 0) {
 					if (ext_err)
@@ -1449,9 +1473,9 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			return ret;
 
-		*state = snat_v6_lookup(&rtuple);
+		*state = snat_v6_lookup(rtuple);
 		if (*state)
-			__snat_delete(&cilium_snat_v6_external, &rtuple);
+			__snat_delete(&cilium_snat_v6_external, rtuple);
 	}
 
 	*state = tmp;

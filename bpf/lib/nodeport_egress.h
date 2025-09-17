@@ -48,20 +48,26 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 	return false;
 }
 
+/* Stores large structures to optimize stack usage. */
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, struct ipv6_nat_target);
+} nodeport_snat_target_storage __section_maps_btf;
+
 static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 						  union v6addr *saddr,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
-	struct ipv6_nat_target target = {
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MAX_NAT,
-	};
+	struct ipv6_nat_target *target;
 	struct ipv6_ct_tuple tuple = {};
 	int hdrlen, l4_off, ret;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo;
+	__u32 zero;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -74,23 +80,28 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	snat_v6_init_tuple(ip6, NAT_DIR_EGRESS, &tuple);
 	l4_off = ETH_HLEN + hdrlen;
 
+	target = map_lookup_elem(&nodeport_snat_target_storage, &zero);
+	if (!target)
+		return DROP_INVALID;
+	target->min_port = NODEPORT_PORT_MIN_NAT;
+	target->max_port = NODEPORT_PORT_MAX_NAT;
 	if (lb_is_svc_proto(tuple.nexthdr) &&
-	    nodeport_has_nat_conflict_ipv6(ip6, &target))
+	    nodeport_has_nat_conflict_ipv6(ip6, target))
 		goto apply_snat;
 
-	ret = snat_v6_needs_masquerade(ctx, &tuple, ip6, fraginfo, l4_off, &target);
+	ret = snat_v6_needs_masquerade(ctx, &tuple, ip6, fraginfo, l4_off, target);
 	if (IS_ERR(ret))
 		goto out;
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
-	if (target.egress_gateway) {
+	if (target->egress_gateway) {
 		/* Stay on the desired egress interface: */
-		if (target.ifindex && target.ifindex == THIS_INTERFACE_IFINDEX)
+		if (target->ifindex && target->ifindex == THIS_INTERFACE_IFINDEX)
 			goto apply_snat;
 
 		/* Send packet to the correct egress interface, and SNAT it there. */
-		ret = egress_gw_fib_lookup_and_redirect_v6(ctx, &target.addr,
-							   &tuple.daddr, target.ifindex,
+		ret = egress_gw_fib_lookup_and_redirect_v6(ctx, &target->addr,
+							   &tuple.daddr, target->ifindex,
 							   ext_err);
 		if (ret != CTX_ACT_OK)
 			return ret;
@@ -103,7 +114,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 apply_snat:
 	ipv6_addr_copy(saddr, &tuple.saddr);
 	ret = snat_v6_nat(ctx, &tuple, ip6, fraginfo, l4_off,
-			  &target, trace, ext_err);
+			  target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;
 
