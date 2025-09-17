@@ -162,6 +162,16 @@ func (s *statedbObjectTracker) addList(obj runtime.Object) error {
 	return nil
 }
 
+// fillTypeMetaIfNeeded sets the [metav1.TypeMeta] in the object if it's not already set based
+// on the GroupVersionKind found from the schema.
+func fillTypeMetaIfNeeded(obj runtime.Object, gvk schema.GroupVersionKind) runtime.Object {
+	if obj.GetObjectKind().GroupVersionKind().Empty() {
+		obj = obj.DeepCopyObject()
+		obj.GetObjectKind().SetGroupVersionKind(gvk)
+	}
+	return obj
+}
+
 // Add adds an object to the tracker. If object being added
 // is a list, its items are added separately.
 func (s *statedbObjectTracker) Add(obj runtime.Object) error {
@@ -188,15 +198,12 @@ func (s *statedbObjectTracker) Add(obj runtime.Object) error {
 		return err
 	}
 
-	if partial, ok := obj.(*metav1.PartialObjectMetadata); ok && len(partial.TypeMeta.APIVersion) > 0 {
-		gvks = []schema.GroupVersionKind{partial.TypeMeta.GroupVersionKind()}
-	}
-
 	if len(gvks) == 0 {
 		err := fmt.Errorf("no registered kinds for %v", obj)
 		s.log.Debug("Add", logfields.Error, err)
 		return err
 	}
+
 	for _, gvk := range gvks {
 		// NOTE: UnsafeGuessKindToResource is a heuristic and default match. The
 		// actual registration in apiserver can specify arbitrary route for a
@@ -208,6 +215,8 @@ func (s *statedbObjectTracker) Add(obj runtime.Object) error {
 		if gvr.Version == runtime.APIVersionInternal {
 			gvr.Version = ""
 		}
+
+		obj = fillTypeMetaIfNeeded(obj, gvk)
 
 		s.log.Debug(
 			"Add",
@@ -290,6 +299,20 @@ func (s *statedbObjectTracker) Create(gvr schema.GroupVersionResource, obj runti
 	if len(newMeta.GetNamespace()) == 0 {
 		newMeta.SetNamespace(ns)
 	}
+
+	gvks, _, err := s.scheme.ObjectKinds(obj)
+	if err != nil {
+		s.log.Debug("Create", logfields.Error, err)
+		return err
+	}
+
+	if len(gvks) == 0 {
+		err := fmt.Errorf("no registered kinds for %v", obj)
+		s.log.Debug("Create", logfields.Error, err)
+		return err
+	}
+
+	obj = fillTypeMetaIfNeeded(obj, gvks[0])
 
 	wtxn := s.db.WriteTxn(s.tbl)
 	version := s.tbl.Revision(wtxn) + 1
@@ -455,6 +478,21 @@ func (s *statedbObjectTracker) updateOrPatch(what string, gvr schema.GroupVersio
 	if len(newMeta.GetNamespace()) == 0 {
 		newMeta.SetNamespace(ns)
 	}
+
+	gvks, _, err := s.scheme.ObjectKinds(obj)
+	if err != nil {
+		s.log.Debug(what, logfields.Error, err)
+		return err
+	}
+
+	if len(gvks) == 0 {
+		err := fmt.Errorf("no registered kinds for %v", obj)
+		s.log.Debug(what, logfields.Error, err)
+		return err
+	}
+
+	obj = fillTypeMetaIfNeeded(obj, gvks[0])
+
 	wtxn := s.db.WriteTxn(s.tbl)
 	version := s.tbl.Revision(wtxn) + 1
 	newMeta.SetResourceVersion(strconv.FormatUint(version, 10))
