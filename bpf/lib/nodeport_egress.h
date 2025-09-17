@@ -56,7 +56,7 @@ struct {
     __type(value, struct ipv6_nat_target);
 } nodeport_snat_target_storage __section_maps_btf;
 
-static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
+static int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 						  union v6addr *saddr,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
