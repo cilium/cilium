@@ -166,7 +166,7 @@ func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]Va
 	jumps := newBitmap(uint64(blocks.count()))
 
 	// Start recursing at first block since it is always live.
-	if err := visitBlock(blocks.first(), insns, vars, live, jumps); err != nil {
+	if err := visitBlock(blocks.first(), blocks, insns, vars, live, jumps); err != nil {
 		return nil, fmt.Errorf("predicting blocks: %w", err)
 	}
 
@@ -188,13 +188,12 @@ func (r *Reachable) LiveInstructions(insns asm.Instructions) iter.Seq2[*asm.Inst
 	}
 
 	return func(yield func(*asm.Instruction, bool) bool) {
-		for _, b := range r.blocks {
-			for i := range insns[b.start : b.end+1] {
-				ins := &insns[b.start+i]
-				live := r.l.get(b.id)
-				if !yield(ins, live) {
-					return
-				}
+		iter := r.blocks.iterate(insns)
+		for iter.Next() {
+			ins := iter.Instruction()
+			live := r.l.get(iter.block.id)
+			if !yield(ins, live) {
+				return
 			}
 		}
 	}
@@ -297,11 +296,11 @@ type mapOffset struct {
 
 // unpredictableBlock is called when the branch cannot be predicted. It visits
 // both the branch and fallthrough blocks.
-func unpredictableBlock(b *Block, insns asm.Instructions, vars map[mapOffset]VariableSpec, live, jumps bitmap) error {
-	if err := visitBlock(b.branch, insns, vars, live, jumps); err != nil {
+func unpredictableBlock(b *Block, blocks Blocks, insns asm.Instructions, vars map[mapOffset]VariableSpec, live, jumps bitmap) error {
+	if err := visitBlock(b.branch, blocks, insns, vars, live, jumps); err != nil {
 		return fmt.Errorf("visiting branch block %d: %w", b.branch.id, err)
 	}
-	if err := visitBlock(b.fthrough, insns, vars, live, jumps); err != nil {
+	if err := visitBlock(b.fthrough, blocks, insns, vars, live, jumps); err != nil {
 		return fmt.Errorf("visiting fallthrough block %d: %w", b.fthrough.id, err)
 	}
 	return nil
@@ -309,7 +308,7 @@ func unpredictableBlock(b *Block, insns asm.Instructions, vars map[mapOffset]Var
 
 // visitBlock recursively visits a block and its successors to determine
 // reachability based on the branch instructions and the provided vars.
-func visitBlock(b *Block, insns asm.Instructions, vars map[mapOffset]VariableSpec, live, jumps bitmap) error {
+func visitBlock(b *Block, blocks Blocks, insns asm.Instructions, vars map[mapOffset]VariableSpec, live, jumps bitmap) error {
 	if b == nil {
 		return nil
 	}
@@ -325,17 +324,17 @@ func visitBlock(b *Block, insns asm.Instructions, vars map[mapOffset]VariableSpe
 
 	branch := findBranch(pull)
 	if branch == nil {
-		return unpredictableBlock(b, insns, vars, live, jumps)
+		return unpredictableBlock(b, blocks, insns, vars, live, jumps)
 	}
 
 	deref := findDereference(pull, branch.Dst)
 	if deref == nil {
-		return unpredictableBlock(b, insns, vars, live, jumps)
+		return unpredictableBlock(b, blocks, insns, vars, live, jumps)
 	}
 
 	load := findMapLoad(pull, deref.Src)
 	if load == nil {
-		return unpredictableBlock(b, insns, vars, live, jumps)
+		return unpredictableBlock(b, blocks, insns, vars, live, jumps)
 	}
 
 	// TODO(tb): evalBranch doesn't currently take the deref's offset field into
@@ -343,7 +342,7 @@ func visitBlock(b *Block, insns asm.Instructions, vars map[mapOffset]VariableSpe
 	// to be more robust and remove this limitation.
 	vs := lookupVariable(load, vars)
 	if vs == nil || !vs.Constant() || vs.Size() > 8 {
-		return unpredictableBlock(b, insns, vars, live, jumps)
+		return unpredictableBlock(b, blocks, insns, vars, live, jumps)
 	}
 
 	jump, err := evalBranch(branch, vs)
@@ -354,11 +353,11 @@ func visitBlock(b *Block, insns asm.Instructions, vars map[mapOffset]VariableSpe
 	// If the branch is always taken, only visit the branch target.
 	if jump {
 		jumps.set(b.id, true)
-		return visitBlock(b.branch, insns, vars, live, jumps)
+		return visitBlock(b.branch, blocks, insns, vars, live, jumps)
 	}
 
 	// Otherwise, only visit the fallthrough target.
-	return visitBlock(b.fthrough, insns, vars, live, jumps)
+	return visitBlock(b.fthrough, blocks, insns, vars, live, jumps)
 }
 
 // lookupVariable retrieves the VariableSpec for the given load instruction from
