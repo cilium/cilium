@@ -231,7 +231,6 @@ then this will also wait for the LoadBalancer to be assigned an IP.
       - 10.168.0.89:2379
     ✅ Service "clustermesh-apiserver" of type "LoadBalancer" found
     🔌 Cluster Connections:
-    🔀 Global services: [ min:0 / avg:0.0 / max:0 ]
 
 
 Connect Clusters
@@ -267,7 +266,6 @@ The output will look something like this:
     ✅ All 2 nodes are connected to all clusters [min:1 / avg:1.0 / max:1]
     🔌 Cluster Connections:
     - cilium-cli-ci-multicluster-2-168: 2/2 configured, 2/2 connected
-    🔀 Global services: [ min:6 / avg:6.0 / max:6 ]
 
 If this step does not complete successfully, proceed to the troubleshooting
 section.
