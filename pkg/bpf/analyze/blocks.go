@@ -211,6 +211,19 @@ func (b *Block) iterate(insns asm.Instructions) *asm.InstructionIterator {
 	return i
 }
 
+// predecessor returns the previous Block in the control flow if there is
+// exactly one predecessor, otherwise returns nil.
+//
+// This is useful for walking the control flow backwards when there is no
+// branching, e.g. for finding the last instruction that wrote to a register
+// before it is read.
+func (b *Block) predecessor() *Block {
+	if len(b.predecessors) == 1 {
+		return b.predecessors[0]
+	}
+	return nil
+}
+
 // backward returns an iterator that traverses the instructions in the block
 // in reverse order, starting from the last instruction and going to the first.
 //
@@ -234,26 +247,23 @@ func (b *Block) backward(insns asm.Instructions) func() (*asm.Instruction, bool)
 			// This is not needed for blocks with multiple predecessors, since
 			// execution could've originated from any of them, making the contents of
 			// the pointer register undefined.
-			if len(b.predecessors) == 1 {
-				pred := b.predecessors[0]
-				if pred == b {
-					// Blocks representing loops can have themselves as a predecessor.
-					// Don't roll over to itself for obvious reasons.
-					return nil, false
-				}
-
-				if depth >= maxDepth {
-					return nil, false
-				}
-				depth++
-
-				b = pred
-				i = b.len() - 1
-			} else {
+			pred := b.predecessor()
+			if pred == nil || pred == b {
 				// Zero or multiple predecessors means we can't roll over to a
 				// predecessor, stop here.
+				//
+				// Blocks representing loops can have themselves as a predecessor.
+				// Don't roll over to itself for obvious reasons.
 				return nil, false
 			}
+
+			if depth >= maxDepth {
+				return nil, false
+			}
+			depth++
+
+			b = pred
+			i = b.len() - 1
 		}
 
 		out := &insns[b.start+i]
