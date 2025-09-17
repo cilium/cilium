@@ -27,6 +27,11 @@ on:
         description: 'Which version are you releasing? (e.g. vX.Y.Z[-(pre|rc).W])'
         required: true
         type: string
+    secrets:
+      CILIUM_RELEASE_BOT_PEM:
+        required: true
+      CILIUM_RELEASE_BOT_APP_ID:
+        required: true
 
 permissions:
   # To be able to access the repository with `actions/checkout`
