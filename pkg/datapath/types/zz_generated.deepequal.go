@@ -247,9 +247,6 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EnableIPSec != other.EnableIPSec {
 		return false
 	}
-	if in.EnableIPSecEncryptedOverlay != other.EnableIPSecEncryptedOverlay {
-		return false
-	}
 	if in.EncryptNode != other.EncryptNode {
 		return false
 	}

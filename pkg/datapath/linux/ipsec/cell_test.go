@@ -160,7 +160,6 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 								EnableIPsec:                              ipsecEnabled,
 								EnableIPsecKeyWatcher:                    true,
 								EnableIPsecXfrmStateCaching:              true,
-								EnableIPsecEncryptedOverlay:              false,
 								UseCiliumInternalIPForIPsec:              false,
 								DNSProxyInsecureSkipTransparentModeCheck: false,
 								IPsecKeyFile:                             keyFile,
