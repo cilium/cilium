@@ -7,7 +7,7 @@ CURR_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
 
 include $(CURR_DIR)/../Makefile.defs
 # Add the ability to override variables
--include Makefile.override
+-include $(CURR_DIR)/Makefile.override
 
 TARGET := hubble
 
