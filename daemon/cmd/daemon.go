@@ -23,7 +23,6 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -230,17 +229,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	bootstrapStats.daemonInit.Start()
 
-	// EncryptedOverlay feature must check the TunnelProtocol if enabled, since
-	// it only supports VXLAN right now.
-	if params.IPsecAgent.Enabled() && params.IPSecConfig.EncryptedOverlayEnabled() {
-		if !option.Config.TunnelingEnabled() {
-			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling mode")
-		}
-		if params.TunnelConfig.EncapProtocol() != tunnel.VXLAN {
-			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling protocol")
-		}
-	}
-
 	// WireGuard and IPSec are mutually exclusive.
 	if params.IPsecAgent.Enabled() && params.WGAgent.Enabled() {
 		return nil, nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
@@ -256,10 +244,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
 			return nil, nil, fmt.Errorf("IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later): %w", err)
 		}
-	}
-
-	if params.IPSecConfig.EncryptedOverlayEnabled() && !params.IPsecAgent.Enabled() {
-		params.Logger.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
 	}
 
 	if option.Config.EnableHostFirewall {

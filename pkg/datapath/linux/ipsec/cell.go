@@ -62,7 +62,6 @@ var defaultUserConfig = UserConfig{
 	EnableIPsec:                              false,
 	EnableIPsecKeyWatcher:                    true,
 	EnableIPsecXfrmStateCaching:              true,
-	EnableIPsecEncryptedOverlay:              false,
 	UseCiliumInternalIPForIPsec:              false,
 	DNSProxyInsecureSkipTransparentModeCheck: false,
 	IPsecKeyFile:                             "",
@@ -73,7 +72,6 @@ type UserConfig struct {
 	EnableIPsec                              bool
 	EnableIPsecKeyWatcher                    bool
 	EnableIPsecXfrmStateCaching              bool
-	EnableIPsecEncryptedOverlay              bool
 	UseCiliumInternalIPForIPsec              bool
 	DNSProxyInsecureSkipTransparentModeCheck bool
 	IPsecKeyFile                             string
@@ -85,7 +83,7 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(types.EnableIPsecKeyWatcher, def.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
 	flags.Bool(types.EnableIPSecXfrmStateCaching, def.EnableIPsecXfrmStateCaching, "Enable XfrmState cache for IPSec. Significantly reduces CPU usage in large clusters.")
 	flags.MarkHidden(types.EnableIPSecXfrmStateCaching)
-	flags.Bool(types.EnableIPSecEncryptedOverlay, def.EnableIPsecEncryptedOverlay, "Enable IPsec encrypted overlay. If enabled tunnel traffic will be encrypted before leaving the host. Requires ipsec and tunnel mode vxlan to be enabled.")
+	flags.MarkDeprecated(types.EnableIPSecEncryptedOverlay, "Encrypted overlay is the default behavior for IPsec.")
 	flags.Bool(types.UseCiliumInternalIPForIPsec, def.UseCiliumInternalIPForIPsec, "Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation")
 	flags.MarkHidden(types.UseCiliumInternalIPForIPsec)
 	flags.Bool(types.DNSProxyInsecureSkipTransparentModeCheck, def.DNSProxyInsecureSkipTransparentModeCheck, "Allows DNS proxy transparent mode to be disabled even if encryption is enabled. Enabling this flag and disabling DNS proxy transparent mode will cause proxied DNS traffic to leave the node unencrypted.")
@@ -102,10 +100,6 @@ type Config struct {
 
 func (c Config) Enabled() bool {
 	return c.EnableIPsec
-}
-
-func (c Config) EncryptedOverlayEnabled() bool {
-	return c.EnableIPsecEncryptedOverlay
 }
 
 func (c Config) UseCiliumInternalIP() bool {

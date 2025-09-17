@@ -123,7 +123,6 @@ func newLocalNodeConfig(
 		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
 		EnableWireguard:              wgCfg.Enabled(),
 		EnableIPSec:                  ipsecCfg.Enabled(),
-		EnableIPSecEncryptedOverlay:  ipsecCfg.EncryptedOverlayEnabled(),
 		EncryptNode:                  config.EncryptNode,
 		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
 		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),

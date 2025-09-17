@@ -175,9 +175,6 @@ type LocalNodeConfiguration struct {
 	// EnableIPSec enables IPSec routes
 	EnableIPSec bool
 
-	// EnableIPSecEncryptedOverlay enables IPSec routes for overlay traffic
-	EnableIPSecEncryptedOverlay bool
-
 	// EncryptNode enables encrypting NodeIP traffic
 	EncryptNode bool
 
