@@ -20,7 +20,6 @@ type IPsecAgent interface {
 
 type IPsecConfig interface {
 	Enabled() bool
-	EncryptedOverlayEnabled() bool
 	UseCiliumInternalIP() bool
 	DNSProxyInsecureSkipTransparentModeCheckEnabled() bool
 }

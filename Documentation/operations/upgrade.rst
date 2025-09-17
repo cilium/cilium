@@ -330,7 +330,9 @@ Removed Options
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
-
+* The ``--enable-ipsec-encrypted-overlay`` flag has no effect and will be removed in Cilium 1.20. Starting from
+  Cilium 1.18 the IPsec encryption is always applied after overlay encapsulation, and therefore this special opt-in
+  flag is no longer needed.
 
 Helm Options
 ~~~~~~~~~~~~
