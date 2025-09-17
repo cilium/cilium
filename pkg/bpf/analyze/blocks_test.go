@@ -19,8 +19,8 @@ func branchingProg(tb testing.TB, n int) asm.Instructions {
 
 	// A program that ends up being cut into n blocks.
 	orig := make(asm.Instructions, 0, n)
-	for range n - 1 {
-		ins := asm.JEq.Imm(asm.R0, 0, "")
+	for i := range n - 1 {
+		ins := asm.JEq.Imm(asm.R0, int32(i), "")
 		ins.Offset = 0
 		orig = append(orig, ins)
 	}
@@ -126,6 +126,102 @@ func TestMakeBlocksManyBranches(t *testing.T) {
 	b2, err := MakeBlocks(insns)
 	require.NoError(t, err)
 	assert.Equal(t, b, b2)
+}
+
+func TestBlocksIterateLocal(t *testing.T) {
+	insns := branchingProg(t, 100)
+
+	bl, err := MakeBlocks(insns)
+	require.NoError(t, err)
+
+	assert.EqualValues(t, 100, bl.count())
+
+	iter := bl.first().iterateLocal(insns)
+
+	// Iterate over the first block only. Next should return false after the first
+	// block is done and stay at index 0.
+	assert.True(t, iter.Next())
+	assert.False(t, iter.Next())
+	assert.Equal(t, 0, iter.index)
+
+	// Iterator has nowhere to move. First instruction is already pulled.
+	assert.False(t, iter.Previous())
+}
+
+func TestBlocksIterateGlobal(t *testing.T) {
+	insns := branchingProg(t, 100)
+
+	bl, err := MakeBlocks(insns)
+	require.NoError(t, err)
+
+	assert.EqualValues(t, 100, bl.count())
+
+	iter := bl.iterate(insns)
+	i := 0
+	for ; iter.Next(); i++ {
+		if iter.ins.OpCode.JumpOp() == asm.Exit {
+			continue
+		}
+
+		// The Constant fields of the branching instructions are set to their insn
+		// index. Make sure the iterator index matches.
+		assert.EqualValues(t, iter.index, iter.ins.Constant)
+	}
+
+	// We should have seen all instructions.
+	assert.Equal(t, 100, i)
+	assert.Equal(t, 99, iter.index)
+
+	i = 0
+	for ; iter.Previous(); i++ {
+		assert.EqualValues(t, iter.index, iter.ins.Constant)
+	}
+
+	// Iterator should be back at the start.
+	assert.Equal(t, 99, i)
+	assert.Equal(t, 0, iter.index)
+}
+
+func TestBlocksIterateOffset(t *testing.T) {
+	insns := asm.Instructions{
+		asm.Mov.Imm(asm.R0, 0),
+		asm.LoadImm(asm.R0, 0xffffffff, asm.DWord),
+		asm.JEq.Imm(asm.R0, 0, "exit"),
+		asm.LoadImm(asm.R0, 0x11111111, asm.DWord),
+		asm.Return().WithSymbol("exit"),
+	}
+
+	// Marshal instructions to fix up references.
+	require.NoError(t, insns.Marshal(io.Discard, binary.LittleEndian))
+
+	bl, err := MakeBlocks(insns)
+	require.NoError(t, err)
+
+	assert.EqualValues(t, 3, bl.count())
+
+	iter := bl.iterate(insns)
+
+	assert.True(t, iter.Next()) // Pull MovImm
+	assert.Equal(t, 0, iter.index)
+	assert.Equal(t, asm.RawInstructionOffset(0), iter.offset)
+
+	assert.True(t, iter.Next()) // Pull LoadImm
+	assert.Equal(t, 1, iter.index)
+	assert.Equal(t, asm.RawInstructionOffset(1), iter.offset)
+
+	assert.True(t, iter.Next()) // Pull JEq
+	assert.Equal(t, 2, iter.index)
+	assert.Equal(t, asm.RawInstructionOffset(3), iter.offset) // Advance 2 raw insns due to LoadImm
+
+	assert.True(t, iter.Next()) // Pull LoadImm
+	assert.Equal(t, 3, iter.index)
+	assert.Equal(t, asm.RawInstructionOffset(4), iter.offset)
+
+	assert.True(t, iter.Next()) // Pull Return
+	assert.Equal(t, 4, iter.index)
+	assert.Equal(t, asm.RawInstructionOffset(6), iter.offset) // Advance 2 raw insns due to LoadImm
+
+	assert.False(t, iter.Next())
 }
 
 func TestBlocksDump(t *testing.T) {
