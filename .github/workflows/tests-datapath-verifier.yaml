@@ -90,19 +90,19 @@ jobs:
           - kernel: 'rhel8.6-20250812.093650'
             ci-kernel: '54'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.10-20250912.073541'
+          - kernel: '5.10-20250915.013221'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.15-20250912.073541'
+          - kernel: '5.15-20250915.013221'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.1-20250912.073541'
+          - kernel: '6.1-20250915.013221'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.6-20250912.073541'
+          - kernel: '6.6-20250915.013221'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.12-20250912.073541'
+          - kernel: '6.12-20250915.013221'
             ci-kernel: '61'
     timeout-minutes: 60
     steps:
