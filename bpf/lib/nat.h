@@ -1267,6 +1267,14 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_ipmasq_v6 __section_maps_btf;
 
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, __u8);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, SNAT_COLLISION_RETRIES);
+} cilium_snat_retry_index __section_maps_btf;
+
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 static __always_inline void *
 get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
@@ -1297,53 +1305,107 @@ set_v6_rtuple(const struct ipv6_ct_tuple *otuple,
 	rtuple->dport = ostate->to_sport;
 }
 
+struct ctx_data_v6 {
+    struct ipv6_ct_tuple *rtuple;
+    const struct ipv6_nat_target *target;
+    struct ipv6_nat_entry *rstate;
+    __u16 port;
+    __u32 *retries;
+    bool success;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, struct ctx_data_v6);
+} snat_ctx_storage __section_maps_btf;
+
+static __always_inline long retry_cb(void  __maybe_unused *map, const void *key, void  __maybe_unused *value,
+					        const void *ctx)
+{
+	struct ctx_data_v6 *cb_data = (struct ctx_data_v6 *)ctx;
+
+	cb_data->retries = (__u32 *)key;
+	if (__snat_create(&cilium_snat_v6_external, cb_data->rtuple, cb_data->rstate, true) == 0) {
+		cb_data->success = true;
+		return 1;
+	}
+
+	cb_data->port = __snat_clamp_port_range(cb_data->target->min_port,
+				       cb_data->target->max_port,
+				       cb_data->retries ? cb_data->port + 1 :
+				       (__u16)get_prandom_u32());
+
+    return 0;
+}
+
+/* Stores large structures to optimize stack usage. */
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, struct ipv6_ct_tuple);
+} snat_rtuple_storage __section_maps_btf;
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, struct ipv6_nat_entry);
+} snat_rstate_storage __section_maps_btf;
+
 static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       struct ipv6_ct_tuple *otuple,
 					       struct ipv6_nat_entry *ostate,
 					       const struct ipv6_nat_target *target,
 					       bool needs_ct, __s8 *ext_err)
 {
-	struct ipv6_ct_tuple rtuple = {};
-	struct ipv6_nat_entry rstate;
+	struct ipv6_ct_tuple *rtuple;
+	struct ipv6_nat_entry *rstate;
 	__u32 *retries_hist;
-	__u32 retries;
+	__u32 *retries;
 	int ret;
-	__u16 port;
+	__u32 zero = 0;
+	struct ctx_data_v6 *ctx_data;
 
-	memset(&rstate, 0, sizeof(rstate));
 	memset(ostate, 0, sizeof(*ostate));
 
-	rstate.to_daddr = otuple->saddr;
-	rstate.to_dport = otuple->sport;
+	rstate = map_lookup_elem(&snat_rstate_storage, &zero);
+	if (!rstate)
+		return DROP_INVALID;
+	rstate->to_daddr = otuple->saddr;
+	rstate->to_dport = otuple->sport;
 
 	ostate->to_saddr = target->addr;
 	/* .to_sport is selected below */
 
-	set_v6_rtuple(otuple, ostate, &rtuple);
+	rtuple = map_lookup_elem(&snat_rtuple_storage, &zero);
+	if (!rtuple)
+		return DROP_INVALID;
+	set_v6_rtuple(otuple, ostate, rtuple);
 	/* .dport is selected below */
-
-	port = __snat_try_keep_port(target->min_port,
+	ctx_data = map_lookup_elem(&snat_ctx_storage, &zero);
+	if (!ctx_data)
+		return DROP_INVALID;
+	ctx_data->rtuple = rtuple;
+	ctx_data->target = target;
+	ctx_data->rstate = rstate;
+	ctx_data->success = false;
+	ctx_data->port = __snat_try_keep_port(target->min_port,
 				    target->max_port,
 				    bpf_ntohs(otuple->sport));
 
 	ostate->common.needs_ct = needs_ct;
-	rstate.common.needs_ct = needs_ct;
-	rstate.common.created = bpf_mono_now();
+	rstate->common.needs_ct = needs_ct;
+	rstate->common.created = bpf_mono_now();
 
-#pragma unroll
-	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
-		rtuple.dport = bpf_htons(port);
+	for_each_map_elem(&cilium_snat_retry_index, retry_cb, ctx_data, 0);
+	retries = ctx_data->retries;
+	if (ctx_data->success)
+		goto create_nat_entry;
 
-		if (__snat_create(&cilium_snat_v6_external, &rtuple, &rstate, true) == 0)
-			goto create_nat_entry;
-
-		port = __snat_clamp_port_range(target->min_port,
-					       target->max_port,
-					       retries ? port + 1 :
-					       (__u16)get_prandom_u32());
-	}
-
-	retries_hist = map_lookup_elem(&cilium_snat_v6_alloc_retries, &(__u32){retries});
+	retries_hist = map_lookup_elem(&cilium_snat_v6_alloc_retries, (__u32 *){retries});
 	if (retries_hist)
 		++*retries_hist;
 
@@ -1351,23 +1413,23 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	goto out;
 
 create_nat_entry:
-	retries_hist = map_lookup_elem(&cilium_snat_v6_alloc_retries, &(__u32){retries});
+	retries_hist = map_lookup_elem(&cilium_snat_v6_alloc_retries, (__u32 *){retries});
 	if (retries_hist)
 		++*retries_hist;
 
-	ostate->to_sport = rtuple.dport;
-	ostate->common.created = rstate.common.created;
+	ostate->to_sport = rtuple->dport;
+	ostate->common.created = rstate->common.created;
 
 	ret = __snat_create(&cilium_snat_v6_external, otuple, ostate, false);
 	if (ret < 0) {
-		map_delete_elem(&cilium_snat_v6_external, &rtuple); /* rollback */
+		map_delete_elem(&cilium_snat_v6_external, rtuple); /* rollback */
 		if (ext_err)
 			*ext_err = (__s8)ret;
 		ret = DROP_NAT_NO_MAPPING;
 	}
 
 out:
-	if (retries > SNAT_SIGNAL_THRES)
+	if (*retries > SNAT_SIGNAL_THRES)
 		send_signal_nat_fill_up(ctx, SIGNAL_PROTO_V6);
 
 	return ret;
@@ -1430,7 +1492,7 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 	if (*state) {
 		int ret;
 		struct ipv6_ct_tuple *rtuple;
-	    __u32 zero;
+		__u32 zero;
 
 	    rtuple = map_lookup_elem(&nodeport_ct_entry_storage, &zero);
 	    if (!rtuple)
@@ -1446,9 +1508,9 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 			struct ipv6_nat_entry *rstate;
 			struct ipv6_nat_entry *lookup_result;
 
-	        rstate = map_lookup_elem(&nodeport_nat_entry_storage, &zero);
+			rstate = map_lookup_elem(&nodeport_nat_entry_storage, &zero);
             if (!rstate)
-                return DROP_INVALID;
+				return DROP_INVALID;
 			lookup_result = snat_v6_lookup(rtuple);
 			if (!lookup_result) {
 				memset(&rstate, 0, sizeof(rstate));
