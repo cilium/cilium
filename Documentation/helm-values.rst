@@ -920,6 +920,10 @@
      - clustermesh-apiserver update strategy
      - object
      - ``{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}``
+   * - :spelling:ignore:`clustermesh.cacheTTL`
+     - The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked (default).
+     - string
+     - ``"0s"``
    * - :spelling:ignore:`clustermesh.config`
      - Clustermesh explicit configuration.
      - object
