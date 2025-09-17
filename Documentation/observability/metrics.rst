@@ -95,7 +95,7 @@ option is set in the ``scrape_configs`` section:
 Hubble Metrics
 ==============
 
-While Cilium metrics allow you to monitor the state Cilium itself,
+While Cilium metrics allow you to monitor the state of Cilium itself,
 Hubble metrics on the other hand allow you to monitor the network behavior
 of your Cilium-managed Kubernetes pods with respect to connectivity and security.
 
