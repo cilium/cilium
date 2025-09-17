@@ -209,6 +209,13 @@ static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __u16 proto 
 #define revalidate_data(ctx, data, data_end, ip)			\
 	revalidate_data_l3_off(ctx, data, data_end, ip, ETH_HLEN)
 
+/* arp is different from the above as we also want to pull in the payload.
+ * Returns true if 'ctx' is long enough to be valid ARP packet, false otherwise.
+ */
+#define revalidate_data_arp_pull(ctx, data, data_end, arp)		\
+	__revalidate_data_pull(ctx, data, data_end, (void **)arp,	\
+		ETH_HLEN + sizeof(struct arphdr), sizeof(**arp), true)
+
 #define ENDPOINT_KEY_IPV4 1
 #define ENDPOINT_KEY_IPV6 2
 
@@ -284,7 +291,8 @@ struct remote_endpoint_info {
 	__u8		flag_skip_tunnel:1,
 			flag_has_tunnel_ep:1,
 			flag_ipv6_tunnel_ep:1,
-			pad2:5;
+			flag_remote_cluster:1,
+			pad2:4;
 };
 
 /*

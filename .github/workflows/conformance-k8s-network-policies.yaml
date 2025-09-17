@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
       - name: Check pre-flight clusterrole
@@ -50,7 +50,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout target branch to access local actions
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ github.base_ref || github.ref }}
           persist-credentials: false
@@ -59,7 +59,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
 
@@ -110,6 +110,14 @@ jobs:
             --set-string=extraEnv[2].value=true \
             --set-string=extraEnv[3].name=KUBE_CACHE_MUTATION_DETECTOR \
             --set-string=extraEnv[3].value=true \
+            --set-string=operator.extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
+            --set-string=operator.extraEnv[0].value=true \
+            --set-string=operator.extraEnv[1].name=CILIUM_INVALID_METRIC_VALUE_DETECTOR \
+            --set-string=operator.extraEnv[1].value=true \
+            --set-string=operator.extraEnv[2].name=CILIUM_SLOG_DUP_ATTR_DETECTOR \
+            --set-string=operator.extraEnv[2].value=true \
+            --set-string=operator.extraEnv[3].name=KUBE_CACHE_MUTATION_DETECTOR \
+            --set-string=operator.extraEnv[3].value=true \
             --set nodeinit.enabled=true \
             --set kubeProxyReplacement=false \
             --set socketLB.enabled=false \
@@ -160,3 +168,4 @@ jobs:
         with:
           artifacts_suffix: "${{ env.job_name }}"
           job_status: "${{ job.status }}"
+          junits-directory: 'test/k8s/manifests/netpol-cyclonus/cyclonus-results'

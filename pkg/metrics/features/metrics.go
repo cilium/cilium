@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -39,7 +38,7 @@ type Metrics struct {
 	NPLocalRedirectPolicyEnabled metric.Gauge
 	NPMutualAuthEnabled          metric.Gauge
 	NPNonDefaultDenyEnabled      metric.Gauge
-	NPCIDRPoliciesToNodes        metric.Vec[metric.Gauge]
+	NPCIDRPoliciesMode           metric.Vec[metric.Gauge]
 
 	ACLBTransparentEncryption        metric.Vec[metric.Gauge]
 	ACLBKubeProxyReplacementEnabled  metric.Gauge
@@ -95,7 +94,6 @@ const (
 
 	networkChainingModeNone        = "none"
 	networkChainingModeAWSCNI      = "aws-cni"
-	networkChainingModeAWSVPCCNI   = "aws-vpc-cni"
 	networkChainingModeCalico      = "calico"
 	networkChainingModeFlannel     = "flannel"
 	networkChainingModeGenericVeth = "generic-veth"
@@ -104,6 +102,8 @@ const (
 	networkIPv4      = "ipv4-only"
 	networkIPv6      = "ipv6-only"
 	networkDualStack = "ipv4-ipv6-dual-stack"
+
+	networkCIDRPoliciesNodes = "nodes"
 
 	advConnNetEncIPSec     = "ipsec"
 	advConnNetEncWireGuard = "wireguard"
@@ -149,7 +149,6 @@ var (
 	defaultChainingModes = []string{
 		networkChainingModeNone,
 		networkChainingModeAWSCNI,
-		networkChainingModeAWSVPCCNI,
 		networkChainingModeCalico,
 		networkChainingModeFlannel,
 		networkChainingModeGenericVeth,
@@ -176,8 +175,7 @@ var (
 	}
 
 	defaultCIDRPolicies = []string{
-		string(api.EntityWorld),
-		string(api.EntityRemoteNode),
+		networkCIDRPoliciesNodes,
 	}
 
 	defaultEncryptionModes = []string{
@@ -396,7 +394,7 @@ func NewMetrics(withDefaults bool) Metrics {
 			Name:      "non_defaultdeny_policies_enabled",
 		}),
 
-		NPCIDRPoliciesToNodes: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+		NPCIDRPoliciesMode: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
 			Help:      "Mode to apply CIDR Policies to Nodes",
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
@@ -991,13 +989,13 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 			networkMode = networkModeOverlayGENEVE
 		}
 	}
-	m.DPMode.WithLabelValues(networkMode).Add(1)
+	m.DPMode.WithLabelValues(networkMode).Set(1)
 
 	ipamMode := config.IPAMMode()
-	m.CPIPAM.WithLabelValues(ipamMode).Add(1)
+	m.CPIPAM.WithLabelValues(ipamMode).Set(1)
 
 	chainingMode := params.GetChainingMode()
-	m.DPChaining.WithLabelValues(chainingMode).Add(1)
+	m.DPChaining.WithLabelValues(chainingMode).Set(1)
 
 	var ip string
 	switch {
@@ -1008,48 +1006,48 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 	case config.IPv6Enabled():
 		ip = networkIPv6
 	}
-	m.DPIP.WithLabelValues(ip).Add(1)
+	m.DPIP.WithLabelValues(ip).Set(1)
 
 	identityAllocationMode := config.IdentityAllocationMode
-	m.CPIdentityAllocation.WithLabelValues(identityAllocationMode).Add(1)
+	m.CPIdentityAllocation.WithLabelValues(identityAllocationMode).Set(1)
 
 	if config.EnableCiliumEndpointSlice {
-		m.CPCiliumEndpointSlicesEnabled.Add(1)
+		m.CPCiliumEndpointSlicesEnabled.Set(1)
 	}
 
 	deviceMode := config.DatapathMode
-	m.DPDeviceConfig.WithLabelValues(deviceMode).Add(1)
+	m.DPDeviceConfig.WithLabelValues(deviceMode).Set(1)
 
 	if config.EnableEndpointRoutes {
-		m.DPEndpointRoutes.Add(1)
+		m.DPEndpointRoutes.Set(1)
 	}
 
 	// Get kernel version - this would need to be implemented to detect actual kernel version
 	kernelVersion, err := version.GetKernelVersion()
 	if err != nil || kernelVersion.String() == "" {
-		m.DPKernelVersion.WithLabelValues(kernelVersionUnknown).Add(1)
+		m.DPKernelVersion.WithLabelValues(kernelVersionUnknown).Set(1)
 	} else if kernelVersion.String() != "" {
-		m.DPKernelVersion.WithLabelValues(kernelVersion.String()).Add(1)
+		m.DPKernelVersion.WithLabelValues(kernelVersion.String()).Set(1)
 	}
 
 	if config.EnableHostFirewall {
-		m.NPHostFirewallEnabled.Add(1)
+		m.NPHostFirewallEnabled.Set(1)
 	}
 
 	if config.EnableLocalRedirectPolicy {
-		m.NPLocalRedirectPolicyEnabled.Add(1)
+		m.NPLocalRedirectPolicyEnabled.Set(1)
 	}
 
 	if params.IsMutualAuthEnabled() {
-		m.NPMutualAuthEnabled.Add(1)
+		m.NPMutualAuthEnabled.Set(1)
 	}
 
 	if config.EnableNonDefaultDenyPolicies {
-		m.NPNonDefaultDenyEnabled.Add(1)
+		m.NPNonDefaultDenyEnabled.Set(1)
 	}
 
 	for _, mode := range config.PolicyCIDRMatchMode {
-		m.NPCIDRPoliciesToNodes.WithLabelValues(mode).Add(1)
+		m.NPCIDRPoliciesMode.WithLabelValues(mode).Set(1)
 	}
 
 	strictMode := "false"
@@ -1063,7 +1061,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 	}
 
 	if config.EnableIPSec {
-		m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncIPSec, node2nodeEnabled, strictMode).Add(1)
+		m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncIPSec, node2nodeEnabled, strictMode).Set(1)
 	}
 	if config.EnableWireguard {
 		m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncWireGuard, node2nodeEnabled, strictMode).Add(1)
@@ -1073,22 +1071,22 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		m.ACLBKubeProxyReplacementEnabled.Add(1)
 	}
 
-	m.ACLBNodePortConfig.WithLabelValues(lbConfig.LBMode, lbConfig.LBAlgorithm, config.NodePortAcceleration).Add(1)
+	m.ACLBNodePortConfig.WithLabelValues(lbConfig.LBMode, lbConfig.LBAlgorithm, config.NodePortAcceleration).Set(1)
 
 	if config.EnableBGPControlPlane {
-		m.ACLBBGPEnabled.Add(1)
+		m.ACLBBGPEnabled.Set(1)
 	}
 
 	if config.EnableEgressGateway {
-		m.ACLBEgressGatewayEnabled.Add(1)
+		m.ACLBEgressGatewayEnabled.Set(1)
 	}
 
 	if params.IsBandwidthManagerEnabled() {
-		m.ACLBBandwidthManagerEnabled.Add(1)
+		m.ACLBBandwidthManagerEnabled.Set(1)
 	}
 
 	if config.EnableSCTP {
-		m.ACLBSCTPEnabled.Add(1)
+		m.ACLBSCTPEnabled.Set(1)
 	}
 
 	if config.EnableInternalTrafficPolicy {
@@ -1096,11 +1094,11 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 	}
 
 	if config.EnableVTEP {
-		m.ACLBVTEPEnabled.Add(1)
+		m.ACLBVTEPEnabled.Set(1)
 	}
 
 	if config.EnableEnvoyConfig {
-		m.ACLBCiliumEnvoyConfigEnabled.Add(1)
+		m.ACLBCiliumEnvoyConfigEnabled.Set(1)
 	}
 
 	var bigTCPProto string
@@ -1114,24 +1112,24 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 	}
 
 	if bigTCPProto != "" {
-		m.ACLBBigTCPEnabled.WithLabelValues(bigTCPProto).Add(1)
+		m.ACLBBigTCPEnabled.WithLabelValues(bigTCPProto).Set(1)
 	}
 
 	if config.EnableL2Announcements {
-		m.ACLBL2LBEnabled.Add(1)
+		m.ACLBL2LBEnabled.Set(1)
 	}
 
 	if params.IsL2PodAnnouncementEnabled() {
-		m.ACLBL2PodAnnouncementEnabled.Add(1)
+		m.ACLBL2PodAnnouncementEnabled.Set(1)
 	}
 
 	if config.ExternalEnvoyProxy {
-		m.ACLBExternalEnvoyProxyEnabled.WithLabelValues(advConnExtEnvoyProxyStandalone).Add(1)
+		m.ACLBExternalEnvoyProxyEnabled.WithLabelValues(advConnExtEnvoyProxyStandalone).Set(1)
 	} else {
-		m.ACLBExternalEnvoyProxyEnabled.WithLabelValues(advConnExtEnvoyProxyEmbedded).Add(1)
+		m.ACLBExternalEnvoyProxyEnabled.WithLabelValues(advConnExtEnvoyProxyEmbedded).Set(1)
 	}
 
 	if params.IsDynamicConfigSourceKindNodeConfig() {
-		m.ACLBCiliumNodeConfigEnabled.Add(1)
+		m.ACLBCiliumNodeConfigEnabled.Set(1)
 	}
 }

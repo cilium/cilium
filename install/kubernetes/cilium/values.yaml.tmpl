@@ -498,6 +498,12 @@ bgpControlPlane:
     mode: "default"
     # -- IP pool to allocate the BGP router-id from when the mode is ip-pool.
     ipPool: ""
+  # -- Legacy BGP ORIGIN attribute settings (BGPv2 only)
+  legacyOriginAttribute:
+    # -- Enable/Disable advertising LoadBalancerIP routes with the legacy
+    # BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0).
+    # Enable for compatibility with the legacy behavior of MetalLB integration.
+    enabled: false
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
@@ -2921,6 +2927,8 @@ operator:
     - key: "node-role.kubernetes.io/master" #deprecated
       operator: Exists
     - key: "node.kubernetes.io/not-ready"
+      operator: Exists
+    - key: "node.cloudprovider.kubernetes.io/uninitialized"
       operator: Exists
   # -- Additional cilium-operator container arguments.
   extraArgs: []

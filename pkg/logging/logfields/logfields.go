@@ -1095,6 +1095,10 @@ const (
 
 	PoolSpec = "poolSpec"
 
+	PoolOldSpec = "poolOldSpec"
+
+	PoolNewSpec = "poolNewSpec"
+
 	PoolName = "poolName"
 
 	MaxRetries = "maxRetries"
@@ -1790,4 +1794,10 @@ const (
 	Matcher = "matcher"
 
 	ParentResource = "parentResource"
+
+	Fraction = "fraction"
+
+	Rate = "rate"
+
+	KPRConfiguration = "kprConfiguration"
 )

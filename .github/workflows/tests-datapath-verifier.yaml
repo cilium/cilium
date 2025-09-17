@@ -58,7 +58,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.24.6
+  go-version: 1.24.7
 
 jobs:
   echo-inputs:
@@ -87,22 +87,22 @@ jobs:
       matrix:
         include:
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'rhel8.6-20250807.134150'
+          - kernel: 'rhel8.6-20250812.093650'
             ci-kernel: '54'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.10-20250807.134150'
+          - kernel: '5.10-20250912.073541'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.15-20250807.134150'
+          - kernel: '5.15-20250912.073541'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.1-20250807.134150'
+          - kernel: '6.1-20250912.073541'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.6-20250807.134150'
+          - kernel: '6.6-20250912.073541'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.12-20250807.134150'
+          - kernel: '6.12-20250912.073541'
             ci-kernel: '61'
     timeout-minutes: 60
     steps:
@@ -114,7 +114,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.SHA || github.sha }}
           persist-credentials: false

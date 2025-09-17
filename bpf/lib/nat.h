@@ -77,9 +77,9 @@ __snat_lookup(const void *map, const void *tuple)
 }
 
 static __always_inline __maybe_unused int
-__snat_create(const void *map, const void *tuple, const void *state)
+__snat_create(const void *map, const void *tuple, const void *state, bool noexist)
 {
-	return map_update_elem(map, tuple, state, BPF_NOEXIST);
+	return map_update_elem(map, tuple, state, noexist ? BPF_NOEXIST : BPF_ANY);
 }
 
 static __always_inline __maybe_unused int
@@ -244,7 +244,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 		rtuple.dport = bpf_htons(port);
 
 		/* Try to create a RevSNAT entry. */
-		if (__snat_create(map, &rtuple, &rstate) == 0)
+		if (__snat_create(map, &rtuple, &rstate, true) == 0)
 			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
@@ -270,7 +270,7 @@ create_nat_entry:
 	ostate->common.created = rstate.common.created;
 
 	/* Create the SNAT entry. We just created the RevSNAT entry. */
-	ret = __snat_create(map, otuple, ostate);
+	ret = __snat_create(map, otuple, ostate, false);
 	if (ret < 0) {
 		map_delete_elem(map, &rtuple); /* rollback */
 		if (ext_err)
@@ -352,7 +352,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 				rstate.to_dport = tuple->sport;
 				rstate.common.needs_ct = needs_ct;
 				rstate.common.created = bpf_mono_now();
-				ret = __snat_create(map, &rtuple, &rstate);
+				ret = __snat_create(map, &rtuple, &rstate, false);
 				if (ret < 0) {
 					if (ext_err)
 						*ext_err = (__s8)ret;
@@ -424,7 +424,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			ostate.common.needs_ct = (*state)->common.needs_ct;
 			ostate.common.created = bpf_mono_now();
 
-			ret = __snat_create(map, &otuple, &ostate);
+			ret = __snat_create(map, &otuple, &ostate, false);
 			if (ret < 0)
 				return DROP_NAT_NO_MAPPING;
 		}
@@ -777,6 +777,9 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off)
 	__u32 icmpoff;
 	__u8 type;
 	int ret;
+	__u32 icmp_xlen_off = (__u32)off + offsetof(struct icmphdr, un.frag.__unused) + 1;
+	__u8 icmp_xlen;
+	bool icmp_has_full_l4_header;
 
 	/* According to the RFC 5508, any networking equipment that is
 	 * responding with an ICMP Error packet should embed the original
@@ -833,12 +836,28 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off)
 	if (!state)
 		return NAT_PUNT_TO_STACK;
 
+	/*
+	 * The snat_v4_rewrite_headers() call only rewrites the checksum for
+	 * TCP and UDP.  UDP's checksum is covered by the RFC 792 inclusion
+	 * of the 1st 64 bits of the datagram following the IP header, but
+	 * TCP needs an additional 3 32-bit words to include the checksum.
+	 */
+	if (ctx_load_bytes(ctx, icmp_xlen_off, &icmp_xlen, sizeof(__u8)) < 0)
+		return DROP_INVALID;
+	icmp_has_full_l4_header = icmp_xlen >= ((tuple.nexthdr == IPPROTO_TCP) ? 3 : 0);
+
 	/* We found SNAT entry to NAT embedded packet. The destination addr
 	 * should be NATed according to the entry.
 	 */
 	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, icmpoff,
 				      tuple.saddr, state->to_saddr, IPV4_DADDR_OFF,
 				      tuple.sport, state->to_sport, port_off);
+	/* Failing to update the inner L4 checksum is not fatal if the header
+	 * is incomplete.
+	 */
+	if (!icmp_has_full_l4_header && ret == DROP_CSUM_L4)
+		ret = 0;
+
 	if (IS_ERR(ret))
 		return ret;
 
@@ -972,6 +991,11 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	__u16 port_off;
 	__u32 icmpoff;
 	__u8 type;
+	__u8 icmp_xlen;
+	bool icmp_has_full_l4_header;
+	int ret;
+	__u32 icmp_xlen_off = (__u32) inner_l3_off - sizeof(struct icmphdr) +
+	  offsetof(struct icmphdr, un.frag.__unused) + 1;
 
 	/* According to the RFC 5508, any networking equipment that is
 	 * responding with an ICMP Error packet should embed the original
@@ -1031,10 +1055,26 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	if (!*state)
 		return NAT_PUNT_TO_STACK;
 
+	/*
+	 * The snat_v4_rewrite_headers() call only rewrites the checksum for
+	 * TCP and UDP.  UDP's checksum is covered by the RFC 792 inclusion
+	 * of the 1st 64 bits of the datagram following the IP header, but
+	 * TCP needs an additional 3 32-bit words to include the checksum.
+	 */
+	if (ctx_load_bytes(ctx, icmp_xlen_off, &icmp_xlen, sizeof(__u8)) < 0)
+		return DROP_INVALID;
+	icmp_has_full_l4_header = icmp_xlen >= ((tuple.nexthdr == IPPROTO_TCP) ? 3 : 0);
+
 	/* The embedded packet was SNATed on egress. Reverse it again: */
-	return snat_v4_rewrite_headers(ctx, tuple.nexthdr, (int)inner_l3_off, true, icmpoff,
-				       tuple.daddr, (*state)->to_daddr, IPV4_SADDR_OFF,
-				       tuple.dport, (*state)->to_dport, port_off);
+	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, (int)inner_l3_off, true, icmpoff,
+				      tuple.daddr, (*state)->to_daddr, IPV4_SADDR_OFF,
+				      tuple.dport, (*state)->to_dport, port_off);
+	/* Failing to update the inner L4 checksum is not fatal if the header
+	 * is incomplete.
+	 */
+	if (!icmp_has_full_l4_header && ret == DROP_CSUM_L4)
+		ret = 0;
+	return ret;
 }
 
 static __always_inline __maybe_unused int
@@ -1293,7 +1333,7 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		rtuple.dport = bpf_htons(port);
 
-		if (__snat_create(&cilium_snat_v6_external, &rtuple, &rstate) == 0)
+		if (__snat_create(&cilium_snat_v6_external, &rtuple, &rstate, true) == 0)
 			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
@@ -1317,7 +1357,7 @@ create_nat_entry:
 	ostate->to_sport = rtuple.dport;
 	ostate->common.created = rstate.common.created;
 
-	ret = __snat_create(&cilium_snat_v6_external, otuple, ostate);
+	ret = __snat_create(&cilium_snat_v6_external, otuple, ostate, false);
 	if (ret < 0) {
 		map_delete_elem(&cilium_snat_v6_external, &rtuple); /* rollback */
 		if (ext_err)
@@ -1391,7 +1431,8 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 				rstate.to_dport = tuple->sport;
 				rstate.common.needs_ct = needs_ct;
 				rstate.common.created = bpf_mono_now();
-				ret = __snat_create(&cilium_snat_v6_external, &rtuple, &rstate);
+				ret = __snat_create(&cilium_snat_v6_external, &rtuple, &rstate,
+						    false);
 				if (ret < 0) {
 					if (ext_err)
 						*ext_err = (__s8)ret;
@@ -1450,7 +1491,7 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			ostate.common.needs_ct = (*state)->common.needs_ct;
 			ostate.common.created = bpf_mono_now();
 
-			ret = __snat_create(&cilium_snat_v6_external, &otuple, &ostate);
+			ret = __snat_create(&cilium_snat_v6_external, &otuple, &ostate, false);
 			if (ret < 0)
 				return DROP_NAT_NO_MAPPING;
 		}

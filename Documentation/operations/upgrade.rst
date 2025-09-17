@@ -330,6 +330,7 @@ communicating via the proxy must reconnect to re-establish connections.
   recommended to check :ref:`change_policy_default_local_cluster` for details and migration recommendations to update
   your network policies in advance for the Cilium 1.19 upgrade.
 * Creating or deleting policies via the local REST api is deprecated. This will be removed entirely in v1.19.
+* The cilium operator now needs the ``ec2:DescribeRouteTables`` IAM action permission when used in ENI mode.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -685,7 +686,7 @@ Below is an example where there is one network policy that needs to be updated:
 
 .. code-block:: shell-session
 
-    $ cilium clustermesh prepare-policy-default-local-cluster --all-namespaces
+    $ cilium clustermesh inspect-policy-default-local-cluster --all-namespaces
 
     ⚠️ CiliumNetworkPolicy 0/1
             ⚠️ default/allow-from-bar

@@ -490,8 +490,10 @@ func (m *manager) restoreNodeCheckpoint() {
 	// separate, let whatever init needs to happen occur and once we're synced
 	// to k8s, compare the restored nodes to the live ones.
 	for _, n := range nodeCheckpoint {
-		n.Source = source.Restored
-		m.restoredNodes[n.Identity()] = n
+		if !n.IsLocal() {
+			n.Source = source.Restored
+			m.restoredNodes[n.Identity()] = n
+		}
 	}
 }
 
@@ -554,7 +556,9 @@ func (m *manager) checkpoint() error {
 	w := jsoniter.ConfigFastest.NewEncoder(bw)
 	ns := make([]nodeTypes.Node, 0, len(m.nodes))
 	for _, n := range m.nodes {
-		ns = append(ns, n.node)
+		if !n.node.IsLocal() {
+			ns = append(ns, n.node)
+		}
 	}
 	if err := w.Encode(ns); err != nil {
 		return fmt.Errorf("failed to encode node checkpoint: %w", err)
@@ -707,6 +711,11 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			key = n.EncryptionKey
 		}
 
+		endpointFlags := ipcacheTypes.EndpointFlags{}
+		if n.Cluster != m.conf.ClusterName {
+			endpointFlags.SetRemoteCluster(true)
+		}
+
 		// We expect the node manager to have a source of either Kubernetes,
 		// CustomResource, or KVStore. Prioritize the KVStore source over the
 		// rest as it is the strongest source, i.e. only trigger datapath
@@ -738,7 +747,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.ipcache.UpsertMetadata(prefixCluster, n.Source, resource,
 			lbls,
 			ipcacheTypes.TunnelPeer{Addr: tunnelIP},
-			ipcacheTypes.EncryptKey(key))
+			ipcacheTypes.EncryptKey(key),
+			endpointFlags)
 		if nodeIdentityOverride {
 			m.ipcache.OverrideIdentity(prefixCluster, nodeLabels, n.Source, resource)
 		}
@@ -935,7 +945,7 @@ func (m *manager) podCIDREntries(source source.Source, resource ipcacheTypes.Res
 // in podCIDRsAdded.
 // Removes ipset entry associated with oldNode if it is not present in ipsetEntries.
 //
-// The removal logic in this function should mirror the upsert logic in NodeUpdated.
+// The removal logic in this function should mirror the upsert logic in nodeAddressHasTunnelIP.
 func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
 	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix,
 ) {
@@ -987,10 +997,16 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			oldKey = oldNode.EncryptionKey
 		}
 
+		oldEndpointFlags := ipcacheTypes.EndpointFlags{}
+		if oldNode.Cluster != m.conf.ClusterName {
+			oldEndpointFlags.SetRemoteCluster(true)
+		}
+
 		m.ipcache.RemoveMetadata(oldPrefixCluster, resource,
 			oldNodeLabels,
 			ipcacheTypes.TunnelPeer{Addr: oldTunnelIP},
-			ipcacheTypes.EncryptKey(oldKey))
+			ipcacheTypes.EncryptKey(oldKey),
+			oldEndpointFlags)
 		if oldNodeIdentityOverride {
 			m.ipcache.RemoveIdentityOverride(oldPrefixCluster, oldNodeLabels, resource)
 		}
@@ -1111,13 +1127,14 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		return
 	}
 
-	// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
 	if n.Source != source.Restored {
+		// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
 		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
 		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil, nil)
-	}
 
-	m.metrics.NumNodes.Dec()
+		// We only need to decrement for nodes we've accounted for.
+		m.metrics.NumNodes.Dec()
+	}
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
@@ -1161,15 +1178,18 @@ func (m *manager) NodeSync() {
 	// that both sources call NodeSync at some point. Ensure we only run this
 	// pruning operation once.
 	m.nodePruneOnce.Do(func() {
-		m.pruneNodes(false)
+		m.pruneClusterNodes()
 	})
 }
 
+// MeshNodeSync signals the manager that the initial nodes listing from
+// clustermesh has been completed. This allows the manager to initiate the
+// deletion of possible stale meshed nodes.
 func (m *manager) MeshNodeSync() {
-	m.pruneNodes(true)
+	m.pruneMeshedNodes()
 }
 
-func (m *manager) pruneNodes(includeMeshed bool) {
+func (m *manager) pruneClusterNodes() {
 	m.mutex.Lock()
 	if len(m.restoredNodes) == 0 {
 		m.mutex.Unlock()
@@ -1180,21 +1200,28 @@ func (m *manager) pruneNodes(includeMeshed bool) {
 		delete(m.restoredNodes, id)
 	}
 
-	if len(m.restoredNodes) > 0 {
+	toDelete := make([]*nodeTypes.Node, 0, len(m.restoredNodes))
+	for _, n := range m.restoredNodes {
+		if n.Cluster == m.conf.ClusterName {
+			toDelete = append(toDelete, n)
+		}
+	}
+
+	if len(toDelete) > 0 {
 		if m.logger.Enabled(context.Background(), slog.LevelDebug) {
-			printableNodes := make([]string, 0, len(m.restoredNodes))
-			for ni := range m.restoredNodes {
-				printableNodes = append(printableNodes, ni.String())
+			printableNodes := make([]string, 0, len(toDelete))
+			for _, n := range toDelete {
+				printableNodes = append(printableNodes, n.Identity().String())
 			}
 			m.logger.Debug(
-				"Deleting stale nodes",
-				logfields.LenStaleNodes, len(m.restoredNodes),
+				"Deleting stale cluster nodes",
+				logfields.LenStaleNodes, len(toDelete),
 				logfields.StaleNodes, printableNodes,
 			)
 		} else {
 			m.logger.Info(
-				"Deleting stale nodes",
-				logfields.LenStaleNodes, len(m.restoredNodes),
+				"Deleting stale cluster nodes",
+				logfields.LenStaleNodes, len(toDelete),
 			)
 		}
 	}
@@ -1202,11 +1229,55 @@ func (m *manager) pruneNodes(includeMeshed bool) {
 
 	// Delete nodes now considered stale. Can't hold the mutex as
 	// NodeDeleted also acquires it.
-	for id, n := range m.restoredNodes {
-		if n.Cluster == m.conf.ClusterName || includeMeshed {
-			m.NodeDeleted(*n)
-			delete(m.restoredNodes, id)
+	for _, n := range toDelete {
+		m.NodeDeleted(*n)
+		delete(m.restoredNodes, n.Identity())
+	}
+}
+
+func (m *manager) pruneMeshedNodes() {
+	m.mutex.Lock()
+	if len(m.restoredNodes) == 0 {
+		m.mutex.Unlock()
+		return
+	}
+	// Live nodes should not be pruned.
+	for id := range m.nodes {
+		delete(m.restoredNodes, id)
+	}
+
+	toDelete := make([]*nodeTypes.Node, 0, len(m.restoredNodes))
+	for _, n := range m.restoredNodes {
+		if n.Cluster != m.conf.ClusterName {
+			toDelete = append(toDelete, n)
 		}
+	}
+
+	if len(toDelete) > 0 {
+		if m.logger.Enabled(context.Background(), slog.LevelDebug) {
+			printableNodes := make([]string, 0, len(toDelete))
+			for _, n := range toDelete {
+				printableNodes = append(printableNodes, n.Identity().String())
+			}
+			m.logger.Debug(
+				"Deleting stale meshed nodes",
+				logfields.LenStaleNodes, len(toDelete),
+				logfields.StaleNodes, printableNodes,
+			)
+		} else {
+			m.logger.Info(
+				"Deleting stale meshed nodes",
+				logfields.LenStaleNodes, len(toDelete),
+			)
+		}
+	}
+	m.mutex.Unlock()
+
+	// Delete nodes now considered stale. Can't hold the mutex as
+	// NodeDeleted also acquires it.
+	for _, n := range toDelete {
+		m.NodeDeleted(*n)
+		delete(m.restoredNodes, n.Identity())
 	}
 }
 

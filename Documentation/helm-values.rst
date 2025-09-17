@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:f9a104fddb33220ec80fc45a4e606c74aadf1ef7a3832eb0b05be9e90cd61f5f","override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:ab33eacc8251e3807b85bb6dba570e4698c3998eca6f0fc2ccb60575a563ea74","override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -275,9 +275,17 @@
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
-     - ``{"enabled":false,"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
+     - ``{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
      - Enables the BGP control plane.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute`
+     - Legacy BGP ORIGIN attribute settings (BGPv2 only)
+     - object
+     - ``{"enabled":false}``
+   * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute.enabled`
+     - Enable/Disable advertising LoadBalancerIP routes with the legacy BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0). Enable for compatibility with the legacy behavior of MetalLB integration.
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane.routerIDAllocation`
@@ -615,7 +623,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.image`
      - Clustermesh API server image.
      - object
-     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.18.1","useDigest":false}``
+     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.18.2","useDigest":false}``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.enabled`
      - Enable KVStoreMesh. KVStoreMesh caches the information retrieved from the remote clusters in the local etcd instance (deprecated - KVStoreMesh will always be enabled once the option is removed).
      - bool
@@ -1371,7 +1379,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:247e908700012f7ef56f75908f8c965215c26a27762f296068645eb55450bda2","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.4-1754895458-68cffdfa568b6b226d70a7ef81fc65dda3b890bf","useDigest":true}``
+     - ``{"digest":"sha256:7932d656b63f6f866b6732099d33355184322123cfe1182e6f05175a3bc2e0e0","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.7-1757592137-1a52bb680a956879722f48c591a2ca90f7791324","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -1935,7 +1943,7 @@
    * - :spelling:ignore:`hubble.relay.image`
      - Hubble-relay container image.
      - object
-     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.18.1","useDigest":false}``
+     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.18.2","useDigest":false}``
    * - :spelling:ignore:`hubble.relay.listenHost`
      - Host to listen to. Specify an empty string to bind to all the interfaces.
      - string
@@ -2211,7 +2219,7 @@
    * - :spelling:ignore:`hubble.ui.backend.image`
      - Hubble-ui backend image.
      - object
-     - ``{"digest":"sha256:a034b7e98e6ea796ed26df8f4e71f83fc16465a19d166eff67a03b822c0bfa15","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.2","useDigest":true}``
+     - ``{"digest":"sha256:db1454e45dc39ca41fbf7cad31eec95d99e5b9949c39daaad0fa81ef29d56953","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.3","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.backend.livenessProbe.enabled`
      - Enable liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
      - bool
@@ -2251,7 +2259,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.image`
      - Hubble-ui frontend image.
      - object
-     - ``{"digest":"sha256:9e37c1296b802830834cc87342a9182ccbb71ffebb711971e849221bd9d59392","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.2","useDigest":true}``
+     - ``{"digest":"sha256:661d5de7050182d495c6497ff0b007a7a1e379648e60830dd68c4d78ae21761d","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.3","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.frontend.resources`
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
@@ -2383,7 +2391,7 @@
    * - :spelling:ignore:`image`
      - Agent container image.
      - object
-     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.18.1","useDigest":false}``
+     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.18.2","useDigest":false}``
    * - :spelling:ignore:`imagePullSecrets`
      - Configure image pull secrets for pulling container images
      - list
@@ -2855,7 +2863,7 @@
    * - :spelling:ignore:`nodeinit.image`
      - node-init image.
      - object
-     - ``{"digest":"sha256:8d7b41c4ca45860254b3c19e20210462ef89479bb6331d6760c4e609d651b29c","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/startup-script","tag":"c54c7edeab7fde4da68e59acd319ab24af242c3f","useDigest":true}``
+     - ``{"digest":"sha256:0c91245afb3a4ff78b5cc8c09226806e94a9a10eb0adb74a85e0eeed2a5cae8c","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}``
    * - :spelling:ignore:`nodeinit.nodeSelector`
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -2963,7 +2971,7 @@
    * - :spelling:ignore:`operator.image`
      - cilium-operator image.
      - object
-     - ``{"alibabacloudDigest":"","awsDigest":"","azureDigest":"","genericDigest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.18.1","useDigest":false}``
+     - ``{"alibabacloudDigest":"","awsDigest":"","azureDigest":"","genericDigest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.18.2","useDigest":false}``
    * - :spelling:ignore:`operator.nodeGCInterval`
      - Interval for cilium node garbage collection.
      - string
@@ -3087,7 +3095,7 @@
    * - :spelling:ignore:`operator.tolerations`
      - Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ Toleration for agentNotReadyTaintKey taint is always added to cilium-operator pods. @schema type: [null, array] @schema
      - list
-     - ``[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists"},{"key":"node-role.kubernetes.io/master","operator":"Exists"},{"key":"node.kubernetes.io/not-ready","operator":"Exists"}]``
+     - ``[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists"},{"key":"node-role.kubernetes.io/master","operator":"Exists"},{"key":"node.kubernetes.io/not-ready","operator":"Exists"},{"key":"node.cloudprovider.kubernetes.io/uninitialized","operator":"Exists"}]``
    * - :spelling:ignore:`operator.topologySpreadConstraints`
      - Pod topology spread constraints for cilium-operator
      - list
@@ -3159,7 +3167,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:247e908700012f7ef56f75908f8c965215c26a27762f296068645eb55450bda2","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.4-1754895458-68cffdfa568b6b226d70a7ef81fc65dda3b890bf","useDigest":true}``
+     - ``{"digest":"sha256:7932d656b63f6f866b6732099d33355184322123cfe1182e6f05175a3bc2e0e0","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.34.7-1757592137-1a52bb680a956879722f48c591a2ca90f7791324","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
@@ -3175,7 +3183,7 @@
    * - :spelling:ignore:`preflight.image`
      - Cilium pre-flight image.
      - object
-     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.18.1","useDigest":false}``
+     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.18.2","useDigest":false}``
    * - :spelling:ignore:`preflight.nodeSelector`
      - Node labels for preflight pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object

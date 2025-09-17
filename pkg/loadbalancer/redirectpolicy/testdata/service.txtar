@@ -29,10 +29,13 @@ db/cmp frontends frontends.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.actual maps.expected
 
-# Remove and re-add the service we're redirecting to check that it's
-# reprocessed.
+# Remove service and endpoints. Only the backends for pseudo-service should be present.
 k8s/delete service.yaml endpointslice.yaml
 db/cmp services services-no-echo.table
+db/cmp backends backends-only-redirects.table
+
+# Re-add the service we're redirecting to check that it's
+# reprocessed.
 k8s/add service.yaml endpointslice.yaml
 db/cmp localredirectpolicies lrp.table
 db/cmp services services.table
@@ -95,6 +98,13 @@ Address                    Type        ServiceName   PortName   Backends        
 169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                                 Done
 [1001::1]:7070/UDP         ClusterIP   test/echo     udp        [2001::1]:70/UDP      test/lrp-svc:local-redirect   Done
 [1001::1]:8080/TCP         ClusterIP   test/echo     tcp                                                            Done
+
+-- backends-only-redirects.table --
+Address             Instances                           Shadows   NodeName
+10.244.2.1:70/UDP   test/lrp-svc:local-redirect (udp)
+10.244.2.1:80/TCP   test/lrp-svc:local-redirect (tcp)
+[2001::1]:70/UDP    test/lrp-svc:local-redirect (udp)
+[2001::1]:80/TCP    test/lrp-svc:local-redirect (tcp)
 
 -- maps-before.expected --
 BE: ID=1 ADDR=10.244.1.1:7070/UDP STATE=active
@@ -172,10 +182,10 @@ spec:
       matchLabels:
         app: proxy
     toPorts:
-      - port: "8080"
+      - port: "80"
         name: "tcp"
         protocol: TCP
-      - port: "7070"
+      - port: "70"
         name: "udp"
         protocol: UDP
 

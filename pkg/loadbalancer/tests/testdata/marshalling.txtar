@@ -103,6 +103,23 @@ Address              Instances
       "UnhealthyUpdatedAt": "0001-01-01T00:00:00Z"
     }
   ],
+  "HealthCheckBackends": [
+    {
+      "Address": "10.244.1.1:8080/TCP",
+      "PortNames": [
+        "http"
+      ],
+      "Weight": 100,
+      "NodeName": "nodeport-worker",
+      "Zone": "",
+      "ForZones": null,
+      "ClusterID": 0,
+      "Source": "k8s",
+      "State": 0,
+      "Unhealthy": false,
+      "UnhealthyUpdatedAt": "0001-01-01T00:00:00Z"
+    }
+  ],
   "ID": 1,
   "RedirectTo": null
 }
@@ -118,6 +135,23 @@ Address              Instances
     "id": <redacted>
   },
   "Backends": [
+    {
+      "Address": "[2002::2]:8080/TCP",
+      "PortNames": [
+        "http"
+      ],
+      "Weight": 100,
+      "NodeName": "nodeport-worker",
+      "Zone": "",
+      "ForZones": null,
+      "ClusterID": 0,
+      "Source": "k8s",
+      "State": 0,
+      "Unhealthy": false,
+      "UnhealthyUpdatedAt": "0001-01-01T00:00:00Z"
+    }
+  ],
+  "HealthCheckBackends": [
     {
       "Address": "[2002::2]:8080/TCP",
       "PortNames": [
@@ -235,6 +269,19 @@ backends:
       state: 0
       unhealthy: false
       unhealthyupdatedat: 0001-01-01T00:00:00Z
+healthcheckbackends:
+    - address: 10.244.1.1:8080/TCP
+      portnames:
+        - http
+      weight: 100
+      nodename: nodeport-worker
+      zone: ""
+      forzones: []
+      clusterid: 0
+      source: k8s
+      state: 0
+      unhealthy: false
+      unhealthyupdatedat: 0001-01-01T00:00:00Z
 id: 1
 redirectto: null
 ---
@@ -249,6 +296,19 @@ status:
     updated-at: <redacted>
     id: <redacted>
 backends:
+    - address: '[2002::2]:8080/TCP'
+      portnames:
+        - http
+      weight: 100
+      nodename: nodeport-worker
+      zone: ""
+      forzones: []
+      clusterid: 0
+      source: k8s
+      state: 0
+      unhealthy: false
+      unhealthyupdatedat: 0001-01-01T00:00:00Z
+healthcheckbackends:
     - address: '[2002::2]:8080/TCP'
       portnames:
         - http

@@ -181,7 +181,7 @@ require (
 	github.com/go-openapi/analysis v0.23.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gobuffalo/flect v1.0.3 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect

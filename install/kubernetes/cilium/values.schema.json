@@ -463,6 +463,14 @@
         "enabled": {
           "type": "boolean"
         },
+        "legacyOriginAttribute": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "routerIDAllocation": {
           "properties": {
             "ipPool": {
@@ -4794,6 +4802,16 @@
         "tolerations": {
           "items": {
             "anyOf": [
+              {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
               {
                 "properties": {
                   "key": {

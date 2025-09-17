@@ -61,7 +61,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.24.6
+  go-version: 1.24.7
 
 jobs:
   echo-inputs:
@@ -89,7 +89,7 @@ jobs:
     name: Build Ginkgo Runtime
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -111,7 +111,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -129,10 +129,10 @@ jobs:
 
       - name: Install Go
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.6
+          go-version: 1.24.7
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -225,7 +225,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -250,7 +250,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -267,7 +267,7 @@ jobs:
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
           lvh-version: "v0.0.26"
-          mem: 12G
+          mem: 14G
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.focus }} Ginkgo build from GitHub
@@ -279,10 +279,10 @@ jobs:
 
       - name: Install Go
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.6
+          go-version: 1.24.7
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -369,14 +369,16 @@ jobs:
           -cilium.SSHConfig="cat ./cilium-ssh-config.txt" \
           -cilium.extra-opts="${{ env.CILIUM_RUNTIME_EXTRA_ARGS }}"
 
-      - name: Privileged unit tests
-        id: run-tests
+      - name: Prepare privileged tests
+        id: prepare-tests
         if: ${{ matrix.focus == 'privileged' }}
-        timeout-minutes: 40
+        timeout-minutes: 10
         uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
         with:
           provision: 'false'
           cmd: |
+            apt-get update
+            apt-get install zstd -y
             cd /host
             # The LVH image might ship with an arbitrary Go toolchain version,
             # install the same Go toolchain version as current HEAD.
@@ -386,7 +388,22 @@ jobs:
             go${{ env.go-version}} install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442
             # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
             go${{ env.go-version}} install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
-            make SKIP_COVERAGE=1 LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml" tests-privileged-only GO=go${{ env.go-version }}
+            # Use go cache and module cache from the host that is shared with the VM.
+            mkdir -p /go-caches
+            tar --use-compress-program=zstd -xpf /host/go-build-cache.tar.zst --same-owner -C /go-caches || true
+            tar --use-compress-program=zstd -xpf /host/go-mod-cache.tar.zst --same-owner -C /go-caches || true
+            ls -la /go-caches/go-build || true
+
+      - name: Privileged unit tests
+        id: run-tests
+        if: ${{ matrix.focus == 'privileged' }}
+        timeout-minutes: 40
+        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            make GOCACHE="/go-caches/go-build" GOMODCACHE="/go-caches/pkg" SKIP_COVERAGE=1 LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml" tests-privileged-only GO=go${{ env.go-version }}
 
       - name: Copy tested features
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
@@ -469,7 +486,7 @@ jobs:
     needs: setup-and-test
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -491,6 +508,7 @@ jobs:
           name: features-tested
           pattern: features-tested-*
           token: ${{ secrets.GITHUB_TOKEN }}
+          separate-directories: true
 
   commit-status-final:
     if: ${{ always() }}

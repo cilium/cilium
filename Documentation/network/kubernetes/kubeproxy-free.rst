@@ -617,6 +617,17 @@ By default Cilium uses special ExternalIP mitigation for CVE-2020-8554 MITM vuln
 This may affect connectivity targeted to ExternalIP on the same cluster.
 This mitigation can be disabled by setting ``bpf.disableExternalIPMitigation`` to ``true``.
 
+For help to choice the Dispatch, the following table specifies DSR Dispatch Mode supported
+following Routing mode (Native/Tunnel) and Tunnel Protocol.
+
+================== ======= ================ ==============
+DSR Dispatch Mode  Native  Tunnel (Geneve)  Tunnel (VXLAN)
+================== ======= ================ ==============
+Option (OPT)       ✅      ❌               ❌
+Geneve             ✅      ✅               ❌
+================== ======= ================ ==============
+
+
 .. _DSR mode with Option:
 
 Direct Server Return (DSR) with IPv4 option / IPv6 extension Header
@@ -771,9 +782,28 @@ annotation mode with SNAT default would look as follows:
         --set routingMode=native \\
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=snat \\
+        --set loadBalancer.dsrDispatch=geneve \\
         --set bpf.lbModeAnnotation=true \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
+
+.. note::
+
+    When using annotation-based DSR mode (``bpf.lbModeAnnotation=true``), as in the previous example, you must explicitly specify the ``loadBalancer.dsrDispatch`` parameter to define how DSR packets are dispatched to backends. Valid options are ``opt``, ``ipip``, and ``geneve``.
+
+    For example, for environments where Geneve encapsulation is not suitable, you can use IPIP instead:
+
+    .. parsed-literal::
+
+        helm install cilium |CHART_RELEASE| \\
+            --namespace kube-system \\
+            --set routingMode=native \\
+            --set kubeProxyReplacement=true \\
+            --set loadBalancer.mode=snat \\
+            --set loadBalancer.dsrDispatch=ipip \\
+            --set bpf.lbModeAnnotation=true \\
+            --set k8sServiceHost=${API_SERVER_IP} \\
+            --set k8sServicePort=${API_SERVER_PORT}
 
 Annotation-based Load Balancing Algorithm Selection
 ***************************************************

@@ -469,6 +469,9 @@ spec:
         {{- if .Values.kubeConfigPath }}
         - "--k8s-kubeconfig-path={{ .Values.kubeConfigPath }}"
         {{- end }}
+        {{- if hasKey .Values.k8s "apiServerURLs" }}
+        - "--k8s-api-server-urls={{ .Values.k8s.apiServerURLs }}"
+        {{- end }}
         env:
         - name: K8S_NODE_NAME
           valueFrom:
@@ -801,9 +804,7 @@ spec:
       automountServiceAccountToken: {{ .Values.serviceAccounts.cilium.automount }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       hostNetwork: true
-      {{- if .Values.dnsPolicy }}
-      dnsPolicy: {{ .Values.dnsPolicy }}
-      {{- end }}
+      {{- include "cilium-agent.dnsPolicy" . | nindent 6 }}
       {{- if (eq .Values.scheduling.mode "anti-affinity")  }}
       {{- with .Values.affinity }}
       affinity:

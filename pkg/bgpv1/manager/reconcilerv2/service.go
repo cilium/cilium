@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
+	"github.com/cilium/cilium/pkg/bgpv1/option"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -41,14 +42,16 @@ type ServiceReconcilerIn struct {
 	PeerAdvert   *CiliumPeerAdvertisement
 	SvcDiffStore store.DiffStore[*slim_corev1.Service]
 	EPDiffStore  store.DiffStore[*k8s.Endpoints]
+	Config       option.BGPConfig
 }
 
 type ServiceReconciler struct {
-	logger       *slog.Logger
-	peerAdvert   *CiliumPeerAdvertisement
-	svcDiffStore store.DiffStore[*slim_corev1.Service]
-	epDiffStore  store.DiffStore[*k8s.Endpoints]
-	metadata     map[string]ServiceReconcilerMetadata
+	logger                       *slog.Logger
+	peerAdvert                   *CiliumPeerAdvertisement
+	legacyOriginAttributeEnabled bool
+	svcDiffStore                 store.DiffStore[*slim_corev1.Service]
+	epDiffStore                  store.DiffStore[*k8s.Endpoints]
+	metadata                     map[string]ServiceReconcilerMetadata
 }
 
 func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
@@ -58,11 +61,12 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 
 	return ServiceReconcilerOut{
 		Reconciler: &ServiceReconciler{
-			logger:       in.Logger,
-			peerAdvert:   in.PeerAdvert,
-			svcDiffStore: in.SvcDiffStore,
-			epDiffStore:  in.EPDiffStore,
-			metadata:     make(map[string]ServiceReconcilerMetadata),
+			logger:                       in.Logger,
+			peerAdvert:                   in.PeerAdvert,
+			legacyOriginAttributeEnabled: in.Config.EnableBGPLegacyOriginAttribute,
+			svcDiffStore:                 in.SvcDiffStore,
+			epDiffStore:                  in.EPDiffStore,
+			metadata:                     make(map[string]ServiceReconcilerMetadata),
 		},
 	}
 }
@@ -541,6 +545,10 @@ func (r *ServiceReconciler) getServiceAFPaths(p ReconcileParams, desiredPeerAdve
 							prefix = netip.PrefixFrom(prefix.Addr(), int(*advert.Service.AggregationLengthIPv4))
 						}
 						path := types.NewPathForPrefix(prefix)
+						// For LoadBalancer IP prefixes, set origin to INCOMPLETE for legacy compatibility.
+						if r.legacyOriginAttributeEnabled && svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer && isLoadBalancerIPPrefix(svc, prefix) {
+							path = types.SetPathOriginAttrIncomplete(path)
+						}
 						path.Family = agentFamily
 						addPathToAFPathsMap(desiredFamilyAdverts, agentFamily, path)
 					}
@@ -549,6 +557,10 @@ func (r *ServiceReconciler) getServiceAFPaths(p ReconcileParams, desiredPeerAdve
 							prefix = netip.PrefixFrom(prefix.Addr(), int(*advert.Service.AggregationLengthIPv6))
 						}
 						path := types.NewPathForPrefix(prefix)
+						// For LoadBalancer IP prefixes, set origin to INCOMPLETE for legacy compatibility.
+						if r.legacyOriginAttributeEnabled && svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer && isLoadBalancerIPPrefix(svc, prefix) {
+							path = types.SetPathOriginAttrIncomplete(path)
+						}
 						path.Family = agentFamily
 						addPathToAFPathsMap(desiredFamilyAdverts, agentFamily, path)
 					}
@@ -888,4 +900,20 @@ func getPrefixes(family types.Family, svc *slim_corev1.Service, advert v2.BGPAdv
 		v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, mask), PrefixLenMin: mask, PrefixLenMax: mask})
 	}
 	return v4Prefixes, v6Prefixes
+}
+
+func isLoadBalancerIPPrefix(svc *slim_corev1.Service, prefix netip.Prefix) bool {
+	for _, ingress := range svc.Status.LoadBalancer.Ingress {
+		if ingress.IP == "" {
+			continue
+		}
+		addr, err := netip.ParseAddr(ingress.IP)
+		if err != nil {
+			continue
+		}
+		if prefix.Contains(addr) {
+			return true
+		}
+	}
+	return false
 }
