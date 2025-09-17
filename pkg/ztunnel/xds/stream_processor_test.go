@@ -54,6 +54,7 @@ type MockEndpointManager struct {
 	_Subscribe                    func(s endpointmanager.Subscriber)
 	_Unsubscribe                  func(s endpointmanager.Subscriber)
 	_GetEndpointsByServiceAccount func(namespace string, serviceAccount string) []*endpoint.Endpoint
+	_GetEndpointsByNamespace      func(namespace string) []*endpoint.Endpoint
 }
 
 // Ensure MockEndpointManager implements all required interfaces
@@ -104,6 +105,10 @@ func (m *MockEndpointManager) GetEndpointsByServiceAccount(namespace string, ser
 
 func (m *MockEndpointManager) GetEndpoints() []*endpoint.Endpoint {
 	return m._GetEndpoints()
+}
+
+func (m *MockEndpointManager) GetEndpointsByNamespace(namespace string) []*endpoint.Endpoint {
+	return m._GetEndpointsByNamespace(namespace)
 }
 
 func (m *MockEndpointManager) GetEndpointList(params endpointapi.GetEndpointParams) []*models.Endpoint {
