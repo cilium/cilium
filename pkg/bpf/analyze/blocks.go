@@ -191,10 +191,6 @@ func (b *Block) edge(insns asm.Instructions) *edge {
 	return getEdgeMeta(&insns[b.end])
 }
 
-func (b *Block) len() int {
-	return max(b.end-b.start+1, 0)
-}
-
 func (b *Block) iterateLocal(insns asm.Instructions) *BlockIterator {
 	if b.start < 0 || b.end < 0 || b.start >= len(insns) || b.end >= len(insns) {
 		return nil
@@ -236,54 +232,6 @@ func (b *Block) predecessor() *Block {
 	return nil
 }
 
-// backward returns an iterator that traverses the instructions in the block
-// in reverse order, starting from the last instruction and going to the first.
-//
-// Doesn't return an [iter.Seq2] because converting it to a pull-based iterator
-// using [iter.Pull] is incredibly, prohibitively expensive. Maybe this improves
-// in a future Go version.
-func (b *Block) backward(insns asm.Instructions) func() (*asm.Instruction, bool) {
-	// Track depth of block traversal to avoid infinite loops. Used in favor of a
-	// visited set since it's much cheaper than frequent map lookups. Typical
-	// depth is 1-3 with some double-digit outliers.
-	const maxDepth uint8 = 128
-	var depth uint8 = 0
-
-	i := b.len() - 1
-	return func() (*asm.Instruction, bool) {
-		if i < 0 {
-			// If we've reached the start of the block, roll over to its predecessor
-			// if there is exactly one. Sometimes, map pointers are reused from a
-			// previous block.
-			//
-			// This is not needed for blocks with multiple predecessors, since
-			// execution could've originated from any of them, making the contents of
-			// the pointer register undefined.
-			pred := b.predecessor()
-			if pred == nil || pred == b {
-				// Zero or multiple predecessors means we can't roll over to a
-				// predecessor, stop here.
-				//
-				// Blocks representing loops can have themselves as a predecessor.
-				// Don't roll over to itself for obvious reasons.
-				return nil, false
-			}
-
-			if depth >= maxDepth {
-				return nil, false
-			}
-			depth++
-
-			b = pred
-			i = b.len() - 1
-		}
-
-		out := &insns[b.start+i]
-		i--
-		return out, true
-	}
-}
-
 func (b *Block) String() string {
 	return b.Dump(nil)
 }
@@ -305,16 +253,17 @@ func (b *Block) Dump(insns asm.Instructions) string {
 		sb.WriteString("Instructions:\n")
 		i := b.iterateLocal(insns)
 		for i.Next() {
-			if i.Instruction().Symbol() != "" {
-				fmt.Fprintf(&sb, "\t%s:\n", i.Instruction().Symbol())
+			ins := i.Instruction()
+			if ins.Symbol() != "" {
+				fmt.Fprintf(&sb, "\t%s:\n", ins.Symbol())
 			}
-			if src := i.Instruction().Source(); src != nil {
+			if src := ins.Source(); src != nil {
 				line := strings.TrimSpace(src.String())
 				if line != "" {
 					fmt.Fprintf(&sb, "\t%*s; %s\n", 4, " ", line)
 				}
 			}
-			fmt.Fprintf(&sb, "\t%*d: %v\n", 4, i.Offset(), i.Instruction())
+			fmt.Fprintf(&sb, "\t%*d: %v\n", 4, i.Offset(), ins)
 		}
 		sb.WriteString("\n")
 	} else {
@@ -336,6 +285,12 @@ func (b *Block) Dump(insns asm.Instructions) string {
 	return sb.String()
 }
 
+// maxDepth is the maximum depth of block traversal when backtracking to
+// predecessors. Used in favor of a visited set since it's much cheaper than
+// frequent map lookups. Typical depth while looking for map pointer loads is
+// 1-3 with some double-digit outliers.
+const maxDepth = 128
+
 // BlockIterator is an iterator over the instructions in a block or a list of
 // blocks.
 //
@@ -353,6 +308,7 @@ type BlockIterator struct {
 	block  *Block
 
 	insns asm.Instructions
+	depth uint8
 
 	ins   *asm.Instruction
 	index int
@@ -381,6 +337,7 @@ func (i *BlockIterator) Clone() *BlockIterator {
 		i.blocks,
 		i.block,
 		i.insns,
+		i.depth,
 		i.ins,
 		i.index,
 		i.offset,
@@ -403,6 +360,11 @@ func (i *BlockIterator) nextBlock() bool {
 	}
 	next := i.blocks[i.block.id+1]
 
+	// Reset loop detection when moving forward since we're primarily concerned
+	// with infinite loops while backtracking continuously. Fallthroughs always
+	// point to the end of the program eventually.
+	i.depth = 0
+
 	i.block = next
 	i.index = i.block.start
 	i.offset = i.block.raw
@@ -413,6 +375,11 @@ func (i *BlockIterator) nextBlock() bool {
 
 // prevBlock pulls the previous block in the control flow if there is exactly
 // one predecessor, otherwise returns false.
+//
+// Sometimes, map pointers are loaded into a register in a previous block.
+// Backtracking into multiple predecessors is not useful since the contents of
+// the pointer register would be ambiguous if assigned from multiple
+// predecessors.
 //
 // Positions the iterator at the end of the previous block. Offset is set to 0
 // since backtracking requires summing up instruction sizes from the start of
@@ -426,6 +393,13 @@ func (i *BlockIterator) prevBlock() bool {
 	if prev == nil || prev == i.block {
 		return false
 	}
+
+	// Simple loop detection to avoid infinite loops when backtracking
+	// continuously. Depth gets reset when moving forward.
+	if i.depth >= maxDepth {
+		return false
+	}
+	i.depth++
 
 	i.block = prev
 	i.index = i.block.end

@@ -102,17 +102,15 @@ func TestBlocksMultiplePredecessors(t *testing.T) {
 
 	// Pull instructions from the last block and make sure it doesn't continue
 	// past the start of the block since it has multiple predecessors.
-	pull := last.backward(insns)
-	ins, ok := pull()
-	require.True(t, ok)
-	assert.Equal(t, ins, &insns[5])
+	iter := last.iterateGlobal(blocks, insns)
 
-	ins, ok = pull()
-	require.True(t, ok)
-	assert.Equal(t, ins, &insns[4])
+	require.True(t, iter.Previous())
+	assert.Equal(t, iter.Instruction(), &insns[5])
 
-	_, ok = pull()
-	require.False(t, ok)
+	require.True(t, iter.Previous())
+	assert.Equal(t, iter.Instruction(), &insns[4])
+
+	require.False(t, iter.Previous())
 }
 
 func TestMakeBlocksManyBranches(t *testing.T) {
@@ -180,6 +178,32 @@ func TestBlocksIterateGlobal(t *testing.T) {
 	// Iterator should be back at the start.
 	assert.Equal(t, 99, i)
 	assert.Equal(t, 0, iter.index)
+}
+
+func TestBlocksIterateGlobalLoop(t *testing.T) {
+	insns := asm.Instructions{
+		asm.Mov.Imm32(asm.R0, 1).WithSymbol("loop"),
+		asm.JEq.Imm(asm.R0, 0, "exit"),
+		asm.Mov.Imm32(asm.R0, 0),
+		asm.JEq.Imm(asm.R0, 1, "loop"),
+		asm.Return().WithSymbol("exit"),
+	}
+
+	// Marshal instructions to fix up references.
+	require.NoError(t, insns.Marshal(io.Discard, binary.LittleEndian))
+
+	bl, err := MakeBlocks(insns)
+	require.NoError(t, err)
+
+	assert.EqualValues(t, 3, bl.count())
+
+	iter := bl.first().iterateGlobal(bl, insns)
+	for iter.Previous() {
+	}
+
+	// Iterator should be back at the start and depth limit should be hit.
+	assert.Equal(t, 0, iter.index)
+	assert.Equal(t, uint8(maxDepth), iter.depth)
 }
 
 func TestBlocksIterateOffset(t *testing.T) {
