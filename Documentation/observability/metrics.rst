@@ -47,6 +47,12 @@ if you want to disable them, set Helm value ``operator.prometheus.enabled=false`
      --set prometheus.enabled=true \\
      --set operator.prometheus.enabled=true
 
+Cilium Metrics Scraping
+-----------------------
+
+Prometheus Port Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 The ports can be configured via ``prometheus.port``,
 ``envoy.prometheus.port``, or ``operator.prometheus.port`` respectively.
 
@@ -90,6 +96,15 @@ option is set in the ``scrape_configs`` section:
           replacement: ${1}:${2}
           target_label: __address__
 
+Prometheus Operator ServiceMonitor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can automatically create a
+`Prometheus Operator <https://github.com/prometheus-operator/prometheus-operator>`__
+``ServiceMonitor`` by setting ``prometheus.serviceMonitor.enabled=true``, or
+``envoy.prometheus.serviceMonitor.enabled=true``, or
+``operator.prometheus.serviceMonitor.enabled=true`` respectively.
+
 .. _hubble_metrics:
 
 Hubble Metrics
@@ -99,16 +114,26 @@ While Cilium metrics allow you to monitor the state of Cilium itself,
 Hubble metrics on the other hand allow you to monitor the network behavior
 of your Cilium-managed Kubernetes pods with respect to connectivity and security.
 
-Installation
-------------
-
-To deploy Cilium with Hubble metrics enabled, you need to enable Hubble with
-``hubble.enabled=true`` and provide a set of Hubble metrics you want to
-enable via ``hubble.metrics.enabled``.
-
 Some of the metrics can also be configured with additional options.
 See the :ref:`Hubble exported metrics<hubble_exported_metrics>`
 section for the full list of available metrics and their options.
+
+Static or dynamic exporter
+--------------------------
+
+Hubble Metrics can either be configured with a static or dynamic exporter.
+
+The dynamic metrics exporter allows you to change defined metrics as needed
+without requiring an agent restart.
+
+
+Installation with a static metrics exporter
+-------------------------------------------
+
+To deploy Cilium with Hubble Metrics static exporter enabled, you need to enable
+Hubble with ``hubble.enabled=true`` and provide a set of Hubble metrics you want to
+enable via ``hubble.metrics.enabled``.
+
 
 .. parsed-literal::
 
@@ -119,6 +144,120 @@ section for the full list of available metrics and their options.
      --set hubble.enabled=true \\
      --set hubble.metrics.enableOpenMetrics=true \\
      --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
+
+
+Installation with a dynamic metrics exporter
+--------------------------------------------
+
+To deploy Cilium with Hubble dynamic metrics enabled, you need to enable Hubble 
+with ``hubble.enabled=true`` and ``hubble.metrics.dynamic.enabled=true``.
+
+In this example, a ``ConfigMap`` with a set of metrics will be applied before
+enabling the exporter, but the desired set of metrics (together with the 
+``ConfigMap``) can be created during installation.
+
+See the :ref:`helm_reference` (keys with ``hubble.metrics.dynamic.*``)
+
+
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: cilium-dynamic-metrics-config
+      namespace: kube-system
+    data:
+      dynamic-metrics.yaml: |
+        metrics:
+          - name: dns
+          - contextOptions:
+            - name: sourceContext
+              values:
+              - workload-name
+              - reserved-identity
+            - name: destinationContext
+              values:
+              - workload-name
+              - reserved-identity
+            name: flow
+          - name: drop
+          - name: tcp
+          - contextOptions:
+            - name: sourceContext
+              values:
+              - workload-name
+              - reserved-identity
+            name: icmp
+          - contextOptions:
+            - name: exemplars
+              values:
+              - true
+            - name: labelsContext
+              values:
+              - source_ip
+              - source_namespace
+              - source_workload
+              - destination_ip
+              - destination_namespace
+              - destination_workload
+              - traffic_direction
+            - name: sourceContext
+              values:
+              - workload-name
+              - reserved-identity
+            - name: destinationContext
+              values:
+              - workload-name
+              - reserved-identity
+            name: httpV2
+          - contextOptions:
+            - name: sourceContext
+              values:
+              - app
+              - workload-name
+              - pod
+              - reserved-identity
+            - name: destinationContext
+              values:
+              - app
+              - workload-name
+              - pod
+              - dns
+              - reserved-identity
+            - name: labelsContext
+              values:
+              - source_namespace
+              - destination_namespace
+            excludeFilters:
+            - destination_pod:
+              - default/
+            name: policy
+    
+Deploy the :term:`ConfigMap`:
+
+.. code-block:: shell-session
+
+   kubectl apply -f dynamic-metrics.yaml
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set prometheus.enabled=true \\
+     --set operator.prometheus.enabled=true \\
+     --set hubble.enabled=true \\
+     --set hubble.metrics.enableOpenMetrics=true \\
+     --set hubble.metrics.enabled=[] \\
+     --set hubble.metrics.dynamic.enabled=true \\
+     --set hubble.metrics.dynamic.config.configMapName=cilium-dynamic-metrics-config \\
+     --set hubble.metrics.dynamic.config.createConfigMap=false
+
+Hubble Metrics Scraping
+-----------------------
+
+Prometheus Port Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The port of the Hubble metrics can be configured with the
 ``hubble.metrics.port`` Helm value.
@@ -159,6 +298,13 @@ have it scrape all Hubble metrics from the endpoints automatically:
             target_label: __address__
             regex: (.+)(?::\d+);(\d+)
             replacement: $1:$2
+
+Prometheus Operator ServiceMonitor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can automatically create a
+`Prometheus Operator <https://github.com/prometheus-operator/prometheus-operator>`__
+``ServiceMonitor`` by setting ``hubble.metrics.serviceMonitor.enabled=true``.
 
 .. _hubble_open_metrics:
 
