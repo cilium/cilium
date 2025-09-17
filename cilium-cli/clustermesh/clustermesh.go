@@ -629,12 +629,11 @@ type ClusterStats struct {
 }
 
 type ConnectivityStatus struct {
-	GlobalServices StatisticalStatus        `json:"global_services,omitempty"`
-	Connected      StatisticalStatus        `json:"connected,omitempty"`
-	Clusters       map[string]*ClusterStats `json:"clusters,omitempty"`
-	Total          int64                    `json:"total,omitempty"`
-	NotReady       int64                    `json:"not_ready,omitempty"`
-	Errors         status.ErrorCountMapMap  `json:"errors,omitempty"`
+	Connected StatisticalStatus        `json:"connected,omitempty"`
+	Clusters  map[string]*ClusterStats `json:"clusters,omitempty"`
+	Total     int64                    `json:"total,omitempty"`
+	NotReady  int64                    `json:"not_ready,omitempty"`
+	Errors    status.ErrorCountMapMap  `json:"errors,omitempty"`
 }
 
 func (c *ConnectivityStatus) addError(pod, cluster string, err error) {
@@ -788,10 +787,9 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context, secret
 	collector func(ctx context.Context, ciliumPod string) (*status.ClusterMeshAgentConnectivityStatus, error),
 ) (*ConnectivityStatus, error) {
 	stats := &ConnectivityStatus{
-		GlobalServices: StatisticalStatus{Min: -1},
-		Connected:      StatisticalStatus{Min: -1},
-		Errors:         status.ErrorCountMapMap{},
-		Clusters:       map[string]*ClusterStats{},
+		Connected: StatisticalStatus{Min: -1},
+		Errors:    status.ErrorCountMapMap{},
+		Clusters:  map[string]*ClusterStats{},
 	}
 
 	// Retrieve the remote clusters to connect to from the clustermesh configuration,
@@ -831,7 +829,6 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context, secret
 	}
 
 	if len(pods.Items) > 0 {
-		stats.GlobalServices.Avg /= float64(len(pods.Items))
 		stats.Connected.Avg /= float64(len(pods.Items))
 	}
 
@@ -960,12 +957,6 @@ func (k *K8sClusterMesh) outputConnectivityStatus(agents, kvstoremesh *Connectiv
 	} else {
 		k.Log("🔌 No cluster connected")
 	}
-
-	k.Log("")
-	k.Log("🔀 Global services: [ min:%d / avg:%.1f / max:%d ]",
-		agents.GlobalServices.Min,
-		agents.GlobalServices.Avg,
-		agents.GlobalServices.Max)
 
 	k.Log("")
 	errCount := len(agents.Errors)
