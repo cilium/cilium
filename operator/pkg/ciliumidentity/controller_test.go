@@ -419,17 +419,13 @@ func TestUpdateUsedCIDIsReverted(t *testing.T) {
 
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		cids := store.List()
-		assert.Len(ct, cids, 1)
-		if len(cids) != 1 {
+		if !assert.Len(ct, cids, 1) {
 			return
 		}
 		cid = cids[0]
 
-		if !cmp.Equal(cid.SecurityLabels, cid1.SecurityLabels) {
-			t.Fatalf("expected labels %v, got %v", cid.SecurityLabels, cid1.SecurityLabels)
-		}
+		assert.Equal(ct, cid1.SecurityLabels, cid.SecurityLabels)
 	}, WaitUntilTimeout, 100*time.Millisecond)
-
 }
 
 func TestDeleteUsedCIDIsRecreated(t *testing.T) {
