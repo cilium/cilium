@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/ztunnel/config"
+	"github.com/cilium/cilium/pkg/ztunnel/reconciler"
 	"github.com/cilium/cilium/pkg/ztunnel/xds"
 	"github.com/cilium/cilium/pkg/ztunnel/zds"
 )
@@ -20,4 +21,6 @@ var Cell = cell.Module(
 	zds.Cell,
 	// XDS control plane for ztunnel
 	xds.Cell,
+	// Reconciler for namespace enrollment for ztunnel mTLS
+	reconciler.Cell,
 )
