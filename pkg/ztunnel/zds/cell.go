@@ -11,5 +11,5 @@ import (
 var Cell = cell.Module(
 	"cilium-zds-server",
 	"Workload discovery server for ztunnel",
-	cell.Invoke(newZDSServer),
+	cell.Provide(newZDSServer),
 )

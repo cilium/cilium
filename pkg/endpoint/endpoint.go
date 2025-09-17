@@ -2724,19 +2724,6 @@ func (e *Endpoint) GetContainerNetnsPath() string {
 	return e.containerNetnsPath
 }
 
-// NeedsZtunnel returns true if the endpoint needs to be connected to the
-// ztunnel.
-func (e *Endpoint) NeedsZtunnel() bool {
-	if e.isHost || e.HasLabels(labels.LabelHealth) {
-		return false
-	}
-
-	if e.containerNetnsPath == "" {
-		return false
-	}
-
-	if strings.Contains(e.K8sPodName, "ztunnel") {
-		return false
-	}
-	return true
+func (e *Endpoint) SetContainerNetnsPath(path string) {
+	e.containerNetnsPath = path
 }
