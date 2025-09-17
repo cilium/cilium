@@ -61,10 +61,6 @@ func (c IPsecConfig) Enabled() bool {
 	return c.EnableIPsec
 }
 
-func (c IPsecConfig) EncryptedOverlayEnabled() bool {
-	return c.EncryptedOverlay
-}
-
 func (c IPsecConfig) UseCiliumInternalIP() bool {
 	return c.UseCiliumInternalIPForIPsec
 }
