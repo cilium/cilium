@@ -121,7 +121,7 @@ Address                 Type        ServiceName              Status  Backends
 
 -- frontends-terminating4.table --
 Address                 Type        ServiceName              Status  Backends
-10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP, 10.244.0.113:8081/TCP
+10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.113:8081/TCP
 
 -- backends.table --
 Address                 Instances                NodeName
