@@ -434,6 +434,7 @@ Makefile* @cilium/build
 /Documentation/network/servicemesh/ @cilium/sig-servicemesh @cilium/docs-structure
 /Documentation/observability/ @cilium/sig-policy @cilium/docs-structure
 /Documentation/observability/hubble* @cilium/sig-hubble @cilium/docs-structure
+/Documentation/observability/metrics.rst @cilium/hubble-metrics @cilium/docs-structure
 /Documentation/operations/performance/ @cilium/sig-datapath @cilium/docs-structure
 /Documentation/operations/system_requirements.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/operations/troubleshooting_clustermesh.rst @cilium/sig-clustermesh @cilium/docs-structure
