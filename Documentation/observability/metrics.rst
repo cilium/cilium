@@ -1012,6 +1012,7 @@ Name                                                 Labels                     
 ``serviceexport_info``               ``serviceexport``, ``namespace``                             Enabled    Information about ServiceExport in the local cluster
 ``serviceexport_status_condition``   ``serviceexport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceExport in the local cluster
 ``serviceimport_info``               ``serviceimport``, ``namespace``                             Enabled    Information about ServiceImport in the local cluster
+``serviceimport_status_condition``   ``serviceimport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceImport in the local cluster
 ==================================== ============================================================ ========== ===========================================================
 
 Clustermesh
