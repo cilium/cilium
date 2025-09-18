@@ -650,6 +650,7 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 		currentRule.GetPriority(),
 		currentRule.GetDeny(),
 		currentRule.getAuthRequirement(),
+		0, // TODO: cookie
 	)
 }
 
@@ -1673,7 +1674,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 			keysToAdd = append(keysToAdd,
 				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
-		value := newMapStateEntry(derivedFrom, proxyPort, priority, isDeny, authReq)
+		value := newMapStateEntry(derivedFrom, proxyPort, priority, isDeny, authReq, 0) // TODO: cookie
 
 		// If the entry is identical to wildcard map entry, we can elide it.
 		// See comment in L4Filter.toMapState()

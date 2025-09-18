@@ -500,6 +500,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	__u16 proxy_port = 0;
+	__u32 cookie = 0;
 	bool from_l7lb = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -575,7 +576,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		 */
 		verdict = policy_can_egress6(ctx, &cilium_policy_v2, tuple, l4_off, SECLABEL_IPV6,
 					     *dst_sec_identity, &policy_match_type, &audited,
-					     ext_err, &proxy_port);
+					     ext_err, &proxy_port, &cookie);
 
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 			__u32 tunnel_endpoint = 0;
@@ -593,7 +594,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						   tuple->nexthdr, POLICY_EGRESS, 1,
 						   verdict, proxy_port,
 						   policy_match_type, audited,
-						   auth_type);
+						   auth_type, cookie);
 		}
 
 		if (verdict != CTX_ACT_OK)
@@ -947,6 +948,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	__u8 auth_type = 0;
 	enum ct_status ct_status;
 	__u16 proxy_port = 0;
+	__u32 cookie = 0;
 	bool from_l7lb = false;
 	__u32 cluster_id = 0;
 	void *ct_map, *ct_related_map = NULL;
@@ -1019,7 +1021,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		 */
 		verdict = policy_can_egress4(ctx, &cilium_policy_v2, tuple, l4_off, SECLABEL_IPV4,
 					     *dst_sec_identity, &policy_match_type, &audited,
-					     ext_err, &proxy_port);
+					     ext_err, &proxy_port, &cookie);
 
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 			__u32 tunnel_endpoint = 0;
@@ -1037,7 +1039,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						   tuple->nexthdr, POLICY_EGRESS, 0,
 						   verdict, proxy_port,
 						   policy_match_type, audited,
-						   auth_type);
+						   auth_type, cookie);
 		}
 
 		if (verdict != CTX_ACT_OK)
@@ -1597,6 +1599,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	__maybe_unused union v6addr loopback_addr;
+	__u32 cookie = 0;
 
 	fraginfo = ipv6_get_fraginfo(ctx, ip6);
 	if (fraginfo < 0)
@@ -1679,7 +1682,8 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 
 		verdict = policy_can_ingress6(ctx, &cilium_policy_v2, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV6,
-					      &policy_match_type, &audited, ext_err, proxy_port);
+					      &policy_match_type, &audited, ext_err, proxy_port,
+					      &cookie);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 			struct remote_endpoint_info *sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
 
@@ -1695,7 +1699,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 			send_policy_verdict_notify(ctx, src_label, tuple->dport,
 						   tuple->nexthdr, POLICY_INGRESS, 1,
 						   verdict, *proxy_port, policy_match_type, audited,
-						   auth_type);
+						   auth_type, cookie);
 
 		if (verdict != CTX_ACT_OK)
 			return verdict;
@@ -1930,6 +1934,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	__u8 auth_type = 0;
+	__u32 cookie = 0;
 	__u32 zero = 0;
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
@@ -2019,7 +2024,8 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 
 		verdict = policy_can_ingress4(ctx, &cilium_policy_v2, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV4,
-					      &policy_match_type, &audited, ext_err, proxy_port);
+					      &policy_match_type, &audited, ext_err, proxy_port,
+					      &cookie);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 			struct remote_endpoint_info *sep = lookup_ip4_remote_endpoint(orig_sip, 0);
 
@@ -2034,7 +2040,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 			send_policy_verdict_notify(ctx, src_label, tuple->dport,
 						   tuple->nexthdr, POLICY_INGRESS, 0,
 						   verdict, *proxy_port, policy_match_type, audited,
-						   auth_type);
+						   auth_type, cookie);
 
 		if (verdict != CTX_ACT_OK)
 			return verdict;
