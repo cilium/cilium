@@ -204,6 +204,11 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 						// continue the execution so we update the endpoint
 						// status immediately upon endpoint creation
+
+					case errors.Is(err, context.Canceled):
+						// Do not log a warning in case of errors due to the
+						// endpoint being terminated.
+						return nil
 					default:
 						scopedLog.Warn("Error getting CEP", logfields.Error, err)
 						return err
