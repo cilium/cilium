@@ -31,6 +31,9 @@ type Bakery[C constraints.Unsigned, V comparable] interface {
 	Count() int
 }
 
+// PolicyLogBakery is a Bakery allocating uint32 cookies for policy log strings.
+type PolicyLogBakery Bakery[uint32, string]
+
 type bakery[C constraints.Unsigned, V comparable] struct {
 	logger *slog.Logger
 
