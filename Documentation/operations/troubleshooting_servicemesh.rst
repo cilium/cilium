@@ -20,13 +20,17 @@ Generic
 Manual Verification of Setup
 ----------------------------
 
- #. Validate that ``kubeProxyReplacement`` is true.
+ #. Validate that ``nodePort.enabled`` is true.
 
     .. code-block:: shell-session
 
-        $ kubectl exec -n kube-system ds/cilium -- cilium-dbg status
+        $ kubectl exec -n kube-system ds/cilium -- cilium-dbg status --verbose
         ...
-        KubeProxyReplacement:    True
+        KubeProxyReplacement Details:
+        ...
+          Services:
+          - ClusterIP:      Enabled
+          - NodePort:       Enabled (Range: 30000-32767)
         ...
 
  #. Validate that runtime the values of ``enable-envoy-config`` and ``enable-ingress-controller``
