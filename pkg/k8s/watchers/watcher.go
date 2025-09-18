@@ -205,6 +205,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(cilium_v2.CCGName):           {waitOnly, k8sAPIGroupCiliumCIDRGroupV2},
 	synced.CRDResourceName(v2alpha1.L2AnnouncementName): {skip, ""}, // Handled by L2 announcement directly
 	synced.CRDResourceName(v2alpha1.CPIPName):           {skip, ""}, // Handled by multi-pool IPAM allocator
+	synced.CRDResourceName(v2alpha1.CVPName):            {skip, ""}, // Handled by vtep policy manager
 }
 
 func GetGroupsForCiliumResources(logger *slog.Logger, ciliumResources []string) ([]string, []string) {

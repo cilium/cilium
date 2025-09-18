@@ -479,8 +479,9 @@ const (
 	TunnelPortGeneve uint16 = 6081
 
 	// EnableVTEP enables VXLAN Tunnel Endpoint (VTEP) Integration
-	EnableVTEP     = false
-	MaxVTEPDevices = 8
+	EnableVTEP           = false
+	MaxVTEPDevices       = 8
+	MaxVtepPolicyEntries = 16384
 
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false
