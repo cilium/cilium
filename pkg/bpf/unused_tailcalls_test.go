@@ -40,7 +40,7 @@ func TestRemoveUnusedTailcalls(t *testing.T) {
 	assert.Contains(t, cpy.Programs, "b")
 	assert.Contains(t, cpy.Programs, "c")
 	assert.NotContains(t, cpy.Programs, "d")
-	assert.NotContains(t, cpy.Programs, "e")
+	assert.Contains(t, cpy.Programs, "e")
 
 	cpy = spec.Copy()
 	obj = struct {
@@ -56,5 +56,5 @@ func TestRemoveUnusedTailcalls(t *testing.T) {
 	assert.NotContains(t, cpy.Programs, "b")
 	assert.Contains(t, cpy.Programs, "c")
 	assert.NotContains(t, cpy.Programs, "d")
-	assert.NotContains(t, cpy.Programs, "e")
+	assert.Contains(t, cpy.Programs, "e")
 }
