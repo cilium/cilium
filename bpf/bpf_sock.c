@@ -289,12 +289,8 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		/* Drop packet when service has no endpoints when this flag is enabled (default) */
 		if (CONFIG(enable_no_service_endpoints_routable))
 			return -EHOSTUNREACH;
-		/* Also drop the packet when eTP/iTP is set to Local, allow otherwise. */
-		if ((lb4_svc_is_external(svc) && (svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE)) ||
-		    (!lb4_svc_is_external(svc) &&
-		    (svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE))) {
+		if (handle_nonroutable_endpoints_v4(svc) != CTX_ACT_OK)
 			return -EHOSTUNREACH;
-		}
 		return 0;
 	}
 
@@ -1009,12 +1005,8 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		/* Drop packet when service has no endpoints when this flag is enabled (default) */
 		if (CONFIG(enable_no_service_endpoints_routable))
 			return -EHOSTUNREACH;
-		/* Also drop the packet when eTP/iTP is set to Local, allow otherwise. */
-		if ((lb6_svc_is_external(svc) && (svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE)) ||
-		    (!lb6_svc_is_external(svc) &&
-		    (svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE))) {
+		if (handle_nonroutable_endpoints_v6(svc) != CTX_ACT_OK)
 			return -EHOSTUNREACH;
-		}
 		return 0;
 	}
 
