@@ -61,7 +61,7 @@ func removeUnusedMaps(spec *ebpf.CollectionSpec, keep *set.Set[string]) (*set.Se
 		}
 
 		// Record which maps are still referenced after reachability analysis.
-		for iter, live := range r.Iterate(prog.Instructions) {
+		for iter, live := range r.Iterate() {
 			ins := iter.Instruction()
 			if !ins.IsLoadFromMap() {
 				continue
