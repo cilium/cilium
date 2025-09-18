@@ -39,12 +39,10 @@ func TestReachabilitySimple(t *testing.T) {
 	assert.EqualValues(t, 5, noElim.countAll(), "All blocks should be live")
 	assert.Equal(t, noElim.countAll(), noElim.countLive())
 
-	iter := noElim.LiveInstructions(obj.Program.Instructions)
-	assert.NotNil(t, iter)
 	var found bool
-	for ins, live := range iter {
+	for iter, live := range noElim.Iterate(obj.Program.Instructions) {
 		assert.True(t, live)
-		if ins.Reference() == "map_a" {
+		if iter.Instruction().Reference() == "map_a" {
 			found = true
 		}
 	}
@@ -57,13 +55,11 @@ func TestReachabilitySimple(t *testing.T) {
 	assert.False(t, elim.isLive(1), "Second block with map_a reference should be dead")
 	assert.Equal(t, elim.countAll()-1, elim.countLive())
 
-	iter = elim.LiveInstructions(obj.Program.Instructions)
-	assert.NotNil(t, iter)
-	for ins, live := range iter {
+	for iter, live := range elim.Iterate(obj.Program.Instructions) {
 		if !live {
 			continue
 		}
-		assert.NotEqual(t, "map_a", ins.Reference(), "map_a should not be live")
+		assert.NotEqual(t, "map_a", iter.Instruction().Reference(), "map_a should not be live")
 	}
 }
 
