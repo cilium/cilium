@@ -14,13 +14,14 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 var (
-	cmdMetricsList = []string{"cilium", "metrics", "list", "-p", "cilium_feature", "-o", "json"}
+	subCmdMetricsList = []string{"metrics", "list", "-p", "cilium_.*feature", "-o", "json"}
 )
 
 // perDeployNodeMetrics maps a deployment name to their node metrics
@@ -28,6 +29,103 @@ type perDeployNodeMetrics map[string]perNodeMetrics
 
 // perNodeMetrics maps a node name to their metrics
 type perNodeMetrics map[string][]*models.Metric
+
+const (
+	kubeSystemNamespace       = "kube-system"
+	nodeLocalDNSDaemonSetName = "node-local-dns"
+	kubeProxyDaemonSetName    = "kube-proxy"
+
+	clusterWide = "cluster-wide"
+)
+
+// detectClusterWideComponents detects cluster-wide components like kube-proxy and local-node-dns
+// and returns them as metrics with specific names
+func (s *Feature) detectClusterWideComponents(ctx context.Context) ([]*models.Metric, error) {
+	var metrics []*models.Metric
+
+	// Detect node-local-dns
+	nodeLocalDNSValue := s.detectNodeLocalDNS(ctx)
+	nodeLocalDNSMetric := &models.Metric{
+		Name:  "node_local_dns",
+		Value: nodeLocalDNSValue,
+	}
+	metrics = append(metrics, nodeLocalDNSMetric)
+
+	// Detect kube-proxy
+	kubeProxyValue := s.detectKubeProxy(ctx)
+	kubeProxyMetric := &models.Metric{
+		Name:  "kube_proxy_enabled",
+		Value: kubeProxyValue,
+	}
+	metrics = append(metrics, kubeProxyMetric)
+
+	// Detect openshift
+	openshiftValue := s.detectOpenShift(ctx)
+	openshiftMetric := &models.Metric{
+		Name:  "openshift_enabled",
+		Value: openshiftValue,
+	}
+	metrics = append(metrics, openshiftMetric)
+
+	// Openshift version
+	if openshiftValue == 1 {
+		openshiftVer := s.openShiftVersion(ctx)
+		openshiftMetric := &models.Metric{
+			Name: "openshift_version",
+			Labels: map[string]string{
+				"version": openshiftVer,
+			},
+		}
+		metrics = append(metrics, openshiftMetric)
+	}
+
+	return metrics, nil
+}
+
+// detectNodeLocalDNS detects if node-local-dns is available in the cluster
+// Returns 1 if available, 0 if not available
+func (s *Feature) detectNodeLocalDNS(ctx context.Context) float64 {
+	_, err := s.client.GetDaemonSet(ctx, kubeSystemNamespace, nodeLocalDNSDaemonSetName, metav1.GetOptions{})
+	if err != nil {
+		return 0
+	}
+	return 1
+}
+
+// detectKubeProxy detects if kube-proxy is available in the cluster
+// Returns 1 if available, 0 if not available
+func (s *Feature) detectKubeProxy(ctx context.Context) float64 {
+	_, err := s.client.GetDaemonSet(ctx, kubeSystemNamespace, kubeProxyDaemonSetName, metav1.GetOptions{})
+	if err != nil {
+		return 0
+	}
+	return 1
+}
+
+// detectOpenShift detects if it's an openshift cluster.
+// Returns 1 if openshift is detected, 0 if not detected.
+func (s *Feature) detectOpenShift(ctx context.Context) float64 {
+	apiList, err := s.client.GetServerGroups()
+	if err == nil {
+		apiGroups := apiList.Groups
+		for i := range apiGroups {
+			if apiGroups[i].Name == "route.openshift.io" {
+				return 1
+			}
+		}
+	}
+	return 0
+}
+
+// openShiftVersion returns the openshift version if available,
+// empty string if not available
+func (s *Feature) openShiftVersion(ctx context.Context) string {
+	cv, err := s.client.GetOpenshiftClusterVersion(ctx)
+	if err == nil {
+		return cv.Status.Desired.Version
+	}
+	return ""
+}
 
 // PrintFeatureStatus prints encryption status from all/specific cilium agent pods.
 func (s *Feature) PrintFeatureStatus(ctx context.Context) error {
@@ -54,6 +152,16 @@ func (s *Feature) PrintFeatureStatus(ctx context.Context) error {
 		return err
 	}
 
+	// Detect cluster-wide components
+	clusterMetrics, err := s.detectClusterWideComponents(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Create cluster-wide metrics map for display
+	clusterNodeMap := perNodeMetrics{}
+	clusterNodeMap[clusterWide] = clusterMetrics
+
 	w := os.Stdout
 	if s.params.Outputfile != "-" {
 		w, err = os.Create(s.params.Outputfile)
@@ -65,16 +173,26 @@ func (s *Feature) PrintFeatureStatus(ctx context.Context) error {
 
 	switch s.params.Output {
 	case "tab":
-		w.WriteString("Cilium Operators\n")
-		err := printPerNodeFeatureStatus(operatorNodeMap, newTabWriter(w))
+		w.WriteString("Cluster-wide Component Detection\n")
+		err := printPerNodeFeatureStatus(clusterNodeMap, newTabWriter(w))
+		if err != nil {
+			return err
+		}
+		w.WriteString("\nCilium Operators\n")
+		err = printPerNodeFeatureStatus(operatorNodeMap, newTabWriter(w))
 		if err != nil {
 			return err
 		}
 		w.WriteString("\nCilium Agents\n")
 		return printPerNodeFeatureStatus(nodeMap, newTabWriter(w))
 	case "markdown":
-		w.WriteString("# Cilium Operators\n")
-		err := printPerNodeFeatureStatus(operatorNodeMap, newMarkdownWriter(w))
+		w.WriteString("# Cluster-wide Component Detection\n")
+		err := printPerNodeFeatureStatus(clusterNodeMap, newMarkdownWriter(w))
+		if err != nil {
+			return err
+		}
+		w.WriteString("\n# Cilium Operators\n")
+		err = printPerNodeFeatureStatus(operatorNodeMap, newMarkdownWriter(w))
 		if err != nil {
 			return err
 		}
@@ -82,6 +200,7 @@ func (s *Feature) PrintFeatureStatus(ctx context.Context) error {
 		return printPerNodeFeatureStatus(nodeMap, newMarkdownWriter(w))
 	case "json":
 		pdnm := perDeployNodeMetrics{
+			clusterWide:                     clusterNodeMap,
 			defaults.AgentDaemonSetName:     nodeMap,
 			defaults.OperatorDeploymentName: operatorNodeMap,
 		}
@@ -128,7 +247,8 @@ func (s *Feature) fetchStatusConcurrently(ctx context.Context, pods []corev1.Pod
 }
 
 func (s *Feature) fetchCiliumFeatureMetricsFromPod(ctx context.Context, pod corev1.Pod) ([]*models.Metric, error) {
-	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmdMetricsList)
+	agentCmd := append([]string{"cilium"}, subCmdMetricsList...)
+	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, agentCmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to features status from %s: %w", pod.Name, err)
 	}
@@ -147,8 +267,8 @@ func (s *Feature) fetchCiliumOperatorFeatureMetricsFromPod(ctx context.Context, 
 			return nil, fmt.Errorf("operator command not found in Cilium Operator pod. Use --operator-container-command to define it")
 		}
 	}
-	cmd := []string{operatorCmd, "metrics", "list", "-p", "cilium_operator_feature", "-o", "json"}
-	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.OperatorContainerName, cmd)
+	operatorCmds := append([]string{operatorCmd}, subCmdMetricsList...)
+	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.OperatorContainerName, operatorCmds)
 	if err != nil && !strings.Contains(err.Error(), "level=debug") {
 		return []*models.Metric{}, fmt.Errorf("failed to get features status from %s: %w", pod.Name, err)
 	}

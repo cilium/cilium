@@ -404,8 +404,7 @@ Minor version
 ~~~~~~~~~~~~~
 
 #. Check if it is possible to remove the last supported Kubernetes version from
-   :ref:`k8scompatibility`, :ref:`k8s_requirements`, :ref:`test_matrix`,
-   :ref:`running_k8s_tests`, :ref:`gsg_istio` and add the new Kubernetes
+   :ref:`k8scompatibility`, :ref:`k8s_requirements` and add the new Kubernetes
    version to that list.
 
 #. If the minimal supported version changed, leave a note in the upgrade guide
@@ -440,17 +439,6 @@ Minor version
    - ``.github/actions/set-env-variables/action.yml``
    - ``contrib/scripts/devcontainer-setup.sh``
    - ``.github/actions/ginkgo/main-focus.yaml``
-
-#. Add the new coredns files specific for the Kubernetes version,
-   for ``1.19`` is ``test/provision/manifest/1.19``. The coredns deployment
-   files can be found upstream as mentioned in the previous k8s version
-   coredns files. Perform a diff with the previous versions to check which
-   changes are required for our CI and which changes were added upstream.
-
-#. Update the constraint in the function ``getK8sSupportedConstraints``, that
-   exists in the ``test/helpers/utils.go``, with the new Kubernetes version that
-   Cilium supports. It is possible that a new ``IsCiliumV1*`` var in that file
-   is required as well.
 
 #. Bump the kindest/node version in
    ``.github/actions/ginkgo/main-k8s-versions.yaml``.
@@ -702,10 +690,10 @@ for debugging what is going on inside them, for example:
 .. code-block:: shell-session
 
     # ls /sys/fs/bpf/tc/globals/
-    cilium_calls_15124  cilium_calls_48896        cilium_ct4_global       cilium_lb4_rr_seq       cilium_lb6_services  cilium_policy_v2_25729  cilium_policy_v2_60670       cilium_proxy6
-    cilium_calls_25729  cilium_calls_60670        cilium_ct6_global       cilium_lb4_services     cilium_lxc           cilium_policy_v2_3978   cilium_policy_v2_reserved_1  cilium_reserved_policy
-    cilium_calls_3978   cilium_calls_netdev_ns_1  cilium_events           cilium_lb6_reverse_nat  cilium_policy        cilium_policy_v2_4314   cilium_policy_v2_reserved_2  cilium_tunnel_map
-    cilium_calls_4314   cilium_calls_overlay_2    cilium_lb4_reverse_nat  cilium_lb6_rr_seq       cilium_policy_v2_15124  cilium_policy_v2_48896  cilium_proxy4
+    cilium_calls_15124  cilium_calls_48896        cilium_ct4_global       cilium_lb4_rr_seq       cilium_lb6_services  cilium_policy_v2_25729     cilium_policy_v2_60670       cilium_tunnel_map
+    cilium_calls_25729  cilium_calls_60670        cilium_ct6_global       cilium_lb4_services     cilium_lxc           cilium_policy_v2_3978      cilium_policy_v2_reserved_1
+    cilium_calls_3978   cilium_calls_netdev_ns_1  cilium_events           cilium_lb6_reverse_nat  cilium_policy        cilium_policy_v2_4314      cilium_policy_v2_reserved_2
+    cilium_calls_4314   cilium_calls_overlay_2    cilium_lb4_reverse_nat  cilium_lb6_rr_seq       cilium_policy_v2_15124  cilium_policy_v2_48896  cilium_reserved_policy
     # bpf-map info /sys/fs/bpf/tc/globals/cilium_policy_v2_15124
     Type:           Hash
     Key size:       8

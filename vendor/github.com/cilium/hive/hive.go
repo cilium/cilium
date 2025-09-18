@@ -371,7 +371,14 @@ func (h *Hive) Start(log *slog.Logger, ctx context.Context) error {
 func (h *Hive) Stop(log *slog.Logger, ctx context.Context) error {
 	defer close(h.fatalOnTimeout(ctx))
 	log.Info("Stopping hive")
-	return h.lifecycle.Stop(log, ctx)
+	start := time.Now()
+	err := h.lifecycle.Stop(log, ctx)
+	if err == nil {
+		log.Info("Stopped hive", "duration", time.Since(start))
+	} else {
+		log.Error("Failed to stop hive", "error", err, "duration", time.Since(start))
+	}
+	return err
 }
 
 func (h *Hive) fatalOnTimeout(ctx context.Context) chan struct{} {

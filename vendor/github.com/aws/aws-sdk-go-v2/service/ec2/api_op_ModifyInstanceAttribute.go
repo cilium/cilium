@@ -63,7 +63,7 @@ type ModifyInstanceAttributeInput struct {
 	// attached. The volume must be owned by the caller. If no value is specified for
 	// DeleteOnTermination , the default is true and the volume is deleted when the
 	// instance is terminated. You can't modify the DeleteOnTermination attribute for
-	// volumes that are attached to Fargate tasks.
+	// volumes that are attached to Amazon Web Services-managed resources.
 	//
 	// To add instance store volumes to an Amazon EBS-backed instance, you must add
 	// them when you launch the instance. For more information, see [Update the block device mapping when launching an instance]in the Amazon EC2
@@ -255,6 +255,36 @@ func (c *Client) addOperationModifyInstanceAttributeMiddlewares(stack *middlewar
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

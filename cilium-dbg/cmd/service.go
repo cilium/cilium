@@ -10,7 +10,7 @@ import (
 // ServiceCmd represents the service command
 var ServiceCmd = &cobra.Command{
 	Use:   "service",
-	Short: "Manage services & loadbalancers",
+	Short: "List services & loadbalancers",
 }
 
 func init() {

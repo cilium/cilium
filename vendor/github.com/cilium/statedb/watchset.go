@@ -5,21 +5,21 @@ package statedb
 
 import (
 	"context"
-	"maps"
+	"reflect"
 	"slices"
 	"sync"
 	"time"
 )
 
-const watchSetChunkSize = 16
-
-type channelSet = map[<-chan struct{}]struct{}
-
 // WatchSet is a set of watch channels that can be waited on.
 type WatchSet struct {
 	mu    sync.Mutex
 	chans channelSet
+
+	cases []reflect.SelectCase // for reuse in Wait()
 }
+
+type channelSet = map[<-chan struct{}]struct{}
 
 func NewWatchSet() *WatchSet {
 	return &WatchSet{
@@ -79,13 +79,11 @@ func (ws *WatchSet) Merge(other *WatchSet) {
 // more closed channels.
 // Returns the closed channels and removes them from the set.
 func (ws *WatchSet) Wait(ctx context.Context, settleTime time.Duration) ([]<-chan struct{}, error) {
-	innerCtx, cancel := context.WithCancel(ctx)
+	innerCtx, cancel := context.WithTimeout(ctx, settleTime)
 	defer cancel()
 
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
-
-	closedChannels := &closedChannelsSlice{}
 
 	// No channels to watch? Just watch the context.
 	if len(ws.chans) == 0 {
@@ -93,107 +91,39 @@ func (ws *WatchSet) Wait(ctx context.Context, settleTime time.Duration) ([]<-cha
 		return nil, ctx.Err()
 	}
 
-	// Collect the channels into a slice. The slice length is rounded to a full
-	// chunk size.
-	chans := slices.Collect(maps.Keys(ws.chans))
-	chunkSize := 16
-	roundedSize := len(chans) + (chunkSize - len(chans)%chunkSize)
-	chans = slices.Grow(chans, roundedSize)[:roundedSize]
-	haveResult := make(chan struct{}, 1)
-
-	var wg sync.WaitGroup
-	chunks := slices.Chunk(chans, chunkSize)
-	for chunk := range chunks {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			watch16(haveResult, closedChannels, innerCtx.Done(), chunk)
-		}()
+	// Construct []SelectCase slice. Reuse the previous allocation.
+	ws.cases = slices.Grow(ws.cases, 1+len(ws.chans))
+	cases := ws.cases[:1+len(ws.chans)]
+	cases[0] = reflect.SelectCase{
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(innerCtx.Done()),
 	}
-
-	// Wait for the first closed channel to be seen. If [settleTime] is set,
-	// then wait a bit longer for more.
-	select {
-	case <-haveResult:
-		if settleTime > 0 {
-			select {
-			case <-time.After(settleTime):
-			case <-ctx.Done():
-			}
+	casesIndex := 1
+	for ch := range ws.chans {
+		cases[casesIndex] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(ch),
 		}
-	case <-ctx.Done():
+		casesIndex++
 	}
 
-	// Stop waiting for more channels to close
-	cancel()
-	wg.Wait()
+	var closedChannels []<-chan struct{}
+
+	// Collect closed channels until [innerCtx] is cancelled.
+	for {
+		chosen, _, _ := reflect.Select(cases)
+		if chosen == 0 /* == innerCtx.Done() */ {
+			break
+		}
+		closedChannels = append(closedChannels, cases[chosen].Chan.Interface().(<-chan struct{}))
+		cases[chosen] = cases[len(cases)-1]
+		cases = cases[:len(cases)-1]
+	}
 
 	// Remove the closed channels from the watch set.
-	for _, ch := range closedChannels.chans {
+	for _, ch := range closedChannels {
 		delete(ws.chans, ch)
 	}
 
-	return closedChannels.chans, ctx.Err()
-}
-
-func watch16(haveClosed chan struct{}, closedChannels *closedChannelsSlice, stop <-chan struct{}, chans []<-chan struct{}) {
-	for {
-		closedIndex := -1
-		select {
-		case <-stop:
-			return
-		case <-chans[0]:
-			closedIndex = 0
-		case <-chans[1]:
-			closedIndex = 1
-		case <-chans[2]:
-			closedIndex = 2
-		case <-chans[3]:
-			closedIndex = 3
-		case <-chans[4]:
-			closedIndex = 4
-		case <-chans[5]:
-			closedIndex = 5
-		case <-chans[6]:
-			closedIndex = 6
-		case <-chans[7]:
-			closedIndex = 7
-		case <-chans[8]:
-			closedIndex = 8
-		case <-chans[9]:
-			closedIndex = 9
-		case <-chans[10]:
-			closedIndex = 10
-		case <-chans[11]:
-			closedIndex = 11
-		case <-chans[12]:
-			closedIndex = 12
-		case <-chans[13]:
-			closedIndex = 13
-		case <-chans[14]:
-			closedIndex = 14
-		case <-chans[15]:
-			closedIndex = 15
-		}
-		closedChannels.append(chans[closedIndex])
-		chans[closedIndex] = nil
-		if haveClosed != nil {
-			select {
-			case haveClosed <- struct{}{}:
-				haveClosed = nil
-			default:
-			}
-		}
-	}
-}
-
-type closedChannelsSlice struct {
-	mu    sync.Mutex
-	chans []<-chan struct{}
-}
-
-func (ccs *closedChannelsSlice) append(ch <-chan struct{}) {
-	ccs.mu.Lock()
-	ccs.chans = append(ccs.chans, ch)
-	ccs.mu.Unlock()
+	return closedChannels, ctx.Err()
 }

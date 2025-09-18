@@ -85,7 +85,7 @@ jobs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -96,13 +96,15 @@ jobs:
           destination_directory="/tmp/generated/e2e"
           mkdir -p "${destination_directory}"
 
-          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/configs.json"
+          cat ${work_dir}/* > "${destination_directory}/configs_merged.yaml"
+
+          yq -o=json "${destination_directory}/configs_merged.yaml" | jq . > "${destination_directory}/configs.json"
 
       - name: Generate Matrix
         id: generate-matrix
         run: |
           cd /tmp/generated/e2e
-          jq '[.[] | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
           echo "matrix=$(jq -c . < /tmp/generated/e2e/matrix.json)" >> $GITHUB_OUTPUT
@@ -113,7 +115,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -130,7 +132,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 32
+      max-parallel: 100
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
@@ -142,17 +144,20 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
-        if: runner.name == 'ubuntu-24.04'
         uses: ./.github/actions/disk-cleanup
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
+
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
 
       - name: Set up job variables
         id: vars
@@ -166,29 +171,11 @@ jobs:
           CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
 
-          EXTRA_CLI_FLAGS=()
-          if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA_CLI_FLAGS+=("\"--secondary-network-iface=eth1\"")
+          CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            CONCURRENT_CONNECTIVITY_TESTS="!(seq-.*|pod-to-world.*|pod-to-cidr)"
           fi
-
-          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
-            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
-            EXTRA_CLI_FLAGS+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
-          fi
-
-          CONNECTIVITY_TEST_DEFAULTS="--include-unsafe-tests \
-            --collect-sysdump-on-failure \
-            --flush-ct \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --sysdump-hubble-flows-count=1000000 \
-            --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
-            --junit-file \"cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml\" \
-            --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
-            ${EXTRA_CLI_FLAGS[@]}"
-          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
-
+          echo concurrent_connectivity_tests=${CONCURRENT_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
 
       - name: Derive stable Cilium installation config
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -202,6 +189,7 @@ jobs:
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
+          underlay: ${{ matrix.underlay }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
@@ -228,6 +216,7 @@ jobs:
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
+          underlay: ${{ matrix.underlay }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
@@ -257,12 +246,55 @@ jobs:
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
       - name: Provision K8s on LVH VM
+        id: lvh-kind
         uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
+
+      - name: Set up job variables for connectivity tests
+        id: vars-conn
+        run: |
+          EXTRA_CLI_FLAGS=(
+            "--external-target=${{ steps.lvh-kind.outputs.external_target_name }}"
+            "--external-other-target=${{ steps.lvh-kind.outputs.other_external_target_name }}"
+            "--external-cidr=${{ steps.lvh-kind.outputs.ipv4_external_cidr }}"
+            "--external-cidrv6=${{ steps.lvh-kind.outputs.ipv6_external_cidr }}"
+            "--external-ip=${{ steps.lvh-kind.outputs.ipv4_external_target }}"
+            "--external-ipv6=${{ steps.lvh-kind.outputs.ipv6_external_target }}"
+            "--external-other-ip=${{ steps.lvh-kind.outputs.ipv4_other_external_target }}"
+            "--external-other-ipv6=${{ steps.lvh-kind.outputs.ipv6_other_external_target }}"
+            "--external-target-ca-namespace=external-target-secrets"
+            "--external-target-ca-name=custom-ca"
+            "--external-target-ipv6-capable"
+          )
+          if [ "${{ matrix.secondary-network }}" = "true" ]; then
+            EXTRA_CLI_FLAGS+=("--secondary-network-iface=eth1")
+          fi
+
+          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
+            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
+            EXTRA_CLI_FLAGS+=("--expected-drop-reasons=+Traffic is unencrypted")
+          fi
+
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
+                                      ${EXTRA_CLI_FLAGS[*]@Q}"
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
+
+      - name: Setup bootid file
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        with:
+          provision: 'false'
+          cmd: |
+            set -ex
+            for container in \$(docker ps -q); do
+              docker exec \$container mkdir -p /var/run/cilium/
+              docker exec \$container sh -c 'cat /proc/sys/kernel/random/uuid > /var/run/cilium/boot_id'
+            done
 
       - name: Start Cilium KVStore
         id: kvstore
@@ -278,7 +310,7 @@ jobs:
           " >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@024e340cca1465e2a6336521f12370c7ca58c59a # v0.18.7
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -289,7 +321,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -300,7 +332,7 @@ jobs:
 
       - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch to get the Helm chart
         if: ${{ matrix.skip-upgrade != 'true' }}
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ steps.vars.outputs.downgrade_version }}
           persist-credentials: false
@@ -313,10 +345,14 @@ jobs:
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
+          if ${{ matrix.encryption == 'ipsec' }}; then
+            cilium encrypt create-key --auth-algo rfc4106-gcm-aes
+          fi
+
           if ${{ matrix.skip-upgrade != 'true' }}; then
-            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
+            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
           else
-            cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
+            cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
           fi
 
           cilium status --wait --interactive=false
@@ -326,13 +362,15 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Install node local DNS
+        timeout-minutes: 3
         if: ${{ matrix.node-local-dns == 'true' }}
         shell: bash
         run: |
-          kubedns=$(kubectl get svc kube-dns -n kube-system -o jsonpath={.spec.clusterIP}) && sed -i "s/__PILLAR__DNS__SERVER__/$kubedns/g;" untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
+          sed -i '/Corefile: |/r .github/actions/kind-external-targets/node-local-dns-patch.txt' untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
+          kubedns=$(kubectl get svc kube-dns -n kube-system -o jsonpath="{.spec.clusterIP}") && sed -i "s/__PILLAR__DNS__SERVER__/$kubedns/g;" untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
           sed -i "s/__PILLAR__UPSTREAM__SERVERS__/1.1.1.1/g;" untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
           kubectl apply -k untrusted/cilium-newest/examples/kubernetes-local-redirect
-          kubectl rollout status -n kube-system ds/node-local-dns
+          kubectl rollout status --timeout=2m -n kube-system ds/node-local-dns
 
       - name: Prepare the bpftrace parameters
         if: ${{ matrix.encryption != '' }}
@@ -341,6 +379,9 @@ jobs:
           CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
           if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
             CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
+          fi
+          if [[ "${{ matrix.ipv4 }}" == "false" ]]; then
+            CILIUM_INTERNAL_IPS="0.0.0.1 ${CILIUM_INTERNAL_IPS// / 0.0.0.1 }"
           fi
 
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
@@ -354,17 +395,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
 
       - name: Start conn-disrupt-test
-        shell: bash
-        run: |
-          # Create pods which establish long lived connections. It will be used by
-          # subsequent connectivity tests with --include-conn-disrupt-test to catch any
-          # interruption in such flows.
-          cilium connectivity test --include-unsafe-tests --include-conn-disrupt-test \
-            --include-conn-disrupt-test-ns-traffic \
-            --include-conn-disrupt-test-egw \
-            --conn-disrupt-test-setup \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
+        uses: ./.github/actions/conn-disrupt-test-setup
 
       - name: Upgrade Cilium
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -373,7 +404,8 @@ jobs:
           cilium upgrade \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-newest-config.outputs.config }} \
-            ${{ steps.kvstore.outputs.config }}
+            ${{ steps.kvstore.outputs.config }} \
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -384,56 +416,49 @@ jobs:
         uses: ./.github/actions/bpftrace/check
 
       - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
-        shell: bash
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --include-unsafe-tests \
-            --include-conn-disrupt-test \
-            --include-conn-disrupt-test-ns-traffic \
-            --include-conn-disrupt-test-egw \
-            --test "no-interrupted-connections" \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts"
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-upgrade-${{ matrix.name }}-precheck
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
-          # enable the check for proxy traffic.
+          # Enable the check for proxy traffic only if IPv4 is enabled.
+          # Otherwise we will be skipping proxy tests and won't have DNS proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
+          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
-        shell: bash
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --test "seq-.*,!pod-to-world.*"
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-upgrade-${{ matrix.name }}-sequential
+          tests: 'seq-.*,!pod-to-world.*'
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Run concurrent Cilium tests
-        shell: bash
-        run: |
-          TEST='--test "!seq-.*"'
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
-          fi
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --test-concurrency=${{ env.test_concurrency }} \
-            $TEST
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-upgrade-${{ matrix.name }}-concurrent
+          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
+          test-concurrency: ${{ env.test_concurrency }}
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
+
+      - name: Check for unexpected packet drops during connectivity tests
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-upgrade-${{ matrix.name }}-postcheck
+          tests: 'no-unexpected-packet-drops'
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
-
-      - name: Setup conn disrupt tests after a flush-ct Cilium tests
-        shell: bash
-        run: |
-          cilium connectivity test \
-            --include-unsafe-tests \
-            --include-conn-disrupt-test \
-            --include-conn-disrupt-test-ns-traffic \
-            --include-conn-disrupt-test-egw \
-            --conn-disrupt-test-setup \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
 
       - name: Features tested before downgrade
         uses: ./.github/actions/feature-status
@@ -441,8 +466,12 @@ jobs:
           title: "Summary of all features tested before downgrade"
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before downgrade"
 
+      - name: Setup conn-disrupt-test before downgrading
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        uses: ./.github/actions/conn-disrupt-test-setup
+
       - name: Start unencrypted packets check for downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # disable the check for proxy traffic.
@@ -450,67 +479,74 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
 
 
-      - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
+      - name: Downgrade to Cilium ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
           cilium upgrade \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
-            ${{ steps.kvstore.outputs.config }}
+            ${{ steps.kvstore.outputs.config }} \
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Assert that no unencrypted packets are leaked during downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
-        shell: bash
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --include-unsafe-tests \
-            --include-conn-disrupt-test \
-            --include-conn-disrupt-test-ns-traffic \
-            --include-conn-disrupt-test-egw \
-            --test "no-interrupted-connections" \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts"
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-downgrade-${{ matrix.name }}-precheck
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # enable the check for proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true" "${{ matrix.encryption }}"
+          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
-        shell: bash
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --test "seq-.*,!pod-to-world.*"
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-downgrade-${{ matrix.name }}-sequential
+          tests: 'seq-.*,!pod-to-world.*'
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
-        shell: bash
-        run: |
-          TEST='--test "!seq-.*"'
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='--test "!(seq-.*|pod-to-world.*|pod-to-cidr|pod-to-pod-encryption-v2)"'
-          fi
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --test-concurrency=${{ env.test_concurrency }} \
-            $TEST
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-downgrade-${{ matrix.name }}-concurrent
+          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
+          test-concurrency: ${{ env.test_concurrency }}
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
+
+      - name: Check for unexpected packet drops during connectivity tests
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-upgrade-${{ matrix.name }}-postcheck
+          tests: 'no-unexpected-packet-drops'
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Features tested after downgrade
+        if: ${{ matrix.skip-upgrade != 'true' }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested after downgrade"
@@ -520,82 +556,27 @@ jobs:
         if: ${{ !success() }}
         shell: bash
         run: |
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          mkdir -p cilium-sysdumps
-          cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
-
           if [ "${{ matrix.kvstore }}" == "true" ]; then
             echo
             echo "# Retrieving Cilium etcd logs"
             kubectl -n kube-system logs kvstore
           fi
 
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdumps-${{ matrix.name }}
-          path: cilium-sysdump-*.zip
-
-      - name: Upload JUnits [junit]
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: cilium-junits-${{ matrix.name }}
-          path: cilium-junits/*.xml
+          artifacts_suffix: "${{ matrix.name }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
 
-      - name: Upload features tested
-        if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: features-tested-${{ matrix.name }}
-          path: ${{ env.job_name }}*.json
-
-      - name: Publish Test Results As GitHub Summary
-        if: ${{ always() }}
-        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
-        with:
-          junit-directory: "cilium-junits"
-
-  merge-upload:
+  merge-upload-and-status:
     if: ${{ always() }}
-    name: Merge and Upload Artifacts
-    runs-on: ubuntu-24.04
+    name: Merge Upload and Status
     needs: setup-and-test
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-      - name: Merge Sysdumps
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-sysdumps
-          pattern: cilium-sysdumps-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge JUnits
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-junits
-          pattern: cilium-junits-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge Features tested
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: features-tested
-          pattern: features-tested-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  commit-status-final:
-    if: ${{ always() }}
-    name: Commit Status Final
-    needs: setup-and-test
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.setup-and-test.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.setup-and-test.result }}

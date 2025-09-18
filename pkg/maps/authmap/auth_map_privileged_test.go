@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -18,14 +19,14 @@ import (
 func setup(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(hivetest.Logger(tb), "")
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 }
 
-func TestAuthMap(t *testing.T) {
+func TestPrivilegedAuthMap(t *testing.T) {
 	setup(t)
-	authMap := newMap(10)
+	authMap := newMap(hivetest.Logger(t), 10)
 	err := authMap.init()
 	require.NoError(t, err)
 	defer authMap.bpfMap.Unpin()

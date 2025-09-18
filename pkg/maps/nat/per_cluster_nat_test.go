@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -17,8 +18,9 @@ import (
 
 func setup(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
+	logger := hivetest.Logger(tb)
 
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS(logger, "")
 	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to set memlock rlimit")
 
 	// Override the map names to avoid clashing with the real ones.
@@ -31,7 +33,7 @@ func path(tb testing.TB, m *bpf.Map) string {
 	return path
 }
 
-func TestPerClusterMaps(t *testing.T) {
+func TestPrivilegedPerClusterMaps(t *testing.T) {
 	setup(t)
 
 	maps := newPerClusterNATMaps(true, true, option.NATMapEntriesGlobalDefault)
@@ -110,7 +112,7 @@ func TestPerClusterMaps(t *testing.T) {
 	require.NoError(t, maps.DeleteClusterNATMaps(cmtypes.ClusterIDMax), "Failed to delete maps")
 }
 
-func TestPerClusterMapsCleanup(t *testing.T) {
+func TestPrivilegedPerClusterMapsCleanup(t *testing.T) {
 	setup(t)
 
 	tests := []struct {

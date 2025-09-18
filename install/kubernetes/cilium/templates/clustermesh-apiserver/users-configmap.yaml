@@ -1,5 +1,5 @@
 {{- if and
-  (and .Values.clustermesh.useAPIServer (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal"))
+  (and .Values.clustermesh.useAPIServer (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") (eq "true" (include "identityAllocationCRD" .)))
   (ne .Values.clustermesh.apiserver.tls.authMode "legacy")
 }}
 ---
@@ -21,7 +21,7 @@ metadata:
 data:
   users.yaml: |
     users:
-    {{- range .Values.clustermesh.config.clusters }}
+    {{- range (include "clustermesh-clusters" . | fromJson) }}
     - name: remote-{{ .name }}
       role: remote
     {{- end }}

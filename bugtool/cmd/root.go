@@ -405,8 +405,8 @@ func execCommand(prompt string) ([]byte, error) {
 // writeCmdToFile will execute command and write markdown output to a file
 func writeCmdToFile(cmdDir, prompt string, enableMarkdown bool, postProcess func(output []byte) []byte) {
 	// Clean up the filename
-	name := strings.Replace(prompt, "/", " ", -1)
-	name = strings.Replace(name, " ", "-", -1)
+	name := strings.ReplaceAll(prompt, "/", " ")
+	name = strings.ReplaceAll(name, " ", "-")
 	suffix := ".md"
 	if strings.HasSuffix(name, "html") {
 		// If the command we run ends in 'html' (such as 'metrics/html'), write out the

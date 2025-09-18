@@ -5,14 +5,19 @@ package xds
 
 import (
 	"context"
+	"log/slog"
 	"reflect"
 	"sort"
 	"testing"
 	"time"
 
-	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
-	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	"github.com/cilium/hive/hivetest"
+	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_config_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genproto/googleapis/rpc/status"
@@ -75,6 +80,7 @@ func responseCheck(response *envoy_service_discovery.DiscoveryResponse,
 }
 
 func TestRequestAllResources(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -87,21 +93,21 @@ func TestRequestAllResources(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -210,6 +216,7 @@ func TestRequestAllResources(t *testing.T) {
 }
 
 func TestAck(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -221,21 +228,21 @@ func TestAck(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -269,7 +276,7 @@ func TestAck(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
@@ -281,7 +288,7 @@ func TestAck(t *testing.T) {
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
-	callback2, comp2 := newCompCallback()
+	callback2, comp2 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	require.Condition(t, isNotCompletedComparison(comp2))
 
@@ -331,6 +338,7 @@ func TestAck(t *testing.T) {
 }
 
 func TestRequestSomeResources(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -343,21 +351,21 @@ func TestRequestSomeResources(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -514,6 +522,7 @@ func TestRequestSomeResources(t *testing.T) {
 }
 
 func TestUpdateRequestResources(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -526,21 +535,21 @@ func TestUpdateRequestResources(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -619,6 +628,7 @@ func TestUpdateRequestResources(t *testing.T) {
 }
 
 func TestRequestStaleNonce(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -631,21 +641,21 @@ func TestRequestStaleNonce(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -753,6 +763,7 @@ func TestRequestStaleNonce(t *testing.T) {
 }
 
 func TestNAck(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -764,21 +775,21 @@ func TestNAck(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -814,7 +825,7 @@ func TestNAck(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
@@ -841,7 +852,7 @@ func TestNAck(t *testing.T) {
 	// Create version 3 with resources 0 and 1.
 	// NACK cancelled the wg, create a new one
 	wg = completion.NewWaitGroup(ctx)
-	callback2, comp2 := newCompCallback()
+	callback2, comp2 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	require.Condition(t, isNotCompletedComparison(comp2))
 
@@ -888,6 +899,7 @@ func TestNAck(t *testing.T) {
 }
 
 func TestNAckFromTheStart(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -899,21 +911,21 @@ func TestNAckFromTheStart(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -937,7 +949,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
@@ -982,7 +994,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	wg = completion.NewWaitGroup(ctx)
 
 	// Create version 3 with resources 0 and 1.
-	callback2, comp2 := newCompCallback()
+	callback2, comp2 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	require.Condition(t, isNotCompletedComparison(comp2))
 
@@ -1024,6 +1036,7 @@ func TestNAckFromTheStart(t *testing.T) {
 }
 
 func TestRequestHighVersionFromTheStart(t *testing.T) {
+	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
 
@@ -1035,26 +1048,26 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
@@ -1090,6 +1103,7 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 }
 
 func TestTheSameVersionOnRestart(t *testing.T) {
+	logger := hivetest.Logger(t)
 	// This is a special case similar to the TestRequestHighVersionFromTheStart.
 	// We check that if new stream is established with accidentally the
 	// same version as previously, we still receive response.
@@ -1106,25 +1120,25 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
@@ -1144,7 +1158,7 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	// Start processing new stream
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
@@ -1181,6 +1195,7 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 }
 
 func TestNotAckedAfterRestart(t *testing.T) {
+	logger := hivetest.Logger(t)
 	// Similar to test case TestNAckFromTheStart
 	// But here we are making sure that we don't issue incorrect ACKs
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -1194,26 +1209,26 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
 	// Run the server's stream handler concurrently.
 	go func() {
 		defer close(streamDone)
-		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
 		require.NoError(t, err)
 	}()
 
 	// Create version 2 with resource 0.
-	callback1, comp1 := newCompCallback()
+	callback1, comp1 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
@@ -1254,7 +1269,7 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	// Since we don't update resources, we expect that we will not receive
 	// any response. However, we want to make sure that previously
 	// pending completions are still not ACKed, but they are NACKed.
-	resp, err = stream.RecvResponse()
+	_, err = stream.RecvResponse()
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	// IsCompleted is true only for completions without error
 	require.Condition(t, isNotCompletedComparison(comp1))
@@ -1268,5 +1283,351 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	case <-ctx.Done():
 		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
 	case <-streamDone:
+	}
+}
+
+func toAny(pb proto.Message) *anypb.Any {
+	a, err := anypb.New(pb)
+	if err != nil {
+		panic(err.Error())
+	}
+	return a
+}
+
+func TestWaitForAck(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	ListenerTypeURL := "type.googleapis.com/envoy.config.listener.v3.Listener"
+	ClusterTypeURL := "type.googleapis.com/envoy.config.cluster.v3.Cluster"
+
+	// Test the case where the xDS server receives request for Listeners before Clusters, where
+	// we must wait responding on Listeners stream for the first ACK on the Clusters stream to
+	// have been received.
+
+	metrics := newMockMetrics()
+
+	var err error
+	var resp *envoy_service_discovery.DiscoveryResponse
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
+
+	ldsCache := NewCache(logger)
+	ldsMutator := NewAckingResourceMutatorWrapper(logger, ldsCache, metrics)
+	ldsStreamCtx, ldsCloseStream := context.WithCancel(ctx)
+	ldsStream := NewMockStream(ldsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer ldsStream.Close()
+	ldsStreamDone := make(chan struct{})
+
+	cdsCache := NewCache(logger)
+	cdsMutator := NewAckingResourceMutatorWrapper(logger, cdsCache, metrics)
+	cdsStreamCtx, cdsCloseStream := context.WithCancel(ctx)
+	cdsStream := NewMockStream(cdsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer cdsStream.Close()
+	cdsStreamDone := make(chan struct{})
+
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{
+		ListenerTypeURL: {Source: ldsCache, AckObserver: ldsMutator},
+		ClusterTypeURL:  {Source: cdsCache, AckObserver: cdsMutator},
+	},
+		nil, metrics)
+
+	// Run the server's stream handlers concurrently.
+	go func() {
+		defer close(ldsStreamDone)
+		logger.Info("Serving LDS...")
+		err := server.HandleRequestStream(ctx, ldsStream, ListenerTypeURL, ClusterTypeURL)
+		require.NoError(t, err)
+	}()
+	go func() {
+		defer close(cdsStreamDone)
+		logger.Info("Serving CDS...")
+		err := server.HandleRequestStream(ctx, cdsStream, ClusterTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	// Create Listener with reference to a cluster
+	clusterName := "cluster1"
+
+	clusterConf := &envoy_config_cluster.Cluster{
+		Name: clusterName,
+	}
+
+	listenerConf := &envoy_config_listener.Listener{
+		Name: "listener1",
+		FilterChains: []*envoy_config_listener.FilterChain{{
+			Filters: []*envoy_config_listener.Filter{{
+				Name: "envoy.filters.network.tcp_proxy",
+				ConfigType: &envoy_config_listener.Filter_TypedConfig{
+					TypedConfig: toAny(&envoy_config_tcp.TcpProxy{
+						StatPrefix: "tcp_proxy",
+						ClusterSpecifier: &envoy_config_tcp.TcpProxy_Cluster{
+							Cluster: clusterName,
+						},
+					}),
+				},
+			}},
+		}},
+	}
+
+	cdsCallback, cdsComp := newCompCallback(logger)
+	cdsMutator.Upsert(ClusterTypeURL, clusterConf.Name, clusterConf, []string{node0}, wg, cdsCallback)
+	require.Condition(t, isNotCompletedComparison(cdsComp))
+
+	ldsCallback, ldsComp := newCompCallback(logger)
+	ldsMutator.Upsert(ListenerTypeURL, listenerConf.Name, listenerConf, []string{node0}, wg, ldsCallback)
+	require.Condition(t, isNotCompletedComparison(ldsComp))
+
+	// Request listener resources, with a version higher than the version currently
+	// in Cilium's cache. This happens after the server restarts but the
+	// xDS client survives and continues to request the same version.
+	// First request on a new stream has an empty ResponseNonce!
+	ldsReq := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       ListenerTypeURL,
+		VersionInfo:   "15",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	logger.Info("Sending LDS request.")
+	err = ldsStream.SendRequest(ldsReq)
+	require.NoError(t, err)
+
+	// Expecting a LDS response in a goroutine
+	ldsDoneCh := make(chan struct{})
+	go func() {
+		logger.Info("Expecting LDS response...")
+		resp, err = ldsStream.RecvResponse()
+		require.NoError(t, err)
+		require.Equal(t, resp.VersionInfo, resp.Nonce)
+		require.Condition(t, responseCheck(resp, "16", []proto.Message{listenerConf}, false, ListenerTypeURL))
+
+		// Check that the completion was not NACKed
+		require.NoError(t, ldsComp.Err())
+
+		// send LDS ACK
+		ldsReq = &envoy_service_discovery.DiscoveryRequest{
+			TypeUrl:       ListenerTypeURL,
+			VersionInfo:   "16",
+			Node:          nodes[node0],
+			ResourceNames: nil,
+			ResponseNonce: "16",
+		}
+		logger.Info("Sending LDS ACK...")
+		err = ldsStream.SendRequest(ldsReq)
+		require.NoError(t, err)
+
+		close(ldsDoneCh)
+	}()
+
+	logger.Info("Sleeping before sending CDS request...")
+	time.Sleep(time.Millisecond)
+
+	// Request cluster resources, with a version higher than the version currently
+	// in Cilium's cache. This happens after the server restarts but the
+	// xDS client survives and continues to request the same version.
+	// First request on a new stream has an empty ResponseNonce!
+	cdsReq := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       ClusterTypeURL,
+		VersionInfo:   "30",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	logger.Info("Sending CDS request...")
+	err = cdsStream.SendRequest(cdsReq)
+	require.NoError(t, err)
+
+	// Expecting a CDS response
+	logger.Info("Expecting CDS response...")
+	resp, err = cdsStream.RecvResponse()
+	require.NoError(t, err)
+	require.Equal(t, resp.VersionInfo, resp.Nonce)
+	require.Condition(t, responseCheck(resp, "31", []proto.Message{clusterConf}, false, ClusterTypeURL))
+
+	// Check that the completion was not NACKed
+	require.NoError(t, cdsComp.Err())
+
+	// Check that LDS response has not been received before the CDS ACK is sent
+	ldsResponseReceived := false
+	select {
+	case <-ldsDoneCh:
+		ldsResponseReceived = true
+	default:
+	}
+	require.False(t, ldsResponseReceived)
+
+	// send CDS ACK
+	cdsReq = &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       ClusterTypeURL,
+		VersionInfo:   "31",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "31",
+	}
+	logger.Info("Sending CDS ACK...")
+	err = cdsStream.SendRequest(cdsReq)
+	require.NoError(t, err)
+
+	// Wait for the LDS goroutine to be done
+	select {
+	case <-ctx.Done():
+		t.Errorf("LDS goroutine did not end in time")
+	case <-ldsDoneCh:
+	}
+
+	// Wait for the ACKs to have been processed
+	err = wg.Wait()
+	require.NoError(t, err)
+
+	// Close the streams.
+	cdsCloseStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", ClusterTypeURL)
+	case <-cdsStreamDone:
+	}
+
+	ldsCloseStream()
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", ListenerTypeURL)
+	case <-ldsStreamDone:
+	}
+}
+
+func TestWaitForAckNoClusters(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	ListenerTypeURL := "type.googleapis.com/envoy.config.listener.v3.Listener"
+	ClusterTypeURL := "type.googleapis.com/envoy.config.cluster.v3.Cluster"
+
+	// Test the case where the xDS server receives request for Listeners when there are no
+	// clusters. In this case the listener response must be sent without any wait.
+
+	metrics := newMockMetrics()
+
+	var err error
+	var resp *envoy_service_discovery.DiscoveryResponse
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
+
+	ldsCache := NewCache(logger)
+	ldsMutator := NewAckingResourceMutatorWrapper(logger, ldsCache, metrics)
+	ldsStreamCtx, ldsCloseStream := context.WithCancel(ctx)
+	ldsStream := NewMockStream(ldsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer ldsStream.Close()
+	ldsStreamDone := make(chan struct{})
+
+	cdsCache := NewCache(logger)
+	cdsMutator := NewAckingResourceMutatorWrapper(logger, cdsCache, metrics)
+	cdsStreamCtx, cdsCloseStream := context.WithCancel(ctx)
+	cdsStream := NewMockStream(cdsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer cdsStream.Close()
+	cdsStreamDone := make(chan struct{})
+
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{
+		ListenerTypeURL: {Source: ldsCache, AckObserver: ldsMutator},
+		ClusterTypeURL:  {Source: cdsCache, AckObserver: cdsMutator},
+	},
+		nil, metrics)
+
+	// Run the server's stream handlers concurrently.
+	go func() {
+		defer close(ldsStreamDone)
+		logger.Info("Serving LDS...")
+		err := server.HandleRequestStream(ctx, ldsStream, ListenerTypeURL, ClusterTypeURL)
+		require.NoError(t, err)
+	}()
+	go func() {
+		defer close(cdsStreamDone)
+		logger.Info("Serving CDS...")
+		err := server.HandleRequestStream(ctx, cdsStream, ClusterTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	// Create Listener with reference to a static cluster
+	clusterName := "static_cluster"
+
+	listenerConf := &envoy_config_listener.Listener{
+		Name: "listener1",
+		FilterChains: []*envoy_config_listener.FilterChain{{
+			Filters: []*envoy_config_listener.Filter{{
+				Name: "envoy.filters.network.tcp_proxy",
+				ConfigType: &envoy_config_listener.Filter_TypedConfig{
+					TypedConfig: toAny(&envoy_config_tcp.TcpProxy{
+						StatPrefix: "tcp_proxy",
+						ClusterSpecifier: &envoy_config_tcp.TcpProxy_Cluster{
+							Cluster: clusterName,
+						},
+					}),
+				},
+			}},
+		}},
+	}
+
+	ldsCallback, ldsComp := newCompCallback(logger)
+	ldsMutator.Upsert(ListenerTypeURL, listenerConf.Name, listenerConf, []string{node0}, wg, ldsCallback)
+	require.Condition(t, isNotCompletedComparison(ldsComp))
+
+	// Request listener resources, with a version higher than the version currently
+	// in Cilium's cache. This happens after the server restarts but the
+	// xDS client survives and continues to request the same version.
+	// First request on a new stream has an empty ResponseNonce!
+	ldsReq := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       ListenerTypeURL,
+		VersionInfo:   "15",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	logger.Info("Sending LDS request.")
+	err = ldsStream.SendRequest(ldsReq)
+	require.NoError(t, err)
+
+	// Expecting a LDS response
+	logger.Info("Expecting LDS response...")
+	resp, err = ldsStream.RecvResponse()
+	require.NoError(t, err)
+	require.Equal(t, resp.VersionInfo, resp.Nonce)
+	require.Condition(t, responseCheck(resp, "16", []proto.Message{listenerConf}, false, ListenerTypeURL))
+
+	// Check that the completion was not NACKed
+	require.NoError(t, ldsComp.Err())
+
+	// send LDS ACK
+	ldsReq = &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       ListenerTypeURL,
+		VersionInfo:   "16",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "16",
+	}
+	logger.Info("Sending LDS ACK...")
+	err = ldsStream.SendRequest(ldsReq)
+	require.NoError(t, err)
+
+	// Wait for the ACKs to have been processed
+	err = wg.Wait()
+	require.NoError(t, err)
+
+	// Close the streams.
+	cdsCloseStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", ClusterTypeURL)
+	case <-cdsStreamDone:
+	}
+
+	ldsCloseStream()
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", ListenerTypeURL)
+	case <-ldsStreamDone:
 	}
 }

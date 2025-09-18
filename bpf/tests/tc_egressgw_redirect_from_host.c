@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -16,8 +15,6 @@
 #define ENCAP_IFINDEX 0
 
 #include "bpf_host.c"
-
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/egressgw.h"
 #include "lib/endpoint.h"
@@ -128,6 +125,12 @@ int egressgw_skip_no_gateway_redirect_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_skip_no_gateway_redirect")
 int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 {
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_NO_EGRESS_GATEWAY,
+		.dir = METRIC_EGRESS,
+	};
+
+	map_delete_elem(&cilium_metrics, &key);
 	ipcache_v4_add_entry_with_mask_size(v4_all, 0, WORLD_IPV4_ID, 0, 0, 0);
 	create_ct_entry(ctx, client_port(TEST_REDIRECT_SKIP_NO_GATEWAY));
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_NO_GATEWAY,
@@ -158,10 +161,12 @@ int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
-	assert(entry->count == 1);
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
-	map_delete_elem(&cilium_metrics, &key);
 
 	test_finish();
 }
@@ -180,6 +185,12 @@ int egressgw_drop_no_egress_ip_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_drop_no_egress_ip")
 int egressgw_drop_no_egress_ip_setup(struct __ctx_buff *ctx)
 {
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_NO_EGRESS_IP,
+		.dir = METRIC_EGRESS,
+	};
+
+	map_delete_elem(&cilium_metrics, &key);
 	ipcache_v4_add_entry_with_mask_size(v4_all, 0, WORLD_IPV4_ID, 0, 0, 0);
 	endpoint_v4_add_entry(GATEWAY_NODE_IP, 0, 0, ENDPOINT_F_HOST, 0, 0, NULL, NULL);
 
@@ -212,11 +223,13 @@ int egressgw_drop_no_egress_ip_check(const struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
-	assert(entry->count == 1);
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
 	endpoint_v4_del_entry(GATEWAY_NODE_IP);
-	map_delete_elem(&cilium_metrics, &key);
 
 	test_finish();
 }
@@ -326,6 +339,12 @@ int egressgw_skip_no_gateway_redirect_pktgen_v6(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_skip_no_gateway_redirect_v6")
 int egressgw_skip_no_gateway_redirect_setup_v6(struct __ctx_buff *ctx)
 {
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_NO_EGRESS_GATEWAY,
+		.dir = METRIC_EGRESS,
+	};
+
+	map_delete_elem(&cilium_metrics, &key);
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
 	union v6addr client_ip = CLIENT_IP_V6;
 	union v6addr egress_ip = EGRESS_IP_V6;
@@ -362,10 +381,12 @@ int egressgw_skip_no_gateway_redirect_check_v6(const struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
-	assert(entry->count == 1);
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 
 	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128);
-	map_delete_elem(&cilium_metrics, &key);
 
 	test_finish();
 }
@@ -384,6 +405,12 @@ int egressgw_drop_no_egress_ip_pktgen_v6(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_drop_no_egress_ip_v6")
 int egressgw_drop_no_egress_ip_setup_v6(struct __ctx_buff *ctx)
 {
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_NO_EGRESS_IP,
+		.dir = METRIC_EGRESS,
+	};
+
+	map_delete_elem(&cilium_metrics, &key);
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
 	union v6addr client_ip = CLIENT_IP_V6;
 
@@ -421,11 +448,13 @@ int egressgw_drop_no_egress_ip_check_v6(const struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
-	assert(entry->count == 1);
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 
 	del_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128);
 	endpoint_v4_del_entry(GATEWAY_NODE_IP);
-	map_delete_elem(&cilium_metrics, &key);
 
 	test_finish();
 }

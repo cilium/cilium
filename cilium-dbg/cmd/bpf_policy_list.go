@@ -17,7 +17,7 @@ var bpfPolicyListCmd = &cobra.Command{
 	Short:   "Dump all policy maps",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf policy list")
-		listAllMaps()
+		listAllMaps(log)
 	},
 }
 

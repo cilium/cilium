@@ -5,17 +5,13 @@ package nodemap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/encrypt"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "NodeMap")
 
 // Cell provides the nodemap.MapV2 which contains information about node IDs, SPIs, and their IP addresses.
 var Cell = cell.Module(
@@ -39,21 +35,18 @@ var defaultConfig = Config{
 	NodeMapMax: DefaultMaxEntries,
 }
 
-func newNodeMap(lifecycle cell.Lifecycle, conf Config) (bpf.MapOut[MapV2], error) {
+func newNodeMap(lifecycle cell.Lifecycle, conf Config, logger *slog.Logger) (bpf.MapOut[MapV2], error) {
 	if conf.NodeMapMax < DefaultMaxEntries {
 		return bpf.MapOut[MapV2]{}, fmt.Errorf("creating node map: bpf-node-map-max cannot be less than %d (%d)",
 			DefaultMaxEntries, conf.NodeMapMax)
 	}
-	nodeMap := newMapV2(MapNameV2, MapName, conf)
+	nodeMap := newMapV2(logger, MapNameV2, conf)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
-			if err := nodeMap.init(); err != nil {
-				return err
-			}
+			nodeMap.migrateV1("cilium_node_map")
 
-			// do v1 to v2 map migration if necessary
-			return nodeMap.migrateV1(MapName, encrypt.MapName)
+			return nodeMap.init()
 		},
 		OnStop: func(context cell.HookContext) error {
 			return nodeMap.close()

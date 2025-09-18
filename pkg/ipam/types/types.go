@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -26,6 +25,9 @@ type Limits struct {
 	// HypervisorType tracks the instance's hypervisor type if available. Used to determine if features like prefix
 	// delegation are supported on an instance. Bare metal instances would have empty string.
 	HypervisorType string
+
+	// IsBareMetal tracks whether an instance is a bare metal instance or not
+	IsBareMetal bool
 }
 
 // AllocationIP is an IP which is available for allocation, or already
@@ -302,6 +304,8 @@ func (t Tags) Match(required Tags) bool {
 }
 
 // Subnet is a representation of a subnet
+// +k8s:deepcopy-gen=false
+// +deepequal-gen=false
 type Subnet struct {
 	// ID is the subnet ID
 	ID string
@@ -310,10 +314,10 @@ type Subnet struct {
 	Name string
 
 	// CIDR is the IPv4 CIDR associated with the subnet
-	CIDR *cidr.CIDR
+	CIDR netip.Prefix
 
 	// IPv6CIDR is the IPv6 CIDR associated with the subnet
-	IPv6CIDR *cidr.CIDR
+	IPv6CIDR netip.Prefix
 
 	// AvailabilityZone is the availability zone of the subnet
 	AvailabilityZone string
@@ -331,6 +335,71 @@ type Subnet struct {
 
 	// Tags is the tags of the subnet
 	Tags Tags
+}
+
+// DeepEqual is a deepequal function, deeply comparing the
+// receiver with other. in must be non-nil.
+func (in *Subnet) DeepEqual(other *Subnet) bool {
+	if other == nil {
+		return false
+	}
+
+	if in.ID != other.ID {
+		return false
+	}
+	if in.Name != other.Name {
+		return false
+	}
+	if in.CIDR != other.CIDR {
+		return false
+	}
+
+	if in.IPv6CIDR != other.IPv6CIDR {
+		return false
+	}
+
+	if in.AvailabilityZone != other.AvailabilityZone {
+		return false
+	}
+	if in.VirtualNetworkID != other.VirtualNetworkID {
+		return false
+	}
+	if in.AvailableAddresses != other.AvailableAddresses {
+		return false
+	}
+	if in.AvailableIPv6Addresses != other.AvailableIPv6Addresses {
+		return false
+	}
+	if ((in.Tags != nil) && (other.Tags != nil)) || ((in.Tags == nil) != (other.Tags == nil)) {
+		in, other := &in.Tags, &other.Tags
+		if !in.DeepEqual(other) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *Subnet) DeepCopyInto(out *Subnet) {
+	*out = *in
+	if in.Tags != nil {
+		in, out := &in.Tags, &out.Tags
+		*out = make(Tags, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+}
+
+// DeepCopy is a deepcopy function, copying the receiver, creating a new Subnet.
+func (in *Subnet) DeepCopy() *Subnet {
+	if in == nil {
+		return nil
+	}
+	out := new(Subnet)
+	in.DeepCopyInto(out)
+	return out
 }
 
 // SubnetMap indexes subnets by subnet ID

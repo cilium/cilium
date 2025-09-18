@@ -6,6 +6,8 @@
 #include <linux/icmpv6.h>
 #include <linux/icmp.h>
 
+#include <bpf/config/node.h>
+
 #include "common.h"
 #include "utils.h"
 #include "ipv4.h"
@@ -14,6 +16,9 @@
 #include "l4.h"
 #include "signal.h"
 #include "ipfrag.h"
+
+/* Traffic is allowed/dropped based on user-defined policies. */
+DECLARE_CONFIG(bool, enable_extended_ip_protocols, "Pass traffic with extended IP protocols")
 
 enum ct_action {
 	ACTION_UNSPEC,
@@ -34,7 +39,6 @@ enum ct_entry_type {
 	CT_ENTRY_SVC		= (1 << 2),
 };
 
-#ifdef ENABLE_IPV4
 struct ct_buffer4 {
 	struct ipv4_ct_tuple tuple;
 	struct ct_state ct_state;
@@ -42,9 +46,7 @@ struct ct_buffer4 {
 	int ret;
 	int l4_off;
 };
-#endif
 
-#ifdef ENABLE_IPV6
 struct ct_buffer6 {
 	struct ipv6_ct_tuple tuple;
 	struct ct_state ct_state;
@@ -52,14 +54,13 @@ struct ct_buffer6 {
 	int ret;
 	int l4_off;
 };
-#endif
 
 static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags)
 {
 	if (unlikely(flags.value & (TCP_FLAG_RST | TCP_FLAG_FIN)))
 		return ACTION_CLOSE;
 
-	if (unlikely(flags.value & TCP_FLAG_SYN))
+	if (unlikely((flags.value & TCP_FLAG_SYN) && !(flags.value & TCP_FLAG_ACK)))
 		return ACTION_CREATE;
 
 	return ACTION_UNSPEC;
@@ -197,7 +198,7 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		state->backend_id = (__u32)entry->backend_id;
 		state->syn = syn;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 		state->loopback = entry->lb_loopback;
 #endif
 		state->node_port = entry->node_port;
@@ -205,9 +206,6 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		state->proxy_redirect = entry->proxy_redirect;
 		state->from_l7lb = entry->from_l7lb;
 		state->from_tunnel = entry->from_tunnel;
-#ifndef HAVE_FIB_IFINDEX
-		state->ifindex = entry->ifindex;
-#endif
 	}
 }
 
@@ -434,15 +432,11 @@ ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple)
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-
 	tuple->nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 
-	ret = ipv6_hdrlen(ctx, &tuple->nexthdr);
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr, &fraginfo);
 	if (ret < 0)
 		return ret;
 
@@ -575,6 +569,12 @@ ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 		return ipv6_load_l4_ports(ctx, ip6, fraginfo, off,
 					  dir, &tuple->dport);
 	default:
+		/* See comment in ct_extract_ports4. */
+		if (CONFIG(enable_extended_ip_protocols)) {
+			tuple->sport = 0;
+			tuple->dport = 0;
+			break;
+		}
 		/* Unsupported L4 protocol */
 		return DROP_CT_UNKNOWN_PROTO;
 	}
@@ -826,6 +826,12 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		return ipv4_load_l4_ports(ctx, ip4, fraginfo, off,
 					  dir, &tuple->dport);
 	default:
+		/* Traffic is allowed/dropped based on user-defined policies. */
+		if (CONFIG(enable_extended_ip_protocols)) {
+			tuple->sport = 0;
+			tuple->dport = 0;
+			break;
+		}
 		/* Unsupported L4 protocol */
 		return DROP_CT_UNKNOWN_PROTO;
 	}
@@ -966,15 +972,12 @@ ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 	if (dir == CT_SERVICE) {
 		entry->backend_id = state->backend_id;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 		entry->lb_loopback = state->loopback;
 #endif
 		entry->node_port = state->node_port;
 		entry->dsr_internal = state->dsr_internal;
 		entry->from_tunnel = state->from_tunnel;
-#ifndef HAVE_FIB_IFINDEX
-		entry->ifindex = state->ifindex;
-#endif
 		/* Note if this is a proxy connection so that replies can be redirected
 		 * back to the proxy.
 		 */
@@ -1099,9 +1102,22 @@ err_ct_fill_up:
 	return DROP_CT_CREATE_FAILED;
 }
 
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 static __always_inline bool
 ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
+{
+	__u8 flags = tuple->flags;
+	struct ct_entry *entry;
+
+	tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, tuple);
+	tuple->flags = flags;
+
+	return entry && entry->lb_loopback;
+}
+
+static __always_inline bool
+ct_has_loopback_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
 {
 	__u8 flags = tuple->flags;
 	struct ct_entry *entry;

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
 #include <bpf/ctx/unspec.h>
-#include <bpf/api.h>
+#include "common.h"
 #include "pktgen.h"
 
 #define ENABLE_IPV4 1
@@ -11,7 +10,6 @@
 #undef ENABLE_HEALTH_CHECK
 #define ENABLE_LOCAL_REDIRECT_POLICY 1
 #define ENABLE_SOCKET_LB_HOST_ONLY 1
-#define HAVE_NETNS_COOKIE 1
 
 #include <bpf_lxc.c>
 

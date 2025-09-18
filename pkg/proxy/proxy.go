@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -22,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // field names used while logging
@@ -39,6 +39,8 @@ type Proxy struct {
 
 	logger *slog.Logger
 
+	localNodeStore *node.LocalNodeStore
+
 	// redirects is the map of all redirect configurations indexed by
 	// the redirect identifier. Redirects may be implemented by different
 	// proxies.
@@ -53,12 +55,14 @@ type Proxy struct {
 
 func createProxy(
 	logger *slog.Logger,
+	localNodeStore *node.LocalNodeStore,
 	proxyPorts *proxyports.ProxyPorts,
 	envoyIntegration *envoyProxyIntegration,
 	dnsIntegration *dnsProxyIntegration,
 ) *Proxy {
 	return &Proxy{
 		logger:           logger,
+		localNodeStore:   localNodeStore,
 		redirects:        make(map[string]RedirectImplementation),
 		envoyIntegration: envoyIntegration,
 		dnsIntegration:   dnsIntegration,
@@ -66,46 +70,17 @@ func createProxy(
 	}
 }
 
-// AckProxyPort() marks the proxy of the given type as successfully
-// created and creates or updates the datapath rules accordingly.
-// Takes a reference on the proxy port.
-func (p *Proxy) AckProxyPort(ctx context.Context, name string) error {
-	return p.proxyPorts.AckProxyPortWithReference(ctx, name)
+func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled bool) error {
+	ln, err := p.localNodeStore.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve local node: %w", err)
+	}
+	return ReinstallRoutingRules(p.logger, ln, mtu, ipsecEnabled)
 }
 
-// AllocateCRDProxyPort() allocates a new port for listener 'name', or returns the current one if
-// already allocated.
-// Each call has to be paired with AckProxyPort(name) to update the datapath rules accordingly.
-// Each allocated port must be eventually freed with ReleaseProxyPort().
-func (p *Proxy) AllocateCRDProxyPort(name string) (uint16, error) {
-	return p.proxyPorts.AllocateCRDProxyPort(name)
-}
-
-func (p *Proxy) ReleaseProxyPort(name string) error {
-	return p.proxyPorts.ReleaseProxyPort(name)
-}
-
-func (p *Proxy) ReinstallRoutingRules(mtu int) error {
-	return ReinstallRoutingRules(p.logger, mtu)
-}
-
-// GetProxyPort() returns the fixed listen port for a proxy, if any.
-func (p *Proxy) GetProxyPort(name string) (port uint16, isStatic bool, err error) {
-	return p.proxyPorts.GetProxyPort(name)
-}
-
-// SetProxyPort() marks the proxy 'name' as successfully created with proxy port 'port'.
-// Another call to AckProxyPort(name) is needed to update the datapath rules accordingly.
-// This should only be called for proxies that have a static listener that is already listening on
-// 'port'. May only be called once per proxy.
-
-func (p *Proxy) SetProxyPort(name string, proxyType types.ProxyType, port uint16, ingress bool) error {
-	return p.proxyPorts.SetProxyPort(name, proxyType, port, ingress)
-}
-
-// GetOpenLocalPorts returns the set of L4 ports currently open locally.
-func (p *Proxy) GetOpenLocalPorts() map[uint16]struct{} {
-	return p.proxyPorts.GetOpenLocalPorts()
+func (p *Proxy) GetListenerProxyPort(listener string) uint16 {
+	proxyPort, _, _ := p.proxyPorts.GetProxyPort(listener)
+	return proxyPort
 }
 
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
@@ -142,7 +117,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 				fieldProxyRedirectID, id,
 				logfields.Listener, l4.GetListener(),
 				logfields.L7Parser, l4.GetL7Parser(),
-				logfields.Object, logfields.Repr(existingRedirect),
+				logfields.Object, existingRedirect,
 				logfields.ProxyType, existingRedirect.proxyPort.ProxyType)
 
 			// Must return the proxy port when successful
@@ -163,6 +138,16 @@ func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress 
 		dir = "ingress"
 	}
 	return fmt.Errorf("unrecognized %s proxy type for %s: %s", dir, listener, proxyType)
+}
+
+func (p *Proxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
+	if p.dnsIntegration.sdpPolicyUpdater != nil {
+		p.dnsIntegration.sdpPolicyUpdater.UpdatePolicyRules(rules)
+	}
+}
+
+func (p *Proxy) IsSDPEnabled() bool {
+	return p.dnsIntegration != nil && p.dnsIntegration.sdpPolicyUpdater != nil && p.dnsIntegration.sdpPolicyUpdater.IsEnabled()
 }
 
 func (p *Proxy) createNewRedirect(
@@ -251,7 +236,7 @@ func (p *Proxy) createNewRedirect(
 	}
 
 	scopedLog.Info("Created new proxy instance",
-		logfields.Object, logfields.Repr(redirect),
+		logfields.Object, redirect,
 		logfields.ProxyPort, pp.ProxyPort)
 
 	p.redirects[id] = impl
@@ -337,7 +322,7 @@ func (p *Proxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.
-func (p *Proxy) ChangeLogLevel(level logrus.Level) {
+func (p *Proxy) ChangeLogLevel(level slog.Level) {
 	if err := p.envoyIntegration.changeLogLevel(level); err != nil {
 		p.logger.Debug("failed to change log level in Envoy proxy", logfields.Error, err)
 	}
@@ -354,8 +339,11 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 
 	rangeMin, rangeMax, nPorts := p.proxyPorts.GetStatusInfo()
 
+	ctx, cancelCtx := context.WithTimeout(context.Background(), time.Second)
+	defer cancelCtx()
+
 	result := &models.ProxyStatus{
-		IP:             node.GetInternalIPv4Router().String(),
+		IP:             p.getProxyIP(ctx),
 		PortRange:      fmt.Sprintf("%d-%d", rangeMin, rangeMax),
 		TotalPorts:     int64(nPorts),
 		TotalRedirects: int64(len(p.redirects)),
@@ -374,6 +362,20 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 		result.EnvoyDeploymentMode = "external"
 	}
 	return result
+}
+
+func (p *Proxy) getProxyIP(ctx context.Context) string {
+	ln, err := p.localNodeStore.Get(ctx)
+	if err != nil {
+		return "n/a"
+	}
+
+	localNodeIP := ln.GetCiliumInternalIP(false)
+	if localNodeIP == nil {
+		return "n/a"
+	}
+
+	return localNodeIP.String()
 }
 
 // updateRedirectMetrics updates the redirect metrics per application protocol

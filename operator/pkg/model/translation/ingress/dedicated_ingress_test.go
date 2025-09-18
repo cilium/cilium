@@ -9,11 +9,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	k8syaml "sigs.k8s.io/yaml"
@@ -34,7 +36,7 @@ func Test_getService(t *testing.T) {
 	}
 
 	t.Run("Default LB service", func(t *testing.T) {
-		it := &dedicatedIngressTranslator{}
+		it := &dedicatedIngressTranslator{logger: hivetest.Logger(t)}
 		res := it.getService(resource, nil, false)
 		require.Equal(t, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -65,12 +67,13 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
 
 	t.Run("Default LB service with TLS only", func(t *testing.T) {
-		it := &dedicatedIngressTranslator{}
+		it := &dedicatedIngressTranslator{logger: hivetest.Logger(t)}
 		res := it.getService(resource, nil, true)
 		require.Equal(t, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -96,12 +99,13 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
 
 	t.Run("Invalid LB service annotation, defaults to LoadBalancer", func(t *testing.T) {
-		it := &dedicatedIngressTranslator{}
+		it := &dedicatedIngressTranslator{logger: hivetest.Logger(t)}
 		res := it.getService(resource, &model.Service{
 			Type: "InvalidServiceType",
 		}, false)
@@ -134,6 +138,7 @@ func Test_getService(t *testing.T) {
 						Port:     443,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
@@ -141,7 +146,7 @@ func Test_getService(t *testing.T) {
 	t.Run("Node Port service", func(t *testing.T) {
 		var insecureNodePort uint32 = 3000
 		var secureNodePort uint32 = 3001
-		it := &dedicatedIngressTranslator{}
+		it := &dedicatedIngressTranslator{logger: hivetest.Logger(t)}
 		res := it.getService(resource, &model.Service{
 			Type:             "NodePort",
 			InsecureNodePort: &insecureNodePort,
@@ -178,13 +183,14 @@ func Test_getService(t *testing.T) {
 						NodePort: 3001,
 					},
 				},
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			},
 		}, res)
 	})
 }
 
 func Test_getEndpointForIngress(t *testing.T) {
-	res := getEndpoints(model.FullyQualifiedResource{
+	res := getEndpointSlice(model.FullyQualifiedResource{
 		Name:      "dummy-ingress",
 		Namespace: "dummy-namespace",
 		Version:   "v1",
@@ -192,7 +198,7 @@ func Test_getEndpointForIngress(t *testing.T) {
 		UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
 	})
 
-	require.Equal(t, &corev1.Endpoints{
+	require.Equal(t, &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cilium-ingress-dummy-ingress",
 			Namespace: "dummy-namespace",
@@ -207,12 +213,16 @@ func Test_getEndpointForIngress(t *testing.T) {
 				},
 			},
 		},
-		Subsets: []corev1.EndpointSubset{
+		AddressType: discoveryv1.AddressTypeIPv4,
+		Endpoints: []discoveryv1.Endpoint{
 			{
-				Addresses: []corev1.EndpointAddress{{IP: "192.192.192.192"}},
-				Ports:     []corev1.EndpointPort{{Port: 9999}},
+				// This dummy endpoint is required as agent refuses to push service entry
+				// to the lb map when the service has no backends.
+				// Related github issue https://github.com/cilium/cilium/issues/19262
+				Addresses: []string{"192.192.192.192"}, // dummy
 			},
 		},
+		Ports: []discoveryv1.EndpointPort{{Port: ptr.To[int32](9999)}}, // dummy port
 	}, res)
 }
 
@@ -296,6 +306,7 @@ func Test_translator_Translate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &dedicatedIngressTranslator{
+				logger: hivetest.Logger(t),
 				cecTranslator: translation.NewCECTranslator(translation.Config{
 					SecretsNamespace: "cilium-secrets",
 					HostNetworkConfig: translation.HostNetworkConfig{

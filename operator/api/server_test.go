@@ -13,33 +13,40 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/go-openapi/runtime/middleware"
-	"go.uber.org/goleak"
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	clrestapi "github.com/cilium/cilium/api/v1/operator/server/restapi/cluster"
 	"github.com/cilium/cilium/pkg/hive"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/kvstore"
+	ciliumMetrics "github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestAPIServerK8sDisabled(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go init function
-		goleak.IgnoreTopFunction("time.Sleep"),
+		testutils.GoleakIgnoreTopFunction("time.Sleep"),
 	)
 
 	var testSrv Server
 
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		cell.Provide(ciliumMetrics.NewRegistry),
+		cell.Provide(func() (*option.DaemonConfig, ciliumMetrics.RegistryConfig) {
+			return option.Config, ciliumMetrics.RegistryConfig{}
+		}),
+		k8sClient.FakeClientCell(),
 		cell.Invoke(func(cs *k8sClient.FakeClientset) {
 			cs.Disable()
 		}),
+
+		kvstore.Cell(kvstore.DisabledBackendName),
+
 		MetricsHandlerCell,
 		HealthHandlerCell(
-			func() bool {
-				return false
-			},
 			func() bool {
 				return true
 			},
@@ -62,7 +69,7 @@ func TestAPIServerK8sDisabled(t *testing.T) {
 	)
 
 	tlog := hivetest.Logger(t)
-	if err := hive.Start(tlog, context.Background()); err != nil {
+	if err := hive.Start(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -84,27 +91,30 @@ func TestAPIServerK8sDisabled(t *testing.T) {
 		t.Fatalf("failed to query endpoint: %s", err)
 	}
 
-	if err := hive.Stop(tlog, context.Background()); err != nil {
+	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }
 
 func TestAPIServerK8sEnabled(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go init function
-		goleak.IgnoreTopFunction("time.Sleep"),
+		testutils.GoleakIgnoreTopFunction("time.Sleep"),
 	)
 
 	var testSrv Server
 
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		cell.Provide(ciliumMetrics.NewRegistry),
+		cell.Provide(func() (*option.DaemonConfig, ciliumMetrics.RegistryConfig) {
+			return option.Config, ciliumMetrics.RegistryConfig{}
+		}),
+		k8sClient.FakeClientCell(),
+		kvstore.Cell(kvstore.DisabledBackendName),
+
 		MetricsHandlerCell,
 		HealthHandlerCell(
-			func() bool {
-				return false
-			},
 			func() bool {
 				return true
 			},
@@ -127,7 +137,7 @@ func TestAPIServerK8sEnabled(t *testing.T) {
 	)
 
 	tlog := hivetest.Logger(t)
-	if err := hive.Start(tlog, context.Background()); err != nil {
+	if err := hive.Start(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
 
@@ -149,13 +159,13 @@ func TestAPIServerK8sEnabled(t *testing.T) {
 		t.Fatalf("failed to query endpoint: %s", err)
 	}
 
-	if err := hive.Stop(tlog, context.Background()); err != nil {
+	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
 }
 
 func testEndpoint(t *testing.T, port int, path string, statusCode int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(

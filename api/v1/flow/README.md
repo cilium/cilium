@@ -24,6 +24,7 @@
     - [ICMPv6](#flow-ICMPv6)
     - [IP](#flow-IP)
     - [IPCacheNotification](#flow-IPCacheNotification)
+    - [IPTraceID](#flow-IPTraceID)
     - [Kafka](#flow-Kafka)
     - [Layer4](#flow-Layer4)
     - [Layer7](#flow-Layer7)
@@ -41,6 +42,7 @@
     - [TimeNotification](#flow-TimeNotification)
     - [TraceContext](#flow-TraceContext)
     - [TraceParent](#flow-TraceParent)
+    - [Tunnel](#flow-Tunnel)
     - [UDP](#flow-UDP)
     - [Workload](#flow-Workload)
   
@@ -58,6 +60,7 @@
     - [TraceObservationPoint](#flow-TraceObservationPoint)
     - [TraceReason](#flow-TraceReason)
     - [TrafficDirection](#flow-TrafficDirection)
+    - [Tunnel.Protocol](#flow-Tunnel-Protocol)
     - [Verdict](#flow-Verdict)
   
 - [Scalar Value Types](#scalar-value-types)
@@ -86,8 +89,8 @@
 | endpoint_regenerate | [EndpointRegenNotification](#flow-EndpointRegenNotification) |  | used for ENDPOINT_REGENERATE_SUCCESS and ENDPOINT_REGENERATE_FAILURE |
 | endpoint_update | [EndpointUpdateNotification](#flow-EndpointUpdateNotification) |  | used for ENDPOINT_CREATED and ENDPOINT_DELETED |
 | ipcache_update | [IPCacheNotification](#flow-IPCacheNotification) |  | used for IPCACHE_UPSERTED and IPCACHE_DELETED |
-| service_upsert | [ServiceUpsertNotification](#flow-ServiceUpsertNotification) |  |  |
-| service_delete | [ServiceDeleteNotification](#flow-ServiceDeleteNotification) |  |  |
+| service_upsert | [ServiceUpsertNotification](#flow-ServiceUpsertNotification) |  | **Deprecated.**  |
+| service_delete | [ServiceDeleteNotification](#flow-ServiceDeleteNotification) |  | **Deprecated.**  |
 
 
 
@@ -292,6 +295,7 @@ EventTypeFilter is a filter describing a particular event type.
 | ethernet | [Ethernet](#flow-Ethernet) |  | l2 |
 | IP | [IP](#flow-IP) |  | l3 |
 | l4 | [Layer4](#flow-Layer4) |  | l4 |
+| tunnel | [Tunnel](#flow-Tunnel) |  |  |
 | source | [Endpoint](#flow-Endpoint) |  |  |
 | destination | [Endpoint](#flow-Endpoint) |  |  |
 | Type | [FlowType](#flow-FlowType) |  |  |
@@ -309,6 +313,7 @@ EventTypeFilter is a filter describing a particular event type.
 | trace_observation_point | [TraceObservationPoint](#flow-TraceObservationPoint) |  | Only applicable to cilium trace notifications, blank for other types. |
 | trace_reason | [TraceReason](#flow-TraceReason) |  | Cilium datapath trace reason info. |
 | file | [FileInfo](#flow-FileInfo) |  | Cilium datapath filename and line number. Currently only applicable when Verdict = DROPPED. |
+| ip_trace_id | [IPTraceID](#flow-IPTraceID) |  | IPTraceID relates to the trace ID in the IP options of a packet. |
 | drop_reason_desc | [DropReason](#flow-DropReason) |  | only applicable to Verdict = DROPPED. |
 | is_reply | [google.protobuf.BoolValue](#google-protobuf-BoolValue) |  | is_reply indicates that this was a packet (L4) or message (L7) in the reply direction. May be absent (in which case it is unknown whether it is a reply or not). |
 | debug_capture_point | [DebugCapturePoint](#flow-DebugCapturePoint) |  | Only applicable to cilium debug capture events, blank for other types |
@@ -324,6 +329,7 @@ EventTypeFilter is a filter describing a particular event type.
 | ingress_allowed_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies allowing the ingress of the flow. |
 | egress_denied_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies denying the egress of the flow. |
 | ingress_denied_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies denying the ingress of the flow. |
+| policy_log | [string](#string) | repeated | The set of Log values for policies that matched this flow. If no matched policies have an explicit log value configured, this list is empty. Duplicate values are elided; each entry is unique. |
 
 
 
@@ -377,6 +383,7 @@ multiple fields are set, then all fields must match for the filter to match.
 | node_labels | [string](#string) | repeated | node_labels filters on a list of node label selectors. Selectors support the full Kubernetes label selector syntax. |
 | ip_version | [IPVersion](#flow-IPVersion) | repeated | filter based on IP version (ipv4 or ipv6) |
 | trace_id | [string](#string) | repeated | trace_id filters flows by trace ID |
+| ip_trace_id | [uint64](#uint64) | repeated | ip_trace_id filters flows by IPTraceID |
 | experimental | [FlowFilter.Experimental](#flow-FlowFilter-Experimental) |  | experimental contains filters that are not stable yet. Support for experimental features is always optional and subject to change. |
 
 
@@ -502,6 +509,22 @@ L7 information for HTTP flows. It corresponds to Cilium&#39;s [accesslog.LogReco
 | encrypt_key | [uint32](#uint32) |  |  |
 | namespace | [string](#string) |  |  |
 | pod_name | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="flow-IPTraceID"></a>
+
+### IPTraceID
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| trace_id | [uint64](#uint64) |  |  |
+| ip_option_type | [uint32](#uint32) |  |  |
 
 
 
@@ -808,6 +831,23 @@ TraceParent identifies the incoming request in a tracing system.
 
 
 
+<a name="flow-Tunnel"></a>
+
+### Tunnel
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| protocol | [Tunnel.Protocol](#flow-Tunnel-Protocol) |  |  |
+| IP | [IP](#flow-IP) |  |  |
+| l4 | [Layer4](#flow-Layer4) |  |  |
+
+
+
+
+
+
 <a name="flow-UDP"></a>
 
 ### UDP
@@ -971,6 +1011,8 @@ These values are shared with pkg/monitor/api/datapath_debug.go and bpf/lib/dbg.h
 | DBG_SK_ASSIGN | 64 |  |
 | DBG_L7_LB | 65 |  |
 | DBG_SKIP_POLICY | 66 |  |
+| DBG_LB6_LOOPBACK_SNAT | 67 |  |
+| DBG_LB6_LOOPBACK_SNAT_REV | 68 |  |
 
 
 
@@ -1199,6 +1241,19 @@ This mirrors enum xlate_point in bpf/lib/trace_sock.h
 | TRAFFIC_DIRECTION_UNKNOWN | 0 |  |
 | INGRESS | 1 |  |
 | EGRESS | 2 |  |
+
+
+
+<a name="flow-Tunnel-Protocol"></a>
+
+### Tunnel.Protocol
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| UNKNOWN | 0 |  |
+| VXLAN | 1 |  |
+| GENEVE | 2 |  |
 
 
 

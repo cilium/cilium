@@ -6,11 +6,11 @@ package xds
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -19,6 +19,7 @@ import (
 // ResourceWatcher implements ResourceVersionObserver to get notified when new
 // resource versions are available in the set.
 type ResourceWatcher struct {
+	logger *slog.Logger
 	// typeURL is the URL that uniquely identifies the resource type.
 	typeURL string
 
@@ -41,8 +42,9 @@ type ResourceWatcher struct {
 
 // NewResourceWatcher creates a new ResourceWatcher backed by the given
 // resource set.
-func NewResourceWatcher(typeURL string, resourceSet ResourceSource) *ResourceWatcher {
+func NewResourceWatcher(logger *slog.Logger, typeURL string, resourceSet ResourceSource) *ResourceWatcher {
 	w := &ResourceWatcher{
+		logger:      logger,
 		version:     1,
 		typeURL:     typeURL,
 		resourceSet: resourceSet,
@@ -60,11 +62,12 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 	}
 
 	if version < w.version {
-		log.WithFields(logrus.Fields{
-			logfields.XDSCachedVersion: version,
-			logfields.XDSTypeURL:       typeURL,
-		}).Panicf("decreasing version number found for resources of type %s: %d < %d",
-			typeURL, version, w.version)
+		logging.Fatal(w.logger,
+			"decreasing version number found for resources: xdsCachedVersion < resourceWatcherVersion",
+			logfields.XDSCachedVersion, version,
+			logfields.ResourceWatcherVersion, w.version,
+			logfields.XDSTypeURL, typeURL,
+		)
 	}
 	w.version = version
 
@@ -85,11 +88,11 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 	resourceNames []string, out chan<- *VersionedResources) {
 	defer close(out)
 
-	watchLog := log.WithFields(logrus.Fields{
-		logfields.XDSAckedVersion: lastVersion,
-		logfields.XDSClientNode:   nodeIP,
-		logfields.XDSTypeURL:      typeURL,
-	})
+	scopedLog := w.logger.With(
+		logfields.XDSAckedVersion, lastVersion,
+		logfields.XDSClientNode, nodeIP,
+		logfields.XDSTypeURL, typeURL,
+	)
 
 	var res *VersionedResources
 
@@ -120,7 +123,10 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 		// Re-check w.version, since it may have been modified by calling
 		// EnsureVersion above.
 		for ctx.Err() == nil && waitForVersion && w.version <= waitVersion {
-			watchLog.Debugf("current resource version is %d, waiting for it to become > %d", w.version, waitVersion)
+			scopedLog.Debug("waiting for current version to increase up to waitVersion",
+				logfields.WaitVersion, waitVersion,
+				logfields.CurrentVersion, w.version,
+			)
 			w.versionCond.Wait()
 		}
 		// In case we need to loop again, wait for any version more recent than
@@ -133,11 +139,16 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 			break
 		}
 
-		watchLog.Debugf("getting %d resources from set", len(resourceNames))
+		scopedLog.Debug("getting resources from set",
+			logfields.Resources, len(resourceNames),
+		)
 		var err error
 		res, err = w.resourceSet.GetResources(typeURL, lastVersion, nodeIP, resourceNames)
 		if err != nil {
-			watchLog.WithError(err).Errorf("failed to query resources named: %v; terminating resource watch", resourceNames)
+			scopedLog.Error("failed to query resources; terminating resource watch",
+				logfields.Error, err,
+				logfields.Resources, resourceNames,
+			)
 			return
 		}
 	}
@@ -155,9 +166,9 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 	err := ctx.Err()
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			watchLog.Debug("context canceled, terminating resource watch")
+			scopedLog.Debug("context canceled, terminating resource watch")
 		} else {
-			watchLog.WithError(err).Error("context error, terminating resource watch")
+			scopedLog.Error("context error, terminating resource watch", logfields.Error, err)
 		}
 	}
 }

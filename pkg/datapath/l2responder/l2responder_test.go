@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
+	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
 )
 
 type fixture struct {
@@ -28,6 +29,7 @@ type fixture struct {
 	stateDB            *statedb.DB
 	mockNetlink        *mockNeighborNetlink
 	respondermap       l2respondermap.Map
+	respondermap6      l2v6respondermap.Map
 }
 
 func newFixture(t testing.TB) *fixture {
@@ -45,22 +47,17 @@ func newFixture(t testing.TB) *fixture {
 			statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
 		),
 
-		cell.Module(
-			"l2responder-test",
-			"L2 responder test module",
-
-			cell.Invoke(
-				statedb.RegisterTable[*tables.L2AnnounceEntry],
-				func(d *statedb.DB, lc cell.Lifecycle, h cell.Health, t statedb.RWTable[*tables.L2AnnounceEntry], j job.Group) {
-					db = d
-					tbl = t
-					jg = j
-				}),
-		),
+		cell.Invoke(
+			func(d *statedb.DB, lc cell.Lifecycle, h cell.Health, t statedb.RWTable[*tables.L2AnnounceEntry], j job.Group) {
+				db = d
+				tbl = t
+				jg = j
+			}),
 	).Populate(logger)
 
 	nl := &mockNeighborNetlink{}
 	m := l2respondermap.NewFakeMap()
+	m6 := l2v6respondermap.NewFakeMap()
 	return &fixture{
 		reconciler: NewL2ResponderReconciler(params{
 			Lifecycle:           &cell.DefaultLifecycle{},
@@ -68,6 +65,7 @@ func newFixture(t testing.TB) *fixture {
 			L2AnnouncementTable: tbl,
 			StateDB:             db,
 			L2ResponderMap:      m,
+			L2V6ResponderMap:    m6,
 			NetLink:             nl,
 			JobGroup:            jg,
 		}),
@@ -75,6 +73,7 @@ func newFixture(t testing.TB) *fixture {
 		stateDB:            db,
 		mockNetlink:        nl,
 		respondermap:       m,
+		respondermap6:      m6,
 	}
 }
 

@@ -69,7 +69,7 @@ rules:
   resources:
   - endpointslices
   verbs:
-{{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
+{{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
   - create
   - update
   - delete
@@ -109,6 +109,20 @@ rules:
   - list
   - watch
 {{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+  - create
+  - update
+  - delete
+  - patch
+{{- end }}
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+- apiGroups:
+  - "discovery.k8s.io"
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
   - create
   - update
   - delete
@@ -352,7 +366,7 @@ rules:
   - update
   - patch
 {{- end }}
-{{- if or .Values.gatewayAPI.enabled .Values.clustermesh.enableMCSAPISupport }}
+{{- if or .Values.gatewayAPI.enabled .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
 - apiGroups:
   - multicluster.x-k8s.io
   resources:
@@ -361,14 +375,14 @@ rules:
   - get
   - list
   - watch
-{{- if .Values.clustermesh.enableMCSAPISupport }}
+{{- if or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
   - create
   - update
   - patch
   - delete
 {{- end }}
 {{- end }}
-{{- if .Values.clustermesh.enableMCSAPISupport }}
+{{- if or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
 - apiGroups:
   - multicluster.x-k8s.io
   resources:

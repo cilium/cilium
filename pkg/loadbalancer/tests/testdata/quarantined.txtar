@@ -1,0 +1,226 @@
+#! --lb-test-fault-probability=0.0 --metrics-sampling-interval=100ms
+#
+# Test the infra for implementing active backend health checking and the restoration
+# of quarantined backends.
+
+hive/start
+
+# Wait until the initial pruning is done to avoid it messing with the test
+metrics -s reconciler_prune_count -o metrics.actual
+* grep 'prune_count.*1' metrics.actual
+
+# Mark service as health checked
+test/set-is-service-healthchecked service.cilium.io/health-checked
+
+# Add our test service and backends.
+k8s/add service.yaml endpointslice.yaml
+db/cmp services services.table
+db/cmp backends backends_healthy1.table
+
+# Check BPF maps
+lb/maps-dump maps.actual
+* grep 'SLOT=0.*COUNT=0 QCOUNT=0' maps_init.expected
+* cmp maps.actual maps_init.expected
+
+# Report health of first backend as healthy (explicitly - due to SetIsServiceHealthchecked)
+test/update-backend-health test/echo 10.244.1.1:80/TCP true
+db/cmp backends backends_healthy1.table
+
+# Check BPF maps
+lb/maps-dump maps.actual
+* grep 'SLOT=0.*COUNT=1 QCOUNT=0' maps0.expected
+* cmp maps.actual maps0.expected
+
+# Mark the second backend as unhealthy (for this service)
+test/update-backend-health test/echo 10.244.1.2:80/TCP false
+db/cmp backends backends_unhealthy.table
+
+# Check BPF maps
+lb/maps-dump maps.actual
+* grep 'SLOT=0.*COUNT=1 QCOUNT=1' maps1.expected
+* cmp maps.actual maps1.expected
+
+# Take a snapshot of the BPF maps and clean up
+lb/maps-snapshot
+k8s/delete service.yaml endpointslice.yaml
+
+# Check that everything empty
+* db/empty frontends services backends
+* lb/maps-empty
+
+# Restore previous BPF map state and reset BPF ops to restore state from maps.
+lb/maps-restore
+test/bpfops-reset
+
+# Restore service and backends. Add an additional backend to check we're actually updating
+# maps.
+k8s/add endpointslice2.yaml
+db/cmp backends backends_healthy2.table
+k8s/add service.yaml
+
+# Report health of all backends
+test/update-backend-health test/echo 10.244.1.1:80/TCP true
+test/update-backend-health test/echo 10.244.1.2:80/TCP false
+test/update-backend-health test/echo 10.244.1.3:80/TCP true
+
+# Wait for reconciliation.
+db/show frontends --columns=Address,Status -o frontends.actual
+* grep '10.96.*Done' frontends.actual
+
+# Since we now have some restored data, force the prune to make sure 10.244.1.1
+# has been removed.
+lb/prune
+
+# Wait until prune is done by checking that internal state
+# is clean.
+test/bpfops-summary
+* stdout 'restoredServiceIDs: 0'
+stdout 'restoredBackendIDs: 0'
+
+# Check BPF maps. We should get the same contents as before but
+# with 10.244.1.1 gone and 10.244.1.3 added.
+lb/maps-dump maps.actual
+* grep 'SLOT=0.*COUNT=2 QCOUNT=1' maps2.expected
+* cmp maps.actual maps2.expected
+
+# Mark the quarantined backend as healthy again
+test/update-backend-health test/echo 10.244.1.2:80/TCP true
+db/cmp backends backends_healthy2.table
+
+# Check BPF maps
+lb/maps-dump maps.actual
+* grep 'SLOT=0.*COUNT=3 QCOUNT=0' maps3.expected
+* cmp maps.actual maps3.expected
+
+# The quarantined restored state is clean now.
+test/bpfops-summary
+stdout 'restoredQuarantines: 0'
+stdout 'restoredServiceIDs: 0'
+stdout 'restoredBackendIDs: 0'
+
+-- maps_init.expected --
+REV: ID=1 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- maps0.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- maps1.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=1 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- maps2.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
+BE: ID=3 ADDR=10.244.1.3:80/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=1 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=3 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- maps3.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
+BE: ID=3 ADDR=10.244.1.3:80/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=3 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=3 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- services.table --
+Name
+test/echo
+
+-- backends_unhealthy.table --
+Address             Instances
+10.244.1.1:80/TCP   test/echo (http)
+10.244.1.2:80/TCP   test/echo [unhealthy] (http)
+
+
+-- backends_healthy1.table --
+Address             Instances
+10.244.1.1:80/TCP   test/echo (http)
+10.244.1.2:80/TCP   test/echo (http)
+
+-- backends_healthy2.table --
+Address             Instances
+10.244.1.1:80/TCP   test/echo (http)
+10.244.1.2:80/TCP   test/echo (http)
+10.244.1.3:80/TCP   test/echo (http)
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    service.cilium.io/health-checked: "true"
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  - 10.244.1.2
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice2.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  - 10.244.1.2
+  - 10.244.1.3
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP

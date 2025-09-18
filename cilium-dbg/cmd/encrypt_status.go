@@ -182,7 +182,7 @@ func maxSequenceNumber() (string, error) {
 	if maxSeqNum == 0 {
 		return "N/A", nil
 	}
-	return fmt.Sprintf("0x%x/0xffffffff", maxSeqNum), nil
+	return fmt.Sprintf("0x%x/0xffffffffffffffff", maxSeqNum), nil
 }
 
 func isDecryptionInterface(link netlink.Link) (bool, error) {
@@ -194,8 +194,9 @@ func isDecryptionInterface(link netlink.Link) (bool, error) {
 		if bpfFilter, ok := f.(*netlink.BpfFilter); ok {
 			// We consider the interface a decryption interface if it has the
 			// BPF program we use to mark ESP packets for decryption, that is
-			// the cil_from_network BPF program.
-			if strings.Contains(bpfFilter.Name, "cil_from_network") {
+			// the cil_from_network or cil_from_netdev BPF programs.
+			if strings.Contains(bpfFilter.Name, "cil_from_network") ||
+				strings.Contains(bpfFilter.Name, "cil_from_netdev") {
 				return true, nil
 			}
 		}

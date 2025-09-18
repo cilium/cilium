@@ -47,7 +47,7 @@ func setupKvstore(ctx context.Context, logger *slog.Logger) kvstore.BackendOpera
 		}
 	}
 
-	client, errch := kvstore.NewClient(ctx, logger, kvStore, kvStoreOpts, nil)
+	client, errch := kvstore.NewClient(ctx, logger, kvStore, kvStoreOpts, kvstore.ExtraOptions{})
 	select {
 	case <-ctx.Done():
 		Fatalf("Unable to connect to the kvstore")
@@ -64,5 +64,5 @@ func init() {
 	RootCmd.AddCommand(kvstoreCmd)
 	flags := kvstoreCmd.PersistentFlags()
 	flags.StringVar(&kvStore, "kvstore", "", "Key-Value Store type")
-	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-Value Store options")
+	flags.Var(option.NewMapOptions(&kvStoreOpts), "kvstore-opt", "Key-Value Store options")
 }

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -25,6 +24,8 @@ static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
 
 #include <bpf_lxc.c>
+
+ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"

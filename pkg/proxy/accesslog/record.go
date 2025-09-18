@@ -254,7 +254,8 @@ type DNSDataSource string
 const (
 	// DNSSourceProxy indicates that the DNS record was created by a proxy
 	// intercepting a DNS request/response.
-	DNSSourceProxy DNSDataSource = "proxy"
+	DNSSourceProxy           DNSDataSource = "proxy"
+	DNSSourceStandaloneProxy DNSDataSource = "standalone-proxy"
 )
 
 // LogRecordDNS contains the DNS specific portion of a log record

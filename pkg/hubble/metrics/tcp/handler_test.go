@@ -4,7 +4,6 @@
 package tcp
 
 import (
-	"context"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -76,7 +75,7 @@ func TestTcpHandler(t *testing.T) {
 
 		t.Run("ProcessSupportedFlagsFlow_"+tc.name, func(t *testing.T) {
 			flow := buildFlow(tc.flags)
-			_ = tcpHandler.ProcessFlow(context.TODO(), flow)
+			_ = tcpHandler.ProcessFlow(t.Context(), flow)
 
 			metricFamilies, err := registry.Gather()
 			require.NoError(t, err)
@@ -99,7 +98,7 @@ func TestTcpHandler(t *testing.T) {
 			assert.Equal(t, 1., *metric.Counter.Value)
 
 			//send another flow with same labels
-			tcpHandler.ProcessFlow(context.TODO(), flow)
+			tcpHandler.ProcessFlow(t.Context(), flow)
 			metricFamilies, _ = registry.Gather()
 			metric = metricFamilies[0].Metric[0]
 			assert.Equal(t, 2., *metric.Counter.Value)
@@ -140,7 +139,7 @@ func TestTcpHandler(t *testing.T) {
 
 		t.Run("ProcessUnsupportedFlagsFlow_"+tc.name, func(t *testing.T) {
 			flow := buildFlow(tc.flags)
-			_ = tcpHandler.ProcessFlow(context.TODO(), flow)
+			_ = tcpHandler.ProcessFlow(t.Context(), flow)
 
 			metricFamilies, err := registry.Gather()
 			require.NoError(t, err)

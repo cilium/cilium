@@ -9,12 +9,12 @@ package endpoint
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 	"sort"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -23,9 +23,11 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -35,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // GetLabelsModel returns the labels of the endpoint in their representation
@@ -61,12 +64,12 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(ctx context.Context, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, model *models.EndpointChangeRequest) (*Endpoint, error) {
+func NewEndpointFromChangeModel(ctx context.Context, logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, model *models.EndpointChangeRequest, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig) (*Endpoint, error) {
 	if model == nil {
 		return nil, nil
 	}
 
-	ep := createEndpoint(dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, uint16(model.ID), model.InterfaceName)
+	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, uint16(model.ID), model.InterfaceName, wgCfg, ipsecCfg)
 	ep.ifIndex = int(model.InterfaceIndex)
 	ep.containerIfName = model.ContainerInterfaceName
 	ep.parentIfIndex = int(model.ParentInterfaceIndex)
@@ -105,10 +108,12 @@ func NewEndpointFromChangeModel(ctx context.Context, dnsRulesAPI DNSRulesAPI, ep
 			// Don't return on error (and block the endpoint creation) as this
 			// is an unusual case where data could have been malformed. Defer error
 			// logging to individual features depending on the metadata.
-			log.WithError(err).WithFields(logrus.Fields{
-				"netns_cookie": model.NetnsCookie,
-				"ep_id":        model.ID,
-			}).Error("unable to parse netns cookie for ep")
+			ep.getLogger().Error(
+				"unable to parse netns cookie for ep",
+				logfields.Error, err,
+				logfields.NetnsCookie, model.NetnsCookie,
+				logfields.EndpointID, model.ID,
+			)
 		} else {
 			ep.NetNsCookie = uint64(cookie64)
 		}
@@ -570,7 +575,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 	rev := e.replaceIdentityLabels(labels.LabelSourceAny, newEp.labels.IdentityLabels())
 	if rev != 0 {
 		// Run as a goroutine since the runIdentityResolver needs to get the lock
-		go e.runIdentityResolver(e.aliveCtx, false)
+		go e.runIdentityResolver(e.aliveCtx, false, 0)
 	}
 
 	// If desired state is waiting-for-identity but identity is already

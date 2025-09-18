@@ -13,18 +13,19 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/act"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -104,6 +105,7 @@ type ACT struct {
 	log     *slog.Logger
 	src     act.ActiveConnectionTrackingMap
 	metrics ActiveConnectionTrackingMetrics
+	lbmaps  lbmaps.LBMaps
 
 	// keyToStrings converts (svc, zone) pair to their string versions
 	keyToStrings func(key *act.ActiveConnectionTrackerKey) (zone string, svc string, err error)
@@ -128,13 +130,15 @@ func NewACT(in struct {
 	Jobs      job.Group
 	Source    act.ActiveConnectionTrackingMap
 	Metrics   ActiveConnectionTrackingMetrics
-	Service   service.ServiceManager
+	LBMaps    lbmaps.LBMaps
+	DB        *statedb.DB
+	Frontends statedb.Table[*loadbalancer.Frontend]
 }) *ACT {
 	if !in.Conf.EnableActiveConnectionTracking {
 		// Active Connection Tracking is disabled.
 		return nil
 	}
-	a := newAct(in.Log, in.Source, in.Metrics, in.Service, option.Config)
+	a := newAct(in.Log, in.Jobs, in.Source, in.Metrics, in.DB, in.Frontends, option.Config)
 	a.trig = job.NewTrigger()
 
 	in.Jobs.Add(job.Timer("act-metrics-update", a.update, metricsUpdateInterval))
@@ -143,7 +147,6 @@ func NewACT(in struct {
 	in.Jobs.Add(job.OneShot("act-metrics-init",
 		func(ctx context.Context, health cell.Health) error { return a.update(ctx) },
 	))
-	in.Lifecycle.Append(in.Jobs)
 	in.Lifecycle.Append(cell.Hook{
 		OnStop: func(_ cell.HookContext) error {
 			return a.saveFailed()
@@ -153,30 +156,56 @@ func NewACT(in struct {
 	return a
 }
 
-func newAct(log *slog.Logger, src act.ActiveConnectionTrackingMap, metrics ActiveConnectionTrackingMetrics, svcMgr service.ServiceManager, opts *option.DaemonConfig) *ACT {
+func newAct(log *slog.Logger, jg job.Group, src act.ActiveConnectionTrackingMap, metrics ActiveConnectionTrackingMetrics, db *statedb.DB, frontends statedb.Table[*loadbalancer.Frontend], opts *option.DaemonConfig) *ACT {
 	tracker := make(map[uint8]map[uint16]*actMetric, len(opts.FixedZoneMapping))
 	for zone := range opts.ReverseFixedZoneMapping {
 		tracker[zone] = make(map[uint16]*actMetric)
 	}
+
+	// Maintain a mapping of service IDs to frontend address.
+	var idToRef lock.Map[loadbalancer.ServiceID, string]
+
+	if db != nil && frontends != nil {
+		jg.Add(
+			job.Observer[statedb.Change[*loadbalancer.Frontend]](
+				"service-ids",
+				func(ctx context.Context, change statedb.Change[*loadbalancer.Frontend]) error {
+					if change.Deleted {
+						idToRef.Delete(change.Object.ID)
+					} else if change.Object.Status.Kind == reconciler.StatusKindDone {
+						idToRef.Store(change.Object.ID, change.Object.Address.String())
+					}
+					return nil
+				},
+				statedb.Observable(db, frontends)))
+	}
+
 	kts := func(key *act.ActiveConnectionTrackerKey) (zone string, svc string, err error) {
 		zone = opts.GetZone(key.Zone)
 		if zone == "" {
 			return "", "", fmt.Errorf("resolve zone id: %w", err)
 		}
-
-		ref, err := service.GetID(uint32(byteorder.NetworkToHost16(key.SvcID)))
-		if err != nil || ref == nil {
+		var ok bool
+		svc, ok = idToRef.Load(loadbalancer.ServiceID(byteorder.NetworkToHost16(key.SvcID)))
+		if !ok {
 			return "", "", fmt.Errorf("resolve svc id: %w", err)
 		}
-		svc = ref.String()
 		return
 	}
+	getIDs := func() (ids []loadbalancer.ServiceID) {
+		idToRef.Range(func(key loadbalancer.ServiceID, value string) bool {
+			ids = append(ids, key)
+			return true
+		})
+		return
+	}
+
 	return &ACT{
 		log:          log,
 		src:          src,
 		metrics:      metrics,
 		keyToStrings: kts,
-		svcIDs:       svcMgr.GetServiceIDs,
+		svcIDs:       getIDs,
 		mux:          new(lock.Mutex),
 		tracker:      tracker,
 	}
@@ -224,14 +253,16 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 		return
 	}
 
+	labelValues := []string{"", ""}
+	copy(labelValues, entry.labelValues)
 	opened, closed := uint64(value.Opened), uint64(value.Closed)
 	if opened == entry.opened && closed == entry.closed && entry.newFailed == 0 {
 		if entry.updated.IsZero() {
 			// New and inactive entry.
 			return
 		}
-		n := a.metrics.New.WithLabelValues(entry.labelValues...)
-		f := a.metrics.Failed.WithLabelValues(entry.labelValues...)
+		n := a.metrics.New.WithLabelValues(labelValues...)
+		f := a.metrics.Failed.WithLabelValues(labelValues...)
 		if n.Get()+f.Get() > 0 {
 			// Reset published metrics only once.
 			n.Set(0)
@@ -254,7 +285,7 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 	}
 
 	entry.failed += entry.newFailed
-	a.metrics.Failed.WithLabelValues(entry.labelValues...).Set(float64(entry.newFailed))
+	a.metrics.Failed.WithLabelValues(labelValues...).Set(float64(entry.newFailed))
 	if entry.newFailed > 0 {
 		a.src.SaveFailed(key, entry.failed)
 	}
@@ -267,10 +298,10 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 		)
 		opened = closed + entry.failed
 	}
-	a.metrics.Active.WithLabelValues(entry.labelValues...).Set(float64(active))
+	a.metrics.Active.WithLabelValues(labelValues...).Set(float64(active))
 
 	new := opened - entry.opened
-	a.metrics.New.WithLabelValues(entry.labelValues...).Set(float64(new))
+	a.metrics.New.WithLabelValues(labelValues...).Set(float64(new))
 
 	entry.opened = opened
 	entry.closed = closed
@@ -293,9 +324,11 @@ func (a *ACT) update(ctx context.Context) error {
 
 func (a *ACT) dropEntry(zone uint8, svc uint16) {
 	entry := a.tracker[zone][svc]
-	a.metrics.New.DeleteLabelValues(entry.labelValues...)
-	a.metrics.Active.DeleteLabelValues(entry.labelValues...)
-	a.metrics.Failed.DeleteLabelValues(entry.labelValues...)
+	labelValues := []string{"", ""}
+	copy(labelValues, entry.labelValues)
+	a.metrics.New.DeleteLabelValues(labelValues...)
+	a.metrics.Active.DeleteLabelValues(labelValues...)
+	a.metrics.Failed.DeleteLabelValues(labelValues...)
 
 	delete(a.tracker[zone], svc)
 }
@@ -336,26 +369,26 @@ func (a *ACT) cleanup(ctx context.Context) error {
 // CountFailed4 increments a counter of new failed connections
 // for a given (svc, backend) pair.
 func (a *ACT) CountFailed4(svc uint16, backend uint32) {
-	key := lbmap.NewBackend4KeyV3(loadbalancer.BackendID(backend))
+	key := lbmaps.NewBackend4KeyV3(loadbalancer.BackendID(backend))
 	a.countFailed(svc, key)
 }
 
 // CountFailed6 increments a counter of new failed connections
 // for a given (svc, backend) pair.
 func (a *ACT) CountFailed6(svc uint16, backend uint32) {
-	key := lbmap.NewBackend6KeyV3(loadbalancer.BackendID(backend))
+	key := lbmaps.NewBackend6KeyV3(loadbalancer.BackendID(backend))
 	a.countFailed(svc, key)
 }
 
 // countFailed looks up zone information in the backend map and then increments
 // a counter of new failed connection for a constructed (svc, zone) pair.
-func (a *ACT) countFailed(svc uint16, key lbmap.BackendKey) {
+func (a *ACT) countFailed(svc uint16, key lbmaps.BackendKey) {
 	scopedLog := a.log.With(
 		logfields.ServiceID, byteorder.NetworkToHost16(svc),
 		logfields.BackendID, key.GetID(),
 	)
 
-	val, err := key.Map().Lookup(key)
+	val, err := a.lbmaps.LookupBackend(key)
 	if err != nil {
 		msg := "lookup of purged entry failed"
 		errMetric := a.metrics.Errors.WithLabelValues(msg)
@@ -371,7 +404,7 @@ func (a *ACT) countFailed(svc uint16, key lbmap.BackendKey) {
 		)
 		return
 	}
-	zone := val.(lbmap.BackendValue).GetZone()
+	zone := val.GetZone()
 	if zone == 0 {
 		scopedLog.Debug("Ignoring backend without zone")
 		return

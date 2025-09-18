@@ -13,6 +13,9 @@ on:
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
+  # Run every 8 hours
+  schedule:
+    - cron: '0 4/8 * * *'
 
 permissions: read-all
 
@@ -44,7 +47,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
 
@@ -61,7 +64,7 @@ jobs:
           TMP_DIR=$(mktemp -d)
           # Test binaries
           curl -L https://dl.k8s.io/${{ env.KIND_K8S_VERSION }}/kubernetes-test-linux-amd64.tar.gz -o ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz
-          tar xvzf ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz \
+          tar -xvzf ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz \
             --directory ${TMP_DIR} \
             --strip-components=3 kubernetes/test/bin/ginkgo kubernetes/test/bin/e2e.test
           # kubectl
@@ -136,13 +139,13 @@ jobs:
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=cni.chainingMode=portmap \
             --helm-set=kubeProxyReplacement=true \
-            --helm-set=identityChangeGracePeriod="0s" \
+            --helm-set=identityChangeGracePeriod=\"0s\" \
             --helm-set=sctp.enabled=true"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@024e340cca1465e2a6336521f12370c7ca58c59a # v0.18.7
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -201,35 +204,35 @@ jobs:
             --report-dir=${E2E_REPORT_DIR}                \
             --disable-log-dump=true
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }}"
+      # Check for file-descriptor leaks from the cilium-agent process.
+      # There's no particular reason why we are checking it here, but
+      # it is a good idea to check for leaks in a CI job as this was migrated
+      # from the runtime tests' framework.
+      - name: File-descriptor leak detector
+        run: |
+          for p in $(pidof cilium-agent); do
+            num=$(sudo lsof -p $p | wc -l)
+            echo "cilium-agent($p) has $num file descriptors open"
+            if [ "$num" -gt "5000" ]; then
+              echo "cilium-agent($p) has more than 5000 file descriptors (potential leak)"
+              sudo lsof -p $p
+              exit 1
+            fi
+          done
+
+      - name: Create Cilium JUnits Directory
+        if: ${{ steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          # Move the all artifacts to cilium-junits directory since that's the
+          # directory used in the common post steps.
+          mv _artifacts cilium-junits
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-final
+          mkdir -p ./_artifacts/logs
           /usr/local/bin/kind export logs --name  ${{ env.cluster_name }} --verbosity=3 ./_artifacts/logs
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
-
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdumps
-          path: cilium-sysdump-*.zip
-          retention-days: 5
-
-      - name: Upload features tested
-        if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: features-tested
-          path: ${{ env.job_name }}*.json
 
       - name: Upload cluster logs
         if: ${{ !success() }}
@@ -239,15 +242,9 @@ jobs:
           path: ./_artifacts/logs
           retention-days: 5
 
-      - name: Upload Kubernetes e2e Junit Reports
-        if: ${{ success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: kubernetes-e2e-junit
-          path: './_artifacts/*.xml'
-
-      - name: Publish Test Results As GitHub Summary
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        uses: ./.github/actions/post-logic
         with:
-          junit-directory: "_artifacts"
+          artifacts_suffix: "${{ matrix.ipFamily }}"
+          job_status: "${{ job.status }}"

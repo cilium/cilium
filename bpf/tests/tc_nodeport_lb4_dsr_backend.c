@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -12,8 +11,6 @@
 #define ENABLE_DSR		1
 #define DSR_ENCAP_GENEVE	3
 #define ENABLE_HOST_ROUTING
-
-#define DISABLE_LOOPBACK_LB
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -35,7 +32,7 @@ static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *backend_mac = mac_four;
 
-__section("mock-handle-policy")
+__section_entry
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
 {
 	return TC_ACT_REDIRECT;
@@ -112,7 +109,6 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #define TO_NETDEV	1
 
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -270,10 +266,12 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *ct_entry;
-	int l4_off, ret;
+	int l3_off, l4_off, ret;
 
-	ret = lb4_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				ipfrag_encode_ipv4(l3), &l4_off, &tuple);
+	l3_off = sizeof(*status_code) + ETH_HLEN;
+	l4_off = l3_off + ipv4_hdrlen(l3);
+
+	ret = lb4_extract_tuple(ctx, l3, ipfrag_encode_ipv4(l3), l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;
@@ -545,10 +543,12 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *ct_entry;
-	int l4_off, ret;
+	int l3_off, l4_off, ret;
 
-	ret = lb4_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				ipfrag_encode_ipv4(l3), &l4_off, &tuple);
+	l3_off = sizeof(*status_code) + ETH_HLEN;
+	l4_off = l3_off + ipv4_hdrlen(l3);
+
+	ret = lb4_extract_tuple(ctx, l3, ipfrag_encode_ipv4(l3), l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;

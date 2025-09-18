@@ -29,29 +29,46 @@ type IPSecAH struct {
 func (i *IPSecAH) LayerType() gopacket.LayerType { return LayerTypeIPSecAH }
 
 func decodeIPSecAH(data []byte, p gopacket.PacketBuilder) error {
+	i := &IPSecAH{}
+	return decodingLayerDecoder(i, data, p)
+}
+
+// DecodeFromBytes takes a byte buffer and decodes
+func (i *IPSecAH) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 12 {
-		p.SetTruncated()
+		df.SetTruncated()
 		return errors.New("IPSec AH packet less than 12 bytes")
 	}
-	i := &IPSecAH{
-		ipv6ExtensionBase: ipv6ExtensionBase{
-			NextHeader:   IPProtocol(data[0]),
-			HeaderLength: data[1],
-		},
-		Reserved: binary.BigEndian.Uint16(data[2:4]),
-		SPI:      binary.BigEndian.Uint32(data[4:8]),
-		Seq:      binary.BigEndian.Uint32(data[8:12]),
+
+	i.ipv6ExtensionBase = ipv6ExtensionBase{
+		NextHeader:   IPProtocol(data[0]),
+		HeaderLength: data[1],
 	}
+
+	i.Reserved = binary.BigEndian.Uint16(data[2:4])
+	i.SPI = binary.BigEndian.Uint32(data[4:8])
+	i.Seq = binary.BigEndian.Uint32(data[8:12])
+
 	i.ActualLength = (int(i.HeaderLength) + 2) * 4
 	if len(data) < i.ActualLength {
-		p.SetTruncated()
+		df.SetTruncated()
 		return errors.New("Truncated AH packet < ActualLength")
 	}
 	i.AuthenticationData = data[12:i.ActualLength]
 	i.Contents = data[:i.ActualLength]
 	i.Payload = data[i.ActualLength:]
-	p.AddLayer(i)
-	return p.NextDecoder(i.NextHeader)
+
+	return nil
+}
+
+// CanDecode returns the layer type this DecodingLayer can decode
+func (i *IPSecAH) CanDecode() gopacket.LayerClass {
+	return LayerTypeIPSecAH
+}
+
+// NextLayerType returns the next layer we should see after IPSecAH
+func (i *IPSecAH) NextLayerType() gopacket.LayerType {
+	return i.NextHeader.LayerType()
 }
 
 // IPSecESP is the encapsulating security payload defined in
@@ -67,12 +84,31 @@ type IPSecESP struct {
 func (i *IPSecESP) LayerType() gopacket.LayerType { return LayerTypeIPSecESP }
 
 func decodeIPSecESP(data []byte, p gopacket.PacketBuilder) error {
-	i := &IPSecESP{
-		BaseLayer: BaseLayer{data, nil},
-		SPI:       binary.BigEndian.Uint32(data[:4]),
-		Seq:       binary.BigEndian.Uint32(data[4:8]),
-		Encrypted: data[8:],
+	i := &IPSecESP{}
+	return decodingLayerDecoder(i, data, p)
+}
+
+// DecodeFromBytes takes a byte buffer and decodes
+func (i *IPSecESP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 8 {
+		df.SetTruncated()
+		return errors.New("IPSec ESP packet less than 8 bytes")
 	}
-	p.AddLayer(i)
+
+	i.BaseLayer = BaseLayer{data, nil}
+	i.SPI = binary.BigEndian.Uint32(data[:4])
+	i.Seq = binary.BigEndian.Uint32(data[4:8])
+	i.Encrypted = data[8:]
+
 	return nil
+}
+
+// CanDecode returns the layer type this DecodingLayer can decode
+func (i *IPSecESP) CanDecode() gopacket.LayerClass {
+	return LayerTypeIPSecESP
+}
+
+// NextLayerType retuns the next layer we should see after IPSecESP
+func (i *IPSecESP) NextLayerType() gopacket.LayerType {
+	return gopacket.LayerTypePayload
 }

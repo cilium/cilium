@@ -8,13 +8,14 @@
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
-#include "tailcall.h"
 #include "common.h"
 #include "overloadable.h"
 #include "identity.h"
 
 #include "lib/proxy.h"
 #include "lib/l4.h"
+
+#include "linux/icmpv6.h"
 
 /* ctx_is_wireguard is used to check whether ctx is a WireGuard network packet.
  * This function returns true in case all the following conditions are satisfied:
@@ -67,6 +68,14 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	struct iphdr __maybe_unused *ip4;
 	__u32 magic __maybe_unused = 0;
 
+# if defined(HAVE_ENCAP)
+		/* In tunneling mode WG needs to encrypt tunnel traffic,
+		 * so that src sec ID can be transferred.
+		 */
+		if (ctx_is_overlay(ctx))
+			goto overlay_encrypt;
+# endif /* HAVE_ENCAP */
+
 	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
 
@@ -85,17 +94,12 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		 * by filtering out icmpv6 NA.
 		 */
 		if (ip6->nexthdr == IPPROTO_ICMPV6) {
-			__u8 icmp_type;
+			struct icmp6hdr *icmp6 = (void *)ip6 + sizeof(*ip6);
 
-			if (data + sizeof(*ip6) + ETH_HLEN +
-			    sizeof(struct icmp6hdr) > data_end)
+			if ((void *)icmp6 + sizeof(*icmp6) > data_end)
 				return DROP_INVALID;
 
-			if (icmp6_load_type(ctx, ETH_HLEN + sizeof(struct ipv6hdr),
-					    &icmp_type) < 0)
-				return DROP_INVALID;
-
-			if (icmp_type == ICMP6_NA_MSG_TYPE)
+			if (icmp6->icmp6_type == ICMPV6_NA_MSG)
 				goto out;
 		}
 #endif
@@ -114,16 +118,6 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	case bpf_htons(ETH_P_IP):
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
-# if defined(HAVE_ENCAP)
-		/* In tunneling mode WG needs to encrypt tunnel traffic,
-		 * so that src sec ID can be transferred.
-		 *
-		 * This also handles IPv6, as IPv6 pkts are encapsulated w/
-		 * IPv4 tunneling.
-		 */
-		if (ctx_is_overlay(ctx))
-			goto overlay_encrypt;
-# endif /* HAVE_ENCAP */
 
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
@@ -201,10 +195,8 @@ static __always_inline bool
 strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 	struct remote_endpoint_info __maybe_unused *dest_info, __maybe_unused *src_info;
 	bool __maybe_unused in_strict_cidr = false;
+	struct iphdr __maybe_unused *ip4;
 	void *data, *data_end;
-#ifdef ENABLE_IPV4
-	struct iphdr *ip4;
-#endif
 
 	switch (proto) {
 #ifdef ENABLE_IPV4
@@ -229,8 +221,7 @@ strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 #if defined(TUNNEL_MODE) || defined(STRICT_IPV4_OVERLAPPING_CIDR)
 		/* Allow pod to remote-node communication */
 		dest_info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (dest_info && dest_info->sec_identity &&
-		    identity_is_node(dest_info->sec_identity))
+		if (dest_info && identity_is_node(dest_info->sec_identity))
 			return true;
 #endif /* TUNNEL_MODE || STRICT_IPV4_OVERLAPPING_CIDR */
 		return !in_strict_cidr;

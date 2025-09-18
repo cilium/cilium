@@ -7,100 +7,23 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
+	"unicode"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/lock"
 )
 
-type inMemoryModule struct {
-	db *statedb.DB
-
-	mu lock.Mutex
-
-	// clients key'd by cluster name
-	clients map[string]*inMemoryClient
-
-	dummy bool
-}
-
-const InMemoryModuleName = "in-memory"
-
-func SetupInMemory(db *statedb.DB) {
-	registeredBackends[InMemoryModuleName] = &inMemoryModule{
-		db:      db,
-		clients: map[string]*inMemoryClient{},
-	}
-}
-
-// createInstance implements backendModule.
-func (i *inMemoryModule) createInstance() backendModule {
-	return i
-}
-
-// getConfig implements backendModule.
-func (i *inMemoryModule) getConfig() map[string]string {
-	return nil
-}
-
-// getName implements backendModule.
-func (i *inMemoryModule) getName() string {
-	return InMemoryModuleName
-}
-
-// newClient implements backendModule.
-func (im *inMemoryModule) newClient(ctx context.Context, logger *slog.Logger, opts *ExtraOptions) (BackendOperations, chan error) {
-	clusterName := ""
-	if im.dummy {
-		// If setConfigDummy() was called all clients share the same table.
-		clusterName = "dummy"
-	} else if opts != nil {
-		clusterName = opts.ClusterName
-	}
-	errChan := make(chan error)
-	close(errChan)
-
-	im.mu.Lock()
-	defer im.mu.Unlock()
-	if c, found := im.clients[clusterName]; found {
-		return c, errChan
-	}
-	c := newInMemoryClient(im.db, clusterName)
-	im.clients[clusterName] = c
-	return c, errChan
-}
-
-// setConfig implements backendModule.
-func (i *inMemoryModule) setConfig(logger *slog.Logger, opts map[string]string) error {
-	return nil
-}
-
-// setConfigDummy implements backendModule.
-func (im *inMemoryModule) setConfigDummy() {
-	im.dummy = true
-}
-
-// setExtraConfig implements backendModule.
-func (i *inMemoryModule) setExtraConfig(opts *ExtraOptions) error {
-	return nil
-}
-
-var _ backendModule = &inMemoryModule{}
-
-func newInMemoryClient(db *statedb.DB, clusterName string) *inMemoryClient {
+func NewInMemoryClient(db *statedb.DB, clusterName string) Client {
 	table, err := statedb.NewTable(
+		db,
 		"kvstore-"+clusterName,
 		inMemoryKeyIndex,
 	)
 	if err != nil {
-		panic(err)
-	}
-	if err := db.RegisterTable(table); err != nil {
 		panic(err)
 	}
 	return &inMemoryClient{
@@ -114,6 +37,37 @@ type inMemoryObject struct {
 	key   string
 	value []byte
 }
+
+// TableHeader implements statedb.TableWritable.
+func (i inMemoryObject) TableHeader() []string {
+	return []string{
+		"Key",
+		"Value",
+	}
+}
+
+// TableRow implements statedb.TableWritable.
+func (i inMemoryObject) TableRow() []string {
+	valueIsAscii := true
+	for _, b := range i.value {
+		if b > unicode.MaxASCII {
+			valueIsAscii = false
+			break
+		}
+	}
+	var value string
+	if valueIsAscii {
+		value = string(i.value)
+	} else {
+		value = fmt.Sprintf("0x%x", i.value)
+	}
+	return []string{
+		i.key,
+		value,
+	}
+}
+
+var _ statedb.TableWritable = inMemoryObject{}
 
 var (
 	inMemoryKeyIndex = statedb.Index[inMemoryObject, string]{
@@ -133,15 +87,10 @@ type inMemoryClient struct {
 	clusterName string
 }
 
+func (c *inMemoryClient) IsEnabled() bool { return true }
+
 // Close implements BackendOperations.
 func (c *inMemoryClient) Close() {
-}
-
-// Connected implements BackendOperations.
-func (c *inMemoryClient) Connected(ctx context.Context) <-chan error {
-	out := make(chan error)
-	close(out)
-	return out
 }
 
 // CreateOnly implements BackendOperations.
@@ -284,8 +233,10 @@ func (c *inMemoryClient) LockPath(ctx context.Context, path string) (KVLocker, e
 
 // RegisterLeaseExpiredObserver implements BackendOperations.
 func (c *inMemoryClient) RegisterLeaseExpiredObserver(prefix string, fn func(key string)) {
-	panic("unimplemented")
 }
+
+// RegisterLockLeaseExpiredObserver implements BackendOperations.
+func (c *inMemoryClient) RegisterLockLeaseExpiredObserver(prefix string, fn func(key string)) {}
 
 // Status implements BackendOperations.
 func (c *inMemoryClient) Status() *models.Status {

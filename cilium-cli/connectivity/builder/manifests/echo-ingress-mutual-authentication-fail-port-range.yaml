@@ -11,6 +11,8 @@ spec:
   - fromEndpoints:
     - matchLabels:
         kind: client
+      matchExpressions:
+      - { key: io.cilium.k8s.policy.cluster, operator: Exists }
     toPorts:
     - ports:
       - port: "4096"

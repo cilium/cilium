@@ -8,6 +8,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -17,6 +18,7 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/hubble/cmd/observe"
 	"github.com/cilium/cilium/hubble/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 //go:embed observe_help.txt
@@ -26,7 +28,8 @@ func init() {
 	// Override the client so that it always returns an IOReaderObserver with no flows.
 	observe.GetHubbleClientFunc = func(_ context.Context, _ *viper.Viper) (client observerpb.ObserverClient, cleanup func() error, err error) {
 		cleanup = func() error { return nil }
-		return observe.NewIOReaderObserver(new(bytes.Buffer)), cleanup, nil
+		// slogloggercheck: the default logger is enough for tests.
+		return observe.NewIOReaderObserver(logging.DefaultSlogLogger, new(bytes.Buffer)), cleanup, nil
 	}
 
 	expectedObserveHelp = fmt.Sprintf(expectedObserveHelp, defaults.ConfigFile)
@@ -38,6 +41,12 @@ var observeRawFilterOut = `allowlist:
 denylist:
     - '{"source_ip":["1.1.1.1"]}'
 `
+
+func normalizeNewlines(content string) string {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	content = strings.ReplaceAll(content, "\r", "\n")
+	return content
+}
 
 func TestTestHubbleObserve(t *testing.T) {
 	tests := []struct {
@@ -114,7 +123,7 @@ Use "hubble [command] --help" for more information about a command.
 			cli.SetArgs(tt.args)
 			err := cli.Execute()
 			require.Equal(t, tt.expectErr, err)
-			output := b.String()
+			output := normalizeNewlines(b.String())
 			if tt.expectedOutput != "" {
 				assert.Equal(t, tt.expectedOutput, output, "expected output does not match")
 			}

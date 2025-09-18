@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/node"
-
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-
-	discoverypb "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	core_v1 "k8s.io/api/core/v1"
+
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 func TestCell_SuccessfullyRunClient(t *testing.T) {
@@ -24,8 +24,9 @@ func TestCell_SuccessfullyRunClient(t *testing.T) {
 	h := hive.New(
 		cell.Provide(NewDefaultNodeProvider),
 		cell.Provide(NewInsecureGRPCOptionsProvider),
-		node.LocalNodeStoreCell,
+		node.LocalNodeStoreTestCell,
 		Cell,
+		cell.Provide(func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} }),
 		cell.Invoke(func(localNodeStore *node.LocalNodeStore) {
 			localNodeStore.Update(func(n *node.LocalNode) {
 				hLog.Info("Update localNodeStore")
@@ -84,7 +85,7 @@ func TestCell_NoServerProvided(t *testing.T) {
 	h := hive.New(
 		cell.Provide(NewDefaultNodeProvider),
 		cell.Provide(NewInsecureGRPCOptionsProvider),
-		node.LocalNodeStoreCell,
+		node.LocalNodeStoreTestCell,
 		Cell,
 		cell.Invoke(func(localNodeStore *node.LocalNodeStore) {
 			localNodeStore.Update(func(n *node.LocalNode) {

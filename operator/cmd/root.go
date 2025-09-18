@@ -12,10 +12,8 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -23,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/client-go/util/workqueue"
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
@@ -42,11 +41,14 @@ import (
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
+	"github.com/cilium/cilium/operator/pkg/kvstore/locksweeper"
+	"github.com/cilium/cilium/operator/pkg/kvstore/nodesgc"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
+	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	cmoperator "github.com/cilium/cilium/pkg/clustermesh/operator"
@@ -57,12 +59,13 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging"
@@ -71,6 +74,8 @@ import (
 	features "github.com/cilium/cilium/pkg/metrics/features/operator"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	shellclient "github.com/cilium/cilium/pkg/shell/client"
+	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -81,6 +86,16 @@ var (
 
 		Infrastructure,
 		ControlPlane,
+
+		// This needs to be the last in the list, so that the start hook responsible
+		// for the operator leader election is guaranteed to be executed last, when
+		// all the previous ones have already completed. Otherwise, cells within
+		// the "WithLeaderLifecycle" scope may be incorrectly started too early,
+		// given that "registerOperatorHooks" does not depend on all of their
+		// individual dependencies outside of that scope.
+		cell.Invoke(
+			registerOperatorHooks,
+		),
 	)
 
 	Infrastructure = cell.Module(
@@ -109,6 +124,17 @@ var (
 			OperatorK8sClientBurst: 200,
 		}),
 
+		// Provide the logic to map DNS names matching Kubernetes services to the
+		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
+		// and clustermesh. We provide ServiceResource here as it is a dependency
+		// of the ServiceResolverCell.
+		cell.Provide(k8s.ServiceResource),
+		dial.ServiceResolverCell,
+
+		// Provides the Client to access the KVStore.
+		cell.Provide(kvstoreExtraOptions),
+		kvstore.Cell(kvstore.DisabledBackendName),
+
 		// Provides the modular metrics registry, metric HTTP server and legacy metrics cell.
 		operatorMetrics.Cell,
 		cell.Provide(func(
@@ -122,6 +148,9 @@ var (
 				EnableMetrics: operatorCfg.EnableMetrics,
 			}
 		}),
+
+		// Shell for inspecting the operator. Listens on the 'shell.sock' UNIX socket.
+		shell.Cell,
 	)
 
 	// ControlPlane implements the control functions.
@@ -130,12 +159,9 @@ var (
 		"Operator Control Plane",
 
 		cell.Config(cmtypes.DefaultClusterInfo),
+		cell.Config(cmtypes.DefaultPolicyConfig),
 		cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax),
 		cell.Invoke(cmtypes.ClusterInfo.Validate),
-
-		cell.Invoke(
-			registerOperatorHooks,
-		),
 
 		cell.Provide(func() *option.DaemonConfig {
 			return option.Config
@@ -182,7 +208,6 @@ var (
 		}),
 
 		api.HealthHandlerCell(
-			kvstoreEnabled,
 			isLeader.Load,
 		),
 		api.MetricsHandlerCell,
@@ -196,6 +221,14 @@ var (
 			apis.RegisterCRDsCell,
 			operatorK8s.ResourcesCell,
 
+			// Updates the heartbeat key in the kvstore.
+			heartbeat.Enabled,
+			heartbeat.Cell,
+
+			// Configures the cluster config key in the kvstore.
+			clustercfgcell.WithSyncedCanaries(false),
+			clustercfgcell.Cell,
+
 			bgpv2.Cell,
 			lbipam.Cell,
 			nodeipam.Cell,
@@ -204,6 +237,7 @@ var (
 			cmoperator.Cell,
 			endpointslicesync.Cell,
 			mcsapi.Cell,
+			locksweeper.Cell,
 			legacyCell,
 
 			// When running in kvstore mode, the start hook of the identity GC
@@ -250,6 +284,17 @@ var (
 			// Resources might be K8s `Ingress` or Gateway API `Gateway`.
 			secretsync.Cell,
 
+			// Synchronizes K8s services to KVStore.
+			cell.Provide(func(cfg *operatorOption.OperatorConfig, dcfg *option.DaemonConfig) operatorWatchers.ServiceSyncConfig {
+				return operatorWatchers.ServiceSyncConfig{
+					Enabled: cfg.SyncK8sServices,
+				}
+			}),
+			operatorWatchers.ServiceSyncCell,
+
+			// Synchronizes K8s ServiceExports to KVStore
+			mcsapi.ServiceExportSyncCell,
+
 			// Cilium L7 LoadBalancing with Envoy.
 			ciliumenvoyconfig.Cell,
 
@@ -260,21 +305,17 @@ var (
 			// namespace.
 			networkpolicy.SecretSyncCell,
 
-			// Provide the logic to map DNS names matching Kubernetes services to the
-			// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
-			// and clustermesh.
-			dial.ServiceResolverCell,
-
 			// The feature Cell will retrieve information from all other cells /
 			// configuration to describe, in form of prometheus metrics, which
 			// features are enabled on the operator.
 			features.Cell,
+
+			// GC of stale node entries in the KVStore
+			nodesgc.Cell,
 		),
 	)
 
 	binaryName = filepath.Base(os.Args[0])
-
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, binaryName)
 
 	FlagsHooks []ProviderFlagsHooks
 
@@ -295,10 +336,18 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		Use:   binaryName,
 		Short: "Run " + binaryName,
 		Run: func(cobraCmd *cobra.Command, args []string) {
-			initEnv(h.Viper())
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
+			logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, binaryName)
 
+			initEnv(logger, h.Viper())
+
+			// Pass the DefaultSlogLogger to the hive after being initialized
+			// with the initEnv which sets up the logging.DefaultSlogLogger with
+			// the user-options.
+			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
-				log.Fatal(err)
+				// slogloggercheck: log fatal errors using the default logger before it's initialized.
+				logging.Fatal(logging.DefaultSlogLogger, err.Error())
 			}
 		},
 	}
@@ -317,15 +366,18 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		MetricsCmd,
 		StatusCmd,
 		troubleshoot.Cmd,
+		shellclient.ShellCmd,
 		h.Command(),
 	)
 
-	InitGlobalFlags(cmd, h.Viper())
+	// slogloggercheck: using default logger for configuration initialization
+	InitGlobalFlags(logging.DefaultSlogLogger, cmd, h.Viper())
 	for _, hook := range FlagsHooks {
 		hook.RegisterProviderFlag(cmd, h.Viper())
 	}
 
-	cobra.OnInitialize(option.InitConfig(cmd, "Cilium-Operator", "cilium-operators", h.Viper()))
+	// slogloggercheck: using default logger for configuration initialization
+	cobra.OnInitialize(option.InitConfig(logging.DefaultSlogLogger, cmd, "Cilium-Operator", "cilium-operators", h.Viper()))
 
 	return cmd
 }
@@ -359,17 +411,22 @@ func registerOperatorHooks(log *slog.Logger, lc cell.Lifecycle, llc *LeaderLifec
 	})
 }
 
-func initEnv(vp *viper.Viper) {
-	// Prepopulate option.Config with options from CLI.
+func initEnv(logger *slog.Logger, vp *viper.Viper) {
+	// Setup logging with the options directly from Viper. There's no dependency
+	// from this function with the rest of the DaemonConfig.
 	option.Config.SetupLogging(vp, binaryName)
-	option.Config.Populate(vp)
-	operatorOption.Config.Populate(vp)
+	// Populate the global config with the options from Viper
+	option.Config.Populate(logger, vp)
+
+	// Populate the operator config with the options from Viper
+	operatorOption.Config.Populate(logger, vp)
 
 	// add hooks after setting up metrics in the option.Config
-	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook())
+	logging.AddHandlers(metrics.NewLoggingHook())
 
-	option.LogRegisteredOptions(vp, log)
-	log.Infof("Cilium Operator %s", version.Version)
+	// Register the user options in the logs
+	option.LogRegisteredSlogOptions(vp, logger)
+	logger.Info("Cilium Operator", logfields.Version, version.Version)
 }
 
 func doCleanup() {
@@ -383,7 +440,7 @@ func doCleanup() {
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capability in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
-func runOperator(slog *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func runOperator(log *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	isLeader.Store(false)
 
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
@@ -391,28 +448,16 @@ func runOperator(slog *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Cli
 	if clientset.IsEnabled() {
 		capabilities := k8sversion.Capabilities()
 		if !capabilities.MinimalVersionMet {
-			log.Fatalf("Minimal kubernetes version not met: %s < %s",
-				k8sversion.Version(), k8sversion.MinimalVersionConstraint)
+			logging.Fatal(log, fmt.Sprintf("Minimal kubernetes version not met: %s < %s",
+				k8sversion.Version(), k8sversion.MinimalVersionConstraint))
 		}
-	}
-
-	// We only support Operator in HA mode for Kubernetes Versions having support for
-	// LeasesResourceLock.
-	// See docs on capabilities.LeasesResourceLock for more context.
-	if !k8sversion.Capabilities().LeasesResourceLock {
-		log.Info("Support for coordination.k8s.io/v1 not present, fallback to non HA mode")
-
-		if err := lc.Start(slog, leaderElectionCtx); err != nil {
-			log.WithError(err).Fatal("Failed to start leading")
-		}
-		return
 	}
 
 	// Get hostname for identity name of the lease lock holder.
 	// We identify the leader of the operator cluster using hostname.
 	operatorID, err := os.Hostname()
 	if err != nil {
-		log.WithError(err).Fatal("Failed to get hostname when generating lease lock identity")
+		logging.Fatal(log, "Failed to get hostname when generating lease lock identity", logfields.Error, err)
 	}
 	operatorID = fmt.Sprintf("%s-%s", operatorID, rand.String(10))
 
@@ -434,7 +479,7 @@ func runOperator(slog *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Cli
 		clientset.RestConfig(),
 		operatorOption.Config.LeaderElectionRenewDeadline)
 	if err != nil {
-		log.WithError(err).Fatal("Failed to create resource lock for leader election")
+		logging.Fatal(log, "Failed to create resource lock for leader election", logfields.Error, err)
 	}
 
 	// Start the leader election for running cilium-operators
@@ -451,13 +496,13 @@ func runOperator(slog *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Cli
 
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
-				if err := lc.Start(slog, ctx); err != nil {
-					log.WithError(err).Error("Failed to start when elected leader, shutting down")
+				if err := lc.Start(log, ctx); err != nil {
+					log.Error("Failed to start when elected leader, shutting down", logfields.Error, err)
 					shutdowner.Shutdown(hive.ShutdownWithError(err))
 				}
 			},
 			OnStoppedLeading: func() {
-				log.WithField("operator-id", operatorID).Info("Leader election lost")
+				log.Info("Leader election lost", logfields.OperatorID, operatorID)
 				// Cleanup everything here, and exit.
 				shutdowner.Shutdown(hive.ShutdownWithError(errors.New("Leader election lost")))
 			},
@@ -465,26 +510,15 @@ func runOperator(slog *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Cli
 				if identity == operatorID {
 					log.Info("Leading the operator HA deployment")
 				} else {
-					log.WithFields(logrus.Fields{
-						"newLeader":  identity,
-						"operatorID": operatorID,
-					}).Info("Leader re-election complete")
+					log.Info(
+						"Leader re-election complete",
+						logfields.NewLeader, operatorID,
+						logfields.OperatorID, operatorID,
+					)
 				}
 			},
 		},
 	})
-}
-
-func kvstoreEnabled() bool {
-	if option.Config.KVStore == "" {
-		return false
-	}
-
-	return option.Config.IdentityAllocationMode == option.IdentityAllocationModeKVstore ||
-		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD ||
-		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
-		operatorOption.Config.SyncK8sServices ||
-		operatorOption.Config.SyncK8sNodes
 }
 
 var legacyCell = cell.Module(
@@ -497,37 +531,49 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
+type params struct {
+	cell.In
+	Lifecycle                cell.Lifecycle
+	Clientset                k8sClient.Clientset
+	Resources                operatorK8s.Resources
+	SvcResolver              *dial.ServiceResolver
+	CfgClusterMeshPolicy     cmtypes.PolicyConfig
+	Metrics                  *UnmanagedPodsMetric
+	MetricsRegistry          *metrics.Registry
+	Logger                   *slog.Logger
+	WorkQueueMetricsProvider workqueue.MetricsProvider
+}
+
+func registerLegacyOnLeader(p params) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
-		ctx:          ctx,
-		cancel:       cancel,
-		clientset:    clientset,
-		resources:    resources,
-		storeFactory: factory,
-		svcResolver:  svcResolver,
-		cfgMCSAPI:    cfgMCSAPI,
-		metrics:      metrics,
-		logger:       logger,
+		ctx:                      ctx,
+		cancel:                   cancel,
+		clientset:                p.Clientset,
+		resources:                p.Resources,
+		cfgClusterMeshPolicy:     p.CfgClusterMeshPolicy,
+		workqueueMetricsProvider: p.WorkQueueMetricsProvider,
+		metrics:                  p.Metrics,
+		metricsRegistry:          p.MetricsRegistry,
+		logger:                   p.Logger,
 	}
-	lc.Append(cell.Hook{
+	p.Lifecycle.Append(cell.Hook{
 		OnStart: legacy.onStart,
 		OnStop:  legacy.onStop,
 	})
 }
 
 type legacyOnLeader struct {
-	ctx          context.Context
-	cancel       context.CancelFunc
-	clientset    k8sClient.Clientset
-	wg           sync.WaitGroup
-	resources    operatorK8s.Resources
-	storeFactory store.Factory
-	svcResolver  *dial.ServiceResolver
-	cfgMCSAPI    cmoperator.MCSAPIConfig
-	metrics      *UnmanagedPodsMetric
-
-	logger *slog.Logger
+	ctx                      context.Context
+	cancel                   context.CancelFunc
+	clientset                k8sClient.Clientset
+	wg                       sync.WaitGroup
+	resources                operatorK8s.Resources
+	cfgClusterMeshPolicy     cmtypes.PolicyConfig
+	metrics                  *UnmanagedPodsMetric
+	metricsRegistry          *metrics.Registry
+	workqueueMetricsProvider workqueue.MetricsProvider
+	logger                   *slog.Logger
 }
 
 func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
@@ -539,34 +585,33 @@ func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
 	return nil
 }
 
-// OnOperatorStartLeading is the function called once the operator starts leading
+// onStart is the function called once the operator starts leading
 // in HA mode.
-func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
+func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 	isLeader.Store(true)
 
-	// Restart kube-dns as soon as possible since it helps etcd-operator to be
-	// properly setup. If kube-dns is not managed by Cilium it can prevent
+	// Restart kube-dns as soon as possible to parallelize re-initialization
+	// of DNS with other operation functions.
+	// If kube-dns is not managed by Cilium it can prevent
 	// etcd from reaching out kube-dns in EKS.
 	// If this logic is modified, make sure the operator's clusterrole logic for
 	// pods/delete is also up-to-date.
 	if !legacy.clientset.IsEnabled() {
-		log.Infof("KubeDNS unmanaged pods controller disabled due to kubernetes support not enabled")
+		legacy.logger.InfoContext(ctx, "KubeDNS unmanaged pods controller disabled due to kubernetes support not enabled")
 	} else if option.Config.DisableCiliumEndpointCRD {
-		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
+		legacy.logger.InfoContext(ctx, fmt.Sprintf("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName))
 	} else if operatorOption.Config.UnmanagedPodWatcherInterval != 0 {
 		legacy.wg.Add(1)
 		go func() {
 			defer legacy.wg.Done()
-			enableUnmanagedController(legacy.ctx, &legacy.wg, legacy.clientset, legacy.metrics)
+			enableUnmanagedController(legacy.ctx, legacy.logger, &legacy.wg, legacy.clientset, legacy.metrics)
 		}()
 	}
 
-	var (
-		nodeManager allocator.NodeEventHandler
-		withKVStore bool
+	legacy.logger.InfoContext(ctx,
+		"Initializing IPAM",
+		logfields.Mode, option.Config.IPAM,
 	)
-
-	log.WithField(logfields.Mode, option.Config.IPAM).Info("Initializing IPAM")
 	watcherLogger := legacy.logger.With(logfields.LogSubsys, "watchers")
 
 	switch ipamMode := option.Config.IPAM; ipamMode {
@@ -577,11 +622,11 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		ipamOption.IPAMAlibabaCloud:
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
 		if !providerBuiltin {
-			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
+			logging.Fatal(legacy.logger, fmt.Sprintf("%s allocator is not supported by this version of %s", ipamMode, binaryName))
 		}
 
-		if err := alloc.Init(legacy.ctx, logging.DefaultSlogLogger); err != nil {
-			log.WithError(err).Fatalf("Unable to init %s allocator", ipamMode)
+		if err := alloc.Init(legacy.ctx, legacy.logger, legacy.metricsRegistry); err != nil {
+			logging.Fatal(legacy.logger, fmt.Sprintf("Unable to init %s allocator", ipamMode), logfields.Error, err)
 		}
 
 		if pooledAlloc, ok := alloc.(operatorWatchers.PooledAllocatorProvider); ok {
@@ -591,152 +636,96 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				watcherLogger)
 		}
 
-		nm, err := alloc.Start(legacy.ctx, &ciliumNodeUpdateImplementation{legacy.clientset})
+		nm, err := alloc.Start(legacy.ctx, &ciliumNodeUpdateImplementation{legacy.clientset}, legacy.metricsRegistry)
 		if err != nil {
-			log.WithError(err).Fatalf("Unable to start %s allocator", ipamMode)
+			logging.Fatal(legacy.logger, fmt.Sprintf("Unable to start %s allocator", ipamMode), logfields.Error, err)
 		}
 
-		nodeManager = nm
-	}
+		legacy.wg.Go(func() {
+			// The NodeEventHandler uses operatorWatchers.PodStore for IPAM surge allocation.
+			podStore, err := legacy.resources.Pods.Store(legacy.ctx)
+			if err != nil {
+				logging.Fatal(legacy.logger, "Unable to retrieve Pod store from Pod resource watcher", logfields.Error, err)
+			}
+			operatorWatchers.PodStore = podStore.CacheStore()
 
-	if kvstoreEnabled() {
-		var goopts *kvstore.ExtraOptions
-		scopedLog := log.WithFields(logrus.Fields{
-			"kvstore": option.Config.KVStore,
-			"address": option.Config.KVStoreOpt[fmt.Sprintf("%s.address", option.Config.KVStore)],
+			withResync := option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMMultiPool
+			watchCiliumNodes(legacy.ctx, legacy.resources.CiliumNodes, nm, withResync)
 		})
-
-		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sServices {
-			clusterInfo := cmtypes.ClusterInfo{
-				ID:   option.Config.ClusterID,
-				Name: option.Config.ClusterName,
-			}
-			operatorWatchers.StartSynchronizingServices(legacy.ctx, &legacy.wg, operatorWatchers.ServiceSyncParameters{
-				ClusterInfo:  clusterInfo,
-				Clientset:    legacy.clientset,
-				Services:     legacy.resources.Services,
-				Endpoints:    legacy.resources.Endpoints,
-				StoreFactory: legacy.storeFactory,
-				SyncCallback: func(_ context.Context) {},
-			}, legacy.logger)
-			legacy.wg.Add(1)
-			go func() {
-				mcsapi.StartSynchronizingServiceExports(legacy.ctx, mcsapi.ServiceExportSyncParameters{
-					Logger:                  legacy.logger,
-					ClusterName:             clusterInfo.Name,
-					ClusterMeshEnableMCSAPI: legacy.cfgMCSAPI.ClusterMeshEnableMCSAPI,
-					Clientset:               legacy.clientset,
-					ServiceExports:          legacy.resources.ServiceExports,
-					Services:                legacy.resources.Services,
-					StoreFactory:            legacy.storeFactory,
-					SyncCallback:            func(context.Context) {},
-				})
-				legacy.wg.Done()
-			}()
-		}
-
-		if legacy.clientset.IsEnabled() {
-			// If K8s is enabled we can do the service translation automagically by
-			// looking at services from k8s and retrieve the service IP from that.
-			// This makes cilium to not depend on kube dns to interact with etcd
-			log := logging.DefaultSlogLogger.With(logfields.LogSubsys, "etcd")
-			goopts = &kvstore.ExtraOptions{
-				DialOption: []grpc.DialOption{
-					grpc.WithContextDialer(dial.NewContextDialer(log, legacy.svcResolver)),
-				},
-			}
-		}
-
-		scopedLog.Info("Connecting to kvstore")
-		if err := kvstore.Setup(legacy.ctx, legacy.logger, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
-			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
-		}
-
-		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sNodes {
-			withKVStore = true
-		}
-
-		startKvstoreWatchdog(legacy.cfgMCSAPI)
 	}
 
 	if legacy.clientset.IsEnabled() &&
 		(operatorOption.Config.RemoveCiliumNodeTaints || operatorOption.Config.SetCiliumIsUpCondition) {
-		log.WithFields(logrus.Fields{
-			logfields.K8sNamespace:       operatorOption.Config.CiliumK8sNamespace,
-			"label-selector":             operatorOption.Config.CiliumPodLabels,
-			"remove-cilium-node-taints":  operatorOption.Config.RemoveCiliumNodeTaints,
-			"set-cilium-node-taints":     operatorOption.Config.SetCiliumNodeTaints,
-			"set-cilium-is-up-condition": operatorOption.Config.SetCiliumIsUpCondition,
-		}).Info("Managing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
+		legacy.logger.InfoContext(ctx,
+			"Managing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes",
+			logfields.K8sNamespace, operatorOption.Config.CiliumK8sNamespace,
+			logfields.LabelSelectorFlagOption, operatorOption.Config.CiliumPodLabels,
+			logfields.RemoveCiliumNodeTaintsFlagOption, operatorOption.Config.RemoveCiliumNodeTaints,
+			logfields.SetCiliumNodeTaintsFlagOption, operatorOption.Config.SetCiliumNodeTaints,
+			logfields.SetCiliumIsUpConditionFlagOption, operatorOption.Config.SetCiliumIsUpCondition,
+		)
 
 		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done(),
 			watcherLogger)
 	}
 
-	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.clientset, nodeManager, withKVStore)
-
 	if legacy.clientset.IsEnabled() {
-		// ciliumNodeSynchronizer uses operatorWatchers.PodStore for IPAM surge
-		// allocation. Initializing PodStore from Pod resource is temporary until
-		// ciliumNodeSynchronizer is migrated to a cell.
-		podStore, err := legacy.resources.Pods.Store(legacy.ctx)
-		if err != nil {
-			log.WithError(err).Fatal("Unable to retrieve Pod store from Pod resource watcher")
-		}
-		operatorWatchers.PodStore = podStore.CacheStore()
-
-		if err := ciliumNodeSynchronizer.Start(legacy.ctx, &legacy.wg, podStore); err != nil {
-			log.WithError(err).Fatal("Unable to setup cilium node synchronizer")
-		}
-
 		if operatorOption.Config.NodesGCInterval != 0 {
-			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore,
-				operatorOption.Config.NodesGCInterval, watcherLogger)
+			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, legacy.resources.CiliumNodes,
+				operatorOption.Config.NodesGCInterval, watcherLogger, legacy.workqueueMetricsProvider)
 		}
-	}
-
-	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMMultiPool {
-		// We will use CiliumNodes as the source of truth for the podCIDRs.
-		// Once the CiliumNodes are synchronized with the operator we will
-		// be able to watch for K8s Node events which they will be used
-		// to create the remaining CiliumNodes.
-		<-ciliumNodeSynchronizer.ciliumNodeManagerQueueSynced
-
-		// We don't want CiliumNodes that don't have podCIDRs to be
-		// allocated with a podCIDR already being used by another node.
-		// For this reason we will call Resync after all CiliumNodes are
-		// synced with the operator to signal the node manager, since it
-		// knows all podCIDRs that are currently set in the cluster, that
-		// it can allocate podCIDRs for the nodes that don't have a podCIDR
-		// set.
-		nodeManager.Resync(legacy.ctx, time.Time{})
 	}
 
 	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD ||
 		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
 		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD {
 		if !legacy.clientset.IsEnabled() {
-			log.Fatalf("%s Identity allocation mode requires k8s to be configured.", option.Config.IdentityAllocationMode)
+			logging.Fatal(legacy.logger, fmt.Sprintf("%s Identity allocation mode requires k8s to be configured.", option.Config.IdentityAllocationMode))
 		}
 		if operatorOption.Config.EndpointGCInterval == 0 {
-			log.Fatal("Cilium Identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
+			logging.Fatal(legacy.logger, "Cilium Identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
 		}
 	}
 
+	clusterNamePolicy := cmtypes.LocalClusterNameForPolicies(legacy.cfgClusterMeshPolicy, option.Config.ClusterName)
+
 	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumNetworkPolicy {
-		enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
+		enableCNPWatcher(legacy.ctx, legacy.logger, &legacy.wg, legacy.clientset, clusterNamePolicy)
 	}
 
 	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumClusterwideNetworkPolicy {
-		enableCCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
+		enableCCNPWatcher(legacy.ctx, legacy.logger, &legacy.wg, legacy.clientset, clusterNamePolicy)
 	}
 
 	if legacy.clientset.IsEnabled() {
-		if err := labelsfilter.ParseLabelPrefixCfg(option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
-			log.WithError(err).Fatal("Unable to parse Label prefix configuration")
+		if err := labelsfilter.ParseLabelPrefixCfg(legacy.logger, option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
+			logging.Fatal(legacy.logger, "Unable to parse Label prefix configuration", logfields.Error, err)
 		}
 	}
 
-	log.Info("Initialization complete")
+	legacy.logger.InfoContext(ctx, "Initialization complete")
 	return nil
+}
+
+// kvstoreExtraOptions provides the extra options to initialize the kvstore client.
+func kvstoreExtraOptions(in struct {
+	cell.In
+
+	Logger *slog.Logger
+
+	ClientSet k8sClient.Clientset
+	Resolver  *dial.ServiceResolver
+}) kvstore.ExtraOptions {
+	var goopts kvstore.ExtraOptions
+
+	// If K8s is enabled we can do the service translation automagically by
+	// looking at services from k8s and retrieve the service IP from that.
+	// This makes cilium to not depend on kube dns to interact with etcd
+	if in.ClientSet.IsEnabled() {
+		goopts.DialOption = []grpc.DialOption{
+			grpc.WithContextDialer(dial.NewContextDialer(in.Logger, in.Resolver)),
+		}
+	}
+
+	return goopts
 }

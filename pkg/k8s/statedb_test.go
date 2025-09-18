@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"slices"
 	"sync/atomic"
 	"testing"
 
@@ -39,14 +40,17 @@ var nodeNameIndex = statedb.Index[*corev1.Node, string]{
 }
 
 func newNodeTable(db *statedb.DB) (statedb.RWTable[*corev1.Node], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTableAny(
+		db,
 		"nodes",
+		func() []string {
+			return []string{"Name"}
+		},
+		func(node *corev1.Node) []string {
+			return []string{node.Name}
+		},
 		nodeNameIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 func ExampleRegisterReflector() {
@@ -113,6 +117,18 @@ type testObject struct {
 	Transform string
 }
 
+// TableHeader implements statedb.TableWritable.
+func (t *testObject) TableHeader() []string {
+	return []string{"Name", "Status"}
+}
+
+// TableRow implements statedb.TableWritable.
+func (t *testObject) TableRow() []string {
+	return []string{t.Name, t.Status}
+}
+
+var _ statedb.TableWritable = &testObject{}
+
 func (t *testObject) DeepCopy() *testObject {
 	t2 := *t
 	return &t2
@@ -130,14 +146,11 @@ var (
 )
 
 func newTestTable(db *statedb.DB) (statedb.RWTable[*testObject], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		"test",
 		testNameIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 type reflectorTestParams struct {
@@ -220,11 +233,14 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	}
 	var transformManyFunc k8s.TransformManyFunc[*testObject]
 	if p.doTransformMany {
-		transformManyFunc = func(_ statedb.ReadTxn, a any) (objs []*testObject) {
+		transformManyFunc = func(_ statedb.ReadTxn, deleted bool, a any) (toInsert, toDelete iter.Seq[*testObject]) {
 			transformCalled.Store(true)
 			obj := a.(*testObject).DeepCopy()
 			obj.Transform = "transform-many"
-			return []*testObject{obj}
+			if deleted {
+				return nil, slices.Values([]*testObject{obj})
+			}
+			return slices.Values([]*testObject{obj}), nil
 		}
 	}
 
@@ -254,41 +270,39 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	}
 
 	hive := hive.New(
-		cell.Module("test", "test",
-			cell.ProvidePrivate(
-				func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
-					return k8s.ReflectorConfig[*testObject]{
-						Name:           "test",
-						Table:          tbl,
-						BufferSize:     10,
-						BufferWaitTime: 10 * time.Millisecond,
-						ListerWatcher:  lw,
-						Transform:      transformFunc,
-						TransformMany:  transformManyFunc,
-						QueryAll:       queryAllFunc,
-						Merge:          mergeFunc,
-						CRDSync:        crdSyncPromise,
-					}
-				},
-				newTestTable,
-			),
-			cell.Invoke(
-				k8s.RegisterReflector[*testObject],
-				func(db_ *statedb.DB, tbl statedb.RWTable[*testObject]) {
-					// Insert a dummy node into the table to verify that the initial synchronization
-					// cleans things up.
-					// BTW, if you don't want everything cleaned up you can specify the QueryAll
-					// function to "namespace" what the reflector is managing.
-					wtxn := db_.WriteTxn(tbl)
-					var garbageNode testObject
-					garbageNode.Name = "garbage"
-					tbl.Insert(wtxn, &garbageNode)
-					wtxn.Commit()
-
-					db = db_
-					table = tbl
-				}),
+		cell.ProvidePrivate(
+			func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
+				return k8s.ReflectorConfig[*testObject]{
+					Name:           "test",
+					Table:          tbl,
+					BufferSize:     10,
+					BufferWaitTime: 10 * time.Millisecond,
+					ListerWatcher:  lw,
+					Transform:      transformFunc,
+					TransformMany:  transformManyFunc,
+					QueryAll:       queryAllFunc,
+					Merge:          mergeFunc,
+					CRDSync:        crdSyncPromise,
+				}
+			},
+			newTestTable,
 		),
+		cell.Invoke(
+			k8s.RegisterReflector[*testObject],
+			func(db_ *statedb.DB, tbl statedb.RWTable[*testObject]) {
+				// Insert a dummy node into the table to verify that the initial synchronization
+				// cleans things up.
+				// BTW, if you don't want everything cleaned up you can specify the QueryAll
+				// function to "namespace" what the reflector is managing.
+				wtxn := db_.WriteTxn(tbl)
+				var garbageNode testObject
+				garbageNode.Name = "garbage"
+				tbl.Insert(wtxn, &garbageNode)
+				wtxn.Commit()
+
+				db = db_
+				table = tbl
+			}),
 	)
 
 	tlog := hivetest.Logger(t)
@@ -408,7 +422,9 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 }
 
 func TestStateDBReflector_jobName(t *testing.T) {
+	db := statedb.New()
 	tbl, _ := statedb.NewTable(
+		db,
 		"node",
 		testNameIndex,
 	)
@@ -441,28 +457,26 @@ func TestOnDemandTable(t *testing.T) {
 	)
 
 	hive := hive.New(
-		cell.Module("test", "test",
-			cell.ProvidePrivate(
-				func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
-					wtbl = tbl
-					return k8s.ReflectorConfig[*testObject]{
-						Name:             "test",
-						Table:            tbl,
-						BufferSize:       10,
-						BufferWaitTime:   time.Millisecond,
-						ListerWatcher:    lw,
-						ClearTableOnStop: true,
-					}
-				},
-				newTestTable,
-				k8s.OnDemandTable[*testObject],
-			),
-			cell.Invoke(
-				func(db_ *statedb.DB, tbl hive.OnDemand[statedb.Table[*testObject]]) {
-					db = db_
-					otable = tbl
-				},
-			),
+		cell.ProvidePrivate(
+			func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
+				wtbl = tbl
+				return k8s.ReflectorConfig[*testObject]{
+					Name:             "test",
+					Table:            tbl,
+					BufferSize:       10,
+					BufferWaitTime:   time.Millisecond,
+					ListerWatcher:    lw,
+					ClearTableOnStop: true,
+				}
+			},
+			newTestTable,
+			k8s.OnDemandTable[*testObject],
+		),
+		cell.Invoke(
+			func(db_ *statedb.DB, tbl hive.OnDemand[statedb.Table[*testObject]]) {
+				db = db_
+				otable = tbl
+			},
 		),
 	)
 
@@ -539,26 +553,24 @@ func BenchmarkStateDBReflector(b *testing.B) {
 	lw := testutils.NewFakeListerWatcher()
 
 	hive := hive.New(
-		cell.Module("test", "test",
-			cell.ProvidePrivate(
-				func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
-					return k8s.ReflectorConfig[*testObject]{
-						Name:           "test",
-						Table:          tbl,
-						ListerWatcher:  lw,
-						BufferSize:     1024,
-						BufferWaitTime: time.Millisecond,
-					}
-				},
-				newTestTable,
-			),
-			cell.Invoke(
-				k8s.RegisterReflector[*testObject],
-				func(db_ *statedb.DB, tbl statedb.RWTable[*testObject]) {
-					db = db_
-					table = tbl
-				}),
+		cell.ProvidePrivate(
+			func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
+				return k8s.ReflectorConfig[*testObject]{
+					Name:           "test",
+					Table:          tbl,
+					ListerWatcher:  lw,
+					BufferSize:     1024,
+					BufferWaitTime: time.Millisecond,
+				}
+			},
+			newTestTable,
 		),
+		cell.Invoke(
+			k8s.RegisterReflector[*testObject],
+			func(db_ *statedb.DB, tbl statedb.RWTable[*testObject]) {
+				db = db_
+				table = tbl
+			}),
 	)
 
 	tlog := hivetest.Logger(b)

@@ -5,7 +5,9 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/statedb"
 
@@ -15,9 +17,14 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -35,6 +42,7 @@ const (
 // is never mutated in-place.
 func newLocalNodeConfig(
 	ctx context.Context,
+	logger *slog.Logger,
 	config *option.DaemonConfig,
 	localNode node.LocalNode,
 	txn statedb.ReadTxn,
@@ -43,7 +51,13 @@ func newLocalNodeConfig(
 	nodeAddresses statedb.Table[tables.NodeAddress],
 	masqInterface string,
 	xdpConfig xdp.Config,
+	lbConfig loadbalancer.Config,
+	kprCfg kpr.KPRConfig,
+	svcCfg svcrouteconfig.RoutesConfig,
+	maglevConfig maglev.Config,
 	mtuTbl statedb.Table[mtu.RouteMTU],
+	wgCfg wgTypes.WireguardConfig,
+	ipsecCfg datapath.IPsecConfig,
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -65,10 +79,21 @@ func newLocalNodeConfig(
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
 	}
 
-	directRoutingDevice, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
 	nativeDevices, devsWatch := tables.SelectedDevices(devices, txn)
 	nodeAddrsIter, addrsWatch := nodeAddresses.AllWatch(txn)
 	mtuRoute, _, mtuWatch, _ := mtuTbl.GetWatch(txn, mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
+
+	watchChans := []<-chan struct{}{devsWatch, addrsWatch, mtuWatch}
+	var directRoutingDevice *tables.Device
+	if option.Config.DirectRoutingDeviceRequired(kprCfg, wgCfg.Enabled()) {
+		drd, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
+		if drd == nil {
+			return datapath.LocalNodeConfiguration{}, nil, errors.New("direct routing device required but not configured")
+		}
+
+		watchChans = append(watchChans, directRoutingDevWatch)
+		directRoutingDevice = drd
+	}
 
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
@@ -79,7 +104,8 @@ func newLocalNodeConfig(
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
 		NativeRoutingCIDRIPv6:        datapath.RemoteSNATDstAddrExclusionCIDRv6(localNode),
-		LoopbackIPv4:                 node.GetIPv4Loopback(),
+		ServiceLoopbackIPv4:          node.GetServiceLoopbackIPv4(logger),
+		ServiceLoopbackIPv6:          node.GetServiceLoopbackIPv6(logger),
 		Devices:                      nativeDevices,
 		NodeAddresses:                statedb.Collect(nodeAddrsIter),
 		DirectRoutingDevice:          directRoutingDevice,
@@ -95,11 +121,16 @@ func newLocalNodeConfig(
 		EnableAutoDirectRouting:      config.EnableAutoDirectRouting,
 		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
 		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
-		EnableIPSec:                  config.EnableIPSec,
-		EnableIPSecEncryptedOverlay:  config.EnableIPSecEncryptedOverlay,
+		EnableWireguard:              wgCfg.Enabled(),
+		EnableIPSec:                  ipsecCfg.Enabled(),
+		EnableIPSecEncryptedOverlay:  ipsecCfg.EncryptedOverlayEnabled(),
 		EncryptNode:                  config.EncryptNode,
 		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
 		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
 		XDPConfig:                    xdpConfig,
-	}, common.MergeChannels(devsWatch, addrsWatch, directRoutingDevWatch, mtuWatch), nil
+		LBConfig:                     lbConfig,
+		KPRConfig:                    kprCfg,
+		SvcRouteConfig:               svcCfg,
+		MaglevConfig:                 maglevConfig,
+	}, common.MergeChannels(watchChans...), nil
 }

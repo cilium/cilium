@@ -18,22 +18,23 @@ clustermesh-apiserver kvstoremesh hive [flags]
       --controller-group-metrics strings             List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
   -D, --debug                                        Enable debugging mode
       --enable-gops                                  Enable gops server (default true)
+      --enable-heartbeat                             KVStoreMesh will maintain heartbeat in destination etcd cluster
       --global-ready-timeout duration                KVStoreMesh will be considered ready even if any remote clusters have failed to synchronize within this duration (default 10m0s)
       --gops-port uint16                             Port for gops server to listen on (default 9894)
       --health-port int                              TCP port for ClusterMesh health API (default 9880)
   -h, --help                                         help for hive
       --kvstore string                               Key-value store type (default "etcd")
-      --kvstore-connectivity-timeout duration        Time after which an incomplete kvstore operation is considered failed (default 2m0s)
       --kvstore-lease-ttl duration                   Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint   Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
       --kvstore-opt stringToString                   Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
-      --kvstore-periodic-sync duration               Periodic KVstore synchronization interval (default 5m0s)
       --log-driver strings                           Logging endpoints to use (example: syslog)
       --log-opt map                                  Log driver options (example: format=json)
       --max-connected-clusters uint32                Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
       --per-cluster-ready-timeout duration           Remote clusters will be disregarded for readiness checks if a connection cannot be established within this duration (default 15s)
       --pprof                                        Enable serving pprof debugging API
       --pprof-address string                         Address that pprof listens on (default "localhost")
+      --pprof-block-profile-rate int                 Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+      --pprof-mutex-profile-fraction int             Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --pprof-port uint16                            Port that pprof listens on (default 6064)
       --prometheus-serve-addr string                 Address to serve Prometheus metrics
 ```

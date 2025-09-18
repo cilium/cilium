@@ -12,9 +12,10 @@ debug: all
 
 include Makefile.defs
 
-SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool tools/mount tools/sysctlfix plugins/cilium-cni
+SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool hubble tools/mount tools/sysctlfix plugins/cilium-cni
 SUBDIR_OPERATOR_CONTAINER := operator
 SUBDIR_RELAY_CONTAINER := hubble-relay
+SUBDIR_CLUSTERMESH_APISERVER_CONTAINER := clustermesh-apiserver
 
 ifdef LIBNETWORK_PLUGIN
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
@@ -24,7 +25,7 @@ endif
 -include Makefile.override
 
 # List of subdirectories used for global "make build", "make clean", etc
-SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools $(SUBDIR_RELAY_CONTAINER) bpf clustermesh-apiserver
+SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools $(SUBDIR_RELAY_CONTAINER) bpf $(SUBDIR_CLUSTERMESH_APISERVER_CONTAINER) cilium-cli
 
 # Filter out any directories where the parent directory is also present, to avoid
 # building or cleaning a subdirectory twice.
@@ -36,7 +37,7 @@ SUBDIRS := $(filter-out $(foreach dir,$(SUBDIRS),$(dir)/%),$(SUBDIRS))
 # Because is treated as a Go package pattern, the special '...' sequence is supported,
 # meaning 'all subpackages of the given package'.
 TESTPKGS ?= ./...
-UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/ipsec/...
+UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/... ./pkg/datapath/loader/... ./pkg/datapath/neighbor/test/...
 
 GOTEST_BASE := -timeout 720s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
@@ -77,8 +78,26 @@ build-container-operator-alibabacloud: ## Builds components required for a ciliu
 build-container-hubble-relay:
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_RELAY_CONTAINER) all
 
+build-container-clustermesh-apiserver: ## Builds components required for the clustermesh-apiserver container.
+	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_CLUSTERMESH_APISERVER_CONTAINER) all
+
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
+
+tests-privileged-only: ## Run Go only the unit tests that require elevated privileges.
+	@$(ECHO_CHECK) running privileged tests...
+	## We split tests into two parts: one that can be run in parallel
+	## and tests that cannot be run in parallel with other packages
+	## One drawback of this approach is that
+	## if first set of tests fails, second one is not run
+	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(TESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" $(GOTEST_COVER_OPTS) \
+	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" \
+		-json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
+	tail -n+2 coverage2.out >> coverage.out
+	rm coverage2.out
+	$(MAKE) generate-cov
 
 tests-privileged: ## Run Go tests including ones that require elevated privileges.
 	@$(ECHO_CHECK) running privileged tests...
@@ -89,7 +108,8 @@ tests-privileged: ## Run Go tests including ones that require elevated privilege
 	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
 		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
 	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
-		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) -json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
+		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) \
+		-json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
 	tail -n+2 coverage2.out >> coverage.out
 	rm coverage2.out
 	$(MAKE) generate-cov
@@ -128,7 +148,7 @@ else
 endif
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
-integration-tests: start-kvstores ## Run Go tests including ones that are marked as integration tests.
+integration-tests: start-kvstores ## Run non-privileged Go tests and including ones that are marked as integration tests.
 	@$(ECHO_CHECK) running integration tests...
 	INTEGRATION_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
@@ -215,6 +235,9 @@ install-container-binary-hubble-relay:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_RELAY_CONTAINER) install-binary
 
+install-container-binary-clustermesh-apiserver: ## Install binaries for all components required for the clustermesh-apiserver container.
+	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_CLUSTERMESH_APISERVER_CONTAINER) install-binary
+
 # Workaround for not having git in the build environment
 # Touch the file only if needed
 GIT_VERSION: force
@@ -235,69 +258,73 @@ generate-apis: generate-api generate-health-api generate-hubble-api generate-ope
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-f api/v1/openapi.yaml \
 		--default-scheme=unix \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-f api/v1/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
 
 generate-health-api: api/v1/health/openapi.yaml ## Generate cilium-health client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/health/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-t api/v1/health/ \
 		-f api/v1/health/openapi.yaml \
 		--default-scheme=unix \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-t api/v1/health/ \
 		-f api/v1/health/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/health
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/health
 
 generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/operator/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-t api/v1/operator/ \
 		-f api/v1/operator/openapi.yaml \
 		--default-scheme=http \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-t api/v1/operator/ \
 		-f api/v1/operator/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/operator
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/operator
 
 generate-kvstoremesh-api: api/v1/kvstoremesh/openapi.yaml ## Generate kvstoremesh client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/kvstoremesh/openapi.yaml
-	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+	$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 \
 		-t api/v1/kvstoremesh/ \
 		-f api/v1/kvstoremesh/openapi.yaml \
 		--default-scheme=http \
 		-C api/v1/cilium-server.yml \
 		-r hack/spdx-copyright-header.txt
-	-$(QUIET)$(SWAGGER) generate client -a restapi \
+	$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-t api/v1/kvstoremesh/ \
 		-f api/v1/kvstoremesh/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/kvstoremesh
+	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/kvstoremesh
 
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
@@ -328,7 +355,6 @@ endef
 define K8S_PROTO_PACKAGES
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1
-github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1
@@ -352,13 +378,15 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	contrib/scripts/builder.sh \
 		$(MAKE) -C /go/src/github.com/cilium/cilium/ generate-k8s-api-local
 
+.PHONY: generate-bpf
+generate-bpf: ## Generate config structs from BPF objects using dpgen and Go skeletons with bpf2go
+	contrib/scripts/builder.sh \
+		$(MAKE) -C /go/src/github.com/cilium/cilium/bpf generate
+
 check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
 	./contrib/scripts/check-preflight-clusterrole.sh
 
 ##@ Development
-vps: ## List all the running vagrant VMs.
-	VBoxManage list runningvms
-
 reload: ## Reload cilium-agent and cilium-docker systemd service after installing built binaries.
 	sudo systemctl stop cilium cilium-docker
 	sudo $(MAKE) install
@@ -376,6 +404,12 @@ govet: ## Run govet on Go source files in the repository.
 	@$(ECHO_CHECK) vetting all packages...
 	$(QUIET) $(GO_VET) ./...
 
+.PHONY: custom-lint
+custom-lint: ## Run extra local linters
+	$(ECHO_CHECK) metricslint
+	$(QUIET)$(MAKE) -C tools/metricslint
+	$(QUIET)tools/metricslint/metricslint ./...
+
 golangci-lint: ## Run golangci-lint
 ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION:v%=%),$(GOLANGCILINT_VERSION)))
 	@$(ECHO_CHECK) golangci-lint $(GOLANGCI_LINT_ARGS)
@@ -387,13 +421,15 @@ endif
 golangci-lint-fix: ## Run golangci-lint to automatically fix warnings
 	$(QUIET)$(MAKE) golangci-lint GOLANGCI_LINT_ARGS="--fix"
 
-lint: golangci-lint
+.PHONY: lint
+lint: golangci-lint custom-lint
 
 lint-fix: golangci-lint-fix
 
-logging-subsys-field: ## Validate logrus subsystem field for logs in Go source code.
-	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
-	$(QUIET) contrib/scripts/check-logging-subsys-field.sh
+check-permissions: ## Check if files are not executable expect for allowlisted files. \
+	# This can happen especially when someone is developing on a Windows machine
+	find ./ -executable -type f | grep -Ev "\.git|\.sh|\.py" > ./executables.txt
+	diff <(sort ./executables.txt) <(sort ./contrib/executable_list.txt)
 
 check-microk8s: ## Validate if microk8s is ready to install cilium.
 	@$(ECHO_CHECK) microk8s is ready...
@@ -412,7 +448,23 @@ microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	@echo "  DEPLOY image to microk8s ($(LOCAL_OPERATOR_IMAGE))"
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_OPERATOR_IMAGE)
 
-precheck: logging-subsys-field ## Peform build precheck for the source code.
+.PHONY: check-fuzz
+check-fuzz: # Check that fuzzers are added to the tree correctly.
+	@$(ECHO_CHECK) contrib/scripts/check-fuzz.sh
+	$(QUIET) contrib/scripts/check-fuzz.sh
+
+.PHONY: fuzz
+ifneq ($(V),0)
+fuzz: export DEBUG=1
+endif
+ifneq ($(GOTEST_FORMATTER),cat)
+fuzz: export FUZZ_ARGS=-json
+endif
+fuzz: check-fuzz # Run fuzzer tests briefly for FUZZ_TIME seconds
+	@$(ECHO_CHECK) go-fuzz
+	./test/fuzzing/go-fuzz.sh | $(GOTEST_FORMATTER)
+
+precheck: ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
 	$(QUIET) contrib/scripts/check-k8s-code-gen.sh
@@ -441,12 +493,13 @@ endif
 	$(QUIET) contrib/scripts/check-xfrmstate.sh
 	@$(ECHO_CHECK) contrib/scripts/check-legacy-header-guard.sh
 	$(QUIET) contrib/scripts/check-legacy-header-guard.sh
-	@$(ECHO_CHECK) contrib/scripts/check-logrus.sh
-	$(QUIET) contrib/scripts/check-logrus.sh
-	@$(ECHO_CHECK) contrib/scripts/check-safenetlink.sh
-	$(QUIET) contrib/scripts/check-safenetlink.sh
 	@$(ECHO_CHECK) contrib/scripts/check-datapathconfig.sh
 	$(QUIET) contrib/scripts/check-datapathconfig.sh
+	@$(ECHO_CHECK) $(GO) run ./tools/slogloggercheck .
+	$(QUIET)$(GO) run ./tools/slogloggercheck .
+	@$(ECHO_CHECK) contrib/scripts/check-fipsonly.sh
+	$(QUIET) contrib/scripts/check-fipsonly.sh
+	$(MAKE) check-fuzz
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
@@ -511,28 +564,46 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-clustermesh-apiserver-image","Build docker image for Cilium clustermesh APIServer")
 	$(call print_help_line,"docker-operator-image","Build cilium-operator docker image")
 	$(call print_help_line,"docker-operator-*-image","Build platform specific cilium-operator images(alibabacloud, aws, azure, generic)")
-	$(call print_help_line,"docker-operator-*-image-debug","Build platform specific cilium-operator debug images(alibabacloud, aws, azure, generic)")
+	$(call print_help_line,"dev-docker-operator-*-image-debug","Build platform specific cilium-operator debug images(alibabacloud, aws, azure, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 
-.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder
+.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder gateway-api-conformance
 force :;
 
-BPF_TEST_FILE ?= ""
+gateway-api-conformance: ## Run Gateway API conformance tests.
+	@$(ECHO_CHECK) running Gateway API conformance tests...
+	GATEWAY_API_CONFORMANCE_TESTS=1 \
+	GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES} \
+	GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES} \
+	$(GO) test -p 4 -v ./operator/pkg/gateway-api \
+		$(GATEWAY_TEST_FLAGS) \
+		-test.run "TestConformance" \
+		-test.timeout=29m \
+		-json \
+	| tparse -progress
+
+BPF_TEST ?= ""
 BPF_TEST_DUMP_CTX ?= ""
 BPF_TEST_VERBOSE ?= 0
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
-	DOCKER_ARGS=--privileged RUN_AS_ROOT=1 contrib/scripts/builder.sh \
-		"make" "-j$(shell nproc)" "-C" "bpf/tests/" "run" "BPF_TEST_FILE=$(BPF_TEST_FILE)" "BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" "V=$(BPF_TEST_VERBOSE)"
+	DOCKER_ARGS="--privileged -v /sys:/sys" RUN_AS_ROOT=1 contrib/scripts/builder.sh \
+		$(MAKE) $(SUBMAKEOPTS) -j$(shell nproc) -C bpf/tests/ run \
+			"BPF_TEST=$(BPF_TEST)" \
+			"BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" \
+			"LOG_CODEOWNERS=$(LOG_CODEOWNERS)" \
+			"JUNIT_PATH=$(JUNIT_PATH)" \
+			"V=$(BPF_TEST_VERBOSE)"
 
 run-builder: ## Drop into a shell inside a container running the cilium-builder image.
-	DOCKER_ARGS=-it contrib/scripts/builder.sh bash
+	DOCKER_ARGS="-it" contrib/scripts/builder.sh bash
 
 .PHONY: renovate-local
 renovate-local: ## Run a local linter for the renovate configuration
-	$(CONTAINER_ENGINE) run --rm -ti \
+	@echo "Running renovate --platform=local"
+	@$(CONTAINER_ENGINE) run --rm -ti \
 		-e LOG_LEVEL=debug \
-		-e GITHUB_COM_TOKEN="$(gh auth token)" \
+		-e GITHUB_COM_TOKEN="$(RENOVATE_GITHUB_COM_TOKEN)" \
 		-v /tmp:/tmp \
 		-v $(ROOT_DIR):/usr/src/app \
 		docker.io/renovate/renovate:slim \

@@ -16,8 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
 )
 
 const (
@@ -67,6 +67,7 @@ func newActiveConnectionTrackingMap(in struct {
 
 	Lifecycle cell.Lifecycle
 	Conf      Config
+	LBConfig  loadbalancer.Config
 }) (out struct {
 	cell.Out
 
@@ -74,12 +75,14 @@ func newActiveConnectionTrackingMap(in struct {
 	defines.NodeOut
 }, err error) {
 	if !in.Conf.EnableActiveConnectionTracking {
+		// Even when disabled, provide the node defines so that we can compile.
+		out.NodeDefines = map[string]string{
+			"CILIUM_LB_ACT_MAP_MAX_ENTRIES": "1",
+		}
 		return
 	}
-	svcSize := option.Config.LBMapEntries
-	if option.Config.LBServiceMapEntries > 0 {
-		svcSize = option.Config.LBServiceMapEntries
-	}
+
+	svcSize := in.LBConfig.LBServiceMapEntries
 	zoneSize := len(option.Config.FixedZoneMapping)
 	size := svcSize * zoneSize
 	if size == 0 {
@@ -173,9 +176,6 @@ func (s *ActiveConnectionTrackerKey) New() bpf.MapKey { return &ActiveConnection
 
 func (v *ActiveConnectionTrackerKey) String() string {
 	svcID := byteorder.HostToNetwork16(v.SvcID)
-	if svcAddr, err := service.GetID(uint32(svcID)); err == nil && svcAddr != nil {
-		return fmt.Sprintf("%s[%s]", svcAddr.String(), option.Config.GetZone(v.Zone))
-	}
 	return fmt.Sprintf("%d[%s]", svcID, option.Config.GetZone(v.Zone))
 }
 

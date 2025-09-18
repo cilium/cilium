@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/tools/cover"
@@ -34,9 +35,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/link"
-	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
+	"github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/monitor/format"
 )
 
 var (
@@ -51,7 +53,19 @@ var (
 	dumpCtx = flag.Bool("dump-ctx", false, "If set, the program context will be dumped after a CHECK and SETUP run.")
 )
 
+type testLogWriter struct {
+	t *testing.T
+}
+
+func (w *testLogWriter) Write(p []byte) (n int, err error) {
+	// use the formatted output to avoid the new line
+	w.t.Logf("%s", string(p))
+	return len(p), nil
+}
+
 func TestBPF(t *testing.T) {
+	ranTests := 0
+
 	if testPath == nil || *testPath == "" {
 		t.Skip("Set -bpf-test-path to run BPF tests")
 	}
@@ -101,6 +115,12 @@ func TestBPF(t *testing.T) {
 				}
 			}
 		})
+
+		ranTests++
+	}
+
+	if ranTests == 0 {
+		t.Fatal("no BPF programs found to test. Check --bpf-test-path and --test filter.")
 	}
 
 	if *testCoverageReport != "" {
@@ -124,6 +144,7 @@ func TestBPF(t *testing.T) {
 }
 
 func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cover.Profile {
+	logger := hivetest.Logger(t)
 	elfPath := path.Join(*testPath, entry.Name())
 
 	if instrLog != nil {
@@ -157,7 +178,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 	}
 
 	if !collectCoverage {
-		coll, _, err = bpf.LoadCollection(spec, nil)
+		coll, _, err = bpf.LoadCollection(logger, spec, nil)
 	} else {
 		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, ebpf.CollectionOptions{}, instrLog)
 	}
@@ -173,6 +194,17 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 
 	testNameToPrograms := make(map[string]programSet)
 
+	checkProgUnique := func(prog *ebpf.Program, testName, progType string) {
+		if prog != nil {
+			t.Fatalf(
+				"File '%s' contains duplicate %s programs for the '%s' test.",
+				elfPath,
+				progType,
+				testName,
+			)
+		}
+	}
+
 	for progName, spec := range spec.Programs {
 		match := checkProgRegex.FindStringSubmatch(spec.SectionName)
 		if len(match) == 0 {
@@ -181,52 +213,47 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 
 		progs := testNameToPrograms[match[1]]
 		if match[2] == "pktgen" {
+			checkProgUnique(progs.pktgenProg, match[1], match[2])
 			progs.pktgenProg = coll.Programs[progName]
 		}
 		if match[2] == "setup" {
+			checkProgUnique(progs.setupProg, match[1], match[2])
 			progs.setupProg = coll.Programs[progName]
 		}
 		if match[2] == "check" {
+			checkProgUnique(progs.checkProg, match[1], match[2])
 			progs.checkProg = coll.Programs[progName]
 		}
 		testNameToPrograms[match[1]] = progs
 	}
 
-	for progName, set := range testNameToPrograms {
-		if set.checkProg == nil {
+	for testName, progSet := range testNameToPrograms {
+		if progSet.checkProg == nil {
 			t.Fatalf(
-				"File '%s' contains a setup program in section '%s' but no check program.",
+				"File '%s' does not contain a check program for the '%s' test.",
 				elfPath,
-				spec.Programs[progName].SectionName,
+				testName,
 			)
 		}
 	}
 
 	// Collect debug events and add them as logs of the main test
 	var globalLogReader *perf.Reader
-	if m := coll.Maps["test_cilium_events"]; m != nil {
+	if m := coll.Maps[eventsmap.MapName]; m != nil {
 		globalLogReader, err = perf.NewReader(m, os.Getpagesize()*16)
 		if err != nil {
 			t.Fatalf("new global log reader: %s", err.Error())
 		}
 		defer globalLogReader.Close()
 
-		linkCache := link.NewLinkCache()
-
+		formatter := format.NewMonitorFormatter(api.DEBUG, link.NewLinkCache(), &testLogWriter{t: t})
 		go func() {
 			for {
 				rec, err := globalLogReader.Read()
 				if err != nil {
 					return
 				}
-
-				dm := monitor.DebugMsg{}
-				reader := bytes.NewReader(rec.RawSample)
-				if err := binary.Read(reader, byteorder.Native, &dm); err != nil {
-					return
-				}
-
-				t.Log(dm.Message(linkCache))
+				formatter.FormatSample(rec.RawSample, rec.CPU)
 			}
 		}()
 	}
@@ -273,7 +300,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 }
 
 func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
-	spec, err := bpf.LoadCollectionSpec(elfPath)
+	spec, err := ebpf.LoadCollectionSpec(elfPath)
 	if err != nil {
 		t.Fatalf("load spec %s: %v", elfPath, err)
 	}
@@ -288,7 +315,8 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 			continue
 		}
 
-		t.Logf("Skipping program '%s' of type '%s': BPF_PROG_RUN not supported", p.Name, p.Type)
+		t.Logf("Skipping program '%s' of type '%s': BPF_PROG_RUN not supported on program type",
+			p.Name, p.Type)
 		delete(spec.Programs, n)
 	}
 

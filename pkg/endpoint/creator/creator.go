@@ -5,6 +5,7 @@ package creator
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/time"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var launchTime = 30 * time.Second
@@ -42,6 +44,7 @@ type EndpointCreator interface {
 }
 
 type endpointCreator struct {
+	logger           *slog.Logger
 	endpointManager  endpointmanager.EndpointManager
 	dnsRulesAPI      fqdnrules.DNSRulesService
 	epBuildQueue     endpoint.EndpointBuildQueue
@@ -58,6 +61,11 @@ type endpointCreator struct {
 	proxy            endpoint.EndpointProxy
 	allocator        cache.IdentityAllocator
 	ctMapGC          ctmap.GCRunner
+	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
+	// information about endpoints.
+	kvstoreSyncher *ipcache.IPIdentitySynchronizer
+	wgConfig       wgTypes.WireguardConfig
+	ipsecConfig    datapath.IPsecConfig
 }
 
 var _ EndpointCreator = &endpointCreator{}
@@ -65,26 +73,31 @@ var _ EndpointCreator = &endpointCreator{}
 type endpointManagerParams struct {
 	cell.In
 
-	EndpointManager  endpointmanager.EndpointManager
-	DNSRulesService  fqdnrules.DNSRulesService
-	EPBuildQueue     endpoint.EndpointBuildQueue
-	Loader           datapath.Loader
-	Orchestrator     datapath.Orchestrator
-	CompilationLock  datapath.CompilationLock
-	BandwidthManager datapath.BandwidthManager
-	IPTablesManager  datapath.IptablesManager
-	IdentityManager  identitymanager.IDManager
-	MonitorAgent     monitoragent.Agent
-	PolicyMapFactory policymap.Factory
-	PolicyRepo       policy.PolicyRepository
-	IPCache          *ipcache.IPCache
-	Proxy            *proxy.Proxy
-	Allocator        cache.IdentityAllocator
-	CTMapGC          ctmap.GCRunner
+	Logger              *slog.Logger
+	EndpointManager     endpointmanager.EndpointManager
+	DNSRulesService     fqdnrules.DNSRulesService
+	EPBuildQueue        endpoint.EndpointBuildQueue
+	Loader              datapath.Loader
+	Orchestrator        datapath.Orchestrator
+	CompilationLock     datapath.CompilationLock
+	BandwidthManager    datapath.BandwidthManager
+	IPTablesManager     datapath.IptablesManager
+	IdentityManager     identitymanager.IDManager
+	MonitorAgent        monitoragent.Agent
+	PolicyMapFactory    policymap.Factory
+	PolicyRepo          policy.PolicyRepository
+	IPCache             *ipcache.IPCache
+	Proxy               *proxy.Proxy
+	Allocator           cache.IdentityAllocator
+	CTMapGC             ctmap.GCRunner
+	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
+	WgConfig            wgTypes.WireguardConfig
+	IPSecConfig         datapath.IPsecConfig
 }
 
 func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 	return &endpointCreator{
+		logger:           p.Logger,
 		endpointManager:  p.EndpointManager,
 		dnsRulesAPI:      p.DNSRulesService,
 		epBuildQueue:     p.EPBuildQueue,
@@ -101,12 +114,16 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 		proxy:            p.Proxy,
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
+		kvstoreSyncher:   p.KVStoreSynchronizer,
+		wgConfig:         p.WgConfig,
+		ipsecConfig:      p.IPSecConfig,
 	}
 }
 
 func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *models.EndpointChangeRequest) (*endpoint.Endpoint, error) {
 	return endpoint.NewEndpointFromChangeModel(
 		ctx,
+		c.logger,
 		c.dnsRulesAPI,
 		c.epBuildQueue,
 		c.loader,
@@ -122,30 +139,16 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 		c.proxy,
 		c.allocator,
 		c.ctMapGC,
+		c.kvstoreSyncher,
 		base,
+		c.wgConfig,
+		c.ipsecConfig,
 	)
 }
 
 func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, error) {
 	return endpoint.ParseEndpoint(
-		c.dnsRulesAPI,
-		c.epBuildQueue,
-		c.loader,
-		c.orchestrator,
-		c.compilationLock,
-		c.bandwidthManager,
-		c.ipTablesManager,
-		c.identityManager,
-		c.monitorAgent,
-		c.policyMapFactory,
-		c.policyRepo,
-		c.ipcache,
-		epJSON,
-	)
-}
-
-func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
-	ep, err := endpoint.CreateIngressEndpoint(
+		c.logger,
 		c.dnsRulesAPI,
 		c.epBuildQueue,
 		c.loader,
@@ -161,6 +164,34 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 		c.proxy,
 		c.allocator,
 		c.ctMapGC,
+		c.kvstoreSyncher,
+		epJSON,
+		c.wgConfig,
+		c.ipsecConfig,
+	)
+}
+
+func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
+	ep, err := endpoint.CreateIngressEndpoint(
+		c.logger,
+		c.dnsRulesAPI,
+		c.epBuildQueue,
+		c.loader,
+		c.orchestrator,
+		c.compilationLock,
+		c.bandwidthManager,
+		c.ipTablesManager,
+		c.identityManager,
+		c.monitorAgent,
+		c.policyMapFactory,
+		c.policyRepo,
+		c.ipcache,
+		c.proxy,
+		c.allocator,
+		c.ctMapGC,
+		c.kvstoreSyncher,
+		c.wgConfig,
+		c.ipsecConfig,
 	)
 	if err != nil {
 		return err
@@ -177,6 +208,7 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 
 func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 	ep, err := endpoint.CreateHostEndpoint(
+		c.logger,
 		c.dnsRulesAPI,
 		c.epBuildQueue,
 		c.loader,
@@ -192,6 +224,9 @@ func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 		c.proxy,
 		c.allocator,
 		c.ctMapGC,
+		c.kvstoreSyncher,
+		c.wgConfig,
+		c.ipsecConfig,
 	)
 	if err != nil {
 		return err

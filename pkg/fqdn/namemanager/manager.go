@@ -6,21 +6,25 @@ package namemanager
 import (
 	"context"
 	"hash/fnv"
+	"log/slog"
 	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/stream"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -35,6 +39,8 @@ import (
 
 // The implementation of the NameManager interface.
 type manager struct {
+	logger *slog.Logger
+
 	lock.RWMutex
 
 	// params is a copy from when this instance was initialized.
@@ -54,11 +60,19 @@ type manager struct {
 	// Cleared by CompleteBoostrap
 	restoredPrefixes sets.Set[netip.Prefix]
 
-	manager *controller.Manager
-
 	// list of locks used as coordination points for name updates
 	// see LockName() for details.
 	nameLocks []*lock.Mutex
+
+	// selectorChanges is a stream of added and removed selectors
+	selectorChanges chan selectorChange
+	// Any pre-allocated identities for selectors -- used for possible release.
+	selectorIDs map[api.FQDNSelector][]identity.NumericIdentity
+}
+
+type selectorChange struct {
+	added bool
+	sel   api.FQDNSelector
 }
 
 // New creates an initialized NameManager.
@@ -70,15 +84,50 @@ func New(params ManagerParams) *manager {
 	cache.DisableCleanupTrack()
 
 	n := &manager{
+		logger:       params.Logger,
 		params:       params,
 		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
+		selectorIDs:  make(map[api.FQDNSelector][]identity.NumericIdentity),
 		cache:        cache,
-		manager:      controller.NewManager(),
 		nameLocks:    make([]*lock.Mutex, params.Config.DNSProxyLockCount),
 	}
 
 	for i := range n.nameLocks {
 		n.nameLocks[i] = &lock.Mutex{}
+	}
+
+	// Break Hive import loop -- pass the NameManager back to the SelectorCache.
+	// (optional for tests)
+	if params.PolicyRepo != nil {
+		params.PolicyRepo.GetSelectorCache().SetLocalIdentityNotifier(n)
+	}
+
+	// Set up jobs:
+	// - gc
+	// - bootstrap
+	// - preallocator
+	// (optional for tests)
+	if params.JobGroup != nil {
+		params.JobGroup.Add(job.Timer(
+			dnsGCJobName,
+			n.doGC,
+			DNSGCJobInterval,
+		))
+
+		params.JobGroup.Add(job.OneShot(
+			"remove-restored-prefixes",
+			n.removeRestoredPrefixes,
+		))
+
+		// Start the asynchronous prefix allocator
+		// (optional for tests)
+		if params.Allocator != nil && params.Config.ToFQDNsPreAllocate {
+			n.selectorChanges = make(chan selectorChange, 2048)
+			params.JobGroup.Add(job.Observer(
+				"preallocate",
+				n.processSelectorChanges,
+				stream.FromChannel(n.selectorChanges)))
+		}
 	}
 
 	return n
@@ -95,19 +144,35 @@ func (n *manager) RegisterFQDNSelector(selector api.FQDNSelector) {
 
 	_, exists := n.allSelectors[selector]
 	if exists {
-		log.WithField("fqdnSelector", selector).Warning("FQDNSelector was already registered for updates.")
+		n.logger.Warn("FQDNSelector was already registered for updates.",
+			logfields.FQDNSelector, selector,
+		)
 	} else {
 		// This error should never occur since the FQDNSelector has already been
 		// validated, but account for it for good measure.
 		regex, err := selector.ToRegex()
 		if err != nil {
-			log.WithError(err).WithField("fqdnSelector", selector).Error("FQDNSelector did not compile to valid regex")
+			n.logger.Error("FQDNSelector did not compile to valid regex",
+				logfields.Error, err,
+				logfields.FQDNSelector, selector,
+			)
 			return
 		}
 
 		n.allSelectors[selector] = regex
 		if metrics.FQDNSelectors.IsEnabled() {
 			metrics.FQDNSelectors.Set(float64(len(n.allSelectors)))
+		}
+		if n.selectorChanges != nil {
+			select {
+			case n.selectorChanges <- selectorChange{sel: selector, added: true}:
+			default:
+				// It is not a correctness issue if pre-allocation fails; it just
+				// means the first allocation will happen on DNS request. Even if a
+				// deletion is enqueued, we will have not recorded any allocated IDs
+				// so there is no risk of imbalanced references.
+				n.logger.Warn("failed to queue selector for preallocation")
+			}
 		}
 	}
 
@@ -131,6 +196,14 @@ func (n *manager) UnregisterFQDNSelector(selector api.FQDNSelector) {
 	if metrics.FQDNSelectors.IsEnabled() {
 		metrics.FQDNSelectors.Set(float64(len(n.allSelectors)))
 	}
+	if n.selectorChanges != nil {
+		select {
+		case n.selectorChanges <- selectorChange{sel: selector, added: false}:
+		default:
+			// No risk of correctness if this happens, but we will have leaked an identity.
+			n.logger.Warn("failed to queue selector identity release")
+		}
+	}
 
 	// Re-compute labels for affected names and IPs
 	selectedNamesAndIPs := n.mapSelectorsToNamesLocked(selector)
@@ -145,11 +218,12 @@ func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, n
 
 	// Update IPs in n
 	updated, ipcacheRevision := n.updateDNSIPs(lookupTime, name, record)
-	if updated && log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-		log.WithFields(logrus.Fields{
-			"matchName": name,
-			"IPs":       record.IPs,
-		}).Debug("Updated FQDN with new IPs")
+	if updated {
+		n.logger.Debug(
+			"Updated FQDN with new IPs",
+			logfields.MatchName, name,
+			logfields.IPAddrs, record.IPs,
+		)
 	}
 
 	c := make(chan error)
@@ -159,13 +233,28 @@ func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, n
 	return c
 }
 
-func (n *manager) CompleteBootstrap() {
+// removeRestoredPrefixes is a one-shot job. It waits for
+// all endpoints to be regenerated, then removes restored ipcache state.
+func (n *manager) removeRestoredPrefixes(ctx context.Context, _ cell.Health) error {
+	epRestorer, err := n.params.RestorerPromise.Await(ctx)
+	if err != nil {
+		n.logger.Error("Failed to get endpoint restorer", logfields.Error, err)
+		return err
+	}
+	if err := epRestorer.WaitForEndpointRestore(ctx); err != nil {
+		n.logger.Error("Failed to wait for endpoints to regenerate", logfields.Error, err)
+		return err
+	}
+
 	n.Lock()
 	defer n.Unlock()
 
 	n.bootstrapCompleted = true
 	if len(n.restoredPrefixes) > 0 {
-		log.WithField("prefixes", len(n.restoredPrefixes)).Debug("Removing restored IPCache labels")
+		n.logger.Debug(
+			"Removing restored IPCache labels",
+			logfields.LenPrefixes, len(n.restoredPrefixes),
+		)
 
 		// The following logic needs to match the restoration logic in RestoreCaches
 		ipcacheUpdates := make([]ipcache.MU, 0, len(n.restoredPrefixes))
@@ -184,10 +273,14 @@ func (n *manager) CompleteBootstrap() {
 
 		checkpointPath := filepath.Join(n.params.Config.StateDir, checkpointFile)
 		if err := os.Remove(checkpointPath); err != nil {
-			log.WithError(err).WithField(logfields.Path, checkpointPath).
-				Debug("Failed to remove checkpoint file")
+			n.logger.Debug(
+				"Failed to remove checkpoint file",
+				logfields.Error, err,
+				logfields.Path, checkpointPath,
+			)
 		}
 	}
+	return nil
 }
 
 // updateDNSIPs updates the IPs for a DNS name. It returns whether the name's IPs
@@ -197,23 +290,21 @@ func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *
 
 	// The IPs didn't change. No more to be done for this dnsName
 	if !updated && n.bootstrapCompleted {
-		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-			log.WithFields(logrus.Fields{
-				"dnsName":   dnsName,
-				"lookupIPs": lookupIPs,
-			}).Debug("FQDN: IPs didn't change for DNS name")
-		}
+		n.logger.Debug(
+			"FQDN: IPs didn't change for DNS name",
+			logfields.DNSName, dnsName,
+			logfields.LookupIPAddrs, lookupIPs,
+		)
 		return
 	}
 
 	// accumulate the new labels affected by new IPs
 	if len(n.allSelectors) == 0 {
-		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-			log.WithFields(logrus.Fields{
-				"dnsName":   dnsName,
-				"lookupIPs": lookupIPs,
-			}).Debug("FQDN: No selectors registered for updates")
-		}
+		n.logger.Debug(
+			"FQDN: No selectors registered for updates",
+			logfields.DNSName, dnsName,
+			logfields.LookupIPAddrs, lookupIPs,
+		)
 		return
 	}
 
@@ -282,13 +373,12 @@ func (n *manager) updateMetadata(nameToMetadata map[string]nameMetadata) (ipcach
 		var updates []ipcache.MU
 		resource := ipcacheResource(dnsName)
 
-		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-			log.WithFields(logrus.Fields{
-				"name":     dnsName,
-				"prefixes": metadata.addrs,
-				"labels":   metadata.labels,
-			}).Debug("Updating prefix labels in IPCache")
-		}
+		n.logger.Debug(
+			"Updating prefix labels in IPCache",
+			logfields.Name, dnsName,
+			logfields.IPAddrs, metadata.addrs,
+			logfields.Labels, metadata.labels,
+		)
 
 		for _, addr := range metadata.addrs {
 			updates = append(updates, ipcache.MU{
@@ -420,13 +510,12 @@ func (n *manager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (name
 		dnsName := prepareMatchName(fqdnSelector.MatchName)
 		lookupIPs := n.cache.Lookup(dnsName)
 		if len(lookupIPs) > 0 {
-			if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-				log.WithFields(logrus.Fields{
-					"DNSName":   dnsName,
-					"IPs":       lookupIPs,
-					"matchName": fqdnSelector.MatchName,
-				}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-			}
+			n.logger.Debug(
+				"Emitting matching DNS Name -> IPs for FQDNSelector",
+				logfields.DNSName, dnsName,
+				logfields.IPAddrs, lookupIPs,
+				logfields.MatchName, fqdnSelector.MatchName,
+			)
 			namesIPMapping[dnsName] = lookupIPs
 		}
 	}
@@ -441,20 +530,19 @@ func (n *manager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (name
 		)
 
 		if patternRE, err = re.CompileRegex(patternREStr); err != nil {
-			log.WithError(err).Error("Error compiling matchPattern")
+			n.logger.Error("Error compiling matchPattern", logfields.Error, err)
 			return namesIPMapping
 		}
 		lookupIPs := n.cache.LookupByRegexp(patternRE)
 
 		for dnsName, ips := range lookupIPs {
 			if len(ips) > 0 {
-				if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-					log.WithFields(logrus.Fields{
-						"DNSName":      dnsName,
-						"IPs":          ips,
-						"matchPattern": fqdnSelector.MatchPattern,
-					}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-				}
+				n.logger.Debug(
+					"Emitting matching DNS Name -> IPs for FQDNSelector",
+					logfields.DNSName, dnsName,
+					logfields.IPAddrs, ips,
+					logfields.MatchPattern, fqdnSelector.MatchPattern,
+				)
 				namesIPMapping[dnsName] = append(namesIPMapping[dnsName], ips...)
 			}
 		}

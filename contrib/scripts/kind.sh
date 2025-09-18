@@ -22,7 +22,7 @@ default_pod_subnet=""
 default_service_subnet=""
 default_agent_port_prefix="234"
 default_operator_port_prefix="235"
-default_network="kind-cilium"
+default_network="${KIND_EXPERIMENTAL_DOCKER_NETWORK:-kind-cilium}"
 default_apiserver_addr="127.0.0.1"
 default_apiserver_port=0 # kind will randomly select
 default_kubeconfig=""
@@ -88,7 +88,7 @@ v4_prefix_secondary="192.168.0.0/16"
 v4_range_secondary="192.168.0.0/24"
 v6_prefix="fc00:c111::/64"
 v6_prefix_secondary="fc00:c112::/64"
-CILIUM_ROOT="$(git rev-parse --show-toplevel)"
+CILIUM_ROOT="$(realpath $(dirname ${BASH_SOURCE[0]:-$0})/../..)"
 
 have_kind() {
     [[ -n "$(command -v kind)" ]]
@@ -236,6 +236,14 @@ kubeadmConfigPatches:
     apiServer:
       extraArgs:
         "v": "3"
+    controllerManager:
+      extraArgs:
+        authorization-always-allow-paths: /healthz,/readyz,/livez,/metrics
+        bind-address: 0.0.0.0
+    scheduler:
+      extraArgs:
+        authorization-always-allow-paths: /healthz,/readyz,/livez,/metrics
+        bind-address: 0.0.0.0
 EOF
 
 if [ "${secondary_network_flag}" = true ]; then

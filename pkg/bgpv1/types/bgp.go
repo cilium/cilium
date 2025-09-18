@@ -58,6 +58,7 @@ type Path struct {
 	AgeNanoseconds int64 // time duration in nanoseconds since the Path was created
 	Best           bool
 	UUID           []byte // path identifier in underlying implementation
+	SourceASN      uint32
 }
 
 // Neighbor is an object representing a single BGP neighbor. It is an analogue
@@ -105,14 +106,37 @@ type NeighborRouteReflector struct {
 type SoftResetDirection int
 
 const (
-	SoftResetDirectionIn SoftResetDirection = iota
+	SoftResetDirectionNone SoftResetDirection = iota
+	SoftResetDirectionIn
 	SoftResetDirectionOut
 	SoftResetDirectionBoth
 )
 
+func (d SoftResetDirection) String() string {
+	switch d {
+	case SoftResetDirectionNone:
+		return "none"
+	case SoftResetDirectionIn:
+		return "in"
+	case SoftResetDirectionOut:
+		return "out"
+	case SoftResetDirectionBoth:
+		return "both"
+	default:
+		return "unknown"
+	}
+}
+
 // ResetNeighborRequest contains parameters used when resetting a BGP peer
 type ResetNeighborRequest struct {
-	PeerAddress        string
+	PeerAddress        netip.Addr
+	Soft               bool
+	SoftResetDirection SoftResetDirection
+	AdminCommunication string
+}
+
+// ResetAllNeighborsRequest contains parameters used when resetting all BGP peers
+type ResetAllNeighborsRequest struct {
 	Soft               bool
 	SoftResetDirection SoftResetDirection
 	AdminCommunication string
@@ -148,9 +172,11 @@ type RoutePolicyPrefixMatch struct {
 // RoutePolicyConditions represent conditions of a policy statement.
 //
 // +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type RoutePolicyConditions struct {
 	// MatchNeighbors matches ANY of the provided BGP neighbor IP addresses. If empty matches all neighbors.
-	MatchNeighbors []string
+	// +deepequal-gen=false
+	MatchNeighbors []netip.Addr
 	// MatchPrefixes matches ANY of the provided prefixes. If empty matches all prefixes.
 	MatchPrefixes []*RoutePolicyPrefixMatch
 	// MatchFamilies matches ANY of the provided address families. If empty matches all address families.
@@ -160,7 +186,9 @@ type RoutePolicyConditions struct {
 // String() constructs a string identifier
 func (r RoutePolicyConditions) String() string {
 	values := []string{}
-	values = append(values, r.MatchNeighbors...)
+	for _, neighbor := range r.MatchNeighbors {
+		values = append(values, neighbor.String())
+	}
 	for _, family := range r.MatchFamilies {
 		values = append(values, family.String())
 	}
@@ -168,6 +196,28 @@ func (r RoutePolicyConditions) String() string {
 		values = append(values, prefix.CIDR.String())
 	}
 	return strings.Join(values, "-")
+}
+
+// DeepEqual is a manually created deepequal function, deeply comparing the receiver with another.
+// It compares fields with types that do not implement the `DeepEqual` method
+// and calls the generated private `deepEqual` method which compares the rest of the fields.
+func (r *RoutePolicyConditions) DeepEqual(other *RoutePolicyConditions) bool {
+	if other == nil {
+		return false
+	}
+
+	if len(r.MatchNeighbors) != len(other.MatchNeighbors) {
+		return false
+	}
+
+	for i, neighbor := range r.MatchNeighbors {
+		if neighbor != other.MatchNeighbors[i] {
+			return false
+		}
+	}
+
+	// Call generated `deepEqual` method which compares all fields except 'MatchNeighbors'
+	return r.deepEqual(other)
 }
 
 // RoutePolicyAction defines the action taken on a route matched by a routing policy.
@@ -340,10 +390,18 @@ type GetRoutePoliciesResponse struct {
 	Policies []*RoutePolicy
 }
 
+// StopRequest contains parameters for stopping the underlying router
+type StopRequest struct {
+	// FullDestroy should be set to true if full destroy of the router instance should be performed.
+	// Note that this causes sending a Cease notification to BGP peers, which terminates Graceful Restart progress.
+	FullDestroy bool
+}
+
 // Router is vendor-agnostic cilium bgp configuration layer. Parameters of this layer
 // are standard BGP RFC complaint and not specific to any underlying implementation.
 type Router interface {
-	Stop()
+	// Stop stops the router
+	Stop(ctx context.Context, r StopRequest)
 
 	// AddNeighbor configures BGP peer
 	AddNeighbor(ctx context.Context, n *Neighbor) error
@@ -356,6 +414,9 @@ type Router interface {
 
 	// ResetNeighbor resets BGP peering with the provided neighbor address
 	ResetNeighbor(ctx context.Context, r ResetNeighborRequest) error
+
+	// ResetAllNeighbors resets BGP peering with all configured neighbors
+	ResetAllNeighbors(ctx context.Context, r ResetAllNeighborsRequest) error
 
 	// AdvertisePath advertises BGP Path to all configured peers
 	AdvertisePath(ctx context.Context, p PathRequest) (PathResponse, error)

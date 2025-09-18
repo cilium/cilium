@@ -24,6 +24,9 @@ on:
     - 'renovate/main-**'
     paths-ignore:
     - 'Documentation/**'
+  # Run every 8 hours
+  schedule:
+    - cron:  '0 3/8 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -77,6 +80,10 @@ jobs:
 
   integration-test:
     name: Integration Test
+    env:
+      # GitHub doesn't provide a way to retrieve the name of a job, so we have
+      # to repeated it here.
+      job_name: "Integration Test (${{matrix.arch}})"
     strategy:
       fail-fast: false
       matrix:
@@ -116,13 +123,12 @@ jobs:
           sudo apt update && sudo apt install -y --no-install-recommends build-essential make libtinfo5
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
-        if: runner.name == 'ubuntu-latest'
         uses: ./.github/actions/disk-cleanup
 
       - name: Set Environment Variables
@@ -141,39 +147,115 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
 
       - name: Install Go
-        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
+          cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.2
+          go-version: 1.25.1
+
+      # Load Golang cache build from GitHub
+      - name: Load Golang cache build from GitHub
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        id: go-cache
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-integration-test-cache-${{ runner.arch }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-integration-test-cache-${{ runner.arch }}-
 
       - name: Set clang directory
         id: set_clang_dir
         run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@6ba6e2cd3813def9879be378609d87cb3ef3bac3 # v2.0.6
+        uses: KyleMayes/install-llvm-action@a7a1a882e2d06ebe05d5bb97c3e1f8c984ae96fc # v2.0.7
         with:
-          version: "18.1.8"
+          version: "19.1.7"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
+
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+        shell: bash
+        run: |
+          mkdir -p "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}"
 
       - name: Prepare environment
         timeout-minutes: 15
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+        shell: bash
         run: |
+          # renovate: datasource=github-releases depName=mfridman/tparse
           go install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442 # v0.14.0
+          # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+          go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@cc2d3acf69eeefab6f9a23ad61b175cd1d570623 # v2.3.0
 
       - name: Run integration tests
+        id: run-tests
         timeout-minutes: 60
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
         run: |
           export V=0
           export DOCKER_BUILD_FLAGS=--quiet
           export CFLAGS="-Werror"
-          make integration-tests LOG_CODEOWNERS=1
+          make integration-tests LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml"
+
+      - name: Fetch JUnits
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cd test/
+          # junit_filename needs to be the same as the Job Name presented on the
+          # GH web UI - In the Summary page of a workflow run, left column
+          # "Jobs" - so that we can map the junit file to the right job - step
+          # pair on datastudio.
+          junit_filename="${{ env.job_name }}.xml"
+          for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cilium-junits-${{ env.job_name }}
+          path: cilium-junits/*.xml
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() && runner.arch != 'ARM64' }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  merge-upload:
+    if: ${{ always() }}
+    name: Merge and Upload Artifacts
+    runs-on: ubuntu-24.04
+    needs: integration-test
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+      - name: Merge JUnits
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: cilium-junits
+          pattern: cilium-junits-*
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   commit-status-final:
     if: ${{ always() }}

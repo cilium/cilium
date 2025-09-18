@@ -9,8 +9,6 @@ import (
 	"io"
 	"os"
 	"reflect"
-	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cilium/ebpf/asm"
@@ -59,6 +57,36 @@ type MapInfo struct {
 	mapExtra uint64
 	memlock  uint64
 	frozen   bool
+}
+
+// minimalMapInfoFromFd queries the minimum information needed to create a Map
+// based on a file descriptor. This requires the map type, key/value sizes,
+// maxentries and flags.
+//
+// Does not fall back to fdinfo since the version gap between fdinfo (4.10) and
+// [sys.ObjInfo] (4.13) is small and both kernels are EOL since at least Nov
+// 2017.
+//
+// Requires at least Linux 4.13.
+func minimalMapInfoFromFd(fd *sys.FD) (*MapInfo, error) {
+	var info sys.MapInfo
+	if err := sys.ObjInfo(fd, &info); err != nil {
+		return nil, fmt.Errorf("getting object info: %w", err)
+	}
+
+	typ, err := MapTypeForPlatform(platform.Native, info.Type)
+	if err != nil {
+		return nil, fmt.Errorf("map type: %w", err)
+	}
+
+	return &MapInfo{
+		Type:       typ,
+		KeySize:    info.KeySize,
+		ValueSize:  info.ValueSize,
+		MaxEntries: info.MaxEntries,
+		Flags:      uint32(info.MapFlags),
+		Name:       unix.ByteSliceToString(info.Name[:]),
+	}, nil
 }
 
 // newMapInfoFromFd queries map information about the given fd. [sys.ObjInfo] is
@@ -187,15 +215,41 @@ func (mi *MapInfo) Frozen() bool {
 	return mi.frozen
 }
 
-// programStats holds statistics of a program.
-type programStats struct {
-	// Total accumulated runtime of the program ins ns.
-	runtime time.Duration
-	// Total number of times the program was called.
-	runCount uint64
-	// Total number of times the programm was NOT called.
-	// Added in commit 9ed9e9ba2337 ("bpf: Count the number of times recursion was prevented").
-	recursionMisses uint64
+// ProgramStats contains runtime statistics for a single [Program], returned by
+// [Program.Stats].
+//
+// Will contain mostly zero values if the collection of statistics is not
+// enabled, see [EnableStats].
+type ProgramStats struct {
+	// Total accumulated runtime of the Program.
+	//
+	// Requires at least Linux 5.8.
+	Runtime time.Duration
+
+	// Total number of times the Program has executed.
+	//
+	// Requires at least Linux 5.8.
+	RunCount uint64
+
+	// Total number of times the program was not executed due to recursion. This
+	// can happen when another bpf program is already running on the cpu, when bpf
+	// program execution is interrupted, for example.
+	//
+	// Requires at least Linux 5.12.
+	RecursionMisses uint64
+}
+
+func newProgramStatsFromFd(fd *sys.FD) (*ProgramStats, error) {
+	var info sys.ProgInfo
+	if err := sys.ObjInfo(fd, &info); err != nil {
+		return nil, fmt.Errorf("getting program info: %w", err)
+	}
+
+	return &ProgramStats{
+		Runtime:         time.Duration(info.RunTimeNs),
+		RunCount:        info.RunCnt,
+		RecursionMisses: info.RecursionMisses,
+	}, nil
 }
 
 // programJitedInfo holds information about JITed info of a program.
@@ -232,7 +286,8 @@ type programJitedInfo struct {
 	numFuncLens uint32
 }
 
-// ProgramInfo describes a program.
+// ProgramInfo describes a Program's immutable metadata. For runtime statistics,
+// see [ProgramStats].
 type ProgramInfo struct {
 	Type ProgramType
 	id   ProgramID
@@ -244,7 +299,6 @@ type ProgramInfo struct {
 	createdByUID     uint32
 	haveCreatedByUID bool
 	btf              btf.ID
-	stats            *programStats
 	loadTime         time.Duration
 
 	maps                 []MapID
@@ -258,16 +312,48 @@ type ProgramInfo struct {
 	numLineInfos uint32
 	funcInfos    []byte
 	numFuncInfos uint32
+
+	memlock uint64
 }
 
+// minimalProgramFromFd queries the minimum information needed to create a
+// Program based on a file descriptor, requiring at least the program type.
+//
+// Does not fall back to fdinfo since the version gap between fdinfo (4.10) and
+// [sys.ObjInfo] (4.13) is small and both kernels are EOL since at least Nov
+// 2017.
+//
+// Requires at least Linux 4.13.
+func minimalProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
+	var info sys.ProgInfo
+	if err := sys.ObjInfo(fd, &info); err != nil {
+		return nil, fmt.Errorf("getting object info: %w", err)
+	}
+
+	typ, err := ProgramTypeForPlatform(platform.Native, info.Type)
+	if err != nil {
+		return nil, fmt.Errorf("program type: %w", err)
+	}
+
+	return &ProgramInfo{
+		Type: typ,
+		Name: unix.ByteSliceToString(info.Name[:]),
+	}, nil
+}
+
+// newProgramInfoFromFd queries program information about the given fd.
+//
+// [sys.ObjInfo] is attempted first, supplementing any missing values with
+// information from /proc/self/fdinfo. Ignores EINVAL from ObjInfo as well as
+// ErrNotSupported from reading fdinfo (indicating the file exists, but no
+// fields of interest were found). If both fail, an error is always returned.
 func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 	var info sys.ProgInfo
-	err := sys.ObjInfo(fd, &info)
-	if errors.Is(err, syscall.EINVAL) {
-		return newProgramInfoFromProc(fd)
-	}
-	if err != nil {
-		return nil, err
+	err1 := sys.ObjInfo(fd, &info)
+	// EINVAL means the kernel doesn't support BPF_OBJ_GET_INFO_BY_FD. Continue
+	// with fdinfo if that's the case.
+	if err1 != nil && !errors.Is(err1, unix.EINVAL) {
+		return nil, fmt.Errorf("getting object info: %w", err1)
 	}
 
 	typ, err := ProgramTypeForPlatform(platform.Native, info.Type)
@@ -276,19 +362,25 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 	}
 
 	pi := ProgramInfo{
-		Type: typ,
-		id:   ProgramID(info.Id),
-		Tag:  hex.EncodeToString(info.Tag[:]),
-		Name: unix.ByteSliceToString(info.Name[:]),
-		btf:  btf.ID(info.BtfId),
-		stats: &programStats{
-			runtime:         time.Duration(info.RunTimeNs),
-			runCount:        info.RunCnt,
-			recursionMisses: info.RecursionMisses,
-		},
+		Type:                 typ,
+		id:                   ProgramID(info.Id),
+		Tag:                  hex.EncodeToString(info.Tag[:]),
+		Name:                 unix.ByteSliceToString(info.Name[:]),
+		btf:                  btf.ID(info.BtfId),
 		jitedSize:            info.JitedProgLen,
 		loadTime:             time.Duration(info.LoadTime),
 		verifiedInstructions: info.VerifiedInsns,
+	}
+
+	// Supplement OBJ_INFO with data from /proc/self/fdinfo. It contains fields
+	// like memlock that is not present in OBJ_INFO.
+	err2 := readProgramInfoFromProc(fd, &pi)
+	if err2 != nil && !errors.Is(err2, ErrNotSupported) {
+		return nil, fmt.Errorf("getting map info from fdinfo: %w", err2)
+	}
+
+	if err1 != nil && err2 != nil {
+		return nil, fmt.Errorf("ObjInfo and fdinfo both failed: objinfo: %w, fdinfo: %w", err1, err2)
 	}
 
 	if platform.IsWindows && info.Tag == [8]uint8{} {
@@ -388,29 +480,29 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 	return &pi, nil
 }
 
-func newProgramInfoFromProc(fd *sys.FD) (*ProgramInfo, error) {
-	var info ProgramInfo
+func readProgramInfoFromProc(fd *sys.FD, pi *ProgramInfo) error {
 	var progType uint32
 	err := scanFdInfo(fd, map[string]interface{}{
 		"prog_type": &progType,
-		"prog_tag":  &info.Tag,
+		"prog_tag":  &pi.Tag,
+		"memlock":   &pi.memlock,
 	})
 	if errors.Is(err, ErrNotSupported) && !errors.Is(err, internal.ErrNotSupportedOnOS) {
-		return nil, &internal.UnsupportedFeatureError{
+		return &internal.UnsupportedFeatureError{
 			Name:           "reading program info from /proc/self/fdinfo",
 			MinimumVersion: internal.Version{4, 10, 0},
 		}
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	info.Type, err = ProgramTypeForPlatform(platform.Linux, progType)
+	pi.Type, err = ProgramTypeForPlatform(platform.Linux, progType)
 	if err != nil {
-		return nil, fmt.Errorf("program type: %w", err)
+		return fmt.Errorf("program type: %w", err)
 	}
 
-	return &info, nil
+	return nil
 }
 
 // ID returns the program ID.
@@ -441,38 +533,6 @@ func (pi *ProgramInfo) CreatedByUID() (uint32, bool) {
 // supports the field but the program was loaded without BTF information.)
 func (pi *ProgramInfo) BTFID() (btf.ID, bool) {
 	return pi.btf, pi.btf > 0
-}
-
-// RunCount returns the total number of times the program was called.
-//
-// Can return 0 if the collection of statistics is not enabled. See EnableStats().
-// The bool return value indicates whether this optional field is available.
-func (pi *ProgramInfo) RunCount() (uint64, bool) {
-	if pi.stats != nil {
-		return pi.stats.runCount, true
-	}
-	return 0, false
-}
-
-// Runtime returns the total accumulated runtime of the program.
-//
-// Can return 0 if the collection of statistics is not enabled. See EnableStats().
-// The bool return value indicates whether this optional field is available.
-func (pi *ProgramInfo) Runtime() (time.Duration, bool) {
-	if pi.stats != nil {
-		return pi.stats.runtime, true
-	}
-	return time.Duration(0), false
-}
-
-// RecursionMisses returns the total number of times the program was NOT called.
-// This can happen when another bpf program is already running on the cpu, which
-// is likely to happen for example when you interrupt bpf program execution.
-func (pi *ProgramInfo) RecursionMisses() (uint64, bool) {
-	if pi.stats != nil {
-		return pi.stats.recursionMisses, true
-	}
-	return 0, false
 }
 
 // btfSpec returns the BTF spec associated with the program.
@@ -743,6 +803,15 @@ func (pi *ProgramInfo) FuncInfos() (btf.FuncOffsets, error) {
 	)
 }
 
+// ProgramInfo returns an approximate number of bytes allocated to this program.
+//
+// Available from 4.10.
+//
+// The bool return value indicates whether this optional field is available.
+func (pi *ProgramInfo) Memlock() (uint64, bool) {
+	return pi.memlock, pi.memlock > 0
+}
+
 func scanFdInfo(fd *sys.FD, fields map[string]interface{}) error {
 	if platform.IsWindows {
 		return fmt.Errorf("read fdinfo: %w", internal.ErrNotSupportedOnOS)
@@ -764,25 +833,31 @@ func scanFdInfoReader(r io.Reader, fields map[string]interface{}) error {
 	var (
 		scanner = bufio.NewScanner(r)
 		scanned int
+		reader  bytes.Reader
 	)
 
 	for scanner.Scan() {
-		parts := strings.SplitN(scanner.Text(), "\t", 2)
-		if len(parts) != 2 {
+		key, rest, found := bytes.Cut(scanner.Bytes(), []byte(":"))
+		if !found {
+			// Line doesn't contain a colon, skip.
 			continue
 		}
-
-		name := strings.TrimSuffix(parts[0], ":")
-		field, ok := fields[string(name)]
+		field, ok := fields[string(key)]
 		if !ok {
 			continue
 		}
-
 		// If field already contains a non-zero value, don't overwrite it with fdinfo.
-		if zero(field) {
-			if n, err := fmt.Sscanln(parts[1], field); err != nil || n != 1 {
-				return fmt.Errorf("can't parse field %s: %v", name, err)
-			}
+		if !zero(field) {
+			scanned++
+			continue
+		}
+
+		// Cut the \t following the : as well as any potential trailing whitespace.
+		rest = bytes.TrimSpace(rest)
+
+		reader.Reset(rest)
+		if n, err := fmt.Fscan(&reader, field); err != nil || n != 1 {
+			return fmt.Errorf("can't parse field %s: %v", key, err)
 		}
 
 		scanned++
@@ -811,12 +886,16 @@ func zero(arg any) bool {
 	return v.IsZero()
 }
 
-// EnableStats starts the measuring of the runtime
-// and run counts of eBPF programs.
+// EnableStats starts collecting runtime statistics of eBPF programs, like the
+// amount of program executions and the cumulative runtime.
 //
-// Collecting statistics can have an impact on the performance.
+// Specify a BPF_STATS_* constant to select which statistics to collect, like
+// [unix.BPF_STATS_RUN_TIME]. Closing the returned [io.Closer] will stop
+// collecting statistics.
 //
-// Requires at least 5.8.
+// Collecting statistics may have a performance impact.
+//
+// Requires at least Linux 5.8.
 func EnableStats(which uint32) (io.Closer, error) {
 	fd, err := sys.EnableStats(&sys.EnableStatsAttr{
 		Type: which,
@@ -857,4 +936,4 @@ var haveProgramInfoMapIDs = internal.NewFeatureTest("map IDs in program info", f
 	}
 
 	return err
-}, "4.15", "windows:0.20.0")
+}, "4.15", "windows:0.21.0")

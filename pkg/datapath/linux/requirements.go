@@ -36,12 +36,43 @@ func CheckRequirements(log *slog.Logger) error {
 		}
 	}
 
-	// bpftool checks
 	if !option.Config.DryMode {
-		probeManager := probes.NewProbeManager(log)
+		if probes.HaveBPF() != nil {
+			return errors.New("Require support for bpf() (CONFIG_BPF_SYSCALL=y)")
+		}
+
+		if probes.HaveBPFJIT() != nil {
+			return errors.New("Require support for the eBPF JIT (CONFIG_HAVE_EBPF_JIT=y and CONFIG_BPF_JIT=y)")
+		}
+
+		if probes.HaveTCBPF() != nil {
+			// If tcx is (explicitly) disabled and there's no tc-bpf fallback, suggest
+			// a kernel with tc-bpf support.
+			if !option.Config.EnableTCX {
+				return errors.New("Require support for the clsact qdisc (CONFIG_NET_CLS_ACT=y), ingress classes (CONFIG_NET_SCH_INGRESS=y) and the bpf filter (CONFIG_NET_CLS_BPF=y)")
+			}
+
+			// If tcx is enabled but not supported, and there's no tc-bpf fallback,
+			// suggest a kernel with tcx support.
+			if probes.HaveTCX() != nil {
+				return errors.New("Require support for tcx links (Linux 6.6 or newer)")
+			}
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnSkbChangeTail) != nil {
+			return errors.New("Require support for bpf_skb_change_tail() (Linux 4.9.0 or newer)")
+		}
 
 		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetSocketCookie) != nil {
 			return errors.New("Require support for bpf_get_socket_cookie() (Linux 4.12 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId) != nil {
+			return errors.New("Require support for bpf_get_current_cgroup_id() (Linux 4.18 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnFibLookup) != nil {
+			return errors.New("Require support for bpf_fib_lookup() (Linux 4.18 or newer)")
 		}
 
 		if probes.HaveDeadCodeElim() != nil {
@@ -60,10 +91,55 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for bpf_skb_adjust_room with BPF_ADJ_ROOM_MAC mode (Linux 5.2 or newer)")
 		}
 
-		if err := probeManager.SystemConfigProbes(); err != nil {
-			// TODO(vincentmli): revisit log when GH#14314 has been resolved
-			// Warn missing required kernel config option
-			log.Warn("BPF system config check: NOT OK.", logfields.Error, err)
+		if probes.HaveProgramHelper(log, ebpf.CGroupSock, asm.FnJiffies64) != nil ||
+			probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnJiffies64) != nil ||
+			probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnJiffies64) != nil ||
+			probes.HaveProgramHelper(log, ebpf.XDP, asm.FnJiffies64) != nil {
+			return errors.New("Require support for bpf_jiffies64 (Linux 5.6.0 or newer)")
+		}
+
+		if probes.HaveBatchAPI() != nil {
+			return errors.New("Require support for BPF_MAP_LOOKUP_BATCH (Linux 5.6.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
+			probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			return errors.New("Require support for bpf_get_netns_cookie() (Linux 5.7.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnSkAssign) != nil {
+			return errors.New("Require support for bpf_sk_assign() (Linux 5.7.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil {
+			return errors.New("Require support for bpf_get_cgroup_classid() (Linux 5.7.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
+			return errors.New("Require support for bpf_perf_event_output() (Linux 5.7.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnCsumLevel) != nil {
+			return errors.New("Require support for bpf_csum_level() (Linux 5.8.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnSkbChangeHead) != nil {
+			return errors.New("Require support for bpf_skb_change_head() (Linux 5.8.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnRedirectNeigh) != nil {
+			return errors.New("Require support for bpf_redirect_neigh() (Linux 5.10.0 or newer)")
+		}
+
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
+			return errors.New("Require support for bpf_redirect_peer() (Linux 5.10.0 or newer)")
+		}
+
+		if err := probes.HaveFibLookupSkipNeigh(); err != nil {
+			if !errors.Is(err, probes.ErrNotSupported) {
+				return errors.New("Unable to determine if BPF_FIB_LOOKUP_SKIP_NEIGH is supported")
+			}
+			log.Info("BPF_FIB_LOOKUP_SKIP_NEIGH is not supported; it will not be used")
 		}
 	}
 	return nil

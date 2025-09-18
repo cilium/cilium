@@ -33,19 +33,20 @@ var (
 
 		enableIPTranslation bool
 		nodeName            bool
+		policyNames         bool
 		numeric             bool
 		color               string
+	}
+
+	maskOpts struct {
+		fieldMask       []string
+		useDefaultMasks bool
 	}
 
 	otherOpts struct {
 		ignoreStderr    bool
 		printRawFilters bool
 		inputFile       string
-	}
-
-	experimentalOpts struct {
-		fieldMask       []string
-		useDefaultMasks bool
 	}
 
 	printer *hubprinter.Printer
@@ -122,6 +123,7 @@ func init() {
   table:    Tab-aligned columns
 `)
 	formattingFlags.BoolVarP(&formattingOpts.nodeName, "print-node-name", "", false, "Print node name in output")
+	formattingFlags.BoolVarP(&formattingOpts.policyNames, "print-policy-names", "", false, "Print policy names in output")
 	formattingFlags.StringVar(
 		&formattingOpts.timeFormat, "time-format", "StampMilli",
 		fmt.Sprintf(`Specify the time format for printing. This option does not apply to the json and jsonpb output type. One of:
@@ -157,11 +159,11 @@ func init() {
 	otherFlags.StringVar(&otherOpts.inputFile, "input-file", "",
 		"Query flows from this file instead of the server. Use '-' to read from stdin.")
 
-	otherFlags.StringSliceVar(&experimentalOpts.fieldMask, "experimental-field-mask", nil,
-		"Experimental: Comma-separated list of fields for mask. Fields not in the mask will be removed from server response.")
+	otherFlags.StringSliceVar(&maskOpts.fieldMask, "field-mask", nil,
+		"Comma-separated list of fields for mask. Fields not in the mask will be removed from server response.")
 
-	otherFlags.BoolVar(&experimentalOpts.useDefaultMasks, "experimental-use-default-field-masks", false,
-		"Experimental: request only visible fields when the output format is compact, tab, or dict.")
+	otherFlags.BoolVar(&maskOpts.useDefaultMasks, "use-default-field-masks", true,
+		"Request only visible fields when the output format is compact, tab, or dict.")
 }
 
 // New observer command.

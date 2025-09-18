@@ -48,7 +48,7 @@ func newAgentLivenessUpdater(
 ) {
 	// Discard even debug logs since this particular job is very noisy
 	log := slog.New(slog.DiscardHandler)
-	group := jobRegistry.NewGroup(health, job.WithLogger(log))
+	group := jobRegistry.NewGroup(health, lifecycle, job.WithLogger(log))
 	group.Add(job.Timer("agent-liveness-updater", func(_ context.Context) error {
 		mtime, err := bpf.GetMtime()
 		if err != nil {
@@ -63,5 +63,4 @@ func newAgentLivenessUpdater(
 		return nil
 	}, agentLivenessConfig.AgentLivenessUpdateInterval))
 
-	lifecycle.Append(group)
 }

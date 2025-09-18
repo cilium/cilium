@@ -18,13 +18,15 @@ latest_commit_sha="$(curl -s https://api.github.com/repos/"${github_repo}"/commi
 
 repo="cilium-envoy"
 image="quay.io/cilium/cilium-envoy"
+filter="select(.name | test(\".*-.*-.*\"))"
 if [ "${github_branch}" != "main" ] && ! [[ "${github_branch}" =~ ^v1\.[0-9]+$ ]]; then
     image="quay.io/cilium/cilium-envoy-dev"
     repo="cilium-envoy-dev"
+    filter="select(.name)"
 fi
 
 # Filter all tags that are in the format of .*-.*-.* (e.g. v1.33.2-1742995211-ca0b42f0ecdf835224a8ddfc6fe0442368d4d766)
-tags=$(curl -s "https://quay.io/api/v1/repository/cilium/${repo}/tag/?onlyActiveTags=true&filter_tag_name=like:${latest_commit_sha}" | jq -r '.tags[] | select(.name | test(".*-.*-.*"))')
+tags=$(curl -s "https://quay.io/api/v1/repository/cilium/${repo}/tag/?onlyActiveTags=true&filter_tag_name=like:${latest_commit_sha}" | jq -r ".tags[] | ${filter}")
 image_tag=$(echo "${tags}" | jq -r .name)
 image_sha256=$(echo "${tags}" | jq -r .manifest_digest)
 

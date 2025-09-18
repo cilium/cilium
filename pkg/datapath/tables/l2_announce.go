@@ -35,7 +35,7 @@ type L2AnnounceEntry struct {
 
 func (pne *L2AnnounceEntry) DeepCopy() *L2AnnounceEntry {
 	// Shallow copy
-	var n L2AnnounceEntry = *pne
+	var n = *pne
 	// Explicit clone for slices
 	n.Origins = slices.Clone(pne.Origins)
 	return &n
@@ -69,8 +69,9 @@ var (
 	}
 )
 
-func NewL2AnnounceTable() (statedb.RWTable[*L2AnnounceEntry], error) {
+func NewL2AnnounceTable(db *statedb.DB) (statedb.RWTable[*L2AnnounceEntry], error) {
 	return statedb.NewTable(
+		db,
 		"l2-announce",
 		L2AnnounceIDIndex,
 		L2AnnounceOriginIndex,

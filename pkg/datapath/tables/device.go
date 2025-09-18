@@ -45,8 +45,9 @@ var (
 	}
 )
 
-func NewDeviceTable() (statedb.RWTable[*Device], error) {
+func NewDeviceTable(db *statedb.DB) (statedb.RWTable[*Device], error) {
 	return statedb.NewTable(
+		db,
 		"devices",
 		DeviceIDIndex,
 		DeviceNameIndex,
@@ -97,6 +98,7 @@ type Device struct {
 	RawFlags     uint32          // Raw interface flags
 	Type         string          // Device type, e.g. "veth" etc.
 	MasterIndex  int             // Index of the master device (e.g. bridge or bonding device)
+	OperStatus   string          // Operational status, e.g. "up", "lower-layer-down"
 
 	Selected          bool   // True if this is an external facing device
 	NotSelectedReason string // Reason why this device was not selected
@@ -108,9 +110,9 @@ func (d *Device) DeepCopy() *Device {
 	return &copy
 }
 
-func (d *Device) HasIP(ip net.IP) bool {
+func (d *Device) HasIP(ip netip.Addr) bool {
 	for _, addr := range d.Addrs {
-		if addr.AsIP().Equal(ip) {
+		if addr.Addr == ip {
 			return true
 		}
 	}
@@ -127,6 +129,7 @@ func (*Device) TableHeader() []string {
 		"HWAddr",
 		"Flags",
 		"Addresses",
+		"OperStatus",
 	}
 }
 
@@ -144,6 +147,7 @@ func (d *Device) TableRow() []string {
 		d.HardwareAddr.String(),
 		d.Flags.String(),
 		strings.Join(addrs, ", "),
+		d.OperStatus,
 	}
 }
 
@@ -197,20 +201,24 @@ func (lst DeviceFilter) NonEmpty() bool {
 	return len(lst) > 0
 }
 
-// Match checks whether the given device name passes the filter
-func (lst DeviceFilter) Match(dev string) bool {
-	if len(lst) == 0 {
-		return true
-	}
+// Match checks whether the given device name matches the filter
+// The first returned bool indicates there is a matched entry.
+// The second returned bool indicates it's a reverse match, aka. the device should be excluded.
+func (lst DeviceFilter) Match(dev string) (bool, bool) {
 	for _, entry := range lst {
+		reverse := false
+		if strings.HasPrefix(entry, "!") {
+			reverse = true
+			entry = entry[1:]
+		}
 		if strings.HasSuffix(entry, "+") {
 			prefix := strings.TrimRight(entry, "+")
 			if strings.HasPrefix(dev, prefix) {
-				return true
+				return true, reverse
 			}
 		} else if dev == entry {
-			return true
+			return true, reverse
 		}
 	}
-	return false
+	return false, false
 }

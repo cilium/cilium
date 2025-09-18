@@ -66,7 +66,7 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, _ map[string]string) {
 				}
 				ok, _ = ct.Features.MatchRequirements(
 					features.RequireEnabled(features.Tunnel),
-					features.RequireEnabled(features.KPRMode),
+					features.RequireEnabled(features.KPR),
 				)
 				return !ok
 			}

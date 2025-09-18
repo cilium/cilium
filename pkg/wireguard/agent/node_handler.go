@@ -4,7 +4,6 @@
 package agent
 
 import (
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -27,7 +26,7 @@ func (a *Agent) NodeDelete(node nodeTypes.Node) error {
 		return nil
 	}
 
-	return a.DeletePeer(node.Fullname())
+	return a.deletePeer(node.Fullname())
 }
 
 // AllNodeValidateImplementation is called to validate the implementation of
@@ -50,7 +49,7 @@ func (a *Agent) nodeUpsert(node nodeTypes.Node) error {
 	newIP4 := node.GetNodeIP(false)
 	newIP6 := node.GetNodeIP(true)
 
-	if err := a.UpdatePeer(node.Fullname(), node.WireguardPubKey, newIP4, newIP6); err != nil {
+	if err := a.updatePeer(node.Fullname(), node.WireguardPubKey, newIP4, newIP6); err != nil {
 		a.logger.Warn(
 			"Failed to update WireGuard configuration for peer",
 			logfields.Error, err,
@@ -60,7 +59,3 @@ func (a *Agent) nodeUpsert(node nodeTypes.Node) error {
 
 	return nil
 }
-
-// NodeConfigurationChanged is called when the local node configuration
-// has changed
-func (a *Agent) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error { return nil }

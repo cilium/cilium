@@ -26,7 +26,9 @@ int cil_from_network(struct __ctx_buff *ctx)
 	enum trace_point obs_point_from = TRACE_FROM_NETWORK;
 
 	bpf_clear_meta(ctx);
+	check_and_store_ip_trace_id(ctx);
 
+#ifdef ENABLE_IPSEC
 	/* This program should be attached to the tc-ingress of
 	 * the network-facing device. Thus, as far as Cilium
 	 * knows, no one touches to the ctx->mark before this
@@ -39,7 +41,6 @@ int cil_from_network(struct __ctx_buff *ctx)
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
 		obs_point_from = TRACE_FROM_STACK;
 
-#ifdef ENABLE_IPSEC
 	/* Pass unknown protocols to the stack */
 	if (!validate_ethertype(ctx, &proto))
 		goto out;
@@ -84,11 +85,11 @@ int cil_from_network(struct __ctx_buff *ctx)
 out:
 	send_trace_notify(ctx, obs_point_from, UNKNOWN_ID, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,
-			  trace.reason, trace.monitor);
+			  trace.reason, trace.monitor, proto);
 
 	send_trace_notify(ctx, obs_point_to, UNKNOWN_ID, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,
-			  trace.reason, trace.monitor);
+			  trace.reason, trace.monitor, proto);
 
 	return ret;
 }

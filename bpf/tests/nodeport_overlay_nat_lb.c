@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -13,8 +12,6 @@
 #define TUNNEL_PROTOCOL		TUNNEL_PROTOCOL_VXLAN
 #define ENCAP_IFINDEX		42
 #define TUNNEL_MODE
-
-#define DISABLE_LOOPBACK_LB
 
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_PORT		__bpf_htons(111)

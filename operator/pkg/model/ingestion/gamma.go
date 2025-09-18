@@ -5,15 +5,17 @@ package ingestion
 
 import (
 	"fmt"
+	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // GammaInput is the input for GatewayAPI.
@@ -27,7 +29,7 @@ type GammaInput struct {
 // It does not support TLS Routes because GAMMA is only for cleartext config -
 // it is assumed that any TLS will be performed transparently by the underlying
 // implementation in the spec.
-func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
+func GammaHTTPRoutes(log *slog.Logger, input GammaInput) []model.HTTPListener {
 	// GAMMA processing process:
 	// Process HTTPRoutes
 	var resHTTP []model.HTTPListener
@@ -61,7 +63,10 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 		// However, if one of the watch predicates does not also check for GAMMA parents, we can end up here.
 		// So this is a final safety.
 		if len(gammaParents) == 0 {
-			log.Debugf("gamma Ingestion: No GAMMA parents found for HTTPRoute %s/%s", hr.Namespace, hr.Name)
+			log.Debug("gamma Ingestion: No GAMMA parents found for HTTPRoute",
+				logfields.ServiceNamespace, hr.Namespace,
+				logfields.ServiceName, hr.Name,
+			)
 			continue
 		}
 
@@ -90,7 +95,11 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 
 			parentSvc, err := getMatchingService(parentName.Name, parentName.Namespace, hr.GetNamespace(), input.Services)
 			if err != nil {
-				log.Warnf("Can't find parent Service %s/%s in input. This is a bug, please report it to the developers.", parentName.Namespace, parentName.Name)
+				log.Warn(
+					"Can't find parent Service in input. This is a bug, please report it to the developers.",
+					logfields.K8sNamespace, parentName.Namespace,
+					logfields.Name, parentName.Name,
+				)
 				continue
 			}
 
@@ -150,8 +159,8 @@ func GammaHTTPRoutes(input GammaInput) []model.HTTPListener {
 				res.Service = &model.Service{
 					Type: string(corev1.ServiceTypeClusterIP),
 				}
-
-				res.Routes = append(res.Routes, extractRoutes(int32(portVal), []string{res.Hostname}, hr, input.Services, []v1alpha1.ServiceImport{}, input.ReferenceGrants)...)
+				res.Gamma = true
+				res.Routes = append(res.Routes, extractRoutes(int32(portVal), []string{res.Hostname}, hr, input.Services, []mcsapiv1alpha1.ServiceImport{}, input.ReferenceGrants)...)
 				resHTTP = append(resHTTP, res)
 			}
 

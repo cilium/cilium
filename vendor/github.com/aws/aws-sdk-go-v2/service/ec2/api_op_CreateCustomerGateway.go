@@ -82,10 +82,10 @@ type CreateCustomerGatewayInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// IPv4 address for the customer gateway device's outside interface. The address
+	// The IP address for the customer gateway device's outside interface. The address
 	// must be static. If OutsideIpAddressType in your VPN connection options is set
 	// to PrivateIpv4 , you can use an RFC6598 or RFC1918 private IPv4 address. If
-	// OutsideIpAddressType is set to PublicIpv4 , you can use a public IPv4 address.
+	// OutsideIpAddressType is set to Ipv6 , you can use an IPv6 address.
 	IpAddress *string
 
 	//  This member has been deprecated. The Internet-routable IP address for the
@@ -196,6 +196,36 @@ func (c *Client) addOperationCreateCustomerGatewayMiddlewares(stack *middleware.
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

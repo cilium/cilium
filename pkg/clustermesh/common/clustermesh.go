@@ -33,6 +33,9 @@ type Configuration struct {
 	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
 	ClusterInfo types.ClusterInfo
 
+	// RemoteClientFactory is the factory to create new backend instances.
+	RemoteClientFactory RemoteClientFactoryFn
+
 	// NewRemoteCluster is a function returning a new implementation of the remote cluster business logic.
 	NewRemoteCluster RemoteClusterCreatorFunc
 
@@ -42,8 +45,8 @@ type Configuration struct {
 	// ClusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	ClusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
 
-	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
-	ServiceResolver *dial.ServiceResolver
+	// Resolvers, if provided, are used to create a custom dialer to connect to etcd.
+	Resolvers []dial.Resolver
 
 	// Metrics holds the different clustermesh metrics.
 	Metrics Metrics
@@ -140,20 +143,15 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		configPath:                   path,
 		clusterSizeDependantInterval: cm.conf.ClusterSizeDependantInterval,
 
-		resolvers: func() []dial.Resolver {
-			if cm.conf.ServiceResolver != nil {
-				return []dial.Resolver{cm.conf.ServiceResolver}
-			}
-			return nil
-		}(),
+		resolvers: cm.conf.Resolvers,
 
 		controllers:                    controller.NewManager(),
 		remoteConnectionControllerName: fmt.Sprintf("remote-etcd-%s", name),
 
 		logger: cm.conf.Logger.With(logfields.ClusterName, name),
 
-		backendFactory:     kvstore.NewClient,
-		clusterLockFactory: newClusterLock,
+		remoteClientFactory: cm.conf.RemoteClientFactory,
+		clusterLockFactory:  newClusterLock,
 
 		metricLastFailureTimestamp: cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
 		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),

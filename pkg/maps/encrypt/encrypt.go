@@ -5,42 +5,43 @@ package encrypt
 
 import (
 	"fmt"
-	"sync"
+
+	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/option"
 )
 
+// encryptMap implements [EncryptMap]
+type encryptMap struct {
+	*bpf.Map
+}
+
 // EncryptKey is the context ID for the encryption session
 type EncryptKey struct {
-	key uint32 `align:"ctx"`
+	Key uint32 `align:"ctx"`
 }
 
 // EncryptValue is ID assigned to the keys
 type EncryptValue struct {
-	encryptKeyID uint8
+	KeyID uint8
 }
 
 // String pretty print the EncryptKey
 func (k EncryptKey) String() string {
-	return fmt.Sprintf("%d", k.key)
+	return fmt.Sprintf("%d", k.Key)
 }
 
 func (k EncryptKey) New() bpf.MapKey { return &EncryptKey{} }
 
-// String pretty print the encryption key index.
+// String pretty print the EncryptValue.
 func (v EncryptValue) String() string {
-	return fmt.Sprintf("%d", v.encryptKeyID)
+	return fmt.Sprintf("%d", v.KeyID)
 }
 
 func (v EncryptValue) New() bpf.MapValue { return &EncryptValue{} }
-
-func newEncryptKey(key uint32) *EncryptKey {
-	return &EncryptKey{
-		key: key,
-	}
-}
 
 const (
 	// MapName name of map used to pin map for datapath
@@ -50,49 +51,44 @@ const (
 	MaxEntries = 1
 )
 
-var (
-	once       sync.Once
-	encryptMap *bpf.Map
-)
+// newMap will construct a bpf.Map that is not open or created yet.
+func newMap(lc cell.Lifecycle, ipsecCfg datapath.IPsecConfig, dc *option.DaemonConfig) *encryptMap {
+	if !ipsecCfg.Enabled() {
+		return &encryptMap{}
+	}
 
-// NewMap will construct a bpf.Map that is not open or created yet.
-func NewMap(MapName string) *bpf.Map {
-	return bpf.NewMap(MapName,
+	m := bpf.NewMap(MapName,
 		ebpf.Array,
 		&EncryptKey{},
 		&EncryptValue{},
 		MaxEntries,
 		0,
-	)
-}
+	).WithCache().WithEvents(dc.GetEventBufferConfig(MapName))
 
-// MapCreate will create an encrypt map that is ready for use.
-func MapCreate() error {
-	once.Do(func() {
-		encryptMap = NewMap(MapName).WithCache().
-			WithEvents(option.Config.GetEventBufferConfig(MapName))
+	lc.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
+			if err := m.OpenOrCreate(); err != nil {
+				return fmt.Errorf("Encrypt map create failed: %w", err)
+			}
+			return nil
+		},
+		OnStop: func(ctx cell.HookContext) error {
+			m.Close()
+			return nil
+		},
 	})
 
-	return encryptMap.OpenOrCreate()
+	return &encryptMap{m}
 }
 
-// MapUpdateContext updates the encrypt state with ctxID to use the new keyID
-func MapUpdateContext(ctxID uint32, keyID uint8) error {
-	k := newEncryptKey(ctxID)
-	v := &EncryptValue{
-		encryptKeyID: keyID,
-	}
-	return encryptMap.Update(k, v)
+func (m *encryptMap) Update(key EncryptKey, value EncryptValue) error {
+	return m.Map.Update(key, value)
 }
 
-// MapUpdateContextWithMap updates the encrypt state with ctxID to use the new keyID
-// with the map as its argument.
-//
-// This is primarily used in tests.
-func MapUpdateContextWithMap(m *bpf.Map, ctxID uint32, keyID uint8) error {
-	k := newEncryptKey(ctxID)
-	v := &EncryptValue{
-		encryptKeyID: keyID,
+func (m *encryptMap) Lookup(key EncryptKey) (val EncryptValue, err error) {
+	v, err := m.Map.Lookup(key)
+	if err == nil {
+		val = *(v.(*EncryptValue))
 	}
-	return m.Update(k, v)
+	return
 }

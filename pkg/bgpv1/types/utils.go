@@ -31,7 +31,7 @@ func CanAdvertisePodCIDR(ipam string) bool {
 // The next hop of the path will always be set to "0.0.0.0" for IPv4 and "::" for IPv6,
 // so the underlying BGP implementation selects appropriate actual nexthop address when advertising it.
 func NewPathForPrefix(prefix netip.Prefix) (path *Path) {
-	originAttr := bgp.NewPathAttributeOrigin(0)
+	originAttr := bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_IGP)
 
 	// Currently, we only support advertising locally originated paths (the paths generated in Cilium
 	// node itself, not the paths received from another BGP Peer or redistributed from another routing
@@ -73,6 +73,25 @@ func NewPathForPrefix(prefix netip.Prefix) (path *Path) {
 	}
 
 	return
+}
+
+// SetPathOriginAttrIncomplete ensures the given path has an ORIGIN path
+// attribute set to INCOMPLETE, replacing the existing one if present
+// or appending it if missing.
+func SetPathOriginAttrIncomplete(path *Path) *Path {
+	replaced := false
+	for i, a := range path.PathAttributes {
+		if a.GetType() == bgp.BGP_ATTR_TYPE_ORIGIN {
+			path.PathAttributes[i] = bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_INCOMPLETE)
+			replaced = true
+			break
+		}
+	}
+	// Add origin path attribute if it is not defined
+	if !replaced {
+		path.PathAttributes = append(path.PathAttributes, bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_INCOMPLETE))
+	}
+	return path
 }
 
 // DeepEqual is a manually created deepequal function, deeply comparing the receiver with another.

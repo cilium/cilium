@@ -5,15 +5,17 @@ package ctmap
 
 import (
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
 type gcStats struct {
+	logger *slog.Logger
+
 	*bpf.DumpStats
 
 	// aliveEntries is the number of scanned entries that are still alive.
@@ -34,6 +36,10 @@ type gcStats struct {
 
 	// dumpError records any error that occurred during the dump.
 	dumpError error
+
+	// if enabled we emit regular logs about result of gc pass.
+	// disabled when run from dbg CLI (i.e. in bpf ct flush ...).
+	logResults bool
 }
 
 type gcFamily int
@@ -72,9 +78,11 @@ func (g gcProtocol) String() string {
 	}
 }
 
-func statStartGc(m *Map) gcStats {
+func statStartGc(m *Map, logResults bool) gcStats {
 	result := gcStats{
-		DumpStats: bpf.NewDumpStats(&m.Map),
+		logger:     m.Logger,
+		DumpStats:  bpf.NewDumpStats(&m.Map),
+		logResults: logResults,
 	}
 	if m.mapType.isIPv6() {
 		result.family = gcFamilyIPv6
@@ -107,20 +115,29 @@ func (s *gcStats) finish() {
 		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsDeleted).Set(float64(s.deleted))
 	} else {
 		status = "uncompleted"
-		scopedLog := log.WithField("interrupted", s.Interrupted)
+		scopedLog := s.logger.With(
+			logfields.Interrupted, s.Interrupted,
+		)
 		if s.dumpError != nil {
-			scopedLog = scopedLog.WithError(s.dumpError)
+			scopedLog = scopedLog.With(
+				logfields.Error, s.dumpError,
+			)
 		}
-		scopedLog.Warningf("Garbage collection on %s %s CT map failed to finish", family, proto)
+		scopedLog.Warn("Garbage collection CT map failed to finish",
+			logfields.Family, family,
+			logfields.Protocol, proto,
+		)
 	}
 
-	log.WithFields(logrus.Fields{
-		"family":       s.family,
-		"proto":        s.proto,
-		"deleted":      s.deleted,
-		"skipped":      s.skipped,
-		"aliveEntries": s.aliveEntries,
-	}).Info("completed ctmap gc pass")
+	if s.logResults {
+		s.logger.Info("completed ctmap gc pass",
+			logfields.Family, s.family,
+			logfields.Protocol, s.proto,
+			logfields.Deleted, s.deleted,
+			logfields.Skipped, s.skipped,
+			logfields.AliveEntries, s.aliveEntries,
+		)
+	}
 
 	metrics.ConntrackGCRuns.WithLabelValues(family, proto, status).Inc()
 	metrics.ConntrackGCDuration.WithLabelValues(family, proto, status).Observe(duration.Seconds())

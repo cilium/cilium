@@ -4,6 +4,8 @@
 package option
 
 import (
+	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/spf13/viper"
@@ -11,11 +13,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")
 
 const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
@@ -49,9 +48,6 @@ const (
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
-
-	// SyncK8sNodes synchronizes k8s nodes into the kvstore
-	SyncK8sNodes = "synchronize-k8s-nodes"
 
 	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
 	UnmanagedPodWatcherInterval = "unmanaged-pod-watcher-interval"
@@ -184,10 +180,6 @@ const (
 	// is used to provide hints for misconfiguration.
 	KubeProxyReplacement = "kube-proxy-replacement"
 
-	// EnableNodePort is equivalent to the cilium-agent option, and
-	// is used to provide hints for misconfiguration.
-	EnableNodePort = "enable-node-port"
-
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace = "cilium-pod-namespace"
 
@@ -214,6 +206,9 @@ const (
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	// default values: k8s-app=kube-dns
 	PodRestartSelector = "pod-restart-selector"
+
+	// AWSPaginationEnabled toggles pagination for AWS EC2 API requests
+	AWSPaginationEnabled = "aws-pagination-enabled"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -232,9 +227,6 @@ type OperatorConfig struct {
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices bool
-
-	// SyncK8sNodes synchronizes k8s nodes into the kvstore
-	SyncK8sNodes bool
 
 	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
 	UnmanagedPodWatcherInterval int
@@ -290,10 +282,9 @@ type OperatorConfig struct {
 	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
 	IPAMAutoCreateCiliumPodIPPools map[string]string
 
-	// KubeProxyReplacement or NodePort are required to implement cluster
+	// KubeProxyReplacement is required to implement cluster
 	// Ingress (or equivalent Gateway API functionality)
-	KubeProxyReplacement string
-	EnableNodePort       bool
+	KubeProxyReplacement bool
 
 	// AWS options
 
@@ -393,15 +384,17 @@ type OperatorConfig struct {
 
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	PodRestartSelector string
+
+	// AWSPaginationEnabled toggles pagination for AWS EC2 API requests
+	AWSPaginationEnabled bool
 }
 
 // Populate sets all options with the values from viper.
-func (c *OperatorConfig) Populate(vp *viper.Viper) {
+func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
-	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)
 	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)
 	c.NodeCIDRMaskSizeIPv4 = vp.GetInt(NodeCIDRMaskSizeIPv4)
 	c.NodeCIDRMaskSizeIPv6 = vp.GetInt(NodeCIDRMaskSizeIPv6)
@@ -443,8 +436,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.ParallelAllocWorkers = vp.GetInt64(ParallelAllocWorkers)
 
 	// Gateways and Ingress
-	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
-	c.EnableNodePort = vp.GetBool(EnableNodePort)
+	c.KubeProxyReplacement = vp.GetBool(KubeProxyReplacement)
 
 	// AWS options
 
@@ -454,6 +446,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EC2APIEndpoint = vp.GetString(EC2APIEndpoint)
 	c.ExcessIPReleaseDelay = vp.GetInt(ExcessIPReleaseDelay)
 	c.ENIGarbageCollectionInterval = vp.GetDuration(ENIGarbageCollectionInterval)
+	c.AWSPaginationEnabled = vp.GetBool(AWSPaginationEnabled)
 
 	// Azure options
 
@@ -474,31 +467,31 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	}
 
 	if m, err := command.GetStringMapStringE(vp, IPAMSubnetsTags); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMSubnetsTags, err)
+		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", IPAMSubnetsTags, err))
 	} else {
 		c.IPAMSubnetsTags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, IPAMInstanceTags); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMInstanceTags, err)
+		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", IPAMInstanceTags, err))
 	} else {
 		c.IPAMInstanceTags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, ENITags); err != nil {
-		log.Fatalf("unable to parse %s: %s", ENITags, err)
+		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", ENITags, err))
 	} else {
 		c.ENITags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, ENIGarbageCollectionTags); err != nil {
-		log.Fatalf("unable to parse %s: %s", ENIGarbageCollectionTags, err)
+		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", ENIGarbageCollectionTags, err))
 	} else {
 		c.ENIGarbageCollectionTags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, IPAMAutoCreateCiliumPodIPPools); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMAutoCreateCiliumPodIPPools, err)
+		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", IPAMAutoCreateCiliumPodIPPools, err))
 	} else {
 		c.IPAMAutoCreateCiliumPodIPPools = m
 	}

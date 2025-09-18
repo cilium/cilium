@@ -23,18 +23,18 @@ jobs:
         include:
         # DON'T USE hourModulo=0 to avoid running ariane scheduled-workflows
         # at the same time as regular main scheduled workflows
-          - branch: '1.15'
+          - branch: 'v1.16'
             hourModulo: 1
-          - branch: '1.16'
+          - branch: 'v1.17'
             hourModulo: 2
-          - branch: '1.17'
+          - branch: 'v1.18'
             hourModulo: 3
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
-          ref: v${{ matrix.branch }}
+          ref: ${{ matrix.branch }}
           persist-credentials: false
 
       - name: Manually run Ariane workflows from the branch
@@ -49,11 +49,14 @@ jobs:
             exit 0
           fi
 
-          REF="v${{ matrix.branch }}"
+          REF="${{ matrix.branch }}"
           SHA=$(git rev-parse ${REF})
-          readarray workflows < <(yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml)
+          readarray workflows < <((
+            yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml
+            yq '.schedule.nightly.workflows[]' .github/ariane-config.yaml
+          ) | sort -u)
 
-          for workflow in ${workflows[@]}; do
+          for workflow in "${workflows[@]}"; do
             echo triggering ${workflow}
             gh workflow run ${workflow} \
               --ref ${REF} \

@@ -59,7 +59,7 @@ spec:
     spec:
       containers:
       - name: x-wing-container
-        image: quay.io/cilium/json-mock:v1.3.3@sha256:f26044a2b8085fcaa8146b6b8bb73556134d7ec3d5782c6a04a058c945924ca0
+        image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
         livenessProbe:
           exec:
             command:

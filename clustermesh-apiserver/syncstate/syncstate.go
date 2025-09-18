@@ -23,7 +23,7 @@ var Cell = cell.Module(
 	cell.Provide(new),
 )
 
-func new(metrics Metrics, clusterInfo types.ClusterInfo) SyncState {
+func new(lc cell.Lifecycle, metrics Metrics, clusterInfo types.ClusterInfo) SyncState {
 	ss := SyncState{StoppableWaitGroup: lock.NewStoppableWaitGroup()}
 
 	go func() {

@@ -53,6 +53,7 @@ var bpfMetricsListCmd = &cobra.Command{
 	Short: "List BPF datapath traffic metrics",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf metrics list")
+		metricsmap.InitMap(log)
 		listMetrics(&metricsmap.Metrics)
 	},
 }

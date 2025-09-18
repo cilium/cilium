@@ -1,0 +1,109 @@
+#! 
+
+# Start the test application
+hive start
+
+k8s/add service.yaml endpointslice.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table 
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
+
+# Cleanup
+k8s/delete service.yaml endpointslice.yaml
+
+# Tables should be empty now
+* db/empty services frontends backends
+
+#####
+
+-- services.table --
+Name        Source   PortNames           TrafficPolicy   Flags
+test/echo   k8s      http=80, https=443  Cluster         
+
+-- frontends.table --
+Address                Type        ServiceName   PortName   Backends             Status
+10.96.50.104:80/TCP    ClusterIP   test/echo     http       10.244.1.1:80/TCP    Done
+10.96.50.104:443/TCP   ClusterIP   test/echo     https      10.244.1.1:443/TCP   Done
+
+-- backends.table --
+Address              Instances           NodeName
+10.244.1.1:80/TCP    test/echo (http)    nodeport-worker
+10.244.1.1:443/TCP   test/echo (https)   nodeport-worker
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  targetRef:
+    kind: Pod
+    name: echo-757d4cb97f-9gmf7
+    namespace: test
+    uid: 88542b9d-6369-4ec3-a5eb-fd53720013e8
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: https
+  port: 443
+  protocol: TCP
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.1:443/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+REV: ID=2 ADDR=10.96.50.104:443
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:443/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable

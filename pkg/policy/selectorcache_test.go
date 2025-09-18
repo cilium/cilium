@@ -586,6 +586,39 @@ func TestTransactionalUpdate(t *testing.T) {
 	require.Empty(t, sc.selectors)
 }
 
+func TestSelectorCacheCanSkipUpdate(t *testing.T) {
+	id1 := identity.NewIdentity(1001, labels.LabelArray{labels.NewLabel("id", "a", labels.LabelSourceK8s)}.Labels())
+	id2 := identity.NewIdentity(1002, labels.LabelArray{labels.NewLabel("id", "b", labels.LabelSourceK8s)}.Labels())
+
+	toIdentityMap := func(ids ...*identity.Identity) identity.IdentityMap {
+		idMap := identity.IdentityMap{}
+		for _, id := range ids {
+			idMap[id.ID] = id.LabelArray
+		}
+		return idMap
+	}
+
+	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	wg := &sync.WaitGroup{}
+
+	require.False(t, sc.CanSkipUpdate(toIdentityMap(id1), nil))
+	sc.UpdateIdentities(toIdentityMap(id1), nil, wg)
+	wg.Wait()
+
+	require.True(t, sc.CanSkipUpdate(nil, toIdentityMap(id2)))
+	require.True(t, sc.CanSkipUpdate(toIdentityMap(id1), toIdentityMap(id2)))
+
+	require.False(t, sc.CanSkipUpdate(toIdentityMap(id2), nil))
+	sc.UpdateIdentities(toIdentityMap(id2), nil, wg)
+	wg.Wait()
+
+	require.True(t, sc.CanSkipUpdate(toIdentityMap(id2), nil))
+	require.False(t, sc.CanSkipUpdate(nil, toIdentityMap(id2)))
+	require.False(t, sc.CanSkipUpdate(nil, toIdentityMap(id1, id2)))
+	sc.UpdateIdentities(nil, toIdentityMap(id1, id2), wg)
+	wg.Wait()
+}
+
 func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 	defer func() {
 		r := recover()

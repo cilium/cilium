@@ -84,6 +84,9 @@ type Action struct {
 	// failed is true when Fail was called on the Action
 	failed bool
 
+	// failureMessage contains the reason why the action failed
+	failureMessage string
+
 	// Output from action if there is any
 	cmdOutput string
 
@@ -112,10 +115,10 @@ func (a *Action) String() string {
 	sn := a.test.scenarioName(a.scenario)
 	p := a.Peers()
 	if p != "" {
-		return fmt.Sprintf("%s/%s: %s", sn, a.name, p)
+		return fmt.Sprintf("%s:%s: %s", sn, a.name, p)
 	}
 
-	return fmt.Sprintf("%s/%s", sn, a.name)
+	return fmt.Sprintf("%s:%s", sn, a.name)
 }
 
 // Peers returns the name and addr:port of the peers involved in the Action.
@@ -165,14 +168,14 @@ func (a *Action) Run(f func(*Action)) {
 	for _, m := range a.expIngress.Metrics {
 		err := a.collectMetricsPerSource(m)
 		if err != nil {
-			a.Logf("❌ Failed to collect metrics for ingress from source %s: %w", m.Source, err)
+			a.Logf("❌ Failed to collect metrics for ingress from source %s: %s", m.Source, err)
 		}
 
 	}
 	for _, m := range a.expEgress.Metrics {
 		err := a.collectMetricsPerSource(m)
 		if err != nil {
-			a.Logf("❌ Failed to collect metrics for egress from source %s: %w", m.Source, err)
+			a.Logf("❌ Failed to collect metrics for egress from source %s: %s", m.Source, err)
 		}
 	}
 
@@ -1059,7 +1062,7 @@ func (a *Action) validateMetric(ctx context.Context, node string, result Metrics
 		// Collect the new metrics.
 		newMetrics, err := a.collectPrometheusMetricsForNode(result.Source, node)
 		if err != nil {
-			a.Failf("failed to collect new metrics on node %s: %w", node, err)
+			a.Failf("failed to collect new metrics on node %s: %s\n", node, err)
 			return
 		}
 

@@ -5,9 +5,9 @@ package cache
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
@@ -16,16 +16,17 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 type NoopIdentityAllocator struct {
+	logger *slog.Logger
 	// allocatorInitialized is closed when the allocator is initialized.
 	allocatorInitialized chan struct{}
 }
 
-func NewNoopIdentityAllocator() *NoopIdentityAllocator {
+func NewNoopIdentityAllocator(logger *slog.Logger) *NoopIdentityAllocator {
 	return &NoopIdentityAllocator{
+		logger:               logger,
 		allocatorInitialized: make(chan struct{}),
 	}
 }
@@ -35,13 +36,17 @@ func (n *NoopIdentityAllocator) WaitForInitialGlobalIdentities(context.Context) 
 }
 
 func (n *NoopIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
-	if option.Config.Debug {
-		log.WithFields(logrus.Fields{
-			logfields.IdentityLabels: lbls.String(),
-			logfields.Identity:       identity.ReservedIdentityInit,
-		}).Debug("Assigning a fixed identity that is not based on labels, because network policies are disabled")
-	}
+	n.logger.Debug(
+		"Assigning a fixed identity that is not based on labels, because network policies are disabled",
+		logfields.Identity, identity.ReservedIdentityInit,
+		logfields.IdentityLabels, lbls,
+	)
 
+	initID := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
+	return initID, false, nil
+}
+
+func (n *NoopIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
 	initID := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
 	return initID, false, nil
 }
@@ -50,6 +55,10 @@ func (n *NoopIdentityAllocator) Release(context.Context, *identity.Identity, boo
 	// No need to release identities. All endpoints will have the same identity.
 	// The existing global identities will be cleaned up.
 	return false, nil
+}
+
+func (n *NoopIdentityAllocator) ReleaseLocalIdentities(...identity.NumericIdentity) ([]identity.NumericIdentity, error) {
+	return nil, nil
 }
 
 func (n *NoopIdentityAllocator) LookupIdentity(ctx context.Context, lbls labels.Labels) *identity.Identity {
@@ -117,7 +126,7 @@ func (n *NoopIdentityAllocator) RemoveRemoteIdentities(name string) {
 	// No-op, because remote identities are not used when network policies are disabled.
 }
 
-func (n *NoopIdentityAllocator) InitIdentityAllocator(versioned.Interface) <-chan struct{} {
+func (n *NoopIdentityAllocator) InitIdentityAllocator(versioned.Interface, kvstore.Client) <-chan struct{} {
 	close(n.allocatorInitialized)
 	return n.allocatorInitialized
 }

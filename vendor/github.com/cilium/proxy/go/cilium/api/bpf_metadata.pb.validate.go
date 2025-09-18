@@ -104,6 +104,68 @@ func (m *BpfMetadata) validate(all bool) error {
 
 	// no validation rules for L7LbPolicyName
 
+	// no validation rules for IpcacheName
+
+	// no validation rules for UseNphds
+
+	if all {
+		switch v := interface{}(m.GetCacheEntryTtl()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BpfMetadataValidationError{
+					field:  "CacheEntryTtl",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BpfMetadataValidationError{
+					field:  "CacheEntryTtl",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCacheEntryTtl()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return BpfMetadataValidationError{
+				field:  "CacheEntryTtl",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetCacheGcInterval()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BpfMetadataValidationError{
+					field:  "CacheGcInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BpfMetadataValidationError{
+					field:  "CacheGcInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCacheGcInterval()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return BpfMetadataValidationError{
+				field:  "CacheGcInterval",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if m.OriginalSourceSoLingerTime != nil {
 		// no validation rules for OriginalSourceSoLingerTime
 	}
@@ -121,7 +183,7 @@ type BpfMetadataMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m BpfMetadataMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

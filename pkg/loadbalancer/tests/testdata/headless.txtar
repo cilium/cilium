@@ -1,0 +1,150 @@
+#! 
+
+# Start the test application
+hive start
+
+# Add a headless service with backends.
+k8s/add service_clusterip_none.yaml endpointslice.yaml
+
+# Check tables. The headless service should exist, but without frontends.
+db/cmp services services.table
+db/cmp backends backends.table 
+* db/empty frontends
+
+# The BPF maps should be empty since there are no frontends.
+* lb/maps-empty
+
+# Cleanup the headless service. The endpoint slice is not deleted
+# so we still have backends referencing the removed service.
+k8s/delete service_clusterip_none.yaml
+
+# Check tables
+* db/empty services frontends
+db/cmp backends backends.table
+
+# Add a non-headless service
+k8s/add service.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table 
+
+# The BPF maps should now have the ClusterIP frontend
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
+
+# Toggle the headless label
+replace 'placeholder' 'service.kubernetes.io/headless' service.yaml
+k8s/update service.yaml
+
+# Frontends are now removed.
+* db/empty frontends
+db/cmp services services.table
+db/cmp backends backends.table
+
+# The BPF maps should be empty since there are no frontends.
+* lb/maps-empty
+
+# Clean up everything.
+k8s/delete service.yaml endpointslice.yaml
+
+# Tables should be empty
+* db/empty services frontends backends
+
+#####
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy  Flags
+test/echo   k8s      http=80    Cluster
+
+-- backends.table --
+Address             Instances          Shadows        NodeName
+10.244.1.1:80/TCP   test/echo (http)                  nodeport-worker
+
+-- frontends.table --
+Address        Type       Status  Backends 
+1.1.1.1:80/TCP ClusterIP  Done    10.244.1.1:80/TCP
+
+-- service_clusterip_none.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: "none"
+  selector:
+    name: echo
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+  
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+  labels:
+    placeholder: ""
+spec:
+  clusterIP: 1.1.1.1
+  clusterIPs:
+  - 1.1.1.1
+  selector:
+    name: echo
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  targetRef:
+    kind: Pod
+    name: echo-757d4cb97f-9gmf7
+    namespace: test
+    uid: 88542b9d-6369-4ec3-a5eb-fd53720013e8
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=1 ADDR=1.1.1.1:80
+SVC: ID=0 ADDR=1.1.1.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable

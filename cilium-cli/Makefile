@@ -10,7 +10,7 @@ all: $(TARGET)
 .PHONY: all $(TARGET) local-release install clean test bench clean-tags tags
 
 
-BINDIR = /usr/local/bin
+PREFIX=/usr/local
 CLI_VERSION=$(shell git describe --tags --always)
 CLI_MAIN_DIR?=./cmd/cilium
 GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/cilium-cli/defaults.CLIVersion=$(CLI_VERSION)"

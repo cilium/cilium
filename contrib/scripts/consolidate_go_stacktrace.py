@@ -182,14 +182,14 @@ if __name__ == "__main__":
                 '{} ({} goroutines)'.format(
                     s.replace(
                         cilium_source,
-                        args.source_dir[0]),
+                        args.source_dir),
                     skipped[s]),
                 file=sys.stderr)
         print(file=sys.stderr)
     if len(blocked) > 0:
         print('The following packages are blocked:')
         for s in blocked:
-            print(s.replace(cilium_source, args.source_dir[0]))
+            print(s.replace(cilium_source, args.source_dir))
 
     if f != sys.stdin:
         f.close()

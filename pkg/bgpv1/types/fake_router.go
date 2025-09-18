@@ -17,7 +17,7 @@ func NewFakeRouter() Router {
 	}
 }
 
-func (f *FakeRouter) Stop() {}
+func (f *FakeRouter) Stop(ctx context.Context, r StopRequest) {}
 
 func (f *FakeRouter) AddNeighbor(ctx context.Context, n *Neighbor) error {
 	return nil
@@ -32,6 +32,10 @@ func (f *FakeRouter) RemoveNeighbor(ctx context.Context, n *Neighbor) error {
 }
 
 func (f *FakeRouter) ResetNeighbor(ctx context.Context, r ResetNeighborRequest) error {
+	return nil
+}
+
+func (f *FakeRouter) ResetAllNeighbors(ctx context.Context, r ResetAllNeighborsRequest) error {
 	return nil
 }
 

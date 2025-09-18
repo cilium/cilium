@@ -5,6 +5,7 @@ package suite
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"testing"
@@ -14,7 +15,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,20 +27,16 @@ import (
 	k8sTesting "k8s.io/client-go/testing"
 
 	agentCmd "github.com/cilium/cilium/daemon/cmd"
-	operatorCmd "github.com/cilium/cilium/operator/cmd"
-	operatorOption "github.com/cilium/cilium/operator/option"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/k8s/apis"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8stestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
 	agentOption "github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
 type trackerAndDecoder struct {
@@ -49,6 +45,7 @@ type trackerAndDecoder struct {
 }
 
 type ControlPlaneTest struct {
+	logger            *slog.Logger
 	t                 *testing.T
 	tempDir           string
 	validationTimeout time.Duration
@@ -57,9 +54,7 @@ type ControlPlaneTest struct {
 	clients             *k8sClient.FakeClientset
 	trackers            []trackerAndDecoder
 	agentHandle         *agentHandle
-	operatorHandle      *operatorHandle
 	FakeNodeHandler     *fakeTypes.FakeNodeHandler
-	FakeLbMap           *mockmaps.LBMockMap
 	establishedWatchers *lock.Map[string, struct{}]
 }
 
@@ -93,6 +88,7 @@ func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *Cont
 	}
 
 	return &ControlPlaneTest{
+		logger:              hivetest.Logger(t),
 		t:                   t,
 		nodeName:            nodeName,
 		clients:             clients,
@@ -107,7 +103,7 @@ func (cpt *ControlPlaneTest) SetupEnvironment() *ControlPlaneTest {
 	types.SetName(cpt.nodeName)
 
 	// Configure k8s and perform capability detection with the fake client.
-	version.Update(hivetest.Logger(cpt.t), cpt.clients, true)
+	version.Update(cpt.logger, cpt.clients, true)
 
 	cpt.tempDir = setupTestDirectories()
 
@@ -132,18 +128,18 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 
 	mockCmd := &cobra.Command{}
 	cpt.agentHandle.hive.RegisterFlags(mockCmd.Flags())
-	agentCmd.InitGlobalFlags(mockCmd, cpt.agentHandle.hive.Viper())
+	agentCmd.InitGlobalFlags(cpt.logger, mockCmd, cpt.agentHandle.hive.Viper())
+
+	cpt.agentHandle.log = hivetest.Logger(cpt.t)
 
 	cpt.agentHandle.populateCiliumAgentOptions(cpt.tempDir, modConfig)
 
-	cpt.agentHandle.log = hivetest.Logger(cpt.t)
 	daemon, err := cpt.agentHandle.startCiliumAgent()
 	if err != nil {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
 	cpt.agentHandle.d = daemon
 	cpt.FakeNodeHandler = cpt.agentHandle.fnh
-	cpt.FakeLbMap = cpt.agentHandle.flbMap
 
 	return cpt
 }
@@ -152,52 +148,6 @@ func (cpt *ControlPlaneTest) StopAgent() *ControlPlaneTest {
 	cpt.agentHandle.tearDown()
 	cpt.agentHandle = nil
 	cpt.FakeNodeHandler = nil
-	cpt.FakeLbMap = nil
-
-	return cpt
-}
-
-func (cpt *ControlPlaneTest) StartOperator(
-	modConfig func(*operatorOption.OperatorConfig),
-	modCellConfig func(vp *viper.Viper),
-) *ControlPlaneTest {
-	if cpt.operatorHandle != nil {
-		cpt.t.Fatal("StartOperator() already called")
-	}
-
-	h := setupCiliumOperatorHive(cpt.clients)
-
-	mockCmd := &cobra.Command{}
-	h.RegisterFlags(mockCmd.Flags())
-	operatorCmd.InitGlobalFlags(mockCmd, h.Viper())
-
-	populateCiliumOperatorOptions(h.Viper(), modConfig, modCellConfig)
-
-	h.Viper().Set(apis.SkipCRDCreation, true)
-
-	// Disable support for operator HA. This should be cleaned up
-	// by injecting the capabilities, or by supporting the leader
-	// election machinery in the controlplane tests.
-	version.DisableLeasesResourceLock()
-
-	log := hivetest.Logger(cpt.t)
-	err := startCiliumOperator(h, log)
-	if err != nil {
-		cpt.t.Fatalf("Failed to start operator: %s", err)
-	}
-
-	cpt.operatorHandle = &operatorHandle{
-		t:    cpt.t,
-		hive: h,
-		log:  log,
-	}
-
-	return cpt
-}
-
-func (cpt *ControlPlaneTest) StopOperator() *ControlPlaneTest {
-	cpt.operatorHandle.tearDown()
-	cpt.operatorHandle = nil
 
 	return cpt
 }

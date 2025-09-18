@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/xdp.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -19,8 +18,6 @@
 #define TUNNEL_PROTOCOL		TUNNEL_PROTOCOL_GENEVE
 #define ENCAP_IFINDEX		42
 #define TUNNEL_MODE
-
-#define DISABLE_LOOPBACK_LB
 
 /* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY

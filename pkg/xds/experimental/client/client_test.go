@@ -15,14 +15,13 @@ import (
 	"testing"
 	"time"
 
-	clusterpb "github.com/cilium/proxy/go/envoy/config/cluster/v3"
-	corepb "github.com/cilium/proxy/go/envoy/config/core/v3"
-	endpointpb "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
-	listenerpb "github.com/cilium/proxy/go/envoy/config/listener/v3"
-	routepb "github.com/cilium/proxy/go/envoy/config/route/v3"
-	discoverypb "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	clusterpb "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listenerpb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/goleak"
 	grpcStatus "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -34,6 +33,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 const useSOTW = true
@@ -573,7 +573,7 @@ func TestRunReturnsNonRetriableErrors(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			for _, tc := range testCases {
 				t.Run(tc.name, func(t *testing.T) {
-					defer goleak.VerifyNone(t)
+					defer testutils.GoleakVerifyNone(t)
 
 					opts := Defaults
 					opts.RetryBackoff.Min = time.Microsecond
@@ -686,7 +686,7 @@ func TestObserve(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			for _, tc := range testCases {
 				t.Run(tc.name, func(t *testing.T) {
-					defer goleak.VerifyNone(t)
+					defer testutils.GoleakVerifyNone(t)
 
 					opts := Defaults
 					c := NewClient(slog.Default(), sotw, &opts)
@@ -779,7 +779,7 @@ var _ grpc.ClientConnInterface = (*FakeClientConn)(nil)
 func TestClientConnectionRetry(t *testing.T) {
 	for _, retry := range []bool{true, false} {
 		t.Run(fmt.Sprintf("retry=%v", retry), func(t *testing.T) {
-			defer goleak.VerifyNone(t)
+			defer testutils.GoleakVerifyNone(t)
 
 			opts := Defaults
 			opts.RetryBackoff.Min = time.Hour
@@ -844,7 +844,7 @@ func TestAckAndNack(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			for _, tc := range testCases {
 				t.Run(tc.name, func(t *testing.T) {
-					defer goleak.VerifyNone(t)
+					defer testutils.GoleakVerifyNone(t)
 
 					opts := Defaults
 					c := NewClient(slog.Default(), sotw, &opts)

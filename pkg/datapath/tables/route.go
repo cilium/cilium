@@ -67,8 +67,9 @@ var (
 	}
 )
 
-func NewRouteTable() (statedb.RWTable[*Route], error) {
+func NewRouteTable(db *statedb.DB) (statedb.RWTable[*Route], error) {
 	return statedb.NewTable(
+		db,
 		"routes",
 		RouteIDIndex,
 		RouteLinkIndex,
@@ -81,10 +82,19 @@ type RouteID struct {
 	Dst       netip.Prefix
 }
 
+// Key returns the StateDB key for the route identifier.
+// For prefix searching key prefix is returned if [LinkIndex] or [Dst]
+// are not defined.
 func (id RouteID) Key() index.Key {
 	key := make([]byte, 0, 4 /* table */ +4 /* link */ +17 /* prefix & bits */)
 	key = binary.BigEndian.AppendUint32(key, uint32(id.Table))
+	if id.LinkIndex == 0 && !id.Dst.IsValid() {
+		return key
+	}
 	key = binary.BigEndian.AppendUint32(key, uint32(id.LinkIndex))
+	if !id.Dst.IsValid() {
+		return key
+	}
 	addrBytes := id.Dst.Addr().As16()
 	key = append(key, addrBytes[:]...)
 	return append(key, uint8(id.Dst.Bits()))
@@ -94,10 +104,11 @@ type Route struct {
 	Table     RouteTable
 	LinkIndex int
 
-	Scope uint8
-	Dst   netip.Prefix
-	Src   netip.Addr
-	Gw    netip.Addr
+	Scope    uint8
+	Dst      netip.Prefix
+	Src      netip.Addr
+	Gw       netip.Addr
+	Priority int
 }
 
 func (r *Route) DeepCopy() *Route {
@@ -106,8 +117,8 @@ func (r *Route) DeepCopy() *Route {
 }
 
 func (r *Route) String() string {
-	return fmt.Sprintf("Route{Dst: %s, Src: %s, Table: %d, LinkIndex: %d}",
-		r.Dst, r.Src, r.Table, r.LinkIndex)
+	return fmt.Sprintf("Route{Dst: %s, Src: %s, Table: %d, LinkIndex: %d, Priority: %d}",
+		r.Dst, r.Src, r.Table, r.LinkIndex, r.Priority)
 }
 
 func (*Route) TableHeader() []string {
@@ -118,6 +129,7 @@ func (*Route) TableHeader() []string {
 		"LinkIndex",
 		"Table",
 		"Scope",
+		"Priority",
 	}
 }
 
@@ -138,6 +150,7 @@ func (r *Route) TableRow() []string {
 		fmt.Sprintf("%d", r.LinkIndex),
 		fmt.Sprintf("%d", r.Table),
 		fmt.Sprintf("%d", r.Scope),
+		fmt.Sprintf("%d", r.Priority),
 	}
 }
 

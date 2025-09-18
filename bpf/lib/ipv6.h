@@ -5,6 +5,7 @@
 
 #include <linux/ipv6.h>
 
+#include "eth.h"
 #include "dbg.h"
 #include "l4.h"
 #include "metrics.h"
@@ -35,6 +36,8 @@
 #define IPV6_SADDR_OFF		offsetof(struct ipv6hdr, saddr)
 #define IPV6_DADDR_OFF		offsetof(struct ipv6hdr, daddr)
 
+#define IPV6_ALEN               16
+
 /* Follows the structure of ipv6hdr, see ipv6_handle_fragmentation. */
 struct ipv6_frag_id {
 	__be32 id;		/* L4 datagram identifier */
@@ -49,15 +52,14 @@ struct ipv6_frag_l4ports {
 	__be16 dport;
 } __packed;
 
-#ifdef ENABLE_IPV6_FRAGMENTS
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_frag_id);
 	__type(value, struct ipv6_frag_l4ports);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_IPV6_FRAG_MAP_MAX_ENTRIES);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ipv6_frag_datagrams __section_maps_btf;
-#endif
 
 static __always_inline int ipv6_optlen(const struct ipv6_opt_hdr *opthdr)
 {
@@ -111,14 +113,24 @@ static __always_inline int ipv6_skip_exthdr(struct __ctx_buff *ctx, __u8 *nexthd
 	}
 }
 
-static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, __u8 *nexthdr, int l3_off)
+static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, int l3_off,
+					      __u8 *nexthdr, fraginfo_t *fraginfo)
 {
 	int i, len = sizeof(struct ipv6hdr);
 	__u8 nh = *nexthdr;
 
+	/* 0 is a valid fraginfo that encodes:
+	 * - is_fragment = false
+	 * - has_l4_header = true
+	 * - protocol = 0 (unused when !is_fragment)
+	 * This is the default in case no NEXTHDR_FRAGMENT is found.
+	 */
+	*fraginfo = 0;
+
 #pragma unroll
 	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
-		int hdrlen = ipv6_skip_exthdr(ctx, &nh, l3_off + len);
+		__u8 newnh = nh;
+		int hdrlen = ipv6_skip_exthdr(ctx, &newnh, l3_off + len);
 
 		if (hdrlen < 0)
 			return hdrlen;
@@ -128,16 +140,35 @@ static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, __u8 *next
 			return len;
 		}
 
+		if (nh == NEXTHDR_FRAGMENT) {
+			struct ipv6_frag_hdr frag = { 0 };
+
+			if (ctx_load_bytes(ctx, l3_off + len, &frag, sizeof(frag)) < 0)
+				return DROP_INVALID;
+
+			*fraginfo = ipfrag_encode_ipv6(&frag);
+		}
+
 		len += hdrlen;
+		nh = newnh;
 	}
 
 	/* Reached limit of supported extension headers */
 	return DROP_INVALID_EXTHDR;
 }
 
+static __always_inline int ipv6_hdrlen_with_fraginfo(struct __ctx_buff *ctx,
+						     __u8 *nexthdr,
+						     fraginfo_t *fraginfo)
+{
+	return ipv6_hdrlen_offset(ctx, ETH_HLEN, nexthdr, fraginfo);
+}
+
 static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, __u8 *nexthdr)
 {
-	return ipv6_hdrlen_offset(ctx, nexthdr, ETH_HLEN);
+	fraginfo_t fraginfo;
+
+	return ipv6_hdrlen_offset(ctx, ETH_HLEN, nexthdr, &fraginfo);
 }
 
 static __always_inline void ipv6_addr_copy(union v6addr *dst,
@@ -159,6 +190,35 @@ static __always_inline bool ipv6_addr_equals(const union v6addr *a,
 	if (a->d1 != b->d1)
 		return false;
 	return a->d2 == b->d2;
+}
+
+static __always_inline
+void ipv6_sol_mc_mac_set(const union v6addr *addr, union macaddr *mac)
+{
+	mac->addr[0] = 0x33;
+	mac->addr[1] = 0x33;
+	mac->addr[2] = 0xFF;
+	memcpy((__u8 *)mac + 3, (__u8 *)addr + 13, 3);
+}
+
+static __always_inline
+bool ipv6_is_sol_mc_mac(const union v6addr *addr, const union macaddr *mac)
+{
+	union macaddr mc_mac __align_stack_8;
+
+	ipv6_sol_mc_mac_set(addr, &mc_mac);
+	return eth_addrcmp((const union macaddr *)&mc_mac, mac) == 0;
+}
+
+static __always_inline
+void ipv6_sol_mc_addr_set(const union v6addr *addr, union v6addr *mc_addr)
+{
+	const union v6addr base_addr = { .addr = {0xff, 0x02, 0, 0, 0, 0, 0, 0,
+					  0, 0, 0, 0x01, 0xFF, 0, 0, 0} };
+	*mc_addr = base_addr;
+	mc_addr->addr[13] = addr->addr[13];
+	mc_addr->addr[14] = addr->addr[14];
+	mc_addr->addr[15] = addr->addr[15];
 }
 
 /* Only works with contiguous masks. */

@@ -283,7 +283,7 @@ throughput, WireGuard is less efficient at achieving the same throughput:
 
 .. tip::
 
-   IPsec performing better than WireGuard in in this test is unexpected in some
+   IPsec performing better than WireGuard in this test is unexpected in some
    ways. A possible explanation is that the IPsec encryption is making use of
    AES-NI instructions whereas the WireGuard implementation is not. This would
    typically lead to IPsec being more efficient when AES-NI offload is

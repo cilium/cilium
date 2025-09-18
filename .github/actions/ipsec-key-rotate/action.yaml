@@ -3,53 +3,24 @@ description: Rotates IPsec keys
 inputs:
   key-algo:
     required: true
-    type: string
-    description: "gcm(aes) or cbc(aes)"
-  tunnel:
-    required: true
-    type: string
-    description: "the tunnel mode used, 'disabled' if native routing"
-  nb-nodes:
-    required: true
-    type: string
-    description: "Number of nodes in the cluster or clustermesh"
-  ipv6:
-    required: true
-    type: boolean
-    description: "Whether IPv6 is enabled. Note IPv4 is always enabled if IPsec is enabled."
+    description: "rfc4106-gcm-aes or cbc-aes-sha256"
 runs:
   using: composite
   steps:
     - name: Rotate IPsec Key
       shell: bash
       run: |
-        KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
-        if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
+        echo "Updating IPsec secret"
+        cilium encrypt rotate-key --auth-algo ${{ inputs.key-algo }}
 
-        if [[ "${{ inputs.key-algo }}" == "gcm(aes)" ]]; then
-          key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
-        elif [[ "${{ inputs.key-algo }}" == "cbc(aes)" ]]; then
-          key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
-        else
-          echo "Invalid key type"; exit 1
-        fi
-        data="{\"stringData\":{\"keys\":\"$((($KEYID+1)))+ ${key}\"}}"
+        new_key=$(cilium encrypt key-status)
+        echo "New IPsec key: $new_key"
 
-        echo "Updating IPsec secret with $data"
-        kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
+        # We have two keys per node, per direction, per IP family.
+        # So a two-nodes IPv4-only cluster will have four keys.
+        exp_nb_keys=$(cilium encrypt status -o json | jq -r '."ipsec-expected-key-count"')
+        echo "Expected IPsec key count: $exp_nb_keys"
 
-        # We have two keys per node, per direction, per IP family. So a two-nodes IPv4-only cluster
-        # will have four keys.
-        exp_nb_keys=${{ inputs.nb-nodes }}
-        ((exp_nb_keys*=2))
-        if [[ "${{ inputs.ipv6 }}" == "true" ]]; then
-          ((exp_nb_keys*=2))
-        fi
-        # If running in tunneling mode, then we have twice the amount of states
-        # and keys to handle encrypted overlay traffic.
-        if [[ "${{ inputs.tunnel }}" != "disabled" ]]; then
-          ((exp_nb_keys*=2))
-        fi
         # During the key rotation, the number of keys doubles.
         ((exp_nb_keys*=2))
 
@@ -61,7 +32,7 @@ runs:
             break
           fi
           echo "Waiting until key rotation starts (seeing $keys_in_use keys, expected $exp_nb_keys)"
-          sleep 30s
+          sleep 10s
         done
 
         # After the key rotation is finished and old keys are cleaned up, the number of keys is
@@ -69,13 +40,11 @@ runs:
         ((exp_nb_keys/=2))
 
         # Wait until key rotation completes
-        # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
-        sleep $((4*60))
         while true; do
           keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
           if [[ $keys_in_use == $exp_nb_keys ]]; then
             break
           fi
           echo "Waiting until key rotation completes (seeing $keys_in_use keys, expected $exp_nb_keys)"
-          sleep 30s
+          sleep 10s
         done

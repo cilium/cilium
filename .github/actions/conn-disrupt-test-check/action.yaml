@@ -20,7 +20,14 @@ inputs:
     required: false
     default: ''
     description: 'Select which connectivity tests to run'
-
+  test-concurrency:
+    required: false
+    default: '1'
+    description: 'Concurrency level to run tests'
+  skip-include-conn-disrupt-test-ns-traffic:
+    required: false
+    default: 'false'
+    description: 'Skip NS traffic disruption test (--include-conn-disrupt-test-ns-traffic). Can be removed after Cilium v1.20 release'
 runs:
   using: composite
   steps:
@@ -31,13 +38,19 @@ runs:
           TEST_ARG="${{ inputs.tests }}"
         else
           TEST_ARG="no-interrupted-connections"
-          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic --include-conn-disrupt-test-egw"
+          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-egw"
+          if [[ "${{ inputs.skip-include-conn-disrupt-test-ns-traffic }}" != "true" ]]; then
+            EXTRA_ARG="${EXTRA_ARG} --include-conn-disrupt-test-ns-traffic"
+          fi
         fi
         if [[ "${{ inputs.full-test }}" == "true" ]]; then
           TEST_ARG=""
-          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic --include-conn-disrupt-test-egw"
+          EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-egw"
+          if [[ "${{ inputs.skip-include-conn-disrupt-test-ns-traffic }}" != "true" ]]; then
+            EXTRA_ARG="${EXTRA_ARG} --include-conn-disrupt-test-ns-traffic"
+          fi
         fi
-        ${{ inputs.cilium-cli }} connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+        ${{ inputs.cilium-cli }} connectivity test --include-unsafe-tests \
           --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
           --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
           --flush-ct \
@@ -46,8 +59,7 @@ runs:
           --junit-file "cilium-junits/conn-disrupt-test-${{ inputs.job-name }}.xml" \
           ${{ inputs.extra-connectivity-test-flags }} \
           --junit-property github_job_step="Run conn disrupt tests (${{ inputs.job-name }})" \
-          --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-          --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
           --test "$TEST_ARG" \
+          --test-concurrency=${{ inputs.test-concurrency }} \
           --expected-xfrm-errors "+inbound_no_state" \
           ${EXTRA_ARG}

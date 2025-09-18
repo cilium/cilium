@@ -39,9 +39,8 @@ Direct access to local BPF maps
 * [cilium-dbg bpf nat](cilium-dbg_bpf_nat.md)	 - NAT mapping tables
 * [cilium-dbg bpf nodeid](cilium-dbg_bpf_nodeid.md)	 - Manage the node IDs
 * [cilium-dbg bpf policy](cilium-dbg_bpf_policy.md)	 - Manage policy related BPF maps
-* [cilium-dbg bpf recorder](cilium-dbg_bpf_recorder.md)	 - PCAP recorder
 * [cilium-dbg bpf sha](cilium-dbg_bpf_sha.md)	 - Manage compiled BPF template objects
+* [cilium-dbg bpf socknat](cilium-dbg_bpf_socknat.md)	 - Socket NAT operations
 * [cilium-dbg bpf srv6](cilium-dbg_bpf_srv6.md)	 - Manage the SRv6 routing rules
-* [cilium-dbg bpf tunnel](cilium-dbg_bpf_tunnel.md)	 - Tunnel endpoint map
 * [cilium-dbg bpf vtep](cilium-dbg_bpf_vtep.md)	 - Manage the VTEP mappings for IP/CIDR <-> VTEP MAC/IP
 

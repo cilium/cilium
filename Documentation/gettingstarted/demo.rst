@@ -46,6 +46,7 @@ same TCP/UDP connection.
 We can achieve that with the following CiliumNetworkPolicy:
 
 .. literalinclude:: ../../examples/minikube/sw_l3_l4_policy.yaml
+   :language: yaml
 
 CiliumNetworkPolicies match on pod labels using an "endpointSelector" to identify the sources and destinations to which the policy applies.
 The above policy whitelists traffic sent from any pods with label (``org=empire``) to *deathstar* pods with label (``org=empire, class=deathstar``) on TCP port 80.
@@ -209,6 +210,7 @@ extends our original policy by limiting *tiefighter* to making only a POST /v1/r
 API call, but disallowing all other calls (including PUT /v1/exhaust-port).
 
 .. literalinclude:: ../../examples/minikube/sw_l3_l4_l7_policy.yaml
+   :language: yaml
 
 Update the existing rule to apply L7-aware policy to protect *deathstar* using:
 

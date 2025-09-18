@@ -2,7 +2,7 @@
 {{$PODS_PER_DEPLOYMENT := 5}}
 {{$CNPS_PER_DEPLOYMENT := 5}}
 {{$namespaces := MaxInt (DivideInt .Nodes 100) 1}}
-{{$TimeToLoad := MultiplyInt $namespaces 6}}
+{{$TimeToLoad := MaxInt (MultiplyInt $namespaces 2) 6}}
 # number of deployments is 30 * #nodes / 5
 # for 1 node -> 6 deployments x 1 namespace
 # for 100 nodes -> 600 deployments x 1 namespace
@@ -16,8 +16,6 @@
 name: netpol
 namespace:
   number: {{$namespaces}}
-  # Let's skip deleting namespaces at the end of test for now
-  deleteAutomanagedNamespaces: false
 tuningSets:
 - name: default
   globalQPSLoad:
@@ -58,3 +56,14 @@ steps:
     path: ./modules/metrics.yaml
     params:
       action: gather
+
+- module:
+    path: /modules/reconcile-objects.yaml
+    params:
+      actionName: "delete"
+      namespaces: {{$namespaces}}
+      tuningSet: RandomizedSaturationTimeLimited
+      operationTimeout: 15m
+      replicasPerDeployment: 0
+      deploymentsPerNamespace: 0
+      cnpsPerDeployment: 0

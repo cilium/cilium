@@ -110,9 +110,8 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return nil
 	}
 
-	if params.OperatorConfig.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
-		!params.OperatorConfig.EnableNodePort {
-		params.Logger.Warn("Gateway API support requires either kube-proxy-replacement or enable-node-port enabled")
+	if !params.OperatorConfig.KubeProxyReplacement {
+		params.Logger.Warn("Gateway API support requires kube-proxy-replacement enabled")
 		return nil
 	}
 
@@ -256,7 +255,7 @@ func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.
 
 	for _, optionalGVK := range optionalGVKs {
 		if err := checkCRD(ctx, clientset, optionalGVK); err != nil {
-			logger.Debug("CRD is not present, will not handle it", logfields.OptionalGVK, optionalGVK)
+			logger.DebugContext(ctx, "CRD is not present, will not handle it", logfields.OptionalGVK, optionalGVK)
 			continue
 		}
 		// note that the .Kind field contains the _resource_ name -
@@ -275,10 +274,7 @@ func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Transla
 	}{
 		newGatewayClassReconciler(mgr, logger),
 		newGatewayReconciler(mgr, translator, logger, installedCRDs),
-		newReferenceGrantReconciler(mgr, logger),
-		newHTTPRouteReconciler(mgr, logger),
-		newGammaHttpRouteReconciler(mgr, translator, logger),
-		newGRPCRouteReconciler(mgr, logger),
+		newGammaReconciler(mgr, translator, logger),
 		newGatewayClassConfigReconciler(mgr, logger),
 	}
 
@@ -295,11 +291,9 @@ func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Transla
 	for _, gvk := range installedCRDs {
 		switch gvk.Kind {
 		case helpers.TLSRouteKind:
+			// TLSRoute is reconciled by the Gateway API reconciler, but log that the
+			// support has been successfully enabled.
 			logger.Info("TLSRoute CRD is installed, TLSRoute support is enabled")
-			tlsReconciler := newTLSRouteReconciler(mgr, logger)
-			if err := tlsReconciler.SetupWithManager(mgr); err != nil {
-				return fmt.Errorf("failed to setup optional reconciler: %w", err)
-			}
 		case helpers.ServiceImportKind:
 			// we don't need a reconciler, but we do need to tell folks that the
 			// support is working.

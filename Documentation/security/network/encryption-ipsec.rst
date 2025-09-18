@@ -12,14 +12,41 @@ IPsec Transparent Encryption
 
 This guide explains how to configure Cilium to use IPsec based transparent
 encryption using Kubernetes secrets to distribute the IPsec keys. After this
-configuration is complete all traffic between Cilium-managed endpoints, as well
-as Cilium-managed host traffic, will be encrypted using IPsec. This guide uses
-Kubernetes secrets to distribute keys. Alternatively, keys may be manually
-distributed, but that is not shown here.
+configuration is complete, all traffic between Cilium-managed endpoints will be
+encrypted using IPsec. This guide uses Kubernetes secrets to distribute keys.
+Alternatively, keys may be manually distributed, but that is not shown here.
 
 Packets are not encrypted when they are destined to the same node from which
 they were sent. This behavior is intended. Encryption would provide no benefits
 in that case, given that the raw traffic can be observed on the node anyway.
+
+v1.18 Encrypted Overlay
+=========================
+Prior to v1.18, IPsec encryption was performed before tunnel encapsulation.
+From Cilium v1.18 and forward, Cilium's IPsec encryption datapath will send
+traffic for overlay encapsulation prior to IPsec encryption when tunnel mode is
+enabled.
+
+With this change, the security identities used for policy enforcement are
+encrypted on the wire. This is a security benefit.
+
+A disruption-less upgrade from v1.17 to v1.18 can only be achieved by fully
+patching v1.17 to its latest version. Migration specific code was added to
+newer v1.17 releases to support a disruption-less upgrade to v1.18.
+
+Once patched to the newest v1.17 stable release, a normal upgrade to v1.18 can
+be performed.
+
+.. note::
+
+   Because VXLAN is encrypted before being sent, operators see ESP
+   traffic between Kubernetes nodes.
+
+   This may result in the need to update firewall rules to allow ESP traffic
+   between nodes.
+   This is especially important in Google Cloud GKE environments.
+   The default firewall rules for the cluster's subnet may not allow ESP.
+
 
 Generate & Import the PSK
 =========================
@@ -42,18 +69,28 @@ In the example below, GCM-128-AES is used. However, any of the algorithms
 supported by Linux may be used. To generate the secret, you may use the
 following command:
 
-.. code-block:: shell-session
+.. tabs::
 
-    $ kubectl create -n kube-system secret generic cilium-ipsec-keys \
-        --from-literal=keys="3+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+    .. group-tab:: Cilium CLI
 
-.. attention::
+       .. parsed-literal::
 
-    The ``+`` sign in the secret is strongly recommended. It will force the use
-    of per-tunnel IPsec keys. The former global IPsec keys are considered
-    insecure (cf. `GHSA-pwqm-x5x6-5586`_) and were deprecated in v1.16. When
-    using ``+``, the per-tunnel keys will be derived from the secret you
-    generated.
+          $ cilium encrypt create-key --auth-algo rfc4106-gcm-aes
+
+    .. group-tab:: Kubectl CLI
+
+       .. parsed-literal::
+
+          $ kubectl create -n kube-system secret generic cilium-ipsec-keys \
+              --from-literal=keys="3+ rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
+
+       .. attention::
+
+           The ``+`` sign in the secret is strongly recommended. It will force the use
+           of per-tunnel IPsec keys. The former global IPsec keys are considered
+           insecure (cf. `GHSA-pwqm-x5x6-5586`_) and were deprecated in v1.16. When
+           using ``+``, the per-tunnel keys will be derived from the secret you
+           generated.
 
 .. _GHSA-pwqm-x5x6-5586: https://github.com/cilium/cilium/security/advisories/GHSA-pwqm-x5x6-5586
 
@@ -197,7 +234,7 @@ To replace cilium-ipsec-keys secret with a new key:
 
     KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
     if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
-    data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1)))+ "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
+    data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1)))+ "rfc4106\(gcm\(aes\)\)" $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128\"}}")
     kubectl patch secret -n kube-system cilium-ipsec-keys -p="${data}" -v=1
 
 During transition the new and old keys will be in use. The Cilium agent keeps
@@ -225,7 +262,7 @@ payload and then the decrypted inner packet (pod-to-pod). This occurs as, once a
 is decrypted, it is recirculated back to the same interface for further processing.
 Therefore, depending on the ``tcpdump`` filter applied, the capture might differ, but this
 **does not** indicate that encryption is not functioning correctly. In particular, to observe:
-    
+
 1. Only the encrypted packet: use the filter ``esp``.
 2. Only the decrypted packet: use a specific filter for the protocol used by the pods (such as ``icmp`` for ping).
 3. Both encrypted and decrypted packets: use no filter or combine the filters for both (such as ``esp or icmp``).
@@ -264,12 +301,11 @@ Troubleshooting
        Encryption: IPsec
        Decryption interface(s): eth0, eth1, eth2
        Keys in use: 4
-       Max Seq. Number: 0x1e3/0xffffffff
+       Max Seq. Number: 0x1e3/0xffffffffffffffff
        Errors: 0
 
    If the error counter is non-zero, additional information will be displayed
-   with the specific errors the kernel encountered. If the sequence number
-   reaches its maximum value, it will also result in errors.
+   with the specific errors the kernel encountered.
 
    The number of keys in use should be 2 per remote node per enabled IP family.
    During a key rotation, it can double to 4 per remote node per IP family. For
@@ -287,11 +323,6 @@ errors.
    change on other nodes. You may notice the ``XfrmInNoStates`` and
    ``XfrmOutNoStates`` counters increase while the new node key is being
    deployed.
-
- * If the sequence number reaches its maximum value for any XFRM OUT state, it
-   will result in packet drops and XFRM errors of type
-   ``XfrmOutStateSeqError``. A key rotation resets all sequence numbers.
-   Rotate keys frequently to avoid this issue.
 
  * After a key rotation, if the old key is cleaned up before the
    configuration of the new key is installed on all nodes, it results in
@@ -360,6 +391,42 @@ errors.
    yet, so Cilium drops the packets at the source. These drops will stop once
    the CiliumNode information is propagated across the cluster.
 
+.. _xfrm_state_staling_in_cilium:
+
+XFRM State Staling in Cilium
+============================
+
+Control plane disruptions can lead to connectivity issues due to stale XFRM
+states with out-of-sync IPsec anti-replay counters. This typically results in
+permanent connectivity disruptions between pods managed by Cilium. This section
+explains how these issues occur and what you can do about them.
+
+Identified Causes
+-----------------
+
+In KVStore Mode (e.g., etcd), you might encounter stale XFRM states:
+
+  * If a Cilium agent is down for prolonged time, the corresponding node entry
+    in the kvstore will be deleted due to lease expiration (see
+    :ref:`kvstore_leases`), resulting in stale XFRM states.
+
+  * If you manually recreate your key-value store, a Cilium agent might connect
+    too late to the new instance. This delay can cause the agent to miss crucial
+    node delete and create events, leading Cilium to retain outdated XFRM states
+    for those nodes.
+
+In CRD Mode, stale XFRM states can occur if you delete a CiliumNode resource and
+restart the Cilium agent DaemonSet. While other agents create fresh XFRM states
+for the new CiliumNode, the agent on that new node may retain obsolete XFRM
+states for all the other peer nodes.
+
+Mitigation
+----------
+
+To restore connectivity in those cases, perform a key rotation (see
+:ref:`ipsec_key_rotation`). This action ensures new consistent and valid XFRM
+states across all your nodes.
+
 Disabling Encryption
 ====================
 
@@ -373,7 +440,6 @@ Limitations
       top of other CNI plugins. For more information, see :gh-issue:`15596`.
     * :ref:`HostPolicies` are not currently supported with IPsec encryption.
     * IPsec encryption currently does not work with BPF Host Routing.
-    * IPsec encryption is not currently supported in combination with IPv6-only clusters.
     * IPsec encryption is not supported on clusters or clustermeshes with more
       than 65535 nodes.
     * Decryption with Cilium IPsec is limited to a single CPU core per IPsec

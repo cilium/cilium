@@ -7,11 +7,12 @@ import (
 	"maps"
 	goslices "slices"
 	"sort"
+	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
-	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/shortener"
@@ -97,7 +98,6 @@ func NewCECTranslator(config Config) CECTranslator {
 }
 
 func (i *cecTranslator) Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error) {
-
 	backendServices, err := i.desiredBackendServices(model)
 	if err != nil {
 		return nil, err
@@ -117,8 +117,8 @@ func (i *cecTranslator) Translate(namespace string, name string, model *model.Mo
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
-			Labels: map[string]string{
-				k8s.UseOriginalSourceAddressLabel: "false",
+			Annotations: map[string]string{
+				annotation.CECUseOriginalSourceAddress: strconv.FormatBool(i.shouldUseOriginalSourceAddress(model)),
 			},
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
@@ -206,6 +206,16 @@ func (i *cecTranslator) desiredResources(m *model.Model) ([]ciliumv2.XDSResource
 	res = append(res, clusters...)
 
 	return res, nil
+}
+
+func (i *cecTranslator) shouldUseOriginalSourceAddress(m *model.Model) bool {
+	for _, l := range m.HTTP {
+		if l.Gamma {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (i *cecTranslator) desiredNodeSelector() *slim_metav1.LabelSelector {

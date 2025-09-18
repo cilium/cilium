@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"slices"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/ipalloc"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -24,9 +26,24 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
+type RouterIDKey struct {
+	NodeName     string
+	InstanceName string
+}
+
 func (b *BGPResourceManager) reconcileBGPClusterConfigs(ctx context.Context) error {
 	var err error
-	for _, config := range b.clusterConfigStore.List() {
+	configs := b.clusterConfigStore.List()
+	// Have to clean the routerIDMap while clusterconfig is empty
+	// because the NodeConfig are deleted by kube garbage collection
+	if len(configs) == 0 && b.bgpRouterIDIPPoolEnabled {
+		// Clear all router ID allocations when there are no BGP configs
+		if err := b.freeRouterID("", nil); err != nil {
+			return err
+		}
+	}
+
+	for _, config := range configs {
 		rcErr := b.reconcileBGPClusterConfig(ctx, config)
 		if rcErr != nil {
 			b.metrics.ReconcileErrorsTotal.WithLabelValues(v2.BGPCCKindDefinition, config.Name).Inc()
@@ -43,7 +60,6 @@ func (b *BGPResourceManager) reconcileBGPClusterConfig(ctx context.Context, conf
 	if err != nil {
 		return err
 	}
-
 	if err := b.deleteNodeConfigs(ctx, matchingNodes, config); err != nil {
 		errs = errors.Join(err)
 	}
@@ -92,6 +108,7 @@ func (b *BGPResourceManager) reconcileBGPClusterConfig(ctx context.Context, conf
 
 func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.CiliumBGPClusterConfig) (sets.Set[string], sets.Set[string], error) {
 	var nodeSelector slim_labels.Selector
+	var errs error
 	if config.Spec.NodeSelector == nil {
 		// nil selector means select all nodes
 		nodeSelector = slim_labels.Everything()
@@ -102,31 +119,38 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 		}
 		nodeSelector = selector
 	}
-
 	// Name of the nodes selected by nodeSelector
 	matchingNodes := sets.New[string]()
-
 	// Name of the ClusterConfig selecting the same node
 	conflictingClusterConfigs := sets.New[string]()
 
-	// Errors
-	var errs error
-
 	for _, node := range b.ciliumNodeStore.List() {
-		if !nodeSelector.Matches(slim_labels.Set(node.Labels)) {
+		bgpNode := nodeSelector.Matches(slim_labels.Set(node.Labels))
+		oldNodeConfig, oldNodeConfigExists, err := b.nodeConfigStore.GetByKey(resource.Key{Name: node.Name})
+
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to get node config for node %s: %w", node.Name, err))
 			continue
 		}
 
+		if !bgpNode {
+			continue
+		}
 		// Record selected node for later use
 		matchingNodes.Insert(node.Name)
-
-		// Find node config for this node
-		oldNodeConfig, oldNodeConfigExists, err := b.nodeConfigStore.GetByKey(resource.Key{Name: node.Name})
-		if err != nil {
-			errs = errors.Join(errs, err)
-			continue
+		// allocate router IDs for all instances for nodes and skip if already allocated(restored from old NodeConfig)
+		if b.bgpRouterIDIPPoolEnabled {
+			for _, instance := range config.Spec.BGPInstances {
+				key := getRouterIDKey(node.Name, instance.Name)
+				if _, exists := b.bgpRouterIDMap[key]; exists {
+					continue
+				}
+				err := b.allocateRouterID(key, nil)
+				if err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to allocate router ID for node and instance %s/%s: %w", node.Name, instance.Name, err))
+				}
+			}
 		}
-
 		// Conflict detection
 		if oldNodeConfigExists && !isOwner(oldNodeConfig.OwnerReferences, config) {
 			owner := ownerClusterConfigName(oldNodeConfig.OwnerReferences)
@@ -140,7 +164,7 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 		// Find node overrides for this node
 		nodeConfigOverride, nodeConfigOverrideExists, err := b.nodeConfigOverrideStore.GetByKey(resource.Key{Name: node.Name})
 		if err != nil {
-			errs = errors.Join(errs, err)
+			errs = errors.Join(errs, fmt.Errorf("failed to get node config override for node %s: %w", node.Name, err))
 			continue
 		}
 
@@ -149,6 +173,13 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 		if nodeConfigOverrideExists {
 			overrideInstances = nodeConfigOverride.Spec.BGPInstances
 		}
+
+		bgpInstances, err := b.toNodeBGPInstance(config.Spec.BGPInstances, overrideInstances, node.Name)
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to convert BGP instances for node %s: %w", node.Name, err))
+			continue
+		}
+
 		newNodeConfig := &v2.CiliumBGPNodeConfig{
 			ObjectMeta: meta_v1.ObjectMeta{
 				Name: node.Name,
@@ -170,7 +201,7 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 				},
 			},
 			Spec: v2.CiliumBGPNodeSpec{
-				BGPInstances: toNodeBGPInstance(config.Spec.BGPInstances, overrideInstances),
+				BGPInstances: bgpInstances,
 			},
 		}
 
@@ -181,7 +212,7 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 				errs = errors.Join(errs, err)
 				continue
 			}
-			b.logger.Debug("Creating a new CiliumBGPNodeConfig",
+			b.logger.DebugContext(ctx, "Creating a new CiliumBGPNodeConfig",
 				types.BGPNodeConfigLogField, newNodeConfig.Name,
 				types.LabelClusterConfig, config.Name,
 			)
@@ -193,32 +224,49 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 				errs = errors.Join(errs, err)
 				continue
 			}
-			b.logger.Debug("Updating an existing CiliumBGPNodeConfig",
+			b.logger.DebugContext(ctx, "Updating an existing CiliumBGPNodeConfig",
 				types.BGPNodeConfigLogField, oldNodeConfig.Name,
 				types.LabelClusterConfig, config.Name,
 			)
 		}
-	}
 
+	}
 	return matchingNodes, conflictingClusterConfigs, errs
 }
 
 func (b *BGPResourceManager) deleteNodeConfigs(ctx context.Context, selectedNodes sets.Set[string], config *v2.CiliumBGPClusterConfig) error {
 	var errs error
+
 	for _, nodeConfig := range b.nodeConfigStore.List() {
 		if selectedNodes.Has(nodeConfig.Name) || !isOwner(nodeConfig.OwnerReferences, config) {
 			continue
 		}
+
 		// If the NodeConfig is not selected by the ClusterConfig, but
 		// owned by it, it is a stale NodeConfig. Delete it.
-		if err := b.nodeConfigClient.Delete(ctx, nodeConfig.Name, meta_v1.DeleteOptions{}); err != nil {
-			if k8s_errors.IsNotFound(err) {
+		deleteErr := b.nodeConfigClient.Delete(ctx, nodeConfig.Name, meta_v1.DeleteOptions{})
+
+		if deleteErr != nil {
+			if k8s_errors.IsNotFound(deleteErr) {
 				continue
 			}
-			errs = errors.Join(err)
+			errs = errors.Join(errs, deleteErr)
 			continue
+		} else {
+			// free the router ID from the IP pool and remove it from the map
+			if b.bgpRouterIDIPPoolEnabled {
+				for _, instance := range nodeConfig.Spec.BGPInstances {
+					key := getRouterIDKey(nodeConfig.Name, instance.Name)
+					if routerID, exists := b.bgpRouterIDMap[key]; exists {
+						if freeErr := b.freeRouterID(key, routerID); freeErr != nil {
+							errs = errors.Join(errs, fmt.Errorf("failed to free router ID for node and instance %s/%s: %w", nodeConfig.Name, instance.Name, freeErr))
+						}
+					}
+				}
+			}
+
 		}
-		b.logger.Debug("Deleted BGP node config",
+		b.logger.DebugContext(ctx, "Deleted BGP node config",
 			types.BGPNodeConfigLogField, nodeConfig.Name,
 			types.LabelClusterConfig, config.Name,
 		)
@@ -297,8 +345,9 @@ func (b *BGPResourceManager) updateNoMatchingNodeCondition(config *v2.CiliumBGPC
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
-func toNodeBGPInstance(clusterBGPInstances []v2.CiliumBGPInstance, overrideBGPInstances []v2.CiliumBGPNodeConfigInstanceOverride) []v2.CiliumBGPNodeInstance {
+func (b *BGPResourceManager) toNodeBGPInstance(clusterBGPInstances []v2.CiliumBGPInstance, overrideBGPInstances []v2.CiliumBGPNodeConfigInstanceOverride, nodeName string) ([]v2.CiliumBGPNodeInstance, error) {
 	var res []v2.CiliumBGPNodeInstance
+	var errs error
 
 	for _, clusterBGPInstance := range clusterBGPInstances {
 		nodeBGPInstance := v2.CiliumBGPNodeInstance{
@@ -307,11 +356,33 @@ func toNodeBGPInstance(clusterBGPInstances []v2.CiliumBGPInstance, overrideBGPIn
 			LocalPort: clusterBGPInstance.LocalPort,
 		}
 
+		var currentRouterIDKey string
+		var currentRouterID *netip.Addr
+		if b.bgpRouterIDIPPoolEnabled {
+			currentRouterIDKey = getRouterIDKey(nodeName, clusterBGPInstance.Name)
+			if routerID, exists := b.bgpRouterIDMap[currentRouterIDKey]; exists {
+				currentRouterID = routerID
+				nodeBGPInstance.RouterID = ptr.To(routerID.String())
+			}
+		}
+
 		// find BGPResourceManager global override for this instance
 		var override v2.CiliumBGPNodeConfigInstanceOverride
 		for _, overrideBGPInstance := range overrideBGPInstances {
 			if overrideBGPInstance.Name == clusterBGPInstance.Name {
-				nodeBGPInstance.RouterID = overrideBGPInstance.RouterID
+				if overrideBGPInstance.RouterID != nil {
+					overrideRouterID, err := netip.ParseAddr(*overrideBGPInstance.RouterID)
+					if err != nil {
+						errs = errors.Join(errs, fmt.Errorf("failed to parse router ID for node %s: %w", nodeName, err))
+						continue
+					}
+					// Handle router ID override
+					if err := handleRouterIDOverride(b, currentRouterIDKey, &overrideRouterID, currentRouterID, nodeName); err != nil {
+						errs = errors.Join(errs, err)
+						continue
+					}
+					nodeBGPInstance.RouterID = overrideBGPInstance.RouterID
+				}
 				if overrideBGPInstance.LocalPort != nil {
 					nodeBGPInstance.LocalPort = overrideBGPInstance.LocalPort
 				}
@@ -329,6 +400,7 @@ func toNodeBGPInstance(clusterBGPInstances []v2.CiliumBGPInstance, overrideBGPIn
 				PeerAddress:   clusterBGPInstancePeer.PeerAddress,
 				PeerASN:       clusterBGPInstancePeer.PeerASN,
 				PeerConfigRef: clusterBGPInstancePeer.PeerConfigRef,
+				AutoDiscovery: clusterBGPInstancePeer.AutoDiscovery,
 			}
 
 			// find BGPResourceManager Peer override for this instance
@@ -344,7 +416,106 @@ func toNodeBGPInstance(clusterBGPInstances []v2.CiliumBGPInstance, overrideBGPIn
 
 		res = append(res, nodeBGPInstance)
 	}
-	return res
+	return res, errs
+}
+
+func (b *BGPResourceManager) clearAllRouterIDs() error {
+	b.bgpRouterIDMap = make(map[string]*netip.Addr)
+	if b.bgpRouterIDIPPool == nil {
+		return nil
+	}
+
+	start, stop := b.bgpRouterIDIPPool.Range()
+	var err error
+	b.bgpRouterIDIPPool, err = ipalloc.NewHashAllocator[string](start, stop, 50)
+	return err
+}
+
+func (b *BGPResourceManager) freeRouterID(key string, routerID *netip.Addr) error {
+	// Handle the case to clear all router IDs
+	if key == "" && routerID == nil {
+		return b.clearAllRouterIDs()
+	}
+
+	if key == "" {
+		return fmt.Errorf("key cannot be empty when freeing a specific router ID")
+	}
+	if routerID == nil {
+		return fmt.Errorf("routerID cannot be nil when freeing a specific router ID")
+	}
+
+	delete(b.bgpRouterIDMap, key)
+
+	if b.bgpRouterIDIPPool == nil {
+		return fmt.Errorf("bgp Router ID pool doesn't not exist")
+	}
+
+	err := b.bgpRouterIDIPPool.Free(*routerID)
+	if err == nil || errors.Is(err, ipalloc.ErrNotFound) {
+		return nil
+	}
+	return fmt.Errorf("failed to free router ID %s: %w", routerID, err)
+}
+
+func (b *BGPResourceManager) allocateRouterID(key string, routerID *netip.Addr) error {
+	if b.bgpRouterIDIPPool == nil {
+		return fmt.Errorf("bgp Router ID pool doesn't exist")
+	}
+
+	var allocatedID netip.Addr
+	var err error
+
+	if routerID != nil {
+		// Allocate a specific router ID
+		err = b.bgpRouterIDIPPool.Alloc(*routerID, key)
+		allocatedID = *routerID
+	} else {
+		// Allocate any available router ID
+		allocatedID, err = b.bgpRouterIDIPPool.AllocAny(key)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// Store the allocated router ID in the map
+	b.bgpRouterIDMap[key] = ptr.To(allocatedID)
+	return nil
+}
+func (b *BGPResourceManager) restoreRouterIDs() error {
+	if !b.bgpRouterIDIPPoolEnabled {
+		return nil
+	}
+	var errs error
+	for _, nodeConfig := range b.nodeConfigStore.List() {
+		for _, instance := range nodeConfig.Spec.BGPInstances {
+			if instance.RouterID == nil {
+				continue
+			}
+			routerID, err := netip.ParseAddr(*instance.RouterID)
+			if err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to parse router ID for node %s: %w", nodeConfig.Name, err))
+				continue
+			}
+			key := getRouterIDKey(nodeConfig.Name, instance.Name)
+			_, exists := b.bgpRouterIDMap[key]
+			// If we can't find the router ID in the map, we need to restore it
+			if !exists {
+				// When restoring router ID, we must check if it is within the configured pool range for IP pool mode since
+				// we can't restore router ID from outside of the pool range.
+				start, stop := b.bgpRouterIDIPPool.Range()
+				if start.Compare(routerID) > 0 || stop.Compare(routerID) < 0 {
+					continue
+				}
+				err := b.allocateRouterID(key, &routerID)
+				if err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to restore router ID for node %s: %w", nodeConfig.Name, err))
+					continue
+				}
+			}
+		}
+	}
+	return errs
 }
 
 // isOwner checks if the expected is present in owners list.
@@ -365,4 +536,49 @@ func ownerClusterConfigName(owners []meta_v1.OwnerReference) string {
 		}
 	}
 	return ""
+}
+
+func getRouterIDKey(nodeName, instanceName string) string {
+	return fmt.Sprintf("%s/%s", nodeName, instanceName)
+}
+
+// handleRouterIDOverride handles the logic for router ID overrides
+func handleRouterIDOverride(b *BGPResourceManager, currentRouterIDKey string, overrideRouterID *netip.Addr, currentRouterID *netip.Addr, nodeName string) error {
+	if !b.bgpRouterIDIPPoolEnabled {
+		return nil
+	}
+
+	// Check if override router ID is within the pool range
+	start, stop := b.bgpRouterIDIPPool.Range()
+	if start.Compare(*overrideRouterID) > 0 || stop.Compare(*overrideRouterID) < 0 {
+		// Override router ID is outside the pool range, clear current allocation and use override router ID
+		if currentRouterID != nil {
+			if err := b.freeRouterID(currentRouterIDKey, currentRouterID); err != nil {
+				return fmt.Errorf("failed to free current router ID when override router ID is outside the pool range for node %s: %w", nodeName, err)
+			}
+		}
+		return nil
+	}
+
+	// Router ID is within the pool range, check if it's already allocated to a different instance
+	if allocatedKey, exists := b.bgpRouterIDIPPool.Get(*overrideRouterID); exists {
+		if allocatedKey != currentRouterIDKey {
+			return fmt.Errorf("router ID %s is already allocated to %s, cannot use for node %s", overrideRouterID, allocatedKey, nodeName)
+		}
+		return nil
+	}
+
+	// Router ID is available, free current allocation and use override
+	if currentRouterID != nil {
+		if err := b.freeRouterID(currentRouterIDKey, currentRouterID); err != nil {
+			return fmt.Errorf("failed to free current router ID when override router ID is within the pool range for node %s: %w", nodeName, err)
+		}
+	}
+
+	// Allocate the override router ID
+	if err := b.allocateRouterID(currentRouterIDKey, overrideRouterID); err != nil {
+		return fmt.Errorf("failed to allocate override router ID %s for node %s: %w", overrideRouterID, nodeName, err)
+	}
+
+	return nil
 }

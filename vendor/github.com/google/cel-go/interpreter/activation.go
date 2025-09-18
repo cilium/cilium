@@ -178,6 +178,7 @@ func (a *partActivation) AsPartialActivation() (PartialActivation, bool) {
 	return a, true
 }
 
+// AsPartialActivation walks the activation hierarchy and returns the first PartialActivation, if found.
 func AsPartialActivation(vars Activation) (PartialActivation, bool) {
 	// Only internal activation instances may implement this interface
 	if pv, ok := vars.(partialActivationConverter); ok {

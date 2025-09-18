@@ -11,21 +11,19 @@ to learn how to level up through the project.
  * [Aditi Ghag] (Isovalent)
  * [Alexandre Perrin] (Isovalent)
  * [André Martins] (Isovalent)
- * [Beatriz Martínez] (Isovalent)
  * [Bill Mulligan] (Isovalent)
  * [Bruno M. Custódio] (Isovalent)
  * [Casey Callendrello] (Isovalent)
  * [Chance Zibolski] (Isovalent)
  * [Chris Tarazi] (Isovalent)
  * [Daniel Borkmann] (Isovalent)
- * [Dan Wendlandt] (Isovalent)
- * [Deepesh Pathak]
+ * [Deepesh Pathak] (Isovalent)
  * [Dorde Lapcevic] (Google)
  * [Dylan Reimerink] (Isovalent)
+ * [Fabio Falzoi] (Isovalent)
  * [Gilberto Bertin] (Isovalent)
  * [Glib Smaga] (Isovalent)
- * [Hemanth Malla] (Datadog)
- * [Ian Vernon]
+ * [Hemanth Malla] (Microsoft)
  * [Jarno Rajahalme] (Isovalent)
  * [Joe Stringer] (Isovalent)
  * [John Fastabend] (Isovalent)
@@ -37,9 +35,9 @@ to learn how to level up through the project.
  * [Lorenz Bauer] (Isovalent)
  * [Louis DeLosSantos] (Isovalent)
  * [Maciej Kwiek] (Isovalent)
+ * [Marcel Zięba] (Isovalent)
  * [Marco Iorio] (Isovalent)
  * [Martynas Pumputis] (Isovalent)
- * [Michal Rostecki] (Deepfence)
  * [Michi Mutsuzaki] (Isovalent)
  * [Natália Réka Ivánkó] (Isovalent)
  * [Nathan Sweet] (Isovalent)
@@ -62,14 +60,17 @@ to learn how to level up through the project.
 
 We would like to acknowledge previous committers and their huge contributions to our collective success:
 
+ * [Beatriz Martínez] (Isovalent)
+ * [Dan Wendlandt] (Isovalent)
  * [Eloy Coto] (Red Hat)
+ * [Ian Vernon]
  * [Ilya Dmitrichenko] (Docker)
+ * [Michal Rostecki] (Anza)
  * [Ray Bejjani]
  * [Tom Payne]
  * [Weilong Cui] (Google)
  * [Yongkun Gui] (Google)
  * [Zang Li] (Google)
-
 
 Please see the AUTHORS file for the full list of contributors to the Cilium
 project.
@@ -89,6 +90,7 @@ project.
 [Dorde Lapcevic]: https://github.com/dlapcevic
 [Dylan Reimerink]: https://github.com/dylandreimerink
 [Eloy Coto]: https://github.com/eloycoto
+[Fabio Falzoi]: https://github.com/pippolo84
 [Gilberto Bertin]: https://github.com/jibi
 [Glib Smaga]: https://github.com/glibsm
 [Hemanth Malla]: https://github.com/hemanthmalla
@@ -105,6 +107,7 @@ project.
 [Lorenz Bauer]: https://github.com/lmb
 [Louis DeLosSantos]: https://github.com/ldelossa
 [Maciej Kwiek]: https://github.com/nebril
+[Marcel Zięba]: https://github.com/marseel
 [Marco Iorio]: https://github.com/giorio94
 [Martynas Pumputis]: https://github.com/brb
 [Michal Rostecki]: https://github.com/vadorovsky

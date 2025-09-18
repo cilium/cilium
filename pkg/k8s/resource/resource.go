@@ -136,11 +136,13 @@ type Resource[T k8sRuntime.Object] interface {
 //	}
 //
 // See also pkg/k8s/resource/example/main.go for a runnable example.
-func New[T k8sRuntime.Object](lc cell.Lifecycle, lw cache.ListerWatcher, opts ...ResourceOption) Resource[T] {
+func New[T k8sRuntime.Object](lc cell.Lifecycle, lw cache.ListerWatcher, mp workqueue.MetricsProvider,
+	opts ...ResourceOption) Resource[T] {
 	r := &resource[T]{
-		subscribers: make(map[uint64]*subscriber[T]),
-		needed:      make(chan struct{}, 1),
-		lw:          lw,
+		subscribers:     make(map[uint64]*subscriber[T]),
+		needed:          make(chan struct{}, 1),
+		lw:              lw,
+		metricsProvider: mp,
 	}
 	r.opts.sourceObj = func() k8sRuntime.Object {
 		var obj T
@@ -238,6 +240,8 @@ type resource[T k8sRuntime.Object] struct {
 
 	storePromise  promise.Promise[Store[T]]
 	storeResolver promise.Resolver[Store[T]]
+
+	metricsProvider workqueue.MetricsProvider
 }
 
 var _ Resource[*corev1.Node] = &resource[*corev1.Node]{}
@@ -414,7 +418,10 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		options:   options,
 		debugInfo: debugInfo,
 		wq: workqueue.NewTypedRateLimitingQueueWithConfig[WorkItem](options.rateLimiter,
-			workqueue.TypedRateLimitingQueueConfig[WorkItem]{Name: r.resourceName()}),
+			workqueue.TypedRateLimitingQueueConfig[WorkItem]{
+				Name:            r.resourceName(),
+				MetricsProvider: r.metricsProvider,
+			}),
 	}
 
 	// Fork a goroutine to process the queued keys and pass them to the subscriber.
@@ -732,7 +739,7 @@ func (p *wrapperController) Run(stopCh <-chan struct{}) {
 
 func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, r.opts.indexers)
-	opts := cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState}
+	opts := cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState, EmitDeltaTypeReplaced: true}
 	fifo := cache.NewDeltaFIFOWithOptions(opts)
 	transformer := r.opts.transform
 	cacheMutationDetector := cache.NewCacheMutationDetector(fmt.Sprintf("%T", r))
@@ -741,7 +748,6 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 		ListerWatcher:    r.lw,
 		ObjectType:       r.opts.sourceObj(),
 		FullResyncPeriod: 0,
-		RetryOnError:     false,
 		Process: func(obj any, isInInitialList bool) error {
 			// Processing of the deltas is done under the resource mutex. This
 			// avoids emitting double events for new subscribers that list the
@@ -771,7 +777,7 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 				key := NewKey(obj)
 
 				switch d.Type {
-				case cache.Sync, cache.Added, cache.Updated:
+				case cache.Sync, cache.Added, cache.Updated, cache.Replaced:
 					metric := resources.MetricCreate
 					if d.Type != cache.Added {
 						metric = resources.MetricUpdate

@@ -5,12 +5,11 @@ package ipcache
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"net/netip"
 	"sync"
 	"sync/atomic"
-
-	"github.com/sirupsen/logrus"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -104,11 +103,10 @@ type K8sMetadata struct {
 // Configuration is init-time configuration for the IPCache.
 type Configuration struct {
 	context.Context
+	Logger *slog.Logger
 	// Accessors to other subsystems, provided by the daemon
 	cache.IdentityAllocator
-	ipcacheTypes.PolicyHandler
-	ipcacheTypes.PolicyUpdater
-	ipcacheTypes.DatapathHandler
+	ipcacheTypes.IdentityUpdater
 	synced.CacheStatus
 }
 
@@ -117,6 +115,7 @@ type Configuration struct {
 //     which are part of the same cluster, and vice-versa
 //   - mapping of endpoint IP or CIDR to host IP (maybe nil)
 type IPCache struct {
+	logger            *slog.Logger
 	mutex             lock.SemaphoredMutex
 	ipToIdentityCache map[string]Identity
 	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
@@ -162,6 +161,7 @@ type IPCache struct {
 // identity (and vice-versa) initialized.
 func NewIPCache(c *Configuration) *IPCache {
 	ipc := &IPCache{
+		logger:            c.Logger,
 		mutex:             lock.NewSemaphoredMutex(),
 		ipToIdentityCache: map[string]Identity{},
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
@@ -170,7 +170,7 @@ func NewIPCache(c *Configuration) *IPCache {
 		ipToEndpointFlags: map[string]uint8{},
 		controllers:       controller.NewManager(),
 		namedPorts:        types.NewNamedPortMultiMap(),
-		metadata:          newMetadata(),
+		metadata:          newMetadata(c.Logger),
 		prefixLengths:     counter.DefaultPrefixLengthCounter(),
 		Configuration:     c,
 	}
@@ -180,16 +180,6 @@ func NewIPCache(c *Configuration) *IPCache {
 // Shutdown cleans up asynchronous routines associated with the IPCache.
 func (ipc *IPCache) Shutdown() error {
 	return ipc.controllers.RemoveControllerAndWait(LabelInjectorName)
-}
-
-// Lock locks the IPCache's mutex.
-func (ipc *IPCache) Lock() {
-	ipc.mutex.Lock()
-}
-
-// Unlock unlocks the IPCache's mutex.
-func (ipc *IPCache) Unlock() {
-	ipc.mutex.Unlock()
 }
 
 // RLock RLocks the IPCache's mutex.
@@ -215,7 +205,7 @@ func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
 	ipc.mutex.UnlockToRLock()
 	defer ipc.mutex.RUnlock()
 	// Initialize new listener with the current mappings
-	ipc.DumpToListenerLocked(listener)
+	ipc.dumpToListenerLocked(listener)
 }
 
 // Update a controller for this IPCache
@@ -319,19 +309,19 @@ func (ipc *IPCache) upsertLocked(
 		newNamedPorts = k8sMeta.NamedPorts
 	}
 
-	scopedLog := log
+	scopedLog := ipc.logger
 	if option.Config.Debug {
-		scopedLog = log.WithFields(logrus.Fields{
-			logfields.IPAddr:   ip,
-			logfields.Identity: &newIdentity,
-			logfields.Key:      hostKey,
-		})
+		scopedLog = ipc.logger.With(
+			logfields.IPAddr, ip,
+			logfields.Identity, newIdentity,
+			logfields.Key, hostKey,
+		)
 		if k8sMeta != nil {
-			scopedLog = scopedLog.WithFields(logrus.Fields{
-				logfields.K8sPodName:   k8sMeta.PodName,
-				logfields.K8sNamespace: k8sMeta.Namespace,
-				logfields.NamedPorts:   k8sMeta.NamedPorts,
-			})
+			scopedLog = scopedLog.With(
+				logfields.K8sPodName, k8sMeta.PodName,
+				logfields.K8sNamespace, k8sMeta.Namespace,
+				logfields.NamedPorts, k8sMeta.NamedPorts,
+			)
 		}
 	}
 
@@ -436,11 +426,12 @@ func (ipc *IPCache) upsertLocked(
 			}
 		}
 	} else {
-		log.WithFields(logrus.Fields{
-			logfields.AddrCluster: ip,
-			logfields.Identity:    newIdentity,
-			logfields.Key:         hostKey,
-		}).Error("Attempt to upsert invalid IP into ipcache layer")
+		scopedLog.Error(
+			"Attempt to upsert invalid IP into ipcache layer",
+			logfields.AddrCluster, ip,
+			logfields.Identity, newIdentity,
+			logfields.Key, hostKey,
+		)
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeUpsert, metricErrorInvalid,
 		).Inc()
@@ -499,9 +490,9 @@ func (ipc *IPCache) upsertLocked(
 // DumpToListener dumps the entire contents of the IPCache by triggering
 // the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
 func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
-	ipc.RLock()
-	ipc.DumpToListenerLocked(listener)
-	ipc.RUnlock()
+	ipc.mutex.RLock()
+	ipc.dumpToListenerLocked(listener)
+	ipc.mutex.RUnlock()
 }
 
 // MU is a batched metadata update, the short name is to cut down on visual clutter.
@@ -510,6 +501,7 @@ type MU struct {
 	Source   source.Source
 	Resource ipcacheTypes.ResourceID
 	Metadata []IPMetadata
+	IsCIDR   bool
 }
 
 // UpsertMetadata upserts a given IP and some corresponding information into
@@ -529,7 +521,9 @@ func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
 	prefixes := make([]cmtypes.PrefixCluster, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
-		prefixes = append(prefixes, ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)...)
+		if !upd.IsCIDR || ipc.metadata.prefixRefCounter.Add(upd.Prefix) {
+			prefixes = append(prefixes, ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)...)
+		}
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
@@ -558,7 +552,9 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 	prefixes := make([]cmtypes.PrefixCluster, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
-		prefixes = append(prefixes, ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)...)
+		if !upd.IsCIDR || ipc.metadata.prefixRefCounter.Delete(upd.Prefix) {
+			prefixes = append(prefixes, ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)...)
+		}
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
@@ -616,11 +612,11 @@ func (ipc *IPCache) WaitForRevision(ctx context.Context, desired uint64) error {
 	return ipc.metadata.waitForRevision(ctx, desired)
 }
 
-// DumpToListenerLocked dumps the entire contents of the IPCache by triggering
+// dumpToListenerLocked dumps the entire contents of the IPCache by triggering
 // the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
 // The caller *MUST* grab the IPCache.Lock for reading before calling this
 // function.
-func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
+func (ipc *IPCache) dumpToListenerLocked(listener IPIdentityMappingListener) {
 	for ip, identity := range ipc.ipToIdentityCache {
 		if identity.shadowed {
 			continue
@@ -640,13 +636,11 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 // deleteLocked removes the provided IP-to-security-identity mapping
 // from ipc with the assumption that the IPCache's mutex is held.
 func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsChanged bool) {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.IPAddr: ip,
-	})
+	logAttr := ipc.logger.With(logfields.IPAddr, ip)
 
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if !found {
-		scopedLog.Warn("Attempt to remove non-existing IP from ipcache layer")
+		logAttr.Warn("Attempt to remove non-existing IP from ipcache layer")
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeDelete, metricErrorNoExist,
 		).Inc()
@@ -654,8 +648,11 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	}
 
 	if cachedIdentity.Source != source {
-		scopedLog.WithField("source", cachedIdentity.Source).
-			Debugf("Skipping delete of identity from source %s", source)
+		logAttr.Debug(
+			"Skipping delete of identity from source",
+			logfields.CachedSource, cachedIdentity.Source,
+			logfields.Source, source,
+		)
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeDelete, metricErrorOverwrite,
 		).Inc()
@@ -678,7 +675,9 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		// this case, skip calling back the listeners since they don't know
 		// about its mapping.
 		if _, endpointIPFound := ipc.ipToIdentityCache[cidrCluster.AddrCluster().String()]; endpointIPFound {
-			scopedLog.Debug("Deleting CIDR shadowed by endpoint IP")
+			ipc.logger.Debug(
+				"Deleting CIDR shadowed by endpoint IP",
+			)
 			callbackListeners = false
 		}
 	} else if addrCluster, err := cmtypes.ParseAddrCluster(ip); err == nil { // Endpoint IP or Endpoint IP with ClusterID
@@ -691,7 +690,9 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrClusterStr]; cidrFound {
 			newHostIP, _ = ipc.getHostIPCacheRLocked(cidrClusterStr)
 			if cidrIdentity.ID != cachedIdentity.ID || !oldHostIP.Equal(newHostIP) {
-				scopedLog.Debug("Removal of endpoint IP revives shadowed CIDR to identity mapping")
+				ipc.logger.Debug(
+					"Removal of endpoint IP revives shadowed CIDR to identity mapping",
+				)
 				cacheModification = Upsert
 				cidrIdentity.shadowed = false
 				ipc.ipToIdentityCache[cidrClusterStr] = cidrIdentity
@@ -704,14 +705,18 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 			}
 		}
 	} else {
-		scopedLog.Error("Attempt to delete invalid IP from ipcache layer")
+		ipc.logger.Error(
+			"Attempt to delete invalid IP from ipcache layer",
+		)
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeDelete, metricErrorInvalid,
 		).Inc()
 		return false
 	}
 
-	scopedLog.Debug("Deleting IP from ipcache layer")
+	ipc.logger.Debug(
+		"Deleting IP from ipcache layer",
+	)
 
 	delete(ipc.ipToIdentityCache, ip)
 	delete(ipc.identityToIPCache[cachedIdentity.ID], ip)

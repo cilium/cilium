@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -66,7 +67,7 @@ type Metadata interface {
 }
 
 // NewIPAM returns a new IP address manager
-func NewIPAM(logger *slog.Logger, nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDiscovery Owner, localNodeStore *node.LocalNodeStore, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset, metadata Metadata, sysctl sysctl.Sysctl) *IPAM {
+func NewIPAM(logger *slog.Logger, nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDiscovery Owner, localNodeStore *node.LocalNodeStore, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset, metadata Metadata, sysctl sysctl.Sysctl, ipMasqAgent *ipmasq.IPMasqAgent) *IPAM {
 	return &IPAM{
 		logger:           logger,
 		nodeAddressing:   nodeAddressing,
@@ -83,6 +84,7 @@ func NewIPAM(logger *slog.Logger, nodeAddressing types.NodeAddressing, c *option
 		nodeDiscovery:  nodeDiscovery,
 		metadata:       metadata,
 		sysctl:         sysctl,
+		ipMasqAgent:    ipMasqAgent,
 	}
 }
 
@@ -108,7 +110,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 		}
 	case ipamOption.IPAMMultiPool:
 		ipam.logger.Info("Initializing MultiPool IPAM")
-		manager := newMultiPoolManager(ipam.logger, ipam.config, ipam.nodeResource, ipam.nodeDiscovery, ipam.clientset.CiliumV2().CiliumNodes())
+		manager := newMultiPoolManager(ipam.logger, ipam.config, ipam.nodeResource, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset.CiliumV2().CiliumNodes())
 
 		if ipam.config.IPv6Enabled() {
 			ipam.IPv6Allocator = manager.Allocator(IPv6)
@@ -119,11 +121,11 @@ func (ipam *IPAM) ConfigureAllocator() {
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		ipam.logger.Info("Initializing CRD-based IPAM")
 		if ipam.config.IPv6Enabled() {
-			ipam.IPv6Allocator = newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
+			ipam.IPv6Allocator = newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
 		}
 
 		if ipam.config.IPv4Enabled() {
-			ipam.IPv4Allocator = newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
+			ipam.IPv4Allocator = newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
 		}
 	case ipamOption.IPAMDelegatedPlugin:
 		ipam.logger.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")

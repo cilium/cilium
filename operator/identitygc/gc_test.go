@@ -4,14 +4,12 @@
 package identitygc
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"go.uber.org/goleak"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -22,16 +20,19 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestIdentitiesGC(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// To ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go
 		// init function
-		goleak.IgnoreTopFunction("time.Sleep"),
+		testutils.GoleakIgnoreTopFunction("time.Sleep"),
 	)
 
 	var clientset k8sClient.Clientset
@@ -42,7 +43,9 @@ func TestIdentitiesGC(t *testing.T) {
 		metrics.Metric(NewMetrics),
 
 		// provide a fake clientset
-		k8sClient.FakeClientCell,
+		k8sFakeClient.FakeClientCell(),
+		// Provide a (disabled) kvstore client
+		kvstore.Cell(kvstore.DisabledBackendName),
 		// provide a fake spire client
 		spire.FakeCellClient,
 		// provide resources
@@ -68,16 +71,16 @@ func TestIdentitiesGC(t *testing.T) {
 		cell.Invoke(func(c k8sClient.Clientset, authClient authIdentity.Provider) error {
 			clientset = c
 			authIdentityClient = authClient
-			if err := setupK8sNodes(clientset); err != nil {
+			if err := setupK8sNodes(t, clientset); err != nil {
 				return err
 			}
-			if err := setupCiliumIdentities(clientset); err != nil {
+			if err := setupCiliumIdentities(t, clientset); err != nil {
 				return err
 			}
-			if err := setupCiliumEndpoint(clientset); err != nil {
+			if err := setupCiliumEndpoint(t, clientset); err != nil {
 				return err
 			}
-			if err := setupAuthIdentities(authIdentityClient); err != nil {
+			if err := setupAuthIdentities(t, authIdentityClient); err != nil {
 				return err
 			}
 
@@ -144,7 +147,7 @@ func TestIdentitiesGC(t *testing.T) {
 	}
 }
 
-func setupK8sNodes(clientset k8sClient.Clientset) error {
+func setupK8sNodes(t *testing.T, clientset k8sClient.Clientset) error {
 	nodes := []*corev1.Node{
 		{
 			TypeMeta: metav1.TypeMeta{
@@ -169,14 +172,14 @@ func setupK8sNodes(clientset k8sClient.Clientset) error {
 	}
 	for _, node := range nodes {
 		if _, err := clientset.CoreV1().Nodes().
-			Create(context.Background(), node, metav1.CreateOptions{}); err != nil {
+			Create(t.Context(), node, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create node %v: %w", node, err)
 		}
 	}
 	return nil
 }
 
-func setupCiliumIdentities(clientset k8sClient.Clientset) error {
+func setupCiliumIdentities(t *testing.T, clientset k8sClient.Clientset) error {
 	identities := []*v2.CiliumIdentity{
 		{
 			TypeMeta: metav1.TypeMeta{
@@ -205,24 +208,24 @@ func setupCiliumIdentities(clientset k8sClient.Clientset) error {
 	}
 	for _, identity := range identities {
 		if _, err := clientset.CiliumV2().CiliumIdentities().
-			Create(context.Background(), identity, metav1.CreateOptions{}); err != nil {
+			Create(t.Context(), identity, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create identity %v: %w", identity, err)
 		}
 	}
 	return nil
 }
 
-func setupAuthIdentities(client authIdentity.Provider) error {
-	if err := client.Upsert(context.Background(), "88888"); err != nil {
+func setupAuthIdentities(t *testing.T, client authIdentity.Provider) error {
+	if err := client.Upsert(t.Context(), "88888"); err != nil {
 		return err
 	}
-	if err := client.Upsert(context.Background(), "99999"); err != nil {
+	if err := client.Upsert(t.Context(), "99999"); err != nil {
 		return err
 	}
 	return nil
 }
 
-func setupCiliumEndpoint(clientset k8sClient.Clientset) error {
+func setupCiliumEndpoint(t *testing.T, clientset k8sClient.Clientset) error {
 	endpoint := &v2.CiliumEndpoint{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-endpoint",
@@ -234,7 +237,7 @@ func setupCiliumEndpoint(clientset k8sClient.Clientset) error {
 		},
 	}
 	if _, err := clientset.CiliumV2().CiliumEndpoints("").
-		Create(context.Background(), endpoint, metav1.CreateOptions{}); err != nil {
+		Create(t.Context(), endpoint, metav1.CreateOptions{}); err != nil {
 		return fmt.Errorf("failed to create endpoint %v: %w", endpoint, err)
 	}
 	return nil

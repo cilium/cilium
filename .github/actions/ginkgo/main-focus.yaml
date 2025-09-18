@@ -34,6 +34,7 @@ focus:
 - "f20-datapath-misc-3"
 include:
   ###
+  # K8sAgentChaosTest Graceful shutdown exits with a success message on SIGTERM
   # K8sAgentChaosTest Connectivity demo application Endpoint can still connect while Cilium is not running
   # K8sAgentChaosTest Restart with long lived connections L3/L4 policies still work while Cilium is restarted
   # K8sAgentChaosTest Restart with long lived connections TCP connection is not dropped when cilium restarts
@@ -113,9 +114,8 @@ include:
   ###
   # K8sDatapathConfig Iptables Skip conntrack for pod traffic
   # K8sDatapathConfig IPv4Only Check connectivity with IPv6 disabled
-  # K8sDatapathConfig IPv6 masquerading across K8s nodes, skipped due to native routing CIDR
   - focus: "f20-datapath-misc-3"
-    cliFocus: "K8sDatapathConfig WireGuard encryption strict mode|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6"
+    cliFocus: "K8sDatapathConfig WireGuard encryption strict mode|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only"
 
   ###
   # K8sAgentHubbleTest Hubble Observe Test FQDN Policy with Relay
@@ -207,91 +207,91 @@ include:
 exclude:
   # The bandwidth test is disabled and hubble tests are not meant
   # to run on net-next.
-  - k8s-version: "1.32"
+  - k8s-version: "1.34"
     focus: "f10-agent-hubble-bandwidth"
 
   # These tests are meant to run with kube-proxy which is not available
   # with net-next
-  - k8s-version: "1.32"
+  - k8s-version: "1.34"
     focus: "f16-datapath-service-ew-2"
 
   # These tests are meant to run with kube-proxy which is not available
   # with net-next
-  - k8s-version: "1.32"
+  - k8s-version: "1.34"
     focus: "f17-datapath-service-ew-kube-proxy"
 
-  # These tests require an external node which is only available on 1.31
+  # These tests require an external node which is only available on 1.33
   # / net-next so there's no point on running them
-  - k8s-version: "1.31"
+  - k8s-version: "1.33"
     focus: "f05-agent-policy-multi-node-2"
 
   # These tests require kernel net-next so there's no point on running them
-  - k8s-version: "1.31"
+  - k8s-version: "1.33"
     focus: "f11-datapath-service-ns-tc"
 
-  - k8s-version: "1.31"
+  - k8s-version: "1.33"
     focus: "f12-datapath-service-ns-misc"
 
-  - k8s-version: "1.31"
+  - k8s-version: "1.33"
     focus: "f13-datapath-service-ns-xdp-1"
 
-  - k8s-version: "1.31"
+  - k8s-version: "1.33"
     focus: "f14-datapath-service-ns-xdp-2"
 
-  # These tests require an external node which is only available on 1.30
+  # These tests require an external node which is only available on 1.32
   # / net-next so there's no point on running them
-  - k8s-version: "1.30"
+  - k8s-version: "1.32"
     focus: "f05-agent-policy-multi-node-2"
 
   # These tests require kernel net-next so there's no point on running them
-  - k8s-version: "1.30"
+  - k8s-version: "1.32"
     focus: "f11-datapath-service-ns-tc"
 
   - k8s-version: "1.28"
     focus: "f12-datapath-service-ns-misc"
 
-  - k8s-version: "1.30"
+  - k8s-version: "1.32"
     focus: "f13-datapath-service-ns-xdp-1"
 
-  - k8s-version: "1.30"
+  - k8s-version: "1.32"
     focus: "f14-datapath-service-ns-xdp-2"
 
   # These tests require are not intended to run on kernel 5.4, thus we can ignore them
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f01-agent-chaos"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f03-agent-policy"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f04-agent-policy-multi-node-1"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f05-agent-policy-multi-node-2"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f11-datapath-service-ns-tc"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f12-datapath-service-ns-misc"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f13-datapath-service-ns-xdp-1"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f14-datapath-service-ns-xdp-2"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f15-datapath-service-ew-1"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f16-datapath-service-ew-2"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f17-datapath-service-ew-kube-proxy"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f18-datapath-lrp"
 
-  - k8s-version: "1.29"
+  - k8s-version: "1.31"
     focus: "f19-kafka"

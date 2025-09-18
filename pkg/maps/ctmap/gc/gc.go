@@ -4,6 +4,7 @@
 package gc
 
 import (
+	"log/slog"
 	"net/netip"
 	"os"
 	stdtime "time"
@@ -11,7 +12,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -39,7 +40,8 @@ type parameters struct {
 	cell.In
 
 	Lifecycle       cell.Lifecycle
-	Logger          logrus.FieldLogger
+	Logger          *slog.Logger
+	MetricsRegistry *metrics.Registry
 	DB              *statedb.DB
 	NodeAddrs       statedb.Table[tables.NodeAddress]
 	DaemonConfig    *option.DaemonConfig
@@ -51,10 +53,12 @@ type parameters struct {
 }
 
 type GC struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	ipv4 bool
 	ipv6 bool
+
+	metricsRegistry *metrics.Registry
 
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
@@ -76,7 +80,8 @@ type GC struct {
 
 func New(params parameters) *GC {
 	gc := &GC{
-		logger: params.Logger,
+		logger:          params.Logger,
+		metricsRegistry: params.MetricsRegistry,
 
 		ipv4: params.DaemonConfig.EnableIPv4,
 		ipv6: params.DaemonConfig.EnableIPv6,
@@ -105,8 +110,23 @@ func New(params parameters) *GC {
 	return gc
 }
 
+// A full GC pass is when we perform GC on any and all
+// enabled IP families.
+// Partial passes can happen as a result of datapath
+// signals on particular families (i.e. ct or nat).
+func (gc *GC) isFullGC(ipv4, ipv6 bool) bool {
+	return ipv4 == gc.ipv4 && ipv6 == gc.ipv6
+}
+
 // Enable enables the connection tracking garbage collection.
 func (gc *GC) Enable() {
+	gc.enable(gc.runGC, true)
+}
+
+func (gc *GC) enable(
+	runGC func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool),
+	runMapPressureDaemon bool,
+) {
 	var (
 		initialScan         = true
 		initialScanComplete = make(chan struct{})
@@ -117,6 +137,8 @@ func (gc *GC) Enable() {
 		ipv6 := gc.ipv6
 		triggeredBySignal := false
 		var gcPrev time.Time
+		var forceFullGCTTL time.Time
+		var cachedGCInterval time.Duration
 		for {
 			var (
 				maxDeleteRatio float64
@@ -172,23 +194,49 @@ func (gc *GC) Enable() {
 			}
 
 			if len(eps) > 0 || initialScan {
-				gc.logger.Info("Starting initial GC of connection tracking")
-				maxDeleteRatio, success = gc.runGC(ipv4, ipv6, triggeredBySignal, gcFilter)
+				gc.logger.Info("Starting GC of connection tracking", logfields.First, initialScan)
+				maxDeleteRatio, success = runGC(ipv4, ipv6, triggeredBySignal, gcFilter)
 			}
 
-			// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
-			interval := ctmap.GetInterval(gcInterval, maxDeleteRatio)
-			if success && ipv4 == gc.ipv4 && ipv6 == gc.ipv6 {
+			interval := ctmap.GetInterval(gc.logger, gcInterval, cachedGCInterval, maxDeleteRatio)
+			if success && gc.isFullGC(ipv4, ipv6) {
+				// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
+				nextGCTime := time.Now().Add(interval)
 				for _, e := range eps {
-					e.MarkCTGCTime(gcStart, time.Now().Add(interval))
+					e.MarkCTGCTime(gcStart, nextGCTime)
+				}
+
+				forceFullGCTTL = time.Now().Add(interval)
+				// full pass so we reset our cached GC interval.
+				cachedGCInterval = interval
+			} else if !initialScan {
+				// If we did not succeed, or it wasn't a full pass then we take the
+				// minimum of the new interval and any remaining time on the last interval
+				// clock - effectively running out the clock of the previous interval.
+				// This is because in a partial GC pass one of the IP families has not been
+				// tended to, so to avoid potentially starving GC on one of the IP families
+				// we do this to ensure it is eventually run.
+				forceInterval := max(0, time.Until(forceFullGCTTL))
+				if forceInterval < interval {
+					interval = forceInterval
+				} else {
+					// partial pass, but the new interval is less than any leftover ttl so
+					// we cache this as well.
+					cachedGCInterval = interval
 				}
 			}
 
 			if initialScan {
 				close(initialScanComplete)
 				initialScan = false
-				gc.logger.WithField("duration", time.Since(gcStart)).
-					Info("initial gc of ct and nat maps completed")
+				gc.logger.Info("initial gc of ct and nat maps completed",
+					logfields.Duration, time.Since(gcStart),
+				)
+			} else {
+				gc.logger.Debug("CT GC Run completed",
+					logfields.Success, success,
+					logfields.Duration, time.Since(gcStart),
+					logfields.NextRunIn, interval)
 			}
 
 			triggeredBySignal = false
@@ -240,13 +288,15 @@ func (gc *GC) Enable() {
 		}
 	}()
 
-	// Wait until after initial scan is complete prior to starting ctmap metrics controller.
-	go func() {
-		<-initialScanComplete
-		gc.logger.Info("Initial scan of connection tracking completed, starting ctmap pressure metrics controller")
-		// Not supporting BPF map pressure for local CT maps as of yet.
-		ctmap.CalculateCTMapPressure(gc.controllerManager, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
-	}()
+	if runMapPressureDaemon {
+		// Wait until after initial scan is complete prior to starting ctmap metrics controller.
+		go func() {
+			<-initialScanComplete
+			gc.logger.Info("Initial scan of connection tracking completed, starting ctmap pressure metrics controller")
+			// Not supporting BPF map pressure for local CT maps as of yet.
+			ctmap.CalculateCTMapPressure(gc.controllerManager, gc.metricsRegistry, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
+		}()
+	}
 }
 
 func (gc *GC) Run(m *ctmap.Map, filter ctmap.GCFilter) (int, error) {
@@ -280,11 +330,16 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 		if err != nil {
 			success = false
 			msg := "Skipping CT garbage collection"
-			scopedLog := gc.logger.WithError(err).WithField(logfields.Path, path)
 			if os.IsNotExist(err) {
-				scopedLog.Debug(msg)
+				gc.logger.Debug(msg,
+					logfields.Path, path,
+					logfields.Error, err,
+				)
 			} else {
-				scopedLog.Warn(msg)
+				gc.logger.Warn(msg,
+					logfields.Path, path,
+					logfields.Error, err,
+				)
 			}
 			continue
 		}
@@ -292,7 +347,9 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 
 		deleted, err := ctmap.GC(m, filter, gc.next4, gc.next6)
 		if err != nil {
-			gc.logger.WithError(err).Error("failed to perform CT garbage collection")
+			gc.logger.Error("failed to perform CT garbage collection",
+				logfields.Error, err,
+			)
 			success = false
 		}
 
@@ -301,10 +358,10 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 			if ratio > maxDeleteRatio {
 				maxDeleteRatio = ratio
 			}
-			gc.logger.WithFields(logrus.Fields{
-				logfields.Path: path,
-				"count":        deleted,
-			}).Debug("Deleted filtered entries from map")
+			gc.logger.Debug("Deleted filtered entries from map",
+				logfields.Path, path,
+				logfields.Count, deleted,
+			)
 		}
 	}
 
@@ -322,14 +379,15 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 			ctMapTCP, ctMapAny := ctmap.FilterMapsByProto(maps, vsn)
 			stats := ctmap.PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 			if stats != nil && (stats.EgressDeleted != 0 || stats.IngressDeleted != 0) {
-				gc.logger.WithFields(logrus.Fields{
-					"ingressDeleted": stats.IngressDeleted,
-					"egressDeleted":  stats.EgressDeleted,
-					"ingressAlive":   stats.IngressAlive,
-					"egressAlive":    stats.EgressAlive,
-					"ctMapIPVersion": vsn,
-					"duration":       time.Since(startTime),
-				}).Info("Deleted orphan SNAT entries from map")
+				gc.logger.Info(
+					"Deleted orphan SNAT entries from map",
+					logfields.IngressDeleted, stats.IngressDeleted,
+					logfields.EgressDeleted, stats.EgressDeleted,
+					logfields.IngressAlive, stats.IngressAlive,
+					logfields.EgressAlive, stats.EgressAlive,
+					logfields.CTMapIPVersion, vsn,
+					logfields.Duration, time.Since(startTime),
+				)
 			}
 		}
 	}

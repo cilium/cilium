@@ -22,8 +22,9 @@ var (
 	StringMaps = New(
 		func(m map[string]string) (hash uint64) {
 			for k, v := range m {
-				_, hashk := Strings.get(k)
-				_, hashv := Strings.get(v)
+				// Dedup the strings
+				_, hashk := Strings.getWithHash(k)
+				_, hashv := Strings.getWithHash(v)
 				hash = hash ^ hashk ^ hashv
 			}
 			return

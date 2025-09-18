@@ -12,9 +12,7 @@
 DECLARE_CONFIG(__u16, endpoint_id, "The endpoint's security ID")
 #define LXC_ID CONFIG(endpoint_id) /* Backwards compatibility */
 
-DECLARE_CONFIG(__u32, endpoint_ipv4, "The endpoint's IPv4 address")
-#define LXC_IPV4 CONFIG(endpoint_ipv4) /* Backwards compatibility */
-
+DECLARE_CONFIG(union v4addr, endpoint_ipv4, "The endpoint's IPv4 address")
 DECLARE_CONFIG(union v6addr, endpoint_ipv6, "The endpoint's IPv6 address")
 
 DECLARE_CONFIG(__u64, endpoint_netns_cookie, "The endpoint's network namespace cookie")

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 
 	"github.com/cilium/ebpf"
@@ -45,7 +46,7 @@ func enableForwarding(logger *slog.Logger, sysctl sysctl.Sysctl, link netlink.Li
 			logfields.Error, err,
 			logfields.Device, ifName,
 		)
-		return err
+		return fmt.Errorf("failed to set link up: %w", err)
 	}
 
 	sysSettings := make([]tables.Sysctl, 0, 5)
@@ -62,7 +63,7 @@ func enableForwarding(logger *slog.Logger, sysctl sysctl.Sysctl, link netlink.Li
 		}...)
 	}
 	if err := sysctl.ApplySettings(sysSettings); err != nil {
-		return err
+		return fmt.Errorf("failed to apply sysctl settings for %s: %w", ifName, err)
 	}
 
 	return nil
@@ -73,11 +74,11 @@ func setupVethPair(logger *slog.Logger, sysctl sysctl.Sysctl, name, peerName str
 	if _, err := safenetlink.LinkByName(name); err != nil {
 		hostMac, err := mac.GenerateRandMAC()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to generate random MAC address for host: %w", err)
 		}
 		peerMac, err := mac.GenerateRandMAC()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to generate random MAC address for peer: %w", err)
 		}
 
 		veth := &netlink.Veth{
@@ -90,23 +91,23 @@ func setupVethPair(logger *slog.Logger, sysctl sysctl.Sysctl, name, peerName str
 			PeerHardwareAddr: net.HardwareAddr(peerMac),
 		}
 		if err := netlink.LinkAdd(veth); err != nil {
-			return err
+			return fmt.Errorf("failed to add veth pair: %w", err)
 		}
 	}
 
 	veth, err := safenetlink.LinkByName(name)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get link by name %s: %w", name, err)
 	}
 	if err := enableForwarding(logger, sysctl, veth); err != nil {
-		return err
+		return fmt.Errorf("failed to enable forwarding on veth: %w", err)
 	}
 	peer, err := safenetlink.LinkByName(peerName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get link by name %s: %w", peerName, err)
 	}
 	if err := enableForwarding(logger, sysctl, peer); err != nil {
-		return err
+		return fmt.Errorf("failed to enable forwarding on peer: %w", err)
 	}
 
 	return nil
@@ -118,30 +119,30 @@ func setupVethPair(logger *slog.Logger, sysctl sysctl.Sysctl, name, peerName str
 // By default, it sets up the veth pair - cilium_host and cilium_net.
 func setupBaseDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mtu int) (netlink.Link, netlink.Link, error) {
 	if err := setupVethPair(logger, sysctl, defaults.HostDevice, defaults.SecondHostDevice); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to setup veth pair: %w", err)
 	}
 
 	linkHost, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to get link for %s: %w", defaults.HostDevice, err)
 	}
 	linkNet, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to get link for %s: %w", defaults.SecondHostDevice, err)
 	}
 
 	if err := netlink.LinkSetARPOff(linkHost); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to set ARP off for %s: %w", linkHost.Attrs().Name, err)
 	}
 	if err := netlink.LinkSetARPOff(linkNet); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to set ARP off for %s: %w", linkNet.Attrs().Name, err)
 	}
 
 	if err := netlink.LinkSetMTU(linkHost, mtu); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to set MTU %d for %s: %w", mtu, linkHost.Attrs().Name, err)
 	}
 	if err := netlink.LinkSetMTU(linkNet, mtu); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to set MTU %d for %s: %w", mtu, linkNet.Attrs().Name, err)
 	}
 
 	return linkHost, linkNet, nil
@@ -158,7 +159,7 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 		}
 
 		if err := netlink.AddrReplace(hostDev, &addr); err != nil {
-			return err
+			return fmt.Errorf("failed to replace IPv4 address: %w", err)
 		}
 	}
 	if ipv6 != nil {
@@ -170,7 +171,7 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 		}
 
 		if err := netlink.AddrReplace(hostDev, &addr); err != nil {
-			return err
+			return fmt.Errorf("failed to replace IPv6 address: %w", err)
 		}
 	}
 	return nil
@@ -216,10 +217,12 @@ func setupTunnelDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mode tunnel.En
 func setupGeneveDevice(logger *slog.Logger, sysctl sysctl.Sysctl, dport, srcPortLow, srcPortHigh uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to generate random MAC address for geneve device: %w", err)
 	}
-	if srcPortLow > 0 || srcPortHigh > 0 {
-		logger.Info("Source port range hint currently ignored for geneve driver (not supported)", logfields.Device, defaults.GeneveDevice)
+	// In geneve driver kernel defaults to [1,USHRT_MAX]
+	if srcPortLow == 0 && srcPortHigh == 0 {
+		srcPortLow = 1
+		srcPortHigh = math.MaxUint16
 	}
 
 	dev := &netlink.Geneve{
@@ -230,6 +233,8 @@ func setupGeneveDevice(logger *slog.Logger, sysctl sysctl.Sysctl, dport, srcPort
 		},
 		FlowBased: true,
 		Dport:     dport,
+		PortLow:   int(srcPortLow),
+		PortHigh:  int(srcPortHigh),
 	}
 
 	l, err := ensureDevice(logger, sysctl, dev)
@@ -248,7 +253,14 @@ func setupGeneveDevice(logger *slog.Logger, sysctl sysctl.Sysctl, dport, srcPort
 			return fmt.Errorf("recreating geneve device %s: %w", defaults.GeneveDevice, err)
 		}
 	}
-
+	if geneve.PortLow != int(srcPortLow) || geneve.PortHigh != int(srcPortHigh) {
+		logger.Info(
+			"Source port range hint ignored given geneve device already exists",
+			logfields.Hint, fmt.Sprintf("(%d-%d)", int(srcPortLow), int(srcPortHigh)),
+			logfields.Range, fmt.Sprintf("(%d-%d)", geneve.PortLow, geneve.PortHigh),
+			logfields.Device, defaults.GeneveDevice,
+		)
+	}
 	return nil
 }
 
@@ -262,7 +274,7 @@ func setupGeneveDevice(logger *slog.Logger, sysctl sysctl.Sysctl, dport, srcPort
 func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, port, srcPortLow, srcPortHigh uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to generate random MAC address for vxlan device: %w", err)
 	}
 
 	dev := &netlink.Vxlan{
@@ -277,25 +289,31 @@ func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, port, srcPortLo
 		PortHigh:  int(srcPortHigh),
 	}
 
-	l, err := ensureDevice(logger, sysctl, dev)
-	if err != nil {
-		return fmt.Errorf("creating vxlan device: %w", err)
+	// It's possible to create multiple vxlan devices with the same dstport,
+	// though only one of them can be 'up'. Delete an existing vxlan device
+	// with a mismatching port before attempting to create a new one to
+	// avoid ensureDevice setting up the old interface. This avoids the
+	// agent getting stuck if it conflicts with an unmanaged vxlan interface.
+	if l, err := safenetlink.LinkByName(dev.Attrs().Name); err == nil {
+		// Recreate the device with the correct destination port. Modifying the device
+		// without recreating it is not supported.
+		vxlan, _ := l.(*netlink.Vxlan)
+		if vxlan.Port != int(port) {
+			if err := netlink.LinkDel(l); err != nil {
+				return fmt.Errorf("deleting outdated vxlan device: %w", err)
+			}
+		}
 	}
 
-	// Recreate the device with the correct destination port. Modifying the device
-	// without recreating it is not supported.
-	vxlan, _ := l.(*netlink.Vxlan)
-	if vxlan.Port != int(port) {
-		if err := netlink.LinkDel(l); err != nil {
-			return fmt.Errorf("deleting outdated vxlan device: %w", err)
-		}
-		if _, err := ensureDevice(logger, sysctl, dev); err != nil {
-			return fmt.Errorf("recreating vxlan device %s: %w", defaults.VxlanDevice, err)
-		}
+	l, err := ensureDevice(logger, sysctl, dev)
+	if err != nil {
+		return fmt.Errorf("creating vxlan device %s: %w", dev.Attrs().Name, err)
 	}
+
+	vxlan, _ := l.(*netlink.Vxlan)
 	if vxlan.PortLow != int(srcPortLow) || vxlan.PortHigh != int(srcPortHigh) {
 		logger.Info(
-			"Source port range hint ignored given VXLAN device already exists",
+			"Source port range hint ignored given vxlan device already exists",
 			logfields.Hint, fmt.Sprintf("(%d-%d)", int(srcPortLow), int(srcPortHigh)),
 			logfields.Range, fmt.Sprintf("(%d-%d)", vxlan.PortLow, vxlan.PortHigh),
 			logfields.Device, defaults.VxlanDevice,
@@ -468,15 +486,15 @@ func DeviceHasSKBProgramLoaded(device string, checkEgress bool) (bool, error) {
 
 	itcx, err := hasCiliumTCXLinks(link, ebpf.AttachTCXIngress)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to check for cilium tcx links on ingress: %w", err)
 	}
 	itc, err := hasCiliumTCFilters(link, netlink.HANDLE_MIN_INGRESS)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to check for cilium tc filters on ingress: %w", err)
 	}
 	ink, err := hasCiliumNetkitLinks(link, ebpf.AttachNetkitPeer)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to check for cilium netkit links: %w", err)
 	}
 
 	// Need ingress programs at minimum, bail out if these are already missing.
@@ -490,15 +508,15 @@ func DeviceHasSKBProgramLoaded(device string, checkEgress bool) (bool, error) {
 
 	etcx, err := hasCiliumTCXLinks(link, ebpf.AttachTCXEgress)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to check for cilium tcx links on egress: %w", err)
 	}
 	etc, err := hasCiliumTCFilters(link, netlink.HANDLE_MIN_EGRESS)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to check for cilium tc filters on egress: %w", err)
 	}
 	enk, err := hasCiliumNetkitLinks(link, ebpf.AttachNetkitPrimary)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to check for cilium netkit links on primary: %w", err)
 	}
 
 	return etc || etcx || enk, nil

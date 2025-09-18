@@ -239,12 +239,9 @@ Multi-Pool IPAM is a preview feature. The following limitations apply to Cilium 
 Multi-Pool IPAM mode:
 
 .. warning::
-   - Transparent encryption is only supported with WireGuard and cannot be used with IPsec.
    - IPAM pools with overlapping CIDRs are not supported. Each pod IP must be
      unique in the cluster due the way Cilium determines the security identity
      of endpoints by way of the IPCache.
-   - Multi-Pool IPAM does not support local node routes (``enable-local-node-route``) and
-     requires the use of per-endpoint routes (see :ref:`native_routing`) instead.
    - iptables-based masquerading requires ``egressMasqueradeInterfaces`` to be set
      (see masquerading :ref:`masq_modes` and :gh-issue:`22273` for details).
      Alternatively, eBPF-based masquerading is fully supported and may be used instead.

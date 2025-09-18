@@ -6,11 +6,11 @@ package reconcilerv2
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"maps"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 // PathMap is a map of paths indexed by the NLRI string
@@ -32,7 +32,7 @@ type PathReference struct {
 type PathReferencesMap map[string]*PathReference
 
 type ReconcileResourceAFPathsParams struct {
-	Logger                 logging.FieldLogger
+	Logger                 *slog.Logger
 	Ctx                    context.Context
 	Router                 types.Router
 	DesiredResourceAFPaths ResourceAFPathsMap
@@ -40,7 +40,7 @@ type ReconcileResourceAFPathsParams struct {
 }
 
 type ReconcileAFPathsParams struct {
-	Logger         logging.FieldLogger
+	Logger         *slog.Logger
 	Ctx            context.Context
 	Router         types.Router
 	DesiredPaths   AFPathsMap
@@ -49,7 +49,7 @@ type ReconcileAFPathsParams struct {
 }
 
 type reconcilePathsParams struct {
-	Logger                logging.FieldLogger
+	Logger                *slog.Logger
 	Ctx                   context.Context
 	Router                types.Router
 	CurrentAdvertisements PathMap
@@ -269,7 +269,6 @@ func withdrawPath(params *reconcilePathsParams, pathKey string, path *types.Path
 	params.Logger.Debug(
 		"Withdrawing path",
 		types.PathLogField, path.NLRI,
-		types.FamilyLogField, path.Family,
 	)
 
 	if err := params.Router.WithdrawPath(params.Ctx, types.PathRequest{Path: path}); err != nil {

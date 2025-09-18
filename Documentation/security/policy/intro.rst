@@ -62,6 +62,11 @@ block any traffic, even if it is the first policy to apply to an endpoint. An
 administrator can safely apply this policy cluster-wide, without the risk that
 it transitions an endpoint in to default-deny and causes legitimate traffic to be dropped.
 
+.. warning::
+  ``EnableDefaultDeny`` does not apply to :ref:`layer-7 policy <l7_policy>`.
+  Adding a layer-7 rule that does not include a layer-7 allow-all will cause drops,
+  even when default-deny is explicitly disabled.
+
 .. code-block:: yaml
 
   apiVersion: cilium.io/v2

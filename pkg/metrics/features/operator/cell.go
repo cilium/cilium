@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -77,9 +78,14 @@ func (p featuresParams) IsNodeIPAMEnabled() bool {
 	return p.NodeIPAM.IsEnabled()
 }
 
+func (p featuresParams) K8sVersion() string {
+	return k8sversion.Version().String()
+}
+
 type enabledFeatures interface {
 	IsIngressControllerEnabled() bool
 	IsLBIPAMEnabled() bool
 	GetLoadBalancerL7() string
 	IsNodeIPAMEnabled() bool
+	K8sVersion() string
 }

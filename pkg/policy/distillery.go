@@ -49,6 +49,21 @@ func (cache *policyCache) lookupOrCreate(identity *identityPkg.Identity) *cached
 	return cip
 }
 
+// GetPolicySnapshot returns a snapshot of the current policy cache.
+// The policy snapshot has the lock order as: Repository.Mutex before policyCache.Mutex.
+func (cache *policyCache) GetPolicySnapshot() map[identityPkg.NumericIdentity]SelectorPolicy {
+	cache.Lock()
+	defer cache.Unlock()
+	snapshot := make(map[identityPkg.NumericIdentity]SelectorPolicy, len(cache.policies))
+	for k, v := range cache.policies {
+		selPolicy := v.getPolicy()
+		if selPolicy != nil {
+			snapshot[k] = selPolicy
+		}
+	}
+	return snapshot
+}
+
 // delete forgets about any cached SelectorPolicy that this endpoint uses.
 //
 // Returns true if the SelectorPolicy was removed from the cache.
@@ -58,7 +73,10 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 	cip, ok := cache.policies[identity.ID]
 	if ok {
 		delete(cache.policies, identity.ID)
-		cip.getPolicy().detach(true, 0)
+		selPolicy := cip.getPolicy()
+		if selPolicy != nil {
+			selPolicy.detach(true, 0)
+		}
 	}
 	return ok
 }
@@ -128,6 +146,9 @@ func (cache *policyCache) getAuthTypes(localID, remoteID identityPkg.NumericIden
 
 	// SelectorPolicy is const after it has been created, so no locking needed to access it
 	selPolicy := cip.getPolicy()
+	if selPolicy == nil {
+		return nil
+	}
 
 	var resTypes AuthTypes
 	for cs, authTypes := range selPolicy.L4Policy.authMap {

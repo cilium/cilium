@@ -99,7 +99,7 @@ func (a *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap,
 		}
 		for ifaceID, eni := range enis {
 			if subnets != nil {
-				if subnet, ok := subnets[eni.VSwitch.VSwitchID]; ok && subnet.CIDR != nil {
+				if subnet, ok := subnets[eni.VSwitch.VSwitchID]; ok && subnet.CIDR.IsValid() {
 					eni.VSwitch.CIDRBlock = subnet.CIDR.String()
 					eni.ZoneID = subnet.AvailabilityZone
 				}
@@ -129,7 +129,7 @@ func (a *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 	for instanceID, enis := range a.enis {
 		for _, eni := range enis {
 			if subnets != nil {
-				if subnet, ok := subnets[eni.VSwitch.VSwitchID]; ok && subnet.CIDR != nil {
+				if subnet, ok := subnets[eni.VSwitch.VSwitchID]; ok && subnet.CIDR.IsValid() {
 					eni.VSwitch.CIDRBlock = subnet.CIDR.String()
 					eni.ZoneID = subnet.AvailabilityZone
 				}

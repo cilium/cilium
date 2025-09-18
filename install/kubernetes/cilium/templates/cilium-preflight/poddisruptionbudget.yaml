@@ -24,6 +24,13 @@ spec:
   {{- with $component.minAvailable }}
   minAvailable: {{ . }}
   {{- end }}
+  {{- if (semverCompare ">= 1.27-0" .Capabilities.KubeVersion.Version) }}
+  {{- if hasKey $component "unhealthyPodEvictionPolicy" }}
+  {{- with $component.unhealthyPodEvictionPolicy }}
+  unhealthyPodEvictionPolicy: {{ . }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
   selector:
     matchLabels:
       k8s-app: cilium-pre-flight-check-deployment

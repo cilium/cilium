@@ -3,14 +3,19 @@
 
 package node
 
-import "sync"
+import (
+	"log/slog"
+	"sync"
+)
 
 var (
 	localBootID string
 	logOnce     sync.Once
 )
 
-func GetBootID() string {
-	logOnce.Do(initLocalBootID)
+func GetBootID(logger *slog.Logger) string {
+	logOnce.Do(func() {
+		initLocalBootID(logger)
+	})
 	return localBootID
 }

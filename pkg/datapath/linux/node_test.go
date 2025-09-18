@@ -4,7 +4,6 @@
 package linux
 
 import (
-	"net"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -14,11 +13,11 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -36,7 +35,7 @@ var (
 		RouteMTU:            calcMtu.RouteMTU,
 		RoutePostEncryptMTU: calcMtu.RoutePostEncryptMTU,
 	}
-	mtuConfig = mtu.NewConfiguration(0, false, false, false)
+	mtuConfig = mtu.NewConfiguration(0, false, false, false, false)
 	calcMtu   = mtuConfig.Calculate(100)
 	nh        = linuxNodeHandler{
 		nodeConfig: nodeConfig,
@@ -47,44 +46,13 @@ var (
 	cr1 = cidr.MustParseCIDR("10.1.0.0/16")
 )
 
-func TestTunnelCIDRUpdateRequired(t *testing.T) {
-	nilPrefixCluster := cmtypes.PrefixCluster{}
-	c1 := cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("10.1.0.0/16"))
-	c2 := cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("10.2.0.0/16"))
-	ip1 := net.ParseIP("1.1.1.1")
-	ip2 := net.ParseIP("2.2.2.2")
-
-	require.False(t, cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0)) // disabled -> disabled
-	require.True(t, cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0))                // disabled -> c1
-	require.False(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0))                             // c1 -> c1
-	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))                              // c1 -> c1 (changed host IP, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))
-	require.True(t, cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0))                              // c1 -> c2
-	require.False(t, cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0))               // c2 -> disabled
-	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1))                              // key upgrade 0 -> 1
-	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0))                              // key downgrade 1 -> 0
-
-	c1 = cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("f00d::a0a:0:0:0/96"))
-	c2 = cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("f00d::b0b:0:0:0/96"))
-	ip1 = net.ParseIP("cafe::1")
-	ip2 = net.ParseIP("cafe::2")
-
-	require.False(t, cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0)) // disabled -> disabled
-	require.True(t, cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0))                // disabled -> c1
-	require.False(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0))                             // c1 -> c1
-	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))                              // c1 -> c1 (changed host IP, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))
-	require.True(t, cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0))                              // c1 -> c2
-	require.False(t, cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0))               // c2 -> disabled
-	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1))                              // key upgrade 0 -> 1
-	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0))                              // key downgrade 1 -> 0
-}
-
 func TestCreateNodeRoute(t *testing.T) {
 	dpConfig := DatapathConfiguration{
 		HostDevice: "host_device",
 	}
 	log := hivetest.Logger(t)
 
-	nodeHandler := newNodeHandler(log, dpConfig, nil, new(mockEnqueuer))
+	nodeHandler := newNodeHandler(log, dpConfig, nil, kpr.KPRConfig{}, &fakeTypes.IPsecAgent{}, fakeTypes.IPsecConfig{})
 	nodeHandler.NodeConfigurationChanged(nodeConfig)
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")
@@ -116,18 +84,7 @@ func TestCreateNodeRouteSpecMtu(t *testing.T) {
 	require.Equal(t, 0, generatedRoute.MTU)
 }
 
-func TestStoreLoadNeighLinks(t *testing.T) {
-	tmpDir := t.TempDir()
-	devExpected := []string{"dev1"}
-	err := storeNeighLink(tmpDir, devExpected)
-	require.NoError(t, err)
-
-	devsActual, err := loadNeighLink(tmpDir)
-	require.NoError(t, err)
-	require.Equal(t, devExpected, devsActual)
-}
-
-func TestLocalRule(t *testing.T) {
+func TestPrivilegedLocalRule(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ns := netns.NewNetNS(t)

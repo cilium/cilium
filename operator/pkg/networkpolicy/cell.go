@@ -20,7 +20,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -80,13 +79,6 @@ func registerPolicyValidator(params PolicyParams) {
 		return
 	}
 
-	// LRU size of 1 since we are only doing one-off validation of policies and
-	// the FQDN regexes are not referenced again.
-	if err := re.InitRegexCompileLRU(1); err != nil {
-		params.Logger.Error("CNP / CCNP validator can't run due to failure in initializing regex LRU cache.", logfields.Error, err)
-		return
-	}
-
 	pv := &policyValidator{
 		params: &params,
 	}
@@ -119,24 +111,25 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 		logfields.CiliumNetworkPolicyName, pol.Name,
 	)
 
+	newPol := pol.DeepCopy()
+
 	var errs error
-	if pol.Spec != nil {
-		errs = errors.Join(errs, pol.Spec.Sanitize())
+	if newPol.Spec != nil {
+		errs = errors.Join(errs, newPol.Spec.Sanitize())
 	}
-	for _, r := range pol.Specs {
+	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Sanitize())
 	}
 
-	newPol := pol.DeepCopy()
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
 	if newPol.Status.DeepEqual(&pol.Status) {
 		return nil
 	}
 
 	if errs != nil {
-		log.Error("Detected invalid CNP, setting condition", logfields.Error, errs)
+		log.ErrorContext(ctx, "Detected invalid CNP, setting condition", logfields.Error, errs)
 	} else {
-		log.Debug("CNP now valid, setting condition")
+		log.DebugContext(ctx, "CNP now valid, setting condition")
 	}
 	// Using the UpdateStatus subresource will prevent the generation from being bumped.
 	_, err = pv.params.Clientset.CiliumV2().CiliumNetworkPolicies(pol.Namespace).UpdateStatus(
@@ -148,7 +141,7 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		log.Error("failed to update CNP status", logfields.Error, err)
+		log.ErrorContext(ctx, "failed to update CNP status", logfields.Error, err)
 	}
 
 	return err
@@ -169,24 +162,25 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 		logfields.CiliumClusterwideNetworkPolicyName, pol.Name,
 	)
 
+	newPol := pol.DeepCopy()
+
 	var errs error
-	if pol.Spec != nil {
-		errs = errors.Join(errs, pol.Spec.Sanitize())
+	if newPol.Spec != nil {
+		errs = errors.Join(errs, newPol.Spec.Sanitize())
 	}
-	for _, r := range pol.Specs {
+	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Sanitize())
 	}
 
-	newPol := pol.DeepCopy()
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
 	if newPol.Status.DeepEqual(&pol.Status) {
 		return nil
 	}
 
 	if errs != nil {
-		log.Debug("Detected invalid CCNP, setting condition", logfields.Error, errs)
+		log.DebugContext(ctx, "Detected invalid CCNP, setting condition", logfields.Error, errs)
 	} else {
-		log.Debug("CCNP now valid, setting condition")
+		log.DebugContext(ctx, "CCNP now valid, setting condition")
 	}
 	// Using the UpdateStatus subresource will prevent the generation from being bumped.
 	_, err = pv.params.Clientset.CiliumV2().CiliumClusterwideNetworkPolicies().UpdateStatus(
@@ -198,7 +192,7 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		log.Error("failed to update CCNP status", logfields.Error, err)
+		log.ErrorContext(ctx, "failed to update CCNP status", logfields.Error, err)
 	}
 
 	return err

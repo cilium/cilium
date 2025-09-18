@@ -3,7 +3,7 @@ Sphinx==7.1.2
 sphinx-autobuild==2021.3.14
 
 # Custom theme, forked from Read the Docs
-sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@0d7703280a1287e97f37124c1d9689e2efe03923
+sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@5e45810d0af338f8a7a6337b0377412ddf973dbc
 # We use semver to parse Cilium's version in the config file
 semver==3.0.1
 # Sphinx extensions
@@ -31,7 +31,7 @@ deepmerge==1.1.0
 docutils==0.18.1
 idna==3.7
 imagesize==1.4.1
-Jinja2==3.1.4
+Jinja2==3.1.6
 jsonschema==4.19.0
 jsonschema-specifications==2023.7.1
 livereload==2.6.3
@@ -49,7 +49,7 @@ pyenchant==3.2.2
 Pygments==2.16.1
 PyYAML==6.0.1
 referencing==0.30.2
-requests==2.32.0
+requests==2.32.4
 rich==13.5.2
 rpds-py==0.10.3
 rstcheck-core==1.1.1
@@ -65,7 +65,7 @@ sphinxcontrib-jquery==4.1
 sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==1.0.3
 sphinxcontrib-serializinghtml==1.1.5
-tornado==6.4.2
+tornado==6.5
 typer==0.9.0
 typing_extensions==4.7.1
-urllib3==2.2.2
+urllib3==2.5.0

@@ -115,8 +115,25 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		}
 	}
 
-	if ((in.LoopbackIPv4 != nil) && (other.LoopbackIPv4 != nil)) || ((in.LoopbackIPv4 == nil) != (other.LoopbackIPv4 == nil)) {
-		in, other := &in.LoopbackIPv4, &other.LoopbackIPv4
+	if ((in.ServiceLoopbackIPv4 != nil) && (other.ServiceLoopbackIPv4 != nil)) || ((in.ServiceLoopbackIPv4 == nil) != (other.ServiceLoopbackIPv4 == nil)) {
+		in, other := &in.ServiceLoopbackIPv4, &other.ServiceLoopbackIPv4
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.ServiceLoopbackIPv6 != nil) && (other.ServiceLoopbackIPv6 != nil)) || ((in.ServiceLoopbackIPv6 == nil) != (other.ServiceLoopbackIPv6 == nil)) {
+		in, other := &in.ServiceLoopbackIPv6, &other.ServiceLoopbackIPv6
 		if other == nil {
 			return false
 		}
@@ -224,6 +241,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EnableLocalNodeRoute != other.EnableLocalNodeRoute {
 		return false
 	}
+	if in.EnableWireguard != other.EnableWireguard {
+		return false
+	}
 	if in.EnableIPSec != other.EnableIPSec {
 		return false
 	}
@@ -268,6 +288,22 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	}
 
 	if in.XDPConfig != other.XDPConfig {
+		return false
+	}
+
+	if !in.LBConfig.DeepEqual(&other.LBConfig) {
+		return false
+	}
+
+	if in.MaglevConfig != other.MaglevConfig {
+		return false
+	}
+
+	if in.KPRConfig != other.KPRConfig {
+		return false
+	}
+
+	if in.SvcRouteConfig != other.SvcRouteConfig {
 		return false
 	}
 

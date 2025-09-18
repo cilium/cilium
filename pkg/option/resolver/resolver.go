@@ -9,13 +9,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -26,7 +26,6 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -50,13 +49,11 @@ type ConfigOverride struct {
 	DenyConfigKeys  []string `json:"denyConfigKeys"`  // List of configuration keys that are not allowed to be overridden (e.g. set from not the first source. If allow-config-keys is set, this field is ignored"
 }
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option-resolver")
-
 func (cs *ConfigSource) String() string {
 	return fmt.Sprintf("%s:%s/%s", cs.Kind, cs.Namespace, cs.Name)
 }
 
-func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeName string, sources []ConfigSource, allowConfigKeys, denyConfigKeys []string) (map[string]string, error) {
+func ResolveConfigurations(ctx context.Context, logger *slog.Logger, client client.Clientset, nodeName string, sources []ConfigSource, allowConfigKeys, denyConfigKeys []string) (map[string]string, error) {
 	config := map[string]string{}
 	var sourceDescriptions []ConfigSource // We want to keep track of which unique sources we actually use in order of source priority
 
@@ -72,27 +69,30 @@ func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeNam
 
 	first := true
 	for _, source := range sources {
-		c, descs, err := ReadConfigSource(ctx, client, nodeName, source)
+		c, descs, err := ReadConfigSource(ctx, logger, client, nodeName, source)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read config source %s: %w", source.String(), err)
 		}
-		log.WithFields(logrus.Fields{
-			logfields.ConfigSource: source.String(),
-		}).Infof("Got %d config pairs from source", len(c))
+		logger.Info(
+			"Got configuration source",
+			logfields.LenConfigPairs, len(c),
+			logfields.ConfigSource, source,
+		)
 		if !first {
 			for k := range c {
 				if matchKeys != nil && !(matchKeys.Has(k) == allowIfMatch) {
-					log.WithFields(logrus.Fields{
-						logfields.ConfigSource: source.String(),
-						logfields.ConfigKey:    k,
-					}).Warnf("Source has non-overridable key")
+					logger.Warn(
+						"Source has non-overridable key",
+						logfields.ConfigKey, k,
+						logfields.ConfigSource, source,
+					)
 					delete(c, k)
 				}
 			}
 		}
 		first = false
 		if len(c) != 0 {
-			config = mergeConfig(source, config, c)
+			config = mergeConfig(logger, source, config, c)
 			sourceDescriptions = append(sourceDescriptions, descs...)
 		}
 	}
@@ -113,15 +113,16 @@ func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeNam
 	return config, nil
 }
 
-func mergeConfig(source ConfigSource, lower, upper map[string]string) map[string]string {
+func mergeConfig(logger *slog.Logger, source ConfigSource, lower, upper map[string]string) map[string]string {
 	out := maps.Clone(lower)
 
 	for k, v := range upper {
 		if _, set := out[k]; set {
-			log.WithFields(logrus.Fields{
-				logfields.ConfigSource: source.String(),
-				logfields.ConfigKey:    k,
-			}).Infof("Source overrides key")
+			logger.Info(
+				"Source overrides key",
+				logfields.ConfigKey, k,
+				logfields.ConfigSource, source,
+			)
 		}
 		out[k] = v
 	}
@@ -134,7 +135,7 @@ func mergeConfig(source ConfigSource, lower, upper map[string]string) map[string
 // atomic updates:
 // destDir/key -> ..data/key
 // ..data -> ..data_$time
-func WriteConfigurations(ctx context.Context, destDir string, data map[string]string) error {
+func WriteConfigurations(ctx context.Context, logger *slog.Logger, destDir string, data map[string]string) error {
 	dataDirName := fmt.Sprintf("..data_%d", time.Now().Unix())
 	err := os.MkdirAll(filepath.Join(destDir, dataDirName), 0777)
 	if err != nil {
@@ -143,9 +144,10 @@ func WriteConfigurations(ctx context.Context, destDir string, data map[string]st
 
 	for k, v := range data {
 		if strings.ContainsRune(k, os.PathSeparator) {
-			log.WithFields(logrus.Fields{
-				logfields.ConfigKey: k,
-			}).Errorf("Ignoring key with path separator")
+			logger.Error(
+				"Ignoring key with path separator",
+				logfields.ConfigKey, k,
+			)
 			continue
 		}
 
@@ -174,22 +176,23 @@ func WriteConfigurations(ctx context.Context, destDir string, data map[string]st
 	return nil
 }
 
-func ReadConfigSource(ctx context.Context, client client.Clientset, nodeName string, source ConfigSource) (config map[string]string, sources []ConfigSource, err error) {
-	log.WithFields(logrus.Fields{
-		logfields.ConfigSource: source.String(),
-	}).Infof("Reading configuration from %s", source.String())
+func ReadConfigSource(ctx context.Context, logger *slog.Logger, client client.Clientset, nodeName string, source ConfigSource) (config map[string]string, sources []ConfigSource, err error) {
+	logger.Info(
+		"Reading configuration from source",
+		logfields.ConfigSource, source,
+	)
 	switch source.Kind {
 	case KindNode:
-		return readNodeOverrides(ctx, client, source.Name)
+		return readNodeOverrides(ctx, logger, client, source.Name)
 	case KindConfigMap:
-		return readConfigMap(ctx, client, source)
+		return readConfigMap(ctx, logger, client, source)
 	case KindNodeConfig:
-		return readNodeConfigsAllVersions(ctx, client, nodeName, source.Namespace, source.Name)
+		return readNodeConfigsAllVersions(ctx, logger, client, nodeName, source.Namespace, source.Name)
 	}
 	return nil, nil, fmt.Errorf("invalid source kind %s", source.Kind)
 }
 
-func readNodeOverrides(ctx context.Context, client client.Clientset, nodeName string) (map[string]string, []ConfigSource, error) {
+func readNodeOverrides(ctx context.Context, logger *slog.Logger, client client.Clientset, nodeName string) (map[string]string, []ConfigSource, error) {
 	node, err := client.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get Node %s: %w", nodeName, err)
@@ -204,16 +207,19 @@ func readNodeOverrides(ctx context.Context, client client.Clientset, nodeName st
 			if strings.HasPrefix(k, annotation.ConfigPrefix) {
 				s := strings.SplitN(k, "/", 2)
 				if len(s) != 2 {
-					log.WithFields(logrus.Fields{
-						logfields.ConfigAnnotation: k,
-					}).Errorf("Node annotation format invalid: should be of the format %s/<KEY>", annotation.ConfigPrefix)
+					logger.Error(
+						fmt.Sprintf("Node annotation format invalid: should be of the format %s/<KEY>", annotation.ConfigPrefix),
+						logfields.ConfigAnnotation, k,
+					)
 					continue
 				}
 				key := s[1]
 				if errs := apivalidation.IsConfigMapKey(key); len(errs) > 0 {
-					log.WithFields(logrus.Fields{
-						logfields.ConfigKey: k,
-					}).Errorf("Node annotation format invalid: invalid key: %v", errs)
+					logger.Error(
+						"Node annotation format invalid: invalid key",
+						logfields.Errors, errs,
+						logfields.ConfigKey, k,
+					)
 					continue
 				}
 				out[key] = v
@@ -230,13 +236,14 @@ func readNodeOverrides(ctx context.Context, client client.Clientset, nodeName st
 	return out, []ConfigSource{{Kind: KindNode, Namespace: "", Name: nodeName}}, nil
 }
 
-func readConfigMap(ctx context.Context, client client.Clientset, source ConfigSource) (map[string]string, []ConfigSource, error) {
+func readConfigMap(ctx context.Context, logger *slog.Logger, client client.Clientset, source ConfigSource) (map[string]string, []ConfigSource, error) {
 	cm, err := client.CoreV1().ConfigMaps(source.Namespace).Get(ctx, source.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.WithFields(logrus.Fields{
-				logfields.ConfigSource: source.String(),
-			}).Errorf("Configmap not found, ignoring")
+			logger.Error(
+				"Configmap not found, ignoring",
+				logfields.ConfigSource, source,
+			)
 			return nil, nil, nil
 		}
 		return nil, nil, fmt.Errorf("failed to retrieve ConfigMap %s/%s: %w", source.Namespace, source.Name, err)
@@ -249,17 +256,25 @@ func readConfigMap(ctx context.Context, client client.Clientset, source ConfigSo
 
 // readNodeConfigsAllVersions read node configurations for versions v2 and v2alpha1 of CiliumNodeConfig CRD.
 // TODO depreciate CNC on v2alpha1 https://github.com/cilium/cilium/issues/31982
-func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
+func readNodeConfigsAllVersions(ctx context.Context, logger *slog.Logger, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
 	var errv2, errv2alpha1 error
 
-	nodeConfigv2, descv2, errv2 := readNodeConfigs(ctx, client, nodeName, namespace, name)
+	nodeConfigv2, descv2, errv2 := readNodeConfigs(ctx, logger, client, nodeName, namespace, name)
 	if errv2 != nil {
-		log.WithFields(logrus.Fields{logfields.Node: nodeName}).Errorf("CiliumNodeConfig v2 not found: %s", errv2)
+		logger.Error(
+			"CiliumNodeConfig v2 not found",
+			logfields.Error, errv2,
+			logfields.Node, nodeName,
+		)
 	}
 
-	nodeConfigv2alpha1, descv2alpha1, errv2alpha1 := readNodeConfigsv2alpha1(ctx, client, nodeName, namespace, name)
+	nodeConfigv2alpha1, descv2alpha1, errv2alpha1 := readNodeConfigsv2alpha1(ctx, logger, client, nodeName, namespace, name)
 	if errv2alpha1 != nil {
-		log.WithFields(logrus.Fields{logfields.Node: nodeName}).Errorf("CiliumNodeConfig v2alpha1 not found: %s", errv2alpha1)
+		logger.Error(
+			"CiliumNodeConfig v2alpha1 not found",
+			logfields.Error, errv2alpha1,
+			logfields.Node, nodeName,
+		)
 		// return the errors for the two versions
 		if errv2 != nil {
 			return nil, nil, fmt.Errorf("CiliumNodeConfig v2 and v2alpha1 not found: %w and %w\n", errv2, errv2alpha1)
@@ -289,7 +304,7 @@ func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, no
 // readNodeConfigs reads all the CiliumNodeConfig in v2 objects and returns a flattened map
 // of any key overrides that apply to this node.
 // TODO remove me when CiliumNodeConfig v2alpha1 is deprecated
-func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
+func readNodeConfigs(ctx context.Context, logger *slog.Logger, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
 	var overrides []ciliumv2.CiliumNodeConfig
 
 	// Retrieve CNCs if the name is not provided
@@ -360,15 +375,19 @@ func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, nam
 	for _, name := range matchingNames {
 		for k, v := range matching[name].Spec.Defaults {
 			if errs := apivalidation.IsConfigMapKey(k); len(errs) > 0 {
-				log.WithFields(logrus.Fields{
-					logfields.ConfigKey: k,
-				}).Errorf("Invalid key in CiliumNodeConfigs %s/%s: %v", matching[name].Namespace, name, k)
+				logger.Error(
+					"Invalid key in CiliumNodeConfigs",
+					logfields.Name, name,
+					logfields.K8sNamespace, matching[name].Namespace,
+					logfields.ConfigKey, k,
+				)
 				continue
 			}
 			if _, set := out[k]; set {
-				log.WithFields(logrus.Fields{
-					logfields.ConfigKey: k,
-				}).Warnf("Key %s set in multiple CiliumNodeConfigs", k)
+				logger.Warn(
+					"Key set in multiple CiliumNodeConfigs",
+					logfields.ConfigKey, k,
+				)
 			}
 			out[k] = v
 		}
@@ -385,7 +404,7 @@ func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, nam
 // readNodeConfigsv2alpha1 reads all the CiliumNodeConfig in v2alpha1 objects and returns a flattened map
 // of any key overrides that apply to this node.
 // TODO depreciate CNC on v2alpha1 https://github.com/cilium/cilium/issues/31982
-func readNodeConfigsv2alpha1(ctx context.Context, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
+func readNodeConfigsv2alpha1(ctx context.Context, logger *slog.Logger, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
 	var overrides []ciliumv2alpha1.CiliumNodeConfig
 
 	// Retrieve CNCs if the name is not provided
@@ -455,15 +474,19 @@ func readNodeConfigsv2alpha1(ctx context.Context, client client.Clientset, nodeN
 	for _, name := range matchingNames {
 		for k, v := range matching[name].Spec.Defaults {
 			if errs := apivalidation.IsConfigMapKey(k); len(errs) > 0 {
-				log.WithFields(logrus.Fields{
-					logfields.ConfigKey: k,
-				}).Errorf("Invalid key in CiliumNodeConfigs v2alpha1 %s/%s: %v", matching[name].Namespace, name, k)
+				logger.Error(
+					"Invalid key in CiliumNodeConfigs v2alpha1",
+					logfields.Name, name,
+					logfields.K8sNamespace, matching[name].Namespace,
+					logfields.ConfigKey, k,
+				)
 				continue
 			}
 			if _, set := out[k]; set {
-				log.WithFields(logrus.Fields{
-					logfields.ConfigKey: k,
-				}).Infof("Key %s set in multiple CiliumNodeConfigs v2alpha1", k)
+				logger.Info(
+					"Key set in multiple CiliumNodeConfigs v2alpha1",
+					logfields.ConfigKey, k,
+				)
 			}
 			out[k] = v
 		}

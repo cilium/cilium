@@ -4,6 +4,7 @@
 package envoy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -73,7 +74,7 @@ type IPCacheEventSource interface {
 }
 
 func newNPHDSCache(logger *slog.Logger, ipcache IPCacheEventSource) NPHDSCache {
-	return NPHDSCache{Cache: xds.NewCache(), logger: logger, ipcache: ipcache}
+	return NPHDSCache{Cache: xds.NewCache(logger), logger: logger, ipcache: ipcache}
 }
 
 var observerOnce = sync.Once{}
@@ -81,6 +82,10 @@ var observerOnce = sync.Once{}
 func (cache *NPHDSCache) MarkRestorePending() {}
 
 func (cache *NPHDSCache) MarkRestoreCompleted() {}
+
+func (cache *NPHDSCache) WaitForFirstAck(ctx context.Context, node string, typeURL string) {
+	// not implemented
+}
 
 // HandleResourceVersionAck is required to implement ResourceVersionAckObserver.
 // We use this to start the IP Cache listener on the first ACK so that we only

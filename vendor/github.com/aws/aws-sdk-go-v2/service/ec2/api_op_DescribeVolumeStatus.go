@@ -39,8 +39,8 @@ import (
 // Actions: Reflect the actions you might have to take in response to an event.
 // For example, if the status of the volume is impaired and the volume event shows
 // potential-data-inconsistency , then the action shows enable-volume-io . This
-// means that you may want to enable the I/O operations for the volume by calling
-// the EnableVolumeIOaction and then check the volume for data consistency.
+// means that you may want to enable the I/O operations for the volume and then
+// check the volume for data consistency. For more information, see [Work with an impaired EBS volume].
 //
 // Volume status is based on the volume status checks, and does not reflect the
 // volume state. Therefore, volume status does not indicate volumes in the error
@@ -51,6 +51,7 @@ import (
 // particular order.
 //
 // [Monitor the status of your volumes]: https://docs.aws.amazon.com/ebs/latest/userguide/monitoring-volume-status.html
+// [Work with an impaired EBS volume]: https://docs.aws.amazon.com/ebs/latest/userguide/work_volumes_impaired.html
 func (c *Client) DescribeVolumeStatus(ctx context.Context, params *DescribeVolumeStatusInput, optFns ...func(*Options)) (*DescribeVolumeStatusOutput, error) {
 	if params == nil {
 		params = &DescribeVolumeStatusInput{}
@@ -224,6 +225,36 @@ func (c *Client) addOperationDescribeVolumeStatusMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

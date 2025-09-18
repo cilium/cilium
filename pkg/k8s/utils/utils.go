@@ -4,14 +4,12 @@
 package utils
 
 import (
-	"net"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/ip"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -70,14 +68,15 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 // This methods returns a ListOptions modifier which adds a label selector to
 // select all endpointSlice objects they are not from remote clusters in Cilium cluster mesh.
 // This is mostly the same behavior as kube-proxy except the cluster mesh behavior which is
-// tied to how Cilium internally works with clustermesh endpoints and that this function also doesn't ignore headless Services.
+// tied to how Cilium internally works with clustermesh endpoints and that this function doesn't ignore
+// headless Services when includeHeadlessServices is true.
 // Given label mirroring from the service objects to endpoint slice objects were introduced in Kubernetes PR 94443,
 // and released as part of Kubernetes v1.20; we can start using GetServiceAndEndpointListOptionsModifier for
 // endpoint slices when dropping support for Kubernetes v1.19 and older. We can do that since the
 // serviceProxyNameLabel label will then be mirrored to endpoint slices for services with that label.
 // We also ignore Kubernetes endpoints coming from other clusters in the Cilium clustermesh here as
 // Cilium does not rely on mirrored Kubernetes EndpointSlice for any of its functionalities.
-func GetEndpointSliceListOptionsModifier() (func(options *v1meta.ListOptions), error) {
+func GetEndpointSliceListOptionsModifier(includeHeadlessServices bool) (func(options *v1meta.ListOptions), error) {
 	nonRemoteEndpointSelector, err := labels.NewRequirement(discoveryv1.LabelManagedBy, selection.NotEquals, []string{EndpointSliceMeshControllerName})
 	if err != nil {
 		return nil, err
@@ -85,6 +84,15 @@ func GetEndpointSliceListOptionsModifier() (func(options *v1meta.ListOptions), e
 
 	labelSelector := labels.NewSelector()
 	labelSelector = labelSelector.Add(*nonRemoteEndpointSelector)
+
+	if !includeHeadlessServices {
+		nonHeadlessServiceSelector, err := labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
+
+		if err != nil {
+			return nil, err
+		}
+		labelSelector = labelSelector.Add(*nonHeadlessServiceSelector)
+	}
 
 	return func(options *v1meta.ListOptions) {
 		options.LabelSelector = labelSelector.String()
@@ -94,12 +102,12 @@ func GetEndpointSliceListOptionsModifier() (func(options *v1meta.ListOptions), e
 // GetServiceAndEndpointListOptionsModifier returns the options modifier for service and endpoint object lists.
 // This methods returns a ListOptions modifier which adds a label selector to only
 // select services that are in context of Cilium.
-// Unlike kube-proxy Cilium does not select services/endpoints containing k8s headless service label.
+// Unlike kube-proxy Cilium also watches headless services and their endpoint slices when includeHeadlessServices is true.
 // We honor service.kubernetes.io/service-proxy-name label in the service object and only
 // handle services that match our service proxy name. If the service proxy name for Cilium
 // is an empty string, we assume that Cilium is the default service handler in which case
 // we select all services that don't have the above mentioned label.
-func GetServiceAndEndpointListOptionsModifier(k8sServiceProxy string) (func(options *v1meta.ListOptions), error) {
+func GetServiceAndEndpointListOptionsModifier(k8sServiceProxy string, includeHeadlessServices bool) (func(options *v1meta.ListOptions), error) {
 	var (
 		serviceNameSelector *labels.Requirement
 		err                 error
@@ -119,6 +127,15 @@ func GetServiceAndEndpointListOptionsModifier(k8sServiceProxy string) (func(opti
 
 	labelSelector := labels.NewSelector()
 	labelSelector = labelSelector.Add(*serviceNameSelector)
+
+	if !includeHeadlessServices {
+		nonHeadlessServiceSelector, err := labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
+
+		if err != nil {
+			return nil, err
+		}
+		labelSelector = labelSelector.Add(*nonHeadlessServiceSelector)
+	}
 
 	return func(options *v1meta.ListOptions) {
 		options.LabelSelector = labelSelector.String()
@@ -166,34 +183,6 @@ func IsPodRunning(status slim_corev1.PodStatus) bool {
 		return false
 	}
 	return true
-}
-
-// GetClusterIPByFamily returns a service clusterip by family.
-// From - https://github.com/kubernetes/kubernetes/blob/release-1.20/pkg/proxy/util/utils.go#L386-L411
-func GetClusterIPByFamily(ipFamily slim_corev1.IPFamily, service *slim_corev1.Service) string {
-	// allowing skew
-	if len(service.Spec.IPFamilies) == 0 {
-		if len(service.Spec.ClusterIP) == 0 || service.Spec.ClusterIP == v1.ClusterIPNone {
-			return ""
-		}
-
-		IsIPv6Family := (ipFamily == slim_corev1.IPv6Protocol)
-		if IsIPv6Family == ip.IsIPv6(net.ParseIP(service.Spec.ClusterIP)) {
-			return service.Spec.ClusterIP
-		}
-
-		return ""
-	}
-
-	for idx, family := range service.Spec.IPFamilies {
-		if family == ipFamily {
-			if idx < len(service.Spec.ClusterIPs) {
-				return service.Spec.ClusterIPs[idx]
-			}
-		}
-	}
-
-	return ""
 }
 
 // nameLabelsGetter is an interface that returns the name and the labels for

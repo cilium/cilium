@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/blang/semver/v4"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +21,8 @@ import (
 	"github.com/cilium/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/pkg/option"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -35,10 +35,25 @@ func parseBoolStatus(s string) bool {
 	return false
 }
 
+// DaemonConfigForFeatDetection is a minimal daemon config used for feature extraction.
+//
+// The struct is used to work around situations where we want to introduce a breaking
+// change to DaemonConfig. CLI is required to work with all stable Cilium versions. So,
+// the breaking change could break CLI for some versions.
+//
+// In any case, it is preferred to NOT do feature detection based on the runtime config,
+// as it was never meant to provide a stable "API".
+type DaemonConfigForFeatDetection struct {
+	MonitorAggregation               string
+	EnableICMPRules                  bool
+	EnableHealthChecking             bool
+	EnableEndpointHealthChecking     bool
+	EncryptNode                      bool
+	NodeEncryptionOptOutLabelsString string
+	EnableK8sNetworkPolicy           bool
+}
+
 // extractFeaturesFromRuntimeConfig extracts features from the Cilium runtime config.
-// The downside of this approach is that the `DaemonConfig` struct is not stable.
-// If there are changes to it in the future, we will likely have to maintain
-// version-specific copies of the struct in the Cilium-CLI.
 func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context, ciliumPod Pod, result features.Set) error {
 	namespace := ciliumPod.Pod.Namespace
 
@@ -48,7 +63,7 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 		return fmt.Errorf("failed to fetch cilium runtime config: %w", err)
 	}
 
-	cfg := &option.DaemonConfig{}
+	cfg := &DaemonConfigForFeatDetection{}
 	if err := json.Unmarshal(stdout.Bytes(), cfg); err != nil {
 		return fmt.Errorf("unmarshaling cilium runtime config json: %w", err)
 	}
@@ -66,18 +81,17 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 		Enabled: cfg.EnableHealthChecking && cfg.EnableEndpointHealthChecking,
 	}
 
-	result[features.EncryptionNode] = features.Status{
-		Enabled: cfg.EncryptNode,
-		Mode:    cfg.NodeEncryptionOptOutLabelsString,
-	}
-
-	isFeatureKNPEnabled, err := ct.isFeatureKNPEnabled(cfg.EnableK8sNetworkPolicy)
-	if err != nil {
-		return fmt.Errorf("unable to determine if KNP feature is enabled: %w", err)
+	// Before v1.19, NodeEncryptionOptOutLabels are stored in DaemonConfig.
+	// See [extractFeaturesFromCiliumStatus] for above versions.
+	if ct.CiliumVersion.LT(semver.MustParse("1.19.0")) {
+		result[features.EncryptionNode] = features.Status{
+			Enabled: cfg.EncryptNode,
+			Mode:    cfg.NodeEncryptionOptOutLabelsString,
+		}
 	}
 
 	result[features.KNP] = features.Status{
-		Enabled: isFeatureKNPEnabled,
+		Enabled: cfg.EnableK8sNetworkPolicy,
 	}
 
 	return nil
@@ -154,31 +168,14 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	if kpr := st.KubeProxyReplacement; kpr != nil {
 		mode = strings.ToLower(kpr.Mode)
 		if f := kpr.Features; f != nil {
-			if f.ExternalIPs != nil {
-				result[features.KPRExternalIPs] = features.Status{Enabled: f.ExternalIPs.Enabled}
-			}
-			if f.HostPort != nil {
-				result[features.KPRHostPort] = features.Status{Enabled: f.HostPort.Enabled}
-			}
-			if f.NodePort != nil {
-				result[features.KPRNodePort] = features.Status{Enabled: f.NodePort.Enabled}
-				acceleration := strings.ToLower(f.NodePort.Acceleration)
-				result[features.KPRNodePortAcceleration] = features.Status{
-					Enabled: mode != "false" && acceleration != "disabled",
-					Mode:    mode,
-				}
-			}
-			if f.SessionAffinity != nil {
-				result[features.KPRSessionAffinity] = features.Status{Enabled: f.SessionAffinity.Enabled}
-			}
 			if f.SocketLB != nil {
 				result[features.KPRSocketLB] = features.Status{Enabled: f.SocketLB.Enabled}
 				result[features.KPRSocketLBHostnsOnly] = features.Status{Enabled: f.BpfSocketLBHostnsOnly}
 			}
 		}
 	}
-	result[features.KPRMode] = features.Status{
-		Enabled: mode != "false" && mode != "disabled",
+	result[features.KPR] = features.Status{
+		Enabled: mode == "true" || mode == "strict",
 		Mode:    mode,
 	}
 
@@ -186,10 +183,41 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	mode = "disabled"
 	if enc := st.Encryption; enc != nil {
 		mode = strings.ToLower(enc.Mode)
+
+		// After v1.19, NodeEncryptionOptOutLabels are stored in the Wireguard Agent config.
+		// See [extractFeaturesFromRuntimeConfig] for below versions.
+		if ct.CiliumVersion.GE(semver.MustParse("1.19.0")) {
+			// Node-to-node encryption applies only to WireGuard.
+			if wg := enc.Wireguard; wg != nil {
+				result[features.EncryptionNode] = features.Status{
+					Enabled: wg.NodeEncryption != "Disabled",
+					Mode:    wg.NodeEncryptOptOutLabels,
+				}
+			}
+		}
 	}
 	result[features.EncryptionPod] = features.Status{
 		Enabled: mode != "disabled",
 		Mode:    mode,
+	}
+
+	return nil
+}
+
+func (ct *ConnectivityTest) extractFeaturesFromUname(ctx context.Context, ciliumPod Pod, result features.Set) error {
+	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
+		defaults.AgentContainerName, []string{"uname", "-r"})
+	if err != nil {
+		return fmt.Errorf("failed to fetch uname -r: %w", err)
+	}
+
+	kernelVersion, err := version.ParseKernelVersion(stdout.String())
+	if err != nil {
+		return fmt.Errorf("failed to parse kernel version: %w", err)
+	}
+
+	result[features.RHEL] = features.Status{
+		Enabled: versioncheck.MustCompile("<=4.18.0")(kernelVersion),
 	}
 
 	return nil
@@ -315,37 +343,47 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 	if cm.Data == nil {
 		return fmt.Errorf("ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
 	}
-	for _, ciliumPod := range ct.ciliumPods {
-		features := features.Set{}
 
-		// If unsure from which source to retrieve the information from,
-		// prefer "CiliumStatus" over "ConfigMap" over "RuntimeConfig".
-		// See the corresponding functions for more information.
-		features.ExtractFromVersionedConfigMap(ct.CiliumVersion, cm)
-		features.ExtractFromConfigMap(cm)
+	// Extract cluster-wide features once outside the loop
+	clusterFeatures := features.Set{}
+	clusterFeatures.ExtractFromCiliumVersion(ct.CiliumVersion)
+	clusterFeatures.ExtractFromConfigMap(cm)
+	clusterFeatures.ExtractFromNodes(ct.nodesWithoutCilium)
+	ct.extractFeaturesFromK8sCluster(ctx, clusterFeatures)
+	err = ct.extractFeaturesFromCRDs(ctx, clusterFeatures)
+	if err != nil {
+		return err
+	}
+	err = ct.extractFeaturesFromDNSConfig(ctx, clusterFeatures)
+	if err != nil {
+		return err
+	}
+	err = ct.extractFeaturesFromClusterRole(ctx, ct.client, clusterFeatures)
+	if err != nil {
+		return err
+	}
+
+	for _, ciliumPod := range ct.ciliumPods {
+		// Start with cluster-wide features
+		features := make(features.Set)
+		for k, v := range clusterFeatures {
+			features[k] = v
+		}
+
+		// Extract pod-specific features
 		err = ct.extractFeaturesFromRuntimeConfig(ctx, ciliumPod, features)
 		if err != nil {
 			return err
 		}
-		features.ExtractFromNodes(ct.nodesWithoutCilium)
 		err = ct.extractFeaturesFromCiliumStatus(ctx, ciliumPod, features)
 		if err != nil {
 			return err
 		}
-		err = ct.extractFeaturesFromClusterRole(ctx, ciliumPod.K8sClient, features)
+		err = ct.extractFeaturesFromUname(ctx, ciliumPod, features)
 		if err != nil {
 			return err
 		}
-		ct.extractFeaturesFromK8sCluster(ctx, features)
 		err = features.DeriveFeatures()
-		if err != nil {
-			return err
-		}
-		err = ct.extractFeaturesFromCRDs(ctx, features)
-		if err != nil {
-			return err
-		}
-		err = ct.extractFeaturesFromDNSConfig(ctx, features)
 		if err != nil {
 			return err
 		}
@@ -358,7 +396,15 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 		}
 	}
 
-	ct.ClusterName = cmp.Or(cm.Data["cluster-name"], "default")
+	ct.ClusterNameLocal = cmp.Or(cm.Data["cluster-name"], "default")
+	ct.ClusterNameRemote = ct.ClusterNameLocal
+	if ct.params.MultiCluster != "" {
+		cmDst, err := ct.clients.dst.GetConfigMap(ctx, ct.params.CiliumNamespace, defaults.ConfigMapName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to retrieve dst cluster ConfigMap %q: %w", defaults.ConfigMapName, err)
+		}
+		ct.ClusterNameRemote = cmp.Or(cmDst.Data["cluster-name"], "default")
+	}
 
 	return nil
 }
@@ -367,30 +413,12 @@ func (ct *ConnectivityTest) ForceDisableFeature(feature features.Feature) {
 	ct.Features[feature] = features.Status{Enabled: false}
 }
 
-// isFeatureKNPEnabled checks if the Kubernetes Network Policy feature is enabled from the configuration.
-// Note that the flag appears in Cilium version 1.14, before that it was unable even thought KNPs were present.
-func (ct *ConnectivityTest) isFeatureKNPEnabled(enableK8SNetworkPolicy bool) (bool, error) {
-	switch {
-	case enableK8SNetworkPolicy:
-		// Flag is enabled, means the flag exists.
-		return true, nil
-	case !enableK8SNetworkPolicy && versioncheck.MustCompile("<1.14.0")(ct.CiliumVersion):
-		// Flag was always disabled even KNP were activated before Cilium 1.14.
-		return true, nil
-	case !enableK8SNetworkPolicy && versioncheck.MustCompile(">=1.14.0")(ct.CiliumVersion):
-		// Flag is explicitly set to disabled after Cilium 1.14.
-		return false, nil
-	default:
-		return false, fmt.Errorf("cilium version unsupported %s", ct.CiliumVersion.String())
-	}
-}
-
-func canNodeRunCilium(node *corev1.Node) bool {
+func canNodeRunCilium(node *slimcorev1.Node) bool {
 	val, ok := node.ObjectMeta.Labels["cilium.io/no-schedule"]
 	return !ok || val == "false"
 }
 
-func isControlPlane(node *corev1.Node) bool {
+func isControlPlane(node *slimcorev1.Node) bool {
 	if node != nil {
 		_, ok := node.Labels["node-role.kubernetes.io/control-plane"]
 		return ok

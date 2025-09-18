@@ -19,9 +19,18 @@ import (
 // mapping information for those volumes. When you launch an instance from this new
 // AMI, the instance automatically launches with those additional volumes.
 //
-// For more information, see [Create an Amazon EBS-backed Linux AMI] in the Amazon Elastic Compute Cloud User Guide.
+// The location of the source instance determines where you can create the
+// snapshots of the AMI:
 //
-// [Create an Amazon EBS-backed Linux AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html
+//   - If the source instance is in a Region, you must create the snapshots in the
+//     same Region as the instance.
+//
+//   - If the source instance is in a Local Zone, you can create the snapshots in
+//     the same Local Zone or in its parent Region.
+//
+// For more information, see [Create an Amazon EBS-backed AMI] in the Amazon Elastic Compute Cloud User Guide.
+//
+// [Create an Amazon EBS-backed AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html
 func (c *Client) CreateImage(ctx context.Context, params *CreateImageInput, optFns ...func(*Options)) (*CreateImageOutput, error) {
 	if params == nil {
 		params = &CreateImageInput{}
@@ -64,7 +73,8 @@ type CreateImageInput struct {
 	//   - You can't modify the encryption status of existing volumes or snapshots. To
 	//   create an AMI with volumes or snapshots that have a different encryption status
 	//   (for example, where the source volume and snapshots are unencrypted, and you
-	//   want to create an AMI with encrypted volumes or snapshots), use the CopyImageaction.
+	//   want to create an AMI with encrypted volumes or snapshots), copy the image
+	//   instead.
 	//
 	//   - The only option that can be changed for existing mappings or snapshots is
 	//   DeleteOnTermination .
@@ -94,6 +104,20 @@ type CreateImageInput struct {
 	//
 	// Default: false
 	NoReboot *bool
+
+	// Only supported for instances in Local Zones. If the source instance is not in a
+	// Local Zone, omit this parameter.
+	//
+	// The Amazon S3 location where the snapshots will be stored.
+	//
+	//   - To create local snapshots in the same Local Zone as the source instance,
+	//   specify local .
+	//
+	//   - To create regional snapshots in the parent Region of the Local Zone,
+	//   specify regional or omit this parameter.
+	//
+	// Default: regional
+	SnapshotLocation types.SnapshotLocationEnum
 
 	// The tags to apply to the AMI and snapshots on creation. You can tag the AMI,
 	// the snapshots, or both.
@@ -212,6 +236,36 @@ func (c *Client) addOperationCreateImageMiddlewares(stack *middleware.Stack, opt
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

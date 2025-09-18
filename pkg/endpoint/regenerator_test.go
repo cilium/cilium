@@ -8,17 +8,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 func TestRegeneratorWaitForIPCacheSync(t *testing.T) {
 	regenerator := Regenerator{
-		logger: func() logrus.FieldLogger {
-			logger := logrus.New()
-			logger.SetLevel(logrus.FatalLevel)
-			return logger
-		}(),
+		logger: hivetest.Logger(t, hivetest.LogLevel(logging.LevelPanic)),
 
 		cmWaitFn: func(ctx context.Context) error {
 			<-ctx.Done()
@@ -51,7 +49,7 @@ func TestRegeneratorWaitForIPCacheSync(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.assert(t, regenerator.WaitForClusterMeshIPIdentitiesSync(tt.ctx))
+			tt.assert(t, regenerator.waitForClusterMeshIPIdentitiesSync(tt.ctx))
 		})
 	}
 }

@@ -17,8 +17,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
@@ -31,7 +32,7 @@ var (
 
 type fixture struct {
 	hive          *hive.Hive
-	fakeClientSet *k8s_client.FakeClientset
+	fakeClientSet *k8sFakeClient.FakeClientset
 	bgpcClient    cilium_client_v2.CiliumBGPClusterConfigInterface
 	nodeClient    cilium_client_v2.CiliumNodeInterface
 	bgpncoClient  cilium_client_v2.CiliumBGPNodeConfigOverrideInterface
@@ -41,7 +42,7 @@ type fixture struct {
 	bgpnClient cilium_client_v2.CiliumBGPNodeConfigInterface
 }
 
-func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, enableStatusReport bool) (*fixture, func()) {
+func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, dc *option.DaemonConfig) (*fixture, func()) {
 	rws := map[string]*struct {
 		once    sync.Once
 		watchCh chan any
@@ -54,7 +55,7 @@ func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, enab
 	}
 
 	f := &fixture{}
-	f.fakeClientSet, _ = k8s_client.NewFakeClientset(hivetest.Logger(t))
+	f.fakeClientSet, _ = k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
 
 	watchReactorFn := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
 		w := action.(k8sTesting.WatchAction)
@@ -92,55 +93,50 @@ func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, enab
 	f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor("*", watchReactorFn)
 
 	f.hive = hive.New(
-		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*v2.CiliumBGPClusterConfig] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*v2.CiliumBGPClusterConfig] {
 			return resource.New[*v2.CiliumBGPClusterConfig](
 				lc, utils.ListerWatcherFromTyped[*v2.CiliumBGPClusterConfigList](
 					c.CiliumV2().CiliumBGPClusterConfigs(),
-				),
+				), nil,
 			)
 		}),
-		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*v2.CiliumBGPNodeConfig] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*v2.CiliumBGPNodeConfig] {
 			return resource.New[*v2.CiliumBGPNodeConfig](
 				lc, utils.ListerWatcherFromTyped[*v2.CiliumBGPNodeConfigList](
 					c.CiliumV2().CiliumBGPNodeConfigs(),
-				),
+				), nil,
 			)
 		}),
 
-		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*v2.CiliumBGPNodeConfigOverride] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*v2.CiliumBGPNodeConfigOverride] {
 			return resource.New[*v2.CiliumBGPNodeConfigOverride](
 				lc, utils.ListerWatcherFromTyped[*v2.CiliumBGPNodeConfigOverrideList](
 					c.CiliumV2().CiliumBGPNodeConfigOverrides(),
-				),
+				), nil,
 			)
 		}),
 
-		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*v2.CiliumBGPPeerConfig] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*v2.CiliumBGPPeerConfig] {
 			return resource.New[*v2.CiliumBGPPeerConfig](
 				lc, utils.ListerWatcherFromTyped[*v2.CiliumBGPPeerConfigList](
 					c.CiliumV2().CiliumBGPPeerConfigs(),
-				),
+				), nil,
 			)
 		}),
 
-		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*v2.CiliumNode] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*v2.CiliumNode] {
 			return resource.New[*v2.CiliumNode](
 				lc, utils.ListerWatcherFromTyped[*v2.CiliumNodeList](
 					c.CiliumV2().CiliumNodes(),
-				),
+				), nil,
 			)
 		}),
 
 		cell.Provide(func() *option.DaemonConfig {
-			return &option.DaemonConfig{
-				EnableBGPControlPlane:             true,
-				Debug:                             true,
-				BGPSecretsNamespace:               "kube-system",
-				EnableBGPControlPlaneStatusReport: enableStatusReport,
-			}
+			return dc
 		}),
 
-		cell.Provide(func() k8s_client.Clientset {
+		cell.Provide(func() k8sClient.Clientset {
 			return f.fakeClientSet
 		}),
 

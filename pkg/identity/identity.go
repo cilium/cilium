@@ -58,15 +58,16 @@ type Identity struct {
 // This structure is written as JSON to the key-value store. Do NOT modify this
 // structure in ways which are not JSON forward compatible.
 type IPIdentityPair struct {
-	IP           net.IP          `json:"IP"`
-	Mask         net.IPMask      `json:"Mask"`
-	HostIP       net.IP          `json:"HostIP"`
-	ID           NumericIdentity `json:"ID"`
-	Key          uint8           `json:"Key"`
-	Metadata     string          `json:"Metadata"`
-	K8sNamespace string          `json:"K8sNamespace,omitempty"`
-	K8sPodName   string          `json:"K8sPodName,omitempty"`
-	NamedPorts   []NamedPort     `json:"NamedPorts,omitempty"`
+	IP                net.IP          `json:"IP"`
+	Mask              net.IPMask      `json:"Mask"`
+	HostIP            net.IP          `json:"HostIP"`
+	ID                NumericIdentity `json:"ID"`
+	Key               uint8           `json:"Key"`
+	Metadata          string          `json:"Metadata"`
+	K8sNamespace      string          `json:"K8sNamespace,omitempty"`
+	K8sPodName        string          `json:"K8sPodName,omitempty"`
+	K8sServiceAccount string          `json:"K8sServiceAccount,omitempty"`
+	NamedPorts        []NamedPort     `json:"NamedPorts,omitempty"`
 }
 
 type IdentityMap map[NumericIdentity]labels.LabelArray
@@ -181,12 +182,6 @@ func (pair *IPIdentityPair) PrefixString() string {
 	return ipstr + "/" + strconv.Itoa(ones)
 }
 
-// RequiresGlobalIdentity returns true if the label combination requires a
-// global identity
-func RequiresGlobalIdentity(lbls labels.Labels) bool {
-	return ScopeForLabels(lbls) == IdentityScopeGlobal
-}
-
 // ScopeForLabels returns the identity scope to be used for the label set.
 // If all labels are either CIDR or reserved, then returns the CIDR scope.
 // Note: This assumes the caller has already called LookupReservedIdentityByLabels;
@@ -200,6 +195,13 @@ func ScopeForLabels(lbls labels.Labels) NumericIdentity {
 	// callers will already have gotten a value from LookupReservedIdentityByLabels.
 	if lbls.HasRemoteNodeLabel() {
 		return IdentityScopeRemoteNode
+	}
+
+	// The ingress label is for L7 LB with cilium proxy, which is running on
+	// every node. So it's not necessary to be global identity, but local
+	// identity instead.
+	if lbls.IsReserved() && lbls.HasIngressLabel() {
+		return IdentityScopeLocal
 	}
 
 	for _, label := range lbls {

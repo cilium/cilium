@@ -18,7 +18,7 @@ import (
 // +kubebuilder:printcolumn:name="IPs Available",type=string,JSONPath=`.status.conditions[?(@.type=="cilium.io/IPsAvailable")].message`
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
-// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion
 
 // CiliumLoadBalancerIPPool is a Kubernetes third-party resource which
 // is used to defined pools of IPs which the operator can use to to allocate

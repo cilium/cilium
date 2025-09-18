@@ -24,7 +24,7 @@ import (
 )
 
 func Test_InvalidPayloads(t *testing.T) {
-	p, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil, nil, true)
+	p, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil, nil)
 	assert.NoError(t, err)
 
 	_, err = p.Decode(nil)
@@ -49,11 +49,11 @@ func Test_InvalidPayloads(t *testing.T) {
 }
 
 func Test_ParserDispatch(t *testing.T) {
-	p, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil, nil, true)
+	p, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil, nil)
 	assert.NoError(t, err)
 
 	// Test L3/L4 record
-	tn := monitor.TraceNotifyV0{
+	tn := monitor.TraceNotify{
 		Type: byte(api.MessageTypeTrace),
 	}
 	data, err := testutils.CreateL3L4Payload(tn)
@@ -89,7 +89,7 @@ func Test_ParserDispatch(t *testing.T) {
 }
 
 func Test_EventType_RecordLost(t *testing.T) {
-	p, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil, nil, true)
+	p, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil, nil)
 	assert.NoError(t, err)
 
 	ts := time.Now()

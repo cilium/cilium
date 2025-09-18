@@ -18,11 +18,11 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func BenchmarkRingWrite(b *testing.B) {
@@ -711,12 +711,12 @@ func TestRingFunctionalitySerialized(t *testing.T) {
 }
 
 func TestRing_ReadFrom_Test_1(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// ignore goroutines started by the redirect we do from klog to logrus
-		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("io.(*pipe).read"))
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("io.(*pipe).read"))
 	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
@@ -741,7 +741,7 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	ch := make(chan *v1.Event, 30)
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -772,12 +772,12 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 }
 
 func TestRing_ReadFrom_Test_2(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// ignore goroutines started by the redirect we do from klog to logrus
-		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("io.(*pipe).read"))
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("io.(*pipe).read"))
 
 	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
@@ -803,7 +803,7 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	// We should be able to read from a previous 'cycles' and ReadFrom will
 	// be able to catch up with the writer.
 	ch := make(chan *v1.Event, 30)
@@ -871,12 +871,12 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 }
 
 func TestRing_ReadFrom_Test_3(t *testing.T) {
-	defer goleak.VerifyNone(
+	defer testutils.GoleakVerifyNone(
 		t,
 		// ignore goroutines started by the redirect we do from klog to logrus
-		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
-		goleak.IgnoreTopFunction("io.(*pipe).read"))
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("io.(*pipe).read"))
 	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
@@ -901,7 +901,7 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	// We should be able to read from a previous 'cycles' and ReadFrom will
 	// be able to catch up with the writer.
 	ch := make(chan *v1.Event, 30)

@@ -461,10 +461,7 @@ func TestStatedbReconcileErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := statedb.New()
-			reconcileErrTbl, err := tables.NewBGPReconcileErrorTable()
-			require.NoError(t, err)
-
-			err = db.RegisterTable(reconcileErrTbl)
+			reconcileErrTbl, err := tables.NewBGPReconcileErrorTable(db)
 			require.NoError(t, err)
 
 			testInstances := make(map[string]*instance.BGPInstance)

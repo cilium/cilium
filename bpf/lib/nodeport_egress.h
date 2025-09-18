@@ -34,10 +34,9 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 
 #if defined(IS_BPF_HOST)
 	const union v6addr dr_addr = IPV6_DIRECT_ROUTING;
-	__u32 dr_ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 
 	/* See comment in nodeport_has_nat_conflict_ipv4(). */
-	if (dr_ifindex == THIS_INTERFACE_IFINDEX &&
+	if (CONFIG(direct_routing_dev_ifindex) == CONFIG(interface_ifindex) &&
 	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
 		ipv6_addr_copy(&target->addr, &dr_addr);
 		target->needs_ct = true;
@@ -67,12 +66,8 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-
 	tuple.nexthdr = ip6->nexthdr;
-	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -123,7 +118,7 @@ out:
 	return ret;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
+__declare_tail(CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -169,11 +164,14 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
+	tuple.nexthdr = ip6->nexthdr;
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+	if (ret < 0)
+		return ret;
 
-	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, fraginfo, &l4_off, &tuple);
+	l4_off = ETH_HLEN + ret;
+
+	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
 	if (ret < 0) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			return CTX_ACT_OK;
@@ -211,7 +209,7 @@ skip_fib:
 		trace->monitor = monitor;
 
 		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info,
-				    ipfrag_has_l4_header(fraginfo));
+				    ipfrag_has_l4_header(fraginfo), CT_EGRESS, false);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -259,7 +257,7 @@ handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	return __handle_nat_fwd_ipv6(ctx, src_id, revdnat_only, trace, ext_err);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_FWD)
+__declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_FWD)
 static __always_inline
 int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
@@ -279,7 +277,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				  trace.reason, trace.monitor);
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 
 	return ret;
 }
@@ -300,13 +298,11 @@ nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(IS_BPF_HOST)
-	__u32 dr_ifindex = DIRECT_ROUTING_DEV_IFINDEX;
-
-	/* THIS_INTERFACE_IFINDEX == DIRECT_ROUTING_DEV_IFINDEX cannot be moved into
-	 * preprocessor, as the former is known only during load time (templating).
+	/* direct_routing_dev_ifindex == interface_ifindex cannot be moved into
+	 * preprocessor, as the values are known only during load time (templating).
 	 * This checks whether bpf_host is running on the direct routing device.
 	 */
-	if (dr_ifindex == THIS_INTERFACE_IFINDEX &&
+	if (CONFIG(direct_routing_dev_ifindex) == CONFIG(interface_ifindex) &&
 	    ip4->saddr == IPV4_DIRECT_ROUTING) {
 		target->addr = IPV4_DIRECT_ROUTING;
 		target->needs_ct = true;
@@ -361,23 +357,8 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 				return ret;
 
 			if (ret != DROP_CT_UNKNOWN_PROTO &&
-			    ct_is_reply4(get_ct_map4(&tuple), &tuple)) {
-				/* Look up the parent interface's MAC address and set it as the
-				 * source MAC address of the packet. We will assume the destination
-				 * MAC address is still correct. This assumption only holds if the
-				 * current and parent interfaces are on the same L2 network such as
-				 * in EKS.
-				 */
-				union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(ep->parent_ifindex);
-
-				if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
-					return DROP_WRITE_ERROR;
-
-				/* For EKS we don't have to rewrite the dmac. Once we require a 5.10
-				 * kernel, this can turn into bpf_redirect_neigh() for robustness.
-				 */
-				return ctx_redirect(ctx, ep->parent_ifindex, 0);
-			}
+			    ct_is_reply4(get_ct_map4(&tuple), &tuple))
+				return redirect_neigh(ep->parent_ifindex, NULL, 0, 0);
 		}
 	}
 
@@ -432,7 +413,7 @@ out:
 	return ret;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
+__declare_tail(CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -481,8 +462,9 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 		return DROP_INVALID;
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, fraginfo, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
@@ -579,7 +561,7 @@ handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	return __handle_nat_fwd_ipv4(ctx, cluster_id, src_id, revdnat_only, trace, ext_err);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_FWD)
+__declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_FWD)
 static __always_inline
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
@@ -599,57 +581,13 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-				  trace.reason, trace.monitor);
+				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 
 	return ret;
 }
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_HEALTH_CHECK
-static __always_inline int
-health_encap_v4(struct __ctx_buff *ctx, __u32 tunnel_ep,
-		__u32 seclabel)
-{
-	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
-	struct bpf_tunnel_key key;
-
-	/* When encapsulating, a packet originating from the local
-	 * host is being considered as a packet from a remote node
-	 * as it is being received.
-	 */
-	memset(&key, 0, sizeof(key));
-	key.tunnel_id = get_tunnel_id(seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel);
-	key.remote_ipv4 = bpf_htonl(tunnel_ep);
-	key.tunnel_ttl = IPDEFTTL;
-
-	if (unlikely(ctx_set_tunnel_key(ctx, &key, key_size,
-					BPF_F_ZERO_CSUM_TX) < 0))
-		return DROP_WRITE_ERROR;
-	return 0;
-}
-
-static __always_inline int
-health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
-		__u32 seclabel)
-{
-	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
-	struct bpf_tunnel_key key;
-
-	memset(&key, 0, sizeof(key));
-	key.tunnel_id = get_tunnel_id(seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel);
-	key.remote_ipv6[0] = tunnel_ep->p1;
-	key.remote_ipv6[1] = tunnel_ep->p2;
-	key.remote_ipv6[2] = tunnel_ep->p3;
-	key.remote_ipv6[3] = tunnel_ep->p4;
-	key.tunnel_ttl = IPDEFTTL;
-
-	if (unlikely(ctx_set_tunnel_key(ctx, &key, key_size,
-					BPF_F_ZERO_CSUM_TX |
-					BPF_F_TUNINFO_IPV6) < 0))
-		return DROP_WRITE_ERROR;
-	return 0;
-}
-
 static __always_inline int
 lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 {
@@ -679,7 +617,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 				return DROP_WRITE_ERROR;
 			flags = BPF_F_INGRESS;
 		} else {
-			ret = health_encap_v4(ctx, val->peer.address, 0);
+			ret = dsr_set_ipip4_dev(ctx, val->peer.address, 0);
 			if (ret != 0)
 				return ret;
 			ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
@@ -705,7 +643,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 				return DROP_WRITE_ERROR;
 			flags = BPF_F_INGRESS;
 		} else {
-			ret = health_encap_v6(ctx, &val->peer.address, 0);
+			ret = dsr_set_ipip6_dev(ctx, &val->peer.address, 0);
 			if (ret != 0)
 				return ret;
 			ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;

@@ -20,15 +20,7 @@ import (
 // It's only an approximation and doesn't execute a successful cgroup attachment
 // under the hood. If any unexpected errors are encountered, the original error
 // is returned.
-func HaveAttachCgroup() error {
-	attachCgroupOnce.Do(func() {
-		attachCgroupResult = haveAttachCgroup()
-	})
-
-	return attachCgroupResult
-}
-
-func haveAttachCgroup() error {
+var HaveAttachCgroup = sync.OnceValue(func() error {
 	// Load known-good program supported by the earliest kernels with cgroup
 	// support.
 	spec := &ebpf.ProgramSpec{
@@ -63,7 +55,4 @@ func haveAttachCgroup() error {
 	}
 
 	return errors.New("attaching prog to /dev/null did not result in error")
-}
-
-var attachCgroupOnce sync.Once
-var attachCgroupResult error
+})

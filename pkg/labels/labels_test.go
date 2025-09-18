@@ -542,14 +542,6 @@ func BenchmarkLabel_String(b *testing.B) {
 	}
 }
 
-func BenchmarkGenerateLabelString(b *testing.B) {
-	b.ReportAllocs()
-
-	for b.Loop() {
-		generateLabelString("foo", "key", "value")
-	}
-}
-
 func TestLabel_String(t *testing.T) {
 	// with value
 	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", LabelSourceK8s)
@@ -601,7 +593,7 @@ func TestNewLabelCIDR(t *testing.T) {
 		assert.Equal(t, LabelSourceCIDR, lbl.Source)
 		assert.NotNil(t, lbl.cidr)
 		ll := strings.SplitN(labelSpec, ":", 2)
-		prefixString := strings.Replace(ll[1], "-", ":", -1)
+		prefixString := strings.ReplaceAll(ll[1], "-", ":")
 		assert.Equal(t, netip.MustParsePrefix(prefixString).String(), lbl.cidr.String())
 	}
 

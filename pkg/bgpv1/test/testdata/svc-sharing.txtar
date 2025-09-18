@@ -6,12 +6,8 @@
 # Start the hive
 hive start
 
-# Wait for k8s watchers to be initialized
-k8s/wait-watchers cilium.io.v2.ciliumnodes cilium.io.v2.ciliumbgpnodeconfigs cilium.io.v2.ciliumbgppeerconfigs cilium.io.v2.ciliumbgpadvertisements
-k8s/wait-watchers v1.services
-
 # Configure gobgp server
-gobgp/add-server 65010 10.99.4.201 1790
+gobgp/add-server test 65010 10.99.4.201 1790
 
 # Configure peers on GoBGP
 gobgp/add-peer 10.99.4.202 65001
@@ -165,9 +161,9 @@ spec:
   ipFamilyPolicy: SingleStack
   ports:
   - name: http
-    port: 80
+    port: 8080
     protocol: TCP
-    targetPort: 80
+    targetPort: 8080
   selector:
     name: echo
   sessionAffinity: None

@@ -12,7 +12,7 @@ import (
 )
 
 // Describes the principals (service consumers) that are permitted to discover
-// your VPC endpoint service.
+// your VPC endpoint service. Principal ARNs with path components aren't supported.
 func (c *Client) DescribeVpcEndpointServicePermissions(ctx context.Context, params *DescribeVpcEndpointServicePermissionsInput, optFns ...func(*Options)) (*DescribeVpcEndpointServicePermissionsOutput, error) {
 	if params == nil {
 		params = &DescribeVpcEndpointServicePermissionsInput{}
@@ -162,6 +162,36 @@ func (c *Client) addOperationDescribeVpcEndpointServicePermissionsMiddlewares(st
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

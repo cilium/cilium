@@ -103,7 +103,7 @@ func newCRDSyncPromise(params syncCRDsPromiseParams) promise.Promise[CRDSync] {
 		return crdSyncPromise
 	}
 
-	g := params.Jobs.NewGroup(params.Health)
+	g := params.Jobs.NewGroup(params.Health, params.Lifecycle)
 	g.Add(job.OneShot("sync-crds", func(ctx context.Context, health cell.Health) error {
 		err := SyncCRDs(ctx, params.Logger, params.Clientset, params.ResourceNames, params.Resources, params.APIGroups, params.Config)
 		if err != nil {
@@ -113,7 +113,6 @@ func newCRDSyncPromise(params syncCRDsPromiseParams) promise.Promise[CRDSync] {
 		}
 		return err
 	}))
-	params.Lifecycle.Append(g)
 
 	return crdSyncPromise
 }

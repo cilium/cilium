@@ -49,14 +49,21 @@ to your preferences:
 
   - ``none`` - Generate a tracing event on every receive and send packet.
   - ``low`` - Generate a tracing event on every send packet.
-  - ``medium`` - Generate a tracing event on every new connection, any time a
-    packet contains TCP flags that have not been previously seen for the packet
-    direction, and on average once per ``monitor-aggregation-interval``
+  - ``medium`` - Generate a tracing event for send packets only on every new
+    connection, any time a packet contains TCP flags that have not been previously
+    seen for the packet direction, and on average once per ``monitor-aggregation-interval``
     (assuming that a packet is seen during the interval). Each direction tracks
     TCP flags and report interval separately. If Cilium drops a packet, it will
     emit one event per packet dropped.
   - ``maximum`` - An alias for the most aggressive aggregation level. Currently
     this is equivalent to setting ``monitor-aggregation`` to ``medium``.
+
+  When socket load-balancing is enabled, these aggregation levels also apply to
+  socket translation events:
+
+  - ``none`` - Emit all socket trace events
+  - ``lowest``/``low`` - Suppress reverse-direction (recv) socket trace events
+  - ``medium``/``maximum`` - Emit socket trace events only for connect system calls
 
 * ``monitor-aggregation-interval`` - Defines the interval to report tracing
   events. Only applicable for ``monitor-aggregation`` levels ``medium`` or higher.

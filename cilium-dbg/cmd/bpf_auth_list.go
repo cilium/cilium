@@ -35,7 +35,7 @@ var bpfAuthListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf auth list")
 
-		authMap, err := authmap.LoadAuthMap()
+		authMap, err := authmap.LoadAuthMap(log)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find auth bpf map")

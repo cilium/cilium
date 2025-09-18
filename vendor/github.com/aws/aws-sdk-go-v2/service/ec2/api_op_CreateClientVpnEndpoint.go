@@ -36,16 +36,6 @@ type CreateClientVpnEndpointInput struct {
 	// This member is required.
 	AuthenticationOptions []types.ClientVpnAuthenticationRequest
 
-	// The IPv4 address range, in CIDR notation, from which to assign client IP
-	// addresses. The address range cannot overlap with the local CIDR of the VPC in
-	// which the associated subnet is located, or the routes that you add manually. The
-	// address range cannot be changed after the Client VPN endpoint has been created.
-	// Client CIDR range must have a size of at least /22 and must not be greater than
-	// /12.
-	//
-	// This member is required.
-	ClientCidrBlock *string
-
 	// Information about the client connection logging options.
 	//
 	// If you enable client connection logging, data about client connections is sent
@@ -69,12 +59,32 @@ type CreateClientVpnEndpointInput struct {
 	// This member is required.
 	ServerCertificateArn *string
 
+	// The IPv4 address range, in CIDR notation, from which to assign client IP
+	// addresses. The address range cannot overlap with the local CIDR of the VPC in
+	// which the associated subnet is located, or the routes that you add manually. The
+	// address range cannot be changed after the Client VPN endpoint has been created.
+	// Client CIDR range must have a size of at least /22 and must not be greater than
+	// /12.
+	ClientCidrBlock *string
+
 	// The options for managing connection authorization for new client connections.
 	ClientConnectOptions *types.ClientConnectOptions
 
 	// Options for enabling a customizable text banner that will be displayed on
 	// Amazon Web Services provided clients when a VPN session is established.
 	ClientLoginBannerOptions *types.ClientLoginBannerOptions
+
+	// Client route enforcement is a feature of the Client VPN service that helps
+	// enforce administrator defined routes on devices connected through the VPN. T his
+	// feature helps improve your security posture by ensuring that network traffic
+	// originating from a connected client is not inadvertently sent outside the VPN
+	// tunnel.
+	//
+	// Client route enforcement works by monitoring the route table of a connected
+	// device for routing policy changes to the VPN connection. If the feature detects
+	// any VPN routing policy modifications, it will automatically force an update to
+	// the route table, reverting it back to the expected route configurations.
+	ClientRouteEnforcementOptions *types.ClientRouteEnforcementOptions
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [Ensuring idempotency].
@@ -88,7 +98,7 @@ type CreateClientVpnEndpointInput struct {
 	// Indicates whether the client VPN session is disconnected after the maximum
 	// timeout specified in SessionTimeoutHours is reached. If true , users are
 	// prompted to reconnect client VPN. If false , client VPN attempts to reconnect
-	// automatically. The default value is false .
+	// automatically. The default value is true .
 	DisconnectOnSessionTimeout *bool
 
 	// Information about the DNS servers to be used for DNS resolution. A Client VPN
@@ -101,6 +111,12 @@ type CreateClientVpnEndpointInput struct {
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
+
+	// The IP address type for the Client VPN endpoint. Valid values are ipv4
+	// (default) for IPv4 addressing only, ipv6 for IPv6 addressing only, or dual-stack
+	// for both IPv4 and IPv6 addressing. When set to dual-stack, clients can connect
+	// to the endpoint using either IPv4 or IPv6 addresses..
+	EndpointIpAddressType types.EndpointIpAddressType
 
 	// The IDs of one or more security groups to apply to the target network. You must
 	// also specify the ID of the VPC that contains the security groups.
@@ -130,6 +146,12 @@ type CreateClientVpnEndpointInput struct {
 
 	// The tags to apply to the Client VPN endpoint during creation.
 	TagSpecifications []types.TagSpecification
+
+	// The IP address type for traffic within the Client VPN tunnel. Valid values are
+	// ipv4 (default) for IPv4 traffic only, ipv6 for IPv6 addressing only, or
+	// dual-stack for both IPv4 and IPv6 traffic. When set to dual-stack , clients can
+	// access both IPv4 and IPv6 resources through the VPN .
+	TrafficIpAddressType types.TrafficIpAddressType
 
 	// The transport protocol to be used by the VPN session.
 	//
@@ -257,6 +279,36 @@ func (c *Client) addOperationCreateClientVpnEndpointMiddlewares(stack *middlewar
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

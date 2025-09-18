@@ -5,14 +5,17 @@ package pprof
 
 import (
 	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"runtime"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -24,6 +27,15 @@ const (
 
 	// PprofPort is the flag to set the port that pprof listens on
 	PprofPort = "pprof-port"
+
+	// PprofMutexProfileFraction is the flag to enable mutex contention profiling and set the fraction of sampled events.
+	// Set to 1 to sample all events.
+	PprofMutexProfileFraction = "pprof-mutex-profile-fraction"
+
+	// PprofBlockProfileRate is the flag to enable goroutine blocking profiling and set the rate of sampled events in nanoseconds.
+	// Set to 1 to sample all events.
+	// This setting is not recommended for production due to performance overhead.
+	PprofBlockProfileRate = "pprof-block-profile-rate"
 )
 
 type Server interface {
@@ -47,20 +59,34 @@ func Cell[Cfg cell.Flagger](cfg Cfg) cell.Cell {
 
 // Config contains the configuration for the pprof cell.
 type Config struct {
-	Pprof        bool
-	PprofAddress string
-	PprofPort    uint16
+	Pprof                     bool
+	PprofAddress              string
+	PprofPort                 uint16
+	PprofMutexProfileFraction int
+	PprofBlockProfileRate     int
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(Pprof, def.Pprof, "Enable serving pprof debugging API")
 	flags.String(PprofAddress, def.PprofAddress, "Address that pprof listens on")
 	flags.Uint16(PprofPort, def.PprofPort, "Port that pprof listens on")
+	flags.Int(PprofMutexProfileFraction, def.PprofMutexProfileFraction, "Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)")
+	flags.Int(PprofBlockProfileRate, def.PprofBlockProfileRate, "Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])")
 }
 
-func newServer(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) Server {
+func newServer(lc cell.Lifecycle, log *slog.Logger, cfg Config) Server {
 	if !cfg.Pprof {
 		return nil
+	}
+
+	// Configure runtime profiling settings
+	if cfg.PprofMutexProfileFraction > 0 {
+		runtime.SetMutexProfileFraction(cfg.PprofMutexProfileFraction)
+		log.Info("Enabled mutex contention profiling", logfields.Fraction, cfg.PprofMutexProfileFraction)
+	}
+	if cfg.PprofBlockProfileRate > 0 {
+		runtime.SetBlockProfileRate(cfg.PprofBlockProfileRate)
+		log.Info("Enabled goroutine block profiling", logfields.Rate, cfg.PprofBlockProfileRate)
 	}
 
 	srv := &server{
@@ -74,7 +100,7 @@ func newServer(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) Server {
 }
 
 type server struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	address string
 	port    uint16
@@ -90,10 +116,10 @@ func (s *server) Start(ctx cell.HookContext) error {
 	}
 	s.listener = listener
 
-	s.logger = s.logger.WithFields(logrus.Fields{
-		"ip":   s.listener.Addr().(*net.TCPAddr).IP,
-		"port": s.listener.Addr().(*net.TCPAddr).Port,
-	})
+	s.logger = s.logger.With(
+		logfields.IPAddr, s.listener.Addr().(*net.TCPAddr).IP,
+		logfields.Port, s.listener.Addr().(*net.TCPAddr).Port,
+	)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -107,7 +133,7 @@ func (s *server) Start(ctx cell.HookContext) error {
 	}
 	go func() {
 		if err := s.httpSrv.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
-			s.logger.WithError(err).Error("server stopped unexpectedly")
+			s.logger.Error("server stopped unexpectedly", logfields.Error, err)
 		}
 	}()
 	s.logger.Info("Started pprof server")

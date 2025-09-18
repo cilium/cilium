@@ -1,0 +1,101 @@
+#! --lb-test-fault-probability=0.0
+
+# Start the test application
+hive start
+
+# Set the local node IP address. This is used when filtering for local backends
+# when proxy delegation is set.
+test/set-node-ip 1.1.1.1
+
+# Add the endpoints and service
+k8s/add endpointslice.yaml
+db/cmp backends backends.table
+k8s/add service.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
+
+#####
+
+-- services.table --
+Name          Source   PortNames  TrafficPolicy           Flags
+test/example  k8s      http=80    Local                   SourceRanges=192.168.2.0/24
+
+-- frontends.table --
+Address               Type         ServiceName   PortName   Status  Backends
+172.16.1.1:80/TCP     LoadBalancer test/example  http       Done    1.1.1.1:80/TCP, 2.2.2.2:80/TCP
+
+-- backends.table --
+Address             Instances            NodeName
+1.1.1.1:80/TCP      test/example (http)
+1.1.1.2:80/TCP      test/example (http)  other
+2.2.2.2:80/TCP      test/example (http)  testnode
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: example
+  namespace: test
+  annotations:
+    service.cilium.io/type: LoadBalancer
+    service.cilium.io/src-ranges-policy: allow
+    service.cilium.io/proxy-delegation: delegate-if-local
+spec:
+  type: LoadBalancer
+  internalTrafficPolicy: Local
+  externalTrafficPolicy: Local
+  loadBalancerSourceRanges:
+    - 192.168.2.0/24
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: example
+  name: example-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+# Backend with the node name matching the local node is used.
+- addresses:
+  - 2.2.2.2
+  nodeName: testnode
+
+# Another address but without the node name. The backend filtering will
+# see that proxy delegation annotation is set and will check if it matches
+# the node IP.
+- addresses:
+  - 1.1.1.1
+
+# This won't be used as it doesn't match node IP.
+- addresses:
+  - 1.1.1.2
+  nodeName: other
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=1.1.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=2.2.2.2:80/TCP STATE=active
+REV: ID=1 ADDR=172.16.1.1:80
+SRCRANGE: ID=1 CIDR=192.168.2.0/24
+SVC: ID=0 ADDR=172.16.1.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=1 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal+check source-range+delegate-if-local
+SVC: ID=1 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal+check source-range+delegate-if-local
+SVC: ID=1 ADDR=172.16.1.1:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal+check source-range+delegate-if-local

@@ -15,10 +15,6 @@ import (
 // registering the AMI is the final step in the creation process. For more
 // information about creating AMIs, see [Create an AMI from a snapshot]and [Create an instance-store backed AMI] in the Amazon EC2 User Guide.
 //
-// For Amazon EBS-backed instances, CreateImage creates and registers the AMI in a single
-// request, so you don't have to register the AMI yourself. We recommend that you
-// always use CreateImageunless you have a specific reason to use RegisterImage.
-//
 // If needed, you can deregister an AMI at any time. Any modifications you make to
 // an AMI backed by an instance store volume invalidates its registration. If you
 // make changes to an image, deregister the previous image and register the new
@@ -32,7 +28,7 @@ import (
 // mapping. If the snapshot is encrypted, or encryption by default is enabled, the
 // root volume of an instance launched from the AMI is encrypted.
 //
-// For more information, see [Create an AMI from a snapshot] and [Use encryption with Amazon EBS-backed AMIs] in the Amazon EC2 User Guide.
+// For more information, see [Create an AMI from a snapshot] and [Use encryption with EBS-backed AMIs] in the Amazon EC2 User Guide.
 //
 // # Amazon Web Services Marketplace product codes
 //
@@ -48,22 +44,22 @@ import (
 // PlatformDetails field on the new AMI. If the field is empty or doesn't match the
 // expected operating system code (for example, Windows, RedHat, SUSE, or SQL), the
 // AMI creation was unsuccessful, and you should discard the AMI and instead create
-// the AMI from an instance using CreateImage. For more information, see [Create an AMI from an instance] in the Amazon EC2
-// User Guide.
+// the AMI from an instance. For more information, see [Create an AMI from an instance]in the Amazon EC2 User
+// Guide.
 //
 // If you purchase a Reserved Instance to apply to an On-Demand Instance that was
 // launched from an AMI with a billing product code, make sure that the Reserved
 // Instance has the matching billing product code. If you purchase a Reserved
-// Instance without the matching billing product code, the Reserved Instance will
-// not be applied to the On-Demand Instance. For information about how to obtain
-// the platform details and billing information of an AMI, see [Understand AMI billing information]in the Amazon EC2
-// User Guide.
+// Instance without the matching billing product code, the Reserved Instance is not
+// applied to the On-Demand Instance. For information about how to obtain the
+// platform details and billing information of an AMI, see [Understand AMI billing information]in the Amazon EC2 User
+// Guide.
 //
+// [Use encryption with EBS-backed AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIEncryption.html
 // [Understand AMI billing information]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-billing-info.html
 // [Create an instance-store backed AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-instance-store.html
 // [Create an AMI from an instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html#how-to-create-ebs-ami
 // [Create an AMI from a snapshot]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html#creating-launching-ami-from-snapshot
-// [Use encryption with Amazon EBS-backed AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIEncryption.html
 func (c *Client) RegisterImage(ctx context.Context, params *RegisterImageInput, optFns ...func(*Options)) (*RegisterImageOutput, error) {
 	if params == nil {
 		params = &RegisterImageInput{}
@@ -103,11 +99,11 @@ type RegisterImageInput struct {
 	// If your account is not authorized to specify billing product codes, you can
 	// publish AMIs that include billable software and list them on the Amazon Web
 	// Services Marketplace. You must first register as a seller on the Amazon Web
-	// Services Marketplace. For more information, see [Getting started as a seller]and [AMI-based products] in the Amazon Web Services
+	// Services Marketplace. For more information, see [Getting started as an Amazon Web Services Marketplace seller]and [AMI-based products in Amazon Web Services Marketplace] in the Amazon Web Services
 	// Marketplace Seller Guide.
 	//
-	// [Getting started as a seller]: https://docs.aws.amazon.com/marketplace/latest/userguide/user-guide-for-sellers.html
-	// [AMI-based products]: https://docs.aws.amazon.com/marketplace/latest/userguide/ami-products.html
+	// [AMI-based products in Amazon Web Services Marketplace]: https://docs.aws.amazon.com/marketplace/latest/userguide/ami-products.html
+	// [Getting started as an Amazon Web Services Marketplace seller]: https://docs.aws.amazon.com/marketplace/latest/userguide/user-guide-for-sellers.html
 	BillingProducts []string
 
 	// The block device mapping entries.
@@ -118,9 +114,9 @@ type RegisterImageInput struct {
 	// If you create an AMI on an Outpost, then all backing snapshots must be on the
 	// same Outpost or in the Region of that Outpost. AMIs on an Outpost that include
 	// local snapshots can be used to launch instances on the same Outpost only. For
-	// more information, [Amazon EBS local snapshots on Outposts]in the Amazon EBS User Guide.
+	// more information, [Create AMIs from local snapshots]in the Amazon EBS User Guide.
 	//
-	// [Amazon EBS local snapshots on Outposts]: https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#ami
+	// [Create AMIs from local snapshots]: https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#ami
 	BlockDeviceMappings []types.BlockDeviceMapping
 
 	// The boot mode of the AMI. A value of uefi-preferred indicates that the AMI
@@ -129,9 +125,9 @@ type RegisterImageInput struct {
 	// The operating system contained in the AMI must be configured to support the
 	// specified boot mode.
 	//
-	// For more information, see [Boot modes] in the Amazon EC2 User Guide.
+	// For more information, see [Instance launch behavior with Amazon EC2 boot modes] in the Amazon EC2 User Guide.
 	//
-	// [Boot modes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-boot.html
+	// [Instance launch behavior with Amazon EC2 boot modes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-boot.html
 	BootMode types.BootModeValues
 
 	// A description for your AMI.
@@ -152,10 +148,10 @@ type RegisterImageInput struct {
 
 	// The full path to your AMI manifest in Amazon S3 storage. The specified bucket
 	// must have the aws-exec-read canned access control list (ACL) to ensure that it
-	// can be accessed by Amazon EC2. For more information, see [Canned ACLs]in the Amazon S3
+	// can be accessed by Amazon EC2. For more information, see [Canned ACL]in the Amazon S3
 	// Service Developer Guide.
 	//
-	// [Canned ACLs]: https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl
+	// [Canned ACL]: https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl
 	ImageLocation *string
 
 	// Set to v2.0 to indicate that IMDSv2 is specified in the AMI. Instances launched
@@ -206,9 +202,9 @@ type RegisterImageInput struct {
 
 	// Base64 representation of the non-volatile UEFI variable store. To retrieve the
 	// UEFI data, use the [GetInstanceUefiData]command. You can inspect and modify the UEFI data by using
-	// the [python-uefivars tool]on GitHub. For more information, see [UEFI Secure Boot] in the Amazon EC2 User Guide.
+	// the [python-uefivars tool]on GitHub. For more information, see [UEFI Secure Boot for Amazon EC2 instances] in the Amazon EC2 User Guide.
 	//
-	// [UEFI Secure Boot]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/uefi-secure-boot.html
+	// [UEFI Secure Boot for Amazon EC2 instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/uefi-secure-boot.html
 	// [GetInstanceUefiData]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceUefiData
 	// [python-uefivars tool]: https://github.com/awslabs/python-uefivars
 	UefiData *string
@@ -319,6 +315,36 @@ func (c *Client) addOperationRegisterImageMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

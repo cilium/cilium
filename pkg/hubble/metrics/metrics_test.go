@@ -4,7 +4,6 @@
 package metrics
 
 import (
-	"context"
 	"errors"
 	"io"
 	"log"
@@ -20,6 +19,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/util/workqueue"
@@ -57,8 +57,7 @@ func TestInitializedMetrics(t *testing.T) {
 }
 
 func SetUpTestMetricsServer(reg *prometheus.Registry) *httptest.Server {
-	srv := httptest.NewServer(nil)
-	InitMetricsServerHandler(srv.Config, reg, false)
+	srv := httptest.NewServer(ServerHandler(reg, false))
 	return srv
 }
 
@@ -90,7 +89,7 @@ func ConfigureAndFetchMetrics(t *testing.T, testName string, metricCfg []string,
 
 		var err error
 		for _, nh := range EnabledMetrics {
-			err = errors.Join(err, nh.Handler.ProcessFlow(context.TODO(), flow))
+			err = errors.Join(err, nh.Handler.ProcessFlow(t.Context(), flow))
 		}
 		require.NoError(t, err)
 
@@ -197,7 +196,7 @@ func TestHandlersUpdatedInDfpOnConfigChange(t *testing.T) {
 	cfg, _, _, err := watcher.readConfig()
 	require.NoError(t, err)
 
-	dfp.onConfigReload(context.TODO(), 0, *cfg)
+	dfp.onConfigReload(t.Context(), 0, *cfg)
 	assertHandlersInDfp(t, &dfp, cfg)
 
 	// Handlers: =drop, +flow
@@ -205,7 +204,7 @@ func TestHandlersUpdatedInDfpOnConfigChange(t *testing.T) {
 	cfg, _, _, err = watcher.readConfig()
 	require.NoError(t, err)
 
-	dfp.onConfigReload(context.TODO(), 0, *cfg)
+	dfp.onConfigReload(t.Context(), 0, *cfg)
 	assertHandlersInDfp(t, &dfp, cfg)
 
 	// Handlers: -drop, =flow
@@ -213,7 +212,7 @@ func TestHandlersUpdatedInDfpOnConfigChange(t *testing.T) {
 	cfg, _, _, err = watcher.readConfig()
 	require.NoError(t, err)
 
-	dfp.onConfigReload(context.TODO(), 0, *cfg)
+	dfp.onConfigReload(t.Context(), 0, *cfg)
 	assertHandlersInDfp(t, &dfp, cfg)
 
 	// Handlers: -drop, =flow+filter
@@ -221,7 +220,7 @@ func TestHandlersUpdatedInDfpOnConfigChange(t *testing.T) {
 	cfg, _, _, err = watcher.readConfig()
 	require.NoError(t, err)
 
-	dfp.onConfigReload(context.TODO(), 0, *cfg)
+	dfp.onConfigReload(t.Context(), 0, *cfg)
 	assertHandlersInDfp(t, &dfp, cfg)
 
 	// Handlers: =flow~filter
@@ -229,7 +228,7 @@ func TestHandlersUpdatedInDfpOnConfigChange(t *testing.T) {
 	cfg, _, _, err = watcher.readConfig()
 	require.NoError(t, err)
 
-	dfp.onConfigReload(context.TODO(), 0, *cfg)
+	dfp.onConfigReload(t.Context(), 0, *cfg)
 	assertHandlersInDfp(t, &dfp, cfg)
 }
 
@@ -251,7 +250,7 @@ func TestMetricReRegisterAndCollect(t *testing.T) {
 
 	reg := prometheus.NewPedanticRegistry()
 	dfp := DynamicFlowProcessor{registry: reg, logger: slog.Default()}
-	dfp.onConfigReload(context.TODO(), 0, *cfg)
+	dfp.onConfigReload(t.Context(), 0, *cfg)
 
 	flow1 := &pb.Flow{
 		EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
@@ -267,7 +266,7 @@ func TestMetricReRegisterAndCollect(t *testing.T) {
 		DropReasonDesc: pb.DropReason_POLICY_DENIED,
 	}
 
-	_, errs := dfp.OnDecodedFlow(context.TODO(), flow1)
+	_, errs := dfp.OnDecodedFlow(t.Context(), flow1)
 	assert.NoError(t, errs)
 
 	metricFamilies, err := reg.Gather()
@@ -280,7 +279,7 @@ func TestMetricReRegisterAndCollect(t *testing.T) {
 	cfg, _, _, err = watcher.readConfig()
 	require.NoError(t, err)
 
-	dfp.onConfigReload(context.TODO(), 0, *cfg)
+	dfp.onConfigReload(t.Context(), 0, *cfg)
 	assert.NoError(t, errs)
 
 	// The existing drop metrics should be removed after the handler is deregistered.
@@ -293,10 +292,10 @@ func TestMetricReRegisterAndCollect(t *testing.T) {
 	cfg, _, _, err = watcher.readConfig()
 	require.NoError(t, err)
 
-	dfp.onConfigReload(context.TODO(), 0, *cfg)
+	dfp.onConfigReload(t.Context(), 0, *cfg)
 	assert.NoError(t, errs)
 
-	_, errs = dfp.OnDecodedFlow(context.TODO(), flow1)
+	_, errs = dfp.OnDecodedFlow(t.Context(), flow1)
 	assert.NoError(t, errs)
 
 	metricFamilies, err = reg.Gather()
@@ -340,7 +339,7 @@ func ConfigureAndFetchDynamicMetrics(t *testing.T, testName string, exportedMetr
 		require.NoError(t, err)
 
 		dfp := DynamicFlowProcessor{registry: reg, logger: slog.Default()}
-		dfp.onConfigReload(context.TODO(), 0, *cfg)
+		dfp.onConfigReload(t.Context(), 0, *cfg)
 
 		flow1 := &pb.Flow{
 			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
@@ -356,7 +355,7 @@ func ConfigureAndFetchDynamicMetrics(t *testing.T, testName string, exportedMetr
 			DropReasonDesc: pb.DropReason_POLICY_DENIED,
 		}
 
-		_, errs := dfp.OnDecodedFlow(context.TODO(), flow1)
+		_, errs := dfp.OnDecodedFlow(t.Context(), flow1)
 		assert.NoError(t, errs)
 
 		resp, err := http.Get("http://" + srv.Listener.Addr().String() + "/metrics")
@@ -377,7 +376,7 @@ func TestHubbleServerWithDynamicMetrics(t *testing.T) {
 }
 
 func assertMetricsFromServer(t *testing.T, in io.Reader, exportedMetrics map[string][]string) {
-	var parser expfmt.TextParser
+	var parser = expfmt.NewTextParser(model.LegacyValidation)
 	mfMap, err := parser.TextToMetricFamilies(in)
 	if err != nil {
 		log.Fatal(err)

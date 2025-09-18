@@ -30,7 +30,7 @@ var (
 )
 
 // Test_PodCIDRAdvert validates pod IPv4/v6 subnet is advertised, withdrawn and modified on node addresses change.
-func Test_PodCIDRAdvert(t *testing.T) {
+func TestPrivilegedPodCIDRAdvert(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	// steps define order in which test is run. Note, this is different from table tests, in which each unit is
@@ -181,7 +181,7 @@ func Test_PodCIDRAdvert(t *testing.T) {
 }
 
 // Test_PodIPPoolAdvert validates pod ip pools are advertised to BGP peers.
-func Test_PodIPPoolAdvert(t *testing.T) {
+func TestPrivilegedPodIPPoolAdvert(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	// Steps define the order that tests are run. Note, this is different from table tests,
@@ -506,7 +506,7 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 }
 
 // Test_LBEgressAdvertisementWithLoadBalancerIP validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
-func Test_LBEgressAdvertisementWithLoadBalancerIP(t *testing.T) {
+func TestPrivilegedLBEgressAdvertisementWithLoadBalancerIP(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {
@@ -733,8 +733,8 @@ func Test_LBEgressAdvertisementWithLoadBalancerIP(t *testing.T) {
 	}
 }
 
-// Test_LBEgressAdvertisementWithClusterIP validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
-func Test_LBEgressAdvertisementWithClusterIP(t *testing.T) {
+// TestPrivilegedLBEgressAdvertisementWithClusterIP validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
+func TestPrivilegedLBEgressAdvertisementWithClusterIP(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {
@@ -934,7 +934,7 @@ func Test_LBEgressAdvertisementWithClusterIP(t *testing.T) {
 }
 
 // Test_LBEgressAdvertisementWithExternalIP validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
-func Test_LBEgressAdvertisementWithExternalIP(t *testing.T) {
+func TestPrivilegedLBEgressAdvertisementWithExternalIP(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {
@@ -1133,8 +1133,8 @@ func Test_LBEgressAdvertisementWithExternalIP(t *testing.T) {
 	}
 }
 
-// Test_AdvertisedPathAttributes validates optional path attributes in advertised paths.
-func Test_AdvertisedPathAttributes(t *testing.T) {
+// TestPrivilegedAdvertisedPathAttributes validates optional path attributes in advertised paths.
+func TestPrivilegedAdvertisedPathAttributes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {
@@ -1324,7 +1324,7 @@ func Test_AdvertisedPathAttributes(t *testing.T) {
 				if step.op == "add" {
 					err = ciliumTracker.Add(&lbPoolObj)
 				} else {
-					err = ciliumTracker.Update(v2alpha1.SchemeGroupVersion.WithResource("ciliumloadbalancerippool"), &lbPoolObj, "")
+					err = ciliumTracker.Update(v2.SchemeGroupVersion.WithResource("ciliumloadbalancerippool"), &lbPoolObj, "")
 				}
 				require.NoError(t, err, step.description)
 			}

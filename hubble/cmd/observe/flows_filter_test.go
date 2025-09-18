@@ -304,6 +304,36 @@ func TestFilterDispatch(t *testing.T) {
 }
 
 func TestFilterLeftRight(t *testing.T) {
+	// FIXME: this is ugly.
+	// Without this, we get the following error:
+	//
+	//	=== RUN   TestFilterLeftRight
+	//	flows_filter_test.go:321:
+	//	Error Trace:	/home/alperrin/go/src/github.com/cilium/cilium/hubble/cmd/observe/flows_filter_test.go:321
+	//	Error:      	Received unexpected error:
+	//	compact output format is not compatible with custom field mask
+	//	Test:       	TestFilterLeftRight
+	//	--- FAIL: TestFilterLeftRight (0.00s)
+	//
+	// Note the "compact output format is not compatible with custom field
+	// mask" error message although the test itself doesn't set a fieldmask.
+	// maskOpts.fieldMask has been set by the previous test func
+	// TestFilterDispatch because it calls handleFlowArgs. The first time
+	// handleFlowArgs is called, maskOpts.fieldMask is empty and set to the
+	// default fieldmask. Notably, it is not reset before TestFilterLeftRight.
+	// Then, when TestFilterLeftRight calls handleFlowArgs (i.e. the second
+	// time it is called) then maskOpts.fieldMask is non-empty and assumed to
+	// be a custom filter.
+	//
+	// TestFilterDispatch doesn't exhibit the problem because while the
+	// previous test TestTrailingNot calls handleFlowArgs it shortcut into an
+	// early error return, avoiding the fieldmask setting codepath. Tests after
+	// TestFilterType don't have the problem because they don't call
+	// handleFlowArgs.
+	//
+	// The underlying issue is using (and re-using) global variables.
+	maskOpts.fieldMask = nil
+
 	f := newFlowFilter()
 	cmd := newFlowsCmdWithFilter(viper.New(), f)
 
@@ -362,6 +392,8 @@ func TestFilterLeftRight(t *testing.T) {
 }
 
 func TestFilterType(t *testing.T) {
+	// FIXME: see comment in TestFilterLeftRight.
+	maskOpts.fieldMask = nil
 	f := newFlowFilter()
 	cmd := newFlowsCmdWithFilter(viper.New(), f)
 
@@ -386,7 +418,6 @@ func TestFilterType(t *testing.T) {
 		"-t", "agent",
 		"-t", "agent:3",
 		"-t", "agent:policy-updated",
-		"-t", "agent:service-deleted",
 	}))
 
 	require.NoError(t, handleFlowArgs(os.Stdout, f, false))
@@ -430,11 +461,6 @@ func TestFilterType(t *testing.T) {
 						Type:         monitorAPI.MessageTypeAgent,
 						MatchSubType: true,
 						SubType:      int32(monitorAPI.AgentNotifyPolicyUpdated),
-					},
-					{
-						Type:         monitorAPI.MessageTypeAgent,
-						MatchSubType: true,
-						SubType:      int32(monitorAPI.AgentNotifyServiceDeleted),
 					},
 				},
 			},
@@ -1096,6 +1122,55 @@ func TestCluster(t *testing.T) {
 			}
 			assert.Nil(t, f.blacklist)
 			diff := cmp.Diff(tc.filters, f.whitelist.flowFilters(), cmpopts.IgnoreUnexported(flowpb.FlowFilter{}))
+			if diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestIpTraceId(t *testing.T) {
+	tt := []struct {
+		name    string
+		flags   []string
+		filters []*flowpb.FlowFilter
+		err     string
+	}{
+		{
+			name:    "error",
+			flags:   []string{"--ip-trace-id", "0"},
+			filters: []*flowpb.FlowFilter{},
+			err:     "invalid --ip-trace-id value; must be greater than 0",
+		},
+		{
+			name:  "single",
+			flags: []string{"--ip-trace-id", "1"},
+			filters: []*flowpb.FlowFilter{
+				{IpTraceId: []uint64{1}},
+			},
+		},
+		{
+			name:  "multiple",
+			flags: []string{"--ip-trace-id", "1", "--ip-trace-id", "2"},
+			filters: []*flowpb.FlowFilter{
+				{IpTraceId: []uint64{1, 2}},
+			},
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFlowFilter()
+			cmd := newFlowsCmdWithFilter(viper.New(), f)
+			err := cmd.Flags().Parse(tc.flags)
+			if tc.err != "" {
+				require.Errorf(t, err, tc.err)
+				return
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Nil(t, f.blacklist)
+			got := f.whitelist.flowFilters()
+			diff := cmp.Diff(tc.filters, got, cmpopts.IgnoreUnexported(flowpb.FlowFilter{}))
 			if diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}

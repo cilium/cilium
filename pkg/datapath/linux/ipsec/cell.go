@@ -4,102 +4,114 @@
 package ipsec
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// The IPsec key custodian handles key-related initialisation tasks for the
-// ipsec subsystem. It's an incremental step towards a more encompassing
-// modularisation of the subsystem.
+// The IPsec agent handles key-related initialisation tasks for the ipsec subsystem.
 var Cell = cell.Module(
-	"ipsec-key-custodian",
+	"ipsec-agent",
 	"Handles initial key setup and knows the key size",
 
-	cell.Provide(newKeyCustodian),
+	cell.Config(defaultUserConfig),
+	cell.Provide(newIPsecAgent, newIPsecConfig),
+	cell.ProvidePrivate(buildConfigFrom),
 )
 
-type custodianParameters struct {
+type params struct {
 	cell.In
 
+	Lifecycle cell.Lifecycle
+
 	Log            *slog.Logger
-	Health         cell.Health
 	JobGroup       job.Group
 	LocalNodeStore *node.LocalNodeStore
+	Config         Config
+	EncryptMap     encrypt.EncryptMap
 }
 
-func newKeyCustodian(lc cell.Lifecycle, p custodianParameters) types.IPsecKeyCustodian {
-	ipsec := &keyCustodian{
-		log:       p.Log,
-		localNode: p.LocalNodeStore,
-		jobs:      p.JobGroup,
+// newIPsecAgent returns the [*Agent] as an interface [types.IPsecAgent].
+func newIPsecAgent(p params) types.IPsecAgent {
+	return newAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore, p.Config, p.EncryptMap)
+}
+
+// newIPsecAgent returns the [Config] as an interface [types.IPsecConfig].
+func newIPsecConfig(c Config) types.IPsecConfig {
+	return c
+}
+
+// buildConfigFrom creates the [Config] from [UserConfig] and [option.DaemonConfig].
+func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
+	return Config{
+		UserConfig: uc,
+
+		EncryptNode: dc.EncryptNode,
 	}
-
-	lc.Append(ipsec)
-	return ipsec
 }
 
-func (kc *keyCustodian) Start(cell.HookContext) error {
-	if !option.Config.EncryptNode {
-		DeleteIPsecEncryptRoute(kc.log)
-	}
-	if !option.Config.EnableIPSec {
-		return nil
-	}
-
-	var err error
-	kc.authKeySize, kc.spi, err = LoadIPSecKeysFile(kc.log, option.Config.IPSecKeyFile)
-	if err != nil {
-		return err
-	}
-	if err := SetIPSecSPI(kc.log, kc.spi); err != nil {
-		return err
-	}
-
-	kc.localNode.Update(func(n *node.LocalNode) {
-		n.EncryptionKey = kc.spi
-	})
-
-	return nil
+var defaultUserConfig = UserConfig{
+	EnableIPsec:                              false,
+	EnableIPsecKeyWatcher:                    true,
+	EnableIPsecXfrmStateCaching:              true,
+	EnableIPsecEncryptedOverlay:              false,
+	UseCiliumInternalIPForIPsec:              false,
+	DNSProxyInsecureSkipTransparentModeCheck: false,
+	IPsecKeyFile:                             "",
+	IPsecKeyRotationDuration:                 5 * time.Minute,
 }
 
-// StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
-func (kc *keyCustodian) StartBackgroundJobs(handler types.NodeHandler) error {
-	if option.Config.EnableIPSec {
-		if err := StartKeyfileWatcher(kc.log, kc.jobs, option.Config.IPSecKeyFile, handler); err != nil {
-			return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
-		}
-
-		kc.jobs.Add(job.Timer("stale-key-reclaimer", staleKeyReclaimer{kc.log}.onTimer, time.Minute))
-	}
-
-	return nil
+type UserConfig struct {
+	EnableIPsec                              bool
+	EnableIPsecKeyWatcher                    bool
+	EnableIPsecXfrmStateCaching              bool
+	EnableIPsecEncryptedOverlay              bool
+	UseCiliumInternalIPForIPsec              bool
+	DNSProxyInsecureSkipTransparentModeCheck bool
+	IPsecKeyFile                             string
+	IPsecKeyRotationDuration                 time.Duration
 }
 
-func (kc *keyCustodian) Stop(cell.HookContext) error {
-	return nil
+func (def UserConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool(types.EnableIPSec, def.EnableIPsec, "Enable IPsec")
+	flags.Bool(types.EnableIPsecKeyWatcher, def.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
+	flags.Bool(types.EnableIPSecXfrmStateCaching, def.EnableIPsecXfrmStateCaching, "Enable XfrmState cache for IPSec. Significantly reduces CPU usage in large clusters.")
+	flags.MarkHidden(types.EnableIPSecXfrmStateCaching)
+	flags.Bool(types.EnableIPSecEncryptedOverlay, def.EnableIPsecEncryptedOverlay, "Enable IPsec encrypted overlay. If enabled tunnel traffic will be encrypted before leaving the host. Requires ipsec and tunnel mode vxlan to be enabled.")
+	flags.Bool(types.UseCiliumInternalIPForIPsec, def.UseCiliumInternalIPForIPsec, "Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation")
+	flags.MarkHidden(types.UseCiliumInternalIPForIPsec)
+	flags.Bool(types.DNSProxyInsecureSkipTransparentModeCheck, def.DNSProxyInsecureSkipTransparentModeCheck, "Allows DNS proxy transparent mode to be disabled even if encryption is enabled. Enabling this flag and disabling DNS proxy transparent mode will cause proxied DNS traffic to leave the node unencrypted.")
+	flags.MarkHidden(types.DNSProxyInsecureSkipTransparentModeCheck)
+	flags.String(types.IPSecKeyFile, def.IPsecKeyFile, "Path to IPsec key file")
+	flags.Duration(types.IPsecKeyRotationDuration, def.IPsecKeyRotationDuration, "Maximum duration of the IPsec key rotation. The previous key will be removed after that delay.")
 }
 
-func (kc *keyCustodian) AuthKeySize() int {
-	return kc.authKeySize
+type Config struct {
+	UserConfig
+
+	EncryptNode bool
 }
 
-func (kc *keyCustodian) SPI() uint8 {
-	return kc.spi
+func (c Config) Enabled() bool {
+	return c.EnableIPsec
 }
 
-type keyCustodian struct {
-	log       *slog.Logger
-	localNode *node.LocalNodeStore
-	jobs      job.Group
+func (c Config) EncryptedOverlayEnabled() bool {
+	return c.EnableIPsecEncryptedOverlay
+}
 
-	authKeySize int
-	spi         uint8
+func (c Config) UseCiliumInternalIP() bool {
+	return c.UseCiliumInternalIPForIPsec
+}
+
+func (c Config) DNSProxyInsecureSkipTransparentModeCheckEnabled() bool {
+	return c.DNSProxyInsecureSkipTransparentModeCheck
 }

@@ -12,11 +12,10 @@
 #define IDENTITY_MAX 255
 #endif
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
 #include <lib/overloadable.h>
 #include <lib/clustermesh.h>
+#include "common.h"
 
 #define CLUSTER_LOCAL_IDENTITY 0xAAAA
 #define TEST_CLUSTER_ID 0xFFu

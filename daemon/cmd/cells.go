@@ -4,15 +4,21 @@
 package cmd
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"google.golang.org/grpc"
+
+	"github.com/cilium/cilium/pkg/healthconfig"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/daemon/healthz"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
@@ -25,35 +31,36 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
+	debugapi "github.com/cilium/cilium/pkg/debug/api"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/driftchecker"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/dynamiclifecycle"
 	"github.com/cilium/cilium/pkg/egressgateway"
-	"github.com/cilium/cilium/pkg/endpoint"
-	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
-	"github.com/cilium/cilium/pkg/endpointcleanup"
-	"github.com/cilium/cilium/pkg/endpointmanager"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/cell"
 	"github.com/cilium/cilium/pkg/envoy"
 	fqdn "github.com/cilium/cilium/pkg/fqdn/cell"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
 	"github.com/cilium/cilium/pkg/gops"
+	"github.com/cilium/cilium/pkg/health"
 	hubble "github.com/cilium/cilium/pkg/hubble/cell"
 	identity "github.com/cilium/cilium/pkg/identity/cell"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/cell"
-	"github.com/cilium/cilium/pkg/k8s"
+	ipmasq "github.com/cilium/cilium/pkg/ipmasq/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/hostfirewallbypass"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
-	loadbalancer_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental"
-	redirectpolicy_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental/redirectpolicy"
+	loadbalancer_cell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	ipmasqmaps "github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	natStats "github.com/cilium/cilium/pkg/maps/nat/stats"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
@@ -61,6 +68,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics/features"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	policy "github.com/cilium/cilium/pkg/policy/cell"
@@ -68,11 +76,11 @@ import (
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/recorder"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
-	"github.com/cilium/cilium/pkg/service"
+	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 var (
@@ -101,10 +109,25 @@ var (
 		// Provides Clientset, API for accessing Kubernetes objects.
 		k8sClient.Cell,
 
+		// Provides optional configuration callback to bypass
+		// host firewall when accessing Kubernetes objects.
+		hostfirewallbypass.Cell,
+
+		// Provide the logic to map DNS names matching Kubernetes services to the
+		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
+		// and clustermesh. Note that it depends on k8s.ServiceResource, which is
+		// currently provided as part of the ControlPlane module.
+		dial.ServiceResolverCell,
+
+		// Provides the Client to access the KVStore.
+		cell.Provide(kvstoreExtraOptions),
+		kvstore.Cell(kvstore.DisabledBackendName),
+		cell.Invoke(kvstoreLocksGC),
+
 		cni.Cell,
 
 		// Provide the modular metrics registry, metric HTTP server and legacy metrics cell.
-		metrics.Cell,
+		metrics.AgentCell,
 
 		// Provides cilium_datapath_drop/forward Prometheus metrics.
 		metricsmap.Cell,
@@ -119,20 +142,13 @@ var (
 		server.Cell,
 		cell.Invoke(configureAPIServer),
 
-		// Cilium API handlers
-		cell.Provide(ciliumAPIHandlers),
-
-		// Processes endpoint deletions that occurred while the agent was down.
-		// This starts before the API server as ciliumAPIHandlers() depends on
-		// the 'deletionQueue' provided by this cell.
-		deletionQueueCell,
-
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,
 
 		// Provide CRD resource names for 'k8sSynced.CRDSyncCell' below.
 		cell.Provide(func() k8sSynced.CRDSyncResourceNames { return k8sSynced.AgentCRDResourceNames() }),
+
 		// CRDSyncCell provides a promise that is resolved as soon as CRDs used by the
 		// agent have k8sSynced.
 		// Allows cells to wait for CRDs before trying to list Cilium resources.
@@ -140,11 +156,10 @@ var (
 		k8sSynced.CRDSyncCell,
 
 		// Shell for inspecting the agent. Listens on the 'shell.sock' UNIX socket.
-		shellCell,
+		shell.Cell,
 
-		// DNSProxy provides the DefaultDNSProxy singleton which is used by different
-		// packages.
-		defaultdns.Cell,
+		// Cilium Agent Healthz endpoints (agent, kubeproxy, ...)
+		healthz.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
@@ -181,18 +196,16 @@ var (
 		// be synced
 		k8sSynced.Cell,
 
-		// EndpointManager maintains a collection of the locally running endpoints.
-		endpointmanager.Cell,
-
-		// EndpointCreator helps creating endpoints
-		endpointcreator.Cell,
-
-		// Register the startup procedure to remove stale CiliumEndpoints referencing pods no longer
-		// managed by Cilium.
-		endpointcleanup.Cell,
+		// Endpoint cell provides the Endpoint modules.
+		endpoint.Cell,
 
 		// NodeManager maintains a collection of other nodes in the cluster.
 		nodeManager.Cell,
+
+		// NodeNeighborDiscovery is a node handler that subscribes to the NodeManager
+		// and ensures node IPs are "forwardable" by adding them to the forwardable IP table.
+		// The neighbor subsystem will create neighbor entries for these forwardable IPs.
+		neighbordiscovery.Cell,
 
 		// Certificate manager provides an API for retrieving secrets and certificate in the form of TLS contexts.
 		certificatemanager.Cell,
@@ -209,15 +222,8 @@ var (
 		// Maglev table computtations
 		maglev.Cell,
 
-		// Experimental control-plane for configuring service load-balancing.
-		loadbalancer_experimental.Cell,
-
-		// Experimental control-plane implementation for local redirect policies.
-		redirectpolicy_experimental.Cell,
-
-		// Service is a datapath service handler. Its main responsibility is to reflect
-		// service-related changes into BPF maps used by datapath BPF programs.
-		service.Cell,
+		// Control-plane for configuring service load-balancing
+		loadbalancer_cell.Cell,
 
 		// Proxy provides the proxy port allocation and related datapath coordination and
 		// makes different L7 proxies (Envoy, DNS proxy) usable to Cilium endpoints through
@@ -256,8 +262,14 @@ var (
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
 
-		// ServiceCache holds the list of known services correlated with the matching endpoints.
-		k8s.ServiceCacheCell,
+		// Provides the BPF ip-masq-agent maps
+		ipmasqmaps.Cell,
+
+		// Provides the BPF ip-masq-agent implementation, which is responsible for managing IP masquerading rules
+		ipmasq.Cell,
+
+		// Provides KPRConfig
+		kpr.Cell,
 
 		// Provides PolicyRepository (List of policy rules)
 		policy.Cell,
@@ -271,17 +283,12 @@ var (
 
 		// ClusterMesh is the Cilium's multicluster implementation.
 		cell.Config(cmtypes.DefaultClusterInfo),
+		cell.Config(cmtypes.DefaultPolicyConfig),
 		clustermesh.Cell,
 
 		// L2announcer resolves l2announcement policies, services, node labels and devices into a list of IPs+netdevs
 		// which need to be announced on the local network.
 		l2announcer.Cell,
-
-		// RegeneratorCell provides extra options and utilities for endpoints regeneration.
-		endpoint.RegeneratorCell,
-
-		// Redirect policy manages the Local Redirect Policies.
-		redirectpolicy.Cell,
 
 		// The node discovery cell provides the local node configuration and node discovery
 		// which communicate changes in local node information to the API server or KVStore.
@@ -294,19 +301,11 @@ var (
 		// NAT stats provides stat computation and tables for NAT map bpf maps.
 		natStats.Cell,
 
-		// Provide the logic to map DNS names matching Kubernetes services to the
-		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
-		// and clustermesh.
-		dial.ServiceResolverCell,
-
 		// Provide resource groups to watch.
 		cell.Provide(func() watchers.ResourceGroupFunc { return allResourceGroups }),
 
 		// K8s Watcher provides the core k8s watchers
 		watchers.Cell,
-
-		// Provide pcap recorder
-		recorder.Cell,
 
 		// Provides a wrapper of the cilium config that can be watched dynamically
 		dynamicconfig.Cell,
@@ -332,6 +331,20 @@ var (
 
 		// FQDN rules cell provides the FQDN proxy functionality.
 		fqdn.Cell,
+
+		// Cilium health infrastructure (host and endpoint connectivity)
+		health.Cell,
+
+		// Cilium health config
+		healthconfig.Cell,
+
+		// Cilium Status Collector
+		status.Cell,
+
+		// Cilium Debuginfo API
+		debugapi.Cell,
+
+		svcrouteconfig.Cell,
 	)
 )
 
@@ -371,31 +384,23 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.
 }
 
 var pprofConfig = pprof.Config{
-	Pprof:        false,
-	PprofAddress: option.PprofAddressAgent,
-	PprofPort:    option.PprofPortAgent,
+	Pprof:                     false,
+	PprofAddress:              option.PprofAddressAgent,
+	PprofPort:                 option.PprofPortAgent,
+	PprofMutexProfileFraction: 0,
+	PprofBlockProfileRate:     0,
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
 // which the Cilium agent watches to implement CNI functionality.
 func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration) (resourceGroups, waitForCachesOnly []string) {
 	k8sGroups := []string{
-		// To perform the service translation and have the BPF LB datapath
-		// with the right service -> backend (k8s endpoints) translation.
-		resources.K8sAPIGroupServiceV1Core,
 		// Pods can contain labels which are essential for endpoints
 		// being restored to have the right identity.
 		resources.K8sAPIGroupPodV1Core,
 		// To perform the service translation and have the BPF LB datapath
 		// with the right service -> backend (k8s endpoints) translation.
 		resources.K8sAPIGroupEndpointSliceOrEndpoint,
-	}
-
-	if option.NetworkPolicyEnabled(option.Config) {
-		// Namespaces can contain labels which are essential for
-		// endpoints being restored to have the right identity.
-		// Namespaces are only used when network policies are enabled.
-		k8sGroups = append(k8sGroups, resources.K8sAPIGroupNamespaceV1Core)
 	}
 
 	if cfg.K8sNetworkPolicyEnabled() {
@@ -410,4 +415,40 @@ func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration) (
 	waitForCachesOnly = append(waitForCachesOnly, waitOnlyList...)
 
 	return append(k8sGroups, ciliumGroups...), waitForCachesOnly
+}
+
+// kvstoreExtraOptions provides the extra options to initialize the kvstore client.
+func kvstoreExtraOptions(in struct {
+	cell.In
+
+	Logger *slog.Logger
+
+	NodeManager nodeManager.NodeManager
+	ClientSet   k8sClient.Clientset
+	Resolver    *dial.ServiceResolver
+}) (kvstore.ExtraOptions, kvstore.BootstrapStat) {
+	goopts := kvstore.ExtraOptions{
+		ClusterSizeDependantInterval: in.NodeManager.ClusterSizeDependantInterval,
+	}
+
+	// If K8s is enabled we can do the service translation automagically by
+	// looking at services from k8s and retrieve the service IP from that.
+	// This makes cilium to not depend on kube dns to interact with etcd
+	if in.ClientSet.IsEnabled() {
+		goopts.DialOption = []grpc.DialOption{
+			grpc.WithContextDialer(dial.NewContextDialer(in.Logger, in.Resolver)),
+		}
+	}
+
+	return goopts, &bootstrapStats.kvstore
+}
+
+// kvstoreLocksGC registers the kvstore locks GC logic.
+func kvstoreLocksGC(logger *slog.Logger, jg job.Group, client kvstore.Client) {
+	if client.IsEnabled() {
+		jg.Add(job.Timer("kvstore-locks-gc", func(ctx context.Context) error {
+			kvstore.RunLockGC(logger)
+			return nil
+		}, defaults.KVStoreStaleLockTimeout))
+	}
 }

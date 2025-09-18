@@ -14,17 +14,20 @@ import (
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
-	"github.com/cilium/cilium/pkg/datapath/garp"
+	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
-	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy/api"
 	k8s2 "github.com/cilium/cilium/pkg/policy/k8s"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var (
@@ -44,16 +47,16 @@ var Cell = cell.Module(
 		func(m Metrics) featureMetrics {
 			return m
 		},
-		func(m Metrics) api.PolicyMetrics {
+		func(m Metrics) policytypes.PolicyMetrics {
 			return m
 		},
 		func(m Metrics) redirectpolicy.LRPMetrics {
 			return m
 		},
-		func(m Metrics) k8s.SVCMetrics {
+		func(m Metrics) reflectors.SVCMetrics {
 			return m
 		},
-		func(m Metrics) ciliumenvoyconfig.CECMetrics {
+		func(m Metrics) ciliumenvoyconfig.FeatureMetrics {
 			return m
 		},
 		func(m Metrics) k8s2.CNPMetrics {
@@ -81,13 +84,17 @@ type featuresParams struct {
 	ConfigPromise promise.Promise[*option.DaemonConfig]
 	Metrics       featureMetrics
 
+	LBConfig            loadbalancer.Config
+	KPRConfig           kpr.KPRConfig
 	TunnelConfig        tunnel.Config
 	CNIConfigManager    cni.CNIConfigManager
 	MutualAuth          auth.MeshAuthConfig
 	BandwidthManager    types.BandwidthManager
 	BigTCP              types.BigTCPConfig
-	L2PodAnnouncement   garp.L2PodAnnouncementConfig
+	L2PodAnnouncement   gneigh.L2PodAnnouncementConfig
 	DynamicConfigSource dynamicconfig.ConfigSource
+	WgConfig            wgTypes.WireguardConfig
+	IPsecConfig         types.IPsecConfig
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.EncapProtocol {

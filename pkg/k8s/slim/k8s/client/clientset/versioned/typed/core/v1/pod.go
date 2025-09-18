@@ -35,6 +35,7 @@ type PodInterface interface {
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.Pod, err error)
 	UpdateEphemeralContainers(ctx context.Context, podName string, pod *corev1.Pod, opts metav1.UpdateOptions) (*corev1.Pod, error)
+	UpdateResize(ctx context.Context, podName string, pod *corev1.Pod, opts metav1.UpdateOptions) (*corev1.Pod, error)
 
 	PodExpansion
 }
@@ -66,6 +67,21 @@ func (c *pods) UpdateEphemeralContainers(ctx context.Context, podName string, po
 		Resource("pods").
 		Name(podName).
 		SubResource("ephemeralcontainers").
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(pod).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// UpdateResize takes the top resource name and the representation of a pod and updates it. Returns the server's representation of the pod, and an error, if there is any.
+func (c *pods) UpdateResize(ctx context.Context, podName string, pod *corev1.Pod, opts metav1.UpdateOptions) (result *corev1.Pod, err error) {
+	result = &corev1.Pod{}
+	err = c.GetClient().Put().
+		Namespace(c.GetNamespace()).
+		Resource("pods").
+		Name(podName).
+		SubResource("resize").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(pod).
 		Do(ctx).

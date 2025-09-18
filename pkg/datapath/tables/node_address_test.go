@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
@@ -18,8 +19,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go4.org/netipx"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/node"
@@ -59,16 +60,16 @@ func TestNodeAddressConfig(t *testing.T) {
 var (
 	testNodeIPv4           = netip.MustParseAddr("172.16.0.1")
 	testNodeIPv6           = netip.MustParseAddr("2222::1")
-	ciliumHostIP           = net.ParseIP("9.9.9.9")
-	ciliumHostIPLinkScoped = net.ParseIP("9.9.9.8")
+	ciliumHostIP           = netip.MustParseAddr("9.9.9.9")
+	ciliumHostIPLinkScoped = netip.MustParseAddr("9.9.9.8")
 )
 
 var nodeAddressTests = []struct {
 	name         string
 	addrs        []DeviceAddress // Addresses to add to the "test" device
-	wantAddrs    []net.IP
-	wantPrimary  []net.IP
-	wantNodePort []net.IP
+	wantAddrs    []netip.Addr
+	wantPrimary  []netip.Addr
+	wantNodePort []netip.Addr
 }{
 	{
 		name: "ipv4 simple",
@@ -78,17 +79,17 @@ var nodeAddressTests = []struct {
 				Scope: RT_SCOPE_SITE,
 			},
 		},
-		wantAddrs: []net.IP{
+		wantAddrs: []netip.Addr{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
-			net.ParseIP("10.0.0.1"),
+			netip.MustParseAddr("10.0.0.1"),
 		},
-		wantPrimary: []net.IP{
+		wantPrimary: []netip.Addr{
 			ciliumHostIP,
-			net.ParseIP("10.0.0.1"),
+			netip.MustParseAddr("10.0.0.1"),
 		},
-		wantNodePort: []net.IP{
-			net.ParseIP("10.0.0.1"),
+		wantNodePort: []netip.Addr{
+			netip.MustParseAddr("10.0.0.1"),
 		},
 	},
 	{
@@ -99,17 +100,17 @@ var nodeAddressTests = []struct {
 				Scope: RT_SCOPE_SITE,
 			},
 		},
-		wantAddrs: []net.IP{
+		wantAddrs: []netip.Addr{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
-			net.ParseIP("2001:db8::1"),
+			netip.MustParseAddr("2001:db8::1"),
 		},
-		wantPrimary: []net.IP{
+		wantPrimary: []netip.Addr{
 			ciliumHostIP,
-			net.ParseIP("2001:db8::1"),
+			netip.MustParseAddr("2001:db8::1"),
 		},
-		wantNodePort: []net.IP{
-			net.ParseIP("2001:db8::1"),
+		wantNodePort: []netip.Addr{
+			netip.MustParseAddr("2001:db8::1"),
 		},
 	},
 	{
@@ -125,20 +126,20 @@ var nodeAddressTests = []struct {
 			},
 		},
 
-		wantAddrs: []net.IP{
+		wantAddrs: []netip.Addr{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
-			net.ParseIP("2001:db8::1"),
-			net.ParseIP("10.0.0.1"),
+			netip.MustParseAddr("2001:db8::1"),
+			netip.MustParseAddr("10.0.0.1"),
 		},
-		wantPrimary: []net.IP{
+		wantPrimary: []netip.Addr{
 			ciliumHostIP,
-			net.ParseIP("2001:db8::1"),
-			net.ParseIP("10.0.0.1"),
+			netip.MustParseAddr("2001:db8::1"),
+			netip.MustParseAddr("10.0.0.1"),
 		},
-		wantNodePort: []net.IP{
-			net.ParseIP("10.0.0.1"),
-			net.ParseIP("2001:db8::1"),
+		wantNodePort: []netip.Addr{
+			netip.MustParseAddr("10.0.0.1"),
+			netip.MustParseAddr("2001:db8::1"),
 		},
 	},
 	{
@@ -162,19 +163,19 @@ var nodeAddressTests = []struct {
 
 		// The default AddressMaxScope is set to LINK-1, so addresses with
 		// scope LINK or above are ignored (except for cilium_host addresses)
-		wantAddrs: []net.IP{
+		wantAddrs: []netip.Addr{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
-			net.ParseIP("10.0.1.1"),
+			netip.MustParseAddr("10.0.1.1"),
 		},
 
-		wantPrimary: []net.IP{
+		wantPrimary: []netip.Addr{
 			ciliumHostIP,
-			net.ParseIP("10.0.1.1"),
+			netip.MustParseAddr("10.0.1.1"),
 		},
 
-		wantNodePort: []net.IP{
-			net.ParseIP("10.0.1.1"),
+		wantNodePort: []netip.Addr{
+			netip.MustParseAddr("10.0.1.1"),
 		},
 	},
 
@@ -196,21 +197,21 @@ var nodeAddressTests = []struct {
 			},
 		},
 
-		wantAddrs: []net.IP{
+		wantAddrs: []netip.Addr{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
-			net.ParseIP("10.0.0.1"),
-			net.ParseIP("10.0.0.2"),
-			net.ParseIP("1.1.1.1"),
+			netip.MustParseAddr("10.0.0.1"),
+			netip.MustParseAddr("10.0.0.2"),
+			netip.MustParseAddr("1.1.1.1"),
 		},
 
-		wantPrimary: []net.IP{
+		wantPrimary: []netip.Addr{
 			ciliumHostIP,
-			net.ParseIP("1.1.1.1"),
+			netip.MustParseAddr("1.1.1.1"),
 		},
 
-		wantNodePort: []net.IP{
-			net.ParseIP("10.0.0.1"),
+		wantNodePort: []netip.Addr{
+			netip.MustParseAddr("10.0.0.1"),
 		},
 	},
 	{
@@ -231,21 +232,21 @@ var nodeAddressTests = []struct {
 			},
 		},
 
-		wantAddrs: []net.IP{
+		wantAddrs: []netip.Addr{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
-			net.ParseIP("2001:db8::1"),
-			net.ParseIP("2600:beef::2"),
-			net.ParseIP("2600:beef::3"),
+			netip.MustParseAddr("2001:db8::1"),
+			netip.MustParseAddr("2600:beef::2"),
+			netip.MustParseAddr("2600:beef::3"),
 		},
 
-		wantPrimary: []net.IP{
+		wantPrimary: []netip.Addr{
 			ciliumHostIP,
-			net.ParseIP("2600:beef::3"),
+			netip.MustParseAddr("2600:beef::3"),
 		},
 
-		wantNodePort: []net.IP{
-			net.ParseIP("2001:db8::1"),
+		wantNodePort: []netip.Addr{
+			netip.MustParseAddr("2001:db8::1"),
 		},
 	},
 
@@ -274,25 +275,25 @@ var nodeAddressTests = []struct {
 			},
 		},
 
-		wantAddrs: []net.IP{
+		wantAddrs: []netip.Addr{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
-			net.ParseIP("10.0.0.1"),
-			net.ParseIP("1.1.1.1"),
-			net.ParseIP("2001:db8::1"),
-			testNodeIPv4.AsSlice(),
-			testNodeIPv6.AsSlice(),
+			netip.MustParseAddr("10.0.0.1"),
+			netip.MustParseAddr("1.1.1.1"),
+			netip.MustParseAddr("2001:db8::1"),
+			testNodeIPv4,
+			testNodeIPv6,
 		},
 
-		wantPrimary: []net.IP{
+		wantPrimary: []netip.Addr{
 			ciliumHostIP,
-			testNodeIPv4.AsSlice(),
-			testNodeIPv6.AsSlice(),
+			testNodeIPv4,
+			testNodeIPv6,
 		},
 
-		wantNodePort: []net.IP{
-			testNodeIPv4.AsSlice(),
-			testNodeIPv6.AsSlice(),
+		wantNodePort: []netip.Addr{
+			testNodeIPv4,
+			testNodeIPv6,
 		},
 	},
 }
@@ -311,8 +312,8 @@ func TestNodeAddress(t *testing.T) {
 		Name:  "cilium_host",
 		Flags: net.FlagUp,
 		Addrs: []DeviceAddress{
-			{Addr: netipx.MustFromStdIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
-			{Addr: netipx.MustFromStdIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
+			{Addr: ciliumHostIP, Scope: RT_SCOPE_UNIVERSE},
+			{Addr: ciliumHostIPLinkScoped, Scope: RT_SCOPE_LINK},
 		},
 		Selected: false,
 	})
@@ -356,24 +357,24 @@ func TestNodeAddress(t *testing.T) {
 
 			iter := nodeAddrs.All(db.ReadTxn())
 			addrs := statedb.Collect(iter)
-			local := []string{}
-			nodePort := []string{}
-			primary := []string{}
+			local := []netip.Addr{}
+			nodePort := []netip.Addr{}
+			primary := []netip.Addr{}
 			for _, addr := range addrs {
 				if addr.DeviceName == WildcardDeviceName {
 					continue
 				}
-				local = append(local, addr.Addr.String())
+				local = append(local, addr.Addr)
 				if addr.NodePort {
-					nodePort = append(nodePort, addr.Addr.String())
+					nodePort = append(nodePort, addr.Addr)
 				}
 				if addr.Primary {
-					primary = append(primary, addr.Addr.String())
+					primary = append(primary, addr.Addr)
 				}
 			}
-			assert.ElementsMatch(t, local, ipStrings(tt.wantAddrs), "Addresses do not match")
-			assert.ElementsMatch(t, nodePort, ipStrings(tt.wantNodePort), "NodePort addresses do not match")
-			assert.ElementsMatch(t, primary, ipStrings(tt.wantPrimary), "Primary addresses do not match")
+			assert.ElementsMatch(t, local, tt.wantAddrs, "Addresses do not match")
+			assert.ElementsMatch(t, nodePort, tt.wantNodePort, "NodePort addresses do not match")
+			assert.ElementsMatch(t, primary, tt.wantPrimary, "Primary addresses do not match")
 			assertOnePrimaryPerDevice(t, addrs)
 
 		})
@@ -408,9 +409,9 @@ func TestNodeAddressHostDevice(t *testing.T) {
 		Flags: net.FlagUp,
 		Addrs: []DeviceAddress{
 			// <SITE
-			{Addr: netipx.MustFromStdIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: ciliumHostIP, Scope: RT_SCOPE_UNIVERSE},
 			// >SITE, but included
-			{Addr: netipx.MustFromStdIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
+			{Addr: ciliumHostIPLinkScoped, Scope: RT_SCOPE_LINK},
 			// >SITE, skipped
 			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_HOST},
 		},
@@ -488,9 +489,9 @@ var nodeAddressWhitelistTests = []struct {
 	name         string
 	cidrs        string          // --nodeport-addresses
 	addrs        []DeviceAddress // Addresses to add to the "test" device
-	wantLocal    []net.IP        // e.g. LocalAddresses()
-	wantNodePort []net.IP        // e.g. LoadBalancerNodeAddresses()
-	wantFallback []net.IP        // Fallback addresses, e.g. addresses of "*" device
+	wantLocal    []netip.Addr    // e.g. LocalAddresses()
+	wantNodePort []netip.Addr    // e.g. LoadBalancerNodeAddresses()
+	wantFallback []netip.Addr    // Fallback addresses, e.g. addresses of "*" device
 }{
 	{
 		name:  "ipv4",
@@ -505,17 +506,17 @@ var nodeAddressWhitelistTests = []struct {
 				Scope: RT_SCOPE_SITE,
 			},
 		},
-		wantLocal: []net.IP{
+		wantLocal: []netip.Addr{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
-			net.ParseIP("10.0.0.1"),
-			net.ParseIP("11.0.0.1"),
+			netip.MustParseAddr("10.0.0.1"),
+			netip.MustParseAddr("11.0.0.1"),
 		},
-		wantNodePort: []net.IP{
-			net.ParseIP("10.0.0.1"),
+		wantNodePort: []netip.Addr{
+			netip.MustParseAddr("10.0.0.1"),
 		},
-		wantFallback: []net.IP{
-			net.ParseIP("11.0.0.1"), // public over private
+		wantFallback: []netip.Addr{
+			netip.MustParseAddr("11.0.0.1"), // public over private
 		},
 	},
 	{
@@ -531,17 +532,17 @@ var nodeAddressWhitelistTests = []struct {
 				Scope: RT_SCOPE_SITE,
 			},
 		},
-		wantLocal: []net.IP{
+		wantLocal: []netip.Addr{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
-			net.ParseIP("2001:db8::1"),
-			net.ParseIP("2600:beef::2"),
+			netip.MustParseAddr("2001:db8::1"),
+			netip.MustParseAddr("2600:beef::2"),
 		},
-		wantNodePort: []net.IP{
-			net.ParseIP("2001:db8::1"),
+		wantNodePort: []netip.Addr{
+			netip.MustParseAddr("2001:db8::1"),
 		},
-		wantFallback: []net.IP{
-			net.ParseIP("2600:beef::2"),
+		wantFallback: []netip.Addr{
+			netip.MustParseAddr("2600:beef::2"),
 		},
 	},
 	{
@@ -566,21 +567,21 @@ var nodeAddressWhitelistTests = []struct {
 			},
 		},
 
-		wantLocal: []net.IP{
+		wantLocal: []netip.Addr{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
-			net.ParseIP("10.0.0.1"),
-			net.ParseIP("11.0.0.1"),
-			net.ParseIP("2001:db8::1"),
-			net.ParseIP("2600:beef::2"),
+			netip.MustParseAddr("10.0.0.1"),
+			netip.MustParseAddr("11.0.0.1"),
+			netip.MustParseAddr("2001:db8::1"),
+			netip.MustParseAddr("2600:beef::2"),
 		},
-		wantNodePort: []net.IP{
-			net.ParseIP("10.0.0.1"),
-			net.ParseIP("2001:db8::1"),
+		wantNodePort: []netip.Addr{
+			netip.MustParseAddr("10.0.0.1"),
+			netip.MustParseAddr("2001:db8::1"),
 		},
-		wantFallback: []net.IP{
-			net.ParseIP("11.0.0.1"), // public over private
-			net.ParseIP("2600:beef::2"),
+		wantFallback: []netip.Addr{
+			netip.MustParseAddr("11.0.0.1"), // public over private
+			netip.MustParseAddr("2600:beef::2"),
 		},
 	},
 }
@@ -603,8 +604,8 @@ func TestNodeAddressWhitelist(t *testing.T) {
 				Name:  "cilium_host",
 				Flags: net.FlagUp,
 				Addrs: []DeviceAddress{
-					{Addr: netipx.MustFromStdIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
-					{Addr: netipx.MustFromStdIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
+					{Addr: ciliumHostIP, Scope: RT_SCOPE_UNIVERSE},
+					{Addr: ciliumHostIPLinkScoped, Scope: RT_SCOPE_LINK},
 				},
 				Selected: false,
 			})
@@ -623,22 +624,22 @@ func TestNodeAddressWhitelist(t *testing.T) {
 			<-watch // wait for propagation
 
 			iter := nodeAddrs.All(db.ReadTxn())
-			local := []string{}
-			nodePort := []string{}
-			fallback := []string{}
+			local := []netip.Addr{}
+			nodePort := []netip.Addr{}
+			fallback := []netip.Addr{}
 			for addr := range iter {
 				if addr.DeviceName == WildcardDeviceName {
-					fallback = append(fallback, addr.Addr.String())
+					fallback = append(fallback, addr.Addr)
 					continue
 				}
-				local = append(local, addr.Addr.String())
+				local = append(local, addr.Addr)
 				if addr.NodePort {
-					nodePort = append(nodePort, addr.Addr.String())
+					nodePort = append(nodePort, addr.Addr)
 				}
 			}
-			assert.ElementsMatch(t, local, ipStrings(tt.wantLocal), "LocalAddresses do not match")
-			assert.ElementsMatch(t, nodePort, ipStrings(tt.wantNodePort), "LoadBalancerNodeAddresses do not match")
-			assert.ElementsMatch(t, fallback, ipStrings(tt.wantFallback), "fallback addresses do not match")
+			assert.ElementsMatch(t, local, tt.wantLocal, "LocalAddresses do not match")
+			assert.ElementsMatch(t, nodePort, tt.wantNodePort, "LoadBalancerNodeAddresses do not match")
+			assert.ElementsMatch(t, fallback, tt.wantFallback, "fallback addresses do not match")
 		})
 	}
 }
@@ -796,16 +797,18 @@ func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*
 		NodeAddressCell,
 		node.LocalNodeStoreCell,
 		cell.Provide(
+			func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 			NewDeviceTable,
 			statedb.RWTable[*Device].ToTable,
+			NewRouteTable,
+			statedb.RWTable[*Route].ToTable,
 		),
 		cell.Provide(func() node.LocalNodeSynchronizer { return testLocalNodeSync{} }),
-		cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*Device], na statedb.Table[NodeAddress], lns *node.LocalNodeStore) {
+		cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*Device], r statedb.RWTable[*Route], na statedb.Table[NodeAddress], lns *node.LocalNodeStore) {
 			db = db_
 			devices = d
 			nodeAddrs = na
 			localNodeStore = lns
-			db.RegisterTable(d)
 		}),
 
 		// option.DaemonConfig needed for AddressMaxScope. This flag will move into NodeAddressConfig
@@ -844,16 +847,6 @@ func (t testLocalNodeSync) SyncLocalNode(context.Context, *node.LocalNodeStore) 
 }
 
 var _ node.LocalNodeSynchronizer = testLocalNodeSync{}
-
-// ipStrings converts net.IP to a string. Used to assert equalence without having to deal
-// with e.g. IPv4-mapped IPv6 presentation etc.
-func ipStrings(ips []net.IP) (ss []string) {
-	for i := range ips {
-		ss = append(ss, ips[i].String())
-	}
-	slices.Sort(ss)
-	return
-}
 
 func shuffleSlice[T any](xs []T) []T {
 	rand.Shuffle(
@@ -1010,4 +1003,231 @@ func TestFallbackAddresses(t *testing.T) {
 	})
 	assert.Equal(t, "20.0.0.1", f.ipv4.addr.Addr.String())
 	assert.False(t, updated, "updated")
+}
+
+// TestNodeAddressFromRoute tests that addresses learned via routes are correctly
+// processed and added as NodeAddresses.
+func TestNodeAddressFromRoute(t *testing.T) {
+	// This is the "virtual" IP we will add via a route, simulating the GCE scenario.
+	routeBasedIPv4 := netip.MustParseAddr("203.0.113.5")
+	routeBasedPrefixIPv4 := netip.PrefixFrom(routeBasedIPv4, 32)
+	routeBasedIPv6 := netip.MustParseAddr("2001:db8::1")
+	routeBasedPrefixIPv6 := netip.PrefixFrom(routeBasedIPv6, 128)
+
+	// We'll add the route to a dummy "eth0" device.
+	testDevice := &Device{
+		Index:    10,
+		Name:     "eth0",
+		Flags:    net.FlagUp,
+		Selected: true,
+	}
+
+	// Define our test scenarios.
+	testCases := []struct {
+		name               string
+		nodePortAddrs      []string
+		ipAlreadyOnDevice  bool // To test duplicate avoidance
+		customizeRoute     func(*Route)
+		expectNodePortFlag bool
+	}{
+		{
+			name:               "no-nodeport-whitelist",
+			expectNodePortFlag: false, // No whitelist, so NodePort is false
+		},
+		{
+			name:               "nodeport-cidr-match",
+			nodePortAddrs:      []string{"203.0.113.0/24", "10.0.0.0/8"},
+			expectNodePortFlag: true, // Address is in the whitelisted CIDR
+		},
+		{
+			name:               "nodeport-cidr-no-match",
+			nodePortAddrs:      []string{"192.168.0.0/16"},
+			expectNodePortFlag: false, // Address is NOT in the whitelisted CIDR
+		},
+		{
+			name:              "duplicate-ip",
+			ipAlreadyOnDevice: true, // Simulate the IP already existing on the device
+		},
+		{
+			name: "route-with-src-ignored",
+			customizeRoute: func(r *Route) {
+				r.Src = netip.MustParseAddr("192.168.1.1")
+			},
+			expectNodePortFlag: false,
+		},
+		{
+			name:               "ipv6-route",
+			expectNodePortFlag: false,
+		},
+		{
+			name:               "ipv6-route-nodeport-match",
+			nodePortAddrs:      []string{"2001:db8::/64"},
+			expectNodePortFlag: true,
+		},
+		{
+			name:               "ipv6-route-no-nodeport-match",
+			nodePortAddrs:      []string{"2001:db9::/64"},
+			expectNodePortFlag: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up a self-contained test environment for this case.
+			var (
+				db        *statedb.DB
+				devices   statedb.RWTable[*Device]
+				routes    statedb.RWTable[*Route]
+				nodeAddrs statedb.Table[NodeAddress]
+			)
+
+			h := hive.New(
+				node.LocalNodeStoreCell,
+				cell.Provide(
+					NewDeviceTable,
+					statedb.RWTable[*Device].ToTable,
+					NewRouteTable,
+					statedb.RWTable[*Route].ToTable,
+				),
+				NodeAddressCell,
+				cell.Provide(
+					func() node.LocalNodeSynchronizer { return testLocalNodeSync{} },
+					func() *option.DaemonConfig {
+						return &option.DaemonConfig{AddressScopeMax: defaults.AddressScopeMax}
+					},
+					func() cmtypes.ClusterInfo {
+						return cmtypes.ClusterInfo{}
+					},
+				),
+
+				// Capture table handles for use in the test.
+				cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*Device], r statedb.RWTable[*Route], na statedb.Table[NodeAddress]) {
+					db = db_
+					devices = d
+					routes = r
+					nodeAddrs = na
+				}),
+			)
+
+			// Set configuration values using Viper before starting the hive.
+			if tc.nodePortAddrs != nil {
+				h.Viper().Set("nodeport-addresses", strings.Join(tc.nodePortAddrs, ","))
+			}
+
+			// Start the hive, which will run the controller's initial reconciliation
+			tlog := hivetest.Logger(t)
+			require.NoError(t, h.Start(tlog, context.TODO()))
+			t.Cleanup(func() {
+				assert.NoError(t, h.Stop(tlog, context.TODO()))
+			})
+
+			var routeBasedIP netip.Addr
+			var routeBasedPrefix netip.Prefix
+			if strings.Contains(tc.name, "ipv6") {
+				routeBasedIP = routeBasedIPv6
+				routeBasedPrefix = routeBasedPrefixIPv6
+			} else {
+				routeBasedIP = routeBasedIPv4
+				routeBasedPrefix = routeBasedPrefixIPv4
+			}
+
+			// Perform the action we want to test
+			txn := db.WriteTxn(devices, routes)
+			_, watch := nodeAddrs.AllWatch(txn)
+
+			if tc.ipAlreadyOnDevice {
+				testDeviceWithAddr := *testDevice // clone
+				testDeviceWithAddr.Addrs = []DeviceAddress{{Addr: routeBasedIP, Scope: RT_SCOPE_UNIVERSE}}
+				devices.Insert(txn, &testDeviceWithAddr)
+			} else {
+				devices.Insert(txn, testDevice)
+			}
+
+			route := &Route{
+				LinkIndex: testDevice.Index,
+				Dst:       routeBasedPrefix,
+				Scope:     uint8(RT_SCOPE_HOST),
+				Table:     RT_TABLE_LOCAL,
+			}
+			if tc.customizeRoute != nil {
+				tc.customizeRoute(route)
+			}
+			routes.Insert(txn, route)
+
+			txn.Commit()
+
+			if tc.customizeRoute != nil {
+				// For customized routes that are ignored, we don't expect an update
+				// as the test device itself has no addresses.
+				select {
+				case <-watch:
+					t.Fatalf("unexpected node address update for test: %s", tc.name)
+				case <-time.After(200 * time.Millisecond):
+					// Expected to not receive an update.
+				}
+			} else {
+				// For all other cases, we expect an update.
+				select {
+				case <-watch:
+					// Update received, continue.
+				case <-time.After(2 * time.Second):
+					t.Fatalf("timed out waiting for node address update for test: %s", tc.name)
+				}
+			}
+
+			// Check if the outcome is what we expect
+			allNodeAddrs := statedb.Collect(nodeAddrs.All(db.ReadTxn()))
+
+			var foundAddr *NodeAddress
+			var foundAddrCount int
+			for i, addr := range allNodeAddrs {
+				if tc.ipAlreadyOnDevice && addr.DeviceName == WildcardDeviceName {
+					continue
+				}
+				if addr.Addr == routeBasedIP {
+					addrCopy := allNodeAddrs[i]
+					foundAddr = &addrCopy
+					foundAddrCount++
+				}
+			}
+
+			if tc.customizeRoute != nil {
+				assert.Nil(t, foundAddr, "Address from customized route should be ignored")
+				return
+			}
+
+			if tc.ipAlreadyOnDevice {
+				assert.NotNil(t, foundAddr, "IP should be present as it was added to the device")
+				assert.Equal(t, 1, foundAddrCount, "Should not find duplicate node addresses for the same IP")
+				return
+			}
+
+			require.NotNil(t, foundAddr, "Expected address %s to be discovered from route, but it was not", routeBasedIP)
+			assert.Equal(t, "eth0", foundAddr.DeviceName, "Address should be associated with correct device")
+			assert.True(t, foundAddr.Primary, "Address discovered from a route should be considered Primary")
+			assert.Equal(t, tc.expectNodePortFlag, foundAddr.NodePort, "NodePort flag for address %s was not as expected", routeBasedIP)
+
+			// Test route deletion
+			if !tc.ipAlreadyOnDevice && tc.customizeRoute == nil {
+				t.Run("deletion", func(t *testing.T) {
+					txn := db.WriteTxn(routes)
+					_, watch := nodeAddrs.AllWatch(txn)
+					routes.Delete(txn, route)
+					txn.Commit()
+					<-watch
+
+					allNodeAddrsAfterDelete := statedb.Collect(nodeAddrs.All(db.ReadTxn()))
+					var foundAddrAfterDelete *NodeAddress
+					for i, addr := range allNodeAddrsAfterDelete {
+						if addr.Addr == routeBasedIP {
+							addrCopy := allNodeAddrsAfterDelete[i]
+							foundAddrAfterDelete = &addrCopy
+							break
+						}
+					}
+					assert.Nil(t, foundAddrAfterDelete, "Address from route should be deleted")
+				})
+			}
+		})
+	}
 }

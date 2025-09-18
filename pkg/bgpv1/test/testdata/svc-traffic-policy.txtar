@@ -2,19 +2,12 @@
 
 # Tests advertisements with external / internal service traffic policy.
 # Service routes should be withdrawn for a service with local traffic policy in case of no local endpoints.
-# NOTE: ATM, BGP CP service diff reconciliation is not triggered after complete removal of
-# endpoint / endpointslice k8s resource of a service, therefore we are only testing endpoint changes here,
-# (see https://github.com/cilium/cilium/issues/38924).
 
 # Start the hive
 hive start
 
-# Wait for k8s watchers to be initialized
-k8s/wait-watchers cilium.io.v2.ciliumnodes cilium.io.v2.ciliumbgpnodeconfigs cilium.io.v2.ciliumbgppeerconfigs cilium.io.v2.ciliumbgpadvertisements
-k8s/wait-watchers v1.services v1.endpoints
-
 # Configure gobgp server
-gobgp/add-server 65010 10.99.4.101 1790
+gobgp/add-server test 65010 10.99.4.101 1790
 
 # Configure peers on GoBGP
 gobgp/add-peer 10.99.4.102 65001
@@ -41,6 +34,20 @@ gobgp/routes -o routes.actual
 
 # Update endpoints for the LB service (local endpoint does not exist)
 k8s/update endpoints-non-local.yaml
+
+# Validate that only ClusterIP with iTP=Cluster is advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-tp-cluster.expected routes.actual
+
+# Update endpoints for the LB service (local endpoint exists)
+k8s/update endpoints-local.yaml
+
+# Validate that all svc IPs are advertised again
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-all.expected routes.actual
+
+# Delete endpoints of the LB service
+k8s/delete endpoints-local.yaml
 
 # Validate that only ClusterIP with iTP=Cluster is advertised
 gobgp/routes -o routes.actual
@@ -167,38 +174,64 @@ spec:
     name: echo
 
 -- endpoints-local.yaml --
-apiVersion: v1
-kind: Endpoints
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
 metadata:
-  name: echo
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
   namespace: test
-subsets:
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
 - addresses:
-  - ip: 10.244.1.20
-    nodeName: test-node
-  - ip: 10.244.2.30
-    nodeName: other-node
-  ports:
-  - name: http
-    port: 80
-    protocol: TCP
+  - 10.244.1.20
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: test-node
+- addresses:
+  - 10.244.2.30
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: other-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP
 
 -- endpoints-non-local.yaml --
-apiVersion: v1
-kind: Endpoints
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
 metadata:
-  name: echo
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
   namespace: test
-subsets:
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
 - addresses:
-  - ip: 10.244.2.20
-    nodeName: other-node
-  - ip: 10.244.2.30
-    nodeName: other-node
-  ports:
-  - name: http
-    port: 80
-    protocol: TCP
+  - 10.244.2.20
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: other-node
+- addresses:
+  - 10.244.2.30
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: other-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP
 
 -- gobgp-routes-tp-cluster.expected --
 Prefix            NextHop       Attrs

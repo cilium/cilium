@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/tabwriter"
 	"time"
 
 	"github.com/cilium/workerpool"
@@ -32,12 +34,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/kubectl/pkg/util/podutils"
+	metricsapi "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	ciliumdef "github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const sysdumpLogFile = "cilium-sysdump.log"
@@ -404,7 +406,7 @@ func (c *Collector) teardownLogging() {
 
 // replaceTimestamp can be used to replace the special timestamp placeholder in file and directory names.
 func (c *Collector) replaceTimestamp(f string) string {
-	return strings.Replace(f, timestampPlaceholderFileName, c.startTime.Format(timeFormat), -1)
+	return strings.ReplaceAll(f, timestampPlaceholderFileName, c.startTime.Format(timeFormat))
 }
 
 // AbsoluteTempPath returns the absolute path where to store the specified filename temporarily.
@@ -628,6 +630,52 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting Kubernetes nodes memory/cpu usage",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				// Use the raw client to get the table format directly from the metrics API
+				// This gives us the same output as kubectl top nodes
+				result, err := c.Client.GetRaw(ctx, "/apis/metrics.k8s.io/v1beta1/nodes")
+				if err != nil {
+					return fmt.Errorf("failed to collect Kubernetes nodes memory/cpu usage: %w", err)
+				}
+
+				// Parse the JSON response and format as table
+				output, err := c.formatNodeMetricsAsTable(result)
+				if err != nil {
+					return fmt.Errorf("failed to format node memory/cpu usage metrics: %w", err)
+				}
+
+				if err := c.WriteString(kubernetesTopNodesFileName, output); err != nil {
+					return fmt.Errorf("failed to collect Kubernetes nodes memory/cpu usage: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Kubernetes pods memory/cpu usage",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				// Use the raw client to get the table format directly from the metrics API
+				// This gives us the same output as kubectl top pods
+				result, err := c.Client.GetRaw(ctx, "/apis/metrics.k8s.io/v1beta1/pods")
+				if err != nil {
+					return fmt.Errorf("failed to collect Kubernetes pods memory/cpu usage: %w", err)
+				}
+
+				// Parse the JSON response and format as table
+				output, err := c.formatPodMetricsAsTable(result)
+				if err != nil {
+					return fmt.Errorf("failed to format pod memory/cpu usage metrics: %w", err)
+				}
+
+				if err := c.WriteString(kubernetesTopPodsFileName, output); err != nil {
+					return fmt.Errorf("failed to collect Kubernetes pods memory/cpu usage: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting crashed test pod logs",
 			Quick:       false,
 			Task: func(ctx context.Context) error {
@@ -823,20 +871,6 @@ func (c *Collector) Run() error {
 				}
 				if err := c.WriteYAML(ingressClassesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect IngressClasses: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Cilium LoadBalancer IP Pools",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumLoadBalancerIPPools(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium LoadBalancer IP Pools: %w", err)
-				}
-				if err := c.WriteYAML(ciliumLoadBalancerIPPoolsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium LoadBalancer IP Pools: %w", err)
 				}
 				return nil
 			},
@@ -1451,6 +1485,7 @@ func (c *Collector) Run() error {
 			},
 		},
 	}
+	ciliumTasks = append(ciliumTasks, collectCiliumV2OrV2Alpha1Resource(c, "ciliumloadbalancerippools", "Cilium LoadBalancer IP Pools"))
 
 	if c.Options.HubbleFlowsCount > 0 {
 		ciliumTasks = append(ciliumTasks, Task{
@@ -2250,7 +2285,7 @@ func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgent
 			if err != nil {
 				return fmt.Errorf("failed to collect 'tetragon-bugtool' output for %q: %w", p.Name, err)
 			}
-			if err := untar(f, strings.Replace(f, ".tar.gz", "", -1)); err != nil {
+			if err := untar(f, strings.ReplaceAll(f, ".tar.gz", "")); err != nil {
 				c.logWarn("Failed to unarchive 'tetragon-bugtool' output for %q: %v", p.Name, err)
 				return nil
 			}
@@ -2399,14 +2434,7 @@ func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 			}()
 
 			// Default flags for cilium-bugtool
-			bugtoolFlags := []string{"--archiveType=gz"}
-			ciliumVersion, err := c.Client.GetCiliumVersion(ctx, p)
-			if err == nil {
-				// This flag is not available in older versions
-				if versioncheck.MustCompile(">=1.13.0")(*ciliumVersion) {
-					bugtoolFlags = append(bugtoolFlags, "--exclude-object-files")
-				}
-			}
+			bugtoolFlags := []string{"--archiveType=gz", "--exclude-object-files"}
 			// Additional flags
 			bugtoolFlags = append(bugtoolFlags, c.Options.CiliumBugtoolFlags...)
 
@@ -2433,7 +2461,7 @@ func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q: %w", p.Name, err)
 			}
 			// Untar the resulting file.
-			if err := untar(f, strings.Replace(f, ".tar.gz", "", -1)); err != nil {
+			if err := untar(f, strings.ReplaceAll(f, ".tar.gz", "")); err != nil {
 				c.logWarn("Failed to unarchive 'cilium-bugtool' output for %q: %v", p.Name, err)
 				return nil
 			}
@@ -2456,15 +2484,16 @@ func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 }
 
 func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod, containerName string) error {
-	hubbleFlowsTimeout := strconv.FormatInt(int64(c.Options.HubbleFlowsTimeout/time.Second), 10)
 	for _, p := range pods {
 		p := p
 		if err := c.Pool.Submit("hubble-flows-"+p.Name, func(ctx context.Context) error {
 			if err := c.WithFileSink(fmt.Sprintf(hubbleFlowsFileName, p.Name), func(stdout io.Writer) error {
 				return c.WithFileSink(fmt.Sprintf(hubbleObserveFileName, p.Name), func(stderr io.Writer) error {
-					return c.Client.ExecInPodWithWriters(ctx, nil, p.Namespace, p.Name, containerName, []string{
-						"timeout", "--signal", "SIGINT", "--preserve-status", hubbleFlowsTimeout, "bash", "-c",
-						fmt.Sprintf("hubble observe --last %d --debug -o jsonpb", c.Options.HubbleFlowsCount),
+					cctx, cancel := context.WithTimeout(ctx, c.Options.HubbleFlowsTimeout)
+					defer cancel()
+
+					return c.Client.ExecInPodWithWriters(cctx, nil, p.Namespace, p.Name, containerName, []string{
+						"hubble", "observe", "--last", strconv.FormatInt(c.Options.HubbleFlowsCount, 10), "--debug", "-o", "jsonpb",
 					}, stdout, stderr)
 
 				})
@@ -3312,6 +3341,115 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 		"Retry limit for file copying operations. If set to -1, copying will be retried indefinitely. Useful for collecting sysdump while on unreliable connection.")
 
 	hooks.AddSysdumpFlags(cmd.Flags())
+}
+
+// formatMetricsAsTable formats the raw metrics JSON into a table format like kubectl top nodes
+func (c *Collector) formatNodeMetricsAsTable(rawMetrics string) (string, error) {
+	// Parse the metrics JSON
+	var nodeMetrics metricsapi.NodeMetricsList
+	if err := json.Unmarshal([]byte(rawMetrics), &nodeMetrics); err != nil {
+		return "", fmt.Errorf("failed to parse metrics JSON: %w", err)
+	}
+
+	// Get node information to calculate percentages
+	nodes, err := c.Client.ListNodes(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get nodes: %w", err)
+	}
+
+	// Create a map of node names to their capacity
+	nodeCapacities := make(map[string]corev1.ResourceList)
+	for _, node := range nodes.Items {
+		nodeCapacities[node.Name] = node.Status.Capacity
+	}
+
+	var sb strings.Builder
+	tw := tabwriter.NewWriter(&sb, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAME\tCPU(cores)\tCPU(%)\tMEMORY(bytes)\tMEMORY(%)")
+
+	for _, metric := range nodeMetrics.Items {
+		name := metric.Name
+
+		// Get current usage
+		cpuUsage := metric.Usage[corev1.ResourceCPU]
+		memUsage := metric.Usage[corev1.ResourceMemory]
+
+		cpuMillis := cpuUsage.MilliValue()
+		memBytes := memUsage.Value()
+		memMi := float64(memBytes) / (1024 * 1024)
+
+		// Calculate percentages if we have capacity info
+		cpuPercent := "<unknown>"
+		memPercent := "<unknown>"
+
+		if capacity, exists := nodeCapacities[metric.Name]; exists {
+			if cpuCap := capacity[corev1.ResourceCPU]; !cpuCap.IsZero() {
+				cpuCapMillis := cpuCap.MilliValue()
+				cpuPct := float64(cpuMillis) / float64(cpuCapMillis) * 100
+				cpuPercent = fmt.Sprintf("%.0f%%", cpuPct)
+			}
+
+			if memCap := capacity[corev1.ResourceMemory]; !memCap.IsZero() {
+				memCapBytes := memCap.Value()
+				memPct := float64(memBytes) / float64(memCapBytes) * 100
+				memPercent = fmt.Sprintf("%.0f%%", memPct)
+			}
+		}
+
+		fmt.Fprintf(tw, "%s\t%dm\t%s\t%dMi\t%s\n",
+			name,
+			cpuMillis,
+			cpuPercent,
+			int64(memMi),
+			memPercent)
+	}
+
+	tw.Flush()
+
+	return sb.String(), nil
+}
+
+// formatPodMetricsAsTable formats the raw pod metrics JSON into a table format like kubectl top pods
+func (c *Collector) formatPodMetricsAsTable(rawMetrics string) (string, error) {
+	// Parse the metrics JSON
+	var podMetrics metricsapi.PodMetricsList
+	if err := json.Unmarshal([]byte(rawMetrics), &podMetrics); err != nil {
+		return "", fmt.Errorf("failed to parse pod metrics JSON: %w", err)
+	}
+
+	var sb strings.Builder
+	tw := tabwriter.NewWriter(&sb, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAMESPACE\tNAME\tCPU(cores)\tMEMORY(bytes)")
+
+	for _, metric := range podMetrics.Items {
+		namespace := metric.Namespace
+		name := metric.Name
+
+		// Sum CPU and memory usage across all containers in the pod
+		var totalCPUMillis int64
+		var totalMemBytes int64
+
+		for _, container := range metric.Containers {
+			if cpuUsage, exists := container.Usage[corev1.ResourceCPU]; exists {
+				totalCPUMillis += cpuUsage.MilliValue()
+			}
+			if memUsage, exists := container.Usage[corev1.ResourceMemory]; exists {
+				totalMemBytes += memUsage.Value()
+			}
+		}
+
+		memMi := float64(totalMemBytes) / (1024 * 1024)
+
+		fmt.Fprintf(tw, "%s\t%s\t%dm\t%dMi\n",
+			namespace,
+			name,
+			totalCPUMillis,
+			int64(memMi))
+	}
+
+	tw.Flush()
+
+	return sb.String(), nil
 }
 
 // Hooks to extend cilium-cli with additional sysdump tasks and related flags.

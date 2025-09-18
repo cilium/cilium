@@ -38,7 +38,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext) (L4Policy
 	}
 
 	for _, r := range rules {
-		_, err := r.resolveIngressPolicy(policyCtx, &state, result, requirements, requirementsDeny)
+		err := r.resolveIngressPolicy(policyCtx, &state, result, requirements, requirementsDeny)
 		if err != nil {
 			return nil, err
 		}
@@ -77,7 +77,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext) (L4PolicyM
 
 	for i, r := range rules {
 		state.ruleID = i
-		_, err := r.resolveEgressPolicy(policyCtx, &state, result, requirements, requirementsDeny)
+		err := r.resolveEgressPolicy(policyCtx, &state, result, requirements, requirementsDeny)
 		if err != nil {
 			return nil, err
 		}

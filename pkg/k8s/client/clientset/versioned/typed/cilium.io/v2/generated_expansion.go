@@ -15,6 +15,8 @@ type CiliumBGPNodeConfigOverrideExpansion interface{}
 
 type CiliumBGPPeerConfigExpansion interface{}
 
+type CiliumCIDRGroupExpansion interface{}
+
 type CiliumClusterwideEnvoyConfigExpansion interface{}
 
 type CiliumClusterwideNetworkPolicyExpansion interface{}
@@ -26,6 +28,8 @@ type CiliumEndpointExpansion interface{}
 type CiliumEnvoyConfigExpansion interface{}
 
 type CiliumIdentityExpansion interface{}
+
+type CiliumLoadBalancerIPPoolExpansion interface{}
 
 type CiliumLocalRedirectPolicyExpansion interface{}
 

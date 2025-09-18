@@ -5,7 +5,6 @@ package exporter
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"testing"
 
@@ -14,8 +13,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/test/helpers"
 )
 
 func TestCompareFlowLogConfigs(t *testing.T) {
@@ -356,7 +355,7 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 	for _, expected := range expectedConfigs {
 		config, ok := configs[expected.Name].(*FlowLogConfig)
 		assert.True(t, ok, "parsed config should be of type FlowLogConfig")
-		helpers.AssertProtoEqual(t, &expected, config)
+		testutils.AssertProtoEqual(t, &expected, config)
 	}
 }
 
@@ -451,7 +450,7 @@ func TestFlowLogConfigEnd(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			exporter, err := exporterFactory.Create(tc.config)
 			assert.NoError(t, err)
-			err = exporter.Export(context.Background(), &v1.Event{Event: &flow.Flow{Uuid: "1234"}})
+			err = exporter.Export(t.Context(), &v1.Event{Event: &flow.Flow{Uuid: "1234"}})
 			assert.NoError(t, err)
 			content, err := os.ReadFile(tc.config.FilePath)
 			assert.NoError(t, err)

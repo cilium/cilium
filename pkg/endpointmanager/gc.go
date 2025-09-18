@@ -6,8 +6,6 @@ package endpointmanager
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -72,20 +70,23 @@ func (mgr *endpointManager) sweepEndpoints(markedEndpoints []uint16) {
 	mgr.mutex.RUnlock()
 
 	for _, ep := range toSweep {
-		log.WithFields(logrus.Fields{
-			logfields.EndpointID:  ep.StringID(),
-			logfields.ContainerID: ep.GetShortContainerID(),
-			logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
-			logfields.CEPName:     ep.GetK8sNamespaceAndCEPName(),
-			logfields.URL:         "https://github.com/kubernetes/kubernetes/issues/86944",
-		}).Warning("Stray endpoint found. You may be affected by upstream Kubernetes issue #86944.")
+		mgr.logger.Warn(
+			"Stray endpoint found. You may be affected by upstream Kubernetes issue #86944.",
+			logfields.EndpointID, ep.StringID(),
+			logfields.ContainerID, ep.GetShortContainerID(),
+			logfields.K8sPodName, ep.GetK8sNamespaceAndPodName(),
+			logfields.CEPName, ep.GetK8sNamespaceAndCEPName(),
+			logfields.URL, "https://github.com/kubernetes/kubernetes/issues/86944",
+		)
 		errs := mgr.RemoveEndpoint(ep, endpoint.DeleteConfig{
 			NoIPRelease: ep.DatapathConfiguration.ExternalIpam,
 		})
 		if len(errs) > 0 {
-			scopedLog := log.WithField(logfields.EndpointID, ep.GetID())
 			for _, err := range errs {
-				scopedLog.WithError(err).Warn("Ignoring error while garbage collecting endpoint")
+				mgr.logger.Warn("Ignoring error while garbage collecting endpoint",
+					logfields.Error, err,
+					logfields.EndpointID, ep.GetID(),
+				)
 			}
 		}
 	}

@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -45,25 +45,30 @@ jobs:
               - 'images/**'
               - 'Makefile*'
               - 'contrib/scripts/builder.sh'
+              - '!**/*.md'
 
             coccinelle:
               - 'contrib/coccinelle/**'
             bpf-tests-runner:
               - 'bpf/tests/bpftest/**'
               - 'pkg/bpf/**'
+              - '!**/*.md'
             workflow-description:
               - '.github/workflows/lint-bpf-checks.yaml'
 
   checkpatch:
     name: Check Patch
     runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
       - name: Run checkpatch.pl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           make -C bpf checkpatch || (echo "Run 'make -C bpf checkpatch' locally to investigate reports"; exit 1)
 
@@ -75,7 +80,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
       - name: Run coccicheck
@@ -97,7 +102,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -105,19 +110,50 @@ jobs:
         env:
           V: 0
         run: |
-          contrib/scripts/builder.sh make --quiet -C bpf build_all -j $(nproc) || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
+          contrib/scripts/builder.sh make --quiet -C bpf build_all -j "$(nproc)" || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
 
   bpf_tests:
     needs: [check_changes]
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.bpf-tests-runner == 'true' || needs.check_changes.outputs.workflow-description == 'true' }}
     name: BPF unit/integration Tests
+    env:
+      # GitHub doesn't provide a way to retrieve the name of a job, so we have
+      # to repeated it here.
+      job_name: "bpf_tests"
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
       - name: Run BPF tests
+        id: run-tests
         run: |
-          make run_bpf_tests || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
+          make run_bpf_tests \
+              LOG_CODEOWNERS=1 \
+              JUNIT_PATH="../../test/${{ env.job_name }}.xml" \
+          || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
+      - name: Fetch JUnits
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cd test/
+          # junit_filename needs to be the same as the Job Name presented on the
+          # GH web UI - In the Summary page of a workflow run, left column
+          # "Jobs" - so that we can map the junit file to the right job - step
+          # pair on datastudio.
+          junit_filename="${{ env.job_name }}.xml"
+          for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
+      - name: Upload JUnits [junit]
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() && runner.arch != 'ARM64' }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"

@@ -90,11 +90,6 @@
     - ``"standalone"``
     -
     -
-  * - ``k8s_internal_traffic_policy_enabled``
-    - *None*
-    - *None*
-    - K8s Internal Traffic Policy enabled on the agent
-    - gauge
   * - ``kube_proxy_replacement_enabled``
     - *None*
     - *None*
@@ -281,11 +276,6 @@
     - ``"aws-cni"``
     - Chaining mode enabled on the agent
     - gauge
-  * -
-    -
-    - ``"aws-vpc-cni"``
-    -
-    -
   * -
     -
     - ``"calico"``

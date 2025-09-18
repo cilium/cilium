@@ -38,28 +38,50 @@ var bpfEgressListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf egress list")
 
-		policyMap, err := egressmap.OpenPinnedPolicyMap()
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				fmt.Fprintln(os.Stderr, "Cannot find egress gateway bpf maps")
-				return
+		bpfEgressList := []egressPolicy{}
+		var ipv4MapExists, ipv6MapExists bool
+
+		policyMap4, err := egressmap.OpenPinnedPolicyMap4(log)
+		if err == nil {
+			ipv4MapExists = true
+			parse4 := func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
+				bpfEgressList = append(bpfEgressList, egressPolicy{
+					SourceIP:  key.GetSourceIP().String(),
+					DestCIDR:  key.GetDestCIDR().String(),
+					EgressIP:  val.GetEgressAddr().String(),
+					GatewayIP: mapGatewayIP(val.GetGatewayAddr()),
+				})
 			}
 
-			Fatalf("Cannot open egress gateway bpf maps: %s", err)
+			if err := policyMap4.IterateWithCallback(parse4); err != nil {
+				Fatalf("Error dumping contents of IPv4 egress policy map: %s\n", err)
+			}
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			Fatalf("Cannot open IPv4 egress gateway bpf map: %s", err)
 		}
 
-		bpfEgressList := []egressPolicy{}
-		parse := func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
-			bpfEgressList = append(bpfEgressList, egressPolicy{
-				SourceIP:  key.GetSourceIP().String(),
-				DestCIDR:  key.GetDestCIDR().String(),
-				EgressIP:  val.GetEgressAddr().String(),
-				GatewayIP: mapGatewayIP(val.GetGatewayAddr()),
-			})
+		policyMap6, err := egressmap.OpenPinnedPolicyMap6(log)
+		if err == nil {
+			ipv6MapExists = true
+			parse6 := func(key *egressmap.EgressPolicyKey6, val *egressmap.EgressPolicyVal6) {
+				bpfEgressList = append(bpfEgressList, egressPolicy{
+					SourceIP:  key.GetSourceIP().String(),
+					DestCIDR:  key.GetDestCIDR().String(),
+					EgressIP:  val.GetEgressAddr().String(),
+					GatewayIP: mapGatewayIP(val.GetGatewayAddr()),
+				})
+			}
+
+			if err := policyMap6.IterateWithCallback(parse6); err != nil {
+				Fatalf("Error dumping contents of IPv6 egress policy map: %s\n", err)
+			}
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			Fatalf("Cannot open IPv6 egress gateway bpf map: %s", err)
 		}
 
-		if err := policyMap.IterateWithCallback(parse); err != nil {
-			Fatalf("Error dumping contents of egress policy map: %s\n", err)
+		if !ipv4MapExists && !ipv6MapExists {
+			fmt.Fprintln(os.Stderr, "Cannot find egress gateway bpf maps")
+			return
 		}
 
 		if command.OutputOption() {

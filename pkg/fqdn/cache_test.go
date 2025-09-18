@@ -13,17 +13,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/ip"
 )
-
-func init() {
-	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
-}
 
 // TestUpdateLookup tests that we can insert DNS data and retrieve it. We
 // iterate through time, ensuring that data is expired as appropriate. We also
@@ -77,8 +73,8 @@ func TestUpdateLookup(t *testing.T) {
 	}
 }
 
-// TestDelete tests that we can forcibly clear parts of the cache.
-func TestDelete(t *testing.T) {
+// TestPrivilegedDelete tests that we can forcibly clear parts of the cache.
+func TestPrivilegedDelete(t *testing.T) {
 	names := map[string]netip.Addr{
 		"test1.com": netip.MustParseAddr("2.2.2.1"),
 		"test2.com": netip.MustParseAddr("2.2.2.2"),
@@ -371,7 +367,6 @@ func makeEntries(now time.Time, live, redundant, expired uint32) (entries []*cac
 
 // Note: each "op" works on size things
 func BenchmarkGetIPs(b *testing.B) {
-
 	now := time.Now()
 	cache := NewDNSCache(0)
 	cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr("1.2.3.4")}, 60)
@@ -436,7 +431,6 @@ func BenchmarkMarshalJSON1000Repeat2(b *testing.B) {
 // Note: It assumes the JSON only uses data in DNSCache.forward when generating
 // the data. Changes to the implementation need to also change this benchmark.
 func benchmarkMarshalJSON(b *testing.B, numDNSEntries int) {
-
 	ips := makeIPs(uint32(numIPsPerEntry))
 
 	cache := NewDNSCache(0)
@@ -456,7 +450,6 @@ func benchmarkMarshalJSON(b *testing.B, numDNSEntries int) {
 // Note: It assumes the JSON only uses data in DNSCache.forward when generating
 // the data. Changes to the implementation need to also change this benchmark.
 func benchmarkUnmarshalJSON(b *testing.B, numDNSEntries int) {
-
 	ips := makeIPs(uint32(numIPsPerEntry))
 
 	cache := NewDNSCache(0)
@@ -623,8 +616,10 @@ func assertZombiesContain(t *testing.T, zombies []*DNSZombieMapping, expected ma
 }
 
 func TestZombiesSiblingsGC(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	// Siblings are IPs that resolve to the same name.
 	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com")
@@ -651,8 +646,10 @@ func TestZombiesSiblingsGC(t *testing.T) {
 }
 
 func TestZombiesGC(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com")
 	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "somethingelse.com")
@@ -688,7 +685,7 @@ func TestZombiesGC(t *testing.T) {
 	})
 
 	// Cause 1.1.1.1 to die by not marking it alive before the second GC
-	//zombies.MarkAlive(now, netip.MustParseAddr("1.1.1.1"))
+	// zombies.MarkAlive(now, netip.MustParseAddr("1.1.1.1"))
 	now = now.Add(5 * time.Minute)
 	next = now.Add(5 * time.Minute)
 	// Mark 2.2.2.2 alive with 1 second grace period
@@ -750,8 +747,10 @@ func TestZombiesGC(t *testing.T) {
 }
 
 func TestZombiesGCOverLimit(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, 1)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, 1)
 
 	// Limit the total number of IPs to be associated with a specific host
 	// to 1, but associate 'test.com' with multiple IPs.
@@ -774,10 +773,12 @@ func TestZombiesGCOverLimit(t *testing.T) {
 }
 
 func TestZombiesGCOverLimitWithCTGC(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	now := time.Now()
 	afterNow := now.Add(1 * time.Nanosecond)
 	maxConnections := 3
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, maxConnections)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, maxConnections)
 	zombies.SetCTGCTime(now, afterNow)
 
 	// Limit the number of IPs per hostname, but associate 'test.com' with
@@ -809,8 +810,10 @@ func TestZombiesGCOverLimitWithCTGC(t *testing.T) {
 }
 
 func TestZombiesGCDeferredDeletes(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	zombies.Upsert(now.Add(0*time.Second), netip.MustParseAddr("1.1.1.1"), "test.com")
 	zombies.Upsert(now.Add(1*time.Second), netip.MustParseAddr("2.2.2.2"), "somethingelse.com")
@@ -825,7 +828,7 @@ func TestZombiesGCDeferredDeletes(t *testing.T) {
 		"3.3.3.3": {"onemorething.com"},
 	})
 
-	zombies = NewDNSZombieMappings(2, defaults.ToFQDNsMaxIPsPerHost)
+	zombies = NewDNSZombieMappings(logger, 2, defaults.ToFQDNsMaxIPsPerHost)
 	zombies.Upsert(now.Add(0*time.Second), netip.MustParseAddr("1.1.1.1"), "test.com")
 
 	// No zombies should be evicted because we are below the limit
@@ -868,8 +871,10 @@ func TestZombiesGCDeferredDeletes(t *testing.T) {
 }
 
 func TestZombiesForceExpire(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com", "anothertest.com")
 	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "somethingelse.com")
@@ -906,8 +911,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "test.com")
 
 	// Don't expire if the IP doesn't match
-	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("1.1.1.1"))
-	require.NoError(t, err)
+	zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("1.1.1.1"))
 	alive, dead = zombies.GC()
 	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
@@ -915,8 +919,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	})
 
 	// Expire 1 name for this IP but leave other names
-	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("2.2.2.2"))
-	require.NoError(t, err)
+	zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("2.2.2.2"))
 	alive, dead = zombies.GC()
 	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
@@ -924,8 +927,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	})
 
 	// Don't remove if the name doesn't match
-	err = zombies.ForceExpireByNameIP(time.Time{}, "blarg.com", netip.MustParseAddr("2.2.2.2"))
-	require.NoError(t, err)
+	zombies.ForceExpireByNameIP(time.Time{}, "blarg.com", netip.MustParseAddr("2.2.2.2"))
 	alive, dead = zombies.GC()
 	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
@@ -933,8 +935,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	})
 
 	// Clear everything
-	err = zombies.ForceExpireByNameIP(time.Time{}, "test.com", netip.MustParseAddr("2.2.2.2"))
-	require.NoError(t, err)
+	zombies.ForceExpireByNameIP(time.Time{}, "test.com", netip.MustParseAddr("2.2.2.2"))
 	alive, dead = zombies.GC()
 	require.Empty(t, dead)
 	require.Empty(t, alive)
@@ -942,9 +943,11 @@ func TestZombiesForceExpire(t *testing.T) {
 }
 
 func TestCacheToZombiesGCCascade(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	now := time.Now()
 	cache := NewDNSCache(0)
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	// Add entries that should expire at different times
 	cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.2.2.2")}, 3)
@@ -987,8 +990,10 @@ func TestCacheToZombiesGCCascade(t *testing.T) {
 }
 
 func TestZombiesDumpAlive(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	now := time.Now()
-	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	alive := zombies.DumpAlive(nil)
 	require.Empty(t, alive)
@@ -1062,12 +1067,14 @@ func TestZombiesDumpAlive(t *testing.T) {
 }
 
 func TestOverlimitPreferNewerEntries(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	toFQDNsMinTTL := 100
 	toFQDNsMaxIPsPerHost := 5
 	cache := NewDNSCacheWithLimit(toFQDNsMinTTL, toFQDNsMaxIPsPerHost)
 
 	toFQDNsMaxDeferredConnectionDeletes := 10
-	zombies := NewDNSZombieMappings(toFQDNsMaxDeferredConnectionDeletes, toFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, toFQDNsMaxDeferredConnectionDeletes, toFQDNsMaxIPsPerHost)
 
 	name := "test.com"
 	IPs := []netip.Addr{
@@ -1148,12 +1155,14 @@ func TestOverlimitPreferNewerEntries(t *testing.T) {
 // erroneously, since their "AliveAt" field was zero (and they thus sorted to
 // the front).
 func TestPerHostLimitBehaviourForS3(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	someDomain := "s3.example.com"
 	maxIPs := 5
 	dnsTTL := 4 // seconds
 
 	tc := NewDNSCacheWithLimit(0, maxIPs)
-	z := NewDNSZombieMappings(10000, maxIPs)
+	z := NewDNSZombieMappings(logger, 10000, maxIPs)
 
 	// These are simulated lookup results for someDomain.
 	reallyOldLookup := []netip.Addr{

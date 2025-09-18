@@ -1,7 +1,8 @@
 metadata:
   creationTimestamp: null
+  annotations:
+    cec.cilium.io/use-original-source-address: "false"
   labels:
-    cilium.io/use-original-source-address: "false"
     gateway.networking.k8s.io/gateway-name: same-namespace
   name: cilium-gateway-same-namespace
   namespace: gateway-conformance-infra
@@ -95,7 +96,6 @@ spec:
           maxStreamDuration:
             maxStreamDuration: 0s
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: gateway-conformance-infra/infra-backend-v1:8080
     name: gateway-conformance-infra:infra-backend-v1:8080

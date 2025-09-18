@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
@@ -26,7 +27,7 @@ func setupLinuxRoutingSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 }
 
-func TestConfigure(t *testing.T) {
+func TestPrivilegedConfigure(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ns1 := netns.NewNetNS(t)
@@ -52,7 +53,7 @@ func TestConfigure(t *testing.T) {
 	})
 }
 
-func TestConfigureZeros(t *testing.T) {
+func TestPrivilegedConfigureZeros(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ns1 := netns.NewNetNS(t)
@@ -67,7 +68,7 @@ func TestConfigureZeros(t *testing.T) {
 	})
 }
 
-func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
+func TestPrivilegedConfigureRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	_, ri := getFakes(t, true, false)
@@ -76,7 +77,7 @@ func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
 	require.ErrorContains(t, err, "IP not compatible")
 }
 
-func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
+func TestPrivilegedDeleteRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ip := netip.Addr{}
@@ -85,7 +86,7 @@ func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
 	require.ErrorContains(t, err, "IP not compatible")
 }
 
-func TestDelete(t *testing.T) {
+func TestPrivilegedDelete(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	fakeIP, fakeRoutingInfo := getFakes(t, true, false)
@@ -97,7 +98,7 @@ func TestDelete(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid IP addr matching rules",
+			name: "valid IP addr matching a single rule",
 			preRun: func() netip.Addr {
 				runConfigure(t, fakeRoutingInfo, fakeIP, 1500)
 				return fakeIP
@@ -105,7 +106,7 @@ func TestDelete(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "IP addr doesn't match rules",
+			name: "IP addr doesn't match any rule",
 			preRun: func() netip.Addr {
 				ip := netip.MustParseAddr("192.168.2.233")
 
@@ -115,7 +116,7 @@ func TestDelete(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "IP addr matches more than number expected",
+			name: "IP addr matches multiple rules",
 			preRun: func() netip.Addr {
 				ip := netip.MustParseAddr("192.168.2.233")
 
@@ -130,7 +131,7 @@ func TestDelete(t *testing.T) {
 				require.NotEmpty(t, rules)
 
 				// Insert almost duplicate rule; the reason for this is to
-				// trigger an error while trying to delete the ingress rule. We
+				// trigger the deletion of all the matching rules. We
 				// are setting the Src because ingress rules don't have
 				// one (only Dst), thus we set Src to create a near-duplicate.
 				r := rules[0]
@@ -139,30 +140,31 @@ func TestDelete(t *testing.T) {
 
 				return ip
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
-			name: "fails to delete rules due to masquerade misconfiguration",
+			name: "delete rules with dest CIDR after masquerade is disabled",
 			preRun: func() netip.Addr {
 				runConfigure(t, fakeRoutingInfo, fakeIP, 1500)
-				// inconsistency with fakeRoutingInfo.Masquerade should lead to failure
 				option.Config.EnableIPv4Masquerade = false
 				return fakeIP
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
-		t.Log("Test: " + tt.name)
-		ns := netns.NewNetNS(t)
-		ns.Do(func() error {
-			ifaceCleanup := createDummyDevice(t, masterMAC)
-			defer ifaceCleanup()
+		t.Run(tt.name, func(t *testing.T) {
+			ns := netns.NewNetNS(t)
+			ns.Do(func() error {
+				ifaceCleanup := createDummyDevice(t, masterMAC)
+				defer ifaceCleanup()
 
-			ip := tt.preRun()
-			err := Delete(hivetest.Logger(t), ip, false)
-			require.Equal(t, tt.wantErr, (err != nil))
-			return nil
+				ip := tt.preRun()
+				err := Delete(hivetest.Logger(t), ip, false)
+				require.Equalf(t, tt.wantErr, (err != nil), "got error: %v", err)
+
+				return nil
+			})
 		})
 	}
 }
@@ -210,7 +212,7 @@ func listRulesAndRoutes(t *testing.T, family int) ([]netlink.Rule, []netlink.Rou
 	// those tables.
 	var routes []netlink.Route
 	for _, r := range rules {
-		rr, err := netlink.RouteListFiltered(family, &netlink.Route{
+		rr, err := safenetlink.RouteListFiltered(family, &netlink.Route{
 			Table: r.Table,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -298,7 +300,7 @@ func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, Routi
 }
 
 func linkExistsWithMAC(t *testing.T, macAddr mac.MAC) bool {
-	links, err := netlink.LinkList()
+	links, err := safenetlink.LinkList()
 	require.NoError(t, err)
 
 	for _, link := range links {

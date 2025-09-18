@@ -35,7 +35,7 @@ var bpfSRv6VRFListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf srv6 vrf")
 
-		m4, m6, err := srv6map.OpenVRFMaps()
+		m4, m6, err := srv6map.OpenVRFMaps(log)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find SRv6 VRF mapping maps")

@@ -26,15 +26,14 @@ struct ipv4_frag_l4ports {
 	__be16	dport;
 } __packed;
 
-#ifdef ENABLE_IPV4_FRAGMENTS
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_frag_id);
 	__type(value, struct ipv4_frag_l4ports);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ipv4_frag_datagrams __section_maps_btf;
-#endif
 
 static __always_inline int
 ipv4_csum_update_by_value(struct __ctx_buff *ctx, int l3_off, __u64 old_val,

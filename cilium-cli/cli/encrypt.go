@@ -25,6 +25,7 @@ func newCmdEncrypt() *cobra.Command {
 	cmd.AddCommand(newCmdEncryptStatus())
 	cmd.AddCommand(newCmdIPsecRotateKey())
 	cmd.AddCommand(newCmdIPsecKeyStatus())
+	cmd.AddCommand(newCmdNewIPsecKey())
 	return cmd
 }
 
@@ -69,7 +70,7 @@ func newCmdIPsecRotateKey() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&params.IPsecKeyAuthAlgo, "auth-algo", "", "", "IPsec key authentication algorithm (optional parameter, if omitted the current settings will be used). One of: gcm-aes, hmac-sha256, hmac-sha512")
+	cmd.Flags().StringVarP(&params.IPsecKeyAuthAlgo, "auth-algo", "", "", "IPsec key authentication algorithm. One of: rfc4106-gcm-aes, cbc-aes-sha256, cbc-aes-sha512")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")
 	return cmd
 }
@@ -92,6 +93,29 @@ func newCmdIPsecKeyStatus() *cobra.Command {
 	}
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
+	return cmd
+}
+
+func newCmdNewIPsecKey() *cobra.Command {
+	params := encrypt.Parameters{}
+	cmd := &cobra.Command{
+		Use:   "create-key",
+		Short: "Create IPsec key",
+		Long:  "This command creates IPsec encryption key for the cluster",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			params.CiliumNamespace = namespace
+			if err := checkParams(params); err != nil {
+				fatalf("Input params are invalid: %s", err)
+			}
+			s := encrypt.NewEncrypt(k8sClient, params)
+			if err := s.IPsecNewKey(context.Background()); err != nil {
+				fatalf("Unable to create IPsec key: %s", err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&params.IPsecKeyAuthAlgo, "auth-algo", "", "rfc4106-gcm-aes", "IPsec key authentication algorithm. One of: rfc4106-gcm-aes, cbc-aes-sha256, cbc-aes-sha512")
+	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")
 	return cmd
 }
 

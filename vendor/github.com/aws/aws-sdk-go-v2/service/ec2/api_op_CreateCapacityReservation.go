@@ -55,9 +55,9 @@ type CreateCapacityReservationInput struct {
 	// The number of instances for which to reserve capacity.
 	//
 	// You can request future-dated Capacity Reservations for an instance count with a
-	// minimum of 100 vCPUs. For example, if you request a future-dated Capacity
-	// Reservation for m5.xlarge instances, you must request at least 25 instances (25
-	// * m5.xlarge = 100 vCPUs).
+	// minimum of 64 vCPUs. For example, if you request a future-dated Capacity
+	// Reservation for m5.xlarge instances, you must request at least 25 instances (16
+	// * m5.xlarge = 64 vCPUs).
 	//
 	// Valid range: 1 - 1000
 	//
@@ -72,7 +72,7 @@ type CreateCapacityReservationInput struct {
 	// The instance type for which to reserve capacity.
 	//
 	// You can request future-dated Capacity Reservations for instance types in the C,
-	// M, R, I, and T instance families only.
+	// M, R, I, T, and G instance families only.
 	//
 	// For more information, see [Instance types] in the Amazon EC2 User Guide.
 	//
@@ -320,6 +320,36 @@ func (c *Client) addOperationCreateCapacityReservationMiddlewares(stack *middlew
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

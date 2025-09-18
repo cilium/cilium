@@ -32,9 +32,7 @@ trigger the normal mechanism of a regular global Service. This involves for inst
 generation but also all the other clustermesh flows that are not necessarily related
 directly to MCS-API (syncing the remote endpoints to BPF maps, EndpointSliceSync, ...).
 
-There is also another controller that we use directly from the MCS-API repository
-`mcsapicontrollers.ServiceReconciler` that reports back the ClusterIP from the
-derived Service to the ServiceImport.
+The same controller will also reports back the IPs from the derived Service to the ServiceImport.
 
 To handle all the DNS aspect we rely on the multicluster CoreDNS plugin which queries
 the ServiceImport and the EndpointSlice resources, for more details about this see
@@ -86,7 +84,6 @@ flowchart TD
         `"]
 
         serviceImport -->|mcsAPIServiceReconciler| derivedService
-        derivedService -->|mcsapicontrollers.ServiceReconciler| serviceImport
 
         localService["`
         Service
@@ -107,8 +104,10 @@ flowchart TD
         localServiceExport & kvstoremesh --> |mcsAPIServiceImportReconciler| serviceImport
 
         bpfMaps["BPF Maps"]
-        endpointslices["Remote EndpointSlices"]
+        remoteEndpointslices["Remote EndpointSlices"]
+        localEndpointslices["Local EndpointSlices"]
         derivedService --> |BPF maps via the global annotations| bpfMaps
-        derivedService --> |endointslicesync via an optional annotation or if the service is Headless| endpointslices
+        derivedService --> |endointslicesync via an optional annotation or if the service is Headless| remoteEndpointslices
+        derivedService --> |mcsAPIEndpointSliceMirrorReconciler| localEndpointslices
     end
 ```

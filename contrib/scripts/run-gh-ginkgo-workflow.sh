@@ -196,7 +196,6 @@ run_tests() {
             --ginkgo.skip= \
             --ginkgo.seed=1679952881 \
             --ginkgo.v -- \
-            -cilium.provision=false \
             -cilium.image=quay.io/${quay_org}/cilium-ci \
             -cilium.tag=${commit_sha}  \
             -cilium.operator-image=quay.io/${quay_org}/operator \

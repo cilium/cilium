@@ -7,6 +7,7 @@ package netns
 
 import (
 	"fmt"
+	"iter"
 )
 
 type NetNS struct{}
@@ -29,4 +30,15 @@ func (h *NetNS) Close() error {
 
 func (h *NetNS) Do(func() error) error {
 	return fmt.Errorf("not implemented")
+}
+
+func Current() (*NetNS, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func All() (iter.Seq2[string, *NetNS], <-chan error) {
+	errs := make(chan error, 1)
+	errs <- fmt.Errorf("not implemented")
+	close(errs)
+	return nil, errs
 }

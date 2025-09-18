@@ -32,11 +32,11 @@ func (hook *awsFlagsHooks) RegisterProviderFlag(cmd *cobra.Command, vp *viper.Vi
 	flags.Bool(operatorOption.AWSEnablePrefixDelegation, false, "Allows operator to allocate prefixes to ENIs instead of individual IP addresses")
 	option.BindEnv(vp, operatorOption.AWSEnablePrefixDelegation)
 
-	flags.Var(option.NewNamedMapOptions(operatorOption.ENITags, &operatorOption.Config.ENITags, nil),
+	flags.Var(option.NewMapOptions(&operatorOption.Config.ENITags),
 		operatorOption.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 	option.BindEnv(vp, operatorOption.ENITags)
 
-	flags.Var(option.NewNamedMapOptions(operatorOption.ENIGarbageCollectionTags, &operatorOption.Config.ENIGarbageCollectionTags, nil),
+	flags.Var(option.NewMapOptions(&operatorOption.Config.ENIGarbageCollectionTags),
 		operatorOption.ENIGarbageCollectionTags, "Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected")
 	option.BindEnv(vp, operatorOption.ENIGarbageCollectionTags)
 
@@ -49,6 +49,9 @@ func (hook *awsFlagsHooks) RegisterProviderFlag(cmd *cobra.Command, vp *viper.Vi
 
 	flags.String(operatorOption.EC2APIEndpoint, "", "AWS API endpoint for the EC2 service")
 	option.BindEnv(vp, operatorOption.EC2APIEndpoint)
+
+	flags.Bool(operatorOption.AWSPaginationEnabled, true, "Enable pagination for AWS EC2 API requests. The default page size is 1000 items.")
+	option.BindEnv(vp, operatorOption.AWSPaginationEnabled)
 
 	vp.BindPFlags(flags)
 }

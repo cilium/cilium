@@ -10,6 +10,7 @@
 
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement "false") -}}
 {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
+{{- $buildDaemonConfig := or (kindIs "invalid" .Values.daemon.configSources) (not (regexMatch "^config-map:[^,]+$" .Values.daemon.configSources)) -}}
 
 ---
 apiVersion: apps/v1
@@ -267,7 +268,7 @@ spec:
           hostPort: {{ .Values.envoy.prometheus.port }}
           protocol: TCP
         {{- end }}
-        {{- if and .Values.envoy.debug.admin.port (not $envoyDS) }}
+        {{- if and .Values.envoy.debug.admin.enabled .Values.envoy.debug.admin.port (not $envoyDS) }}
         - name: envoy-admin
           containerPort: {{ .Values.envoy.debug.admin.port }}
           hostPort: {{ .Values.envoy.debug.admin.port }}
@@ -390,8 +391,14 @@ spec:
           mountPath: /var/lib/cilium/tls/hubble
           readOnly: true
         {{- end }}
+        {{- if $buildDaemonConfig }}
         - name: tmp
           mountPath: /tmp
+        {{- else }}
+        - name: cilium-config-path
+          mountPath: /tmp/cilium/config-map
+          readOnly: true
+        {{- end }}
         {{- range .Values.extraHostPathMounts }}
         - name: {{ .name }}
           mountPath: {{ .mountPath }}
@@ -413,6 +420,7 @@ spec:
         {{- with .Values.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- include "cilium-agent.volumeMounts.extra" . | nindent 8 }}
       {{- if .Values.monitor.enabled }}
       - name: cilium-monitor
         image: {{ include "cilium.image" .Values.image | quote }}
@@ -446,9 +454,14 @@ spec:
       {{- toYaml .Values.extraContainers | nindent 6 }}
       {{- end }}
       initContainers:
+      {{- if $buildDaemonConfig }}
       - name: config
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.initResources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
         command:
         - cilium-dbg
         - build-config
@@ -463,6 +476,9 @@ spec:
         {{- end }}
         {{- if .Values.kubeConfigPath }}
         - "--k8s-kubeconfig-path={{ .Values.kubeConfigPath }}"
+        {{- end }}
+        {{- if hasKey .Values.k8s "apiServerURLs" }}
+        - "--k8s-api-server-urls={{ .Values.k8s.apiServerURLs }}"
         {{- end }}
         env:
         - name: K8S_NODE_NAME
@@ -505,6 +521,17 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
+        securityContext:
+          {{- if .Values.securityContext.privileged }}
+          privileged: true
+          {{- else }}
+          capabilities:
+            add:
+              - NET_ADMIN
+            drop:
+              - ALL
+          {{- end}}
+      {{- end }}
       {{- if .Values.cgroup.autoMount.enabled }}
       # Required to mount cgroup2 filesystem on the underlying Kubernetes node.
       # We use nsenter command with host's cgroup and mount namespaces enabled.
@@ -796,9 +823,7 @@ spec:
       automountServiceAccountToken: {{ .Values.serviceAccounts.cilium.automount }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       hostNetwork: true
-      {{- if .Values.dnsPolicy }}
-      dnsPolicy: {{ .Values.dnsPolicy }}
-      {{- end }}
+      {{- include "cilium-agent.dnsPolicy" . | nindent 6 }}
       {{- if (eq .Values.scheduling.mode "anti-affinity")  }}
       {{- with .Values.affinity }}
       affinity:
@@ -815,7 +840,7 @@ spec:
       {{- end }}
       {{- if and .Values.clustermesh.config.enabled (not (and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled )) }}
       hostAliases:
-      {{- range $cluster := .Values.clustermesh.config.clusters }}
+      {{- range $_, $cluster := (include "clustermesh-clusters" . | fromJson) }}
       {{- range $ip := $cluster.ips }}
       - ip: {{ $ip }}
         hostnames: [ "{{ $cluster.name }}.{{ $.Values.clustermesh.config.domain }}" ]
@@ -823,9 +848,16 @@ spec:
       {{- end }}
       {{- end }}
       volumes:
-        # For sharing configuration between the "config" initContainer and the agent
+      {{- if $buildDaemonConfig }}
+      # For sharing configuration between the "config" initContainer and the agent
       - name: tmp
         emptyDir: {}
+      {{- else }}
+      # To read the configuration from the config map
+      - name: cilium-config-path
+        configMap:
+          name: {{ trimPrefix "config-map:" .Values.daemon.configSources }}
+      {{- end }}
         # To keep state between restarts / upgrades
       - name: cilium-run
         hostPath:
@@ -1034,7 +1066,7 @@ spec:
           defaultMode: 0400
           sources:
           - secret:
-              name: {{ .Values.hubble.tls.server.existingSecret | default "hubble-metrics-server-certs" }}
+              name: {{ .Values.hubble.metrics.tls.server.existingSecret | default "hubble-metrics-server-certs" }}
               optional: true
               items:
               - key: tls.crt
@@ -1089,4 +1121,5 @@ spec:
       {{- with .Values.extraVolumes }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
+      {{- include "cilium-agent.volumes.extra" . | nindent 6 }}
 {{- end }}

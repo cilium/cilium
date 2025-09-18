@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: ciliumendpoints.cilium.io
 spec:
   group: cilium.io
@@ -466,6 +466,10 @@ spec:
                     - enforcing
                     type: object
                 type: object
+              service-account:
+                description: ServiceAccount is the service account associated with
+                  the endpoint
+                type: string
               state:
                 description: State is the state of the endpoint.
                 enum:

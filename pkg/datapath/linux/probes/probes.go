@@ -4,8 +4,6 @@
 package probes
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,7 +12,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"text/template"
 
@@ -24,20 +21,16 @@ import (
 	"github.com/cilium/ebpf/link"
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/command/exec"
-	"github.com/cilium/cilium/pkg/defaults"
+	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 )
 
-var (
-	once         sync.Once
-	probeManager *ProbeManager
-	tpl          = template.New("headerfile")
-)
+var tpl = template.New("headerfile")
 
 func init() {
 	const content = `
@@ -61,6 +54,7 @@ func init() {
 	var err error
 	tpl, err = tpl.Parse(content)
 	if err != nil {
+		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		logging.Fatal(logging.DefaultSlogLogger, "could not parse headerfile template", logfields.Error, err)
 	}
 }
@@ -68,294 +62,17 @@ func init() {
 // ErrNotSupported indicates that a feature is not supported by the current kernel.
 var ErrNotSupported = errors.New("not supported")
 
-// KernelParam is a type based on string which represents CONFIG_* kernel
-// parameters which usually have values "y", "n" or "m".
-type KernelParam string
-
-// Enabled checks whether the kernel parameter is enabled.
-func (kp KernelParam) Enabled() bool {
-	return kp == "y"
-}
-
-// Module checks whether the kernel parameter is enabled as a module.
-func (kp KernelParam) Module() bool {
-	return kp == "m"
-}
-
-// kernelOption holds information about kernel parameters to probe.
-type kernelOption struct {
-	Description string
-	Enabled     bool
-	CanBeModule bool
-}
-
 type ProgramHelper struct {
 	Program ebpf.ProgramType
 	Helper  asm.BuiltinFunc
 }
 
-type miscFeatures struct {
-	HaveFibIfindex bool
-}
-
 type FeatureProbes struct {
 	ProgramHelpers map[ProgramHelper]bool
-	Misc           miscFeatures
-}
-
-// SystemConfig contains kernel configuration and sysctl parameters related to
-// BPF functionality.
-type SystemConfig struct {
-	UnprivilegedBpfDisabled      int         `json:"unprivileged_bpf_disabled"`
-	BpfJitEnable                 int         `json:"bpf_jit_enable"`
-	BpfJitHarden                 int         `json:"bpf_jit_harden"`
-	BpfJitKallsyms               int         `json:"bpf_jit_kallsyms"`
-	BpfJitLimit                  int         `json:"bpf_jit_limit"`
-	ConfigBpf                    KernelParam `json:"CONFIG_BPF"`
-	ConfigBpfSyscall             KernelParam `json:"CONFIG_BPF_SYSCALL"`
-	ConfigHaveEbpfJit            KernelParam `json:"CONFIG_HAVE_EBPF_JIT"`
-	ConfigBpfJit                 KernelParam `json:"CONFIG_BPF_JIT"`
-	ConfigBpfJitAlwaysOn         KernelParam `json:"CONFIG_BPF_JIT_ALWAYS_ON"`
-	ConfigCgroups                KernelParam `json:"CONFIG_CGROUPS"`
-	ConfigCgroupBpf              KernelParam `json:"CONFIG_CGROUP_BPF"`
-	ConfigCgroupNetClassID       KernelParam `json:"CONFIG_CGROUP_NET_CLASSID"`
-	ConfigSockCgroupData         KernelParam `json:"CONFIG_SOCK_CGROUP_DATA"`
-	ConfigBpfEvents              KernelParam `json:"CONFIG_BPF_EVENTS"`
-	ConfigKprobeEvents           KernelParam `json:"CONFIG_KPROBE_EVENTS"`
-	ConfigUprobeEvents           KernelParam `json:"CONFIG_UPROBE_EVENTS"`
-	ConfigTracing                KernelParam `json:"CONFIG_TRACING"`
-	ConfigFtraceSyscalls         KernelParam `json:"CONFIG_FTRACE_SYSCALLS"`
-	ConfigFunctionErrorInjection KernelParam `json:"CONFIG_FUNCTION_ERROR_INJECTION"`
-	ConfigBpfKprobeOverride      KernelParam `json:"CONFIG_BPF_KPROBE_OVERRIDE"`
-	ConfigNet                    KernelParam `json:"CONFIG_NET"`
-	ConfigXdpSockets             KernelParam `json:"CONFIG_XDP_SOCKETS"`
-	ConfigLwtunnelBpf            KernelParam `json:"CONFIG_LWTUNNEL_BPF"`
-	ConfigNetActBpf              KernelParam `json:"CONFIG_NET_ACT_BPF"`
-	ConfigNetClsBpf              KernelParam `json:"CONFIG_NET_CLS_BPF"`
-	ConfigNetClsAct              KernelParam `json:"CONFIG_NET_CLS_ACT"`
-	ConfigNetSchIngress          KernelParam `json:"CONFIG_NET_SCH_INGRESS"`
-	ConfigXfrm                   KernelParam `json:"CONFIG_XFRM"`
-	ConfigIPRouteClassID         KernelParam `json:"CONFIG_IP_ROUTE_CLASSID"`
-	ConfigIPv6Seg6Bpf            KernelParam `json:"CONFIG_IPV6_SEG6_BPF"`
-	ConfigBpfLircMode2           KernelParam `json:"CONFIG_BPF_LIRC_MODE2"`
-	ConfigBpfStreamParser        KernelParam `json:"CONFIG_BPF_STREAM_PARSER"`
-	ConfigNetfilterXtMatchBpf    KernelParam `json:"CONFIG_NETFILTER_XT_MATCH_BPF"`
-	ConfigBpfilter               KernelParam `json:"CONFIG_BPFILTER"`
-	ConfigBpfilterUmh            KernelParam `json:"CONFIG_BPFILTER_UMH"`
-	ConfigTestBpf                KernelParam `json:"CONFIG_TEST_BPF"`
-	ConfigKernelHz               KernelParam `json:"CONFIG_HZ"`
-}
-
-// MapTypes contains bools indicating which types of BPF maps the currently
-// running kernel supports.
-type MapTypes struct {
-	HaveHashMapType                bool `json:"have_hash_map_type"`
-	HaveArrayMapType               bool `json:"have_array_map_type"`
-	HaveProgArrayMapType           bool `json:"have_prog_array_map_type"`
-	HavePerfEventArrayMapType      bool `json:"have_perf_event_array_map_type"`
-	HavePercpuHashMapType          bool `json:"have_percpu_hash_map_type"`
-	HavePercpuArrayMapType         bool `json:"have_percpu_array_map_type"`
-	HaveStackTraceMapType          bool `json:"have_stack_trace_map_type"`
-	HaveCgroupArrayMapType         bool `json:"have_cgroup_array_map_type"`
-	HaveLruHashMapType             bool `json:"have_lru_hash_map_type"`
-	HaveLruPercpuHashMapType       bool `json:"have_lru_percpu_hash_map_type"`
-	HaveLpmTrieMapType             bool `json:"have_lpm_trie_map_type"`
-	HaveArrayOfMapsMapType         bool `json:"have_array_of_maps_map_type"`
-	HaveHashOfMapsMapType          bool `json:"have_hash_of_maps_map_type"`
-	HaveDevmapMapType              bool `json:"have_devmap_map_type"`
-	HaveSockmapMapType             bool `json:"have_sockmap_map_type"`
-	HaveCpumapMapType              bool `json:"have_cpumap_map_type"`
-	HaveXskmapMapType              bool `json:"have_xskmap_map_type"`
-	HaveSockhashMapType            bool `json:"have_sockhash_map_type"`
-	HaveCgroupStorageMapType       bool `json:"have_cgroup_storage_map_type"`
-	HaveReuseportSockarrayMapType  bool `json:"have_reuseport_sockarray_map_type"`
-	HavePercpuCgroupStorageMapType bool `json:"have_percpu_cgroup_storage_map_type"`
-	HaveQueueMapType               bool `json:"have_queue_map_type"`
-	HaveStackMapType               bool `json:"have_stack_map_type"`
-}
-
-// Features contains BPF feature checks returned by bpftool.
-type Features struct {
-	SystemConfig `json:"system_config"`
-	MapTypes     `json:"map_types"`
-}
-
-// ProbeManager is a manager of BPF feature checks.
-type ProbeManager struct {
-	logger   *slog.Logger
-	features Features
-}
-
-// NewProbeManager returns a new instance of ProbeManager - a manager of BPF
-// feature checks.
-func NewProbeManager(logger *slog.Logger) *ProbeManager {
-	newProbeManager := func() {
-		probeManager = &ProbeManager{
-			logger: logger,
-		}
-		probeManager.features = probeManager.Probe()
-	}
-	once.Do(newProbeManager)
-	return probeManager
-}
-
-// Probe probes the underlying kernel for features.
-func (p *ProbeManager) Probe() Features {
-	var features Features
-	out, err := exec.WithTimeout(
-		defaults.ExecTimeout,
-		"bpftool", "-j", "feature", "probe",
-	).CombinedOutput(p.logger, true)
-	if err != nil {
-		logging.Fatal(p.logger, "could not run bpftool", logfields.Error, err)
-	}
-	if err := json.Unmarshal(out, &features); err != nil {
-		logging.Fatal(p.logger, "could not parse bpftool output", logfields.Error, err)
-	}
-	return features
-}
-
-// SystemConfigProbes performs a check of kernel configuration parameters. It
-// returns an error when parameters required by Cilium are not enabled. It logs
-// warnings when optional parameters are not enabled.
-//
-// When kernel config file is not found, bpftool can't probe kernel configuration
-// parameter real setting, so only return error log when kernel config file exists
-// and kernel configuration parameter setting is disabled
-func (p *ProbeManager) SystemConfigProbes() error {
-	var notFound bool
-	if !p.KernelConfigAvailable() {
-		notFound = true
-		p.logger.Info("Kernel config file not found: if the agent fails to start, check the system requirements at https://docs.cilium.io/en/stable/operations/system_requirements")
-	}
-	requiredParams := p.GetRequiredConfig()
-	for param, kernelOption := range requiredParams {
-		if !kernelOption.Enabled && !notFound {
-			module := ""
-			if kernelOption.CanBeModule {
-				module = " or module"
-			}
-			return fmt.Errorf("%s kernel parameter%s is required (needed for: %s)", param, module, kernelOption.Description)
-		}
-	}
-	optionalParams := p.GetOptionalConfig()
-	for param, kernelOption := range optionalParams {
-		if !kernelOption.Enabled && !notFound {
-			module := ""
-			if kernelOption.CanBeModule {
-				module = " or module"
-			}
-			p.logger.Warn("optional kernel parameters is not in kernel",
-				logfields.OptionalParameter,
-				[]any{
-					logfields.Param, param,
-					logfields.Module, module,
-					logfields.NeedFor, kernelOption.Description,
-				},
-			)
-		}
-	}
-	return nil
-}
-
-// GetRequiredConfig performs a check of mandatory kernel configuration options. It
-// returns a map indicating which required kernel parameters are enabled - and which are not.
-// GetRequiredConfig is being used by CLI "cilium kernel-check".
-func (p *ProbeManager) GetRequiredConfig() map[KernelParam]kernelOption {
-	config := p.features.SystemConfig
-	coreInfraDescription := "Essential eBPF infrastructure"
-	kernelParams := make(map[KernelParam]kernelOption)
-
-	kernelParams["CONFIG_BPF"] = kernelOption{
-		Enabled:     config.ConfigBpf.Enabled(),
-		Description: coreInfraDescription,
-		CanBeModule: false,
-	}
-	kernelParams["CONFIG_BPF_SYSCALL"] = kernelOption{
-		Enabled:     config.ConfigBpfSyscall.Enabled(),
-		Description: coreInfraDescription,
-		CanBeModule: false,
-	}
-	kernelParams["CONFIG_NET_SCH_INGRESS"] = kernelOption{
-		Enabled:     config.ConfigNetSchIngress.Enabled() || config.ConfigNetSchIngress.Module(),
-		Description: coreInfraDescription,
-		CanBeModule: true,
-	}
-	kernelParams["CONFIG_NET_CLS_BPF"] = kernelOption{
-		Enabled:     config.ConfigNetClsBpf.Enabled() || config.ConfigNetClsBpf.Module(),
-		Description: coreInfraDescription,
-		CanBeModule: true,
-	}
-	kernelParams["CONFIG_NET_CLS_ACT"] = kernelOption{
-		Enabled:     config.ConfigNetClsAct.Enabled(),
-		Description: coreInfraDescription,
-		CanBeModule: false,
-	}
-	kernelParams["CONFIG_BPF_JIT"] = kernelOption{
-		Enabled:     config.ConfigBpfJit.Enabled(),
-		Description: coreInfraDescription,
-		CanBeModule: false,
-	}
-	kernelParams["CONFIG_HAVE_EBPF_JIT"] = kernelOption{
-		Enabled:     config.ConfigHaveEbpfJit.Enabled(),
-		Description: coreInfraDescription,
-		CanBeModule: false,
-	}
-
-	return kernelParams
-}
-
-// GetOptionalConfig performs a check of *optional* kernel configuration options. It
-// returns a map indicating which optional/non-mandatory kernel parameters are enabled.
-// GetOptionalConfig is being used by CLI "cilium kernel-check".
-func (p *ProbeManager) GetOptionalConfig() map[KernelParam]kernelOption {
-	config := p.features.SystemConfig
-	kernelParams := make(map[KernelParam]kernelOption)
-
-	kernelParams["CONFIG_CGROUP_BPF"] = kernelOption{
-		Enabled:     config.ConfigCgroupBpf.Enabled(),
-		Description: "Host Reachable Services and Sockmap optimization",
-		CanBeModule: false,
-	}
-	kernelParams["CONFIG_LWTUNNEL_BPF"] = kernelOption{
-		Enabled:     config.ConfigLwtunnelBpf.Enabled(),
-		Description: "Lightweight Tunnel hook for IP-in-IP encapsulation",
-		CanBeModule: false,
-	}
-	kernelParams["CONFIG_BPF_EVENTS"] = kernelOption{
-		Enabled:     config.ConfigBpfEvents.Enabled(),
-		Description: "Visibility and congestion management with datapath",
-		CanBeModule: false,
-	}
-
-	return kernelParams
-}
-
-// KernelConfigAvailable checks if the Kernel Config is available on the
-// system or not.
-func (p *ProbeManager) KernelConfigAvailable() bool {
-	// Check Kernel Config is available or not.
-	// We are replicating BPFTools logic here to check if kernel config is available
-	// https://elixir.bootlin.com/linux/v5.7/source/tools/bpf/bpftool/feature.c#L390
-	info := unix.Utsname{}
-	err := unix.Uname(&info)
-	if err != nil {
-		return false
-	}
-	release := strings.TrimSpace(string(bytes.Trim(info.Release[:], "\x00")))
-
-	// Any error checking these files will return Kernel config not found error
-	if _, err := os.Stat(fmt.Sprintf("/boot/config-%s", release)); err != nil {
-		if _, err = os.Stat("/proc/config.gz"); err != nil {
-			return false
-		}
-	}
-
-	return true
 }
 
 // HaveProgramHelper is a wrapper around features.HaveProgramHelper() to
-// check if a certain BPF program/helper copmbination is supported by the kernel.
+// check if a certain BPF program/helper combination is supported by the kernel.
 // On unexpected probe results this function will terminate with log.Fatal().
 func HaveProgramHelper(logger *slog.Logger, pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 	err := features.HaveProgramHelper(pt, helper)
@@ -400,13 +117,6 @@ func HaveBoundedLoops(logger *slog.Logger) error {
 	return nil
 }
 
-// HaveFibIfindex checks if kernel has d1c362e1dd68 ("bpf: Always return target
-// ifindex in bpf_fib_lookup") which is 5.10+. This got merged in the same kernel
-// as the new redirect helpers.
-func HaveFibIfindex() error {
-	return features.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer)
-}
-
 // HaveWriteableQueueMapping checks if kernel has 74e31ca850c1 ("bpf: add
 // skb->queue_mapping write access from tc clsact") which is 5.1+. This got merged
 // in the same kernel as the bpf_skb_ecn_set_ce() helper.
@@ -442,17 +152,103 @@ func HaveV3ISA(logger *slog.Logger) error {
 	return nil
 }
 
-// HaveTCX returns nil if the running kernel supports attaching bpf programs to
-// tcx hooks.
-var HaveTCX = sync.OnceValue(func() error {
+func newProgram(progType ebpf.ProgramType) (*ebpf.Program, error) {
 	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
-		Type: ebpf.SchedCLS,
+		Type: progType,
 		Instructions: asm.Instructions{
 			asm.Mov.Imm(asm.R0, 0),
 			asm.Return(),
 		},
 		License: "Apache-2.0",
 	})
+	if err != nil {
+		return nil, fmt.Errorf("loading bpf program: %w: %w", err, ErrNotSupported)
+	}
+	return prog, nil
+}
+
+// HaveBPF returns nil if the running kernel supports loading BPF programs.
+var HaveBPF = sync.OnceValue(func() error {
+	prog, err := newProgram(ebpf.SocketFilter)
+	if err != nil {
+		return err
+	}
+	defer prog.Close()
+
+	return nil
+})
+
+// HaveBPFJIT returns nil if the running kernel features a BPF JIT and if it is
+// enabled in the kernel configuration.
+var HaveBPFJIT = sync.OnceValue(func() error {
+	prog, err := newProgram(ebpf.SocketFilter)
+	if err != nil {
+		return err
+	}
+	defer prog.Close()
+
+	info, err := prog.Info()
+	if err != nil {
+		return fmt.Errorf("get prog info: %w", err)
+	}
+	if _, err := info.JitedSize(); err != nil {
+		return fmt.Errorf("get JITed prog size: %w", err)
+	}
+
+	return nil
+})
+
+// HaveTCBPF returns nil if the running kernel supports attaching a bpf filter
+// to a clsact qdisc.
+var HaveTCBPF = sync.OnceValue(func() error {
+	prog, err := newProgram(ebpf.SchedCLS)
+	if err != nil {
+		return err
+	}
+	defer prog.Close()
+
+	ns, err := netns.New()
+	if err != nil {
+		return fmt.Errorf("create netns: %w", err)
+	}
+	defer ns.Close()
+
+	qdisc := &netlink.Clsact{
+		QdiscAttrs: netlink.QdiscAttrs{
+			LinkIndex: 1, // lo
+			Handle:    netlink.MakeHandle(0xffff, 0),
+			Parent:    netlink.HANDLE_CLSACT,
+		},
+	}
+
+	filter := &netlink.BpfFilter{
+		FilterAttrs: netlink.FilterAttrs{
+			LinkIndex: 1, // lo
+			Parent:    netlink.HANDLE_MIN_INGRESS,
+			Handle:    1,
+			Protocol:  unix.ETH_P_ALL,
+		},
+		Fd:           prog.FD(),
+		DirectAction: true,
+	}
+
+	return ns.Do(func() error {
+		if err := netlink.QdiscReplace(qdisc); err != nil {
+			return fmt.Errorf("creating clsact qdisc: %w: %w", err, ErrNotSupported)
+		}
+
+		if err := netlink.FilterReplace(filter); err != nil {
+			return fmt.Errorf("attaching bpf tc filter: %w: %w", err, ErrNotSupported)
+		}
+
+		return nil
+	})
+})
+
+// HaveTCX returns nil if the running kernel supports attaching bpf programs to
+// tcx hooks.
+var HaveTCX = sync.OnceValue(func() error {
+	prog, err := newProgram(ebpf.SchedCLS)
 	if err != nil {
 		return err
 	}
@@ -487,14 +283,7 @@ var HaveTCX = sync.OnceValue(func() error {
 // HaveNetkit returns nil if the running kernel supports attaching bpf programs
 // to netkit devices.
 var HaveNetkit = sync.OnceValue(func() error {
-	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
-		Type: ebpf.SchedCLS,
-		Instructions: asm.Instructions{
-			asm.Mov.Imm(asm.R0, 0),
-			asm.Return(),
-		},
-		License: "Apache-2.0",
-	})
+	prog, err := newProgram(ebpf.SchedCLS)
 	if err != nil {
 		return err
 	}
@@ -647,6 +436,42 @@ func HaveIPv6Support() error {
 	return nil
 }
 
+// HaveFibLookupSkipNeigh tests whether or not the kernel supports the
+// BPF_FIB_LOOKUP_SKIP_NEIGH flag for bpf_fib_lookup.
+// https://lore.kernel.org/bpf/20230217205515.3583372-1-martin.lau@linux.dev/
+var HaveFibLookupSkipNeigh = sync.OnceValue(func() error {
+	var objs bpfgen.ProbesObjects
+
+	err := bpfgen.LoadProbesObjects(&objs, &ebpf.CollectionOptions{})
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
+			return fmt.Errorf("writing verifier log to stderr: %w", err)
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("loading collection: %w", err)
+	}
+
+	defer objs.Close()
+
+	ret, err := objs.ProbeFibLookupSkipNeigh.Run(&ebpf.RunOptions{
+		// Newer kernels require that data is at least 14 bytes:
+		// https://github.com/torvalds/linux/commit/6b3d638ca897e099fa99bd6d02189d3176f80a47
+		Data:   make([]byte, 14),
+		Repeat: 1,
+	})
+	if err != nil {
+		return fmt.Errorf("running probe: %w", err)
+	}
+
+	if ret != 0 {
+		return ErrNotSupported
+	}
+
+	return nil
+})
+
 // CreateHeaderFiles creates C header files with macros indicating which BPF
 // features are available in the kernel.
 func CreateHeaderFiles(headerDir string, probes *FeatureProbes) error {
@@ -689,25 +514,11 @@ func CreateHeaderFiles(headerDir string, probes *FeatureProbes) error {
 func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 	probes := FeatureProbes{
 		ProgramHelpers: make(map[ProgramHelper]bool),
-		Misc:           miscFeatures{},
 	}
 
 	progHelpers := []ProgramHelper{
 		// common probes
-		{ebpf.CGroupSock, asm.FnGetNetnsCookie},
-		{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie},
-		{ebpf.CGroupSock, asm.FnJiffies64},
-		{ebpf.CGroupSockAddr, asm.FnJiffies64},
-		{ebpf.SchedCLS, asm.FnJiffies64},
-		{ebpf.XDP, asm.FnJiffies64},
-		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
 		{ebpf.CGroupSock, asm.FnSetRetval},
-		{ebpf.SchedCLS, asm.FnRedirectNeigh},
-		{ebpf.SchedCLS, asm.FnRedirectPeer},
-
-		// skb related probes
-		{ebpf.SchedCLS, asm.FnSkbChangeTail},
-		{ebpf.SchedCLS, asm.FnCsumLevel},
 
 		// xdp related probes
 		{ebpf.XDP, asm.FnXdpGetBuffLen},
@@ -718,24 +529,13 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 		probes.ProgramHelpers[ph] = (HaveProgramHelper(logger, ph.Program, ph.Helper) == nil)
 	}
 
-	probes.Misc.HaveFibIfindex = (HaveFibIfindex() == nil)
-
 	return &probes
 }
 
 // writeCommonHeader defines macross for bpf/include/bpf/features.h
 func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 	features := map[string]bool{
-		"HAVE_NETNS_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnGetNetnsCookie}] &&
-			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie}],
-		"HAVE_JIFFIES": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnJiffies64}] &&
-			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnJiffies64}] &&
-			probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnJiffies64}] &&
-			probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnJiffies64}],
-		"HAVE_CGROUP_ID":   probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
-		"HAVE_SET_RETVAL":  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
-		"HAVE_FIB_NEIGH":   probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectNeigh}],
-		"HAVE_FIB_IFINDEX": probes.Misc.HaveFibIfindex,
+		"HAVE_SET_RETVAL": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
 	}
 
 	return writeFeatureHeader(writer, features, true)
@@ -743,9 +543,7 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 
 // writeSkbHeader defines macros for bpf/include/bpf/features_skb.h
 func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
-	featuresSkb := map[string]bool{
-		"HAVE_CSUM_LEVEL": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnCsumLevel}],
-	}
+	featuresSkb := map[string]bool{}
 
 	return writeFeatureHeader(writer, featuresSkb, false)
 }

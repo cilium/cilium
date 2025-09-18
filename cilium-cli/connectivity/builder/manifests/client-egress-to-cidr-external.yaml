@@ -1,4 +1,5 @@
-# This policy allows packets towards {{.ExternalIP}}, but not {{.ExternalOtherIP}}.
+# This policy allows packets towards {{.ExternalIPv4}} and {{.ExternalIPv6}}, but 
+# not {{.ExternalOtherIPv4}} and {{.ExternalOtherIPv6}}.
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
@@ -9,6 +10,9 @@ spec:
       kind: client
   egress:
   - toCIDRSet:
-    - cidr: "{{.ExternalCIDR}}"
+    - cidr: "{{.ExternalCIDRv4}}"
       except:
-      - "{{ .ExternalOtherIP | ipToCIDR }}"
+      - "{{ .ExternalOtherIPv4 | ipToCIDR }}"
+    - cidr: "{{.ExternalCIDRv6}}"
+      except:
+      - "{{ .ExternalOtherIPv6 | ipToCIDR }}"

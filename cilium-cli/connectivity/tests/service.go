@@ -8,11 +8,9 @@ import (
 	"fmt"
 	"slices"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/pkg/versioncheck"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 // PodToService sends an HTTP request from all client Pods
@@ -110,14 +108,17 @@ func (s *podToIngress) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, a.CurlCommand(svc))
+			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &pod, svc, ipFam).Run(func(a *check.Action) {
+					a.ExecInPod(ctx, a.CurlCommand(svc))
 
-				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
-					DNSRequired: true,
-					AltDstPort:  svc.Port(),
-				}))
+					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
+						DNSRequired: true,
+						AltDstPort:  svc.Port(),
+					}))
+				})
 			})
+
 			i++
 		}
 	}
@@ -206,7 +207,7 @@ func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {
 }
 
 func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
-	name string, pod *check.Pod, svc check.Service, node *corev1.Node,
+	name string, pod *check.Pod, svc check.Service, node *slimcorev1.Node,
 	validateFlows bool, secondaryNetwork bool) {
 
 	// Get the NodePort allocated to the Service.
@@ -216,13 +217,13 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 
 	if secondaryNetwork {
 		if t.Context().Features[features.IPv4].Enabled {
-			addrs = append(addrs, corev1.NodeAddress{
+			addrs = append(addrs, slimcorev1.NodeAddress{
 				Type:    "SecondaryNetworkIPv4",
 				Address: t.Context().SecondaryNetworkNodeIPv4()[node.Name],
 			})
 		}
 		if t.Context().Features[features.IPv6].Enabled {
-			addrs = append(addrs, corev1.NodeAddress{
+			addrs = append(addrs, slimcorev1.NodeAddress{
 				Type:    "SecondaryNetworkIPv6",
 				Address: t.Context().SecondaryNetworkNodeIPv6()[node.Name],
 			})
@@ -237,17 +238,10 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 			}
 
 			// On GKE ExternalIP is not reachable from inside a cluster
-			if addr.Type == corev1.NodeExternalIP {
+			if addr.Type == slimcorev1.NodeExternalIP {
 				if f, ok := t.Context().Feature(features.Flavor); ok && f.Enabled && f.Mode == "gke" {
 					continue
 				}
-			}
-
-			//  Skip IPv6 requests when running on <1.14.0 Cilium with CNPs
-			if features.GetIPFamily(addr.Address) == features.IPFamilyV6 &&
-				versioncheck.MustCompile("<1.14.0")(t.Context().CiliumVersion) &&
-				t.HasNetworkPolicies() {
-				continue
 			}
 
 			// Manually construct an HTTP endpoint to override the destination IP
@@ -295,7 +289,7 @@ func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
 	// With kube-proxy doing N/S LB it is not possible to see the original client
 	// IP, as iptables rules do the LB SNAT/DNAT before the packet hits any
 	// of Cilium's datapath BPF progs. So, skip the flow validation in that case.
-	status, ok := t.Context().Feature(features.KPRNodePort)
+	status, ok := t.Context().Feature(features.KPR)
 	validateFlows := ok && status.Enabled
 
 	for _, svc := range t.Context().EchoServices() {
@@ -338,5 +332,65 @@ func (s *outsideToIngressService) Run(ctx context.Context, t *check.Test) {
 			}
 		})
 		i++
+	}
+}
+
+// PodToL7Service sends an HTTP request from a given client Pods
+// to all L7 LB service in the test context.
+func PodToL7Service(name string, clients map[string]check.Pod, opts ...Option) check.Scenario {
+	options := &labelsOption{}
+	for _, opt := range opts {
+		opt(options)
+	}
+	return &podToL7Service{
+		ScenarioBase:      check.NewScenarioBase(),
+		name:              name,
+		clients:           clients,
+		sourceLabels:      options.sourceLabels,
+		destinationLabels: options.destinationLabels,
+	}
+}
+
+// podToL7Service implements a Scenario.
+type podToL7Service struct {
+	check.ScenarioBase
+
+	name              string
+	clients           map[string]check.Pod
+	sourceLabels      map[string]string
+	destinationLabels map[string]string
+}
+
+func (s *podToL7Service) Name() string {
+	if len(s.name) == 0 {
+		return "pod-to-l7-lb-service"
+	}
+	return fmt.Sprintf("pod-to-l7-lb-service-%s", s.name)
+}
+
+func (s *podToL7Service) Run(ctx context.Context, t *check.Test) {
+	var i int
+	ct := t.Context()
+
+	for _, pod := range s.clients {
+		if !hasAllLabels(pod, s.sourceLabels) {
+			continue
+		}
+
+		for _, svc := range ct.L7LBService() {
+			if !hasAllLabels(svc, s.destinationLabels) {
+				continue
+			}
+			t.ForEachIPFamily(func(ipFamily features.IPFamily) {
+				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFamily, i), &pod, svc, ipFamily).Run(func(a *check.Action) {
+					a.ExecInPod(ctx, a.CurlCommand(svc))
+					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
+						DNSRequired: true,
+						AltDstPort:  svc.Port(),
+					}))
+				})
+			})
+			i++
+		}
 	}
 }

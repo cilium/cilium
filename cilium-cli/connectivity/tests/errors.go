@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -38,7 +40,7 @@ type regexMatcher struct {
 }
 
 func (r regexMatcher) IsMatch(log string) bool {
-	return r.Regexp.MatchString(log)
+	return r.MatchString(log)
 }
 
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
@@ -62,12 +64,13 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		legacyBGPFeature, etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP,
 		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
 		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs,
-		hubbleQueueFull, reflectPanic, svcNotFound, unableTranslateCIDRgroups, gobgpWarnings,
+		hubbleQueueFull, reflectPanic, svcNotFound, gobgpWarnings,
 		endpointMapDeleteFailed, etcdReconnection, epRestoreMissingState, mutationDetectorKlog,
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
 		envoyExternalTargetTLSWarning, envoyExternalOtherTargetTLSWarning, ciliumNodeConfigDeprecation,
-		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation}
+		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation, ccgAlphaResourceDeprecation,
+		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn}
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -106,10 +109,28 @@ type noErrorsInLogs struct {
 
 	errorMsgsWithExceptions map[string][]logMatcher
 	ciliumVersion           semver.Version
+	mostCommonFailureLog    string
+	mostCommonFailureCount  int
+}
+
+func (n *noErrorsInLogs) FilePath() string {
+	extractedPath := extractPathFromLog(n.mostCommonFailureLog)
+	if extractedPath != "" {
+		return extractedPath
+	}
+	// In case log did not contain the path,
+	// we return the path of the test file.
+	return n.ScenarioBase.FilePath()
 }
 
 func (n *noErrorsInLogs) Name() string {
-	return "no-errors-in-logs"
+	result := "no-errors-in-logs"
+	extractedPath := extractPackageFromLog(n.mostCommonFailureLog)
+	if extractedPath != "" {
+		result = result + ":" + extractedPath
+	}
+
+	return result
 }
 
 type podID struct{ Cluster, Namespace, Name string }
@@ -126,6 +147,8 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 	}
 
 	opts := corev1.PodLogOptions{LimitBytes: ptr.To[int64](sysdump.DefaultLogsLimitBytes)}
+	prevOpts := opts
+	prevOpts.Previous = true
 	for pod, info := range pods {
 		client := info.client
 		for container, restarts := range info.containers {
@@ -147,16 +170,24 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				// the startup probe, let's just accept one possible restart here.
 				ignore = ignore || (restarts == 1 && container == "hubble-relay")
 
-				if restarts > 0 && !ignore {
-					a.Failf("Non-zero (%d) restart count of %s must be investigated", restarts, id)
-				}
-
 				var logs bytes.Buffer
 				err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs)
 				if err != nil {
 					a.Fatalf("Error reading Cilium logs: %s", err)
 				}
-				n.checkErrorsInLogs(id, logs.Bytes(), a)
+				n.checkErrorsInLogs(id, logs.Bytes(), a, &opts)
+
+				if restarts > 0 && !ignore {
+					a.Failf("Non-zero (%d) restart count of %s must be investigated", restarts, id)
+
+					logs = bytes.Buffer{}
+					err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, prevOpts, &logs)
+					if err == nil {
+						n.checkErrorsInLogs(id, logs.Bytes(), a, &prevOpts)
+					} else {
+						a.Failf("Error reading Cilium logs: %s", err)
+					}
+				}
 			})
 		}
 	}
@@ -274,8 +305,9 @@ func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
 	return containers
 }
 
-func (n *noErrorsInLogs) findUniqueFailures(logs []byte) map[string]int {
+func (n *noErrorsInLogs) findUniqueFailures(logs []byte) (map[string]int, map[string]string) {
 	uniqueFailures := make(map[string]int)
+	exampleLogLine := make(map[string]string)
 	for chunk := range bytes.SplitSeq(logs, []byte("\n")) {
 		msg := string(chunk)
 		for fail, ignoreMsgs := range n.errorMsgsWithExceptions {
@@ -288,25 +320,81 @@ func (n *noErrorsInLogs) findUniqueFailures(logs []byte) map[string]int {
 					}
 				}
 				if !ok {
-					count := uniqueFailures[msg]
-					uniqueFailures[msg] = count + 1
+					justMsg := extractValueFromLog(msg, "msg")
+					if justMsg == "" {
+						// Matching didn't work, fallback to previous behaviour
+						justMsg = msg
+					}
+					count := uniqueFailures[justMsg]
+					uniqueFailures[justMsg] = count + 1
+					exampleLogLine[justMsg] = msg
 				}
 			}
 		}
 	}
-	return uniqueFailures
+	for f, c := range uniqueFailures {
+		if c > n.mostCommonFailureCount {
+			n.mostCommonFailureCount = c
+			n.mostCommonFailureLog = exampleLogLine[f]
+		}
+	}
+	return uniqueFailures, exampleLogLine
 }
 
-func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Action) {
-	uniqueFailures := n.findUniqueFailures(logs)
+func extractValueFromLog(log string, key string) string {
+	// Capture key="something" or key=something
+	pattern := fmt.Sprintf(`\b%s=("[^"]*"|[^\s]*)`, key)
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return ""
+	}
+	matches := re.FindStringSubmatch(log)
+	if len(matches) > 1 {
+		return strings.Trim(matches[1], `"`)
+	}
+	return ""
+}
+
+func extractPathFromLog(log string) string {
+	source := extractValueFromLog(log, "source")
+	parts := strings.Split(source, ":")
+	if len(parts) < 2 {
+		return ""
+	}
+	source = strings.Split(source, ":")[0]
+	_, thisPath, _, _ := runtime.Caller(0)
+	repoDir, _ := filepath.Abs(filepath.Join(thisPath, "..", "..", "..", ".."))
+	// We trim twice for cases when cilium and cilium-cli are built in a different ways.
+	// For example, when cilium is built with make kind-image in Docker, but cilium-cli is built
+	// on the local host.
+	result := strings.TrimPrefix(source, repoDir+string(filepath.Separator))
+	return strings.TrimPrefix(result, "/go/src/github.com/cilium/cilium/")
+}
+
+func extractPackageFromLog(log string) string {
+	result := extractPathFromLog(log)
+	if result == "" {
+		return ""
+	}
+	result, _ = filepath.Split(result)
+	return filepath.Clean(result)
+}
+
+func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Action, opts *corev1.PodLogOptions) {
+	uniqueFailures, exampleLogLine := n.findUniqueFailures(logs)
 	if len(uniqueFailures) > 0 {
 		var failures strings.Builder
 		for f, c := range uniqueFailures {
 			failures.WriteRune('\n')
-			failures.WriteString(f)
+			failures.WriteString(exampleLogLine[f])
 			failures.WriteString(fmt.Sprintf(" (%d occurrences)", c))
+
 		}
-		a.Failf("Found %d logs in %s matching list of errors that must be investigated:%s", len(uniqueFailures), id, failures.String())
+		previous := ""
+		if opts.Previous {
+			previous = " from before pod restart"
+		}
+		a.Failf("Found %d logs in %s%s matching list of errors that must be investigated:%s", len(uniqueFailures), id, previous, failures.String())
 	}
 }
 
@@ -352,7 +440,6 @@ const (
 	hubbleQueueFull             stringMatcher = "hubble events queue is full"                                            // Because we run without monitor aggregation
 	reflectPanic                stringMatcher = "reflect.Value.SetUint using value obtained using unexported field"      // cf. https://github.com/cilium/cilium/issues/33766
 	svcNotFound                 stringMatcher = "service not found"                                                      // cf. https://github.com/cilium/cilium/issues/35768
-	unableTranslateCIDRgroups   stringMatcher = "Unable to translate all CIDR groups to CIDRs"                           // Can be removed once v1.17 is released.
 	gobgpWarnings               stringMatcher = "component=gobgp.BgpServerInstance"                                      // cf. https://github.com/cilium/cilium/issues/35799
 	etcdReconnection            stringMatcher = "Error observed on etcd connection, reconnecting etcd"                   // cf. https://github.com/cilium/cilium/issues/35865
 	epRestoreMissingState       stringMatcher = "Couldn't find state, ignoring endpoint"                                 // cf. https://github.com/cilium/cilium/issues/35869
@@ -368,6 +455,9 @@ const (
 	ciliumNodeConfigDeprecation stringMatcher = "cilium.io/v2alpha1 CiliumNodeConfig will be deprecated in cilium v1.16" // cf. https://github.com/cilium/cilium/issues/37249
 	hubbleUIEnvVarFallback      stringMatcher = "using fallback value for env var"                                       // cf. https://github.com/cilium/hubble-ui/pull/940
 	k8sClientNetworkStatusError stringMatcher = "Network status error received, restarting client connections"           // cf. https://github.com/cilium/cilium/issues/37712
+
+	k8sEndpointDeprecatedWarn stringMatcher = "v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice" // cf. https://github.com/cilium/cilium/issues/39105
+	proxylibDeprecatedWarn    stringMatcher = "The support for Envoy Go Extensions (proxylib) has been deprecated"          // cf. https://github.com/cilium/cilium/issues/38224
 
 	// Logs messages that should not be in the cilium-envoy DS logs
 	envoyErrorMessage    = "[error]"
@@ -387,4 +477,6 @@ var (
 	envoyTLSWarningTemplate = "cilium.tls_wrapper: Could not get server TLS context for pod.*on destination IP.*port 443 sni.*%s.*and raw socket is not allowed"
 	// bgpV2alpha1ResourceDeprecation is expected when using deprecated BGP resource versions in a test, specifically when running the tests after a Cilium downgrade.
 	bgpAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumBGP\w+ is deprecated`)}
+	// ccgAlphaResourceDeprecation is the same as bgpAlphaResourceDeprecation but for the CiliumCIDRGroup.
+	ccgAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumCIDRGroup is deprecated`)}
 )

@@ -4,7 +4,6 @@
 package ingress
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -243,7 +242,7 @@ func TestIsCiliumManagedIngress(t *testing.T) {
 				WithObjects(tC.fixture...).
 				Build()
 
-			isManaged := isCiliumManagedIngress(context.Background(), fakeClient, fakeLogger, tC.ingress)
+			isManaged := isCiliumManagedIngress(t.Context(), fakeClient, fakeLogger, tC.ingress)
 			require.Equal(t, tC.managed, isManaged)
 		})
 	}

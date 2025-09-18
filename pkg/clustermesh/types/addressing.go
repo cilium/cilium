@@ -5,6 +5,7 @@ package types
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"net"
@@ -187,20 +188,22 @@ func (ac AddrCluster) ClusterID() uint32 {
 
 // Equal returns true when given AddrCluster has a same IP address and ClusterID
 func (ac0 AddrCluster) Equal(ac1 AddrCluster) bool {
-	return ac0.addr == ac1.addr && ac0.clusterID == ac1.clusterID
+	return ac0 == ac1
+}
+
+// Compare returns an integer comparing two [AddrCluster] objects.
+// The result will be 0 if ac0 == ac1, -1 if ac0 < ac1, and +1 if ac0 > ac1.
+func (ac0 AddrCluster) Compare(ac1 AddrCluster) int {
+	if ret := ac0.addr.Compare(ac1.addr); ret != 0 {
+		return ret
+	}
+
+	return cmp.Compare(ac0.clusterID, ac1.clusterID)
 }
 
 // Less compares ac0 and ac1 and returns true if ac0 is lesser than ac1
 func (ac0 AddrCluster) Less(ac1 AddrCluster) bool {
-	// First, compare the IP address part
-	if ret := ac0.addr.Compare(ac1.addr); ret == -1 {
-		return true
-	} else if ret == 1 {
-		return false
-	} else {
-		// If IP address is the same, compare ClusterID
-		return ac0.clusterID < ac1.clusterID
-	}
+	return ac0.Compare(ac1) == -1
 }
 
 // This is an alias of Equal which only exists for satisfying deepequal-gen

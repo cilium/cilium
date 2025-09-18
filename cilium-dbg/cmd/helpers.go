@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"maps"
 	"os"
 	"path/filepath"
@@ -65,16 +66,6 @@ func requireEndpointID(cmd *cobra.Command, args []string) {
 	}
 }
 
-func requireRecorderID(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		Usagef(cmd, "Missing recorder id argument")
-	}
-
-	if args[0] == "" {
-		Usagef(cmd, "Empty recorder id argument")
-	}
-}
-
 func requirePath(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		Usagef(cmd, "Missing path argument")
@@ -82,16 +73,6 @@ func requirePath(cmd *cobra.Command, args []string) {
 
 	if args[0] == "" {
 		Usagef(cmd, "Empty path argument")
-	}
-}
-
-func requireServiceID(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		Usagef(cmd, "Missing service id argument")
-	}
-
-	if args[0] == "" {
-		Usagef(cmd, "Empty service id argument")
 	}
 }
 
@@ -230,12 +211,12 @@ func parseTrafficString(td string) (trafficdirection.TrafficDirection, error) {
 // command, provided as a list containing the endpoint ID, traffic direction,
 // identity and optionally, a list of ports.
 // Returns a parsed representation of the command arguments.
-func parsePolicyUpdateArgs(cmd *cobra.Command, args []string, isDeny bool) *PolicyUpdateArgs {
+func parsePolicyUpdateArgs(logger *slog.Logger, cmd *cobra.Command, args []string, isDeny bool) *PolicyUpdateArgs {
 	if len(args) < 3 {
 		Usagef(cmd, "<endpoint id>, <traffic-direction>, and <identity> required")
 	}
 
-	pa, err := parsePolicyUpdateArgsHelper(args, isDeny)
+	pa, err := parsePolicyUpdateArgsHelper(logger, args, isDeny)
 	if err != nil {
 		Fatalf("%s", err)
 	}
@@ -243,7 +224,7 @@ func parsePolicyUpdateArgs(cmd *cobra.Command, args []string, isDeny bool) *Poli
 	return pa
 }
 
-func endpointToPolicyMapPath(endpointID string) (string, error) {
+func endpointToPolicyMapPath(logger *slog.Logger, endpointID string) (string, error) {
 	if endpointID == "" {
 		return "", fmt.Errorf("Need ID or label")
 	}
@@ -259,17 +240,17 @@ func endpointToPolicyMapPath(endpointID string) (string, error) {
 		return "", err
 	}
 
-	return bpf.MapPath(mapName), nil
+	return bpf.MapPath(logger, mapName), nil
 }
 
-func parsePolicyUpdateArgsHelper(args []string, isDeny bool) (*PolicyUpdateArgs, error) {
+func parsePolicyUpdateArgsHelper(logger *slog.Logger, args []string, isDeny bool) (*PolicyUpdateArgs, error) {
 	trafficDirection := args[1]
 	parsedTd, err := parseTrafficString(trafficDirection)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to convert %s to a valid traffic direction: %w", args[1], err)
 	}
 
-	mapName, err := endpointToPolicyMapPath(args[0])
+	mapName, err := endpointToPolicyMapPath(logger, args[0])
 	if err != nil {
 		return nil, fmt.Errorf("Failed to parse endpointID %q", args[0])
 	}
@@ -323,7 +304,7 @@ func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
 	// The map needs not to be transparently initialized here even if
 	// it's not present for some reason. Triggering map recreation with
 	// OpenOrCreate when some map attribute had changed would be much worse.
-	policyMap, err := policymap.OpenPolicyMap(pa.path)
+	policyMap, err := policymap.OpenPolicyMap(log, pa.path)
 	if err != nil {
 		Fatalf("Cannot open policymap %q : %s", pa.path, err)
 	}

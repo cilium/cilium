@@ -111,7 +111,6 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 			Name:      obj.GetName(),
 		}
 		scopedLog := logger.With(
-			logfields.Controller, "secrets",
 			logfields.Resource, objName,
 		)
 
@@ -153,7 +152,6 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 
 func IsReferencedByCiliumNetworkPolicy(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool {
 	scopedLog := logger.With(
-		logfields.Controller, "netpol-cnp-secretsync",
 		logfields.Resource, obj.GetName(),
 	)
 
@@ -164,7 +162,7 @@ func IsReferencedByCiliumNetworkPolicy(ctx context.Context, c client.Client, log
 
 	cnpList := &cilium_api_v2.CiliumNetworkPolicyList{}
 	if err := c.List(ctx, cnpList); err != nil {
-		scopedLog.Warn("Unable to list CiliumNetworkPolicies", logfields.Error, err)
+		scopedLog.WarnContext(ctx, "Unable to list CiliumNetworkPolicies", logfields.Error, err)
 		return false
 	}
 
@@ -198,7 +196,6 @@ func IsReferencedByCiliumNetworkPolicy(ctx context.Context, c client.Client, log
 
 func IsReferencedByCiliumClusterwideNetworkPolicy(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool {
 	scopedLog := logger.With(
-		logfields.Controller, "netpol-ccnp-secretsync",
 		logfields.Resource, obj.GetName(),
 	)
 
@@ -209,7 +206,7 @@ func IsReferencedByCiliumClusterwideNetworkPolicy(ctx context.Context, c client.
 
 	ccnpList := &cilium_api_v2.CiliumClusterwideNetworkPolicyList{}
 	if err := c.List(ctx, ccnpList); err != nil {
-		scopedLog.Warn("Unable to list CiliumClusterwideNetworkPolicies", logfields.Error, err)
+		scopedLog.WarnContext(ctx, "Unable to list CiliumClusterwideNetworkPolicies", logfields.Error, err)
 		return false
 	}
 

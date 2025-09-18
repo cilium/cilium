@@ -1,5 +1,7 @@
 {{$action := .action}}
 
+{{$PPROF_INTERVAL := DefaultParam .CL2_PPROF_INTERVAL_SECONDS 60}}
+
 steps:
   - name: {{$action}} Cilium Agent PProfs
     measurements:
@@ -8,7 +10,7 @@ steps:
       params:
         action: {{$action}}
         labelSelector: k8s-app=cilium
-        interval: 60s
+        interval: {{ $PPROF_INTERVAL }}s
         container: cilium-agent
         limit: 5
         failOnCommandError: true

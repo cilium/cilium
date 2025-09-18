@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -13,7 +12,6 @@
 #define DSR_ENCAP_GENEVE	3
 #define ENABLE_HOST_ROUTING
 
-#define DISABLE_LOOPBACK_LB
 #define ENABLE_SKIP_FIB		1
 
 #define CLIENT_IP	{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
@@ -31,7 +29,7 @@ static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *backend_mac = mac_four;
 
-__section("mock-handle-policy")
+__section_entry
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
 {
 	return TC_ACT_REDIRECT;
@@ -57,8 +55,6 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 }
 
 #include "bpf_host.c"
-
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
@@ -93,21 +89,13 @@ int nodeport_dsr_backend_pktgen(struct __ctx_buff *ctx)
 	struct pktgen builder;
 	struct ipv6hdr *l3;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)node_mac);
-
-	/* Push IPv6 header and DSR extension */
-	l3 = pktgen__push_default_ipv6hdr(&builder);
+	l3 = pktgen__push_ipv6_packet(&builder, (__u8 *)client_mac, (__u8 *)node_mac,
+				      (__u8 *)&client_ip, (__u8 *)&backend_ip);
 	if (!l3)
 		return TEST_ERROR;
 
@@ -238,14 +226,18 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct ct_entry *ct_entry;
 	fraginfo_t fraginfo;
-	int l4_off, ret;
+	int l3_off, l4_off, ret;
 
-	fraginfo = ipv6_get_fraginfo(ctx, l3);
-	if (fraginfo < 0)
-		return (int)fraginfo;
+	l3_off = sizeof(*status_code) + ETH_HLEN;
 
-	ret = lb6_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				fraginfo, &l4_off, &tuple);
+	tuple.nexthdr = l3->nexthdr;
+	ret = ipv6_hdrlen_offset(ctx, l3_off, &tuple.nexthdr, &fraginfo);
+	if (ret < 0)
+		return ret;
+
+	l4_off = l3_off + ret;
+
+	ret = lb6_extract_tuple(ctx, l3, fraginfo, l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;

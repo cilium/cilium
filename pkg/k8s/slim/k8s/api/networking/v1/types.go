@@ -13,6 +13,7 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:prerelease-lifecycle-gen:introduced=1.7
 
 // NetworkPolicy describes what network traffic is allowed for a set of Pods
 type NetworkPolicy struct {
@@ -48,11 +49,12 @@ const (
 // NetworkPolicySpec provides the specification of a NetworkPolicy
 type NetworkPolicySpec struct {
 	// podSelector selects the pods to which this NetworkPolicy object applies.
-	// The array of ingress rules is applied to any pods selected by this field.
+	// The array of rules is applied to any pods selected by this field. An empty
+	// selector matches all pods in the policy's namespace.
 	// Multiple network policies can select the same set of pods. In this case,
 	// the ingress rules for each are combined additively.
-	// This field is NOT optional and follows standard label selector semantics.
-	// An empty podSelector matches all pods in this namespace.
+	// This field is optional. If it is not specified, it defaults to an empty selector.
+	// +optional
 	PodSelector slim_metav1.LabelSelector `json:"podSelector" protobuf:"bytes,1,opt,name=podSelector"`
 
 	// ingress is a list of ingress rules to be applied to the selected pods.
@@ -203,6 +205,7 @@ type NetworkPolicyPeer struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:prerelease-lifecycle-gen:introduced=1.19
 
 // NetworkPolicyList is a list of NetworkPolicy objects.
 type NetworkPolicyList struct {

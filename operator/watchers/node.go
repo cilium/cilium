@@ -5,7 +5,6 @@ package watchers
 
 import (
 	"fmt"
-	"log/slog"
 	"sync"
 	"time"
 
@@ -70,14 +69,17 @@ func (nodeGetter) ListK8sSlimNode() []*slim_corev1.Node {
 }
 
 // nodesInit starts up a node watcher to handle node events.
-func nodesInit(wg *sync.WaitGroup, slimClient slimclientset.Interface, stopCh <-chan struct{}, logger *slog.Logger) {
+func nodesInit(wg *sync.WaitGroup, slimClient slimclientset.Interface, stopCh <-chan struct{}, mp workqueue.MetricsProvider) {
 	nodeSyncOnce.Do(func() {
 		nodeQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.NewTypedItemExponentialFailureRateLimiter[string](1*time.Second, 120*time.Second),
-			workqueue.TypedRateLimitingQueueConfig[string]{Name: "node-queue"},
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name:            "node-queue",
+				MetricsProvider: mp,
+			},
 		)
 		slimNodeStore, nodeController = informer.NewInformer(
-			utils.ListerWatcherFromTyped[*slim_corev1.NodeList](slimClient.CoreV1().Nodes()),
+			utils.ListerWatcherFromTyped(slimClient.CoreV1().Nodes()),
 			&slim_corev1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{

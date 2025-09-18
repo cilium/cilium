@@ -98,7 +98,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        {{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport }}
+        {{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
         - name: CILIUM_CLUSTERMESH_CONFIG
           value: /var/lib/cilium/clustermesh/
         {{- end }}
@@ -170,6 +170,7 @@ spec:
         - name: AZURE_RESOURCE_GROUP
           value: {{ .Values.azure.resourceGroup }}
         {{- end }}
+        {{- if .Values.azure.clientID }}
         - name: AZURE_CLIENT_ID
           valueFrom:
             secretKeyRef:
@@ -180,6 +181,7 @@ spec:
             secretKeyRef:
               name: cilium-azure
               key: AZURE_CLIENT_SECRET
+        {{- end }}
         {{- end }}
         {{- with .Values.operator.extraEnv }}
         {{- toYaml . | nindent 8 }}
@@ -230,7 +232,7 @@ spec:
           readOnly: true
         {{- end }}
         {{- end }}
-        {{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport }}
+        {{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
         - name: clustermesh-secrets
           mountPath: /var/lib/cilium/clustermesh
           readOnly: true
@@ -256,6 +258,7 @@ spec:
         {{- with .Values.operator.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- include "cilium-operator.volumeMounts.extra" . | nindent 8 }}
         {{- with .Values.operator.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
@@ -295,19 +298,25 @@ spec:
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
-      {{- if and (or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.config.enabled (not (and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled )) }}
+      {{- if and (or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.config.enabled (not (and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled )) }}
       hostAliases:
-      {{- range $cluster := .Values.clustermesh.config.clusters }}
+      {{- range $_, $cluster := (include "clustermesh-clusters" . | fromJson) }}
       {{- range $ip := $cluster.ips }}
       - ip: {{ $ip }}
         hostnames: [ "{{ $cluster.name }}.{{ $.Values.clustermesh.config.domain }}" ]
       {{- end }}
       {{- end }}
       {{- end }}
-      {{- with .Values.operator.tolerations }}
+      {{- if or (.Values.operator.tolerations) (hasKey .Values "agentNotReadyTaintKey") }}
       tolerations:
+      {{- with .Values.operator.tolerations }}
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
+      {{- if hasKey .Values "agentNotReadyTaintKey" }}
+        - key: {{ .Values.agentNotReadyTaintKey }}
+          operator: Exists
+      {{ end}}
+      {{- end}}
       volumes:
         # To read the configuration from the config map
       - name: cilium-config-path
@@ -356,7 +365,7 @@ spec:
       {{- with .Values.operator.extraVolumes }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
-      {{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport }}
+      {{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
         # To read the clustermesh configuration
       - name: clustermesh-secrets
         projected:
@@ -413,4 +422,5 @@ spec:
                 path: local-etcd-client-ca.crt
           {{- end }}
       {{- end }}
+      {{- include "cilium-operator.volumes.extra" . | nindent 6 }}
 {{- end }}

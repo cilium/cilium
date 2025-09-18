@@ -22,6 +22,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 // We use similar local listen ports as the tests in the pkg/bgpv1/test package.
@@ -118,8 +119,8 @@ func TestPreflightReconciler(t *testing.T) {
 			// later
 			originalServer := testSC.Server
 			t.Cleanup(func() {
-				originalServer.Stop() // stop our test server
-				testSC.Server.Stop()  // stop any recreated server
+				originalServer.Stop(context.Background(), types.StopRequest{FullDestroy: true}) // stop our test server
+				testSC.Server.Stop(context.Background(), types.StopRequest{FullDestroy: true})  // stop any recreated server
 			})
 
 			// attach original config
@@ -218,8 +219,8 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 
 	originalServer := testSC.Server
 	t.Cleanup(func() {
-		originalServer.Stop() // stop our test server
-		testSC.Server.Stop()  // stop any recreated server
+		originalServer.Stop(context.Background(), types.StopRequest{FullDestroy: true}) // stop our test server
+		testSC.Server.Stop(context.Background(), types.StopRequest{FullDestroy: true})  // stop any recreated server
 	})
 
 	// Validate pod CIDR and service announcements work as expected
@@ -249,7 +250,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	require.NoError(t, err)
 
 	diffstore.Upsert(obj)
-	reconciler := NewServiceReconciler(diffstore, epDiffStore)
+	reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig)
 	err = reconciler.Reconciler.Reconcile(context.Background(), params)
 	require.NoError(t, err)
 
@@ -271,7 +272,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Update LB service
-	reconciler = NewServiceReconciler(diffstore, epDiffStore)
+	reconciler = NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig)
 	err = reconciler.Reconciler.Reconcile(context.Background(), params)
 	require.NoError(t, err)
 }

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -27,10 +28,11 @@ func setUpTest(_ testing.TB) *StatusTestSuite {
 	s := &StatusTestSuite{}
 	s.mutex.Lock()
 	s.config = Config{
-		Interval:         10 * time.Millisecond,
-		WarningThreshold: 20 * time.Millisecond,
-		FailureThreshold: 80 * time.Millisecond,
-		StackdumpPath:    "",
+		StatusCollectorInterval:          10 * time.Millisecond,
+		StatusCollectorWarningThreshold:  20 * time.Millisecond,
+		StatusCollectorFailureThreshold:  80 * time.Millisecond,
+		StatusCollectorProbeCheckTimeout: 3 * time.Second,
+		StatusCollectorStackdumpPath:     "",
 	}
 	s.mutex.Unlock()
 
@@ -76,7 +78,8 @@ func TestVariableProbeInterval(t *testing.T) {
 		},
 	}
 
-	collector := NewCollector(p, s.Config())
+	collector := newCollector(hivetest.Logger(t), s.Config())
+	collector.StartProbes(p)
 	defer collector.Close()
 
 	// wait for 5 probe intervals to occur with 1 millisecond interval
@@ -94,13 +97,13 @@ func TestCollectorFailureTimeout(t *testing.T) {
 	p := []Probe{
 		{
 			Probe: func(ctx context.Context) (any, error) {
-				time.Sleep(s.Config().FailureThreshold * 2)
+				time.Sleep(s.Config().StatusCollectorFailureThreshold * 2)
 				return nil, nil
 			},
 			OnStatusUpdate: func(status Status) {
 				if status.StaleWarning && status.Data == nil && status.Err != nil {
 					if strings.Contains(status.Err.Error(),
-						fmt.Sprintf("within %v seconds", s.Config().FailureThreshold.Seconds())) {
+						fmt.Sprintf("within %v seconds", s.Config().StatusCollectorFailureThreshold.Seconds())) {
 
 						ok.Add(1)
 					}
@@ -109,7 +112,8 @@ func TestCollectorFailureTimeout(t *testing.T) {
 		},
 	}
 
-	collector := NewCollector(p, s.Config())
+	collector := newCollector(hivetest.Logger(t), s.Config())
+	collector.StartProbes(p)
 	defer collector.Close()
 
 	// wait for the failure timeout to kick in
@@ -146,7 +150,8 @@ func TestCollectorSuccess(t *testing.T) {
 		},
 	}
 
-	collector := NewCollector(p, s.Config())
+	collector := newCollector(hivetest.Logger(t), s.Config())
+	collector.StartProbes(p)
 	defer collector.Close()
 
 	// wait for the probe to succeed 3 times and to return the error 3 times
@@ -165,7 +170,7 @@ func TestCollectorSuccessAfterTimeout(t *testing.T) {
 		{
 			Probe: func(ctx context.Context) (any, error) {
 				if timeout.Load() == 0 {
-					time.Sleep(2 * s.Config().FailureThreshold)
+					time.Sleep(2 * s.Config().StatusCollectorFailureThreshold)
 				}
 				return nil, nil
 			},
@@ -175,12 +180,12 @@ func TestCollectorSuccessAfterTimeout(t *testing.T) {
 				} else {
 					ok.Add(1)
 				}
-
 			},
 		},
 	}
 
-	collector := NewCollector(p, s.Config())
+	collector := newCollector(hivetest.Logger(t), s.Config())
+	collector.StartProbes(p)
 	defer collector.Close()
 
 	// wait for the probe to timeout (warning and failure) and then to succeed
@@ -205,7 +210,8 @@ func TestWaitForFirstRun(t *testing.T) {
 		{Probe: probeFn, OnStatusUpdate: func(status Status) {}},
 	}
 
-	collector := NewCollector(p, s.Config())
+	collector := newCollector(hivetest.Logger(t), s.Config())
+	collector.StartProbes(p)
 	defer collector.Close()
 
 	test := func() error {

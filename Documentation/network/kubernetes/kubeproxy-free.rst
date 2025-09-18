@@ -19,16 +19,7 @@ For help with installing ``kubeadm`` and for more provisioning options please re
 
 .. note::
 
-   Cilium's kube-proxy replacement depends on the socket-LB feature,
-   which requires a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel.
-   Linux kernels v5.3 and v5.8 add additional features that Cilium can use to
-   further optimize the kube-proxy replacement implementation.
-
-   Note that v5.0.y kernels do not have the fix required to run the kube-proxy
-   replacement since at this point in time the v5.0.y stable kernel is end-of-life
-   (EOL) and not maintained anymore on kernel.org. For individual distribution
-   maintained kernels, the situation could differ. Therefore, please check with
-   your distribution.
+   Cilium's kube-proxy replacement depends on the socket-LB feature.
 
 Quick-Start
 ###########
@@ -71,10 +62,20 @@ by using the following commands below.
    Be aware that removing ``kube-proxy`` will break existing service connections. It will also stop service related traffic
    until the Cilium replacement has been installed.
 
+.. warning::
+   When deploying the eBPF kube-proxy replacement under co-existence with
+   kube-proxy on the system, be aware that both mechanisms operate independent of each
+   other. Meaning, if the eBPF kube-proxy replacement is added or removed on an already
+   *running* cluster in order to delegate operation from respectively back to kube-proxy,
+   then it must be expected that existing connections will break since, for example,
+   both NAT tables are not aware of each other. If deployed in co-existence on a newly
+   spawned up node/cluster which does not yet serve user traffic, then this is not an
+   issue.
+
 .. code-block:: shell-session
 
    $ kubectl -n kube-system delete ds kube-proxy
-   $ # Delete the configmap as well to avoid kube-proxy being reinstalled during a Kubeadm upgrade (works only for K8s 1.19 and newer)
+   $ # Delete the configmap as well to avoid kube-proxy being reinstalled during a Kubeadm upgrade
    $ kubectl -n kube-system delete cm kube-proxy
    $ # Run on each node with root permissions:
    $ iptables-save | grep -v KUBE | iptables-restore
@@ -398,7 +399,7 @@ If the selected service backend IP for a given service matches the local
 node IP, the annotation ``service.cilium.io/proxy-delegation: delegate-if-local``
 will pass the received packet unmodified to the upper stack, so that a
 L7 proxy such as Envoy (if present) can handle the request in the host
-namespace.
+namespace. This mechanism is mainly targeted for north/south traffic.
 
 If the selected service backend is a remote IP, then the received packet
 is not pushed to the upper stack and instead the BPF code forwards the
@@ -420,6 +421,9 @@ packet natively with the configured forwarding method to the remote IP.
 
 In combination with ``externalTrafficPolicy=Local`` this mechanism also allows
 for pushing all traffic to the upper proxy.
+
+For east/west traffic, the service translation is skipped and the packet goes
+out of the node without any DNAT.
 
 Non-presence of the ``service.cilium.io/proxy-delegation`` annotation leaves
 all forwarding to BPF natively which is also the default for the kube-proxy
@@ -616,6 +620,17 @@ By default Cilium uses special ExternalIP mitigation for CVE-2020-8554 MITM vuln
 This may affect connectivity targeted to ExternalIP on the same cluster.
 This mitigation can be disabled by setting ``bpf.disableExternalIPMitigation`` to ``true``.
 
+For help to choice the Dispatch, the following table specifies DSR Dispatch Mode supported
+following Routing mode (Native/Tunnel) and Tunnel Protocol.
+
+================== ======= ================ ==============
+DSR Dispatch Mode  Native  Tunnel (Geneve)  Tunnel (VXLAN)
+================== ======= ================ ==============
+Option (OPT)       ✅      ❌               ❌
+Geneve             ✅      ✅               ❌
+================== ======= ================ ==============
+
+
 .. _DSR mode with Option:
 
 Direct Server Return (DSR) with IPv4 option / IPv6 extension Header
@@ -666,36 +681,43 @@ In DSR with Geneve, Cilium encapsulates packets to the Loadbalancer with the Gen
 header that includes the service IP/port in the Geneve option and redirects them
 to the backends.
 
-The Helm example configuration in a kube-proxy-free environment with DSR and
-Geneve dispatch enabled would look as follows:
+You can use DSR with Geneve for encapsulating LoadBalancer traffic regardless
+of whether you have configured the routing mode to route traffic using Geneve
+:ref:`encapsulation` or :ref:`native_routing`.
 
-.. parsed-literal::
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set routingMode=native \\
-        --set tunnelProtocol=geneve \\
-        --set kubeProxyReplacement=true \\
-        --set loadBalancer.mode=dsr \\
-        --set loadBalancer.dsrDispatch=geneve \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+.. tabs::
 
-DSR with Geneve is compatible with the Geneve encapsulation mode (:ref:`arch_overlay`).
-It works with either the direct routing mode or the Geneve tunneling mode. Unfortunately,
-it doesn't work with the vxlan encapsulation mode.
+    .. group-tab:: Native (Routing)
 
-The example configuration in DSR with Geneve dispatch and tunneling mode is as follows.
+        Install Cilium via ``helm install`` with DSR Geneve dispatch and Native (routing) Mode
 
-.. parsed-literal::
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set routingMode=tunnel \\
-        --set tunnelProtocol=geneve \\
-        --set kubeProxyReplacement=true \\
-        --set loadBalancer.mode=dsr \\
-        --set loadBalancer.dsrDispatch=geneve \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
+        .. parsed-literal::
+
+            helm install cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --set routingMode=native \\
+                --set tunnelProtocol=geneve \\
+                --set kubeProxyReplacement=true \\
+                --set loadBalancer.mode=dsr \\
+                --set loadBalancer.dsrDispatch=geneve \\
+                --set k8sServiceHost=${API_SERVER_IP} \\
+                --set k8sServicePort=${API_SERVER_PORT}
+
+    .. group-tab:: Tunnel (encapsulation)
+
+        Install Cilium via ``helm install`` with DSR Geneve dispatch and tunneling (encapsulation) mode
+
+        .. parsed-literal::
+
+            helm install cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --set routingMode=tunnel \\
+                --set tunnelProtocol=geneve \\
+                --set kubeProxyReplacement=true \\
+                --set loadBalancer.mode=dsr \\
+                --set loadBalancer.dsrDispatch=geneve \\
+                --set k8sServiceHost=${API_SERVER_IP} \\
+                --set k8sServicePort=${API_SERVER_PORT}
 
 .. _Hybrid mode:
 
@@ -770,9 +792,14 @@ annotation mode with SNAT default would look as follows:
         --set routingMode=native \\
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=snat \\
+        --set loadBalancer.dsrDispatch=geneve \\
         --set bpf.lbModeAnnotation=true \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
+
+.. note::
+
+    When using annotation-based DSR mode (``bpf.lbModeAnnotation=true``), as in the previous example, you must explicitly specify the ``loadBalancer.dsrDispatch`` parameter to define how DSR packets are dispatched to backends. Valid options are ``opt``, ``ipip``, and ``geneve``.
 
 Annotation-based Load Balancing Algorithm Selection
 ***************************************************
@@ -915,8 +942,7 @@ with ``devices``, the XDP acceleration is enabled on all devices. This means tha
 each underlying device's driver must have native XDP support on all Cilium managed
 nodes. If you have an environment where some devices support XDP but others do not
 you can have XDP enabled on the supported devices by setting
-``loadBalancer.acceleration`` to ``best-effort``. In addition, for performance
-reasons we recommend kernel >= 5.5 for the multi-device XDP acceleration.
+``loadBalancer.acceleration`` to ``best-effort``.
 
 A list of drivers supporting XDP can be found in :ref:`the XDP documentation<xdp_drivers>`.
 
@@ -1175,10 +1201,9 @@ the reserved ports, set ``nodePort.autoProtectPortRanges`` to ``false``.
 
 By default, the NodePort implementation prevents application ``bind(2)`` requests
 to NodePort service ports. In such case, the application will typically see a
-``bind: Operation not permitted`` error. This happens either globally for older
-kernels or starting from v5.7 kernels only for the host namespace by default
-and therefore not affecting any application pod ``bind(2)`` requests anymore. In
-order to opt-out from this behavior in general, this setting can be changed for
+``bind: Operation not permitted`` error. By default this happens only for the host
+namespace and therefore does not affect any application pod ``bind(2)`` requests.
+In order to opt-out from this behavior in general, this setting can be changed for
 expert users by switching ``nodePort.bindProtection`` to ``false``.
 
 .. _Configuring Maps:
@@ -1338,113 +1363,6 @@ the ``cilium-dbg service list`` dump:
 
     $ kubectl delete deployment my-nginx
 
-kube-proxy Hybrid Modes
-***********************
-
-Cilium's eBPF kube-proxy replacement can be configured in several modes, i.e. it can
-replace kube-proxy entirely or it can co-exist with kube-proxy on the system if the
-underlying Linux kernel requirements do not support a full kube-proxy replacement.
-
-.. warning::
-   When deploying the eBPF kube-proxy replacement under co-existence with
-   kube-proxy on the system, be aware that both mechanisms operate independent of each
-   other. Meaning, if the eBPF kube-proxy replacement is added or removed on an already
-   *running* cluster in order to delegate operation from respectively back to kube-proxy,
-   then it must be expected that existing connections will break since, for example,
-   both NAT tables are not aware of each other. If deployed in co-existence on a newly
-   spawned up node/cluster which does not yet serve user traffic, then this is not an
-   issue.
-
-This section elaborates on the ``kubeProxyReplacement`` options:
-
-- ``kubeProxyReplacement=true``: When using this option, it's highly recommended
-  to run a kube-proxy-free Kubernetes setup where Cilium is expected to fully replace
-  all kube-proxy functionality. However, if it's not possible to remove kube-proxy for
-  specific reasons (e.g. Kubernetes distribution limitations), it's also acceptable to
-  leave it deployed in the background. Just be aware of the potential side effects on
-  existing nodes as mentioned above when running kube-proxy in co-existence. Once the
-  Cilium agent is up and running, it takes care of handling Kubernetes services of type
-  ClusterIP, NodePort, LoadBalancer, services with externalIPs as well as HostPort.
-  If the underlying kernel version requirements are not met
-  (see :ref:`kubeproxy-free` note), then the Cilium agent will bail out on start-up
-  with an error message.
-
-- ``kubeProxyReplacement=false``: This option is used to disable any Kubernetes service
-  handling by fully relying on kube-proxy instead, except for ClusterIP services
-  accessed from pods (pre-v1.6 behavior), or for a hybrid setup. That is,
-  kube-proxy is running in the Kubernetes cluster where Cilium
-  partially replaces and optimizes kube-proxy functionality. The ``false``
-  option requires the user to manually specify which components for the eBPF
-  kube-proxy replacement should be used.
-  Similarly to ``true`` mode, the Cilium agent will bail out on start-up with
-  an error message if the underlying kernel requirements are not met when components
-  are manually enabled. For
-  fine-grained configuration, ``socketLB.enabled``, ``nodePort.enabled``,
-  ``externalIPs.enabled`` and ``hostPort.enabled`` can be set to ``true``. By
-  default all four options are set to ``false``.
-  If you are setting ``nodePort.enabled`` to true, make sure to also
-  set ``nodePort.enableHealthCheck`` to ``false``, so that the Cilium agent does not
-  start the NodePort health check server (``kube-proxy`` will also attempt to start
-  this server, and there would otherwise be a clash when cilium attempts to bind its server to the
-  same port). A few example configurations
-  for the ``false`` option are provided below.
-
-.. note::
-
-    Switching from the ``true`` to ``false`` mode, or vice versa can break
-    existing connections to services in a cluster. The same goes for enabling, or
-    disabling ``socketLB``. It is recommended to drain all the workloads before
-    performing such configuration changes.
-
-  The following Helm setup below would be equivalent to ``kubeProxyReplacement=true``
-  in a kube-proxy-free environment:
-
-  .. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set kubeProxyReplacement=false \\
-        --set socketLB.enabled=true \\
-        --set nodePort.enabled=true \\
-        --set externalIPs.enabled=true \\
-        --set hostPort.enabled=true \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
-        --set k8sServicePort=${API_SERVER_PORT}
-
-
-  The following Helm setup below would be equivalent to the default Cilium service
-  handling in v1.6 or earlier in a kube-proxy environment, that is, serving ClusterIP
-  for pods:
-
-  .. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set kubeProxyReplacement=false
-
-  The following Helm setup below would optimize Cilium's NodePort, LoadBalancer and services
-  with externalIPs handling for external traffic ingressing into the Cilium managed node in
-  a kube-proxy environment:
-
-  .. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set kubeProxyReplacement=false \\
-        --set nodePort.enabled=true \\
-        --set externalIPs.enabled=true
-
-In Cilium's Helm chart, the default mode is ``kubeProxyReplacement=false`` for
-new deployments.
-
-The current Cilium kube-proxy replacement mode can also be introspected through the
-``cilium-dbg status`` CLI command:
-
-.. code-block:: shell-session
-
-    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg status | grep KubeProxyReplacement
-    KubeProxyReplacement:   True	[eth0 (DR)]
-
 Graceful Termination
 ********************
 
@@ -1452,12 +1370,18 @@ Cilium's eBPF kube-proxy replacement supports graceful termination of service
 endpoint pods. The Cilium agent detects such terminating Pod events, and
 increments the metric ``k8s_terminating_endpoints_events_total``.
 
-When Cilium agent receives a Kubernetes update event for a terminating endpoint,
-the datapath state for the endpoint is removed such that it won't service new
-connections, but the endpoint's active connections are able to terminate
-gracefully. The endpoint state is fully removed when the agent receives
-a Kubernetes delete event for the endpoint. The `Kubernetes
-pod termination <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination>`_
+When Cilium agent receives a Kubernetes update event that marks an endpoint as
+terminating Cilium will retain the datapath state necessary for existing connections.
+The terminating endpoint will be used as fallback for new connections only if
+1) no active endpoints exist for the service and 2) terminating endpoint has condition ``serving``
+(e.g. pod is still passing `readinessProbes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-readiness-probes>`_).
+
+If ``publishNotReadyAddresses`` is set on the Service the endpoints received by Cilium
+may have both the ``ready`` and ``terminating`` conditions set. In this case Cilium follows
+kube-proxy and uses these for new connections, ignoring the ``terminating`` condition.
+
+The endpoint state is fully removed when the agent receives a Kubernetes delete
+event for the endpoint. The `Kubernetes pod termination <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination>`_
 documentation contains more background on the behavior and configuration using ``terminationGracePeriodSeconds``.
 There are some special cases, like zero disruption during rolling updates, that require to be able to send traffic
 to Terminating Pods that are still Serving traffic during the Terminating period, the Kubernetes blog
@@ -1487,40 +1411,27 @@ sent from outside the cluster to the service, the request's source IP address is
 used for determining the endpoint affinity. If a request is sent from inside
 the cluster, then the source depends on whether the socket-LB feature
 is used to load balance ClusterIP services. If yes, then the client's network
-namespace cookie is used as the source. The latter was introduced in the 5.7
-Linux kernel to implement the affinity at the socket layer at which
-the socket-LB operates (a source IP is not available there, as the
-endpoint selection happens before a network packet has been built by the
+namespace cookie is used as the source - it allows to implement affinity at the
+socket layer at which the socket-LB operates (a source IP is not available there,
+as the endpoint selection happens before a network packet has been built by the
 kernel). If the socket-LB is not used (i.e. the loadbalancing is done
 at the pod network interface, on a per-packet basis), then the request's source
 IP address is used as the source.
 
-The session affinity support is enabled by default for Cilium's kube-proxy
-replacement. For users who run on older kernels which do not support the network
-namespace cookies, a fallback in-cluster mode is implemented, which is based on
-a fixed cookie value as a trade-off. This makes all applications on the host to
-select the same service endpoint for a given service with session affinity configured.
-To disable the feature, set ``config.sessionAffinity=false``.
+The session affinity support is enabled by default. To disable the feature,
+set ``config.sessionAffinity=false``.
 
-When the fixed cookie value is not used, the session affinity of a service with
-multiple ports is per service IP and port. Meaning that all requests for a
-given service sent from the same source and to the same service port will be routed
-to the same service endpoints; but two requests for the same service, sent from
-the same source but to different service ports may be routed to distinct service
-endpoints.
+The session affinity of a service with multiple ports is per service IP and port.
+Meaning that all requests for a given service sent from the same source and to the
+same service port will be routed to the same service endpoints; but two requests
+for the same service, sent from the same source but to different service ports may
+be routed to distinct service endpoints.
 
 Note that if the session affinity feature is used in combination with Maglev
 consistent hashing to select backends, then Maglev will not take the source
 port as input for its hashing in order to respect the user's ClientIP choice
 (see also `GH#26709 <https://github.com/cilium/cilium/issues/26709>`__ for
 further details).
-
-For users who run with kube-proxy (i.e. with Cilium's kube-proxy replacement
-disabled), the ClusterIP service loadbalancing when a request is sent from a pod
-running in a non-host network namespace is still performed at the pod network
-interface (until `GH#16197 <https://github.com/cilium/cilium/issues/16197>`__ is
-fixed).  For this case the session affinity support is disabled by default. To
-enable the feature, set ``config.sessionAffinity=true``.
 
 kube-proxy Replacement Health Check server
 ******************************************
@@ -1543,16 +1454,6 @@ the field is empty, no restrictions for the access will be applied.
 When accessing the service from inside a cluster, the kube-proxy replacement will
 ignore the field regardless whether it is set. This means that any pod or any host
 process in the cluster will be able to access the ``LoadBalancer`` service internally.
-
-The load balancer source range check feature is enabled by default, and it can be
-disabled by setting ``config.svcSourceRangeCheck=false``.
-
-It makes sense to disable the check when running on some cloud providers e.g. `Amazon NLB
-<https://kubernetes.io/docs/concepts/services-networking/service/#aws-nlb-support>`__
-natively implements the check, so the kube-proxy replacement's feature can be disabled.
-Meanwhile `GKE internal TCP/UDP load balancer
-<https://cloud.google.com/kubernetes-engine/docs/how-to/service-parameters#lb_source_ranges>`__
-does not, so the feature must be kept enabled in order to restrict the access.
 
 By default the specified white-listed CIDRs in ``spec.loadBalancerSourceRanges``
 only apply to the ``LoadBalancer`` service, but not the corresponding ``NodePort``
@@ -1667,48 +1568,39 @@ set ``loadBalancer.serviceTopology=true``.
 Neighbor Discovery
 ******************
 
-When kube-proxy replacement is enabled, Cilium does L2 neighbor discovery of nodes
-in the cluster. This is required for the service load-balancing to populate L2
-addresses for backends since it is not possible to dynamically resolve neighbors
+When kube-proxy replacement and XDP acceleration are enabled, Cilium does L2 neighbor discovery 
+of nodes and service backends in the cluster. This is required for the service load-balancing 
+to populate L2 addresses for backends since it is not possible to dynamically resolve neighbors
 on demand in the fast-path.
 
-In Cilium 1.10 or earlier, the agent itself contained an ARP resolution library
-where it triggered discovery and periodic refresh of new nodes joining the cluster.
-The resolved neighbor entries were pushed into the kernel and refreshed as PERMANENT
-entries. In some rare cases, Cilium 1.10 or earlier might have left stale entries behind
-in the neighbor table causing packets between some nodes to be dropped. To skip the
-neighbor discovery and instead rely on the Linux kernel to discover neighbors, you can
-pass the ``--enable-l2-neigh-discovery=false`` flag to the cilium-agent. However,
-note that relying on the Linux Kernel might also cause some packets to be dropped.
-For example, a NodePort request can be dropped on an intermediate node (i.e., the
-one which received a service packet and is going to forward it to a destination node
-which runs the selected service endpoint). This could happen if there is no L2 neighbor
-entry in the kernel (due to the entry being garbage collected or given that the neighbor
-resolution has not been done by the kernel). This is because it is not possible to drive
-the neighbor resolution from BPF programs in the fast-path e.g. at the XDP layer.
+L2 neighbor discovery is automatically enabled when the agent detects that XDP is in use, but
+can also be manually turned on by setting the ``--enable-l2-neigh-discovery=true`` flag or
+``l2NeighDiscovery.enabled=true`` Helm option.
 
-From Cilium 1.11 onwards, the neighbor discovery has been fully reworked and the Cilium
-internal ARP resolution library has been removed from the agent. The agent now fully
-relies on the Linux kernel to discover gateways or hosts on the same L2 network. Both
-IPv4 and IPv6 neighbor discovery is supported in the Cilium agent. As per our recent
+The agent fully relies on the Linux kernel to discover gateways or hosts on the same L2 network. 
+Both IPv4 and IPv6 neighbor discovery is supported in the Cilium agent. As per our
 kernel work `presented at Plumbers <https://linuxplumbersconf.org/event/11/contributions/953/>`__,
 "managed" neighbor entries have been `upstreamed <https://lore.kernel.org/netdev/20211011121238.25542-1-daniel@iogearbox.net/>`__
 and will be available in Linux kernel v5.16 or later which the Cilium agent will detect
 and transparently use. In this case, the agent pushes down L3 addresses of new nodes
 joining the cluster as externally learned "managed" neighbor entries. For introspection,
-iproute2 displays them as "managed extern_learn". The "extern_learn" attribute prevents
+iproute2 displays them as "managed extern_learn". The ``extern_learn`` attribute prevents
 garbage collection of the entries by the kernel's neighboring subsystem. Such "managed"
 neighbor entries are dynamically resolved and periodically refreshed by the Linux kernel
 itself in case there is no active traffic for a certain period of time. That is, the
-kernel attempts to always keep them in REACHABLE state. For Linux kernels v5.15 or
+kernel attempts to always keep them in ``REACHABLE`` state. For Linux kernels v5.15 or
 earlier where "managed" neighbor entries are not present, the Cilium agent similarly
-pushes L3 addresses of new nodes into the kernel for dynamic resolution, but with an
-agent triggered periodic refresh. For introspection, iproute2 displays them only as
-"extern_learn" in this case. If there is no active traffic for a certain period of
-time, then a Cilium agent controller triggers the Linux kernel-based re-resolution for
-attempting to keep them in REACHABLE state. The refresh interval can be changed if needed
-through a ``--arping-refresh-period=30s`` flag passed to the cilium-agent. The default
-period is ``30s`` which corresponds to the kernel's base reachable time.
+pushes L3 addresses of new nodes into the kernel for dynamic resolution. For introspection, 
+iproute2 displays them only as ``extern_learn`` in this case. If there is no active traffic 
+for a certain period of time and entries become state, the Cilium agent triggers the 
+Linux kernel-based re-resolution for attempting to keep them in ``REACHABLE`` state.
+
+The Cilium agent actively monitors devices, routes, and neighbors and reconciles the
+neighbor entries in the kernel. For example if a device is added new neighbor entries 
+for the device are added. When routes change, such as a change to the next-hop, the 
+Cilium agent updates the neighbor entries accordingly. And when neighbor entries
+are flushed due to for example a carrier-down event, the Cilium agent restores the 
+neighbor entries as soon as possible.
 
 The neighbor discovery supports multi-device environments where each node has multiple devices
 and multiple next-hops to another node. The Cilium agent pushes neighbor entries for all target
@@ -1932,7 +1824,7 @@ Limitations
     * Cilium's eBPF kube-proxy replacement relies upon the socket-LB feature
       which uses eBPF cgroup hooks to implement the service translation. Using it with libceph
       deployments currently requires support for the getpeername(2) hook address translation in
-      eBPF, which is only available for kernels v5.8 and higher.
+      eBPF.
     * NFS and SMB mounts may break when mounted to a ``Service`` cluster IP while using socket-LB.
       This issue is known to impact Longhorn, Portworx, and Robin, but may impact other storage
       systems that implement ``ReadWriteMany`` volumes using this pattern. To avoid this problem,
@@ -1961,10 +1853,6 @@ Limitations
       setting will be ignored and a warning emitted to the Cilium agent log. Similarly,
       explicitly binding the ``hostIP`` to the loopback address in the host namespace is
       currently not supported and will log a warning to the Cilium agent log.
-    * When using the Socket-LB feature and deployed on kernels older than 5.7, Cilium is unable
-      to distinguish between host and pod namespaces due to the lack of kernel support for
-      network namespace cookies. As a result, Kubernetes services are reachable from all pods via
-      the loopback address.
     * The neighbor discovery in a multi-device environment doesn't work with the runtime device
       detection which means that the target devices for the neighbor discovery doesn't follow the
       device changes.

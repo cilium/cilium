@@ -28,14 +28,10 @@ const (
 	TunnelPort         Feature = "tunnel-port"
 	EndpointRoutes     Feature = "endpoint-routes"
 
-	KPRMode                 Feature = "kpr-mode"
-	KPRExternalIPs          Feature = "kpr-external-ips"
-	KPRHostPort             Feature = "kpr-hostport"
+	KPR                     Feature = "kpr"
 	KPRSocketLB             Feature = "kpr-socket-lb"
 	KPRSocketLBHostnsOnly   Feature = "kpr-socket-lb-hostns-only"
-	KPRNodePort             Feature = "kpr-nodeport"
 	KPRNodePortAcceleration Feature = "kpr-nodeport-acceleration"
-	KPRSessionAffinity      Feature = "kpr-session-affinity"
 
 	BPFLBExternalClusterIP Feature = "bpf-lb-external-clusterip"
 
@@ -101,7 +97,7 @@ const (
 
 	IngressController Feature = "ingress-controller"
 
-	EgressGateway Feature = "enable-ipv4-egress-gateway"
+	EgressGateway Feature = "enable-egress-gateway"
 	GatewayAPI    Feature = "enable-gateway-api"
 
 	EnableEnvoyConfig Feature = "enable-envoy-config"
@@ -113,6 +109,8 @@ const (
 	IPsecEnabled                  Feature = "enable-ipsec"
 	ClusterMeshEnableEndpointSync Feature = "clustermesh-enable-endpoint-sync"
 
+	PolicyDefaultLocalCLuster Feature = "policy-default-local-cluster"
+
 	LocalRedirectPolicy Feature = "enable-local-redirect-policy"
 
 	BGPControlPlane Feature = "enable-bgp-control-plane"
@@ -120,6 +118,10 @@ const (
 	NodeLocalDNS Feature = "node-local-dns"
 
 	Multicast Feature = "multicast-enabled"
+
+	L7LoadBalancer Feature = "loadbalancer-l7"
+
+	RHEL Feature = "rhel"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -164,7 +166,7 @@ func (fs Set) MatchRequirements(reqs ...Requirement) (bool, string) {
 			return false, fmt.Sprintf("requires Feature %s mode %s, got %s", req.Feature, req.mode, status.Mode)
 		}
 		if req.requireModeIsNot && (req.mode == status.Mode) {
-			return false, fmt.Sprintf("requires Feature %s mode %s to not equal %s, req.Feature", req.Feature, status.Mode, req.mode)
+			return false, fmt.Sprintf("requires Feature %s not equal to %s", req.Feature, req.mode)
 		}
 	}
 
@@ -193,7 +195,7 @@ func (fs Set) DeriveFeatures() error {
 		Enabled: (fs[CNIChaining].Enabled && fs[CNIChaining].Mode == "portmap" &&
 			// cilium/cilium#12541: Host firewall doesn't work with portmap CNI chaining
 			!fs[HostFirewall].Enabled) ||
-			fs[KPRHostPort].Enabled,
+			fs[KPR].Enabled,
 	}
 
 	return nil
@@ -256,10 +258,8 @@ func RequireModeIsNot(feature Feature, mode string) Requirement {
 	}
 }
 
-// ExtractFromVersionedConfigMap extracts features based on Cilium version and cilium-config
-// ConfigMap.
-func (fs Set) ExtractFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) {
-	fs[Tunnel], fs[TunnelPort] = ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion, cm)
+// ExtractFromCiliumVersion extracts features based on Cilium version.
+func (fs Set) ExtractFromCiliumVersion(ciliumVersion semver.Version) {
 	fs[PortRanges] = ExtractPortRanges(ciliumVersion)
 	fs[L7PortRanges] = ExtractL7PortRanges(ciliumVersion)
 }
@@ -278,7 +278,7 @@ func ExtractL7PortRanges(ciliumVersion semver.Version) Status {
 	}
 }
 
-func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) (Status, Status) {
+func ExtractTunnelFeatureFromConfigMap(cm *v1.ConfigMap) (Status, Status) {
 	getTunnelPortFeature := func(tunnelProtocol string) Status {
 		tunnelPort, ok := cm.Data["tunnel-port"]
 		switch {
@@ -291,19 +291,6 @@ func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm
 			Enabled: ok,
 			Mode:    tunnelPort,
 		}
-	}
-
-	if versioncheck.MustCompile("<1.14.0")(ciliumVersion) {
-		enabled, proto := true, "vxlan"
-		if v, ok := cm.Data["tunnel"]; ok {
-			if enabled = v != "disabled"; enabled {
-				proto = v
-			}
-		}
-		return Status{
-			Enabled: enabled,
-			Mode:    proto,
-		}, getTunnelPortFeature(proto)
 	}
 
 	mode := "tunnel"
@@ -358,7 +345,7 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 	}
 
 	fs[EgressGateway] = Status{
-		Enabled: cm.Data["enable-ipv4-egress-gateway"] == "true",
+		Enabled: cm.Data[string(EgressGateway)] == "true" || cm.Data["enable-ipv4-egress-gateway"] == "true",
 	}
 
 	fs[CIDRMatchNodes] = Status{
@@ -387,6 +374,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[ClusterMeshEnableEndpointSync] = Status{
 		Enabled: cm.Data[string(ClusterMeshEnableEndpointSync)] == "true",
+	}
+
+	fs[PolicyDefaultLocalCLuster] = Status{
+		Enabled: cm.Data[string(PolicyDefaultLocalCLuster)] == "true",
 	}
 
 	fs[LocalRedirectPolicy] = Status{
@@ -420,6 +411,12 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 	fs[PolicySecretSync] = Status{
 		Enabled: cm.Data[string(PolicySecretSync)] == "true",
 	}
+
+	fs[L7LoadBalancer] = Status{
+		Enabled: cm.Data[string(L7LoadBalancer)] == "envoy",
+	}
+
+	fs[Tunnel], fs[TunnelPort] = ExtractTunnelFeatureFromConfigMap(cm)
 }
 
 func (fs Set) ExtractFromNodes(nodesWithoutCilium map[string]struct{}) {

@@ -5,15 +5,16 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/containernetworking/cni/pkg/skel"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -41,7 +42,7 @@ type EndpointConfiguration interface {
 // invocation. Those fields may be used by custom implementations of the
 // EndpointConfigurator interface to customize the CNI ADD call.
 type ConfigurationParams struct {
-	Log     *logrus.Entry
+	Log     *slog.Logger
 	Conf    *models.DaemonConfigurationStatus
 	Args    *skel.CmdArgs
 	CniArgs *types.ArgsSpec
@@ -97,6 +98,8 @@ func (c *defaultEndpointConfiguration) PrepareEndpoint(ipam *models.IPAMResponse
 		ifindex, err := ifindexFromMac(ipam.IPV4.MasterMac)
 		if err == nil {
 			ep.ParentInterfaceIndex = ifindex
+		} else {
+			c.Log.Error("Unable to get interface index from MAC address", logfields.Error, err)
 		}
 	}
 

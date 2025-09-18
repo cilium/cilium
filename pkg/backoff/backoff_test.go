@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,6 +54,7 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 	)
 
 	nodeBackoff := &Exponential{
+		Logger:      hivetest.Logger(t),
 		Min:         time.Second,
 		Max:         2 * time.Minute,
 		NodeManager: &nodeManager,
@@ -73,6 +75,7 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 
 func TestJitterDistribution(t *testing.T) {
 	nodeBackoff := &Exponential{
+		Logger: hivetest.Logger(t),
 		Min:    time.Second,
 		Factor: 2.0,
 	}

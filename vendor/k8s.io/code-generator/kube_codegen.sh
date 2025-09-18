@@ -27,6 +27,25 @@ set -o pipefail
 
 KUBE_CODEGEN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
+# Callers which want a specific tag of the k8s.io/code-generator repo should
+# set the KUBE_CODEGEN_TAG to the tag name, e.g. KUBE_CODEGEN_TAG="release-1.32"
+# before sourcing this file.
+CODEGEN_VERSION_SPEC="${KUBE_CODEGEN_TAG:+"@${KUBE_CODEGEN_TAG}"}"
+
+# Go installs in $GOBIN if defined, and $GOPATH/bin otherwise. We want to know
+# which one it is, so we can use it later.
+function get_gobin() {
+    local from_env
+    from_env="$(go env GOBIN)"
+    if [[ -n "${from_env}" ]]; then
+        echo "${from_env}"
+    else
+        echo "$(go env GOPATH)/bin"
+    fi
+}
+GOBIN="$(get_gobin)"
+export GOBIN
+
 function kube::codegen::internal::findz() {
     # We use `find` rather than `git ls-files` because sometimes external
     # projects use this across repos.  This is an imperfect wrapper of find,
@@ -43,7 +62,7 @@ function kube::codegen::internal::grep() {
         --exclude-dir vendor
 }
 
-# Generate tagged helper code: conversions, deepcopy, and defaults
+# Generate tagged helper code: conversions, deepcopy, defaults and validations
 #
 # USAGE: kube::codegen::gen_helpers [FLAGS] <input-dir>
 #
@@ -103,15 +122,14 @@ function kube::codegen::gen_helpers() {
         # and then install with forced module mode on and fully qualified name.
         cd "${KUBE_CODEGEN_ROOT}"
         BINS=(
-            conversion-gen
-            deepcopy-gen
-            defaulter-gen
+            conversion-gen"${CODEGEN_VERSION_SPEC}"
+            deepcopy-gen"${CODEGEN_VERSION_SPEC}"
+            defaulter-gen"${CODEGEN_VERSION_SPEC}"
+            validation-gen"${CODEGEN_VERSION_SPEC}"
         )
         # shellcheck disable=2046 # printf word-splitting is intentional
         GO111MODULE=on go install $(printf "k8s.io/code-generator/cmd/%s " "${BINS[@]}")
     )
-    # Go installs in $GOBIN if defined, and $GOPATH/bin otherwise
-    gobin="${GOBIN:-$(go env GOPATH)/bin}"
 
     # Deepcopy
     #
@@ -138,9 +156,41 @@ function kube::codegen::gen_helpers() {
             -name zz_generated.deepcopy.go \
             | xargs -0 rm -f
 
-        "${gobin}/deepcopy-gen" \
+        "${GOBIN}/deepcopy-gen" \
             -v "${v}" \
             --output-file zz_generated.deepcopy.go \
+            --go-header-file "${boilerplate}" \
+            "${input_pkgs[@]}"
+    fi
+
+    # Validations
+    #
+    local input_pkgs=()
+    while read -r dir; do
+        pkg="$(cd "${dir}" && GO111MODULE=on go list -find .)"
+        input_pkgs+=("${pkg}")
+    done < <(
+        ( kube::codegen::internal::grep -l --null \
+            -e '^\s*//\s*+k8s:validation-gen=' \
+            -r "${in_dir}" \
+            --include '*.go' \
+            || true \
+        ) | while read -r -d $'\0' F; do dirname "${F}"; done \
+          | LC_ALL=C sort -u
+    )
+
+    if [ "${#input_pkgs[@]}" != 0 ]; then
+        echo "Generating validation code for ${#input_pkgs[@]} targets"
+
+        kube::codegen::internal::findz \
+            "${in_dir}" \
+            -type f \
+            -name zz_generated.validations.go \
+            | xargs -0 rm -f
+
+        "${GOBIN}/validation-gen" \
+            -v "${v}" \
+            --output-file zz_generated.validations.go \
             --go-header-file "${boilerplate}" \
             "${input_pkgs[@]}"
     fi
@@ -170,7 +220,7 @@ function kube::codegen::gen_helpers() {
             -name zz_generated.defaults.go \
             | xargs -0 rm -f
 
-        "${gobin}/defaulter-gen" \
+        "${GOBIN}/defaulter-gen" \
             -v "${v}" \
             --output-file zz_generated.defaults.go \
             --go-header-file "${boilerplate}" \
@@ -206,7 +256,7 @@ function kube::codegen::gen_helpers() {
         for arg in "${extra_peers[@]:+"${extra_peers[@]}"}"; do
             extra_peer_args+=("--extra-peer-dirs" "$arg")
         done
-        "${gobin}/conversion-gen" \
+        "${GOBIN}/conversion-gen" \
             -v "${v}" \
             --output-file zz_generated.conversion.go \
             --go-header-file "${boilerplate}" \
@@ -324,13 +374,11 @@ function kube::codegen::gen_openapi() {
         # and then install with forced module mode on and fully qualified name.
         cd "${KUBE_CODEGEN_ROOT}"
         BINS=(
-            openapi-gen
+            openapi-gen"${CODEGEN_VERSION_SPEC}"
         )
         # shellcheck disable=2046 # printf word-splitting is intentional
         GO111MODULE=on go install $(printf "k8s.io/kube-openapi/cmd/%s " "${BINS[@]}")
     )
-    # Go installs in $GOBIN if defined, and $GOPATH/bin otherwise
-    gobin="${GOBIN:-$(go env GOPATH)/bin}"
 
     local input_pkgs=( "${extra_pkgs[@]:+"${extra_pkgs[@]}"}")
     while read -r dir; do
@@ -355,7 +403,7 @@ function kube::codegen::gen_openapi() {
             -name zz_generated.openapi.go \
             | xargs -0 rm -f
 
-        "${gobin}/openapi-gen" \
+        "${GOBIN}/openapi-gen" \
             -v "${v}" \
             --output-file zz_generated.openapi.go \
             --go-header-file "${boilerplate}" \
@@ -554,16 +602,14 @@ function kube::codegen::gen_client() {
         # and then install with forced module mode on and fully qualified name.
         cd "${KUBE_CODEGEN_ROOT}"
         BINS=(
-            applyconfiguration-gen
-            client-gen
-            informer-gen
-            lister-gen
+            applyconfiguration-gen"${CODEGEN_VERSION_SPEC}"
+            client-gen"${CODEGEN_VERSION_SPEC}"
+            informer-gen"${CODEGEN_VERSION_SPEC}"
+            lister-gen"${CODEGEN_VERSION_SPEC}"
         )
         # shellcheck disable=2046 # printf word-splitting is intentional
         GO111MODULE=on go install $(printf "k8s.io/code-generator/cmd/%s " "${BINS[@]}")
     )
-    # Go installs in $GOBIN if defined, and $GOPATH/bin otherwise
-    gobin="${GOBIN:-$(go env GOPATH)/bin}"
 
     local group_versions=()
     local input_pkgs=()
@@ -604,7 +650,7 @@ function kube::codegen::gen_client() {
             || true \
         ) | xargs -0 rm -f
 
-        "${gobin}/applyconfiguration-gen" \
+        "${GOBIN}/applyconfiguration-gen" \
             -v "${v}" \
             --go-header-file "${boilerplate}" \
             --output-dir "${out_dir}/${applyconfig_subdir}" \
@@ -627,7 +673,7 @@ function kube::codegen::gen_client() {
     for arg in "${group_versions[@]}"; do
         inputs+=("--input" "$arg")
     done
-     "${gobin}/client-gen" \
+     "${GOBIN}/client-gen" \
         -v "${v}" \
         --go-header-file "${boilerplate}" \
         --output-dir "${out_dir}/${clientset_subdir}" \
@@ -649,7 +695,7 @@ function kube::codegen::gen_client() {
             || true \
         ) | xargs -0 rm -f
 
-        "${gobin}/lister-gen" \
+        "${GOBIN}/lister-gen" \
             -v "${v}" \
             --go-header-file "${boilerplate}" \
             --output-dir "${out_dir}/${listers_subdir}" \
@@ -666,7 +712,7 @@ function kube::codegen::gen_client() {
             || true \
         ) | xargs -0 rm -f
 
-        "${gobin}/informer-gen" \
+        "${GOBIN}/informer-gen" \
             -v "${v}" \
             --go-header-file "${boilerplate}" \
             --output-dir "${out_dir}/${informers_subdir}" \
@@ -729,13 +775,11 @@ function kube::codegen::gen_register() {
         # and then install with forced module mode on and fully qualified name.
         cd "${KUBE_CODEGEN_ROOT}"
         BINS=(
-            register-gen
+            register-gen"${CODEGEN_VERSION_SPEC}"
         )
         # shellcheck disable=2046 # printf word-splitting is intentional
         GO111MODULE=on go install $(printf "k8s.io/code-generator/cmd/%s " "${BINS[@]}")
     )
-    # Go installs in $GOBIN if defined, and $GOPATH/bin otherwise
-    gobin="${GOBIN:-$(go env GOPATH)/bin}"
 
     # Register
     #
@@ -762,7 +806,7 @@ function kube::codegen::gen_register() {
             -name zz_generated.register.go \
             | xargs -0 rm -f
 
-        "${gobin}/register-gen" \
+        "${GOBIN}/register-gen" \
             -v "${v}" \
             --output-file zz_generated.register.go \
             --go-header-file "${boilerplate}" \

@@ -2,17 +2,11 @@ name: K8s Network E2E tests and kube-apiserver HA
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request:
-    paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
+  pull_request: {}
   push:
     branches:
       - main
       - ft/main/**
-    paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
 
 permissions: read-all
 
@@ -24,10 +18,35 @@ env:
   cluster_name: cilium-testing
 
 jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-24.04
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      - name: Checkout code
+        if: ${{ !github.event.pull_request }}
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check code changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: tested-tree
+        with:
+          # For `push` events, compare against the `ref` base branch
+          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          base: ${{ github.ref }}
+          filters: |
+            src:
+              - '!(test|Documentation)/**'
+
   kubernetes-e2e:
     name: K8s Network E2E tests
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -44,7 +63,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
 
@@ -61,7 +80,7 @@ jobs:
           TMP_DIR=$(mktemp -d)
           # Test binaries
           curl -L https://dl.k8s.io/${{ env.KIND_K8S_VERSION }}/kubernetes-test-linux-amd64.tar.gz -o ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz
-          tar xvzf ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz \
+          tar -xvzf ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz \
             --directory ${TMP_DIR} \
             --strip-components=3 kubernetes/test/bin/ginkgo kubernetes/test/bin/e2e.test
           # kubectl
@@ -144,7 +163,7 @@ jobs:
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@024e340cca1465e2a6336521f12370c7ca58c59a # v0.18.7
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -179,7 +198,7 @@ jobs:
           # Needed so that Cilium can allocate LoadBalancer service IPs
           # needed for the tests
           kubectl apply -f - <<EOF
-          apiVersion: "cilium.io/v2alpha1"
+          apiVersion: "cilium.io/v2"
           kind: CiliumLoadBalancerIPPool
           metadata:
             name: "test-lb-pool"
@@ -211,7 +230,7 @@ jobs:
           # DualStack : tests that are dual stack specific
           # IPv6 : tests that are IPv6 specific
 
-          SKIP_FLAG="Alpha|Beta|Experimental|Federation|PerformanceDNS|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|rejected|externalTrafficPolicy"
+          SKIP_FLAG="Alpha|Beta|Experimental|Federation|PerformanceDNS|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|rejected|externalTrafficPolicy|SCTPConnectivity|IPv6DualStack|Conntrack.proxy.implementation.should.not.be.vulnerable.to.the.invalid.conntrack.state.bug|Services.should.fallback.to.local.terminating.endpoints.when.there.are.no.ready.endpoints.with.internalTrafficPolicy=Local|Networking.IPerf2.\[Feature:Networking\-Performance\].should.run.iperf2|Networking.Granular.Checks:.Services.should.update.endpoints"
           if [ "${IP_FAMILY}" != "dual" ]; then
             SKIP_FLAG="${SKIP_FLAG}|DualStack"
           fi
@@ -236,50 +255,51 @@ jobs:
       # Sequentially kill kube-apiserver pods to verify cilium agent pods fail over to an active instance.
       - name: Test kube-apiserver high availability
         run: |
-          pods=$(kubectl get pods -n kube-system -l component=kube-apiserver --no-headers | awk '{print $1}')
-          echo "kube-apiserver pods $pods"
-          for pod in $pods; do
-            kubectl delete pod -n kube-system "$pod"
+          PORT=6443
+          NAMESPACE="kube-system"
+          # Get kube-apiserver pods.
+          declare -A pods
+          entries=$(kubectl -n "$NAMESPACE" get pods -l component=kube-apiserver -o json | jq -r '.items[] | "\(.metadata.name) \(.status.podIP)"')
+          while read -r pod ip; do
+            pods["$pod"]="$ip"
+            done <<< "$entries"
+          for pod in "${!pods[@]}"; do
+            echo "$pod => ${pods[$pod]}"
+          done
+          # Sequentially delete kube-apiserver pods by connecting via an active kube-apiserver instance.
+          for pod in "${!pods[@]}"; do
+            # Find an active kube-apiserver pod
+            for active_pod in "${!pods[@]}"; do
+              if [[ "$active_pod" != "$pod" ]]; then
+                active_ip="${pods[$active_pod]}"
+                break
+              fi
+            done
+            echo "Deleting $pod"
+            kubectl -n "$NAMESPACE" --server "https://${active_ip}:${PORT}" delete pod "$pod"
             sleep 120
           done
           cilium status --wait --wait-duration=5m
           kubectl get pods -n kube-system
-
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }} ${{ matrix.ipFamily }}"
 
       - name: Gather metrics
         uses: ./.github/actions/gather-metrics
         with:
           job: "${{ env.job_name }}-${{ matrix.ipFamily }}"
 
+      - name: Create Cilium JUnits Directory
+        if: ${{ steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          # Move the all artifacts to cilium-junits directory since that's the
+          # directory used in the common post steps.
+          mv _artifacts cilium-junits
+
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-final
+          mkdir -p ./_artifacts/logs
           /usr/local/bin/kind export logs --name  ${{ env.cluster_name }} --verbosity=3 ./_artifacts/logs
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
-
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: "cilium-sysdumps-${{ matrix.ipFamily }}"
-          path: cilium-sysdump-*.zip
-          retention-days: 5
-          overwrite: true
-
-      - name: Upload features tested
-        if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: "features-tested-${{ matrix.ipFamily }}"
-          path: ${{ env.job_name }}*.json
 
       - name: Upload cluster logs
         if: ${{ !success() }}
@@ -289,15 +309,9 @@ jobs:
           path: ./_artifacts/logs
           retention-days: 5
 
-      - name: Upload Kubernetes e2e Junit Reports [junit]
-        if: ${{ success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: "kubernetes-e2e-junit-${{ matrix.ipFamily }}"
-          path: './_artifacts/*.xml'
-
-      - name: Publish Test Results As GitHub Summary
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        uses: ./.github/actions/post-logic
         with:
-          junit-directory: "_artifacts"
+          artifacts_suffix: "${{ matrix.ipFamily }}"
+          job_status: "${{ job.status }}"

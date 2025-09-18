@@ -10,6 +10,7 @@
 //
 // Notes:
 // - IPv6 addresses ($2, $4, and $6) must be "::1" in IPv4-only clusters.
+// - IPv4 addresses ($1, $3, and $5) must be "0.0.0.1" in IPv6-only clusters.
 // - We assume /8 CIDRs for the provided addresses ($1-$6).
 
 #define MASK4 (uint32)0xFF000000
@@ -485,7 +486,7 @@ BEGIN
 // Perform sanity checks.
 END
 {
-  if (str($7) == "true" && !@sanity[TYPE_PROXY_L7_IP4]) {
+  if (str($7) == "true" && !@sanity[TYPE_PROXY_L7_IP4] && str($1) != "0.0.0.1") {
     printf("Sanity check failed: detected no IPv4 connections from the L7 proxy. Is the filter correct?\n")
   }
 

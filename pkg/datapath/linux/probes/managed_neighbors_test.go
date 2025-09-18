@@ -6,16 +6,14 @@ package probes
 import (
 	"testing"
 
-	"github.com/cilium/hive/hivetest"
-
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestManagedNeighbors(t *testing.T) {
+func TestPrivilegedManagedNeighbors(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "5.16", "NTF_EXT_MANAGED")
 
-	if err := HaveManagedNeighbors(hivetest.Logger(t)); err != nil {
+	if err := HaveManagedNeighbors(); err != nil {
 		t.Fatal(err)
 	}
 }

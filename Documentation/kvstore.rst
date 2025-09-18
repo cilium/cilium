@@ -52,7 +52,7 @@ Key                                                           Value
 ``cilium/state/services/v1/<cluster>/<namespace>/<service>``  serviceStore.ClusterService_
 ============================================================= ====================
 
-.. _serviceStore.ClusterService: https://pkg.go.dev/github.com/cilium/cilium/pkg/service/store#ClusterService
+.. _serviceStore.ClusterService: https://pkg.go.dev/github.com/cilium/cilium/pkg/clustermesh/store#ClusterService
 
 Identities
 ----------
@@ -116,6 +116,7 @@ Key                    Value
 ``cilium/.heartbeat``  Current time and date
 ====================== ======================
 
+.. _kvstore_leases:
 
 Leases
 ======
@@ -149,6 +150,14 @@ Key                                                             Lease Timeout   
 
 .. _LockLeaseTTL: https://pkg.go.dev/github.com/cilium/cilium/pkg/defaults?tab=doc#LockLeaseTTL
 .. _KVstoreLeaseTTL: https://pkg.go.dev/github.com/cilium/cilium/pkg/defaults?tab=doc#KVstoreLeaseTTL
+
+Caveats and Limitations
+=======================
+
+If you manually remove and recreate kvstore state when IPSec transparent
+encryption is enabled, then that may cause permanent connectivity disruption
+for pods managed by Cilium. Refer to :ref:`xfrm_state_staling_in_cilium` for
+further details.
 
 Debugging
 =========

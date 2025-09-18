@@ -13,10 +13,12 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -29,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 type RedirectSuite struct {
@@ -42,6 +45,7 @@ type RedirectSuite struct {
 
 func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	testutils.IntegrationTest(tb)
+	logger := hivetest.Logger(tb)
 
 	s := &RedirectSuite{
 		do: &DummyOwner{},
@@ -50,18 +54,18 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
 	// Setup dependencies for endpoint.
-	kvstore.SetupDummy(tb, "etcd")
+	client := kvstore.SetupDummy(tb, "etcd")
 
-	s.mgr = cache.NewCachingIdentityAllocator(s.do, cache.AllocatorConfig{})
-	<-s.mgr.InitIdentityAllocator(nil)
+	s.mgr = cache.NewCachingIdentityAllocator(logger, s.do, cache.NewTestAllocatorConfig())
+	<-s.mgr.InitIdentityAllocator(nil, client)
 
 	identityCache := identity.IdentityMap{
 		identityFoo: labelsFoo,
 		identityBar: labelsBar,
 	}
 
-	s.do.idmgr = identitymanager.NewIDManager()
-	s.do.repo = policy.NewPolicyRepository(hivetest.Logger(tb), identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(tb), certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, api.NewPolicyMetricsNoop())
+	s.do.idmgr = identitymanager.NewIDManager(logger)
+	s.do.repo = policy.NewPolicyRepository(logger, identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, testpolicy.NewPolicyMetricsNoop())
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	s.rsp = &RedirectSuiteProxy{
@@ -119,17 +123,18 @@ func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, po
 // RemoveNetworkPolicy does nothing.
 func (r *RedirectSuiteProxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {}
 
-// DummyIdentityAllocatorOwner implements
-// pkg/identity/cache/IdentityAllocatorOwner. It is used for unit testing.
-type DummyIdentityAllocatorOwner struct{}
-
-// UpdateIdentities does nothing.
-func (d *DummyIdentityAllocatorOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
+// UpdateSDP does nothing.
+func (r *RedirectSuiteProxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
 }
 
-// GetNodeSuffix does nothing.
-func (d *DummyIdentityAllocatorOwner) GetNodeSuffix() string {
-	return ""
+// GetListenerProxyPort does nothing.
+func (r *RedirectSuiteProxy) GetListenerProxyPort(listener string) uint16 {
+	return 0
+}
+
+// IsSDPEnabled returns false for test proxy.
+func (r *RedirectSuiteProxy) IsSDPEnabled() bool {
+	return false
 }
 
 // DummyOwner implements pkg/endpoint/regeneration/Owner. Used for unit testing.
@@ -143,10 +148,13 @@ func (d *DummyOwner) GetNodeSuffix() string {
 	return ""
 }
 
-func (d *DummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
+func (d *DummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
 	wg := &sync.WaitGroup{}
 	d.repo.GetSelectorCache().UpdateIdentities(added, deleted, wg)
 	wg.Wait()
+	out := make(chan struct{})
+	close(out)
+	return out
 }
 
 const (
@@ -158,8 +166,10 @@ const (
 )
 
 func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
+	logger := hivetest.Logger(t)
 	model := newTestEndpointModel(12345, StateRegenerating)
-	ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), model)
+	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
+	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), kvstoreSync, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -285,8 +295,8 @@ func (obtained LabelArrayListMap) Equals(expected LabelArrayListMap) bool {
 func (e *Endpoint) GetDesiredPolicyRuleLabels() LabelArrayListMap {
 	desiredLabels := make(LabelArrayListMap)
 	for k := range e.desiredPolicy.Entries() {
-		strLbls, _ := e.desiredPolicy.GetRuleLabels(k)
-		desiredLabels[k] = labels.LabelArrayListFromString(strLbls)
+		ruleMeta, _ := e.desiredPolicy.GetRuleMeta(k)
+		desiredLabels[k] = ruleMeta.LabelArray()
 	}
 	return desiredLabels
 }

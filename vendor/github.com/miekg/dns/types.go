@@ -268,11 +268,20 @@ func (q *Question) String() (s string) {
 	return s
 }
 
-// ANY is a wild card record. See RFC 1035, Section 3.2.3. ANY
-// is named "*" there.
+// ANY is a wild card record. See RFC 1035, Section 3.2.3. ANY is named "*" there.
+// The ANY records can be (ab)used to create resource records without any rdata, that
+// can be used in dynamic update requests. Basic use pattern:
+//
+//	a := &ANY{RR_Header{
+//		Name:   "example.org.",
+//		Rrtype: TypeA,
+//		Class:  ClassINET,
+//	}}
+//
+// Results in an A record without rdata.
 type ANY struct {
 	Hdr RR_Header
-	// Does not have any rdata
+	// Does not have any rdata.
 }
 
 func (rr *ANY) String() string { return rr.Hdr.String() }

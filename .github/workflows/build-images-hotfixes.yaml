@@ -52,7 +52,7 @@ jobs:
 
     steps:
       - name: Checkout main branch to access local actions
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -69,10 +69,10 @@ jobs:
           cp -r .github/actions/set-runtime-image ../cilium-base-branch
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Login to quay.io
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_DEVELOPER_USERNAME }}
@@ -95,7 +95,7 @@ jobs:
           fi
 
       - name: Checkout Source Code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
 
@@ -109,7 +109,7 @@ jobs:
           repository: ${{ env.CILIUM_RUNTIME_IMAGE_PREFIX }}
 
       - name: Release Build ${{ matrix.name }}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: docker_build_release
         with:
           provenance: false
@@ -125,25 +125,20 @@ jobs:
             CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             OPERATOR_VARIANT=${{ matrix.name }}
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
-
-      - name: Sign Container Image
-        run: |
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev@${{ steps.docker_build_release.outputs.digest }}
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_release.outputs.digest }}
-
-      - name: Generate SBOM
-        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+      - name: Generate SBOM, Sign Images, and Attach Attestations
+        uses: ./.github/actions/cosign
         with:
-          artifact-name: sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}
+          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev@${{ steps.docker_build_release.outputs.digest }}"
+          image_tag: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}"
+          sbom_name: "${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
 
-      - name: Attach SBOM attestation to container image
-        run: |
-          cosign attest -r -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev@${{ steps.docker_build_release.outputs.digest }}
-          cosign attest -r -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_release.outputs.digest }}
+      - name: Generate SBOM, Sign Images, and Attach Attestations
+        uses: ./.github/actions/cosign
+        with:
+          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_release.outputs.digest }}"
+          sbom_name: "${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
+          install_cosign: 'false'
+          generate_sbom: 'false'
 
       - name: Image Release Digest
         shell: bash
@@ -174,7 +169,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           path: image-digest/
           pattern: "*image-digest *"

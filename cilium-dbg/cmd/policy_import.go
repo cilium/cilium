@@ -23,7 +23,7 @@ var replaceWithLabels []string
 // policyImportCmd represents the policy_import command
 var policyImportCmd = &cobra.Command{
 	Use:   "import <path>",
-	Short: "Import security policy in JSON format",
+	Short: "Import security policy in JSON format (deprecated)",
 	Example: `  cilium-dbg policy import ~/policy.json
   cilium-dbg policy import ./policies/app/`,
 	PreRun: requirePath,
@@ -32,7 +32,7 @@ var policyImportCmd = &cobra.Command{
 		if ruleList, err := loadPolicy(path); err != nil {
 			Fatalf("Cannot parse policy %s: %s\n", path, err)
 		} else {
-			log.WithField("rule", logfields.Repr(ruleList)).Debug("Constructed policy object for import")
+			log.Debug("Constructed policy object for import", logfields.Rule, ruleList)
 
 			// Ignore request if no policies have been found
 			if len(ruleList) == 0 {

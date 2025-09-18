@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -20,7 +21,7 @@ func setUpSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 }
 
-func Test_firstGlobalV4Addr(t *testing.T) {
+func TestPrivilegedFirstGlobalV4Addr(t *testing.T) {
 	setUpSuite(t)
 
 	testCases := []struct {
@@ -105,7 +106,7 @@ func setupDummyDevice(name string, ips ...string) error {
 }
 
 func removeDevice(name string) {
-	l, err := netlink.LinkByName(name)
+	l, err := safenetlink.LinkByName(name)
 	if err == nil {
 		netlink.LinkDel(l)
 	}

@@ -4,6 +4,7 @@
 package certloader
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 
@@ -35,7 +36,7 @@ func NewWatcher(log *slog.Logger, caFiles []string, certFile, privkeyFile string
 	// An error here would be unexpected as we were able to create a
 	// FileReloader having read the files, so the files should exist and be
 	// "watchable".
-	fswatcher, err := newFsWatcher(caFiles, certFile, privkeyFile)
+	fswatcher, err := newFsWatcher(log, caFiles, certFile, privkeyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -53,13 +54,14 @@ func NewWatcher(log *slog.Logger, caFiles []string, certFile, privkeyFile string
 // FutureWatcher returns a channel where exactly one Watcher will be sent once
 // the given files are ready and loaded. This can be useful when the file paths
 // are well-known, but the files themselves don't exist yet. Note that the
-// requirement is that the file directories must exists.
-func FutureWatcher(log *slog.Logger, caFiles []string, certFile, privkeyFile string) (<-chan *Watcher, error) {
+// requirement is that the file directories must exists. The provided context
+// ensures that we cleanup the spawned goroutines if the files never become ready.
+func FutureWatcher(ctx context.Context, log *slog.Logger, caFiles []string, certFile, privkeyFile string) (<-chan *Watcher, error) {
 	r, err := NewFileReloader(caFiles, certFile, privkeyFile)
 	if err != nil {
 		return nil, err
 	}
-	fswatcher, err := newFsWatcher(caFiles, certFile, privkeyFile)
+	fswatcher, err := newFsWatcher(log, caFiles, certFile, privkeyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +90,14 @@ func FutureWatcher(log *slog.Logger, caFiles []string, certFile, privkeyFile str
 			res <- w
 			return
 		}
-		log.Debug("Waiting on fsnotify update to be ready")
+		log.Debug("Waiting on fswatcher update to be ready")
 		select {
 		case <-ready:
 			log.Debug("TLS configuration ready")
 			res <- w
 		case <-w.stop:
+		case <-ctx.Done():
+			w.Stop()
 		}
 	}(res)
 
@@ -208,7 +212,7 @@ func (w *Watcher) Stop() {
 // newFsWatcher returns a fswatcher.Watcher watching over the given files.
 // The fswatcher.Watcher supports watching over files which do not exist yet.
 // A create event will be emitted once the file is added.
-func newFsWatcher(caFiles []string, certFile, privkeyFile string) (*fswatcher.Watcher, error) {
+func newFsWatcher(logger *slog.Logger, caFiles []string, certFile, privkeyFile string) (*fswatcher.Watcher, error) {
 	trackFiles := []string{}
 
 	if certFile != "" {
@@ -223,5 +227,5 @@ func newFsWatcher(caFiles []string, certFile, privkeyFile string) (*fswatcher.Wa
 		}
 	}
 
-	return fswatcher.New(trackFiles)
+	return fswatcher.New(logger, trackFiles)
 }

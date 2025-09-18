@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 )
@@ -115,8 +115,7 @@ type bpfCleanup struct{}
 
 func (c bpfCleanup) whatWillBeRemoved() []string {
 	return []string{
-		fmt.Sprintf("all BPF maps in %s containing '%s' and '%s'",
-			bpf.TCGlobalsPath(), ciliumLinkPrefix, tunnel.MapName),
+		fmt.Sprintf("all BPF maps in %s containing '%s'", bpf.TCGlobalsPath(), ciliumLinkPrefix),
 		fmt.Sprintf("mounted bpffs at %s", bpf.BPFFSRoot()),
 	}
 }
@@ -379,7 +378,7 @@ func revertCNIBackup() error {
 }
 
 func removeSocketLBPrograms() error {
-	if err := socketlb.Disable(); err != nil {
+	if err := socketlb.Disable(log); err != nil {
 		return fmt.Errorf("Failed to detach all socketlb bpf programs from %s: %w", defaults.DefaultCgroupRoot, err)
 	}
 	fmt.Println("removed all socketlb bpf programs")
@@ -395,7 +394,7 @@ func unmountCgroup() error {
 		return fmt.Errorf("%s is a file which is not a directory", cgroupRoot)
 	}
 
-	log.Info("Trying to unmount ", cgroupRoot)
+	log.Info("Trying to unmount path", logfields.Path, cgroupRoot)
 	if err := unix.Unmount(cgroupRoot, unix.MNT_FORCE); err != nil {
 		return fmt.Errorf("Failed to unmount %s: %w", cgroupRoot, err)
 	}
@@ -432,7 +431,7 @@ func removeAllMaps() error {
 	for _, m := range maps {
 		name := m.Name()
 		// Skip non Cilium looking maps
-		if !strings.HasPrefix(name, ciliumLinkPrefix) && name != tunnel.MapName {
+		if !strings.HasPrefix(name, ciliumLinkPrefix) {
 			continue
 		}
 		if err = os.Remove(filepath.Join(mapDir, name)); err != nil {

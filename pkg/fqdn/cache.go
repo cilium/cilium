@@ -5,6 +5,8 @@ package fqdn
 
 import (
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"regexp"
@@ -14,8 +16,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
@@ -617,7 +617,7 @@ func (c *DNSCache) GetIPs() map[netip.Addr][]string {
 //
 //	ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
 //	ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
-//	that expired before the current time.
+//	that expired or had a lookup time before the current time.
 //
 // expireLookupsBefore requires a lookup to have a LookupTime before it in
 // order to remove it.
@@ -806,6 +806,7 @@ func (zombie *DNSZombieMapping) DeepCopy() *DNSZombieMapping {
 // allowing us to skip deleting an IP from the global DNS cache to avoid
 // breaking connections that outlast the DNS TTL.
 type DNSZombieMappings struct {
+	logger *slog.Logger
 	lock.Mutex
 	deletes        map[netip.Addr]*DNSZombieMapping
 	lastCTGCUpdate time.Time
@@ -821,8 +822,9 @@ type DNSZombieMappings struct {
 }
 
 // NewDNSZombieMappings constructs a DNSZombieMappings that is read to use
-func NewDNSZombieMappings(max, perHostLimit int) *DNSZombieMappings {
+func NewDNSZombieMappings(logger *slog.Logger, max, perHostLimit int) *DNSZombieMappings {
 	return &DNSZombieMappings{
+		logger:       logger,
 		deletes:      make(map[netip.Addr]*DNSZombieMapping),
 		max:          max,
 		perHostLimit: perHostLimit,
@@ -1031,7 +1033,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 			}
 		}
 		if warnActiveDNSEntries {
-			log.Warningf("Evicting expired DNS cache entries that may be in-use due to per-host limits. This may cause recently created connections to be disconnected. Raise %s to mitigate this.", option.ToFQDNsMaxIPsPerHost)
+			zombies.logger.Warn(fmt.Sprintf("Evicting expired DNS cache entries that may be in-use due to per-host limits. This may cause recently created connections to be disconnected. Raise %s to mitigate this.", option.ToFQDNsMaxIPsPerHost))
 		}
 
 		for _, dead := range dead[deadIdx:] {
@@ -1053,7 +1055,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 		dead = append(dead, alive[:overLimit]...)
 		alive = alive[overLimit:]
 		if dead[len(dead)-1].AliveAt.After(zombies.lastCTGCUpdate) {
-			log.Warning("Evicting expired DNS cache entries that may be in-use. This may cause recently created connections to be disconnected. Raise --tofqdns-max-deferred-connection-deletes to mitigate this.")
+			zombies.logger.Warn("Evicting expired DNS cache entries that may be in-use. This may cause recently created connections to be disconnected. Raise --tofqdns-max-deferred-connection-deletes to mitigate this.")
 		}
 	}
 
@@ -1086,10 +1088,11 @@ func (zombies *DNSZombieMappings) MarkAlive(now time.Time, ip netip.Addr) {
 // returned by GC.
 func (zombies *DNSZombieMappings) SetCTGCTime(ctGCStart, estNext time.Time) {
 	zombies.Lock()
+	defer zombies.Unlock()
+
 	zombies.lastCTGCUpdate = ctGCStart
 	zombies.nextCTGCUpdate = estNext
 	zombies.ctGCRevision++
-	zombies.Unlock()
 }
 
 // NextCTGCUpdate returns the estimated next CT GC time.
@@ -1120,21 +1123,13 @@ func (zombies *DNSZombieMappings) NextCTGCUpdate() time.Time {
 func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp) (namesAffected []string) {
 	zombies.Lock()
 	defer zombies.Unlock()
-	return zombies.forceExpireLocked(expireLookupsBefore, nameMatch, nil)
-}
 
-func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Time, nameMatch *regexp.Regexp, cidr *netip.Prefix) (namesAffected []string) {
 	var toDelete []*DNSZombieMapping
 
 	for _, zombie := range zombies.deletes {
 		// Do not expire zombies that were enqueued after expireLookupsBefore, but
 		// only if the value is non-zero
 		if !expireLookupsBefore.IsZero() && zombie.DeletePendingAt.After(expireLookupsBefore) {
-			continue
-		}
-
-		// If cidr is provided, skip zombies with IPs outside the range
-		if cidr != nil && !cidr.Contains(zombie.IP) {
 			continue
 		}
 
@@ -1164,24 +1159,29 @@ func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Tim
 	return namesAffected
 }
 
-// ForceExpireByNameIP wraps ForceExpire to simplify clearing all IPs from a
-// new DNS lookup.
-// The error return is for errors compiling the internal regexp. This should
-// never happen.
-func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.Time, name string, ips ...netip.Addr) error {
-	reStr := matchpattern.ToAnchoredRegexp(name)
-	re, err := re.CompileRegex(reStr)
-	if err != nil {
-		return err
-	}
-
+// ForceExpireByNameIP clears all zombie enties for a given (name, []ip) lookup. Call this
+// when learning a new set of A records.
+func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.Time, name string, ips ...netip.Addr) {
 	zombies.Lock()
 	defer zombies.Unlock()
+
 	for _, ip := range ips {
-		cidr := netip.PrefixFrom(ip, ip.BitLen())
-		zombies.forceExpireLocked(expireLookupsBefore, re, &cidr)
+		zombie, ok := zombies.deletes[ip]
+		if !ok {
+			continue
+		}
+
+		if !expireLookupsBefore.IsZero() && zombie.DeletePendingAt.After(expireLookupsBefore) {
+			continue
+		}
+
+		// Remove the specified name (if extant) and, if it was
+		// the last one, delete the entry entirely
+		zombie.Names = slices.DeleteFunc(zombie.Names, func(s string) bool { return s == name })
+		if len(zombie.Names) == 0 {
+			delete(zombies.deletes, ip)
+		}
 	}
-	return nil
 }
 
 // PrefixMatcherFunc is a function passed to (*DNSZombieMappings).DumpAlive,

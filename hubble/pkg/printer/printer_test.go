@@ -130,18 +130,33 @@ func TestPrinter_AllFieldsInMask(t *testing.T) {
 
 func TestPrinter_WriteProtoFlow(t *testing.T) {
 	buf := bytes.Buffer{}
+
 	reply := proto.Clone(&f).(*flowpb.Flow)
 	reply.IsReply = &wrapperspb.BoolValue{Value: true}
+
 	unknown := proto.Clone(&f).(*flowpb.Flow)
 	unknown.IsReply = nil
+
 	policyDenied := proto.Clone(&f).(*flowpb.Flow)
 	policyDenied.EventType = &flowpb.CiliumEventType{
 		Type: monitorAPI.MessageTypePolicyVerdict,
 	}
 	policyDenied.IsReply = nil
 	policyDenied.TrafficDirection = flowpb.TrafficDirection_EGRESS
+	policyDenied.EgressDeniedBy = []*flowpb.Policy{{Name: "my-policy", Namespace: "my-policy-namespace", Kind: "CiliumNetworkPolicy"}}
+
+	policyAllowed := proto.Clone(&f).(*flowpb.Flow)
+	policyAllowed.EventType = &flowpb.CiliumEventType{
+		Type: monitorAPI.MessageTypePolicyVerdict,
+	}
+	policyAllowed.Verdict = flowpb.Verdict_FORWARDED
+	policyAllowed.IsReply = nil
+	policyAllowed.TrafficDirection = flowpb.TrafficDirection_INGRESS
+	policyAllowed.IngressAllowedBy = []*flowpb.Policy{{Name: "my-policy", Namespace: "my-policy-namespace", Kind: "CiliumNetworkPolicy"}, {Name: "my-policy-2", Kind: "CiliumClusterwideNetworkPolicy"}}
+
 	type args struct {
-		f *flowpb.Flow
+		f     *flowpb.Flow
+		merge *flowpb.Flow
 	}
 	tests := []struct {
 		name     string
@@ -222,6 +237,26 @@ Jan  1 00:20:34.567   1.1.1.1:31793   2.2.2.2:8080   kafka-request   DROPPED   K
 				"Policy denied DROPPED (TCP Flags: SYN)\n",
 		},
 		{
+			name: "compact-with-trace-id",
+			options: []Option{
+				Compact(),
+				WithColor("never"),
+				WithNodeName(),
+				Writer(&buf),
+			},
+			args: args{
+				f: &f,
+				merge: &flowpb.Flow{
+					IpTraceId: &flowpb.IPTraceID{TraceId: 1234},
+				},
+			},
+			wantErr: false,
+			expected: "Jan  1 00:20:34.567 [k8s1]: " +
+				"1.1.1.1:31793 (health) -> 2.2.2.2:8080 (ID:12345) " +
+				"Policy denied DROPPED " +
+				"(IP Trace ID: 1234; TCP Flags: SYN)\n",
+		},
+		{
 			name: "compact-reply",
 			options: []Option{
 				Compact(),
@@ -252,6 +287,40 @@ Jan  1 00:20:34.567   1.1.1.1:31793   2.2.2.2:8080   kafka-request   DROPPED   K
 			expected: "Jan  1 00:20:34.567 [k8s1]: " +
 				"1.1.1.1:31793 (health) <> 2.2.2.2:8080 (ID:12345) " +
 				"policy-verdict:none EGRESS DENIED (TCP Flags: SYN)\n",
+		},
+		{
+			name: "compact-policy-verdict-denied-with-policy-name",
+			options: []Option{
+				Compact(),
+				WithColor("never"),
+				WithNodeName(),
+				WithPolicyNames(),
+				Writer(&buf),
+			},
+			args: args{
+				f: policyDenied,
+			},
+			wantErr: false,
+			expected: "Jan  1 00:20:34.567 [k8s1]: " +
+				"1.1.1.1:31793 (health) <> 2.2.2.2:8080 (ID:12345) " +
+				"policy-verdict:none EGRESS DENIED BY my-policy (CiliumNetworkPolicy) (TCP Flags: SYN)\n",
+		},
+		{
+			name: "compact-policy-verdict-allowed-with-policy-name",
+			options: []Option{
+				Compact(),
+				WithColor("never"),
+				WithNodeName(),
+				WithPolicyNames(),
+				Writer(&buf),
+			},
+			args: args{
+				f: policyAllowed,
+			},
+			wantErr: false,
+			expected: "Jan  1 00:20:34.567 [k8s1]: " +
+				"1.1.1.1:31793 (health) <> 2.2.2.2:8080 (ID:12345) " +
+				"policy-verdict:none INGRESS ALLOWED BY my-policy (CiliumNetworkPolicy), my-policy-2 (CiliumClusterwideNetworkPolicy) (TCP Flags: SYN)\n",
 		},
 		{
 			name: "compact-direction-unknown",
@@ -361,6 +430,33 @@ Jan  1 00:20:34.567   1.1.1.1:31793   2.2.2.2:8080   kafka-request   DROPPED   K
 				`"is_reply":false,"Summary":"Kafka request 1234 correlation id 1 topic 'my-topic[^[30mblack[^[0m[^\\r'"}}`,
 		},
 		{
+			name: "jsonpb_with_trace",
+			options: []Option{
+				JSONPB(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args: args{
+				f: &f,
+				merge: &flowpb.Flow{
+					IpTraceId: &flowpb.IPTraceID{
+						IpOptionType: 136,
+						TraceId:      1234,
+					},
+				},
+			},
+			wantErr: false,
+			expected: `{"flow":{"time":"1970-01-01T00:20:34.567800Z",` +
+				`"verdict":"DROPPED",` +
+				`"IP":{"source":"1.1.1.1","destination":"2.2.2.2"},` +
+				`"l4":{"TCP":{"source_port":31793,"destination_port":8080}},` +
+				`"source":{"identity":4},"destination":{"identity":12345},` +
+				`"Type":"L3_L4","node_name":"k8s1",` +
+				`"event_type":{"type":1,"sub_type":133},` +
+				`"ip_trace_id":{"trace_id":"1234","ip_option_type":136},` +
+				`"is_reply":false,"Summary":"TCP Flags: SYN"}}`,
+		},
+		{
 			name: "dict",
 			options: []Option{
 				Dict(),
@@ -399,6 +495,25 @@ DESTINATION: 2.2.2.2:8080
     SUMMARY: TCP Flags: SYN`,
 		},
 		{
+			name: "dict-with-policy-name",
+			options: []Option{
+				Dict(),
+				WithColor("never"),
+				WithPolicyNames(),
+				Writer(&buf),
+			},
+			args: args{
+				f: policyDenied,
+			},
+			wantErr: false,
+			expected: `  TIMESTAMP: Jan  1 00:20:34.567
+     SOURCE: 1.1.1.1:31793
+DESTINATION: 2.2.2.2:8080
+       TYPE: policy-verdict:none EGRESS
+    VERDICT: DENIED BY my-policy (CiliumNetworkPolicy)
+    SUMMARY: TCP Flags: SYN`,
+		},
+		{
 			name: "dict-terminal-escaped",
 			options: []Option{
 				Dict(),
@@ -420,9 +535,12 @@ DESTINATION: 2.2.2.2:8080
 	for _, tt := range tests {
 		buf.Reset()
 		t.Run(tt.name, func(t *testing.T) {
+			f := proto.Clone(tt.args.f).(*flowpb.Flow)
+			proto.Merge(f, tt.args.merge)
+
 			p := New(tt.options...)
 			res := &observerpb.GetFlowsResponse{
-				ResponseTypes: &observerpb.GetFlowsResponse_Flow{Flow: tt.args.f},
+				ResponseTypes: &observerpb.GetFlowsResponse_Flow{Flow: f},
 			}
 			// writes a node status event into the error stream
 			if err := p.WriteProtoFlow(res); (err != nil) != tt.wantErr {
@@ -1626,6 +1744,67 @@ EVENTS LOST: HUBBLE_RING_BUFFER CPU(5) 1`,
 			}
 			require.NoError(t, p.Close())
 			require.Equal(t, strings.TrimSpace(tt.expected), strings.TrimSpace(buf.String()))
+		})
+	}
+}
+
+func TestFormatPolicyNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		policies []*flowpb.Policy
+		expected string
+	}{
+		{
+			name:     "No policies",
+			policies: []*flowpb.Policy{},
+			expected: "",
+		},
+		{
+			name: "Single policy with kind and name",
+			policies: []*flowpb.Policy{
+				{Kind: "CiliumNetworkPolicy", Name: "AllowHTTP"},
+			},
+			expected: " BY AllowHTTP (CiliumNetworkPolicy)",
+		},
+		{
+			name: "Multiple policies with kind and name",
+			policies: []*flowpb.Policy{
+				{Kind: "CiliumNetworkPolicy", Name: "AllowHTTP"},
+				{Kind: "CiliumClusterwideNetworkPolicy", Name: "AllowDNS"},
+			},
+			expected: " BY AllowHTTP (CiliumNetworkPolicy), AllowDNS (CiliumClusterwideNetworkPolicy)",
+		},
+		{
+			name: "Policy with missing kind",
+			policies: []*flowpb.Policy{
+				{Kind: "", Name: "AllowAll"},
+			},
+			expected: "",
+		},
+		{
+			name: "Policy with missing name",
+			policies: []*flowpb.Policy{
+				{Kind: "CiliumNetworkPolicy", Name: ""},
+			},
+			expected: "",
+		},
+		{
+			name: "Mixed valid and invalid policies",
+			policies: []*flowpb.Policy{
+				{Kind: "CiliumNetworkPolicy", Name: "AllowHTTP"},
+				{Kind: "", Name: "InvalidPolicy"},
+				{Kind: "CiliumClusterwideNetworkPolicy", Name: "AllowDNS"},
+			},
+			expected: " BY AllowHTTP (CiliumNetworkPolicy), AllowDNS (CiliumClusterwideNetworkPolicy)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatPolicyNames(tt.policies)
+			if result != tt.expected {
+				t.Errorf("formatPolicyNames() = %q, want %q", result, tt.expected)
+			}
 		})
 	}
 }

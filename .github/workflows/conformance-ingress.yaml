@@ -86,7 +86,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -110,34 +110,24 @@ jobs:
         include:
         - name: Without_XDP
           kube-proxy-replacement: true
-          enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: dedicated
           default-ingress-controller: false
         - name: With_XDP
           kube-proxy-replacement: true
-          enable-node-port: false
           bpf-lb-acceleration: native
           loadbalancer-mode: dedicated
           default-ingress-controller: false
         - name: With_Shared_LB
           kube-proxy-replacement: true
-          enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: shared
           default-ingress-controller: false
         - name: With_Default_Ingress_Controller
           kube-proxy-replacement: true
-          enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: dedicated
           default-ingress-controller: true
-        - name: Without_KPR
-          kube-proxy-replacement: false
-          enable-node-port: true
-          bpf-lb-acceleration: disabled
-          loadbalancer-mode: dedicated
-          default-ingress-controller: false
 
     steps:
       - name: Collect Workflow Telemetry
@@ -146,7 +136,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -168,7 +158,6 @@ jobs:
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set kubeProxyReplacement=${{ matrix.kube-proxy-replacement }} \
-            --helm-set nodePort.enabled=${{ matrix.enable-node-port }} \
             --helm-set=ingressController.enabled=true \
             --helm-set=ingressController.loadbalancerMode=${{ matrix.loadbalancer-mode }} \
             --helm-set=ingressController.default=${{ matrix.default-ingress-controller }} \
@@ -180,7 +169,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -199,7 +188,7 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@024e340cca1465e2a6336521f12370c7ca58c59a # v0.18.7
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -208,7 +197,7 @@ jobs:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Checkout ingress-controller-conformance
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           # Use the forked repo with retry mechanism
           # Please refer to https://github.com/kubernetes-sigs/ingress-controller-conformance/pull/101 for more details.
@@ -242,7 +231,7 @@ jobs:
           echo "LB_CIDR: $LB_CIDR"
           echo "Deploying LB-IPAM Pool..."
           cat << EOF > pool.yaml
-          apiVersion: "cilium.io/v2alpha1"
+          apiVersion: "cilium.io/v2"
           kind: CiliumLoadBalancerIPPool
           metadata:
             name: "pool"
@@ -431,43 +420,20 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --test 'packet-drops'
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }} ${{ matrix.name }}"
-
-      - name: Post-test information gathering
-        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
-        run: |
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-out-${{ matrix.name }}
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
-
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdump-out-${{ matrix.name }}
-          path: cilium-sysdump-out-*.zip
-          retention-days: 5
-
-      - name: Upload features tested
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: features-tested-${{ matrix.name }}
-          path: ${{ env.job_name }}*.json
+          artifacts_suffix: "${{ env.job_name }} ${{ matrix.name }}"
+          job_status: "${{ job.status }}"
 
-  commit-status-final:
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
-    name: Commit Status Final
     needs: ingress-conformance-test
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.ingress-conformance-test.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.ingress-conformance-test.result }}

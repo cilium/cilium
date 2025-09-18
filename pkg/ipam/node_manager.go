@@ -85,6 +85,10 @@ type NodeOperations interface {
 	// indicates a need to release IPs.
 	PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ReleaseAction
 
+	// ReleaseIPPrefixes is called after invoking PrepareIPRelease and needs to
+	// perform the release of IPPrefixes.
+	ReleaseIPPrefixes(ctx context.Context, release *ReleaseAction) error
+
 	// ReleaseIPs is called after invoking PrepareIPRelease and needs to
 	// perform the release of IPs.
 	ReleaseIPs(ctx context.Context, release *ReleaseAction) error
@@ -99,10 +103,6 @@ type NodeOperations interface {
 
 	// IsPrefixDelegated helps identify if a node supports prefix delegation
 	IsPrefixDelegated() bool
-
-	// GetUsedIPWithPrefixes returns the total number of used IPs including all IPs in a prefix if at-least one of
-	// the prefix IPs is in use.
-	GetUsedIPWithPrefixes() int
 }
 
 // AllocationImplementation is the interface an implementation must provide.
@@ -317,6 +317,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		node.ops = n.instancesAPI.CreateNode(resource, node)
 
 		backoff := &backoff.Exponential{
+			Logger:      n.logger,
 			Max:         5 * time.Minute,
 			Jitter:      true,
 			NodeManager: n,
@@ -386,7 +387,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		node.poolMaintainer = poolMaintainer
 		node.k8sSync = k8sSync
 		n.nodes[node.name] = node
-		node.logger.Load().Info("Discovered new CiliumNode custom resource", fieldName, resource.Name)
+		node.logger.Load().Info("Discovered new CiliumNode custom resource")
 	}
 	// Update the resource in the node while holding the lock, otherwise resyncs can be
 	// triggered prior to the update being applied.

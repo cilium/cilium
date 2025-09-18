@@ -8,7 +8,10 @@
 #include "drop.h"
 #include "dbg.h"
 #include "eps.h"
-#include "maps.h"
+
+#ifndef EFFECTIVE_EP_ID
+#define EFFECTIVE_EP_ID 0
+#endif
 
 /* Global policy stats map */
 struct {
@@ -19,19 +22,6 @@ struct {
 	__uint(max_entries, POLICY_STATS_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_COMMON_LRU);
 } cilium_policystats __section_maps_btf;
-
-/*
- * Both non-host and host EP programs have HOST_EP_ID defined, but only non-host EPs have LXC_ID
- * defined. Hence, if LXC_ID is defined, we are doing policy for a non-host EP, otherwise for the
- * host EP, or zero if neither is defined.
- */
-#ifdef LXC_ID
-#define EFFECTIVE_EP_ID LXC_ID
-#elif defined(HOST_EP_ID)
-#define EFFECTIVE_EP_ID HOST_EP_ID
-#else
-#define EFFECTIVE_EP_ID 0
-#endif
 
 static __always_inline void
 __policy_account(__u32 remote_id, __u8 egress, __u8 proto, __be16 dport, __u8 lpm_prefix_length,

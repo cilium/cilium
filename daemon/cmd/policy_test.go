@@ -14,9 +14,9 @@ import (
 	"time"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
-	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
@@ -379,7 +379,8 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
-						L7: &PNPAllowGETbar,
+						RemotePolicies: expectedRemotePolicies,
+						L7:             &PNPAllowGETbar,
 					},
 				},
 			},
@@ -421,7 +422,8 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
-						L7: &PNPAllowGETbar,
+						RemotePolicies: expectedRemotePolicies,
+						L7:             &PNPAllowGETbar,
 					},
 				},
 			},
@@ -697,7 +699,8 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
-						L7: &PNPAllowGETbar,
+						RemotePolicies: []uint32{uint32(qaFooSecLblsCtx.ID)},
+						L7:             &PNPAllowGETbar,
 					},
 				},
 			},
@@ -934,21 +937,12 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 	// proxies.
 	networkPolicies := ds.getXDSNetworkPolicies(t, nil)
 	require.Len(t, networkPolicies, 2)
+
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	require.NotNil(t, qaBarNetworkPolicy)
 
-	require.Len(t, qaBarNetworkPolicy.IngressPerPortPolicies, 1)
-
-	expectedIngressPolicy := &cilium.PortNetworkPolicy{
-		Port:     80,
-		Protocol: envoy_config_core.SocketAddress_TCP,
-		Rules: []*cilium.PortNetworkPolicyRule{
-			{
-				L7: &PNPAllowGETbar,
-			},
-		},
-	}
-	require.EqualExportedValues(t, expectedIngressPolicy, qaBarNetworkPolicy.IngressPerPortPolicies[0])
+	// "foo" identity does not exist yet, so there are no ingress policies
+	require.Empty(t, qaBarNetworkPolicy.IngressPerPortPolicies)
 
 	// Allocate identities needed for this test
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
@@ -991,7 +985,8 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
-						L7: &PNPAllowGETbar,
+						RemotePolicies: []uint32{uint32(qaFooID.ID)},
+						L7:             &PNPAllowGETbar,
 					},
 				},
 			},

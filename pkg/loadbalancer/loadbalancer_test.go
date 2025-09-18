@@ -5,33 +5,35 @@ package loadbalancer
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
+	"github.com/stretchr/testify/require"
+	"go.yaml.in/yaml/v3"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
 func TestL4Addr_Equals(t *testing.T) {
 	type args struct {
-		o *L4Addr
+		o L4Addr
 	}
 	tests := []struct {
 		name   string
-		fields *L4Addr
+		fields L4Addr
 		args   args
 		want   bool
 	}{
 		{
 			name: "both equal",
-			fields: &L4Addr{
+			fields: L4Addr{
 				Protocol: NONE,
 				Port:     1,
 			},
 			args: args{
-				o: &L4Addr{
+				o: L4Addr{
 					Protocol: NONE,
 					Port:     1,
 				},
@@ -40,12 +42,12 @@ func TestL4Addr_Equals(t *testing.T) {
 		},
 		{
 			name: "both different",
-			fields: &L4Addr{
+			fields: L4Addr{
 				Protocol: NONE,
 				Port:     0,
 			},
 			args: args{
-				o: &L4Addr{
+				o: L4Addr{
 					Protocol: NONE,
 					Port:     1,
 				},
@@ -59,7 +61,7 @@ func TestL4Addr_Equals(t *testing.T) {
 		},
 		{
 			name: "other nil",
-			fields: &L4Addr{
+			fields: L4Addr{
 				Protocol: NONE,
 				Port:     1,
 			},
@@ -70,11 +72,33 @@ func TestL4Addr_Equals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			l := tt.fields
-			if got := l.DeepEqual(tt.args.o); got != tt.want {
+			if got := l.Equals(tt.args.o); got != tt.want {
 				t.Errorf("L4Addr.DeepEqual() = %v, want %v", got, tt.want)
 			}
 		})
 	}
+}
+
+func TestL3n4Addr_DeepEqual(t *testing.T) {
+	var v4, v6 L3n4Addr
+	require.NoError(t, v4.ParseFromString("1.1.1.1:80/TCP"))
+	require.NoError(t, v6.ParseFromString("[2001::1]:80/TCP"))
+
+	assert.True(t, v4.DeepEqual(&v4))
+	assert.True(t, v6.DeepEqual(&v6))
+	assert.False(t, v4.DeepEqual(&v6))
+	assert.False(t, v6.DeepEqual(&v4))
+
+	var nilp *L3n4Addr
+	assert.True(t, nilp.DeepEqual(nil))
+	assert.False(t, nilp.DeepEqual(&v4))
+
+	var v4_2, v6_2 L3n4Addr
+	require.NoError(t, v4_2.ParseFromString("1.1.1.1:80/TCP"))
+	require.NoError(t, v6_2.ParseFromString("[2001::1]:80/TCP"))
+
+	assert.True(t, v4.DeepEqual(&v4_2))
+	assert.True(t, v6.DeepEqual(&v6_2))
 }
 
 func TestL3n4Addr_Bytes(t *testing.T) {
@@ -86,11 +110,12 @@ func TestL3n4Addr_Bytes(t *testing.T) {
 		expected []byte
 	}{
 		{
-			addr: L3n4Addr{
-				L4Addr:      L4Addr{Protocol: NONE, Port: 0xabcd},
-				AddrCluster: v4,
-				Scope:       ScopeExternal,
-			},
+			addr: NewL3n4Addr(
+				NONE,
+				v4,
+				0xabcd,
+				ScopeExternal,
+			),
 			expected: []byte{
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 1, 1, 1, 1, // IP
 				0, 0, 0, 0, // Cluster 0
@@ -100,11 +125,12 @@ func TestL3n4Addr_Bytes(t *testing.T) {
 			},
 		},
 		{
-			addr: L3n4Addr{
-				L4Addr:      L4Addr{Protocol: TCP, Port: 0xabcd},
-				AddrCluster: v4c3,
-				Scope:       ScopeInternal,
-			},
+			addr: NewL3n4Addr(
+				TCP,
+				v4c3,
+				0xabcd,
+				ScopeInternal,
+			),
 			expected: []byte{
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 1, 1, 1, 1, // IP
 				0, 0, 0, 3, // Cluster 3
@@ -114,11 +140,12 @@ func TestL3n4Addr_Bytes(t *testing.T) {
 			},
 		},
 		{
-			addr: L3n4Addr{
-				L4Addr:      L4Addr{Protocol: UDP, Port: 0xaabb},
-				AddrCluster: v6,
-				Scope:       ScopeExternal,
-			},
+			addr: NewL3n4Addr(
+				UDP,
+				v6,
+				0xaabb,
+				ScopeExternal,
+			),
 			expected: []byte{
 				32, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, // IP
 				0, 0, 0, 0, // Cluster 0
@@ -152,270 +179,104 @@ func TestL3n4AddrYAML(t *testing.T) {
 				assert.Equal(t, strings.Trim(string(out), "\n'"), test)
 				var l2 L3n4Addr
 				assert.NoError(t, yaml.Unmarshal(out, &l2))
-				assert.True(t, l.DeepEqual(&l2))
+				assert.Equal(t, l, l2)
 			}
 		}
 	}
 }
 
-func TestL3n4AddrID_Equals(t *testing.T) {
-	type args struct {
-		o *L3n4AddrID
-	}
-	tests := []struct {
-		name   string
-		fields *L3n4AddrID
-		args   args
-		want   bool
-	}{
-		{
-			name: "both equal",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: NONE,
-						Port:     1,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-				},
-				ID: 1,
-			},
-			args: args{
-				o: &L3n4AddrID{
-					L3n4Addr: L3n4Addr{
-						L4Addr: L4Addr{
-							Protocol: NONE,
-							Port:     1,
-						},
-						AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-					},
-					ID: 1,
-				},
-			},
-			want: true,
-		},
-		{
-			name: "IDs different",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: NONE,
-						Port:     1,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-				},
-				ID: 1,
-			},
-			args: args{
-				o: &L3n4AddrID{
-					L3n4Addr: L3n4Addr{
-						L4Addr: L4Addr{
-							Protocol: NONE,
-							Port:     1,
-						},
-						AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-					},
-					ID: 2,
-				},
-			},
-			want: false,
-		},
-		{
-			name: "IPs different",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: NONE,
-						Port:     1,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("2.2.2.2"),
-				},
-				ID: 1,
-			},
-			args: args{
-				o: &L3n4AddrID{
-					L3n4Addr: L3n4Addr{
-						L4Addr: L4Addr{
-							Protocol: NONE,
-							Port:     1,
-						},
-						AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-					},
-					ID: 1,
-				},
-			},
-			want: false,
-		},
-		{
-			name: "Ports different",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: NONE,
-						Port:     2,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-				},
-				ID: 1,
-			},
-			args: args{
-				o: &L3n4AddrID{
-					L3n4Addr: L3n4Addr{
-						L4Addr: L4Addr{
-							Protocol: NONE,
-							Port:     1,
-						},
-						AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-					},
-					ID: 1,
-				},
-			},
-			want: false,
-		},
-		{
-			name: "both nil",
-			args: args{},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := tt.fields
-			if got := f.DeepEqual(tt.args.o); got != tt.want {
-				t.Errorf("L3n4AddrID.Equals() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestL3n4AddrID_Strings(t *testing.T) {
+func TestL3n4Addr_Strings(t *testing.T) {
 	tests := []struct {
 		name               string
-		fields             *L3n4AddrID
+		fields             L3n4Addr
 		string             string
 		stringWithProtocol string
 	}{
 		{
 			name: "IPv4 no protocol",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: NONE,
-						Port:     9876,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
-				},
-				ID: 1,
-			},
+			fields: NewL3n4Addr(
+				NONE,
+				cmtypes.MustParseAddrCluster("1.1.1.1"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "1.1.1.1:9876/NONE",
 			stringWithProtocol: "1.1.1.1:9876/NONE",
 		},
 		{
 			name: "IPv4 TCP",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: TCP,
-						Port:     9876,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("2.2.2.2"),
-					Scope:       ScopeExternal,
-				},
-				ID: 1,
-			},
+			fields: NewL3n4Addr(
+				TCP,
+				cmtypes.MustParseAddrCluster("2.2.2.2"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "2.2.2.2:9876/TCP",
 			stringWithProtocol: "2.2.2.2:9876/TCP",
 		},
 		{
 			name: "IPv4 UDP",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: UDP,
-						Port:     9876,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("3.3.3.3"),
-					Scope:       ScopeInternal,
-				},
-				ID: 1,
-			},
+			fields: NewL3n4Addr(
+				UDP,
+				cmtypes.MustParseAddrCluster("3.3.3.3"),
+				9876,
+				ScopeInternal,
+			),
 			string:             "3.3.3.3:9876/UDP/i",
 			stringWithProtocol: "3.3.3.3:9876/UDP/i",
 		},
 		{
 			name: "IPv4 SCTP",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: SCTP,
-						Port:     9876,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("4.4.4.4"),
-				},
-				ID: 1,
-			},
+			fields: NewL3n4Addr(
+				SCTP,
+				cmtypes.MustParseAddrCluster("4.4.4.4"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "4.4.4.4:9876/SCTP",
 			stringWithProtocol: "4.4.4.4:9876/SCTP",
 		},
 		{
 			name: "IPv6 no protocol",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: NONE,
-						Port:     9876,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
-				},
-				ID: 1,
-			},
+			fields: NewL3n4Addr(
+				NONE,
+				cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/NONE",
 			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/NONE",
 		},
 		{
 			name: "IPv6 TCP",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: TCP,
-						Port:     9876,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
-					Scope:       ScopeExternal,
-				},
-				ID: 1,
-			},
+			fields: NewL3n4Addr(
+				TCP,
+				cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/TCP",
 			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/TCP",
 		},
 		{
 			name: "IPv6 UDP",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: UDP,
-						Port:     9876,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
-					Scope:       ScopeInternal,
-				},
-				ID: 1,
-			},
+			fields: NewL3n4Addr(
+				UDP,
+				cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+				9876,
+				ScopeInternal,
+			),
 			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/UDP/i",
 			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/UDP/i",
 		},
 		{
 			name: "IPv6 SCTP",
-			fields: &L3n4AddrID{
-				L3n4Addr: L3n4Addr{
-					L4Addr: L4Addr{
-						Protocol: SCTP,
-						Port:     9876,
-					},
-					AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
-				},
-				ID: 1,
-			},
+			fields: NewL3n4Addr(
+				SCTP,
+				cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+				9876,
+				ScopeExternal,
+			),
 			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/SCTP",
 			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/SCTP",
 		},
@@ -686,25 +547,47 @@ func TestServiceFlags_String(t *testing.T) {
 	}
 }
 
-func TestServiceNameYAML(t *testing.T) {
+func TestServiceName(t *testing.T) {
+	n := NewServiceName("", "")
+	n2 := NewServiceName("", "")
+	assert.Equal(t, "/", n.String())
+	assert.True(t, n.Equal(n2))
+
+	n = NewServiceName("foo", "bar")
+	n2 = NewServiceName("foo", "bar")
+	assert.Equal(t, "foo/bar", n.String())
+	assert.Equal(t, "foo/bar", string(n.Key()))
+	assert.Equal(t, "foo", n.Namespace())
+	assert.Equal(t, "bar", n.Name())
+	assert.True(t, n.Equal(n2))
+	n2 = NewServiceName("foo", "baz")
+	assert.False(t, n.Equal(n2))
+
+	n = NewServiceNameInCluster("foo", "bar", "quux")
+	assert.Equal(t, "foo/bar/quux", n.String())
+	assert.Equal(t, "foo", n.Cluster())
+	assert.Equal(t, "bar", n.Namespace())
+	assert.Equal(t, "quux", n.Name())
+	assert.Equal(t, "foo/bar/quux", string(n.Key()))
+	assert.False(t, n.Equal(n2))
+
+}
+
+func TestServiceNameYAMLJSON(t *testing.T) {
 	tests := []struct {
 		name ServiceName
 		want string
 	}{
 		{
-			name: ServiceName{},
-			want: "/",
-		},
-		{
-			name: ServiceName{Name: "foo"},
+			name: NewServiceName("", "foo"),
 			want: "/foo",
 		},
 		{
-			name: ServiceName{Name: "foo", Namespace: "bar"},
+			name: NewServiceName("bar", "foo"),
 			want: "bar/foo",
 		},
 		{
-			name: ServiceName{Name: "foo", Namespace: "bar", Cluster: "quux"},
+			name: NewServiceNameInCluster("quux", "bar", "foo"),
 			want: "quux/bar/foo",
 		},
 	}
@@ -717,41 +600,76 @@ func TestServiceNameYAML(t *testing.T) {
 			var name ServiceName
 			err := yaml.Unmarshal(out, &name)
 			if assert.NoError(t, err, "Unmarshal") {
-				assert.True(t, test.name.Equal(name), "Equal")
+				assert.Equal(t, test.name.Name(), name.Name(), "Name %v, namePos %d", name, name.namePos)
+				assert.Equal(t, test.name.Namespace(), name.Namespace(), "Namespace %v, clusterEndPos", name, name.clusterEndPos)
+				assert.Equal(t, test.name.Cluster(), name.Cluster(), "Cluster %v, clusterEndPos %v", name, name.clusterEndPos)
+				assert.True(t, test.name.Equal(name), "Equal %v %v", test.name, name)
+			}
+		}
+
+		out, err = json.Marshal(test.name)
+		if assert.NoError(t, err, "Marshal") {
+			s := string(out)
+			assert.Equal(t, `"`+test.want+`"`, s)
+
+			var name ServiceName
+			err := json.Unmarshal(out, &name)
+			if assert.NoError(t, err, "Unmarshal") {
+				assert.Equal(t, test.name.Name(), name.Name(), "Name %v, namePos %d", name, name.namePos)
+				assert.Equal(t, test.name.Namespace(), name.Namespace(), "Namespace %v, clusterEndPos", name, name.clusterEndPos)
+				assert.Equal(t, test.name.Cluster(), name.Cluster(), "Cluster %v, clusterEndPos %v", name, name.clusterEndPos)
+				assert.True(t, test.name.Equal(name), "Equal %v %v", test.name, name)
 			}
 		}
 	}
 }
 
-func benchmarkHash(b *testing.B, addr *L3n4Addr) {
-	b.ReportAllocs()
+func TestL4AddrParsing(t *testing.T) {
+	type testCase struct {
+		err    bool
+		input  string
+		output L4Addr
+	}
 
-	for b.Loop() {
-		addr.Hash()
+	testCases := []testCase{
+		{false, "443/tcp", L4Addr{Protocol: TCP, Port: 443}},
+		{false, "1312/udp", L4Addr{Protocol: UDP, Port: 1312}},
+		{true, "65538/tcp", L4Addr{}}, // port > 16 bits
+		{true, "123/abcd", L4Addr{}},  // unknown proto
+	}
+
+	for _, tc := range testCases {
+		addr, err := L4AddrFromString(tc.input)
+		if tc.err {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err)
+			// test the conversion back
+			require.Equal(t, addr.String(), strings.ToUpper(tc.input))
+		}
+
+		require.Equal(t, tc.output, addr)
 	}
 }
 
-func BenchmarkL3n4Addr_Hash_IPv4(b *testing.B) {
-	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("1.2.3.4"), 8080, ScopeInternal)
-	benchmarkHash(b, addr)
+func BenchmarkNewServiceName(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		NewServiceNameInCluster("foo", "bar", "baz")
+	}
 }
 
-func BenchmarkL3n4Addr_Hash_IPv6_Short(b *testing.B) {
-	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("fd00::1:36c6"), 8080, ScopeInternal)
-	benchmarkHash(b, addr)
+func BenchmarkServiceNameKey(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		if len(NewServiceNameInCluster("foo", "bar", "baz").Key()) == 0 {
+			// Do something so this won't be optimized out.
+			b.Fatalf("empty length")
+		}
+	}
 }
 
-func BenchmarkL3n4Addr_Hash_IPv6_Long(b *testing.B) {
-	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("2001:0db8:85a3::8a2e:0370:7334"), 8080, ScopeInternal)
-	benchmarkHash(b, addr)
-}
-
-func BenchmarkL3n4Addr_Hash_IPv6_Max(b *testing.B) {
-	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"), 30303, 100)
-	benchmarkHash(b, addr)
-}
-
-func benchmarkString(b *testing.B, addr *L3n4Addr) {
+func benchmarkString(b *testing.B, addr L3n4Addr) {
 	b.ReportAllocs()
 
 	var length int
@@ -770,7 +688,7 @@ func BenchmarkL3n4Addr_String_IPv6_Max(b *testing.B) {
 	benchmarkString(b, addr)
 }
 
-func benchmarkStringWithProtocol(b *testing.B, addr *L3n4Addr) {
+func benchmarkStringWithProtocol(b *testing.B, addr L3n4Addr) {
 	b.ReportAllocs()
 
 	for b.Loop() {

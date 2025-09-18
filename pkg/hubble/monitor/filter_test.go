@@ -5,7 +5,6 @@ package monitor
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -52,7 +51,6 @@ func TestNewMonitorFilter(t *testing.T) {
 				monitorAPI.MessageTypeNameL7,
 				monitorAPI.MessageTypeNameAgent,
 				monitorAPI.MessageTypeNamePolicyVerdict,
-				monitorAPI.MessageTypeNameRecCapture,
 				monitorAPI.MessageTypeNameTraceSock,
 			},
 			expectedErr: nil,
@@ -66,7 +64,6 @@ func TestNewMonitorFilter(t *testing.T) {
 				l7:            true,
 				agent:         true,
 				policyVerdict: true,
-				recCapture:    true,
 				traceSock:     true,
 			},
 		},
@@ -257,21 +254,6 @@ func Test_OnMonitorEvent(t *testing.T) {
 					event: &observerTypes.MonitorEvent{
 						Payload: &observerTypes.PerfEvent{
 							Data: []byte{monitorAPI.MessageTypePolicyVerdict},
-						},
-					},
-					stop:        false,
-					expectedErr: nil,
-				},
-			},
-		},
-		{
-			name:    "monitorAPI.MessageTypeRecCapture",
-			filters: []string{monitorAPI.MessageTypeNameRecCapture},
-			events: []testEvent{
-				{
-					event: &observerTypes.MonitorEvent{
-						Payload: &observerTypes.PerfEvent{
-							Data: []byte{monitorAPI.MessageTypeRecCapture},
 						},
 					},
 					stop:        false,
@@ -497,7 +479,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 			assert.NoError(t, err)
 
 			for _, event := range tc.events {
-				stop, err := mf.OnMonitorEvent(context.Background(), event.event)
+				stop, err := mf.OnMonitorEvent(t.Context(), event.event)
 				assert.Equal(t, event.expectedErr, err)
 				assert.Equal(t, event.stop, stop)
 			}

@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,11 +25,23 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
-	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
+	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
+
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -44,14 +57,17 @@ const (
 	testLinkName         = "cilium-bgp-test"
 
 	// test arguments
-	testPeeringIPsFlag = "test-peering-ips"
-	ipamFlag           = "ipam"
-	probeTCPMD5Flag    = "probe-tcp-md5"
+	testPeeringIPsFlag         = "test-peering-ips"
+	bgpNoEndpointsRoutableFlag = "bgp-no-endpoints-routable"
+	ipamFlag                   = "ipam"
+	probeTCPMD5Flag            = "probe-tcp-md5"
 )
 
-func TestScript(t *testing.T) {
+func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	slog.SetLogLoggerLevel(slog.LevelDebug) // used by test GoBGP instances
+
+	types.SetName(testNodeName)
 
 	// setup test link
 	dummy := &netlink.Dummy{
@@ -73,6 +89,7 @@ func TestScript(t *testing.T) {
 		peeringIPs := flags.StringSlice(testPeeringIPsFlag, nil, "List of IPs used for peering in the test")
 		ipam := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
+		noEndpointsRoutable := flags.Bool(bgpNoEndpointsRoutableFlag, true, "")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
 		if *probeTCPMD5 {
@@ -84,29 +101,67 @@ func TestScript(t *testing.T) {
 		}
 
 		h := ciliumhive.New(
-			client.FakeClientCell,
-			daemonk8s.ResourcesCell,
 			metrics.Cell,
+
+			// BGP cell
 			bgpv1.Cell,
+			svcrouteconfig.Cell,
 
-			cell.Provide(func() *option.DaemonConfig {
-				// BGP Manager uses the global variable option.Config so we need to set it there as well
-				option.Config = &option.DaemonConfig{
-					EnableBGPControlPlane:     true,
-					BGPSecretsNamespace:       testSecretsNamespace,
-					BGPRouterIDAllocationMode: defaults.BGPRouterIDAllocationMode,
-					IPAM:                      *ipam,
-				}
-				return option.Config
-			}),
+			// Provide statedb tables
+			cell.Provide(
+				tables.NewRouteTable,
+				tables.NewDeviceTable,
+				tables.NewNodeAddressTable,
+				statedb.RWTable[*tables.Route].ToTable,      // Table[*Route]
+				statedb.RWTable[*tables.Device].ToTable,     // Table[*Device]
+				statedb.RWTable[tables.NodeAddress].ToTable, // Table[NodeAddress]
+			),
 
-			cell.Invoke(func() {
-				types.SetName(testNodeName)
-			}),
+			// Dependencies
+			k8sClient.FakeClientCell(),
+			daemonk8s.ResourcesCell,
+			daemonk8s.TablesCell,
+			node.LocalNodeStoreTestCell,
+			cell.Config(envoyCfg.SecretSyncConfig{}),
+
+			// LB cell to populate LB tables from k8s services / endpoints
+			lbcell.Cell,
+			maglev.Cell,
+			cell.Provide(source.NewSources),
+			cell.Config(loadbalancer.TestConfig{}),
+			cell.Provide(
+				func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg }, // newLBMaps expects *TestConfig
+			),
+
+			cell.Provide(
+				func() *option.DaemonConfig {
+					option.Config = &option.DaemonConfig{
+						EnableBGPControlPlane:     true,
+						BGPSecretsNamespace:       testSecretsNamespace,
+						BGPRouterIDAllocationMode: option.BGPRouterIDAllocationModeDefault,
+						IPAM:                      *ipam,
+						EnableIPv4:                true,
+						EnableIPv6:                true,
+					}
+					return option.Config
+				},
+				func() kpr.KPRConfig {
+					return kpr.KPRConfig{
+						KubeProxyReplacement: true,
+					}
+				},
+			),
 			cell.Invoke(func(m agent.BGPRouterManager) {
 				bgpMgr = m
+				m.(*manager.BGPRouterManager).DestroyRouterOnStop(true) // fully destroy GoBGP server on Stop()
 			}),
 		)
+
+		hive.AddConfigOverride(
+			h,
+			func(cfg *svcrouteconfig.RoutesConfig) {
+				cfg.EnableNoServiceEndpointsRoutable = *noEndpointsRoutable
+			})
 
 		hiveLog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelInfo))
 		t.Cleanup(func() {
@@ -114,7 +169,7 @@ func TestScript(t *testing.T) {
 		})
 
 		// setup test peering IPs
-		l, err := netlink.LinkByName(testLinkName)
+		l, err := safenetlink.LinkByName(testLinkName)
 		require.NoError(t, err)
 		for _, ip := range *peeringIPs {
 			ipAddr, err := netip.ParseAddr(ip)

@@ -86,21 +86,11 @@ func IPToNetPrefix(ip net.IP) netip.Prefix {
 	return netip.PrefixFrom(a, a.BitLen())
 }
 
-// NetsContainsAny checks that any subnet in the `a` subnet group *fully*
-// contains any of the subnets in the `b` subnet group.
-func NetsContainsAny(a, b []*net.IPNet) bool {
-	for _, an := range a {
-		aMask, _ := an.Mask.Size()
-		aIsIPv4 := an.IP.To4() != nil
-		for _, bn := range b {
-			bIsIPv4 := bn.IP.To4() != nil
-			isSameFamily := aIsIPv4 == bIsIPv4
-			if isSameFamily {
-				bMask, _ := bn.Mask.Size()
-				if bMask >= aMask && an.Contains(bn.IP) {
-					return true
-				}
-			}
+// PrefixesContains checks that any prefix in prefix *fully* contains addr.
+func PrefixesContains(prefixes []netip.Prefix, addr netip.Addr) bool {
+	for _, pfx := range prefixes {
+		if pfx.Contains(addr) {
+			return true
 		}
 	}
 	return false

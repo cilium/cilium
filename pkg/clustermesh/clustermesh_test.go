@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -58,6 +58,7 @@ func (o *testObserver) NodeDeleted(no nodeTypes.Node) {
 
 func TestClusterMesh(t *testing.T) {
 	testutils.IntegrationTest(t)
+	logger := hivetest.Logger(t)
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
@@ -69,8 +70,8 @@ func TestClusterMesh(t *testing.T) {
 	client := kvstore.SetupDummy(t, "etcd")
 
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
-	<-mgr.InitIdentityAllocator(nil)
+	mgr := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
+	<-mgr.InitIdentityAllocator(nil, client)
 	t.Cleanup(mgr.Close)
 
 	dir := t.TempDir()
@@ -91,7 +92,7 @@ func TestClusterMesh(t *testing.T) {
 			config.Capabilities.SyncedCanaries = true
 		}
 
-		err := cmutils.SetClusterConfig(ctx, name, config, client)
+		err := clustercfg.Set(ctx, name, config, client)
 		require.NoErrorf(t, err, "Failed to set cluster config for %s", name)
 	}
 
@@ -106,6 +107,7 @@ func TestClusterMesh(t *testing.T) {
 
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
+		Logger:  logger,
 	})
 	t.Cleanup(func() { ipc.Shutdown() })
 
@@ -115,8 +117,10 @@ func TestClusterMesh(t *testing.T) {
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
+		RemoteClientFactory:   common.DefaultRemoteClientFactory(kvstore.Config{}),
 		NodeObserver:          nodesObserver,
 		RemoteIdentityWatcher: mgr,
+		ServiceMerger:         &fakeObserver{},
 		IPCache:               ipc,
 		ClusterIDsManager:     usedIDs,
 		Metrics:               NewMetrics(),
@@ -157,7 +161,7 @@ func TestClusterMesh(t *testing.T) {
 			MaxConnectedClusters: 255,
 		},
 	}
-	err := cmutils.SetClusterConfig(ctx, "cluster1", config, client)
+	err := clustercfg.Set(ctx, "cluster1", config, client)
 	require.NoErrorf(t, err, "Failed to set cluster config for cluster1")
 	// Ugly hack to trigger config update
 	etcdConfigNew := append(etcdConfig, []byte("\n")...)

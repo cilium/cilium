@@ -11,8 +11,8 @@
 #define DEST_IFINDEX 5
 #define DEST_LXC_ID 200
 
-#include "common.h"
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 #define ctx_redirect mock_ctx_redirect
@@ -59,23 +59,16 @@ PKTGEN("tc", "ipv4_not_decrypted_ipsec_from_network")
 int ipv4_not_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
 	struct iphdr *l3;
 	struct ip_esp_hdr *l4;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_iphdr(&builder);
+	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+				      v4_pod_one, v4_pod_two);
 	if (!l3)
 		return TEST_ERROR;
-	l3->saddr = v4_pod_one;
-	l3->daddr = v4_pod_two;
 
 	l4 = pktgen__push_default_esphdr(&builder);
 	if (!l4)
@@ -97,7 +90,7 @@ int ipv4_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 	/* We need to populate the node ID map because we'll lookup into it on
 	 * ingress to find the node ID to use to match against XFRM IN states.
 	 */
-	node_v4_add_entry(v4_pod_one, NODE_ID, 0);
+	node_v4_add_entry(v4_pod_one, NODE_ID, ENCRYPT_KEY);
 
 	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
 	return TEST_ERROR;
@@ -179,22 +172,16 @@ PKTGEN("tc", "ipv6_not_decrypted_ipsec_from_network")
 int ipv6_not_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
 	struct ipv6hdr *l3;
 	struct ip_esp_hdr *l4;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_ipv6hdr(&builder);
+	l3 = pktgen__push_ipv6_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+				      (__u8 *)v6_pod_one, (__u8 *)v6_pod_two);
 	if (!l3)
 		return TEST_ERROR;
-	ipv6hdr__set_addrs(l3, (__u8 *)v6_pod_one, (__u8 *)v6_pod_two);
 
 	l4 = pktgen__push_default_esphdr(&builder);
 	if (!l4)
@@ -213,27 +200,10 @@ int ipv6_not_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv6_not_decrypted_ipsec_from_network")
 int ipv6_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 {
-	/* To be able to use memcpy, we need to ensure that the memcpy'ed field is
-	 * 8B aligned on the stack. Given the existing node_ip struct, the only way
-	 * to achieve that is to align a parent tmp struct.
-	 * We can't simply use __bpf_memcpy_builtin because that causes a
-	 * relocation error in the lib.
-	 */
-	struct tmp {
-		__u32 _;
-		struct node_key k;
-	} node_ip __align_stack_8 = {};
-	struct node_value node_value = {
-		.id = NODE_ID,
-		.spi = 0
-	};
-
 	/* We need to populate the node ID map because we'll lookup into it on
 	 * ingress to find the node ID to use to match against XFRM IN states.
 	 */
-	node_ip.k.family = ENDPOINT_KEY_IPV6;
-	memcpy((__u8 *)&node_ip.k.ip6, (__u8 *)v6_pod_one, 16);
-	map_update_elem(&cilium_node_map_v2, &node_ip.k, &node_value, BPF_ANY);
+	node_v6_add_entry((union v6addr *)v6_pod_one, NODE_ID, ENCRYPT_KEY);
 
 	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
 	return TEST_ERROR;

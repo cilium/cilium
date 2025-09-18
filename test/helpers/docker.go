@@ -21,19 +21,6 @@ func (s *SSHMeta) ContainerExec(name string, cmd string, optionalArgs ...string)
 	return s.Exec(dockerCmd)
 }
 
-// ContainerRun is a wrapper to a one execution docker run container. It runs
-// an instance of the specific Docker image with the provided network, name and
-// options.
-func (s *SSHMeta) ContainerRun(name, image, net, options string, cmdParams ...string) *CmdRes {
-	cmdOnStart := ""
-	if len(cmdParams) > 0 {
-		cmdOnStart = strings.Join(cmdParams, " ")
-	}
-	cmd := fmt.Sprintf(
-		"docker run --name %s --net %s %s %s %s", name, net, options, image, cmdOnStart)
-	return s.ExecWithSudo(cmd)
-}
-
 // ContainerCreate is a wrapper for `docker run`. It runs an instance of the
 // specified Docker image with the provided network, name, options and container
 // startup commands.
@@ -94,14 +81,6 @@ func (s *SSHMeta) containerInspectNet(name string, network string) (map[string]s
 	return result, nil
 }
 
-// ContainerInspectOtherNet returns a map of Docker networking information
-// fields and their associated values for the container of the provided name,
-// on the specified docker network. An error is returned if the networking
-// information could not be retrieved.
-func (s *SSHMeta) ContainerInspectOtherNet(name string, network string) (map[string]string, error) {
-	return s.containerInspectNet(name, network)
-}
-
 // ContainerInspectNet returns a map of Docker networking information fields and
 // their associated values for the container of the provided name. An error
 // is returned if the networking information could not be retrieved.
@@ -136,12 +115,6 @@ func (s *SSHMeta) NetworkCreate(name string, subnet string) *CmdRes {
 	}
 	return s.NetworkCreateWithOptions(name, subnet, true,
 		"--driver cilium --ipam-driver cilium")
-}
-
-// NetworkDelete deletes the Docker network of the provided name. It is a wrapper
-// around `docker network rm`.
-func (s *SSHMeta) NetworkDelete(name string) *CmdRes {
-	return s.ExecWithSudo(fmt.Sprintf("docker network rm  %s", name))
 }
 
 // NetworkGet returns all of the Docker network configuration for the provided

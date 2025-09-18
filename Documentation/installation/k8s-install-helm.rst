@@ -121,14 +121,11 @@ Install Cilium
 
           helm install cilium |CHART_RELEASE| \\
             --namespace kube-system \\
-            --set eni.enabled=true \\
-            --set ipam.mode=eni \\
-            --set egressMasqueradeInterfaces=eth+ \\
-            --set routingMode=native
+            --set eni.enabled=true
 
        .. note::
 
-          This helm command sets ``eni.enabled=true`` and ``routingMode=native``,
+          This helm command sets ``eni.enabled=true``,
           meaning that Cilium will allocate a fully-routable AWS ENI IP address
           for each pod, similar to the behavior of the `Amazon VPC CNI plugin
           <https://docs.aws.amazon.com/eks/latest/userguide/pod-networking.html>`_.
@@ -149,8 +146,7 @@ Install Cilium
 
           To set up Cilium overlay mode, follow the steps below:
 
-            1. Excluding the lines for ``eni.enabled=true``, ``ipam.mode=eni`` and 
-               ``routingMode=native`` from the helm command will configure Cilium to use
+            1. Excluding the line ``eni.enabled=true`` from the helm command will configure Cilium to use
                overlay routing mode (which is the helm default).
             2. Flush iptables rules added by VPC CNI
 
@@ -160,12 +156,6 @@ Install Cilium
                      && iptables -t nat -F AWS-SNAT-CHAIN-1 \\
                      && iptables -t nat -F AWS-CONNMARK-CHAIN-0 \\
                      && iptables -t nat -F AWS-CONNMARK-CHAIN-1
-
-         Some Linux distributions use a different interface naming convention.
-         If you use masquerading with the option ``egressMasqueradeInterfaces=eth+``,
-         remember to replace ``eth+`` with the proper interface name. For
-         reference, Amazon Linux 2 uses ``eth+``, whereas Amazon Linux 2023 uses
-         ``ens+``.
 
     .. group-tab:: OpenShift
 

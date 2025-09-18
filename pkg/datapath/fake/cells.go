@@ -14,8 +14,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/datapath/garp"
+	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -25,15 +26,16 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
+	fakeencryptmap "github.com/cilium/cilium/pkg/maps/encrypt/fake"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	"github.com/cilium/cilium/pkg/time"
-	wg "github.com/cilium/cilium/pkg/wireguard/agent"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // Cell provides a fake version of the datapath cell.
@@ -44,25 +46,25 @@ var Cell = cell.Module(
 	"Fake Datapath",
 
 	cell.Provide(
-		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (types.NodeIDHandler, types.NodeHandler, types.NodeNeighbors, *fakeTypes.FakeNodeHandler) {
+		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (types.NodeIDHandler, types.NodeHandler, *fakeTypes.FakeNodeHandler) {
 			fakeNodeHandler := fakeTypes.NewNodeHandler()
 			nodeManager.Subscribe(fakeNodeHandler)
-			return fakeNodeHandler, fakeNodeHandler, fakeNodeHandler, fakeNodeHandler
-		},
-		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (types.LBMap, *mockmaps.LBMockMap) {
-			lbMap := mockmaps.NewLBMockMap()
-			return lbMap, lbMap
+			return fakeNodeHandler, fakeNodeHandler, fakeNodeHandler
 		},
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 		func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
-		func() egressmap.PolicyMap { return nil },
+		func() encrypt.EncryptMap { return fakeencryptmap.NewFakeEncryptMap() },
+		func() *egressmap.PolicyMap4 { return nil },
+		func() *egressmap.PolicyMap6 { return nil },
 		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
 		func() types.IptablesManager { return &fakeTypes.FakeIptablesManager{} },
 		func() ipset.Manager { return &fakeTypes.IPSet{} },
 		func() types.BandwidthManager { return &fakeTypes.BandwidthManager{} },
-		func() types.IPsecKeyCustodian { return &ipsecKeyCustodian{} },
+		func() types.IPsecAgent { return &fakeTypes.IPsecAgent{} },
+		func() types.IPsecConfig { return &fakeTypes.IPsecConfig{} },
 		func() mtu.MTU { return &fakeTypes.MTU{} },
-		func() *wg.Agent { return nil },
+		func() wgTypes.WireguardAgent { return &fakeTypes.WireguardAgent{} },
+		func() wgTypes.WireguardConfig { return &fakeTypes.WireguardConfig{} },
 		func() types.Loader { return &fakeTypes.FakeLoader{} },
 		func() types.Orchestrator { return &fakeTypes.FakeOrchestrator{} },
 		loader.NewCompilationLock,
@@ -70,8 +72,8 @@ var Cell = cell.Module(
 		func() (promise.Promise[nat.NatMap4], promise.Promise[nat.NatMap6]) {
 			r4, p4 := promise.New[nat.NatMap4]()
 			r6, p6 := promise.New[nat.NatMap6]()
-			r4.Reject(nat.MapDisabled)
-			r6.Reject(nat.MapDisabled)
+			r4.Reject(nat.ErrMapDisabled)
+			r6.Reject(nat.ErrMapDisabled)
 			return p4, p6
 		},
 
@@ -81,21 +83,16 @@ var Cell = cell.Module(
 
 		func() types.BigTCPConfig { return &fakeTypes.BigTCPUserConfig{} },
 
-		func() garp.L2PodAnnouncementConfig { return &fakeTypes.GarpConfig{} },
+		func() gneigh.L2PodAnnouncementConfig { return &fakeTypes.GNeighConfig{} },
 	),
 
 	tables.NodeAddressCell,
 	datapath.NodeAddressingCell,
 	tables.DirectRoutingDeviceCell,
 
-	cell.Invoke(
-		statedb.RegisterTable[*tables.Device],
-		statedb.RegisterTable[*tables.L2AnnounceEntry],
-		statedb.RegisterTable[*tables.Route],
-	),
-
 	tunnel.Cell,
 	cell.Provide(fakeDevices),
+	link.Cell,
 )
 
 func fakeDevices(db *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {

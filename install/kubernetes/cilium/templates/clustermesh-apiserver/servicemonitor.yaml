@@ -11,6 +11,7 @@ metadata:
   namespace: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.namespace | default (include "cilium.namespace" .) }}
   labels:
     app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: clustermesh-apiserver
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -35,7 +36,7 @@ spec:
     matchNames:
     - {{ include "cilium.namespace" . }}
   endpoints:
-  {{- if and .Values.clustermesh.apiserver.metrics.enabled (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
+  {{- if and .Values.clustermesh.apiserver.metrics.enabled (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") (eq "true" (include "identityAllocationCRD" .)) }}
   - port: apiserv-metrics
     interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.interval | quote }}
     {{- if .Values.clustermesh.apiserver.metrics.serviceMonitor.scrapeTimeout }}

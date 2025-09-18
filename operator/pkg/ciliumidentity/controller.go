@@ -61,6 +61,7 @@ type params struct {
 	CiliumIdentity      resource.Resource[*cilium_api_v2.CiliumIdentity]
 	CiliumEndpoint      resource.Resource[*cilium_api_v2.CiliumEndpoint]
 	CiliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
+	MetricsProvider     workqueue.MetricsProvider
 }
 
 type Controller struct {
@@ -88,6 +89,8 @@ type Controller struct {
 	oldNSSecurityLabels map[string]labels.Labels
 
 	enqueueTimeTracker *EnqueueTimeTracker
+
+	workqueueMetricsProvider workqueue.MetricsProvider
 }
 
 func registerController(p params) {
@@ -105,18 +108,19 @@ func registerController(p params) {
 	}
 
 	cidController := &Controller{
-		logger:              p.Logger,
-		clientset:           p.Clientset,
-		namespace:           p.Namespace,
-		pod:                 p.Pod,
-		jobGroup:            p.JobGroup,
-		metrics:             p.Metrics,
-		ciliumIdentity:      p.CiliumIdentity,
-		ciliumEndpoint:      p.CiliumEndpoint,
-		ciliumEndpointSlice: p.CiliumEndpointSlice,
-		oldNSSecurityLabels: make(map[string]labels.Labels),
-		cesEnabled:          p.SharedCfg.EnableCiliumEndpointSlice,
-		enqueueTimeTracker:  &EnqueueTimeTracker{clock: clock.RealClock{}, enqueuedAt: make(map[string]time.Time)},
+		logger:                   p.Logger,
+		clientset:                p.Clientset,
+		namespace:                p.Namespace,
+		pod:                      p.Pod,
+		jobGroup:                 p.JobGroup,
+		metrics:                  p.Metrics,
+		ciliumIdentity:           p.CiliumIdentity,
+		ciliumEndpoint:           p.CiliumEndpoint,
+		ciliumEndpointSlice:      p.CiliumEndpointSlice,
+		oldNSSecurityLabels:      make(map[string]labels.Labels),
+		cesEnabled:               p.SharedCfg.EnableCiliumEndpointSlice,
+		enqueueTimeTracker:       &EnqueueTimeTracker{clock: clock.RealClock{}, enqueuedAt: make(map[string]time.Time)},
+		workqueueMetricsProvider: p.MetricsProvider,
 	}
 
 	cidController.initializeQueues()
@@ -124,8 +128,9 @@ func registerController(p params) {
 	p.Lifecycle.Append(cidController)
 }
 
-func (c *Controller) Start(_ cell.HookContext) error {
-	c.logger.Info("Starting CID controller Operator")
+func (c *Controller) Start(ctx cell.HookContext) error {
+	c.logger.InfoContext(ctx, "Starting CID controller Operator",
+		logfields.CESFeatureEnabled, c.cesEnabled)
 	defer utilruntime.HandleCrash()
 
 	// The Cilium Identity (CID) controller running in cilium-operator is
@@ -168,7 +173,10 @@ func (c *Controller) initializeQueues() {
 
 	c.resourceQueue = workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.NewTypedItemExponentialFailureRateLimiter[QueuedItem](defaultSyncBackOff, maxSyncBackOff),
-		workqueue.TypedRateLimitingQueueConfig[QueuedItem]{Name: "ciliumidentity_resource"})
+		workqueue.TypedRateLimitingQueueConfig[QueuedItem]{
+			Name:            "ciliumidentity_resource",
+			MetricsProvider: c.workqueueMetricsProvider,
+		})
 }
 
 // startEventProcessing starts the event processing loop for the Controller.
@@ -214,17 +222,17 @@ func (c *Controller) initReconciler(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("cid reconciler failed to init: %w", err)
 	}
-	c.logger.Info("Starting CID controller reconciler")
+	c.logger.InfoContext(ctx, "Starting CID controller reconciler")
 	return nil
 }
 
-func (c *Controller) runResourceWorker(context context.Context) error {
-	c.logger.Info("Starting resource worker")
-	defer c.logger.Info("Stopping resource worker")
+func (c *Controller) runResourceWorker(ctx context.Context) error {
+	c.logger.InfoContext(ctx, "Starting resource worker")
+	defer c.logger.InfoContext(ctx, "Stopping resource worker")
 
 	for c.processNextItem() {
 		select {
-		case <-context.Done():
+		case <-ctx.Done():
 			return nil
 		default:
 		}
@@ -276,7 +284,7 @@ func (c *Controller) processNextItem() bool {
 		processingLatency := time.Since(processingStartTime).Seconds()
 		item.Meter(enqueuedLatency, processingLatency, err != nil, c.metrics)
 	} else {
-		c.logger.Warn("Enqueue time not found for queue item", logfields.Key, item.Key().String())
+		c.logger.Warn("Enqueue time not found for queue item", logfields.Key, item.Key)
 	}
 
 	c.resourceQueue.Forget(item)

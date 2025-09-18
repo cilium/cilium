@@ -5,64 +5,32 @@ package endpoint
 
 import (
 	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
-
-func TestEndpointLogFormat(t *testing.T) {
-	setupEndpointSuite(t)
-
-	// Default log format is text
-	do := &DummyOwner{repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
-
-	model := newTestEndpointModel(12345, StateReady)
-	ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
-	require.NoError(t, err)
-
-	ep.Start(uint16(model.ID))
-	t.Cleanup(ep.Stop)
-
-	_, ok := ep.getLogger().Logger.Formatter.(*logrus.TextFormatter)
-	require.True(t, ok)
-
-	// Log format is JSON when configured
-	logging.SetLogFormat(logging.LogFormatJSON)
-	defer func() {
-		logging.SetLogFormat(logging.LogFormatText)
-	}()
-	do = &DummyOwner{repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
-
-	ep, err = NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
-	require.NoError(t, err)
-
-	ep.Start(uint16(model.ID))
-	t.Cleanup(ep.Stop)
-
-	_, ok = ep.getLogger().Logger.Formatter.(*logrus.JSONFormatter)
-	require.True(t, ok)
-}
 
 func TestPolicyLog(t *testing.T) {
 	setupEndpointSuite(t)
+	logger := hivetest.Logger(t)
 
-	do := &DummyOwner{repo: policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())}
+	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
 
 	model := newTestEndpointModel(12345, StateReady)
-	ep, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -88,8 +56,8 @@ func TestPolicyLog(t *testing.T) {
 	policyLogger.Info("testing policy logging")
 
 	// Test logging with integrated nil check, no fields
-	ep.PolicyDebug(nil, "testing PolicyDebug")
-	ep.PolicyDebug(logrus.Fields{"testField": "Test Value"}, "PolicyDebug with fields")
+	ep.PolicyDebug("testing PolicyDebug")
+	ep.PolicyDebug("PolicyDebug with fields", slog.String("testField", "Test Value"))
 
 	// Disable option
 	ep.Options.SetValidated(option.DebugPolicy, option.OptionDisabled)

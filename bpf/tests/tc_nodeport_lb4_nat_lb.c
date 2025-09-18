@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -12,8 +11,6 @@
 #define ENABLE_HOST_ROUTING
 #define ENABLE_EGRESS_GATEWAY	1
 #define ENABLE_MASQUERADE_IPV4	1
-
-#define DISABLE_LOOPBACK_LB
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -47,7 +44,7 @@ static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *local_backend_mac = mac_four;
 static volatile const __u8 *remote_backend_mac = mac_five;
 
-__section("mock-handle-policy")
+__section_entry
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
 {
 	return TC_ACT_REDIRECT;
@@ -100,9 +97,6 @@ long mock_fib_lookup(__maybe_unused struct __ctx_buff * volatile ctx, struct bpf
 	if (!params)
 		return BPF_FIB_LKUP_RET_BLACKHOLE;
 
-	if (settings && settings->fail_fib)
-		return BPF_FIB_LKUP_RET_NO_NEIGH;
-
 	params->ifindex = DEFAULT_IFACE;
 
 	if (params->ipv4_dst == BACKEND_IP_REMOTE) {
@@ -117,6 +111,9 @@ long mock_fib_lookup(__maybe_unused struct __ctx_buff * volatile ctx, struct bpf
 		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
 		__bpf_memcpy_builtin(params->dmac, (__u8 *)client_mac, ETH_ALEN);
 	}
+
+	if (settings && settings->fail_fib)
+		return BPF_FIB_LKUP_RET_NO_NEIGH;
 
 	return 0;
 }
@@ -153,8 +150,6 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 }
 
 #include "bpf_host.c"
-
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/egressgw_policy.h"
 #include "lib/endpoint.h"
@@ -740,7 +735,6 @@ int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	void *data, *data_end;
 	__u32 *status_code;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 	struct iphdr *l3;
 	__u32 key = 0;
 
@@ -756,22 +750,13 @@ int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds");
-
-	l3 = (void *)l2 + sizeof(struct ethhdr);
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
-
-	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the remote backend MAC")
 
 	if (l3->saddr != LB_IP)
 		test_fatal("src IP hasn't been NATed to LB IP");
@@ -834,7 +819,6 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 	void *data, *data_end;
 	__u32 *status_code;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 	struct iphdr *l3;
 
 	test_init();
@@ -849,22 +833,13 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds");
-
-	l3 = (void *)l2 + sizeof(struct ethhdr);
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
-
-	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
 
 	if (l3->saddr != FRONTEND_IP_REMOTE)
 		test_fatal("src IP hasn't been RevNATed to frontend IP");
@@ -1098,7 +1073,6 @@ int nodeport_nat_fwd_restore_check(__maybe_unused const struct __ctx_buff *ctx)
 	void *data, *data_end;
 	__u32 *status_code;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 	struct iphdr *l3;
 	__u32 key = 0;
 
@@ -1114,22 +1088,13 @@ int nodeport_nat_fwd_restore_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds");
-
-	l3 = (void *)l2 + sizeof(struct ethhdr);
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
-
-	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the remote backend MAC")
 
 	if (l3->saddr != LB_IP)
 		test_fatal("src IP hasn't been NATed to LB IP");
@@ -1248,7 +1213,6 @@ int nodeport_nat_fwd_original_renated_check(const struct __ctx_buff *ctx)
 	void *data, *data_end;
 	__u32 *status_code;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 	struct iphdr *l3;
 	__u32 key = 0;
 	__u16 nat_source_port = 0;
@@ -1265,22 +1229,13 @@ int nodeport_nat_fwd_original_renated_check(const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds");
-
-	l3 = (void *)l2 + sizeof(struct ethhdr);
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
-
-	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the remote backend MAC")
 
 	if (l3->saddr != LB_IP)
 		test_fatal("src IP hasn't been NATed to LB IP");
@@ -1403,7 +1358,6 @@ int nodeport_nat_fwd_verify_restored_original_entry_check(struct __ctx_buff *ctx
 	void *data, *data_end;
 	__u32 *status_code;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 	struct iphdr *l3;
 	__u32 key = 0;
 	__u16 nat_source_port = 0;
@@ -1420,22 +1374,13 @@ int nodeport_nat_fwd_verify_restored_original_entry_check(struct __ctx_buff *ctx
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds");
-
-	l3 = (void *)l2 + sizeof(struct ethhdr);
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
-
-	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the remote backend MAC")
 
 	if (l3->saddr != LB_IP)
 		test_fatal("src IP hasn't been NATed to LB IP");

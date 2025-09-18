@@ -10,20 +10,16 @@ import (
 )
 
 type NodesInfo struct {
-	K8s1NodeName      string
-	K8s2NodeName      string
-	OutsideNodeName   string
-	K8s1IP            string
-	K8s2IP            string
-	OutsideIP         string
-	PrivateIface      string
-	PrimaryK8s1IPv6   string
-	PrimaryK8s2IPv6   string
-	OutsideIPv6       string
-	SecondaryK8s1IPv4 string
-	SecondaryK8s2IPv4 string
-	SecondaryK8s1IPv6 string
-	SecondaryK8s2IPv6 string
+	K8s1NodeName    string
+	K8s2NodeName    string
+	OutsideNodeName string
+	K8s1IP          string
+	K8s2IP          string
+	OutsideIP       string
+	PrivateIface    string
+	PrimaryK8s1IPv6 string
+	PrimaryK8s2IPv6 string
+	OutsideIPv6     string
 }
 
 func GetNodesInfo(kubectl *Kubectl) (*NodesInfo, error) {
@@ -49,26 +45,6 @@ func GetNodesInfo(kubectl *Kubectl) (*NodesInfo, error) {
 			return nil, err
 		}
 		ni.PrimaryK8s2IPv6, err = GetIPv6AddrForIface(kubectl, ni.K8s2NodeName, ni.PrivateIface)
-		if err != nil {
-			return nil, err
-		}
-
-		// If there is no integration we assume that these are running in vagrant environment
-		// so have a Secondary interface with both IPv6 and IPv4 addresses.
-		ni.SecondaryK8s1IPv4, err = GetIPv4AddrForIface(kubectl, ni.K8s1NodeName, SecondaryIface)
-		if err != nil {
-			return nil, err
-		}
-		ni.SecondaryK8s2IPv4, err = GetIPv4AddrForIface(kubectl, ni.K8s2NodeName, SecondaryIface)
-		if err != nil {
-			return nil, err
-		}
-
-		ni.SecondaryK8s1IPv6, err = GetIPv6AddrForIface(kubectl, ni.K8s1NodeName, SecondaryIface)
-		if err != nil {
-			return nil, err
-		}
-		ni.SecondaryK8s2IPv6, err = GetIPv6AddrForIface(kubectl, ni.K8s2NodeName, SecondaryIface)
 		if err != nil {
 			return nil, err
 		}

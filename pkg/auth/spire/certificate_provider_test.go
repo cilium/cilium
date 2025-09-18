@@ -11,13 +11,13 @@ import (
 	"crypto/x509/pkix"
 	"math/big"
 	"net/url"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/hivetest"
 	delegatedidentityv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/agent/delegatedidentity/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
@@ -49,9 +49,8 @@ func TestSpireDelegateClient_NumericIdentityToSNI(t *testing.T) {
 				},
 				log: hivetest.Logger(t).With(logfields.LogSubsys, "spire"),
 			}
-			if got := s.NumericIdentityToSNI(tt.args.id); got != tt.want {
-				t.Errorf("SpireDelegateClient.NumericIdentityToSNI() = %v, want %v", got, tt.want)
-			}
+			got := s.NumericIdentityToSNI(tt.args.id)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -100,13 +99,8 @@ func TestSpireDelegateClient_SNIToNumericIdentity(t *testing.T) {
 				log: hivetest.Logger(t).With(logfields.LogSubsys, "spire"),
 			}
 			got, err := s.SNIToNumericIdentity(tt.args.sni)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SpireDelegateClient.SNIToNumericIdentity() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("SpireDelegateClient.SNIToNumericIdentity() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.wantErr, err != nil)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -136,9 +130,8 @@ func TestSpireDelegateClient_sniToSPIFFEID(t *testing.T) {
 				},
 				log: hivetest.Logger(t).With(logfields.LogSubsys, "spire"),
 			}
-			if got := s.sniToSPIFFEID(tt.args.id); got != tt.want {
-				t.Errorf("SpireDelegateClient.sniToSPIFFEID() = %v, want %v", got, tt.want)
-			}
+			got := s.sniToSPIFFEID(tt.args.id)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -209,13 +202,8 @@ func TestSpireDelegateClient_ValidateIdentity(t *testing.T) {
 				log: hivetest.Logger(t).With(logfields.LogSubsys, "spire"),
 			}
 			got, err := s.ValidateIdentity(tt.args.id, tt.args.cert)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SpireDelegateClient.ValidateIdentity() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("SpireDelegateClient.ValidateIdentity() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.wantErr, err != nil)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -258,13 +246,8 @@ func TestSpireDelegateClient_GetTrustBundle(t *testing.T) {
 				trustBundle: tt.trustBundle,
 			}
 			got, err := s.GetTrustBundle()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SpireDelegateClient.GetTrustBundle() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("SpireDelegateClient.GetTrustBundle() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.wantErr, err != nil)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -385,13 +368,25 @@ func TestSpireDelegateClient_GetCertificateForIdentity(t *testing.T) {
 				svidStore: svidStore,
 			}
 			got, err := s.GetCertificateForIdentity(tt.args.id)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SpireDelegateClient.GetCertificateForIdentity() error = %v, wantErr %v", err, tt.wantErr)
+			assert.Equal(t, tt.wantErr, err != nil)
+			if tt.want == nil {
+				assert.Nil(t, got)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("SpireDelegateClient.GetCertificateForIdentity() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want.Certificate, got.Certificate)
+			// Standard library hides private fields in the
+			// PrivateKey for FIPS compliance, which causes
+			// "assert.Equal()" to report inconsistent results,
+			// leading to unreliable failures of the test. Since
+			// we know the types here we can cast and use the type
+			// specific Equals.
+			wantKey := tt.want.PrivateKey.(*rsa.PrivateKey)
+			gotKey := got.PrivateKey.(*rsa.PrivateKey)
+			assert.True(t, wantKey.Equal(gotKey),
+				"SpireDelegateClient.GetCertificateForIdentity().PrivateKey: %v\nwant: %v",
+				got.PrivateKey, tt.want.PrivateKey,
+			)
+			assert.Equal(t, tt.want.Leaf, got.Leaf)
 		})
 	}
 }
@@ -480,9 +475,7 @@ func TestSpireDelegateClient_SubscribeToRotatedIdentities(t *testing.T) {
 				break
 			}
 
-			if !reflect.DeepEqual(got, tt.events) {
-				t.Errorf("SpireDelegateClient.SubscribeToRotatedIdentities() = %v, want %v", got, tt.events)
-			}
+			assert.Equal(t, tt.events, got)
 		})
 	}
 }

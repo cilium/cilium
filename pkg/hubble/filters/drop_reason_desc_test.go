@@ -4,7 +4,6 @@
 package filters
 
 import (
-	"context"
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -78,7 +77,7 @@ func TestDropReasonDescFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fl, err := BuildFilterList(context.Background(), tt.args.f, []OnBuildFilter{&DropReasonDescFilter{}})
+			fl, err := BuildFilterList(t.Context(), tt.args.f, []OnBuildFilter{&DropReasonDescFilter{}})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuildFilterList() with DropReasonDescFilter: error = %v, wantErr %v", err, tt.wantErr)
 				return

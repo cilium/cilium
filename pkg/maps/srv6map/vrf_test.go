@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestVRFMapsHive(t *testing.T) {
+func TestPrivilegedVRFMapsHive(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	type in struct {
@@ -72,8 +72,8 @@ func TestVRFMapsHive(t *testing.T) {
 	require.NoError(t, hive.Start(logger, context.TODO()))
 
 	// Test map creation
-	require.FileExists(t, bpf.MapPath(vrfMapName4))
-	require.FileExists(t, bpf.MapPath(vrfMapName6))
+	require.FileExists(t, bpf.MapPath(logger, vrfMapName4))
+	require.FileExists(t, bpf.MapPath(logger, vrfMapName6))
 
 	// Test map iteration
 	k4 := &VRFKey4{
@@ -96,7 +96,7 @@ func TestVRFMapsHive(t *testing.T) {
 		ID: 2,
 	}
 
-	m4, m6, err := OpenVRFMaps()
+	m4, m6, err := OpenVRFMaps(logger)
 	require.NoError(t, err)
 
 	require.NoError(t, m4.Map.Update(k4, v0))
@@ -131,6 +131,6 @@ func TestVRFMapsHive(t *testing.T) {
 	require.NoError(t, hive.Stop(logger, context.TODO()))
 
 	// Map should be pinned even after stopping the hive
-	require.FileExists(t, bpf.MapPath(vrfMapName4))
-	require.FileExists(t, bpf.MapPath(vrfMapName6))
+	require.FileExists(t, bpf.MapPath(logger, vrfMapName4))
+	require.FileExists(t, bpf.MapPath(logger, vrfMapName6))
 }

@@ -4,6 +4,8 @@
 package common
 
 import (
+	"errors"
+
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/health"
@@ -14,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	shell "github.com/cilium/cilium/pkg/shell/server"
 )
 
 var Cell = cell.Module(
@@ -28,11 +31,24 @@ var Cell = cell.Module(
 	health.HealthAPIServerCell,
 
 	controller.Cell,
-	kvstore.Cell,
-	cell.Provide(func(ss syncstate.SyncState) *kvstore.ExtraOptions {
-		return &kvstore.ExtraOptions{
+	kvstore.Cell(kvstore.EtcdBackendName),
+	cell.Provide(func(ss syncstate.SyncState) kvstore.ExtraOptions {
+		return kvstore.ExtraOptions{
 			BootstrapComplete: ss.WaitChannel(),
 		}
 	}),
 	store.Cell,
+
+	cell.Invoke(func(client kvstore.Client) error {
+		// Both clustermesh-apiserver and kvstoremesh depend on the etcd client.
+		if !client.IsEnabled() {
+			return errors.New("KVStore client not configured, cannot continue")
+		}
+
+		return nil
+	}),
+
+	// Shell for inspecting the clustermesh-apiserver/kvstoremesh.
+	// Listens on the 'shell.sock' UNIX socket.
+	shell.Cell,
 )

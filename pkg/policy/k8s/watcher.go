@@ -11,29 +11,38 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/statedb"
+	"github.com/cilium/stream"
+
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
 
 type policyWatcher struct {
-	log    *slog.Logger
-	config *option.DaemonConfig
+	log                     *slog.Logger
+	config                  *option.DaemonConfig
+	clusterMeshPolicyConfig cmtypes.PolicyConfig
 
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
 
-	policyImporter        policycell.PolicyImporter
-	svcCache              serviceCache
-	svcCacheNotifications <-chan k8s.ServiceNotification
-	ipCache               ipc
+	policyImporter policycell.PolicyImporter
+
+	db       *statedb.DB
+	services statedb.Table[*loadbalancer.Service]
+	backends statedb.Table[*loadbalancer.Backend]
+
+	serviceEvents stream.Observable[serviceEvent]
+
+	ipCache ipc
 
 	// Number of outstanding requests still pending in the PolicyImporter
 	// This is only used during initial sync; we will increment these
@@ -44,7 +53,7 @@ type policyWatcher struct {
 
 	ciliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
 	ciliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
-	ciliumCIDRGroups                 resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
+	ciliumCIDRGroups                 resource.Resource[*cilium_v2.CiliumCIDRGroup]
 	networkPolicies                  resource.Resource[*slim_networking_v1.NetworkPolicy]
 
 	// cnpCache contains both CNPs and CCNPs, stored using a common intermediate
@@ -55,7 +64,7 @@ type policyWatcher struct {
 	// (i.e: pre-translation of each CIDRGroupRef to a CIDRSet).
 	cnpCache map[resource.Key]*types.SlimCNP
 
-	cidrGroupCache map[string]*cilium_api_v2alpha1.CiliumCIDRGroup
+	cidrGroupCache map[string]*cilium_v2.CiliumCIDRGroup
 
 	// cidrGroupCIDRs is the set of CIDRs upserted in to the ipcache
 	// for a given cidrgroup
@@ -63,7 +72,7 @@ type policyWatcher struct {
 
 	// toServicesPolicies is the set of policies that contain ToServices references
 	toServicesPolicies map[resource.Key]struct{}
-	cnpByServiceID     map[k8s.ServiceID]map[resource.Key]struct{}
+	cnpByServiceID     map[loadbalancer.ServiceName]map[resource.Key]struct{}
 
 	metricsManager CNPMetrics
 }
@@ -113,8 +122,8 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 			knpEvents       <-chan resource.Event[*slim_networking_v1.NetworkPolicy]
 			cnpEvents       <-chan resource.Event[*cilium_v2.CiliumNetworkPolicy]
 			ccnpEvents      <-chan resource.Event[*cilium_v2.CiliumClusterwideNetworkPolicy]
-			cidrGroupEvents <-chan resource.Event[*cilium_api_v2alpha1.CiliumCIDRGroup]
-			serviceEvents   <-chan k8s.ServiceNotification
+			cidrGroupEvents <-chan resource.Event[*cilium_v2.CiliumCIDRGroup]
+			serviceEvents   <-chan serviceEvent
 		)
 		// copy the done-channels so we can nil them here and stop sending, without
 		// affecting the reader above
@@ -135,8 +144,10 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 			// Cilium CDR Group CRD is only used with CNP/CCNP.
 			// https://docs.cilium.io/en/latest/network/kubernetes/ciliumcidrgroup/
 			cidrGroupEvents = p.ciliumCIDRGroups.Events(ctx)
-			// Service Cache Notifications are only used with CNP/CCNP.
-			serviceEvents = p.svcCacheNotifications
+		}
+
+		if p.serviceEvents != nil {
+			serviceEvents = stream.ToChannel(ctx, p.serviceEvents)
 		}
 
 		for {
@@ -157,7 +168,10 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.addK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core, knpDone)
+					err = p.addK8sNetworkPolicyV1(
+						event.Object, k8sAPIGroupNetworkingV1Core, knpDone,
+						cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.config.ClusterName),
+					)
 				case resource.Delete:
 					err = p.deleteK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core, knpDone)
 				}
@@ -248,22 +262,20 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 
 				switch event.Kind {
 				case resource.Upsert:
-					p.onUpsertCIDRGroup(event.Object, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
+					p.onUpsertCIDRGroup(event.Object, k8sAPIGroupCiliumCIDRGroupV2)
 				case resource.Delete:
-					p.onDeleteCIDRGroup(event.Object.Name, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
+					p.onDeleteCIDRGroup(event.Object.Name, k8sAPIGroupCiliumCIDRGroupV2)
 				}
 				event.Done(nil)
+
 			case event, ok := <-serviceEvents:
 				if !ok {
 					serviceEvents = nil
 					break
 				}
-
-				switch event.Action {
-				case k8s.UpdateService, k8s.DeleteService:
-					p.onServiceEvent(event)
-				}
+				p.onServiceEvent(event)
 			}
+
 			if knpEvents == nil && cnpEvents == nil && ccnpEvents == nil && cidrGroupEvents == nil && serviceEvents == nil {
 				return
 			}

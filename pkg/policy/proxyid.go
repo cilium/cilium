@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // ProxyStatsKey returns a key for endpoint's proxy stats, which may aggregate stats from multiple
@@ -57,11 +54,6 @@ func ProxyID(endpointID uint16, ingress bool, protocol string, port uint16, list
 	str.WriteString(listener)
 
 	return str.String()
-}
-
-// ProxyIDFromKey returns a unique string to identify a proxy mapping.
-func ProxyIDFromKey(endpointID uint16, key Key, listener string) string {
-	return ProxyID(endpointID, key.TrafficDirection() == trafficdirection.Ingress, u8proto.U8proto(key.Nexthdr).String(), key.DestPort, listener)
 }
 
 // ParseProxyID parses a proxy ID returned by ProxyID and returns its components.

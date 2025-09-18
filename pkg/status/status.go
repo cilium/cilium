@@ -7,25 +7,14 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime/pprof"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
-)
-
-const (
-	subsystem = "status"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 )
 
 // Status is passed to a probe when its state changes
@@ -64,6 +53,8 @@ type Probe struct {
 
 // Collector concurrently runs probes used to check status of various subsystems
 type Collector struct {
+	logger *slog.Logger
+
 	lock.RWMutex   // protects staleProbes and probeStartTime
 	config         Config
 	stop           chan struct{}
@@ -78,51 +69,26 @@ type Collector struct {
 	firstRunSwg *lock.StoppableWaitGroup
 }
 
-// Config is the collector configuration
-type Config struct {
-	WarningThreshold time.Duration
-	FailureThreshold time.Duration
-	Interval         time.Duration
-	StackdumpPath    string
-}
-
-var DefaultConfig = Config{
-	WarningThreshold: defaults.StatusCollectorWarningThreshold,
-	FailureThreshold: defaults.StatusCollectorFailureThreshold,
-	Interval:         defaults.StatusCollectorInterval,
-	StackdumpPath:    "/run/cilium/state/agent.stack.gz",
-}
-
-// NewCollector creates a collector and starts the given probes.
-//
-// Each probe runs in a separate goroutine.
-func NewCollector(probes []Probe, config Config) *Collector {
-	c := &Collector{
+// newCollector creates a collector.
+func newCollector(logger *slog.Logger, config Config) *Collector {
+	return &Collector{
+		logger:         logger,
 		config:         config,
 		stop:           make(chan struct{}),
 		staleProbes:    make(map[string]struct{}),
 		probeStartTime: make(map[string]time.Time),
 		firstRunSwg:    lock.NewStoppableWaitGroup(),
 	}
+}
 
-	if c.config.Interval == time.Duration(0) {
-		c.config.Interval = defaults.StatusCollectorInterval
-	}
-
-	if c.config.FailureThreshold == time.Duration(0) {
-		c.config.FailureThreshold = defaults.StatusCollectorFailureThreshold
-	}
-
-	if c.config.WarningThreshold == time.Duration(0) {
-		c.config.WarningThreshold = defaults.StatusCollectorWarningThreshold
-	}
-
+// StartProbes starts the given probes.
+//
+// Each probe runs in a separate goroutine.
+func (c *Collector) StartProbes(probes []Probe) {
 	for i := range probes {
 		c.spawnProbe(&probes[i], c.firstRunSwg.Add())
 	}
 	c.firstRunSwg.Stop()
-
-	return c
 }
 
 // WaitForFirstRun blocks until all probes have been executed at least once, or
@@ -170,7 +136,7 @@ func (c *Collector) spawnProbe(p *Probe, firstRunCompleted func()) {
 				firstRunCompleted = nil
 			}
 
-			interval := c.config.Interval
+			interval := c.config.StatusCollectorInterval
 			if p.Interval != nil {
 				interval = p.Interval(p.consecutiveFailures)
 			}
@@ -191,10 +157,10 @@ func (c *Collector) runProbe(p *Probe) {
 	var (
 		statusData       any
 		err              error
-		warningThreshold = time.After(c.config.WarningThreshold)
+		warningThreshold = time.After(c.config.StatusCollectorWarningThreshold)
 		hardTimeout      = false
 		probeReturned    = make(chan struct{}, 1)
-		ctx, cancel      = context.WithTimeout(context.Background(), c.config.FailureThreshold)
+		ctx, cancel      = context.WithTimeout(context.Background(), c.config.StatusCollectorFailureThreshold)
 		ctxTimeout       = make(chan struct{}, 1)
 	)
 
@@ -228,9 +194,10 @@ func (c *Collector) runProbe(p *Probe) {
 
 		case <-warningThreshold:
 			// Just warn and continue waiting for probe
-			log.WithField(logfields.Probe, p.Name).
-				Warnf("No response from probe within %v seconds",
-					c.config.WarningThreshold.Seconds())
+			c.logger.Warn("No response from probe",
+				logfields.Duration, c.config.StatusCollectorWarningThreshold.Seconds(),
+				logfields.Probe, p.Name,
+			)
 
 		case <-probeReturned:
 			// The probe completed and we can return from runProbe
@@ -251,7 +218,7 @@ func (c *Collector) runProbe(p *Probe) {
 			// We have timed out. Report a status and mark that we timed out so we
 			// do not emit status later.
 			staleErr := fmt.Errorf("no response from %s probe within %v seconds",
-				p.Name, c.config.FailureThreshold.Seconds())
+				p.Name, c.config.StatusCollectorFailureThreshold.Seconds())
 			c.updateProbeStatus(p, nil, true, staleErr)
 			hardTimeout = true
 		}
@@ -276,10 +243,10 @@ func (c *Collector) updateProbeStatus(p *Probe, data any, stale bool, err error)
 	c.Unlock()
 
 	if stale {
-		log.WithFields(logrus.Fields{
-			logfields.StartTime: startTime,
-			logfields.Probe:     p.Name,
-		}).Warn("Timeout while waiting probe")
+		c.logger.Warn("Timeout while waiting probe",
+			logfields.StartTime, startTime,
+			logfields.Probe, p.Name,
+		)
 
 		// We just had a probe time out. This is commonly caused by a deadlock.
 		// So, capture a stack dump to aid in debugging.
@@ -294,7 +261,7 @@ func (c *Collector) updateProbeStatus(p *Probe, data any, stale bool, err error)
 // if one hasn't been written in the past 5 minutes.
 // This is triggered if a collector is stale, which can be caused by deadlocks.
 func (c *Collector) maybeDumpStack() {
-	if c.config.StackdumpPath == "" {
+	if c.config.StatusCollectorStackdumpPath == "" {
 		return
 	}
 
@@ -313,14 +280,17 @@ func (c *Collector) maybeDumpStack() {
 		return
 	}
 
-	out, err := os.Create(c.config.StackdumpPath)
+	out, err := os.Create(c.config.StatusCollectorStackdumpPath)
 	if err != nil {
-		log.WithError(err).WithField("path", c.config.StackdumpPath).Warn("Failed to write stack dump")
+		c.logger.Warn("Failed to write stack dump",
+			logfields.Error, err,
+			logfields.Path, c.config.StatusCollectorStackdumpPath,
+		)
 	}
 	defer out.Close()
 	gzout := gzip.NewWriter(out)
 	defer gzout.Close()
 
 	profile.WriteTo(gzout, 2) // 2: print same stack format as panic
-	log.Infof("Wrote stack dump to %s", c.config.StackdumpPath)
+	c.logger.Info("Wrote stack dump", logfields.Path, c.config.StatusCollectorStackdumpPath)
 }

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+#include <bpf/ctx/xdp.h>
 #include "common.h"
-
-#include "bpf/ctx/xdp.h"
 
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
@@ -24,6 +23,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #include "bpf_xdp.c"
 #include "lib/nodeport.h"
+
+ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 
 #include "lib/lb.h"
 

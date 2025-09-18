@@ -14,12 +14,12 @@ import (
 // Stores an AMI as a single object in an Amazon S3 bucket.
 //
 // To use this API, you must have the required permissions. For more information,
-// see [Permissions for storing and restoring AMIs using Amazon S3]in the Amazon EC2 User Guide.
+// see [Permissions for storing and restoring AMIs using S3]in the Amazon EC2 User Guide.
 //
-// For more information, see [Store and restore an AMI using Amazon S3] in the Amazon EC2 User Guide.
+// For more information, see [Store and restore an AMI using S3] in the Amazon EC2 User Guide.
 //
-// [Store and restore an AMI using Amazon S3]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-store-restore.html
-// [Permissions for storing and restoring AMIs using Amazon S3]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-store-restore.html#ami-s3-permissions
+// [Store and restore an AMI using S3]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-store-restore.html
+// [Permissions for storing and restoring AMIs using S3]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/work-with-ami-store-restore.html#ami-s3-permissions
 func (c *Client) CreateStoreImageTask(ctx context.Context, params *CreateStoreImageTaskInput, optFns ...func(*Options)) (*CreateStoreImageTaskOutput, error) {
 	if params == nil {
 		params = &CreateStoreImageTaskInput{}
@@ -159,6 +159,36 @@ func (c *Client) addOperationCreateStoreImageTaskMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

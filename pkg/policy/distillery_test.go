@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 const (
@@ -50,7 +51,7 @@ func localIdentity(n uint32) identity.NumericIdentity {
 
 func TestCacheManagement(t *testing.T) {
 	setupTest(t)
-	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	cache := repo.policyCache
 	identity := ep1.GetSecurityIdentity()
 	require.Equal(t, identity, ep2.GetSecurityIdentity())
@@ -58,6 +59,13 @@ func TestCacheManagement(t *testing.T) {
 	// Nonsense delete of entry that isn't yet inserted
 	deleted := cache.delete(identity)
 	require.False(t, deleted)
+
+	// Insert directly to cache and delete the entry.
+	csp := cache.lookupOrCreate(identity)
+	require.NotNil(t, csp)
+	require.Nil(t, csp.getPolicy())
+	removed := cache.delete(identity)
+	require.True(t, removed)
 
 	// Insert identity twice. Should be the same policy.
 	policy1, updated, err := cache.updateSelectorPolicy(identity, ep1.Id)
@@ -93,7 +101,7 @@ func TestCacheManagement(t *testing.T) {
 }
 
 func TestCachePopulation(t *testing.T) {
-	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	repo.revision.Store(42)
 	cache := repo.policyCache
 
@@ -391,7 +399,7 @@ type policyDistillery struct {
 
 func newPolicyDistillery(t testing.TB, selectorCache *SelectorCache) *policyDistillery {
 	ret := &policyDistillery{
-		Repository: NewPolicyRepository(hivetest.Logger(t), nil, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(t), certificatemanager.NewMockSecretManagerInline()), nil, api.NewPolicyMetricsNoop()),
+		Repository: NewPolicyRepository(hivetest.Logger(t), nil, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(t), certificatemanager.NewMockSecretManagerInline()), nil, testpolicy.NewPolicyMetricsNoop()),
 	}
 	ret.selectorCache = selectorCache
 	return ret
@@ -1941,6 +1949,7 @@ func addFQDNIdentity(fqdnSel api.FQDNSelector, c identity.IdentityMap) (id ident
 
 // Validate that incrementally deleted identities are handled properly when present in both CIDR and FQDN rules.
 func Test_IncrementalFQDNDeletion(t *testing.T) {
+	logger := hivetest.Logger(t)
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
 	oldPolicyEnable := GetPolicyEnabled()
@@ -1957,7 +1966,7 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 	})
 	id2 := addCIDRIdentity("192.0.2.0/24", identityCache)
 	id3 := addCIDRIdentity("192.0.3.0/24", identityCache)
-	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(logger, identityCache)
 
 	fqdnSel := api.FQDNSelector{MatchName: "www.example.com"}
 	idExample, fqdnIdentities := addFQDNIdentity(fqdnSel, identityCache)
@@ -2006,8 +2015,8 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 		t.Run(tt.test, func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			epp, err := repo.distillEndpointPolicy(hivetest.Logger(t), DummyOwner{
-				logger: hivetest.Logger(t),
+			epp, err := repo.distillEndpointPolicy(logger, DummyOwner{
+				logger: logger,
 			}, fooIdentity)
 			if err != nil {
 				t.Fatal(err)
@@ -2047,7 +2056,7 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 			}
 
 			epp.Ready()
-			epp.Detach(hivetest.Logger(t))
+			epp.Detach(logger)
 		})
 	}
 }

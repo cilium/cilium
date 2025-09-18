@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/cilium/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func (k *K8sInstaller) detectDatapathMode(helmValues map[string]any) error {
@@ -74,18 +73,32 @@ func getClusterName(helmValues map[string]any) string {
 	return clusterName
 }
 
-func trimEKSClusterARN(fullARN string) string {
-	const prefix = "cluster/"
-	idx := strings.LastIndex(fullARN, prefix)
-	if idx == -1 {
-		return fullARN
-	}
-	idx += len(prefix)
-	if idx < len(fullARN) {
-		return fullARN[idx:]
+// trimEKSClusterName extracts and trims the EKS cluster name
+// from either an ARN (arn:aws:eks:...) or an eksctl-formatted
+// FQDN (e.g., <name>.<region>.eksctl.io). This helps ensure
+// the resulting name complies with EKS validation constraints,
+// such as the 32-character limit.
+func trimEKSClusterName(identifier string) string {
+	// Handle ARN format: arn:aws:eks:<region>:<account>:cluster/<cluster-name>
+	const prefix = ":cluster/"
+	idx := strings.LastIndex(identifier, prefix)
+	if idx != -1 {
+		idx += len(prefix)
+		if idx < len(identifier) {
+			return identifier[idx:]
+		}
+		return ""
 	}
 
-	return ""
+	// Handle eksctl format: <cluster-name>.<region>.eksctl.io
+	if strings.Contains(identifier, ".eksctl.io") {
+		parts := strings.SplitN(identifier, ".", 2)
+		if len(parts) > 0 {
+			return parts[0]
+		}
+	}
+
+	return identifier
 }
 
 func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map[string]any) error {
@@ -100,12 +113,15 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map
 
 	if k.params.ClusterName == "" {
 		if k.flavor.ClusterName != "" {
-			// Neither underscores, dots nor colons are allowed as part of the cluster name.
-			name := strings.NewReplacer("_", "-", ".", "-", ":", "-").Replace(k.flavor.ClusterName)
-
+			var name string
 			if k.flavor.Kind == k8s.KindEKS {
-				name = trimEKSClusterARN(name)
+				name = trimEKSClusterName(k.flavor.ClusterName)
+			} else {
+				name = k.flavor.ClusterName
 			}
+
+			// Neither underscores, dots nor colons are allowed as part of the cluster name.
+			name = strings.NewReplacer("_", "-", ".", "-", ":", "-").Replace(name)
 
 			k.Log("🔮 Auto-detected cluster name: %s", name)
 			k.params.ClusterName = name
@@ -146,24 +162,24 @@ func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context, helmValues map[s
 		k.Log("ℹ️  Detecting real Kubernetes API server addr and port on Kind")
 
 		// When we are using Kind, the API server addr & port is port forwarded
-		eps, err := k.client.GetEndpoints(ctx, "default", "kubernetes", metav1.GetOptions{})
+		es, err := k.client.GetEndpointSlice(ctx, "default", "kubernetes", metav1.GetOptions{})
 		if err != nil {
 			k.Log("❌ Couldn't find 'kubernetes' service endpoint on Kind")
 			return fmt.Errorf("failed to detect API server endpoint")
 		}
 
-		if len(eps.Subsets) != 0 {
-			subset := eps.Subsets[0]
+		if len(es.Endpoints) != 0 {
+			endpoint := es.Endpoints[0]
 
-			if len(subset.Addresses) != 0 {
-				apiServerHost = subset.Addresses[0].IP
+			if len(endpoint.Addresses) != 0 {
+				apiServerHost = endpoint.Addresses[0]
 			} else {
 				k.Log("❌ Couldn't find endpoint address of the 'kubernetes' service endpoint on Kind")
 				return fmt.Errorf("failed to detect API server address")
 			}
 
-			if len(subset.Ports) != 0 {
-				apiServerPort = strconv.FormatInt(int64(subset.Ports[0].Port), 10)
+			if len(es.Ports) != 0 {
+				apiServerPort = strconv.FormatInt(int64(*es.Ports[0].Port), 10)
 			} else {
 				k.Log("❌ Couldn't find endpoint port of the 'kubernetes' service endpoint on Kind")
 				return fmt.Errorf("failed to detect API server address")
@@ -187,12 +203,7 @@ func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context, helmValues map[s
 		}
 
 		// Use HelmOpts to set auto kube-proxy installation
-		setIfUnset("kubeProxyReplacement", func() string {
-			if versioncheck.MustCompile(">=1.14.0")(k.chartVersion) {
-				return "true"
-			}
-			return "strict"
-		}())
+		setIfUnset("kubeProxyReplacement", "true")
 
 		setIfUnset("k8sServiceHost", apiServerHost)
 		setIfUnset("k8sServicePort", apiServerPort)

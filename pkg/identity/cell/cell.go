@@ -9,6 +9,7 @@ import (
 	identityapi "github.com/cilium/cilium/pkg/identity/api"
 	identitycache "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/identity/restoration"
 )
 
 // Cell provides the identity controlplane that is responsible to allocate and manage security identities
@@ -24,4 +25,7 @@ var Cell = cell.Module(
 
 	// IdentityApiHandler provides the Identity Cilium API
 	identityapi.Cell,
+
+	// LocalIdentityRestorer restores the identities at startup
+	restoration.Cell,
 )

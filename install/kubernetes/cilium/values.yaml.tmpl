@@ -207,6 +207,12 @@ serviceAccounts:
     name: hubble-generate-certs
     automount: true
     annotations: {}
+  # -- CorednsMCSAPI is used if clustermesh.mcsapi.corednsAutoConfigure.enabled=true
+  corednsMCSAPI:
+    create: true
+    name: cilium-coredns-mcsapi-autoconfig
+    automount: true
+    annotations: {}
 # -- Configure termination grace period for cilium-agent DaemonSet.
 terminationGracePeriodSeconds: 1
 # -- Install the cilium agent resources.
@@ -301,6 +307,8 @@ podSecurityContext:
   # -- AppArmorProfile options for the `cilium-agent` and init containers
   appArmorProfile:
     type: "Unconfined"
+  seccompProfile:
+    type: "Unconfined"
 # -- Annotations to be added to agent pods
 podAnnotations: {}
 # -- Labels to be added to agent pods
@@ -320,6 +328,8 @@ initResources: {}
 securityContext:
   # -- User to run the pod with
   # runAsUser: 0
+  # -- disable privilege escalation
+  allowPrivilegeEscalation: false
   # -- Run the pod with elevated privileges
   privileged: false
   # -- SELinux options for the `cilium-agent` and init containers
@@ -447,6 +457,8 @@ bandwidthManager:
   enabled: false
   # -- Activate BBR TCP congestion control for Pods
   bbr: false
+  # -- Activate BBR TCP congestion control for Pods in the host namespace only.
+  bbrHostNamespaceOnly: false
 # -- Configure standalone NAT46/NAT64 gateway
 nat46x64Gateway:
   # -- Enable RFC6052-prefixed translation
@@ -490,6 +502,14 @@ bgpControlPlane:
   routerIDAllocation:
     # -- BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address.
     mode: "default"
+    # -- IP pool to allocate the BGP router-id from when the mode is ip-pool.
+    ipPool: ""
+  # -- Legacy BGP ORIGIN attribute settings (BGPv2 only)
+  legacyOriginAttribute:
+    # -- Enable/Disable advertising LoadBalancerIP routes with the legacy
+    # BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0).
+    # Enable for compatibility with the legacy behavior of MetalLB integration.
+    enabled: false
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
@@ -541,8 +561,11 @@ bpf:
   # Helm configuration for BPF events map rate limiting is experimental and might change
   # in upcoming releases.
   events:
-    # -- Default settings for all types of events except dbg and pcap.
+    # -- Default settings for all types of events except dbg.
     default:
+      # @schema
+      # type: [null, integer]
+      # @schema
       # -- (int) Configure the limit of messages per second that can be written to
       # BPF events map. The number of messages is averaged, meaning that if no messages
       # were written to the map over 5 seconds, it's possible to write more events
@@ -551,6 +574,9 @@ bpf:
       # and rateLimit to 0 disables BPF events rate limiting.
       # @default -- `0`
       rateLimit: ~
+      # @schema
+      # type: [null, integer]
+      # @schema
       # -- (int) Configure the maximum number of messages that can be written to BPF events
       # map in 1 second. If burstLimit is greater than 0, non-zero value for rateLimit must
       # also be provided lest the configuration is considered invalid. Setting both burstLimit
@@ -595,13 +621,19 @@ bpf:
   # type: [null, integer]
   # @schema
   policyMapMax: 16384
+  # -- (float64) Configure threshold for emitting pressure metrics of policy maps.
+  # @schema
+  # type: [null, number]
+  # @schema
+  # @default -- `0.1`
+  policyMapPressureMetricsThreshold: ~
   # -- Configure the maximum number of entries in global policy stats map.
   # @schema
   # type: [null, integer]
   # @schema
   policyStatsMapMax: 65536
   # @schema
-  # type: [null, number]
+  # type: [null, number, string]
   # @schema
   # -- (float64) Configure auto-sizing for all BPF maps based on available memory.
   # ref: https://docs.cilium.io/en/stable/network/ebpf/maps/
@@ -739,12 +771,16 @@ cni:
   # readCniConf: /host/etc/cni/net.d/05-sample.conflist.input
 
   # -- When defined, configMap will mount the provided value as ConfigMap and
-  # interpret the cniConf variable as CNI configuration file and write it
-  # when the agent starts up
-  # configMap: cni-configuration
+  # interpret the 'cni.configMapKey' value as CNI configuration file and write it
+  # when the agent starts up.
+  configMap: ""
 
   # -- Configure the key in the CNI ConfigMap to read the contents of
-  # the CNI configuration from.
+  # the CNI configuration from. For this to be effective, the 'cni.configMap'
+  # parameter must be specified too.
+  # Note that the 'cni.configMap' parameter is the name of the ConfigMap, while
+  # 'cni.configMapKey' is the name of the key in the ConfigMap data containing
+  # the actual configuration.
   configMapKey: cni-config
   # -- Configure the path to where to mount the ConfigMap inside the agent pod.
   confFileMountPath: /tmp/cni-configuration
@@ -833,14 +869,6 @@ daemon:
 # a non-local route. This should be used only when autodetection is not suitable.
 # devices: ""
 
-# -- Enables experimental support for the detection of new and removed datapath
-# devices. When devices change the eBPF datapath is reloaded and services updated.
-# If "devices" is set then only those devices, or devices matching a wildcard will
-# be considered.
-#
-# This option has been deprecated and is a no-op.
-enableRuntimeDeviceDetection: true
-
 # -- Forces the auto-detection of devices, even if specific devices are explicitly listed
 forceDeviceDetection: false
 
@@ -853,12 +881,7 @@ forceDeviceDetection: false
 # -- Enable setting identity mark for local traffic.
 # enableIdentityMark: true
 
-# -- Enable Kubernetes EndpointSlice feature in Cilium if the cluster supports it.
-# enableK8sEndpointSlice: true
-
-# -- Enable CiliumEndpointSlice feature (deprecated, please use `ciliumEndpointSlice.enabled` instead).
-enableCiliumEndpointSlice: false
-
+# -- CiliumEndpointSlice configuration options.
 ciliumEndpointSlice:
   # -- Enable Cilium EndpointSlice feature.
   enabled: false
@@ -874,14 +897,6 @@ ciliumEndpointSlice:
   - nodes: 100
     limit: 50
     burst: 100
-
-  # @schema
-  # enum: ["identity", "fcfs"]
-  # @schema
-  # -- The slicing mode to use for CiliumEndpointSlices.
-  # identity groups together CiliumEndpoints that share the same identity.
-  # fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
-  sliceMode: identity
 
 # @schema
 # enum: ["agent", "operator", "both"]
@@ -1135,9 +1150,6 @@ eni:
   # -- Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances
   # are going to be used to create new ENIs
   instanceTagsFilter: []
-externalIPs:
-  # -- Enable ExternalIPs service support.
-  enabled: false
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true
 gke:
@@ -1153,9 +1165,8 @@ healthCheckICMPFailureThreshold: 3
 hostFirewall:
   # -- Enables the enforcement of host policies in the eBPF datapath.
   enabled: false
-hostPort:
-  # -- Enable hostPort service support.
-  enabled: false
+# -- Enable routing to a service that has zero endpoints
+enableNoServiceEndpointsRoutable: true
 # -- Configure socket LB
 socketLB:
   # -- Enable socket LB
@@ -1200,6 +1211,9 @@ certgen:
   # -- Node tolerations for pod assignment on nodes with taints
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations: []
+  # -- Resource limits for certgen
+  # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers
+  resources: {}
   # -- Additional certgen volumes.
   extraVolumes: []
   # -- Additional certgen volumeMounts.
@@ -1338,17 +1352,17 @@ hubble:
         # Switch to false if you want to self maintain the file content.
         createConfigMap: true
         # ---- Exporters configuration in YAML format.
-        content:
-          - name: all
-            contextOptions: []
-            includeFilters: []
-            excludeFilters: []
+        content: []
+        # - name: dns
+        #   contextOptions: []
+        #   includeFilters: []
+        #   excludeFilters: []
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
   # -- Enables network policy correlation of Hubble flows, i.e. populating `egress_allowed_by`, `ingress_denied_by` fields with policy information.
   networkPolicyCorrelation:
     # @default -- `true`
-    enabled: true  
+    enabled: true
   # -- Enables redacting sensitive information present in Layer 7 flows.
   redact:
     enabled: false
@@ -1422,7 +1436,7 @@ hubble:
       #
       #   --set hubble.redact.enabled="true"
       #   --set hubble.redact.kafka.apiKey="true"
-      apiKey: false
+      apiKey: true
   # -- An additional address for Hubble to listen to.
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
   # Hubble is listening on port 4244.
@@ -1568,6 +1582,11 @@ hubble:
       # @schema
       # -- Maximum number/percentage of pods that may be made unavailable
       maxUnavailable: 1
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- How are unhealthy, but running, pods counted for eviction
+      unhealthyPodEvictionPolicy: null
     # -- The priority class to use for hubble-relay
     priorityClassName: ""
     # -- Configure termination grace period for hubble relay Deployment.
@@ -1596,6 +1615,8 @@ hubble:
       runAsNonRoot: true
       runAsUser: 65532
       runAsGroup: 65532
+      seccompProfile:
+        type: RuntimeDefault
       capabilities:
         drop:
           - ALL
@@ -1720,6 +1741,10 @@ hubble:
       address: localhost
       # -- Configure pprof listen port for hubble-relay
       port: 6062
+      # -- Enable mutex contention profiling for hubble-relay and set the fraction of sampled events (set to 1 to sample all events)
+      mutexProfileFraction: 0
+      # -- Enable goroutine blocking profiling for hubble-relay and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+      blockProfileRate: 0
   ui:
     # -- Whether to enable the Hubble UI.
     enabled: false
@@ -1771,7 +1796,8 @@ hubble:
         useDigest: true
         pullPolicy: "${PULL_POLICY}"
       # -- Hubble-ui backend security context.
-      securityContext: {}
+      securityContext:
+        allowPrivilegeEscalation: false
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
       # -- Additional hubble-ui backend volumes.
@@ -1805,7 +1831,8 @@ hubble:
         useDigest: true
         pullPolicy: "${PULL_POLICY}"
       # -- Hubble-ui frontend security context.
-      securityContext: {}
+      securityContext:
+        allowPrivilegeEscalation: false
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
       # -- Additional hubble-ui frontend volumes.
@@ -1850,6 +1877,11 @@ hubble:
       # @schema
       # -- Maximum number/percentage of pods that may be made unavailable
       maxUnavailable: 1
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- How are unhealthy, but running, pods counted for eviction
+      unhealthyPodEvictionPolicy: null
     # -- Affinity for hubble-ui
     affinity: {}
     # -- Pod topology spread constraints for hubble-ui
@@ -2117,13 +2149,24 @@ readinessProbe:
 kubeProxyReplacementHealthzBindAddr: ""
 l2NeighDiscovery:
   # -- Enable L2 neighbor discovery in the agent
-  enabled: true
-  # -- Override the agent's default neighbor resolution refresh period.
-  refreshPeriod: "30s"
+  enabled: false
 # -- Enable Layer 7 network policy.
 l7Proxy: true
-# -- Enable Local Redirect Policy.
+
+# -- Enable Local Redirect Policy (deprecated, please use 'localRedirectPolicies.enabled' instead)
 localRedirectPolicy: false
+
+localRedirectPolicies:
+  # -- Enable local redirect policies.
+  enabled: false
+  
+  # -- Limit the allowed addresses in Address Matcher rule of
+  # Local Redirect Policies to the given CIDRs.
+  # @schema@
+  # type: [null, array]
+  # @schema@
+  addressMatcherCIDRs: ~
+
 # To include or exclude matched resources from cilium identity evaluation
 # labels: ""
 
@@ -2142,8 +2185,12 @@ maglev: {}
 # -- hashSeed is the cluster-wide base64 encoded seed for the hashing
 # hashSeed:
 
-# -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
-enableIPv4Masquerade: true
+# @schema
+# type: [null, boolean]
+# @schema
+# -- (bool) Enables masquerading of IPv4 traffic leaving the node from endpoints.
+# @default -- `true` unless ipam eni mode is active
+enableIPv4Masquerade: ~
 # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
 enableIPv6Masquerade: true
 # -- Enables masquerading to the source of the route for traffic leaving the node from endpoints.
@@ -2225,17 +2272,13 @@ loadBalancer:
   # path), or best-effort (use native mode XDP acceleration on devices
   # that support it).
   acceleration: disabled
-  # -- dsrDispatch configures whether IP option or IPIP encapsulation is
-  # used to pass a service IP and port to remote backend
+  # -- dsrDispatch configures whether IP option (opt), IPIP encapsulation (ipip),
+  # Geneve Class Option (geneve) used to pass a service IP and port to remote backend
   # dsrDispatch: opt
 
   # -- serviceTopology enables K8s Topology Aware Hints -based service
   # endpoints filtering
   # serviceTopology: false
-
-  # -- experimental enables support for the experimental load-balancing
-  # control-plane.
-  experimental: false
 
   # -- L7 LoadBalancer
   l7:
@@ -2259,8 +2302,6 @@ loadBalancer:
     algorithm: round_robin
 # -- Configure N-S k8s service loadbalancing
 nodePort:
-  # -- Enable the Cilium NodePort service implementation.
-  enabled: false
   # -- Port range to use for NodePort services.
   # range: "30000,32767"
 
@@ -2305,6 +2346,10 @@ pprof:
   address: localhost
   # -- Configure pprof listen port for cilium-agent
   port: 6060
+  # -- Enable mutex contention profiling for cilium-agent and set the fraction of sampled events (set to 1 to sample all events)
+  mutexProfileFraction: 0
+  # -- Enable goroutine blocking profiling for cilium-agent and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+  blockProfileRate: 0
 # -- Configure prometheus metrics on the configured port at /metrics
 prometheus:
   metricsService: false
@@ -2528,12 +2573,16 @@ envoy:
   #     memory: 512Mi
 
   startupProbe:
+    # -- Enable startup probe for cilium-envoy
+    enabled: true
     # -- failure threshold of startup probe.
     # 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
     failureThreshold: 105
     # -- interval between checks of the startup probe
     periodSeconds: 2
   livenessProbe:
+    # -- Enable liveness probe for cilium-envoy
+    enabled: true
     # -- failure threshold of liveness probe
     failureThreshold: 10
     # -- interval between checks of the liveness probe
@@ -2691,7 +2740,6 @@ resourceQuotas:
       pods: "15"
 # Need to document default
 ##################
-#sessionAffinity: false
 
 # -- Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
 secretsNamespaceAnnotations: {}
@@ -2700,8 +2748,6 @@ secretsNamespaceAnnotations: {}
 # uninstall Cilium as it will stop Cilium from starting and create artifacts
 # in the node.
 sleepAfterInit: false
-# -- Enable check of service source ranges (currently, only for LoadBalancer).
-svcSourceRangeCheck: true
 # -- Synchronize Kubernetes nodes to kvstore and perform CNP GC.
 synchronizeK8sNodes: true
 # -- Configure TLS configuration in the agent.
@@ -2885,12 +2931,19 @@ operator:
     kubernetes.io/os: linux
   # -- Node tolerations for cilium-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-  tolerations:
-    - operator: Exists
-      # - key: "key"
-      #   operator: "Equal|Exists"
-      #   value: "value"
-      #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
+  # Toleration for agentNotReadyTaintKey taint is always added to cilium-operator pods.
+  # @schema
+  # type: [null, array]
+  # @schema
+  tolerations: 
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: Exists
+    - key: "node-role.kubernetes.io/master" #deprecated
+      operator: Exists
+    - key: "node.kubernetes.io/not-ready"
+      operator: Exists
+    - key: "node.cloudprovider.kubernetes.io/uninitialized"
+      operator: Exists
   # -- Additional cilium-operator container arguments.
   extraArgs: []
   # -- Additional cilium-operator environment variables.
@@ -2913,7 +2966,9 @@ operator:
   # -- HostNetwork setting
   hostNetwork: true
   # -- Security context to be added to cilium-operator pods
-  podSecurityContext: {}
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
   # -- Annotations to be added to cilium-operator pods
   podAnnotations: {}
   # -- Labels to be added to cilium-operator pods
@@ -2934,6 +2989,11 @@ operator:
     # @schema
     # -- Maximum number/percentage of pods that may be made unavailable
     maxUnavailable: 1
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- How are unhealthy, but running, pods counted for eviction
+    unhealthyPodEvictionPolicy: null
   # -- cilium-operator resource limits & requests
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources: {}
@@ -2945,7 +3005,11 @@ operator:
   #     memory: 128Mi
 
   # -- Security context to be added to cilium-operator pods
-  securityContext: {}
+  securityContext:
+    capabilities:
+      drop:
+      - ALL
+    allowPrivilegeEscalation: false
   # runAsUser: 0
 
   # -- Interval for endpoint garbage collection.
@@ -2963,6 +3027,10 @@ operator:
     address: localhost
     # -- Configure pprof listen port for cilium-operator
     port: 6061
+    # -- Enable mutex contention profiling for cilium-operator and set the fraction of sampled events (set to 1 to sample all events)
+    mutexProfileFraction: 0
+    # -- Enable goroutine blocking profiling for cilium-operator and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+    blockProfileRate: 0
   # -- Enable prometheus metrics for cilium-operator on the configured port at
   # /metrics
   prometheus:
@@ -3029,6 +3097,12 @@ operator:
     # -- Interval, in seconds, to check if there are any pods that are not
     # managed by Cilium.
     intervalSeconds: 15
+    # -- Selector for pods that should be restarted when not managed by Cilium.
+    # If not set, defaults to built-in selector "k8s-app=kube-dns". Set to empty string to select all pods.
+    # @schema
+    # type: [null, string]
+    # @schema
+    selector: ~
 nodeinit:
   # -- Enable the node initialization DaemonSet
   enabled: false
@@ -3087,6 +3161,7 @@ nodeinit:
       memory: 100Mi
   # -- Security context to be added to nodeinit pods.
   securityContext:
+    allowPrivilegeEscalation: false
     privileged: false
     seLinuxOptions:
       level: 's0'
@@ -3129,6 +3204,18 @@ preflight:
     digest: ${CILIUM_DIGEST}
     useDigest: ${USE_DIGESTS}
     pullPolicy: "${PULL_POLICY}"
+  envoy:
+    # -- Envoy pre-flight image.
+    image:
+      # @schema
+      # type: [null, string]
+      # @schema
+      override: ~
+      repository: "${CILIUM_ENVOY_REPO}"
+      tag: "${CILIUM_ENVOY_VERSION}"
+      pullPolicy: "${PULL_POLICY}"
+      digest: "${CILIUM_ENVOY_DIGEST}"
+      useDigest: true
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
   # -- preflight update strategy
@@ -3184,6 +3271,11 @@ preflight:
     # @schema
     # -- Maximum number/percentage of pods that may be made unavailable
     maxUnavailable: 1
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- How are unhealthy, but running, pods counted for eviction
+    unhealthyPodEvictionPolicy: null
   # -- preflight resource limits & requests
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources: {}
@@ -3200,7 +3292,8 @@ preflight:
     # -- interval between checks of the readiness probe
     periodSeconds: 5
   # -- Security context to be added to preflight pods
-  securityContext: {}
+  securityContext:
+    allowPrivilegeEscalation: false
   #   runAsUser: 0
 
   # -- Path to write the `--tofqdns-pre-cache` file to.
@@ -3232,8 +3325,10 @@ clustermesh:
   # -- Enable the synchronization of Kubernetes EndpointSlices corresponding to
   # the remote endpoints of appropriately-annotated global services through ClusterMesh
   enableEndpointSliceSynchronization: false
-  # -- Enable Multi-Cluster Services API support
+  # -- Enable Multi-Cluster Services API support (deprecated; use clustermesh.mcsapi.enabled)
   enableMCSAPISupport: false
+  # -- Control whether policy rules assume by default the local cluster if not explicitly selected
+  policyDefaultLocalCluster: true
 
   # -- Annotations to be added to all top-level clustermesh objects (resources under templates/clustermesh-apiserver and templates/clustermesh-config)
   annotations: {}
@@ -3245,27 +3340,100 @@ clustermesh:
     # This is used in the case cluster addresses are not provided
     # and IPs are used.
     domain: mesh.cilium.io
-    # -- List of clusters to be peered in the mesh.
+    # -- Clusters to be peered in the mesh.
+    # @schema
+    # type: [object, array]
+    # @schema
     clusters: []
+    # You can use a dict of clusters (recommended):
     # clusters:
-    # # -- Name of the cluster
+    #   # -- Name of the cluster
+    #   cluster1:
+    #     # -- Whether to enable this cluster in the mesh. Optional, defaults to true.
+    #     enabled: true
+    #     # -- Address of the cluster, use this if you created DNS records for
+    #     # the cluster Clustermesh API server.
+    #     address: cluster1.mesh.cilium.io
+    #     # -- Port of the cluster Clustermesh API server.
+    #     port: 2379
+    #     # -- IPs of the cluster Clustermesh API server, use multiple ones when
+    #     # you have multiple IPs to access the Clustermesh API server.
+    #     ips:
+    #     - 172.18.255.201
+    #     # -- base64 encoded PEM values for the cluster client certificate, private key and certificate authority.
+    #     # These fields can (and should) be omitted in case the CA is shared across clusters. In that case, the
+    #     # "remote" private key and certificate available in the local cluster are automatically used instead.
+    #     tls:
+    #       cert: ""
+    #       key: ""
+    #       caCert: ""
+    #
+    # Or alternatively you can use a list of clusters:
+    # clusters:
+    #   # -- Name of the cluster
     # - name: cluster1
-    # # -- Address of the cluster, use this if you created DNS records for
-    # # the cluster Clustermesh API server.
+    #   # -- Address of the cluster, use this if you created DNS records for
+    #   # the cluster Clustermesh API server.
     #   address: cluster1.mesh.cilium.io
-    # # -- Port of the cluster Clustermesh API server.
+    #   # -- Port of the cluster Clustermesh API server.
     #   port: 2379
-    # # -- IPs of the cluster Clustermesh API server, use multiple ones when
-    # # you have multiple IPs to access the Clustermesh API server.
+    #   # -- IPs of the cluster Clustermesh API server, use multiple ones when
+    #   # you have multiple IPs to access the Clustermesh API server.
     #   ips:
     #   - 172.18.255.201
-    # # -- base64 encoded PEM values for the cluster client certificate, private key and certificate authority.
-    # # These fields can (and should) be omitted in case the CA is shared across clusters. In that case, the
-    # # "remote" private key and certificate available in the local cluster are automatically used instead.
+    #   # -- base64 encoded PEM values for the cluster client certificate, private key and certificate authority.
+    #   # These fields can (and should) be omitted in case the CA is shared across clusters. In that case, the
+    #   # "remote" private key and certificate available in the local cluster are automatically used instead.
     #   tls:
     #     cert: ""
     #     key: ""
     #     caCert: ""
+  mcsapi:
+    # -- Enable Multi-Cluster Services API support
+    enabled: false
+    corednsAutoConfigure:
+      # -- Enable auto-configuration of CoreDNS for Multi-Cluster Services API.
+      #    CoreDNS MUST be at least in version v1.12.2 to run this.
+      enabled: false
+      coredns:
+        # -- The Deployment for the cluster CoreDNS service
+        deploymentName: coredns
+        # -- The Service Account name for the cluster CoreDNS service
+        serviceAccountName: coredns
+        # -- The ConfigMap name for the cluster CoreDNS service
+        configMapName: coredns
+        # -- The namespace for the cluster CoreDNS service
+        namespace: kube-system
+        # -- The cluster domain for the cluster CoreDNS service
+        clusterDomain: cluster.local
+        # -- The clusterset domain for the cluster CoreDNS service
+        clustersetDomain: clusterset.local
+      # -- Additional arguments to `clustermesh-apiserver coredns-mcsapi-auto-configure`.
+      extraArgs: []
+      # -- Seconds after which the completed job pod will be deleted
+      ttlSecondsAfterFinished: 1800
+      # -- Labels to be added to coredns-mcsapi-autoconfig pods
+      podLabels: {}
+      # -- Annotations to be added to the coredns-mcsapi-autoconfig Job
+      annotations: {}
+      # -- Node selector for coredns-mcsapi-autoconfig
+      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+      nodeSelector: {}
+      # -- Priority class for coredns-mcsapi-autoconfig
+      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass
+      priorityClassName: ""
+      # -- Node tolerations for pod assignment on nodes with taints
+      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+      tolerations: []
+      # -- Resource limits for coredns-mcsapi-autoconfig
+      # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers
+      resources: {}
+      # -- Additional coredns-mcsapi-autoconfig volumes.
+      extraVolumes: []
+      # -- Additional coredns-mcsapi-autoconfig volumeMounts.
+      extraVolumeMounts: []
+      # -- Affinity for coredns-mcsapi-autoconfig
+      affinity: {}
   apiserver:
     # -- Clustermesh API server image.
     image:
@@ -3334,7 +3502,7 @@ clustermesh:
 
     kvstoremesh:
       # -- Enable KVStoreMesh. KVStoreMesh caches the information retrieved
-      # from the remote clusters in the local etcd instance.
+      # from the remote clusters in the local etcd instance (deprecated - KVStoreMesh will always be enabled once the option is removed).
       enabled: true
 
       # -- TCP port for the KVStoreMesh health API.
@@ -3374,14 +3542,6 @@ clustermesh:
       # -- The type of service used for apiserver access.
       type: NodePort
       # -- Optional port to use as the node port for apiserver access.
-      #
-      # WARNING: make sure to configure a different NodePort in each cluster if
-      # kube-proxy replacement is enabled, as Cilium is currently affected by a known
-      # bug (#24692) when NodePorts are handled by the KPR implementation. If a service
-      # with the same NodePort exists both in the local and the remote cluster, all
-      # traffic originating from inside the cluster and targeting the corresponding
-      # NodePort will be redirected to a local backend, regardless of whether the
-      # destination node belongs to the local or the remote cluster.
       nodePort: 32379
       # -- Annotations for the clustermesh-apiserver service.
       # Example annotations to configure an internal load balancer on different cloud providers:
@@ -3389,6 +3549,8 @@ clustermesh:
       # * EKS: service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
       # * GKE: networking.gke.io/load-balancer-type: "Internal"
       annotations: {}
+      # -- Labels for the clustermesh-apiserver service.
+      labels: {}
       # @schema
       # enum: [Local, Cluster]
       # @schema
@@ -3481,6 +3643,11 @@ clustermesh:
       # @schema
       # -- Maximum number/percentage of pods that may be made unavailable
       maxUnavailable: 1
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- How are unhealthy, but running, pods counted for eviction
+      unhealthyPodEvictionPolicy: null
     # -- Resource requests and limits for the clustermesh-apiserver
     resources: {}
     #   requests:
@@ -3753,6 +3920,9 @@ dnsProxy:
   proxyResponseMaxDelay: 100ms
   # -- DNS proxy operation mode (true/false, or unset to use version dependent defaults)
   # enableTransparentMode: true
+  # -- Pre-allocate ToFQDN identities. This reduces DNS proxy tail latency, at the potential cost of some
+  # unnecessary policymap entries. Disable this if you have a large (200+) number of unique ToFQDN selectors.
+  preAllocateIdentities: true
 # -- SCTP Configuration Values
 sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
@@ -3957,4 +4127,3 @@ authentication:
 enableInternalTrafficPolicy: true
 # -- Enable LoadBalancer IP Address Management
 enableLBIPAM: true
-

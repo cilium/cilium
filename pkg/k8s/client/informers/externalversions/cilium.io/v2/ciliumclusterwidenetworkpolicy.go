@@ -48,13 +48,25 @@ func NewFilteredCiliumClusterwideNetworkPolicyInformer(client versioned.Interfac
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2().CiliumClusterwideNetworkPolicies().List(context.TODO(), options)
+				return client.CiliumV2().CiliumClusterwideNetworkPolicies().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2().CiliumClusterwideNetworkPolicies().Watch(context.TODO(), options)
+				return client.CiliumV2().CiliumClusterwideNetworkPolicies().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.CiliumV2().CiliumClusterwideNetworkPolicies().Watch(ctx, options)
 			},
 		},
 		&apisciliumiov2.CiliumClusterwideNetworkPolicy{},

@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
@@ -15,19 +17,19 @@ import (
 	"github.com/cilium/hive/cell"
 )
 
-// MapDisabled is the expected error will be if map was not created
+// ErrMapDisabled is the expected error will be if map was not created
 // due to configuration.
-var MapDisabled = fmt.Errorf("nat map is disabled")
+var ErrMapDisabled = fmt.Errorf("nat map is disabled")
 
 // Cell exposes global nat maps via Hive. These maps depend on
-// the final state of EnableNodePort, thus the maps are currently
+// the final state of EnableBPFMasquerade, thus the maps are currently
 // provided as promises.
 // TODO: Once we have a way of finalizing this config prior to runtime
 // we'll want to provide these using bpf.MapOut[T] (GH: #32557)
 var Cell = cell.Module(
 	"nat-maps",
 	"NAT Maps",
-	cell.Provide(func(lc cell.Lifecycle, cfgPromise promise.Promise[*option.DaemonConfig]) (promise.Promise[NatMap4], promise.Promise[NatMap6]) {
+	cell.Provide(func(lc cell.Lifecycle, registry *metrics.Registry, cfgPromise promise.Promise[*option.DaemonConfig], kprCfg kpr.KPRConfig) (promise.Promise[NatMap4], promise.Promise[NatMap6]) {
 		var ipv4Nat, ipv6Nat *Map
 		res4, promise4 := promise.New[NatMap4]()
 		res6, promise6 := promise.New[NatMap6]()
@@ -40,13 +42,13 @@ var Cell = cell.Module(
 				if err != nil {
 					return fmt.Errorf("failed to wait for config promise: %w", err)
 				}
-				if !cfg.EnableNodePort {
-					res4.Reject(fmt.Errorf("nat IPv4: %w", MapDisabled))
-					res6.Reject(fmt.Errorf("nat IPv6: %w", MapDisabled))
+				if !kprCfg.KubeProxyReplacement && !cfg.EnableBPFMasquerade {
+					res4.Reject(fmt.Errorf("nat IPv4: %w", ErrMapDisabled))
+					res6.Reject(fmt.Errorf("nat IPv6: %w", ErrMapDisabled))
 					return nil
 				}
 
-				ipv4Nat, ipv6Nat = GlobalMaps(cfg.EnableIPv4,
+				ipv4Nat, ipv6Nat = GlobalMaps(registry, cfg.EnableIPv4,
 					cfg.EnableIPv6, true)
 
 				// Maps are still created before DaemonConfig promise is resolved in
@@ -64,7 +66,7 @@ var Cell = cell.Module(
 					}
 					res4.Resolve(ipv4Nat)
 				} else {
-					res4.Reject(MapDisabled)
+					res4.Reject(ErrMapDisabled)
 				}
 				if cfg.EnableIPv6 {
 					if err := ipv6Nat.Open(); err != nil {
@@ -72,18 +74,19 @@ var Cell = cell.Module(
 					}
 					res6.Resolve(ipv6Nat)
 				} else {
-					res6.Reject(MapDisabled)
+					res6.Reject(ErrMapDisabled)
 				}
 				return nil
 			},
 			OnStop: func(hc cell.HookContext) error {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 				defer cancel()
 				cfg, err := cfgPromise.Await(ctx)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to wait for config promise: %w", err)
 				}
-				if !cfg.EnableNodePort {
+
+				if !kprCfg.KubeProxyReplacement && !cfg.EnableBPFMasquerade {
 					return nil
 				}
 

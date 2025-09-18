@@ -8,9 +8,6 @@ import (
 )
 
 const (
-	// fieldKVStoreModule is the name of the kvstore backend (etcd)
-	fieldKVStoreModule = "module"
-
 	// key revision
 	fieldRev = "revision"
 

@@ -425,7 +425,7 @@ type FakeEndpointInfo struct {
 	Labels       []string
 	Pod          *slim_corev1.Pod
 
-	PolicyMap      map[policyTypes.Key]string
+	PolicyMap      map[policyTypes.Key]labels.LabelArrayListString
 	PolicyRevision uint64
 }
 
@@ -459,13 +459,13 @@ func (e *FakeEndpointInfo) GetPod() *slim_corev1.Pod {
 	return e.Pod
 }
 
-func (e *FakeEndpointInfo) GetRealizedPolicyRuleLabelsForKey(key policyTypes.Key) (
-	derivedFrom string,
-	revision uint64,
+func (e *FakeEndpointInfo) GetPolicyCorrelationInfoForKey(key policyTypes.Key) (
+	info policyTypes.PolicyCorrelationInfo,
 	ok bool,
 ) {
-	derivedFrom, ok = e.PolicyMap[key]
-	return derivedFrom, e.PolicyRevision, ok
+	info.RuleLabels, ok = e.PolicyMap[key]
+	info.Revision = e.PolicyRevision
+	return info, ok
 }
 
 // FakePodMetadataGetter is used for unit tests that need a PodMetadataGetter.

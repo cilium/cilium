@@ -4,12 +4,12 @@
 package observe
 
 import (
-	"context"
 	"io"
 	"log/slog"
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -27,9 +27,9 @@ func Test_getFlowsBasic(t *testing.T) {
 		require.NoError(t, err)
 		flowStrings = append(flowStrings, string(b))
 	}
-	server := NewIOReaderObserver(strings.NewReader(strings.Join(flowStrings, "\n") + "\n"))
+	server := NewIOReaderObserver(hivetest.Logger(t), strings.NewReader(strings.Join(flowStrings, "\n")+"\n"))
 	req := observerpb.GetFlowsRequest{}
-	client, err := server.GetFlows(context.Background(), &req)
+	client, err := server.GetFlows(t.Context(), &req)
 	require.NoError(t, err)
 	for range flows {
 		_, err = client.Recv()
@@ -60,12 +60,12 @@ func Test_getFlowsTimeRange(t *testing.T) {
 		require.NoError(t, err)
 		flowStrings = append(flowStrings, string(b))
 	}
-	server := NewIOReaderObserver(strings.NewReader(strings.Join(flowStrings, "\n") + "\n"))
+	server := NewIOReaderObserver(hivetest.Logger(t), strings.NewReader(strings.Join(flowStrings, "\n")+"\n"))
 	req := observerpb.GetFlowsRequest{
 		Since: &timestamppb.Timestamp{Seconds: 50},
 		Until: &timestamppb.Timestamp{Seconds: 150},
 	}
-	client, err := server.GetFlows(context.Background(), &req)
+	client, err := server.GetFlows(t.Context(), &req)
 	require.NoError(t, err)
 	res, err := client.Recv()
 	require.NoError(t, err)
@@ -95,12 +95,12 @@ func Test_getFlowsLast(t *testing.T) {
 		require.NoError(t, err)
 		flowStrings = append(flowStrings, string(b))
 	}
-	server := NewIOReaderObserver(strings.NewReader(strings.Join(flowStrings, "\n") + "\n"))
+	server := NewIOReaderObserver(hivetest.Logger(t), strings.NewReader(strings.Join(flowStrings, "\n")+"\n"))
 	req := observerpb.GetFlowsRequest{
 		Number: 2,
 		First:  false,
 	}
-	client, err := server.GetFlows(context.Background(), &req)
+	client, err := server.GetFlows(t.Context(), &req)
 	require.NoError(t, err)
 	res, err := client.Recv()
 	require.NoError(t, err)
@@ -133,12 +133,12 @@ func Test_getFlowsFirst(t *testing.T) {
 		require.NoError(t, err)
 		flowStrings = append(flowStrings, string(b))
 	}
-	server := NewIOReaderObserver(strings.NewReader(strings.Join(flowStrings, "\n") + "\n"))
+	server := NewIOReaderObserver(hivetest.Logger(t), strings.NewReader(strings.Join(flowStrings, "\n")+"\n"))
 	req := observerpb.GetFlowsRequest{
 		Number: 2,
 		First:  true,
 	}
-	client, err := server.GetFlows(context.Background(), &req)
+	client, err := server.GetFlows(t.Context(), &req)
 	require.NoError(t, err)
 	res, err := client.Recv()
 	require.NoError(t, err)
@@ -171,7 +171,7 @@ func Test_getFlowsFilter(t *testing.T) {
 		require.NoError(t, err)
 		flowStrings = append(flowStrings, string(b))
 	}
-	server := NewIOReaderObserver(strings.NewReader(strings.Join(flowStrings, "\n") + "\n"))
+	server := NewIOReaderObserver(hivetest.Logger(t), strings.NewReader(strings.Join(flowStrings, "\n")+"\n"))
 	req := observerpb.GetFlowsRequest{
 		Whitelist: []*flowpb.FlowFilter{
 			{
@@ -179,7 +179,7 @@ func Test_getFlowsFilter(t *testing.T) {
 			},
 		},
 	}
-	client, err := server.GetFlows(context.Background(), &req)
+	client, err := server.GetFlows(t.Context(), &req)
 	require.NoError(t, err)
 	res, err := client.Recv()
 	require.NoError(t, err)
@@ -211,8 +211,8 @@ func Test_UnknownField(t *testing.T) {
 		sb.WriteString(s + "\n")
 	}
 	// server and client setup.
-	server := NewIOReaderObserver(strings.NewReader(sb.String()))
-	client, err := server.GetFlows(context.Background(), &observerpb.GetFlowsRequest{})
+	server := NewIOReaderObserver(hivetest.Logger(t), strings.NewReader(sb.String()))
+	client, err := server.GetFlows(t.Context(), &observerpb.GetFlowsRequest{})
 	require.NoError(t, err)
 	// logger setup.
 	logger.Initialize(slog.NewTextHandler(&sb, nil))

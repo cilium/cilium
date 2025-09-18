@@ -18,7 +18,7 @@ type envVarCheck struct {
 func (c *envVarCheck) Name() string {
 	name := c.name
 	name = strings.ToLower(name)
-	name = strings.Replace(name, "_", "-", -1)
+	name = strings.ReplaceAll(name, "_", "-")
 	return name
 }
 

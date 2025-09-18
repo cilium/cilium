@@ -169,20 +169,25 @@ var (
 		// renovate: datasource=docker
 		"ConnectivityCheckAlpineCurlImage": "quay.io/cilium/alpine-curl:v1.10.0@sha256:913e8c9f3d960dde03882defa0edd3a919d529c2eb167caa7f54194528bde364",
 		// renovate: datasource=docker
-		"ConnectivityCheckJSONMockImage": "quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603",
+		"ConnectivityCheckJSONMockImage": "quay.io/cilium/json-mock:v1.3.9@sha256:c98b26177a5a60020e5aa404896d55f0ab573d506f42acfb4aa4f5705a5c6f56",
 		// renovate: datasource=docker
-		"ConnectivityDNSTestServerImage": "docker.io/coredns/coredns:1.12.0@sha256:40384aa1f5ea6bfdc77997d243aec73da05f27aed0c5e9d65bfa98933c519d97",
+		"ConnectivityDNSTestServerImage": "registry.k8s.io/coredns/coredns:v1.12.3@sha256:1391544c978029fcddc65068f6ad67f396e55585b664ecccd7fefba029b9b706",
 		// renovate: datasource=docker
-		"ConnectivityTestConnDisruptImage": "quay.io/cilium/test-connection-disruption:v0.0.14@sha256:c3fd56e326ae16f6cb63dbb2e26b4e47ec07a123040623e11399a7fe1196baa0",
+		"ConnectivityTestConnDisruptImage": "quay.io/cilium/test-connection-disruption:v0.0.16@sha256:e8e3257b2c89543dc49a2d820f2d2d69c1fe60eaf1036fc1f1f7375bad8e6232",
 		// renovate: datasource=docker
-		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb",
+		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.4.1@sha256:97a281a1473cae1f762ceab87cbcc53a2e102053877421e8b4606422aae45442",
 		// renovate: datasource=docker
-		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.1@sha256:e899028c84c1a1e65bb14821b0802a683a2cffbff96c9ac02ff1d9cbb03f64e6",
+		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.3@sha256:0ce60b527a31781c93c377f3f632e53fb5efaa86ecb006ad5e410203b9e8da20",
+	}
+
+	ConnectivityCheckOptionalImagesTest = map[string]string{
+		// renovate: datasource=docker
+		"ConnectivityTestEchoImage": "gcr.io/k8s-staging-gateway-api/echo-advanced:v20240412-v1.0.0-394-g40c666fd",
 	}
 
 	ConnectivityCheckImagesPerf = map[string]string{
 		// renovate: datasource=docker
-		"ConnectivityPerformanceImage": "quay.io/cilium/network-perf:a816f935930cb2b40ba43230643da4d5751a5711@sha256:679d3a370c696f63884da4557a4466f3b5569b4719bb4f86e8aac02fbe390eea",
+		"ConnectivityPerformanceImage": "quay.io/cilium/network-perf:1755027472-c3d489a@sha256:ef97611ec03c155a3c37b8ff78af6a8e49bf5e972be860f845a5318cbc72e363",
 	}
 
 	// The following variables are set at compile time via LDFLAGS.

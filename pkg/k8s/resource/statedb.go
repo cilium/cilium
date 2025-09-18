@@ -29,11 +29,13 @@ import (
 // Deprecated: This is a transitionary helper. Use only if converting from Resource[T] and need the
 // workqueue retry handling. If retrying is not needed use [statedb.Observable] instead or refactor
 // your code to use [statedb.Table.Changes].
-func NewTableEventStream[T k8sRuntime.Object](db *statedb.DB, table statedb.Table[T], getByKey func(Key) statedb.Query[T]) stream.Observable[Event[T]] {
+func NewTableEventStream[T k8sRuntime.Object](db *statedb.DB, table statedb.Table[T], getByKey func(Key) statedb.Query[T],
+	mp workqueue.MetricsProvider) stream.Observable[Event[T]] {
 	return &tableWorkQueue[T]{
-		db:       db,
-		table:    table,
-		getByKey: getByKey,
+		db:              db,
+		table:           table,
+		getByKey:        getByKey,
+		metricsProvider: mp,
 	}
 }
 
@@ -43,9 +45,10 @@ type tableWorkQueueItem struct {
 }
 
 type tableWorkQueue[T k8sRuntime.Object] struct {
-	db       *statedb.DB
-	table    statedb.Table[T]
-	getByKey func(Key) statedb.Query[T]
+	db              *statedb.DB
+	table           statedb.Table[T]
+	getByKey        func(Key) statedb.Query[T]
+	metricsProvider workqueue.MetricsProvider
 }
 
 func (twq *tableWorkQueue[T]) Observe(ctx context.Context, next func(Event[T]), complete func(error)) {
@@ -53,7 +56,8 @@ func (twq *tableWorkQueue[T]) Observe(ctx context.Context, next func(Event[T]), 
 	wq := workqueue.NewTypedRateLimitingQueueWithConfig[tableWorkQueueItem](
 		workqueue.DefaultTypedControllerRateLimiter[tableWorkQueueItem](),
 		workqueue.TypedRateLimitingQueueConfig[tableWorkQueueItem]{
-			Name: fmt.Sprintf("%T", zero),
+			Name:            fmt.Sprintf("%T", zero),
+			MetricsProvider: twq.metricsProvider,
 		},
 	)
 

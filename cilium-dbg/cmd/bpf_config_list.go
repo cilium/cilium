@@ -30,7 +30,7 @@ var bpfConfigListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf config list")
 
-		configMap, err := configmap.LoadMap()
+		configMap, err := configmap.LoadMap(log)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find config bpf map")

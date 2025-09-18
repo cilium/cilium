@@ -1,0 +1,17 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-to-echo-no-cluster-policy
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+    toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: cilium-test
+        kind: echo

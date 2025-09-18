@@ -69,8 +69,8 @@ func TestCorrelatePolicy(t *testing.T) {
 		PodName:      "xwing",
 		PodNamespace: "default",
 		Labels:       []string{"a", "b", "c"},
-		PolicyMap: map[policy.Key]string{
-			policyKey: labels.LabelArrayList{policyLabel}.String(),
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
 		},
 		PolicyRevision: 1,
 	}
@@ -183,8 +183,8 @@ func TestCorrelatePolicy(t *testing.T) {
 		PodName:      "xwing",
 		PodNamespace: "default",
 		Labels:       []string{"a", "b", "c"},
-		PolicyMap: map[policy.Key]string{
-			policyKey: labels.LabelArrayList{policyLabel}.String(),
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
 		},
 		PolicyRevision: 1,
 	}
@@ -206,8 +206,8 @@ func TestCorrelatePolicy(t *testing.T) {
 		PodName:      "xwing",
 		PodNamespace: "default",
 		Labels:       []string{"a", "b", "c"},
-		PolicyMap: map[policy.Key]string{
-			policyKey: labels.LabelArrayList{policyLabel}.String(),
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
 		},
 		PolicyRevision: 1,
 	}
@@ -257,8 +257,8 @@ func TestCorrelatePolicy(t *testing.T) {
 		PodName:      "xwing",
 		PodNamespace: "default",
 		Labels:       []string{"a", "b", "c"},
-		PolicyMap: map[policy.Key]string{
-			policyKey: labels.LabelArrayList{policyLabel}.String(),
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
 		},
 		PolicyRevision: 1,
 	}
@@ -308,8 +308,8 @@ func TestCorrelatePolicy(t *testing.T) {
 		PodName:      "xwing",
 		PodNamespace: "default",
 		Labels:       []string{"a", "b", "c"},
-		PolicyMap: map[policy.Key]string{
-			policyKey: labels.LabelArrayList{policyLabel}.String(),
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
 		},
 		PolicyRevision: 1,
 	}
@@ -359,8 +359,8 @@ func TestCorrelatePolicy(t *testing.T) {
 		PodName:      "xwing",
 		PodNamespace: "default",
 		Labels:       []string{"a", "b", "c"},
-		PolicyMap: map[policy.Key]string{
-			policyKey: labels.LabelArrayList{policyLabel}.String(),
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
 		},
 		PolicyRevision: 1,
 	}
@@ -411,8 +411,8 @@ func TestCorrelatePolicy(t *testing.T) {
 		PodName:      "xwing",
 		PodNamespace: "default",
 		Labels:       []string{"a", "b", "c"},
-		PolicyMap: map[policy.Key]string{
-			policyKey: labels.LabelArrayList{policyLabel}.String(),
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
 		},
 		PolicyRevision: 1,
 	}
@@ -510,8 +510,8 @@ func TestCorrelatePolicy(t *testing.T) {
 		PodName:      "xwing",
 		PodNamespace: "default",
 		Labels:       []string{"a", "b", "c"},
-		PolicyMap: map[policy.Key]string{
-			policyKey: labels.LabelArrayList{policyLabel}.String(),
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
 		},
 		PolicyRevision: 1,
 	}

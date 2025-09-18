@@ -5,6 +5,7 @@ package ratelimitmap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
@@ -20,6 +20,8 @@ import (
 var Cell = cell.Module(
 	"ratelimitmap",
 	"eBPF Ratelimit Map",
+	cell.Provide(newRatelimitMap),
+	cell.Provide(newRatelimitMetricsMap),
 	cell.Invoke(RegisterCollector),
 )
 
@@ -41,28 +43,6 @@ type ratelimitMetricsMap struct {
 type ratelimitMap struct {
 	*bpf.Map
 }
-
-var (
-	// ratelimitMetrics is the bpf ratelimit metrics map.
-	ratelimitMetrics = ratelimitMetricsMap{bpf.NewMap(
-		MetricsMapName,
-		ebpf.Hash,
-		&MetricsKey{},
-		&MetricsValue{},
-		MaxMetricsEntries,
-		0,
-	)}
-	// ratelimit is the bpf ratelimit map.
-	ratelimit = ratelimitMap{bpf.NewMap(
-		MapName,
-		ebpf.LRUHash,
-		&Key{},
-		&Value{},
-		MaxEntries,
-		0,
-	)}
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ratelimit-map")
-)
 
 const (
 	// MetricsMapName for ratelimit metrics map.
@@ -175,20 +155,25 @@ func (rm ratelimitMetricsMap) DumpWithCallback(cb DumpCallback) error {
 
 // ratelimitMetricsMapCollector implements Prometheus Collector interface
 type ratelimitMetricsMapCollector struct {
+	logger *slog.Logger
+
 	mutex lock.Mutex
 
-	droppedDesc *prometheus.Desc
-	droppedMap  map[usageType]float64
+	droppedDesc         *prometheus.Desc
+	droppedMap          map[usageType]float64
+	ratelimitMetricsMap *ratelimitMetricsMap
 }
 
-func newRatelimitMetricsMapCollector() *ratelimitMetricsMapCollector {
+func newRatelimitMetricsMapCollector(logger *slog.Logger, ratelimitMetricsMap *ratelimitMetricsMap) *ratelimitMetricsMapCollector {
 	return &ratelimitMetricsMapCollector{
+		logger:     logger,
 		droppedMap: make(map[usageType]float64),
 		droppedDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "bpf_ratelimit_dropped_total"),
 			"Total drops resulting from BPF ratelimiter, tagged by source of drop",
 			[]string{"usage"}, nil,
 		),
+		ratelimitMetricsMap: ratelimitMetricsMap,
 	}
 }
 
@@ -196,11 +181,11 @@ func (rc *ratelimitMetricsMapCollector) Collect(ch chan<- prometheus.Metric) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
 
-	err := ratelimitMetrics.DumpWithCallback(func(k *MetricsKey, val *MetricsValue) {
+	err := rc.ratelimitMetricsMap.DumpWithCallback(func(k *MetricsKey, val *MetricsValue) {
 		rc.droppedMap[k.Usage] = float64(val.Dropped)
 	})
 	if err != nil {
-		log.WithError(err).Warn("Failed to read ratelimit metrics from BPF map")
+		rc.logger.Warn("Failed to read ratelimit metrics from BPF map", logfields.Error, err)
 		// Do not update partial metrics
 		return
 	}
@@ -218,16 +203,69 @@ func (rc *ratelimitMetricsMapCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- rc.droppedDesc
 }
 
-func RegisterCollector() {
-	if err := metrics.Register(newRatelimitMetricsMapCollector()); err != nil {
-		log.WithError(err).Error("Failed to register ratelimit metrics map collector to Prometheus registry. " +
-			"BPF ratelimit metrics will not be collected")
+func RegisterCollector(logger *slog.Logger, ratelimitMetricsMap *ratelimitMetricsMap) {
+	if err := metrics.Register(newRatelimitMetricsMapCollector(logger, ratelimitMetricsMap)); err != nil {
+		logger.Error(
+			"Failed to register ratelimit metrics map collector to Prometheus registry. "+
+				"BPF ratelimit metrics will not be collected",
+			logfields.Error, err,
+		)
 	}
 }
 
-func InitMaps() error {
-	if err := ratelimit.OpenOrCreate(); err != nil {
-		return err
-	}
-	return ratelimitMetrics.OpenOrCreate()
+func newRatelimitMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMap] {
+	ratelimitMap := &ratelimitMap{bpf.NewMap(
+		MapName,
+		ebpf.LRUHash,
+		&Key{},
+		&Value{},
+		MaxEntries,
+		0,
+	)}
+
+	lifecycle.Append(cell.Hook{
+		OnStart: func(context cell.HookContext) error {
+			if err := ratelimitMap.OpenOrCreate(); err != nil {
+				return fmt.Errorf("failed to init ratelimit bpf map: %w", err)
+			}
+			return nil
+		},
+		OnStop: func(context cell.HookContext) error {
+			if err := ratelimitMap.Close(); err != nil {
+				return fmt.Errorf("failed to close ratelimit bpf map: %w", err)
+			}
+			return nil
+		},
+	})
+
+	return bpf.NewMapOut(ratelimitMap)
+}
+
+func newRatelimitMetricsMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMetricsMap] {
+	// ratelimitMetrics is the bpf ratelimit metrics map.
+	ratelimitMetricsMap := &ratelimitMetricsMap{bpf.NewMap(
+		MetricsMapName,
+		ebpf.Hash,
+		&MetricsKey{},
+		&MetricsValue{},
+		MaxMetricsEntries,
+		0,
+	)}
+
+	lifecycle.Append(cell.Hook{
+		OnStart: func(context cell.HookContext) error {
+			if err := ratelimitMetricsMap.OpenOrCreate(); err != nil {
+				return fmt.Errorf("failed to init ratelimit metrics bpf map: %w", err)
+			}
+			return nil
+		},
+		OnStop: func(context cell.HookContext) error {
+			if err := ratelimitMetricsMap.Close(); err != nil {
+				return fmt.Errorf("failed to close ratelimit metrics bpf map: %w", err)
+			}
+			return nil
+		},
+	})
+
+	return bpf.NewMapOut(ratelimitMetricsMap)
 }

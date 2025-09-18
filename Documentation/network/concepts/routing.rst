@@ -31,9 +31,6 @@ Requirements on the network
   Cilium nodes can already reach each other, all routing requirements are
   already met.
 
-* The underlying network must support IPv4. See :gh-issue:`17240`
-  for the status of IPv6-based tunneling.
-
 * The underlying network and firewalls must allow encapsulated packets:
 
   ================== =====================
@@ -79,6 +76,18 @@ MTU Overhead
   This results in a lower maximum throughput rate for a particular network
   connection. This can be largely mitigated by enabling jumbo frames (50 bytes
   of overhead for each 1500 bytes vs 50 bytes of overhead for each 9000 bytes).
+
+Configuration
+-------------
+
+The following options can be used to configure encapsulation:
+
+* ``tunnel-protocol``: Set the encapsulation protocol to ``vxlan`` or
+  ``geneve``, defaults to ``vxlan``.
+* ``underlay-protocol``: Set the IP family for the underlay. Defaults to
+  ``ipv4``. The underlying network must support that protocol.
+* ``tunnel-port``: Set the port for the encapsulation protocol. Defaults
+  to ``8472`` for ``vxlan`` and ``6081`` for ``geneve``.
 
 .. _arch_direct_routing:
 .. _native_routing:
@@ -289,9 +298,6 @@ Masquerading
 
 Load-balancing
    ClusterIP load-balancing will be performed using eBPF for all version of GKE.
-   Starting with >= GKE v1.15 or when running a Linux kernel >= 4.19, all
-   NodePort/ExternalIP/HostPort will be performed using a eBPF implementation as
-   well.
 
 Policy enforcement & visibility
    All NetworkPolicy enforcement and visibility is provided using eBPF.

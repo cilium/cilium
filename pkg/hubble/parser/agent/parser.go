@@ -102,51 +102,6 @@ func notifyIPCacheNotificationToProto(typ flowpb.AgentEventType, n monitorAPI.IP
 	}
 }
 
-func notifyServiceUpsertedToProto(typ flowpb.AgentEventType, n monitorAPI.ServiceUpsertNotification) *flowpb.AgentEvent {
-	feAddr := &flowpb.ServiceUpsertNotificationAddr{
-		Ip:   n.Frontend.IP.String(),
-		Port: uint32(n.Frontend.Port),
-	}
-	beAddrs := make([]*flowpb.ServiceUpsertNotificationAddr, 0, len(n.Backends))
-	for _, be := range n.Backends {
-		var ipStr string
-		if be.IP != nil {
-			ipStr = be.IP.String()
-		}
-		beAddrs = append(beAddrs, &flowpb.ServiceUpsertNotificationAddr{
-			Ip:   ipStr,
-			Port: uint32(be.Port),
-		})
-	}
-	return &flowpb.AgentEvent{
-		Type: typ,
-		Notification: &flowpb.AgentEvent_ServiceUpsert{
-			ServiceUpsert: &flowpb.ServiceUpsertNotification{
-				Id:               n.ID,
-				FrontendAddress:  feAddr,
-				BackendAddresses: beAddrs,
-				Type:             n.Type,
-				TrafficPolicy:    n.ExtTrafficPolicy,
-				ExtTrafficPolicy: n.ExtTrafficPolicy,
-				IntTrafficPolicy: n.IntTrafficPolicy,
-				Name:             n.Name,
-				Namespace:        n.Namespace,
-			},
-		},
-	}
-}
-
-func notifyServiceDeletedToProto(typ flowpb.AgentEventType, n monitorAPI.ServiceDeleteNotification) *flowpb.AgentEvent {
-	return &flowpb.AgentEvent{
-		Type: typ,
-		Notification: &flowpb.AgentEvent_ServiceDelete{
-			ServiceDelete: &flowpb.ServiceDeleteNotification{
-				Id: n.ID,
-			},
-		},
-	}
-}
-
 func notifyUnknownToProto(typ flowpb.AgentEventType, msg monitorAPI.AgentNotifyMessage) *flowpb.AgentEvent {
 	n, _ := json.Marshal(msg.Notification)
 	return &flowpb.AgentEvent{
@@ -189,14 +144,6 @@ func NotifyMessageToProto(msg monitorAPI.AgentNotifyMessage) *flowpb.AgentEvent 
 			return notifyIPCacheNotificationToProto(flowpb.AgentEventType_IPCACHE_UPSERTED, n)
 		} else if msg.Type == monitorAPI.AgentNotifyIPCacheDeleted {
 			return notifyIPCacheNotificationToProto(flowpb.AgentEventType_IPCACHE_DELETED, n)
-		}
-	case monitorAPI.ServiceUpsertNotification:
-		if msg.Type == monitorAPI.AgentNotifyServiceUpserted {
-			return notifyServiceUpsertedToProto(flowpb.AgentEventType_SERVICE_UPSERTED, n)
-		}
-	case monitorAPI.ServiceDeleteNotification:
-		if msg.Type == monitorAPI.AgentNotifyServiceDeleted {
-			return notifyServiceDeletedToProto(flowpb.AgentEventType_SERVICE_DELETED, n)
 		}
 	}
 	return notifyUnknownToProto(flowpb.AgentEventType_AGENT_EVENT_UNKNOWN, msg)

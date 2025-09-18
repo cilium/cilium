@@ -4,23 +4,18 @@
 package mcastmanager
 
 import (
+	"log/slog"
 	"net/netip"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/multicast"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "mcast-manager")
-)
-
 // MCastManager manages IPv6 address
 type MCastManager struct {
-	mutex lock.Mutex
+	logger *slog.Logger
+	mutex  lock.Mutex
 
 	// iface is the interface that mcast addresses are applied to
 	iface string
@@ -36,8 +31,9 @@ type MCastManager struct {
 
 // New creates a McastManager instance. Create a dummy manager when iface is empty
 // string.
-func New(iface string) *MCastManager {
+func New(logger *slog.Logger, iface string) *MCastManager {
 	return &MCastManager{
+		logger:    logger.With(logfields.LogSubsys, "mcast-manager"),
 		addresses: make(map[int32]map[netip.Addr]struct{}),
 		state:     make(map[netip.Addr]struct{}),
 		iface:     iface,
@@ -87,30 +83,38 @@ func (mgr *MCastManager) RemoveAddress(ipv6 netip.Addr) {
 
 func (mgr *MCastManager) joinGroup(ipv6 netip.Addr) {
 	maddr := multicast.Address(ipv6).SolicitedNodeMaddr()
-	if err := multicast.JoinGroup(mgr.iface, maddr); err != nil {
-		log.WithError(err).WithField("maddr", maddr).Warn("failed to join multicast group")
+	if err := multicast.JoinGroup(mgr.logger, mgr.iface, maddr); err != nil {
+		mgr.logger.Warn("failed to join multicast group",
+			logfields.Error, err,
+			logfields.MulticastAddr, maddr,
+		)
 		return
 	}
 
-	log.WithFields(logrus.Fields{
-		"device": mgr.iface,
-		"mcast":  maddr,
-	}).Info("Joined multicast group")
+	mgr.logger.Info(
+		"Joined multicast group",
+		logfields.Device, mgr.iface,
+		logfields.MulticastAddr, maddr,
+	)
 
 	mgr.state[maddr] = struct{}{}
 }
 
 func (mgr *MCastManager) leaveGroup(ipv6 netip.Addr) {
 	maddr := multicast.Address(ipv6).SolicitedNodeMaddr()
-	if err := multicast.LeaveGroup(mgr.iface, maddr); err != nil {
-		log.WithError(err).WithField("maddr", maddr).Warn("failed to leave multicast group")
+	if err := multicast.LeaveGroup(mgr.logger, mgr.iface, maddr); err != nil {
+		mgr.logger.Warn("failed to leave multicast group",
+			logfields.Error, err,
+			logfields.MulticastAddr, maddr,
+		)
 		return
 	}
 
-	log.WithFields(logrus.Fields{
-		"device": mgr.iface,
-		"mcast":  maddr,
-	}).Info("Left multicast group")
+	mgr.logger.Info(
+		"Left multicast group",
+		logfields.Device, mgr.iface,
+		logfields.MulticastAddr, maddr,
+	)
 
 	delete(mgr.state, maddr)
 }

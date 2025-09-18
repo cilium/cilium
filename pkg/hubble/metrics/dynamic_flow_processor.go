@@ -17,6 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+var _ FlowProcessor = (*DynamicFlowProcessor)(nil)
+
 // DynamicFlowProcessor represents instance of hubble exporter with dynamic
 // configuration reload.
 type DynamicFlowProcessor struct {
@@ -26,6 +28,12 @@ type DynamicFlowProcessor struct {
 	mutex    lock.RWMutex
 	Metrics  []api.NamedHandler
 	registry *prometheus.Registry
+}
+
+// ProcessFlow implements FlowProcessor.
+func (p *DynamicFlowProcessor) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+	_, err := p.OnDecodedFlow(ctx, flow)
+	return err
 }
 
 // OnDecodedEvent distributes events across all managed exporters.
@@ -145,7 +153,7 @@ func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, hash uint64, 
 }
 
 func (d *DynamicFlowProcessor) addNewMetric(reg *prometheus.Registry, cm *api.MetricConfig, metricNames map[string]*api.MetricConfig, newMetrics *[]api.NamedHandler) {
-	nh, err := api.DefaultRegistry().ValidateAndCreateHandler(reg, cm, &metricNames)
+	nh, err := api.DefaultRegistry().ValidateAndCreateHandler(cm, &metricNames)
 	if err != nil {
 		d.logger.Error(
 			"Failed to configure metrics plugin",

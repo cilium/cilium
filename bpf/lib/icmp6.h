@@ -17,20 +17,12 @@
 #define ICMP6_ND_OPTS (sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr))
 #define ICMP6_ND_OPT_LEN 8
 
-#define ICMP6_UNREACH_MSG_TYPE		1
-#define ICMP6_TIME_EXCEEDED_TYPE	3
-#define ICMP6_PARAM_ERR_MSG_TYPE	4
-#define ICMP6_ECHO_REQUEST_MSG_TYPE	128
-#define ICMP6_ECHO_REPLY_MSG_TYPE	129
-#define ICMP6_MULT_LIST_QUERY_TYPE	130
 #define ICMP6_NS_MSG_TYPE		135
 #define ICMP6_NA_MSG_TYPE		136
 #define ICMP6_RR_MSG_TYPE		138
 #define ICMP6_INV_NS_MSG_TYPE		141
-#define ICMP6_MULT_LIST_REPORT_V2_TYPE	143
 #define ICMP6_SEND_NS_MSG_TYPE		148
 #define ICMP6_SEND_NA_MSG_TYPE		149
-#define ICMP6_MULT_RA_MSG_TYPE		151
 #define ICMP6_MULT_RT_MSG_TYPE		153
 
 #define SKIP_HOST_FIREWALL	-2
@@ -249,7 +241,7 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 	upper = (data + 48);
 
 	/* fill icmp6hdr */
-	icmp6hoplim->icmp6_type = ICMP6_TIME_EXCEEDED_TYPE;
+	icmp6hoplim->icmp6_type = ICMPV6_TIME_EXCEED;
 	icmp6hoplim->icmp6_code = 0;
 	icmp6hoplim->icmp6_cksum = 0;
 	icmp6hoplim->icmp6_dataun.un_data32[0] = 0;
@@ -315,7 +307,7 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 }
 
 #ifndef SKIP_ICMPV6_HOPLIMIT_HANDLING
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED)
+__declare_tail(CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED)
 int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 {
 	int ret, nh_off = ctx_load_and_clear_meta(ctx, 0);
@@ -387,7 +379,7 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 }
 
 #ifndef SKIP_ICMPV6_NS_HANDLING
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS)
+__declare_tail(CILIUM_CALL_HANDLE_ICMP6_NS)
 int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
 {
 	int ret, nh_off = ctx_load_and_clear_meta(ctx, 0);
@@ -516,20 +508,57 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 	if (type == ICMP6_NS_MSG_TYPE)
 		return CTX_ACT_OK;
 
-	if (type == ICMP6_ECHO_REQUEST_MSG_TYPE || type == ICMP6_ECHO_REPLY_MSG_TYPE)
+	if (type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY)
 		/* Decision is deferred to the host policies. */
 		return CTX_ACT_OK;
 
-	if ((ICMP6_UNREACH_MSG_TYPE <= type && type <= ICMP6_PARAM_ERR_MSG_TYPE) ||
-		(ICMP6_MULT_LIST_QUERY_TYPE <= type && type <= ICMP6_NA_MSG_TYPE) ||
-		(ICMP6_INV_NS_MSG_TYPE <= type && type <= ICMP6_MULT_LIST_REPORT_V2_TYPE) ||
-		(ICMP6_SEND_NS_MSG_TYPE <= type && type <= ICMP6_SEND_NA_MSG_TYPE) ||
-		(ICMP6_MULT_RA_MSG_TYPE <= type && type <= ICMP6_MULT_RT_MSG_TYPE))
+	if ((type >= ICMPV6_DEST_UNREACH && type <= ICMPV6_PARAMPROB) ||
+	    (type >= ICMPV6_MGM_QUERY && type <= ICMP6_NA_MSG_TYPE) ||
+	    (type >= ICMP6_INV_NS_MSG_TYPE && type <= ICMPV6_MLD2_REPORT) ||
+	    (type >= ICMP6_SEND_NS_MSG_TYPE && type <= ICMP6_SEND_NA_MSG_TYPE) ||
+	    (type >= ICMPV6_MRDISC_ADV && type <= ICMP6_MULT_RT_MSG_TYPE))
 		return SKIP_HOST_FIREWALL;
 	return DROP_FORBIDDEN_ICMP6;
 #else
 	return CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
+}
+
+static __always_inline
+bool icmp6_ndisc_validate(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
+			  const union macaddr *iface_mac, union v6addr *tip)
+{
+	__u8 nexthdr = ip6->nexthdr;
+	struct icmp6hdr *icmp;
+	int l4_off = ipv6_hdrlen(ctx, &nexthdr);
+	struct ethhdr *eth = ctx_data(ctx);
+	union macaddr *dmac;
+
+	/* On l2-less devices there is no MAC address, and we cannot proceed */
+	if (sizeof(struct ethhdr) != ETH_HLEN)
+		return false;
+
+	if ((void *)eth + ETH_HLEN > ctx_data_end(ctx))
+		return false;
+
+	dmac = (union macaddr *)&eth->h_dest;
+
+	if (l4_off < 0 || nexthdr != NEXTHDR_ICMP)
+		return false;
+
+	icmp = (struct icmp6hdr *)((__u8 *)ip6 + l4_off);
+	if ((void *)icmp + sizeof(*icmp) + sizeof(*tip) > ctx_data_end(ctx))
+		return false;
+
+	if (icmp->icmp6_type != ICMP6_NS_MSG_TYPE)
+		return false;
+
+	*tip = *(union v6addr *)(icmp + 1);
+
+	if (!ipv6_is_sol_mc_mac(tip, dmac) && eth_addrcmp(dmac, iface_mac) != 0)
+		return false;
+
+	return true;
 }
 
 #endif

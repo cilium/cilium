@@ -12,15 +12,11 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-nat")
 )
 
 const (
@@ -90,7 +86,7 @@ type RetriesMap interface {
 }
 
 // NewMap instantiates a Map.
-func NewMap(name string, family IPFamily, entries int) *Map {
+func NewMap(registry *metrics.Registry, name string, family IPFamily, entries int) *Map {
 	var mapKey bpf.MapKey
 	var mapValue bpf.MapValue
 
@@ -112,7 +108,7 @@ func NewMap(name string, family IPFamily, entries int) *Map {
 			0,
 		).WithCache().
 			WithEvents(option.Config.GetEventBufferConfig(name)).
-			WithPressureMetric(),
+			WithPressureMetric(registry),
 		family: family,
 	}
 }
@@ -261,9 +257,12 @@ func statStartGc(m *Map) gcStats {
 func doFlush4(m *Map) gcStats {
 	stats := statStartGc(m)
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
-		err := (&m.Map).Delete(key)
+		err := (&m.Map).DeleteLocked(key)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete NAT entry")
+			m.Logger.Error("Unable to delete NAT entry",
+				logfields.Error, err,
+				logfields.Key, key,
+			)
 		} else {
 			stats.deleted++
 		}
@@ -275,9 +274,12 @@ func doFlush4(m *Map) gcStats {
 func doFlush6(m *Map) gcStats {
 	stats := statStartGc(m)
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
-		err := (&m.Map).Delete(key)
+		err := (&m.Map).DeleteLocked(key)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete NAT entry")
+			m.Logger.Error("Unable to delete NAT entry",
+				logfields.Error, err,
+				logfields.Key, key,
+			)
 		} else {
 			stats.deleted++
 		}
@@ -386,15 +388,15 @@ func DeleteSwappedMapping6(m *Map, tk tuple.TupleKey) error {
 }
 
 // GlobalMaps returns all global NAT maps.
-func GlobalMaps(ipv4, ipv6, nodeport bool) (ipv4Map, ipv6Map *Map) {
-	if !nodeport {
+func GlobalMaps(registry *metrics.Registry, ipv4, ipv6, natRequired bool) (ipv4Map, ipv6Map *Map) {
+	if !natRequired {
 		return
 	}
 	if ipv4 {
-		ipv4Map = NewMap(MapNameSnat4Global, IPv4, maxEntries())
+		ipv4Map = NewMap(registry, MapNameSnat4Global, IPv4, maxEntries())
 	}
 	if ipv6 {
-		ipv6Map = NewMap(MapNameSnat6Global, IPv6, maxEntries())
+		ipv6Map = NewMap(registry, MapNameSnat6Global, IPv6, maxEntries())
 	}
 	return
 }
@@ -424,8 +426,8 @@ func maxEntries() int {
 }
 
 // RetriesMaps returns the maps that contain the histograms of the number of retries.
-func RetriesMaps(ipv4, ipv6, nodeport bool) (ipv4RetriesMap, ipv6RetriesMap RetriesMap) {
-	if !nodeport {
+func RetriesMaps(ipv4, ipv6, natRequired bool) (ipv4RetriesMap, ipv6RetriesMap RetriesMap) {
+	if !natRequired {
 		return
 	}
 	if ipv4 {

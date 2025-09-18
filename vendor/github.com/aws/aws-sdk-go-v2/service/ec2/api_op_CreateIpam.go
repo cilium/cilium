@@ -55,6 +55,21 @@ type CreateIpamInput struct {
 	// option is disabled by default.
 	EnablePrivateGua *bool
 
+	// A metered account is an Amazon Web Services account that is charged for active
+	// IP addresses managed in IPAM. For more information, see [Enable cost distribution]in the Amazon VPC IPAM
+	// User Guide.
+	//
+	// Possible values:
+	//
+	//   - ipam-owner (default): The Amazon Web Services account which owns the IPAM is
+	//   charged for all active IP addresses managed in IPAM.
+	//
+	//   - resource-owner : The Amazon Web Services account that owns the IP address is
+	//   charged for the active IP address.
+	//
+	// [Enable cost distribution]: https://docs.aws.amazon.com/vpc/latest/ipam/ipam-enable-cost-distro.html
+	MeteredAccount types.IpamMeteredAccount
+
 	// The operating Regions for the IPAM. Operating Regions are Amazon Web Services
 	// Regions where the IPAM is allowed to manage IP address CIDRs. IPAM only
 	// discovers and monitors resources in the Amazon Web Services Regions you select
@@ -179,6 +194,36 @@ func (c *Client) addOperationCreateIpamMiddlewares(stack *middleware.Stack, opti
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

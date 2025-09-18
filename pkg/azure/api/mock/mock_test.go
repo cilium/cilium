@@ -5,17 +5,18 @@ package mock
 
 import (
 	"errors"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/azure/types"
-	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
 func TestMock(t *testing.T) {
-	subnet := &ipamTypes.Subnet{ID: "s-1", CIDR: cidr.MustParseCIDR("10.0.0.0/16"), AvailableAddresses: 65534}
+	cidr := netip.MustParsePrefix("10.0.0.0/16")
+	subnet := &ipamTypes.Subnet{ID: "s-1", CIDR: cidr, AvailableAddresses: 65534}
 	api := NewAPI([]*ipamTypes.Subnet{subnet}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}})
 	require.NotNil(t, api)
 
@@ -99,7 +100,8 @@ func TestSetMockError(t *testing.T) {
 }
 
 func TestSetLimiter(t *testing.T) {
-	subnet := &ipamTypes.Subnet{ID: "s-1", CIDR: cidr.MustParseCIDR("10.0.0.0/16"), AvailableAddresses: 100}
+	cidr := netip.MustParsePrefix("10.0.0.0/16")
+	subnet := &ipamTypes.Subnet{ID: "s-1", CIDR: cidr, AvailableAddresses: 100}
 	api := NewAPI([]*ipamTypes.Subnet{subnet}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}})
 	require.NotNil(t, api)
 

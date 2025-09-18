@@ -37,7 +37,7 @@ A basic IP Pools with both an IPv4 and IPv6 range looks like this:
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
@@ -55,6 +55,12 @@ After adding the pool to the cluster, it appears like so.
     $ kubectl get ippools                           
     NAME        DISABLED   CONFLICTING   IPS AVAILABLE   AGE
     blue-pool   false      False         65892           2s
+
+.. warning::
+
+  Updating an IP pool can result in IP addresses being reassigned and service IPs
+  could change. See :gh-issue:`40358`
+
 
 CIDRs, Ranges and reserved IPs
 ------------------------------
@@ -78,12 +84,6 @@ since these only have 1 or 2 IPs respectively.
 This setting only applies to blocks specified with ``.spec.blocks[].cidr`` and not to
 blocks specified with ``.spec.blocks[].start`` and ``.spec.blocks[].stop``.
 
-.. warning::
-
-  In v1.15, ``.spec.allowFirstLastIPs`` defaults to ``No``. This has changed to
-  ``Yes`` in v1.16. Please set this field explicitly if you rely on the field
-  being set to ``No``.
-
 Service Selectors
 -----------------
 
@@ -93,7 +93,7 @@ The pool will allocate to any service if no service selector is specified.
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
@@ -104,7 +104,7 @@ The pool will allocate to any service if no service selector is specified.
         matchExpressions:
           - {key: color, operator: In, values: [blue, cyan]}
     ---
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "red-pool"
@@ -129,7 +129,7 @@ For example:
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
@@ -193,7 +193,7 @@ an administrator to slowly drain pool or reserve a pool for future use.
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2alpha1"
+    apiVersion: "cilium.io/v2"
     kind: CiliumLoadBalancerIPPool
     metadata:
       name: "blue-pool"
@@ -251,7 +251,7 @@ Or human readable output like so
     Namespace:    
     Labels:       <none>
     Annotations:  <none>
-    API Version:  cilium.io/v2alpha1
+    API Version:  cilium.io/v2
     Kind:         CiliumLoadBalancerIPPool
     #[...]
     Status:

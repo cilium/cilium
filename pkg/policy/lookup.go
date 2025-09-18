@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -46,21 +44,21 @@ type EndpointInfo struct {
 // This function is only used for testing, but in multiple packages.
 //
 // TODO: add support for redirects
-func LookupFlow(logger *slog.Logger, repo PolicyRepository, flow Flow, srcEP, dstEP *EndpointInfo) (api.Decision, error) {
+func LookupFlow(logger *slog.Logger, repo PolicyRepository, flow Flow, srcEP, dstEP *EndpointInfo) (verdict api.Decision, egress, ingress RuleMeta, err error) {
 	if flow.From.ID == 0 || flow.To.ID == 0 {
-		return api.Undecided, fmt.Errorf("cannot lookup flow: numeric IDs missing")
+		return api.Undecided, ingress, egress, fmt.Errorf("cannot lookup flow: numeric IDs missing")
 	}
 	if _, exists := repo.GetSelectorCache().idCache[flow.From.ID]; !exists {
-		return api.Undecided, fmt.Errorf("From.ID not in SelectorCache!")
+		return api.Undecided, ingress, egress, fmt.Errorf("From.ID not in SelectorCache!")
 	}
 	if _, exists := repo.GetSelectorCache().idCache[flow.To.ID]; !exists {
-		return api.Undecided, fmt.Errorf("To.ID not in SelectorCache!")
+		return api.Undecided, ingress, egress, fmt.Errorf("To.ID not in SelectorCache!")
 	}
 	if flow.Dport == 0 {
-		return api.Undecided, fmt.Errorf("cannot lookup flow: port number missing")
+		return api.Undecided, ingress, egress, fmt.Errorf("cannot lookup flow: port number missing")
 	}
 	if flow.Proto == 0 {
-		return api.Undecided, fmt.Errorf("cannot lookup flow: protocol missing")
+		return api.Undecided, ingress, egress, fmt.Errorf("cannot lookup flow: protocol missing")
 	}
 
 	if srcEP == nil {
@@ -81,33 +79,33 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, flow Flow, srcEP, ds
 	// Resolve and look up the flow as egress from the source
 	selPolSrc, _, err := repo.GetSelectorPolicy(flow.From, 0, &dummyPolicyStats{}, srcEP.ID)
 	if err != nil {
-		return api.Undecided, fmt.Errorf("GetSelectorPolicy(from) failed: %w", err)
+		return api.Undecided, ingress, egress, fmt.Errorf("GetSelectorPolicy(from) failed: %w", err)
 	}
 
 	epp := selPolSrc.DistillPolicy(logger, srcEP, nil)
 	epp.Ready()
 	epp.Detach(logger)
 	key := EgressKey().WithIdentity(flow.To.ID).WithPortProto(flow.Proto, flow.Dport)
-	entry, _, _ := epp.Lookup(key)
+	entry, ingress, _ := epp.Lookup(key)
 	if entry.IsDeny() {
-		return api.Denied, nil
+		return api.Denied, ingress, egress, nil
 	}
 
 	// Resolve ingress policy for destination
 	selPolDst, _, err := repo.GetSelectorPolicy(flow.To, 0, &dummyPolicyStats{}, dstEP.ID)
 	if err != nil {
-		return api.Undecided, fmt.Errorf("GetSelectorPolicy(to) failed: %w", err)
+		return api.Undecided, ingress, egress, fmt.Errorf("GetSelectorPolicy(to) failed: %w", err)
 	}
 	epp = selPolDst.DistillPolicy(logger, dstEP, nil)
 	epp.Ready()
 	epp.Detach(logger)
 	key = IngressKey().WithIdentity(flow.From.ID).WithPortProto(flow.Proto, flow.Dport)
-	entry, _, _ = epp.Lookup(key)
+	entry, egress, _ = epp.Lookup(key)
 	if entry.IsDeny() {
-		return api.Denied, nil
+		return api.Denied, ingress, egress, nil
 	}
 
-	return api.Allowed, nil
+	return api.Allowed, ingress, egress, nil
 }
 
 var _ PolicyOwner = &EndpointInfo{}
@@ -132,12 +130,8 @@ func (ei *EndpointInfo) GetNamedPort(ingress bool, name string, proto u8proto.U8
 	return 0
 }
 
-func (ei *EndpointInfo) PolicyDebug(fields logrus.Fields, msg string) {
+func (ei *EndpointInfo) PolicyDebug(msg string, attrs ...any) {
 	if ei.Logger != nil {
-		attrs := make([]any, 0, len(fields)*2)
-		for k, v := range fields {
-			attrs = append(attrs, k, v)
-		}
 		ei.Logger.Debug(msg, attrs...)
 	}
 }

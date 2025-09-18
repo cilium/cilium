@@ -4,7 +4,6 @@
 package ciliumendpointslice
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -18,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/metrics"
 )
@@ -26,12 +25,12 @@ import (
 func TestReconcileCreate(t *testing.T) {
 	var r *reconciler
 	var fakeClient *k8sClient.FakeClientset
-	m := newCESManager(2, hivetest.Logger(t)).(*cesManager)
+	m := newCESManager(2, hivetest.Logger(t))
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(
@@ -48,9 +47,9 @@ func TestReconcileCreate(t *testing.T) {
 		}),
 	)
 	tlog := hivetest.Logger(t)
-	hive.Start(tlog, context.Background())
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
-	cepStore, _ := ciliumEndpoint.Store(context.Background())
+	hive.Start(tlog, t.Context())
+	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	cepStore, _ := ciliumEndpoint.Store(t.Context())
 
 	var createdSlice *cilium_v2a1.CiliumEndpointSlice
 	fakeClient.CiliumFakeClientset.PrependReactor("create", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -79,18 +78,18 @@ func TestReconcileCreate(t *testing.T) {
 	assert.Contains(t, eps, "cep1")
 	assert.Contains(t, eps, "cep2")
 
-	hive.Stop(tlog, context.Background())
+	hive.Stop(tlog, t.Context())
 }
 
 func TestReconcileUpdate(t *testing.T) {
 	var r *reconciler
 	var fakeClient *k8sClient.FakeClientset
-	m := newCESManager(2, hivetest.Logger(t)).(*cesManager)
+	m := newCESManager(2, hivetest.Logger(t))
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(
@@ -108,10 +107,10 @@ func TestReconcileUpdate(t *testing.T) {
 	)
 
 	tlog := hivetest.Logger(t)
-	hive.Start(tlog, context.Background())
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
-	cepStore, _ := ciliumEndpoint.Store(context.Background())
-	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
+	hive.Start(tlog, t.Context())
+	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	cepStore, _ := ciliumEndpoint.Store(t.Context())
+	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
 
 	var updatedSlice *cilium_v2a1.CiliumEndpointSlice
 	fakeClient.CiliumFakeClientset.PrependReactor("update", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -144,18 +143,18 @@ func TestReconcileUpdate(t *testing.T) {
 	assert.Contains(t, eps, "cep1")
 	assert.Contains(t, eps, "cep2")
 
-	hive.Stop(tlog, context.Background())
+	hive.Stop(tlog, t.Context())
 }
 
 func TestReconcileDelete(t *testing.T) {
 	var r *reconciler
 	var fakeClient *k8sClient.FakeClientset
-	m := newCESManager(2, hivetest.Logger(t)).(*cesManager)
+	m := newCESManager(2, hivetest.Logger(t))
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(
@@ -173,10 +172,10 @@ func TestReconcileDelete(t *testing.T) {
 	)
 
 	tlog := hivetest.Logger(t)
-	hive.Start(tlog, context.Background())
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
-	cepStore, _ := ciliumEndpoint.Store(context.Background())
-	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
+	hive.Start(tlog, t.Context())
+	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	cepStore, _ := ciliumEndpoint.Store(t.Context())
+	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
 
 	var deletedSlice string
 	fakeClient.CiliumFakeClientset.PrependReactor("delete", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -203,18 +202,18 @@ func TestReconcileDelete(t *testing.T) {
 
 	assert.Equal(t, "ces1", deletedSlice)
 
-	hive.Stop(tlog, context.Background())
+	hive.Stop(tlog, t.Context())
 }
 
 func TestReconcileNoop(t *testing.T) {
 	var r *reconciler
 	var fakeClient *k8sClient.FakeClientset
-	m := newCESManager(2, hivetest.Logger(t)).(*cesManager)
+	m := newCESManager(2, hivetest.Logger(t))
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(
@@ -231,9 +230,9 @@ func TestReconcileNoop(t *testing.T) {
 		}),
 	)
 	tlog := hivetest.Logger(t)
-	hive.Start(tlog, context.Background())
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
-	cepStore, _ := ciliumEndpoint.Store(context.Background())
+	hive.Start(tlog, t.Context())
+	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	cepStore, _ := ciliumEndpoint.Store(t.Context())
 
 	noRequest := true
 	fakeClient.CiliumFakeClientset.PrependReactor("*", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -257,5 +256,5 @@ func TestReconcileNoop(t *testing.T) {
 
 	assert.True(t, noRequest)
 
-	hive.Stop(tlog, context.Background())
+	hive.Stop(tlog, t.Context())
 }

@@ -5,6 +5,8 @@ package metrics
 
 import (
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -14,10 +16,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	metricpkg "github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -42,7 +45,7 @@ func (rc RegistryConfig) Flags(flags *pflag.FlagSet) {
 type RegistryParams struct {
 	cell.In
 
-	Logger     logrus.FieldLogger
+	Logger     *slog.Logger
 	Shutdowner hive.Shutdowner
 	Lifecycle  cell.Lifecycle
 
@@ -68,33 +71,29 @@ type Registry struct {
 	params RegistryParams
 }
 
-func NewRegistry(params RegistryParams) *Registry {
-	reg := &Registry{
-		params: params,
-	}
+// Gather exposes metrics gather functionality, used by operator metrics command.
+func (reg *Registry) Gather() ([]*dto.MetricFamily, error) {
+	return reg.inner.Gather()
+}
 
-	reg.Reinitialize()
-
-	// Resolve the global registry variable for as long as we still have global functions
-	registryResolver.Resolve(reg)
-
-	if params.Config.PrometheusServeAddr != "" {
+func (reg *Registry) AddServerRuntimeHooks() {
+	if reg.params.Config.PrometheusServeAddr != "" {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
 		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.HandlerFor(reg.inner, promhttp.HandlerOpts{}))
+		mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 		srv := http.Server{
-			Addr:    params.Config.PrometheusServeAddr,
+			Addr:    reg.params.Config.PrometheusServeAddr,
 			Handler: mux,
 		}
 
-		params.Lifecycle.Append(cell.Hook{
+		reg.params.Lifecycle.Append(cell.Hook{
 			OnStart: func(hc cell.HookContext) error {
 				go func() {
-					params.Logger.Infof("Serving prometheus metrics on %s", params.Config.PrometheusServeAddr)
+					reg.params.Logger.Info("Serving prometheus metrics", logfields.Address, reg.params.Config.PrometheusServeAddr)
 					err := srv.ListenAndServe()
 					if err != nil && !errors.Is(err, http.ErrServerClosed) {
-						params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
+						reg.params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
 					}
 				}()
 				return nil
@@ -104,6 +103,29 @@ func NewRegistry(params RegistryParams) *Registry {
 			},
 		})
 	}
+}
+
+// NewRegistry constructs a new registry that is not initialized with
+// hive/legacy metrics and has registered its runtime hooks yet.
+func NewRegistry(params RegistryParams) *Registry {
+	reg := &Registry{
+		params: params,
+		inner:  prometheus.NewPedanticRegistry(),
+	}
+	return reg
+}
+
+func NewAgentRegistry(params RegistryParams) *Registry {
+	reg := &Registry{
+		params: params,
+	}
+
+	reg.registerMetrics()
+
+	// Resolve the global registry variable for as long as we still have global functions
+	registryResolver.Resolve(reg)
+
+	reg.AddServerRuntimeHooks()
 
 	return reg
 }
@@ -124,20 +146,14 @@ func (r *Registry) Unregister(c prometheus.Collector) bool {
 var goCustomCollectorsRX = regexp.MustCompile(`^/sched/latencies:seconds`)
 
 // Reinitialize creates a new internal registry and re-registers metrics to it.
-func (r *Registry) Reinitialize() {
+func (r *Registry) registerMetrics() {
 	r.inner = prometheus.NewPedanticRegistry()
-
 	// Default metrics which can't be disabled.
 	r.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: Namespace}))
 	r.MustRegister(collectors.NewGoCollector(
 		collectors.WithGoCollectorRuntimeMetrics(
 			collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX},
 		)))
-
-	// Don't register status and BPF collectors into the [r.collectors] as it is
-	// expensive to sample and currently not terrible useful to keep data on.
-	r.inner.MustRegister(metricpkg.EnabledCollector{C: newStatusCollector()})
-	r.inner.MustRegister(metricpkg.EnabledCollector{C: newbpfCollector()})
 
 	metrics := make(map[string]metricpkg.WithMetadata)
 	for i, autoMetric := range r.params.AutoMetrics {
@@ -173,9 +189,10 @@ func (r *Registry) Reinitialize() {
 		case '-':
 			metric.SetEnabled(false)
 		default:
-			r.params.Logger.Warning(
-				"--metrics flag contains value which does not start with + or -, '%s', ignoring",
-				metricFlag,
+			r.params.Logger.Warn(
+				fmt.Sprintf(
+					"--metrics flag contains value which does not start with + or -, '%s', ignoring",
+					metricFlag),
 			)
 		}
 	}

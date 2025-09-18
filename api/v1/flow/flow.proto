@@ -33,6 +33,8 @@ message Flow {
     // l4
     Layer4 l4 = 6;
 
+    Tunnel tunnel = 39;
+
     reserved 7; // removed, do not use
 
     Endpoint source = 8;
@@ -84,6 +86,9 @@ message Flow {
     // Cilium datapath filename and line number. Currently only applicable when
     // Verdict = DROPPED.
     FileInfo file = 38;
+
+    // IPTraceID relates to the trace ID in the IP options of a packet.
+    IPTraceID ip_trace_id = 40;
 
     // only applicable to Verdict = DROPPED.
     DropReason drop_reason_desc = 25;
@@ -137,6 +142,12 @@ message Flow {
     repeated Policy egress_denied_by = 21004;
     // The CiliumNetworkPolicies denying the ingress of the flow.
     repeated Policy ingress_denied_by = 21005;
+
+    // The set of Log values for policies that matched this flow.
+    // If no matched policies have an explicit log value configured,
+    // this list is empty. Duplicate values are elided; each
+    // entry is unique.
+    repeated string policy_log = 21006;
 }
 
 enum FlowType {
@@ -342,6 +353,18 @@ enum IPVersion {
     IP_NOT_USED = 0;
     IPv4 = 1;
     IPv6 = 2;
+}
+
+message Tunnel {
+    enum Protocol {
+        UNKNOWN = 0;
+        VXLAN = 1;
+        GENEVE = 2;
+    }
+
+    Protocol protocol = 1;
+    IP IP = 2;
+    Layer4 l4 = 3;
 }
 
 enum Verdict {
@@ -620,6 +643,8 @@ message FlowFilter {
 
     // trace_id filters flows by trace ID
     repeated string trace_id = 28;
+    // ip_trace_id filters flows by IPTraceID
+    repeated uint64 ip_trace_id = 39;
 
     // Experimental contains filters that are not stable yet. Support for
     // experimental features is always optional and subject to change.
@@ -701,6 +726,11 @@ message Service {
     string namespace = 2;
 }
 
+message IPTraceID {
+    uint64 trace_id = 1;
+    uint32 ip_option_type = 2;
+}
+
 enum LostEventSource {
     UNKNOWN_LOST_EVENT_SOURCE = 0;
     // PERF_EVENT_RING_BUFFER indicates that events were dropped in the BPF
@@ -745,8 +775,8 @@ enum AgentEventType {
     ENDPOINT_DELETED = 8;
     IPCACHE_UPSERTED = 9;
     IPCACHE_DELETED = 10;
-    SERVICE_UPSERTED = 11;
-    SERVICE_DELETED = 12;
+    SERVICE_UPSERTED = 11 [deprecated = true];
+    SERVICE_DELETED = 12 [deprecated = true];
 }
 
 message AgentEvent {
@@ -762,8 +792,8 @@ message AgentEvent {
         EndpointUpdateNotification endpoint_update = 104;
         // used for IPCACHE_UPSERTED and IPCACHE_DELETED
         IPCacheNotification ipcache_update = 105;
-        ServiceUpsertNotification service_upsert = 106;
-        ServiceDeleteNotification service_delete = 107;
+        ServiceUpsertNotification service_upsert = 106 [deprecated = true];
+        ServiceDeleteNotification service_delete = 107 [deprecated = true];
     }
 }
 
@@ -808,11 +838,15 @@ message IPCacheNotification {
 }
 
 message ServiceUpsertNotificationAddr {
+    option deprecated = true;
+
     string ip = 1;
     uint32 port = 2;
 }
 
 message ServiceUpsertNotification {
+    option deprecated = true;
+
     uint32 id = 1;
     ServiceUpsertNotificationAddr frontend_address = 2;
     repeated ServiceUpsertNotificationAddr backend_addresses = 3;
@@ -825,6 +859,8 @@ message ServiceUpsertNotification {
 }
 
 message ServiceDeleteNotification {
+    option deprecated = true;
+
     uint32 id = 1;
 }
 
@@ -922,4 +958,6 @@ enum DebugEventType {
     DBG_SK_ASSIGN = 64;
     DBG_L7_LB = 65;
     DBG_SKIP_POLICY = 66;
+    DBG_LB6_LOOPBACK_SNAT = 67;
+    DBG_LB6_LOOPBACK_SNAT_REV = 68;
 }

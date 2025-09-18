@@ -2,7 +2,7 @@
 
 ## cilium-dbg policy validate
 
-Validate a policy
+Validate a policy (deprecated)
 
 ```
 cilium-dbg policy validate <path> [flags]

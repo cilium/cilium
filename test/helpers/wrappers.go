@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // PerfTest represents a type of test to run when running `netperf`.
@@ -103,20 +102,6 @@ func CurlWithRetries(endpoint string, retries int, fail bool, optionalValues ...
 	return fmt.Sprintf(
 		`curl -k --path-as-is -s  -D /dev/stderr --output /dev/stderr --retry %d %s`,
 		retries, endpoint)
-}
-
-// CurlTimeout does the same as CurlFail() except you can define the timeout.
-// See note about optionalValues on CurlFail().
-func CurlTimeout(endpoint string, timeout time.Duration, optionalValues ...any) string {
-	statsInfo := `time-> DNS: '%{time_namelookup}(%{remote_ip})', Connect: '%{time_connect}',` +
-		`Transfer '%{time_starttransfer}', total '%{time_total}'`
-
-	if len(optionalValues) > 0 {
-		endpoint = fmt.Sprintf(endpoint, optionalValues...)
-	}
-	return fmt.Sprintf(
-		`curl -k --path-as-is -s -D /dev/stderr --fail --connect-timeout %d --max-time %d %s -w "%s"`,
-		timeout, timeout, endpoint, statsInfo)
 }
 
 // SuperNetperf returns the string representing the super_netperf command to use when

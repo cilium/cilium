@@ -17,13 +17,15 @@ func (t clientEgressToCidrDeny) build(ct *check.ConnectivityTest, templates map[
 		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
 		WithCiliumPolicy(templates["clientEgressToCIDRExternalDenyPolicyYAML"]).
 		WithScenarios(
-			tests.PodToCIDR(tests.WithRetryDestIP(ct.Params().ExternalIP)), // Denies all traffic to ExternalOtherIP, but allow ExternalIP
+			tests.PodToCIDR(tests.WithRetryDestIP(ct.Params().ExternalIPv4)), // Denies all traffic to ExternalOtherIP, but allow ExternalIP
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address(features.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP {
+			if a.Destination().Address(features.GetIPFamily(ct.Params().ExternalOtherIPv4)) == ct.Params().ExternalOtherIPv4 ||
+				a.Destination().Address(features.GetIPFamily(ct.Params().ExternalOtherIPv6)) == ct.Params().ExternalOtherIPv6 {
 				return check.ResultPolicyDenyEgressDrop, check.ResultNone
 			}
-			if a.Destination().Address(features.GetIPFamily(ct.Params().ExternalIP)) == ct.Params().ExternalIP {
+			if a.Destination().Address(features.GetIPFamily(ct.Params().ExternalIPv4)) == ct.Params().ExternalIPv4 ||
+				a.Destination().Address(features.GetIPFamily(ct.Params().ExternalIPv6)) == ct.Params().ExternalIPv6 {
 				return check.ResultOK, check.ResultNone
 			}
 			return check.ResultDrop, check.ResultDrop

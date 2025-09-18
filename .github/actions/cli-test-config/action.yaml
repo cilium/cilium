@@ -1,0 +1,105 @@
+name: 'Default CLI Test Flags'
+description: "Workflow with Cilium's CLI default test flags"
+inputs:
+  external-cidr:
+    default: "8.0.0.0/8"
+    description: "IPv4 prefix for testing connectivity outside the cluster"
+    required: false
+  external-cidrv6:
+    description: "IPv6 prefix for testing connectivity outside the cluster"
+    required: false
+  external-ip:
+    default: "8.8.4.4"
+    description: "IPv4 address for testing connectivity outside the cluster"
+    required: false
+  external-ipv6:
+    description: "IPv6 address for testing connectivity outside the cluster"
+    required: false
+  external-other-ip:
+    default: "8.8.8.8"
+    description: "Extra IPv4 address for testing connectivity outside the cluster"
+    required: false
+  external-other-ipv6:
+    description: "Extra IPv6 address for testing connectivity outside the cluster"
+    required: false
+  external-target:
+    default: "bing.com."
+    description: "DNS name for testing connectivity outside the cluster"
+    required: false
+  external-other-target:
+    description: "Extra DNS name for testing connectivity outside the cluster"
+    required: false
+  flow-validation:
+    default: false
+    description: "Enable flow validation in the connectivity test"
+    required: false
+  hubble:
+    default: true
+    description: "Enable Hubble flow gathering as part of the connectivity test"
+    required: false
+  include-unsafe-tests:
+    # default: false
+    description: "Enable tests that perform operations that are unsafe in prod"
+    required: false
+  test-concurrency:
+    # default: 1
+    description: "The number of concurrent test runs to be performed"
+    required: false
+  tests:
+    description: "Comma-separated test filters to determine which tests to run"
+    required: false
+outputs:
+  test_flags:
+    description: "Generated values to be used with Cilium CLI"
+    value: ${{ steps.set-defaults.outputs.test_flags }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: set-defaults
+      shell: bash
+      run: |
+        CONNECTIVITY_TEST_DEFAULTS=("--collect-sysdump-on-failure" \
+          "--log-code-owners" \
+          "--code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS}" \
+          "--exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS}" \
+          "--external-target=${{ inputs.external-target }}" \
+          "--external-cidr=${{ inputs.external-cidr }}" \
+          "--external-ip=${{ inputs.external-ip }}" \
+          "--external-other-ip=${{ inputs.external-other-ip }}" \
+          "--hubble=${{ inputs.hubble }}" \
+        )
+
+        if [ -n "${{ inputs.external-cidrv6 }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-cidrv6=${{ inputs.external-cidrv6 }}")
+        fi
+        if [ -n "${{ inputs.external-ipv6 }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-ipv6=${{ inputs.external-ipv6 }}")
+        fi
+        if [ -n "${{ inputs.external-other-ipv6 }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-other-ipv6=${{ inputs.external-other-ipv6 }}")
+        fi
+        if [ -n "${{ inputs.external-other-target }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-other-target=${{ inputs.external-other-target }}")
+        fi
+
+
+        if [ "${{ inputs.include-unsafe-tests }}" == "true" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--include-unsafe-tests")
+        fi
+
+        if [ "${{ inputs.flow-validation }}" == "true" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--flow-validation=enabled")
+        else
+          CONNECTIVITY_TEST_DEFAULTS+=("--flow-validation=disabled")
+        fi
+
+        if [ -n "${{ inputs.test-concurrency }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--test-concurrency=${{ inputs.test-concurrency }}")
+        fi
+
+        if [ -n "${{ inputs.tests }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--test=${{ inputs.tests }}")
+        fi
+
+        echo test_flags=${CONNECTIVITY_TEST_DEFAULTS[*]} >> $GITHUB_OUTPUT

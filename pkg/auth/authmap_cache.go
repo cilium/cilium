@@ -26,11 +26,11 @@ type authMapCache struct {
 	pressureGauge     *metrics.GaugeWithThreshold
 }
 
-func newAuthMapCache(logger *slog.Logger, authMap authMap) *authMapCache {
+func newAuthMapCache(logger *slog.Logger, registry *metrics.Registry, authMap authMap) *authMapCache {
 	var pressureGauge *metrics.GaugeWithThreshold
 
 	if metrics.BPFMapPressure {
-		pressureGauge = metrics.NewBPFMapPressureGauge(authmap.MapName, 0)
+		pressureGauge = registry.NewBPFMapPressureGauge(authmap.MapName, 0)
 	}
 	return &authMapCache{
 		logger:        logger,

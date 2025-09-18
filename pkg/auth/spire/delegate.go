@@ -120,7 +120,7 @@ func (s *SpireDelegateClient) listenForUpdates(ctx context.Context) {
 	go s.listenForSVIDUpdates(listenCtx, err)
 	go s.listenForBundleUpdates(listenCtx, err)
 
-	backoffTime := backoff.Exponential{Min: 100 * time.Millisecond, Max: 10 * time.Second}
+	backoffTime := backoff.Exponential{Logger: s.log, Min: 100 * time.Millisecond, Max: 10 * time.Second}
 	for {
 		select {
 		case <-ctx.Done():
@@ -279,7 +279,7 @@ func (s *SpireDelegateClient) handleX509BundleUpdate(bundles map[string][]byte) 
 
 func (s *SpireDelegateClient) openStream(ctx context.Context) {
 	// try to init the watcher with a backoff
-	backoffTime := backoff.Exponential{Min: 100 * time.Millisecond, Max: 10 * time.Second}
+	backoffTime := backoff.Exponential{Logger: s.log, Min: 100 * time.Millisecond, Max: 10 * time.Second}
 
 	// a retry might have happened, signal that we are disconnected
 	s.connectedMutex.Lock()

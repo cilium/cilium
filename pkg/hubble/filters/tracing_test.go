@@ -4,7 +4,6 @@
 package filters
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -120,7 +119,7 @@ func TestTraceIDFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fl, err := BuildFilterList(context.Background(), tt.args.f, []OnBuildFilter{&TraceIDFilter{}})
+			fl, err := BuildFilterList(t.Context(), tt.args.f, []OnBuildFilter{&TraceIDFilter{}})
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, fl.MatchOne(tt.args.ev))
 		})

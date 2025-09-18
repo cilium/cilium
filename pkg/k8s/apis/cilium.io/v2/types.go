@@ -17,6 +17,9 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
+// +kubebuilder:validation:Format=cidr
+type IPv4orIPv6CIDR string
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=false
@@ -82,6 +85,9 @@ type EndpointStatus struct {
 	State string `json:"state,omitempty"`
 
 	NamedPorts models.NamedPorts `json:"named-ports,omitempty"`
+
+	// ServiceAccount is the service account associated with the endpoint
+	ServiceAccount string `json:"service-account,omitempty"`
 }
 
 // +k8s:deepcopy-gen=false

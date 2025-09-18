@@ -9,14 +9,13 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -25,10 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-func init() {
-	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
-}
 
 var (
 	ciliumIOSel = api.FQDNSelector{
@@ -45,17 +40,18 @@ var (
 )
 
 func TestMapIPsToSelectors(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	var (
 		ciliumIP1   = netip.MustParseAddr("1.2.3.4")
 		ciliumIP2   = netip.MustParseAddr("1.2.3.5")
 		nameManager = New(ManagerParams{
+			Logger: logger,
 			Config: NameManagerConfig{
 				MinTTL: 1,
 			},
 		})
 	)
-
-	log.Level = logrus.DebugLevel
 
 	// Create DNS cache
 	now := time.Now()
@@ -101,8 +97,11 @@ func TestMapIPsToSelectors(t *testing.T) {
 }
 
 func TestNameManagerIPCacheUpdates(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	ipc := newMockIPCache()
 	nameManager := New(ManagerParams{
+		Logger: logger,
 		Config: NameManagerConfig{
 			MinTTL:            1,
 			DNSProxyLockCount: defaults.DNSProxyLockCount,

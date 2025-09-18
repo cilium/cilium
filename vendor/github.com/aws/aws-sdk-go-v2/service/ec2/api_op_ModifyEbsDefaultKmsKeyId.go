@@ -16,9 +16,7 @@ import (
 // Amazon Web Services creates a unique Amazon Web Services managed KMS key in
 // each Region for use with encryption by default. If you change the default KMS
 // key to a symmetric customer managed KMS key, it is used instead of the Amazon
-// Web Services managed KMS key. To reset the default KMS key to the Amazon Web
-// Services managed KMS key for EBS, use ResetEbsDefaultKmsKeyId. Amazon EBS does not support asymmetric
-// KMS keys.
+// Web Services managed KMS key. Amazon EBS does not support asymmetric KMS keys.
 //
 // If you delete or disable the customer managed KMS key that you specified for
 // use with encryption by default, your instances will fail to launch.
@@ -174,6 +172,36 @@ func (c *Client) addOperationModifyEbsDefaultKmsKeyIdMiddlewares(stack *middlewa
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

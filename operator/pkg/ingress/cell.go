@@ -102,9 +102,8 @@ func registerReconciler(params ingressParams) error {
 		return nil
 	}
 
-	if params.OperatorConfig.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
-		!params.OperatorConfig.EnableNodePort {
-		params.Logger.Warn("Ingress Controller support requires either kube-proxy-replacement or enable-node-port enabled")
+	if !params.OperatorConfig.KubeProxyReplacement {
+		params.Logger.Warn("Ingress Controller support requires kube-proxy-replacement enabled")
 		return nil
 	}
 
@@ -134,7 +133,7 @@ func registerReconciler(params ingressParams) error {
 		},
 	})
 
-	dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, params.IngressConfig.IngressHostnetworkEnabled)
+	dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(params.Logger, cecTranslator, params.IngressConfig.IngressHostnetworkEnabled)
 
 	reconciler := newIngressReconciler(
 		params.Logger,

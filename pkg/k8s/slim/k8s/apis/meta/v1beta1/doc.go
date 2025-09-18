@@ -7,6 +7,6 @@
 // +k8s:openapi-gen=true
 // +k8s:defaulter-gen=TypeMeta
 
-// +groupName=meta
+// +groupName=meta.k8s.io
 
 package v1beta1

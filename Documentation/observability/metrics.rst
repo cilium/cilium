@@ -47,11 +47,19 @@ if you want to disable them, set Helm value ``operator.prometheus.enabled=false`
      --set prometheus.enabled=true \\
      --set operator.prometheus.enabled=true
 
+Cilium Metrics Scraping
+-----------------------
+
+Prometheus Port Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 The ports can be configured via ``prometheus.port``,
 ``envoy.prometheus.port``, or ``operator.prometheus.port`` respectively.
 
-When metrics are enabled, all Cilium components will have the following
-annotations. They can be used to signal Prometheus whether to scrape metrics:
+
+When metrics are enabled and ServiceMonitor is not enabled (``hubble.metrics.serviceMonitor.enabled: false``), all Cilium components will have the following annotations. These annotations can be used to signal Prometheus whether to scrape metrics.
+
+If ServiceMonitor is enabled (``hubble.metrics.serviceMonitor.enabled: true``), these annotations are omitted and Prometheus discovers metrics via the ServiceMonitor resource.
 
 .. code-block:: yaml
 
@@ -88,25 +96,44 @@ option is set in the ``scrape_configs`` section:
           replacement: ${1}:${2}
           target_label: __address__
 
+Prometheus Operator ServiceMonitor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can automatically create a
+`Prometheus Operator <https://github.com/prometheus-operator/prometheus-operator>`__
+``ServiceMonitor`` by setting ``prometheus.serviceMonitor.enabled=true``, or
+``envoy.prometheus.serviceMonitor.enabled=true``, or
+``operator.prometheus.serviceMonitor.enabled=true`` respectively.
+
 .. _hubble_metrics:
 
 Hubble Metrics
 ==============
 
-While Cilium metrics allow you to monitor the state Cilium itself,
+While Cilium metrics allow you to monitor the state of Cilium itself,
 Hubble metrics on the other hand allow you to monitor the network behavior
 of your Cilium-managed Kubernetes pods with respect to connectivity and security.
-
-Installation
-------------
-
-To deploy Cilium with Hubble metrics enabled, you need to enable Hubble with
-``hubble.enabled=true`` and provide a set of Hubble metrics you want to
-enable via ``hubble.metrics.enabled``.
 
 Some of the metrics can also be configured with additional options.
 See the :ref:`Hubble exported metrics<hubble_exported_metrics>`
 section for the full list of available metrics and their options.
+
+Static or dynamic exporter
+--------------------------
+
+Hubble Metrics can either be configured with a static or dynamic exporter.
+
+The dynamic metrics exporter allows you to change defined metrics as needed
+without requiring an agent restart.
+
+
+Installation with a static metrics exporter
+-------------------------------------------
+
+To deploy Cilium with Hubble Metrics static exporter enabled, you need to enable
+Hubble with ``hubble.enabled=true`` and provide a set of Hubble metrics you want to
+enable via ``hubble.metrics.enabled``.
+
 
 .. parsed-literal::
 
@@ -117,6 +144,120 @@ section for the full list of available metrics and their options.
      --set hubble.enabled=true \\
      --set hubble.metrics.enableOpenMetrics=true \\
      --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
+
+
+Installation with a dynamic metrics exporter
+--------------------------------------------
+
+To deploy Cilium with Hubble dynamic metrics enabled, you need to enable Hubble 
+with ``hubble.enabled=true`` and ``hubble.metrics.dynamic.enabled=true``.
+
+In this example, a ``ConfigMap`` with a set of metrics will be applied before
+enabling the exporter, but the desired set of metrics (together with the 
+``ConfigMap``) can be created during installation.
+
+See the :ref:`helm_reference` (keys with ``hubble.metrics.dynamic.*``)
+
+
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: cilium-dynamic-metrics-config
+      namespace: kube-system
+    data:
+      dynamic-metrics.yaml: |
+        metrics:
+          - name: dns
+          - contextOptions:
+            - name: sourceContext
+              values:
+              - workload-name
+              - reserved-identity
+            - name: destinationContext
+              values:
+              - workload-name
+              - reserved-identity
+            name: flow
+          - name: drop
+          - name: tcp
+          - contextOptions:
+            - name: sourceContext
+              values:
+              - workload-name
+              - reserved-identity
+            name: icmp
+          - contextOptions:
+            - name: exemplars
+              values:
+              - true
+            - name: labelsContext
+              values:
+              - source_ip
+              - source_namespace
+              - source_workload
+              - destination_ip
+              - destination_namespace
+              - destination_workload
+              - traffic_direction
+            - name: sourceContext
+              values:
+              - workload-name
+              - reserved-identity
+            - name: destinationContext
+              values:
+              - workload-name
+              - reserved-identity
+            name: httpV2
+          - contextOptions:
+            - name: sourceContext
+              values:
+              - app
+              - workload-name
+              - pod
+              - reserved-identity
+            - name: destinationContext
+              values:
+              - app
+              - workload-name
+              - pod
+              - dns
+              - reserved-identity
+            - name: labelsContext
+              values:
+              - source_namespace
+              - destination_namespace
+            excludeFilters:
+            - destination_pod:
+              - default/
+            name: policy
+    
+Deploy the :term:`ConfigMap`:
+
+.. code-block:: shell-session
+
+   kubectl apply -f dynamic-metrics.yaml
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set prometheus.enabled=true \\
+     --set operator.prometheus.enabled=true \\
+     --set hubble.enabled=true \\
+     --set hubble.metrics.enableOpenMetrics=true \\
+     --set hubble.metrics.enabled=[] \\
+     --set hubble.metrics.dynamic.enabled=true \\
+     --set hubble.metrics.dynamic.config.configMapName=cilium-dynamic-metrics-config \\
+     --set hubble.metrics.dynamic.config.createConfigMap=false
+
+Hubble Metrics Scraping
+-----------------------
+
+Prometheus Port Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The port of the Hubble metrics can be configured with the
 ``hubble.metrics.port`` Helm value.
@@ -157,6 +298,13 @@ have it scrape all Hubble metrics from the endpoints automatically:
             target_label: __address__
             regex: (.+)(?::\d+);(\d+)
             replacement: $1:$2
+
+Prometheus Operator ServiceMonitor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can automatically create a
+`Prometheus Operator <https://github.com/prometheus-operator/prometheus-operator>`__
+``ServiceMonitor`` by setting ``hubble.metrics.serviceMonitor.enabled=true``.
 
 .. _hubble_open_metrics:
 
@@ -359,8 +507,6 @@ Node Connectivity
 ============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
 Name                                          Labels                                                                                                                                                                 Default    Description
 ============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
-``node_connectivity_status``                  ``source_cluster``, ``source_node_name``, ``target_cluster``, ``target_node_name``, ``target_node_type``, ``type``                                                     Enabled    Deprecated, will be removed in Cilium 1.18 - use ``node_health_connectivity_status`` instead. The last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
-``node_connectivity_latency_seconds``         ``address_type``, ``protocol``, ``source_cluster``, ``source_node_name``, ``target_cluster``, ``target_node_ip``, ``target_node_name``, ``target_node_type``, ``type`` Enabled    Deprecated, will be removed in Cilium 1.18 - use ``node_health_connectivity_latency_seconds`` instead. The last observed latency between the current Cilium agent and other Cilium nodes in seconds
 ``node_health_connectivity_status``           ``source_cluster``, ``source_node_name``, ``type``, ``status``                                                                                                         Enabled    Number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
 ``node_health_connectivity_latency_seconds``  ``source_cluster``, ``source_node_name``, ``type``, ``address_type``, ``protocol``                                                                                     Enabled    Histogram of the last observed latency between the current Cilium agent and other Cilium nodes in seconds
 ============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
@@ -371,10 +517,11 @@ Clustermesh
 =============================================== ============================================================ ========== =================================================================
 Name                                            Labels                                                       Default    Description
 =============================================== ============================================================ ========== =================================================================
-``clustermesh_global_services``                 ``source_cluster``, ``source_node_name``                     Enabled    The total number of global services in the cluster mesh
+``clustermesh_remote_cluster_services``         ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of services per remote cluster
+``clustermesh_remote_cluster_endpoints``        ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of endpoints per remote cluster
+``clustermesh_remote_cluster_nodes``            ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of nodes per remote cluster
 ``clustermesh_remote_clusters``                 ``source_cluster``, ``source_node_name``                     Enabled    The total number of remote clusters meshed with the local cluster
 ``clustermesh_remote_cluster_failures``         ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of failures related to the remote cluster
-``clustermesh_remote_cluster_nodes``            ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of nodes in the remote cluster
 ``clustermesh_remote_cluster_last_failure_ts``  ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
 ``clustermesh_remote_cluster_readiness_status`` ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The readiness status of the remote cluster
 =============================================== ============================================================ ========== =================================================================
@@ -412,7 +559,7 @@ Name                                       Labels                               
 ========================================== ===================================================================== ========== ========================================================
 ``bpf_syscall_duration_seconds``           ``operation``, ``outcome``                                            Disabled   Duration of eBPF system call performed
 ``bpf_map_ops_total``                      ``mapName`` (deprecated), ``map_name``, ``operation``, ``outcome``    Enabled    Number of eBPF map operations performed. ``mapName`` is deprecated and will be removed in 1.10. Use ``map_name`` instead.
-``bpf_map_pressure``                       ``map_name``                                                          Enabled    Map pressure is defined as a ratio of the required map size compared to its configured size. Values < 1.0 indicate the map's utilization, while values >= 1.0 indicate that the map is full. Policy map metrics are only reported when the ratio is over 0.1, ie 10% full.
+``bpf_map_pressure``                       ``map_name``                                                          Enabled    Map pressure is defined as a ratio of the required map size compared to its configured size. Values < 1.0 indicate the map's utilization, while values >= 1.0 indicate that the map is full. Policy map pressure metrics are emitted only when map utilization exceeds the threshold set by ``policyMapPressureMetricsThreshold`` helm value, which defaults to 0.1 (10% full).
 ``bpf_map_capacity``                       ``map_group``                                                         Enabled    Maximum size of eBPF maps by group of maps (type of map that have the same max capacity size). Map types with size of 65536 are not emitted, missing map types can be assumed to be 65536.
 ``bpf_maps_virtual_memory_max_bytes``                                                                            Enabled    Max memory used by eBPF maps installed in the system
 ``bpf_progs_virtual_memory_max_bytes``                                                                           Enabled    Max memory used by eBPF programs installed in the system
@@ -542,7 +689,7 @@ Kubernetes Rest Client
 Name                                          Labels                                        Default    Description
 ============================================= ============================================= ========== ===========================================================
 ``k8s_client_api_latency_time_seconds``       ``path``, ``method``                          Enabled    Duration of processed API calls labeled by path and method
-``k8s_client_rate_limiter_duration_seconds``  ``path``, ``method``                          Enabled    Kubernetes client rate limiter latency in seconds. Broken down by path and method
+``k8s_client_rate_limiter_duration_seconds``                                                Enabled    Kubernetes client rate limiter latency in seconds.
 ``k8s_client_api_calls_total``                ``host``, ``method``, ``return_code``         Enabled    Number of API calls made to kube-apiserver labeled by host, method and return code
 ============================================= ============================================= ========== ===========================================================
 
@@ -792,10 +939,14 @@ CiliumEndpointSlices (CES)
 Name                                           Labels                           Description
 ============================================== ================================ ========================================================
 ``number_of_ceps_per_ces``                                                      The number of CEPs batched in a CES
-``number_of_cep_changes_per_ces``              ``opcode``                       The number of changed CEPs in each CES update
+``number_of_cep_changes_per_ces``              ``opcode``, ``failure_type``     The number of changed CEPs in each CES update
 ``ces_sync_total``                             ``outcome``                      The number of completed CES syncs by outcome
 ``ces_queueing_delay_seconds``                                                  CiliumEndpointSlice queueing delay in seconds
 ============================================== ================================ ========================================================
+
+Note that the CES controller has multiple internal queues for handling CES updates.
+Detailed metrics which are emitted by these queues can be found in the
+:ref:`Internal WorkQueues <internal_workqueues_metrics>` section below.
 
 Unmanaged Pods
 ~~~~~~~~~~~~~~
@@ -832,10 +983,13 @@ Name                                        Labels                      Descript
 ``cid_controller_work_queue_latency``       ``resource``, ``phase``     Duration of CID controller work queues enqueuing and processing latencies in seconds
 =========================================== =========================== =====================================================================================
 
+.. _internal_workqueues_metrics:
+
 Internal WorkQueues
 ~~~~~~~~~~~~~~~~~~~~
 
-The Operator uses internal queues to manage the processing of various tasks. Currently only the Cilium Node Synchronizer queues are reporting the metrics listed below.
+The Operator uses internal queues to manage the processing of various tasks.
+Currently, only the Cilium Node Synchronizer queues and Cilium EndpointSlice Controller queues are reporting the metrics listed below.
 
 ==================================================== ============================================= ========== ===========================================================
 Name                                                 Labels                                        Default    Description
@@ -849,6 +1003,27 @@ Name                                                 Labels                     
 ``workqueue_retries_total``                          ``queue_name``                                 Enabled    Total number of retries handled by workqueue
 ==================================================== ============================================= ========== ===========================================================
 
+MCS-API
+~~~~~~~
+
+==================================== ============================================================ ========== ===========================================================
+Name                                                 Labels                                                    Default     Description
+==================================== ============================================================ ========== ===========================================================
+``serviceexport_info``               ``serviceexport``, ``namespace``                             Enabled    Information about ServiceExport in the local cluster
+``serviceexport_status_condition``   ``serviceexport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceExport in the local cluster
+``serviceimport_info``               ``serviceimport``, ``namespace``                             Enabled    Information about ServiceImport in the local cluster
+==================================== ============================================================ ========== ===========================================================
+
+Clustermesh
+~~~~~~~~~~~
+
+============================================== ======================================= ========== ==================================================================
+Name                                           Labels                                  Default    Description
+============================================== ======================================= ========== ==================================================================
+``clustermesh_remote_cluster_services``        ``source_cluster``, ``target_cluster``  Enabled    The total number of services per remote cluster
+``clustermesh_remote_cluster_service_exports`` ``source_cluster``, ``target_cluster``  Enabled    The total number of MCS-API service exports per remote cluster
+============================================== ======================================= ========== ==================================================================
+
 
 Hubble
 ------
@@ -861,12 +1036,12 @@ The command-line options to configure them are ``--enable-hubble``,
 ``--hubble-metrics-server``, and ``--hubble-metrics``.
 ``--hubble-metrics-server`` takes an ``IP:Port`` pair, but
 passing an empty IP (e.g. ``:9965``) will bind the server to all available
-interfaces. ``--hubble-metrics`` takes a comma-separated list of metrics.
+interfaces. ``--hubble-metrics`` takes a space-separated list of metrics.
 It's also possible to configure Hubble metrics to listen with TLS and
 optionally use mTLS for authentication. For details see :ref:`hubble_configure_metrics_tls`.
 
 Some metrics can take additional semicolon-separated options per metric, e.g.
-``--hubble-metrics="dns:query;ignoreAAAA,http:destinationContext=workload-name"``
+``--hubble-metrics="dns:query;ignoreAAAA http:destinationContext=workload-name"``
 will enable the ``dns`` metric with the ``query`` and ``ignoreAAAA`` options,
 and the ``http`` metric with the ``destinationContext=workload-name`` option.
 
@@ -1453,4 +1628,3 @@ Given a Node forwarding one or more such egress-IP and remote endpoint tuples, t
 This metric is especially useful when using the egress gateway feature where it's possible to overload a Node if many connections are all going to the same endpoint.
 In general, this metric should normally be fairly low.
 A high number here may indicate that a Node is reaching its limit for connections to one or more external endpoints.
-

@@ -9,8 +9,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -21,10 +23,11 @@ import (
 )
 
 func TestWriteInformationalComments(t *testing.T) {
+	logger := hivetest.Logger(t)
 	s := setupEndpointSuite(t)
 
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	e, err := NewEndpointFromChangeModel(t.Context(), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	e, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 	require.NoError(t, err)
 
 	e.Start(uint16(model.ID))
@@ -38,12 +41,13 @@ func TestWriteInformationalComments(t *testing.T) {
 type writeFunc func(io.Writer) error
 
 func BenchmarkWriteHeaderfile(b *testing.B) {
+	logger := hivetest.Logger(b)
 	testutils.IntegrationTest(b)
 
 	s := setupEndpointSuite(b)
 
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	e, err := NewEndpointFromChangeModel(b.Context(), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), model)
+	e, err := NewEndpointFromChangeModel(b.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, &fakeTypes.IPsecConfig{})
 	require.NoError(b, err)
 
 	e.Start(uint16(model.ID))

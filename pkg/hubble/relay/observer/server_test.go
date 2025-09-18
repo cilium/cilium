@@ -948,7 +948,7 @@ func TestGetNodes(t *testing.T) {
 				withObserverClientBuilder(tt.ocb),
 			)
 			assert.NoError(t, err)
-			got, err := srv.GetNodes(context.Background(), tt.req)
+			got, err := srv.GetNodes(t.Context(), tt.req)
 			assert.Equal(t, tt.want.err, err)
 			assert.Equal(t, tt.want.resp, got)
 			out := buf.String()
@@ -1149,7 +1149,7 @@ func TestGetNamespaces(t *testing.T) {
 				withObserverClientBuilder(tt.ocb),
 			)
 			assert.NoError(t, err)
-			got, err := srv.GetNamespaces(context.Background(), tt.req)
+			got, err := srv.GetNamespaces(t.Context(), tt.req)
 			assert.Equal(t, tt.want.err, err)
 			assert.Equal(t, tt.want.resp, got)
 			out := buf.String()
@@ -1430,7 +1430,7 @@ func TestServerStatus(t *testing.T) {
 				withObserverClientBuilder(tt.ocb),
 			)
 			assert.NoError(t, err)
-			got, err := srv.ServerStatus(context.Background(), tt.req)
+			got, err := srv.ServerStatus(t.Context(), tt.req)
 			assert.Equal(t, tt.want.err, err)
 			assert.Equal(t, tt.want.resp, got)
 			out := buf.String()

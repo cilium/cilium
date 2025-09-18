@@ -4,6 +4,7 @@
 package namemanager
 
 import (
+	"log/slog"
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
@@ -16,8 +17,9 @@ func FuzzMapSelectorsToNamesLocked(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		ff := fuzz.NewConsumer(data)
 		fqdnSelector := api.FQDNSelector{}
-		ff.FuzzMap(fqdnSelector)
+		ff.GenerateStruct(&fqdnSelector)
 		nameManager := New(ManagerParams{
+			Logger: slog.New(slog.DiscardHandler),
 			Config: NameManagerConfig{
 				MinTTL:            1,
 				DNSProxyLockCount: defaults.DNSProxyLockCount,

@@ -23,7 +23,9 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 type LBServiceReconcilerOut struct {
@@ -33,14 +35,15 @@ type LBServiceReconcilerOut struct {
 }
 
 type ServiceReconciler struct {
-	diffStore   store.DiffStore[*slim_corev1.Service]
-	epDiffStore store.DiffStore[*k8s.Endpoints]
+	diffStore    store.DiffStore[*slim_corev1.Service]
+	epDiffStore  store.DiffStore[*k8s.Endpoints]
+	routesConfig svcrouteconfig.RoutesConfig
 }
 
 // LBServiceReconcilerMetadata keeps a map of services to the respective advertised Paths
 type LBServiceReconcilerMetadata map[resource.Key][]*types.Path
 
-type localServices map[k8s.ServiceID]struct{}
+type routableServices map[loadbalancer.ServiceName]struct{}
 
 // pathReference holds reference information about an advertised path
 type pathReference struct {
@@ -51,15 +54,16 @@ type pathReference struct {
 // pathReferencesMap holds path references of resources producing path advertisement, indexed by path's NLRI string
 type pathReferencesMap map[string]*pathReference
 
-func NewServiceReconciler(diffStore store.DiffStore[*slim_corev1.Service], epDiffStore store.DiffStore[*k8s.Endpoints]) LBServiceReconcilerOut {
+func NewServiceReconciler(diffStore store.DiffStore[*slim_corev1.Service], epDiffStore store.DiffStore[*k8s.Endpoints], routesConfig svcrouteconfig.RoutesConfig) LBServiceReconcilerOut {
 	if diffStore == nil {
 		return LBServiceReconcilerOut{}
 	}
 
 	return LBServiceReconcilerOut{
 		Reconciler: &ServiceReconciler{
-			diffStore:   diffStore,
-			epDiffStore: epDiffStore,
+			diffStore:    diffStore,
+			epDiffStore:  epDiffStore,
+			routesConfig: routesConfig,
 		},
 	}
 }
@@ -111,8 +115,8 @@ func (r *ServiceReconciler) getMetadata(sc *instance.ServerWithConfig) LBService
 
 func (r *ServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_corev1.Service, bool, error) {
 	k := resource.Key{
-		Name:      eps.ServiceID.Name,
-		Namespace: eps.ServiceID.Namespace,
+		Name:      eps.ServiceName.Name(),
+		Namespace: eps.ServiceName.Namespace(),
 	}
 	return r.diffStore.GetByKey(k)
 }
@@ -133,8 +137,8 @@ func (r *ServiceReconciler) requiresFullReconciliation(p ReconcileParams) bool {
 }
 
 // Populate locally available services used for externalTrafficPolicy=local handling
-func (r *ServiceReconciler) populateLocalServices(localNodeName string) (localServices, error) {
-	ls := make(localServices)
+func (r *ServiceReconciler) populateRoutableServices(localNodeName string) (routableServices, error) {
+	rs := make(routableServices)
 
 	epList, err := r.epDiffStore.List()
 	if err != nil {
@@ -143,7 +147,7 @@ func (r *ServiceReconciler) populateLocalServices(localNodeName string) (localSe
 
 endpointsLoop:
 	for _, eps := range epList {
-		_, exists, err := r.resolveSvcFromEndpoints(eps)
+		svc, exists, err := r.resolveSvcFromEndpoints(eps)
 		if err != nil {
 			// Cannot resolve service from endpoints. We have nothing to do here.
 			continue
@@ -154,25 +158,36 @@ endpointsLoop:
 			continue
 		}
 
-		svcID := eps.ServiceID
-
-		for _, be := range eps.Backends {
-			if !be.Terminating && be.NodeName == localNodeName {
-				// At least one endpoint is available on this node. We
-				// can make unavailable to available.
-				if _, found := ls[svcID]; !found {
-					ls[svcID] = struct{}{}
-				}
-				continue endpointsLoop
-			}
+		if len(eps.Backends) == 0 && !r.routesConfig.EnableNoServiceEndpointsRoutable {
+			continue
 		}
+
+		svcID := eps.ServiceName
+
+		if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal ||
+			(svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal) {
+			for _, be := range eps.Backends {
+				if !be.Conditions.IsTerminating() && be.NodeName == localNodeName {
+					// At least one endpoint is available on this node. We
+					// can make unavailable to available.
+					if _, found := rs[svcID]; !found {
+						rs[svcID] = struct{}{}
+					}
+					continue endpointsLoop
+				}
+			}
+		} else {
+			// For eTP/iTP=Cluster any endpoint is valid
+			rs[svcID] = struct{}{}
+		}
+
 	}
 
-	return ls, nil
+	return rs, nil
 }
 
-func hasLocalEndpoints(svc *slim_corev1.Service, ls localServices) bool {
-	_, found := ls[k8s.ServiceID{Name: svc.GetName(), Namespace: svc.GetNamespace()}]
+func hasValidEndpoints(svc *slim_corev1.Service, rs routableServices) bool {
+	_, found := rs[loadbalancer.NewServiceName(svc.GetNamespace(), svc.GetName())]
 	return found
 }
 
@@ -183,12 +198,12 @@ func (r *ServiceReconciler) fullReconciliation(ctx context.Context, p ReconcileP
 	if err != nil {
 		return err
 	}
-	ls, err := r.populateLocalServices(p.CiliumNode.Name)
+	rs, err := r.populateRoutableServices(p.CiliumNode.Name)
 	if err != nil {
 		return err
 	}
 	for _, svc := range toReconcile {
-		if err := r.reconcileService(ctx, p.CurrentServer, p.DesiredConfig, svc, ls, pathRefs); err != nil {
+		if err := r.reconcileService(ctx, p.CurrentServer, p.DesiredConfig, svc, rs, pathRefs); err != nil {
 			return fmt.Errorf("failed to reconcile service %s/%s: %w", svc.Namespace, svc.Name, err)
 		}
 	}
@@ -207,7 +222,7 @@ func (r *ServiceReconciler) svcDiffReconciliation(ctx context.Context, p Reconci
 	if err != nil {
 		return err
 	}
-	ls, err := r.populateLocalServices(p.CiliumNode.Name)
+	ls, err := r.populateRoutableServices(p.CiliumNode.Name)
 	if err != nil {
 		return err
 	}
@@ -268,15 +283,13 @@ func (r *ServiceReconciler) diffReconciliationServiceList(sc *instance.ServerWit
 	// For externalTrafficPolicy=local, we need to take care of
 	// the endpoint changes in addition to the service changes.
 	// Take a diff of the endpoints and get affected services.
-	// We don't handle service deletion here since we only see
-	// the key, we cannot resolve associated service, so we have
-	// nothing to do.
-	epsUpserted, _, err := r.epDiffStore.Diff(r.diffID(sc.ASN))
+	// Also upsert services with deleted endpoints to handle potential withdrawal.
+	epsUpserted, epsDeleted, err := r.epDiffStore.Diff(r.diffID(sc.ASN))
 	if err != nil {
 		return nil, nil, fmt.Errorf("endpoints store diff: %w", err)
 	}
 
-	for _, eps := range epsUpserted {
+	for _, eps := range slices.Concat(epsUpserted, epsDeleted) {
 		svc, exists, err := r.resolveSvcFromEndpoints(eps)
 		if err != nil {
 			// Cannot resolve service from endpoints. We have nothing to do here.
@@ -307,12 +320,17 @@ func (r *ServiceReconciler) diffReconciliationServiceList(sc *instance.ServerWit
 		},
 	)
 
-	return deduped, deleted, nil
+	deletedKeys := make([]resource.Key, 0, len(deleted))
+	for _, svc := range deleted {
+		deletedKeys = append(deletedKeys, resource.Key{Name: svc.Name, Namespace: svc.Namespace})
+	}
+
+	return deduped, deletedKeys, nil
 }
 
 // svcDesiredRoutes determines which, if any routes should be announced for the given service. This determines the
 // desired state.
-func (r *ServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices) ([]netip.Prefix, error) {
+func (r *ServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, rs routableServices) ([]netip.Prefix, error) {
 	if newc.ServiceSelector == nil {
 		// If the vRouter has no service selector, there are no desired routes.
 		return nil, nil
@@ -334,22 +352,21 @@ func (r *ServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtualR
 	for _, svcAdv := range newc.ServiceAdvertisements {
 		switch svcAdv {
 		case v2alpha1api.BGPLoadBalancerIPAddr:
-			desiredRoutes = append(desiredRoutes, r.lbSvcDesiredRoutes(svc, ls)...)
+			desiredRoutes = append(desiredRoutes, r.lbSvcDesiredRoutes(svc, rs)...)
 		case v2alpha1api.BGPClusterIPAddr:
-			desiredRoutes = append(desiredRoutes, r.clusterIPDesiredRoutes(svc, ls)...)
+			desiredRoutes = append(desiredRoutes, r.clusterIPDesiredRoutes(svc, rs)...)
 		case v2alpha1api.BGPExternalIPAddr:
-			desiredRoutes = append(desiredRoutes, r.externalIPDesiredRoutes(svc, ls)...)
+			desiredRoutes = append(desiredRoutes, r.externalIPDesiredRoutes(svc, rs)...)
 		}
 	}
 
 	return desiredRoutes, err
 }
 
-func (r *ServiceReconciler) externalIPDesiredRoutes(svc *slim_corev1.Service, ls localServices) []netip.Prefix {
+func (r *ServiceReconciler) externalIPDesiredRoutes(svc *slim_corev1.Service, rs routableServices) []netip.Prefix {
 	var desiredRoutes []netip.Prefix
 	// Ignore externalTrafficPolicy == Local && no local endpoints.
-	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal &&
-		!hasLocalEndpoints(svc, ls) {
+	if !hasValidEndpoints(svc, rs) && (!r.routesConfig.EnableNoServiceEndpointsRoutable || svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal) {
 		return desiredRoutes
 	}
 	for _, extIP := range svc.Spec.ExternalIPs {
@@ -365,11 +382,10 @@ func (r *ServiceReconciler) externalIPDesiredRoutes(svc *slim_corev1.Service, ls
 	return desiredRoutes
 }
 
-func (r *ServiceReconciler) clusterIPDesiredRoutes(svc *slim_corev1.Service, ls localServices) []netip.Prefix {
+func (r *ServiceReconciler) clusterIPDesiredRoutes(svc *slim_corev1.Service, rs routableServices) []netip.Prefix {
 	var desiredRoutes []netip.Prefix
 	// Ignore internalTrafficPolicy == Local && no local endpoints.
-	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal &&
-		!hasLocalEndpoints(svc, ls) {
+	if !hasValidEndpoints(svc, rs) && (!r.routesConfig.EnableNoServiceEndpointsRoutable || svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal) {
 		return desiredRoutes
 	}
 	if svc.Spec.ClusterIP == "" || len(svc.Spec.ClusterIPs) == 0 || svc.Spec.ClusterIP == corev1.ClusterIPNone {
@@ -395,14 +411,13 @@ func (r *ServiceReconciler) clusterIPDesiredRoutes(svc *slim_corev1.Service, ls 
 	return desiredRoutes
 }
 
-func (r *ServiceReconciler) lbSvcDesiredRoutes(svc *slim_corev1.Service, ls localServices) []netip.Prefix {
+func (r *ServiceReconciler) lbSvcDesiredRoutes(svc *slim_corev1.Service, rs routableServices) []netip.Prefix {
 	var desiredRoutes []netip.Prefix
 	if svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
 		return desiredRoutes
 	}
 	// Ignore externalTrafficPolicy == Local && no local endpoints.
-	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal &&
-		!hasLocalEndpoints(svc, ls) {
+	if !hasValidEndpoints(svc, rs) && (!r.routesConfig.EnableNoServiceEndpointsRoutable || svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal) {
 		return desiredRoutes
 	}
 	// Ignore service managed by an unsupported LB class.
@@ -424,9 +439,9 @@ func (r *ServiceReconciler) lbSvcDesiredRoutes(svc *slim_corev1.Service, ls loca
 }
 
 // reconcileService gets the desired routes of a given service and makes sure that is what is being announced.
-func (r *ServiceReconciler) reconcileService(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices, pathRefs pathReferencesMap) error {
+func (r *ServiceReconciler) reconcileService(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, rs routableServices, pathRefs pathReferencesMap) error {
 
-	desiredRoutes, err := r.svcDesiredRoutes(newc, svc, ls)
+	desiredRoutes, err := r.svcDesiredRoutes(newc, svc, rs)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve svc desired routes: %w", err)
 	}

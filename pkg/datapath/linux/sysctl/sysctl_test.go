@@ -15,10 +15,10 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -74,7 +74,7 @@ func TestFullPath(t *testing.T) {
 }
 
 func TestWaitForReconciliation(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	const paramName = "fake-parameter"
 
@@ -84,22 +84,11 @@ func TestWaitForReconciliation(t *testing.T) {
 	)
 
 	hive := hive.New(
-		cell.Module(
-			"sysctl-test",
-			"sysctl-test",
-
-			cell.Provide(func(db *statedb.DB) (statedb.RWTable[*tables.Sysctl], statedb.Index[*tables.Sysctl, reconciler.StatusKind], error) {
-				return tables.NewSysctlTable(db)
-			}),
-			cell.Invoke(func(db *statedb.DB, settings statedb.RWTable[*tables.Sysctl]) {
-				db.RegisterTable(settings)
-			}),
-
-			cell.Invoke(func(statedb *statedb.DB, tb statedb.RWTable[*tables.Sysctl]) {
-				db = statedb
-				settings = tb
-			}),
-		),
+		cell.Provide(tables.NewSysctlTable),
+		cell.Invoke(func(statedb *statedb.DB, tb statedb.RWTable[*tables.Sysctl]) {
+			db = statedb
+			settings = tb
+		}),
 	)
 
 	tlog := hivetest.Logger(t)
@@ -132,7 +121,7 @@ func TestWaitForReconciliation(t *testing.T) {
 }
 
 func TestSysctl(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	settings := [][]string{
 		{"net", "ipv4", "ip_forward"},
@@ -143,22 +132,18 @@ func TestSysctl(t *testing.T) {
 	var sysctl Sysctl
 
 	hive := hive.New(
-		cell.Module(
-			"sysctl-test",
-			"sysctl-test",
-			cell.Config(defaultConfig),
+		cell.Config(defaultConfig),
 
-			cell.Provide(
-				func() afero.Fs {
-					return afero.NewMemMapFs()
-				},
-			),
-			cell.Provide(
-				newReconcilingSysctl,
-				tables.NewSysctlTable,
-				newReconciler,
-				newOps,
-			),
+		cell.Provide(
+			func() afero.Fs {
+				return afero.NewMemMapFs()
+			},
+		),
+		cell.Provide(
+			newReconcilingSysctl,
+			tables.NewSysctlTable,
+			newReconciler,
+			newOps,
 		),
 
 		cell.Invoke(func(s Sysctl) {
@@ -235,29 +220,25 @@ func TestSysctl(t *testing.T) {
 }
 
 func TestSysctlIgnoreErr(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	parameter := tables.Sysctl{Name: []string{"net", "core", "bpf_jit_enable"}, Val: "1", IgnoreErr: true}
 
 	var sysctl Sysctl
 
 	hive := hive.New(
-		cell.Module(
-			"sysctl-test",
-			"sysctl-test",
-			cell.Config(defaultConfig),
+		cell.Config(defaultConfig),
 
-			cell.Provide(
-				func() afero.Fs {
-					return afero.NewMemMapFs()
-				},
-			),
-			cell.Provide(
-				newReconcilingSysctl,
-				tables.NewSysctlTable,
-				newReconciler,
-				newOps,
-			),
+		cell.Provide(
+			func() afero.Fs {
+				return afero.NewMemMapFs()
+			},
+		),
+		cell.Provide(
+			newReconcilingSysctl,
+			tables.NewSysctlTable,
+			newReconciler,
+			newOps,
 		),
 
 		cell.Invoke(func(s Sysctl) {

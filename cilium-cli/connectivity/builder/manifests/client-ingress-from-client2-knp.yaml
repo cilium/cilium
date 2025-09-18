@@ -11,3 +11,5 @@ spec:
         - podSelector:
             matchLabels:
               other: client
+            matchExpressions:
+            - { key: io.cilium.k8s.policy.cluster, operator: Exists }

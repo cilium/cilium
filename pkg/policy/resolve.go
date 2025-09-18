@@ -12,13 +12,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-
 	cilium "github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -55,6 +52,15 @@ type PolicyContext interface {
 	// value stored.
 	SetDeny(newValue bool) (oldValue bool)
 
+	// DefaultDenyIngress returns true if default deny is enabled for ingress
+	DefaultDenyIngress() bool
+
+	// DefaultDenyEgress returns true if default deny is enabled for egress
+	DefaultDenyEgress() bool
+
+	SetOrigin(ruleOrigin)
+	Origin() ruleOrigin
+
 	GetLogger() *slog.Logger
 
 	PolicyTrace(format string, a ...any)
@@ -65,7 +71,11 @@ type policyContext struct {
 	ns   string
 	// isDeny this field is set to true if the given policy computation should
 	// be done for the policy deny.
-	isDeny bool
+	isDeny             bool
+	defaultDenyIngress bool
+	defaultDenyEgress  bool
+
+	origin ruleOrigin
 
 	logger       *slog.Logger
 	traceEnabled bool
@@ -110,6 +120,24 @@ func (p *policyContext) SetDeny(deny bool) bool {
 	return oldDeny
 }
 
+// DefaultDenyIngress returns true if default deny is enabled for ingress
+func (p *policyContext) DefaultDenyIngress() bool {
+	return p.defaultDenyIngress
+}
+
+// DefaultDenyEgress returns true if default deny is enabled for egress
+func (p *policyContext) DefaultDenyEgress() bool {
+	return p.defaultDenyEgress
+}
+
+func (p *policyContext) SetOrigin(ro ruleOrigin) {
+	p.origin = ro
+}
+
+func (p *policyContext) Origin() ruleOrigin {
+	return p.origin
+}
+
 func (p *policyContext) GetLogger() *slog.Logger {
 	return p.logger
 }
@@ -128,7 +156,7 @@ func (p *policyContext) PolicyTrace(format string, a ...any) {
 type SelectorPolicy interface {
 	// CreateRedirects is used to ensure the endpoint has created all the needed redirects
 	// before a new EndpointPolicy is created.
-	RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPolicy]
+	RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolicyTuple]
 
 	// DistillPolicy returns the policy in terms of connectivity to peer
 	// Identities.
@@ -216,17 +244,23 @@ func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port 
 // that verdict, and 'true' if found.
 // Returns a deny entry when a match is not found, mirroring the datapath default deny behavior.
 // 'key' must not have a wildcard identity or port.
-func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, bool) {
+func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, RuleMeta, bool) {
 	entry, found := p.policyMapState.lookup(key)
-	lbls := labels.LabelArrayListFromString(entry.derivedFromRules.Value())
-	return entry.MapStateEntry, lbls, found
+	return entry.MapStateEntry, entry.derivedFromRules.Value(), found
+}
+
+// CopyMapStateFrom copies the policy map entries from m.
+func (p *EndpointPolicy) CopyMapStateFrom(m MapStateMap) {
+	for key, entry := range m {
+		p.policyMapState.entries[key] = NewMapStateEntry(entry)
+	}
 }
 
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
-	PolicyDebug(fields logrus.Fields, msg string)
+	PolicyDebug(msg string, attrs ...any)
 	IsHost() bool
 	MapStateSize() int
 	RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool
@@ -358,13 +392,13 @@ func (p *EndpointPolicy) Get(key Key) (MapStateEntry, bool) {
 
 var errMissingKey = errors.New("Key not found")
 
-// GetRuleLabels returns the list of labels of the rules that contributed
+// GetRuleMeta returns the list of labels of the rules that contributed
 // to the entry at this key.
 // The returned string is the string representation of a LabelArrayList.
-func (p *EndpointPolicy) GetRuleLabels(k Key) (string, error) {
+func (p *EndpointPolicy) GetRuleMeta(k Key) (RuleMeta, error) {
 	entry, ok := p.policyMapState.get(k)
 	if !ok {
-		return "", errMissingKey
+		return RuleMeta{}, errMissingKey
 	}
 	return entry.derivedFromRules.Value(), nil
 }
@@ -483,21 +517,26 @@ func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPol
 	})
 }
 
+type PerSelectorPolicyTuple struct {
+	Policy   *PerSelectorPolicy
+	Selector CachedSelector
+}
+
 // RedirectFilters returns an iterator for each L4Filter with a redirect in the policy.
-func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPolicy] {
-	return func(yield func(*L4Filter, *PerSelectorPolicy) bool) {
+func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolicyTuple] {
+	return func(yield func(*L4Filter, PerSelectorPolicyTuple) bool) {
 		if p.L4Policy.Ingress.forEachRedirectFilter(yield) {
 			p.L4Policy.Egress.forEachRedirectFilter(yield)
 		}
 	}
 }
 
-func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, *PerSelectorPolicy) bool) bool {
+func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, PerSelectorPolicyTuple) bool) bool {
 	ok := true
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
-		for _, ps := range l4.PerSelectorPolicies {
+		for cs, ps := range l4.PerSelectorPolicies {
 			if ps != nil && ps.IsRedirect() {
-				ok = yield(l4, ps)
+				ok = yield(l4, PerSelectorPolicyTuple{ps, cs})
 			}
 		}
 		return ok
@@ -529,10 +568,10 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 		}
 		p.VersionHandle = version
 
-		p.PolicyOwner.PolicyDebug(logrus.Fields{
-			logfields.Version: version,
-			logfields.Changes: changes,
-		}, msg)
+		p.PolicyOwner.PolicyDebug(msg,
+			logfields.Version, version,
+			logfields.Changes, changes,
+		)
 	}
 
 	return closer, changes

@@ -17,6 +17,7 @@
 #include "config.h"
 #include "tunnel.h"
 #include "notify.h"
+#include "drop_reasons.h"
 
 #include "source_info.h"
 
@@ -40,6 +41,12 @@
 #define CONDITIONAL_PREALLOC 0
 #else
 #define CONDITIONAL_PREALLOC BPF_F_NO_PREALLOC
+#endif
+
+#ifdef NO_COMMON_MEM_MAPS
+#define LRU_MEM_FLAVOR BPF_F_NO_COMMON_LRU
+#else
+#define LRU_MEM_FLAVOR 0
 #endif
 
 #if defined(ENABLE_EGRESS_GATEWAY)
@@ -71,82 +78,31 @@ enum {
 /* FIB errors from BPF neighbor map. */
 #define BPF_FIB_MAP_NO_NEIGH	100
 
-#define CILIUM_CALL_DROP_NOTIFY			1
-#define CILIUM_CALL_ERROR_NOTIFY		2
-/*
- * A gap in the macro numbering sequence was created by #24921.
- * It can be reused for a new macro in the future, but caution is needed when
- * backporting changes as it may conflict with older versions of the code.
- */
-#define CILIUM_CALL_HANDLE_ICMP6_NS		4
-#define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
-#define CILIUM_CALL_ARP				6
-#define CILIUM_CALL_IPV4_FROM_LXC		7
-#define CILIUM_CALL_IPV4_FROM_NETDEV		CILIUM_CALL_IPV4_FROM_LXC
-#define CILIUM_CALL_IPV4_FROM_OVERLAY		CILIUM_CALL_IPV4_FROM_LXC
-#define CILIUM_CALL_IPV46_RFC6052		8
-#define CILIUM_CALL_IPV64_RFC6052		9
-#define CILIUM_CALL_IPV6_FROM_LXC		10
-#define CILIUM_CALL_IPV6_FROM_NETDEV		CILIUM_CALL_IPV6_FROM_LXC
-#define CILIUM_CALL_IPV6_FROM_OVERLAY		CILIUM_CALL_IPV6_FROM_LXC
-#define CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY	11
-#define CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY	CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY
-#define CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY	12
-#define CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY	CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY
-#define CILIUM_CALL_IPV4_TO_ENDPOINT		13
-#define CILIUM_CALL_IPV6_TO_ENDPOINT		14
-#define CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS	15
-#define CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS	16
-#define CILIUM_CALL_IPV4_NODEPORT_REVNAT	17
-#define CILIUM_CALL_IPV6_NODEPORT_REVNAT	18
-#define CILIUM_CALL_IPV4_NODEPORT_NAT_FWD	19
-#define CILIUM_CALL_IPV4_NODEPORT_DSR		20
-#define CILIUM_CALL_IPV6_NODEPORT_DSR		21
-#define CILIUM_CALL_IPV4_FROM_HOST		22
-#define CILIUM_CALL_IPV6_FROM_HOST		23
-#define CILIUM_CALL_IPV6_NODEPORT_NAT_FWD	24
-#define CILIUM_CALL_IPV4_FROM_LXC_CONT		25
-#define CILIUM_CALL_IPV6_FROM_LXC_CONT		26
-#define CILIUM_CALL_IPV4_CT_INGRESS		27
-#define CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY	28
-#define CILIUM_CALL_IPV4_CT_EGRESS		29
-#define CILIUM_CALL_IPV6_CT_INGRESS		30
-#define CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY	31
-#define CILIUM_CALL_IPV6_CT_EGRESS		32
-#define CILIUM_CALL_SRV6_ENCAP			33
-#define CILIUM_CALL_SRV6_DECAP			34
-/* Unused CILIUM_CALL_SRV6_REPLY		35 */
-#define CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS	36
-#define CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS	37
-#define CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD	38
-#define CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD	39
-/* Unused CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS	40
- * Unused CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS	41
- */
-#define CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT	42
-#define CILIUM_CALL_IPV4_CONT_FROM_HOST		43
-#define CILIUM_CALL_IPV4_CONT_FROM_NETDEV	44
-#define CILIUM_CALL_IPV6_CONT_FROM_HOST		45
-#define CILIUM_CALL_IPV6_CONT_FROM_NETDEV	46
-#define CILIUM_CALL_IPV4_NO_SERVICE		47
-#define CILIUM_CALL_IPV6_NO_SERVICE		48
-#define CILIUM_CALL_MULTICAST_EP_DELIVERY       49
-#define CILIUM_CALL_SIZE			50
-
 typedef __u64 mac_t;
 
+union v4addr {
+	__be32 be32;
+	__u8 addr[4];
+};
+
 union v6addr {
+	__u8 addr[16];
 	struct {
 		__u32 p1;
 		__u32 p2;
 		__u32 p3;
 		__u32 p4;
-	};
+	} p;
+#define p1 p.p1
+#define p2 p.p2
+#define p3 p.p3
+#define p4 p.p4
 	struct {
 		__u64 d1;
 		__u64 d2;
-	};
-	__u8 addr[16];
+	} d;
+#define d1 d.d1
+#define d2 d.d2
 } __packed;
 
 static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
@@ -259,6 +215,13 @@ static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __u16 proto 
 #define revalidate_data(ctx, data, data_end, ip)			\
 	revalidate_data_l3_off(ctx, data, data_end, ip, ETH_HLEN)
 
+/* arp is different from the above as we also want to pull in the payload.
+ * Returns true if 'ctx' is long enough to be valid ARP packet, false otherwise.
+ */
+#define revalidate_data_arp_pull(ctx, data, data_end, arp)		\
+	__revalidate_data_pull(ctx, data, data_end, (void **)arp,	\
+		ETH_HLEN + sizeof(struct arphdr), sizeof(**arp), true)
+
 #define ENDPOINT_KEY_IPV4 1
 #define ENDPOINT_KEY_IPV6 2
 
@@ -278,36 +241,6 @@ struct endpoint_key {
 	__u8 family;
 	__u8 key;
 	__u16 cluster_id;
-} __packed;
-
-struct tunnel_key {
-	union {
-		struct {
-			__u32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
-		union v6addr	ip6;
-	};
-	__u8 family;
-	__u8 pad;
-	__u16 cluster_id;
-} __packed;
-
-struct tunnel_value {
-	union {
-		struct {
-			__u32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
-		union v6addr	ip6;
-	};
-	__u8 family;
-	__u8 key;
-	__u16 pad;
 } __packed;
 
 #define ENDPOINT_F_HOST			1 /* Special endpoint representing local host */
@@ -350,11 +283,22 @@ struct edt_info {
 
 struct remote_endpoint_info {
 	__u32		sec_identity;
-	__u32		tunnel_endpoint;
+	union {
+		struct {
+			__u32	ip4;
+			__u32	pad1;
+			__u32	pad2;
+			__u32	pad3;
+		};
+		union v6addr	ip6;
+	} tunnel_endpoint;
 	__u16		pad;
 	__u8		key;
 	__u8		flag_skip_tunnel:1,
-			pad2:7;
+			flag_has_tunnel_ep:1,
+			flag_ipv6_tunnel_ep:1,
+			flag_remote_cluster:1,
+			pad2:4;
 };
 
 /*
@@ -476,6 +420,8 @@ struct egress_gw_policy_entry6 {
 	union v6addr egress_ip;
 	__u32 gateway_ip;
 	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
+	__u32 egress_ifindex;
+	__u32 reserved2; /* for even more future extension */
 };
 
 struct srv6_vrf_key4 {
@@ -543,10 +489,6 @@ enum {
 	CAPTURE_EGRESS = 2,
 };
 
-#ifndef TRACE_PAYLOAD_LEN
-#define TRACE_PAYLOAD_LEN 128ULL
-#endif
-
 #ifndef BPF_F_PSEUDO_HDR
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)
 #endif
@@ -555,90 +497,6 @@ enum {
 
 /* Return value to indicate that proxy redirection is required */
 #define POLICY_ACT_PROXY_REDIRECT (1 << 16)
-
-/* Cilium error codes, must NOT overlap with TC return codes.
- * These also serve as drop reasons for metrics,
- * where reason > 0 corresponds to -(DROP_*)
- *
- * These are shared with pkg/monitor/api/drop.go and api/v1/flow/flow.proto.
- * When modifying any of the below, those files should also be updated.
- */
-#define DROP_UNUSED1		-130 /* unused */
-#define DROP_UNUSED2		-131 /* unused */
-#define DROP_INVALID_SIP	-132
-#define DROP_POLICY		-133
-#define DROP_INVALID		-134
-#define DROP_CT_INVALID_HDR	-135
-#define DROP_FRAG_NEEDED	-136
-#define DROP_CT_UNKNOWN_PROTO	-137
-#define DROP_UNUSED4		-138 /* unused */
-#define DROP_UNKNOWN_L3		-139
-#define DROP_MISSED_TAIL_CALL	-140
-#define DROP_WRITE_ERROR	-141
-#define DROP_UNKNOWN_L4		-142
-#define DROP_UNKNOWN_ICMP4_CODE	-143
-#define DROP_UNKNOWN_ICMP4_TYPE	-144
-#define DROP_UNKNOWN_ICMP6_CODE	-145
-#define DROP_UNKNOWN_ICMP6_TYPE	-146
-#define DROP_NO_TUNNEL_KEY	-147
-#define DROP_UNUSED5		-148 /* unused */
-#define DROP_UNUSED6		-149 /* unused */
-#define DROP_UNKNOWN_TARGET	-150
-#define DROP_UNROUTABLE		-151
-#define DROP_UNUSED7		-152 /* unused */
-#define DROP_CSUM_L3		-153
-#define DROP_CSUM_L4		-154
-#define DROP_CT_CREATE_FAILED	-155
-#define DROP_INVALID_EXTHDR	-156
-#define DROP_FRAG_NOSUPPORT	-157
-#define DROP_NO_SERVICE		-158
-#define DROP_UNSUPP_SERVICE_PROTO	-159
-#define DROP_NO_TUNNEL_ENDPOINT -160
-#define DROP_NAT_46X64_DISABLED	-161
-#define DROP_EDT_HORIZON	-162
-#define DROP_UNKNOWN_CT		-163
-#define DROP_HOST_UNREACHABLE	-164
-#define DROP_NO_CONFIG		-165
-#define DROP_UNSUPPORTED_L2	-166
-#define DROP_NAT_NO_MAPPING	-167
-#define DROP_NAT_UNSUPP_PROTO	-168
-#define DROP_NO_FIB		-169
-#define DROP_ENCAP_PROHIBITED	-170
-#define DROP_INVALID_IDENTITY	-171
-#define DROP_UNKNOWN_SENDER	-172
-#define DROP_NAT_NOT_NEEDED	-173 /* Mapped as drop code, though drop not necessary. */
-#define DROP_IS_CLUSTER_IP	-174
-#define DROP_FRAG_NOT_FOUND	-175
-#define DROP_FORBIDDEN_ICMP6	-176
-#define DROP_NOT_IN_SRC_RANGE	-177
-#define DROP_PROXY_LOOKUP_FAILED	-178
-#define DROP_PROXY_SET_FAILED	-179
-#define DROP_PROXY_UNKNOWN_PROTO	-180
-#define DROP_POLICY_DENY	-181
-#define DROP_VLAN_FILTERED	-182
-#define DROP_INVALID_VNI	-183
-#define DROP_INVALID_TC_BUFFER  -184
-#define DROP_NO_SID		-185
-#define DROP_MISSING_SRV6_STATE	-186 /* unused */
-#define DROP_NAT46		-187
-#define DROP_NAT64		-188
-#define DROP_POLICY_AUTH_REQUIRED	-189
-#define DROP_CT_NO_MAP_FOUND	-190
-#define DROP_SNAT_NO_MAP_FOUND	-191
-#define DROP_INVALID_CLUSTER_ID	-192
-#define DROP_DSR_ENCAP_UNSUPP_PROTO	-193
-#define DROP_NO_EGRESS_GATEWAY	-194
-#define DROP_UNENCRYPTED_TRAFFIC	-195
-#define DROP_TTL_EXCEEDED	-196
-#define DROP_NO_NODE_ID		-197
-#define DROP_RATE_LIMITED	-198
-#define DROP_IGMP_HANDLED	-199
-#define DROP_IGMP_SUBSCRIBED    -200
-#define DROP_MULTICAST_HANDLED  -201
-#define DROP_HOST_NOT_READY	-202
-#define DROP_EP_NOT_READY	-203
-#define DROP_NO_EGRESS_IP	-204
-#define DROP_PUNT_PROXY		-205 /* Mapped as drop code, though drop not necessary. */
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 #define LB_PUNT_TO_STACK	DROP_PUNT_PROXY
@@ -665,6 +523,7 @@ enum {
 #define REASON_MISSED_CUSTOM_CALL	11
 #define REASON_DECRYPTING			12
 #define REASON_ENCRYPTING			13
+#define REASON_LB_REVNAT_DELETE		14
 
 /* Lookup scope for externalTrafficPolicy=Local */
 #define LB_LOOKUP_SCOPE_EXT	0
@@ -710,14 +569,6 @@ enum metric_dir {
 #define MARK_MAGIC_EGW_DONE		0x0500 /* mark carries identity */
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
-
-
-/* The mark is used to indicate that the WireGuard tunnel device is done
- * encrypting a packet. The MSB invades the Kubernetes mark "space" which is
- * fine, as it's not used by K8s. See pkg/datapath/linux/linux_defaults/mark.go
- * for more details.
- */
-#define MARK_MAGIC_WG_ENCRYPTED		0x1E00
 
 /* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
  * being mutual exclusive given former is only under DSR. Used to push health
@@ -940,11 +791,7 @@ struct ct_entry {
 	      from_tunnel:1,	/* Connection is over tunnel */
 	      reserved3:5;
 	__u16 rev_nat_index;
-	/* In the kernel ifindex is u32, so we need to check in cilium-agent
-	 * that ifindex of a NodePort device is <= MAX(u16).
-	 * Unused when HAVE_FIB_INDEX is available.
-	 */
-	__u16 ifindex;
+	__u16 reserved4;	/* unused since v1.18 */
 
 	/* *x_flags_seen represents the OR of all TCP flags seen for the
 	 * transmit/receive direction of this entry.
@@ -961,11 +808,21 @@ struct ct_entry {
 	__u32 last_rx_report;
 };
 
+/* We previously tolerated services with no specified L4 protocol (IPPROTO_ANY).
+ *
+ * This was deprecated, and we now re-purpose IPPROTO_ANY such that when combined with
+ * a zero L4 Destination Port, we can encode a wild-card service entry. This informs
+ * the data path to drop flows towards IPs we know about, but on services we don't.
+ */
+#define IPPROTO_ANY	0
+#define LB_SVC_WILDCARD_PROTO IPPROTO_ANY
+#define LB_SVC_WILDCARD_DPORT 0
+
 struct lb6_key {
 	union v6addr address;	/* Service virtual IPv6 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
 	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
-	__u8 proto;		/* L4 protocol, 0 indicates any protocol */
+	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
 	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
 	__u8 pad[2];
 };
@@ -1025,7 +882,7 @@ struct lb4_key {
 	__be32 address;		/* Service virtual IPv4 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
 	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
-	__u8 proto;		/* L4 protocol, 0 indicates any protocol */
+	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
 	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
 	__u8 pad[2];
 };
@@ -1143,7 +1000,7 @@ struct lb_affinity_match {
 
 struct ct_state {
 	__u16 rev_nat_index;
-#ifndef DISABLE_LOOPBACK_LB
+#ifdef USE_LOOPBACK_LB
 	__u16 loopback:1,
 #else
 	__u16 loopback_disabled:1,
@@ -1158,9 +1015,6 @@ struct ct_state {
 		  closing:1,
 	      reserved:7;
 	__u32 src_sec_id;
-#ifndef HAVE_FIB_IFINDEX
-	__u16 ifindex;
-#endif
 	__u32 backend_id;	/* Backend ID in lb4_backends */
 };
 
@@ -1192,11 +1046,7 @@ struct lb6_src_range_key {
 
 static __always_inline __u64 ctx_adjust_hroom_flags(void)
 {
-#ifdef HAVE_CSUM_LEVEL
 	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;
-#else
-	return 0;
-#endif
 }
 
 struct lpm_v4_key {

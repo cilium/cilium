@@ -58,7 +58,7 @@ const (
 	// EntityNone is an entity that can be selected but never exist
 	EntityNone Entity = "none"
 
-	// EntityNone is an entity that represents the kube-apiserver.
+	// EntityKubeAPIServer is an entity that represents the kube-apiserver.
 	EntityKubeAPIServer Entity = "kube-apiserver"
 )
 

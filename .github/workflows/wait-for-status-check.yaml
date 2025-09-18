@@ -1,0 +1,122 @@
+name: Wait for Lint Checks
+
+on:
+  workflow_call:
+    inputs:
+      if:
+        description: "Condition to run the wait (true/false)"
+        type: boolean
+        default: true
+      sha:
+        description: "SHA to check for lint workflow completion"
+        required: true
+        type: string
+      lint-workflows:
+        description: "Comma-separated list of lint workflow filenames to wait for"
+        required: false
+        type: string
+        default: "lint-images-base.yaml"
+      timeout-minutes:
+        description: "Maximum time to wait for lint workflows (in minutes)"
+        required: false
+        type: number
+        default: 30
+      poll-interval:
+        description: "Polling interval in seconds"
+        required: false
+        type: number
+        default: 30
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  wait-for-lint:
+    name: Wait for lint checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    steps:
+      - name: Wait for lint workflows to complete
+        if: ${{ inputs.if }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Parse input parameters
+          check_sha="${{ inputs.sha }}"
+          lint_workflows_str="${{ inputs.lint-workflows }}"
+          poll_interval="${{ inputs.poll-interval }}"
+          timeout_minutes="${{ inputs.timeout-minutes }}"
+
+          echo "Waiting for lint workflows to complete for SHA: $check_sha"
+          echo "Lint workflows to check: $lint_workflows_str"
+          echo "Poll interval: ${poll_interval}s, Timeout: ${timeout_minutes}m"
+
+          # Convert comma-separated workflows to array
+          IFS=',' read -ra lint_workflows <<< "$lint_workflows_str"
+
+          max_attempts=$((timeout_minutes * 60 / poll_interval))
+          attempt=0
+
+          while [[ $attempt -lt $max_attempts ]]; do
+            attempt=$((attempt + 1))
+            echo "Attempt $attempt/$max_attempts"
+
+            all_successful=true
+
+            for workflow in "${lint_workflows[@]}"; do
+              # Trim whitespace
+              workflow=$(echo "$workflow" | xargs)
+              echo "Checking workflow: $workflow"
+
+              # Use gh CLI to get the latest run for this workflow and commit
+              run_status=$(gh --repo ${{ github.repository }} run list --workflow "$workflow" --commit "$check_sha" --limit 1 --json status,conclusion --jq '.[0] // empty')
+
+              if [[ -z "$run_status" ]]; then
+                echo "No workflow run found for SHA $check_sha"
+                all_successful=false
+                continue
+              fi
+
+              status=$(echo "$run_status" | jq -r '.status')
+              conclusion=$(echo "$run_status" | jq -r '.conclusion')
+
+              echo "Workflow status: $status, conclusion: $conclusion"
+
+              case "$status" in
+                "completed")
+                  if [[ "$conclusion" == "success" ]]; then
+                    echo "✅ Workflow completed successfully"
+                  else
+                    echo "❌ Lint workflow $workflow failed with conclusion: $conclusion"
+                    exit 1
+                  fi
+                  ;;
+                "in_progress"|"queued")
+                  echo "⏳ Workflow is still running..."
+                  all_successful=false
+                  ;;
+                *)
+                  echo "❓ Unknown workflow status: $status"
+                  all_successful=false
+                  ;;
+              esac
+            done
+
+            if [[ "$all_successful" == "true" ]]; then
+              echo "✅ All lint workflows completed successfully!"
+              exit 0
+            fi
+
+            if [[ $attempt -lt $max_attempts ]]; then
+              echo "Waiting ${poll_interval} seconds before next check..."
+              sleep "$poll_interval"
+            fi
+          done
+
+          echo "❌ Timeout waiting for lint workflows to complete"
+          exit 1
+
+      - name: Return successful
+        if: ${{ !inputs.if }}
+        run: echo "Skipping wait as per input condition"

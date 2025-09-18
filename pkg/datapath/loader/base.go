@@ -50,7 +50,6 @@ func (l *loader) writeNetdevHeader(dir string) error {
 	f, err := os.Create(headerPath)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s for writing: %w", headerPath, err)
-
 	}
 	defer f.Close()
 
@@ -185,7 +184,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	// the code below, specific to EncryptInterface. Specifically, we will load
 	// bpf_host code in reloadHostDatapath onto the physical devices as selected
 	// by configuration.
-	if !option.Config.EnableIPSec || option.Config.AreDevicesRequired() {
+	if !lnc.EnableIPSec || option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard, lnc.EnableIPSec) {
 		return nil
 	}
 
@@ -218,17 +217,17 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 		return nil
 	}
 
-	spec, err := bpf.LoadCollectionSpec(networkObj)
+	spec, err := ebpf.LoadCollectionSpec(networkObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
 
 	var obj networkObjects
-	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants: config.NewBPFNetwork(nodeConfig(lnc)),
+		Constants: config.NewBPFNetwork(config.NodeConfig(lnc)),
 	})
 	if err != nil {
 		return err
@@ -281,9 +280,6 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 
 	// gather compile options for bpf_overlay.c
 	opts := []string{}
-	if option.Config.EnableNodePort {
-		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
-	}
 
 	if err := replaceOverlayDatapath(ctx, logger, lnc, opts, link); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
@@ -293,7 +289,7 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 }
 
 func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration) (err error) {
-	if !option.Config.EnableWireguard {
+	if !lnc.EnableWireguard {
 		cleanCallsMaps("cilium_calls_wireguard*")
 		return
 	}
@@ -316,7 +312,7 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return nil
 	}
 	for _, dev := range devices {
-		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
+		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach cil_from_wireguard
 		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
 		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
 		// is enabled, otherwise we will get "operation not supported" error.
@@ -404,7 +400,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
 
-	if option.Config.EnableHealthDatapath || option.Config.EnableIPIPTermination {
+	if option.Config.EnableIPIPDevices {
 		// This setting needs to be applied before creating the IPIP devices.
 		sysIPIP := []tables.Sysctl{
 			{Name: []string{"net", "core", "fb_tunnels_only_for_init_net"}, Val: "2", IgnoreErr: true},
@@ -469,16 +465,16 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
 	defer cancel()
 
-	if option.Config.EnableSocketLB {
+	if lnc.KPRConfig.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
 		if err := compileWithOptions(ctx, l.logger, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
 			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)
 		}
-		if err := socketlb.Enable(l.sysctl); err != nil {
+		if err := socketlb.Enable(l.logger, l.sysctl, lnc); err != nil {
 			return err
 		}
 	} else {
-		if err := socketlb.Disable(); err != nil {
+		if err := socketlb.Disable(l.logger); err != nil {
 			return err
 		}
 	}
@@ -493,12 +489,12 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		logging.Fatal(l.logger, "alignchecker compile failed", logfields.Error, err)
 	}
 	// Validate alignments of C and Go equivalent structs
-	alignchecker.RegisterLbStructsToCheck(option.Config.LoadBalancerAlgorithmAnnotation)
+	alignchecker.RegisterLbStructsToCheck(lnc.LBConfig.AlgorithmAnnotation)
 	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
 		logging.Fatal(l.logger, "C and Go structs alignment check failed", logfields.Error, err)
 	}
 
-	if option.Config.EnableIPSec {
+	if lnc.EnableIPSec {
 		if err := compileNetwork(ctx, l.logger); err != nil {
 			logging.Fatal(l.logger, "failed to compile encryption programs", logfields.Error, err)
 		}
@@ -516,13 +512,13 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		return err
 	}
 
-	if err := l.nodeHandler.NodeConfigurationChanged(*lnc); err != nil {
+	if err := l.nodeConfigNotifier.Notify(*lnc); err != nil {
 		return err
 	}
 
 	// Reinstall proxy rules for any running proxies if needed
 	if option.Config.EnableL7Proxy {
-		if err := p.ReinstallRoutingRules(lnc.RouteMTU); err != nil {
+		if err := p.ReinstallRoutingRules(ctx, lnc.RouteMTU, lnc.EnableIPSec); err != nil {
 			return err
 		}
 	}

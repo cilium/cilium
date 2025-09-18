@@ -62,6 +62,7 @@ Filters Flags:
       --identity filter                     Show all flows related to an endpoint with the given security identity
       --interface filter                    Show all flows observed at the given interface name (e.g. eth0)
       --ip filter                           Show all flows originating or terminating at the given IP address. Each of the IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24').
+      --ip-trace-id filter                  Show only flows which match this IP trace ID
       --ip-version filter                   Show only IPv4, IPv6 flows or non IP flows (e.g. ARP packets) (ie: "none", "v4", "v6")
   -4, --ipv4 filter[=v4]                    Show only IPv4 flows
   -6, --ipv6 filter[=v6]                    Show only IPv6 flows
@@ -127,6 +128,7 @@ Formatting Flags:
                                table:    Tab-aligned columns
                               (default "compact")
       --print-node-name      Print node name in output
+      --print-policy-names   Print policy names in output
       --time-format string   Specify the time format for printing. This option does not apply to the json and jsonpb output type. One of:
                                StampMilli:             Jan _2 15:04:05.000
                                YearMonthDay:           2006-01-02
@@ -168,11 +170,11 @@ Server Flags:
       --tls-server-name string        Specify a server name to verify the hostname on the returned certificate (eg: 'instance.hubble-relay.cilium.io').
 
 Other Flags:
-      --experimental-field-mask strings        Experimental: Comma-separated list of fields for mask. Fields not in the mask will be removed from server response.
-      --experimental-use-default-field-masks   Experimental: request only visible fields when the output format is compact, tab, or dict.
-      --input-file string                      Query flows from this file instead of the server. Use '-' to read from stdin.
-      --print-raw-filters                      Print allowlist/denylist filters and exit without sending the request to Hubble server
-  -s, --silent-errors                          Silently ignores errors and warnings
+      --field-mask strings        Comma-separated list of fields for mask. Fields not in the mask will be removed from server response.
+      --input-file string         Query flows from this file instead of the server. Use '-' to read from stdin.
+      --print-raw-filters         Print allowlist/denylist filters and exit without sending the request to Hubble server
+  -s, --silent-errors             Silently ignores errors and warnings
+      --use-default-field-masks   Request only visible fields when the output format is compact, tab, or dict. (default true)
 
 Global Flags:
       --config string   Optional config file (default "%s")

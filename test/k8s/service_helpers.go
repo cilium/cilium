@@ -39,24 +39,6 @@ func applyPolicy(kubectl *helpers.Kubectl, path string) {
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
 }
 
-func ciliumAddService(kubectl *helpers.Kubectl, id int64, frontend string, backends []string, svcType, trafficPolicy string) {
-	ciliumPods, err := kubectl.GetCiliumPods()
-	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
-	for _, pod := range ciliumPods {
-		err := kubectl.CiliumServiceAdd(pod, id, "", frontend, backends, svcType, trafficPolicy)
-		ExpectWithOffset(1, err).To(BeNil(), "Failed to add cilium service")
-	}
-}
-
-func ciliumDelService(kubectl *helpers.Kubectl, id int64) {
-	ciliumPods, err := kubectl.GetCiliumPods()
-	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
-	for _, pod := range ciliumPods {
-		// ignore result so tear down still continues on failures
-		_ = kubectl.CiliumServiceDel(pod, id)
-	}
-}
-
 var newlineRegexp = regexp.MustCompile(`\n[ \t\n]*`)
 
 func trimNewlines(script string) string {
@@ -101,36 +83,6 @@ func testCurlFromPods(kubectl *helpers.Kubectl, clientPodLabel, url string, coun
 		By("Making %d curl requests from %s pod to service %s", count, pod, url)
 		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, cmd)
 		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Request from %s pod to service %s failed", pod, url)
-	}
-}
-
-func testCurlFromPodWithSourceIPCheck(kubectl *helpers.Kubectl, clientPodLabel, url string, count int, sourceIP string) {
-	var cmd string
-
-	pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
-	ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %s", clientPodLabel)
-
-	By("Making %d HTTP requests from pods(%v) to %s", count, pods, url)
-	for _, pod := range pods {
-		for i := 1; i <= count; i++ {
-			cmd = helpers.CurlFail(url)
-			if sourceIP != "" {
-				cmd += " | grep client_address="
-			}
-
-			res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, cmd)
-			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-				"Can not connect to url %q from pod(%s)", url, pod)
-			if sourceIP != "" {
-				// Parse the IPs to avoid issues with 4-in-6 formats
-				ipStr := strings.TrimSpace(strings.Split(res.Stdout(), "=")[1])
-				outIP, err := netip.ParseAddr(ipStr)
-				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IP %q", ipStr)
-				srcIP, err := netip.ParseAddr(sourceIP)
-				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IP %q", sourceIP)
-				ExpectWithOffset(1, outIP).To(Equal(srcIP))
-			}
-		}
 	}
 }
 
@@ -649,7 +601,7 @@ func testFailBind(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 	failBind(kubectl, "::ffff:127.0.0.1", data.Spec.Ports[1].NodePort, "udp", ni.K8s1NodeName)
 }
 
-func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, testSecondaryNodePortIP, checkTCP, checkUDP bool) {
+func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, _, checkTCP, checkUDP bool) {
 	type svc struct {
 		name   string
 		nodeIP string
@@ -665,12 +617,6 @@ func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, testS
 
 	if helpers.DualStackSupported() {
 		services = append(services, svc{name: nodePortServiceIPv6, nodeIP: ni.PrimaryK8s1IPv6})
-	}
-	if testSecondaryNodePortIP {
-		services = append(services, svc{name: nodePortService, nodeIP: ni.SecondaryK8s1IPv4})
-		if helpers.DualStackSupported() {
-			services = append(services, svc{name: nodePortServiceIPv6, nodeIP: ni.SecondaryK8s1IPv6})
-		}
 	}
 
 	for _, svc := range services {

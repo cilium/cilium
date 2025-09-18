@@ -3,6 +3,10 @@
 
 package pkg
 
+import (
+	"github.com/blang/semver/v4"
+)
+
 // The following variables are set at compile time via LDFLAGS.
 var (
 	// Version is the software version.
@@ -12,3 +16,10 @@ var (
 	// GitHash is the git checksum of the most recent commit in HEAD.
 	GitHash string
 )
+
+// SemverVersion is a parsed representation of Version as semver.
+var SemverVersion semver.Version
+
+func init() {
+	SemverVersion, _ = semver.ParseTolerant(Version)
+}

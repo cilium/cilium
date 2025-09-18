@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
@@ -28,7 +28,7 @@ jobs:
 
       # Load Ginkgo build from GitHub
       - name: Load ginkgo linter from GH cache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         id: cache
         with:
           path: /tmp/.ginkgo-build/
@@ -36,11 +36,11 @@ jobs:
 
       - name: Install Go
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           cache-dependency-path: "src/github.com/cilium/cilium/*.sum"
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.2
+          go-version: 1.25.1
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -113,9 +113,7 @@ jobs:
       - name: Checking diff Ginkgo Workflow
         shell: bash
         run: |
-          diff /tmp/ginkgo-workflow-comments.txt /tmp/ginkgo-tests.txt --suppress-common-lines
-
-          if [ $? -ne 0 ]; then
+          if ! diff /tmp/ginkgo-workflow-comments.txt /tmp/ginkgo-tests.txt --suppress-common-lines; then
             echo ""
             echo "Ginkgo tests out of sync with comments from GH workflow:"
             echo "$diff"
@@ -127,9 +125,7 @@ jobs:
       - name: Checking diff Runtime Workflow
         shell: bash
         run: |
-          diff /tmp/runtime-workflow-comments.txt /tmp/runtime-tests.txt --suppress-common-lines
-
-          if [ $? -ne 0 ]; then
+          if ! diff /tmp/runtime-workflow-comments.txt /tmp/runtime-tests.txt --suppress-common-lines; then
             echo ""
             echo "Ginkgo tests out of sync with comments from GH workflow:"
             echo "$diff"
@@ -143,13 +139,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: '3.10'
       - name: Install yamela
         run: pip install yamale
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
@@ -160,7 +156,7 @@ jobs:
         run: |
           cd src/github.com/cilium/cilium/.github/actions/ginkgo/
           for type in focus k8s-versions prs scheduled; do
-            yamale -s ${type}-schema.yaml *-${type}.yaml;
+            yamale -s ${type}-schema.yaml ./*-${type}.yaml;
           done
 
   conformance-schema-validation:
@@ -168,13 +164,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: '3.10'
       - name: Install yamela
         run: pip install yamale
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
@@ -200,7 +196,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
@@ -213,13 +209,14 @@ jobs:
           cd src/github.com/cilium/cilium/.github/workflows
           for FILE in *.yaml;do
             JOBS=$(yq '.jobs | to_entries | .[] | select(.value.name == null) | "  " + .key' $FILE)
+            # shellcheck disable=SC2016
             STEPS=$(yq '.jobs | to_entries | .[] as $job | $job.value.steps[] | {"key": $job.key, "name": .name} | select(.name == null) | "  "+.key' $FILE)
-            if [ "${JOBS}" != "" ];then
+            if [[ ${JOBS} =~ [^[:space:]] ]];then
               echo Jobs are missing name field, in file $FILE
               echo "${JOBS}" | awk '{for (i=1; i<=NF; i++) print "  " $i}'
               EXIT=1
             fi
-            if [ "${STEPS}" != "" ];then
+            if [[ ${STEPS} =~ [^[:space:]] ]];then
               echo Steps are missing name field, under these Jobs in file $FILE
               echo "${STEPS}" | awk '{for (i=1; i<=NF; i++) print "  " $i}'
               EXIT=1
@@ -261,6 +258,8 @@ jobs:
             echo
             echo "Please run:"
             echo "  find .github -type f -exec sed -ri 's/[[:blank:]]+$//' {} \;"
+            echo "If FreeBSD sed,(MacOS Default) run:"
+            echo "  find .github -type f -exec sed -i '' -E 's/[[:blank:]]+$//' {} \;"
             echo "and submit your changes"
             exit 1
           fi
@@ -272,10 +271,25 @@ jobs:
           cd src/github.com/cilium/cilium/.github/workflows
           for FILE in *.yaml;do
             JOBS=$(yq '.jobs | to_entries | .[] | select(.value.runs-on == "ubuntu-latest") | "  " + .key' $FILE)
-            if [ "${JOBS}" != "" ];then
+            if [[ ${JOBS} =~ [^[:space:]] ]];then
               echo Jobs are using floating runner tag 'ubuntu-latest', in file $FILE
               echo "${JOBS}" | awk '{for (i=1; i<=NF; i++) print "  " $i}'
               EXIT=1
             fi
           done
           exit ${EXIT}
+
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        name: checkout
+      - name: Setup actionlint matcher
+        run: echo "::add-matcher::.github/actionlint-matcher.json"
+      - name: Check workflow files
+        uses: docker://rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
+        env:
+          SHELLCHECK_OPTS: --exclude=SC2086,SC2129,SC2185,SC2162,SC2090,SC2089,SC2001,SC2002
+        with:
+          args: -color

@@ -5,10 +5,8 @@
 
 #include "lib/common.h"
 #include "lib/identity.h"
+#include "lib/tailcall.h"
 
-#include "maps.h"
-
-#ifdef ENABLE_SRV6
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct srv6_vrf_key6);
@@ -44,8 +42,6 @@ struct srv6_srh {
 	struct in6_addr segments[0];
 };
 
-# ifdef ENABLE_IPV4
-
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct srv6_vrf_key4);
@@ -63,6 +59,9 @@ struct {
 	__uint(max_entries, SRV6_POLICY_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_policy_v4 __section_maps_btf;
+
+#ifdef ENABLE_SRV6
+# ifdef ENABLE_IPV4
 
 /* SRV6_VRF_STATIC_PREFIX4 gets sizeof non-IP, non-prefix part of
  * srv6_vrf_key4.
@@ -409,7 +408,7 @@ srv6_store_meta_sid(struct __ctx_buff *ctx, const union v6addr *sid)
 	ctx_store_meta_ipv6(ctx, CB_SRV6_SID_1, sid);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SRV6_ENCAP)
+__declare_tail(CILIUM_CALL_SRV6_ENCAP)
 int tail_srv6_encap(struct __ctx_buff *ctx)
 {
 	struct in6_addr dst_sid;
@@ -422,13 +421,13 @@ int tail_srv6_encap(struct __ctx_buff *ctx)
 		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, METRIC_EGRESS);
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, UNKNOWN_ID,
-			  TRACE_EP_ID_UNKNOWN,
-			  TRACE_IFINDEX_UNKNOWN, TRACE_REASON_SRV6_ENCAP, 0);
+			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+			  TRACE_REASON_SRV6_ENCAP, 0, bpf_htons(ETH_P_IPV6));
 
 	return ret;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SRV6_DECAP)
+__declare_tail(CILIUM_CALL_SRV6_DECAP)
 int tail_srv6_decap(struct __ctx_buff *ctx)
 {
 	int ret = 0;
@@ -451,7 +450,7 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 	case IPPROTO_IPIP:
 		send_trace_notify(ctx, TRACE_FROM_NETWORK, SECLABEL_IPV4, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-				  TRACE_REASON_SRV6_DECAP, 0);
+				  TRACE_REASON_SRV6_DECAP, 0, bpf_htons(ETH_P_IP));
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV, &ext_err);
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV6, ret, ext_err,
 						  METRIC_INGRESS);
@@ -460,7 +459,7 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 	case IPPROTO_IPV6:
 		send_trace_notify(ctx, TRACE_FROM_NETWORK, SECLABEL_IPV6, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-				  TRACE_REASON_SRV6_DECAP, 0);
+				  TRACE_REASON_SRV6_DECAP, 0, bpf_htons(ETH_P_IPV6));
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV, &ext_err);
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV6, ret, ext_err,
 						  METRIC_INGRESS);

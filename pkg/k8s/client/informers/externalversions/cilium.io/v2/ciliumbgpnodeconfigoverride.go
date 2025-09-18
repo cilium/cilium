@@ -48,13 +48,25 @@ func NewFilteredCiliumBGPNodeConfigOverrideInformer(client versioned.Interface, 
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2().CiliumBGPNodeConfigOverrides().List(context.TODO(), options)
+				return client.CiliumV2().CiliumBGPNodeConfigOverrides().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2().CiliumBGPNodeConfigOverrides().Watch(context.TODO(), options)
+				return client.CiliumV2().CiliumBGPNodeConfigOverrides().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.CiliumV2().CiliumBGPNodeConfigOverrides().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.CiliumV2().CiliumBGPNodeConfigOverrides().Watch(ctx, options)
 			},
 		},
 		&apisciliumiov2.CiliumBGPNodeConfigOverride{},

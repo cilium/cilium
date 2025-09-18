@@ -21,9 +21,9 @@ import (
 // (OU) or root (the entire Amazon Web Services Organization).
 //
 // The report is saved to your specified S3 bucket, using the following path
-// structure (with the italicized placeholders representing your specific values):
+// structure (with the capitalized placeholders representing your specific values):
 //
-//	s3://amzn-s3-demo-bucket/your-optional-s3-prefix/ec2_targetId_reportId_yyyyMMddThhmmZ.csv
+//	s3://AMZN-S3-DEMO-BUCKET/YOUR-OPTIONAL-S3-PREFIX/ec2_TARGETID_REPORTID_YYYYMMDDTHHMMZ.csv
 //
 // Prerequisites for generating a report
 //
@@ -33,7 +33,7 @@ import (
 //   - An S3 bucket must be available before generating the report (you can create
 //     a new one or use an existing one), it must be in the same Region where the
 //     report generation request is made, and it must have an appropriate bucket
-//     policy. For a sample S3 policy, see Sample Amazon S3 policy under .
+//     policy. For a sample S3 policy, see Sample Amazon S3 policy under [Examples].
 //
 //   - Trusted access must be enabled for the service for which the declarative
 //     policy will enforce a baseline configuration. If you use the Amazon Web Services
@@ -51,6 +51,7 @@ import (
 //
 // [Generating the account status report for declarative policies]: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_declarative_status-report.html
 // [Using Organizations with other Amazon Web Services services]: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services.html
+// [Examples]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_StartDeclarativePoliciesReport.html#API_StartDeclarativePoliciesReport_Examples
 func (c *Client) StartDeclarativePoliciesReport(ctx context.Context, params *StartDeclarativePoliciesReportInput, optFns ...func(*Options)) (*StartDeclarativePoliciesReportOutput, error) {
 	if params == nil {
 		params = &StartDeclarativePoliciesReportInput{}
@@ -199,6 +200,36 @@ func (c *Client) addOperationStartDeclarativePoliciesReportMiddlewares(stack *mi
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

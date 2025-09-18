@@ -1,0 +1,190 @@
+#! --lrp-address-matcher-cidrs=169.254.169.0/24,2001::/64
+
+hive start
+
+# Add a pod and an address-based redirection. Add IPv4 first then
+# IPv6 for consistent ordering.
+k8s/add pod.yaml lrp-addr.yaml
+
+# Wait for the IPv4 frontend
+db/show frontends
+* stdout '169.254.169.254:8080/TCP.*10.244.2.1:80/TCP.*Done'
+
+# Then add IPv6 and check tables
+k8s/add lrp-addr-ipv6.yaml
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+# Maps should have the created frontends:
+# 169.254.169.254 => 10.244.2.1
+# 2001::1 => 2002::2
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps.expected
+
+# Remove the IPv6 redirect
+k8s/delete lrp-addr-ipv6.yaml
+
+# Change the redirection to a non-allowed address.
+replace '169.254.169.254' '10.1.1.1' lrp-addr.yaml
+k8s/update lrp-addr.yaml
+
+# Entries and map should be empty
+# The entry should now have type none and maps should be empty
+db/show localredirectpolicies
+* db/empty localredirectpolicies
+* lb/maps-empty
+
+# Changing back to an allowed address reverts
+replace '10.1.1.1' '169.254.169.253' lrp-addr.yaml
+k8s/update lrp-addr.yaml
+db/cmp localredirectpolicies lrp-fixed.table
+
+# Check the BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual maps-v4.expected
+
+# Policy can be deleted and added back and we'll get to same state
+k8s/delete lrp-addr.yaml
+
+# Policy and service table is now empty
+* db/empty localredirectpolicies services
+
+# Adding it back gets us to the same state as before
+k8s/add lrp-addr.yaml
+db/cmp localredirectpolicies lrp-fixed.table
+db/cmp services services-ipv4.table
+db/cmp frontends frontends-ipv4.table
+
+# Remove the remaining policy
+k8s/delete lrp-addr.yaml
+
+# Tables and maps should now be empty.
+* db/empty services frontends backends localredirectpolicies
+* lb/maps-empty
+
+# ---
+
+-- lrp.table --
+Name               Type     FrontendType      Frontends
+test/lrp-addr      address  addr-single-port  169.254.169.254:8080/TCP
+test/lrp-addr-ipv6 address  addr-single-port  [2001::1]:8080/TCP
+
+-- lrp-fixed.table --
+Name               Type     FrontendType      Frontends
+test/lrp-addr      address  addr-single-port  169.254.169.253:8080/TCP
+
+-- services.table --
+Name                              Source
+test/lrp-addr-ipv6:local-redirect k8s
+test/lrp-addr:local-redirect      k8s   
+
+-- services-ipv4.table --
+Name                              Source
+test/lrp-addr:local-redirect      k8s   
+
+-- frontends.table --
+Address                    Type          ServiceName                       Backends            RedirectTo  Status
+169.254.169.254:8080/TCP   LocalRedirect test/lrp-addr:local-redirect      10.244.2.1:80/TCP               Done
+[2001::1]:8080/TCP         LocalRedirect test/lrp-addr-ipv6:local-redirect [2002::2]:80/TCP                Done
+
+-- frontends-ipv4.table --
+Address                    Type          ServiceName                       Backends            RedirectTo  Status
+169.254.169.253:8080/TCP   LocalRedirect test/lrp-addr:local-redirect      10.244.2.1:80/TCP               Done
+
+-- backends.table --
+Address             Instances
+10.244.2.1:80/TCP   test/lrp-addr-ipv6:local-redirect (tcp), test/lrp-addr:local-redirect (tcp)
+[2002::2]:80/TCP    test/lrp-addr-ipv6:local-redirect (tcp), test/lrp-addr:local-redirect (tcp)
+
+-- lrp-addr.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr"
+  namespace: "test"
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "8080"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        protocol: TCP
+
+-- lrp-addr-ipv6.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr-ipv6"
+  namespace: "test"
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "2001::1"
+      toPorts:
+        - port: "8080"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        protocol: TCP
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 80
+          name: tcp
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  - ip: 2002::2
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: '2019-07-08T09:41:59Z'
+    status: 'True'
+    type: Ready
+
+-- maps.expected --
+BE: ID=1 ADDR=10.244.2.1:80/TCP STATE=active
+BE: ID=2 ADDR=[2002::2]:80/TCP STATE=active
+REV: ID=1 ADDR=169.254.169.254:8080
+REV: ID=2 ADDR=[2001::1]:8080
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=1 ADDR=169.254.169.254:8080/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=[2001::1]:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=2 ADDR=[2001::1]:8080/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect
+-- maps-v4.expected --
+BE: ID=3 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=3 ADDR=169.254.169.253:8080
+SVC: ID=3 ADDR=169.254.169.253:8080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LocalRedirect
+SVC: ID=3 ADDR=169.254.169.253:8080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect

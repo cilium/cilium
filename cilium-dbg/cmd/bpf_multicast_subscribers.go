@@ -52,7 +52,7 @@ var MulticastGroupSubscriberListCmd = &cobra.Command{
 			Fatalf("invalid argument: %s", err)
 		}
 
-		groupV4Map, err := getMulticastGroupMap()
+		groupV4Map, err := getMulticastGroupMap(log)
 		if err != nil {
 			Fatalf("Failed to get multicast bpf map: %s", err)
 		}
@@ -220,7 +220,7 @@ func printSubscriberList(subscribers []SubscriberData) {
 }
 
 func getMulticastSubscriberMap(groupAddr netip.Addr) (maps_multicast.SubscriberV4Map, error) {
-	groupV4Map, err := getMulticastGroupMap()
+	groupV4Map, err := getMulticastGroupMap(log)
 	if err != nil {
 		return nil, err
 	}

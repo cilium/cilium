@@ -13,10 +13,12 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -60,17 +62,17 @@ func newDiffStoreFixture() *DiffStoreFixture {
 
 	// Construct a new Hive with faked out dependency cells.
 	fixture.hive = hive.New(
-		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*slimv1.Service] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset, mp workqueue.MetricsProvider) resource.Resource[*slimv1.Service] {
 			return resource.New[*slimv1.Service](
 				lc, utils.ListerWatcherFromTyped[*slimv1.ServiceList](
 					c.Slim().CoreV1().Services(""),
-				),
+				), mp,
 			)
 		}),
 
 		// Provide the faked client cells directly
 		cell.Provide(func() k8sClient.Clientset {
-			return &k8sClient.FakeClientset{
+			return &k8sFakeClient.FakeClientset{
 				SlimFakeClientset: fixture.slimCs,
 			}
 		}),

@@ -5,23 +5,23 @@
 
 #include "compiler.h"
 
-#ifndef __section_tail
-# define __section_tail(ID, KEY)	__section(__stringify(ID) "/" __stringify(KEY))
+/* All non-inlined functions in bpf need a program type, communicated through
+ * the function's ELF section name. This changes based on the type of context
+ * the object was built for, either tc(x) or xdp.
+ *
+ * __section_entry is the default and should be used for entry points (programs
+ * attached directly to bpf hooks) as well as mock tail calls in bpf tests.
+ *
+ * For marking tail calls in regular, non-test code, use __declare_tail defined
+ * in tailcall.h.
+ */
+#if !defined(PROG_TYPE)
+	#error "Include bpf/ctx/skb.h or xdp.h before section.h!"
 #endif
+#define __section_entry		__section(PROG_TYPE "/entry")
 
-#ifndef __section_license
-# define __section_license		__section("license")
-#endif
+#define __section_license	__section("license")
+#define __section_maps_btf	__section(".maps")
 
-#ifndef __section_maps
-# define __section_maps			__section("maps")
-#endif
-
-#ifndef __section_maps_btf
-# define __section_maps_btf		__section(".maps")
-#endif
-
-#ifndef BPF_LICENSE
-# define BPF_LICENSE(NAME)				\
+#define BPF_LICENSE(NAME) \
 	char ____license[] __section_license = NAME
-#endif

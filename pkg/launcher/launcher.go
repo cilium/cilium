@@ -6,20 +6,17 @@ package launcher
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "launcher")
-
 // Launcher is used to wrap the node executable binary.
 type Launcher struct {
+	Logger  *slog.Logger
 	Mutex   lock.RWMutex
 	target  string
 	args    []string
@@ -35,7 +32,10 @@ func (launcher *Launcher) Run() error {
 	cmd.Stderr = os.Stderr
 	stdout, _ := cmd.StdoutPipe()
 	if err := cmd.Start(); err != nil {
-		log.WithError(err).WithField("cmd", cmdStr).Error("cmd.Start()")
+		launcher.Logger.Error("cmd.Start()",
+			logfields.Error, err,
+			logfields.Cmd, cmdStr,
+		)
 		return fmt.Errorf("unable to launch process %s: %w", cmdStr, err)
 	}
 
@@ -46,10 +46,10 @@ func (launcher *Launcher) Run() error {
 	// resources
 	go func() {
 		err := cmd.Wait()
-		log.WithFields(logrus.Fields{
-			"exitCode": err,
-			"cmd":      cmdStr,
-		}).Debug("Process exited")
+		launcher.Logger.Debug("Process exited",
+			logfields.ExitCode, err,
+			logfields.Cmd, cmdStr,
+		)
 	}()
 
 	return nil

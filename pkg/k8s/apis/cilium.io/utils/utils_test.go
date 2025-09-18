@@ -31,6 +31,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 	uuid := types.UID("11bba160-ddca-11e8-b697-0800273b04ff")
 	type args struct {
 		namespace      string
+		clusterName    string
 		rule           *api.Rule
 		uid            types.UID
 		overrideConfig func()
@@ -285,13 +286,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						{
 							IngressCommonRule: api.IngressCommonRule{
 								FromEndpoints: []api.EndpointSelector{
-									{
-										LabelSelector: &slim_metav1.LabelSelector{
-											MatchLabels: map[string]string{
-												podAnyPrefixLbl: "ns-2",
-											},
+									api.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											podAnyPrefixLbl: "ns-2",
 										},
-									},
+									}),
 								},
 							},
 						},
@@ -348,6 +347,97 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			),
 		},
 		{
+			name: "set-cluster-by-default",
+			args: args{
+				clusterName: "cluster1",
+				namespace:   slim_metav1.NamespaceDefault,
+				uid:         uuid,
+				rule: &api.Rule{
+					EndpointSelector: api.NewESFromMatchRequirements(
+						map[string]string{
+							role: "backend",
+						},
+						nil,
+					),
+					Ingress: []api.IngressRule{
+						{
+							IngressCommonRule: api.IngressCommonRule{
+								FromEndpoints: []api.EndpointSelector{
+									{
+										LabelSelector: &slim_metav1.LabelSelector{
+											MatchLabels: map[string]string{},
+										},
+									},
+									api.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											clusterPrefixLbl: "cluster2",
+										},
+									}),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: api.NewRule().WithEndpointSelector(
+				api.NewESFromMatchRequirements(
+					map[string]string{
+						role:      "backend",
+						namespace: "default",
+					},
+					nil,
+				),
+			).WithIngressRules(
+				[]api.IngressRule{
+					{
+						IngressCommonRule: api.IngressCommonRule{
+							FromEndpoints: []api.EndpointSelector{
+								api.NewESFromK8sLabelSelector(
+									labels.LabelSourceK8sKeyPrefix,
+									&slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											k8sConst.PodNamespaceLabel:  "default",
+											k8sConst.PolicyLabelCluster: "cluster1",
+										},
+									}),
+								api.NewESFromK8sLabelSelector(
+									labels.LabelSourceK8sKeyPrefix,
+									&slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											k8sConst.PodNamespaceLabel:  "default",
+											k8sConst.PolicyLabelCluster: "cluster2",
+										},
+									}),
+							},
+						},
+					},
+				},
+			).WithLabels(
+				labels.LabelArray{
+					{
+						Key:    "io.cilium.k8s.policy.derived-from",
+						Value:  "CiliumNetworkPolicy",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.name",
+						Value:  "set-cluster-by-default",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.namespace",
+						Value:  "default",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.uid",
+						Value:  string(uuid),
+						Source: labels.LabelSourceK8s,
+					},
+				},
+			),
+		},
+		{
 			// When the rule specifies namespace labels, namespace label is not added
 			// by the namespace where the rule was inserted.
 			name: "parse-in-namespace-with-ns-labels-selector",
@@ -365,13 +455,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						{
 							IngressCommonRule: api.IngressCommonRule{
 								FromEndpoints: []api.EndpointSelector{
-									{
-										LabelSelector: &slim_metav1.LabelSelector{
-											MatchLabels: map[string]string{
-												podAnyNamespaceLabelsPrefix + "team": "team-a",
-											},
+									api.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											podAnyNamespaceLabelsPrefix + "team": "team-a",
 										},
-									},
+									}),
 								},
 							},
 						},
@@ -508,6 +596,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			// for reserved:remote-node to allow only nodes and not endpoints
 			name: "parse-from-to-nodes-rule",
 			args: args{
+				clusterName: "cluster1",
 				overrideConfig: func() {
 					option.Config.EnableNodeSelectorLabels = true
 				},
@@ -556,6 +645,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 												Values:   []string{},
 											},
 										},
+									},
+									&slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											clusterPrefixLbl: "cluster1",
+										},
 									}),
 							},
 						},
@@ -595,7 +689,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			} else {
 				option.Config.EnableNodeSelectorLabels = false
 			}
-			got := ParseToCiliumRule(hivetest.Logger(t), tt.args.namespace, tt.name, tt.args.uid, tt.args.rule)
+			got := ParseToCiliumRule(hivetest.Logger(t), tt.args.clusterName, tt.args.namespace, tt.name, tt.args.uid, tt.args.rule)
 
 			// Sanitize to set AggregatedSelectors field.
 			tt.want.Sanitize()

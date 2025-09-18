@@ -6,6 +6,7 @@ package alignchecker
 import (
 	check "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/bpf"
+	lbmap "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -13,16 +14,13 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
-	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
 
@@ -97,11 +95,7 @@ func init() {
 		"ipv4_frag_l4ports": {fragmap.FragmentValue4{}},
 		"ipv6_frag_id":      {fragmap.FragmentKey6{}},
 		"ipv6_frag_l4ports": {fragmap.FragmentValue6{}},
-		"capture4_wcard":    {recorder.CaptureWcard4{}},
-		"capture6_wcard":    {recorder.CaptureWcard6{}},
-		"capture_rule":      {recorder.CaptureRule4{}},
 		// TODO: alignchecker does not support nested structs yet.
-		// "capture_rule":      {recorder.CaptureRule6{}},
 		// "ipv4_nat_entry":    {nat.NatEntry4{}},
 		// "ipv6_nat_entry":    {nat.NatEntry6{}},
 		"endpoint_key":            {bpf.EndpointKey{}},
@@ -115,12 +109,12 @@ func init() {
 		"edt_info":                {bwmap.EdtInfo{}},
 		"egress_gw_policy_key":    {egressmap.EgressPolicyKey4{}},
 		"egress_gw_policy_entry":  {egressmap.EgressPolicyVal4{}},
+		"egress_gw_policy_key6":   {egressmap.EgressPolicyKey6{}},
+		"egress_gw_policy_entry6": {egressmap.EgressPolicyVal6{}},
 		"srv6_vrf_key4":           {srv6map.VRFKey4{}},
 		"srv6_vrf_key6":           {srv6map.VRFKey6{}},
 		"srv6_policy_key4":        {srv6map.PolicyKey4{}},
 		"srv6_policy_key6":        {srv6map.PolicyKey6{}},
-		"tunnel_key":              {tunnel.TunnelKey{}},
-		"tunnel_value":            {tunnel.TunnelValue{}},
 		"vtep_key":                {vtep.Key{}},
 		"vtep_value":              {vtep.VtepEndpointInfo{}},
 		"auth_key":                {authmap.AuthKey{}},
@@ -135,8 +129,6 @@ func init() {
 
 	registerToCheckSizes(map[string][]any{
 		"__u16": {
-			lbmap.Backend4Key{},
-			lbmap.Backend6Key{},
 			lbmap.RevNat4Key{},
 			lbmap.RevNat6Key{},
 		},

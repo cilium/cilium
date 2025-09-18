@@ -18,13 +18,14 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var Cell = cell.Module(
 	"mtu",
 	"MTU discovery",
 
-	cell.ProvidePrivate(newTable),
+	cell.ProvidePrivate(NewMTUTable),
 	cell.Provide(
 		statedb.RWTable[RouteMTU].ToTable,
 		newForCell,
@@ -40,23 +41,10 @@ type MTU interface {
 	IsEnableRouteMTUForCNIChaining() bool
 }
 
-func newTable(db *statedb.DB) (statedb.RWTable[RouteMTU], error) {
-	tbl, err := NewMTUTable()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := db.RegisterTable(tbl); err != nil {
-		return nil, err
-	}
-
-	return tbl, nil
-}
-
 type mtuParams struct {
 	cell.In
 
-	IPsec        types.IPsecKeyCustodian
+	IPsec        types.IPsecAgent
 	CNI          cni.CNIConfigManager
 	TunnelConfig tunnel.Config
 
@@ -68,6 +56,7 @@ type mtuParams struct {
 	Log             *slog.Logger
 	DaemonConfig    *option.DaemonConfig
 	LocalCiliumNode k8s.LocalCiliumNodeResource
+	WgConfig        wgTypes.WireguardConfig
 
 	Config Config
 }
@@ -87,15 +76,17 @@ func (c Config) Flags(flags *pflag.FlagSet) {
 
 func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 	c := &Configuration{}
-	group := p.JobRegistry.NewGroup(p.Health)
-	lc.Append(group)
+	group := p.JobRegistry.NewGroup(p.Health, lc)
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
+			tunnelOverIPv6 := option.Config.RoutingMode == option.RoutingModeTunnel &&
+				p.TunnelConfig.UnderlayProtocol() == tunnel.IPv6
 			*c = NewConfiguration(
 				p.IPsec.AuthKeySize(),
-				option.Config.EnableIPSec,
+				p.IPsec.Enabled(),
 				p.TunnelConfig.ShouldAdaptMTU(),
-				option.Config.EnableWireguard,
+				p.WgConfig.Enabled(),
+				tunnelOverIPv6,
 			)
 
 			configuredMTU := option.Config.MTU

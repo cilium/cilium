@@ -12,10 +12,11 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/spf13/pflag"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	config "github.com/cilium/cilium/pkg/envoy/config"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -41,8 +42,8 @@ var Cell = cell.Module(
 
 	metrics.Metric(xds.NewXDSMetric),
 
-	cell.Config(ProxyConfig{}),
-	cell.Config(secretSyncConfig{}),
+	cell.Config(config.ProxyConfig{}),
+	cell.Config(config.SecretSyncConfig{}),
 	cell.Provide(newEnvoyXDSServer),
 	cell.Provide(newEnvoyAdminClient),
 	cell.Provide(envoypolicy.NewEnvoyL7RulesTranslator),
@@ -53,86 +54,6 @@ var Cell = cell.Module(
 	cell.Invoke(registerSecretSyncer),
 )
 
-type ProxyConfig struct {
-	DisableEnvoyVersionCheck          bool
-	ProxyPrometheusPort               int
-	ProxyAdminPort                    int
-	EnvoyLog                          string
-	EnvoyAccessLogBufferSize          uint
-	EnvoyDefaultLogLevel              string
-	EnvoyBaseID                       uint64
-	EnvoyKeepCapNetbindservice        bool
-	ProxyConnectTimeout               uint
-	ProxyInitialFetchTimeout          uint
-	ProxyGID                          uint
-	ProxyMaxRequestsPerConnection     int
-	ProxyMaxConnectionDurationSeconds int
-	ProxyIdleTimeoutSeconds           int
-	ProxyMaxConcurrentRetries         uint32
-	HTTPNormalizePath                 bool
-	HTTPRequestTimeout                uint
-	HTTPIdleTimeout                   uint
-	HTTPMaxGRPCTimeout                uint
-	HTTPRetryCount                    uint
-	HTTPRetryTimeout                  uint
-	HTTPStreamIdleTimeout             uint
-	UseFullTLSContext                 bool
-	ProxyXffNumTrustedHopsIngress     uint32
-	ProxyXffNumTrustedHopsEgress      uint32
-	EnvoyPolicyRestoreTimeout         time.Duration
-	EnvoyHTTPUpstreamLingerTimeout    int
-}
-
-func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool("disable-envoy-version-check", false, "Do not perform Envoy version check")
-	flags.Int("proxy-prometheus-port", 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
-	flags.Int("proxy-admin-port", 0, "Port to serve Envoy admin interface on.")
-	flags.Uint("envoy-access-log-buffer-size", 4096, "Envoy access log buffer size in bytes")
-	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
-	flags.String("envoy-default-log-level", "", "Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. If not defined, the default log level of the Cilium Agent is used.")
-	flags.Uint64("envoy-base-id", 0, "Envoy base ID")
-	flags.Bool("envoy-keep-cap-netbindservice", false, "Keep capability NET_BIND_SERVICE for Envoy process")
-	flags.Uint("proxy-connect-timeout", 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
-	flags.Uint("proxy-initial-fetch-timeout", 30, "Time after which an xDS stream is considered timed out (in seconds)")
-	flags.Uint("proxy-gid", 1337, "Group ID for proxy control plane sockets.")
-	flags.Int("proxy-max-requests-per-connection", 0, "Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)")
-	flags.Int("proxy-max-connection-duration-seconds", 0, "Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)")
-	flags.Int("proxy-idle-timeout-seconds", 60, "Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s")
-	flags.Uint32("proxy-max-concurrent-retries", 128, "Maximum number of concurrent retries on Envoy clusters")
-	flags.Bool("http-normalize-path", true, "Use Envoy HTTP path normalization options, which currently includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and redirecting for paths that contain escaped slashes. These are necessary to keep path based access control functional, and should not interfere with normal operation. Set this to false only with caution.")
-	flags.Uint("http-request-timeout", 60*60, "Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited")
-	flags.Uint("http-idle-timeout", 0, "Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)")
-	flags.Uint("http-max-grpc-timeout", 0, "Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A \"grpc-timeout\" header may override this with a shorter value; defaults to 0 (unlimited)")
-	flags.Uint("http-retry-count", 3, "Number of retries performed after a forwarded request attempt fails")
-	flags.Uint("http-retry-timeout", 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
-	flags.Uint("http-stream-idle-timeout", 5*60, "Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. Default 300s")
-	// This should default to false in 1.16+ (i.e., we don't implement buggy behaviour) and true in 1.15 and earlier (i.e., we keep compatibility with an existing bug).
-	flags.Bool("use-full-tls-context", false, "If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.")
-	flags.Uint32("proxy-xff-num-trusted-hops-ingress", 0, "Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.")
-	flags.Uint32("proxy-xff-num-trusted-hops-egress", 0, "Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.")
-	flags.Duration("envoy-policy-restore-timeout", 3*time.Minute, "Maxiumum time to wait for enpoint policy restoration before starting serving resources to Envoy")
-	flags.Int("envoy-http-upstream-linger-timeout", -1, "Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. "+
-		"If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.")
-}
-
-type secretSyncConfig struct {
-	EnvoySecretsNamespace string
-
-	EnableIngressController bool
-	IngressSecretsNamespace string
-
-	EnableGatewayAPI           bool
-	GatewayAPISecretsNamespace string
-}
-
-func (r secretSyncConfig) Flags(flags *pflag.FlagSet) {
-	flags.String("envoy-secrets-namespace", r.EnvoySecretsNamespace, "EnvoySecretsNamespace is the namespace having secrets used by CEC")
-	flags.Bool("enable-ingress-controller", false, "Enables Envoy secret sync for Ingress controller related TLS secrets")
-	flags.String("ingress-secrets-namespace", r.IngressSecretsNamespace, "IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller")
-	flags.Bool("enable-gateway-api", false, "Enables Envoy secret sync for Gateway API related TLS secrets")
-	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API")
-}
-
 type xdsServerParams struct {
 	cell.In
 
@@ -142,7 +63,7 @@ type xdsServerParams struct {
 	RestorerPromise    promise.Promise[endpointstate.Restorer]
 	LocalEndpointStore *LocalEndpointStore
 
-	EnvoyProxyConfig ProxyConfig
+	EnvoyProxyConfig config.ProxyConfig
 
 	// Depend on access log server to enforce init order.
 	// This ensures that the access log server is ready before it gets used by the
@@ -227,7 +148,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	return xdsServer, nil
 }
 
-func newEnvoyAdminClient(logger *slog.Logger, envoyProxyConfig ProxyConfig) *EnvoyAdminClient {
+func newEnvoyAdminClient(logger *slog.Logger, envoyProxyConfig config.ProxyConfig) *EnvoyAdminClient {
 	return NewEnvoyAdminClientForSocket(logger, GetSocketDir(option.Config.RunDir), envoyProxyConfig.EnvoyDefaultLogLevel)
 }
 
@@ -238,7 +159,7 @@ type accessLogServerParams struct {
 	Logger             *slog.Logger
 	AccessLogger       accesslog.ProxyAccessLogger
 	LocalEndpointStore *LocalEndpointStore
-	EnvoyProxyConfig   ProxyConfig
+	EnvoyProxyConfig   config.ProxyConfig
 }
 
 func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
@@ -279,7 +200,7 @@ type versionCheckParams struct {
 	Logger           *slog.Logger
 	JobRegistry      job.Registry
 	Health           cell.Health
-	EnvoyProxyConfig ProxyConfig
+	EnvoyProxyConfig config.ProxyConfig
 	EnvoyAdminClient *EnvoyAdminClient
 }
 
@@ -288,34 +209,40 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 		return
 	}
 
-	checker := &envoyVersionChecker{logger: params.Logger}
-
-	envoyVersionFunc := func() (string, error) {
-		return checker.getRemoteEnvoyVersion(params.EnvoyAdminClient)
-	}
-
-	if !option.Config.ExternalEnvoyProxy {
-		envoyVersionFunc = getEmbeddedEnvoyVersion
+	checker := &envoyVersionChecker{
+		logger:        params.Logger,
+		externalEnvoy: option.Config.ExternalEnvoyProxy,
+		adminClient:   params.EnvoyAdminClient,
 	}
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Health,
+		params.Lifecycle,
 		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy")),
 	)
-	params.Lifecycle.Append(jobGroup)
 
 	// To prevent agent restarts in case the Envoy DaemonSet isn't ready yet,
 	// version check is performed periodically and any errors are logged
 	// and reported via health reporter.
+	var previousError error
 	jobGroup.Add(job.Timer("version-check", func(_ context.Context) error {
-		if err := checker.checkEnvoyVersion(envoyVersionFunc); err != nil {
-			params.Logger.Error("Envoy: Version check failed", logfields.Error, err)
+		if err := checker.checkEnvoyVersion(); err != nil {
+			// We only log it as an error if it happens at least twice,
+			// as it is expected that during upgrade of Cilium, the Envoy version might differ
+			// for a short period of time.
+			logger := params.Logger.Info
+			if previousError != nil {
+				logger = params.Logger.Error
+			}
+			logger("Envoy: Version check failed", logfields.Error, err)
+			previousError = err
 			return err
 		}
 
+		previousError = nil
 		return nil
-	}, 5*time.Minute))
+	}, 2*time.Minute))
 }
 
 func newLocalEndpointStore() *LocalEndpointStore {
@@ -353,9 +280,11 @@ type syncerParams struct {
 
 	K8sClientset client.Clientset
 
-	Config        secretSyncConfig
+	Config        config.SecretSyncConfig
 	XdsServer     XDSServer
 	SecretManager certificatemanager.SecretManager
+
+	MetricsProvider workqueue.MetricsProvider
 }
 
 func registerSecretSyncer(params syncerParams) error {
@@ -386,11 +315,10 @@ func registerSecretSyncer(params syncerParams) error {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Health,
+		params.Lifecycle,
 		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy-secretsyncer")),
 	)
-
-	params.Lifecycle.Append(jobGroup)
 
 	secretSyncerLogger := params.Logger.With(logfields.Controller, "secretSyncer")
 
@@ -404,14 +332,14 @@ func registerSecretSyncer(params syncerParams) error {
 		jobGroup.Add(job.Observer(
 			shortener.ShortenK8sResourceName(fmt.Sprintf("k8s-secrets-resource-events-%s", ns)),
 			secretSyncer.handleSecretEvent,
-			newK8sSecretResource(params.Lifecycle, params.K8sClientset, ns),
+			newK8sSecretResource(params.Lifecycle, params.K8sClientset, params.MetricsProvider, ns),
 		))
 	}
 
 	return nil
 }
 
-func newK8sSecretResource(lc cell.Lifecycle, cs client.Clientset, namespace string) resource.Resource[*slim_corev1.Secret] {
+func newK8sSecretResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, namespace string) resource.Resource[*slim_corev1.Secret] {
 	if !cs.IsEnabled() {
 		return nil
 	}
@@ -419,5 +347,5 @@ func newK8sSecretResource(lc cell.Lifecycle, cs client.Clientset, namespace stri
 		utils.ListerWatcherFromTyped[*slim_corev1.SecretList](cs.Slim().CoreV1().Secrets(namespace)),
 	)
 
-	return resource.New[*slim_corev1.Secret](lc, lw, resource.WithMetric("Secret"))
+	return resource.New[*slim_corev1.Secret](lc, lw, mp, resource.WithMetric("Secret"))
 }

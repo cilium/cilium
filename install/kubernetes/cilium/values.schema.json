@@ -449,6 +449,9 @@
         "bbr": {
           "type": "boolean"
         },
+        "bbrHostNamespaceOnly": {
+          "type": "boolean"
+        },
         "enabled": {
           "type": "boolean"
         }
@@ -460,8 +463,19 @@
         "enabled": {
           "type": "boolean"
         },
+        "legacyOriginAttribute": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "routerIDAllocation": {
           "properties": {
+            "ipPool": {
+              "type": "string"
+            },
             "mode": {
               "type": "string"
             }
@@ -543,10 +557,16 @@
             "default": {
               "properties": {
                 "burstLimit": {
-                  "type": "null"
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
                 },
                 "rateLimit": {
-                  "type": "null"
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
                 }
               },
               "type": "object"
@@ -605,7 +625,8 @@
         "mapDynamicSizeRatio": {
           "type": [
             "null",
-            "number"
+            "number",
+            "string"
           ]
         },
         "masquerade": {
@@ -645,6 +666,12 @@
           "type": [
             "null",
             "integer"
+          ]
+        },
+        "policyMapPressureMetricsThreshold": {
+          "type": [
+            "null",
+            "number"
           ]
         },
         "policyStatsMapMax": {
@@ -739,6 +766,9 @@
         "priorityClassName": {
           "type": "string"
         },
+        "resources": {
+          "type": "object"
+        },
         "tolerations": {
           "items": {},
           "type": "array"
@@ -805,12 +835,6 @@
             ]
           },
           "type": "array"
-        },
-        "sliceMode": {
-          "enum": [
-            "identity",
-            "fcfs"
-          ]
         }
       },
       "type": "object"
@@ -1198,6 +1222,12 @@
                     "integer",
                     "string"
                   ]
+                },
+                "unhealthyPodEvictionPolicy": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 }
               },
               "type": "object"
@@ -1280,6 +1310,9 @@
                     "Local",
                     "Cluster"
                   ]
+                },
+                "labels": {
+                  "type": "object"
                 },
                 "loadBalancerClass": {
                   "type": [
@@ -1429,7 +1462,10 @@
           "properties": {
             "clusters": {
               "items": {},
-              "type": "array"
+              "type": [
+                "object",
+                "array"
+              ]
             },
             "domain": {
               "type": "string"
@@ -1448,6 +1484,85 @@
         },
         "maxConnectedClusters": {
           "type": "integer"
+        },
+        "mcsapi": {
+          "properties": {
+            "corednsAutoConfigure": {
+              "properties": {
+                "affinity": {
+                  "type": "object"
+                },
+                "annotations": {
+                  "type": "object"
+                },
+                "coredns": {
+                  "properties": {
+                    "clusterDomain": {
+                      "type": "string"
+                    },
+                    "clustersetDomain": {
+                      "type": "string"
+                    },
+                    "configMapName": {
+                      "type": "string"
+                    },
+                    "deploymentName": {
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "type": "string"
+                    },
+                    "serviceAccountName": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "extraArgs": {
+                  "items": {},
+                  "type": "array"
+                },
+                "extraVolumeMounts": {
+                  "items": {},
+                  "type": "array"
+                },
+                "extraVolumes": {
+                  "items": {},
+                  "type": "array"
+                },
+                "nodeSelector": {
+                  "type": "object"
+                },
+                "podLabels": {
+                  "type": "object"
+                },
+                "priorityClassName": {
+                  "type": "string"
+                },
+                "resources": {
+                  "type": "object"
+                },
+                "tolerations": {
+                  "items": {},
+                  "type": "array"
+                },
+                "ttlSecondsAfterFinished": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "policyDefaultLocalCluster": {
+          "type": "boolean"
         },
         "useAPIServer": {
           "type": "boolean"
@@ -1476,6 +1591,9 @@
           "type": "string"
         },
         "confPath": {
+          "type": "string"
+        },
+        "configMap": {
           "type": "string"
         },
         "configMapKey": {
@@ -1660,6 +1778,9 @@
         "minTtl": {
           "type": "integer"
         },
+        "preAllocateIdentities": {
+          "type": "boolean"
+        },
         "preCache": {
           "type": "string"
         },
@@ -1686,9 +1807,6 @@
       },
       "type": "object"
     },
-    "enableCiliumEndpointSlice": {
-      "type": "boolean"
-    },
     "enableCriticalPriorityClass": {
       "type": "boolean"
     },
@@ -1696,7 +1814,10 @@
       "type": "boolean"
     },
     "enableIPv4Masquerade": {
-      "type": "boolean"
+      "type": [
+        "null",
+        "boolean"
+      ]
     },
     "enableIPv6BIGTCP": {
       "type": "boolean"
@@ -1713,10 +1834,10 @@
     "enableMasqueradeRouteSource": {
       "type": "boolean"
     },
-    "enableNonDefaultDenyPolicies": {
+    "enableNoServiceEndpointsRoutable": {
       "type": "boolean"
     },
-    "enableRuntimeDeviceDetection": {
+    "enableNonDefaultDenyPolicies": {
       "type": "boolean"
     },
     "enableXTSocketFallback": {
@@ -2076,6 +2197,9 @@
         },
         "livenessProbe": {
           "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
             "failureThreshold": {
               "type": "integer"
             },
@@ -2306,6 +2430,9 @@
         },
         "startupProbe": {
           "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
             "failureThreshold": {
               "type": "integer"
             },
@@ -2401,14 +2528,6 @@
           "type": "array"
         },
         "ssl": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
-    "externalIPs": {
-      "properties": {
-        "enabled": {
           "type": "boolean"
         }
       },
@@ -2530,14 +2649,6 @@
       "type": "integer"
     },
     "hostFirewall": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
-    "hostPort": {
       "properties": {
         "enabled": {
           "type": "boolean"
@@ -2707,29 +2818,7 @@
                       "type": "string"
                     },
                     "content": {
-                      "items": {
-                        "anyOf": [
-                          {
-                            "properties": {
-                              "contextOptions": {
-                                "items": {},
-                                "type": "array"
-                              },
-                              "excludeFilters": {
-                                "items": {},
-                                "type": "array"
-                              },
-                              "includeFilters": {
-                                "items": {},
-                                "type": "array"
-                              },
-                              "name": {
-                                "type": "string"
-                              }
-                            }
-                          }
-                        ]
-                      },
+                      "items": {},
                       "type": "array"
                     },
                     "createConfigMap": {
@@ -3065,6 +3154,12 @@
                     "integer",
                     "string"
                   ]
+                },
+                "unhealthyPodEvictionPolicy": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 }
               },
               "type": "object"
@@ -3093,8 +3188,14 @@
                 "address": {
                   "type": "string"
                 },
+                "blockProfileRate": {
+                  "type": "integer"
+                },
                 "enabled": {
                   "type": "boolean"
+                },
+                "mutexProfileFraction": {
+                  "type": "integer"
                 },
                 "port": {
                   "type": "integer"
@@ -3194,6 +3295,14 @@
                 },
                 "runAsUser": {
                   "type": "integer"
+                },
+                "seccompProfile": {
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
                 }
               },
               "type": "object"
@@ -3431,6 +3540,11 @@
                   "type": "object"
                 },
                 "securityContext": {
+                  "properties": {
+                    "allowPrivilegeEscalation": {
+                      "type": "boolean"
+                    }
+                  },
                   "type": "object"
                 }
               },
@@ -3486,6 +3600,11 @@
                   "type": "object"
                 },
                 "securityContext": {
+                  "properties": {
+                    "allowPrivilegeEscalation": {
+                      "type": "boolean"
+                    }
+                  },
                   "type": "object"
                 },
                 "server": {
@@ -3565,6 +3684,12 @@
                   "type": [
                     "null",
                     "integer",
+                    "string"
+                  ]
+                },
+                "unhealthyPodEvictionPolicy": {
+                  "type": [
+                    "null",
                     "string"
                   ]
                 }
@@ -4091,9 +4216,6 @@
       "properties": {
         "enabled": {
           "type": "boolean"
-        },
-        "refreshPeriod": {
-          "type": "string"
         }
       },
       "type": "object"
@@ -4139,9 +4261,6 @@
         "acceleration": {
           "type": "string"
         },
-        "experimental": {
-          "type": "boolean"
-        },
         "l7": {
           "properties": {
             "algorithm": {
@@ -4156,6 +4275,20 @@
             }
           },
           "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "localRedirectPolicies": {
+      "properties": {
+        "addressMatcherCIDRs": {
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
         }
       },
       "type": "object"
@@ -4232,9 +4365,6 @@
           "type": "boolean"
         },
         "enableHealthCheckLoadBalancerIP": {
-          "type": "boolean"
-        },
-        "enabled": {
           "type": "boolean"
         }
       },
@@ -4362,6 +4492,9 @@
         },
         "securityContext": {
           "properties": {
+            "allowPrivilegeEscalation": {
+              "type": "boolean"
+            },
             "capabilities": {
               "properties": {
                 "add": {
@@ -4615,6 +4748,12 @@
                 "integer",
                 "string"
               ]
+            },
+            "unhealthyPodEvictionPolicy": {
+              "type": [
+                "null",
+                "string"
+              ]
             }
           },
           "type": "object"
@@ -4623,6 +4762,16 @@
           "type": "object"
         },
         "podSecurityContext": {
+          "properties": {
+            "seccompProfile": {
+              "properties": {
+                "type": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
           "type": "object"
         },
         "pprof": {
@@ -4630,8 +4779,14 @@
             "address": {
               "type": "string"
             },
+            "blockProfileRate": {
+              "type": "integer"
+            },
             "enabled": {
               "type": "boolean"
+            },
+            "mutexProfileFraction": {
+              "type": "integer"
             },
             "port": {
               "type": "integer"
@@ -4707,6 +4862,26 @@
           "type": "boolean"
         },
         "securityContext": {
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "type": "boolean"
+            },
+            "capabilities": {
+              "properties": {
+                "drop": {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          },
           "type": "object"
         },
         "setNodeNetworkStatus": {
@@ -4726,6 +4901,39 @@
             "anyOf": [
               {
                 "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
                   "operator": {
                     "type": "string"
                   }
@@ -4733,7 +4941,10 @@
               }
             ]
           },
-          "type": "array"
+          "type": [
+            "null",
+            "array"
+          ]
         },
         "topologySpreadConstraints": {
           "items": {},
@@ -4746,6 +4957,12 @@
             },
             "restart": {
               "type": "boolean"
+            },
+            "selector": {
+              "type": [
+                "null",
+                "string"
+              ]
             }
           },
           "type": "object"
@@ -4801,6 +5018,14 @@
             }
           },
           "type": "object"
+        },
+        "seccompProfile": {
+          "properties": {
+            "type": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"
@@ -4820,8 +5045,14 @@
         "address": {
           "type": "string"
         },
+        "blockProfileRate": {
+          "type": "integer"
+        },
         "enabled": {
           "type": "boolean"
+        },
+        "mutexProfileFraction": {
+          "type": "integer"
         },
         "port": {
           "type": "integer"
@@ -4873,6 +5104,37 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "envoy": {
+          "properties": {
+            "image": {
+              "properties": {
+                "digest": {
+                  "type": "string"
+                },
+                "override": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "pullPolicy": {
+                  "type": "string"
+                },
+                "repository": {
+                  "type": "string"
+                },
+                "tag": {
+                  "type": "string"
+                },
+                "useDigest": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
         },
         "extraEnv": {
           "items": {},
@@ -4941,6 +5203,12 @@
                 "integer",
                 "string"
               ]
+            },
+            "unhealthyPodEvictionPolicy": {
+              "type": [
+                "null",
+                "string"
+              ]
             }
           },
           "type": "object"
@@ -4969,6 +5237,11 @@
           "type": "object"
         },
         "securityContext": {
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "type": "boolean"
+            }
+          },
           "type": "object"
         },
         "terminationGracePeriodSeconds": {
@@ -5195,6 +5468,9 @@
     },
     "securityContext": {
       "properties": {
+        "allowPrivilegeEscalation": {
+          "type": "boolean"
+        },
         "capabilities": {
           "properties": {
             "applySysctlOverwrites": {
@@ -5364,6 +5640,23 @@
           },
           "type": "object"
         },
+        "corednsMCSAPI": {
+          "properties": {
+            "annotations": {
+              "type": "object"
+            },
+            "automount": {
+              "type": "boolean"
+            },
+            "create": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "envoy": {
           "properties": {
             "annotations": {
@@ -5513,9 +5806,6 @@
         }
       },
       "type": "object"
-    },
-    "svcSourceRangeCheck": {
-      "type": "boolean"
     },
     "synchronizeK8sNodes": {
       "type": "boolean"

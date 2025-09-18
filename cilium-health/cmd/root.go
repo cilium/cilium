@@ -7,23 +7,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/pkg/cmdref"
 	clientPkg "github.com/cilium/cilium/pkg/health/client"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const targetName = "cilium-health"
 
 var (
-	client  *clientPkg.Client
-	log     = logging.DefaultLogger.WithField(logfields.LogSubsys, targetName)
-	logOpts = make(map[string]string)
+	client *clientPkg.Client
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -55,9 +49,6 @@ func init() {
 	flags := rootCmd.PersistentFlags()
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.StringP("host", "H", "", "URI to cilium-health server API")
-	flags.StringSlice("log-driver", []string{}, "Logging endpoints to use for example syslog")
-	flags.Var(option.NewNamedMapOptions("log-opts", &logOpts, nil),
-		"log-opt", "Log driver options for cilium-health e.g. syslog.level=info,syslog.facility=local5,syslog.tag=cilium-agent")
 	viper.BindPFlags(flags)
 
 	rootCmd.AddCommand(cmdref.NewCmd(rootCmd))
@@ -69,12 +60,6 @@ func initConfig() {
 	viper.SetConfigName(".cilium-health") // name of config file (without extension)
 	viper.AddConfigPath("$HOME")          // adding home directory as first search path
 
-	if viper.GetBool("debug") {
-		log.Level = logrus.DebugLevel
-	} else {
-		log.Level = logrus.InfoLevel
-	}
-
 	if cl, err := clientPkg.NewClient(viper.GetString("host")); err != nil {
 		Fatalf("Error while creating client: %s\n", err)
 	} else {
@@ -83,10 +68,5 @@ func initConfig() {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	// Logging should always be bootstrapped first. Do not add any code above this!
-	if err := logging.SetupLogging(viper.GetStringSlice("log-driver"), logging.LogOptions(logOpts), "cilium-health", viper.GetBool("debug")); err != nil {
-		log.Fatal(err)
-	}
-
 	cmd.Help()
 }

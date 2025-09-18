@@ -158,7 +158,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	scopedLog.Info("Created new ENI", fieldENIID, eniID)
 
-	if bestSubnet.CIDR != nil {
+	if bestSubnet.CIDR.IsValid() {
 		eni.VSwitch.CIDRBlock = bestSubnet.CIDR.String()
 	}
 
@@ -249,7 +249,6 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 
 	// An ECS instance has at least one ENI attached, no ENI found implies instance not found.
 	if enis == 0 {
-		scopedLog.Warn("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
 		return nil, stats, errors.New("unable to retrieve ENIs")
 	}
 
@@ -377,6 +376,13 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 	return r
 }
 
+// ReleaseIPPrefixes is a no-op on AlibabaCloud since Alibaba ENIs don't
+// support prefix delegation.
+func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) error {
+	// nothing to do
+	return nil
+}
+
 // ReleaseIPs performs the ENI IP release operation
 func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 	return n.manager.api.UnassignPrivateIPAddresses(ctx, r.InterfaceID, r.IPsToRelease)
@@ -415,13 +421,6 @@ func (n *Node) loggerLocked() *slog.Logger {
 
 func (n *Node) IsPrefixDelegated() bool {
 	return false
-}
-
-func (n *Node) GetUsedIPWithPrefixes() int {
-	if n.k8sObj == nil {
-		return 0
-	}
-	return len(n.k8sObj.Status.IPAM.Used)
 }
 
 // getLimits returns the interface and IP limits of this node

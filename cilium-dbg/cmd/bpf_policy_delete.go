@@ -16,7 +16,7 @@ var bpfPolicyDeleteCmd = &cobra.Command{
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf policy delete")
-		updatePolicyKey(parsePolicyUpdateArgs(cmd, args, isDeny), false)
+		updatePolicyKey(parsePolicyUpdateArgs(log, cmd, args, isDeny), false)
 	},
 }
 

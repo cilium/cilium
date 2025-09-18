@@ -7,16 +7,10 @@ package linux
 
 import (
 	"bytes"
-	"context"
-	"crypto/rand"
-	"fmt"
 	"log/slog"
 	"net"
-	"runtime"
 	"slices"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/hivetest"
@@ -25,22 +19,22 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/kpr"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
-	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 type linuxPrivilegedBaseTestSuite struct {
@@ -82,17 +76,6 @@ func setup(tb testing.TB, family string) *linuxPrivilegedBaseTestSuite {
 const (
 	dummyHostDeviceName     = "dummy_host"
 	dummyExternalDeviceName = "dummy_external"
-
-	baseTime = 2500
-	mcastNum = 6
-)
-
-var (
-	baseIPv4Time = []string{"net", "ipv4", "neigh", "default", "base_reachable_time_ms"}
-	baseIPv6Time = []string{"net", "ipv6", "neigh", "default", "base_reachable_time_ms"}
-
-	mcastNumIPv4 = []string{"net", "ipv4", "neigh", "default", "mcast_solicit"}
-	mcastNumIPv6 = []string{"net", "ipv6", "neigh", "default", "mcast_solicit"}
 )
 
 func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) *linuxPrivilegedBaseTestSuite {
@@ -102,7 +85,7 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	rlimit.RemoveMemlock()
-	mtuConfig := mtu.NewConfiguration(0, false, false, false)
+	mtuConfig := mtu.NewConfiguration(0, false, false, false, false)
 	s.mtuCalc = mtuConfig.Calculate(1500)
 	s.enableIPv6 = enableIPv6
 	s.enableIPv4 = enableIPv4
@@ -147,10 +130,6 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 		RouteMTU:            s.mtuCalc.RouteMTU,
 		RoutePostEncryptMTU: s.mtuCalc.RoutePostEncryptMTU,
 	}
-
-	tunnel.SetTunnelMap(tunnel.NewTunnelMap("test_cilium_tunnel_map"))
-	err = tunnel.TunnelMap().OpenOrCreate()
-	require.NoError(tb, err)
 
 	return s
 }
@@ -199,14 +178,10 @@ func setupLinuxPrivilegedIPv4AndIPv6TestSuite(tb testing.TB) *linuxPrivilegedIPv
 	return s
 }
 
-func tearDownTest(tb testing.TB) {
-	ipsec.UnsetTestIPSecKey()
-	ipsec.DeleteXFRM(hivetest.Logger(tb), ipsec.AllReqID)
+func tearDownTest(_ testing.TB) {
 	node.UnsetTestLocalNodeStore()
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
-	err := tunnel.TunnelMap().Unpin()
-	require.NoError(tb, err)
 }
 
 func setupDummyDevice(name string, ips ...net.IP) (*tables.Device, error) {
@@ -239,7 +214,7 @@ func setupDummyDevice(name string, ips ...net.IP) (*tables.Device, error) {
 		}
 	}
 
-	link, err := netlink.LinkByName(name)
+	link, err := safenetlink.LinkByName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -254,13 +229,13 @@ func setupDummyDevice(name string, ips ...net.IP) (*tables.Device, error) {
 }
 
 func removeDevice(name string) {
-	l, err := netlink.LinkByName(name)
+	l, err := safenetlink.LinkByName(name)
 	if err == nil {
 		netlink.LinkDel(l)
 	}
 }
 
-func TestAll(t *testing.T) {
+func TestPrivilegedAll(t *testing.T) {
 	for _, tt := range []string{"IPv4", "IPv6", "dual"} {
 		t.Run(tt, func(t *testing.T) {
 			t.Run("TestUpdateNodeRoute", func(t *testing.T) {
@@ -287,6 +262,10 @@ func TestAll(t *testing.T) {
 				s := setup(t, tt)
 				s.TestNodeChurnXFRMLeaks(t)
 			})
+			t.Run("TestNodeChurnXFRMLeaksEncryptedOverlay", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestNodeChurnXFRMLeaksEncryptedOverlay(t)
+			})
 			t.Run("TestNodeChurnXFRMLeaksSubnetMode", func(t *testing.T) {
 				s := setup(t, tt)
 				s.TestNodeChurnXFRMLeaksSubnetMode(t)
@@ -295,13 +274,13 @@ func TestAll(t *testing.T) {
 				s := setup(t, tt)
 				s.TestNodeUpdateDirectRouting(t)
 			})
-			t.Run("TestAgentRestartOptionChanges", func(t *testing.T) {
-				s := setup(t, tt)
-				s.TestAgentRestartOptionChanges(t)
-			})
 			t.Run("TestNodeValidationDirectRouting", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestAgentRestartOptionChanges(t)
+				s.TestNodeValidationDirectRouting(t)
+			})
+			t.Run("TestNodePodCIDRsChurnIPSec", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestNodePodCIDRsChurnIPSec(t)
 			})
 		})
 	}
@@ -317,7 +296,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(t *testing.T) {
 	var linuxNodeHandler *linuxNodeHandler
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler = newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler = newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -366,7 +345,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(t *testing.T) {
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -437,11 +416,10 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	ip6Alloc2 := cidr.MustParseCIDR("2001:bbbb::/96")
 
 	externalNodeIP1 := net.ParseIP("4.4.4.4")
-	externalNodeIP2 := net.ParseIP("8.8.8.8")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
 
 	require.NotNil(t, linuxNodeHandler)
 	linuxNodeHandler.OverrideEnableEncapsulation(override)
@@ -470,67 +448,19 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	require.NoError(t, err)
 
 	if s.enableIPv4 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		require.NoError(t, err)
 		require.NotNil(t, foundRoute)
 	}
 
 	if s.enableIPv6 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		require.NoError(t, err)
 		require.NotNil(t, foundRoute)
 	}
 
-	// nodev2: ip4Alloc1, ip6alloc1 => externalNodeIP2
+	// nodev2: ip4Alloc2, ip6alloc2 => externalNodeIP1
 	nodev2 := nodeTypes.Node{
-		Name:      "node1",
-		ClusterID: 11,
-		IPAddresses: []nodeTypes.Address{
-			{IP: externalNodeIP2, Type: nodeaddressing.NodeInternalIP},
-		},
-	}
-
-	if s.enableIPv4 {
-		nodev2.IPv4AllocCIDR = ip4Alloc1
-	}
-	if s.enableIPv6 {
-		nodev2.IPv6AllocCIDR = ip6Alloc1
-	}
-
-	err = linuxNodeHandler.NodeUpdate(nodev1, nodev2)
-	require.NoError(t, err)
-
-	// alloc range v1 should map to underlay2
-	if s.enableIPv4 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP2))
-
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
-	}
-
-	if s.enableIPv6 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP2))
-
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
-		require.NoError(t, err)
-		require.NotNil(t, foundRoute)
-	}
-
-	// nodev3: ip4Alloc2, ip6alloc2 => externalNodeIP1
-	nodev3 := nodeTypes.Node{
 		Name:      "node1",
 		ClusterID: 11,
 		IPAddresses: []nodeTypes.Address{
@@ -539,28 +469,16 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	}
 
 	if s.enableIPv4 {
-		nodev3.IPv4AllocCIDR = ip4Alloc2
+		nodev2.IPv4AllocCIDR = ip4Alloc2
 	}
 	if s.enableIPv6 {
-		nodev3.IPv6AllocCIDR = ip6Alloc2
+		nodev2.IPv6AllocCIDR = ip6Alloc2
 	}
 
-	err = linuxNodeHandler.NodeUpdate(nodev2, nodev3)
+	err = linuxNodeHandler.NodeUpdate(nodev1, nodev2)
 	require.NoError(t, err)
 
-	// alloc range v1 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-	require.Error(t, err)
-
 	if s.enableIPv4 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		// node routes for alloc1 ranges should be gone
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		require.NoError(t, err)
@@ -573,11 +491,6 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	}
 
 	if s.enableIPv6 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		// node routes for alloc1 ranges should be gone
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		require.NoError(t, err)
@@ -589,7 +502,32 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 		require.NotNil(t, foundRoute)
 	}
 
-	// nodev4: stop announcing CIDRs
+	// nodev3: stop announcing CIDRs
+	nodev3 := nodeTypes.Node{
+		Name:      "node1",
+		ClusterID: 11,
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
+		},
+	}
+	err = linuxNodeHandler.NodeUpdate(nodev2, nodev3)
+	require.NoError(t, err)
+
+	if s.enableIPv4 {
+		// node routes for alloc2 ranges should be gone
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
+		require.NoError(t, err)
+		require.Nil(t, foundRoute)
+	}
+
+	if s.enableIPv6 {
+		// node routes for alloc2 ranges should be gone
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
+		require.NoError(t, err)
+		require.Nil(t, foundRoute)
+	}
+
+	// nodev4: re-announce CIDRs
 	nodev4 := nodeTypes.Node{
 		Name:      "node1",
 		ClusterID: 11,
@@ -597,55 +535,18 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
 	}
+
+	if s.enableIPv4 {
+		nodev4.IPv4AllocCIDR = ip4Alloc2
+	}
+	if s.enableIPv6 {
+		nodev4.IPv6AllocCIDR = ip6Alloc2
+	}
+
 	err = linuxNodeHandler.NodeUpdate(nodev3, nodev4)
 	require.NoError(t, err)
 
-	// alloc range v2 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-	require.Error(t, err)
-
 	if s.enableIPv4 {
-		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
-	}
-
-	if s.enableIPv6 {
-		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
-		require.NoError(t, err)
-		require.Nil(t, foundRoute)
-	}
-
-	// nodev5: re-announce CIDRs
-	nodev5 := nodeTypes.Node{
-		Name:      "node1",
-		ClusterID: 11,
-		IPAddresses: []nodeTypes.Address{
-			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
-		},
-	}
-
-	if s.enableIPv4 {
-		nodev5.IPv4AllocCIDR = ip4Alloc2
-	}
-	if s.enableIPv6 {
-		nodev5.IPv6AllocCIDR = ip6Alloc2
-	}
-
-	err = linuxNodeHandler.NodeUpdate(nodev4, nodev5)
-	require.NoError(t, err)
-
-	if s.enableIPv4 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		// node routes for alloc2 ranges should have been installed
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
 		require.NoError(t, err)
@@ -653,11 +554,6 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	}
 
 	if s.enableIPv6 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		// node routes for alloc2 ranges should have been installed
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
 		require.NoError(t, err)
@@ -665,22 +561,8 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	}
 
 	// delete nodev5
-	err = linuxNodeHandler.NodeDelete(nodev5)
+	err = linuxNodeHandler.NodeDelete(nodev4)
 	require.NoError(t, err)
-
-	// alloc range v1 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-	require.Error(t, err)
-
-	// alloc range v2 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-	require.Error(t, err)
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should be gone
@@ -708,7 +590,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(t *testing.T) {
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodeMap, new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
 
 	nodeConfig := s.nodeConfigTemplate
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
@@ -811,8 +693,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
 
 // Tests the same as TestNodeChurnXFRMLeaks, but in tunneling mode. As a
 // consequence, encrypted overlay will kick in.
-func TestNodeChurnXFRMLeaksEncryptedOverlay(t *testing.T) {
-	s := setupLinuxPrivilegedIPv4OnlyTestSuite(t)
+func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaksEncryptedOverlay(t *testing.T) {
 	config := s.nodeConfigTemplate
 	config.EnableIPSec = true
 	config.EnableEncapsulation = true
@@ -853,11 +734,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaksSubnetMode(t *testi
 func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testing.T, config datapath.LocalNodeConfiguration) {
 	log := hivetest.Logger(t)
 	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
-	_, _, err := ipsec.LoadIPSecKeys(log, keys)
+
+	a := ipsec.NewTestIPsecAgent(t)
+	_, _, err := a.LoadIPSecKeys(keys)
 	require.NoError(t, err)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeTypes.IPsecConfig{})
 
 	err = linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(t, err)
@@ -878,10 +761,10 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 	err = linuxNodeHandler.NodeAdd(node)
 	require.NoError(t, err)
 
-	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	states, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.NotEmpty(t, states)
-	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	policies, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.NotEqual(t, 0, countXFRMPolicies(policies))
 
@@ -889,10 +772,10 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 	err = linuxNodeHandler.NodeDelete(node)
 	require.NoError(t, err)
 
-	states, err = netlink.XfrmStateList(netlink.FAMILY_ALL)
+	states, err = safenetlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.Empty(t, states)
-	policies, err = netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	policies, err = safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.Equal(t, 0, countXFRMPolicies(policies))
 }
@@ -922,7 +805,7 @@ func lookupDirectRoute(log *slog.Logger, CIDR *cidr.CIDR, nodeIP net.IP) ([]netl
 	if nodeIP.To4() == nil {
 		family = netlink.FAMILY_V6
 	}
-	return netlink.RouteListFiltered(family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
+	return safenetlink.RouteListFiltered(family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
 }
 
 func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T) {
@@ -950,7 +833,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -1148,98 +1031,40 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 		require.Empty(t, foundRoutes)
 	}
 
-	// delete nodev9
-	err = linuxNodeHandler.NodeDelete(nodev9)
+	// nodev10: Re-introduce node with secondary CIDRs
+	nodev10 := nodeTypes.Node{
+		Name: "node2",
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNode1IP4v1, Type: nodeaddressing.NodeInternalIP},
+		},
+		IPv4AllocCIDR:           ip4Alloc1,
+		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{ipv4SecondaryAlloc1, ipv4SecondaryAlloc2},
+	}
+	err = linuxNodeHandler.NodeUpdate(nodev9, nodev10)
 	require.NoError(t, err)
 
-	// remaining primary node route must have been deleted
+	// expecting both primary and secondary routes to exist
+	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc2} {
+		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
+		require.NoError(t, err)
+		require.Len(t, foundRoutes, expectedIPv4Routes)
+	}
+
+	// node routes for alloc2 ranges should have been removed
 	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
 	require.Empty(t, foundRoutes)
-}
 
-func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.T) {
-	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
-	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
-	underlayIP := net.ParseIP("4.4.4.4")
-
-	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
-
-	require.NotNil(t, linuxNodeHandler)
-	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.EnableEncapsulation = true
-
-	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
+	// delete nodev10
+	err = linuxNodeHandler.NodeDelete(nodev10)
 	require.NoError(t, err)
 
-	nodev1 := nodeTypes.Node{
-		Name: "node1",
-		IPAddresses: []nodeTypes.Address{
-			{IP: underlayIP, Type: nodeaddressing.NodeInternalIP},
-		},
-	}
-
-	if s.enableIPv6 {
-		nodev1.IPv6AllocCIDR = ip6Alloc1
-	}
-
-	if s.enableIPv4 {
-		nodev1.IPv4AllocCIDR = ip4Alloc1
-	}
-
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-
-	// tunnel map entries must exist
-	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
+	// all node routes must have been deleted
+	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc2} {
+		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
 		require.NoError(t, err)
+		require.Empty(t, foundRoutes)
 	}
-	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-	}
-
-	// Simulate agent restart with address families disables
-	nodeConfig.EnableIPv4 = false
-	nodeConfig.EnableIPv6 = false
-	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
-	require.NoError(t, err)
-
-	// Simulate initial node addition
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-
-	// tunnel map entries should have been removed
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-	require.Error(t, err)
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-	require.Error(t, err)
-
-	// Simulate agent restart with address families enabled again
-	nodeConfig.EnableIPv4 = true
-	nodeConfig.EnableIPv6 = true
-	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
-	require.NoError(t, err)
-
-	// Simulate initial node addition
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-
-	// tunnel map entries must exist
-	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-		require.NoError(t, err)
-	}
-	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-	}
-
-	err = linuxNodeHandler.NodeDelete(nodev1)
-	require.NoError(t, err)
 }
 
 func insertFakeRoute(t *testing.T, n *linuxNodeHandler, prefix *cidr.CIDR) {
@@ -1268,7 +1093,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
+	require.NotNil(t, linuxNodeHandler)
+
+	nodeConfig := s.nodeConfigTemplate
+	nodeConfig.EnableEncapsulation = false
+	linuxNodeHandler.nodeConfig = nodeConfig
 
 	if s.enableIPv4 {
 		insertFakeRoute(t, linuxNodeHandler, ip4Alloc1)
@@ -1278,8 +1108,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 		insertFakeRoute(t, linuxNodeHandler, ip6Alloc1)
 	}
 
-	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.EnableEncapsulation = false
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
@@ -1319,2061 +1147,286 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 	}
 }
 
-func neighStateOk(n netlink.Neigh) bool {
-	switch {
-	case (n.State & netlink.NUD_REACHABLE) > 0:
-		fallthrough
-	case (n.State & netlink.NUD_STALE) > 0:
-		// Current final state
-		return true
+func lookupIPSecInRoutes(t *testing.T, family int, extDev string, prefixes []*cidr.CIDR) {
+	link, err := safenetlink.LinkByName(extDev)
+	require.NoError(t, err)
+
+	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return safenetlink.RouteListFiltered(
+			family,
+			&netlink.Route{
+				LinkIndex: link.Attrs().Index,
+				Table:     linux_defaults.RouteTableIPSec,
+				Protocol:  linux_defaults.RTProto,
+				Type:      route.RTN_LOCAL,
+			},
+			netlink.RT_FILTER_IIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL|netlink.RT_FILTER_TYPE,
+		)
+	})
+	require.NoError(t, err, "RouteListFiltered")
+	require.Len(t, routes, len(prefixes))
+	dests := make([]*cidr.CIDR, 0, len(routes))
+	for _, route := range routes {
+		dests = append(dests, &cidr.CIDR{IPNet: route.Dst})
 	}
-	return false
+	require.ElementsMatch(t, dests, prefixes)
 }
 
-func TestArpPingHandlingIPv6(t *testing.T) {
-	s := setupLinuxPrivilegedIPv6OnlyTestSuite(t)
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	prevEnableL2NeighDiscovery := option.Config.EnableL2NeighDiscovery
-	defer func() { option.Config.EnableL2NeighDiscovery = prevEnableL2NeighDiscovery }()
-
-	option.Config.EnableL2NeighDiscovery = true
-
-	prevStateDir := option.Config.StateDir
-	defer func() { option.Config.StateDir = prevStateDir }()
-
-	tmpDir := t.TempDir()
-	option.Config.StateDir = tmpDir
-
-	baseTimeOld, err := s.sysctl.Read(baseIPv6Time)
+func lookupIPSecXFRMPoliciesOut(t *testing.T, family int, prefixes []*cidr.CIDR) {
+	policies, err := safenetlink.XfrmPolicyList(family)
 	require.NoError(t, err)
-	err = s.sysctl.Write(baseIPv6Time, fmt.Sprintf("%d", baseTime))
-	require.NoError(t, err)
-	defer func() { s.sysctl.Write(baseIPv6Time, baseTimeOld) }()
 
-	mcastNumOld, err := s.sysctl.Read(mcastNumIPv6)
-	require.NoError(t, err)
-	err = s.sysctl.Write(mcastNumIPv6, fmt.Sprintf("%d", mcastNum))
-	require.NoError(t, err)
-	defer func() { s.sysctl.Write(mcastNumIPv6, mcastNumOld) }()
-
-	// 1. Test whether another node in the same L2 subnet can be arpinged.
-	//    The other node is in the different netns reachable via the veth pair.
-	//
-	//      +--------------+     +--------------+
-	//      |  host netns  |     |    netns0    |
-	//      |              |     |    nodev1    |
-	//      |         veth0+-----+veth1         |
-	//      | f00d::249/96 |     | f00d::250/96 |
-	//      +--------------+     +--------------+
-
-	// Setup
-	veth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
-		PeerName:  "veth1",
+	var zero *cidr.CIDR
+	if family == netlink.FAMILY_V4 {
+		zero = cidr.MustParseCIDR("0.0.0.0/0")
+	} else {
+		zero = cidr.MustParseCIDR("::/0")
 	}
-	err = netlink.LinkAdd(veth)
-	require.NoError(t, err)
-	t.Cleanup(func() { netlink.LinkDel(veth) })
-	veth0, err := netlink.LinkByName("veth0")
-	require.NoError(t, err)
-	veth1, err := netlink.LinkByName("veth1")
-	require.NoError(t, err)
-	_, ipnet, _ := net.ParseCIDR("f00d::/96")
-	ip0 := net.ParseIP("f00d::249")
-	ip1 := net.ParseIP("f00d::250")
-	ipG := net.ParseIP("f00d::251")
-	ipnet.IP = ip0
-	addr := &netlink.Addr{IPNet: ipnet}
-	err = netlink.AddrAdd(veth0, addr)
-	require.NoError(t, err)
-	err = netlink.LinkSetUp(veth0)
+
+	dests := make([]*cidr.CIDR, 0, len(prefixes))
+	for _, policy := range policies {
+		var policyIP net.IP
+		if family == netlink.FAMILY_V4 {
+			policyIP = policy.Dst.IP.To4()
+		} else {
+			policyIP = policy.Dst.IP.To16()
+		}
+		dst := cidr.CIDR{IPNet: &net.IPNet{
+			IP:   policyIP,
+			Mask: policy.Dst.Mask,
+		}}
+
+		if dst.Equal(zero) {
+			continue
+		}
+
+		dests = append(dests, &dst)
+	}
+	require.ElementsMatch(t, dests, prefixes)
+}
+
+func lookupIPSecOutRoutes(t *testing.T, family int, extDev string, prefixes []*cidr.CIDR) {
+	link, err := safenetlink.LinkByName(extDev)
 	require.NoError(t, err)
 
-	ns := netns.NewNetNS(t)
-
-	err = netlink.LinkSetNsFd(veth1, int(ns.FD()))
-	require.NoError(t, err)
-	ns.Do(func() error {
-		veth1, err := netlink.LinkByName("veth1")
-		require.NoError(t, err)
-		ipnet.IP = ip1
-		addr = &netlink.Addr{IPNet: ipnet}
-		netlink.AddrAdd(veth1, addr)
-		require.NoError(t, err)
-		ipnet.IP = ipG
-		addr = &netlink.Addr{IPNet: ipnet}
-		netlink.AddrAdd(veth1, addr)
-		require.NoError(t, err)
-		err = netlink.LinkSetUp(veth1)
-		require.NoError(t, err)
-		return nil
+	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
+		return safenetlink.RouteListFiltered(
+			family,
+			&netlink.Route{
+				LinkIndex: link.Attrs().Index,
+				Table:     linux_defaults.RouteTableIPSec,
+				Protocol:  linux_defaults.RTProto,
+			},
+			netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+		)
 	})
 
-	prevRoutingMode := option.Config.RoutingMode
-	defer func() { option.Config.RoutingMode = prevRoutingMode }()
-	option.Config.RoutingMode = option.RoutingModeNative
-	prevNP := option.Config.EnableNodePort
-	defer func() { option.Config.EnableNodePort = prevNP }()
-	option.Config.EnableNodePort = true
-	prevARPPeriod := option.Config.ARPPingRefreshPeriod
-	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
-	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
+	require.NoError(t, err, "RouteListFiltered")
+	require.Len(t, routes, len(prefixes))
+	dests := make([]*cidr.CIDR, 0, len(routes))
+	for _, route := range routes {
+		dests = append(dests, &cidr.CIDR{IPNet: route.Dst})
+	}
+	require.ElementsMatch(t, dests, prefixes)
+}
 
-	mq := new(mockEnqueuer)
-	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
+func (s *linuxPrivilegedBaseTestSuite) TestNodePodCIDRsChurnIPSec(t *testing.T) {
+	remoteNode1IPv4, remoteNode1IPv6 := net.ParseIP("4.4.4.4"), net.ParseIP("face::1")
+	remoteNode1Device := "remote_node_1"
+	removeDevice(remoteNode1Device)
+	dev1, err := setupDummyDevice(remoteNode1Device, remoteNode1IPv4, remoteNode1IPv6)
+	require.NoError(t, err)
+	defer removeDevice(remoteNode1Device)
+
+	remoteNode2IPv4, remoteNode2IPv6 := net.ParseIP("4.4.4.5"), net.ParseIP("face::2")
+	remoteNode2Device := "remote_node_2"
+	removeDevice(remoteNode2Device)
+	dev2, err := setupDummyDevice(remoteNode2Device, remoteNode2IPv4, remoteNode2IPv6)
+	require.NoError(t, err)
+	defer removeDevice(remoteNode2Device)
+
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
-	mq.nh = linuxNodeHandler
+	a := ipsec.NewTestIPsecAgent(t)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeTypes.IPsecConfig{})
 
+	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.EnableEncapsulation = false
-	nodeConfig.DirectRoutingDevice = getDevice(t, "veth0")
+	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
+
+	option.Config.RoutingMode = option.RoutingModeNative
+	nodeConfig.EnableIPSec = true
+	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
+
+	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
+	_, _, err = a.LoadIPSecKeys(keys)
+	require.NoError(t, err)
+
+	// set "local_node" as the local node name
+	nodeTypes.SetName("local_node")
+
 	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	require.NoError(t, err)
 
-	// wait waits for neigh entry update or waits for removal if waitForDelete=true
-	wait := func(nodeID nodeTypes.Identity, link string, before *time.Time, waitForDelete bool) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			linuxNodeHandler.neighLock.Lock()
-			defer linuxNodeHandler.neighLock.Unlock()
-			nextHopByLink, found := linuxNodeHandler.neighNextHopByNode6[nodeID]
-			if !found {
-				return waitForDelete
-			}
-			nextHop, found := nextHopByLink[link]
-			if !found {
-				return waitForDelete
-			}
-			lastPing, found := linuxNodeHandler.neighLastPingByNextHop[nextHop]
-			if !found {
-				return false
-			}
-			if waitForDelete {
-				return false
-			}
-			return before.Before(lastPing)
-		}, 5*time.Second)
-		require.NoError(t, err)
+	// Add local node with multiple pod CIDRs
+	localIPv4AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("5.5.5.0/24"),
+		cidr.MustParseCIDR("6.6.6.0/24"),
+		cidr.MustParseCIDR("7.7.7.0/24"),
+	}
+	localIPv6AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("2001:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2002:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2003:aaaa:bbbb::/96"),
+	}
+	localNodeV1 := nodeTypes.Node{
+		Name:                    "local_node",
+		IPv4AllocCIDR:           localIPv4AllocCIDRsV1[0],
+		IPv4SecondaryAllocCIDRs: localIPv4AllocCIDRsV1[1:],
+		IPv6AllocCIDR:           localIPv6AllocCIDRsV1[0],
+		IPv6SecondaryAllocCIDRs: localIPv6AllocCIDRsV1[1:],
+	}
+	err = linuxNodeHandler.NodeAdd(localNodeV1)
+	require.NoError(t, err)
+	if s.enableIPv4 {
+		lookupIPSecInRoutes(t, netlink.FAMILY_V4, dummyExternalDeviceName, localIPv4AllocCIDRsV1)
+	}
+	if s.enableIPv6 {
+		lookupIPSecInRoutes(t, netlink.FAMILY_V6, dummyExternalDeviceName, localIPv6AllocCIDRsV1)
 	}
 
-	assertNeigh := func(ip net.IP, checkNeigh func(neigh netlink.Neigh) bool) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
-			require.NoError(t, err)
-			for _, n := range neighs {
-				if n.IP.Equal(ip) && checkNeigh(n) {
-					return true
-				}
-			}
-			return false
-		}, 5*time.Second)
-		require.NoError(t, err, "expected neighbor %s", ip)
+	// Update local node and change the podCIDRs
+	localIPv4AllocCIDRsV2 := []*cidr.CIDR{
+		cidr.MustParseCIDR("6.6.6.0/24"),
+		cidr.MustParseCIDR("7.7.7.0/24"),
+		cidr.MustParseCIDR("8.8.8.0/24"),
+	}
+	localIPv6AllocCIDRsV2 := []*cidr.CIDR{
+		cidr.MustParseCIDR("2002:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2003:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2004:aaaa:bbbb::/96"),
+	}
+	localNodeV2 := localNodeV1
+	localNodeV2.IPv4AllocCIDR = localIPv4AllocCIDRsV2[0]
+	localNodeV2.IPv4SecondaryAllocCIDRs = localIPv4AllocCIDRsV2[1:]
+	localNodeV2.IPv6AllocCIDR = localIPv6AllocCIDRsV2[0]
+	localNodeV2.IPv6SecondaryAllocCIDRs = localIPv6AllocCIDRsV2[1:]
+	err = linuxNodeHandler.NodeUpdate(localNodeV1, localNodeV2)
+	require.NoError(t, err)
+	if s.enableIPv4 {
+		lookupIPSecInRoutes(t, netlink.FAMILY_V4, dummyExternalDeviceName, localIPv4AllocCIDRsV2)
+	}
+	if s.enableIPv6 {
+		lookupIPSecInRoutes(t, netlink.FAMILY_V6, dummyExternalDeviceName, localIPv6AllocCIDRsV2)
 	}
 
-	assertNoNeigh := func(msg string, ips ...net.IP) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
-			require.NoError(t, err)
-			for _, n := range neighs {
-				if slices.ContainsFunc(ips, n.IP.Equal) {
-					return false
-				}
-			}
-			return true
-		}, 5*time.Second)
-		require.NoError(t, err, msg)
+	// Add first remote node
+	remoteNode1IPv4AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("9.9.9.0/24"),
+		cidr.MustParseCIDR("10.10.10.0/24"),
+		cidr.MustParseCIDR("11.11.11.0/24"),
 	}
-
-	nodev1 := nodeTypes.Node{
-		Name: "node1",
-		IPAddresses: []nodeTypes.Address{{
-			Type: nodeaddressing.NodeInternalIP,
-			IP:   ip1,
-		}},
+	remoteNode1IPv6AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("2005:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2006:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2007:aaaa:bbbb::/96"),
 	}
-	now := time.Now()
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-	// insertNeighbor is invoked async
-	// Insert the same node second time. This should not increment refcount for
-	// the same nextHop. We test it by checking that NodeDelete has removed the
-	// related neigh entry.
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-	// insertNeighbor is invoked async, so thus this wait based on last ping
-	wait(nodev1.Identity(), "veth0", &now, false)
-
-	// Check whether an arp entry for nodev1 IP addr (=veth1) was added
-	assertNeigh(ip1, neighStateOk)
-
-	// Swap MAC addresses of veth0 and veth1 to ensure the MAC address of veth1 changed.
-	// Trigger neighbor refresh on veth0 and check whether the arp entry was updated.
-	var veth0HwAddr, veth1HwAddr, updatedHwAddrFromArpEntry net.HardwareAddr
-	veth0HwAddr = veth0.Attrs().HardwareAddr
-	ns.Do(func() error {
-		veth1, err := netlink.LinkByName("veth1")
-		require.NoError(t, err)
-		veth1HwAddr = veth1.Attrs().HardwareAddr
-		err = netlink.LinkSetHardwareAddr(veth1, veth0HwAddr)
-		require.NoError(t, err)
-		return nil
-	})
-
-	now = time.Now()
-	err = netlink.LinkSetHardwareAddr(veth0, veth1HwAddr)
-	require.NoError(t, err)
-
-	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
-	wait(nodev1.Identity(), "veth0", &now, false)
-
-	assertNeigh(ip1, func(neigh netlink.Neigh) bool {
-		if neighStateOk(neigh) {
-			updatedHwAddrFromArpEntry = neigh.HardwareAddr
-			return true
-		}
-		return false
-	})
-	require.Equal(t, veth0HwAddr.String(), updatedHwAddrFromArpEntry.String())
-
-	// Remove nodev1, and check whether the arp entry was removed
-	err = linuxNodeHandler.NodeDelete(nodev1)
-	require.NoError(t, err)
-	// deleteNeighbor is invoked async too
-	wait(nodev1.Identity(), "veth0", nil, true)
-
-	assertNoNeigh("expected removed neigh "+ip1.String(), ip1)
-
-	// Create multiple goroutines which call insertNeighbor and check whether
-	// MAC changes of veth1 are properly handled. This is a basic randomized
-	// testing of insertNeighbor() fine-grained locking.
-	now = time.Now()
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-	wait(nodev1.Identity(), "veth0", &now, false)
-
-	rndHWAddr := func() net.HardwareAddr {
-		mac := make([]byte, 6)
-		_, err := rand.Read(mac)
-		require.NoError(t, err)
-		mac[0] = (mac[0] | 2) & 0xfe
-		return net.HardwareAddr(mac)
-	}
-	neighRefCount := func(nextHopStr string) int {
-		linuxNodeHandler.neighLock.Lock()
-		defer linuxNodeHandler.neighLock.Unlock()
-		return linuxNodeHandler.neighNextHopRefCount[nextHopStr]
-	}
-
-	done := make(chan struct{})
-	count := 30
-	var wg sync.WaitGroup
-	wg.Add(count)
-	for range count {
-		go func() {
-			defer wg.Done()
-			ticker := time.NewTicker(100 * time.Millisecond)
-			for {
-				linuxNodeHandler.insertNeighbor(context.Background(), &nodev1)
-				select {
-				case <-ticker.C:
-				case <-done:
-					return
-				}
-			}
-		}()
-	}
-	for range 3 {
-		mac := rndHWAddr()
-		// Change MAC
-		ns.Do(func() error {
-			veth1, err := netlink.LinkByName("veth1")
-			require.NoError(t, err)
-			err = netlink.LinkSetHardwareAddr(veth1, mac)
-			require.NoError(t, err)
-			return nil
-		})
-
-		// Check that MAC has been changed in the neigh table
-		var found bool
-		err := testutils.WaitUntilWithSleep(func() bool {
-			neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V6)
-			require.NoError(t, err)
-			found = false
-			for _, n := range neighs {
-				if n.IP.Equal(ip1) && (n.State&netlink.NUD_REACHABLE) > 0 &&
-					n.HardwareAddr.String() == mac.String() &&
-					neighRefCount(ip1.String()) == 1 {
-					found = true
-					return true
-				}
-			}
-			return false
-		}, 60*time.Second, 200*time.Millisecond)
-		require.NoError(t, err)
-		require.True(t, found)
-	}
-
-	// Cleanup
-	close(done)
-	wg.Wait()
-	now = time.Now()
-	err = linuxNodeHandler.NodeDelete(nodev1)
-	require.NoError(t, err)
-	wait(nodev1.Identity(), "veth0", nil, true)
-
-	// Setup routine for the 2. test
-	setupRemoteNode := func(vethName, vethPeerName, netnsName, vethCIDR, vethIPAddr,
-		vethPeerIPAddr string,
-	) (cleanup func(), errRet error) {
-		veth := &netlink.Veth{
-			LinkAttrs: netlink.LinkAttrs{Name: vethName},
-			PeerName:  vethPeerName,
-		}
-		errRet = netlink.LinkAdd(veth)
-		if errRet != nil {
-			return nil, err
-		}
-		cleanup1 := func() { netlink.LinkDel(veth) }
-		cleanup = cleanup1
-
-		veth2, err := netlink.LinkByName(vethName)
-		if err != nil {
-			errRet = err
-			return
-		}
-		veth3, err := netlink.LinkByName(vethPeerName)
-		if err != nil {
-			errRet = err
-			return
-		}
-		ns2 := netns.NewNetNS(t)
-		cleanup = func() {
-			cleanup1()
-			ns2.Close()
-		}
-		if errRet = netlink.LinkSetNsFd(veth2, int(ns.FD())); errRet != nil {
-			return
-		}
-		if errRet = netlink.LinkSetNsFd(veth3, int(ns2.FD())); errRet != nil {
-			return
-		}
-
-		ip, ipnet, err := net.ParseCIDR(vethCIDR)
-		if err != nil {
-			errRet = err
-			return
-		}
-		ip2 := net.ParseIP(vethIPAddr)
-		ip3 := net.ParseIP(vethPeerIPAddr)
-		ipnet.IP = ip2
-
-		if errRet = ns.Do(func() error {
-			addr = &netlink.Addr{IPNet: ipnet}
-			if err := netlink.AddrAdd(veth2, addr); err != nil {
-				return err
-			}
-			if err := netlink.LinkSetUp(veth2); err != nil {
-				return err
-			}
-			if err := netlink.LinkSetUp(veth2); err != nil {
-				return err
-			}
-			return nil
-		}); errRet != nil {
-			return
-		}
-
-		ipnet.IP = ip
-		route := &netlink.Route{
-			Dst: ipnet,
-			Gw:  ip1,
-		}
-		if errRet = netlink.RouteAdd(route); errRet != nil {
-			return
-		}
-
-		if errRet = ns2.Do(func() error {
-			veth3, err := netlink.LinkByName(vethPeerName)
-			if err != nil {
-				return err
-			}
-			ipnet.IP = ip3
-			addr = &netlink.Addr{IPNet: ipnet}
-			if err := netlink.AddrAdd(veth3, addr); err != nil {
-				return err
-			}
-			if err := netlink.LinkSetUp(veth3); err != nil {
-				return err
-			}
-
-			_, ipnet, err := net.ParseCIDR("f00d::/96")
-			if err != nil {
-				return err
-			}
-			route := &netlink.Route{
-				Dst: ipnet,
-				Gw:  ip2,
-			}
-			if err := netlink.RouteAdd(route); err != nil {
-				return err
-			}
-			return nil
-		}); errRet != nil {
-			return
-		}
-
-		return
-	}
-
-	// 2. Add two nodes which are reachable from the host only via nodev1 (gw).
-	//    Arping should ping veth1 IP addr instead of veth3 or veth5.
-	//
-	//      +--------------+     +--------------+     +--------------+
-	//      |  host netns  |     |    netns0    |     |    netns1    |
-	//      |              |     |    nodev1    |     |    nodev2    |
-	//      |              |     |  f00a::249/96|     |              |
-	//      |              |     |           |  |     |              |
-	//      |         veth0+-----+veth1    veth2+-----+veth3         |
-	//      |          |   |     |   |          |     | |            |
-	//      | f00d::249/96 |     |f00d::250/96  |     | f00a::250/96 |
-	//      +--------------+     |         veth4+-+   +--------------+
-	//                           |           |  | |   +--------------+
-	//                           | f00b::249/96 | |   |    netns2    |
-	//                           +--------------+ |   |    nodev3    |
-	//                                            |   |              |
-	//                                            +---+veth5         |
-	//                                                | |            |
-	//                                                | f00b::250/96 |
-	//                                                +--------------+
-
-	cleanup1, err := setupRemoteNode("veth2", "veth3", "test-arping-netns1",
-		"f00a::/96", "f00a::249", "f00a::250")
-	require.NoError(t, err)
-	defer cleanup1()
-	cleanup2, err := setupRemoteNode("veth4", "veth5", "test-arping-netns2",
-		"f00b::/96", "f00b::249", "f00b::250")
-	require.NoError(t, err)
-	defer cleanup2()
-
-	node2IP := net.ParseIP("f00a::250")
-	nodev2 := nodeTypes.Node{
-		Name: "node2",
-		IPAddresses: []nodeTypes.Address{{
-			Type: nodeaddressing.NodeInternalIP,
-			IP:   node2IP,
-		}},
-	}
-	now = time.Now()
-	require.NoError(t, linuxNodeHandler.NodeAdd(nodev2))
-	wait(nodev2.Identity(), "veth0", &now, false)
-
-	node3IP := net.ParseIP("f00b::250")
-	nodev3 := nodeTypes.Node{
-		Name: "node3",
-		IPAddresses: []nodeTypes.Address{{
-			Type: nodeaddressing.NodeInternalIP,
-			IP:   node3IP,
-		}},
-	}
-	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
-	wait(nodev3.Identity(), "veth0", &now, false)
-
-	nextHop := net.ParseIP("f00d::250")
-	// Check that both node{2,3} are via nextHop (gw)
-	assertNeigh(nextHop, neighStateOk)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	// Check that removing node2 will not remove nextHop, as it is still used by node3
-	require.NoError(t, linuxNodeHandler.NodeDelete(nodev2))
-	wait(nodev2.Identity(), "veth0", nil, true)
-
-	assertNeigh(nextHop, func(n netlink.Neigh) bool { return true })
-
-	// However, removing node3 should remove the neigh entry for nextHop
-	require.NoError(t, linuxNodeHandler.NodeDelete(nodev3))
-	wait(nodev3.Identity(), "veth0", nil, true)
-
-	assertNoNeigh("expected removed neigh "+nextHop.String(), nextHop)
-
-	now = time.Now()
-	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
-	wait(nodev3.Identity(), "veth0", &now, false)
-
-	nextHop = net.ParseIP("f00d::250")
-	assertNeigh(nextHop, neighStateOk)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	// We have stored the devices in NodeConfigurationChanged
-	linuxNodeHandler.NodeCleanNeighbors(false)
-
-	assertNoNeigh("expected removed neigh "+nextHop.String(), nextHop)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	// Setup routine for the 3. test
-	setupNewGateway := func(vethCIDR, gwIP string) (errRet error) {
-		ipGw := net.ParseIP(gwIP)
-		ip, ipnet, err := net.ParseCIDR(vethCIDR)
-		if err != nil {
-			errRet = err
-			return
-		}
-		ipnet.IP = ip
-		route := &netlink.Route{
-			Dst: ipnet,
-			Gw:  ipGw,
-		}
-		errRet = netlink.RouteReplace(route)
-		return
-	}
-
-	// In the next test, we add node 2,3 again, and then change the nextHop
-	// address to check the refcount behavior, and that the old one was
-	// deleted from the neighbor table as well as the new one added.
-	now = time.Now()
-	require.NoError(t, linuxNodeHandler.NodeAdd(nodev2))
-	wait(nodev2.Identity(), "veth0", &now, false)
-
-	now = time.Now()
-	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
-	wait(nodev3.Identity(), "veth0", &now, false)
-
-	nextHop = net.ParseIP("f00d::250")
-
-	assertNeigh(nextHop, neighStateOk)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	// Switch to new nextHop address for node2
-	err = setupNewGateway("f00a::/96", "f00d::251")
-	require.NoError(t, err)
-
-	// waitGw waits for the nextHop to appear in the agent's nextHop table
-	waitGw := func(nextHopNew string, nodeID nodeTypes.Identity, link string, before *time.Time) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			linuxNodeHandler.neighLock.Lock()
-			defer linuxNodeHandler.neighLock.Unlock()
-			nextHopByLink, found := linuxNodeHandler.neighNextHopByNode6[nodeID]
-			if !found {
-				return false
-			}
-			nextHop, found := nextHopByLink[link]
-			if !found {
-				return false
-			}
-			if nextHop != nextHopNew {
-				return false
-			}
-			lastPing, found := linuxNodeHandler.neighLastPingByNextHop[nextHop]
-			if !found {
-				return false
-			}
-			return before.Before(lastPing)
-		}, 5*time.Second)
-		require.NoError(t, err)
-	}
-
-	// insertNeighbor is invoked async, so thus this wait based on last ping
-	now = time.Now()
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2)
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3)
-	waitGw("f00d::251", nodev2.Identity(), "veth0", &now)
-	waitGw("f00d::250", nodev3.Identity(), "veth0", &now)
-
-	// Both nextHops now need to be present
-	nextHop = net.ParseIP("f00d::250")
-	assertNeigh(nextHop, neighStateOk)
-	nextHop = net.ParseIP("f00d::251")
-	assertNeigh(nextHop, neighStateOk)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	// Now also switch over the other node.
-	err = setupNewGateway("f00b::/96", "f00d::251")
-	require.NoError(t, err)
-
-	// insertNeighbor is invoked async, so thus this wait based on last ping
-	now = time.Now()
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2)
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3)
-	waitGw("f00d::251", nodev2.Identity(), "veth0", &now)
-	waitGw("f00d::251", nodev3.Identity(), "veth0", &now)
-
-	nextHop = net.ParseIP("f00d::250")
-
-	// Check that old nextHop address got removed
-	assertNoNeigh("expected removed neigh "+nextHop.String(), nextHop)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	nextHop = net.ParseIP("f00d::251")
-	assertNeigh(nextHop, neighStateOk)
-
-	require.NoError(t, linuxNodeHandler.NodeDelete(nodev3))
-	wait(nodev3.Identity(), "veth0", nil, true)
-
-	// In the next test, we have node2 left in the neighbor table, and
-	// we add an unrelated externally learned neighbor entry. Check that
-	// NodeCleanNeighbors() removes the unrelated one. This is to simulate
-	// the agent after kubeapi-server resync that it cleans up stale node
-	// entries from previous runs.
-
-	nextHop = net.ParseIP("f00d::1")
-	neigh := netlink.Neigh{
-		LinkIndex: veth0.Attrs().Index,
-		IP:        nextHop,
-		State:     netlink.NUD_NONE,
-		Flags:     netlink.NTF_EXT_LEARNED,
-	}
-	err = netlink.NeighSet(&neigh)
-	require.NoError(t, err)
-
-	// Check that new nextHop address got added, we don't care about its NUD_* state
-	assertNeigh(nextHop, func(neigh netlink.Neigh) bool { return true })
-
-	// Clean unrelated externally learned entries
-	linuxNodeHandler.NodeCleanNeighborsLink(veth0, true)
-
-	// Check that new nextHop address got removed
-	assertNoNeigh("expected removed neigh "+nextHop.String(), nextHop)
-
-	// Check that node2 nextHop address is still there
-	nextHop = net.ParseIP("f00d::251")
-	assertNeigh(nextHop, neighStateOk)
-	assertNoNeigh("node2 should not be in the same L2", node2IP)
-
-	require.NoError(t, linuxNodeHandler.NodeDelete(nodev2))
-	wait(nodev2.Identity(), "veth0", nil, true)
-
-	linuxNodeHandler.NodeCleanNeighborsLink(veth0, false)
-}
-
-func getDevice(tb testing.TB, name string) *tables.Device {
-	link, err := netlink.LinkByName(name)
-	require.NoError(tb, err, "LinkByName")
-	return &tables.Device{Index: link.Attrs().Index, Name: name, Selected: true}
-}
-
-func TestArpPingHandlingForMultiDeviceIPv6(t *testing.T) {
-	s := setupLinuxPrivilegedIPv6OnlyTestSuite(t)
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	prevEnableL2NeighDiscovery := option.Config.EnableL2NeighDiscovery
-	defer func() { option.Config.EnableL2NeighDiscovery = prevEnableL2NeighDiscovery }()
-
-	option.Config.EnableL2NeighDiscovery = true
-
-	prevStateDir := option.Config.StateDir
-	defer func() { option.Config.StateDir = prevStateDir }()
-
-	tmpDir := t.TempDir()
-	option.Config.StateDir = tmpDir
-
-	baseTimeOld, err := s.sysctl.Read(baseIPv6Time)
-	require.NoError(t, err)
-	err = s.sysctl.Write(baseIPv6Time, fmt.Sprintf("%d", baseTime))
-	require.NoError(t, err)
-	defer func() { s.sysctl.Write(baseIPv6Time, baseTimeOld) }()
-
-	mcastNumOld, err := s.sysctl.Read(mcastNumIPv6)
-	require.NoError(t, err)
-	err = s.sysctl.Write(mcastNumIPv6, fmt.Sprintf("%d", mcastNum))
-	require.NoError(t, err)
-	defer func() { s.sysctl.Write(mcastNumIPv6, mcastNumOld) }()
-
-	// 1. Test whether another node with multiple paths can be arpinged.
-	//    Each node has two devices and the other node in the different netns
-	//    is reachable via either pair.
-	//    Neighbor entries are not installed on devices where no route exists
-	//
-	//      +--------------+     +-------------------+
-	//      |  host netns  |     |      netns1       |
-	//      |              |     |      nodev1       |
-	//      |              |     |  fc00:c111::1/128 |
-	//      |         veth0+-----+veth1              |
-	//      |          |   |     |   |               |
-	//      | f00a::249/96 |     | f00a::250/96      |
-	//      |              |     |                   |
-	//      |         veth2+-----+veth3              |
-	//      |          |   |     | |                 |
-	//      | f00b::249/96 |     | f00b::250/96      |
-	//      |              |     |                   |
-	//      | f00c::249/96 |     |                   |
-	//      |  |           |     |                   |
-	//      | veth4        |     |                   |
-	//      +-+------------+     +-------------------+
-	//        |
-	//      +-+--------------------------------------+
-	//      | veth5        other netns               |
-	//      |  |                                     |
-	//      | f00c::250/96                           |
-	//      +----------------------------------------+
-
-	// Setup
-	vethPair01 := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
-		PeerName:  "veth1",
-	}
-	err = netlink.LinkAdd(vethPair01)
-	require.NoError(t, err)
-	t.Cleanup(func() { netlink.LinkDel(vethPair01) })
-	veth0, err := netlink.LinkByName("veth0")
-	require.NoError(t, err)
-	veth1, err := netlink.LinkByName("veth1")
-	require.NoError(t, err)
-	_, ipnet, _ := net.ParseCIDR("f00a::/96")
-	v1IP0 := net.ParseIP("f00a::249")
-	v1IP1 := net.ParseIP("f00a::250")
-	v1IPG := net.ParseIP("f00a::251")
-	ipnet.IP = v1IP0
-	addr := &netlink.Addr{IPNet: ipnet}
-	err = netlink.AddrAdd(veth0, addr)
-	require.NoError(t, err)
-	err = netlink.LinkSetUp(veth0)
-	require.NoError(t, err)
-
-	ns := netns.NewNetNS(t)
-	err = netlink.LinkSetNsFd(veth1, int(ns.FD()))
-	require.NoError(t, err)
-	node1Addr, err := netlink.ParseAddr("fc00:c111::1/128")
-	require.NoError(t, err)
-	ns.Do(func() error {
-		lo, err := netlink.LinkByName("lo")
-		require.NoError(t, err)
-		err = netlink.LinkSetUp(lo)
-		require.NoError(t, err)
-		err = netlink.AddrAdd(lo, node1Addr)
-		require.NoError(t, err)
-
-		veth1, err := netlink.LinkByName("veth1")
-		require.NoError(t, err)
-		ipnet.IP = v1IP1
-		addr = &netlink.Addr{IPNet: ipnet}
-		err = netlink.AddrAdd(veth1, addr)
-		require.NoError(t, err)
-		ipnet.IP = v1IPG
-		addr = &netlink.Addr{IPNet: ipnet}
-		err = netlink.AddrAdd(veth1, addr)
-		require.NoError(t, err)
-		err = netlink.LinkSetUp(veth1)
-		require.NoError(t, err)
-		return nil
-	})
-
-	vethPair23 := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: "veth2"},
-		PeerName:  "veth3",
-	}
-	err = netlink.LinkAdd(vethPair23)
-	require.NoError(t, err)
-	t.Cleanup(func() { netlink.LinkDel(vethPair23) })
-	veth2, err := netlink.LinkByName("veth2")
-	require.NoError(t, err)
-	veth3, err := netlink.LinkByName("veth3")
-	require.NoError(t, err)
-	_, ipnet, _ = net.ParseCIDR("f00b::/96")
-	v2IP0 := net.ParseIP("f00b::249")
-	v2IP1 := net.ParseIP("f00b::250")
-	v2IPG := net.ParseIP("f00b::251")
-	ipnet.IP = v2IP0
-	addr = &netlink.Addr{IPNet: ipnet}
-	err = netlink.AddrAdd(veth2, addr)
-	require.NoError(t, err)
-	err = netlink.LinkSetUp(veth2)
-	require.NoError(t, err)
-
-	err = netlink.LinkSetNsFd(veth3, int(ns.FD()))
-	require.NoError(t, err)
-	err = ns.Do(func() error {
-		veth3, err := netlink.LinkByName("veth3")
-		require.NoError(t, err)
-		ipnet.IP = v2IP1
-		addr = &netlink.Addr{IPNet: ipnet}
-		err = netlink.AddrAdd(veth3, addr)
-		require.NoError(t, err)
-		ipnet.IP = v2IPG
-		addr = &netlink.Addr{IPNet: ipnet}
-		err = netlink.AddrAdd(veth3, addr)
-		require.NoError(t, err)
-		err = netlink.LinkSetUp(veth3)
-		require.NoError(t, err)
-		return nil
-	})
-	require.NoError(t, err)
-
-	r := &netlink.Route{
-		Dst: netlink.NewIPNet(node1Addr.IP),
-		MultiPath: []*netlink.NexthopInfo{
-			{
-				LinkIndex: veth0.Attrs().Index,
-				Gw:        v1IP1,
-			},
-			{
-				LinkIndex: veth2.Attrs().Index,
-				Gw:        v2IP1,
-			},
+	remoteNode1V1 := nodeTypes.Node{
+		Name: "remote_node_1",
+		IPAddresses: []nodeTypes.Address{
+			{IP: net.ParseIP("1.1.1.1"), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: remoteNode1IPv4, Type: nodeaddressing.NodeInternalIP},
+			{IP: net.ParseIP("face::3"), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: remoteNode1IPv6, Type: nodeaddressing.NodeInternalIP},
 		},
+		IPv4AllocCIDR:           remoteNode1IPv4AllocCIDRsV1[0],
+		IPv4SecondaryAllocCIDRs: remoteNode1IPv4AllocCIDRsV1[1:],
+		IPv6AllocCIDR:           remoteNode1IPv6AllocCIDRsV1[0],
+		IPv6SecondaryAllocCIDRs: remoteNode1IPv6AllocCIDRsV1[1:],
+		BootID:                  "b892866c-26cb-4018-8a55-c0330551a2be",
+	}
+	err = linuxNodeHandler.NodeAdd(remoteNode1V1)
+	require.NoError(t, err)
+	if s.enableIPv4 {
+		lookupIPSecOutRoutes(t, netlink.FAMILY_V4, dummyHostDeviceName, remoteNode1IPv4AllocCIDRsV1)
+		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V4, remoteNode1IPv4AllocCIDRsV1)
+	}
+	if s.enableIPv6 {
+		lookupIPSecOutRoutes(t, netlink.FAMILY_V6, dummyHostDeviceName, remoteNode1IPv6AllocCIDRsV1)
+		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V6, remoteNode1IPv6AllocCIDRsV1)
 	}
 
-	err = netlink.RouteAdd(r)
-	require.NoError(t, err)
-	defer netlink.RouteDel(r)
-
-	// Setup another veth pair that doesn't have a route to node
-	vethPair45 := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: "veth4"},
-		PeerName:  "veth5",
+	// Add second remote node
+	remoteNode2IPv4AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("12.12.12.0/24"),
+		cidr.MustParseCIDR("13.13.13.0/24"),
+		cidr.MustParseCIDR("14.14.14.0/24"),
 	}
-	err = netlink.LinkAdd(vethPair45)
-	require.NoError(t, err)
-	t.Cleanup(func() { netlink.LinkDel(vethPair45) })
-	veth4, err := netlink.LinkByName("veth4")
-	require.NoError(t, err)
-	veth5, err := netlink.LinkByName("veth5")
-	require.NoError(t, err)
-	_, ipnet, _ = net.ParseCIDR("f00c::/96")
-	v3IP0 := net.ParseIP("f00c::249")
-	v3IP1 := net.ParseIP("f00c::250")
-	ipnet.IP = v3IP0
-	addr = &netlink.Addr{IPNet: ipnet}
-	err = netlink.AddrAdd(veth4, addr)
-	require.NoError(t, err)
-	err = netlink.LinkSetUp(veth4)
-	require.NoError(t, err)
-
-	ns2 := netns.NewNetNS(t)
-
-	err = netlink.LinkSetNsFd(veth5, int(ns2.FD()))
-	require.NoError(t, err)
-	err = ns2.Do(func() error {
-		veth5, err := netlink.LinkByName("veth5")
-		require.NoError(t, err)
-		ipnet.IP = v3IP1
-		addr = &netlink.Addr{IPNet: ipnet}
-		err = netlink.AddrAdd(veth5, addr)
-		require.NoError(t, err)
-		err = netlink.LinkSetUp(veth5)
-		require.NoError(t, err)
-		return nil
-	})
-	require.NoError(t, err)
-
-	prevRoutingMode := option.Config.RoutingMode
-	defer func() { option.Config.RoutingMode = prevRoutingMode }()
-	option.Config.RoutingMode = option.RoutingModeNative
-	prevNP := option.Config.EnableNodePort
-	defer func() { option.Config.EnableNodePort = prevNP }()
-	option.Config.EnableNodePort = true
-	prevARPPeriod := option.Config.ARPPingRefreshPeriod
-	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
-	option.Config.ARPPingRefreshPeriod = 1 * time.Nanosecond
-
-	mq := new(mockEnqueuer)
-	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
-	mq.nh = linuxNodeHandler
-
-	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.EnableEncapsulation = false
-	nodeConfig.DirectRoutingDevice = getDevice(t, "veth0")
-	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices),
-		getDevice(t, "veth0"),
-		getDevice(t, "veth2"),
-		getDevice(t, "veth4"))
-
-	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
-	require.NoError(t, err)
-
-	// wait waits for neigh entry update or waits for removal if waitForDelete=true
-	wait := func(nodeID nodeTypes.Identity, link string, before *time.Time, waitForDelete bool) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			linuxNodeHandler.neighLock.Lock()
-			defer linuxNodeHandler.neighLock.Unlock()
-			nextHopByLink, found := linuxNodeHandler.neighNextHopByNode6[nodeID]
-			if !found {
-				return waitForDelete
-			}
-			nextHop, found := nextHopByLink[link]
-			if !found {
-				return waitForDelete
-			}
-			lastPing, found := linuxNodeHandler.neighLastPingByNextHop[nextHop]
-			if !found {
-				return false
-			}
-			if waitForDelete {
-				return false
-			}
-			return before.Before(lastPing)
-		}, 5*time.Second)
-		require.NoError(t, err)
+	remoteNode2IPv6AllocCIDRsV1 := []*cidr.CIDR{
+		cidr.MustParseCIDR("2008:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2009:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2010:aaaa:bbbb::/96"),
 	}
-
-	assertNeigh := func(ip net.IP, link netlink.Link, checkNeigh func(neigh netlink.Neigh) bool) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			neighs, err := netlink.NeighList(link.Attrs().Index, netlink.FAMILY_V6)
-			require.NoError(t, err)
-			for _, n := range neighs {
-				if n.IP.Equal(ip) && checkNeigh(n) {
-					return true
-				}
-			}
-			return false
-		}, 5*time.Second)
-		require.NoError(t, err, "expected neighbor %s", ip)
-	}
-
-	assertNoNeigh := func(link netlink.Link, ips ...net.IP) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			neighs, err := netlink.NeighList(link.Attrs().Index, netlink.FAMILY_V6)
-			require.NoError(t, err)
-			for _, n := range neighs {
-				if slices.ContainsFunc(ips, n.IP.Equal) {
-					return false
-				}
-			}
-			return true
-		}, 5*time.Second)
-		require.NoError(t, err, "expected no neighbors: %v", ips)
-	}
-
-	nodev1 := nodeTypes.Node{
-		Name: "node1",
-		IPAddresses: []nodeTypes.Address{{
-			Type: nodeaddressing.NodeInternalIP,
-			IP:   node1Addr.IP,
-		}},
-	}
-	now := time.Now()
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-	// insertNeighbor is invoked async
-	// Insert the same node second time. This should not increment refcount for
-	// the same nextHop. We test it by checking that NodeDelete has removed the
-	// related neigh entry.
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-	// insertNeighbor is invoked async, so thus this wait based on last ping
-	wait(nodev1.Identity(), "veth0", &now, false)
-	wait(nodev1.Identity(), "veth2", &now, false)
-
-	assertNeigh(v1IP1, veth0, neighStateOk)
-	assertNeigh(v2IP1, veth2, neighStateOk)
-
-	// Check whether we don't install the neighbor entries to nodes on the device where the actual route isn't.
-	// "Consistently(<check>, 5sec, 1sec)"
-	start := time.Now()
-	for {
-		if time.Since(start) > 5*time.Second {
-			break
-		}
-
-		neighs, err := netlink.NeighList(veth4.Attrs().Index, netlink.FAMILY_V6)
-		require.NoError(t, err)
-		found := false
-		for _, n := range neighs {
-			if n.IP.Equal(v3IP1) || n.IP.Equal(node1Addr.IP) {
-				found = true
-			}
-		}
-		require.False(t, found)
-
-		time.Sleep(1 * time.Second)
-	}
-
-	// Swap MAC addresses of veth0 and veth1, veth2 and veth3 to ensure the MAC address of veth1 changed.
-	// Trigger neighbor refresh on veth0 and check whether the arp entry was updated.
-	var veth0HwAddr, veth1HwAddr, veth2HwAddr, veth3HwAddr, updatedHwAddrFromArpEntry net.HardwareAddr
-	veth0HwAddr = veth0.Attrs().HardwareAddr
-	veth2HwAddr = veth2.Attrs().HardwareAddr
-	err = ns.Do(func() error {
-		veth1, err := netlink.LinkByName("veth1")
-		require.NoError(t, err)
-		veth1HwAddr = veth1.Attrs().HardwareAddr
-		err = netlink.LinkSetHardwareAddr(veth1, veth0HwAddr)
-		require.NoError(t, err)
-
-		veth3, err := netlink.LinkByName("veth3")
-		require.NoError(t, err)
-		veth3HwAddr = veth3.Attrs().HardwareAddr
-		err = netlink.LinkSetHardwareAddr(veth3, veth2HwAddr)
-		require.NoError(t, err)
-		return nil
-	})
-	require.NoError(t, err)
-
-	now = time.Now()
-	err = netlink.LinkSetHardwareAddr(veth0, veth1HwAddr)
-	require.NoError(t, err)
-	err = netlink.LinkSetHardwareAddr(veth2, veth3HwAddr)
-	require.NoError(t, err)
-
-	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
-	wait(nodev1.Identity(), "veth0", &now, false)
-	wait(nodev1.Identity(), "veth2", &now, false)
-
-	assertNeigh(v1IP1, veth0,
-		func(neigh netlink.Neigh) bool {
-			if neighStateOk(neigh) {
-				updatedHwAddrFromArpEntry = neigh.HardwareAddr
-				return true
-			}
-			return false
-		})
-
-	require.Equal(t, veth0HwAddr.String(), updatedHwAddrFromArpEntry.String())
-
-	assertNeigh(v2IP1, veth2,
-		func(neigh netlink.Neigh) bool {
-			if neighStateOk(neigh) {
-				updatedHwAddrFromArpEntry = neigh.HardwareAddr
-				return true
-			}
-			return false
-		})
-
-	require.Equal(t, veth2HwAddr.String(), updatedHwAddrFromArpEntry.String())
-
-	// Remove nodev1, and check whether the arp entry was removed
-	err = linuxNodeHandler.NodeDelete(nodev1)
-	require.NoError(t, err)
-	// deleteNeighbor is invoked async too
-	wait(nodev1.Identity(), "veth0", nil, true)
-	wait(nodev1.Identity(), "veth2", nil, true)
-
-	assertNoNeigh(veth0, v1IP1)
-	assertNoNeigh(veth2, v2IP1)
-}
-
-func TestArpPingHandlingIPv4(t *testing.T) {
-	s := setupLinuxPrivilegedIPv4OnlyTestSuite(t)
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	prevEnableL2NeighDiscovery := option.Config.EnableL2NeighDiscovery
-	defer func() { option.Config.EnableL2NeighDiscovery = prevEnableL2NeighDiscovery }()
-
-	option.Config.EnableL2NeighDiscovery = true
-
-	prevStateDir := option.Config.StateDir
-	defer func() { option.Config.StateDir = prevStateDir }()
-
-	tmpDir := t.TempDir()
-	option.Config.StateDir = tmpDir
-
-	baseTimeOld, err := s.sysctl.Read(baseIPv4Time)
-	require.NoError(t, err)
-	err = s.sysctl.Write(baseIPv4Time, fmt.Sprintf("%d", baseTime))
-	require.NoError(t, err)
-	defer func() { s.sysctl.Write(baseIPv4Time, baseTimeOld) }()
-
-	mcastNumOld, err := s.sysctl.Read(mcastNumIPv4)
-	require.NoError(t, err)
-	err = s.sysctl.Write(mcastNumIPv4, fmt.Sprintf("%d", mcastNum))
-	require.NoError(t, err)
-	defer func() { s.sysctl.Write(mcastNumIPv4, mcastNumOld) }()
-
-	// 1. Test whether another node in the same L2 subnet can be arpinged.
-	//    The other node is in the different netns reachable via the veth pair.
-	//
-	//      +--------------+     +--------------+
-	//      |  host netns  |     |    netns0    |
-	//      |              |     |    nodev1    |
-	//      |         veth0+-----+veth1         |
-	//      | 9.9.9.249/29 |     | 9.9.9.250/29 |
-	//      +--------------+     +--------------+
-
-	// Setup
-	veth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
-		PeerName:  "veth1",
-	}
-	err = netlink.LinkAdd(veth)
-	require.NoError(t, err)
-	t.Cleanup(func() { netlink.LinkDel(veth) })
-	veth0, err := netlink.LinkByName("veth0")
-	require.NoError(t, err)
-	veth1, err := netlink.LinkByName("veth1")
-	require.NoError(t, err)
-	_, ipnet, _ := net.ParseCIDR("9.9.9.252/29")
-	ip0 := net.ParseIP("9.9.9.249")
-	ip1 := net.ParseIP("9.9.9.250")
-	ipG := net.ParseIP("9.9.9.251")
-	ipnet.IP = ip0
-	addr := &netlink.Addr{IPNet: ipnet}
-	err = netlink.AddrAdd(veth0, addr)
-	require.NoError(t, err)
-	err = netlink.LinkSetUp(veth0)
-	require.NoError(t, err)
-
-	ns := netns.NewNetNS(t)
-
-	err = netlink.LinkSetNsFd(veth1, int(ns.FD()))
-	require.NoError(t, err)
-	ns.Do(func() error {
-		veth1, err := netlink.LinkByName("veth1")
-		require.NoError(t, err)
-		ipnet.IP = ip1
-		addr = &netlink.Addr{IPNet: ipnet}
-		netlink.AddrAdd(veth1, addr)
-		require.NoError(t, err)
-		ipnet.IP = ipG
-		addr = &netlink.Addr{IPNet: ipnet}
-		netlink.AddrAdd(veth1, addr)
-		require.NoError(t, err)
-		err = netlink.LinkSetUp(veth1)
-		require.NoError(t, err)
-		return nil
-	})
-
-	prevRoutingMode := option.Config.RoutingMode
-	defer func() { option.Config.RoutingMode = prevRoutingMode }()
-	option.Config.RoutingMode = option.RoutingModeNative
-	prevNP := option.Config.EnableNodePort
-	defer func() { option.Config.EnableNodePort = prevNP }()
-	option.Config.EnableNodePort = true
-	prevARPPeriod := option.Config.ARPPingRefreshPeriod
-	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
-	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
-
-	mq := new(mockEnqueuer)
-	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
-	mq.nh = linuxNodeHandler
-
-	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.Devices = []*tables.Device{
-		{Index: veth0.Attrs().Index, Name: "veth0", Selected: true},
-	}
-	nodeConfig.DirectRoutingDevice = getDevice(t, "veth0")
-	nodeConfig.EnableEncapsulation = false
-	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
-	require.NoError(t, err)
-
-	// wait waits for neigh entry update or waits for removal if waitForDelete=true
-	wait := func(nodeID nodeTypes.Identity, link string, before *time.Time, waitForDelete bool) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			linuxNodeHandler.neighLock.Lock()
-			defer linuxNodeHandler.neighLock.Unlock()
-			nextHopByLink, found := linuxNodeHandler.neighNextHopByNode4[nodeID]
-			if !found {
-				return waitForDelete
-			}
-			nextHop, found := nextHopByLink[link]
-			if !found {
-				return waitForDelete
-			}
-			lastPing, found := linuxNodeHandler.neighLastPingByNextHop[nextHop]
-			if !found {
-				return false
-			}
-			if waitForDelete {
-				return false
-			}
-			return before.Before(lastPing)
-		}, 5*time.Second)
-		require.NoError(t, err)
-	}
-
-	assertNeigh := func(ip net.IP, checkNeigh func(neigh netlink.Neigh) bool) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
-			require.NoError(t, err)
-			for _, n := range neighs {
-				if n.IP.Equal(ip) && checkNeigh(n) {
-					return true
-				}
-			}
-			return false
-		}, 5*time.Second)
-		require.NoError(t, err, "expected neighbor %s", ip)
-	}
-
-	assertNoNeigh := func(msg string, ips ...net.IP) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
-			require.NoError(t, err)
-			for _, n := range neighs {
-				if slices.ContainsFunc(ips, n.IP.Equal) {
-					return false
-				}
-			}
-			return true
-		}, 5*time.Second)
-		require.NoError(t, err, msg)
-	}
-
-	nodev1 := nodeTypes.Node{
-		Name: "node1",
-		IPAddresses: []nodeTypes.Address{{
-			Type: nodeaddressing.NodeInternalIP,
-			IP:   ip1,
-		}},
-	}
-	now := time.Now()
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-	// insertNeighbor is invoked async
-	// Insert the same node second time. This should not increment refcount for
-	// the same nextHop. We test it by checking that NodeDelete has removed the
-	// related neigh entry.
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-	// insertNeighbor is invoked async, so thus this wait based on last ping
-	wait(nodev1.Identity(), "veth0", &now, false)
-
-	assertNeigh(ip1, neighStateOk)
-
-	// Swap MAC addresses of veth0 and veth1 to ensure the MAC address of veth1 changed.
-	// Trigger neighbor refresh on veth0 and check whether the arp entry was updated.
-	var veth0HwAddr, veth1HwAddr, updatedHwAddrFromArpEntry net.HardwareAddr
-	veth0HwAddr = veth0.Attrs().HardwareAddr
-	ns.Do(func() error {
-		veth1, err := netlink.LinkByName("veth1")
-		require.NoError(t, err)
-		veth1HwAddr = veth1.Attrs().HardwareAddr
-		err = netlink.LinkSetHardwareAddr(veth1, veth0HwAddr)
-		require.NoError(t, err)
-		return nil
-	})
-
-	now = time.Now()
-	err = netlink.LinkSetHardwareAddr(veth0, veth1HwAddr)
-	require.NoError(t, err)
-
-	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
-	wait(nodev1.Identity(), "veth0", &now, false)
-
-	assertNeigh(ip1,
-		func(neigh netlink.Neigh) bool {
-			if neighStateOk(neigh) {
-				updatedHwAddrFromArpEntry = neigh.HardwareAddr
-				return true
-			}
-			return false
-		})
-
-	require.Equal(t, veth0HwAddr.String(), updatedHwAddrFromArpEntry.String())
-
-	// Remove nodev1, and check whether the arp entry was removed
-	err = linuxNodeHandler.NodeDelete(nodev1)
-	require.NoError(t, err)
-	// deleteNeighbor is invoked async too
-	wait(nodev1.Identity(), "veth0", nil, true)
-
-	assertNoNeigh("expected removed neigh "+ip1.String(), ip1)
-
-	// Create multiple goroutines which call insertNeighbor and check whether
-	// MAC changes of veth1 are properly handled. This is a basic randomized
-	// testing of insertNeighbor() fine-grained locking.
-	now = time.Now()
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-	wait(nodev1.Identity(), "veth0", &now, false)
-
-	rndHWAddr := func() net.HardwareAddr {
-		mac := make([]byte, 6)
-		_, err := rand.Read(mac)
-		require.NoError(t, err)
-		mac[0] = (mac[0] | 2) & 0xfe
-		return net.HardwareAddr(mac)
-	}
-	neighRefCount := func(nextHopStr string) int {
-		linuxNodeHandler.neighLock.Lock()
-		defer linuxNodeHandler.neighLock.Unlock()
-		return linuxNodeHandler.neighNextHopRefCount[nextHopStr]
-	}
-
-	done := make(chan struct{})
-	count := 30
-	var wg sync.WaitGroup
-	wg.Add(count)
-	for range count {
-		go func() {
-			defer wg.Done()
-			ticker := time.NewTicker(100 * time.Millisecond)
-			for {
-				linuxNodeHandler.insertNeighbor(context.Background(), &nodev1)
-				select {
-				case <-ticker.C:
-				case <-done:
-					return
-				}
-			}
-		}()
-	}
-	for range 3 {
-		mac := rndHWAddr()
-		// Change MAC
-		ns.Do(func() error {
-			veth1, err := netlink.LinkByName("veth1")
-			require.NoError(t, err)
-			err = netlink.LinkSetHardwareAddr(veth1, mac)
-			require.NoError(t, err)
-			return nil
-		})
-
-		// Check that MAC has been changed in the neigh table
-		var found bool
-		err := testutils.WaitUntilWithSleep(func() bool {
-			neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
-			require.NoError(t, err)
-			found = false
-			for _, n := range neighs {
-				if n.IP.Equal(ip1) && (n.State&netlink.NUD_REACHABLE) > 0 &&
-					n.HardwareAddr.String() == mac.String() &&
-					neighRefCount(ip1.String()) == 1 {
-					found = true
-					return true
-				}
-			}
-			return false
-		}, 60*time.Second, 200*time.Millisecond)
-		require.NoError(t, err)
-		require.True(t, found)
-	}
-
-	// Cleanup
-	close(done)
-	wg.Wait()
-	now = time.Now()
-	err = linuxNodeHandler.NodeDelete(nodev1)
-	require.NoError(t, err)
-	wait(nodev1.Identity(), "veth0", nil, true)
-
-	// Setup routine for the 2. test
-	setupRemoteNode := func(vethName, vethPeerName, netnsName, vethCIDR, vethIPAddr,
-		vethPeerIPAddr string,
-	) (cleanup func(), errRet error) {
-		veth := &netlink.Veth{
-			LinkAttrs: netlink.LinkAttrs{Name: vethName},
-			PeerName:  vethPeerName,
-		}
-		errRet = netlink.LinkAdd(veth)
-		if errRet != nil {
-			return nil, err
-		}
-		cleanup1 := func() { netlink.LinkDel(veth) }
-		cleanup = cleanup1
-
-		veth2, err := netlink.LinkByName(vethName)
-		if err != nil {
-			errRet = err
-			return
-		}
-		veth3, err := netlink.LinkByName(vethPeerName)
-		if err != nil {
-			errRet = err
-			return
-		}
-		ns2 := netns.NewNetNS(t)
-		cleanup = func() {
-			cleanup1()
-			ns2.Close()
-		}
-		if errRet = netlink.LinkSetNsFd(veth2, int(ns.FD())); errRet != nil {
-			return
-		}
-		if errRet = netlink.LinkSetNsFd(veth3, int(ns2.FD())); errRet != nil {
-			return
-		}
-
-		ip, ipnet, err := net.ParseCIDR(vethCIDR)
-		if err != nil {
-			errRet = err
-			return
-		}
-		ip2 := net.ParseIP(vethIPAddr)
-		ip3 := net.ParseIP(vethPeerIPAddr)
-		ipnet.IP = ip2
-
-		if errRet = ns.Do(func() error {
-			addr = &netlink.Addr{IPNet: ipnet}
-			if err := netlink.AddrAdd(veth2, addr); err != nil {
-				return err
-			}
-			if err := netlink.LinkSetUp(veth2); err != nil {
-				return err
-			}
-			if err := netlink.LinkSetUp(veth2); err != nil {
-				return err
-			}
-			return nil
-		}); errRet != nil {
-			return
-		}
-
-		ipnet.IP = ip
-		route := &netlink.Route{
-			Dst: ipnet,
-			Gw:  ip1,
-		}
-		if errRet = netlink.RouteAdd(route); errRet != nil {
-			return
-		}
-
-		if errRet = ns2.Do(func() error {
-			veth3, err := netlink.LinkByName(vethPeerName)
-			if err != nil {
-				return err
-			}
-			ipnet.IP = ip3
-			addr = &netlink.Addr{IPNet: ipnet}
-			if err := netlink.AddrAdd(veth3, addr); err != nil {
-				return err
-			}
-			if err := netlink.LinkSetUp(veth3); err != nil {
-				return err
-			}
-
-			_, ipnet, err := net.ParseCIDR("9.9.9.248/29")
-			if err != nil {
-				return err
-			}
-			route := &netlink.Route{
-				Dst: ipnet,
-				Gw:  ip2,
-			}
-			if err := netlink.RouteAdd(route); err != nil {
-				return err
-			}
-			return nil
-		}); errRet != nil {
-			return
-		}
-
-		return
-	}
-
-	// 2. Add two nodes which are reachable from the host only via nodev1 (gw).
-	//    Arping should ping veth1 IP addr instead of veth3 or veth5.
-	//
-	//      +--------------+     +--------------+     +--------------+
-	//      |  host netns  |     |    netns0    |     |    netns1    |
-	//      |              |     |    nodev1    |     |    nodev2    |
-	//      |              |     |  8.8.8.249/29|     |              |
-	//      |              |     |           |  |     |              |
-	//      |         veth0+-----+veth1    veth2+-----+veth3         |
-	//      |          |   |     |   |          |     | |            |
-	//      | 9.9.9.249/29 |     |9.9.9.250/29  |     | 8.8.8.250/29 |
-	//      +--------------+     |         veth4+-+   +--------------+
-	//                           |           |  | |   +--------------+
-	//                           | 7.7.7.249/29 | |   |    netns2    |
-	//                           +--------------+ |   |    nodev3    |
-	//                                            |   |              |
-	//                                            +---+veth5         |
-	//                                                | |            |
-	//                                                | 7.7.7.250/29 |
-	//                                                +--------------+
-
-	cleanup1, err := setupRemoteNode("veth2", "veth3", "test-arping-netns1",
-		"8.8.8.248/29", "8.8.8.249", "8.8.8.250")
-	require.NoError(t, err)
-	defer cleanup1()
-	cleanup2, err := setupRemoteNode("veth4", "veth5", "test-arping-netns2",
-		"7.7.7.248/29", "7.7.7.249", "7.7.7.250")
-	require.NoError(t, err)
-	defer cleanup2()
-
-	node2IP := net.ParseIP("8.8.8.250")
-	nodev2 := nodeTypes.Node{
-		Name: "node2",
-		IPAddresses: []nodeTypes.Address{{
-			Type: nodeaddressing.NodeInternalIP,
-			IP:   node2IP,
-		}},
-	}
-	now = time.Now()
-	require.NoError(t, linuxNodeHandler.NodeAdd(nodev2))
-	wait(nodev2.Identity(), "veth0", &now, false)
-
-	node3IP := net.ParseIP("7.7.7.250")
-	nodev3 := nodeTypes.Node{
-		Name: "node3",
-		IPAddresses: []nodeTypes.Address{{
-			Type: nodeaddressing.NodeInternalIP,
-			IP:   node3IP,
-		}},
-	}
-	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
-	wait(nodev3.Identity(), "veth0", &now, false)
-
-	nextHop := net.ParseIP("9.9.9.250")
-	assertNeigh(nextHop, neighStateOk)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	// Check that removing node2 will not remove nextHop, as it is still used by node3
-	require.NoError(t, linuxNodeHandler.NodeDelete(nodev2))
-	wait(nodev2.Identity(), "veth0", nil, true)
-
-	assertNeigh(nextHop, func(n netlink.Neigh) bool { return true })
-
-	// However, removing node3 should remove the neigh entry for nextHop
-	require.NoError(t, linuxNodeHandler.NodeDelete(nodev3))
-	wait(nodev3.Identity(), "veth0", nil, true)
-
-	assertNoNeigh("expected removed neigh "+nextHop.String(), nextHop)
-
-	now = time.Now()
-	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
-	wait(nodev3.Identity(), "veth0", &now, false)
-
-	nextHop = net.ParseIP("9.9.9.250")
-	assertNeigh(nextHop, neighStateOk)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	// We have stored the devices in NodeConfigurationChanged
-	linuxNodeHandler.NodeCleanNeighbors(false)
-
-	assertNoNeigh("expected removed neigh "+nextHop.String(), nextHop)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	// Setup routine for the 3. test
-	setupNewGateway := func(vethCIDR, gwIP string) (errRet error) {
-		ipGw := net.ParseIP(gwIP)
-		ip, ipnet, err := net.ParseCIDR(vethCIDR)
-		if err != nil {
-			errRet = err
-			return
-		}
-		ipnet.IP = ip
-		route := &netlink.Route{
-			Dst: ipnet,
-			Gw:  ipGw,
-		}
-		errRet = netlink.RouteReplace(route)
-		return
-	}
-
-	// In the next test, we add node 2,3 again, and then change the nextHop
-	// address to check the refcount behavior, and that the old one was
-	// deleted from the neighbor table as well as the new one added.
-	now = time.Now()
-	require.NoError(t, linuxNodeHandler.NodeAdd(nodev2))
-	wait(nodev2.Identity(), "veth0", &now, false)
-
-	now = time.Now()
-	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
-	wait(nodev3.Identity(), "veth0", &now, false)
-
-	nextHop = net.ParseIP("9.9.9.250")
-
-	assertNeigh(nextHop, neighStateOk)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	// Switch to new nextHop address for node2
-	err = setupNewGateway("8.8.8.248/29", "9.9.9.251")
-	require.NoError(t, err)
-
-	// waitGw waits for the nextHop to appear in the agent's nextHop table
-	waitGw := func(nextHopNew string, nodeID nodeTypes.Identity, link string, before *time.Time) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			linuxNodeHandler.neighLock.Lock()
-			defer linuxNodeHandler.neighLock.Unlock()
-			nextHopByLink, found := linuxNodeHandler.neighNextHopByNode4[nodeID]
-			if !found {
-				return false
-			}
-			nextHop, found := nextHopByLink[link]
-			if !found {
-				return false
-			}
-			if nextHop != nextHopNew {
-				return false
-			}
-			lastPing, found := linuxNodeHandler.neighLastPingByNextHop[nextHop]
-			if !found {
-				return false
-			}
-			return before.Before(lastPing)
-		}, 5*time.Second)
-		require.NoError(t, err)
-	}
-
-	// insertNeighbor is invoked async, so thus this wait based on last ping
-	now = time.Now()
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2)
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3)
-	waitGw("9.9.9.251", nodev2.Identity(), "veth0", &now)
-	waitGw("9.9.9.250", nodev3.Identity(), "veth0", &now)
-
-	// Both nextHops now need to be present
-	nextHop = net.ParseIP("9.9.9.250")
-	assertNeigh(nextHop, neighStateOk)
-	nextHop = net.ParseIP("9.9.9.251")
-	assertNeigh(nextHop, neighStateOk)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	// Now also switch over the other node.
-	err = setupNewGateway("7.7.7.248/29", "9.9.9.251")
-	require.NoError(t, err)
-
-	// insertNeighbor is invoked async, so thus this wait based on last ping
-	now = time.Now()
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2)
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3)
-	waitGw("9.9.9.251", nodev2.Identity(), "veth0", &now)
-	waitGw("9.9.9.251", nodev3.Identity(), "veth0", &now)
-
-	nextHop = net.ParseIP("9.9.9.250")
-
-	assertNoNeigh("expected removed neigh "+nextHop.String(), nextHop)
-	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
-
-	nextHop = net.ParseIP("9.9.9.251")
-	assertNeigh(nextHop, neighStateOk)
-
-	require.NoError(t, linuxNodeHandler.NodeDelete(nodev3))
-	wait(nodev3.Identity(), "veth0", nil, true)
-
-	// In the next test, we have node2 left in the neighbor table, and
-	// we add an unrelated externally learned neighbor entry. Check that
-	// NodeCleanNeighbors() removes the unrelated one. This is to simulate
-	// the agent after kubeapi-server resync that it cleans up stale node
-	// entries from previous runs.
-
-	nextHop = net.ParseIP("9.9.9.1")
-	neigh := netlink.Neigh{
-		LinkIndex: veth0.Attrs().Index,
-		IP:        nextHop,
-		State:     netlink.NUD_NONE,
-		Flags:     netlink.NTF_EXT_LEARNED,
-	}
-	err = netlink.NeighSet(&neigh)
-	require.NoError(t, err)
-
-	// Check that new nextHop address got added, we don't care about its NUD_* state
-	assertNeigh(nextHop, func(n netlink.Neigh) bool { return true })
-
-	// Clean unrelated externally learned entries
-	linuxNodeHandler.NodeCleanNeighborsLink(veth0, true)
-
-	// Check that new nextHop address got removed
-	assertNoNeigh("expected removed neigh "+nextHop.String(), nextHop)
-
-	// Check that node2 nextHop address is still there
-	nextHop = net.ParseIP("9.9.9.251")
-	assertNeigh(nextHop, neighStateOk)
-	assertNoNeigh("node2 should not be in the same L2", node2IP)
-
-	require.NoError(t, linuxNodeHandler.NodeDelete(nodev2))
-	wait(nodev2.Identity(), "veth0", nil, true)
-
-	linuxNodeHandler.NodeCleanNeighborsLink(veth0, false)
-}
-
-func TestArpPingHandlingForMultiDeviceIPv4(t *testing.T) {
-	s := setupLinuxPrivilegedIPv4OnlyTestSuite(t)
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	prevEnableL2NeighDiscovery := option.Config.EnableL2NeighDiscovery
-	defer func() { option.Config.EnableL2NeighDiscovery = prevEnableL2NeighDiscovery }()
-
-	option.Config.EnableL2NeighDiscovery = true
-
-	prevStateDir := option.Config.StateDir
-	defer func() { option.Config.StateDir = prevStateDir }()
-
-	tmpDir := t.TempDir()
-	option.Config.StateDir = tmpDir
-
-	baseTimeOld, err := s.sysctl.Read(baseIPv4Time)
-	require.NoError(t, err)
-	err = s.sysctl.Write(baseIPv4Time, fmt.Sprintf("%d", baseTime))
-	require.NoError(t, err)
-	defer func() { s.sysctl.Write(baseIPv4Time, baseTimeOld) }()
-
-	mcastNumOld, err := s.sysctl.Read(mcastNumIPv4)
-	require.NoError(t, err)
-	err = s.sysctl.Write(mcastNumIPv4, fmt.Sprintf("%d", mcastNum))
-	require.NoError(t, err)
-	defer func() { s.sysctl.Write(mcastNumIPv4, mcastNumOld) }()
-
-	// 1. Test whether another node with multiple paths can be arpinged.
-	//    Each node has two devices and the other node in the different netns
-	//    is reachable via either pair.
-	//    Neighbor entries are not installed on devices where no route exists.
-	//
-	//      +--------------+     +--------------+
-	//      |  host netns  |     |    netns1    |
-	//      |              |     |    nodev1    |
-	//      |              |     |  10.0.0.1/32 |
-	//      |         veth0+-----+veth1         |
-	//      |          |   |     |   |          |
-	//      | 9.9.9.249/29 |     |9.9.9.250/29  |
-	//      |              |     |              |
-	//      |         veth2+-----+veth3         |
-	//      |          |   |     | |            |
-	//      | 8.8.8.249/29 |     | 8.8.8.250/29 |
-	//      |              |     |              |
-	//      | 7.7.7.249/29 |     |              |
-	//      |  |           |     |              |
-	//      | veth4        |     |              |
-	//      +-+------------+     +--------------+
-	//        |
-	//      +-+---------------------------------+
-	//      | veth5      other netns            |
-	//      |  |                                |
-	//      | 7.7.7.250/29                      |
-	//      +-----------------------------------+
-
-	// Setup
-	vethPair01 := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
-		PeerName:  "veth1",
-	}
-	err = netlink.LinkAdd(vethPair01)
-	require.NoError(t, err)
-	t.Cleanup(func() { netlink.LinkDel(vethPair01) })
-	veth0, err := netlink.LinkByName("veth0")
-	require.NoError(t, err)
-	veth1, err := netlink.LinkByName("veth1")
-	require.NoError(t, err)
-	_, ipnet, _ := net.ParseCIDR("9.9.9.252/29")
-	v1IP0 := net.ParseIP("9.9.9.249")
-	v1IP1 := net.ParseIP("9.9.9.250")
-	v1IPG := net.ParseIP("9.9.9.251")
-	ipnet.IP = v1IP0
-	addr := &netlink.Addr{IPNet: ipnet}
-	err = netlink.AddrAdd(veth0, addr)
-	require.NoError(t, err)
-	err = netlink.LinkSetUp(veth0)
-	require.NoError(t, err)
-
-	ns := netns.NewNetNS(t)
-
-	err = netlink.LinkSetNsFd(veth1, int(ns.FD()))
-	require.NoError(t, err)
-	node1Addr, err := netlink.ParseAddr("10.0.0.1/32")
-	require.NoError(t, err)
-	err = ns.Do(func() error {
-		lo, err := netlink.LinkByName("lo")
-		require.NoError(t, err)
-		err = netlink.LinkSetUp(lo)
-		require.NoError(t, err)
-		err = netlink.AddrAdd(lo, node1Addr)
-		require.NoError(t, err)
-
-		veth1, err := netlink.LinkByName("veth1")
-		require.NoError(t, err)
-		ipnet.IP = v1IP1
-		addr = &netlink.Addr{IPNet: ipnet}
-		err = netlink.AddrAdd(veth1, addr)
-		require.NoError(t, err)
-		ipnet.IP = v1IPG
-		addr = &netlink.Addr{IPNet: ipnet}
-		err = netlink.AddrAdd(veth1, addr)
-		require.NoError(t, err)
-		err = netlink.LinkSetUp(veth1)
-		require.NoError(t, err)
-		return nil
-	})
-	require.NoError(t, err)
-
-	vethPair23 := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: "veth2"},
-		PeerName:  "veth3",
-	}
-	err = netlink.LinkAdd(vethPair23)
-	require.NoError(t, err)
-	t.Cleanup(func() { netlink.LinkDel(vethPair23) })
-	veth2, err := netlink.LinkByName("veth2")
-	require.NoError(t, err)
-	veth3, err := netlink.LinkByName("veth3")
-	require.NoError(t, err)
-	_, ipnet, _ = net.ParseCIDR("8.8.8.252/29")
-	v2IP0 := net.ParseIP("8.8.8.249")
-	v2IP1 := net.ParseIP("8.8.8.250")
-	v2IPG := net.ParseIP("8.8.8.251")
-	ipnet.IP = v2IP0
-	addr = &netlink.Addr{IPNet: ipnet}
-	err = netlink.AddrAdd(veth2, addr)
-	require.NoError(t, err)
-	err = netlink.LinkSetUp(veth2)
-	require.NoError(t, err)
-
-	err = netlink.LinkSetNsFd(veth3, int(ns.FD()))
-	require.NoError(t, err)
-	err = ns.Do(func() error {
-		veth3, err := netlink.LinkByName("veth3")
-		require.NoError(t, err)
-		ipnet.IP = v2IP1
-		addr = &netlink.Addr{IPNet: ipnet}
-		err = netlink.AddrAdd(veth3, addr)
-		require.NoError(t, err)
-		ipnet.IP = v2IPG
-		addr = &netlink.Addr{IPNet: ipnet}
-		err = netlink.AddrAdd(veth3, addr)
-		require.NoError(t, err)
-		err = netlink.LinkSetUp(veth3)
-		require.NoError(t, err)
-		return nil
-	})
-	require.NoError(t, err)
-
-	r := &netlink.Route{
-		Dst: netlink.NewIPNet(node1Addr.IP),
-		MultiPath: []*netlink.NexthopInfo{
-			{
-				LinkIndex: veth0.Attrs().Index,
-				Gw:        v1IP1,
-			},
-			{
-				LinkIndex: veth2.Attrs().Index,
-				Gw:        v2IP1,
-			},
+	remoteNode2V1 := nodeTypes.Node{
+		Name: "remote_node_2",
+		IPAddresses: []nodeTypes.Address{
+			{IP: net.ParseIP("2.2.2.2"), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: remoteNode2IPv4, Type: nodeaddressing.NodeInternalIP},
+			{IP: net.ParseIP("face::4"), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: remoteNode2IPv6, Type: nodeaddressing.NodeInternalIP},
 		},
+		IPv4AllocCIDR:           remoteNode2IPv4AllocCIDRsV1[0],
+		IPv4SecondaryAllocCIDRs: remoteNode2IPv4AllocCIDRsV1[1:],
+		IPv6AllocCIDR:           remoteNode2IPv6AllocCIDRsV1[0],
+		IPv6SecondaryAllocCIDRs: remoteNode2IPv6AllocCIDRsV1[1:],
+		BootID:                  "581ec425-11af-4a29-9a0f-5550218463a7",
 	}
-	err = netlink.RouteAdd(r)
+	err = linuxNodeHandler.NodeAdd(remoteNode2V1)
 	require.NoError(t, err)
-	defer netlink.RouteDel(r)
-
-	// Setup another veth pair that doesn't have a route to node
-	vethPair45 := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: "veth4"},
-		PeerName:  "veth5",
+	if s.enableIPv4 {
+		expectedCIDRs := slices.Concat(remoteNode1IPv4AllocCIDRsV1, remoteNode2IPv4AllocCIDRsV1)
+		lookupIPSecOutRoutes(t, netlink.FAMILY_V4, dummyHostDeviceName, expectedCIDRs)
+		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V4, expectedCIDRs)
 	}
-	err = netlink.LinkAdd(vethPair45)
-	require.NoError(t, err)
-	t.Cleanup(func() { netlink.LinkDel(vethPair45) })
-	veth4, err := netlink.LinkByName("veth4")
-	require.NoError(t, err)
-	veth5, err := netlink.LinkByName("veth5")
-	require.NoError(t, err)
-	_, ipnet, _ = net.ParseCIDR("7.7.7.252/29")
-	v3IP0 := net.ParseIP("7.7.7.249")
-	v3IP1 := net.ParseIP("7.7.7.250")
-	ipnet.IP = v3IP0
-	addr = &netlink.Addr{IPNet: ipnet}
-	err = netlink.AddrAdd(veth4, addr)
-	require.NoError(t, err)
-	err = netlink.LinkSetUp(veth4)
-	require.NoError(t, err)
-
-	ns2 := netns.NewNetNS(t)
-
-	err = netlink.LinkSetNsFd(veth5, int(ns2.FD()))
-	require.NoError(t, err)
-	err = ns2.Do(func() error {
-		veth5, err := netlink.LinkByName("veth5")
-		require.NoError(t, err)
-		ipnet.IP = v3IP1
-		addr = &netlink.Addr{IPNet: ipnet}
-		err = netlink.AddrAdd(veth5, addr)
-		require.NoError(t, err)
-		err = netlink.LinkSetUp(veth5)
-		require.NoError(t, err)
-		return nil
-	})
-	require.NoError(t, err)
-
-	prevRoutingMode := option.Config.RoutingMode
-	defer func() { option.Config.RoutingMode = prevRoutingMode }()
-	option.Config.RoutingMode = option.RoutingModeNative
-	prevNP := option.Config.EnableNodePort
-	defer func() { option.Config.EnableNodePort = prevNP }()
-	option.Config.EnableNodePort = true
-	prevARPPeriod := option.Config.ARPPingRefreshPeriod
-	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
-	option.Config.ARPPingRefreshPeriod = 1 * time.Nanosecond
-
-	mq := new(mockEnqueuer)
-	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-	log := hivetest.Logger(t)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), mq)
-	mq.nh = linuxNodeHandler
-
-	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.EnableEncapsulation = false
-	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices),
-		getDevice(t, "veth0"),
-		getDevice(t, "veth2"),
-		getDevice(t, "veth4"))
-	nodeConfig.DirectRoutingDevice = getDevice(t, "veth0")
-	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
-	require.NoError(t, err)
-
-	// wait waits for neigh entry update or waits for removal if waitForDelete=true
-	wait := func(nodeID nodeTypes.Identity, link string, before *time.Time, waitForDelete bool) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			linuxNodeHandler.neighLock.Lock()
-			defer linuxNodeHandler.neighLock.Unlock()
-			nextHopByLink, found := linuxNodeHandler.neighNextHopByNode4[nodeID]
-			if !found {
-				return waitForDelete
-			}
-			nextHop, found := nextHopByLink[link]
-			if !found {
-				return waitForDelete
-			}
-			lastPing, found := linuxNodeHandler.neighLastPingByNextHop[nextHop]
-			if !found {
-				return false
-			}
-			if waitForDelete {
-				return false
-			}
-			return before.Before(lastPing)
-		}, 5*time.Second)
-		require.NoError(t, err)
+	if s.enableIPv6 {
+		expectedCIDRs := slices.Concat(remoteNode1IPv6AllocCIDRsV1, remoteNode2IPv6AllocCIDRsV1)
+		lookupIPSecOutRoutes(t, netlink.FAMILY_V6, dummyHostDeviceName, expectedCIDRs)
+		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V6, expectedCIDRs)
 	}
 
-	assertNeigh := func(ip net.IP, link netlink.Link, checkNeigh func(neigh netlink.Neigh) bool) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			neighs, err := netlink.NeighList(link.Attrs().Index, netlink.FAMILY_V4)
-			require.NoError(t, err)
-			for _, n := range neighs {
-				if n.IP.Equal(ip) && checkNeigh(n) {
-					return true
-				}
-			}
-			return false
-		}, 5*time.Second)
-		require.NoError(t, err, "expected neighbor %s", ip)
+	// Update first remote node and change the podCIDRs
+	remoteNode2IPv4AllocCIDRsV2 := []*cidr.CIDR{
+		cidr.MustParseCIDR("13.13.13.0/24"),
+		cidr.MustParseCIDR("14.14.14.0/24"),
+		cidr.MustParseCIDR("15.15.15.0/24"),
 	}
-
-	assertNoNeigh := func(link netlink.Link, ips ...net.IP) {
-		t.Helper()
-		err := testutils.WaitUntil(func() bool {
-			neighs, err := netlink.NeighList(link.Attrs().Index, netlink.FAMILY_V4)
-			require.NoError(t, err)
-			for _, n := range neighs {
-				if slices.ContainsFunc(ips, n.IP.Equal) {
-					return false
-				}
-			}
-			return true
-		}, 5*time.Second)
-		require.NoError(t, err, "expected no neighbors: %v", ips)
+	remoteNode2IPv6AllocCIDRsV2 := []*cidr.CIDR{
+		cidr.MustParseCIDR("2009:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2010:aaaa:bbbb::/96"),
+		cidr.MustParseCIDR("2011:aaaa:bbbb::/96"),
 	}
-
-	nodev1 := nodeTypes.Node{
-		Name: "node1",
-		IPAddresses: []nodeTypes.Address{{
-			Type: nodeaddressing.NodeInternalIP,
-			IP:   node1Addr.IP,
-		}},
+	remoteNode2V2 := remoteNode2V1
+	remoteNode2V2.IPv4AllocCIDR = remoteNode2IPv4AllocCIDRsV2[0]
+	remoteNode2V2.IPv4SecondaryAllocCIDRs = remoteNode2IPv4AllocCIDRsV2[1:]
+	remoteNode2V2.IPv6AllocCIDR = remoteNode2IPv6AllocCIDRsV2[0]
+	remoteNode2V2.IPv6SecondaryAllocCIDRs = remoteNode2IPv6AllocCIDRsV2[1:]
+	err = linuxNodeHandler.NodeUpdate(remoteNode2V1, remoteNode2V2)
+	require.NoError(t, err)
+	if s.enableIPv4 {
+		expectedCIDRs := slices.Concat(remoteNode1IPv4AllocCIDRsV1, remoteNode2IPv4AllocCIDRsV2)
+		lookupIPSecOutRoutes(t, netlink.FAMILY_V4, dummyHostDeviceName, expectedCIDRs)
+		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V4, expectedCIDRs)
 	}
-	now := time.Now()
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-	// insertNeighbor is invoked async
-	// Insert the same node second time. This should not increment refcount for
-	// the same nextHop. We test it by checking that NodeDelete has removed the
-	// related neigh entry.
-	err = linuxNodeHandler.NodeAdd(nodev1)
-	require.NoError(t, err)
-	// insertNeighbor is invoked async, so thus this wait based on last ping
-	wait(nodev1.Identity(), "veth0", &now, false)
-	wait(nodev1.Identity(), "veth2", &now, false)
-
-	// Check whether an arp entry for nodev1 IP addr (=veth1) was added
-	assertNeigh(v1IP1, veth0, neighStateOk)
-
-	// Check whether an arp entry for nodev2 IP addr (=veth3) was added
-	assertNeigh(v2IP1, veth2, neighStateOk)
-
-	// Check whether we don't install the neighbor entries to nodes on the device where the actual route isn't.
-	// "Consistently(<check>, 5sec, 1sec)"
-	start := time.Now()
-	for {
-		if time.Since(start) > 5*time.Second {
-			break
-		}
-
-		neighs, err := netlink.NeighList(veth4.Attrs().Index, netlink.FAMILY_V4)
-		require.NoError(t, err)
-		found := false
-		for _, n := range neighs {
-			if n.IP.Equal(v3IP1) || n.IP.Equal(node1Addr.IP) {
-				found = true
-			}
-		}
-		require.False(t, found)
-
-		time.Sleep(1 * time.Second)
+	if s.enableIPv6 {
+		expectedCIDRs := slices.Concat(remoteNode1IPv6AllocCIDRsV1, remoteNode2IPv6AllocCIDRsV2)
+		lookupIPSecOutRoutes(t, netlink.FAMILY_V6, dummyHostDeviceName, expectedCIDRs)
+		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V6, expectedCIDRs)
 	}
-
-	// Swap MAC addresses of veth0 and veth1, veth2 and veth3 to ensure the MAC address of veth1 changed.
-	// Trigger neighbor refresh on veth0 and check whether the arp entry was updated.
-	var veth0HwAddr, veth1HwAddr, veth2HwAddr, veth3HwAddr, updatedHwAddrFromArpEntry net.HardwareAddr
-	veth0HwAddr = veth0.Attrs().HardwareAddr
-	veth2HwAddr = veth2.Attrs().HardwareAddr
-	err = ns.Do(func() error {
-		veth1, err := netlink.LinkByName("veth1")
-		require.NoError(t, err)
-		veth1HwAddr = veth1.Attrs().HardwareAddr
-		err = netlink.LinkSetHardwareAddr(veth1, veth0HwAddr)
-		require.NoError(t, err)
-
-		veth3, err := netlink.LinkByName("veth3")
-		require.NoError(t, err)
-		veth3HwAddr = veth3.Attrs().HardwareAddr
-		err = netlink.LinkSetHardwareAddr(veth3, veth2HwAddr)
-		require.NoError(t, err)
-		return nil
-	})
-	require.NoError(t, err)
-
-	now = time.Now()
-	err = netlink.LinkSetHardwareAddr(veth0, veth1HwAddr)
-	require.NoError(t, err)
-	err = netlink.LinkSetHardwareAddr(veth2, veth3HwAddr)
-	require.NoError(t, err)
-
-	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
-	wait(nodev1.Identity(), "veth0", &now, false)
-	wait(nodev1.Identity(), "veth2", &now, false)
-
-	assertNeigh(v1IP1, veth0,
-		func(neigh netlink.Neigh) bool {
-			if neighStateOk(neigh) {
-				updatedHwAddrFromArpEntry = neigh.HardwareAddr
-				return true
-			}
-			return false
-		})
-
-	require.Equal(t, veth0HwAddr.String(), updatedHwAddrFromArpEntry.String())
-
-	assertNeigh(v2IP1, veth2,
-		func(neigh netlink.Neigh) bool {
-			if neighStateOk(neigh) {
-				updatedHwAddrFromArpEntry = neigh.HardwareAddr
-				return true
-			}
-			return false
-		})
-
-	require.Equal(t, veth2HwAddr.String(), updatedHwAddrFromArpEntry.String())
-
-	// Remove nodev1, and check whether the arp entry was removed
-	err = linuxNodeHandler.NodeDelete(nodev1)
-	require.NoError(t, err)
-	// deleteNeighbor is invoked async too
-	wait(nodev1.Identity(), "veth0", nil, true)
-	wait(nodev1.Identity(), "veth2", nil, true)
-
-	assertNoNeigh(veth0, v1IP1)
-	assertNoNeigh(veth2, v2IP1)
 }
 
-func BenchmarkAll(b *testing.B) {
+func BenchmarkPrivilegedAll(b *testing.B) {
 	for _, tt := range []string{"IPv4", "IPv6", "dual"} {
 		b.Run(tt, func(b *testing.B) {
 			b.Run("BenchmarkNodeUpdate", func(b *testing.B) {
@@ -3424,7 +1477,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(b)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(b), fakeTypes.IPsecConfig{})
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
@@ -3521,7 +1574,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(b *testing.B, conf
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(b)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(b), fakeTypes.IPsecConfig{})
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
@@ -3590,7 +1643,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(b *te
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(b)
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), new(mockEnqueuer))
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(b), fakeTypes.IPsecConfig{})
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)

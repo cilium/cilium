@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
 #include <bpf/ctx/unspec.h>
-#include <bpf/api.h>
+#include "common.h"
 #include "pktgen.h"
 
 #define TEST_BPF_SOCK 1
@@ -12,8 +11,6 @@
 #define ENABLE_IPV6 1
 #undef ENABLE_HEALTH_CHECK
 #define ENABLE_LOCAL_REDIRECT_POLICY 1
-
-#define HAVE_NETNS_COOKIE 1
 
 #define BACKEND_PORT 7000
 #define NETNS_COOKIE 5000
@@ -89,7 +86,7 @@ int test_sock4_xlate_fwd_skip_lb(__maybe_unused struct xdp_md *ctx)
 	/* Skip LB xlate when pod_one is connecting to v4_svc_one:tcp_svc_one. */
 	addr.user_ip4 = v4_svc_one,
 	addr.user_port = tcp_svc_one,
-	ret = __sock4_xlate_fwd(&addr, &addr, false);
+	ret = __sock4_xlate_fwd(&addr, &addr, false, true);
 	test_log("ret: %d", ret);
 	test_log("pod_one [%lx] -> svc_one [%lx]", addr.sk->src_ip4, addr.user_ip4);
 	assert(addr.user_ip4 == v4_svc_one);
@@ -99,7 +96,7 @@ int test_sock4_xlate_fwd_skip_lb(__maybe_unused struct xdp_md *ctx)
 	/* LB xlate happens when pod_one is connecting to v4_svc_two:tcp_svc_two. */
 	addr.user_ip4 = v4_svc_two;
 	addr.user_port = tcp_svc_two;
-	ret = __sock4_xlate_fwd(&addr, &addr, false);
+	ret = __sock4_xlate_fwd(&addr, &addr, false, true);
 	test_log("ret: %d", ret);
 	test_log("pod_one [%lx] -> svc_two [%lx]", addr.sk->src_ip4, addr.user_ip4);
 	assert(addr.user_ip4 == v4_pod_one);
@@ -110,7 +107,7 @@ int test_sock4_xlate_fwd_skip_lb(__maybe_unused struct xdp_md *ctx)
 	addr.sk->src_ip4 = v4_pod_two;
 	addr.user_ip4 = v4_svc_one;
 	addr.user_port = tcp_svc_one;
-	ret = __sock4_xlate_fwd(&addr, &addr, false);
+	ret = __sock4_xlate_fwd(&addr, &addr, false, true);
 	test_log("ret: %d", ret);
 	test_log("pod_two [%lx] -> svc_one [%lx]", addr.sk->src_ip4, addr.user_ip4);
 	assert(addr.user_ip4 == v4_pod_one);
@@ -165,7 +162,7 @@ int test_sock6_xlate_fwd_skip_lb(__maybe_unused struct xdp_md *ctx)
 	addr.sk->src_ip6[3] = bpf_htonl(1);
 	memcpy(addr.user_ip6, (void *)V6_SVC_ONE, 16);
 	addr.user_port = tcp_svc_one;
-	ret = __sock6_xlate_fwd(&addr, false);
+	ret = __sock6_xlate_fwd(&addr, false, true);
 	test_log("ret: %d", ret);
 	test_log("pod_one [%lx] -> svc_one [%lx]", addr.sk->src_ip6[0], addr.user_ip6[0]);
 	assert(addr.user_ip6[0] == bpf_htonl(0xfd050000));
@@ -182,7 +179,7 @@ int test_sock6_xlate_fwd_skip_lb(__maybe_unused struct xdp_md *ctx)
 	addr.sk->src_ip6[3] = bpf_htonl(1);
 	memcpy(addr.user_ip6, (void *)V6_SVC_TWO, 16);
 	addr.user_port = tcp_svc_two;
-	ret = __sock6_xlate_fwd(&addr, false);
+	ret = __sock6_xlate_fwd(&addr, false, true);
 	test_log("ret: %d", ret);
 	test_log("pod_one [%lx] -> svc_two [%lx]", addr.sk->src_ip6[0], addr.user_ip6[0]);
 	assert(addr.user_ip6[0] == bpf_htonl(0xfd040000));
@@ -199,7 +196,7 @@ int test_sock6_xlate_fwd_skip_lb(__maybe_unused struct xdp_md *ctx)
 	addr.sk->src_ip6[3] = bpf_htonl(2);
 	memcpy(addr.user_ip6, (void *)V6_SVC_ONE, 16);
 	addr.user_port = tcp_svc_one;
-	ret = __sock6_xlate_fwd(&addr, false);
+	ret = __sock6_xlate_fwd(&addr, false, true);
 	test_log("ret: %d", ret);
 	test_log("pod_two [%lx] -> svc_one [%lx]", addr.sk->src_ip6[0], addr.user_ip6[0]);
 	assert(addr.user_ip6[0] == bpf_htonl(0xfd040000));

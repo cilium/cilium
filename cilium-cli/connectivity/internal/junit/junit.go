@@ -110,8 +110,9 @@ type Error struct {
 type Failure struct {
 	XMLName xml.Name `xml:"failure"`
 
-	Message string `xml:"message,attr,omitempty"`
-	Type    string `xml:"type,attr"`
+	Message         string   `xml:"message,attr,omitempty"`
+	FailureMessages []string `xml:"failureMessage,attr,omitempty"`
+	Type            string   `xml:"type,attr"`
 
 	Value string `xml:",chardata"`
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/env"
+	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -141,6 +142,9 @@ type Env struct {
 	libraries       map[string]SingletonLibrary
 	validators      []ASTValidator
 	costOptions     []checker.CostOption
+
+	funcBindOnce     sync.Once
+	functionBindings []*functions.Overload
 
 	// Internal parser representation
 	prsr     *parser.Parser
@@ -320,18 +324,19 @@ func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 		return nil, err
 	}
 	return (&Env{
-		variables:       []*decls.VariableDecl{},
-		functions:       map[string]*decls.FunctionDecl{},
-		macros:          []parser.Macro{},
-		Container:       containers.DefaultContainer,
-		adapter:         registry,
-		provider:        registry,
-		features:        map[int]bool{},
-		appliedFeatures: map[int]bool{},
-		libraries:       map[string]SingletonLibrary{},
-		validators:      []ASTValidator{},
-		progOpts:        []ProgramOption{},
-		costOptions:     []checker.CostOption{},
+		variables:        []*decls.VariableDecl{},
+		functions:        map[string]*decls.FunctionDecl{},
+		functionBindings: []*functions.Overload{},
+		macros:           []parser.Macro{},
+		Container:        containers.DefaultContainer,
+		adapter:          registry,
+		provider:         registry,
+		features:         map[int]bool{},
+		appliedFeatures:  map[int]bool{},
+		libraries:        map[string]SingletonLibrary{},
+		validators:       []ASTValidator{},
+		progOpts:         []ProgramOption{},
+		costOptions:      []checker.CostOption{},
 	}).configure(opts)
 }
 
@@ -553,14 +558,27 @@ func (e *Env) HasFunction(functionName string) bool {
 	return ok
 }
 
-// Functions returns map of Functions, keyed by function name, that have been configured in the environment.
+// Functions returns a shallow copy of the Functions, keyed by function name, that have been configured in the environment.
 func (e *Env) Functions() map[string]*decls.FunctionDecl {
-	return e.functions
+	shallowCopy := make(map[string]*decls.FunctionDecl, len(e.functions))
+	for nm, fn := range e.functions {
+		shallowCopy[nm] = fn
+	}
+	return shallowCopy
 }
 
-// Variables returns the set of variables associated with the environment.
+// Variables returns a shallow copy of the variables associated with the environment.
 func (e *Env) Variables() []*decls.VariableDecl {
-	return e.variables[:]
+	shallowCopy := make([]*decls.VariableDecl, len(e.variables))
+	copy(shallowCopy, e.variables)
+	return shallowCopy
+}
+
+// Macros returns a shallow copy of macros associated with the environment.
+func (e *Env) Macros() []Macro {
+	shallowCopy := make([]Macro, len(e.macros))
+	copy(shallowCopy, e.macros)
+	return shallowCopy
 }
 
 // HasValidator returns whether a specific ASTValidator has been configured in the environment.

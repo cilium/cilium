@@ -18,8 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	corepb "github.com/cilium/proxy/go/envoy/config/core/v3"
-	discoverypb "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 )
 
 // requestConstraint is a constraint for request messages in xDS protocol.
@@ -132,7 +132,7 @@ func NewClient(log *slog.Logger, useSOTW bool, opts *ConnectionOptions) Client {
 }
 
 func newClient[ReqT requestConstraint, RespT responseConstraint](log *slog.Logger, opts *ConnectionOptions, flavour flavour[ReqT, RespT]) *XDSClient[ReqT, RespT] {
-	cache := xds.NewCache()
+	cache := xds.NewCache(log)
 
 	return &XDSClient[ReqT, RespT]{
 		log:           log,
@@ -158,6 +158,7 @@ func (c *XDSClient[ReqT, RespT]) Run(ctx context.Context, node *corepb.Node, con
 		logfields.UserAgent, c.node.UserAgentName,
 	)
 	backoff := backoff.Exponential{
+		Logger:     c.log,
 		Min:        c.opts.RetryBackoff.Min,
 		Max:        c.opts.RetryBackoff.Max,
 		ResetAfter: c.opts.RetryBackoff.Reset,
@@ -256,6 +257,7 @@ func (c *XDSClient[ReqT, RespT]) fetchResponses(ctx context.Context, errCh chan 
 	defer close(errCh)
 	log := c.log.With(logfields.Hint, "fetch-responses")
 	backoff := backoff.Exponential{
+		Logger:     c.log,
 		Min:        c.opts.RetryBackoff.Min,
 		Max:        c.opts.RetryBackoff.Max,
 		ResetAfter: c.opts.RetryBackoff.Reset,
@@ -305,6 +307,7 @@ func (c *XDSClient[ReqT, RespT]) loop(ctx context.Context, errCh chan error, tra
 	defer close(errCh)
 	log := c.log.With(logfields.Hint, "loop")
 	backoff := backoff.Exponential{
+		Logger:     c.log,
 		Min:        c.opts.RetryBackoff.Min,
 		Max:        c.opts.RetryBackoff.Max,
 		ResetAfter: c.opts.RetryBackoff.Reset,

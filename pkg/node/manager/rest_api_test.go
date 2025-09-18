@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -24,16 +26,16 @@ type GetNodesSuite struct {
 
 var fakeConfig = &option.DaemonConfig{
 	RoutingMode: option.RoutingModeTunnel,
-	EnableIPSec: true,
 	EncryptNode: true,
 }
 
 func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
+	logger := hivetest.Logger(tb)
 	option.Config.IPv4ServiceRange = "auto"
 	option.Config.IPv6ServiceRange = "auto"
 
 	h, _ := cell.NewSimpleHealth()
-	nm, err := New(fakeConfig, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil)
+	nm, err := New(logger, fakeConfig, tunnel.Config{}, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
 	require.NoError(tb, err)
 
 	g := &GetNodesSuite{

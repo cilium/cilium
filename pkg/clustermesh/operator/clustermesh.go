@@ -17,10 +17,12 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 // clusterMesh is a cache of multiple remote clusters
@@ -28,10 +30,11 @@ type clusterMesh struct {
 	// common implements the common logic to connect to remote clusters.
 	common common.ClusterMesh
 
-	cfg       ClusterMeshConfig
-	cfgMCSAPI MCSAPIConfig
-	logger    *slog.Logger
-	Metrics   Metrics
+	cfg         ClusterMeshConfig
+	cfgMCSAPI   MCSAPIConfig
+	logger      *slog.Logger
+	clusterInfo types.ClusterInfo
+	metrics     Metrics
 
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
@@ -96,23 +99,29 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 	params.Logger.Info("Operator ClusterMesh component enabled")
 
 	cm := clusterMesh{
-		cfg:            params.Cfg,
-		cfgMCSAPI:      params.CfgMCSAPI,
-		logger:         params.Logger,
-		globalServices: common.NewGlobalServiceCache(params.Logger, params.Metrics.TotalGlobalServices.WithLabelValues(params.ClusterInfo.Name)),
-		globalServiceExports: NewGlobalServiceExportCache(
-			params.Metrics.TotalGlobalServiceExports.WithLabelValues(params.ClusterInfo.Name),
-		),
-		storeFactory:      params.StoreFactory,
-		syncTimeoutConfig: params.TimeoutConfig,
+		cfg:                  params.Cfg,
+		cfgMCSAPI:            params.CfgMCSAPI,
+		logger:               params.Logger,
+		clusterInfo:          params.ClusterInfo,
+		metrics:              params.Metrics,
+		globalServices:       common.NewGlobalServiceCache(params.Logger),
+		globalServiceExports: NewGlobalServiceExportCache(),
+		storeFactory:         params.StoreFactory,
+		syncTimeoutConfig:    params.TimeoutConfig,
 	}
 	cm.common = common.NewClusterMesh(common.Configuration{
-		Logger:           params.Logger,
-		Config:           params.Config,
-		ClusterInfo:      params.ClusterInfo,
-		NewRemoteCluster: cm.newRemoteCluster,
-		ServiceResolver:  params.ServiceResolver,
-		Metrics:          params.CommonMetrics,
+		Logger:              params.Logger,
+		Config:              params.Config,
+		ClusterInfo:         params.ClusterInfo,
+		RemoteClientFactory: params.RemoteClientFactory,
+		NewRemoteCluster:    cm.newRemoteCluster,
+		Resolvers: func() (out []dial.Resolver) {
+			if params.ServiceResolver != nil {
+				out = append(out, params.ServiceResolver)
+			}
+			return out
+		}(),
+		Metrics: params.CommonMetrics,
 	})
 
 	lc.Append(cm.common)
@@ -184,7 +193,7 @@ func (cm *clusterMesh) GlobalServiceExports() *GlobalServiceExportCache {
 
 func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	rc := &remoteCluster{
-		logger:                        cm.logger,
+		logger:                        cm.logger.With(logfields.ClusterName, name),
 		name:                          name,
 		clusterMeshEnableEndpointSync: cm.cfg.ClusterMeshEnableEndpointSync,
 		clusterMeshEnableMCSAPI:       cm.cfgMCSAPI.ClusterMeshEnableMCSAPI,
@@ -202,7 +211,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 			serviceStore.NamespacedNameValidator(),
 		),
 		common.NewSharedServicesObserver(
-			cm.logger.With(logfields.ClusterName, name),
+			rc.logger,
 			cm.globalServices,
 			func(svc *serviceStore.ClusterService) {
 				for _, hook := range cm.clusterServiceUpdateHooks {
@@ -216,6 +225,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 			},
 		),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.services.Stop() }),
+		store.RWSWithEntriesMetric(cm.metrics.TotalServices.WithLabelValues(cm.clusterInfo.Name, rc.name)),
 	)
 
 	rc.remoteServiceExports = cm.storeFactory.NewWatchStore(
@@ -238,6 +248,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 			},
 		),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.serviceExports.Stop() }),
+		store.RWSWithEntriesMetric(cm.metrics.TotalServiceExports.WithLabelValues(cm.clusterInfo.Name, name)),
 	)
 
 	return rc

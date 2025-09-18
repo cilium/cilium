@@ -34,7 +34,8 @@ type params struct {
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
-	Clientset k8sClient.Clientset
+	Clientset     k8sClient.Clientset
+	KVStoreClient kvstore.Client
 
 	Cfg Config
 
@@ -46,6 +47,7 @@ type DoubleWriteMetricReporter struct {
 
 	interval time.Duration
 
+	kvstoreClient         kvstore.Client
 	kvStoreBackend        allocator.Backend
 	clientset             k8sClient.Clientset
 	crdBackend            allocator.Backend
@@ -63,10 +65,11 @@ func registerDoubleWriteMetricReporter(p params) {
 		return
 	}
 	doubleWriteMetricReporter := &DoubleWriteMetricReporter{
-		logger:    p.Logger,
-		interval:  p.Cfg.Interval,
-		clientset: p.Clientset,
-		metrics:   p.Metrics,
+		logger:        p.Logger,
+		interval:      p.Cfg.Interval,
+		clientset:     p.Clientset,
+		kvstoreClient: p.KVStoreClient,
+		metrics:       p.Metrics,
 	}
 	p.Lifecycle.Append(doubleWriteMetricReporter)
 }
@@ -82,18 +85,18 @@ func (h NoOpHandlerWithListDone) OnListDone() {
 }
 
 func (g *DoubleWriteMetricReporter) Start(ctx cell.HookContext) error {
-	g.logger.Info("Starting the Double Write Metric Reporter")
+	g.logger.InfoContext(ctx, "Starting the Double Write Metric Reporter")
 
-	kvStoreBackend, err := kvstoreallocator.NewKVStoreBackend(g.logger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: "", Typ: nil, Backend: kvstore.Client()})
+	kvStoreBackend, err := kvstoreallocator.NewKVStoreBackend(g.logger, kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: "", Typ: nil, Backend: g.kvstoreClient})
 	if err != nil {
-		g.logger.Error("Unable to initialize kvstore backend for the Double Write Metric Reporter", logfields.Error, err)
+		g.logger.ErrorContext(ctx, "Unable to initialize kvstore backend for the Double Write Metric Reporter", logfields.Error, err)
 		return err
 	}
 	g.kvStoreBackend = kvStoreBackend
 
 	crdBackend, err := identitybackend.NewCRDBackend(g.logger, identitybackend.CRDBackendConfiguration{Store: nil, StoreSet: &atomic.Bool{}, Client: g.clientset, KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap})
 	if err != nil {
-		g.logger.Error("Unable to initialize CRD backend for the Double Write Metric Reporter", logfields.Error, err)
+		g.logger.ErrorContext(ctx, "Unable to initialize CRD backend for the Double Write Metric Reporter", logfields.Error, err)
 		return err
 	}
 	g.crdBackend = crdBackend
@@ -142,14 +145,14 @@ func (g *DoubleWriteMetricReporter) compareCRDAndKVStoreIdentities(ctx context.C
 	// Get CRD identities
 	crdIdentityIds, err := g.crdBackend.ListIDs(ctx)
 	if err != nil {
-		g.logger.Error("Unable to get CRD identities", logfields.Error, err)
+		g.logger.ErrorContext(ctx, "Unable to get CRD identities", logfields.Error, err)
 		return err
 	}
 
 	// Get KVStore identities
 	kvstoreIdentityIds, err := g.kvStoreBackend.ListIDs(ctx)
 	if err != nil {
-		g.logger.Error("Unable to get KVStore identities", logfields.Error, err)
+		g.logger.ErrorContext(ctx, "Unable to get KVStore identities", logfields.Error, err)
 		return err
 	}
 
@@ -168,9 +171,9 @@ func (g *DoubleWriteMetricReporter) compareCRDAndKVStoreIdentities(ctx context.C
 	g.metrics.KVStoreOnlyIdentities.Set(float64(onlyInKVStoreCount))
 
 	if onlyInCrdCount == 0 && onlyInKVStoreCount == 0 {
-		g.logger.Info("CRD and KVStore identities are in sync")
+		g.logger.InfoContext(ctx, "CRD and KVStore identities are in sync")
 	} else {
-		g.logger.Info("Detected differences between CRD and KVStore identities",
+		g.logger.InfoContext(ctx, "Detected differences between CRD and KVStore identities",
 			logfields.CRDIdentityCount, len(crdIdentityIds),
 			logfields.KVStoreIdentityCount, len(kvstoreIdentityIds),
 			logfields.OnlyInCRDCount, onlyInCrdCount,

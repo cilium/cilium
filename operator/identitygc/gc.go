@@ -20,6 +20,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	ciliumV2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 )
@@ -33,6 +34,7 @@ type params struct {
 	Lifecycle cell.Lifecycle
 
 	Clientset           k8sClient.Clientset
+	KVStoreClient       kvstore.Client
 	Identity            resource.Resource[*v2.CiliumIdentity]
 	CiliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
 	CiliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
@@ -50,6 +52,7 @@ type GC struct {
 	logger *slog.Logger
 
 	clientset           ciliumV2.CiliumIdentityInterface
+	kvstoreClient       kvstore.Client
 	identity            resource.Resource[*v2.CiliumIdentity]
 	ciliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
 	ciliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
@@ -92,6 +95,7 @@ func registerGC(p params) {
 	gc := &GC{
 		logger:              p.Logger,
 		clientset:           p.Clientset.CiliumV2().CiliumIdentities(),
+		kvstoreClient:       p.KVStoreClient,
 		identity:            p.Identity,
 		ciliumEndpoint:      p.CiliumEndpoint,
 		ciliumEndpointSlice: p.CiliumEndpointSlice,

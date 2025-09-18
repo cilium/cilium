@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/google/uuid"
-
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -27,6 +25,10 @@ var (
 )
 
 const (
+	// DefaultSyncInterval is the default value for the periodic synchronization
+	// of the allocated identities.
+	DefaultSyncInterval = 5 * time.Minute
+
 	// defaultMaxAllocAttempts is the default number of attempted allocation
 	// requests performed before failing.
 	defaultMaxAllocAttempts = 16
@@ -49,8 +51,8 @@ const (
 //
 // Lookup ID by key:
 //  1. Return ID from local cache updated by watcher (no Backend interactions)
-//  2. Do ListPrefix() on slave key excluding node suffix, return the first
-//     result that matches the exact prefix.
+//  2. Do ListPrefix() on slave key, return the first result that matches the exact
+//     prefix.
 //
 // Lookup key by ID:
 //  1. Return key from local cache updated by watcher (no Backend interactions)
@@ -66,7 +68,6 @@ const (
 //	2.1 Create a new slave key. This operation is potentially racy as the master
 //	    key can be removed in the meantime.
 //	    - etcd: Create is made conditional on existence of master key
-//	    - consul: locking
 //
 // ... match not found:
 //
@@ -109,10 +110,6 @@ type Allocator struct {
 	// localKeys contains all keys including their reference count for keys
 	// which have been allocated and are in local use
 	localKeys *localKeys
-
-	// suffix is the suffix attached to keys which must be node specific,
-	// this is typical set to the node's IP address
-	suffix string
 
 	// backoffTemplate is the backoff configuration while allocating
 	backoffTemplate backoff.Exponential
@@ -158,6 +155,9 @@ type Allocator struct {
 	// maxAllocAttempts is the number of attempted allocation requests
 	// performed before failing.
 	maxAllocAttempts int
+
+	// syncInterval is the interval for local keys refresh.
+	syncInterval time.Duration
 
 	// cacheValidators implement extra validations of retrieved identities, e.g.,
 	// to ensure that they belong to the expected range.
@@ -316,13 +316,14 @@ func NewAllocator(rootLogger *slog.Logger, typ AllocatorKey, backend Backend, op
 		max:          idpool.ID(^uint64(0)),
 		localKeys:    newLocalKeys(rootLogger),
 		stopGC:       make(chan struct{}),
-		suffix:       uuid.New().String()[:10],
 		remoteCaches: map[string]*remoteCache{},
 		backoffTemplate: backoff.Exponential{
+			Logger: rootLogger.With(subsysLogAttr...),
 			Min:    time.Duration(20) * time.Millisecond,
 			Factor: 2.0,
 		},
 		maxAllocAttempts: defaultMaxAllocAttempts,
+		syncInterval:     DefaultSyncInterval,
 	}
 
 	for _, fn := range opts {
@@ -330,10 +331,6 @@ func NewAllocator(rootLogger *slog.Logger, typ AllocatorKey, backend Backend, op
 	}
 
 	a.mainCache = newCache(a)
-
-	if a.suffix == "<nil>" {
-		return nil, errors.New("allocator suffix is <nil> and unlikely unique")
-	}
 
 	if a.min < 1 {
 		return nil, errors.New("minimum ID must be >= 1")
@@ -428,6 +425,11 @@ func WithoutGC() AllocatorOption {
 // WithoutAutostart prevents starting the allocator when it is initialized
 func WithoutAutostart() AllocatorOption {
 	return func(a *Allocator) { a.disableAutostart = true }
+}
+
+// WithSyncInterval configures the interval for local keys refresh.
+func WithSyncInterval(interval time.Duration) AllocatorOption {
+	return func(a *Allocator) { a.syncInterval = interval }
 }
 
 // WithCacheValidator registers a validator triggered for each identity
@@ -536,8 +538,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	defer lock.Unlock(context.Background())
 
-	// fetch first key that matches /value/<key> while ignoring the
-	// node suffix
+	// fetch first key that matches /value/<key>
 	value, err := a.GetIfLocked(ctx, key, lock)
 	if err != nil {
 		return 0, false, false, err
@@ -573,7 +574,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	}
 
 	if value != 0 {
-		a.logger.Info("Reusing existing global key", logfields.Key, k)
+		a.logger.Debug("Reusing existing global key", logfields.Key, k)
 
 		if err = a.backend.AcquireReference(ctx, value, key, lock); err != nil {
 			a.localKeys.release(k)
@@ -653,7 +654,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		a.logger.Error("BUG: Unable to verify local key", logfields.Error, err)
 	}
 
-	a.logger.Info("Allocated new global key", logfields.Key, k)
+	a.logger.Debug("Allocated new global key", logfields.Key, k)
 
 	return id, true, firstUse, nil
 }
@@ -918,7 +919,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 		return false, nil
 	}
 
-	a.logger.Info("Releasing key", logfields.Key, key)
+	a.logger.Debug("Releasing key", logfields.Key, key)
 
 	select {
 	case <-a.initialListDone:
@@ -1041,7 +1042,7 @@ func (a *Allocator) startLocalKeySync() {
 			case <-a.stopGC:
 				a.logger.Debug("Stopped master key sync routine")
 				return
-			case <-time.After(option.Config.KVstorePeriodicSync):
+			case <-time.After(a.syncInterval):
 			}
 		}
 	}(a)

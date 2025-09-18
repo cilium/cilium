@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/command"
+	shell "github.com/cilium/cilium/pkg/shell/client"
 )
 
 var matchPattern string
@@ -23,7 +24,7 @@ var MetricsListCmd = &cobra.Command{
 		if command.OutputOption() {
 			format = strings.ToLower(command.OutputOptionString())
 		}
-		shellExchange(os.Stdout, "metrics --format=%s '%s'", format, matchPattern)
+		shell.ShellExchange(os.Stdout, "metrics --format=%s '%s'", format, matchPattern)
 	},
 }
 

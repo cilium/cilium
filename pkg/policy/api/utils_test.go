@@ -8,18 +8,9 @@ import (
 
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/require"
-
-	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 )
 
-func setUpSuite(_ testing.TB) {
-	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
-}
-
 func TestHTTPEqual(t *testing.T) {
-	setUpSuite(t)
-
 	rule1 := PortRuleHTTP{Path: "/foo$", Method: "GET", Headers: []string{"X-Test: Foo"}}
 	rule2 := PortRuleHTTP{Path: "/bar$", Method: "GET", Headers: []string{"X-Test: Foo"}}
 	rule3 := PortRuleHTTP{Path: "/foo$", Method: "GET", Headers: []string{"X-Test: Bar"}}
@@ -38,8 +29,6 @@ func TestHTTPEqual(t *testing.T) {
 }
 
 func TestKafkaEqual(t *testing.T) {
-	setUpSuite(t)
-
 	rule1 := kafka.PortRule{APIVersion: "1", APIKey: "foo", Topic: "topic1"}
 	rule2 := kafka.PortRule{APIVersion: "1", APIKey: "bar", Topic: "topic1"}
 	rule3 := kafka.PortRule{APIVersion: "1", APIKey: "foo", Topic: "topic2"}
@@ -54,8 +43,6 @@ func TestKafkaEqual(t *testing.T) {
 }
 
 func TestL7Equal(t *testing.T) {
-	setUpSuite(t)
-
 	rule1 := PortRuleL7{"Path": "/foo$", "Method": "GET"}
 	rule2 := PortRuleL7{"Path": "/bar$", "Method": "GET"}
 	rule3 := PortRuleL7{"Path": "/foo$", "Method": "GET", "extra": ""}
@@ -81,8 +68,6 @@ func TestL7Equal(t *testing.T) {
 }
 
 func TestValidateL4Proto(t *testing.T) {
-	setUpSuite(t)
-
 	require.NoError(t, L4Proto("TCP").Validate())
 	require.NoError(t, L4Proto("UDP").Validate())
 	require.NoError(t, L4Proto("ANY").Validate())
@@ -91,8 +76,6 @@ func TestValidateL4Proto(t *testing.T) {
 }
 
 func TestParseL4Proto(t *testing.T) {
-	setUpSuite(t)
-
 	p, err := ParseL4Proto("tcp")
 	require.Equal(t, ProtoTCP, p)
 	require.NoError(t, err)
@@ -110,8 +93,6 @@ func TestParseL4Proto(t *testing.T) {
 }
 
 func TestResourceQualifiedName(t *testing.T) {
-	setUpSuite(t)
-
 	// Empty resource name is passed through
 	name, updated := ResourceQualifiedName("", "", "")
 	require.Empty(t, name)
@@ -213,8 +194,6 @@ func TestResourceQualifiedName(t *testing.T) {
 }
 
 func TestParseQualifiedName(t *testing.T) {
-	setUpSuite(t)
-
 	// Empty name is passed through
 	namespace, name, resourceName := ParseQualifiedName("")
 	require.Empty(t, namespace)

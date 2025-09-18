@@ -51,7 +51,8 @@ func newExecutor(config *rest.Config, url *url.URL) (remotecommand.Executor, err
 		return nil, fmt.Errorf("Error while creating k8s executor: (websocket) %w, (spdy) %w", errWebsocket, errSPDY)
 	}
 
-	execFallback, errFallback := remotecommand.NewFallbackExecutor(execWebsocket, execSPDY, func(err error) bool {
+	// Default to the SPDY connection
+	execFallback, errFallback := remotecommand.NewFallbackExecutor(execSPDY, execWebsocket, func(err error) bool {
 		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
 	})
 	if errFallback != nil {

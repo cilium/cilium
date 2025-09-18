@@ -1,7 +1,7 @@
 metadata:
   creationTimestamp: null
-  labels:
-    cilium.io/use-original-source-address: "false"
+  annotations:
+    cec.cilium.io/use-original-source-address: "false"
   name: cilium-ingress-random-namespace-load-balancing
   namespace: random-namespace
 spec:
@@ -88,7 +88,6 @@ spec:
           maxStreamDuration:
             maxStreamDuration: 0s
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
-    connectTimeout: 5s
     edsClusterConfig:
       serviceName: random-namespace/default-backend:8080
     name: random-namespace:default-backend:8080

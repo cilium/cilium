@@ -9,8 +9,6 @@
  */
 #include "lib/utils.h"
 
-#define HOST_EP_ID 0x1092
-
 #ifndef SKIP_DEBUG
 #define DEBUG
 #endif
@@ -20,4 +18,3 @@
 #define LOCAL_DELIVERY_METRICS
 #define CONNTRACK_ACCOUNTING
 #define POLICY_ACCOUNTING
-#define DIRECT_ROUTING_DEV_IFINDEX 0

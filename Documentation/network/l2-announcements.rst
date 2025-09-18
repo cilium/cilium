@@ -17,10 +17,10 @@ the local area network. This feature is primarily intended for on-premises
 deployments within networks without BGP based routing such as office or 
 campus networks.
 
-When used, this feature will respond to ARP queries for ExternalIPs and/or 
+When used, this feature will respond to ARP/NDP queries for ExternalIPs and/or 
 LoadBalancer IPs. These IPs are Virtual IPs (not installed on network 
 devices) on multiple nodes, so for each service one node at a time will respond
-to the ARP queries and respond with its MAC address. This node will perform 
+to ARP/NDP queries and respond with its MAC address. This node will perform 
 load balancing with the service load balancing feature, thus acting as a 
 north/south load balancer.
 
@@ -75,16 +75,11 @@ Prerequisites
 * All devices on which L2 Aware LB will be announced should be enabled and included in the 
   ``--devices`` flag or ``devices`` Helm option if explicitly set, see :ref:`NodePort Devices`.
 
-* The ``externalIPs.enabled=true`` Helm option must be set, if usage of externalIPs
-  is desired. Otherwise service load balancing for external IPs is disabled.
-
 Limitations
 ###########
 
-* The feature currently does not support IPv6/NDP.
-
 * Due to the way L3->L2 translation protocols work, one node receives all 
-  ARP requests for a specific IP, so no load balancing can happen before traffic hits the cluster.
+  ARP/NDP requests for a specific IP, so no load balancing can happen before traffic hits the cluster.
 
 * The feature currently has no traffic balancing mechanism so nodes within the
   same policy might be asymmetrically loaded. For details see :ref:`l2_announcements_leader_election`.
@@ -161,7 +156,7 @@ devices specified in the ``devices`` Helm option, see :ref:`NodePort Devices`.
 
 .. note::
     This selector is NOT a security feature, services will still be available 
-    via interfaces when not advertised (for example by hard-coding ARP entries).
+    via interfaces when not advertised (for example by hard-coding ARP/NDP entries).
 
 IP Types
 --------
@@ -171,7 +166,7 @@ are announced. They are both set to ``false`` by default, so a functional policy
 have one or both set to ``true``.
 
 If ``externalIPs`` is ``true`` all IPs in `.spec.externalIPs <https://kubernetes.io/docs/concepts/services-networking/service/#external-ips>`__
-field are announced. These IPs are are managed by service authors.
+field are announced. These IPs are managed by service authors.
 
 If ``loadBalancerIPs`` is ``true`` all IPs in the service's ``.status.loadbalancer.ingress`` field
 are announced. These can be assigned by :ref:`lb_ipam` which can be configured
@@ -351,8 +346,8 @@ default limit is quickly reached when utilizing L2 announcements and thus users
 should size the client rate limit accordingly.
 
 In a worst case scenario, services are distributed unevenly, so we will assume
-a peek load based on the renew deadline. In complex scenarios with multiple 
-policies over disjunct sets of node, max QPS per node will be lower.
+a peak load based on the renew deadline. In complex scenarios with multiple 
+policies over disjointed sets of node, max QPS per node will be lower.
 
 .. code-block:: text
 
@@ -386,10 +381,6 @@ Such clients might experience longer downtime then configured in the leases
 since they will only re-query via ARP when TTL in their internal tables 
 has been reached.
 
-.. note::
-   Since this feature has no IPv6 support yet, only ARP messages are sent, no 
-   Unsolicited Neighbor Advertisements are sent.
-
 Troubleshooting
 ###############
 
@@ -421,7 +412,7 @@ Next, ensure you have at least one policy configured, L2 announcements will not 
     NAME      AGE
     policy1   6m16s
 
-L2 announcements should not create a lease for very service matched by the policy. We can check the leases like so:
+L2 announcements should now create a lease for every service matched by the policy. We can check the leases like so:
 
 .. code-block:: shell-session
 
@@ -570,10 +561,10 @@ L2 Pod Announcements
 ####################
 
 L2 Pod Announcements announce Pod IP addresses on the L2 network using
-Gratuitous ARP replies. When enabled, the node transmits Gratuitous ARP
-replies for every locally created pod, on the configured network
-interface(s). This feature is enabled separately from the above L2
-announcements feature.
+Gratuitous ARP replies / Neighbor Discovery Advertisements. When enabled, the
+node transmits Gratuitous ARP replies / NDP Advertisements for every locally
+created pod, on the configured network interface(s). This feature is enabled
+separately from the above L2 announcements feature.
 
 To enable L2 Pod Announcements, set the following:
 

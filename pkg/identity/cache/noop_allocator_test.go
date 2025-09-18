@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -26,8 +27,8 @@ func TestNoopAllocateIdentity(t *testing.T) {
 	lbls2 := labels.NewLabelsFromSortedList("id=bar;user=anna")
 	lbls3 := labels.NewLabelsFromSortedList("id=bar;user=susan")
 
-	mgr := NewNoopIdentityAllocator()
-	<-mgr.InitIdentityAllocator(nil)
+	mgr := NewNoopIdentityAllocator(hivetest.Logger(t))
+	<-mgr.InitIdentityAllocator(nil, nil)
 	defer mgr.Close()
 
 	// Noop AllocateIdentity always returns id=init, isNew=false, error=nil,

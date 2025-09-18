@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -34,10 +33,6 @@ import (
 const DNSGCJobInterval = 1 * time.Minute
 
 const dnsGCJobName = "dns-garbage-collector-job"
-
-var (
-	dnsGCControllerGroup = controller.NewGroup(dnsGCJobName)
-)
 
 var (
 	checkpointFile = "fqdn-name-manager-selectors.json"
@@ -129,6 +124,11 @@ func (n *manager) doGC(ctx context.Context) error {
 		for _, zombie := range dead {
 			namesToClean.Insert(zombie.Names...)
 		}
+
+		// Sync endpoint's persisted state if the DNS state changed during this GC run.
+		if len(affectedNames) > 0 || len(dead) > 0 {
+			ep.SyncEndpointHeaderFile()
+		}
 	}
 
 	if namesToClean.Len() == 0 {
@@ -159,8 +159,12 @@ func (n *manager) doGC(ctx context.Context) error {
 		// namesToClean is only used for logging after this so we can reslice it in place
 		namesToCleanSlice = namesToCleanSlice[:20]
 	}
-	log.WithField(logfields.Controller, dnsGCJobName).Infof(
-		"FQDN garbage collector work deleted %d name entries: %s", namesCount, strings.Join(namesToCleanSlice, ","))
+	n.logger.Info(
+		"FQDN garbage collector work deleted entries",
+		logfields.Controller, dnsGCJobName,
+		logfields.LenEntries, namesCount,
+		logfields.Entries, strings.Join(namesToCleanSlice, ","),
+	)
 
 	// Remove any now-stale ipcache metadata.
 	// Need to RLock here so we don't race on re-insertion.
@@ -169,26 +173,21 @@ func (n *manager) doGC(ctx context.Context) error {
 	return nil
 }
 
-func (n *manager) StartGC(ctx context.Context) {
-	n.manager.UpdateController(dnsGCJobName, controller.ControllerParams{
-		Group:       dnsGCControllerGroup,
-		RunInterval: DNSGCJobInterval,
-		DoFunc:      n.doGC,
-		Context:     ctx,
-	})
-}
-
 // RestoreCache loads cache state from the restored system:
 // - adds any pre-cached DNS entries
 // - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-func (n *manager) RestoreCache(preCachePath string, eps map[uint16]*endpoint.Endpoint) {
+func (n *manager) RestoreCache(eps map[uint16]*endpoint.Endpoint) {
 	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
+	// TODO: remove this; it was neeeded for the v1.3-v1.4 upgrade
+	preCachePath := option.Config.ToFQDNsPreCache
 	if preCachePath != "" {
-		log.WithField(logfields.Path, preCachePath).Info("Reading toFQDNs pre-cache data")
+		n.logger.Info("Reading toFQDNs pre-cache data")
 		precache, err := readPreCache(preCachePath)
 		if err != nil {
-			// FIXME: add a link to the "documented format"
-			log.WithError(err).WithField(logfields.Path, preCachePath).Error("Cannot parse toFQDNs pre-cache data. Please ensure the file is JSON and follows the documented format")
+			n.logger.Error("Cannot parse toFQDNs pre-cache data. Please ensure the file is JSON and follows the documented format",
+				logfields.Error, err,
+				logfields.Path, preCachePath,
+			)
 			// We do not stop the agent here. It is safer to continue with best effort
 			// than to enter crash backoffs when this file is broken.
 		} else {
@@ -206,6 +205,12 @@ func (n *manager) RestoreCache(preCachePath string, eps map[uint16]*endpoint.End
 		// Upgrades from old ciliums have this nil
 		if possibleEP.DNSHistory != nil {
 			n.cache.UpdateFromCache(possibleEP.DNSHistory, []string{})
+			if names, ips := possibleEP.DNSHistory.Count(); names > 0 {
+				n.logger.Info("restored DNS history from endpoint",
+					logfields.EndpointID, possibleEP.ID,
+					logfields.Count, names,
+					logfields.NumAddresses, ips)
+			}
 
 			// GC any connections that have expired, but propagate it to the zombies
 			// list. DNSCache.GC can handle a nil DNSZombies parameter. We use the
@@ -234,12 +239,15 @@ func (n *manager) RestoreCache(preCachePath string, eps map[uint16]*endpoint.End
 		// correct identities into IPCache
 		oldSelectors, err := restoreSelectors(checkpointPath)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Path, checkpointPath).Error("Failed to restore FQDN selectors. " +
-				"Expect brief traffic disruptions for ToFQDN destinations during initial endpoint regeneration")
+			n.logger.Error("Failed to restore FQDN selectors. "+
+				"Expect brief traffic disruptions for ToFQDN destinations during initial endpoint regeneration",
+				logfields.Error, err,
+				logfields.Path, checkpointPath,
+			)
 			return
 		}
 		if len(oldSelectors) == 0 {
-			log.Info("No FQDN selectors to restore from previous Cilium v1.15 installations")
+			n.logger.Info("No FQDN selectors to restore from previous Cilium v1.15 installations")
 			return
 		}
 
@@ -251,7 +259,7 @@ func (n *manager) RestoreCache(preCachePath string, eps map[uint16]*endpoint.End
 		// will use different identities for the prefixes in IPCache.
 		// These restored labels are removed in CompleteBootstrap, which is invoked after the real
 		// labels have been discovered in endpoint regeneration.
-		log.Info("Detected upgrade from Cilium v1.15. Building IPCache metadata from restored FQDN selectors")
+		n.logger.Info("Detected upgrade from Cilium v1.15. Building IPCache metadata from restored FQDN selectors")
 
 		ipsToNames := n.cache.GetIPs()
 		ipcacheUpdates := make([]ipcache.MU, 0, len(ipsToNames))

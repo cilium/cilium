@@ -53,7 +53,7 @@ jobs:
             make-target: build-container-hubble-relay
 
           - name: clustermesh-apiserver
-            make-target: -C clustermesh-apiserver
+            make-target: build-container-clustermesh-apiserver
 
           - name: docker-plugin
             make-target: -C plugins/cilium-docker
@@ -64,7 +64,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
 
@@ -75,7 +75,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -102,19 +102,19 @@ jobs:
         env:
           BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
           BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
-        if: |
-          ${{ steps.go-cache.outputs.cache-hit != 'true' &&
+          RUN_AS_ROOT: "true"
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' &&
               steps.check.outputs.build != ''
            }}
         run: |
           set -eu -o pipefail
           # Don't build cilium-cli for arm64
           if [[ ${{ matrix.name }} != cilium-cli ]]; then
-            contrib/scripts/builder.sh make GOARCH=arm64 ${{ matrix.make-target }} -j $(nproc) || exit 1
+            contrib/scripts/builder.sh make GOARCH=arm64 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
           fi
-          contrib/scripts/builder.sh make GOARCH=amd64 NOSTRIP=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
-          contrib/scripts/builder.sh make GOARCH=amd64 LOCKDEBUG=1 RACE=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
-          contrib/scripts/builder.sh make GOARCH=amd64 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make GOARCH=amd64 NOSTRIP=1 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
+          contrib/scripts/builder.sh make GOARCH=amd64 LOCKDEBUG=1 RACE=1 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
+          contrib/scripts/builder.sh make GOARCH=amd64 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
 
       - name: Reset cache ownership to GitHub runners user
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}

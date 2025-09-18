@@ -4,14 +4,12 @@
 package k8s
 
 import (
-	"net"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/cidr"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -344,15 +342,13 @@ func Test_ParseNodeAddressType(t *testing.T) {
 
 func TestParseNodeWithService(t *testing.T) {
 	oldAnnotateK8sNode := option.Config.AnnotateK8sNode
-	oldDefaultLbMode := option.Config.NodePortMode
-	oldDefaultLbAlg := option.Config.NodePortAlg
+
+	var lbConfig loadbalancer.Config
 	option.Config.AnnotateK8sNode = false
-	option.Config.NodePortMode = option.NodePortModeSNAT
-	option.Config.NodePortAlg = option.NodePortAlgRandom
+	lbConfig.LBMode = loadbalancer.LBModeSNAT
+	lbConfig.LBAlgorithm = loadbalancer.LBAlgorithmRandom
 	defer func() {
 		option.Config.AnnotateK8sNode = oldAnnotateK8sNode
-		option.Config.NodePortMode = oldDefaultLbMode
-		option.Config.NodePortAlg = oldDefaultLbAlg
 	}()
 
 	k8sNode := &slim_corev1.Node{
@@ -387,40 +383,4 @@ func TestParseNodeWithService(t *testing.T) {
 	require.NotNil(t, n2.IPv4AllocCIDR)
 	require.Equal(t, "10.2.0.0/16", n2.IPv4AllocCIDR.String())
 	require.Empty(t, n2.Labels[annotation.ServiceNodeExposure])
-
-	objMeta := slim_metav1.ObjectMeta{
-		Name:      "foo",
-		Namespace: "bar",
-		Annotations: map[string]string{
-			annotation.ServiceNodeExposure: "beefy",
-		},
-	}
-	k8sSvc := &slim_corev1.Service{
-		ObjectMeta: objMeta,
-		Spec: slim_corev1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Selector: map[string]string{
-				"foo": "bar",
-			},
-			Type: slim_corev1.ServiceTypeClusterIP,
-		},
-	}
-
-	id, svc := ParseService(hivetest.Logger(t), k8sSvc, nil)
-	require.Equal(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
-	require.Equal(t, &Service{
-		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
-		IntTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
-		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
-		Selector:                 map[string]string{"foo": "bar"},
-		Annotations:              map[string]string{annotation.ServiceNodeExposure: "beefy"},
-		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
-		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
-		LoadBalancerAlgorithm:    loadbalancer.SVCLoadBalancingAlgorithmRandom,
-		Type:                     loadbalancer.SVCTypeClusterIP,
-		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
-		SourceRangesPolicy:       loadbalancer.SVCSourceRangesPolicyAllow,
-		ProxyDelegation:          loadbalancer.SVCProxyDelegationNone,
-	}, svc)
 }

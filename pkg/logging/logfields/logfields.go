@@ -44,6 +44,12 @@ const (
 	// EndpointID is the numeric endpoint identifier
 	EndpointID = "endpointID"
 
+	// EndpointAddressing is the endpoint addressing
+	EndpointAddressing = "addressing"
+
+	// EndpointAddressing defines whether to build an endpoint synchronously or not
+	EndpointSyncBuild = "sync-build"
+
 	// EndpointState is the current endpoint state
 	EndpointState = "endpointState"
 
@@ -74,6 +80,10 @@ const (
 	// Label is a singular label, where relevant
 	Label = "label"
 
+	// ConflictingLabels is the set of labels that conflict
+	// with an existing label set.
+	ConflictingLabels = "conflictingLabels"
+
 	// SourceFilter is the label or node information source
 	SourceFilter = "sourceFilter"
 
@@ -93,8 +103,10 @@ const (
 	// IngressClass is the identifier of an ingress class object
 	IngressClass = "ingressClass"
 
-	// OldIdentity is a previously used security identity
-	OldIdentity = "oldIdentity"
+	// IdentityOld is a previously used security identity
+	IdentityOld = "old-" + Identity
+
+	IdentityNew = "new-" + Identity
 
 	// PolicyKey is a policy map key
 	PolicyKey = "policyKey"
@@ -126,6 +138,9 @@ const (
 
 	// PolicyID is the identifier of a L3, L4 or L7 Policy. Ideally the .NumericIdentity
 	PolicyID = "policyID"
+
+	// IsDeny is 'true' for a deny rule
+	IsDeny = "isDeny"
 
 	// AddedPolicyID is the .NumericIdentity, or set or them
 	AddedPolicyID = "policyID.Added"
@@ -476,6 +491,9 @@ const (
 	// DatapathMode is the datapath mode name
 	DatapathMode = "datapathMode"
 
+	// DatapathConfiguration is the datapath configuration
+	DatapathConfiguration = "datapathConfiguration"
+
 	// Tunnel is the tunnel name
 	Tunnel = "tunnel"
 
@@ -665,6 +683,8 @@ const (
 
 	// Count is a measure being compared to the Limit
 	Count = "count"
+
+	Total = "total"
 
 	// Debug is a boolean value for whether debug is set or not.
 	Debug = "debug"
@@ -885,6 +905,9 @@ const (
 	// NetnsCookie is the Linux kernel netns cookie.
 	NetnsCookie = "netnsCookie"
 
+	// SocketCookie is the Linux kernel socket cookie.
+	SocketCookie = "socketCookie"
+
 	// Source identifies a source value
 	Source = "source"
 
@@ -1075,6 +1098,10 @@ const (
 
 	PoolSpec = "poolSpec"
 
+	PoolOldSpec = "poolOldSpec"
+
+	PoolNewSpec = "poolNewSpec"
+
 	PoolName = "poolName"
 
 	MaxRetries = "maxRetries"
@@ -1128,6 +1155,10 @@ const (
 	Registrations = "registrations"
 
 	HTTPRoute = "httpRoute"
+
+	TLSRoute = "tlsRoute"
+
+	GRPCRoute = "grpcRoute"
 
 	Secret = "secret"
 
@@ -1331,6 +1362,8 @@ const (
 
 	NextTryIn = "nextTryIn"
 
+	NextRunIn = "nextRunIn"
+
 	Operation = "operation"
 
 	KeyPairSN = "keyPairSN"
@@ -1497,6 +1530,8 @@ const (
 
 	BootTime = "bootTime"
 
+	BootstrapTime = "bootstrapTime"
+
 	Socket = "socket"
 
 	Filter = "filter"
@@ -1528,4 +1563,253 @@ const (
 	Args = "args"
 
 	Candidates = "candidates"
+
+	Location = "location"
+
+	Skipped = "skipped"
+
+	AliveEntries = "aliveEntries"
+
+	Scope = "scope"
+
+	NewLocally = "newLocally"
+
+	Released = "released"
+
+	DNSRulesV2 = "dnsRulesV2"
+
+	BPFHeaderfileHashOld = "old-" + "bpfHeaderfileHash"
+
+	DumpedPolicyMap = "dumpedPolicyMap"
+
+	DumpedDiffs = "dumpedDiffs"
+
+	NewDirectory = "newDirectory"
+
+	TmpDirectory = "tmpDirectory"
+
+	Code = "code"
+
+	EndpointStateFrom = "endpointStateFrom"
+
+	EndpointStateTo = "endpointStateTo"
+
+	BandwidthLimit = "bandwidthLimit"
+
+	PolicyRevisionNext = "policyRevisionNext"
+
+	PolicyRevisionRepo = "policyRevisionRepo"
+
+	PolicyChanged = "policyChanged"
+
+	CEPUIDOld = "old-" + CEPUID
+
+	HubbleCLIVersion = "hubble-cli-version"
+
+	HubbleRelayVersion = "hubble-relay-version"
+
+	HubbleServerVersion = "hubble-server-version"
+
+	Handler = "handler"
+
+	NodeOwner = "nodeOwner"
+
+	LenStaleNodes = "lenStaleNodes"
+
+	StaleNodes = "staleNodes"
+
+	SyncInterval = "syncInterval"
+
+	BootID = "bootID"
+
+	LeaseDuration = "leaseDuration"
+
+	RenewDeadline = "renewDeadline"
+
+	RetryPeriod = "retryPeriod"
+
+	Resources = "resources"
+
+	LastModifiedVersion = "lastModifiedVersion"
+
+	ReturningResources = "returningResources"
+
+	RequestedResources = "requestedResources"
+
+	ResponseNonce = "responseNonce"
+
+	ResourceWatcherVersion = "resourceWatcherVersion"
+
+	WaitVersion = "waitVersion"
+
+	CurrentVersion = "currentVersion"
+
+	PendingCompletions = "pendingCompletions"
+
+	Root = "root"
+
+	LenConfigPairs = "lenConfigPairs"
+
+	Exists = "exists"
+
+	MulticastAddr = "multicastAddr"
+
+	IPMask4 = "ipMask4"
+
+	IPMask6 = "ipMask6"
+
+	IPRules = "ipRules"
+
+	Rules = "rules"
+
+	SecID = "secID"
+
+	WrittenBytes = "writtenBytes"
+
+	TotalBytes = "totalBytes"
+
+	Destination = "destination"
+
+	LenEntries = "lenEntries"
+
+	FQDNSelector = "fqdnSelector"
+
+	MatchName = "matchName"
+
+	LenPrefixes = "lenPrefixes"
+
+	LookupIPAddrs = "lookupIPAddrs"
+
+	MatchPattern = "matchPattern"
+
+	BPFFSRoot = "bpffsRoot"
+
+	Section = "section"
+
+	Instruction = "instruction"
+
+	Reference = "reference"
+
+	MapRenames = "mapRenames"
+
+	Constants = "constants"
+
+	Remaining = "remaining"
+
+	Resolved = "resolved"
+
+	Scanned = "scanned"
+
+	KeySize = "keySize"
+
+	Subnets = "subnets"
+
+	Ratio = "ratio"
+
+	OldName = "oldName"
+
+	NewName = "newName"
+
+	ValueSize = "valueSize"
+
+	MaxEntries = "maxEntries"
+
+	Flags = "flags"
+
+	ExitCode = "exitCode"
+
+	NetLink = "netLink"
+
+	NetConf = "netConf"
+
+	Result = "result"
+
+	NetNamespace = "netNamespace"
+
+	DockerHostPath = "dockerHostPath"
+
+	ImageID = "imageID"
+
+	NumBufferedEvents = "numBufferedEvents"
+
+	EventHandlingDuration = "eventHandlingDuration"
+
+	EventEnqueueWaitTime = "eventEnqueueWaitTime"
+
+	CalculatedInterval = "calculatedInterval"
+
+	MaxAllowedInterval = "maxAllowedInterval"
+
+	EventConsumeOffQueueWaitTime = "eventConsumeOffQueueWaitTime"
+
+	CachedSource = "cachedSource"
+
+	Info = "info"
+
+	OperatorID = "operatorID"
+
+	NewLeader = "newLeader"
+
+	KVStore = "kvstore"
+
+	LabelSelectorFlagOption = "label-selector"
+
+	RemoveCiliumNodeTaintsFlagOption = "remove-cilium-node-taints"
+
+	SetCiliumNodeTaintsFlagOption = "set-cilium-node-taints"
+
+	SetCiliumIsUpConditionFlagOption = "set-cilium-is-up-condition"
+
+	TimeSinceRestart = "timeSinceRestart"
+
+	TimeSincePodStarted = "timeSincePodStarted"
+
+	DNSRules = "dnsRules"
+
+	PortProtocol = "portProtocol"
+
+	Option = "option"
+
+	RunDirectory = "runDirectory"
+
+	LibDirectory = "libDirectory"
+
+	BPFDirectory = "BPFDirectory"
+
+	StateDirectory = "StateDirectory"
+
+	Restored = "restored"
+
+	Detected = "detected"
+
+	NodeLabels = "nodeLabels"
+
+	UID = "UID"
+
+	ProviderID = "providerID"
+
+	EndpointLXCID = "endpointLXCID"
+
+	Regenerated = "regenerated"
+
+	Primary = "primary"
+
+	RTT = "rtt"
+
+	URI = "uri"
+
+	Goroutine = "goroutine"
+
+	Matcher = "matcher"
+
+	ParentResource = "parentResource"
+
+	Fraction = "fraction"
+
+	Rate = "rate"
+
+	KPRConfiguration = "kprConfiguration"
+
+	// CESFeatureEnabled indicates whether CiliumEndpointSlice feature is enabled.
+	CESFeatureEnabled = "cesEnabled"
 )

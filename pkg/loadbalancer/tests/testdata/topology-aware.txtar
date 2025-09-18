@@ -1,0 +1,154 @@
+#! --enable-service-topology --lb-test-fault-probability=0.0
+#
+# Test topology-aware hints, e.g. backends meant for other zones are ignored.
+#
+
+# Set the node zone label before starting so it's read by the zone watcher.
+test/set-node-labels topology.kubernetes.io/zone=foo
+
+# Start and wait for watchers
+hive start
+
+# Add the service (with topology-mode=auto) and endpoints
+# 10.244.1.1 (for zones foo & bar), 10.244.2.1 (for zone quux).
+k8s/add service.yaml
+db/cmp services services.table
+k8s/add endpointslice.yaml endpointslice2.yaml
+
+# With zone set to 'foo' and topology-awareness enabled, we should
+# only select backend 10.244.1.1 which has 'foo' in its ForZones.
+db/cmp backends backends.table 
+db/cmp frontends frontends-foo.table
+
+# Move the node to a different zone which won't match ForZones.
+# Now we'll fall back to selecting all backends.
+# (safeguard #5 at https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/#safeguards)
+test/set-node-labels topology.kubernetes.io/zone=baz
+db/cmp frontends frontends-all.table
+
+# Move to another zone which isn't backend's own zone but mentioned in
+# ForZones.
+test/set-node-labels topology.kubernetes.io/zone=bar
+db/cmp frontends frontends-foo.table
+
+# Remove the zone hints from one of the endpointslices. We'll again
+# fall back to selecting all backends.
+# (safeguard #4 at https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/#safeguards)
+cp endpointslice2.yaml endpointslice2-no-hints.yaml
+sed 'forZones:' 'notForZones:' endpointslice2-no-hints.yaml
+k8s/update endpointslice2-no-hints.yaml
+db/cmp frontends frontends-all.table
+
+# Revert back to selecting backends with foo zone.
+k8s/update endpointslice2.yaml
+db/cmp frontends frontends-foo.table
+
+# Remove the topology-mode annotation. All backends should now be selected.
+sed 'topology-mode' 'topology-nope' service.yaml
+k8s/update service.yaml
+db/cmp frontends frontends-all.table
+
+# Set 'trafficDistribution' and check that this results in identical behavior
+# to topology-mode.
+sed '#trafficD' 'trafficD' service.yaml
+k8s/update service.yaml
+db/cmp frontends frontends-foo.table
+
+#####
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy  Flags
+test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferClose
+
+-- frontends-foo.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP
+
+-- frontends-none.table --
+Address               Type        ServiceName   PortName   Status   Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done
+
+-- frontends-all.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP, 10.244.2.1:80/TCP
+
+-- backends.table --
+Address             Instances
+10.244.1.1:80/TCP   test/echo (http)
+10.244.2.1:80/TCP   test/echo (http)
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    service.kubernetes.io/topology-mode: auto
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+  #trafficDistribution: PreferClose
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  zone: "foo"
+  hints:
+    forZones:
+    - name: foo
+    - name: bar
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice2.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.2.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  zone: "quux"
+  hints:
+    forZones:
+    - name: quux
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+

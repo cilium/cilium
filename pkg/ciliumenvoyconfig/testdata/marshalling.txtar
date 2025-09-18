@@ -1,0 +1,392 @@
+# Test the JSON marshalling for Table[CEC] and Table[EnvoyResource]
+
+# Start the hive and wait for tables to be synchronized before adding k8s objects.
+hive start
+
+# Add the objects and wait for it to be ingested.
+k8s/add service.yaml endpointslice.yaml cec.yaml
+db/cmp ciliumenvoyconfigs cec.table
+db/cmp envoy-resources envoy-resources.table
+
+# Test JSON marshalling
+db/show ciliumenvoyconfigs --format=json --out=actual.json
+cmp actual.json cec-expected.json
+
+db/show envoy-resources --format=json --out=actual.json
+sed '"updated-at":.*' '"updated-at": <redacted>,' actual.json
+sed '"id":.*' '"id": <redacted>,' actual.json
+cmp actual.json envoy-resources-expected.json
+
+##### 
+
+-- cec.table --
+Name                    Services
+test/envoy-lb-listener  test/echo
+
+-- envoy-resources.table --
+Name                            Listeners                                  Endpoints                  References             Status   Error
+backendsync:test/echo                                                      test/echo:80: 10.244.1.1   test/envoy-lb-listener Done     
+cec:test/envoy-lb-listener      test/envoy-lb-listener/envoy-lb-listener                                                     Done     
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: NodePort
+status:
+  loadBalancer: {}
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+
+-- cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: envoy-lb-listener
+  namespace: test
+  labels:
+    foo: bar
+spec:
+  services:
+    - name: echo
+      namespace: test
+      listener: envoy-lb-listener
+      ports:
+      - 80
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: envoy-lb-listener
+
+
+-- cec-expected.json --
+{
+  "Name": {
+    "Namespace": "test",
+    "Name": "envoy-lb-listener"
+  },
+  "Spec": {
+    "services": [
+      {
+        "name": "echo",
+        "namespace": "test",
+        "ports": [
+          80
+        ],
+        "listener": "envoy-lb-listener"
+      }
+    ],
+    "resources": [
+      {
+        "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
+        "name": "envoy-lb-listener"
+      }
+    ]
+  },
+  "Labels": {
+    "foo": "bar"
+  },
+  "SelectsLocalNode": true,
+  "Listeners": [
+    {
+      "k": "test/envoy-lb-listener/envoy-lb-listener",
+      "v": 1000
+    }
+  ],
+  "Resources": {
+    "Listeners": [
+      {
+        "name": "test/envoy-lb-listener/envoy-lb-listener",
+        "address": {
+          "Address": {
+            "SocketAddress": {
+              "address": "127.0.0.1",
+              "PortSpecifier": {
+                "PortValue": 1000
+              }
+            }
+          }
+        },
+        "additional_addresses": [
+          {
+            "address": {
+              "Address": {
+                "SocketAddress": {
+                  "address": "::1",
+                  "PortSpecifier": {
+                    "PortValue": 1000
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "listener_filters": [
+          {
+            "name": "cilium.bpf_metadata",
+            "ConfigType": {
+              "TypedConfig": {
+                "type_url": "type.googleapis.com/cilium.BpfMetadata",
+                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiEWNpbGl1bV9pcGNhY2hlX3Yy"
+              }
+            }
+          }
+        ],
+        "ListenerSpecifier": null
+      }
+    ],
+    "Secrets": null,
+    "Routes": null,
+    "Clusters": null,
+    "Endpoints": null
+  }
+}
+-- envoy-resources-expected.json --
+{
+  "Name": {
+    "Origin": "backendsync",
+    "Cluster": "",
+    "Namespace": "test",
+    "Name": "echo"
+  },
+  "Status": {
+    "updated-at": <redacted>,
+    "id": <redacted>,
+    "kind": "Done"
+  },
+  "Resources": {
+    "Listeners": null,
+    "Secrets": null,
+    "Routes": null,
+    "Clusters": null,
+    "Endpoints": [
+      {
+        "cluster_name": "test/echo:80",
+        "endpoints": [
+          {
+            "lb_endpoints": [
+              {
+                "HostIdentifier": {
+                  "Endpoint": {
+                    "address": {
+                      "Address": {
+                        "SocketAddress": {
+                          "address": "10.244.1.1",
+                          "PortSpecifier": {
+                            "PortValue": 8080
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "LbConfig": null
+          }
+        ]
+      }
+    ]
+  },
+  "ReconciledResources": {
+    "Listeners": null,
+    "Secrets": null,
+    "Routes": null,
+    "Clusters": null,
+    "Endpoints": [
+      {
+        "cluster_name": "test/echo:80",
+        "endpoints": [
+          {
+            "lb_endpoints": [
+              {
+                "HostIdentifier": {
+                  "Endpoint": {
+                    "address": {
+                      "Address": {
+                        "SocketAddress": {
+                          "address": "10.244.1.1",
+                          "PortSpecifier": {
+                            "PortValue": 8080
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "LbConfig": null
+          }
+        ]
+      }
+    ]
+  },
+  "Redirects": [],
+  "ReconciledRedirects": [],
+  "ReferencedServices": []
+}
+{
+  "Name": {
+    "Origin": "cec",
+    "Cluster": "",
+    "Namespace": "test",
+    "Name": "envoy-lb-listener"
+  },
+  "Status": {
+    "updated-at": <redacted>,
+    "id": <redacted>,
+    "kind": "Done"
+  },
+  "Resources": {
+    "Listeners": [
+      {
+        "name": "test/envoy-lb-listener/envoy-lb-listener",
+        "address": {
+          "Address": {
+            "SocketAddress": {
+              "address": "127.0.0.1",
+              "PortSpecifier": {
+                "PortValue": 1000
+              }
+            }
+          }
+        },
+        "additional_addresses": [
+          {
+            "address": {
+              "Address": {
+                "SocketAddress": {
+                  "address": "::1",
+                  "PortSpecifier": {
+                    "PortValue": 1000
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "listener_filters": [
+          {
+            "name": "cilium.bpf_metadata",
+            "ConfigType": {
+              "TypedConfig": {
+                "type_url": "type.googleapis.com/cilium.BpfMetadata",
+                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiEWNpbGl1bV9pcGNhY2hlX3Yy"
+              }
+            }
+          }
+        ],
+        "ListenerSpecifier": null
+      }
+    ],
+    "Secrets": null,
+    "Routes": null,
+    "Clusters": null,
+    "Endpoints": null
+  },
+  "ReconciledResources": {
+    "Listeners": [
+      {
+        "name": "test/envoy-lb-listener/envoy-lb-listener",
+        "address": {
+          "Address": {
+            "SocketAddress": {
+              "address": "127.0.0.1",
+              "PortSpecifier": {
+                "PortValue": 1000
+              }
+            }
+          }
+        },
+        "additional_addresses": [
+          {
+            "address": {
+              "Address": {
+                "SocketAddress": {
+                  "address": "::1",
+                  "PortSpecifier": {
+                    "PortValue": 1000
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "listener_filters": [
+          {
+            "name": "cilium.bpf_metadata",
+            "ConfigType": {
+              "TypedConfig": {
+                "type_url": "type.googleapis.com/cilium.BpfMetadata",
+                "value": "Cgsvc3lzL2ZzL2JwZhgBIAFA6AdiEWNpbGl1bV9pcGNhY2hlX3Yy"
+              }
+            }
+          }
+        ],
+        "ListenerSpecifier": null
+      }
+    ],
+    "Secrets": null,
+    "Routes": null,
+    "Clusters": null,
+    "Endpoints": null
+  },
+  "Redirects": [
+    {
+      "k": "test/echo",
+      "v": {
+        "ProxyPort": 1000,
+        "Ports": [
+          80
+        ]
+      }
+    }
+  ],
+  "ReconciledRedirects": [
+    {
+      "k": "test/echo",
+      "v": {
+        "ProxyPort": 1000,
+        "Ports": [
+          80
+        ]
+      }
+    }
+  ],
+  "ReferencedServices": [
+    "test/echo"
+  ]
+}

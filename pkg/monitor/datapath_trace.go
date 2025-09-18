@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -19,12 +17,12 @@ import (
 )
 
 const (
-	// traceNotifyCommonLen is the minimum length required to determine the version of the TN event.
-	traceNotifyCommonLen = 16
 	// traceNotifyV0Len is the amount of packet data provided in a trace notification v0.
 	traceNotifyV0Len = 32
 	// traceNotifyV1Len is the amount of packet data provided in a trace notification v1.
 	traceNotifyV1Len = 48
+	// traceNotifyV2Len is the amount of packet data provided in a trace notification v2.
+	traceNotifyV2Len = 56
 )
 
 const (
@@ -34,49 +32,99 @@ const (
 	// TraceNotifyFlagIsL3Device is set in TraceNotify.Flags when the
 	// notification refers to a L3 device.
 	TraceNotifyFlagIsL3Device
+	// TraceNotifyFlagIsVXLAN is set in TraceNotify.Flags when the
+	// notification refers to an overlay VXLAN packet.
+	TraceNotifyFlagIsVXLAN
+	// TraceNotifyFlagIsGeneve is set in TraceNotify.Flags when the
+	// notification refers to an overlay Geneve packet.
+	TraceNotifyFlagIsGeneve
 )
 
 const (
 	TraceNotifyVersion0 = iota
 	TraceNotifyVersion1
+	TraceNotifyVersion2
 )
 
-// TraceNotifyV0 is the common message format for versions 0 and 1.
-// This struct needs to be kept in sync with the decodeTraceNotifyVersion0
-// func.
-type TraceNotifyV0 struct {
-	Type     uint8
-	ObsPoint uint8
-	Source   uint16
-	Hash     uint32
-	OrigLen  uint32
-	CapLen   uint16
-	Version  uint16
-	SrcLabel identity.NumericIdentity
-	DstLabel identity.NumericIdentity
-	DstID    uint16
-	Reason   uint8
-	Flags    uint8
-	Ifindex  uint32
+// TraceNotify is the message format of a trace notification in the BPF ring buffer
+type TraceNotify struct {
+	Type      uint8
+	ObsPoint  uint8
+	Source    uint16
+	Hash      uint32
+	OrigLen   uint32
+	CapLen    uint16
+	Version   uint16
+	SrcLabel  identity.NumericIdentity
+	DstLabel  identity.NumericIdentity
+	DstID     uint16
+	Reason    uint8
+	Flags     uint8
+	Ifindex   uint32
+	OrigIP    types.IPv6
+	IPTraceID uint64
 	// data
 }
 
-// decodeTraceNotifyVersion0 decodes the trace notify message in 'data' into
-// the struct. This function needs to be kept in sync with the TraceNotifyV0
-// struct.
-func (tn *TraceNotifyV0) decodeTraceNotifyVersion0(data []byte) error {
-	// This eliminates the bounds check in the accesses to `data` below.
+// Dump prints the message according to the verbosity level specified
+func (tn *TraceNotify) Dump(args *api.DumpArgs) {
+	switch args.Verbosity {
+	case api.INFO, api.DEBUG:
+		tn.DumpInfo(args.Buf, args.Data, args.Format, args.LinkMonitor)
+	case api.JSON:
+		tn.DumpJSON(args.Buf, args.Data, args.CpuPrefix, args.LinkMonitor)
+	default:
+		fmt.Fprintln(args.Buf, msgSeparator)
+		tn.DumpVerbose(args.Buf, args.Dissect, args.Data, args.CpuPrefix, args.Format, args.LinkMonitor)
+	}
+}
+
+// GetSrc retrieves the source endpoint for the message.
+func (tn *TraceNotify) GetSrc() uint16 {
+	return tn.Source
+}
+
+// GetDst retrieves the destination endpoint or proxy destination port according to the message subtype.
+func (tn *TraceNotify) GetDst() uint16 {
+	return tn.DstID
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (tn *TraceNotify) Decode(data []byte) error {
 	if l := len(data); l < traceNotifyV0Len {
-		return fmt.Errorf("unexpected TraceNotifyV0 data length, expected %d but got %d", traceNotifyV0Len, l)
+		return fmt.Errorf("unexpected TraceNotify data length, expected at least %d but got %d", traceNotifyV0Len, l)
 	}
 
+	version := byteorder.Native.Uint16(data[14:16])
+
+	// Check against max version.
+	if version > TraceNotifyVersion2 {
+		return fmt.Errorf("Unrecognized trace event (version %d)", version)
+	}
+
+	// Decode logic for version >= v1.
+	switch version {
+	case TraceNotifyVersion2:
+		if l := len(data); l < traceNotifyV2Len {
+			return fmt.Errorf("unexpected TraceNotify data length (version %d), expected at least %d but got %d", version, traceNotifyV2Len, l)
+		}
+		tn.IPTraceID = byteorder.Native.Uint64(data[48:56])
+		fallthrough
+	case TraceNotifyVersion1:
+		if l := len(data); l < traceNotifyV1Len {
+			return fmt.Errorf("unexpected TraceNotify data length (version %d), expected at least %d but got %d", version, traceNotifyV1Len, l)
+		}
+		copy(tn.OrigIP[:], data[32:48])
+	}
+
+	// Decode logic for version >= v0.
 	tn.Type = data[0]
 	tn.ObsPoint = data[1]
 	tn.Source = byteorder.Native.Uint16(data[2:4])
 	tn.Hash = byteorder.Native.Uint32(data[4:8])
 	tn.OrigLen = byteorder.Native.Uint32(data[8:12])
 	tn.CapLen = byteorder.Native.Uint16(data[12:14])
-	tn.Version = byteorder.Native.Uint16(data[14:16])
+	tn.Version = version
 	tn.SrcLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[16:20]))
 	tn.DstLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[20:24]))
 	tn.DstID = byteorder.Native.Uint16(data[24:26])
@@ -89,31 +137,31 @@ func (tn *TraceNotifyV0) decodeTraceNotifyVersion0(data []byte) error {
 
 // IsEncrypted returns true when the notification has the encrypt flag set,
 // false otherwise.
-func (n *TraceNotifyV0) IsEncrypted() bool {
+func (n *TraceNotify) IsEncrypted() bool {
 	return (n.Reason & TraceReasonEncryptMask) != 0
 }
 
 // TraceReason returns the trace reason for this notification, see the
 // TraceReason* constants.
-func (n *TraceNotifyV0) TraceReason() uint8 {
+func (n *TraceNotify) TraceReason() uint8 {
 	return n.Reason & ^TraceReasonEncryptMask
 }
 
 // TraceReasonIsKnown returns false when the trace reason is unknown, true
 // otherwise.
-func (n *TraceNotifyV0) TraceReasonIsKnown() bool {
+func (n *TraceNotify) TraceReasonIsKnown() bool {
 	return n.TraceReason() != TraceReasonUnknown
 }
 
 // TraceReasonIsReply returns true when the trace reason is TraceReasonCtReply,
 // false otherwise.
-func (n *TraceNotifyV0) TraceReasonIsReply() bool {
+func (n *TraceNotify) TraceReasonIsReply() bool {
 	return n.TraceReason() == TraceReasonCtReply
 }
 
 // TraceReasonIsEncap returns true when the trace reason is encapsulation
 // related, false otherwise.
-func (n *TraceNotifyV0) TraceReasonIsEncap() bool {
+func (n *TraceNotify) TraceReasonIsEncap() bool {
 	switch n.TraceReason() {
 	case TraceReasonSRv6Encap, TraceReasonEncryptOverlay:
 		return true
@@ -123,7 +171,7 @@ func (n *TraceNotifyV0) TraceReasonIsEncap() bool {
 
 // TraceReasonIsDecap returns true when the trace reason is decapsulation
 // related, false otherwise.
-func (n *TraceNotifyV0) TraceReasonIsDecap() bool {
+func (n *TraceNotify) TraceReasonIsDecap() bool {
 	switch n.TraceReason() {
 	case TraceReasonSRv6Decap:
 		return true
@@ -131,37 +179,11 @@ func (n *TraceNotifyV0) TraceReasonIsDecap() bool {
 	return false
 }
 
-// TraceNotifyV1 is the version 1 message format. This struct needs to be kept
-// in sync with the decodeTraceNotifyVersion1 func.
-type TraceNotifyV1 struct {
-	TraceNotifyV0
-	OrigIP types.IPv6
-	// data
-}
-
-// decodeTraceNotifyVersion1 decodes the trace notify message in 'data' into
-// the struct. This function needs to be kept in sync with the TraceNotifyV1
-// struct.
-func (tn *TraceNotifyV1) decodeTraceNotifyVersion1(data []byte) error {
-	if l := len(data); l < traceNotifyV1Len {
-		return fmt.Errorf("unexpected TraceNotifyV1 data length, expected %d but got %d", traceNotifyV1Len, l)
-	}
-
-	if err := tn.decodeTraceNotifyVersion0(data); err != nil {
-		return err
-	}
-
-	copy(tn.OrigIP[:], data[32:48])
-	return nil
-}
-
-// TraceNotify is the message format of a trace notification in the BPF ring buffer
-type TraceNotify TraceNotifyV1
-
 var (
 	traceNotifyLength = map[uint16]uint{
 		TraceNotifyVersion0: traceNotifyV0Len,
 		TraceNotifyVersion1: traceNotifyV1Len,
+		TraceNotifyVersion2: traceNotifyV2Len,
 	}
 )
 
@@ -193,28 +215,9 @@ var traceReasons = map[uint8]string{
 	TraceReasonEncryptOverlay:       "encrypt-overlay",
 }
 
-// DecodeTraceNotify will decode 'data' into the provided TraceNotify structure
-func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
-	if len(data) < traceNotifyCommonLen {
-		return fmt.Errorf("Unknown trace event")
-	}
-
-	offset := unsafe.Offsetof(tn.Version)
-	length := unsafe.Sizeof(tn.Version)
-	version := byteorder.Native.Uint16(data[offset : offset+length])
-
-	switch version {
-	case TraceNotifyVersion0:
-		return tn.decodeTraceNotifyVersion0(data)
-	case TraceNotifyVersion1:
-		return ((*TraceNotifyV1)(tn)).decodeTraceNotifyVersion1(data)
-	}
-	return fmt.Errorf("Unrecognized trace event (version %d)", version)
-}
-
 // dumpIdentity dumps the source and destination identities in numeric or
 // human-readable format.
-func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
+func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric api.DisplayFormat) {
 	if numeric {
 		fmt.Fprintf(buf, ", identity %d->%d", n.SrcLabel, n.DstLabel)
 	} else {
@@ -287,6 +290,16 @@ func (n *TraceNotify) IsIPv6() bool {
 	return n.Flags&TraceNotifyFlagIsIPv6 != 0
 }
 
+// IsVXLAN returns true if the trace refers to an overlay VXLAN packet.
+func (n *TraceNotify) IsVXLAN() bool {
+	return n.Flags&TraceNotifyFlagIsVXLAN != 0
+}
+
+// IsGeneve returns true if the trace refers to an overlay Geneve packet.
+func (n *TraceNotify) IsGeneve() bool {
+	return n.Flags&TraceNotifyFlagIsGeneve != 0
+}
+
 // OriginalIP returns the original source IP if reverse NAT was performed on
 // the flow
 func (n *TraceNotify) OriginalIP() net.IP {
@@ -305,8 +318,7 @@ func (n *TraceNotify) DataOffset() uint {
 }
 
 // DumpInfo prints a summary of the trace messages.
-func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
-	buf := bufio.NewWriter(os.Stdout)
+func (n *TraceNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
 	hdrLen := n.DataOffset()
 	if enc := n.encryptReasonString(); enc != "" {
 		fmt.Fprintf(buf, "%s %s flow %#x ",
@@ -316,16 +328,23 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor g
 	}
 	n.dumpIdentity(buf, numeric)
 	ifname := linkMonitor.Name(n.Ifindex)
-	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
-		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6()}))
+
+	if id := n.IPTraceID; id > 0 {
+		fmt.Fprintf(buf, " [ ip-trace-id = %d ]", id)
+	}
+	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n",
+		n.traceReasonString(), ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
 	buf.Flush()
 }
 
 // DumpVerbose prints the trace notification in human readable form
-func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat, linkMonitor getters.LinkGetter) {
-	buf := bufio.NewWriter(os.Stdout)
-	fmt.Fprintf(buf, "%s MARK %#x FROM %d %s: %d bytes (%d captured), state %s",
-		prefix, n.Hash, n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, n.traceReasonString())
+func (n *TraceNotify) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, prefix string, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
+	fmt.Fprintf(buf, "%s MARK %#x", prefix, n.Hash)
+	if id := n.IPTraceID; id > 0 {
+		fmt.Fprintf(buf, " [ IP-TRACE-ID = %d ]", id)
+	}
+	fmt.Fprintf(buf, " FROM %d %s: %d bytes (%d captured), state %s",
+		n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, n.traceReasonString())
 
 	if n.Ifindex != 0 {
 		ifname := linkMonitor.Name(n.Ifindex)
@@ -351,9 +370,8 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, nume
 
 	hdrLen := n.DataOffset()
 	if n.CapLen > 0 && len(data) > int(hdrLen) {
-		Dissect(dissect, data[hdrLen:])
+		Dissect(buf, dissect, data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()})
 	}
-	buf.Flush()
 }
 
 func (n *TraceNotify) getJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) (string, error) {
@@ -361,7 +379,7 @@ func (n *TraceNotify) getJSON(data []byte, cpuPrefix string, linkMonitor getters
 	v.CPUPrefix = cpuPrefix
 	hdrLen := n.DataOffset()
 	if n.CapLen > 0 && len(data) > int(hdrLen) {
-		v.Summary = GetDissectSummary(data[hdrLen:])
+		v.Summary = GetDissectSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()})
 	}
 
 	ret, err := json.Marshal(v)
@@ -369,10 +387,10 @@ func (n *TraceNotify) getJSON(data []byte, cpuPrefix string, linkMonitor getters
 }
 
 // DumpJSON prints notification in json format
-func (n *TraceNotify) DumpJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
+func (n *TraceNotify) DumpJSON(buf *bufio.Writer, data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
 	resp, err := n.getJSON(data, cpuPrefix, linkMonitor)
 	if err == nil {
-		fmt.Println(resp)
+		fmt.Fprintln(buf, resp)
 	}
 }
 
@@ -386,11 +404,12 @@ type TraceNotifyVerbose struct {
 	ObservationPoint string `json:"observationPoint"`
 	TraceSummary     string `json:"traceSummary"`
 
-	Source   uint16                   `json:"source"`
-	Bytes    uint32                   `json:"bytes"`
-	SrcLabel identity.NumericIdentity `json:"srcLabel"`
-	DstLabel identity.NumericIdentity `json:"dstLabel"`
-	DstID    uint16                   `json:"dstID"`
+	Source    uint16                   `json:"source"`
+	Bytes     uint32                   `json:"bytes"`
+	SrcLabel  identity.NumericIdentity `json:"srcLabel"`
+	DstLabel  identity.NumericIdentity `json:"dstLabel"`
+	DstID     uint16                   `json:"dstID"`
+	IPTraceID uint64                   `json:"IpTraceID"`
 
 	Summary *DissectSummary `json:"summary,omitempty"`
 }
@@ -410,5 +429,6 @@ func TraceNotifyToVerbose(n *TraceNotify, linkMonitor getters.LinkGetter) TraceN
 		SrcLabel:         n.SrcLabel,
 		DstLabel:         n.DstLabel,
 		DstID:            n.DstID,
+		IPTraceID:        n.IPTraceID,
 	}
 }

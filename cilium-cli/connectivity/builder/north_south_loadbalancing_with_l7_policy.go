@@ -40,7 +40,6 @@ func northSouthLoadbalancingWithL7PolicyTest(ct *check.ConnectivityTest, portRan
 				features.RequireEnabled(features.NodeWithoutCilium),
 				features.RequireEnabled(features.L7Proxy))...,
 		).
-		WithCiliumVersion(">1.13.2").
 		WithCiliumPolicy(policyYAML).
 		WithScenarios(tests.OutsideToNodePort())
 }

@@ -19,7 +19,7 @@ import (
 )
 
 func (e mapStateEntry) withLabels(lbls labels.LabelArrayList) mapStateEntry {
-	e.derivedFromRules = makeRuleOrigin(lbls)
+	e.derivedFromRules = makeRuleOrigin(lbls, nil)
 	return e
 }
 
@@ -743,6 +743,58 @@ func TestMapState_insertWithChanges(t *testing.T) {
 			},
 			wantDeletes: Keys{},
 			wantOld:     mapStateMap{},
+		},
+		{
+			name: "test-17 - Added entry for wildcarded port for the specified protocol",
+			ms:   testMapState(t, mapStateMap{}),
+			args: args{
+				key:   ingressKey(1, 2, 0, 0),
+				entry: AllowEntry,
+			},
+			want: testMapState(t, mapStateMap{
+				ingressKey(1, 2, 0, 0): allowEntry,
+			}),
+			wantAdds: Keys{
+				ingressKey(1, 2, 0, 0): struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld:     mapStateMap{},
+		},
+		{
+			name: "test-18 - Wildcard port entry should not overwrite deny entry",
+			ms: testMapState(t, mapStateMap{
+				ingressKey(1, 2, 0, 0): denyEntry,
+			}),
+			args: args{
+				key:   ingressKey(1, 2, 0, 0),
+				entry: AllowEntry,
+			},
+			want: testMapState(t, mapStateMap{
+				ingressKey(1, 2, 0, 0): denyEntry,
+			}),
+			wantAdds:    Keys{},
+			wantDeletes: Keys{},
+			wantOld:     mapStateMap{},
+		},
+		{
+			name: "test-18 - Deny entry overwrites allow wildcard port entry",
+			ms: testMapState(t, mapStateMap{
+				ingressKey(1, 2, 0, 0): allowEntry,
+			}),
+			args: args{
+				key:   ingressKey(1, 2, 0, 0),
+				entry: DenyEntry,
+			},
+			want: testMapState(t, mapStateMap{
+				ingressKey(1, 2, 0, 0): denyEntry,
+			}),
+			wantAdds: Keys{
+				ingressKey(1, 2, 0, 0): struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld: mapStateMap{
+				ingressKey(1, 2, 0, 0): allowEntry,
+			},
 		},
 	}
 	for _, tt := range tests {

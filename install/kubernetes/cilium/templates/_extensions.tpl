@@ -4,6 +4,33 @@ to modify or extend the default chart behaviors.
 */}}
 
 {{/*
+Allow packagers to add extra volumes to cilium-agent.
+*/}}
+{{- define "cilium-agent.volumes.extra" }}
+{{- end }}
+
+{{- define "cilium-agent.volumeMounts.extra" }}
+{{- end }}
+
+{{/*
+Allow packagers to set dnsPolicy for cilium-agent.
+*/}}
+{{- define "cilium-agent.dnsPolicy" }}
+{{- if .Values.dnsPolicy }}
+dnsPolicy: {{ .Values.dnsPolicy }}
+{{- end }}
+{{- end }}
+
+{{/*
+Allow packagers to add extra volumes to cilium-operator.
+*/}}
+{{- define "cilium-operator.volumes.extra" }}
+{{- end }}
+
+{{- define "cilium-operator.volumeMounts.extra" }}
+{{- end }}
+
+{{/*
 Intentionally empty to allow downstream chart packagers to add extra
 containers to hubble-relay without having to modify the deployment manifest
 directly.
@@ -53,4 +80,16 @@ grpc
 Allow packagers to add extra configuration to certgen.
 */}}
 {{- define "certgen.config.extra" -}}
+{{- end }}
+
+{{/*
+Allow packagers to add extra arguments to the clustermesh-apiserver apiserver container.
+*/}}
+{{- define "clustermesh.apiserver.args.extra" -}}
+{{- end }}
+
+{{/*
+Allow packagers to add extra arguments to the clustermesh-apiserver kvstoremesh container.
+*/}}
+{{- define "clustermesh.kvstoremesh.args.extra" -}}
 {{- end }}

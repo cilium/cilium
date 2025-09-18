@@ -8,6 +8,25 @@
 #include "lib/overloadable.h"
 
 #include "encap.h"
+#include "eps.h"
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct egress_gw_policy_key);
+	__type(value, struct egress_gw_policy_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_egress_gw_policy_v4 __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct egress_gw_policy_key6);
+	__type(value, struct egress_gw_policy_entry6);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_egress_gw_policy_v6 __section_maps_btf;
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 
@@ -38,51 +57,33 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 				      __u32 egress_ifindex, __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {};
-	int oif = 0;
+	__u32 oif;
 	int ret;
 
-	/* Immediate redirect to egress_ifindex requires L2 resolution.
-	 * Fall back to FIB lookup on older kernels.
-	 */
-	if (egress_ifindex && neigh_resolver_available())
+	if (egress_ifindex)
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
 
 	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
-		break;
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		/* Don't redirect if we can't update the L2 DMAC: */
-		if (!neigh_resolver_available())
-			return CTX_ACT_OK;
-
-		/* Don't redirect without a valid target ifindex: */
-		if (!is_defined(HAVE_FIB_IFINDEX))
-			return CTX_ACT_OK;
 		break;
 	default:
 		*ext_err = (__s8)ret;
 		return DROP_NO_FIB;
 	}
 
+	oif = fib_params.l.ifindex;
+
 	/* Skip redirect in to-netdev if we stay on the same iface: */
-	if (is_defined(IS_BPF_HOST) && fib_params.l.ifindex == ctx_get_ifindex(ctx))
+	if (is_defined(IS_BPF_HOST) && oif == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, false, ret, &oif, ext_err);
+	return fib_do_redirect(ctx, true, &fib_params, false, ret, oif, ext_err);
 }
 
 # ifdef ENABLE_EGRESS_GATEWAY
-struct {
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
-	__type(key, struct egress_gw_policy_key);
-	__type(value, struct egress_gw_policy_entry);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_egress_gw_policy_v4 __section_maps_btf;
-
 static __always_inline
 struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 {
@@ -213,10 +214,10 @@ bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoi
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (!info || info->tunnel_endpoint == 0)
+		if (!info || !info->flag_has_tunnel_ep)
 			return false;
 
-		*tunnel_endpoint = info->tunnel_endpoint;
+		*tunnel_endpoint = info->tunnel_endpoint.ip4;
 		*dst_sec_identity = info->sec_identity;
 
 		return true;
@@ -231,6 +232,7 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 			    __u32 src_sec_identity, __u32 dst_sec_identity,
 			    const struct trace_ctx *trace)
 {
+	struct remote_endpoint_info fake_info = {0};
 	struct endpoint_info *gateway_node_ep;
 	__be32 gateway_ip = 0;
 	int ret;
@@ -259,22 +261,15 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 		return CTX_ACT_OK;
 
 	/* Send the packet to egress gateway node through a tunnel. */
-	return __encap_and_redirect_with_nodeid(ctx, gateway_ip,
+	fake_info.tunnel_endpoint.ip4 = gateway_ip;
+	fake_info.flag_has_tunnel_ep = true;
+	return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 						src_sec_identity, dst_sec_identity,
-						NOT_VTEP_DST, trace);
+						NOT_VTEP_DST, trace, bpf_htons(ETH_P_IP));
 }
 
 #ifdef ENABLE_IPV6
 #ifdef ENABLE_EGRESS_GATEWAY
-struct {
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
-	__type(key, struct egress_gw_policy_key6);
-	__type(value, struct egress_gw_policy_entry6);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_egress_gw_policy_v6 __section_maps_btf;
-
 static __always_inline
 struct egress_gw_policy_entry6 *lookup_ip6_egress_gw_policy(const union v6addr *saddr,
 							    const union v6addr *daddr)
@@ -398,10 +393,10 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 					 __u32 egress_ifindex, __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {};
-	int oif = 0;
+	__u32 oif;
 	int ret;
 
-	if (egress_ifindex && neigh_resolver_available())
+	if (egress_ifindex)
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
 
 	ret = (__s8)fib_lookup_v6(ctx, &fib_params,
@@ -410,39 +405,33 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
-		break;
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		if (!neigh_resolver_available())
-			return CTX_ACT_OK;
-		if (!is_defined(HAVE_FIB_IFINDEX))
-			return CTX_ACT_OK;
 		break;
 	default:
 		*ext_err = (__s8)ret;
 		return DROP_NO_FIB;
 	}
 
-	if (is_defined(IS_BPF_HOST) &&
-	    fib_params.l.ifindex == ctx_get_ifindex(ctx))
+	oif = fib_params.l.ifindex;
+
+	if (is_defined(IS_BPF_HOST) && oif == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, false, ret, &oif, ext_err);
+	return fib_do_redirect(ctx, true, &fib_params, false, ret, oif, ext_err);
 }
 
 static __always_inline
-bool egress_gw_reply_needs_redirect_hook_v6(struct ipv6hdr *ip6, __u32 *tunnel_endpoint,
-					    __u32 *dst_sec_identity)
+bool egress_gw_reply_needs_redirect_hook_v6(struct ipv6hdr *ip6,
+					    struct remote_endpoint_info **info)
 {
 	if (egress_gw_reply_matches_policy_v6(ip6)) {
-		struct remote_endpoint_info *info;
+		struct remote_endpoint_info *egw_info;
 
-		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		if (!info || info->tunnel_endpoint == 0)
+		egw_info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
+		if (!egw_info || egw_info->tunnel_endpoint.ip4 == 0)
 			return false;
 
-		*tunnel_endpoint = info->tunnel_endpoint;
-		*dst_sec_identity = info->sec_identity;
-
+		*info = egw_info;
 		return true;
 	}
 
@@ -455,6 +444,7 @@ int egress_gw_handle_packet_v6(struct __ctx_buff *ctx,
 			       __u32 src_sec_identity, __u32 dst_sec_identity,
 			       const struct trace_ctx *trace)
 {
+	struct remote_endpoint_info fake_info = {0};
 	struct endpoint_info *gateway_node_ep;
 	__be32 gateway_ip = 0;
 	int ret;
@@ -483,8 +473,11 @@ int egress_gw_handle_packet_v6(struct __ctx_buff *ctx,
 		return CTX_ACT_OK;
 
 	/* Send the packet to egress gateway node through a tunnel. */
-	return __encap_and_redirect_with_nodeid(ctx, gateway_ip, src_sec_identity,
-						dst_sec_identity, NOT_VTEP_DST, trace);
+	fake_info.tunnel_endpoint.ip4 = gateway_ip;
+	fake_info.flag_has_tunnel_ep = true;
+	return __encap_and_redirect_with_nodeid(ctx, &fake_info, src_sec_identity,
+						dst_sec_identity, NOT_VTEP_DST, trace,
+						bpf_htons(ETH_P_IPV6));
 }
 #endif /* ENABLE_IPV6 */
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */

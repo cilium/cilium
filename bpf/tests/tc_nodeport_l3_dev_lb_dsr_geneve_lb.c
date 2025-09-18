@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -16,8 +15,6 @@
 #define DSR_ENCAP_GENEVE	3
 #define DSR_ENCAP_MODE		DSR_ENCAP_GENEVE
 #define ENCAP_IFINDEX		42
-
-#define DISABLE_LOOPBACK_LB	1
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_IPV6		{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
@@ -50,8 +47,6 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 }
 
 #include <bpf_host.c>
-
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"

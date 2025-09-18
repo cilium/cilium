@@ -1,0 +1,54 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: tlsroutes-only
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - allowedRoutes:
+        kinds:
+          - kind: TLSRoute
+        namespaces:
+          from: Same
+      name: tls
+      port: 443
+      protocol: TLS
+      tls:
+        mode: Passthrough
+status:
+  conditions:
+    - lastTransitionTime: "2025-07-01T14:19:43Z"
+      message: Gateway successfully scheduled
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Gateway waiting for address
+      reason: AddressNotAssigned
+      status: "False"
+      type: Programmed
+  listeners:
+    - attachedRoutes: 0
+      conditions:
+        - lastTransitionTime: "2025-07-01T14:29:32Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2025-07-01T14:29:32Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:29:32Z"
+          message: Address not ready yet
+          reason: Pending
+          status: "False"
+          type: Programmed
+      name: tls
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: TLSRoute

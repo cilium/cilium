@@ -24,18 +24,41 @@ import (
 
 const (
 	// controllerName is the gateway controller name used in cilium.
-	controllerName            = "io.cilium/gateway-controller"
-	backendServiceIndex       = "backendServiceIndex"
-	backendServiceImportIndex = "backendServiceImportIndex"
-	gatewayIndex              = "gatewayIndex"
-	gammaBackendServiceIndex  = "gammaBackendServiceIndex"
-	gammaListenerServiceIndex = "gammaListenerServiceIndex"
+	controllerName = "io.cilium/gateway-controller"
+
+	// Indexes HTTPRoutes by all the backend Services referenced in the object.
+	backendServiceHTTPRouteIndex = "backendServiceHTTPRouteIndex"
+
+	// Indexes HTTPRoutes by all the backend ServiceImports referenced in the object.
+	backendServiceImportHTTPRouteIndex = "backendServiceImportHTTPRouteIndex"
+
+	// Indexes HTTPRoutes by all the Gateway parents referenced in the object.
+	gatewayHTTPRouteIndex = "gatewayHTTPRouteIndex"
+
+	// Indexes Gateways and records if the Gateway is relevant for Cilium.
+	implementationGatewayIndex = "implementationGatewayIndex"
+
+	// Indexes TLSRoutes by all the backend Services referenced in the object.
+	backendServiceTLSRouteIndex = "backendServiceTLSRouteIndex"
+
+	// Indexes TLSRoutes by all the Gateway parents referenced in the object.
+	gatewayTLSRouteIndex = "gatewayTLSRouteIndex"
+
+	// Indexes GRPCRoutes by all the backend Services referenced in the object.
+	backendServiceGRPCRouteIndex = "backendServiceGRPCRouteIndex"
+
+	// Indexes GRPCRoutes by all the Gateway parents referenced in the object.
+	gatewayGRPCRouteIndex = "gatewayGRPCRouteIndex"
+
+	// Indexes GAMMA HTTPRoutes by all the GAMMA parents of that HTTPRoute.
+	// This is then be used by the Service reconciler to only retrieve any HTTPRoutes that have that specific
+	// Service as a parent.
+	gammaParentRefsIndex = "gammaParentRefs"
 )
 
 func hasMatchingController(ctx context.Context, c client.Client, controllerName string, logger *slog.Logger) func(object client.Object) bool {
 	return func(obj client.Object) bool {
 		scopedLog := logger.With(
-			logfields.Controller, gateway,
 			logfields.Resource, obj.GetName(),
 		)
 		gw, ok := obj.(*gatewayv1.Gateway)
@@ -46,7 +69,7 @@ func hasMatchingController(ctx context.Context, c client.Client, controllerName 
 		gwc := &gatewayv1.GatewayClass{}
 		key := types.NamespacedName{Name: string(gw.Spec.GatewayClassName)}
 		if err := c.Get(ctx, key, gwc); err != nil {
-			scopedLog.Error("Unable to get GatewayClass", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Unable to get GatewayClass", logfields.Error, err)
 			return false
 		}
 
@@ -56,13 +79,12 @@ func hasMatchingController(ctx context.Context, c client.Client, controllerName 
 
 func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Object, logger *slog.Logger) []*gatewayv1.Gateway {
 	scopedLog := logger.With(
-		logfields.Controller, gateway,
 		logfields.Resource, obj.GetName(),
 	)
 
 	gwList := &gatewayv1.GatewayList{}
 	if err := c.List(ctx, gwList); err != nil {
-		scopedLog.Warn("Unable to list Gateways", logfields.Error, err)
+		scopedLog.WarnContext(ctx, "Unable to list Gateways", logfields.Error, err)
 		return nil
 	}
 
@@ -89,13 +111,12 @@ func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Objec
 
 func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Object, logger *slog.Logger) []types.NamespacedName {
 	scopedLog := logger.With(
-		logfields.Controller, gateway,
 		logfields.K8sNamespace, ns.GetName(),
 	)
 
 	gwList := &gatewayv1.GatewayList{}
 	if err := c.List(ctx, gwList); err != nil {
-		scopedLog.Warn("Unable to list Gateways", logfields.Error, err)
+		scopedLog.WarnContext(ctx, "Unable to list Gateways", logfields.Error, err)
 		return nil
 	}
 
@@ -123,7 +144,7 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 				nsList := &corev1.NamespaceList{}
 				err := c.List(ctx, nsList, client.MatchingLabels(l.AllowedRoutes.Namespaces.Selector.MatchLabels))
 				if err != nil {
-					scopedLog.Warn("Unable to list Namespaces", logfields.Error, err)
+					scopedLog.WarnContext(ctx, "Unable to list Namespaces", logfields.Error, err)
 					return nil
 				}
 				for _, item := range nsList.Items {

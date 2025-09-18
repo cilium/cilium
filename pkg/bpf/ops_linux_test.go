@@ -16,12 +16,11 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -31,6 +30,18 @@ type TestObject struct {
 	Value  TestValue
 	Status reconciler.Status
 }
+
+// TableHeader implements statedb.TableWritable.
+func (o *TestObject) TableHeader() []string {
+	return nil
+}
+
+// TableRow implements statedb.TableWritable.
+func (o *TestObject) TableRow() []string {
+	return nil
+}
+
+var _ statedb.TableWritable = &TestObject{}
 
 func (o *TestObject) BinaryKey() encoding.BinaryMarshaler {
 	return StructBinaryMarshaler{&o.Key}
@@ -42,7 +53,7 @@ func (o *TestObject) BinaryValue() encoding.BinaryMarshaler {
 
 var emptySeq iter.Seq2[*TestObject, statedb.Revision] = func(yield func(*TestObject, uint64) bool) {}
 
-func Test_MapOps(t *testing.T) {
+func TestPrivilegedMapOps(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	testMap := NewMap("cilium_ops_test",
@@ -50,7 +61,7 @@ func Test_MapOps(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
+		unix.BPF_F_NO_PREALLOC,
 	)
 
 	err := testMap.OpenOrCreate()
@@ -62,17 +73,17 @@ func Test_MapOps(t *testing.T) {
 	obj := &TestObject{Key: TestKey{1}, Value: TestValue{2}}
 
 	// Test Update() and Delete()
-	err = ops.Update(ctx, nil, obj)
+	err = ops.Update(ctx, nil, 0, obj)
 	assert.NoError(t, err, "Update")
 
-	err = ops.Update(ctx, nil, obj)
+	err = ops.Update(ctx, nil, 0, obj)
 	assert.NoError(t, err, "Update")
 
 	v, err := testMap.Lookup(&TestKey{1})
 	assert.NoError(t, err, "Lookup")
 	assert.Equal(t, v.(*TestValue).Value, obj.Value.Value)
 
-	err = ops.Delete(ctx, nil, obj)
+	err = ops.Delete(ctx, nil, 0, obj)
 	assert.NoError(t, err, "Delete")
 
 	_, err = testMap.Lookup(&TestKey{1})
@@ -97,7 +108,7 @@ func Test_MapOps(t *testing.T) {
 	assert.Empty(t, data)
 }
 
-func Test_MapOpsPrune(t *testing.T) {
+func TestPrivilegedMapOpsPrune(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	// This tests pruning with an LPM trie. This ensures we do not regress, as
@@ -109,7 +120,7 @@ func Test_MapOpsPrune(t *testing.T) {
 		&TestLPMKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
+		unix.BPF_F_NO_PREALLOC,
 	)
 	err := testMap.OpenOrCreate()
 	require.NoError(t, err, "OpenOrCreate")
@@ -139,7 +150,7 @@ func Test_MapOpsPrune(t *testing.T) {
 
 // Test_MapOps_ReconcilerExample serves as a testable example for the map ops.
 // This is not an "Example*" function as it can only run privileged.
-func Test_MapOps_ReconcilerExample(t *testing.T) {
+func TestPrivilegedMapOps_ReconcilerExample(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	exampleMap := NewMap("example",
@@ -147,7 +158,7 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
+		unix.BPF_F_NO_PREALLOC,
 	)
 	err := exampleMap.OpenOrCreate()
 	require.NoError(t, err)
@@ -162,30 +173,30 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 		FromKey: index.Uint32,
 		Unique:  true,
 	}
-	table, err := statedb.NewTable("example", keyIndex)
-	require.NoError(t, err, "NewTable")
 
 	// Create the map operations and the reconciler configuration.
 	ops := NewMapOps[*TestObject](exampleMap)
 
-	// Silence the hive log output.
-	oldLogLevel := logging.DefaultLogger.GetLevel()
-	logging.SetLogLevel(logrus.ErrorLevel)
-	t.Cleanup(func() {
-		logging.SetLogLevel(oldLogLevel)
-	})
-
 	// Setup and start a hive to run the reconciler.
-	var db *statedb.DB
+	var (
+		db    *statedb.DB
+		table statedb.RWTable[*TestObject]
+	)
 	h := hive.New(
 		cell.Module(
 			"example",
 			"Example",
 
+			cell.Provide(
+				func(db *statedb.DB) (statedb.RWTable[*TestObject], error) {
+					return statedb.NewTable(db, "example", keyIndex)
+				},
+			),
+
 			cell.Invoke(
-				func(db_ *statedb.DB) error {
+				func(db_ *statedb.DB, table_ statedb.RWTable[*TestObject]) {
 					db = db_
-					return db.RegisterTable(table)
+					table = table_
 				},
 			),
 			cell.Invoke(

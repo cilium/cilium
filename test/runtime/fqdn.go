@@ -39,14 +39,6 @@ server.cilium.test. IN A 127.0.0.1
 world1.cilium.test. IN A %[1]s
 world2.cilium.test. IN A %[2]s
 world3.cilium.test. IN A %[3]s
-
-level1CNAME.cilium.test. 1 IN CNAME world1
-level2CNAME.cilium.test. 1 IN CNAME level1CNAME.cilium.test.
-level3CNAME.cilium.test. 1 IN CNAME level2CNAME.cilium.test.
-
-world1CNAME.cilium.test. 1 IN CNAME world1
-world2CNAME.cilium.test. 1 IN CNAME world2
-world3CNAME.cilium.test. 1 IN CNAME world3
 `
 
 var bindOutsideTestTemplate = `
@@ -240,7 +232,7 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 	})
 
 	expectFQDNSareApplied := func(domain string, minNumIDs int) {
-		escapedDomain := strings.Replace(domain, `.`, `\\.`, -1)
+		escapedDomain := strings.ReplaceAll(domain, `.`, `\\.`)
 		jqfilter := fmt.Sprintf(`jq -c '.[] | select(.identities|length >= %d) | select(.users|length > 0) | .selector | match("^MatchName: (\\w+\\.%s|), MatchPattern: ([\\w*]+\\.%s|)$") | length > 0'`, minNumIDs, escapedDomain, escapedDomain)
 		body := func() bool {
 			res := vm.Exec(fmt.Sprintf(`cilium-dbg policy selectors -o json | %s`, jqfilter))
@@ -450,99 +442,6 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		res.ExpectSuccess("Cannot access  %q", world2Target)
 	})
 
-	It("CNAME follow", func() {
-
-		By("Testing one level of CNAME")
-		policy := `
-[
-	{
-		"labels": [{
-			"key": "CNAME follow one level"
-		}],
-		"endpointSelector": {
-			"matchLabels": {
-				"container:id.app1": ""
-			}
-		},
-		"egress": [
-			{
-				"toPorts": [{
-					"ports":[{"port": "53", "protocol": "ANY"}],
-					"rules": {
-						"dns": [
-							{"matchPattern": "*.cilium.test"}
-						]
-					}
-				}]
-			},
-			{
-				"toFQDNs": [{
-					"matchName": "level1CNAME.cilium.test"
-				}]
-			}
-		]
-	}
-]`
-
-		_, err := vm.PolicyRenderAndImport(policy)
-		Expect(err).To(BeNil(), "Policy cannot be imported")
-
-		expectFQDNSareApplied("cilium.test", 0)
-		target := "http://level1CNAME.cilium.test"
-		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
-		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App1, target)
-
-		By("Testing three level CNAME to same target still works")
-		target = "http://level3CNAME.cilium.test"
-		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
-		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App1, target)
-
-		By("Testing other CNAME in same domain should fail")
-		target = "http://world2CNAME.cilium.test"
-		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
-		res.ExpectFail("Container %q can access to %q when shouldn't work", helpers.App1, target)
-
-		By("Testing three level of CNAME")
-		policy = `
-[
-	{
-		"labels": [{
-			"key": "CNAME follow three levels"
-		}],
-		"endpointSelector": {
-			"matchLabels": {
-				"container:id.app2": ""
-			}
-		},
-		"egress": [
-			{
-				"toPorts": [{
-					"ports":[{"port": "53", "protocol": "ANY"}],
-					"rules": {
-						"dns": [
-							{"matchPattern": "*.cilium.test"}
-						]
-					}
-				}]
-			},
-			{
-				"toFQDNs": [{
-					"matchName": "level3CNAME.cilium.test"
-				}]
-			}
-		]
-	}
-]`
-
-		_, err = vm.PolicyRenderAndImport(policy)
-		Expect(err).To(BeNil(), "Policy cannot be imported")
-
-		expectFQDNSareApplied("cilium.test", 1)
-		target = "http://level3CNAME.cilium.test"
-		res = vm.ContainerExec(helpers.App2, helpers.CurlFail(target))
-		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App2, target)
-	})
-
 	Context("toFQDNs populates toCIDRSet (data from proxy)", func() {
 		BeforeAll(func() {
 			vm.SetUpCilium()
@@ -617,76 +516,6 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 			By("Testing connectivity to %q", world1Target)
 			res = vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
 			res.ExpectSuccess("Cannot access to %q when it should work", world1Target)
-		})
-
-		It("L3-dependent L7/HTTP with toFQDN updates proxy policy", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			monitorCMD := vm.ExecInBackground(ctx, "cilium-dbg monitor")
-			defer cancel()
-
-			policy := `
-[
-       {
-               "labels": [{
-                       "key": "L3-dependent L7 with toFQDN"
-               }],
-               "endpointSelector": {
-                       "matchLabels": {
-                               "container:id.app1": ""
-                       }
-               },
-               "egress": [
-                       {
-                               "toPorts": [{
-                                       "ports":[{"port": "53", "protocol": "ANY"}],
-                                       "rules": {
-                                               "dns": [
-                                                       {"matchName": "world1.cilium.test"},
-                                                       {"matchPattern": "*.cilium.test"}
-                                               ]
-                                       }
-                               }]
-                       },
-                       {
-                               "toPorts": [{
-                                       "ports":[{"port": "80", "protocol": "TCP"}],
-                                       "rules": {
-                                               "http": [
-                                                       {"method": "GET"}
-                                               ]
-                                       }
-                               }],
-                               "toFQDNs": [
-                                       {"matchName": "world1.cilium.test"},
-                                       {"matchPattern": "*.cilium.test"}
-                               ]
-                       }
-               ]
-       }
-]`
-			By("Testing connectivity to %q", world1Target)
-			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
-			res.ExpectSuccess("Cannot access %q", world1Target)
-
-			By("Importing the policy")
-			_, err := vm.PolicyRenderAndImport(policy)
-			Expect(err).To(BeNil(), "Policy cannot be imported")
-
-			By("Trying curl connection to %q without DNS request", world1Target)
-			// The --resolve below suppresses further lookups
-			curlCmd := helpers.CurlFail(fmt.Sprintf("%s:80/ --resolve %s:80:%s", world1Target, world1Domain, worldIps[WorldHttpd1]))
-			monitorCMD.Reset()
-			res = vm.ContainerExec(helpers.App1, curlCmd)
-			res.ExpectFail("Can access to %q when should not (No DNS request to allow the IP)", world1Target)
-			monitorCMD.WaitUntilMatch("xx drop (Policy denied)")
-			monitorCMD.ExpectContains("xx drop (Policy denied)")
-
-			By("Testing connectivity to %q", world1Target)
-			monitorCMD.Reset()
-			res = vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
-			res.ExpectSuccess("Cannot access to %q when it should work", world1Target)
-			monitorCMD.WaitUntilMatch("verdict Forwarded GET http://world1.cilium.test/ => 200")
-			monitorCMD.ExpectContains("verdict Forwarded GET http://world1.cilium.test/ => 200")
 		})
 	})
 

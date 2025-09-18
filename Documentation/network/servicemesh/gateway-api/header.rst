@@ -25,6 +25,7 @@ To add a header to a HTTP request, use a filter of the type ``RequestHeaderModif
 You can find an example Gateway and HTTPRoute definition in ``request-header.yaml``:
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/request-header.yaml
+     :language: yaml
 
 This example adds a header named ``my-header-name`` with the ``my-header-value`` value.
 

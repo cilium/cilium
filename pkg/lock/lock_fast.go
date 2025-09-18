@@ -6,6 +6,7 @@
 package lock
 
 import (
+	"log/slog"
 	"sync"
 )
 
@@ -23,4 +24,7 @@ type internalMutex struct {
 
 func (i *internalMutex) UnlockIgnoreTime() {
 	i.Mutex.Unlock()
+}
+
+func SetLogger(*slog.Logger) {
 }

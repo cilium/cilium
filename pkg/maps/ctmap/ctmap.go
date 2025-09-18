@@ -8,22 +8,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"net/netip"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/cilium/ebpf"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
@@ -35,8 +32,6 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ct")
-
 	// labelIPv6CTDumpInterrupts marks the count for conntrack dump resets (IPv6).
 	labelIPv6CTDumpInterrupts = map[string]string{
 		metrics.LabelDatapathArea:   "conntrack",
@@ -125,8 +120,8 @@ type CtMapRecord struct {
 
 // InitMapInfo builds the information about different CT maps for the
 // combination of L3/L4 protocols.
-func InitMapInfo(v4, v6, nodeport bool) {
-	global4Map, global6Map := nat.GlobalMaps(v4, v6, nodeport)
+func InitMapInfo(registry *metrics.Registry, v4, v6, natRequired bool) {
+	global4Map, global6Map := nat.GlobalMaps(registry, v4, v6, natRequired)
 	global4MapLock := &lock.Mutex{}
 	global6MapLock := &lock.Mutex{}
 
@@ -309,7 +304,7 @@ func newMap(mapName string, m mapType) *Map {
 			m.value(),
 			m.maxEntries(),
 			0,
-		).WithPressureMetric(),
+		),
 		mapType: m,
 	}
 	return result
@@ -317,7 +312,7 @@ func newMap(mapName string, m mapType) *Map {
 
 // doGCForFamily iterates through a CTv6 map and drops entries based on the given
 // filter.
-func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 bool) gcStats {
+func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 bool, logResults bool) gcStats {
 	family := nat.IPv4
 	if ipv6 {
 		family = nat.IPv6
@@ -337,13 +332,13 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 		// per-cluster map handling
 		natm, err := nat.GetClusterNATMap(m.clusterID, family)
 		if err != nil {
-			log.WithError(err).Error("Unable to get per-cluster NAT map")
+			m.Logger.Error("Unable to get per-cluster NAT map", logfields.Error, err)
 		} else {
 			natMap = natm
 		}
 	}
 
-	stats := statStartGc(m)
+	stats := statStartGc(m, logResults)
 	defer stats.finish()
 
 	if natMap != nil {
@@ -384,7 +379,7 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 }
 
 func purgeCtEntry(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
-	err := m.Delete(key)
+	err := m.DeleteLocked(key)
 	if err != nil {
 		return err
 	}
@@ -405,16 +400,7 @@ func purgeCtEntry(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(
 	return nil
 }
 
-var batchAPISupported = sync.OnceValue(func() bool {
-	return !errors.Is(probes.HaveBatchAPI(), probes.ErrNotSupported)
-})
-
 func iterate[KT any, VT any, KP bpf.KeyPointer[KT], VP bpf.ValuePointer[VT]](m *Map, stats *gcStats, filterCallback func(key bpf.MapKey, value bpf.MapValue)) error {
-	// Note: We can drop this once the minimum supported kernel version has batch iteration (i.e. >=5.6).
-	if !batchAPISupported() {
-		return m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
-	}
-
 	ctx := context.Background()
 	iter := bpf.NewBatchIterator[KT, VT, KP, VP](&m.Map)
 	for k, v := range iter.IterateAll(ctx) {
@@ -462,12 +448,17 @@ func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func
 		case deleteEntry:
 			err := purgeCtEntry(m, ctKey, entry, natMap, next, countFailedFn)
 			if err != nil {
-				log := log.WithField(logfields.Key, ctKey.ToHost().String())
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
-					log.Debug("key is missing, likely due to lru eviction - skipping")
+					m.Logger.Debug("key is missing, likely due to lru eviction - skipping",
+						logfields.Error, err,
+						logfields.Key, ctKey.ToHost(),
+					)
 					stats.skipped++
 				} else {
-					log.WithError(err).Error("Unable to delete CT entry")
+					m.Logger.Error("key is missing, likely due to lru eviction - skipping",
+						logfields.Error, err,
+						logfields.Key, ctKey.ToHost(),
+					)
 				}
 			} else {
 				stats.deleted++
@@ -499,8 +490,8 @@ func (f GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, 
 	return noAction
 }
 
-func doGC(m *Map, filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
-	stats := doGCForFamily(m, filter, next4, next6, m.mapType.isIPv6())
+func doGC(m *Map, filter GCFilter, next4, next6 func(GCEvent), logResults bool) (int, error) {
+	stats := doGCForFamily(m, filter, next4, next6, m.mapType.isIPv6(), logResults)
 	return int(stats.deleted), stats.dumpError
 }
 
@@ -512,7 +503,7 @@ func GC(m *Map, filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
 		filter.Time = uint32(t)
 	}
 
-	return doGC(m, filter, next4, next6)
+	return doGC(m, filter, next4, next6, false)
 }
 
 // PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
@@ -539,7 +530,7 @@ func GC(m *Map, filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
 //
 // In all 4 cases we create a CT_EGRESS CT entry. This allows the
 // CT GC to remove corresponding SNAT entries.
-// See the unit test TestOrphanNatGC for more examples.
+// See the unit test TestPrivilegedOrphanNatGC for more examples.
 func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap
@@ -559,6 +550,8 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	}
 	stats := newNatGCStats(natMap, family)
 	defer stats.finish()
+	egressEntriesToDelete := make([]nat.NatKey, 0)
+	ingressEntriesToDelete := make([]nat.NatKey, 0)
 
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
 		natKey := key.(nat.NatKey)
@@ -574,9 +567,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 
 			if !ctEntryExist(ctMap, ctKey, nil) {
 				// No egress CT entry is found, delete the orphan ingress SNAT entry
-				if deleted, _ := natMap.Delete(natKey); deleted {
-					stats.IngressDeleted++
-				}
+				ingressEntriesToDelete = append(ingressEntriesToDelete, natKey)
 			} else {
 				stats.IngressAlive++
 			}
@@ -591,9 +582,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 			if !ctEntryExist(ctMap, egressCTKey, nil) &&
 				!ctEntryExist(ctMap, dsrCTKey, checkDsr) {
 				// No relevant CT entries were found, delete the orphan egress NAT entry
-				if deleted, _ := natMap.Delete(natKey); deleted {
-					stats.EgressDeleted++
-				}
+				egressEntriesToDelete = append(egressEntriesToDelete, natKey)
 			} else {
 				stats.EgressAlive++
 			}
@@ -601,8 +590,18 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	}
 
 	if err := natMap.DumpReliablyWithCallback(cb, stats.DumpStats); err != nil {
-		log.WithError(err).Error("NATmap dump failed during GC")
+		natMap.Logger.Error("NATmap dump failed during GC", logfields.Error, err)
 	} else {
+		for _, key := range egressEntriesToDelete {
+			if deleted, _ := natMap.Delete(key); deleted {
+				stats.EgressDeleted++
+			}
+		}
+		for _, key := range ingressEntriesToDelete {
+			if deleted, _ := natMap.Delete(key); deleted {
+				stats.IngressDeleted++
+			}
+		}
 		natMap.UpdatePressureMetricWithSize(int32(stats.IngressAlive + stats.EgressAlive))
 	}
 
@@ -615,7 +614,7 @@ func (m *Map) Flush(next4, next6 func(GCEvent)) int {
 	d, _ := doGC(m, GCFilter{
 		RemoveExpired: true,
 		Time:          MaxTime,
-	}, next4, next6)
+	}, next4, next6, false)
 
 	return d
 }
@@ -642,22 +641,24 @@ func DeleteIfUpgradeNeeded() {
 	for _, newMap := range maps(true, true) {
 		path, err := newMap.Path()
 		if err != nil {
-			log.WithError(err).Warning("Failed to get path for CT map")
+			newMap.Logger.Warn("Failed to get path for CT map", logfields.Error, err)
 			continue
 		}
-		scopedLog := log.WithField(logfields.Path, path)
 
 		// Pass nil key and value types since we're not intending on accessing the
 		// map's contents.
 		oldMap, err := bpf.OpenMap(path, nil, nil)
 		if err != nil {
-			scopedLog.WithError(err).Debug("Couldn't open CT map for upgrade")
+			newMap.Logger.Debug("Couldn't open CT map for upgrade",
+				logfields.Error, err,
+				logfields.Path, path,
+			)
 			continue
 		}
 		defer oldMap.Close()
 
 		if oldMap.CheckAndUpgrade(&newMap.Map) {
-			scopedLog.Warning("CT Map upgraded, expect brief disruption of ongoing connections")
+			newMap.Logger.Warn("CT Map upgraded, expect brief disruption of ongoing connections", logfields.Path, path)
 		}
 	}
 }
@@ -719,16 +720,16 @@ func Exists(ipv4, ipv6 bool) bool {
 	return result
 }
 
-var cachedGCInterval time.Duration
-
 // GetInterval returns the interval adjusted based on the deletion ratio of the
-// last run
-func GetInterval(actualPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
+// last run.
+//   - actualPrevInterval 	= actual time elapsed since last GC.
+//   - expectedPrevInterval 	= Is the last computed interval, which we expected to
+//     wait *unless* a signal caused early pass. If this is set to zero then we use gc starting interval.
+func GetInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
 	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
 		return val
 	}
 
-	expectedPrevInterval := cachedGCInterval
 	adjustedDeleteRatio := maxDeleteRatio
 	if expectedPrevInterval == time.Duration(0) {
 		expectedPrevInterval = defaults.ConntrackGCStartingInterval
@@ -742,19 +743,25 @@ func GetInterval(actualPrevInterval time.Duration, maxDeleteRatio float64) time.
 	}
 
 	if newInterval != expectedPrevInterval {
-		log.WithFields(logrus.Fields{
-			"expectedPrevInterval": expectedPrevInterval,
-			"actualPrevInterval":   actualPrevInterval,
-			"newInterval":          newInterval,
-			"deleteRatio":          maxDeleteRatio,
-			"adjustedDeleteRatio":  adjustedDeleteRatio,
-		}).Info("Conntrack garbage collector interval recalculated")
+		logger.Info(
+			"Conntrack garbage collector interval recalculated",
+			logfields.ExpectedPrevInterval, expectedPrevInterval,
+			logfields.ActualPrevInterval, actualPrevInterval,
+			logfields.NewInterval, newInterval,
+			logfields.DeleteRatio, maxDeleteRatio,
+			logfields.AdjustedDeleteRatio, adjustedDeleteRatio,
+		)
 	}
 
 	metrics.ConntrackInterval.WithLabelValues("global").Set(newInterval.Seconds())
 
 	return newInterval
 }
+
+var (
+	MinGCInterval      = defaults.ConntrackGCMinInterval
+	GCIntervalRounding = time.Second
+)
 
 func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
 	interval = prevInterval
@@ -769,17 +776,14 @@ func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (inte
 			maxDeleteRatio = 0.9
 		}
 		// 25%..90% => 1.3x..10x shorter
-		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(time.Second), defaults.ConntrackGCMinInterval)
-
+		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(GCIntervalRounding), MinGCInterval)
 	case maxDeleteRatio < 0.05:
 		// When less than 5% of entries were deleted, increase the
 		// interval. Use a simple 1.5x multiplier to start growing slowly
 		// as a new node may not be seeing workloads yet and thus the
 		// scan will return a low deletion ratio at first.
-		interval = min(time.Duration(float64(interval)*1.5).Round(time.Second), defaults.ConntrackGCMaxLRUInterval)
+		interval = min(time.Duration(float64(interval)*1.5).Round(GCIntervalRounding), defaults.ConntrackGCMaxLRUInterval)
 	}
-
-	cachedGCInterval = interval
 
 	return
 }
@@ -788,8 +792,11 @@ const ctmapPressureInterval = 30 * time.Second
 
 // CalculateCTMapPressure is a controller that calculates the BPF CT map
 // pressure and pubishes it as part of the BPF map pressure metric.
-func CalculateCTMapPressure(mgr *controller.Manager, allMaps ...*Map) {
+func CalculateCTMapPressure(mgr *controller.Manager, registry *metrics.Registry, allMaps ...*Map) {
 	ctx, cancel := context.WithCancelCause(context.Background())
+	for _, m := range allMaps {
+		m.WithPressureMetric(registry)
+	}
 	mgr.UpdateController("ct-map-pressure", controller.ControllerParams{
 		Group: controller.Group{
 			Name: "ct-map-pressure",
@@ -799,12 +806,17 @@ func CalculateCTMapPressure(mgr *controller.Manager, allMaps ...*Map) {
 			for _, m := range allMaps {
 				path, err := OpenCTMap(m)
 				if err != nil {
-					msg := "Skipping CT map pressure calculation"
-					scopedLog := log.WithError(err).WithField(logfields.Path, path)
+					const msg = "Skipping CT map pressure calculation"
 					if os.IsNotExist(err) {
-						scopedLog.Debug(msg)
+						m.Logger.Debug(msg,
+							logfields.Error, err,
+							logfields.Path, path,
+						)
 					} else {
-						scopedLog.Warn(msg)
+						m.Logger.Warn(msg,
+							logfields.Error, err,
+							logfields.Path, path,
+						)
 					}
 					continue
 				}

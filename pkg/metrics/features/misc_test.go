@@ -10,15 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
 )
 
 func TestLRPConfig(t *testing.T) {
 	type args struct {
-		lrpConfig redirectpolicy.LRPConfig
+		lrpID loadbalancer.ServiceName
 	}
 	type metrics struct {
 		npLRPConfigIngested float64
@@ -34,7 +32,7 @@ func TestLRPConfig(t *testing.T) {
 		{
 			name: "LRP Config",
 			args: args{
-				lrpConfig: redirectpolicy.LRPConfig{},
+				lrpID: loadbalancer.ServiceName{},
 			},
 			want: wanted{
 				wantMetrics: metrics{
@@ -47,12 +45,12 @@ func TestLRPConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			metrics := NewMetrics(true)
-			metrics.AddLRPConfig(&tt.args.lrpConfig)
+			metrics.AddLRPConfig(tt.args.lrpID)
 
 			assert.Equalf(t, tt.want.wantMetrics.npLRPConfigIngested, metrics.NPLRPIngested.WithLabelValues(actionAdd).Get(), "NPLRPIngested different")
 			assert.Equalf(t, float64(0), metrics.NPLRPIngested.WithLabelValues(actionDel).Get(), "NPLRPIngested different")
 
-			metrics.DelLRPConfig(&tt.args.lrpConfig)
+			metrics.DelLRPConfig(tt.args.lrpID)
 
 			assert.Equalf(t, tt.want.wantMetrics.npLRPConfigIngested, metrics.NPLRPIngested.WithLabelValues(actionAdd).Get(), "NPLRPIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npLRPConfigIngested, metrics.NPLRPIngested.WithLabelValues(actionDel).Get(), "NPLRPIngested different")
@@ -63,7 +61,7 @@ func TestLRPConfig(t *testing.T) {
 
 func TestInternalTrafficPolicy(t *testing.T) {
 	type args struct {
-		svc k8s.Service
+		svc loadbalancer.Service
 	}
 	type metrics struct {
 		aclbInternalTrafficPolicyIngested float64
@@ -79,7 +77,7 @@ func TestInternalTrafficPolicy(t *testing.T) {
 		{
 			name: "InternalTrafficPolicy",
 			args: args{
-				svc: k8s.Service{
+				svc: loadbalancer.Service{
 					IntTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
 				},
 			},
@@ -139,12 +137,12 @@ func TestCiliumEnvoyConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			metrics := NewMetrics(true)
-			metrics.AddCEC(&tt.args.cec)
+			metrics.AddCEC()
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumEnvoyConfigIngested, metrics.ACLBCiliumEnvoyConfigIngested.WithLabelValues(actionAdd).Get(), "ACLBCiliumEnvoyConfigIngested different")
 			assert.Equalf(t, float64(0), metrics.ACLBCiliumEnvoyConfigIngested.WithLabelValues(actionDel).Get(), "ACLBCiliumEnvoyConfigIngested different")
 
-			metrics.DelCEC(&tt.args.cec)
+			metrics.DelCEC()
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumEnvoyConfigIngested, metrics.ACLBCiliumEnvoyConfigIngested.WithLabelValues(actionAdd).Get(), "ACLBCiliumEnvoyConfigIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumEnvoyConfigIngested, metrics.ACLBCiliumEnvoyConfigIngested.WithLabelValues(actionDel).Get(), "ACLBCiliumEnvoyConfigIngested different")
@@ -184,12 +182,12 @@ func TestCiliumClusterwideEnvoyConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			metrics := NewMetrics(true)
-			metrics.AddCCEC(&tt.args.cec)
+			metrics.AddCCEC()
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumClusterwideEnvoyConfigIngested, metrics.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionAdd).Get(), "ACLBCiliumClusterwideEnvoyConfigIngested different")
 			assert.Equalf(t, float64(0), metrics.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionDel).Get(), "ACLBCiliumClusterwideEnvoyConfigIngested different")
 
-			metrics.DelCCEC(&tt.args.cec)
+			metrics.DelCCEC()
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumClusterwideEnvoyConfigIngested, metrics.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionAdd).Get(), "ACLBCiliumClusterwideEnvoyConfigIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumClusterwideEnvoyConfigIngested, metrics.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionDel).Get(), "ACLBCiliumClusterwideEnvoyConfigIngested different")

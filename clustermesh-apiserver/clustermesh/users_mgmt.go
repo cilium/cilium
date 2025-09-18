@@ -12,14 +12,13 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/fswatcher"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/promise"
 )
 
 const (
@@ -30,7 +29,8 @@ var usersManagementCell = cell.Module(
 	"clustermesh-users-management",
 	"ClusterMesh Etcd Users Management",
 
-	kvstore.GlobalUserMgmtClientPromiseCell,
+	cell.ProvidePrivate(func(client kvstore.Client) kvstore.BackendOperationsUserMgmt { return client }),
+
 	cell.Config(UsersManagementConfig{}),
 	cell.Invoke(registerUsersManager),
 )
@@ -60,8 +60,7 @@ type usersManager struct {
 	UsersManagementConfig
 	clusterInfo cmtypes.ClusterInfo
 
-	client        kvstore.BackendOperationsUserMgmt
-	clientPromise promise.Promise[kvstore.BackendOperationsUserMgmt]
+	client kvstore.BackendOperationsUserMgmt
 
 	manager *controller.Manager
 	users   map[string]string
@@ -75,7 +74,7 @@ func registerUsersManager(
 	lc cell.Lifecycle,
 	cfg UsersManagementConfig,
 	cinfo cmtypes.ClusterInfo,
-	clientPromise promise.Promise[kvstore.BackendOperationsUserMgmt],
+	client kvstore.BackendOperationsUserMgmt,
 	logger *slog.Logger,
 ) error {
 	if !cfg.ClusterUsersEnabled {
@@ -85,7 +84,7 @@ func registerUsersManager(
 
 	manager := usersManager{
 		UsersManagementConfig: cfg,
-		clientPromise:         clientPromise,
+		client:                client,
 
 		manager: controller.NewManager(),
 		users:   make(map[string]string),
@@ -105,7 +104,7 @@ func (us *usersManager) Start(cell.HookContext) error {
 		logfields.Path, us.ClusterUsersConfigPath,
 	)
 
-	configWatcher, err := fswatcher.New([]string{us.ClusterUsersConfigPath})
+	configWatcher, err := fswatcher.New(us.logger, []string{us.ClusterUsersConfigPath})
 	if err != nil {
 		us.logger.Error("Unable to setup config watcher", logfields.Error, err)
 		return fmt.Errorf("unable to setup config watcher: %w", err)
@@ -155,15 +154,6 @@ func (us *usersManager) Stop(cell.HookContext) error {
 }
 
 func (us *usersManager) sync(ctx context.Context) error {
-	if us.client == nil {
-		client, err := us.clientPromise.Await(ctx)
-		if err != nil {
-			us.logger.Error("Unable to retrieve the kvstore client", logfields.Error, err)
-			return err
-		}
-		us.client = client
-	}
-
 	config, err := os.ReadFile(us.ClusterUsersConfigPath)
 	if err != nil {
 		us.logger.Error(

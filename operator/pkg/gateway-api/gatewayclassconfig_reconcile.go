@@ -20,11 +20,10 @@ import (
 
 func (r *gatewayClassConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (reconcile.Result, error) {
 	scopedLog := r.logger.With(
-		logfields.Controller, "gatewayclassconfig",
 		logfields.Resource, req.NamespacedName,
 	)
 
-	scopedLog.Info("Reconciling GatewayClassConfig")
+	scopedLog.InfoContext(ctx, "Reconciling GatewayClassConfig")
 	original := &v2alpha1.CiliumGatewayClassConfig{}
 	if err := r.Client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -34,7 +33,7 @@ func (r *gatewayClassConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 	gwcc := original.DeepCopy()
 
-	//TODO: Add validations if required for the GatewayClassConfig, especially with Cilium configuration
+	// TODO: Add validations if required for the GatewayClassConfig, especially with Cilium configuration
 	setGatewayClassConfigAccepted(gwcc, true)
 
 	if err := r.ensureStatus(ctx, gwcc, original); err != nil {
@@ -42,7 +41,7 @@ func (r *gatewayClassConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return controllerruntime.Fail(err)
 	}
 
-	scopedLog.Info("Successfully reconciled GatewayClass")
+	scopedLog.InfoContext(ctx, "Successfully reconciled GatewayClass")
 	return controllerruntime.Success()
 }
 

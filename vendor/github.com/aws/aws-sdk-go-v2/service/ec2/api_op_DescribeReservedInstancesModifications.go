@@ -56,6 +56,9 @@ type DescribeReservedInstancesModificationsInput struct {
 	//   - modification-result.target-configuration.availability-zone - The
 	//   Availability Zone for the new Reserved Instances.
 	//
+	//   - modification-result.target-configuration.availability-zone-id - The ID of
+	//   the Availability Zone for the new Reserved Instances.
+	//
 	//   - modification-result.target-configuration.instance-count - The number of new
 	//   Reserved Instances.
 	//
@@ -182,6 +185,36 @@ func (c *Client) addOperationDescribeReservedInstancesModificationsMiddlewares(s
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

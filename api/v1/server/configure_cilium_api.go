@@ -17,6 +17,7 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 
 	"github.com/cilium/cilium/api/v1/server/restapi"
+	"github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
@@ -24,7 +25,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/logging"
 	ciliumMetrics "github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -52,6 +52,11 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 
 	api.JSONProducer = runtime.JSONProducer()
 
+	if api.EndpointDeleteEndpointHandler == nil {
+		api.EndpointDeleteEndpointHandler = endpoint.DeleteEndpointHandlerFunc(func(params endpoint.DeleteEndpointParams) middleware.Responder {
+			return middleware.NotImplemented("operation endpoint.DeleteEndpoint has not yet been implemented")
+		})
+	}
 	if api.EndpointDeleteEndpointIDHandler == nil {
 		api.EndpointDeleteEndpointIDHandler = endpoint.DeleteEndpointIDHandlerFunc(func(params endpoint.DeleteEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation endpoint.DeleteEndpointID has not yet been implemented")
@@ -77,9 +82,24 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 			return middleware.NotImplemented("operation prefilter.DeletePrefilter has not yet been implemented")
 		})
 	}
-	if api.ServiceDeleteServiceIDHandler == nil {
-		api.ServiceDeleteServiceIDHandler = service.DeleteServiceIDHandlerFunc(func(params service.DeleteServiceIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation service.DeleteServiceID has not yet been implemented")
+	if api.BgpGetBgpPeersHandler == nil {
+		api.BgpGetBgpPeersHandler = bgp.GetBgpPeersHandlerFunc(func(params bgp.GetBgpPeersParams) middleware.Responder {
+			return middleware.NotImplemented("operation bgp.GetBgpPeers has not yet been implemented")
+		})
+	}
+	if api.BgpGetBgpRoutePoliciesHandler == nil {
+		api.BgpGetBgpRoutePoliciesHandler = bgp.GetBgpRoutePoliciesHandlerFunc(func(params bgp.GetBgpRoutePoliciesParams) middleware.Responder {
+			return middleware.NotImplemented("operation bgp.GetBgpRoutePolicies has not yet been implemented")
+		})
+	}
+	if api.BgpGetBgpRoutesHandler == nil {
+		api.BgpGetBgpRoutesHandler = bgp.GetBgpRoutesHandlerFunc(func(params bgp.GetBgpRoutesParams) middleware.Responder {
+			return middleware.NotImplemented("operation bgp.GetBgpRoutes has not yet been implemented")
+		})
+	}
+	if api.DaemonGetCgroupDumpMetadataHandler == nil {
+		api.DaemonGetCgroupDumpMetadataHandler = daemon.GetCgroupDumpMetadataHandlerFunc(func(params daemon.GetCgroupDumpMetadataParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.GetCgroupDumpMetadata has not yet been implemented")
 		})
 	}
 	if api.DaemonGetClusterNodesHandler == nil {
@@ -167,6 +187,11 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 			return middleware.NotImplemented("operation policy.GetIdentityID has not yet been implemented")
 		})
 	}
+	if api.ServiceGetLrpHandler == nil {
+		api.ServiceGetLrpHandler = service.GetLrpHandlerFunc(func(params service.GetLrpParams) middleware.Responder {
+			return middleware.NotImplemented("operation service.GetLrp has not yet been implemented")
+		})
+	}
 	if api.DaemonGetMapHandler == nil {
 		api.DaemonGetMapHandler = daemon.GetMapHandlerFunc(func(params daemon.GetMapParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetMap has not yet been implemented")
@@ -175,6 +200,16 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 	if api.DaemonGetMapNameHandler == nil {
 		api.DaemonGetMapNameHandler = daemon.GetMapNameHandlerFunc(func(params daemon.GetMapNameParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetMapName has not yet been implemented")
+		})
+	}
+	if api.DaemonGetMapNameEventsHandler == nil {
+		api.DaemonGetMapNameEventsHandler = daemon.GetMapNameEventsHandlerFunc(func(params daemon.GetMapNameEventsParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.GetMapNameEvents has not yet been implemented")
+		})
+	}
+	if api.DaemonGetNodeIdsHandler == nil {
+		api.DaemonGetNodeIdsHandler = daemon.GetNodeIdsHandlerFunc(func(params daemon.GetNodeIdsParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.GetNodeIds has not yet been implemented")
 		})
 	}
 	if api.PolicyGetPolicyHandler == nil {
@@ -195,11 +230,6 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 	if api.ServiceGetServiceHandler == nil {
 		api.ServiceGetServiceHandler = service.GetServiceHandlerFunc(func(params service.GetServiceParams) middleware.Responder {
 			return middleware.NotImplemented("operation service.GetService has not yet been implemented")
-		})
-	}
-	if api.ServiceGetServiceIDHandler == nil {
-		api.ServiceGetServiceIDHandler = service.GetServiceIDHandlerFunc(func(params service.GetServiceIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation service.GetServiceID has not yet been implemented")
 		})
 	}
 	if api.DaemonPatchConfigHandler == nil {
@@ -247,16 +277,11 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 			return middleware.NotImplemented("operation policy.PutPolicy has not yet been implemented")
 		})
 	}
-	if api.ServicePutServiceIDHandler == nil {
-		api.ServicePutServiceIDHandler = service.PutServiceIDHandlerFunc(func(params service.PutServiceIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation service.PutServiceID has not yet been implemented")
-		})
-	}
 
 	api.PreServerShutdown = func() {}
 
 	api.ServerShutdown = func() {
-		logging.DefaultLogger.Debug("canceling server context")
+		logger.Debug("canceling server context")
 		serverCancel()
 	}
 
@@ -276,7 +301,7 @@ var (
 // As soon as server is initialized but not run yet, this function will be called.
 // If you need to modify a config, store server instance to stop it individually later, this is the place.
 // This function can be called multiple times, depending on the number of serving schemes.
-// scheme value will be set accordingly: "http", "https" or "unix"
+// scheme value will be set accordingly: "http", "https" or "unix".
 func configureServer(s *http.Server, scheme, addr string) {
 	s.BaseContext = func(_ net.Listener) context.Context {
 		return ServerCtx
@@ -284,13 +309,13 @@ func configureServer(s *http.Server, scheme, addr string) {
 }
 
 // The middleware configuration is for the handler executors. These do not apply to the swagger.json document.
-// The middleware executes after routing but before authentication, binding and validation
+// The middleware executes after routing but before authentication, binding and validation.
 func setupMiddlewares(handler http.Handler) http.Handler {
 	return handler
 }
 
 // The middleware configuration happens before anything, this middleware also applies to serving the swagger.json document.
-// So this is a good place to plug in a panic handling middleware, logging and metrics
+// So this is a good place to plug in a panic handling middleware, logging and metrics.
 func setupGlobalMiddleware(logger *slog.Logger, handler http.Handler) http.Handler {
 	eventsHelper := &ciliumMetrics.APIEventTSHelper{
 		Next:      handler,

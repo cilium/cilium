@@ -16,3 +16,20 @@ __sock_cookie sock_local_cookie(struct bpf_sock_addr *ctx)
 #endif
 }
 
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct ipv4_revnat_tuple);
+	__type(value, struct ipv4_revnat_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, LB4_REVERSE_NAT_SK_MAP_SIZE);
+	__uint(map_flags, LRU_MEM_FLAVOR);
+} cilium_lb4_reverse_sk __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct ipv6_revnat_tuple);
+	__type(value, struct ipv6_revnat_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
+	__uint(map_flags, LRU_MEM_FLAVOR);
+} cilium_lb6_reverse_sk __section_maps_btf;

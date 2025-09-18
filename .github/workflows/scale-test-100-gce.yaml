@@ -26,6 +26,8 @@ on:
 #      - your_branch_name
 
 permissions:
+  # To be able to retrieve artifacts information
+  actions: read
   # To be able to access the repository with actions/checkout
   contents: read
   # To be able to request the JWT from GitHub's OIDC provider
@@ -56,13 +58,11 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.24.2
-  # Adding k8s.local to the end makes kops happy-
-  # has stricter DNS naming requirements.
+  go_version: 1.25.1
   test_name: scale-100
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 517.0.0
+  gcloud_version: 538.0.0
 
 jobs:
   echo-inputs:
@@ -85,12 +85,12 @@ jobs:
   install-and-scaletest:
     runs-on: ubuntu-24.04
     name: Install and Scale Test
-    timeout-minutes: 150
+    timeout-minutes: 300
     env:
       job_name: "Install and Scale Test"
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -107,60 +107,97 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
+          # Run test against specific commit SHA if provided
+          if [[ '${{ inputs.extra-args }}' =~ sha=([a-f0-9]+) ]]; then
+            SHA=${BASH_REMATCH[1]}
+          fi
+
+          # Retrieve the desired version from the arguments.
+          if [[ '${{ inputs.extra-args }}' =~ version=([-+.0-9a-z]+) ]]; then
+            VERSION=${BASH_REMATCH[1]}
+          else
+            VERSION=""
+          fi
+
+          # Retrive number of workload nodes from the arguments.
+          if [[ '${{ inputs.extra-args }}' =~ nodes=([0-9+]+) ]]; then
+            WORKLOAD_NODES=${BASH_REMATCH[1]}
+          else
+            WORKLOAD_NODES=100
+          fi
+
+          if [ "${WORKLOAD_NODES}" -gt 1000 ]; then
+            echo "WORKLOAD_NODES cannot be larger than 1000, got ${WORKLOAD_NODES}"
+            exit 1
+          fi
+
           # Adding k8s.local to the end makes kops happy
           # has stricter DNS naming requirements.
           CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
 
-          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --set pprof.enabled=true \
-            --helm-set=prometheus.enabled=true \
-            --helm-set=cluster.name=${{ env.cluster_name }} \
-            --helm-set=k8sServiceHost=api.internal.${CLUSTER_NAME} \
-            --helm-set=k8sServicePort=443 \
-            --helm-set=kubeProxyReplacement=true \
-            --helm-set=operator.replicas=1 \
+          CILIUM_INSTALL_DEFAULTS=" \
+            --set=pprof.enabled=true \
+            --set=prometheus.enabled=true \
+            --set=cluster.name=${{ env.cluster_name }} \
+            --set=k8sServiceHost=api.internal.${CLUSTER_NAME} \
+            --set=k8sServicePort=443 \
+            --set=kubeProxyReplacement=true \
+            --set=operator.replicas=1 \
+            --set=updateStrategy.rollingUpdate.maxUnavailable=100% \
+            --set=ipam.mode=\"cluster-pool\" \
+            --set=ipam.operator.clusterPoolIPv4PodCIDRList[0]=\"10.0.0.0/9\" \
             --wait=false"
 
-          # only add SHA to the image tags if it was set
-          if [ -n "${SHA}" ]; then
-            echo sha=${SHA} >> $GITHUB_OUTPUT
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-            --helm-set=image.useDigest=false \
-            --helm-set=image.tag=${SHA} \
-            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-            --helm-set=operator.image.suffix=-ci \
-            --helm-set=operator.image.tag=${SHA} \
-            --helm-set=operator.image.useDigest=false \
-            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
-            --helm-set=clustermesh.apiserver.image.tag=${SHA} \
-            --helm-set=clustermesh.apiserver.image.useDigest=false \
-            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-            --helm-set=hubble.relay.image.tag=${SHA} \
-            --helm-set=hubble.relay.image.useDigest=false"
+          # only add SHA to the image tags if VERSION is not set
+          if [ -z "${VERSION}" ]; then
+            CILIUM_INSTALL_DEFAULTS+=" --set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --set=image.useDigest=false \
+            --set=image.tag=${SHA} \
+            --set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --set=operator.image.suffix=-ci \
+            --set=operator.image.tag=${SHA} \
+            --set=operator.image.useDigest=false \
+            --set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
+            --set=clustermesh.apiserver.image.tag=${SHA} \
+            --set=clustermesh.apiserver.image.useDigest=false \
+            --set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --set=hubble.relay.image.tag=${SHA} \
+            --set=hubble.relay.image.useDigest=false"
           fi
 
           echo SHA=${SHA} >> $GITHUB_OUTPUT
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
+          echo VERSION=${VERSION} >> $GITHUB_OUTPUT
+          echo WORKLOAD_NODES=${WORKLOAD_NODES} >> $GITHUB_OUTPUT
 
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.SHA }} &> /dev/null; do sleep 45s; done
-          done
+      - name: Checkout pull request branch (NOT TRUSTED)
+        if: ${{ steps.vars.outputs.version == '' }} # We don't need to checkout the PR if it's released version
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Wait for images
+        if: ${{ steps.vars.outputs.version == '' }} # We don't need to wait for images if it's released version
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ steps.vars.outputs.SHA }}
+          images: cilium-ci operator-generic-ci hubble-relay-ci
 
       - name: Install Go
-        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version: ${{ env.go_version }}
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@bf86f0dd91b6d492e030845847f81869f8f93faf # main
+        uses: cilium/scale-tests-action/install-kops@082339e175a65c282c44c13bf875822e23911359 # main
 
       - name: Setup gcloud credentials
-        uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935 # v2.1.8
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PERF_SA }}
@@ -168,13 +205,13 @@ jobs:
           export_environment_variables: true
 
       - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a # v2.1.4
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
 
       - name: Clone ClusterLoader2
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: kubernetes/perf-tests
           # Avoid using renovate to update this dependency because: (1)
@@ -209,25 +246,29 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@bf86f0dd91b6d492e030845847f81869f8f93faf # main
+        uses: cilium/scale-tests-action/create-cluster@082339e175a65c282c44c13bf875822e23911359 # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n1-standard-8
-          control_plane_count: 1
-          node_size: e2-standard-8
+          control_plane_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 'n2-standard-8' || 'n2-standard-16' }}
+          control_plane_count: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 1 || 3 }}
+          node_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 'n2-standard-8' || 'n2-standard-16' }}
           node_count: 1
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          node_cidr: 10.255.0.0/16
           kube_proxy_enabled: false
+          sync_cloud_routes: false
+          etcd_volume_size: 250
+          max_in_flight: 200
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@bf86f0dd91b6d492e030845847f81869f8f93faf  # main
+        uses: cilium/scale-tests-action/setup-firewall@082339e175a65c282c44c13bf875822e23911359  # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@024e340cca1465e2a6336521f12370c7ca58c59a # v0.18.7
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -249,11 +290,16 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium_install_args="${{ steps.vars.outputs.cilium_install_defaults }}"
+          if [[ -z "${{ steps.vars.outputs.version }}" ]]; then
+            helm install -n kube-system cilium ./untrusted/install/kubernetes/cilium $cilium_install_args
+          else
+            helm repo add cilium https://helm.cilium.io/
+            helm install -n kube-system cilium cilium/cilium --version ${{ steps.vars.outputs.version }} $cilium_install_args
+          fi
 
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@bf86f0dd91b6d492e030845847f81869f8f93faf # main
+        uses: cilium/scale-tests-action/validate-cluster@082339e175a65c282c44c13bf875822e23911359 # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -267,7 +313,7 @@ jobs:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 12.0 || 24.0 }}
         timeout-minutes: 10
         run: |
           # Don't run any tasks at this point, just setup the monitoring stack
@@ -275,6 +321,7 @@ jobs:
             -v=2 \
             --testconfig=./testing/custom/common/setup.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
+            --nodes=${{ steps.vars.outputs.workload_nodes }} \
             --provider=gce \
             --enable-exec-service=false \
             --enable-prometheus-server \
@@ -283,38 +330,51 @@ jobs:
             2>&1 | tee cl2-setup.txt
 
       - name: Create Instance Group for workload deployments
-        uses: cilium/scale-tests-action/create-instance-group@bf86f0dd91b6d492e030845847f81869f8f93faf # main
+        uses: cilium/scale-tests-action/create-instance-group@082339e175a65c282c44c13bf875822e23911359 # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
-          node_count: 100
+          node_count: ${{ steps.vars.outputs.workload_nodes }}
           ig_name: workloads
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
-      - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@bf86f0dd91b6d492e030845847f81869f8f93faf # main
+      - name: Wait for workloads nodes to be ready
         timeout-minutes: 20
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-          interval: 10s
+        run: |
+          cnt=0
+
+          # Allow for a 2 per thousand toleration in the expected nodes count, to
+          # continue with the test even if a tiny fraction of the workers failed
+          # bootstrapping and joining the cluster.
+          desired=$(( ${{ steps.vars.outputs.WORKLOAD_NODES}} - ${{ steps.vars.outputs.WORKLOAD_NODES}} * 2 / 1000 ))
+
+          # A more idiomatic way would be using the kops.k8s.io/instancegroup=workloads
+          # label selector, but kops appears to be significantly slow at reconciling
+          # the labels to the node objects. Hence, let's just grep for the node names.
+          while [[ "$cnt" -lt "$desired" ]]; do
+            # shellcheck disable=SC2196
+            cnt=$(kubectl get nodes --no-headers | egrep -c 'workloads-[-a-z0-9]+\s+Ready\s' || true)
+            echo "workloads nodes count: $cnt"
+            sleep 10
+          done
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@bf86f0dd91b6d492e030845847f81869f8f93faf # main
+        uses: cilium/scale-tests-action/setup-firewall@082339e175a65c282c44c13bf875822e23911359 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           create_native_routing_firewall: 'false'
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait --interactive=false
+          kubectl rollout status -n kube-system ds/cilium
+          kubectl rollout status -n kube-system ds/cilium-envoy
 
       - name: Run CL2
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
         shell: bash
-        timeout-minutes: 40
+        timeout-minutes: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 60 || 180 }}
         env:
           CL2_ENABLE_PVS: "false"
           CL2_ENABLE_NETWORKPOLICIES: "true"
@@ -323,16 +383,21 @@ jobs:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 12.0 || 24.0 }}
+          CL2_PPROF_INTERVAL_SECONDS: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 60 || 300 }}
+          CL2_ENABLE_VIOLATIONS: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 'true' || 'false' }}
         run: |
           ./clusterloader \
             -v=2 \
-            --testconfig=./testing/load/config.yaml \
+            ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && '--testconfig=./testing/load/config.yaml' || '' }}  \
+            ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && '--testconfig=./testing/custom/common/restart.yaml' || '' }}  \
             --testconfig=./testing/custom/netpol/config.yaml \
+            --testconfig=./testing/custom/common/restart.yaml \
+            --testconfig=./testing/custom/servicechurn/config.yaml \
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=100 \
+            --nodes=${{ steps.vars.outputs.workload_nodes }} \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
@@ -342,58 +407,41 @@ jobs:
             --testoverrides=./modules.yaml \
             2>&1 | tee cl2-output.txt
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }}"
-
-      - name: Get sysdump
-        if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        run: |
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-final
-          sudo chmod +r cilium-sysdump-final.zip
-
-      - name: Upload sysdump
-        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdump
-          path: cilium-sysdump-final.zip
-          retention-days: 5
-
-      - name: Upload features tested
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: features-tested
-          path: ${{ env.job_name }}*.json
+          capture_sysdump: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && true || false }}
+          always_capture_sysdump: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && true || false }}
+          artifacts_suffix: "final"
+          job_status: "${{ job.status }}"
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: cilium/scale-tests-action/cleanup-cluster@bf86f0dd91b6d492e030845847f81869f8f93faf # main
+        uses: cilium/scale-tests-action/cleanup-cluster@082339e175a65c282c44c13bf875822e23911359 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@bf86f0dd91b6d492e030845847f81869f8f93faf # main
+        uses: cilium/scale-tests-action/export-results@082339e175a65c282c44c13bf875822e23911359 # main
         with:
           test_name: ${{ env.test_name }}
+          tested_version: ${{ steps.vars.outputs.version }}
+          tested_sha: ${{ steps.vars.outputs.sha }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
-          artifacts: ./perf-tests/clusterloader2/report/*
-          other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
+          artifacts: ./perf-tests/clusterloader2/report/
+          other_files: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && 'cilium-sysdump-final.zip' || '' }} ./perf-tests/clusterloader2/cl2-output.txt
 
-  commit-status-final:
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
-    name: Commit Status Final
     needs: install-and-scaletest
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.install-and-scaletest.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.install-and-scaletest.result }}

@@ -9,19 +9,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/hive/job"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_topk(t *testing.T) {
@@ -38,13 +37,13 @@ func Test_topk(t *testing.T) {
 	assert.Equal(t, []int{5, 6, 7, 8, 9}, out)
 }
 
-func Test_countNat(t *testing.T) {
+func TestPrivilegedCountNat(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	ip4Map := nat.NewMap("test_nat_map_ip4", nat.IPv4, 262144)
+	ip4Map := nat.NewMap(nil, "test_nat_map_ip4", nat.IPv4, 262144)
 	err := ip4Map.OpenOrCreate()
 	assert.NoError(t, err)
-	ip6Map := nat.NewMap("test_nat_map_ip6", nat.IPv6, 262144)
+	ip6Map := nat.NewMap(nil, "test_nat_map_ip6", nat.IPv6, 262144)
 	err = ip6Map.OpenOrCreate()
 	assert.NoError(t, err)
 	t.Cleanup(func() {
@@ -104,9 +103,7 @@ func Test_countNat(t *testing.T) {
 	ms := make(fakeMetrics)
 	h := hive.New(
 		cell.Provide(newTables),
-		cell.Provide(func(jg job.Registry) job.Group {
-			return jg.NewGroup(nil)
-		}),
+		cell.Provide(func() loadbalancer.Config { return loadbalancer.DefaultConfig }),
 		cell.Provide(func() (promise.Promise[nat.NatMap4], promise.Promise[nat.NatMap6], Config, natMetrics) {
 			r4, p4 := promise.New[nat.NatMap4]()
 			r6, p6 := promise.New[nat.NatMap6]()

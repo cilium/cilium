@@ -27,7 +27,7 @@ var bpfNatListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf nat list")
 		if len(args) == 0 {
 			ipv4, ipv6 := getIpEnableStatuses()
-			ipv4Map, ipv6Map := nat.GlobalMaps(ipv4, ipv6, true)
+			ipv4Map, ipv6Map := nat.GlobalMaps(nil, ipv4, ipv6, true)
 			globalMaps := make([]nat.NatMap, 2)
 			globalMaps[0] = ipv4Map
 			globalMaps[1] = ipv6Map

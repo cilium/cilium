@@ -9,32 +9,30 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log/slog"
 	"strconv"
-
-	"github.com/cilium/stream"
-
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/nat"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/tuple"
-	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
-)
+	"github.com/cilium/stream"
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "nat-stats")
+	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/tuple"
+	"github.com/cilium/cilium/pkg/u8proto"
+)
 
 // Stats provides a implementation of performing nat map stats
 // counting.
 type Stats struct {
+	logger *slog.Logger
+
 	metrics natMetrics
 
 	db    *statedb.DB
@@ -114,6 +112,8 @@ func (s NatMapStats) TableRow() []string {
 type params struct {
 	cell.In
 
+	Logger *slog.Logger
+
 	Lifecycle cell.Lifecycle
 	DB        *statedb.DB
 	Table     statedb.RWTable[NatMapStats]
@@ -122,18 +122,11 @@ type params struct {
 	Jobs      job.Group
 	Metrics   natMetrics
 	Config    Config
+	LBConfig  loadbalancer.Config
 	Health    cell.Health
 }
 
 func newStats(params params) (*Stats, error) {
-	if err := probes.HaveBatchAPI(); err != nil {
-		if errors.Is(err, probes.ErrNotSupported) {
-			log.WithError(err).Info("nat-stats is not supported")
-			return nil, nil
-		}
-		log.WithError(err).Error("could not probe for nat-stats feature")
-	}
-
 	if params.Config.NATMapStatInterval == 0 {
 		return nil, nil
 	}
@@ -146,11 +139,12 @@ func newStats(params params) (*Stats, error) {
 
 	// number of available source-ports is ephemeral range subtracting those
 	// used by node-ports.
-	maxAvailPorts := config.NodePortMaxNAT - (option.Config.NodePortMax + 1)
+	maxAvailPorts := config.NodePortMaxNAT - (params.LBConfig.NodePortMax + 1)
 	m := &Stats{
+		logger:   params.Logger,
 		metrics:  params.Metrics,
 		config:   params.Config,
-		maxPorts: maxAvailPorts,
+		maxPorts: int(maxAvailPorts),
 		db:       params.DB,
 		table:    params.Table,
 	}
@@ -166,13 +160,13 @@ func newStats(params params) (*Stats, error) {
 			defer cancel()
 			nmap4, err := params.NatMap4.Await(ctx)
 			if err != nil {
-				if !errors.Is(err, nat.MapDisabled) {
+				if !errors.Is(err, nat.ErrMapDisabled) {
 					return err
 				}
 			}
 			nmap6, err := params.NatMap6.Await(ctx)
 			if err != nil {
-				if !errors.Is(err, nat.MapDisabled) {
+				if !errors.Is(err, nat.ErrMapDisabled) {
 					return err
 				}
 			}
@@ -262,9 +256,10 @@ func (m *Stats) countNat(ctx context.Context) error {
 		})
 
 		if err != nil {
-			log.WithError(err).
-				Error("failed to count ipv4 nat map entries, " +
-					"this may result in out of date nat-stats data and nat_endpoint_ metrics")
+			m.logger.Error("failed to count ipv4 nat map entries, "+
+				"this may result in out of date nat-stats data and nat_endpoint_ metrics",
+				logfields.Error, err,
+			)
 			errs = errors.Join(errs, err)
 		} else {
 			m.next4(toIter(tupleToPortCount))
@@ -291,9 +286,10 @@ func (m *Stats) countNat(ctx context.Context) error {
 		})
 
 		if err != nil {
-			log.WithError(err).
-				Error("failed to count ipv6 nat map entries, " +
-					"this may result in out of date nat-stats data and nat_endpoint_ metrics")
+			m.logger.Error("failed to count ipv6 nat map entries, "+
+				"this may result in out of date nat-stats data and nat_endpoint_ metrics",
+				logfields.Error, err,
+			)
 			errs = errors.Join(errs, err)
 		} else {
 			m.next6(toIter(tupleToPortCount))

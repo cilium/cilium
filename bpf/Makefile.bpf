@@ -3,30 +3,12 @@
 
 FLAGS := -I$(ROOT_DIR)/bpf -I$(ROOT_DIR)/bpf/include -O2 -g
 
-CLANG_FLAGS := ${FLAGS} --target=bpf -std=gnu89 -nostdinc
-# eBPF verifier enforces unaligned access checks where necessary, so don't
-# let clang complain too early.
-CLANG_FLAGS += -Wall -Wextra -Werror -Wshadow
-CLANG_FLAGS += -Wno-address-of-packed-member
-CLANG_FLAGS += -Wno-unknown-warning-option
-CLANG_FLAGS += -Wno-gnu-variable-sized-type-not-at-end
-CLANG_FLAGS += -Wdeclaration-after-statement
-CLANG_FLAGS += -Wimplicit-int-conversion -Wenum-conversion
-CLANG_FLAGS += -Wimplicit-fallthrough
-# Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
-ifneq ($(KERNEL),54)
-CLANG_FLAGS += -mcpu=v3
-else
-CLANG_FLAGS += -mcpu=v2
-endif
+# Note, FLAGS needs to be defined before inclusion
+include $(ROOT_DIR)/bpf/Makefile.clang
 
 LIB := $(shell find $(ROOT_DIR)/bpf -name '*.h')
 BPF_C := $(patsubst %.o,%.c,$(BPF))
 BPF_ASM := $(patsubst %.o,%.s,$(BPF))
-
-CLANG      ?= clang
-HOST_CC    ?= gcc
-HOST_STRIP ?= strip
 
 ifeq ($(CROSS_ARCH),arm64)
   HOST_CC = aarch64-linux-gnu-gcc
@@ -54,7 +36,7 @@ force:
 # TODO: revert addition of ignore MACRO_ARG_REUSE below once cilium-checkpatch
 # image is updated to ignore it.
 #
-CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:40ae57b72ea430ab77b45fbed9a1cd4295838ef6@sha256:ccd20b54c779c4645e72dbb48bfcdacb9929cae5d334b0fa6d1ef996af64348f
+CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:1755701578-b97bd7a@sha256:f1332fa6edbbd40882a59ceae4a7843a4095bd62288363740e84b82708624c50
 ifneq ($(CHECKPATCH_DEBUG),)
   # Run script with "bash -x"
   CHECKPATCH_IMAGE_AND_ENTRY := \
@@ -70,7 +52,7 @@ checkpatch:
 		--workdir /workspace \
 		--volume $(CURDIR)/..:/workspace \
 		--user "$(shell id -u):$(shell id -g)" \
-		-e GITHUB_REF=$(GITHUB_REF) -e GITHUB_REPOSITORY=$(GITHUB_REPOSITORY) \
+		-e GITHUB_REF=$(GITHUB_REF) -e GITHUB_REPOSITORY=$(GITHUB_REPOSITORY) -e GITHUB_TOKEN=$(GITHUB_TOKEN) \
 		$(CHECKPATCH_IMAGE_AND_ENTRY) $(CHECKPATCH_ARGS)
 
 coccicheck:

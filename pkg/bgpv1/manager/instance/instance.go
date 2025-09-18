@@ -66,11 +66,19 @@ func NewServerWithConfig(ctx context.Context, log *slog.Logger, params types.Ser
 //
 // This is used in BGPv2 implementation.
 type BGPInstance struct {
-	Name      string
-	Global    types.BGPGlobal
-	CancelCtx context.CancelFunc
-	Config    *v2.CiliumBGPNodeInstance
-	Router    types.Router
+	Name                string
+	Global              types.BGPGlobal
+	CancelCtx           context.CancelFunc
+	Config              *v2.CiliumBGPNodeInstance
+	Router              types.Router
+	stateNotificationCh chan struct{}
+}
+
+func (i *BGPInstance) NotifyStateChange() {
+	select {
+	case i.stateNotificationCh <- struct{}{}:
+	default:
+	}
 }
 
 // NewBGPInstance will start an underlying BGP instance utilizing types.ServerParameters
@@ -90,10 +98,11 @@ func NewBGPInstance(ctx context.Context, log *slog.Logger, name string, params t
 	}
 
 	return &BGPInstance{
-		Name:      name,
-		Global:    params.Global,
-		CancelCtx: cancel,
-		Config:    nil,
-		Router:    s,
+		Name:                name,
+		Global:              params.Global,
+		CancelCtx:           cancel,
+		Config:              nil,
+		Router:              s,
+		stateNotificationCh: params.StateNotification,
 	}, nil
 }

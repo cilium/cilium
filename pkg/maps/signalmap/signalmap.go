@@ -5,6 +5,7 @@ package signalmap
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/cilium/ebpf"
@@ -37,14 +38,16 @@ func (v *Value) String() string    { return fmt.Sprintf("%d", v.ProgID) }
 func (v *Value) New() bpf.MapValue { return &Value{} }
 
 type signalMap struct {
+	logger     *slog.Logger
 	oldBpfMap  *bpf.Map
 	ebpfMap    *ebpf.Map
 	maxEntries int
 }
 
 // initMap creates the signal map in the kernel.
-func initMap(maxEntries int) *signalMap {
+func initMap(logger *slog.Logger, maxEntries int) *signalMap {
 	return &signalMap{
+		logger:     logger,
 		maxEntries: maxEntries,
 		oldBpfMap: bpf.NewMap(MapName,
 			ebpf.PerfEventArray,
@@ -60,7 +63,7 @@ func (sm *signalMap) open() error {
 	if err := sm.oldBpfMap.Create(); err != nil {
 		return err
 	}
-	path := bpf.MapPath(MapName)
+	path := bpf.MapPath(sm.logger, MapName)
 
 	var err error
 	sm.ebpfMap, err = ebpf.LoadPinnedMap(path, nil)

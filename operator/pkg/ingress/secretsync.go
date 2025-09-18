@@ -20,7 +20,6 @@ import (
 func EnqueueReferencedTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		scopedLog := logger.With(
-			logfields.Controller, "secrets",
 			logfields.Resource, obj.GetName(),
 		)
 
@@ -45,7 +44,7 @@ func EnqueueReferencedTLSSecrets(c client.Client, logger *slog.Logger) handler.E
 				Name:      tls.SecretName,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
-			scopedLog.Debug("Enqueued secret for Ingress", logfields.Secret, s)
+			scopedLog.DebugContext(ctx, "Enqueued secret for Ingress", logfields.Secret, s)
 		}
 		return reqs
 	})

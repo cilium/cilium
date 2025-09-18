@@ -4,6 +4,7 @@
 package synced
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -167,7 +168,7 @@ const syncedPollPeriod = 100 * time.Millisecond
 // WaitForCacheSyncWithTimeout waits for K8s resources represented by resourceNames to be synced.
 // For every resource type, if an event happens after starting the wait, the timeout will be pushed out
 // to be the time of the last event plus the timeout duration.
-func (r *Resources) WaitForCacheSyncWithTimeout(timeout time.Duration, resourceNames ...string) error {
+func (r *Resources) WaitForCacheSyncWithTimeout(ctx context.Context, timeout time.Duration, resourceNames ...string) error {
 	// Upon completion, release event map to reduce unnecessary memory usage.
 	// SetEventTimestamp calls to nil event time map are no-op.
 	// Running BlockWaitGroupToSyncResources will reinitialize the event map.
@@ -216,6 +217,9 @@ func (r *Resources) WaitForCacheSyncWithTimeout(timeout time.Duration, resourceN
 							"cache has synced, stopping timeout watcher",
 							logfields.Resource, resource,
 						)
+						return nil
+					case <-ctx.Done():
+						r.logger.Info("stop waiting for cache sync due to cancellation", logfields.Resource, resource)
 						return nil
 					}
 				}

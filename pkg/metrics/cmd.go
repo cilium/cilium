@@ -24,7 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/spf13/pflag"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -160,7 +160,7 @@ func plotCommand(dc *sampler) script.Cmd {
 				"Specify '-rate' to show the rate of change for a counter,",
 				"for example to plot how many bytes are allocated per minute:",
 				"",
-				"cilium> metrics/plot -rate go.*heap_alloc_bytes",
+				"cilium> metrics/plot --rate go.*heap_alloc_bytes",
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {

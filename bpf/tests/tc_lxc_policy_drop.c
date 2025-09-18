@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -22,7 +21,7 @@ static volatile const __u8 *server_mac = mac_two;
 
 #include "bpf_lxc.c"
 
-ASSIGN_CONFIG(__u32, endpoint_ipv4, v4_pod_one)
+ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one})
 
 #include "lib/policy.h"
 

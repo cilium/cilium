@@ -4,7 +4,6 @@
 package flow
 
 import (
-	"context"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -63,8 +62,8 @@ func TestFlowHandler(t *testing.T) {
 			Destination: &pb.Endpoint{Namespace: "bar"},
 			Verdict:     pb.Verdict_FORWARDED,
 		}
-		h.ProcessFlow(context.TODO(), flow0)
-		h.ProcessFlow(context.TODO(), flow1)
+		h.ProcessFlow(t.Context(), flow0)
+		h.ProcessFlow(t.Context(), flow1)
 
 		metricFamilies, err := registry.Gather()
 		require.NoError(t, err)
@@ -100,7 +99,7 @@ func TestFlowHandler(t *testing.T) {
 			Source: &pb.Endpoint{Namespace: "allowNs"},
 		}
 
-		h.ProcessFlow(context.TODO(), flow2)
+		h.ProcessFlow(t.Context(), flow2)
 
 		metricFamilies, err = registry.Gather()
 		require.NoError(t, err)
@@ -132,7 +131,7 @@ func TestFlowHandler(t *testing.T) {
 			Source:  &pb.Endpoint{Namespace: "allowNs"},
 		}
 
-		h.ProcessFlow(context.TODO(), flow3)
+		h.ProcessFlow(t.Context(), flow3)
 
 		metricFamilies, err = registry.Gather()
 		require.NoError(t, err)

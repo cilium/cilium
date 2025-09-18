@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"log/slog"
 	"slices"
 
@@ -66,14 +65,14 @@ func NewWatchedServerConfig(log *slog.Logger, caFiles []string, certFile, privke
 // themselves don't exist yet. both certFile and privkeyFile must be provided.
 // To configure a mTLS capable ServerConfigBuilder, caFiles must contains at
 // least one file path.
-func FutureWatchedServerConfig(log *slog.Logger, caFiles []string, certFile, privkeyFile string) (<-chan *WatchedServerConfig, error) {
+func FutureWatchedServerConfig(ctx context.Context, log *slog.Logger, caFiles []string, certFile, privkeyFile string) (<-chan *WatchedServerConfig, error) {
 	if certFile == "" {
 		return nil, ErrMissingCertFile
 	}
 	if privkeyFile == "" {
 		return nil, ErrMissingPrivkeyFile
 	}
-	ew, err := FutureWatcher(log, caFiles, certFile, privkeyFile)
+	ew, err := FutureWatcher(ctx, log, caFiles, certFile, privkeyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -130,13 +129,6 @@ func (c *WatchedServerConfig) ServerConfig(base *tls.Config) *tls.Config {
 				)
 			}
 			return tlsConfig, nil
-		},
-		// Same issue as https://github.com/golang/go/issues/29139 but for
-		// http.Server.ServeTLS.
-		// Can be removed after https://github.com/golang/go/pull/66795 is merged
-		// and included in a release.
-		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-			return nil, fmt.Errorf("all certificates configured via GetConfigForClient")
 		},
 		// NOTE: this MinVersion is not used as this tls.Config will be
 		// overridden by the one returned by GetConfigForClient. The effective

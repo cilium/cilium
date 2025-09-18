@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -14,12 +15,10 @@ import (
 )
 
 func init() {
-	InitMapInfo(true, true, true)
+	InitMapInfo(nil, true, true, true)
 }
 
 func TestCalculateInterval(t *testing.T) {
-	cachedGCInterval = time.Duration(0)
-
 	require.Equal(t, time.Minute, calculateInterval(time.Minute, 0.1))  // no change
 	require.Equal(t, time.Minute, calculateInterval(time.Minute, 0.2))  // no change
 	require.Equal(t, time.Minute, calculateInterval(time.Minute, 0.25)) // no change
@@ -36,24 +35,27 @@ func TestCalculateInterval(t *testing.T) {
 }
 
 func TestGetInterval(t *testing.T) {
-	cachedGCInterval = time.Minute
-	require.Equal(t, time.Minute, GetInterval(cachedGCInterval, 0.1))
+	actualLast := time.Minute
+	expectedLast := time.Minute
+	logger := hivetest.Logger(t)
+	interval := GetInterval(logger, actualLast, expectedLast, 0.1)
+	require.Equal(t, time.Minute, interval)
+	expectedLast = interval
 
-	// Setting ConntrackGCInterval overrides the calculation
-	oldInterval := option.Config.ConntrackGCInterval
 	option.Config.ConntrackGCInterval = 10 * time.Second
-	require.Equal(t, 10*time.Second, GetInterval(cachedGCInterval, 0.1))
-	option.Config.ConntrackGCInterval = oldInterval
-	require.Equal(t, time.Minute, GetInterval(cachedGCInterval, 0.1))
+	interval = GetInterval(logger, actualLast, expectedLast, 0.1)
+	require.Equal(t, 10*time.Second, interval)
+
+	option.Config.ConntrackGCInterval = 0 // back to default
+	interval = GetInterval(logger, actualLast, expectedLast, 0.1)
+	require.Equal(t, time.Minute, interval)
 
 	// Setting ConntrackGCMaxInterval limits the maximum interval
 	oldMaxInterval := option.Config.ConntrackGCMaxInterval
 	option.Config.ConntrackGCMaxInterval = 20 * time.Second
-	require.Equal(t, 20*time.Second, GetInterval(cachedGCInterval, 0.1))
+	require.Equal(t, 20*time.Second, GetInterval(logger, actualLast, expectedLast, 0.1))
 	option.Config.ConntrackGCMaxInterval = oldMaxInterval
-	require.Equal(t, time.Minute, GetInterval(cachedGCInterval, 0.1))
-
-	cachedGCInterval = time.Duration(0)
+	require.Equal(t, time.Minute, GetInterval(logger, actualLast, expectedLast, 0.1))
 }
 
 func TestFilterMapsByProto(t *testing.T) {

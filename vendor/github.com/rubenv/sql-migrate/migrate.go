@@ -700,13 +700,14 @@ func (ms MigrationSet) planMigrationCommon(db *sql.DB, dialect string, m Migrati
 		toApplyCount = max
 	}
 	for _, v := range toApply[0:toApplyCount] {
-		if dir == Up {
+		switch dir {
+		case Up:
 			result = append(result, &PlannedMigration{
 				Migration:          v,
 				Queries:            v.Up,
 				DisableTransaction: v.DisableTransactionUp,
 			})
-		} else if dir == Down {
+		case Down:
 			result = append(result, &PlannedMigration{
 				Migration:          v,
 				Queries:            v.Down,
@@ -779,14 +780,13 @@ func ToApply(migrations []*Migration, current string, direction MigrationDirecti
 		}
 	}
 
-	if direction == Up {
+	switch direction {
+	case Up:
 		return migrations[index+1:]
-	} else if direction == Down {
+	case Down:
 		if index == -1 {
 			return []*Migration{}
 		}
-
-		// Add in reverse order
 		toApply := make([]*Migration, index+1)
 		for i := 0; i < index+1; i++ {
 			toApply[index-i] = migrations[i]

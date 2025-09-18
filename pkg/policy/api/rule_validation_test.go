@@ -21,8 +21,6 @@ import (
 // are invalid if any protocol except TCP is used as a protocol for any port
 // in the list of PortProtocol supplied to the rule.
 func TestL7RulesWithNonTCPProtocols(t *testing.T) {
-	setUpSuite(t)
-
 	// Rule is valid because only ProtoTCP is allowed for L7 rules (except with ToFQDNs, below).
 	validPortRule := Rule{
 		EndpointSelector: WildcardEndpointSelector,
@@ -498,8 +496,6 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 
 // This test ensures that L7 rules reject unspecified ports.
 func TestL7RuleRejectsEmptyPort(t *testing.T) {
-	setUpSuite(t)
-
 	invalidL7PortRule := Rule{
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
@@ -528,8 +524,6 @@ func TestL7RuleRejectsEmptyPort(t *testing.T) {
 // This test ensures that PortRules using the HTTP protocol have valid regular
 // expressions for the method and path fields.
 func TestHTTPRuleRegexes(t *testing.T) {
-	setUpSuite(t)
-
 	invalidHTTPRegexPathRule := Rule{
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
@@ -583,7 +577,6 @@ func TestHTTPRuleRegexes(t *testing.T) {
 
 // Test the validation of CIDR rule prefix definitions
 func TestCIDRsanitize(t *testing.T) {
-	setUpSuite(t)
 	sel := &slim_metav1.LabelSelector{MatchLabels: map[string]string{"foo": "bar"}}
 
 	cidr := CIDRRule{}
@@ -635,8 +628,6 @@ func TestCIDRsanitize(t *testing.T) {
 }
 
 func TestToServicesSanitize(t *testing.T) {
-	setUpSuite(t)
-
 	svcLabels := map[string]string{
 		"app": "tested-service",
 	}
@@ -697,8 +688,6 @@ func TestToServicesSanitize(t *testing.T) {
 
 // This test ensures that PortRules using key-value pairs do not have empty keys
 func TestL7Rules(t *testing.T) {
-	setUpSuite(t)
-
 	validL7Rule := Rule{
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
@@ -809,8 +798,6 @@ func TestPortRangesNotAllowedWithDNSRules(t *testing.T) {
 
 // This test ensures that host policies with L7 rules (except for DNS egress) are rejected.
 func TestL7RulesWithNodeSelector(t *testing.T) {
-	setUpSuite(t)
-
 	toPortsHTTP := []PortRule{{
 		Ports: []PortProtocol{
 			{Port: "80", Protocol: ProtoTCP},
@@ -902,8 +889,6 @@ func TestL7RulesWithNodeSelector(t *testing.T) {
 }
 
 func TestInvalidEndpointSelectors(t *testing.T) {
-	setUpSuite(t)
-
 	// Operator in MatchExpressions is invalid, so sanitization should fail.
 	labelSel := &slim_metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -1041,9 +1026,7 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestNodeSelector(t *testing.T) {
-	setUpSuite(t)
-
+func TestPrivilegedNodeSelector(t *testing.T) {
 	// Operator in MatchExpressions is invalid, so sanitization should fail.
 	labelSel := &slim_metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -1082,8 +1065,6 @@ func TestNodeSelector(t *testing.T) {
 }
 
 func TestTooManyPortsRule(t *testing.T) {
-	setUpSuite(t)
-
 	var portProtocols []PortProtocol
 
 	for i := 80; i <= 80+maxPorts; i++ {
@@ -1126,9 +1107,51 @@ func TestTooManyPortsRule(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestTooManyICMPFields(t *testing.T) {
-	setUpSuite(t)
+func TestInvalidIPProtocolRules(t *testing.T) {
+	nonZeroPortRule1 := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				ToPorts: []PortRule{
+					{
+						Ports: []PortProtocol{
+							{
+								Port:     "1",
+								Protocol: ProtoVRRP,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 
+	err := nonZeroPortRule1.Sanitize()
+	require.Error(t, err)
+
+	nonZeroPortRule2 := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				ToPorts: []PortRule{
+					{
+						Ports: []PortProtocol{
+							{
+								Port:     "1",
+								Protocol: ProtoIGMP,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err = nonZeroPortRule2.Sanitize()
+	require.Error(t, err)
+}
+
+func TestTooManyICMPFields(t *testing.T) {
 	var fields []ICMPField
 
 	for i := 1; i <= 1+maxICMPFields; i++ {
@@ -1172,8 +1195,6 @@ func TestTooManyICMPFields(t *testing.T) {
 }
 
 func TestWrongICMPFieldFamily(t *testing.T) {
-	setUpSuite(t)
-
 	icmpType := intstr.FromInt(0)
 	wrongFamilyICMPRule := Rule{
 		EndpointSelector: WildcardEndpointSelector,
@@ -1215,8 +1236,6 @@ func TestWrongICMPFieldFamily(t *testing.T) {
 }
 
 func TestICMPRuleWithOtherRuleFailed(t *testing.T) {
-	setUpSuite(t)
-
 	icmpType := intstr.FromInt(8)
 
 	ingressICMPWithPort := Rule{
@@ -1318,8 +1337,6 @@ func TestICMPRuleWithOtherRuleFailed(t *testing.T) {
 // which ends up being a no-op with only vague error messages rather than a
 // clear indication that something is wrong in the policy.
 func TestL7RuleDirectionalitySupport(t *testing.T) {
-	setUpSuite(t)
-
 	// Kafka egress is now supported.
 	egressKafkaRule := Rule{
 		EndpointSelector: WildcardEndpointSelector,

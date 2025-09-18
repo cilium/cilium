@@ -116,6 +116,12 @@ Users (Alphabetically)
       U: Hubble for Visibility, Cilium as Mesh between Services
       L: https://www.ayedo.de/
 
+    * N: Batumbu
+      D: Batumbu uses Cilium as the CNI in all GKE clusters, using its cluster mesh feature to connect clusters within the same environment.
+      U: CNI, Cluster Mesh, Hubble, NetworkPolicy
+      Q: @gustysap
+      L: https://batumbu.id/
+
     * N: Back Market
       D: Back Market is using Cilium as CNI in all their clusters and environments (kOps + EKS in AWS)
       U: CNI, Network Policies, Transparent Encryption (WG), Hubble
@@ -184,6 +190,11 @@ Users (Alphabetically)
     * N: Cognite
       D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
       Q: @Robert Collins
+
+    * N: Confluent
+      D: Confluent is a data streaming platform to stream, connect, process, and govern data in real-time.
+      U: Networking, NetworkPolicy
+      L: https://www.confluent.io
 
     * N: CONNY
       D: CONNY is legaltech platform to improve access to justice for individuals
@@ -359,6 +370,11 @@ Users (Alphabetically)
       U: Networking, network policy, security, and network visibility
       L: https://gdatasoftware.com
       Q: @farodin91
+
+    * N: Guida
+      D: Guida is using Cilium with their Managed Kubernetes offering both in public and private cloud.
+      U: CNI, Network Policies, Observability
+      L: https://www.guida.nl
 
     * N: Guidewire Software, Inc.
       D: Guidewire Software, Inc. is using Cilium for the Guidewire Cloud Platform.
@@ -589,9 +605,20 @@ Users (Alphabetically)
       L: https://www.nutanix.com/products/kubernetes-management-platform
       Q: @tuxtof
 
+    * N: Outscale Kubernetes as a Service (OKS)
+      D: Cilium is the default Container Network Interface (CNI) used by OUTSCALE on all clusters provisioned through its Kubernetes offering, OKS.
+      U: CNI, Hubble, CiliumNetworkPolicy, kube-proxy replacement, eBPF 
+      L: https://fr.outscale.com/cloud-experience/outscale-kubernetes-as-a-service/
+
     * N: Overstock Inc.
       D: Overstock is using Cilium as the main CNI plugin on bare-metal clusters (self hosted k8s).
       U: Networking, network policy, hubble, observability
+
+    * N: OVHcloud
+      D: OVHcloud is using Cilium as the default CNI on their Managed Kubernetes Service (MKS) clusters offering with Premium plan.
+      U: CNI, network policies, visibility
+      L: https://www.ovhcloud.com/
+      Q: @scraly
 
     * N: Palantir Technologies Inc.
       D: Palantir is using Cilium as their main CNI plugin in all major cloud providers [AWS/Azure/GCP] (self hosted k8s).

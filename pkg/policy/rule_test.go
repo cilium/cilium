@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -1002,6 +1003,84 @@ func TestICMPPolicy(t *testing.T) {
 	td.policyMapEquals(t, expected, nil, &rule3)
 }
 
+func TestIPProtocolsWithNoTransportPorts(t *testing.T) {
+	old := option.Config.EnableExtendedIPProtocols
+	option.Config.EnableExtendedIPProtocols = true
+	t.Cleanup(func() {
+		option.Config.EnableExtendedIPProtocols = old
+	})
+	td := newTestData(hivetest.Logger(t))
+
+	rule1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{
+							{
+								Protocol: api.ProtoVRRP,
+							},
+							{
+								Protocol: api.ProtoIGMP,
+							},
+						},
+					},
+				},
+			},
+		},
+		Egress: []api.EgressRule{
+			{
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{
+							{
+								Protocol: api.ProtoVRRP,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	expectedIn := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		"0/vrrp": {
+			Port:     0,
+			Protocol: api.ProtoVRRP,
+			U8Proto:  u8proto.ProtoIDs["vrrp"],
+			Ingress:  true,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+		},
+		"0/igmp": {
+			Port:     0,
+			Protocol: api.ProtoIGMP,
+			U8Proto:  u8proto.ProtoIDs["igmp"],
+			Ingress:  true,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+		},
+	})
+
+	expectedOut := NewL4PolicyMapWithValues(map[string]*L4Filter{"0/egress": {
+		Port:     0,
+		Protocol: api.ProtoVRRP,
+		U8Proto:  u8proto.ProtoIDs["vrrp"],
+		Ingress:  false,
+		wildcard: td.wildcardCachedSelector,
+		PerSelectorPolicies: L7DataMap{
+			td.wildcardCachedSelector: nil,
+		},
+	}})
+
+	td.policyMapEquals(t, expectedIn, expectedOut, &rule1)
+}
+
 // Tests the restrictions of combining certain label-based L3 and L4 policies.
 // This ensures that the user is informed of policy combinations that are not
 // implemented in the datapath.
@@ -1340,6 +1419,79 @@ func TestL4RuleLabels(t *testing.T) {
 	}
 }
 
+func TestRuleLog(t *testing.T) {
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
+	// test merging on a per-selector basis, as well as for overlapping selectors
+
+	nsDefaultSelector := api.NewESFromLabels(labels.ParseSelectLabel("io.kubernetes.pod.namespace=default"))
+	rules := api.Rules{
+		// rule1, rule2 selects id=b -- should merge in L4Filter
+		// rule3 selects namespace = default -- should merge in MapState
+		{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorB},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+			Log: api.LogConfig{Value: "rule1"},
+		},
+		{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{endpointSelectorB},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+			Log: api.LogConfig{Value: "rule2"},
+		},
+		{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{nsDefaultSelector},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+			Log: api.LogConfig{Value: "rule3"},
+		},
+	}
+
+	// endpoint b should have all 3 rules
+	td.repo.MustAddList(rules)
+	verdict, egress, _, err := LookupFlow(td.repo.logger, td.repo, flowAToB, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, api.Allowed, verdict)
+	require.Equal(t, []string{"rule1", "rule2", "rule3"}, egress.Log())
+
+	// endpoint c should have just rule3
+	verdict, egress, _, err = LookupFlow(td.repo.logger, td.repo, flowAToC, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, api.Allowed, verdict)
+	require.Equal(t, []string{"rule3"}, egress.Log())
+
+}
+
 var (
 	labelsA = labels.LabelArray{
 		labels.NewLabel("id", "a", labels.LabelSourceK8s),
@@ -1398,7 +1550,7 @@ func checkFlow(t *testing.T, repo *Repository, flow Flow, verdict api.Decision) 
 		ID:            2,
 		TCPNamedPorts: namedPorts,
 	}
-	actual, err := LookupFlow(hivetest.Logger(t), repo, flow, srcEP, dstEP)
+	actual, _, _, err := LookupFlow(hivetest.Logger(t), repo, flow, srcEP, dstEP)
 	require.NoError(t, err)
 	require.Equal(t, verdict, actual)
 }

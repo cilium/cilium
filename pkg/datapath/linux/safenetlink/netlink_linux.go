@@ -46,6 +46,7 @@ func WithRetryResult[T any](netlinkFunc func() (T, error)) (out T, err error) {
 // if netlink.ErrDumpInterrupted is returned
 func AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
 	return WithRetryResult(func() ([]netlink.Addr, error) {
+		//nolint:forbidigo
 		return netlink.AddrList(link, family)
 	})
 }
@@ -54,6 +55,7 @@ func AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
 // if netlink.ErrDumpInterrupted is returned
 func BridgeVlanList() (map[int32][]*nl.BridgeVlanInfo, error) {
 	return WithRetryResult(func() (map[int32][]*nl.BridgeVlanInfo, error) {
+		//nolint:forbidigo
 		return netlink.BridgeVlanList()
 	})
 }
@@ -62,6 +64,7 @@ func BridgeVlanList() (map[int32][]*nl.BridgeVlanInfo, error) {
 // if netlink.ErrDumpInterrupted is returned
 func ChainList(link netlink.Link, parent uint32) ([]netlink.Chain, error) {
 	return WithRetryResult(func() ([]netlink.Chain, error) {
+		//nolint:forbidigo
 		return netlink.ChainList(link, parent)
 	})
 }
@@ -70,6 +73,7 @@ func ChainList(link netlink.Link, parent uint32) ([]netlink.Chain, error) {
 // if netlink.ErrDumpInterrupted is returned
 func ClassList(link netlink.Link, parent uint32) ([]netlink.Class, error) {
 	return WithRetryResult(func() ([]netlink.Class, error) {
+		//nolint:forbidigo
 		return netlink.ClassList(link, parent)
 	})
 }
@@ -78,6 +82,7 @@ func ClassList(link netlink.Link, parent uint32) ([]netlink.Class, error) {
 // if netlink.ErrDumpInterrupted is returned
 func ConntrackTableList(table netlink.ConntrackTableType, family netlink.InetFamily) ([]*netlink.ConntrackFlow, error) {
 	return WithRetryResult(func() ([]*netlink.ConntrackFlow, error) {
+		//nolint:forbidigo
 		return netlink.ConntrackTableList(table, family)
 	})
 }
@@ -86,6 +91,7 @@ func ConntrackTableList(table netlink.ConntrackTableType, family netlink.InetFam
 // if netlink.ErrDumpInterrupted is returned
 func DevLinkGetDeviceList() ([]*netlink.DevlinkDevice, error) {
 	return WithRetryResult(func() ([]*netlink.DevlinkDevice, error) {
+		//nolint:forbidigo
 		return netlink.DevLinkGetDeviceList()
 	})
 }
@@ -94,6 +100,7 @@ func DevLinkGetDeviceList() ([]*netlink.DevlinkDevice, error) {
 // if netlink.ErrDumpInterrupted is returned
 func DevLinkGetAllPortList() ([]*netlink.DevlinkPort, error) {
 	return WithRetryResult(func() ([]*netlink.DevlinkPort, error) {
+		//nolint:forbidigo
 		return netlink.DevLinkGetAllPortList()
 	})
 }
@@ -102,6 +109,7 @@ func DevLinkGetAllPortList() ([]*netlink.DevlinkPort, error) {
 // if netlink.ErrDumpInterrupted is returned
 func DevlinkGetDeviceParams(bus string, device string) ([]*netlink.DevlinkParam, error) {
 	return WithRetryResult(func() ([]*netlink.DevlinkParam, error) {
+		//nolint:forbidigo
 		return netlink.DevlinkGetDeviceParams(bus, device)
 	})
 }
@@ -110,6 +118,7 @@ func DevlinkGetDeviceParams(bus string, device string) ([]*netlink.DevlinkParam,
 // if netlink.ErrDumpInterrupted is returned
 func FilterList(link netlink.Link, parent uint32) ([]netlink.Filter, error) {
 	return WithRetryResult(func() ([]netlink.Filter, error) {
+		//nolint:forbidigo
 		return netlink.FilterList(link, parent)
 	})
 }
@@ -118,6 +127,7 @@ func FilterList(link netlink.Link, parent uint32) ([]netlink.Filter, error) {
 // if netlink.ErrDumpInterrupted is returned
 func FouList(fam int) ([]netlink.Fou, error) {
 	return WithRetryResult(func() ([]netlink.Fou, error) {
+		//nolint:forbidigo
 		return netlink.FouList(fam)
 	})
 }
@@ -126,6 +136,7 @@ func FouList(fam int) ([]netlink.Fou, error) {
 // if netlink.ErrDumpInterrupted is returned
 func GenlFamilyList() ([]*netlink.GenlFamily, error) {
 	return WithRetryResult(func() ([]*netlink.GenlFamily, error) {
+		//nolint:forbidigo
 		return netlink.GenlFamilyList()
 	})
 }
@@ -134,6 +145,7 @@ func GenlFamilyList() ([]*netlink.GenlFamily, error) {
 // if netlink.ErrDumpInterrupted is returned
 func GTPPDPList() ([]*netlink.PDP, error) {
 	return WithRetryResult(func() ([]*netlink.PDP, error) {
+		//nolint:forbidigo
 		return netlink.GTPPDPList()
 	})
 }
@@ -142,6 +154,7 @@ func GTPPDPList() ([]*netlink.PDP, error) {
 // if netlink.ErrDumpInterrupted is returned
 func LinkByName(name string) (netlink.Link, error) {
 	return WithRetryResult(func() (netlink.Link, error) {
+		//nolint:forbidigo
 		return netlink.LinkByName(name)
 	})
 }
@@ -150,6 +163,7 @@ func LinkByName(name string) (netlink.Link, error) {
 // if netlink.ErrDumpInterrupted is returned
 func LinkByAlias(alias string) (netlink.Link, error) {
 	return WithRetryResult(func() (netlink.Link, error) {
+		//nolint:forbidigo
 		return netlink.LinkByAlias(alias)
 	})
 }
@@ -158,6 +172,7 @@ func LinkByAlias(alias string) (netlink.Link, error) {
 // if netlink.ErrDumpInterrupted is returned
 func LinkList() ([]netlink.Link, error) {
 	return WithRetryResult(func() ([]netlink.Link, error) {
+		//nolint:forbidigo
 		return netlink.LinkList()
 	})
 }
@@ -166,6 +181,7 @@ func LinkList() ([]netlink.Link, error) {
 // if netlink.ErrDumpInterrupted is returned
 func LinkSubscribeWithOptions(ch chan<- netlink.LinkUpdate, done <-chan struct{}, options netlink.LinkSubscribeOptions) error {
 	return WithRetry(func() error {
+		//nolint:forbidigo
 		return netlink.LinkSubscribeWithOptions(ch, done, options)
 	})
 }
@@ -174,6 +190,7 @@ func LinkSubscribeWithOptions(ch chan<- netlink.LinkUpdate, done <-chan struct{}
 // if netlink.ErrDumpInterrupted is returned
 func NeighList(linkIndex, family int) ([]netlink.Neigh, error) {
 	return WithRetryResult(func() ([]netlink.Neigh, error) {
+		//nolint:forbidigo
 		return netlink.NeighList(linkIndex, family)
 	})
 }
@@ -182,6 +199,7 @@ func NeighList(linkIndex, family int) ([]netlink.Neigh, error) {
 // if netlink.ErrDumpInterrupted is returned
 func NeighProxyList(linkIndex, family int) ([]netlink.Neigh, error) {
 	return WithRetryResult(func() ([]netlink.Neigh, error) {
+		//nolint:forbidigo
 		return netlink.NeighProxyList(linkIndex, family)
 	})
 }
@@ -190,6 +208,7 @@ func NeighProxyList(linkIndex, family int) ([]netlink.Neigh, error) {
 // if netlink.ErrDumpInterrupted is returned
 func NeighListExecute(msg netlink.Ndmsg) ([]netlink.Neigh, error) {
 	return WithRetryResult(func() ([]netlink.Neigh, error) {
+		//nolint:forbidigo
 		return netlink.NeighListExecute(msg)
 	})
 }
@@ -198,6 +217,7 @@ func NeighListExecute(msg netlink.Ndmsg) ([]netlink.Neigh, error) {
 // if netlink.ErrDumpInterrupted is returned
 func NeighSubscribeWithOptions(ch chan<- netlink.NeighUpdate, done <-chan struct{}, options netlink.NeighSubscribeOptions) error {
 	return WithRetry(func() error {
+		//nolint:forbidigo
 		return netlink.NeighSubscribeWithOptions(ch, done, options)
 	})
 }
@@ -206,6 +226,7 @@ func NeighSubscribeWithOptions(ch chan<- netlink.NeighUpdate, done <-chan struct
 // if netlink.ErrDumpInterrupted is returned
 func LinkGetProtinfo(link netlink.Link) (netlink.Protinfo, error) {
 	return WithRetryResult(func() (netlink.Protinfo, error) {
+		//nolint:forbidigo
 		return netlink.LinkGetProtinfo(link)
 	})
 }
@@ -214,6 +235,7 @@ func LinkGetProtinfo(link netlink.Link) (netlink.Protinfo, error) {
 // if netlink.ErrDumpInterrupted is returned
 func QdiscList(link netlink.Link) ([]netlink.Qdisc, error) {
 	return WithRetryResult(func() ([]netlink.Qdisc, error) {
+		//nolint:forbidigo
 		return netlink.QdiscList(link)
 	})
 }
@@ -222,6 +244,7 @@ func QdiscList(link netlink.Link) ([]netlink.Qdisc, error) {
 // if netlink.ErrDumpInterrupted is returned
 func RdmaLinkList() ([]*netlink.RdmaLink, error) {
 	return WithRetryResult(func() ([]*netlink.RdmaLink, error) {
+		//nolint:forbidigo
 		return netlink.RdmaLinkList()
 	})
 }
@@ -230,6 +253,7 @@ func RdmaLinkList() ([]*netlink.RdmaLink, error) {
 // if netlink.ErrDumpInterrupted is returned
 func RdmaLinkByName(name string) (*netlink.RdmaLink, error) {
 	return WithRetryResult(func() (*netlink.RdmaLink, error) {
+		//nolint:forbidigo
 		return netlink.RdmaLinkByName(name)
 	})
 }
@@ -238,6 +262,7 @@ func RdmaLinkByName(name string) (*netlink.RdmaLink, error) {
 // if netlink.ErrDumpInterrupted is returned
 func RdmaLinkDel(name string) error {
 	return WithRetry(func() error {
+		//nolint:forbidigo
 		return netlink.RdmaLinkDel(name)
 	})
 }
@@ -246,6 +271,7 @@ func RdmaLinkDel(name string) error {
 // if netlink.ErrDumpInterrupted is returned
 func RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
 	return WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
 		return netlink.RouteList(link, family)
 	})
 }
@@ -254,6 +280,7 @@ func RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
 // if netlink.ErrDumpInterrupted is returned
 func RouteListFiltered(family int, filter *netlink.Route, filterMask uint64) ([]netlink.Route, error) {
 	return WithRetryResult(func() ([]netlink.Route, error) {
+		//nolint:forbidigo
 		return netlink.RouteListFiltered(family, filter, filterMask)
 	})
 }
@@ -262,6 +289,7 @@ func RouteListFiltered(family int, filter *netlink.Route, filterMask uint64) ([]
 // if netlink.ErrDumpInterrupted is returned
 func RouteListFilteredIter(family int, filter *netlink.Route, filterMask uint64, f func(netlink.Route) (cont bool)) error {
 	return WithRetry(func() error {
+		//nolint:forbidigo
 		return netlink.RouteListFilteredIter(family, filter, filterMask, f)
 	})
 }
@@ -270,6 +298,7 @@ func RouteListFilteredIter(family int, filter *netlink.Route, filterMask uint64,
 // if netlink.ErrDumpInterrupted is returned
 func RouteSubscribeWithOptions(ch chan<- netlink.RouteUpdate, done <-chan struct{}, options netlink.RouteSubscribeOptions) error {
 	return WithRetry(func() error {
+		//nolint:forbidigo
 		return netlink.RouteSubscribeWithOptions(ch, done, options)
 	})
 }
@@ -278,6 +307,7 @@ func RouteSubscribeWithOptions(ch chan<- netlink.RouteUpdate, done <-chan struct
 // if netlink.ErrDumpInterrupted is returned
 func RuleList(family int) ([]netlink.Rule, error) {
 	return WithRetryResult(func() ([]netlink.Rule, error) {
+		//nolint:forbidigo
 		return netlink.RuleList(family)
 	})
 }
@@ -286,6 +316,7 @@ func RuleList(family int) ([]netlink.Rule, error) {
 // if netlink.ErrDumpInterrupted is returned
 func RuleListFiltered(family int, filter *netlink.Rule, filterMask uint64) ([]netlink.Rule, error) {
 	return WithRetryResult(func() ([]netlink.Rule, error) {
+		//nolint:forbidigo
 		return netlink.RuleListFiltered(family, filter, filterMask)
 	})
 }
@@ -294,6 +325,7 @@ func RuleListFiltered(family int, filter *netlink.Rule, filterMask uint64) ([]ne
 // if netlink.ErrDumpInterrupted is returned
 func SocketGet(local, remote net.Addr) (*netlink.Socket, error) {
 	return WithRetryResult(func() (*netlink.Socket, error) {
+		//nolint:forbidigo
 		return netlink.SocketGet(local, remote)
 	})
 }
@@ -302,6 +334,7 @@ func SocketGet(local, remote net.Addr) (*netlink.Socket, error) {
 // if netlink.ErrDumpInterrupted is returned
 func SocketDiagTCPInfo(family uint8) ([]*netlink.InetDiagTCPInfoResp, error) {
 	return WithRetryResult(func() ([]*netlink.InetDiagTCPInfoResp, error) {
+		//nolint:forbidigo
 		return netlink.SocketDiagTCPInfo(family)
 	})
 }
@@ -310,6 +343,7 @@ func SocketDiagTCPInfo(family uint8) ([]*netlink.InetDiagTCPInfoResp, error) {
 // if netlink.ErrDumpInterrupted is returned
 func SocketDiagTCP(family uint8) ([]*netlink.Socket, error) {
 	return WithRetryResult(func() ([]*netlink.Socket, error) {
+		//nolint:forbidigo
 		return netlink.SocketDiagTCP(family)
 	})
 }
@@ -318,6 +352,7 @@ func SocketDiagTCP(family uint8) ([]*netlink.Socket, error) {
 // if netlink.ErrDumpInterrupted is returned
 func SocketDiagUDPInfo(family uint8) ([]*netlink.InetDiagUDPInfoResp, error) {
 	return WithRetryResult(func() ([]*netlink.InetDiagUDPInfoResp, error) {
+		//nolint:forbidigo
 		return netlink.SocketDiagUDPInfo(family)
 	})
 }
@@ -326,6 +361,7 @@ func SocketDiagUDPInfo(family uint8) ([]*netlink.InetDiagUDPInfoResp, error) {
 // if netlink.ErrDumpInterrupted is returned
 func SocketDiagUDP(family uint8) ([]*netlink.Socket, error) {
 	return WithRetryResult(func() ([]*netlink.Socket, error) {
+		//nolint:forbidigo
 		return netlink.SocketDiagUDP(family)
 	})
 }
@@ -334,6 +370,7 @@ func SocketDiagUDP(family uint8) ([]*netlink.Socket, error) {
 // if netlink.ErrDumpInterrupted is returned
 func UnixSocketDiagInfo() ([]*netlink.UnixDiagInfoResp, error) {
 	return WithRetryResult(func() ([]*netlink.UnixDiagInfoResp, error) {
+		//nolint:forbidigo
 		return netlink.UnixSocketDiagInfo()
 	})
 }
@@ -342,6 +379,7 @@ func UnixSocketDiagInfo() ([]*netlink.UnixDiagInfoResp, error) {
 // if netlink.ErrDumpInterrupted is returned
 func UnixSocketDiag() ([]*netlink.UnixSocket, error) {
 	return WithRetryResult(func() ([]*netlink.UnixSocket, error) {
+		//nolint:forbidigo
 		return netlink.UnixSocketDiag()
 	})
 }
@@ -350,6 +388,7 @@ func UnixSocketDiag() ([]*netlink.UnixSocket, error) {
 // if netlink.ErrDumpInterrupted is returned
 func SocketXDPGetInfo(ino uint32, cookie uint64) (*netlink.XDPDiagInfoResp, error) {
 	return WithRetryResult(func() (*netlink.XDPDiagInfoResp, error) {
+		//nolint:forbidigo
 		return netlink.SocketXDPGetInfo(ino, cookie)
 	})
 }
@@ -358,6 +397,7 @@ func SocketXDPGetInfo(ino uint32, cookie uint64) (*netlink.XDPDiagInfoResp, erro
 // if netlink.ErrDumpInterrupted is returned
 func SocketDiagXDP() ([]*netlink.XDPDiagInfoResp, error) {
 	return WithRetryResult(func() ([]*netlink.XDPDiagInfoResp, error) {
+		//nolint:forbidigo
 		return netlink.SocketDiagXDP()
 	})
 }
@@ -366,6 +406,7 @@ func SocketDiagXDP() ([]*netlink.XDPDiagInfoResp, error) {
 // if netlink.ErrDumpInterrupted is returned
 func VDPAGetDevList() ([]*netlink.VDPADev, error) {
 	return WithRetryResult(func() ([]*netlink.VDPADev, error) {
+		//nolint:forbidigo
 		return netlink.VDPAGetDevList()
 	})
 }
@@ -374,6 +415,7 @@ func VDPAGetDevList() ([]*netlink.VDPADev, error) {
 // if netlink.ErrDumpInterrupted is returned
 func VDPAGetDevConfigList() ([]*netlink.VDPADevConfig, error) {
 	return WithRetryResult(func() ([]*netlink.VDPADevConfig, error) {
+		//nolint:forbidigo
 		return netlink.VDPAGetDevConfigList()
 	})
 }
@@ -382,6 +424,7 @@ func VDPAGetDevConfigList() ([]*netlink.VDPADevConfig, error) {
 // if netlink.ErrDumpInterrupted is returned
 func VDPAGetMGMTDevList() ([]*netlink.VDPAMGMTDev, error) {
 	return WithRetryResult(func() ([]*netlink.VDPAMGMTDev, error) {
+		//nolint:forbidigo
 		return netlink.VDPAGetMGMTDevList()
 	})
 }
@@ -390,6 +433,7 @@ func VDPAGetMGMTDevList() ([]*netlink.VDPAMGMTDev, error) {
 // if netlink.ErrDumpInterrupted is returned
 func XfrmPolicyList(family int) ([]netlink.XfrmPolicy, error) {
 	return WithRetryResult(func() ([]netlink.XfrmPolicy, error) {
+		//nolint:forbidigo
 		return netlink.XfrmPolicyList(family)
 	})
 }
@@ -398,6 +442,7 @@ func XfrmPolicyList(family int) ([]netlink.XfrmPolicy, error) {
 // if netlink.ErrDumpInterrupted is returned
 func XfrmStateList(family int) ([]netlink.XfrmState, error) {
 	return WithRetryResult(func() ([]netlink.XfrmState, error) {
+		//nolint:forbidigo
 		return netlink.XfrmStateList(family)
 	})
 }

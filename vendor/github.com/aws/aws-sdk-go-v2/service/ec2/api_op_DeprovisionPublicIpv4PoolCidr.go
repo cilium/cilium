@@ -28,10 +28,7 @@ func (c *Client) DeprovisionPublicIpv4PoolCidr(ctx context.Context, params *Depr
 
 type DeprovisionPublicIpv4PoolCidrInput struct {
 
-	// The CIDR you want to deprovision from the pool. Enter the CIDR you want to
-	// deprovision with a netmask of /32 . You must rerun this command for each IP
-	// address in the CIDR range. If your CIDR is a /24 , you will have to run this
-	// command to deprovision each of the 256 IP addresses in the /24 CIDR.
+	// The CIDR you want to deprovision from the pool.
 	//
 	// This member is required.
 	Cidr *string
@@ -150,6 +147,36 @@ func (c *Client) addOperationDeprovisionPublicIpv4PoolCidrMiddlewares(stack *mid
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

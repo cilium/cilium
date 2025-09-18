@@ -5,9 +5,8 @@ package proxy
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -62,7 +61,7 @@ func (p *envoyProxyIntegration) createRedirect(r Redirect, wg *completion.WaitGr
 	return redirect, err
 }
 
-func (p *envoyProxyIntegration) changeLogLevel(level logrus.Level) error {
+func (p *envoyProxyIntegration) changeLogLevel(level slog.Level) error {
 	return p.adminClient.ChangeLogLevel(level)
 }
 

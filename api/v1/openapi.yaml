@@ -153,6 +153,8 @@ paths:
             "$ref": "#/definitions/Error"
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
     patch:
       summary: Modify existing endpoint
       deprecated: true
@@ -182,6 +184,8 @@ paths:
             "$ref": "#/definitions/Error"
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
     delete:
       summary: Delete endpoint
       description: |
@@ -219,6 +223,8 @@ paths:
           description: Endpoint not found
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
   "/endpoint":
     get:
       summary: Retrieves a list of endpoints that have metadata matching the provided parameters.
@@ -262,6 +268,8 @@ paths:
           description: No endpoints with provided parameters found
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
   "/endpoint/{id}/config":
     get:
       summary: Retrieve endpoint configuration
@@ -311,6 +319,8 @@ paths:
             "$ref": "#/definitions/Error"
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
   "/endpoint/{id}/labels":
     get:
       summary: Retrieves the list of labels associated with an endpoint.
@@ -355,6 +365,8 @@ paths:
             "$ref": "#/definitions/Error"
         '429':
           description: Rate-limiting too many requests in the given time frame
+        '503':
+          description: Service Unavailable
   "/endpoint/{id}/log":
     get:
       summary: Retrieves the status logs associated with this endpoint.
@@ -542,6 +554,9 @@ paths:
       summary: Retrieve entire policy tree
       description: |
         Returns the entire policy tree with all children.
+
+        Deprecated: will be removed in v1.19
+      deprecated: true
       tags:
       - policy
       parameters:
@@ -558,6 +573,8 @@ paths:
           description: No policy rules found
     put:
       summary: Create or update a policy (sub)tree
+      description: "Deprecated: will be removed in v1.19"
+      deprecated: true
       tags:
       - policy
       parameters:
@@ -588,6 +605,8 @@ paths:
             "$ref": "#/definitions/Error"
     delete:
       summary: Delete a policy (sub)tree
+      description: "Deprecated: will be removed in v1.19"
+      deprecated: true
       tags:
       - policy
       parameters:
@@ -649,148 +668,6 @@ paths:
             type: array
             items:
               "$ref": "#/definitions/Service"
-  "/service/{id}":
-    get:
-      summary: Retrieve configuration of a service
-      tags:
-      - service
-      parameters:
-      - "$ref": "#/parameters/service-id"
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/Service"
-        '404':
-          description: Service not found
-    put:
-      summary: Create or update service
-      tags:
-      - service
-      parameters:
-      - "$ref": "#/parameters/service-id"
-      - "$ref": "#/parameters/service-config"
-      responses:
-        '200':
-          description: Updated
-        '201':
-          description: Created
-        '403':
-          description: Forbidden
-        '460':
-          description: Invalid frontend in service configuration
-          x-go-name: InvalidFrontend
-          schema:
-            "$ref": "#/definitions/Error"
-        '461':
-          description: Invalid backend in service configuration
-          x-go-name: InvalidBackend
-          schema:
-            "$ref": "#/definitions/Error"
-        '500':
-          description: Error while creating service
-          x-go-name: Failure
-          schema:
-            "$ref": "#/definitions/Error"
-        '501':
-          description: Error while updating backend states
-          x-go-name: UpdateBackendFailure
-          schema:
-            "$ref": "#/definitions/Error"
-    delete:
-      summary: Delete a service
-      tags:
-      - service
-      parameters:
-      - "$ref": "#/parameters/service-id"
-      responses:
-        '200':
-          description: Success
-        '403':
-          description: Forbidden
-        '404':
-          description: Service not found
-        '500':
-          description: Service deletion failed
-          x-go-name: Failure
-          schema:
-            "$ref": "#/definitions/Error"
-
-  "/recorder":
-    get:
-      summary: Retrieve list of all recorders
-      tags:
-      - recorder
-      responses:
-        '200':
-          description: Success
-          schema:
-            type: array
-            items:
-              "$ref": "#/definitions/Recorder"
-  "/recorder/masks":
-    get:
-      summary: Retrieve list of all recorder masks
-      tags:
-      - recorder
-      responses:
-        '200':
-          description: Success
-          schema:
-            type: array
-            items:
-              "$ref": "#/definitions/RecorderMask"
-  "/recorder/{id}":
-    get:
-      summary: Retrieve configuration of a recorder
-      tags:
-      - recorder
-      parameters:
-      - "$ref": "#/parameters/recorder-id"
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/Recorder"
-        '404':
-          description: Recorder not found
-    put:
-      summary: Create or update recorder
-      tags:
-      - recorder
-      parameters:
-      - "$ref": "#/parameters/recorder-id"
-      - "$ref": "#/parameters/recorder-config"
-      responses:
-        '200':
-          description: Updated
-        '201':
-          description: Created
-        '403':
-          description: Forbidden
-        '500':
-          description: Error while creating recorder
-          x-go-name: Failure
-          schema:
-            "$ref": "#/definitions/Error"
-    delete:
-      summary: Delete a recorder
-      tags:
-      - recorder
-      parameters:
-      - "$ref": "#/parameters/recorder-id"
-      responses:
-        '200':
-          description: Success
-        '403':
-          description: Forbidden
-        '404':
-          description: Recorder not found
-        '500':
-          description: Recorder deletion failed
-          x-go-name: Failure
-          schema:
-            "$ref": "#/definitions/Error"
   "/prefilter":
     get:
       summary: Retrieve list of CIDRs
@@ -1229,19 +1106,6 @@ parameters:
     required: true
     schema:
       "$ref": "#/definitions/ServiceSpec"
-  recorder-id:
-    name: id
-    description: ID of recorder
-    required: true
-    in: path
-    type: integer
-  recorder-config:
-    name: config
-    description: Recorder configuration
-    in: body
-    required: true
-    schema:
-      "$ref": "#/definitions/RecorderSpec"
   prefilter-spec:
     name: prefilter-spec
     description: List of CIDR ranges for filter table
@@ -2052,6 +1916,9 @@ definitions:
       hubble:
         description: Status of Hubble server
         "$ref": "#/definitions/HubbleStatus"
+      hubble-metrics:
+        description: Status of Hubble metrics server
+        "$ref": "#/definitions/HubbleMetricsStatus"
       kubernetes:
         description: Status of Kubernetes integration
         "$ref": "#/definitions/K8sStatus"
@@ -2200,18 +2067,24 @@ definitions:
             type: string
             format: duration
             description: Uptime of this Hubble observer instance
-      metrics:
-        type: object
-        description: Status of the Hubble metrics server
-        properties:
-          state:
-            type: string
-            description: State of the Hubble metrics
-            enum:
-              - Ok
-              - Warning
-              - Failure
-              - Disabled
+  HubbleMetricsStatus:
+    description: |-
+      Status of the Hubble metrics server
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      state:
+        type: string
+        description: State the component is in
+        enum:
+          - Ok
+          - Warning
+          - Failure
+          - Disabled
+      msg:
+        type: string
+        description: Human readable status/error/warning message
   K8sStatus:
     description: |-
       Status of Kubernetes integration
@@ -2466,9 +2339,6 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/RemoteCluster"
-      num-global-services:
-        description: Number of global services
-        type: integer
   RemoteCluster:
     description: |-
       Status of remote cluster
@@ -2699,6 +2569,9 @@ definitions:
       ipLocalReservedPorts:
         description: Comma-separated list of IP ports should be reserved in the workload network namespace
         type: string
+      enableBBRHostNamespaceOnly:
+        description: True if BBR is enabled only in the host network namespace
+        type: boolean
   DatapathMode:
     description: Datapath mode
     type: string
@@ -2797,7 +2670,9 @@ definitions:
         description: Node address type, one of HostName, ExternalIP or InternalIP
         type: string
   Policy:
-    description: Policy definition
+    description: |
+      Policy definition
+      Deprecated, will be removed in v1.19.
     type: object
     properties:
       revision:
@@ -2957,6 +2832,7 @@ definitions:
         enum:
           - active
           - terminating
+          - terminating-not-serving
           - quarantined
           - maintenance
       preferred:
@@ -3126,99 +3002,6 @@ definitions:
         description: Key to query with. Base64 encoded.
         type: string
 
-  Recorder:
-    description: Collection of wildcard filters for pcap recorder
-    type: object
-    properties:
-      spec:
-        "$ref": "#/definitions/RecorderSpec"
-      status:
-        "$ref": "#/definitions/RecorderStatus"
-  RecorderMask:
-    description: Individual mask for pcap recorder
-    type: object
-    properties:
-      status:
-        "$ref": "#/definitions/RecorderMaskStatus"
-  RecorderFilter:
-    description: n-tuple filter to match traffic to be recorded
-    type: object
-    properties:
-      src-prefix:
-        description: Layer 3 source CIDR
-        type: string
-      src-port:
-        description: Layer 4 source port, zero (or in future range)
-        type: string
-      dst-prefix:
-        description: Layer 3 destination CIDR
-        type: string
-      dst-port:
-        description: Layer 4 destination port, zero (or in future range)
-        type: string
-      protocol:
-        description: Layer 4 protocol
-        type: string
-        enum:
-        - TCP
-        - UDP
-        - SCTP
-        - ANY
-  RecorderSpec:
-    description: Configuration of a recorder
-    type: object
-    required:
-    - id
-    - filters
-    properties:
-      id:
-        description: Unique identification
-        type: integer
-      capture-length:
-        description: Maximum packet length or zero for full packet length
-        type: integer
-      filters:
-        description: List of wildcard filters for given recorder
-        type: array
-        items:
-          "$ref": "#/definitions/RecorderFilter"
-  RecorderMaskSpec:
-    description: Configuration of a recorder mask
-    type: object
-    properties:
-      users:
-        description: Number of users of this mask
-        type: integer
-      priority:
-        description: Priority of this mask
-        type: integer
-      src-prefix-mask:
-        description: Layer 3 source IP mask
-        type: string
-      src-port-mask:
-        description: Layer 4 source port mask
-        type: string
-      dst-prefix-mask:
-        description: Layer 3 destination IP mask
-        type: string
-      dst-port-mask:
-        description: Layer 4 destination port mask
-        type: string
-      protocol-mask:
-        description: Layer 4 protocol mask
-        type: string
-  RecorderStatus:
-    description: Configuration of a recorder
-    type: object
-    properties:
-      realized:
-        "$ref": "#/definitions/RecorderSpec"
-  RecorderMaskStatus:
-    description: Configuration of a recorder mask
-    type: object
-    properties:
-      realized:
-        "$ref": "#/definitions/RecorderMaskSpec"
   ProxyStatus:
     description: |-
       Status of proxy
@@ -3805,6 +3588,9 @@ definitions:
       node-encryption:
         description: Node Encryption status
         type: string
+      node-encrypt-opt-out-labels:
+        description: Label selector for nodes which will opt-out of node-to-node encryption
+        type: string
       interfaces:
         description: WireGuard interfaces managed by this Cilium instance
         type: array
@@ -3927,6 +3713,16 @@ definitions:
           Applied initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.
           The applied value holds the value that is in effect on the current BGP session.
         type: integer
+      local-capabilities:
+        description: Capabilities announced by the local peer
+        type: array
+        items:
+          "$ref": "#/definitions/BgpCapabilities"
+      remote-capabilities:
+        description: Capabilities announced by the remote peer
+        type: array
+        items:
+          "$ref": "#/definitions/BgpCapabilities"
   BgpPeerFamilies:
     description: |-
       BGP AFI SAFI state of the peer
@@ -4104,6 +3900,13 @@ definitions:
       prefix-len-max:
         description: Maximal prefix length that will match if it falls under CIDR
         type: integer
+  BgpCapabilities:
+    description: Represents the BGP capabilities.
+    properties:
+      capabilities:
+        description: Base64-encoded BGP capabilities details
+        type: string
+
   Label:
     description: Label is the Cilium's representation of a container label
     type: object

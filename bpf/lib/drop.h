@@ -13,15 +13,17 @@
 
 #pragma once
 
-#include "maps.h"
 #include "dbg.h"
 #include "events.h"
 #include "common.h"
 #include "utils.h"
 #include "metrics.h"
 #include "ratelimit.h"
+#include "tailcall.h"
+#include "classifiers.h"
+#include "trace_helpers.h"
 
-#define NOTIFY_DROP_VER 2
+#define NOTIFY_DROP_VER 3
 
 struct drop_notify {
 	NOTIFY_CAPTURE_HDR
@@ -32,10 +34,12 @@ struct drop_notify {
 	__u8		file;
 	__s8		ext_error;
 	__u32		ifindex;
-	__u8		ipv6:1;
-	__u8		l3_dev:1;
-	__u8		pad1:6;
+	__u8		flags; /* __u8 instead of cls_flags_t so that it will error
+				* when cls_flags_t grows (either borrow bits from pad2 or
+				* move to flags_lower/flags_upper).
+				*/
 	__u8		pad2[3];
+	__u64		ip_trace_id;
 };
 
 #ifdef DROP_NOTIFY
@@ -56,18 +60,19 @@ struct drop_notify {
  *
  */
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY)
-int __send_drop_notify(struct __ctx_buff *ctx)
+__declare_tail(CILIUM_CALL_DROP_NOTIFY)
+int tail_drop_notify(struct __ctx_buff *ctx)
 {
-	bool l3_dev = false, ipv6 = false;
 	/* Mask needed to calm verifier. */
 	__u32 error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
+	__u64 ip_trace_id = load_ip_trace_id();
 	__u64 ctx_len = ctx_full_len(ctx);
-	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
+	__u64 cap_len;
 	__u32 meta4 = ctx_load_meta(ctx, 4);
 	__u16 line = (__u16)(meta4 >> 16);
 	__u8 file = (__u8)(meta4 >> 8);
 	__u8 exitcode = (__u8)meta4;
+	cls_flags_t flags = CLS_FLAG_NONE;
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
@@ -83,12 +88,8 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 			return exitcode;
 	}
 
-#if defined(ENABLE_WIREGUARD) && (defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD))
-	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX) {
-		l3_dev = true;
-		ipv6 = ctx->protocol == bpf_htons(ETH_P_IPV6);
-	}
-#endif
+	flags = ctx_classify(ctx, 0, TRACE_POINT_UNKNOWN);
+	cap_len = compute_capture_len(ctx, 0, flags, TRACE_POINT_UNKNOWN);
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_DROP, (__u8)error),
@@ -100,8 +101,8 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 		.file           = file,
 		.ext_error      = (__s8)(__u8)(error >> 8),
 		.ifindex        = ctx_get_ifindex(ctx),
-		.ipv6           = ipv6,
-		.l3_dev         = l3_dev,
+		.flags          = flags,
+		.ip_trace_id    = ip_trace_id,
 	};
 
 	ctx_event_output(ctx, &cilium_events,

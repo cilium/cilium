@@ -1,0 +1,200 @@
+#! --lb-test-fault-probability=0.0
+
+# Start the test application
+hive start
+
+k8s/add service.yaml endpointslice.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table 
+
+# Check that BPF maps are reconciled
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-before.expected lbmaps.actual
+
+# Snapshot the contents of the maps
+lb/maps-snapshot
+
+# Cleanup
+k8s/delete service.yaml endpointslice.yaml
+
+# Tables and maps should be empty
+* db/empty services frontends backends
+* lb/maps-empty
+
+# Force a prune to make sure it won't run while we restore
+# data.
+lb/prune
+
+# Restore with protocol changed to ANY.
+lb/maps-restore --any-proto
+
+# Check BPF maps. The services and backends should now have 'ANY' as protocol.
+lb/maps-dump lbmaps.actual
+cmp lbmaps-any-proto.expected lbmaps.actual
+
+# Reset 'BPFOps' to restore ID allocations.
+test/bpfops-reset
+test/bpfops-summary
+
+# Add the service and endpoint slice again. Services or backends with protocol 'ANY'
+# should be migrated to 'TCP' while reusing IDs.
+# Remove the '10.244.1.2' backend to test pruning.
+sed '.*- 10.244.1.2' '' endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
+
+# Wait for reconciliation before pruning
+db/cmp frontends frontends2.table
+lb/prune
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-after.expected lbmaps.actual
+
+#####
+
+-- services.table --
+Name        Source   PortNames
+test/echo   k8s      dns=53, http=80, sctp=12
+
+-- frontends.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:12/SCTP  ClusterIP   test/echo     sctp       Done    10.244.1.1:12/SCTP, 10.244.1.2:12/SCTP
+10.96.50.104:53/UDP   ClusterIP   test/echo     dns        Done    10.244.1.1:53/UDP, 10.244.1.2:53/UDP
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
+
+-- frontends2.table --
+Address               Type        ServiceName   PortName   Status  Backends          
+10.96.50.104:12/SCTP  ClusterIP   test/echo     sctp       Done    10.244.1.1:12/SCTP
+10.96.50.104:53/UDP   ClusterIP   test/echo     dns        Done    10.244.1.1:53/UDP 
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP 
+
+-- backends.table --
+Address             Instances
+10.244.1.1:12/SCTP  test/echo (sctp)
+10.244.1.1:53/UDP   test/echo (dns)
+10.244.1.1:80/TCP   test/echo (http)
+10.244.1.2:12/SCTP  test/echo (sctp)
+10.244.1.2:53/UDP   test/echo (dns)
+10.244.1.2:80/TCP   test/echo (http)
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: dns
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  - name: sctp
+    port: 12
+    protocol: SCTP
+    targetPort: 12
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  - 10.244.1.2
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: dns
+  port: 53
+  protocol: UDP
+- name: sctp
+  port: 12
+  protocol: SCTP
+
+-- lbmaps-before.expected --
+BE: ID=1 ADDR=10.244.1.1:12/SCTP STATE=active
+BE: ID=2 ADDR=10.244.1.2:12/SCTP STATE=active
+BE: ID=3 ADDR=10.244.1.1:53/UDP STATE=active
+BE: ID=4 ADDR=10.244.1.2:53/UDP STATE=active
+BE: ID=5 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=6 ADDR=10.244.1.2:80/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:12
+REV: ID=2 ADDR=10.96.50.104:53
+REV: ID=3 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:12/SCTP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:12/SCTP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:12/SCTP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:53/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:53/UDP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:53/UDP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-any-proto.expected --
+BE: ID=1 ADDR=10.244.1.1:12/ANY STATE=active
+BE: ID=2 ADDR=10.244.1.2:12/ANY STATE=active
+BE: ID=3 ADDR=10.244.1.1:53/ANY STATE=active
+BE: ID=4 ADDR=10.244.1.2:53/ANY STATE=active
+BE: ID=5 ADDR=10.244.1.1:80/ANY STATE=active
+BE: ID=6 ADDR=10.244.1.2:80/ANY STATE=active
+REV: ID=1 ADDR=10.96.50.104:12
+REV: ID=2 ADDR=10.96.50.104:53
+REV: ID=3 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:12/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:12/ANY SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:12/ANY SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:53/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:53/ANY SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:53/ANY SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/ANY SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/ANY SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-after.expected --
+BE: ID=1 ADDR=10.244.1.1:12/SCTP STATE=active
+BE: ID=3 ADDR=10.244.1.1:53/UDP STATE=active
+BE: ID=5 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:12
+REV: ID=2 ADDR=10.96.50.104:53
+REV: ID=3 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:12/SCTP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:12/SCTP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:53/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:53/UDP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable

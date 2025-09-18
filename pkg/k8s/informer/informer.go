@@ -30,6 +30,7 @@ func init() {
 				//   panicking with ErrAbortHandler also suppresses logging of a stack trace to the server's error log.
 				return
 			}
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.Fatal(logging.DefaultSlogLogger, "Panic in Kubernetes runtime handler")
 		},
 	)
@@ -73,7 +74,7 @@ func NewInformerWithStore(
 	// This will hold incoming changes. Note how we pass clientState in as a
 	// KeyLister, that way resync operations will result in the correct set
 	// of update/delete deltas.
-	opts := cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState}
+	opts := cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState, EmitDeltaTypeReplaced: true}
 	fifo := cache.NewDeltaFIFOWithOptions(opts)
 
 	cacheMutationDetector := cache.NewCacheMutationDetector(fmt.Sprintf("%T", objType))
@@ -83,7 +84,6 @@ func NewInformerWithStore(
 		ListerWatcher:    lw,
 		ObjectType:       objType,
 		FullResyncPeriod: resyncPeriod,
-		RetryOnError:     false,
 
 		Process: func(obj any, isInInitialList bool) error {
 			// from oldest to newest
@@ -107,7 +107,7 @@ func NewInformerWithStore(
 				cacheMutationDetector.AddObject(obj)
 
 				switch d.Type {
-				case cache.Sync, cache.Added, cache.Updated:
+				case cache.Sync, cache.Added, cache.Updated, cache.Replaced:
 					if old, exists, err := clientState.Get(obj); err == nil && exists {
 						if err := clientState.Update(obj); err != nil {
 							return err

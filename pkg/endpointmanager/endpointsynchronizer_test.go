@@ -8,7 +8,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,6 +20,7 @@ import (
 )
 
 func Test_updateCEPUID(t *testing.T) {
+	logger := hivetest.Logger(t)
 	podWithHostIP := func(hostIP string) *slim_corev1.Pod {
 		return &slim_corev1.Pod{
 			Status: slim_corev1.PodStatus{
@@ -119,7 +120,7 @@ func Test_updateCEPUID(t *testing.T) {
 				node.UpdateLocalNodeInTest(func(n *node.LocalNode) {
 					n.SetNodeInternalIP(net.ParseIP(test.nodeIP))
 				})
-				err = updateCEPUID(logrus.StandardLogger().WithFields(logrus.Fields{}), test.ep, test.cep)
+				err = updateCEPUID(logger, test.ep, test.cep)
 			})
 			if test.err == nil {
 				assert.NoError(err)

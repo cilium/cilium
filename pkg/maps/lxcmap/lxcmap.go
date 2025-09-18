@@ -5,6 +5,7 @@ package lxcmap
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -33,7 +35,7 @@ var (
 	lxcMapOnce sync.Once
 )
 
-func LXCMap() *bpf.Map {
+func LXCMap(registry *metrics.Registry) *bpf.Map {
 	lxcMapOnce.Do(func() {
 		lxcMap = bpf.NewMap(MapName,
 			ebpf.Hash,
@@ -41,7 +43,7 @@ func LXCMap() *bpf.Map {
 			&EndpointInfo{},
 			MaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(MapName))
 	})
 	return lxcMap
@@ -184,11 +186,17 @@ func WriteEndpoint(f EndpointFrontend) error {
 		return err
 	}
 
-	// FIXME: Revert on failure
-	for _, v := range GetBPFKeys(f) {
-		if err := LXCMap().Update(v, info); err != nil {
-			return err
+	keys := GetBPFKeys(f)
+	var writtenKeys []*EndpointKey
+
+	for _, key := range keys {
+		if err := LXCMap(nil).Update(key, info); err != nil {
+			for _, k := range writtenKeys {
+				_ = LXCMap(nil).Delete(k)
+			}
+			return fmt.Errorf("failed to update key %v in LXC map: %w", key, err)
 		}
+		writtenKeys = append(writtenKeys, key)
 	}
 
 	return nil
@@ -198,14 +206,14 @@ func WriteEndpoint(f EndpointFrontend) error {
 func AddHostEntry(ip net.IP) error {
 	key := NewEndpointKey(ip)
 	ep := &EndpointInfo{Flags: EndpointFlagHost}
-	return LXCMap().Update(key, ep)
+	return LXCMap(nil).Update(key, ep)
 }
 
 // SyncHostEntry checks if a host entry exists in the lxcmap and adds one if needed.
 // Returns boolean indicating if a new entry was added and an error.
 func SyncHostEntry(ip net.IP) (bool, error) {
 	key := NewEndpointKey(ip)
-	value, err := LXCMap().Lookup(key)
+	value, err := LXCMap(nil).Lookup(key)
 	if err != nil || value.(*EndpointInfo).Flags&EndpointFlagHost == 0 {
 		err = AddHostEntry(ip)
 		if err == nil {
@@ -217,16 +225,16 @@ func SyncHostEntry(ip net.IP) (bool, error) {
 
 // DeleteEntry deletes a single map entry
 func DeleteEntry(ip net.IP) error {
-	return LXCMap().Delete(NewEndpointKey(ip))
+	return LXCMap(nil).Delete(NewEndpointKey(ip))
 }
 
 // DeleteElement deletes the endpoint using all keys which represent the
 // endpoint. It returns the number of errors encountered during deletion.
-func DeleteElement(f EndpointFrontend) []error {
+func DeleteElement(logger *slog.Logger, f EndpointFrontend) []error {
 	var errors []error
 	for _, k := range GetBPFKeys(f) {
-		if err := LXCMap().Delete(k); err != nil {
-			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %w", k, bpf.MapPath(MapName), err))
+		if err := LXCMap(nil).Delete(k); err != nil {
+			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %w", k, bpf.MapPath(logger, MapName), err))
 		}
 	}
 
@@ -244,7 +252,7 @@ func DumpToMap() (map[string]EndpointInfo, error) {
 		}
 	}
 
-	if err := LXCMap().DumpWithCallback(callback); err != nil {
+	if err := LXCMap(nil).DumpWithCallback(callback); err != nil {
 		return nil, fmt.Errorf("unable to read BPF endpoint list: %w", err)
 	}
 

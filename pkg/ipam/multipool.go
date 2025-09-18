@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -23,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -238,9 +241,13 @@ type multiPoolManager struct {
 
 	node *ciliumv2.CiliumNode
 
-	controller  *controller.Manager
-	k8sUpdater  *trigger.Trigger
-	nodeUpdater nodeUpdater
+	controller     *controller.Manager
+	k8sUpdater     *trigger.Trigger
+	localNodeStore *node.LocalNodeStore
+	nodeUpdater    nodeUpdater
+
+	localNodeSynced   chan struct{}
+	localNodeSyncedFn func()
 
 	finishedRestore map[Family]bool
 	logger          *slog.Logger
@@ -248,7 +255,7 @@ type multiPoolManager struct {
 
 var _ Allocator = (*multiPoolAllocator)(nil)
 
-func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node agentK8s.LocalCiliumNodeResource, owner Owner, clientset nodeUpdater) *multiPoolManager {
+func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node agentK8s.LocalCiliumNodeResource, owner Owner, localNodeStore *node.LocalNodeStore, clientset nodeUpdater) *multiPoolManager {
 	preallocMap, err := parseMultiPoolPreAllocMap(conf.IPAMMultiPoolPreAllocation)
 	if err != nil {
 		logging.Fatal(logger, fmt.Sprintf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation), logfields.Error, err)
@@ -256,7 +263,7 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 
 	k8sController := controller.NewManager()
 	k8sUpdater, err := trigger.NewTrigger(trigger.Parameters{
-		MinInterval: 15 * time.Second,
+		MinInterval: conf.IPAMCiliumNodeUpdateRate,
 		TriggerFunc: func(reasons []string) {
 			k8sController.TriggerController(multiPoolControllerName)
 		},
@@ -266,6 +273,7 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 		logging.Fatal(logger, "Unable to initialize CiliumNode synchronization trigger", logfields.Error, err)
 	}
 
+	localNodeSynced := make(chan struct{})
 	c := &multiPoolManager{
 		logger:                 logger,
 		mutex:                  &lock.Mutex{},
@@ -278,8 +286,13 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 		node:                   nil,
 		controller:             k8sController,
 		k8sUpdater:             k8sUpdater,
+		localNodeStore:         localNodeStore,
 		nodeUpdater:            clientset,
 		finishedRestore:        map[Family]bool{},
+		localNodeSynced:        localNodeSynced,
+		localNodeSyncedFn: sync.OnceFunc(func() {
+			close(localNodeSynced)
+		}),
 	}
 
 	// We don't have a context to use here (as a lot of IPAM doesn't really
@@ -295,7 +308,15 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 
 	c.waitForAllPools()
 
-	return c
+	// wait for local node to be synced to avoid propagating spurious updates.
+	for {
+		select {
+		case <-c.localNodeSynced:
+			return c
+		case <-time.After(5 * time.Second):
+			logger.Info("Waiting for local CiliumNode resource to synchronize local node store")
+		}
+	}
 }
 
 func (m *multiPoolManager) ciliumNodeEventLoop(evs <-chan resource.Event[*ciliumv2.CiliumNode]) {
@@ -372,6 +393,10 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 }
 
 func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
+	// Once allocations are processed update the local node state with the allocated
+	// CIDRs.
+	defer m.updateLocalNodeStore(newNode)
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -382,7 +407,7 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 		m.controller.UpdateController(multiPoolControllerName,
 			controller.ControllerParams{
 				Group:       multiPoolControllerGroup,
-				DoFunc:      m.updateCiliumNode,
+				DoFunc:      m.updateLocalNode,
 				RunInterval: refreshPoolInterval,
 			})
 	}
@@ -489,7 +514,21 @@ func (m *multiPoolManager) isRestoreFinishedLocked(family Family) bool {
 	return m.finishedRestore[family]
 }
 
-func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
+func (m *multiPoolManager) updateLocalNodeStore(newNode *ciliumv2.CiliumNode) {
+	no := nodeTypes.ParseCiliumNode(newNode)
+	m.localNodeStore.Update(func(n *node.LocalNode) {
+		if option.Config.EnableIPv4 && no.IPv4AllocCIDR != nil {
+			n.IPv4AllocCIDR = no.IPv4AllocCIDR
+			n.IPv4SecondaryAllocCIDRs = no.IPv4SecondaryAllocCIDRs
+		}
+		if option.Config.EnableIPv6 && no.IPv6AllocCIDR != nil {
+			n.IPv6AllocCIDR = no.IPv6AllocCIDR
+			n.IPv6SecondaryAllocCIDRs = no.IPv6SecondaryAllocCIDRs
+		}
+	})
+}
+
+func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	m.mutex.Lock()
 	newNode := m.node.DeepCopy()
 	requested := []types.IPAMPoolRequest{}
@@ -515,7 +554,11 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 		cidrs := []types.IPAMPodCIDR{}
 		if v4Pool := pool.v4; v4Pool != nil {
 			if m.isRestoreFinishedLocked(IPv4) {
-				v4Pool.releaseExcessCIDRsMultiPool(neededIPs.IPv4Addrs)
+				// releaseExcessCIDRsMultiPool interprets neededIPs as how many
+				// free addresses must remain after a CIDR is dropped.
+				// Therefore we subtract the number of in-use addresses from neededIPs.
+				freeNeeded4 := max(neededIPs.IPv4Addrs-v4Pool.inUseIPCount(), 0)
+				v4Pool.releaseExcessCIDRsMultiPool(freeNeeded4)
 			}
 			v4CIDRs := v4Pool.inUsePodCIDRs()
 
@@ -524,7 +567,8 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 		}
 		if v6Pool := pool.v6; v6Pool != nil {
 			if m.isRestoreFinishedLocked(IPv6) {
-				v6Pool.releaseExcessCIDRsMultiPool(neededIPs.IPv6Addrs)
+				freeNeeded6 := max(neededIPs.IPv6Addrs-v6Pool.inUseIPCount(), 0)
+				v6Pool.releaseExcessCIDRsMultiPool(freeNeeded6)
 			}
 			v6CIDRs := v6Pool.inUsePodCIDRs()
 
@@ -561,6 +605,8 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 			return fmt.Errorf("failed to update node spec: %w", err)
 		}
 	}
+
+	m.localNodeSyncedFn()
 
 	return nil
 }

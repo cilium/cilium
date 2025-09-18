@@ -1,12 +1,14 @@
+# check=error=true
+
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:a18c9a04e531dd641801cfe85b171deaeda8e0f8@sha256:d398e6f3b2ed8cad465dcef79869725a25f9c4fef9af7224a08ced697d547ff4
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:c433ecc7eb151504327e9bab487667daf5345664@sha256:b00b7f2237e8e9d4dedbbd17a99ac35ab9d3cf8e4a7502428c7149963e30ceea
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:f5e2620e352d7bc93f5fa2e2309786102e73c014@sha256:5afb2abd71a4725003c967ee47d9555df10da1e754c07ffc48dfa8e615b83fd5
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:061e77638353be08d1a792ef38b8f4597344139d@sha256:db098a1d65275c3d3f8090706feaab9a30c437fb24942b25ffdea06a010c5bae
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.33.2-1743993934-6e55b1412ae5976fb0c8fdc87a5e53942f70b0fc@sha256:b8f10a6769013b589725f95b99b990a07eeec6d6b34d5ea748f816dd671d04ca
+ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.35.2-1757248876-6e6f5d6763a6b437fc83c44943492d96d9c5c9aa@sha256:42347c3860964a1d8790c361356e082dbba1b0ded7b36243856182d1bc2a7ee0
 
 FROM ${CILIUM_ENVOY_IMAGE} AS cilium-envoy
 
@@ -50,22 +52,23 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     # bash_completion is the same for both architectures.
     make GOARCH=${BUILDARCH} DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} PKG_BUILD=1 $(echo $MODIFIERS | tr -d '"') \
     install-bash-completion licenses-all && \
-    mv LICENSE.all /tmp/install/${TARGETOS}/${TARGETARCH}/LICENSE.all && \
-    mkdir -p /tmp/hubble/${TARGETOS}/${TARGETARCH} && \
-    cd hubble && \
-    make GOOS=${TARGETOS} GOARCH=${TARGETARCH} $(echo $MODIFIERS | tr -d '"') && \
-    mv hubble /tmp/hubble/${TARGETOS}/${TARGETARCH}/hubble
+    mv LICENSE.all /tmp/install/${TARGETOS}/${TARGETARCH}/LICENSE.all
 
 # Extract debug symbols to /tmp/debug and strip the binaries if NOSTRIP is not set.
+# Use the appropriate objcopy for the target architecture.
 RUN set -xe && \
     export D=/tmp/debug/${TARGETOS}/${TARGETARCH} && \
     cd /tmp/install/${TARGETOS}/${TARGETARCH} && \
     find . -type f \
       -executable \
       -exec sh -c \
-        'filename=$(basename ${0}) && \
-         objcopy --only-keep-debug ${0} ${0}.debug && \
-         if ! echo "$MODIFIERS" | grep "NOSTRIP=1" ; then objcopy --strip-all ${0} && (cd $(dirname ${0}) && objcopy --add-gnu-debuglink=${filename}.debug ${filename}) ; fi && \
+        'OBJCOPY_CMD=objcopy; \
+         if [ "${TARGETARCH}" = "amd64" ]; then OBJCOPY_CMD=x86_64-linux-gnu-objcopy; \
+         elif [ "${TARGETARCH}" = "arm64" ]; then OBJCOPY_CMD=aarch64-linux-gnu-objcopy; \
+         fi; \
+         filename=$(basename ${0}) && \
+         ${OBJCOPY_CMD} --only-keep-debug ${0} ${0}.debug && \
+         if ! echo "$MODIFIERS" | grep "NOSTRIP=1" ; then ${OBJCOPY_CMD} --strip-all ${0} && (cd $(dirname ${0}) && ${OBJCOPY_CMD} --add-gnu-debuglink=${filename}.debug ${filename}) ; fi && \
          mkdir -p $(dirname ${D}/${0}) && \
          mv -v ${0}.debug ${D}/${0}.debug' \
       {} \;
@@ -102,8 +105,6 @@ COPY --from=cilium-envoy /usr/bin/cilium-envoy /usr/bin/cilium-envoy-starter /us
 # local unix domain socket instead of Hubble Relay.
 ENV HUBBLE_SERVER=unix:///var/run/cilium/hubble.sock
 COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH} /
-COPY --from=builder /tmp/hubble/${TARGETOS}/${TARGETARCH}/hubble /usr/bin/hubble
-RUN /usr/bin/hubble completion bash > /etc/bash_completion.d/hubble
 WORKDIR /home/cilium
 
 ENV INITSYSTEM="SYSTEMD"
@@ -112,7 +113,7 @@ CMD ["/usr/bin/cilium-dbg"]
 #
 # Cilium debug image.
 #
-# Typical image bulids will stop above at the 'release' target, but
+# Typical image builds will stop above at the 'release' target, but
 # developers follow this Dockerfile to the end. Starting from a release
 # image, install delve debugger and wrap the cilium-agent binary calls
 # with a script that automatically provisions the debugger on a

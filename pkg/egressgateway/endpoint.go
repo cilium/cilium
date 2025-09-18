@@ -53,6 +53,13 @@ func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels label
 			}
 			addrs = append(addrs, addr)
 		}
+		if pair.IPV6 != "" {
+			addr, err := netip.ParseAddr(pair.IPV6)
+			if err != nil || !addr.Is6() {
+				continue
+			}
+			addrs = append(addrs, addr)
+		}
 	}
 
 	data := &endpointMetadata{

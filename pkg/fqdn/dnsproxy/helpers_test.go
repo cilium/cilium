@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -22,7 +21,6 @@ import (
 )
 
 func TestSetPortRulesForID(t *testing.T) {
-	re.InitRegexCompileLRU(1)
 	rules := policy.L7DataMap{}
 	epID := uint64(1)
 	pea := perEPAllow{}
@@ -83,7 +81,6 @@ func TestSetPortRulesForID(t *testing.T) {
 }
 
 func TestSetPortRulesForIDFromUnifiedFormat(t *testing.T) {
-	re.InitRegexCompileLRU(1)
 	rules := make(CachedSelectorREEntry)
 	epID := uint64(1)
 	pea := perEPAllow{}
@@ -129,7 +126,6 @@ func TestGeneratePattern(t *testing.T) {
 	matching := []string{"example.name.", "example.com.", "demo.io.", "demoo.tld.", "testpattern.com.", "pattern.com.", "a.b.cmiddle.io."}
 	notMatching := []string{"eexample.name.", "eexample.com.", "vdemo.io.", "demo.ioo.", "emoo.tld.", "test.ppattern.com.", "b.cmiddle.io."}
 
-	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 	pattern := GeneratePattern(l7)
 
 	regex, err := re.CompileRegex(pattern)

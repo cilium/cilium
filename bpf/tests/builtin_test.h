@@ -3,6 +3,16 @@
 
 #include "lib/common.h"
 
+/**
+ * For the reader, memcmp() tests use rand() to corrupt memory, so there is
+ * 50% chance. The # of runs assures there is a reasonable (~99.3%) that
+ * not all of the runs are the same (corrupt or non-corrupt).
+ *
+ * NOTE: increasing this much further can reach the max. instruction limit
+ * TODO: to move these iterations to the Makefile instead of the test itself
+ */
+#define BUILTIN_MEMCMP_RUNS 8
+
 /* Manual slow versions, but doesn't matter for the sake of testing here.
  * Mainly to make sure we don't end up using the overridden builtin.
  */
@@ -58,8 +68,8 @@ static __always_inline bool __corrupt_mem(void *d, __u32 len)
 	 */
 	asm volatile("%0 += %1" : "+r"(d8) : "r"(pos));
 
-	if (corrupted)
-		++*d8;
+	*d8 += corrupted;
+
 	return corrupted;
 }
 

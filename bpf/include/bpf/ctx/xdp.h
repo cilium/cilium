@@ -6,7 +6,7 @@
 #include <linux/if_ether.h>
 #include <linux/byteorder.h>
 
-#define __section_entry	__section("xdp")
+#define PROG_TYPE			"xdp"
 
 #define __ctx_buff			xdp_md
 #define __ctx_is			__ctx_xdp
@@ -195,7 +195,7 @@ l4_csum_replace(const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 	int ret;
 
 	if (unlikely(flags & ~(BPF_F_MARK_MANGLED_0 | BPF_F_PSEUDO_HDR |
-			       BPF_F_HDR_FIELD_MASK)))
+			       BPF_F_HDR_FIELD_MASK | BPF_F_IPV6)))
 		return -EINVAL;
 	if (unlikely(size != 0 && size != 2))
 		return -EINVAL;

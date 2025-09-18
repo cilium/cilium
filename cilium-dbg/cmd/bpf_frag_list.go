@@ -32,7 +32,7 @@ var bpfFragListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf frag list")
 
-		fragMap4, err := fragmap.OpenMap4()
+		fragMap4, err := fragmap.OpenMap4(log)
 		if err != nil {
 			if os.IsNotExist(err) {
 				fmt.Fprintf(os.Stderr, "IPv4 map doesn't exist, skipping\n")
@@ -43,7 +43,7 @@ var bpfFragListCmd = &cobra.Command{
 			defer fragMap4.Close()
 		}
 
-		fragMap6, err := fragmap.OpenMap6()
+		fragMap6, err := fragmap.OpenMap6(log)
 		if err != nil {
 			if os.IsNotExist(err) {
 				fmt.Fprintf(os.Stderr, "IPv6 map doesn't exist, skipping\n")

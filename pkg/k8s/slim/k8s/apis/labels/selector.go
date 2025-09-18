@@ -36,6 +36,19 @@ var (
 // Requirements is AND of all requirements.
 type Requirements []Requirement
 
+func (r Requirements) String() string {
+	var sb strings.Builder
+
+	for i, requirement := range r {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(requirement.String())
+	}
+
+	return sb.String()
+}
+
 // Selector represents a label selector.
 type Selector interface {
 	// Matches returns true if this selector matches the given set of labels.
@@ -91,6 +104,15 @@ var sharedNothingSelector Selector = nothingSelector{}
 // Nothing returns a selector that matches no labels
 func Nothing() Selector {
 	return sharedNothingSelector
+}
+
+// MatchesNothing only returns true for selectors which are definitively determined to match no objects.
+// This currently only detects the `labels.Nothing()` selector, but may change over time to detect more selectors that match no objects.
+//
+// Note: The current implementation does not check for selector conflict scenarios (e.g., a=a,a!=a).
+// Support for detecting such cases can be added in the future.
+func MatchesNothing(selector Selector) bool {
+	return selector == sharedNothingSelector
 }
 
 // NewSelector returns a nil selector
@@ -209,26 +231,29 @@ func (r *Requirement) hasValue(value string) bool {
 func (r *Requirement) Matches(ls Labels) bool {
 	switch r.operator {
 	case selection.In, selection.Equals, selection.DoubleEquals:
-		if !ls.Has(r.key) {
+		val, exists := ls.Lookup(r.key)
+		if !exists {
 			return false
 		}
-		return r.hasValue(ls.Get(r.key))
+		return r.hasValue(val)
 	case selection.NotIn, selection.NotEquals:
-		if !ls.Has(r.key) {
+		val, exists := ls.Lookup(r.key)
+		if !exists {
 			return true
 		}
-		return !r.hasValue(ls.Get(r.key))
+		return !r.hasValue(val)
 	case selection.Exists:
 		return ls.Has(r.key)
 	case selection.DoesNotExist:
 		return !ls.Has(r.key)
 	case selection.GreaterThan, selection.LessThan:
-		if !ls.Has(r.key) {
+		val, exists := ls.Lookup(r.key)
+		if !exists {
 			return false
 		}
-		lsValue, err := strconv.ParseInt(ls.Get(r.key), 10, 64)
+		lsValue, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
-			klog.V(10).Infof("ParseInt failed for value %+v in label %+v, %+v", ls.Get(r.key), ls, err)
+			klog.V(10).Infof("ParseInt failed for value %+v in label %+v, %+v", val, ls, err)
 			return false
 		}
 
@@ -268,6 +293,13 @@ func (r *Requirement) Values() sets.Set[string] {
 	for i := range r.strValues {
 		ret.Insert(r.strValues[i])
 	}
+	return ret
+}
+
+// ValuesUnsorted returns a copy of requirement values as passed to NewRequirement without sorting.
+func (r *Requirement) ValuesUnsorted() []string {
+	ret := make([]string, 0, len(r.strValues))
+	ret = append(ret, r.strValues...)
 	return ret
 }
 
@@ -961,7 +993,8 @@ type ValidatedSetSelector Set
 
 func (s ValidatedSetSelector) Matches(labels Labels) bool {
 	for k, v := range s {
-		if !labels.Has(k) || v != labels.Get(k) {
+		val, exists := labels.Lookup(k)
+		if !exists || v != val {
 			return false
 		}
 	}

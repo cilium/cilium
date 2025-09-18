@@ -1,0 +1,251 @@
+#! --lb-test-fault-probability=0.0
+# Fault injection is currently disabled as it in some cases leads to
+# the backend being recreated when switching to host port 5555 due
+# to injected faults causing the deletion of the host port 4444 to be
+# processed after a failed upsert of port 5555 frontend, which in turn
+# leads to the backend being considered orphan as the BPFOps backend state
+# will not have processed to the new use for the backend. Not entirely clear
+# how we could avoid this situation (or if we even should try).
+
+# Add a node address that we'll use as the host port frontend.
+db/insert node-addresses addrv4.yaml
+db/cmp node-addresses nodeaddrs.table
+
+# Start the test application
+hive start
+
+# Add a pod with 'hostPort'. A synthetic service, frontend and backend will
+# be created for it.
+k8s/add pod.yaml 
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table 
+
+# Validate that BPF maps contain the new frontend and backend.
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
+
+# "terminate" the pod
+replace 'phase: Running' 'phase: Succeeded' pod.yaml
+k8s/update pod.yaml
+
+# Services and maps should be empty
+* db/empty services
+lb/maps-dump lbmaps.actual
+* empty lbmaps.actual
+
+# Add a new pod to take over the HostPort
+k8s/add other-pod.yaml
+db/cmp frontends frontends2.table
+db/cmp services services2.table
+
+# Check that BPF maps now contain the new pod for the same host port.
+lb/maps-dump lbmaps.actual
+* cmp lbmaps2.expected lbmaps.actual
+
+# Removing the terminated pod will now have no effect on services.
+k8s/delete pod.yaml
+
+# Check that tables and the BPF maps are the same.
+db/cmp frontends frontends2.table
+db/cmp services services2.table
+lb/maps-dump lbmaps.actual
+* cmp lbmaps2.expected lbmaps.actual
+
+# Test changing the host port
+db/show backends
+replace 4444 5555 other-pod.yaml
+k8s/update other-pod.yaml
+db/cmp frontends frontends3.table
+db/cmp backends backends3.table
+
+# Check that BPF maps now have the port 5555
+lb/maps-dump lbmaps.actual
+* cmp lbmaps3.expected lbmaps.actual
+
+# Cleanup
+k8s/delete other-pod.yaml
+
+# Tables and maps should be empty
+* db/empty services frontends backends
+* lb/maps-empty
+
+#####
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- nodeaddrs.table --
+Address NodePort Primary DeviceName
+1.1.1.1 true     true    test
+
+-- services.table --
+Name                                                                  Source
+default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8    k8s
+
+-- services2.table --
+Name                                                                  Source
+default/other-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 k8s
+
+-- frontends.table --
+Address           Type      Status  ServiceName                                                         Backends
+0.0.0.0:4444/TCP  HostPort  Done    default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8  10.244.1.113:80/TCP
+0.0.0.0:4444/UDP  HostPort  Done    default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8  10.244.1.113:80/UDP
+
+-- frontends2.table --
+Address           Type      Status  ServiceName                                                           Backends
+0.0.0.0:4444/TCP  HostPort  Done    default/other-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/TCP
+0.0.0.0:4444/UDP  HostPort  Done    default/other-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/UDP
+
+-- frontends3.table --
+Address           Type      Status  ServiceName                                                           Backends
+0.0.0.0:5555/TCP  HostPort  Done    default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/TCP
+0.0.0.0:5555/UDP  HostPort  Done    default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/UDP
+
+-- backends.table --
+Address             Instances 
+10.244.1.113:80/TCP default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8
+10.244.1.113:80/UDP default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8
+
+-- backends3.table --
+Address             Instances 
+10.244.1.114:80/TCP default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8
+10.244.1.114:80/UDP default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2024-07-10T16:20:42Z"
+  labels:
+    run: my-app
+  name: my-app
+  namespace: default
+  resourceVersion: "100491"
+  uid: 11111111-2e9b-4c61-8454-ae81344876d8
+spec:
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: my-app
+    ports:
+    - containerPort: 80
+      hostPort: 4444
+      protocol: TCP
+    - containerPort: 80
+      hostPort: 4444
+      protocol: UDP
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: testnode
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.1.113
+  podIPs:
+  - ip: 10.244.1.113
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+
+-- other-pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2024-07-10T16:20:42Z"
+  name: other-app
+  namespace: default
+  resourceVersion: "100491"
+  uid: 22222222-2e9b-4c61-8454-ae81344876d8
+spec:
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: other-app
+    ports:
+    - containerPort: 80
+      hostPort: 4444
+      protocol: TCP
+    - containerPort: 80
+      hostPort: 4444
+      protocol: UDP
+    resources: {}
+  nodeName: testnode
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+status:
+  hostIP: 172.19.0.4
+  hostIPs:
+  - ip: 172.19.0.4
+  phase: Running
+  podIP: 10.244.1.114
+  podIPs:
+  - ip: 10.244.1.114
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=10.244.1.113:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.113:80/UDP STATE=active
+REV: ID=1 ADDR=0.0.0.0:4444
+REV: ID=2 ADDR=1.1.1.1:4444
+REV: ID=3 ADDR=0.0.0.0:4444
+REV: ID=4 ADDR=1.1.1.1:4444
+SVC: ID=1 ADDR=0.0.0.0:4444/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:4444/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=2 ADDR=1.1.1.1:4444/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
+SVC: ID=2 ADDR=1.1.1.1:4444/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort
+SVC: ID=3 ADDR=0.0.0.0:4444/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:4444/UDP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=4 ADDR=1.1.1.1:4444/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
+SVC: ID=4 ADDR=1.1.1.1:4444/UDP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort
+-- lbmaps2.expected --
+BE: ID=3 ADDR=10.244.1.114:80/TCP STATE=active
+BE: ID=4 ADDR=10.244.1.114:80/UDP STATE=active
+REV: ID=5 ADDR=0.0.0.0:4444
+REV: ID=6 ADDR=1.1.1.1:4444
+REV: ID=7 ADDR=0.0.0.0:4444
+REV: ID=8 ADDR=1.1.1.1:4444
+SVC: ID=5 ADDR=0.0.0.0:4444/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:4444/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=6 ADDR=1.1.1.1:4444/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
+SVC: ID=6 ADDR=1.1.1.1:4444/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=HostPort
+SVC: ID=7 ADDR=0.0.0.0:4444/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=7 ADDR=0.0.0.0:4444/UDP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=8 ADDR=1.1.1.1:4444/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
+SVC: ID=8 ADDR=1.1.1.1:4444/UDP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=HostPort
+-- lbmaps3.expected --
+BE: ID=3 ADDR=10.244.1.114:80/TCP STATE=active
+BE: ID=4 ADDR=10.244.1.114:80/UDP STATE=active
+REV: ID=10 ADDR=1.1.1.1:5555
+REV: ID=11 ADDR=0.0.0.0:5555
+REV: ID=12 ADDR=1.1.1.1:5555
+REV: ID=9 ADDR=0.0.0.0:5555
+SVC: ID=10 ADDR=1.1.1.1:5555/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
+SVC: ID=10 ADDR=1.1.1.1:5555/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=HostPort
+SVC: ID=11 ADDR=0.0.0.0:5555/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=11 ADDR=0.0.0.0:5555/UDP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=12 ADDR=1.1.1.1:5555/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
+SVC: ID=12 ADDR=1.1.1.1:5555/UDP SLOT=1 BEID=4 COUNT=0 QCOUNT=0 FLAGS=HostPort
+SVC: ID=9 ADDR=0.0.0.0:5555/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=9 ADDR=0.0.0.0:5555/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable

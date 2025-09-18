@@ -290,8 +290,15 @@ func (bridge *Bridge) Type() string {
 // Vlan links have ParentIndex set in their Attrs()
 type Vlan struct {
 	LinkAttrs
-	VlanId       int
-	VlanProtocol VlanProtocol
+	VlanId        int
+	VlanProtocol  VlanProtocol
+	IngressQosMap map[uint32]uint32
+	EgressQosMap  map[uint32]uint32
+	ReorderHdr    *bool
+	Gvrp          *bool
+	LooseBinding  *bool
+	Mvrp          *bool
+	BridgeBinding *bool
 }
 
 func (vlan *Vlan) Attrs() *LinkAttrs {
@@ -426,6 +433,17 @@ type Veth struct {
 	PeerName         string // veth on create only
 	PeerHardwareAddr net.HardwareAddr
 	PeerNamespace    interface{}
+	PeerTxQLen       int
+	PeerNumTxQueues  uint32
+	PeerNumRxQueues  uint32
+	PeerMTU          uint32
+}
+
+func NewVeth(attr LinkAttrs) *Veth {
+	return &Veth{
+		LinkAttrs:  attr,
+		PeerTxQLen: -1,
+	}
 }
 
 func (veth *Veth) Attrs() *LinkAttrs {
@@ -1059,6 +1077,8 @@ type Geneve struct {
 	FlowBased         bool
 	InnerProtoInherit bool
 	Df                GeneveDf
+	PortLow           int
+	PortHigh          int
 }
 
 func (geneve *Geneve) Attrs() *LinkAttrs {

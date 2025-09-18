@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/maps/authmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/signal"
@@ -81,10 +82,11 @@ type MeshAuthConfig interface {
 type authManagerParams struct {
 	cell.In
 
-	Logger    *slog.Logger
-	Lifecycle cell.Lifecycle
-	JobGroup  job.Group
-	Health    cell.Health
+	Logger          *slog.Logger
+	Lifecycle       cell.Lifecycle
+	JobGroup        job.Group
+	Health          cell.Health
+	MetricsRegistry *metrics.Registry
 
 	Config       config
 	AuthMap      authmap.Map
@@ -107,7 +109,7 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 	// Instantiate & wire auth components
 
 	mapWriter := newAuthMapWriter(params.Logger, params.AuthMap)
-	mapCache := newAuthMapCache(params.Logger, mapWriter)
+	mapCache := newAuthMapCache(params.Logger, params.MetricsRegistry, mapWriter)
 
 	mgr, err := newAuthManager(params.Logger, params.AuthHandlers, mapCache, params.NodeIDHandler, params.Config.MeshAuthSignalBackoffDuration)
 	if err != nil {

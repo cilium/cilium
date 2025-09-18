@@ -4,6 +4,7 @@
 package endpointslicesync
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -28,6 +29,10 @@ func (i *dummyInformer) AddEventHandlerWithResyncPeriod(handler cache.ResourceEv
 	i.logger.Error(fmt.Sprintf("called not implemented function %s.AddEventHandlerWithResyncPeriod", i.name))
 	return nil, nil
 }
+func (i *dummyInformer) AddEventHandlerWithOptions(handler cache.ResourceEventHandler, options cache.HandlerOptions) (cache.ResourceEventHandlerRegistration, error) {
+	i.logger.Error(fmt.Sprintf("called not implemented function %s.AddEventHandlerWithResyncPeriod", i.name))
+	return nil, nil
+}
 func (i *dummyInformer) RemoveEventHandler(handle cache.ResourceEventHandlerRegistration) error {
 	i.logger.Error(fmt.Sprintf("called not implemented function %s.RemoveEventHandler", i.name))
 	return nil
@@ -43,12 +48,19 @@ func (i *dummyInformer) GetController() cache.Controller {
 func (i *dummyInformer) Run(stopCh <-chan struct{}) {
 	i.logger.Error(fmt.Sprintf("called not implemented function %s.Run", i.name))
 }
+func (i *dummyInformer) RunWithContext(ctx context.Context) {
+	i.logger.Error(fmt.Sprintf("called not implemented function %s.RunWithContext", i.name))
+}
 func (i *dummyInformer) LastSyncResourceVersion() string {
 	i.logger.Error(fmt.Sprintf("called not implemented function %s.LastSyncResourceVersion", i.name))
 	return ""
 }
 func (i *dummyInformer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
 	i.logger.Error(fmt.Sprintf("called not implemented function %s.SetWatchErrorHandler", i.name))
+	return nil
+}
+func (i *dummyInformer) SetWatchErrorHandlerWithContext(handler cache.WatchErrorHandlerWithContext) error {
+	i.logger.Error(fmt.Sprintf("called not implemented function %s.SetWatchErrorHandlerWithContext", i.name))
 	return nil
 }
 func (i *dummyInformer) SetTransform(handler cache.TransformFunc) error {

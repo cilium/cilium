@@ -3,9 +3,8 @@
 # Test that if the user specifies a device wildcard, then all devices not matching the wildcard
 # will be marked as non-selected.
 
-# Start the hive and wait for tables to be synchronized.
+# Start the hive
 hive start
-db/initialized
 
 # Add dummy0 interface - matches devices wildcard.
 exec ip link add dummy0 type dummy

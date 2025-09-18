@@ -7,12 +7,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"path"
 	"sort"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/cell"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -41,7 +42,10 @@ var (
 	AddressSpace = DefaultAddressSpace
 )
 
-type backend interface {
+type kvstoreClient interface {
+	// IsEnabled returns true if KVStore support is enabled.
+	IsEnabled() bool
+
 	// UpdateIfDifferent updates a key if the value is different
 	UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error)
 	// Delete deletes a key. It does not return an error if the key does not exist.
@@ -50,24 +54,34 @@ type backend interface {
 
 // IPIdentitySynchronizer handles the synchronization of ipcache entries into the kvstore.
 type IPIdentitySynchronizer struct {
-	client  backend
+	logger  *slog.Logger
+	client  kvstoreClient
 	tracker lock.Map[string, []byte]
 }
 
-func NewIPIdentitySynchronizer() *IPIdentitySynchronizer {
-	return &IPIdentitySynchronizer{}
+func NewIPIdentitySynchronizer(logger *slog.Logger, client kvstore.Client) *IPIdentitySynchronizer {
+	return &IPIdentitySynchronizer{logger: logger, client: client}
+}
+
+// UpsertParams provides a structured set of parameters for IPIdentitySynchronizer.Upsert.
+type UpsertParams struct {
+	IP                netip.Addr
+	HostIP            netip.Addr
+	ID                identity.NumericIdentity
+	Key               uint8
+	Metadata          string
+	K8sNamespace      string
+	K8sPodName        string
+	K8sServiceAccount string
+	NPM               types.NamedPortMap
 }
 
 // Upsert updates / inserts the provided IP->Identity mapping into the kvstore.
-func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Addr, ID identity.NumericIdentity, key uint8,
-	metadata, k8sNamespace, k8sPodName string, npm types.NamedPortMap) error {
-	if s.client == nil {
-		s.client = kvstore.Client()
-	}
+func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, params *UpsertParams) error {
 
 	// Sort named ports into a slice
-	namedPorts := make([]identity.NamedPort, 0, len(npm))
-	for name, value := range npm {
+	namedPorts := make([]identity.NamedPort, 0, len(params.NPM))
+	for name, value := range params.NPM {
 		namedPorts = append(namedPorts, identity.NamedPort{
 			Name:     name,
 			Port:     value.Port,
@@ -78,16 +92,17 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Ad
 		return namedPorts[i].Name < namedPorts[j].Name
 	})
 
-	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
+	ipKey := path.Join(IPIdentitiesPath, AddressSpace, params.IP.String())
 	ipIDPair := identity.IPIdentityPair{
-		IP:           IP.AsSlice(),
-		ID:           ID,
-		Metadata:     metadata,
-		HostIP:       hostIP.AsSlice(),
-		Key:          key,
-		K8sNamespace: k8sNamespace,
-		K8sPodName:   k8sPodName,
-		NamedPorts:   namedPorts,
+		IP:                params.IP.AsSlice(),
+		ID:                params.ID,
+		Metadata:          params.Metadata,
+		HostIP:            params.HostIP.AsSlice(),
+		Key:               params.Key,
+		K8sNamespace:      params.K8sNamespace,
+		K8sPodName:        params.K8sPodName,
+		K8sServiceAccount: params.K8sServiceAccount,
+		NamedPorts:        namedPorts,
 	}
 
 	marshaledIPIDPair, err := json.Marshal(ipIDPair)
@@ -95,12 +110,13 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Ad
 		return err
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.IPAddr:       ipIDPair.IP,
-		logfields.Identity:     ipIDPair.ID,
-		logfields.Key:          ipIDPair.Key,
-		logfields.Modification: Upsert,
-	}).Debug("Upserting IP->ID mapping to kvstore")
+	s.logger.Debug(
+		"Upserting IP->ID mapping to kvstore",
+		logfields.IPAddr, ipIDPair.IP,
+		logfields.Identity, ipIDPair.ID,
+		logfields.Key, ipIDPair.Key,
+		logfields.Modification, Upsert,
+	)
 
 	_, err = s.client.UpdateIfDifferent(ctx, ipKey, marshaledIPIDPair, true)
 	if err == nil {
@@ -113,18 +129,70 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, IP, hostIP netip.Ad
 // from the kvstore, which will subsequently trigger an event in
 // NewIPIdentityWatcher().
 func (s *IPIdentitySynchronizer) Delete(ctx context.Context, ip string) error {
-	if s.client == nil {
-		s.client = kvstore.Client()
-	}
-
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
 	s.tracker.Delete(ipKey)
 	return s.client.Delete(ctx, ipKey)
 }
 
+// IsEnabled returns true if the synchronization to the KVStore is enabled.
+func (s *IPIdentitySynchronizer) IsEnabled() bool {
+	return s.client.IsEnabled()
+}
+
+// LocalIPIdentityWatcher is an IPIdentityWatcher specialized to watch the
+// entries corresponding to the local cluster.
+type LocalIPIdentityWatcher struct {
+	watcher *IPIdentityWatcher
+	syncer  *IPIdentitySynchronizer
+	client  kvstore.Client
+}
+
+func NewLocalIPIdentityWatcher(in struct {
+	cell.In
+
+	Logger      *slog.Logger
+	ClusterInfo cmtypes.ClusterInfo
+	Client      kvstore.Client
+	Factory     storepkg.Factory
+
+	IPCache *IPCache
+	Syncer  *IPIdentitySynchronizer
+}) *LocalIPIdentityWatcher {
+	return &LocalIPIdentityWatcher{
+		watcher: NewIPIdentityWatcher(
+			in.Logger, in.ClusterInfo.Name, in.IPCache,
+			in.Factory, source.KVStore,
+		),
+		syncer: in.Syncer,
+		client: in.Client,
+	}
+}
+
+// Watch starts the watcher and blocks waiting for events, until the context is closed.
+func (liw *LocalIPIdentityWatcher) Watch(ctx context.Context) {
+	liw.watcher.Watch(ctx, liw.client, WithSelfDeletionProtection(liw.syncer))
+}
+
+// WaitForSync blocks until either the initial list of entries had been retrieved
+// from the kvstore, or the given context is canceled. It returns immediately in
+// CRD mode
+func (liw *LocalIPIdentityWatcher) WaitForSync(ctx context.Context) error {
+	if !liw.client.IsEnabled() {
+		return nil
+	}
+
+	return liw.watcher.WaitForSync(ctx)
+}
+
+// IsEnabled returns true if the synchronization from the KVStore is enabled.
+func (liw *LocalIPIdentityWatcher) IsEnabled() bool {
+	return liw.client.IsEnabled()
+}
+
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
 // change in the kvstore.
 type IPIdentityWatcher struct {
+	log     *slog.Logger
 	store   storepkg.WatchStore
 	ipcache IPCacher
 
@@ -139,7 +207,6 @@ type IPIdentityWatcher struct {
 
 	started bool
 	synced  chan struct{}
-	log     *logrus.Entry
 }
 
 type IPCacher interface {
@@ -149,7 +216,7 @@ type IPCacher interface {
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher for the given cluster.
 func NewIPIdentityWatcher(
-	clusterName string, ipc IPCacher, factory storepkg.Factory,
+	logger *slog.Logger, clusterName string, ipc IPCacher, factory storepkg.Factory,
 	source source.Source, opts ...storepkg.RWSOpt,
 ) *IPIdentityWatcher {
 	watcher := IPIdentityWatcher{
@@ -157,7 +224,7 @@ func NewIPIdentityWatcher(
 		clusterName: clusterName,
 		source:      source,
 		synced:      make(chan struct{}),
-		log:         log.WithField(logfields.ClusterName, clusterName),
+		log:         logger.With(logfields.ClusterName, clusterName),
 	}
 
 	watcher.store = factory.NewWatchStore(
@@ -241,8 +308,10 @@ func (iw *IPIdentityWatcher) Watch(ctx context.Context, backend storepkg.WatchSt
 	}
 
 	if iw.started && iw.clusterID != iwo.clusterID {
-		iw.log.WithField(logfields.ClusterID, iwo.clusterID).
-			Info("ClusterID changed: draining all known ipcache entries")
+		iw.log.Info(
+			"ClusterID changed: draining all known ipcache entries",
+			logfields.ClusterID, iwo.clusterID,
+		)
 		iw.store.Drain()
 	}
 
@@ -305,16 +374,22 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 
 	ip := ipIDPair.PrefixString()
 	if ip == "<nil>" {
-		iw.log.Debug("Ignoring entry with nil IP")
+		iw.log.Warn("Ignoring entry with nil IP")
 		return
 	}
 
-	iw.log.WithField(logfields.IPAddr, ip).Debug("Observed upsertion event")
+	iw.log.Debug(
+		"Observed upsertion event",
+		logfields.IPAddr, ip,
+	)
 
 	for _, validator := range iw.validators {
 		if err := validator(ipIDPair); err != nil {
-			log.WithError(err).WithField(logfields.IPAddr, ip).
-				Warning("Skipping invalid upsertion event")
+			iw.log.Warn(
+				"Skipping invalid upsertion event",
+				logfields.Error, err,
+				logfields.IPAddr, ip,
+			)
 			return
 		}
 	}
@@ -329,9 +404,11 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 		for _, np := range ipIDPair.NamedPorts {
 			err := k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)
 			if err != nil {
-				iw.log.WithFields(logrus.Fields{
-					logfields.IPAddr: ipIDPair,
-				}).WithError(err).Error("Parsing named port failed")
+				iw.log.Error(
+					"Parsing named port failed",
+					logfields.Error, err,
+					logfields.IPAddr, ipIDPair,
+				)
 			}
 		}
 	}
@@ -379,7 +456,10 @@ func (iw *IPIdentityWatcher) OnDelete(k storepkg.NamedKey) {
 	ipIDPair := k.(*identity.IPIdentityPair)
 	ip := ipIDPair.PrefixString()
 
-	iw.log.WithField(logfields.IPAddr, ip).Debug("Observed deletion event")
+	iw.log.Debug(
+		"Observed deletion event",
+		logfields.IPAddr, ip,
+	)
 
 	if iw.withSelfDeletionProtection && iw.selfDeletionProtection(ip) {
 		return
@@ -403,10 +483,17 @@ func (iw *IPIdentityWatcher) onSync(context.Context) {
 func (iw *IPIdentityWatcher) selfDeletionProtection(ip string) bool {
 	key := path.Join(IPIdentitiesPath, AddressSpace, ip)
 	if m, ok := iw.syncer.tracker.Load(key); ok {
-		iw.log.WithField(logfields.IPAddr, ip).Warning("Received kvstore delete notification for alive ipcache entry")
+		iw.log.Warn(
+			"Received kvstore delete notification for alive ipcache entry",
+			logfields.IPAddr, ip,
+		)
 		_, err := iw.syncer.client.UpdateIfDifferent(context.TODO(), key, m, true)
 		if err != nil {
-			iw.log.WithError(err).WithField(logfields.IPAddr, ip).Warning("Unable to re-create alive ipcache entry")
+			iw.log.Warn(
+				"Unable to re-create alive ipcache entry",
+				logfields.Error, err,
+				logfields.IPAddr, ip,
+			)
 		}
 		return true
 	}

@@ -7,6 +7,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
@@ -15,7 +16,8 @@ import (
 func TestListenerv1_2(t *testing.T) {
 	closed := make(chan bool)
 	server, client := net.Pipe()
-	l := newListenerv1_2(client, 10, func(listener listener.MonitorListener) {
+	logger := hivetest.Logger(t)
+	l := newListenerv1_2(logger, client, 10, func(listener listener.MonitorListener) {
 		closed <- true
 	})
 	// Verify the listener version.

@@ -8,6 +8,7 @@
 
 #define RATELIMIT_USAGE_ICMPV6 1
 #define RATELIMIT_USAGE_EVENTS_MAP 2
+#define RATELIMIT_USAGE_SOCKET_EVENTS_MAP 3
 
 struct ratelimit_key {
 	__u32 usage;
@@ -29,6 +30,7 @@ struct {
 	__type(value, struct ratelimit_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 1024);
+	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ratelimit __section_maps_btf;
 
 struct ratelimit_metrics_key {

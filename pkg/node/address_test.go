@@ -36,13 +36,10 @@ func Test_getCiliumHostIPsFromFile(t *testing.T) {
 
 #define ENABLE_IPV4 1
 #define IPV4_GATEWAY 0x100000a
-#define IPV4_LOOPBACK 0x5dd0000a
-#define IPV4_MASK 0xffff
 #define HOST_IP 0xfd, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb
 #define HOST_ID 1
 #define WORLD_ID 2
 #define CILIUM_LB_MAP_MAX_ENTRIES 65536
-#define TUNNEL_ENDPOINT_MAP_SIZE 65536
 #define ENDPOINTS_MAP_SIZE 65535
 #define LPM_MAP_SIZE 16384
 #define POLICY_MAP_SIZE 16384

@@ -8,6 +8,7 @@
 #include <linux/icmpv6.h>
 
 #include "common.h"
+#include "csum.h"
 #include "ipv4.h"
 #include "ipv6.h"
 #include "eth.h"

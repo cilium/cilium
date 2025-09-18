@@ -5,10 +5,12 @@ package srv6map
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -68,8 +70,14 @@ func (m *SIDMap) IterateWithCallback(cb SRv6SIDIterateCallback) error {
 }
 
 func newSIDMap(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*SIDMap], defines.NodeOut) {
+	nodeOut := defines.NodeOut{
+		NodeDefines: defines.Map{
+			"SRV6_SID_MAP_SIZE": strconv.FormatUint(maxSIDEntries, 10),
+		},
+	}
+
 	if !dc.EnableSRv6 {
-		return bpf.MapOut[*SIDMap]{}, defines.NodeOut{}
+		return bpf.MapOut[*SIDMap]{}, nodeOut
 	}
 
 	m := bpf.NewMap(
@@ -78,7 +86,7 @@ func newSIDMap(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*SIDMap],
 		&SIDKey{},
 		&SIDValue{},
 		maxSIDEntries,
-		bpf.BPF_F_NO_PREALLOC,
+		unix.BPF_F_NO_PREALLOC,
 	)
 
 	lc.Append(cell.Hook{
@@ -90,18 +98,12 @@ func newSIDMap(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*SIDMap],
 		},
 	})
 
-	nodeOut := defines.NodeOut{
-		NodeDefines: defines.Map{
-			"SRV6_SID_MAP_SIZE": strconv.FormatUint(maxSIDEntries, 10),
-		},
-	}
-
 	return bpf.NewMapOut(&SIDMap{m}), nodeOut
 }
 
 // OpenSIDMap opens the SIDMap on bpffs
-func OpenSIDMap() (*SIDMap, error) {
-	m, err := bpf.OpenMap(bpf.MapPath(sidMapName), &SIDKey{}, &SIDValue{})
+func OpenSIDMap(logger *slog.Logger) (*SIDMap, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(logger, sidMapName), &SIDKey{}, &SIDValue{})
 	if err != nil {
 		return nil, err
 	}

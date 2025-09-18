@@ -6,23 +6,22 @@ package ipmasq
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ipmasq"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipmasq")
-
 	// The following reserved by RFCs IP addr ranges are used by
 	// https://github.com/kubernetes-sigs/ip-masq-agent
 	defaultNonMasqCIDRs = map[string]netip.Prefix{
@@ -88,6 +87,9 @@ type IPMasqMap interface {
 
 // IPMasqAgent represents a state of the ip-masq-agent
 type IPMasqAgent struct {
+	lock lock.Mutex
+
+	logger                 *slog.Logger
 	configPath             string
 	masqLinkLocalIPv4      bool
 	masqLinkLocalIPv6      bool
@@ -99,43 +101,43 @@ type IPMasqAgent struct {
 	handlerFinished        chan struct{}
 }
 
-func NewIPMasqAgent(configPath string) (*IPMasqAgent, error) {
-	return newIPMasqAgent(configPath, &ipmasq.IPMasqBPFMap{})
-}
-
-func newIPMasqAgent(configPath string, ipMasqMap IPMasqMap) (*IPMasqAgent, error) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create fsnotify watcher: %w", err)
-	}
-
-	configDir := filepath.Dir(configPath)
-	// The directory of the config should exist at this time, otherwise
-	// the watcher will fail to add
-	if err := watcher.Add(configDir); err != nil {
-		watcher.Close()
-		return nil, fmt.Errorf("Failed to add %q dir to fsnotify watcher: %w", configDir, err)
-	}
-
+func NewIPMasqAgent(logger *slog.Logger, configPath string, ipMasqMap IPMasqMap) *IPMasqAgent {
 	a := &IPMasqAgent{
+		logger:                 logger,
 		configPath:             configPath,
 		nonMasqCIDRsFromConfig: map[string]netip.Prefix{},
 		nonMasqCIDRsInMap:      map[string]netip.Prefix{},
 		ipMasqMap:              ipMasqMap,
-		watcher:                watcher,
 	}
 
-	return a, nil
+	return a
 }
 
 // Start starts the ip-masq-agent goroutine which tracks the config file and
 // updates the BPF map accordingly.
-func (a *IPMasqAgent) Start() {
-	if err := a.restore(); err != nil {
-		log.WithError(err).Warn("Failed to restore")
+func (a *IPMasqAgent) Start() error {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to create fsnotify watcher: %w", err)
 	}
-	if err := a.Update(); err != nil {
-		log.WithError(err).Warn("Failed to update")
+	a.watcher = watcher
+
+	configDir := filepath.Dir(a.configPath)
+	// The directory of the config should exist at this time, otherwise
+	// the watcher will fail to add
+	if err := a.watcher.Add(configDir); err != nil {
+		a.watcher.Close()
+		return fmt.Errorf("failed to add %q dir to fsnotify watcher: %w", configDir, err)
+	}
+
+	if err := a.restore(); err != nil {
+		a.logger.Warn("Failed to restore", logfields.Error, err)
+	}
+	if err := a.update(); err != nil {
+		a.logger.Warn("Failed to update", logfields.Error, err)
 	}
 
 	a.stop = make(chan struct{})
@@ -145,7 +147,7 @@ func (a *IPMasqAgent) Start() {
 		for {
 			select {
 			case event := <-a.watcher.Events:
-				log.Debugf("Received fsnotify event: %+v", event)
+				a.logger.Debug("Received fsnotify event", logfields.Event, event)
 
 				switch {
 				case event.Has(fsnotify.Create),
@@ -154,20 +156,22 @@ func (a *IPMasqAgent) Start() {
 					event.Has(fsnotify.Remove),
 					event.Has(fsnotify.Rename):
 					if err := a.Update(); err != nil {
-						log.WithError(err).Warn("Failed to update")
+						a.logger.Warn("Failed to update", logfields.Error, err)
 					}
 				default:
-					log.Warnf("Watcher received unknown event: %s. Ignoring.", event)
+					a.logger.Warn("Watcher received unknown event. Ignoring...", logfields.Event, event)
 				}
 			case err := <-a.watcher.Errors:
-				log.WithError(err).Warn("Watcher received an error")
+				a.logger.Warn("Watcher received an error", logfields.Error, err)
 			case <-a.stop:
-				log.Info("Stopping ip-masq-agent")
+				a.logger.Info("Stopping ip-masq-agent")
 				close(a.handlerFinished)
 				return
 			}
 		}
 	}()
+
+	return nil
 }
 
 // Stop stops the ip-masq-agent goroutine and the watcher.
@@ -177,8 +181,14 @@ func (a *IPMasqAgent) Stop() {
 	a.watcher.Close()
 }
 
-// Update updates the ipmasq BPF map entries with ones from the config file.
 func (a *IPMasqAgent) Update() error {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	return a.update()
+}
+
+// Update updates the ipmasq BPF map entries with ones from the config file.
+func (a *IPMasqAgent) update() error {
 	isEmpty, err := a.readConfig()
 	if err != nil {
 		return err
@@ -199,7 +209,7 @@ func (a *IPMasqAgent) Update() error {
 
 	for cidrStr, cidr := range a.nonMasqCIDRsFromConfig {
 		if _, ok := a.nonMasqCIDRsInMap[cidrStr]; !ok {
-			log.WithField(logfields.CIDR, cidrStr).Info("Adding CIDR")
+			a.logger.Info("Adding CIDR", logfields.CIDR, cidrStr)
 			a.ipMasqMap.Update(cidr)
 			a.nonMasqCIDRsInMap[cidrStr] = cidr
 		}
@@ -207,7 +217,7 @@ func (a *IPMasqAgent) Update() error {
 
 	for cidrStr, cidr := range a.nonMasqCIDRsInMap {
 		if _, ok := a.nonMasqCIDRsFromConfig[cidrStr]; !ok {
-			log.WithField(logfields.CIDR, cidrStr).Info("Removing CIDR")
+			a.logger.Info("Removing CIDR", logfields.CIDR, cidrStr)
 			a.ipMasqMap.Delete(cidr)
 			delete(a.nonMasqCIDRsInMap, cidrStr)
 		}
@@ -224,7 +234,7 @@ func (a *IPMasqAgent) readConfig() (bool, error) {
 	raw, err := os.ReadFile(a.configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.WithField(logfields.Path, a.configPath).Info("Config file not found")
+			a.logger.Info("Config file not found", logfields.Path, a.configPath)
 			a.nonMasqCIDRsFromConfig = map[string]netip.Prefix{}
 			a.masqLinkLocalIPv4 = false
 			a.masqLinkLocalIPv6 = false
@@ -259,6 +269,10 @@ func (a *IPMasqAgent) readConfig() (bool, error) {
 	a.masqLinkLocalIPv6 = cfg.MasqLinkLocalIPv6
 
 	return false, nil
+}
+
+func (a *IPMasqAgent) NonMasqCIDRsFromConfig() []netip.Prefix {
+	return slices.Collect(maps.Values(a.nonMasqCIDRsFromConfig))
 }
 
 // restore dumps the ipmasq BPF map and populates IPMasqAgent.nonMasqCIDRsInMap

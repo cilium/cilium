@@ -12,9 +12,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/container/cache"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -328,7 +327,11 @@ func NewLabel(key string, value string, source string) Label {
 	if l.Source == LabelSourceCIDR {
 		c, err := LabelToPrefix(l.Key)
 		if err != nil {
-			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
+			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
+				logfields.Error, err,
+				logfields.Key, l.Key,
+			)
 		} else {
 			l.cidr = &c
 		}
@@ -481,7 +484,11 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		if err == nil {
 			l.cidr = &c
 		} else {
-			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
+			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
+				logfields.Error, err,
+				logfields.Key, l.Key,
+			)
 		}
 	}
 
@@ -519,6 +526,19 @@ func GetExtendedKeyFrom(str string) string {
 		return src + PathDelimiter + next[:i]
 	}
 	return src + PathDelimiter + next
+}
+
+type KeyExtender func(string) string
+
+// Extender to convert label keys from Cilium representation to kubernetes representation.
+// Key passed to this extender is converted to format `<source>.<key>`.
+// The extender is not idempotent, caller needs to make sure its only called once for a key.
+var DefaultKeyExtender KeyExtender = GetExtendedKeyFrom
+
+func GetSourcePrefixKeyExtender(srcPrefix string) KeyExtender {
+	return func(str string) string {
+		return srcPrefix + str
+	}
 }
 
 // Map2Labels transforms in the form: map[key(string)]value(string) into Labels. The
@@ -583,17 +603,6 @@ func FromSlice(labels []Label) Labels {
 // NewLabelsFromSortedList returns labels based on the output of SortedList()
 func NewLabelsFromSortedList(list string) Labels {
 	return NewLabelsFromModel(strings.Split(list, ";"))
-}
-
-// NewSelectLabelArrayFromModel parses a slice of strings and converts them
-// into an array of selecting labels, sorted by the key.
-func NewSelectLabelArrayFromModel(base []string) LabelArray {
-	lbls := make(LabelArray, 0, len(base))
-	for i := range base {
-		lbls = append(lbls, ParseSelectLabel(base[i]))
-	}
-
-	return lbls.Sort()
 }
 
 // NewFrom creates a new Labels from the given labels by creating a copy.
@@ -713,13 +722,12 @@ func (l Labels) LabelArray() LabelArray {
 
 // FindReserved locates all labels with reserved source in the labels and
 // returns a copy of them. If there are no reserved labels, returns nil.
-// TODO: return LabelArray as it is likely faster
-func (l Labels) FindReserved() Labels {
-	lbls := Labels{}
+func (l Labels) FindReserved() LabelArray {
+	lbls := make(LabelArray, 0)
 
-	for k, lbl := range l {
+	for _, lbl := range l {
 		if lbl.Source == LabelSourceReserved {
-			lbls[k] = lbl
+			lbls = append(lbls, lbl)
 		}
 	}
 
@@ -822,11 +830,17 @@ func parseLabel(str string, delim byte) (lbl Label) {
 
 	if lbl.Source == LabelSourceCIDR {
 		if lbl.Value != "" {
-			logrus.WithField(logfields.Label, lbl.String()).Error("Invalid CIDR label: labels with source cidr cannot have values.")
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
+			logging.DefaultSlogLogger.Error("Invalid CIDR label: labels with source cidr cannot have values.",
+				logfields.Label, lbl,
+			)
 		}
 		c, err := LabelToPrefix(lbl.Key)
 		if err != nil {
-			logrus.WithField(logfields.Label, str).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
+			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
+			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
+				logfields.Label, lbl,
+			)
 		} else {
 			lbl.cidr = &c
 		}
@@ -853,16 +867,4 @@ func parseSelectLabel(str string, delim byte) Label {
 	}
 
 	return lbl
-}
-
-// generateLabelString generates the string representation of a label with
-// the provided source, key, and value in the format "source:key=value".
-func generateLabelString(source, key, value string) string {
-	return source + ":" + key + "=" + value
-}
-
-// GenerateK8sLabelString generates the string representation of a label with
-// the provided source, key, and value in the format "LabelSourceK8s:key=value".
-func GenerateK8sLabelString(k, v string) string {
-	return generateLabelString(LabelSourceK8s, k, v)
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	networkingv1 "k8s.io/api/networking/v1"
 
@@ -64,6 +65,7 @@ func TestIngress(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
 			input := networkingv1.Ingress{}
 			readInput(t, fmt.Sprintf("%s/%s/input-ingress.yaml", baseIngressTestDataDir, rewriteTestName(name)), &input)
 			expected := []model.HTTPListener{}
@@ -71,9 +73,9 @@ func TestIngress(t *testing.T) {
 
 			var listeners []model.HTTPListener
 			if tc.defaultSecret {
-				listeners = Ingress(input, defaultSecretNamespace, defaultSecretName, tc.enforceHTTPS, 80, 443, tc.requestTimeout)
+				listeners = Ingress(logger, input, defaultSecretNamespace, defaultSecretName, tc.enforceHTTPS, 80, 443, tc.requestTimeout)
 			} else {
-				listeners = Ingress(input, "", "", tc.enforceHTTPS, 80, 443, tc.requestTimeout)
+				listeners = Ingress(logger, input, "", "", tc.enforceHTTPS, 80, 443, tc.requestTimeout)
 			}
 
 			assert.Equal(t, expected, listeners, "Listeners did not match")
@@ -96,12 +98,13 @@ func TestIngressPassthrough(t *testing.T) {
 
 	for name := range tests {
 		t.Run(name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
 			input := networkingv1.Ingress{}
 			readInput(t, fmt.Sprintf("%s/%s/input-ingress.yaml", baseIngressTestDataDir, rewriteTestName(name)), &input)
 			expected := []model.TLSPassthroughListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/output-listeners.yaml", baseIngressTestDataDir, rewriteTestName(name)), &expected)
 
-			listeners := IngressPassthrough(input, 443)
+			listeners := IngressPassthrough(logger, input, 443)
 
 			assert.Equal(t, expected, listeners, "Listeners did not match")
 		})

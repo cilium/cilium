@@ -10,6 +10,7 @@ import (
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -21,10 +22,7 @@ var Cell = cell.Module(
 	cell.Provide(newK8sWatcher),
 	cell.ProvidePrivate(newK8sPodWatcher),
 	cell.Provide(newK8sCiliumNodeWatcher),
-	cell.ProvidePrivate(newK8sNamespaceWatcher),
-	cell.ProvidePrivate(newK8sServiceWatcher),
 	cell.ProvidePrivate(newK8sEndpointsWatcher),
-	cell.ProvidePrivate(newK8sCiliumLRPWatcher),
 	cell.ProvidePrivate(newK8sCiliumEndpointsWatcher),
 	cell.Provide(newK8sEventReporter),
 )
@@ -39,10 +37,7 @@ type k8sWatcherParams struct {
 	K8sEventReporter          *K8sEventReporter
 	K8sPodWatcher             *K8sPodWatcher
 	K8sCiliumNodeWatcher      *K8sCiliumNodeWatcher
-	K8sNamespaceWatcher       *K8sNamespaceWatcher
-	K8sServiceWatcher         *K8sServiceWatcher
 	K8sEndpointsWatcher       *K8sEndpointsWatcher
-	K8sCiliumLRPWatcher       *K8sCiliumLRPWatcher
 	K8sCiliumEndpointsWatcher *K8sCiliumEndpointsWatcher
 
 	AgentConfig *option.DaemonConfig
@@ -51,6 +46,8 @@ type k8sWatcherParams struct {
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
 	ResourceGroupsFn  ResourceGroupFunc
+
+	KVStoreClient kvstore.Client
 }
 
 func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
@@ -60,14 +57,12 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.Clientset,
 		params.K8sPodWatcher,
 		params.K8sCiliumNodeWatcher,
-		params.K8sNamespaceWatcher,
-		params.K8sServiceWatcher,
 		params.K8sEndpointsWatcher,
-		params.K8sCiliumLRPWatcher,
 		params.K8sCiliumEndpointsWatcher,
 		params.K8sEventReporter,
 		params.K8sResourceSynced,
 		params.K8sAPIGroups,
 		params.AgentConfig,
+		params.KVStoreClient,
 	)
 }

@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/k8s/client"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/k8s/client"
+	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 func followPods(jg job.Group, db *statedb.DB, table statedb.Table[*v1.Pod]) {
@@ -62,5 +63,6 @@ func main() {
 	if err := pflag.CommandLine.Parse(os.Args); err != nil {
 		panic(err)
 	}
+	// slogloggercheck: it's just an example, so we can use the default logger
 	h.Run(logging.DefaultSlogLogger)
 }

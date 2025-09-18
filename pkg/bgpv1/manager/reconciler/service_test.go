@@ -24,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
@@ -116,15 +118,13 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -135,16 +135,13 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName:    "node1",
-				Terminating: true,
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionTerminating,
 			},
 		},
 	}
@@ -155,15 +152,13 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -174,18 +169,17 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -196,15 +190,13 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -215,15 +207,13 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -234,18 +224,17 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -262,7 +251,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 		// the services which will be "upserted" in the diffstore
 		upsertedServices []*slim_corev1.Service
 		// the services which will be "deleted" in the diffstore
-		deletedServices []resource.Key
+		deletedServices []*slim_corev1.Service
 		// the endpoints which will be "upserted" in the diffstore
 		upsertedEndpoints []*k8s.Endpoints
 		// the updated PodCIDR blocks to reconcile, these are string encoded
@@ -309,10 +298,8 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 					ingressV4Prefix,
 				},
 			},
-			deletedServices: []resource.Key{
-				svc1Name,
-			},
-			updated: map[resource.Key][]string{},
+			deletedServices: []*slim_corev1.Service{svc1},
+			updated:         map[resource.Key][]string{},
 		},
 		// Update service to no longer match
 		{
@@ -620,9 +607,7 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 					ingressV4Prefix,
 				},
 			},
-			deletedServices: []resource.Key{
-				svc1Name,
-			},
+			deletedServices: []*slim_corev1.Service{svc1},
 			updated: map[resource.Key][]string{
 				svc2NonDefaultName: {
 					ingressV4Prefix,
@@ -656,15 +641,15 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig).Reconciler.(*ServiceReconciler)
 			reconciler.Init(testSC)
 			defer reconciler.Cleanup(testSC)
 
 			for _, obj := range tt.upsertedServices {
 				diffstore.Upsert(obj)
 			}
-			for _, key := range tt.deletedServices {
-				diffstore.Delete(key)
+			for _, obj := range tt.deletedServices {
+				diffstore.Delete(obj)
 			}
 			for _, obj := range tt.upsertedEndpoints {
 				epDiffStore.Upsert(obj)
@@ -844,15 +829,13 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -863,15 +846,13 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -882,18 +863,17 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -904,15 +884,13 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -923,15 +901,13 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -942,15 +918,13 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
 				NodeName: "node2",
@@ -970,7 +944,7 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 		// the services which will be "upserted" in the diffstore
 		upsertedServices []*slim_corev1.Service
 		// the services which will be "deleted" in the diffstore
-		deletedServices []resource.Key
+		deletedServices []*slim_corev1.Service
 		// the endpoints which will be "upserted" in the diffstore
 		upsertedEndpoints []*k8s.Endpoints
 		// the updated PodCIDR blocks to reconcile, these are string encoded
@@ -1017,10 +991,8 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 					clusterIPV4Prefix,
 				},
 			},
-			deletedServices: []resource.Key{
-				svc1Name,
-			},
-			updated: map[resource.Key][]string{},
+			deletedServices: []*slim_corev1.Service{svc1},
+			updated:         map[resource.Key][]string{},
 		},
 		// Update service to no longer match
 		{
@@ -1321,15 +1293,15 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig).Reconciler.(*ServiceReconciler)
 			reconciler.Init(testSC)
 			defer reconciler.Cleanup(testSC)
 
 			for _, obj := range tt.upsertedServices {
 				diffstore.Upsert(obj)
 			}
-			for _, key := range tt.deletedServices {
-				diffstore.Delete(key)
+			for _, obj := range tt.deletedServices {
+				diffstore.Delete(obj)
 			}
 			for _, obj := range tt.upsertedEndpoints {
 				epDiffStore.Upsert(obj)
@@ -1507,15 +1479,13 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -1526,15 +1496,13 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -1545,18 +1513,17 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -1567,15 +1534,13 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -1586,15 +1551,13 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv6",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -1605,18 +1568,17 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("fd00:10::1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 			cmtypes.MustParseAddrCluster("fd00:10::2"): {
-				NodeName: "node2",
+				NodeName:   "node2",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
@@ -1633,7 +1595,7 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 		// the services which will be "upserted" in the diffstore
 		upsertedServices []*slim_corev1.Service
 		// the services which will be "deleted" in the diffstore
-		deletedServices []resource.Key
+		deletedServices []*slim_corev1.Service
 		// the endpoints which will be "upserted" in the diffstore
 		upsertedEndpoints []*k8s.Endpoints
 		// the updated PodCIDR blocks to reconcile, these are string encoded
@@ -1680,10 +1642,8 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 					externalIPV4Prefix,
 				},
 			},
-			deletedServices: []resource.Key{
-				svc1Name,
-			},
-			updated: map[resource.Key][]string{},
+			deletedServices: []*slim_corev1.Service{svc1},
+			updated:         map[resource.Key][]string{},
 		},
 		// Update service to no longer match
 		{
@@ -1984,15 +1944,15 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig).Reconciler.(*ServiceReconciler)
 			reconciler.Init(testSC)
 			defer reconciler.Cleanup(testSC)
 
 			for _, obj := range tt.upsertedServices {
 				diffstore.Upsert(obj)
 			}
-			for _, key := range tt.deletedServices {
-				diffstore.Delete(key)
+			for _, obj := range tt.deletedServices {
+				diffstore.Delete(obj)
 			}
 			for _, obj := range tt.upsertedEndpoints {
 				epDiffStore.Upsert(obj)
@@ -2122,22 +2082,21 @@ func TestEPUpdateOnly(t *testing.T) {
 			Namespace: "default",
 		},
 		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceID: k8s.ServiceID{
-				Name:      "svc-1",
-				Namespace: "default",
-			},
+			ServiceName:       loadbalancer.NewServiceName("default", "svc-1"),
 			EndpointSliceName: "svc-1-ipv4",
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 			},
 		},
 	}
 	eps1IPv4LocalUpdated := eps1IPv4Local.DeepCopy()
 	eps1IPv4LocalUpdated.Backends = map[cmtypes.AddrCluster]*k8s.Backend{
 		cmtypes.MustParseAddrCluster("10.0.0.1"): {
-			NodeName: "node2",
+			NodeName:   "node2",
+			Conditions: k8s.BackendConditionReady | k8s.BackendConditionServing,
 		},
 	}
 
@@ -2146,6 +2105,7 @@ func TestEPUpdateOnly(t *testing.T) {
 		vr               *v2alpha1api.CiliumBGPVirtualRouter
 		upsertServices   []*slim_corev1.Service
 		upsertEPs        []*k8s.Endpoints
+		deleteEPs        []*k8s.Endpoints
 		expectedMetadata map[resource.Key][]string
 	}{
 		{
@@ -2169,11 +2129,24 @@ func TestEPUpdateOnly(t *testing.T) {
 			},
 		},
 		{
-			name:             "remove local endpoint",
+			name:             "update endpoint - move backend to another node",
 			upsertServices:   []*slim_corev1.Service{},               // no update to service
 			upsertEPs:        []*k8s.Endpoints{eps1IPv4LocalUpdated}, // update endpoint to have backend as node2
-			expectedMetadata: map[resource.Key][]string{              // metadata should be removed
+			expectedMetadata: map[resource.Key][]string{},            // metadata should be removed
+		},
+		{
+			name:           "update endpoint - move backend back to local node",
+			upsertServices: []*slim_corev1.Service{},        // no update to service
+			upsertEPs:      []*k8s.Endpoints{eps1IPv4Local}, // update endpoints
+			expectedMetadata: map[resource.Key][]string{ // metadata should be added
+				svc1Name: {clusterIPV4Prefix},
 			},
+		},
+		{
+			name:             "remove endpoint completely",
+			upsertServices:   []*slim_corev1.Service{},        // no update to service
+			deleteEPs:        []*k8s.Endpoints{eps1IPv4Local}, // delete endpoints
+			expectedMetadata: map[resource.Key][]string{},     // metadata should be removed
 		},
 	}
 
@@ -2201,7 +2174,7 @@ func TestEPUpdateOnly(t *testing.T) {
 
 	diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 	epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
-	reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+	reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig).Reconciler.(*ServiceReconciler)
 	reconciler.Init(testSC)
 	defer reconciler.Cleanup(testSC)
 
@@ -2214,6 +2187,10 @@ func TestEPUpdateOnly(t *testing.T) {
 
 		for _, ep := range step.upsertEPs {
 			epDiffStore.Upsert(ep)
+		}
+
+		for _, ep := range step.deleteEPs {
+			epDiffStore.Delete(ep)
 		}
 
 		err := reconciler.Reconcile(context.Background(), ReconcileParams{
@@ -2287,7 +2264,7 @@ func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
 		// the services which will be "upserted" in the diffstore
 		upsertedServices []*slim_corev1.Service
 		// the services which will be "deleted" in the diffstore
-		deletedServices []resource.Key
+		deletedServices []*slim_corev1.Service
 		// the endpoints which will be "upserted" in the diffstore
 		upsertedEndpoints []*k8s.Endpoints
 		// the updated PodCIDR blocks to reconcile, these are string encoded
@@ -2338,15 +2315,15 @@ func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler := NewServiceReconciler(diffstore, epDiffStore, svcrouteconfig.DefaultConfig).Reconciler.(*ServiceReconciler)
 			reconciler.Init(testSC)
 			defer reconciler.Cleanup(testSC)
 
 			for _, obj := range tt.upsertedServices {
 				diffstore.Upsert(obj)
 			}
-			for _, key := range tt.deletedServices {
-				diffstore.Delete(key)
+			for _, obj := range tt.deletedServices {
+				diffstore.Delete(obj)
 			}
 			for _, obj := range tt.upsertedEndpoints {
 				epDiffStore.Upsert(obj)

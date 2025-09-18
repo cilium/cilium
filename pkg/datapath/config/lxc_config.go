@@ -12,24 +12,34 @@ type BPFLXC struct {
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
+	// Pass traffic with extended IP protocols.
+	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Enable routes when service has 0 endpoints.
+	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
+	// Masquerade traffic to remote nodes.
+	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// The endpoint's security ID.
 	EndpointID uint16 `config:"endpoint_id"`
 	// The endpoint's IPv4 address.
-	EndpointIPv4 uint32 `config:"endpoint_ipv4"`
+	EndpointIPv4 [4]byte `config:"endpoint_ipv4"`
 	// The endpoint's IPv6 address.
 	EndpointIPv6 [16]byte `config:"endpoint_ipv6"`
 	// The endpoint's network namespace cookie.
 	EndpointNetNSCookie uint64 `config:"endpoint_netns_cookie"`
+	// The host endpoint's security ID.
+	HostEpID uint16 `config:"host_ep_id"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
-	NATIPv4Masquerade uint32 `config:"nat_ipv4_masquerade"`
+	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// The log level for policy verdicts in workload endpoints.
 	PolicyVerdictLogFilter uint32 `config:"policy_verdict_log_filter"`
+	// Pull security context from IP cache.
+	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
 
@@ -37,10 +47,10 @@ type BPFLXC struct {
 }
 
 func NewBPFLXC(node Node) *BPFLXC {
-	return &BPFLXC{0x5dc, 0x0, 0x0,
+	return &BPFLXC{0x5dc, false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0,
+		0x0, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, node}
+		0x0, false, 0x0, node}
 }

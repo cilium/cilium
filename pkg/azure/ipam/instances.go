@@ -5,12 +5,12 @@ package ipam
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -27,7 +27,7 @@ type AzureAPI interface {
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling Resync() regularly.
 type InstancesManager struct {
-	logger logging.FieldLogger
+	logger *slog.Logger
 	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
 	resyncLock lock.RWMutex
 
@@ -40,7 +40,7 @@ type InstancesManager struct {
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(logger logging.FieldLogger, api AzureAPI) *InstancesManager {
+func NewInstancesManager(logger *slog.Logger, api AzureAPI) *InstancesManager {
 	return &InstancesManager{
 		logger:    logger.With(subsysLogAttr...),
 		instances: ipamTypes.NewInstanceMap(),

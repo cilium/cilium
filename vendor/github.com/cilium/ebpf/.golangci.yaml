@@ -6,17 +6,8 @@ linters:
     - govet
     - ineffassign
     - misspell
-    - staticcheck
     - unused
   settings:
-    staticcheck:
-      checks:
-        [
-          # Defaults
-          "all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022",
-          # Convert slice of bytes to string when printing it.
-          "-QF1010",
-        ]
     depguard:
       rules:
         no-x-sys-unix:

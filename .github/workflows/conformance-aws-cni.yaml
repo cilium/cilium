@@ -61,9 +61,9 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.207.0
+  eksctl_version: v0.214.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.32.3
+  kubectl_version: v1.34.1
 
 jobs:
   echo-inputs:
@@ -92,7 +92,7 @@ jobs:
       empty: ${{ steps.set-matrix.outputs.empty }}
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -112,6 +112,7 @@ jobs:
           # Use complete matrix in case of scheduled run
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
+          # shellcheck disable=SC2193
           if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* ]];then
             cp aws-cni.json /tmp/matrix.json
           else
@@ -122,17 +123,10 @@ jobs:
           cat /tmp/matrix.json
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
+        uses: aws-actions/configure-aws-credentials@a03048d87541d1d9fcf2ecf528a4a65ba9bd7838 # v5.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: us-west-1
-
-      - name: Run aws configure
-        run: |
-          aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
-          aws configure set aws_session_token ${{ env.AWS_SESSION_TOKEN }}
-          aws configure set default.region ${{ env.AWS_REGION }}
 
       - name: Filter Matrix
         id: set-matrix
@@ -160,7 +154,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -189,7 +183,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -203,6 +197,15 @@ jobs:
         with:
           image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
+
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+        with:
+          external-target: 'amazon.com.'
+          hubble: false
+          test-concurrency: 3
+          tests: '!fqdn,!l7' # L7 policies are not supported in chaining mode.
 
       - name: Set up job variables
         id: vars
@@ -235,15 +238,14 @@ jobs:
                                       --helm-set=cni.enableRouteMTUForCNIChaining=true"
           fi
 
-          # L7 policies are not supported in chaining mode.
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --test-concurrency=3 \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --hubble=false --collect-sysdump-on-failure --test '!fqdn,!l7' \
-            --external-target amazon.com. --external-ip 1.0.0.1 --external-other-ip 1.1.1.1"
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
+
+          # shellcheck disable=SC2046
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          # shellcheck disable=SC2046
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+          # shellcheck disable=SC2046
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
       - name: Install kubectl
@@ -257,21 +259,14 @@ jobs:
       - name: Install eksctl CLI
         run: |
           curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
-          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
-          rm eksctl_$(uname -s)_amd64.tar.gz
+          sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
+          rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
+        uses: aws-actions/configure-aws-credentials@a03048d87541d1d9fcf2ecf528a4a65ba9bd7838 # v5.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
-
-      - name: Run aws configure
-        run: |
-          aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
-          aws configure set aws_session_token ${{ env.AWS_SESSION_TOKEN }}
-          aws configure set default.region ${{ env.AWS_REGION }}
 
       - name: Create EKS cluster
         uses: ./.github/actions/setup-eks-cluster
@@ -298,7 +293,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e7f03e4ec38a7008f4f5b9855ca9df721a9db185 # v0.18.3
+        uses: cilium/cilium-cli@024e340cca1465e2a6336521f12370c7ca58c59a # v0.18.7
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -310,7 +305,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -348,98 +343,23 @@ jobs:
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
-
-      - name: Post-test information gathering
-        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
-        run: |
-          echo "=== Retrieve cluster state ==="
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-final-${{ join(matrix.*, '-') }}
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
-
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdumps-${{ matrix.version }}
-          path: cilium-sysdump-*.zip
-
-      - name: Upload JUnits [junit]
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: cilium-junits-${{ matrix.version }}
-          path: cilium-junits/*.xml
+          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
+          job_status: "${{ job.status }}"
 
-      - name: Upload features tested
-        if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: features-tested-${{ matrix.version }}
-          path: ${{ env.job_name }}*.json
-
-      - name: Publish Test Results As GitHub Summary
-        if: ${{ always() }}
-        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
-        with:
-          junit-directory: "cilium-junits"
-
-  merge-upload:
-    if: ${{ always() && needs.installation-and-connectivity.result != 'skipped' }}
-    name: Merge and Upload Artifacts
-    runs-on: ubuntu-24.04
-    needs: installation-and-connectivity
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-      - name: Merge Sysdumps
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-sysdumps
-          pattern: cilium-sysdumps-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge JUnits
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-junits
-          pattern: cilium-junits-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge Features tested
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: features-tested
-          pattern: features-tested-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  commit-status-final:
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
-    name: Commit Status Final
     needs: installation-and-connectivity
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        if: ${{ needs.installation-and-connectivity.result != 'skipped' }}
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.installation-and-connectivity.result }}
-      - name: Set final commit status
-        if: ${{ needs.installation-and-connectivity.result == 'skipped' }}
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
-          description: 'Skipped'
-
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.installation-and-connectivity.result }}
 
   cleanup:
     name: Cleanup EKS Clusters
@@ -456,11 +376,11 @@ jobs:
       - name: Install eksctl CLI
         run: |
           curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
-          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
-          rm eksctl_$(uname -s)_amd64.tar.gz
+          sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
+          rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
+        uses: aws-actions/configure-aws-credentials@a03048d87541d1d9fcf2ecf528a4a65ba9bd7838 # v5.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}

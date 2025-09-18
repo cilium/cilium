@@ -6,8 +6,6 @@
 #define ENABLE_NODEPORT		1
 #define ENABLE_HOST_ROUTING	1
 
-#define DISABLE_LOOPBACK_LB	1
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -27,9 +25,8 @@
 
 #define BACKEND_EP_ID		127
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 static volatile const __u8 *client_mac = mac_one;
@@ -38,7 +35,7 @@ static volatile const __u8 lb_mac[ETH_ALEN]	= { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *local_backend_mac = mac_four;
 
-__section("mock-handle-policy")
+__section_entry
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
 {
 	return TC_ACT_REDIRECT;
@@ -85,8 +82,6 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 }
 
 #include "bpf_host.c"
-
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

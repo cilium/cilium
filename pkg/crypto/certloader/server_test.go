@@ -11,6 +11,8 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestNewWatchedServerConfigErrors(t *testing.T) {
@@ -27,6 +29,10 @@ func TestNewWatchedServerConfigErrors(t *testing.T) {
 }
 
 func TestWatchedServerConfigIsMutualTLS(t *testing.T) {
+	t.Cleanup(func() {
+		testutils.GoleakVerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
@@ -71,13 +77,17 @@ func TestWatchedServerConfigIsMutualTLS(t *testing.T) {
 }
 
 func TestFutureWatchedServerConfig(t *testing.T) {
+	t.Cleanup(func() {
+		testutils.GoleakVerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	// don't call setup() yet, we only want the directories created without the
 	// TLS files.
 	defer cleanup(dir)
 	logger := hivetest.Logger(t)
 
-	ch, err := FutureWatchedServerConfig(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
+	ch, err := FutureWatchedServerConfig(t.Context(), logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
 	assert.NoError(t, err)
 
 	// the files don't exists, expect the config to not be ready yet.
@@ -91,10 +101,16 @@ func TestFutureWatchedServerConfig(t *testing.T) {
 
 	// the files exists now, expect the watcher to become ready.
 	s := <-ch
-	s.Stop()
+	if assert.NotNil(t, s) {
+		s.Stop()
+	}
 }
 
 func TestNewWatchedServerConfig(t *testing.T) {
+	t.Cleanup(func() {
+		testutils.GoleakVerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)
@@ -131,6 +147,10 @@ func TestNewWatchedServerConfig(t *testing.T) {
 }
 
 func TestWatchedServerConfigRotation(t *testing.T) {
+	t.Cleanup(func() {
+		testutils.GoleakVerifyNone(t)
+	})
+
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
 	defer cleanup(dir)

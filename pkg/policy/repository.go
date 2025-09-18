@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -43,6 +44,8 @@ type PolicyRepository interface {
 	// calculation.
 	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics, endpointID uint64) (SelectorPolicy, uint64, error)
 
+	// GetPolicySnapshot returns a map of all the SelectorPolicies in the repository.
+	GetPolicySnapshot() map[identity.NumericIdentity]SelectorPolicy
 	GetRevision() uint64
 	GetRulesList() *models.Policy
 	GetSelectorCache() *SelectorCache
@@ -87,7 +90,7 @@ type Repository struct {
 
 	certManager certificatemanager.CertificateManager
 
-	metricsManager    api.PolicyMetrics
+	metricsManager    types.PolicyMetrics
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
 }
 
@@ -112,7 +115,7 @@ func NewPolicyRepository(
 	certManager certificatemanager.CertificateManager,
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator,
 	idmgr identitymanager.IDManager,
-	metricsManager api.PolicyMetrics,
+	metricsManager types.PolicyMetrics,
 ) *Repository {
 	selectorCache := NewSelectorCache(logger, initialIDs)
 	repo := &Repository{
@@ -169,10 +172,11 @@ func (p *Repository) addListLocked(rules api.Rules) (ruleSlice, uint64) {
 func (p *Repository) insert(r *rule) {
 	p.rules[r.key] = r
 	p.metricsManager.AddRule(r.Rule)
-	if _, ok := p.rulesByNamespace[r.key.resource.Namespace()]; !ok {
-		p.rulesByNamespace[r.key.resource.Namespace()] = sets.New[ruleKey]()
+	namespace := r.key.resource.Namespace()
+	if _, ok := p.rulesByNamespace[namespace]; !ok {
+		p.rulesByNamespace[namespace] = sets.New[ruleKey]()
 	}
-	p.rulesByNamespace[r.key.resource.Namespace()].Insert(r.key)
+	p.rulesByNamespace[namespace].Insert(r.key)
 	rid := r.key.resource
 	if len(rid) > 0 {
 		if p.rulesByResource[rid] == nil {
@@ -191,9 +195,10 @@ func (p *Repository) del(key ruleKey) {
 	}
 	p.metricsManager.DelRule(r.Rule)
 	delete(p.rules, key)
-	p.rulesByNamespace[key.resource.Namespace()].Delete(key)
-	if len(p.rulesByNamespace[key.resource.Namespace()]) == 0 {
-		delete(p.rulesByNamespace, key.resource.Namespace())
+	namespace := r.key.resource.Namespace()
+	p.rulesByNamespace[namespace].Delete(key)
+	if len(p.rulesByNamespace[namespace]) == 0 {
+		delete(p.rulesByNamespace, namespace)
 	}
 
 	rid := key.resource
@@ -294,6 +299,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	// perform the matching decision again when computing policy for each
 	// protocol layer, which is quite costly in terms of performance.
 	ingressEnabled, egressEnabled,
+		hasIngressDefaultDeny, hasEgressDefaultDeny,
 		matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
 
 	calculatedPolicy := &selectorPolicy{
@@ -305,10 +311,12 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	policyCtx := policyContext{
-		repo:         p,
-		ns:           securityIdentity.LabelArray.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
-		traceEnabled: option.Config.TracingEnabled(),
-		logger:       p.logger.With(logfields.Identity, securityIdentity.ID),
+		repo:               p,
+		ns:                 securityIdentity.LabelArray.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		defaultDenyIngress: hasIngressDefaultDeny,
+		defaultDenyEgress:  hasEgressDefaultDeny,
+		traceEnabled:       option.Config.TracingEnabled(),
+		logger:             p.logger.With(logfields.Identity, securityIdentity.ID),
 	}
 
 	if ingressEnabled {
@@ -339,14 +347,14 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 //
 // Must be called with repo mutex held for reading.
 func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity) (
-	ingress, egress bool,
+	ingress, egress, hasIngressDefaultDeny, hasEgressDefaultDeny bool,
 	matchingRules ruleSlice,
 ) {
 	lbls := securityIdentity.LabelArray
 
 	// Check if policy enforcement should be enabled at the daemon level.
 	if lbls.Has(labels.IDNameHost) && !option.Config.EnableHostFirewall {
-		return false, false, nil
+		return false, false, false, false, nil
 	}
 
 	policyMode := GetPolicyEnabled()
@@ -354,7 +362,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// enforcement for the endpoint. We don't care about returning any
 	// rules that match.
 	if policyMode == option.NeverEnforce {
-		return false, false, nil
+		return false, false, false, false, nil
 	}
 
 	matchingRules = []*rule{}
@@ -381,7 +389,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// If the endpoint has the reserved:init label, i.e. if it has not yet
 	// received any labels, always enforce policy (default deny).
 	if policyMode == option.AlwaysEnforce || lbls.Has(labels.IDNameInit) {
-		return true, true, matchingRules
+		return true, true, true, true, matchingRules
 	}
 
 	// Determine the default policy for each direction.
@@ -390,7 +398,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// If any rules select the endpoint, then the endpoint switches to a
 	// default-deny mode (same as traffic being enabled), per-direction.
 	//
-	// Rules, however, can optionally be configure to not enable default deny mode.
+	// Rules, however, can optionally be configured to not enable default deny mode.
 	// If no rules enable default-deny, then all traffic is allowed except that explicitly
 	// denied by a Deny rule.
 	//
@@ -400,8 +408,6 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// 3: Only non-default-deny rules are present. Then, policy is enabled, but we must insert
 	//    an additional allow-all rule. We must do this, even if all traffic is allowed, because
 	//    rules may have additional effects such as enabling L7 proxy.
-	hasIngressDefaultDeny := false
-	hasEgressDefaultDeny := false
 	for _, r := range matchingRules {
 		if !ingress || !hasIngressDefaultDeny { // short-circuit len()
 			if len(r.Ingress) > 0 || len(r.IngressDeny) > 0 {
@@ -588,4 +594,12 @@ func (p *Repository) ReplaceByLabels(rules api.Rules, searchLabelsList []labels.
 	}
 
 	return affectedIDs, p.BumpRevision(), len(oldRules)
+}
+
+// GetPolicySnapshot returns a map of all the SelectorPolicies in the repository.
+func (p *Repository) GetPolicySnapshot() map[identity.NumericIdentity]SelectorPolicy {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
+	return p.policyCache.GetPolicySnapshot()
 }

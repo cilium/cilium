@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
@@ -24,14 +25,11 @@ import (
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/service"
 )
 
 var Cell = cell.Module(
 	"payload-parser",
 	"Provides a payload parser for Hubble",
-
-	link.Cell,
 
 	cell.Provide(newPayloadParser),
 	cell.Config(defaultConfig),
@@ -43,17 +41,17 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 	}
 	g := &payloadGetters{
 		log:               params.Log,
+		db:                params.DB,
+		frontends:         params.Frontends,
 		identityAllocator: params.IdentityAllocator,
 		endpointManager:   params.EndpointManager,
 		ipcache:           params.Ipcache,
-		serviceManager:    params.ServiceManager,
 	}
 	var parserOpts []parserOptions.Option
 	if params.Config.EnableRedact {
 		parserOpts = append(
 			parserOpts,
 			parserOptions.WithRedact(
-				params.Log,
 				params.Config.RedactHttpURLQuery,
 				params.Config.RedactHttpUserInfo,
 				params.Config.RedactKafkaAPIKey,
@@ -62,7 +60,18 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 			),
 		)
 	}
-	return parser.New(params.Log, g, g, g, params.Ipcache, g, params.LinkCache, params.CGroupManager, params.Config.SkipUnknownCGroupIDs, parserOpts...)
+	parserOpts = append(
+		parserOpts,
+		parserOptions.WithNetworkPolicyCorrelation(
+			params.Config.EnableNetworkPolicyCorrelation,
+		))
+	parserOpts = append(
+		parserOpts,
+		parserOptions.WithSkipUnknownCGroupIDs(
+			params.Config.SkipUnknownCGroupIDs,
+		),
+	)
+	return parser.New(params.Log, g, g, g, params.Ipcache, g, params.LinkCache, params.CGroupManager, parserOpts...)
 }
 
 type payloadParserParams struct {
@@ -70,10 +79,11 @@ type payloadParserParams struct {
 
 	Log *slog.Logger
 
+	DB                *statedb.DB
+	Frontends         statedb.Table[*loadbalancer.Frontend]
 	IdentityAllocator identitycell.CachingIdentityAllocator
 	EndpointManager   endpointmanager.EndpointManager
 	Ipcache           *ipcache.IPCache
-	ServiceManager    service.ServiceManager
 	CGroupManager     manager.CGroupManager
 	LinkCache         *link.LinkCache
 
@@ -86,7 +96,8 @@ type payloadGetters struct {
 	identityAllocator identitycell.CachingIdentityAllocator
 	endpointManager   endpointmanager.EndpointManager
 	ipcache           *ipcache.IPCache
-	serviceManager    service.ServiceManager
+	db                *statedb.DB
+	frontends         statedb.Table[*loadbalancer.Frontend]
 }
 
 // GetIdentity implements IdentityGetter. It looks up identity by ID from
@@ -151,18 +162,17 @@ func (h *payloadGetters) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Se
 		return nil
 	}
 	addrCluster := cmtypes.AddrClusterFrom(ip, 0)
-	addr := loadbalancer.L3n4Addr{
-		AddrCluster: addrCluster,
-		L4Addr: loadbalancer.L4Addr{
-			Port: port,
-		},
+	addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, port, loadbalancer.ScopeExternal)
+	fe, _, found := h.frontends.Get(h.db.ReadTxn(), loadbalancer.FrontendByAddress(addr))
+	if !found {
+		addr := loadbalancer.NewL3n4Addr(loadbalancer.UDP, addrCluster, port, loadbalancer.ScopeExternal)
+		fe, _, found = h.frontends.Get(h.db.ReadTxn(), loadbalancer.FrontendByAddress(addr))
 	}
-	namespace, name, ok := h.serviceManager.GetServiceNameByAddr(addr)
-	if !ok {
+	if !found {
 		return nil
 	}
 	return &flowpb.Service{
-		Namespace: namespace,
-		Name:      name,
+		Namespace: fe.ServiceName.Namespace(),
+		Name:      fe.ServiceName.Name(),
 	}
 }

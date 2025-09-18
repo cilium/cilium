@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
@@ -17,16 +18,20 @@ import (
 // to the Recycle Bin for the specified retention period. It can be restored before
 // its retention period expires, after which it is permanently deleted. If the
 // deregistered AMI doesn't match a retention rule, it is permanently deleted
-// immediately. For more information, see [Recycle Bin]in the Amazon EBS User Guide.
+// immediately. For more information, see [Recover deleted Amazon EBS snapshots and EBS-backed AMIs with Recycle Bin]in the Amazon EBS User Guide.
+//
+// When deregistering an EBS-backed AMI, you can optionally delete its associated
+// snapshots at the same time. However, if a snapshot is associated with multiple
+// AMIs, it won't be deleted even if specified for deletion, although the AMI will
+// still be deregistered.
 //
 // Deregistering an AMI does not delete the following:
 //
 //   - Instances already launched from the AMI. You'll continue to incur usage
 //     costs for the instances until you terminate them.
 //
-//   - For EBS-backed AMIs: The snapshots that were created of the root and data
-//     volumes of the instance during AMI creation. You'll continue to incur snapshot
-//     storage costs.
+//   - For EBS-backed AMIs: Snapshots that are associated with multiple AMIs.
+//     You'll continue to incur snapshot storage costs.
 //
 //   - For instance store-backed AMIs: The files uploaded to Amazon S3 during AMI
 //     creation. You'll continue to incur S3 storage costs.
@@ -34,7 +39,7 @@ import (
 // For more information, see [Deregister an Amazon EC2 AMI] in the Amazon EC2 User Guide.
 //
 // [Deregister an Amazon EC2 AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/deregister-ami.html
-// [Recycle Bin]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/recycle-bin.html
+// [Recover deleted Amazon EBS snapshots and EBS-backed AMIs with Recycle Bin]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/recycle-bin.html
 func (c *Client) DeregisterImage(ctx context.Context, params *DeregisterImageInput, optFns ...func(*Options)) (*DeregisterImageOutput, error) {
 	if params == nil {
 		params = &DeregisterImageInput{}
@@ -58,6 +63,15 @@ type DeregisterImageInput struct {
 	// This member is required.
 	ImageId *string
 
+	// Specifies whether to delete the snapshots associated with the AMI during
+	// deregistration.
+	//
+	// If a snapshot is associated with multiple AMIs, it is not deleted, regardless
+	// of this setting.
+	//
+	// Default: The snapshots are not deleted.
+	DeleteAssociatedSnapshots *bool
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
@@ -68,6 +82,14 @@ type DeregisterImageInput struct {
 }
 
 type DeregisterImageOutput struct {
+
+	// The deletion result for each snapshot associated with the AMI, including the
+	// snapshot ID and its success or error code.
+	DeleteSnapshotResults []types.DeleteSnapshotReturnCode
+
+	// Returns true if the request succeeds; otherwise, it returns an error.
+	Return *bool
+
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
 
@@ -160,6 +182,36 @@ func (c *Client) addOperationDeregisterImageMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

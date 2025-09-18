@@ -1578,6 +1578,10 @@ func (in *CoreCiliumEndpoint) DeepEqual(other *CoreCiliumEndpoint) bool {
 		}
 	}
 
+	if in.ServiceAccount != other.ServiceAccount {
+		return false
+	}
+
 	return true
 }
 

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -21,6 +20,11 @@ static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused, __u32 flags __maybe_unused);
 
+#define redirect_neigh mock_redirect_neigh
+static __always_inline __maybe_unused int
+mock_redirect_neigh(int ifindex, struct bpf_redir_neigh *params, int plen,
+		    __u32 flags);
+
 #define fib_lookup mock_fib_lookup
 static __always_inline __maybe_unused long
 mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_unused,
@@ -28,14 +32,24 @@ mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_
 
 #include "bpf_host.c"
 
-ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
-
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
+{
+	if (ifindex == ENCAP_IFINDEX)
+		return CTX_ACT_REDIRECT;
+	if (ifindex == SECONDARY_IFACE_IFINDEX)
+		return CTX_ACT_REDIRECT;
+
+	return CTX_ACT_DROP;
+}
+
+static __always_inline __maybe_unused int
+mock_redirect_neigh(int ifindex, struct bpf_redir_neigh *params __maybe_unused,
+		    int plen __maybe_unused, __u32 flags __maybe_unused)
 {
 	if (ifindex == ENCAP_IFINDEX)
 		return CTX_ACT_REDIRECT;

@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -35,7 +36,7 @@ func (mgr *endpointManager) startNodeLabelsObserver(old map[string]string) {
 		oldIdtyLabels, _ := labelsfilter.Filter(labels.Map2Labels(old, labels.LabelSourceK8s))
 		newIdtyLabels, _ := labelsfilter.Filter(labels.Map2Labels(ln.Labels, labels.LabelSourceK8s))
 		if maps.Equal(oldIdtyLabels.K8sStringMap(), newIdtyLabels.K8sStringMap()) {
-			log.Debug("Host endpoint identity labels unchanged, skipping labels update")
+			mgr.logger.Debug("Host endpoint identity labels unchanged, skipping labels update")
 			return
 		}
 
@@ -54,7 +55,7 @@ func (mgr *endpointManager) startNodeLabelsObserver(old map[string]string) {
 func (mgr *endpointManager) updateHostEndpointLabels(oldNodeLabels, newNodeLabels map[string]string) bool {
 	nodeEP := mgr.GetHostEndpoint()
 	if nodeEP == nil {
-		log.Error("Host endpoint not found")
+		mgr.logger.Error("Host endpoint not found")
 		return false
 	}
 
@@ -62,7 +63,7 @@ func (mgr *endpointManager) updateHostEndpointLabels(oldNodeLabels, newNodeLabel
 		// An error can only occur if either the endpoint is terminating, or the
 		// old labels are not found. Both are impossible, hence there's no point
 		// in retrying.
-		log.WithError(err).Error("Unable to update host endpoint labels")
+		mgr.logger.Error("Unable to update host endpoint labels", logfields.Error, err)
 		return false
 	}
 	return true

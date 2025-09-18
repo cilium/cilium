@@ -226,11 +226,25 @@ func (p Printer) getVerdict(f *flowpb.Flow) string {
 	case flowpb.Verdict_FORWARDED, flowpb.Verdict_REDIRECTED:
 		if f.GetEventType().GetType() == api.MessageTypePolicyVerdict {
 			msg = "ALLOWED"
+			if p.opts.policyNames {
+				if f.GetTrafficDirection() == flowpb.TrafficDirection_EGRESS {
+					msg += formatPolicyNames(f.GetEgressAllowedBy())
+				} else if f.GetTrafficDirection() == flowpb.TrafficDirection_INGRESS {
+					msg += formatPolicyNames(f.GetIngressAllowedBy())
+				}
+			}
 		}
 		return p.color.verdictForwarded(msg)
 	case flowpb.Verdict_DROPPED, flowpb.Verdict_ERROR:
 		if f.GetEventType().GetType() == api.MessageTypePolicyVerdict {
 			msg = "DENIED"
+			if p.opts.policyNames {
+				if f.GetTrafficDirection() == flowpb.TrafficDirection_EGRESS {
+					msg += formatPolicyNames(f.GetEgressDeniedBy())
+				} else if f.GetTrafficDirection() == flowpb.TrafficDirection_INGRESS {
+					msg += formatPolicyNames(f.GetIngressDeniedBy())
+				}
+			}
 		}
 		return p.color.verdictDropped(msg)
 	case flowpb.Verdict_AUDIT:
@@ -247,13 +261,36 @@ func (p Printer) getVerdict(f *flowpb.Flow) string {
 	}
 }
 
-func (p Printer) getSummary(f *flowpb.Flow) string {
-	auth := p.getAuth(f)
-	if auth == "" {
-		return f.GetSummary()
+func formatPolicyNames(policies []*flowpb.Policy) string {
+	msg := ""
+	i := 0
+	for _, policy := range policies {
+		if policy.GetKind() != "" && policy.GetName() != "" {
+			if i == 0 {
+				msg += " BY "
+			} else {
+				msg += ", "
+			}
+			msg += fmt.Sprintf("%s (%s)", policy.GetName(), policy.GetKind())
+			i += 1
+		}
 	}
 
-	return fmt.Sprintf("%s; Auth: %s", f.GetSummary(), auth)
+	return msg
+}
+
+func (p Printer) getSummary(f *flowpb.Flow) string {
+	b := strings.Builder{}
+	if f.IpTraceId != nil && f.IpTraceId.TraceId > 0 {
+		b.WriteString(fmt.Sprintf("IP Trace ID: %d; ", f.IpTraceId.TraceId))
+	}
+	b.WriteString(f.GetSummary())
+
+	if auth := p.getAuth(f); auth != "" {
+		b.WriteString("; Auth: " + auth)
+	}
+
+	return b.String()
 }
 
 func (p Printer) getAuth(f *flowpb.Flow) string {

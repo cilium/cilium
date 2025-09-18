@@ -10,24 +10,23 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
 	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
+	"github.com/cilium/cilium/pkg/hubble/metrics"
+	metricscell "github.com/cilium/cilium/pkg/hubble/metrics/cell"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	parsercell "github.com/cilium/cilium/pkg/hubble/parser/cell"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/recorder"
-	"github.com/cilium/cilium/pkg/service"
 )
 
 // The top-level Hubble cell, implements several Hubble subsystems: reports pod
@@ -39,11 +38,20 @@ var Cell = cell.Module(
 
 	Core,
 
+	// Hubble TLS certificates
+	certloaderGroup,
+
 	// Hubble flow log exporters
 	exportercell.Cell,
 
 	// Parser for Hubble flows
 	parsercell.Cell,
+
+	// Metrics server and flow processor
+	metricscell.Cell,
+
+	// Drop event emitter flow processor
+	dropeventemitter.Cell,
 )
 
 // The core cell group, which contains the Hubble integration and the
@@ -64,24 +72,25 @@ type hubbleParams struct {
 	IdentityAllocator identitycell.CachingIdentityAllocator
 	EndpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache
-	ServiceManager    service.ServiceManager
 	CGroupManager     manager.CGroupManager
-	Clientset         k8sClient.Clientset
-	K8sWatcher        *watchers.K8sWatcher
 	NodeManager       nodeManager.NodeManager
 	NodeLocalStore    *node.LocalNodeStore
 	MonitorAgent      monitorAgent.Agent
-	Recorder          *recorder.Recorder
+
+	TLSConfigPromise tlsConfigPromise
 
 	// NOTE: ordering is not guaranteed, do not rely on it.
 	ObserverOptions  []observeroption.Option                `group:"hubble-observer-options"`
 	ExporterBuilders []*exportercell.FlowLogExporterBuilder `group:"hubble-exporter-builders"`
 
+	DropEventEmitter dropeventemitter.FlowProcessor
+
 	PayloadParser parser.Decoder
 
-	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
-	AgentConfig *option.DaemonConfig
-	Config      config
+	GRPCMetrics          *grpc_prometheus.ServerMetrics
+	MetricsFlowProcessor metrics.FlowProcessor
+
+	Config config
 }
 
 type HubbleIntegration interface {
@@ -94,18 +103,17 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.IdentityAllocator,
 		params.EndpointManager,
 		params.IPCache,
-		params.ServiceManager,
 		params.CGroupManager,
-		params.Clientset,
-		params.K8sWatcher,
 		params.NodeManager,
 		params.NodeLocalStore,
 		params.MonitorAgent,
-		params.Recorder,
+		params.TLSConfigPromise,
 		params.ObserverOptions,
 		params.ExporterBuilders,
+		params.DropEventEmitter,
 		params.PayloadParser,
-		params.AgentConfig,
+		params.GRPCMetrics,
+		params.MetricsFlowProcessor,
 		params.Config,
 		params.Logger,
 	)

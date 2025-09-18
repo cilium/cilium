@@ -58,7 +58,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.24.2
+  go-version: 1.25.1
 
 jobs:
   echo-inputs:
@@ -87,28 +87,25 @@ jobs:
       matrix:
         include:
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.4-20250409.163403'
-            ci-kernel: '54'
-          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'rhel8.6-20250409.163403'
-            ci-kernel: '54'
-          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.10-20250409.163403'
+          - kernel: 'rhel8.6-20250812.093650'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.15-20250409.163403'
+          - kernel: '5.10-20250915.013221'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.1-20250409.163403'
+          - kernel: '5.15-20250915.013221'
+            ci-kernel: '510'
+          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
+          - kernel: '6.1-20250915.013221'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.6-20250409.163403'
+          - kernel: '6.6-20250915.013221'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.12-20250409.163403'
+          - kernel: '6.12-20250915.013221'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'bpf-next-20250410.054140'
+          - kernel: 'bpf-next-20250915.013221'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
@@ -120,13 +117,13 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.SHA || github.sha }}
           persist-credentials: false
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
+        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
         with:
           test-name: datapath-bpf-complexity
           image: 'complexity-test'
@@ -135,7 +132,7 @@ jobs:
           images-folder-parent: "/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.23"
+          lvh-version: "v0.0.26"
           install-dependencies: 'true'
           cmd: |
             for i in {1..5}; do curl "https://golang.org" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
@@ -155,26 +152,17 @@ jobs:
             rm -r /tmp/llvm
 
       - name: Run verifier tests
-        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
+        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
         with:
           provision: 'false'
           cmd: |
             cd /host/
+            mkdir /host/datapath-verifier
             # Run with cgo disabled, LVH images don't ship with gcc.
-            CGO_ENABLED=0 go${{ env.go-version }} test -v -parallel=1 -timeout=20m ./test/verifier -cilium-base-path /host -ci-kernel-version ${{ matrix.ci-kernel }}
-
-      - name: Fetch artifacts
-        if: ${{ !success() }}
-        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host
-            mkdir datapath-verifier
-            find test/verifier \( -name "*.log" -o -name "*.o" \) -exec cp -v {} datapath-verifier/ \;
+            CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=20m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host --kernel-version ${{ matrix.ci-kernel }} --result-dir /host/datapath-verifier
 
       - name: Upload artifacts
-        if: ${{ !success() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: datapath-verifier_${{ matrix.kernel }}

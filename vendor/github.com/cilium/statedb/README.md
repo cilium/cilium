@@ -56,6 +56,16 @@ type MyObject struct {
   Foo string
 }
 
+// Define header for a formatted table (db/show command)
+func (o *MyObject) TableHeader() []string {
+  return []string{"ID", "Foo"}
+}
+
+// Define how to show the object in a formatted table
+func (o *MyObject) TableRow() []string {
+  return []string{strconv.FormatUInt(uint64(o.ID), 10), o.Foo}
+}
+
 // Define how to index and query the object.
 var IDIndex = statedb.Index[*MyObject, uint32]{
   Name: "id",
@@ -72,14 +82,11 @@ var IDIndex = statedb.Index[*MyObject, uint32]{
 func example() {
   db := statedb.New()
   myObjects, err := statedb.NewTable(
+    db,
     "my-objects",
     IDIndex,
   )
   if err != nil { ... }
-
-  if err := db.RegisterTable(myObjects); err != nil {
-    ...
-  }
 
   wtxn := db.WriteTxn(myObjects)
   
@@ -168,6 +175,16 @@ type MyObject struct {
   ID ID              // Identifier
   Tags part.Set[Tag] // Set of tags
 }
+
+// Define header for a formatted table (db/show command)
+func (o *MyObject) TableHeader() []string {
+  return []string{"ID", "Foo"}
+}
+
+// Define how to show the object in a formatted table
+func (o *MyObject) TableRow() []string {
+  return []string{strconv.FormatUInt(uint64(o.ID), 10), o.Foo}
+}
 ```
 
 ### Indexes
@@ -227,8 +244,9 @@ With the indexes now defined, we can construct a table.
 ### Setting up a table
 
 ```go
-func NewMyObjectTable() (statedb.RWTable[*MyObject], error) {
+func NewMyObjectTable(db *statedb.DB) (statedb.RWTable[*MyObject], error) {
   return statedb.NewTable[*MyObject](
+    db,
     "my-objects",
 
     IDIndex,   // IDIndex is the primary index
@@ -238,9 +256,9 @@ func NewMyObjectTable() (statedb.RWTable[*MyObject], error) {
 }
 ```
 
-The `NewTable` function takes the name of the table, a primary index and zero or
-more secondary indexes. The table name must match the regular expression
-"^[a-z][a-z0-9_\\-]{0,30}$".
+The `NewTable` function takes the database, the name of the table, a primary
+index and zero or more secondary indexes. The table name must match the regular
+expression "^[a-z][a-z0-9_\\-]{0,30}$".
 
 `NewTable` returns a `RWTable`, which is an interface for both reading and
 writing to a table.  An `RWTable` is a superset of `Table`, an interface
@@ -248,6 +266,8 @@ that contains methods just for reading. This provides a simple form of
 type-level access control to the table. `NewTable` may return an error if
 the name or indexers are malformed, for example if `IDIndex` is not unique
 (primary index has to be), or if the indexers have overlapping names.
+Additionally, it may return an error if another table with the same name
+is already registered with the database.
 
 ### Inserting
 
@@ -257,15 +277,8 @@ to the table.
 ```go
 db := statedb.New()
 
-myObjects, err := NewMyObjectTable()
+myObjects, err := NewMyObjectTable(db)
 if err != nil { return err }
-
-// Register the table with the database.
-err := db.RegisterTable(myObjects)
-if err != nil { 
-  // May fail if the table with the same name is already registered.
-  return err
-}
 ```
 
 To insert objects into a table, we'll need to create a `WriteTxn`. This locks

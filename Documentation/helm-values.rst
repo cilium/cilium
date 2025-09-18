@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:37f7b378a29ceb4c551b1b5582e27747b855bbfaa73fa11914fe0df028dc581f","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:ab33eacc8251e3807b85bb6dba570e4698c3998eca6f0fc2ccb60575a563ea74","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -259,9 +259,13 @@
    * - :spelling:ignore:`bandwidthManager`
      - Enable bandwidth manager to optimize TCP and UDP workloads and allow for rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
      - object
-     - ``{"bbr":false,"enabled":false}``
+     - ``{"bbr":false,"bbrHostNamespaceOnly":false,"enabled":false}``
    * - :spelling:ignore:`bandwidthManager.bbr`
      - Activate BBR TCP congestion control for Pods
+     - bool
+     - ``false``
+   * - :spelling:ignore:`bandwidthManager.bbrHostNamespaceOnly`
+     - Activate BBR TCP congestion control for Pods in the host namespace only.
      - bool
      - ``false``
    * - :spelling:ignore:`bandwidthManager.enabled`
@@ -271,15 +275,27 @@
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
-     - ``{"enabled":false,"routerIDAllocation":{"mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
+     - ``{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
      - Enables the BGP control plane.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute`
+     - Legacy BGP ORIGIN attribute settings (BGPv2 only)
+     - object
+     - ``{"enabled":false}``
+   * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute.enabled`
+     - Enable/Disable advertising LoadBalancerIP routes with the legacy BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0). Enable for compatibility with the legacy behavior of MetalLB integration.
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane.routerIDAllocation`
      - BGP router-id allocation mode
      - object
-     - ``{"mode":"default"}``
+     - ``{"ipPool":"","mode":"default"}``
+   * - :spelling:ignore:`bgpControlPlane.routerIDAllocation.ipPool`
+     - IP pool to allocate the BGP router-id from when the mode is ip-pool.
+     - string
+     - ``""``
    * - :spelling:ignore:`bgpControlPlane.routerIDAllocation.mode`
      - BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address.
      - string
@@ -349,7 +365,7 @@
      - object
      - ``{"default":{"burstLimit":null,"rateLimit":null},"drop":{"enabled":true},"policyVerdict":{"enabled":true},"trace":{"enabled":true}}``
    * - :spelling:ignore:`bpf.events.default`
-     - Default settings for all types of events except dbg and pcap.
+     - Default settings for all types of events except dbg.
      - object
      - ``{"burstLimit":null,"rateLimit":null}``
    * - :spelling:ignore:`bpf.events.default.burstLimit`
@@ -432,6 +448,10 @@
      - Configure the maximum number of entries in endpoint policy map (per endpoint). @schema type: [null, integer] @schema
      - int
      - ``16384``
+   * - :spelling:ignore:`bpf.policyMapPressureMetricsThreshold`
+     - Configure threshold for emitting pressure metrics of policy maps. @schema type: [null, number] @schema
+     - float64
+     - ``0.1``
    * - :spelling:ignore:`bpf.policyStatsMapMax`
      - Configure the maximum number of entries in global policy stats map. @schema type: [null, integer] @schema
      - int
@@ -459,7 +479,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:cb3b1480f404489cbf0dbb9ac4576f44392532800180a4d6260ab430b4cbaedc","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.3","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.4","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -492,6 +512,10 @@
      - Priority class for certgen ref: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass
      - string
      - ``""``
+   * - :spelling:ignore:`certgen.resources`
+     - Resource limits for certgen ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers
+     - object
+     - ``{}``
    * - :spelling:ignore:`certgen.tolerations`
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
@@ -516,6 +540,10 @@
      - Configure cgroup root where cgroup2 filesystem is mounted on the host (see also: ``cgroup.autoMount``\ )
      - string
      - ``"/run/cilium/cgroupv2"``
+   * - :spelling:ignore:`ciliumEndpointSlice`
+     - CiliumEndpointSlice configuration options.
+     - object
+     - ``{"enabled":false,"rateLimits":[{"burst":20,"limit":10,"nodes":0},{"burst":100,"limit":50,"nodes":100}]}``
    * - :spelling:ignore:`ciliumEndpointSlice.enabled`
      - Enable Cilium EndpointSlice feature.
      - bool
@@ -524,10 +552,6 @@
      - List of rate limit options to be used for the CiliumEndpointSlice controller. Each object in the list must have the following fields: nodes: Count of nodes at which to apply the rate limit. limit: The sustained request rate in requests per second. The maximum rate that can be configured is 50. burst: The burst request rate in requests per second. The maximum burst that can be configured is 100.
      - list
      - ``[{"burst":20,"limit":10,"nodes":0},{"burst":100,"limit":50,"nodes":100}]``
-   * - :spelling:ignore:`ciliumEndpointSlice.sliceMode`
-     - The slicing mode to use for CiliumEndpointSlices. identity groups together CiliumEndpoints that share the same identity. fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
-     - string
-     - ``"identity"``
    * - :spelling:ignore:`cleanBpfState`
      - Clean all eBPF datapath state from the initContainer of the cilium-agent DaemonSet.  WARNING: Use with care!
      - bool
@@ -605,7 +629,7 @@
      - object
      - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/clustermesh-apiserver-ci","tag":"latest","useDigest":false}``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.enabled`
-     - Enable KVStoreMesh. KVStoreMesh caches the information retrieved from the remote clusters in the local etcd instance.
+     - Enable KVStoreMesh. KVStoreMesh caches the information retrieved from the remote clusters in the local etcd instance (deprecated - KVStoreMesh will always be enabled once the option is removed).
      - bool
      - ``true``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.extraArgs`
@@ -756,6 +780,10 @@
      - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
      - string
      - ``nil``
+   * - :spelling:ignore:`clustermesh.apiserver.podDisruptionBudget.unhealthyPodEvictionPolicy`
+     - How are unhealthy, but running, pods counted for eviction
+     - string
+     - ``nil``
    * - :spelling:ignore:`clustermesh.apiserver.podLabels`
      - Labels to be added to clustermesh-apiserver pods
      - object
@@ -800,6 +828,10 @@
      - The internalTrafficPolicy of service used for apiserver access.
      - string
      - ``"Cluster"``
+   * - :spelling:ignore:`clustermesh.apiserver.service.labels`
+     - Labels for the clustermesh-apiserver service.
+     - object
+     - ``{}``
    * - :spelling:ignore:`clustermesh.apiserver.service.loadBalancerClass`
      - Configure a loadBalancerClass. Allows to configure the loadBalancerClass on the clustermesh-apiserver LB service in case the Service type is set to LoadBalancer (requires Kubernetes 1.24+).
      - string
@@ -813,7 +845,7 @@
      - list
      - ``[]``
    * - :spelling:ignore:`clustermesh.apiserver.service.nodePort`
-     - Optional port to use as the node port for apiserver access.  WARNING: make sure to configure a different NodePort in each cluster if kube-proxy replacement is enabled, as Cilium is currently affected by a known bug (#24692) when NodePorts are handled by the KPR implementation. If a service with the same NodePort exists both in the local and the remote cluster, all traffic originating from inside the cluster and targeting the corresponding NodePort will be redirected to a local backend, regardless of whether the destination node belongs to the local or the remote cluster.
+     - Optional port to use as the node port for apiserver access.
      - int
      - ``32379``
    * - :spelling:ignore:`clustermesh.apiserver.service.type`
@@ -889,7 +921,7 @@
      - object
      - ``{"clusters":[],"domain":"mesh.cilium.io","enabled":false}``
    * - :spelling:ignore:`clustermesh.config.clusters`
-     - List of clusters to be peered in the mesh.
+     - Clusters to be peered in the mesh. @schema type: [object, array] @schema
      - list
      - ``[]``
    * - :spelling:ignore:`clustermesh.config.domain`
@@ -905,13 +937,93 @@
      - bool
      - ``false``
    * - :spelling:ignore:`clustermesh.enableMCSAPISupport`
-     - Enable Multi-Cluster Services API support
+     - Enable Multi-Cluster Services API support (deprecated; use clustermesh.mcsapi.enabled)
      - bool
      - ``false``
    * - :spelling:ignore:`clustermesh.maxConnectedClusters`
      - The maximum number of clusters to support in a ClusterMesh. This value cannot be changed on running clusters, and all clusters in a ClusterMesh must be configured with the same value. Values > 255 will decrease the maximum allocatable cluster-local identities. Supported values are 255 and 511.
      - int
      - ``255``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.affinity`
+     - Affinity for coredns-mcsapi-autoconfig
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.annotations`
+     - Annotations to be added to the coredns-mcsapi-autoconfig Job
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.clusterDomain`
+     - The cluster domain for the cluster CoreDNS service
+     - string
+     - ``"cluster.local"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.clustersetDomain`
+     - The clusterset domain for the cluster CoreDNS service
+     - string
+     - ``"clusterset.local"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.configMapName`
+     - The ConfigMap name for the cluster CoreDNS service
+     - string
+     - ``"coredns"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.deploymentName`
+     - The Deployment for the cluster CoreDNS service
+     - string
+     - ``"coredns"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.namespace`
+     - The namespace for the cluster CoreDNS service
+     - string
+     - ``"kube-system"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.coredns.serviceAccountName`
+     - The Service Account name for the cluster CoreDNS service
+     - string
+     - ``"coredns"``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.enabled`
+     - Enable auto-configuration of CoreDNS for Multi-Cluster Services API.    CoreDNS MUST be at least in version v1.12.2 to run this.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.extraArgs`
+     - Additional arguments to ``clustermesh-apiserver coredns-mcsapi-auto-configure``.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.extraVolumeMounts`
+     - Additional coredns-mcsapi-autoconfig volumeMounts.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.extraVolumes`
+     - Additional coredns-mcsapi-autoconfig volumes.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.nodeSelector`
+     - Node selector for coredns-mcsapi-autoconfig ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.podLabels`
+     - Labels to be added to coredns-mcsapi-autoconfig pods
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.priorityClassName`
+     - Priority class for coredns-mcsapi-autoconfig ref: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass
+     - string
+     - ``""``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.resources`
+     - Resource limits for coredns-mcsapi-autoconfig ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.tolerations`
+     - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.mcsapi.corednsAutoConfigure.ttlSecondsAfterFinished`
+     - Seconds after which the completed job pod will be deleted
+     - int
+     - ``1800``
+   * - :spelling:ignore:`clustermesh.mcsapi.enabled`
+     - Enable Multi-Cluster Services API support
+     - bool
+     - ``false``
+   * - :spelling:ignore:`clustermesh.policyDefaultLocalCluster`
+     - Control whether policy rules assume by default the local cluster if not explicitly selected
+     - bool
+     - ``true``
    * - :spelling:ignore:`clustermesh.useAPIServer`
      - Deploy clustermesh-apiserver for clustermesh
      - bool
@@ -936,8 +1048,12 @@
      - Configure the path to the CNI configuration directory on the host.
      - string
      - ``"/etc/cni/net.d"``
+   * - :spelling:ignore:`cni.configMap`
+     - When defined, configMap will mount the provided value as ConfigMap and interpret the 'cni.configMapKey' value as CNI configuration file and write it when the agent starts up.
+     - string
+     - ``""``
    * - :spelling:ignore:`cni.configMapKey`
-     - Configure the key in the CNI ConfigMap to read the contents of the CNI configuration from.
+     - Configure the key in the CNI ConfigMap to read the contents of the CNI configuration from. For this to be effective, the 'cni.configMap' parameter must be specified too. Note that the 'cni.configMap' parameter is the name of the ConfigMap, while 'cni.configMapKey' is the name of the key in the ConfigMap data containing the actual configuration.
      - string
      - ``"cni-config"``
    * - :spelling:ignore:`cni.customConf`
@@ -1080,6 +1196,10 @@
      - The minimum time, in seconds, to use DNS data for toFQDNs policies. If the upstream DNS server returns a DNS record with a shorter TTL, Cilium overwrites the TTL with this value. Setting this value to zero means that Cilium will honor the TTLs returned by the upstream DNS server.
      - int
      - ``0``
+   * - :spelling:ignore:`dnsProxy.preAllocateIdentities`
+     - Pre-allocate ToFQDN identities. This reduces DNS proxy tail latency, at the potential cost of some unnecessary policymap entries. Disable this if you have a large (200+) number of unique ToFQDN selectors.
+     - bool
+     - ``true``
    * - :spelling:ignore:`dnsProxy.preCache`
      - DNS cache data at this path is preloaded on agent startup.
      - string
@@ -1104,10 +1224,6 @@
      - Time between triggers of egress gateway state reconciliations
      - string
      - ``"1s"``
-   * - :spelling:ignore:`enableCiliumEndpointSlice`
-     - Enable CiliumEndpointSlice feature (deprecated, please use ``ciliumEndpointSlice.enabled`` instead).
-     - bool
-     - ``false``
    * - :spelling:ignore:`enableCriticalPriorityClass`
      - Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in ``helm template`` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for gke clusters in advance.
      - bool
@@ -1119,7 +1235,7 @@
    * - :spelling:ignore:`enableIPv4Masquerade`
      - Enables masquerading of IPv4 traffic leaving the node from endpoints.
      - bool
-     - ``true``
+     - ``true`` unless ipam eni mode is active
    * - :spelling:ignore:`enableIPv6BIGTCP`
      - Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
      - bool
@@ -1140,12 +1256,12 @@
      - Enables masquerading to the source of the route for traffic leaving the node from endpoints.
      - bool
      - ``false``
-   * - :spelling:ignore:`enableNonDefaultDenyPolicies`
-     - Enable Non-Default-Deny policies
+   * - :spelling:ignore:`enableNoServiceEndpointsRoutable`
+     - Enable routing to a service that has zero endpoints
      - bool
      - ``true``
-   * - :spelling:ignore:`enableRuntimeDeviceDetection`
-     - Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.  This option has been deprecated and is a no-op.
+   * - :spelling:ignore:`enableNonDefaultDenyPolicies`
+     - Enable Non-Default-Deny policies
      - bool
      - ``true``
    * - :spelling:ignore:`enableXTSocketFallback`
@@ -1347,11 +1463,15 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:b8f10a6769013b589725f95b99b990a07eeec6d6b34d5ea748f816dd671d04ca","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.33.2-1743993934-6e55b1412ae5976fb0c8fdc87a5e53942f70b0fc","useDigest":true}``
+     - ``{"digest":"sha256:42347c3860964a1d8790c361356e082dbba1b0ded7b36243856182d1bc2a7ee0","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.2-1757248876-6e6f5d6763a6b437fc83c44943492d96d9c5c9aa","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
      - ``30``
+   * - :spelling:ignore:`envoy.livenessProbe.enabled`
+     - Enable liveness probe for cilium-envoy
+     - bool
+     - ``true``
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int
@@ -1492,6 +1612,10 @@
      - SELinux options for the ``cilium-envoy`` container
      - object
      - ``{"level":"s0","type":"spc_t"}``
+   * - :spelling:ignore:`envoy.startupProbe.enabled`
+     - Enable startup probe for cilium-envoy
+     - bool
+     - ``true``
    * - :spelling:ignore:`envoy.startupProbe.failureThreshold`
      - failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
      - int
@@ -1554,10 +1678,6 @@
      - ``["https://CHANGE-ME:2379"]``
    * - :spelling:ignore:`etcd.ssl`
      - Enable use of TLS/SSL for connectivity to etcd.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`externalIPs.enabled`
-     - Enable ExternalIPs service support.
      - bool
      - ``false``
    * - :spelling:ignore:`extraArgs`
@@ -1672,10 +1792,6 @@
      - Enables the enforcement of host policies in the eBPF datapath.
      - bool
      - ``false``
-   * - :spelling:ignore:`hostPort.enabled`
-     - Enable hostPort service support.
-     - bool
-     - ``false``
    * - :spelling:ignore:`hubble.annotations`
      - Annotations to be added to all top-level hubble objects (resources under templates/hubble)
      - object
@@ -1739,7 +1855,7 @@
    * - :spelling:ignore:`hubble.metrics`
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"dynamic":{"config":{"configMapName":"cilium-dynamic-metrics-config","content":[{"contextOptions":[],"excludeFilters":[],"includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
+     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"dynamic":{"config":{"configMapName":"cilium-dynamic-metrics-config","content":[],"createConfigMap":true},"enabled":false},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
    * - :spelling:ignore:`hubble.metrics.dashboards`
      - Grafana dashboards for hubble grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
      - object
@@ -1751,7 +1867,7 @@
    * - :spelling:ignore:`hubble.metrics.dynamic.config.content`
      - -- Exporters configuration in YAML format.
      - list
-     - ``[{"contextOptions":[],"excludeFilters":[],"includeFilters":[],"name":"all"}]``
+     - ``[]``
    * - :spelling:ignore:`hubble.metrics.dynamic.config.createConfigMap`
      - -- True if helm installer should create config map. Switch to false if you want to self maintain the file content.
      - bool
@@ -1855,7 +1971,7 @@
    * - :spelling:ignore:`hubble.redact`
      - Enables redacting sensitive information present in Layer 7 flows.
      - object
-     - ``{"enabled":false,"http":{"headers":{"allow":[],"deny":[]},"urlQuery":false,"userInfo":true},"kafka":{"apiKey":false}}``
+     - ``{"enabled":false,"http":{"headers":{"allow":[],"deny":[]},"urlQuery":false,"userInfo":true},"kafka":{"apiKey":true}}``
    * - :spelling:ignore:`hubble.redact.http.headers.allow`
      - List of HTTP headers to allow: headers not matching will be redacted. Note: ``allow`` and ``deny`` lists cannot be used both at the same time, only one can be present. Example:   redact:     enabled: true     http:       headers:         allow:           - traceparent           - tracestate           - Cache-Control  You can specify the options from the helm CLI:   --set hubble.redact.enabled="true"   --set hubble.redact.http.headers.allow="traceparent,tracestate,Cache-Control"
      - list
@@ -1875,7 +1991,7 @@
    * - :spelling:ignore:`hubble.redact.kafka.apiKey`
      - Enables redacting Kafka's API key. Example:    redact:     enabled: true     kafka:       apiKey: true  You can specify the options from the helm CLI:    --set hubble.redact.enabled="true"   --set hubble.redact.kafka.apiKey="true"
      - bool
-     - ``false``
+     - ``true``
    * - :spelling:ignore:`hubble.relay.affinity`
      - Affinity for hubble-replay
      - object
@@ -1940,6 +2056,10 @@
      - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
      - string
      - ``nil``
+   * - :spelling:ignore:`hubble.relay.podDisruptionBudget.unhealthyPodEvictionPolicy`
+     - How are unhealthy, but running, pods counted for eviction
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.relay.podLabels`
      - Labels to be added to hubble-relay pods
      - object
@@ -1952,10 +2072,18 @@
      - Configure pprof listen address for hubble-relay
      - string
      - ``"localhost"``
+   * - :spelling:ignore:`hubble.relay.pprof.blockProfileRate`
+     - Enable goroutine blocking profiling for hubble-relay and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+     - int
+     - ``0``
    * - :spelling:ignore:`hubble.relay.pprof.enabled`
      - Enable pprof for hubble-relay
      - bool
      - ``false``
+   * - :spelling:ignore:`hubble.relay.pprof.mutexProfileFraction`
+     - Enable mutex contention profiling for hubble-relay and set the fraction of sampled events (set to 1 to sample all events)
+     - int
+     - ``0``
    * - :spelling:ignore:`hubble.relay.pprof.port`
      - Configure pprof listen port for hubble-relay
      - int
@@ -2015,7 +2143,7 @@
    * - :spelling:ignore:`hubble.relay.securityContext`
      - hubble-relay container security context
      - object
-     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532,"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`hubble.relay.service`
      - hubble-relay service configuration.
      - object
@@ -2183,7 +2311,7 @@
    * - :spelling:ignore:`hubble.ui.backend.image`
      - Hubble-ui backend image.
      - object
-     - ``{"digest":"sha256:a034b7e98e6ea796ed26df8f4e71f83fc16465a19d166eff67a03b822c0bfa15","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.2","useDigest":true}``
+     - ``{"digest":"sha256:db1454e45dc39ca41fbf7cad31eec95d99e5b9949c39daaad0fa81ef29d56953","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.3","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.backend.livenessProbe.enabled`
      - Enable liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
      - bool
@@ -2199,7 +2327,7 @@
    * - :spelling:ignore:`hubble.ui.backend.securityContext`
      - Hubble-ui backend security context.
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false}``
    * - :spelling:ignore:`hubble.ui.baseUrl`
      - Defines base url prefix for all hubble-ui http requests. It needs to be changed in case if ingress for hubble-ui is configured under some sub-path. Trailing ``/`` is required for custom path, ex. ``/service-map/``
      - string
@@ -2223,7 +2351,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.image`
      - Hubble-ui frontend image.
      - object
-     - ``{"digest":"sha256:9e37c1296b802830834cc87342a9182ccbb71ffebb711971e849221bd9d59392","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.2","useDigest":true}``
+     - ``{"digest":"sha256:661d5de7050182d495c6497ff0b007a7a1e379648e60830dd68c4d78ae21761d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.3","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.frontend.resources`
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
@@ -2231,7 +2359,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.securityContext`
      - Hubble-ui frontend security context.
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false}``
    * - :spelling:ignore:`hubble.ui.frontend.server.ipv6`
      - Controls server listener for ipv6
      - object
@@ -2262,6 +2390,10 @@
      - ``1``
    * - :spelling:ignore:`hubble.ui.podDisruptionBudget.minAvailable`
      - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
+     - string
+     - ``nil``
+   * - :spelling:ignore:`hubble.ui.podDisruptionBudget.unhealthyPodEvictionPolicy`
+     - How are unhealthy, but running, pods counted for eviction
      - string
      - ``nil``
    * - :spelling:ignore:`hubble.ui.podLabels`
@@ -2639,11 +2771,7 @@
    * - :spelling:ignore:`l2NeighDiscovery.enabled`
      - Enable L2 neighbor discovery in the agent
      - bool
-     - ``true``
-   * - :spelling:ignore:`l2NeighDiscovery.refreshPeriod`
-     - Override the agent's default neighbor resolution refresh period.
-     - string
-     - ``"30s"``
+     - ``false``
    * - :spelling:ignore:`l2announcements`
      - Configure L2 announcements
      - object
@@ -2683,15 +2811,11 @@
    * - :spelling:ignore:`loadBalancer`
      - Configure service load balancing
      - object
-     - ``{"acceleration":"disabled","experimental":false,"l7":{"algorithm":"round_robin","backend":"disabled","ports":[]}}``
+     - ``{"acceleration":"disabled","l7":{"algorithm":"round_robin","backend":"disabled","ports":[]}}``
    * - :spelling:ignore:`loadBalancer.acceleration`
      - acceleration is the option to accelerate service handling via XDP Applicable values can be: disabled (do not use XDP), native (XDP BPF program is run directly out of the networking driver's early receive path), or best-effort (use native mode XDP acceleration on devices that support it).
      - string
      - ``"disabled"``
-   * - :spelling:ignore:`loadBalancer.experimental`
-     - experimental enables support for the experimental load-balancing control-plane.
-     - bool
-     - ``false``
    * - :spelling:ignore:`loadBalancer.l7`
      - L7 LoadBalancer
      - object
@@ -2708,8 +2832,16 @@
      - List of ports from service to be automatically redirected to above backend. Any service exposing one of these ports will be automatically redirected. Fine-grained control can be achieved by using the service annotation.
      - list
      - ``[]``
+   * - :spelling:ignore:`localRedirectPolicies.addressMatcherCIDRs`
+     - Limit the allowed addresses in Address Matcher rule of Local Redirect Policies to the given CIDRs. @schema@ type: [null, array] @schema@
+     - string
+     - ``nil``
+   * - :spelling:ignore:`localRedirectPolicies.enabled`
+     - Enable local redirect policies.
+     - bool
+     - ``false``
    * - :spelling:ignore:`localRedirectPolicy`
-     - Enable Local Redirect Policy.
+     - Enable Local Redirect Policy (deprecated, please use 'localRedirectPolicies.enabled' instead)
      - bool
      - ``false``
    * - :spelling:ignore:`logSystemLoad`
@@ -2759,7 +2891,7 @@
    * - :spelling:ignore:`nodePort`
      - Configure N-S k8s service loadbalancing
      - object
-     - ``{"addresses":null,"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enableHealthCheckLoadBalancerIP":false,"enabled":false}``
+     - ``{"addresses":null,"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enableHealthCheckLoadBalancerIP":false}``
    * - :spelling:ignore:`nodePort.addresses`
      - List of CIDRs for choosing which IP addresses assigned to native devices are used for NodePort load-balancing. By default this is empty and the first suitable, preferably private, IPv4 and IPv6 address assigned to each device is used.  Example:    addresses: ["192.168.1.0/24", "2001::/64"]
      - string
@@ -2778,10 +2910,6 @@
      - ``true``
    * - :spelling:ignore:`nodePort.enableHealthCheckLoadBalancerIP`
      - Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs EnableHealthCheck to be enabled
-     - bool
-     - ``false``
-   * - :spelling:ignore:`nodePort.enabled`
-     - Enable the Cilium NodePort service implementation.
      - bool
      - ``false``
    * - :spelling:ignore:`nodeSelector`
@@ -2823,7 +2951,7 @@
    * - :spelling:ignore:`nodeinit.image`
      - node-init image.
      - object
-     - ``{"digest":"sha256:8d7b41c4ca45860254b3c19e20210462ef89479bb6331d6760c4e609d651b29c","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"c54c7edeab7fde4da68e59acd319ab24af242c3f","useDigest":true}``
+     - ``{"digest":"sha256:5bdca3c2dec2c79f58d45a7a560bf1098c2126350c901379fe850b7f78d3d757","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}``
    * - :spelling:ignore:`nodeinit.nodeSelector`
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -2859,7 +2987,7 @@
    * - :spelling:ignore:`nodeinit.securityContext`
      - Security context to be added to nodeinit pods.
      - object
-     - ``{"capabilities":{"add":["SYS_MODULE","NET_ADMIN","SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"add":["SYS_MODULE","NET_ADMIN","SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
    * - :spelling:ignore:`nodeinit.startup`
      - startup offers way to customize startup nodeinit script (pre and post position)
      - object
@@ -2956,6 +3084,10 @@
      - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
      - string
      - ``nil``
+   * - :spelling:ignore:`operator.podDisruptionBudget.unhealthyPodEvictionPolicy`
+     - How are unhealthy, but running, pods counted for eviction
+     - string
+     - ``nil``
    * - :spelling:ignore:`operator.podLabels`
      - Labels to be added to cilium-operator pods
      - object
@@ -2963,15 +3095,23 @@
    * - :spelling:ignore:`operator.podSecurityContext`
      - Security context to be added to cilium-operator pods
      - object
-     - ``{}``
+     - ``{"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`operator.pprof.address`
      - Configure pprof listen address for cilium-operator
      - string
      - ``"localhost"``
+   * - :spelling:ignore:`operator.pprof.blockProfileRate`
+     - Enable goroutine blocking profiling for cilium-operator and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+     - int
+     - ``0``
    * - :spelling:ignore:`operator.pprof.enabled`
      - Enable pprof for cilium-operator
      - bool
      - ``false``
+   * - :spelling:ignore:`operator.pprof.mutexProfileFraction`
+     - Enable mutex contention profiling for cilium-operator and set the fraction of sampled events (set to 1 to sample all events)
+     - int
+     - ``0``
    * - :spelling:ignore:`operator.pprof.port`
      - Configure pprof listen port for cilium-operator
      - int
@@ -3035,7 +3175,7 @@
    * - :spelling:ignore:`operator.securityContext`
      - Security context to be added to cilium-operator pods
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - :spelling:ignore:`operator.setNodeNetworkStatus`
      - Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod.
      - bool
@@ -3049,9 +3189,9 @@
      - bool
      - ``false``
    * - :spelling:ignore:`operator.tolerations`
-     - Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ Toleration for agentNotReadyTaintKey taint is always added to cilium-operator pods. @schema type: [null, array] @schema
      - list
-     - ``[{"operator":"Exists"}]``
+     - ``[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists"},{"key":"node-role.kubernetes.io/master","operator":"Exists"},{"key":"node.kubernetes.io/not-ready","operator":"Exists"},{"key":"node.cloudprovider.kubernetes.io/uninitialized","operator":"Exists"}]``
    * - :spelling:ignore:`operator.topologySpreadConstraints`
      - Pod topology spread constraints for cilium-operator
      - list
@@ -3064,6 +3204,10 @@
      - Restart any pod that are not managed by Cilium.
      - bool
      - ``true``
+   * - :spelling:ignore:`operator.unmanagedPodWatcher.selector`
+     - Selector for pods that should be restarted when not managed by Cilium. If not set, defaults to built-in selector "k8s-app=kube-dns". Set to empty string to select all pods. @schema type: [null, string] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`operator.updateStrategy`
      - cilium-operator update strategy
      - object
@@ -3083,7 +3227,7 @@
    * - :spelling:ignore:`podSecurityContext`
      - Security Context for cilium-agent pods.
      - object
-     - ``{"appArmorProfile":{"type":"Unconfined"}}``
+     - ``{"appArmorProfile":{"type":"Unconfined"},"seccompProfile":{"type":"Unconfined"}}``
    * - :spelling:ignore:`podSecurityContext.appArmorProfile`
      - AppArmorProfile options for the ``cilium-agent`` and init containers
      - object
@@ -3100,10 +3244,18 @@
      - Configure pprof listen address for cilium-agent
      - string
      - ``"localhost"``
+   * - :spelling:ignore:`pprof.blockProfileRate`
+     - Enable goroutine blocking profiling for cilium-agent and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+     - int
+     - ``0``
    * - :spelling:ignore:`pprof.enabled`
      - Enable pprof for cilium-agent
      - bool
      - ``false``
+   * - :spelling:ignore:`pprof.mutexProfileFraction`
+     - Enable mutex contention profiling for cilium-agent and set the fraction of sampled events (set to 1 to sample all events)
+     - int
+     - ``0``
    * - :spelling:ignore:`pprof.port`
      - Configure pprof listen port for cilium-agent
      - int
@@ -3120,6 +3272,10 @@
      - Enable Cilium pre-flight resources (required for upgrade)
      - bool
      - ``false``
+   * - :spelling:ignore:`preflight.envoy.image`
+     - Envoy pre-flight image.
+     - object
+     - ``{"digest":"sha256:42347c3860964a1d8790c361356e082dbba1b0ded7b36243856182d1bc2a7ee0","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.2-1757248876-6e6f5d6763a6b437fc83c44943492d96d9c5c9aa","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
@@ -3156,6 +3312,10 @@
      - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
      - string
      - ``nil``
+   * - :spelling:ignore:`preflight.podDisruptionBudget.unhealthyPodEvictionPolicy`
+     - How are unhealthy, but running, pods counted for eviction
+     - string
+     - ``nil``
    * - :spelling:ignore:`preflight.podLabels`
      - Labels to be added to the preflight pod.
      - object
@@ -3183,7 +3343,7 @@
    * - :spelling:ignore:`preflight.securityContext`
      - Security context to be added to preflight pods
      - object
-     - ``{}``
+     - ``{"allowPrivilegeEscalation":false}``
    * - :spelling:ignore:`preflight.terminationGracePeriodSeconds`
      - Configure termination grace period for preflight Deployment and DaemonSet.
      - int
@@ -3304,6 +3464,10 @@
      - Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
      - object
      - ``{}``
+   * - :spelling:ignore:`securityContext.allowPrivilegeEscalation`
+     - disable privilege escalation
+     - bool
+     - ``false``
    * - :spelling:ignore:`securityContext.capabilities.applySysctlOverwrites`
      - capabilities for the ``apply-sysctl-overwrites`` init container
      - list
@@ -3336,6 +3500,10 @@
      - Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob
      - object
      - ``{"annotations":{},"automount":true,"create":true,"name":"clustermesh-apiserver-generate-certs"}``
+   * - :spelling:ignore:`serviceAccounts.corednsMCSAPI`
+     - CorednsMCSAPI is used if clustermesh.mcsapi.corednsAutoConfigure.enabled=true
+     - object
+     - ``{"annotations":{},"automount":true,"create":true,"name":"cilium-coredns-mcsapi-autoconfig"}``
    * - :spelling:ignore:`serviceAccounts.hubblecertgen`
      - Hubblecertgen is used if hubble.tls.auto.method=cronJob
      - object
@@ -3368,10 +3536,6 @@
      - interval between checks of the startup probe
      - int
      - ``2``
-   * - :spelling:ignore:`svcSourceRangeCheck`
-     - Enable check of service source ranges (currently, only for LoadBalancer).
-     - bool
-     - ``true``
    * - :spelling:ignore:`synchronizeK8sNodes`
      - Synchronize Kubernetes nodes to kvstore and perform CNP GC.
      - bool

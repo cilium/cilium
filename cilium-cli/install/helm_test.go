@@ -10,7 +10,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/cilium/cilium/cilium-cli/k8s"
 )
@@ -19,7 +19,7 @@ func TestK8sInstaller_getHelmValuesKind(t *testing.T) {
 	installer := K8sInstaller{
 		params:       Parameters{},
 		flavor:       k8s.Flavor{Kind: k8s.KindKind},
-		chartVersion: semver.MustParse("1.13.0"),
+		chartVersion: semver.MustParse("1.14.0"),
 	}
 	values, err := installer.getHelmValues()
 	assert.NoError(t, err)

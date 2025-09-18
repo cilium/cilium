@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
@@ -361,12 +362,24 @@ func (e *BPFEgressGatewayPolicyEntry) matches(t BPFEgressGatewayPolicyEntry) boo
 
 // WaitForEgressGatewayBpfPolicyEntries waits for the egress gateway policy maps on each node to WaitForEgressGatewayBpfPolicyEntries
 // with the entries returned by the targetEntriesCallback
-func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context, ciliumPods map[string]Pod,
+func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context,
+	ciliumPods map[string]Pod,
+	testPods []Pod,
 	targetEntriesCallback func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error),
 	excludeEntries func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error),
 ) error {
 	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
 	defer w.Cancel()
+
+	localPodIPs := sets.New[string]()
+	for _, pod := range testPods {
+		if ip := pod.Address(features.IPFamilyV4); ip != "" {
+			localPodIPs.Insert(ip)
+		}
+		if ip := pod.Address(features.IPFamilyV6); ip != "" {
+			localPodIPs.Insert(ip)
+		}
+	}
 
 	ensureBpfPolicyEntries := func() error {
 		for _, ciliumPod := range ciliumPods {
@@ -401,8 +414,13 @@ func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context, ciliumPods map[st
 			}
 
 			for _, entry := range entries {
+				// We only check for untracked entries for Pods in this test namespace that
+				// are untracked.
+				if !localPodIPs.Has(entry.SourceIP) {
+					continue
+				}
 				if !slices.ContainsFunc(targetEntries, entry.matches) {
-					return fmt.Errorf("untracked entry %+v in the egress gateway policy map", entry)
+					return fmt.Errorf("untracked entry %+v in the egress gateway policy maps", entry)
 				}
 			}
 		}
@@ -413,7 +431,7 @@ func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context, ciliumPods map[st
 	for {
 		if err := ensureBpfPolicyEntries(); err != nil {
 			if err := w.Retry(err); err != nil {
-				return fmt.Errorf("failed to ensure egress gateway policy map is properly populated: %w", err)
+				return fmt.Errorf("failed to ensure egress gateway policy maps are properly populated: %w", err)
 			}
 
 			continue

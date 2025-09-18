@@ -24,7 +24,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -32,7 +35,9 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 	"github.com/cilium/cilium/pkg/time"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -103,6 +108,12 @@ type orchestratorParams struct {
 	EndpointManager     endpointmanager.EndpointManager
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
 	XDPConfig           xdp.Config
+	LBConfig            loadbalancer.Config
+	KPRConfig           kpr.KPRConfig
+	SvcRouteConfig      svcrouteconfig.RoutesConfig
+	MaglevConfig        maglev.Config
+	WgConfig            wgTypes.WireguardConfig
+	IPsecConfig         datapath.IPsecConfig
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -137,9 +148,8 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 		},
 	})
 
-	group := params.JobRegistry.NewGroup(params.Health)
+	group := params.JobRegistry.NewGroup(params.Health, params.Lifecycle)
 	group.Add(job.OneShot("reinitialize", o.reconciler, job.WithShutdown()))
-	params.Lifecycle.Append(group)
 
 	return o
 }
@@ -160,7 +170,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		stream.Filter(o.params.LocalNodeStore,
 			func(n node.LocalNode) bool {
 				if agentConfig.EnableIPv4 {
-					loopback := n.IPv4Loopback != nil
+					loopback := n.Local.ServiceLoopbackIPv4 != nil
 					ipv4GW := n.GetCiliumInternalIP(false) != nil
 					ipv4Range := n.IPv4AllocCIDR != nil
 					if !ipv4GW || !ipv4Range || !loopback {
@@ -168,8 +178,9 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 					}
 				}
 				if agentConfig.EnableIPv6 {
+					loopback := n.Local.ServiceLoopbackIPv6 != nil
 					ipv6GW := n.GetCiliumInternalIP(true) != nil
-					if !ipv6GW {
+					if !ipv6GW || !loopback {
 						return false
 					}
 				}
@@ -190,6 +201,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	for {
 		localNodeConfig, localNodeConfigWatch, err := newLocalNodeConfig(
 			ctx,
+			o.params.Log,
 			option.Config,
 			localNode,
 			o.params.DB.ReadTxn(),
@@ -198,7 +210,13 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.NodeAddresses,
 			o.params.Config.DeriveMasqIPAddrFromDevice,
 			o.params.XDPConfig,
+			o.params.LBConfig,
+			o.params.KPRConfig,
+			o.params.SvcRouteConfig,
+			o.params.MaglevConfig,
 			o.params.MTU,
+			o.params.WgConfig,
+			o.params.IPsecConfig,
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)

@@ -59,7 +59,7 @@ func init() {
 	// From preflight_migrate_crd_identity.go
 	miCmd := migrateIdentityCmd()
 	miCmd.Flags().StringVar(&kvStore, "kvstore", "", "Key-value store type")
-	miCmd.Flags().Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options e.g. etcd.address=127.0.0.1:4001")
+	miCmd.Flags().Var(option.NewMapOptions(&kvStoreOpts), "kvstore-opt", "Key-value store options e.g. etcd.address=127.0.0.1:4001")
 	PreflightCmd.AddCommand(miCmd)
 
 	PreflightCmd.AddCommand(validateCNPCmd())

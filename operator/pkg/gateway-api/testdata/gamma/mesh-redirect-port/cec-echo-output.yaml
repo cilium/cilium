@@ -1,0 +1,101 @@
+metadata:
+  creationTimestamp: null
+  annotations:
+    cec.cilium.io/use-original-source-address: "true"
+  labels:
+    gateway.networking.k8s.io/gateway-name: mesh-redirect-port
+  name: echo
+  namespace: gateway-conformance-mesh
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    controller: true
+    kind: HTTPRoute
+    name: mesh-redirect-port
+    uid: ""
+  resourceVersion: "1"
+spec:
+  resources:
+  - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    filterChains:
+    - filterChainMatch:
+        transportProtocol: raw_buffer
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          commonHttpProtocolOptions:
+            maxStreamDuration: 0s
+          httpFilters:
+          - name: envoy.filters.http.grpc_web
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+          - name: envoy.filters.http.grpc_stats
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+              emitFilterState: true
+              enableUpstreamStats: true
+          - name: envoy.filters.http.router
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          internalAddressConfig: {}
+          rds:
+            routeConfigName: listener-insecure
+          statPrefix: listener-insecure
+          streamIdleTimeout: 300s
+          upgradeConfigs:
+          - upgradeType: websocket
+          useRemoteAddress: true
+    listenerFilters:
+    - name: envoy.filters.listener.tls_inspector
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+    name: listener
+    socketOptions:
+    - description: Enable TCP keep-alive (default to enabled)
+      intValue: "1"
+      level: "1"
+      name: "9"
+    - description: TCP keep-alive idle time (in seconds) (defaults to 10s)
+      intValue: "10"
+      level: "6"
+      name: "4"
+    - description: TCP keep-alive probe intervals (in seconds) (defaults to 5s)
+      intValue: "5"
+      level: "6"
+      name: "5"
+    - description: TCP keep-alive probe max failures.
+      intValue: "10"
+      level: "6"
+      name: "6"
+  - '@type': type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+    name: listener-insecure
+    virtualHosts:
+    - domains:
+      - '*'
+      name: '*'
+      routes:
+      - match:
+          pathSeparatedPrefix: /port-and-host-and-status
+        redirect:
+          hostRedirect: example.org
+          portRedirect: 8083
+          responseCode: FOUND
+      - match:
+          pathSeparatedPrefix: /port-and-status
+        redirect:
+          portRedirect: 8083
+      - match:
+          pathSeparatedPrefix: /port-and-host
+        redirect:
+          hostRedirect: example.org
+          portRedirect: 8083
+      - match:
+          pathSeparatedPrefix: /port
+        redirect:
+          portRedirect: 8083
+  services:
+  - listener: ""
+    name: echo
+    namespace: gateway-conformance-mesh
+    ports:
+    - 80

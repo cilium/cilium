@@ -5,7 +5,6 @@ package ciliumendpointslice
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -40,7 +39,8 @@ type params struct {
 	Cfg       Config
 	SharedCfg SharedConfig
 
-	Metrics *Metrics
+	Metrics                  *Metrics
+	WorkqueueMetricsProvider workqueue.MetricsProvider
 
 	Job job.Group
 }
@@ -62,7 +62,7 @@ type Controller struct {
 	// Manager is used to create and maintain a local datastore. Manager watches for
 	// cilium endpoint changes and enqueues/dequeues the cilium endpoint changes in CES.
 	// It maintains the desired state of the CESs in dataStore
-	manager      operations
+	manager      *cesManager
 	maxCEPsInCES int
 
 	// workqueue is used to sync CESs with the api-server. this will rate-limit the
@@ -83,7 +83,8 @@ type Controller struct {
 
 	wp *workerpool.WorkerPool
 
-	metrics *Metrics
+	metrics                  *Metrics
+	workqueueMetricsProvider workqueue.MetricsProvider
 
 	syncDelay time.Duration
 
@@ -111,41 +112,23 @@ func registerController(p params) error {
 		return err
 	}
 
-	checkDeprecatedOpts(p.Cfg, p.Logger)
-
 	cesController := &Controller{
-		logger:              p.Logger,
-		clientset:           clientset,
-		ciliumEndpoint:      p.CiliumEndpoint,
-		ciliumEndpointSlice: p.CiliumEndpointSlice,
-		ciliumNodes:         p.CiliumNodes,
-		namespace:           p.Namespace,
-		maxCEPsInCES:        p.Cfg.CESMaxCEPsInCES,
-		rateLimit:           rateLimitConfig,
-		enqueuedAt:          make(map[CESKey]time.Time),
-		metrics:             p.Metrics,
-		syncDelay:           DefaultCESSyncTime,
-		priorityNamespaces:  make(map[string]struct{}),
-		cond:                *sync.NewCond(&lock.Mutex{}),
-		Job:                 p.Job,
+		logger:                   p.Logger,
+		clientset:                clientset,
+		ciliumEndpoint:           p.CiliumEndpoint,
+		ciliumEndpointSlice:      p.CiliumEndpointSlice,
+		ciliumNodes:              p.CiliumNodes,
+		namespace:                p.Namespace,
+		maxCEPsInCES:             p.Cfg.CESMaxCEPsInCES,
+		rateLimit:                rateLimitConfig,
+		enqueuedAt:               make(map[CESKey]time.Time),
+		metrics:                  p.Metrics,
+		workqueueMetricsProvider: p.WorkqueueMetricsProvider,
+		syncDelay:                DefaultCESSyncTime,
+		priorityNamespaces:       make(map[string]struct{}),
+		cond:                     *sync.NewCond(&lock.Mutex{}),
+		Job:                      p.Job,
 	}
 	p.Lifecycle.Append(cesController)
 	return nil
-}
-
-// checkDeprecatedOpts will log an error if the user has supplied any of the
-// no-op, deprecated rate limit options.
-// TODO: Remove this function when the deprecated options are removed.
-func checkDeprecatedOpts(cfg Config, logger *slog.Logger) {
-	switch {
-	case cfg.CESWriteQPSLimit > 0:
-	case cfg.CESWriteQPSBurst > 0:
-	case cfg.CESEnableDynamicRateLimit:
-	case len(cfg.CESDynamicRateLimitNodes) > 0:
-	case len(cfg.CESDynamicRateLimitQPSLimit) > 0:
-	case len(cfg.CESDynamicRateLimitQPSBurst) > 0:
-	default:
-		return
-	}
-	logger.Error(fmt.Sprintf("You are using deprecated rate limit option(s) that have no effect. To configure custom rate limits please use --%s", CESRateLimits))
 }

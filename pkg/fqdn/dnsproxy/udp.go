@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"strconv"
 	"sync"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -44,16 +46,17 @@ var udpOOBSize = func() int {
 //     v4 address from a socket bound to "::1" does not work due to kernel
 //     checking that a route exists from the source address before
 //     the source address is replaced with the (transparently) changed one
-func NewSessionUDPFactory(ipFamily ipfamily.IPFamily) (dns.SessionUDPFactory, error) {
+func NewSessionUDPFactory(logger *slog.Logger, ipFamily ipfamily.IPFamily) (dns.SessionUDPFactory, error) {
 	rawResponseConn, err := bindResponseUDPConnection(ipFamily)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open raw UDP %s socket for DNS Proxy: %w", ipFamily.Name, err)
 	}
 
-	return &sessionUDPFactory{rawResponseConn: rawResponseConn}, nil
+	return &sessionUDPFactory{logger: logger, rawResponseConn: rawResponseConn}, nil
 }
 
 type sessionUDPFactory struct {
+	logger *slog.Logger
 	// A pool for UDP message buffers.
 	udpPool sync.Pool
 
@@ -65,12 +68,13 @@ type sessionUDPFactory struct {
 // sessionUDP implements the dns.SessionUDP, holding the remote address and the associated
 // out-of-band data.
 type sessionUDP struct {
-	f     *sessionUDPFactory // owner
-	conn  *net.UDPConn       // UDP socket for receiving both IPv4 and IPv6
-	raddr *net.UDPAddr
-	laddr *net.UDPAddr
-	m     []byte
-	oob   []byte
+	logger *slog.Logger
+	f      *sessionUDPFactory // owner
+	conn   *net.UDPConn       // UDP socket for receiving both IPv4 and IPv6
+	raddr  *net.UDPAddr
+	laddr  *net.UDPAddr
+	m      []byte
+	oob    []byte
 }
 
 // Set the socket options needed for transparent proxying for the listening socket
@@ -145,9 +149,10 @@ func (f *sessionUDPFactory) SetSocketOptions(_ *net.UDPConn) error {
 func (f *sessionUDPFactory) InitPool(msgSize int) {
 	f.udpPool.New = func() any {
 		return &sessionUDP{
-			f:   f,
-			m:   make([]byte, msgSize),
-			oob: make([]byte, udpOOBSize),
+			logger: f.logger,
+			f:      f,
+			m:      make([]byte, msgSize),
+			oob:    make([]byte, udpOOBSize),
 		}
 	}
 }
@@ -222,9 +227,14 @@ func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 
 	n, _, err = s.f.rawResponseConn.WriteMsgIP(buf, s.controlMessage(s.laddr), &dst)
 	if err != nil {
-		log.WithError(err).Warning("WriteMsgIP failed")
+		s.logger.Warn("WriteMsgIP failed", logfields.Error, err)
 	} else {
-		log.Debugf("dnsproxy: Wrote DNS response (%d/%d bytes) from %s to %s", n-8, l, s.laddr.String(), s.raddr.String())
+		s.logger.Debug("dnsproxy: Wrote DNS response",
+			logfields.WrittenBytes, n-8,
+			logfields.TotalBytes, l,
+			logfields.Source, s.laddr,
+			logfields.Destination, s.raddr,
+		)
 	}
 	return n, err
 }

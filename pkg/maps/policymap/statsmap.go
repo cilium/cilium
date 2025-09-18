@@ -26,11 +26,6 @@ const (
 	StatNotAvailable = uint64(math.MaxUint64)
 )
 
-var (
-	// nCPU must be on package level to be available for StatsValues.New() below
-	nCPU = ciliumebpf.MustPossibleCPU()
-)
-
 // PolicyStatsMap maps endpoint IDs to the fd for the program which
 // implements its policy.
 type StatsMap struct {
@@ -39,12 +34,13 @@ type StatsMap struct {
 }
 
 func newStatsMap(maxStatsEntries int, log *slog.Logger) (*StatsMap, int) {
+	nCPU := possibleCPU(log)
 	roundDown := maxStatsEntries % nCPU
 	maxStatsEntries -= roundDown
 
 	// Must return a valid map even if returning an error
 	return &StatsMap{
-		Map: ebpf.NewMap(&ebpf.MapSpec{
+		Map: ebpf.NewMap(log, &ebpf.MapSpec{
 			Name:       StatsMapName,
 			Type:       ebpf.LRUCPUHash,
 			KeySize:    uint32(unsafe.Sizeof(StatsKey{})),
@@ -59,15 +55,25 @@ func newStatsMap(maxStatsEntries int, log *slog.Logger) (*StatsMap, int) {
 
 // OpenStatsMap opens the existing global policy stats map.
 // Should only be called from cilium-dbg
-func OpenStatsMap() (*StatsMap, error) {
-	m, err := ebpf.LoadRegisterMap(StatsMapName)
+func OpenStatsMap(logger *slog.Logger) (*StatsMap, error) {
+	m, err := ebpf.LoadRegisterMap(logger, StatsMapName)
 	if err != nil {
 		return nil, err
 	}
 	return &StatsMap{
 		Map: m,
-		log: slog.Default(),
+		log: logger,
 	}, nil
+}
+
+func possibleCPU(logger *slog.Logger) int {
+	nCPU, err := ciliumebpf.PossibleCPU()
+	if err != nil {
+		logger.Error("Failed to determine possible CPUs", logfields.Error, err)
+		// Fallback to 1 CPU if we cannot determine the number of CPUs
+		return 1
+	}
+	return nCPU
 }
 
 type StatsKey struct {
@@ -166,6 +172,7 @@ func (m *StatsMap) ZeroStat(epID uint16, k PolicyKey) error {
 		Nexthdr:          k.Nexthdr,
 		DestPortNetwork:  k.DestPortNetwork,
 	}
+	nCPU := possibleCPU(m.log)
 	zeroValue := make(StatsValues, nCPU)
 
 	err := m.Update(&statsKey, zeroValue, 0)

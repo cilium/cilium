@@ -18,9 +18,6 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/asm"
-
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -100,13 +97,13 @@ type directoryInfo struct {
 }
 
 var (
-	standardCFlags = []string{"-O2", "--target=bpf", "-std=gnu89",
+	StandardCFlags = []string{"-O2", "--target=bpf", "-std=gnu99",
 		"-nostdinc",
+		"-ftrap-function=__undefined_trap",
 		"-Wall", "-Wextra", "-Werror", "-Wshadow",
 		"-Wno-address-of-packed-member",
 		"-Wno-unknown-warning-option",
 		"-Wno-gnu-variable-sized-type-not-at-end",
-		"-Wdeclaration-after-statement",
 		"-Wimplicit-int-conversion",
 		"-Wenum-conversion",
 		"-Wimplicit-fallthrough"}
@@ -136,16 +133,9 @@ var (
 func getBPFCPU(logger *slog.Logger) string {
 	probeCPUOnce.Do(func() {
 		if !option.Config.DryMode {
-			// We can probe the availability of BPF instructions indirectly
-			// based on what kernel helpers are available when both were
-			// added in the same release.
-			// We want to enable v3 only on kernels 5.10+ where we have
-			// tested it and need it to work around complexity issues.
 			if probes.HaveV3ISA(logger) == nil {
-				if probes.HaveProgramHelper(logger, ebpf.SchedCLS, asm.FnRedirectNeigh) == nil {
-					nameBPFCPU = "v3"
-					return
-				}
+				nameBPFCPU = "v3"
+				return
 			}
 			// We want to enable v2 on all kernels that support it, that is,
 			// kernels 4.14+.
@@ -183,7 +173,7 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 		compileArgs = append(compileArgs, "-g")
 	}
 
-	compileArgs = append(compileArgs, standardCFlags...)
+	compileArgs = append(compileArgs, StandardCFlags...)
 	compileArgs = append(compileArgs, "-mcpu="+getBPFCPU(logger))
 	compileArgs = append(compileArgs, prog.Options...)
 	compileArgs = append(compileArgs,

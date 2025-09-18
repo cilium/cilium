@@ -42,79 +42,77 @@ type PerfParameters struct {
 	Image           string
 	NetQos          bool
 	KernelProfiles  bool
+	Bandwidth       bool
 
 	NodeSelectorServer map[string]string
 	NodeSelectorClient map[string]string
-	Tolerations        []string
-}
-
-func (p *PerfParameters) GetTolerations() []corev1.Toleration {
-	tolerations := make([]corev1.Toleration, 0, len(p.Tolerations))
-	for _, t := range p.Tolerations {
-		tolerations = append(tolerations, corev1.Toleration{Key: t, Operator: corev1.TolerationOpExists})
-	}
-	return tolerations
 }
 
 type Parameters struct {
-	AssumeCiliumVersion    string
-	CiliumNamespace        string
-	TestNamespace          string
-	TestNamespaceIndex     int
-	TestConcurrency        int
-	SingleNode             bool
-	PrintFlows             bool
-	ForceDeploy            bool
-	Hubble                 bool
-	HubbleServer           string
-	K8sLocalHostTest       bool
-	MultiCluster           string
-	RunTests               []*regexp.Regexp
-	SkipTests              []*regexp.Regexp
-	PostTestSleepDuration  time.Duration
-	FlowValidation         string
-	AllFlows               bool
-	Writer                 io.ReadWriter
-	Verbose                bool
-	Debug                  bool
-	Timestamp              bool
-	PauseOnFail            bool
-	SkipIPCacheCheck       bool
-	Perf                   bool
-	PerfParameters         PerfParameters
-	CurlImage              string
-	JSONMockImage          string
-	TestConnDisruptImage   string
-	FRRImage               string
-	SocatImage             string
-	AgentDaemonSetName     string
-	DNSTestServerImage     string
-	PrintImageArtifacts    bool
-	IncludeUnsafeTests     bool
-	AgentPodSelector       string
-	CiliumPodSelector      string
-	NodeSelector           map[string]string
-	DeploymentAnnotations  annotationsMap
-	NamespaceLabels        map[string]string
-	NamespaceAnnotations   map[string]string
-	ExternalTarget         string
-	ExternalOtherTarget    string
-	ExternalCIDR           string
-	ExternalIP             string
-	ExternalDeploymentPort int
-	ExternalOtherIP        string
-	ServiceType            string
-	EchoServerHostPort     int
-	PodCIDRs               []podCIDRs
-	NodeCIDRs              []string
-	ControlPlaneCIDRs      []string
-	K8sCIDR                string
-	NodesWithoutCiliumIPs  []nodesWithoutCiliumIP
-	JunitFile              string
-	JunitProperties        map[string]string
-	ImpersonateAs          string
-	ImpersonateGroups      []string
-	IPFamilies             []string
+	AssumeCiliumVersion       string
+	CiliumNamespace           string
+	TestNamespace             string
+	TestNamespaceIndex        int
+	TestConcurrency           int
+	SingleNode                bool
+	PrintFlows                bool
+	ForceDeploy               bool
+	Hubble                    bool
+	HubbleServer              string
+	K8sLocalHostTest          bool
+	MultiCluster              string
+	RunTests                  []*regexp.Regexp
+	SkipTests                 []*regexp.Regexp
+	PostTestSleepDuration     time.Duration
+	FlowValidation            string
+	AllFlows                  bool
+	Writer                    io.ReadWriter
+	Verbose                   bool
+	Debug                     bool
+	Timestamp                 bool
+	PauseOnFail               bool
+	SkipIPCacheCheck          bool
+	Perf                      bool
+	PerfParameters            PerfParameters
+	CurlImage                 string
+	JSONMockImage             string
+	TestConnDisruptImage      string
+	EchoImage                 string
+	FRRImage                  string
+	SocatImage                string
+	AgentDaemonSetName        string
+	DNSTestServerImage        string
+	PrintImageArtifacts       bool
+	IncludeUnsafeTests        bool
+	AgentPodSelector          string
+	CiliumPodSelector         string
+	NodeSelector              map[string]string
+	Tolerations               []string
+	DeploymentAnnotations     annotationsMap
+	NamespaceLabels           map[string]string
+	NamespaceAnnotations      map[string]string
+	ExternalTargetIPv6Capable bool
+	ExternalTarget            string
+	ExternalOtherTarget       string
+	ExternalCIDRv4            string
+	ExternalCIDRv6            string
+	ExternalIPv4              string
+	ExternalIPv6              string
+	ExternalDeploymentPort    int
+	ExternalOtherIPv4         string
+	ExternalOtherIPv6         string
+	ServiceType               string
+	EchoServerHostPort        int
+	PodCIDRs                  []podCIDRs
+	NodeCIDRs                 []string
+	ControlPlaneCIDRs         []string
+	K8sCIDR                   string
+	NodesWithoutCiliumIPs     []nodesWithoutCiliumIP
+	JunitFile                 string
+	JunitProperties           map[string]string
+	ImpersonateAs             string
+	ImpersonateGroups         []string
+	IPFamilies                []string
 
 	IncludeConnDisruptTest              bool
 	IncludeConnDisruptTestNSTraffic     bool
@@ -154,6 +152,14 @@ type Parameters struct {
 	ExternalTargetCAName      string
 
 	Timeout time.Duration
+}
+
+func (p *Parameters) GetTolerations() []corev1.Toleration {
+	tolerations := make([]corev1.Toleration, 0, len(p.Tolerations))
+	for _, t := range p.Tolerations {
+		tolerations = append(tolerations, corev1.Toleration{Key: t, Operator: corev1.TolerationOpExists})
+	}
+	return tolerations
 }
 
 type podCIDRs struct {

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	goslices "slices"
 
-	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
-	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
+	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -33,7 +33,6 @@ const (
 
 func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string) []ClusterMutator {
 	res := []ClusterMutator{
-		withConnectionTimeout(5),
 		withIdleTimeout(i.Config.ClusterConfig.IdleTimeoutSeconds),
 		withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
 		withOutlierDetection(true),
@@ -54,7 +53,6 @@ func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string) []
 
 func (i *cecTranslator) tcpClusterMutators(mutationFunc ...ClusterMutator) []ClusterMutator {
 	return append(mutationFunc,
-		withConnectionTimeout(5),
 		withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
 		withOutlierDetection(true),
 	)

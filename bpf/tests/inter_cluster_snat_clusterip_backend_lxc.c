@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/skb.h>
+#include "common.h"
 #include "pktgen.h"
 
 /*
@@ -56,7 +55,7 @@
 #include <bpf_lxc.c>
 
 /* Set the LXC source address to be the address of the backend pod */
-ASSIGN_CONFIG(__u32, endpoint_ipv4, BACKEND_IP)
+ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = BACKEND_IP})
 
 #include "lib/ipcache.h"
 #include "lib/policy.h"
@@ -76,7 +75,7 @@ struct {
 } entry_call_map __section(".maps") = {
 	.values = {
 		[FROM_CONTAINER] = &cil_from_container,
-		[HANDLE_POLICY] = &handle_policy,
+		[HANDLE_POLICY] = &cil_lxc_policy,
 	},
 };
 

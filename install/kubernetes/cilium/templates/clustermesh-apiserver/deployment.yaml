@@ -181,6 +181,8 @@ spec:
         lifecycle:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+      {{- end }}
+      {{- if eq "true" (include "identityAllocationCRD" .) }}
       - name: apiserver
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
@@ -208,12 +210,13 @@ spec:
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.port }}
         - --controller-group-metrics=all
         {{- end }}
-        {{- if .Values.clustermesh.enableMCSAPISupport }}
+        {{- if or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
         - --clustermesh-enable-mcs-api
         {{- end }}
         {{- if .Values.ciliumEndpointSlice.enabled }}
         - --enable-cilium-endpoint-slice
         {{- end }}
+        {{- include "clustermesh.apiserver.args.extra" . | nindent 8 }}
         {{- with .Values.clustermesh.apiserver.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
@@ -235,6 +238,9 @@ spec:
               name: cilium-config
               key: enable-k8s-endpoint-slice
               optional: true
+        {{- with .Values.clustermesh.apiserver.extraEnv }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
         readinessProbe:
           httpGet:
             path: /readyz
@@ -242,9 +248,6 @@ spec:
           {{- with .Values.clustermesh.apiserver.readinessProbe }}
           {{- toYaml . | trim | nindent 10 }}
           {{- end }}
-        {{- with .Values.clustermesh.apiserver.extraEnv }}
-        {{- toYaml . | trim | nindent 8 }}
-        {{- end }}
         ports:
         - name: apiserv-health
           containerPort: {{ .Values.clustermesh.apiserver.healthPort }}
@@ -308,6 +311,8 @@ spec:
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
         - --controller-group-metrics=all
         {{- end }}
+        - --enable-heartbeat={{ eq "true" (include "identityAllocationCRD" .) | ternary "false" "true" }}
+        {{- include "clustermesh.kvstoremesh.args.extra" . | nindent 8 }}
         {{- with .Values.clustermesh.apiserver.kvstoremesh.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
@@ -495,7 +500,7 @@ spec:
       {{- end }}
       {{- if and .Values.clustermesh.config.enabled .Values.clustermesh.apiserver.kvstoremesh.enabled }}
       hostAliases:
-      {{- range $cluster := .Values.clustermesh.config.clusters }}
+      {{- range $_, $cluster := (include "clustermesh-clusters" . | fromJson) }}
       {{- range $ip := $cluster.ips }}
       - ip: {{ $ip }}
         hostnames: [ "{{ $cluster.name }}.{{ $.Values.clustermesh.config.domain }}" ]

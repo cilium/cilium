@@ -5,16 +5,23 @@ package namemanager
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/api/v1/server/restapi/policy"
+	policyRestAPI "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -25,11 +32,15 @@ var Cell = cell.Module(
 	// Cannot just yet be a proper cell.Config, since there's places which
 	// access the MinTTL without access to a hive. In addition, the state dir is
 	// a shared config.
-	cell.ProvidePrivate(func(dc *option.DaemonConfig) NameManagerConfig {
+	cell.Config(defaultConfig),
+	cell.ProvidePrivate(func(dc *option.DaemonConfig, lc NameManagerLocalConfig) NameManagerConfig {
 		return NameManagerConfig{
-			MinTTL:            dc.ToFQDNsMinTTL,
-			DNSProxyLockCount: dc.DNSProxyLockCount,
-			StateDir:          dc.StateDir,
+			NameManagerLocalConfig: lc,
+			MinTTL:                 dc.ToFQDNsMinTTL,
+			DNSProxyLockCount:      dc.DNSProxyLockCount,
+			StateDir:               dc.StateDir,
+			EnableIPv4:             dc.EnableIPv4,
+			EnableIPv6:             dc.EnableIPv6,
 		}
 	}),
 	cell.ProvidePrivate(adaptors),
@@ -40,6 +51,8 @@ var Cell = cell.Module(
 )
 
 type NameManagerConfig struct {
+	NameManagerLocalConfig
+
 	// MinTTL is the minimum TTL value that a cache entry can have.
 	MinTTL int
 
@@ -48,14 +61,26 @@ type NameManagerConfig struct {
 
 	// StateDir is the directory where namemanager checkpoints are stored.
 	StateDir string
+
+	EnableIPv4, EnableIPv6 bool
+}
+
+type NameManagerLocalConfig struct {
+	ToFQDNsPreAllocate bool `mapstructure:"tofqdns-preallocate-identities"`
 }
 
 type ManagerParams struct {
 	cell.In
 
-	Config  NameManagerConfig
-	IPCache ipc
-	EPMgr   endpoints
+	JobGroup job.Group
+
+	PolicyRepo      policy.PolicyRepository
+	Logger          *slog.Logger
+	Config          NameManagerConfig
+	IPCache         ipc
+	EPMgr           endpoints
+	RestorerPromise promise.Promise[endpointstate.Restorer]
+	Allocator       cache.IdentityAllocator
 }
 
 func adaptors(ipcache *ipcache.IPCache, epLookup endpointmanager.EndpointsLookup) (ipc, endpoints) {
@@ -73,6 +98,14 @@ type ipc interface {
 type endpoints interface {
 	Lookup(id string) (*endpoint.Endpoint, error)
 	GetEndpoints() []*endpoint.Endpoint
+}
+
+var defaultConfig = NameManagerLocalConfig{
+	ToFQDNsPreAllocate: true,
+}
+
+func (def NameManagerLocalConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("tofqdns-preallocate-identities", def.ToFQDNsPreAllocate, "Preallocate identities for ToFQDN selectors. This reduces proxied DNS response latency. Disable if you have many ToFQDN selectors.")
 }
 
 // Only exists such that we have constructor which returns the interface type.
@@ -107,22 +140,20 @@ type NameManager interface {
 	// UnlockName releases a lock previously acquired by LockName()
 	UnlockName(name string)
 
-	StartGC(context.Context)
 	// RestoreCache loads cache state from the restored system:
 	// - adds any pre-cached DNS entries
 	// - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-	RestoreCache(preCachePath string, eps map[uint16]*endpoint.Endpoint)
-	CompleteBootstrap()
+	RestoreCache(eps map[uint16]*endpoint.Endpoint)
 }
 
 // Provides the API handlers for Cilium API.
 type apiHandlers struct {
 	cell.Out
 
-	PolicyDeleteFqdnCacheHandler policy.DeleteFqdnCacheHandler
-	PolicyGetFqdnCacheHandler    policy.GetFqdnCacheHandler
-	PolicyGetFqdnCacheIDHandler  policy.GetFqdnCacheIDHandler
-	PolicyGetFqdnNamesHandler    policy.GetFqdnNamesHandler
+	PolicyDeleteFqdnCacheHandler policyRestAPI.DeleteFqdnCacheHandler
+	PolicyGetFqdnCacheHandler    policyRestAPI.GetFqdnCacheHandler
+	PolicyGetFqdnCacheIDHandler  policyRestAPI.GetFqdnCacheIDHandler
+	PolicyGetFqdnNamesHandler    policyRestAPI.GetFqdnNamesHandler
 }
 
 func handlers(nm *manager) apiHandlers {

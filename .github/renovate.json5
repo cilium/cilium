@@ -8,6 +8,8 @@
   // self-hosted configuration
   "username": "cilium-renovate[bot]",
   "repositories": ["cilium/cilium"],
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
   // renovate first reads this configuration, then reads the repository
   // configuration, since we don't split between the self-hosted and the
   // repository configuration, this can lead to duplicate of some areas of the
@@ -60,7 +62,6 @@
     "google/oss-fuzz"
   ],
   "pinDigests": true,
-  "ignorePresets": [":prHourlyLimit2"],
   // We don't want to separate major and minor upgrades in separate PRs since
   // we can upgrade them together in a single PR.
   "separateMajorMinor": false,
@@ -70,9 +71,9 @@
   "pruneStaleBranches": true,
   "baseBranches": [
     "main",
+    "v1.18",
     "v1.17",
-    "v1.16",
-    "v1.15",
+    "v1.16"
   ],
   "vulnerabilityAlerts": {
     "enabled": true
@@ -82,10 +83,12 @@
     "kind/enhancement",
     "release-note/misc"
   ],
+  "rebaseLabel": "dont-merge/needs-rebase",
   "stopUpdatingLabel": "renovate/stop-updating",
   "allowedPostUpgradeCommands": [
     "^make -C install/kubernetes$",
     "^make -C Documentation update-helm-values$",
+    "^make -C Documentation update-cmdref$",
     "^make generate-k8s-api$",
     "^make manifests$",
     "^make GO='contrib/scripts/builder.sh go' generate-apis$"
@@ -94,23 +97,34 @@
   "packageRules": [
     {
       "matchPackageNames": [
+        "bufbuild/buf", // Protocol buffer toolkit
+        "docker.io/alpine/socat", // Alpine socat package
+        "docker.io/library/busybox", // Official busybox image
+        "eksctl-io/eksctl", // EKS CLI tool
         "go", // golang version directive upgrade in go.mod
         "google/cloud-sdk", // google cloud-sdk official package name
+        "google-github-actions/auth", // Google GitHub Actions auth
+        "google-github-actions/setup-gcloud", // Google GitHub Actions gcloud setup
         "grpc-ecosystem/grpc-health-probe", // Grpc ecosystem
         "kindest/node", // official kindest images
+        "kubernetes/kubernetes", // Kubernetes official releases
         "kubernetes-sigs/kind", // official kind dependencies
+        "quay.io/cilium/cilium-envoy", // Cilium's Envoy proxy
+        "quay.io/frrouting/frr", // FRRouting package
+        "registry.k8s.io/coredns/coredns", // CoreDNS official image
         "renovatebot/github-action", // Renovate's GH action
         "renovatebot/renovate", // Renovate's bot name
+        "ghcr.io/renovatebot/renovate", // Renovate's container image
       ],
       "matchPackagePrefixes": [
-        "actions/", // GitHub official's GH actions
-        "cilium/", // Cilium's GH actions,
-        "docker.io/library/", // official Docker images,
-        "docker/", // official Docker actions,
+        "actions/", // GitHub's official GH actions
+        "cilium/", // Cilium's GH actions
+        "docker.io/library/", // official Docker images
+        "docker/", // official Docker actions
         "gcr.io/distroless", // official distroless images
         "gcr.io/etcd-development/etcd", // etcd
         "ghcr.io/spiffe/", // Spiffe's official images
-        "github.com/actions/", // GitHub official's GH actions
+        "github.com/actions/", // GitHub's official GH actions
         "github.com/aws/", // Amazon's dependencies
         "github.com/Azure/", // Azure's dependencies
         "github.com/cilium/", // Any Cilium dependency
@@ -119,7 +133,7 @@
         "github.com/google/", // Google official org
         "github.com/go-openapi/", // Open API official org
         "github.com/hashicorp/", // Hashicorp's official org
-        "github.com/prometheus/", // Prometheu's official org
+        "github.com/prometheus/", // Prometheus's official org
         "go.etcd.io/etcd/", // etcd's official org
         "golang.org/x/", // Golang official experimental org
         "golangci/golangci-lint", // Golang CI linter
@@ -204,9 +218,9 @@
       ],
       matchBaseBranches: [
         "main",
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ]
     },
     {
@@ -219,9 +233,9 @@
         "go.sum"
       ],
       matchBaseBranches: [
+        "v1.18",
         "v1.17",
-        "v1.16",
-        "v1.15",
+        "v1.16"
       ]
     },
     {
@@ -229,8 +243,15 @@
       "matchPackageNames": [
         "github.com/miekg/dns",
         "github.com/cilium/dns",
+
+        // See https://github.com/cilium/cilium/pull/11607
         "sigs.k8s.io/controller-tools",
         "github.com/cilium/controller-tools",
+
+        // See https://github.com/cilium/cilium/pull/40566
+        "github.com/osrg/gobgp/v3",
+        "github.com/cilium/gobgp/v3",
+
         "github.com/cilium/client-go",
         // We update this dependency manually together with envoy proxy updates
         "github.com/cilium/proxy",
@@ -240,7 +261,11 @@
         // https://github.com/google/go-licenses/issues/205
         "github.com/google/go-licenses",
         // We update this dependency manually together with conformance test changes
-        "sigs.k8s.io/gateway-api"
+        "sigs.k8s.io/gateway-api",
+        // Stop updating envoy control plane packages until they pushed the
+        // tag to stop go mod from erroring. See https://github.com/cilium/cilium/issues/41574
+        "github.com/envoyproxy/go-control-plane/contrib",
+        "github.com/envoyproxy/go-control-plane/envoy"
       ],
       "matchPackagePatterns": [
         // We can't update these libraries until github.com/shoenig/go-m1cpu
@@ -280,9 +305,9 @@
         "minor",
       ],
       matchBaseBranches: [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ]
     },
     {
@@ -317,6 +342,7 @@
       ],
       "allowedVersions": "24.04",
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "main",
       ],
@@ -328,7 +354,6 @@
       "allowedVersions": "22.04",
       "matchBaseBranches": [
         "v1.16",
-        "v1.15",
       ],
     },
     {
@@ -336,11 +361,20 @@
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "<1.24",
+      "allowedVersions": "<1.25",
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.23",
+      "matchBaseBranches": [
+        "v1.18",
       ]
     },
     {
@@ -351,7 +385,6 @@
       "matchBaseBranches": [
         "v1.17",
         "v1.16",
-        "v1.15"
       ]
     },
     {
@@ -360,10 +393,20 @@
       ],
       "allowedVersions": "<0.2.0",
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ]
+    },
+    {
+      // Disable major updates for go-github as those require updating import paths
+      "enabled": false,
+      "matchPackageNames": [
+        "github.com/google/go-github/v*",
+      ],
+      "matchUpdateTypes": [
+        "major",
+      ],
     },
     {
       // Avoid updating patch version for statedb as it might contain breaking changes
@@ -400,9 +443,9 @@
       ],
       "matchBaseBranches": [
         "main",
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ]
     },
     {
@@ -435,9 +478,9 @@
         "golangci/golangci-lint"
       ],
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ]
     },
     {
@@ -446,6 +489,16 @@
         "quay.io/lvh-images/kind"
       ],
       "versioning": "regex:^((?<compatibility>[a-z0-9-.]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$"
+    },
+    {
+      // Disable updates for rhel8.6 for both complexity-test and kind
+      // since new versions are making the tests to fail.
+      "enabled": false,
+      "matchPackageNames": [
+        "quay.io/lvh-images/complexity-test",
+        "quay.io/lvh-images/kind"
+      ],
+      "matchCurrentVersion": "/^rhel8\\.6-.*$/"
     },
     {
       "groupName": "stable lvh-images",
@@ -457,9 +510,9 @@
       ],
       "allowedVersions": "!/bpf-next-.*/",
       "matchBaseBranches": [
+        "v1.18",
         "v1.17",
         "v1.16",
-        "v1.15",
       ],
     },
     {
@@ -469,6 +522,18 @@
         "cilium/little-vm-helper",
         "quay.io/lvh-images/complexity-test",
         "quay.io/lvh-images/kind"
+      ],
+      "matchBaseBranches": [
+        "main"
+      ],
+    },
+    // group updating renovate versions together (config validator/self hosted renovate)
+    {
+      "groupName": "renovate dependencies",
+      "groupSlug": "renovate-dependencies",
+      "matchDepNames": [
+        "renovatebot/renovate",
+        "ghcr.io/renovatebot/renovate",
       ],
       "matchBaseBranches": [
         "main"
@@ -525,6 +590,20 @@
       }
     },
     {
+      "matchFiles": [
+        "cilium-cli/defaults/defaults.go"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C Documentation update-cmdref"
+        ],
+        "fileFilters": [
+          "Documentation/cmdref/cilium_connectivity_test.md"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
       enabled: false,
       matchDepPatterns: [
         // k8s dependencies will be updated manually along with tests
@@ -576,16 +655,20 @@
       }
     },
     {
-      "matchDepNames": [
-        "quay.io/cilium/cilium-envoy"
+      // The images from the image-tools repository have a timestamp-based versioning scheme, see https://github.com/cilium/image-tools/pull/286
+      "matchPackageNames": [
+        "quay.io/cilium/cilium-bpftool",
+        "quay.io/cilium/ca-certificates",
+        "quay.io/cilium/cilium-checkpatch",
+        "quay.io/cilium/image-compilers",
+        "quay.io/cilium/iptables",
+        "quay.io/cilium/cilium-llvm",
+        "quay.io/cilium/image-maker",
+        "quay.io/cilium/network-perf",
+        "quay.io/cilium/startup-script",
+        "quay.io/cilium/image-tester",
       ],
-      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
-      "allowedVersions": "/^v1\\.32\\.([0-9]+)-([0-9]+)-.*$/",
-      "matchBaseBranches": [
-        "v1.17",
-        "v1.16",
-        "v1.15"
-      ]
+      "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$",
     },
     {
       "matchDepNames": [
@@ -593,6 +676,28 @@
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
       "allowedVersions": "/^v1\\.33\\.([0-9]+)-([0-9]+)-.*$/",
+      "matchBaseBranches": [
+        "v1.18",
+        "v1.17",
+        "v1.16"
+      ]
+    },
+    {
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
+      "allowedVersions": "/^v1\\.34\\.([0-9]+)-([0-9]+)-.*$/",
+      "matchBaseBranches": [
+        "v1.18",
+      ]
+    },
+    {
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
+      "allowedVersions": "/^v1\\.35\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "main",
       ]
@@ -645,8 +750,7 @@
     {
       "enabled": false,
       "matchFileNames": [
-        ".github/workflows/lint-build-commits.yaml",
-        ".github/workflows/lint-bpf-checks.yaml"
+        ".github/workflows/lint-build-commits.yaml"
       ],
       "matchDepTypes": [
         "github-runner",
@@ -657,23 +761,26 @@
       "matchUpdateTypes": [
         "major"
       ],
+      "matchBaseBranches": [
+        "v1.18",
+        "v1.17",
+        "v1.16",
+      ]
     },
     {
+      // Do not allow any major and minor etcd updates into stable branches.
       "enabled": false,
-      "matchFileNames": [
-        ".github/workflows/documentation.yaml"
-      ],
-      "matchDepTypes": [
-        "github-runner",
-      ],
-      "matchPackageNames": [
-        "ubuntu",
+      "matchDepNames": [
+        "gcr.io/etcd-development/etcd"
       ],
       "matchUpdateTypes": [
-        "major"
+        "major",
+        "minor",
       ],
-      matchBaseBranches: [
-        "v1.15"
+      "matchBaseBranches": [
+        "v1.18",
+        "v1.17",
+        "v1.16",
       ]
     }
   ],
@@ -685,10 +792,8 @@
   "regexManagers": [
     {
       "fileMatch": [
-        "images/cilium/download-hubble\\.sh",
         "images/builder/install-protoc.sh",
         "images/builder/install-protoplugins.sh",
-        "images/hubble-relay/download-grpc-health-probe.sh",
         "images/runtime/build-gops.sh"
       ],
       // These regexes manage version and digest strings in shell scripts,
@@ -761,7 +866,7 @@
         "^.github/workflows/renovate-config-validator\\.yaml$"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?)\\s+RENOVATE_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
+        "# renovate: datasource=(?<datasource>.*?)\\s+export RENOVATE_IMAGE=\"?(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"?"
       ]
     },
     {
@@ -797,8 +902,7 @@
         "^cilium-cli/defaults/defaults\\.go$"
       ],
       "matchStrings": [
-        "\/\/ renovate: datasource=(?<datasource>.*?)\\s+.+Image = \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
-        "\/\/ renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+Version = \"(?<currentValue>.*)\""
+        "\/\/ renovate: datasource=(?<datasource>.*?)\\s+\"[^\"]+\": \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
       ]
     },
     {
@@ -814,6 +918,15 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+lvh-version: \"(?<currentValue>.*)\""
       ]
+    },
+    {
+      "fileMatch": [".github/workflows/.*\\.ya?ml$"],
+      "matchStrings": [
+        "['\"]ubuntu-(?<currentValue>[0-9]{2}\\.[0-9]{2})['\"]"
+      ],
+      "datasourceTemplate": "github-runners",
+      "depNameTemplate": "ubuntu",
+      "packageNameTemplate": "ubuntu"
     }
   ]
 }

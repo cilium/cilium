@@ -10,6 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNilString(t *testing.T) {
+	var c *CIDR
+	var n *net.IPNet
+	require.Equal(t, n.String(), c.String())
+}
+
 func TestNilDeepCopy(t *testing.T) {
 	var c1 *CIDR
 	require.Nil(t, c1.DeepCopy())
@@ -43,13 +49,6 @@ func TestIllegalMustParseCIDR(t *testing.T) {
 	}()
 	c1 := MustParseCIDR("Illegal")
 	require.Nil(t, c1)
-}
-
-func TestAvailableIPs(t *testing.T) {
-	cidr := MustParseCIDR("10.0.0.0/8")
-	require.Equal(t, 16777216, cidr.AvailableIPs())
-	cidr = MustParseCIDR("1.1.1.1/32")
-	require.Equal(t, 1, cidr.AvailableIPs())
 }
 
 func TestEqual(t *testing.T) {

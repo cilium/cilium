@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -12,17 +13,20 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
+	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/format"
 	"github.com/cilium/cilium/pkg/monitor/payload"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -40,12 +44,17 @@ programs attached to endpoints and devices. This includes:
   * Captured packet traces
   * Policy verdict notifications
   * Debugging information`,
+		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			runMonitor(args)
+			ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt, os.Kill)
+			defer cancel()
+
+			startLinkCacheSync(ctx)
+			runMonitor(ctx)
 		},
 	}
 	linkCache  = link.NewLinkCache()
-	printer    = format.NewMonitorFormatter(format.INFO, linkCache)
+	printer    = format.NewMonitorFormatter(api.INFO, linkCache, os.Stdout)
 	socketPath = ""
 	verbosity  = []bool{}
 )
@@ -68,28 +77,17 @@ func init() {
 
 func setVerbosity() {
 	if printer.JSONOutput {
-		printer.Verbosity = format.JSON
+		printer.Verbosity = api.JSON
 	} else {
 		switch len(verbosity) {
 		case 1:
-			printer.Verbosity = format.DEBUG
+			printer.Verbosity = api.DEBUG
 		case 2:
-			printer.Verbosity = format.VERBOSE
+			printer.Verbosity = api.VERBOSE
 		default:
-			printer.Verbosity = format.INFO
+			printer.Verbosity = api.INFO
 		}
 	}
-}
-
-func setupSigHandler() {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	go func() {
-		for range signalChan {
-			fmt.Fprintf(os.Stderr, "\nReceived an interrupt, disconnecting from monitor...\n\n")
-			os.Exit(0)
-		}
-	}()
 }
 
 // openMonitorSock attempts to open a version specific monitor socket It
@@ -120,7 +118,7 @@ func openMonitorSock(path string) (conn net.Conn, version listener.Version, err 
 // consumeMonitorEvents handles and prints events on a monitor connection. It
 // calls getMonitorParsed to construct a monitor-version appropriate parser.
 // It closes conn on return, and returns on error, including io.EOF
-func consumeMonitorEvents(conn net.Conn, version listener.Version) error {
+func consumeMonitorEvents(ctx context.Context, conn net.Conn, version listener.Version) error {
 	defer conn.Close()
 
 	getParsedPayload, err := getMonitorParser(conn, version)
@@ -129,6 +127,14 @@ func consumeMonitorEvents(conn net.Conn, version listener.Version) error {
 	}
 
 	for {
+		select {
+		case <-ctx.Done():
+			fmt.Fprintf(os.Stderr, "\nReceived an interrupt, disconnecting from monitor...\n\n")
+			return nil
+		default:
+			// read and parse monitor events
+		}
+
 		pl, err := getParsedPayload()
 		if err != nil {
 			return err
@@ -137,8 +143,10 @@ func consumeMonitorEvents(conn net.Conn, version listener.Version) error {
 			// earlier code used an else to handle this case, along with pl.Type ==
 			// payload.RecordLost above. It should be safe to call lostEvent to match
 			// the earlier behaviour, despite it not being wholly correct.
-			log.WithError(err).WithField("type", pl.Type).Warn("Unknown payload type")
-			format.LostEvent(pl.Lost, pl.CPU)
+			log.Warn("Unknown payload type",
+				logfields.Error, err,
+				logfields.Type, pl.Type,
+			)
 		}
 	}
 }
@@ -225,15 +233,10 @@ func validateEndpointsFilters() {
 	}
 }
 
-func runMonitor(args []string) {
-	if len(args) > 0 {
-		fmt.Fprintln(os.Stderr, "Error: arguments not recognized")
-		os.Exit(1)
-	}
-
+func runMonitor(ctx context.Context) {
 	validateEndpointsFilters()
 	setVerbosity()
-	setupSigHandler()
+
 	if resp, err := client.Daemon.GetHealthz(nil); err == nil {
 		if nm := resp.Payload.NodeMonitor; nm != nil {
 			fmt.Fprintf(os.Stderr, "Listening for events on %d CPUs with %dx%d of shared memory\n",
@@ -248,21 +251,34 @@ func runMonitor(args []string) {
 	for ; ; time.Sleep(connTimeout) {
 		conn, version, err := openMonitorSock(vp.GetString("monitor-socket"))
 		if err != nil {
-			log.WithError(err).Error("Cannot open monitor socket")
+			log.Error("Cannot open monitor socket", logfields.Error, err)
 			return
 		}
 
-		err = consumeMonitorEvents(conn, version)
-		switch {
-		case err == nil:
-		// no-op
+		if err := consumeMonitorEvents(ctx, conn, version); err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				log.Warn("connection closed", logfields.Error, err)
+				continue
+			}
 
-		case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
-			log.WithError(err).Warn("connection closed")
-			continue
-
-		default:
-			log.WithError(err).Fatal("decoding error")
+			logging.Fatal(log, "decoding error", logfields.Error, err)
 		}
+
+		return
 	}
+}
+
+func startLinkCacheSync(ctx context.Context) {
+	go func() {
+		for {
+			linkCache.SyncCache(ctx)
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(15 * time.Second):
+				continue
+			}
+		}
+	}()
 }

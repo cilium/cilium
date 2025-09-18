@@ -19,16 +19,32 @@ permissions:
   contents: read
   # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
   id-token: write
+  # To be able to check if base images were built
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || (github.event_name == 'merge_group' && github.run_id) }}
   cancel-in-progress: true
 
 jobs:
+  wait-for-base-images:
+    name: Wait for lint checks
+    uses: ./.github/workflows/wait-for-status-check.yaml
+    with:
+      # Only run this job if the event is pull_request_target.
+      # This is to avoid waiting for base images on push to main or merge_group
+      # events as the lint-images-base does not run on those events.
+      if: ${{ github.event_name == 'pull_request_target' }}
+      sha: ${{ github.event.pull_request.head.sha || github.sha }}
+      lint-workflows: "lint-images-base.yaml"
+      timeout-minutes: 2
+      poll-interval: 15
+
   build-and-push-prs:
     timeout-minutes: 45
     name: Build and Push Images
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    needs: wait-for-base-images
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
     strategy:
@@ -73,15 +89,11 @@ jobs:
 
     steps:
       - name: Checkout base or default branch (trusted)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           # We first check if base_ref exist, meaning we're in pull_request_target context, and if not we just use default_branch
           ref: ${{ github.base_ref || github.event.repository.default_branch }}
           persist-credentials: false
-
-      - name: Cleanup Disk space in runner
-        if: runner.name == 'ubuntu-24.04'
-        uses: ./.github/actions/disk-cleanup
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
@@ -90,6 +102,21 @@ jobs:
         run: |
           mkdir -p ../cilium-base-branch
           cp -r .github/actions/set-runtime-image ../cilium-base-branch
+
+      - name: Check for disk usage and cleanup /mnt
+        shell: bash
+        run: |
+          echo "# Disk usage"
+          df -h
+          echo "# Usage for /mnt"
+          sudo du --human-readable \
+                -- /mnt
+          if compgen -G "/mnt/.*" > /dev/null; then
+            echo "# Hidden files in /mnt:"
+            sudo du --human-readable -- /mnt/.* 2>/dev/null
+          fi
+          echo "# Removing all contents of /mnt except /mnt/swapfile"
+          sudo find /mnt -mindepth 1 ! -path /mnt/swapfile -exec rm -rf {} + || true
 
       - name: Setup docker volumes into /mnt
         # This allows us to make use of all available disk.
@@ -101,7 +128,7 @@ jobs:
           sudo systemctl start docker
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
         # Disable GC entirely to avoid buildkit from GC caches.
         with:
           buildkitd-config-inline: |
@@ -109,7 +136,7 @@ jobs:
              gc=false
 
       - name: Login to quay.io for CI
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_CI }}
@@ -161,7 +188,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
           ref: ${{ steps.tag.outputs.sha }}
@@ -182,7 +209,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Restore Golang cache build from GitHub
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -204,7 +231,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           provenance: false
           context: /tmp/.cache/go
@@ -227,11 +254,8 @@ jobs:
             echo build="true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
-
       - name: CI Build ${{ matrix.name }}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: docker_build_ci
         if: ${{ steps.check.outputs.build != '' }}
         with:
@@ -247,7 +271,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: docker_build_ci_detect_race_condition
         if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.race_tag != ''}}
         with:
@@ -265,7 +289,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: docker_build_ci_unstripped
         if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.unstripped_tag != ''}}
         with:
@@ -281,57 +305,38 @@ jobs:
             MODIFIERS="NOSTRIP=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
-      - name: Sign Container Images
-        if: ${{ steps.check.outputs.build != '' }}
-        run: |
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
-          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
-            cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
-          fi
-          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
-            cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
-          fi
-
-      - name: Generate SBOM
-        if: ${{ matrix.name != 'cilium-cli' }}
-        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+      - name: Generate SBOM, Sign, and Attest Main CI Image
+        if: ${{ matrix.name != 'cilium-cli' && steps.check.outputs.build != '' }}
+        uses: ./.github/actions/cosign
         with:
-          artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}"
+          image_tag: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}"
+          sbom_name: "ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
 
-      - name: Generate SBOM (race)
+      - name: Generate SBOM, Sign, and Attest Race Detection Image
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
-        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        uses: ./.github/actions/cosign
         with:
-          artifact-name: sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
+          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}"
+          image_tag: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race"
+          sbom_name: "ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
+          install_cosign: 'false'
 
-      - name: Generate SBOM (unstripped)
+      - name: Generate SBOM, Sign, and Attest Unstripped Image
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
-        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        uses: ./.github/actions/cosign
         with:
-          artifact-name: sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
-
-      - name: Attach SBOM attestation to container image
-        if: ${{ matrix.name != 'cilium-cli' }}
-        run: |
-          cosign attest -r -y --predicate sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
-          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
-            cosign attest -r -y --predicate sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
-          fi
-          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
-            cosign attest -r -y --predicate sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
-          fi
+          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}"
+          image_tag: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped"
+          sbom_name: "ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
+          install_cosign: 'false'
 
       - name: CI Image Releases digests
         shell: bash
         if: ${{ steps.check.outputs.build != '' }}
         run: |
           mkdir -p image-digest/
+          # shellcheck disable=SC2078
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
             echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
           fi
@@ -370,7 +375,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           path: image-digest/
           pattern: "*image-digest *"

@@ -26,14 +26,14 @@ var (
 	podCIDR       = "10.0.0.0/24"
 	podCIDRPrefix = netip.MustParsePrefix(podCIDR)
 
-	lbPool = &v2alpha1api.CiliumLoadBalancerIPPool{
+	lbPool = &v2.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				"label1": "value1",
 			},
 		},
-		Spec: v2alpha1api.CiliumLoadBalancerIPPoolSpec{
-			Blocks: []v2alpha1api.CiliumLoadBalancerIPPoolIPBlock{
+		Spec: v2.CiliumLoadBalancerIPPoolSpec{
+			Blocks: []v2.CiliumLoadBalancerIPPoolIPBlock{
 				{
 					Cidr: "192.168.0.0/24",
 				},
@@ -41,14 +41,14 @@ var (
 		},
 	}
 
-	lbPoolUpdated = &v2alpha1api.CiliumLoadBalancerIPPool{
+	lbPoolUpdated = &v2.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				"label1": "value1",
 			},
 		},
-		Spec: v2alpha1api.CiliumLoadBalancerIPPoolSpec{
-			Blocks: []v2alpha1api.CiliumLoadBalancerIPPoolIPBlock{
+		Spec: v2.CiliumLoadBalancerIPPoolSpec{
+			Blocks: []v2.CiliumLoadBalancerIPPoolIPBlock{
 				{
 					Cidr: "10.100.99.0/24", // UPDATED
 				},
@@ -109,7 +109,7 @@ var (
 		},
 	}
 
-	peerAddress = "172.16.0.1/32"
+	peerAddress = netip.MustParsePrefix("172.16.0.1/32")
 
 	standardCommunity  = "64125:100"
 	wellKnownCommunity = "no-advertise"
@@ -170,7 +170,7 @@ var (
 
 type routePolicyTestInputs struct {
 	podCIDRs         []string
-	LBPools          []*v2alpha1api.CiliumLoadBalancerIPPool
+	LBPools          []*v2.CiliumLoadBalancerIPPool
 	NodePools        []ipamTypes.IPAMPoolAllocation
 	PodPools         []*v2alpha1api.CiliumPodIPPool
 	neighbors        []v2alpha1api.CiliumBGPNeighbor
@@ -190,7 +190,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				podCIDRs: []string{
 					podCIDR,
 				},
-				LBPools: []*v2alpha1api.CiliumLoadBalancerIPPool{
+				LBPools: []*v2.CiliumLoadBalancerIPPool{
 					lbPool,
 				},
 				PodPools: []*v2alpha1api.CiliumPodIPPool{
@@ -201,7 +201,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
 					{
-						PeerAddress: peerAddress,
+						PeerAddress: peerAddress.String(),
 						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
 							attrSelectLBPool,
 							attrSelectPodPool,
@@ -211,12 +211,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				expectedPolicies: []*types.RoutePolicy{
 					{
-						Name: pathAttributesPolicyName(attrSelectLBPool, peerAddress),
+						Name: pathAttributesPolicyName(attrSelectLBPool, peerAddress.Addr()),
 						Type: types.RoutePolicyTypeExport,
 						Statements: []*types.RoutePolicyStatement{
 							{
 								Conditions: types.RoutePolicyConditions{
-									MatchNeighbors: []string{peerAddress},
+									MatchNeighbors: []netip.Addr{peerAddress.Addr()},
 									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 										{
 											CIDR:         netip.MustParsePrefix(string(lbPool.Spec.Blocks[0].Cidr)),
@@ -234,12 +234,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 						},
 					},
 					{
-						Name: pathAttributesPolicyName(attrSelectPodPool, peerAddress),
+						Name: pathAttributesPolicyName(attrSelectPodPool, peerAddress.Addr()),
 						Type: types.RoutePolicyTypeExport,
 						Statements: []*types.RoutePolicyStatement{
 							{
 								Conditions: types.RoutePolicyConditions{
-									MatchNeighbors: []string{peerAddress},
+									MatchNeighbors: []netip.Addr{peerAddress.Addr()},
 									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 										{
 											CIDR:         netip.MustParsePrefix(string(podPool.Spec.IPv4.CIDRs[0])),
@@ -256,7 +256,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 							},
 							{
 								Conditions: types.RoutePolicyConditions{
-									MatchNeighbors: []string{peerAddress},
+									MatchNeighbors: []netip.Addr{peerAddress.Addr()},
 									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 										{
 											CIDR:         netip.MustParsePrefix(string(podPool.Spec.IPv6.CIDRs[0])),
@@ -274,12 +274,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 						},
 					},
 					{
-						Name: pathAttributesPolicyName(attrSelectAnyNode, peerAddress),
+						Name: pathAttributesPolicyName(attrSelectAnyNode, peerAddress.Addr()),
 						Type: types.RoutePolicyTypeExport,
 						Statements: []*types.RoutePolicyStatement{
 							{
 								Conditions: types.RoutePolicyConditions{
-									MatchNeighbors: []string{peerAddress},
+									MatchNeighbors: []netip.Addr{peerAddress.Addr()},
 									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 										{
 											CIDR:         podCIDRPrefix,
@@ -302,12 +302,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 		{
 			name: "update policy - lb pool change",
 			initial: &routePolicyTestInputs{
-				LBPools: []*v2alpha1api.CiliumLoadBalancerIPPool{
+				LBPools: []*v2.CiliumLoadBalancerIPPool{
 					lbPool,
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
 					{
-						PeerAddress: peerAddress,
+						PeerAddress: peerAddress.String(),
 						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
 							attrSelectLBPool,
 						},
@@ -315,12 +315,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				expectedPolicies: []*types.RoutePolicy{
 					{
-						Name: pathAttributesPolicyName(attrSelectLBPool, peerAddress),
+						Name: pathAttributesPolicyName(attrSelectLBPool, peerAddress.Addr()),
 						Type: types.RoutePolicyTypeExport,
 						Statements: []*types.RoutePolicyStatement{
 							{
 								Conditions: types.RoutePolicyConditions{
-									MatchNeighbors: []string{peerAddress},
+									MatchNeighbors: []netip.Addr{peerAddress.Addr()},
 									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 										{
 											CIDR:         netip.MustParsePrefix(string(lbPool.Spec.Blocks[0].Cidr)),
@@ -340,12 +340,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 			},
 			updated: &routePolicyTestInputs{
-				LBPools: []*v2alpha1api.CiliumLoadBalancerIPPool{
+				LBPools: []*v2.CiliumLoadBalancerIPPool{
 					lbPoolUpdated, // UPDATED - modified CIDR
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
 					{
-						PeerAddress: peerAddress,
+						PeerAddress: peerAddress.String(),
 						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
 							attrSelectLBPool,
 						},
@@ -353,12 +353,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				expectedPolicies: []*types.RoutePolicy{
 					{
-						Name: pathAttributesPolicyName(attrSelectLBPool, peerAddress),
+						Name: pathAttributesPolicyName(attrSelectLBPool, peerAddress.Addr()),
 						Type: types.RoutePolicyTypeExport,
 						Statements: []*types.RoutePolicyStatement{
 							{
 								Conditions: types.RoutePolicyConditions{
-									MatchNeighbors: []string{peerAddress},
+									MatchNeighbors: []netip.Addr{peerAddress.Addr()},
 									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 										{
 											CIDR:         netip.MustParsePrefix(string(lbPoolUpdated.Spec.Blocks[0].Cidr)),
@@ -390,7 +390,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
 					{
-						PeerAddress: peerAddress,
+						PeerAddress: peerAddress.String(),
 						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
 							attrSelectPodPool,
 						},
@@ -398,12 +398,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				expectedPolicies: []*types.RoutePolicy{
 					{
-						Name: pathAttributesPolicyName(attrSelectPodPool, peerAddress),
+						Name: pathAttributesPolicyName(attrSelectPodPool, peerAddress.Addr()),
 						Type: types.RoutePolicyTypeExport,
 						Statements: []*types.RoutePolicyStatement{
 							{
 								Conditions: types.RoutePolicyConditions{
-									MatchNeighbors: []string{peerAddress},
+									MatchNeighbors: []netip.Addr{peerAddress.Addr()},
 									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 										{
 											CIDR:         netip.MustParsePrefix(string(podPool.Spec.IPv4.CIDRs[0])),
@@ -420,7 +420,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 							},
 							{
 								Conditions: types.RoutePolicyConditions{
-									MatchNeighbors: []string{peerAddress},
+									MatchNeighbors: []netip.Addr{peerAddress.Addr()},
 									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 										{
 											CIDR:         netip.MustParsePrefix(string(podPool.Spec.IPv6.CIDRs[0])),
@@ -448,7 +448,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
 					{
-						PeerAddress: peerAddress,
+						PeerAddress: peerAddress.String(),
 						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
 							attrSelectPodPool,
 						},
@@ -456,12 +456,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				expectedPolicies: []*types.RoutePolicy{
 					{
-						Name: pathAttributesPolicyName(attrSelectPodPool, peerAddress),
+						Name: pathAttributesPolicyName(attrSelectPodPool, peerAddress.Addr()),
 						Type: types.RoutePolicyTypeExport,
 						Statements: []*types.RoutePolicyStatement{
 							{
 								Conditions: types.RoutePolicyConditions{
-									MatchNeighbors: []string{peerAddress},
+									MatchNeighbors: []netip.Addr{peerAddress.Addr()},
 									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 										{
 											CIDR:         netip.MustParsePrefix(string(podPoolUpdated.Spec.IPv4.CIDRs[0])),
@@ -483,7 +483,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 							},
 							{
 								Conditions: types.RoutePolicyConditions{
-									MatchNeighbors: []string{peerAddress},
+									MatchNeighbors: []netip.Addr{peerAddress.Addr()},
 									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 										{
 											CIDR:         netip.MustParsePrefix(string(podPoolUpdated.Spec.IPv6.CIDRs[0])),
@@ -517,7 +517,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
 					{
-						PeerAddress: peerAddress,
+						PeerAddress: peerAddress.String(),
 						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
 							attrSelectAnyNode,
 						},
@@ -525,12 +525,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				expectedPolicies: []*types.RoutePolicy{
 					{
-						Name: pathAttributesPolicyName(attrSelectAnyNode, peerAddress),
+						Name: pathAttributesPolicyName(attrSelectAnyNode, peerAddress.Addr()),
 						Type: types.RoutePolicyTypeExport,
 						Statements: []*types.RoutePolicyStatement{
 							{
 								Conditions: types.RoutePolicyConditions{
-									MatchNeighbors: []string{peerAddress},
+									MatchNeighbors: []netip.Addr{peerAddress.Addr()},
 									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
 										{
 											CIDR:         podCIDRPrefix,
@@ -554,7 +554,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
 					{
-						PeerAddress: peerAddress,
+						PeerAddress: peerAddress.String(),
 						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
 							attrSelectNonExistingNode, // UPDATED - not matching the node
 						},
@@ -572,7 +572,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
 					{
-						PeerAddress: peerAddress,
+						PeerAddress: peerAddress.String(),
 						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
 							attrSelectInvalid,
 						},
@@ -602,7 +602,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				Neighbors:     tt.initial.neighbors,
 			}
 
-			lbStore := store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]()
+			lbStore := store.NewMockBGPCPResourceStore[*v2.CiliumLoadBalancerIPPool]()
 			for _, obj := range tt.initial.LBPools {
 				lbStore.Upsert(obj)
 			}

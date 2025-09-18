@@ -365,6 +365,20 @@ To enable the iptables connection-tracking bypass:
              --set installNoConntrackIptablesRules=true \\
              --set kubeProxyReplacement=true
 
+If a Pod has the ``hostNetwork`` flag enabled, the ports for which connection tracking should be skipped
+must be explicitly listed using the ``network.cilium.io/no-track-host-ports`` annotation:
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      annotations:
+        network.cilium.io/no-track-host-ports: "999/tcp,8123/tcp"
+
+.. note::
+    Only UDP and TCP transport protocols are supported with the network.cilium.io/no-track-host-ports annotation at the time of writing.
+
 Hubble
 ======
 
@@ -447,9 +461,21 @@ should consider increasing the aggregation interval or rate limiting events.
 Increase Aggregation Interval
 -----------------------------
 
-By default Cilium generates a tracing event on every new connection, any time a packet
-contains TCP flags that have not been previously seen for the packet direction, and on
+By default Cilium generates tracing events according to the configured
+``monitor-aggregation`` level. For packet events, Cilium generates a tracing
+event for send packets only on every new connection, any time a packet contains
+TCP flags that have not been previously seen for the packet direction, and on
 average once per ``monitor-aggregation-interval``, which defaults to 5 seconds.
+When socket load-balancing is enabled, the same aggregation levels apply to
+socket translation events (for example, pre/post reverse translation):
+
+- ``none``: emit all socket trace events
+- ``lowest``/``low``: suppress reverse-direction (recv) socket traces
+- ``medium``/``maximum``: emit socket trace events only for connect system calls
+
+When aggregation is enabled (>= ``lowest``), socket trace emission is aligned
+to ``monitor-aggregation-interval`` using a strict cadence of approximately one
+trace per interval for active flows.
 
 Depending on your network traffic patterns, the re-emitting of trace events per
 aggregation interval can make up a large part of the total events. Increasing the
@@ -724,10 +750,14 @@ sizing which can be done via ``bpf.mapDynamicSizeRatio``:
 
 Note that ``bpf.distributedLRU.enabled`` is off by default in Cilium for
 legacy reasons given enabling this setting on-the-fly is disruptive for
-in-flight traffic since the BPF maps have to be recreated. It is recommended
-to use the per-node configuration to gradually phase in this setting for
-new nodes joining the cluster. Alternatively, upon initial cluster creation
-it is recommended to consider enablement.
+in-flight traffic since the BPF maps have to be recreated.
+
+It is recommended to use the per-node configuration to gradually phase in
+this setting for new nodes joining the cluster. Alternatively, upon initial
+cluster creation it is recommended to consider enablement.
+
+Also, ``bpf.distributedLRU.enabled`` is currently only supported in combination
+with ``bpf.mapDynamicSizeRatio`` as opposed to statically sized map configuration.
 
 eBPF Map Sizing
 ===============

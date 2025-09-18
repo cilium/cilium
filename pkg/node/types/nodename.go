@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/defaults"
 	k8sConsts "github.com/cilium/cilium/pkg/k8s/constants"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -72,9 +73,11 @@ func init() {
 		return
 	}
 	if h, err := os.Hostname(); err != nil {
-		log.WithError(err).Warn("Unable to retrieve local hostname")
+		// slogloggercheck: it's safe to use the default logger as it's for a warning unlikely to happen.
+		logging.DefaultSlogLogger.Warn("Unable to retrieve local hostname", logfields.Error, err)
 	} else {
-		log.WithField(logfields.NodeName, h).Debug("os.Hostname() returned")
+		// slogloggercheck: it's safe to use the default logger as it's for a debug message.
+		logging.DefaultSlogLogger.Debug("os.Hostname() returned", logfields.NodeName, h)
 		nodeName = h
 	}
 }

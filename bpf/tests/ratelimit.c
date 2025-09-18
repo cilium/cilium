@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "common.h"
-
 #include <bpf/ctx/xdp.h>
+#include "common.h"
 #include <bpf/config/node.h>
 
-#include <lib/maps.h>
 #include <lib/time.h>
 
 static __u64 mock_ktime_get_ns(void)

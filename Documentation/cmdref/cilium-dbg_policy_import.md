@@ -2,7 +2,7 @@
 
 ## cilium-dbg policy import
 
-Import security policy in JSON format
+Import security policy in JSON format (deprecated)
 
 ```
 cilium-dbg policy import <path> [flags]

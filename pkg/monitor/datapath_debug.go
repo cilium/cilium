@@ -4,6 +4,7 @@
 package monitor
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -101,6 +102,8 @@ const (
 	DbgSkLookup6
 	DbgSkAssign
 	DbgL7LB
+	DbgLb6LoopbackSnat
+	DbgLb6LoopbackSnatRev
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -230,6 +233,7 @@ const (
 
 // DebugMsg is the message format of the debug message found in the BPF ring buffer
 type DebugMsg struct {
+	api.DefaultSrcDstGetter
 	Type    uint8
 	SubType uint8
 	Source  uint16
@@ -239,12 +243,26 @@ type DebugMsg struct {
 	Arg3    uint32
 }
 
-// DecodeDebugMsg will decode 'data' into the provided DebugMsg structure
-func DecodeDebugMsg(data []byte, dbg *DebugMsg) error {
-	return dbg.decodeDebugMsg(data)
+// Dump prints the message according to the verbosity level specified
+func (n *DebugMsg) Dump(args *api.DumpArgs) {
+	switch args.Verbosity {
+	case api.INFO:
+		// We don't print messages at INFO level
+		return
+	case api.JSON:
+		fmt.Fprintln(args.Buf, n.getJSON(args.CpuPrefix, args.LinkMonitor))
+	default:
+		fmt.Fprintf(args.Buf, "%s MARK %#x FROM %d DEBUG: %s\n", args.CpuPrefix, n.Hash, n.Source, n.Message(args.LinkMonitor))
+	}
 }
 
-func (n *DebugMsg) decodeDebugMsg(data []byte) error {
+// GetSrc retrieves the source endpoint for the message.
+func (n *DebugMsg) GetSrc() uint16 {
+	return n.Source
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (n *DebugMsg) Decode(data []byte) error {
 	if l := len(data); l < DebugMsgLen {
 		return fmt.Errorf("unexpected DebugMsg data length, expected %d but got %d", DebugMsgLen, l)
 	}
@@ -258,16 +276,6 @@ func (n *DebugMsg) decodeDebugMsg(data []byte) error {
 	n.Arg3 = byteorder.Native.Uint32(data[16:20])
 
 	return nil
-}
-
-// DumpInfo prints a summary of a subset of the debug messages which are related
-// to sending, not processing, of packets.
-func (n *DebugMsg) DumpInfo(data []byte) {
-}
-
-// Dump prints the debug message in a human readable format.
-func (n *DebugMsg) Dump(prefix string, linkMonitor getters.LinkGetter) {
-	fmt.Printf("%s MARK %#x FROM %d DEBUG: %s\n", prefix, n.Hash, n.Source, n.Message(linkMonitor))
 }
 
 // Message returns the debug message in a human-readable format
@@ -342,6 +350,10 @@ func (n *DebugMsg) Message(linkMonitor getters.LinkGetter) string {
 		return fmt.Sprintf("Reverse NAT lookup, index=%d", byteorder.NetworkToHost16(uint16(n.Arg1)))
 	case DbgLb6ReverseNat:
 		return fmt.Sprintf("Performing reverse NAT, address.p4=%x port=%d", n.Arg1, byteorder.NetworkToHost16(uint16(n.Arg2)))
+	case DbgLb6LoopbackSnat:
+		return fmt.Sprintf("Loopback SNAT from.p4=%x to.p4=%x", n.Arg1, n.Arg2)
+	case DbgLb6LoopbackSnatRev:
+		return fmt.Sprintf("Loopback reverse SNAT from.p4=%x to.p4=%x", n.Arg1, n.Arg2)
 	case DbgLb4LookupFrontend:
 		return fmt.Sprintf("Frontend service lookup, addr=%s key.dport=%d", ip4Str(n.Arg1), byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb4LookupFrontendFail:
@@ -415,11 +427,6 @@ func (n *DebugMsg) getJSON(cpuPrefix string, linkMonitor getters.LinkGetter) str
 		cpuPrefix, n.Message(linkMonitor))
 }
 
-// DumpJSON prints notification in json format
-func (n *DebugMsg) DumpJSON(cpuPrefix string, linkMonitor getters.LinkGetter) {
-	fmt.Println(n.getJSON(cpuPrefix, linkMonitor))
-}
-
 const (
 	// DebugCaptureLen is the amount of packet data in a packet capture message
 	DebugCaptureLen = 24
@@ -427,6 +434,7 @@ const (
 
 // DebugCapture is the metadata sent along with a captured packet frame
 type DebugCapture struct {
+	api.DefaultSrcDstGetter
 	Type    uint8
 	SubType uint8
 	// Source, if populated, is the ID of the source endpoint.
@@ -439,12 +447,26 @@ type DebugCapture struct {
 	// data
 }
 
-// DecodeDebugCapture will decode 'data' into the provided DebugCapture structure
-func DecodeDebugCapture(data []byte, dbg *DebugCapture) error {
-	return dbg.decodeDebugCapture(data)
+// Dump prints the message according to the verbosity level specified
+func (n *DebugCapture) Dump(args *api.DumpArgs) {
+	switch args.Verbosity {
+	case api.INFO, api.DEBUG:
+		n.DumpInfo(args.Buf, args.Data, args.LinkMonitor)
+	case api.JSON:
+		n.DumpJSON(args.Buf, args.Data, args.CpuPrefix, args.LinkMonitor)
+	default:
+		fmt.Fprintln(args.Buf, msgSeparator)
+		n.DumpVerbose(args.Buf, args.Dissect, args.Data, args.CpuPrefix)
+	}
 }
 
-func (n *DebugCapture) decodeDebugCapture(data []byte) error {
+// GetSrc retrieves the source endpoint for the message.
+func (n *DebugCapture) GetSrc() uint16 {
+	return n.Source
+}
+
+// Decode decodes the message in 'data' into the struct.
+func (n *DebugCapture) Decode(data []byte) error {
 	if l := len(data); l < DebugCaptureLen {
 		return fmt.Errorf("unexpected DebugCapture data length, expected %d but got %d", DebugCaptureLen, l)
 	}
@@ -462,11 +484,11 @@ func (n *DebugCapture) decodeDebugCapture(data []byte) error {
 }
 
 // DumpInfo prints a summary of the capture messages.
-func (n *DebugCapture) DumpInfo(data []byte, linkMonitor getters.LinkGetter) {
+func (n *DebugCapture) DumpInfo(buf *bufio.Writer, data []byte, linkMonitor getters.LinkGetter) {
 	prefix := n.infoPrefix(linkMonitor)
 
 	if len(prefix) > 0 {
-		fmt.Printf("%s: %s\n", prefix, GetConnectionSummary(data[DebugCaptureLen:], nil))
+		fmt.Fprintf(buf, "%s: %s\n", prefix, GetConnectionSummary(data[DebugCaptureLen:], nil))
 	}
 }
 
@@ -494,12 +516,11 @@ func (n *DebugCapture) infoPrefix(linkMonitor getters.LinkGetter) string {
 }
 
 // DumpVerbose prints the captured packet in human readable format
-func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d DEBUG: %d bytes, ", prefix, n.Hash, n.Source, n.Len)
-	fmt.Println(n.subTypeString())
+func (n *DebugCapture) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, prefix string) {
+	fmt.Fprintf(buf, "%s MARK %#x FROM %d DEBUG: %d bytes, %s", prefix, n.Hash, n.Source, n.Len, n.subTypeString())
 
 	if n.Len > 0 && len(data) > DebugCaptureLen {
-		Dissect(dissect, data[DebugCaptureLen:])
+		Dissect(buf, dissect, data[DebugCaptureLen:], nil)
 	}
 }
 
@@ -537,13 +558,13 @@ func (n *DebugCapture) getJSON(data []byte, cpuPrefix string, linkMonitor getter
 }
 
 // DumpJSON prints notification in json format
-func (n *DebugCapture) DumpJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
+func (n *DebugCapture) DumpJSON(buf *bufio.Writer, data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
 	resp, err := n.getJSON(data, cpuPrefix, linkMonitor)
 	if err != nil {
-		fmt.Printf(`{"type":"debug_capture_error","message":%q}`+"\n", err.Error())
+		fmt.Fprintf(buf, `{"type":"debug_capture_error","message":%q}`+"\n", err.Error())
 		return
 	}
-	fmt.Println(resp)
+	fmt.Fprintln(buf, resp)
 }
 
 // DebugCaptureVerbose represents a json notification printed by monitor

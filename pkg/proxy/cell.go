@@ -11,8 +11,10 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/fqdn/defaultdns"
+	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/accesslog/endpoint"
@@ -32,7 +34,7 @@ var Cell = cell.Module(
 	cell.Provide(newEnvoyProxyIntegration),
 	cell.Provide(newDNSProxyIntegration),
 	cell.ProvidePrivate(endpoint.NewEndpointInfoRegistry),
-	cell.ProvidePrivate(proxyports.NewProxyPorts),
+	cell.Provide(proxyports.NewProxyPorts),
 	cell.Config(proxyports.ProxyPortsConfig{}),
 	accesslog.Cell,
 )
@@ -42,6 +44,7 @@ type proxyParams struct {
 
 	Lifecycle             cell.Lifecycle
 	Logger                *slog.Logger
+	LocalNodeStore        *node.LocalNodeStore
 	ProxyPorts            *proxyports.ProxyPorts
 	EnvoyProxyIntegration *envoyProxyIntegration
 	DNSProxyIntegration   *dnsProxyIntegration
@@ -56,7 +59,7 @@ func newProxy(params proxyParams) *Proxy {
 		return nil
 	}
 
-	p := createProxy(params.Logger, params.ProxyPorts, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
+	p := createProxy(params.Logger, params.LocalNodeStore, params.ProxyPorts, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
 
 	triggerDone := make(chan struct{})
 
@@ -116,12 +119,13 @@ func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyInt
 	}
 }
 
-func newDNSProxyIntegration(dnsProxy defaultdns.Proxy) *dnsProxyIntegration {
+func newDNSProxyIntegration(dnsProxy fqdnproxy.DNSProxier, sdpPolicyUpdater *service.FQDNDataServer) *dnsProxyIntegration {
 	if !option.Config.EnableL7Proxy {
 		return nil
 	}
 
 	return &dnsProxyIntegration{
-		dnsProxy: dnsProxy,
+		dnsProxy:         dnsProxy,
+		sdpPolicyUpdater: sdpPolicyUpdater,
 	}
 }

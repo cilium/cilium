@@ -36,7 +36,6 @@ cilium-operator-generic hive [flags]
       --enable-ingress-secrets-sync                          Enables fan-in TLS secrets from multiple namespaces to singular namespace (specified by ingress-secrets-namespace flag) (default true)
       --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
-      --enable-k8s-endpoint-slice                            Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-lb-ipam                                       Enable LB IPAM (default true)
       --enable-node-ipam                                     Enable Node IPAM
       --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
@@ -70,6 +69,10 @@ cilium-operator-generic hive [flags]
       --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                        Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
+      --kvstore string                                       Key-value store type
+      --kvstore-lease-ttl duration                           Time-to-live for the KVstore lease. (default 15m0s)
+      --kvstore-max-consecutive-quorum-errors uint           Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
+      --kvstore-opt stringToString                           Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
       --loadbalancer-l7 string                               Enable L7 loadbalancer capabilities for services via L7 proxy. Applicable values: envoy
       --loadbalancer-l7-algorithm string                     Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                        List of service ports that will be automatically redirected to backend.
@@ -79,15 +82,20 @@ cilium-operator-generic hive [flags]
       --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
       --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc:8081")
       --mesh-auth-spire-server-connection-timeout duration   SPIRE server connection timeout. (default 10s)
+      --metrics-sampling-interval duration                   Set the internal metrics sampling interval (default 5m0s)
       --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
       --operator-k8s-client-burst int                        Burst value allowed for the K8s client (default 200)
       --operator-k8s-client-qps float32                      Queries per second limit for the K8s client (default 100)
       --operator-pprof                                       Enable serving pprof debugging API
       --operator-pprof-address string                        Address that pprof listens on (default "localhost")
+      --operator-pprof-block-profile-rate int                Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+      --operator-pprof-mutex-profile-fraction int            Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
       --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
+      --policy-default-local-cluster                         Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-secrets-namespace string                      Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
+      --synchronize-k8s-nodes                                Perform GC of stale node entries from the KVStore (default true)
       --validate-network-policy                              Whether to enable or disable the informational network policy validator (default true)
 ```
 

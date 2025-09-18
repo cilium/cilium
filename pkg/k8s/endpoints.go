@@ -6,6 +6,7 @@ package k8s
 import (
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"net/netip"
 	"slices"
@@ -14,17 +15,23 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
-	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
+
+// EndpointSliceID identifies a Kubernetes EndpointSlice as well as the legacy
+// v1.Endpoints.
+type EndpointSliceID struct {
+	ServiceName       loadbalancer.ServiceName
+	EndpointSliceName string
+}
 
 // Endpoints is an abstraction for the Kubernetes endpoints object. Endpoints
 // consists of a set of backend IPs in combination with a set of ports and
@@ -90,18 +97,89 @@ func (in *Endpoints) DeepCopy() *Endpoints {
 	return out
 }
 
-// Backend contains all ports, terminating state, and the node name of a given backend
+// BackendCondition is a flag mirroring the endpoint Conditions.
+type BackendCondition uint8
+
+const (
+	// BackendConditionReady indicates that this endpoint is prepared to receive traffic,
+	// according to whatever system is managing the endpoint.
+	// More info: vendor/k8s.io/api/discovery/v1/types.go
+	// See also https://github.com/kubernetes/kubernetes/issues/108523
+	BackendConditionReady = 1 << iota
+
+	// BackendConditionServing indicates that this endpoint can serve new connections.
+	// It is meaningful to Cilium when the backend is terminating. If this condition is false
+	// then a terminating backend will not be used for new connections even as fallback
+	// when no active backends exist.
+	// More info: vendor/k8s.io/api/discovery/v1/types.go
+	// See also https://github.com/kubernetes/kubernetes/issues/108523 and
+	// https://github.com/kubernetes/kubernetes/blob/790393ae92e97262827d4f1fba24e8ae65bbada0/pkg/proxy/topology.go#L76
+	BackendConditionServing
+
+	// Terminating indicates that the endpoint is getting terminated.
+	// It will not be used for new conditions unless 1) no active backends exist
+	// and 2) this backend is serving.
+	//
+	// If [publishNotReadyAddresses] is set on a service then a backend may be
+	// both terminating and ready in which case the terminating state is ignored.
+	//
+	// More info: vendor/k8s.io/api/discovery/v1/types.go
+	// See also https://github.com/kubernetes/kubernetes/issues/108523
+	BackendConditionTerminating
+)
+
+var backendConditions = [...]string{
+	BackendConditionReady:       "ready",
+	BackendConditionServing:     "serving",
+	BackendConditionTerminating: "terminating",
+}
+
+func (bc BackendCondition) String() string {
+	var flags []string
+	for mask, str := range backendConditions {
+		if str != "" && bc&BackendCondition(mask) != 0 {
+			flags = append(flags, str)
+		}
+	}
+	return strings.Join(flags, "+")
+}
+
+func (bc BackendCondition) IsReady() bool       { return bc&BackendConditionReady != 0 }
+func (bc BackendCondition) IsServing() bool     { return bc&BackendConditionServing != 0 }
+func (bc BackendCondition) IsTerminating() bool { return bc&BackendConditionTerminating != 0 }
+
+// Backend contains all ports, conditions, and the node name of a given backend
 //
 // +k8s:deepcopy-gen=true
-// +deepequal-gen=true
+// +deepequal-gen=false
 type Backend struct {
-	Ports         serviceStore.PortConfiguration
+	Ports         map[loadbalancer.L4Addr][]string
 	NodeName      string
 	Hostname      string
-	Terminating   bool
+	Conditions    BackendCondition
 	HintsForZones []string
 	Preferred     bool
 	Zone          string
+}
+
+func (b *Backend) DeepEqual(other *Backend) bool {
+	return maps.EqualFunc(b.Ports, other.Ports, slices.Equal) &&
+		b.NodeName == other.NodeName &&
+		b.Hostname == other.Hostname &&
+		b.Conditions == other.Conditions &&
+		slices.Equal(b.HintsForZones, other.HintsForZones) &&
+		b.Preferred == other.Preferred &&
+		b.Zone == other.Zone
+}
+
+func (b *Backend) ToPortConfiguration() serviceStore.PortConfiguration {
+	pc := serviceStore.PortConfiguration{}
+	for addr, names := range b.Ports {
+		for _, name := range names {
+			pc[name] = &addr
+		}
+	}
+	return pc
 }
 
 // String returns the string representation of an endpoints resource, with
@@ -113,7 +191,7 @@ func (e *Endpoints) String() string {
 
 	backends := []string{}
 	for addrCluster, be := range e.Backends {
-		for _, port := range be.Ports {
+		for port := range be.Ports {
 			if be.Zone != "" {
 				backends = append(backends, fmt.Sprintf("%s/%s[%s]", net.JoinHostPort(addrCluster.Addr().String(), strconv.Itoa(int(port.Port))), port.Protocol, be.Zone))
 			} else {
@@ -128,9 +206,9 @@ func (e *Endpoints) String() string {
 }
 
 // newEndpoints returns a new Endpoints
-func newEndpoints() *Endpoints {
+func newEndpoints(initialBackendsSize int) *Endpoints {
 	return &Endpoints{
-		Backends: map[cmtypes.AddrCluster]*Backend{},
+		Backends: make(map[cmtypes.AddrCluster]*Backend, initialBackendsSize),
 	}
 }
 
@@ -144,51 +222,6 @@ func (e *Endpoints) Prefixes() []netip.Prefix {
 	return prefixes
 }
 
-// ParseEndpointsID parses a Kubernetes endpoints and returns the EndpointSliceID
-func ParseEndpointsID(ep *slim_corev1.Endpoints) EndpointSliceID {
-	return EndpointSliceID{
-		ServiceID: ServiceID{
-			Name:      ep.ObjectMeta.Name,
-			Namespace: ep.ObjectMeta.Namespace,
-		},
-		EndpointSliceName: ep.ObjectMeta.Name,
-	}
-}
-
-// ParseEndpoints parses a Kubernetes Endpoints resource
-func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
-	endpoints := newEndpoints()
-	endpoints.ObjectMeta = ep.ObjectMeta
-
-	for _, sub := range ep.Subsets {
-		for _, addr := range sub.Addresses {
-			addrCluster, err := cmtypes.ParseAddrCluster(addr.IP)
-			if err != nil {
-				continue
-			}
-
-			backend, ok := endpoints.Backends[addrCluster]
-			if !ok {
-				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[addrCluster] = backend
-			}
-
-			if addr.NodeName != nil {
-				backend.NodeName = *addr.NodeName
-			}
-			backend.Hostname = addr.Hostname
-
-			for _, port := range sub.Ports {
-				lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				backend.Ports[port.Name] = lbPort
-			}
-		}
-	}
-
-	endpoints.EndpointSliceID = ParseEndpointsID(ep)
-	return endpoints
-}
-
 type endpointSlice interface {
 	GetNamespace() string
 	GetName() string
@@ -199,117 +232,39 @@ type endpointSlice interface {
 // EndpointSliceID
 func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 	return EndpointSliceID{
-		ServiceID: ServiceID{
-			Name:      es.GetLabels()[slim_discovery_v1.LabelServiceName],
-			Namespace: es.GetNamespace(),
-		},
+		ServiceName: loadbalancer.NewServiceName(
+			es.GetNamespace(),
+			es.GetLabels()[slim_discovery_v1.LabelServiceName],
+		),
 		EndpointSliceName: es.GetName(),
 	}
 }
 
-// ParseEndpointSliceV1Beta1 parses a Kubernetes EndpointsSlice v1beta1 resource
-// It reads ready and terminating state of endpoints in the EndpointSlice to
-// return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
-func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoints {
-	endpoints := newEndpoints()
-	endpoints.ObjectMeta = ep.ObjectMeta
-	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
+const logfieldTerminating = "terminating"
 
-	// Validate AddressType before parsing. Currently, we only support IPv4 and IPv6.
-	if ep.AddressType != slim_discovery_v1beta1.AddressTypeIPv4 &&
-		ep.AddressType != slim_discovery_v1beta1.AddressTypeIPv6 {
-		return endpoints
+func ParseEndpointConditionsV1(conditions slim_discovery_v1.EndpointConditions) (bc BackendCondition) {
+	if conditions.Ready == nil || *conditions.Ready {
+		bc |= BackendConditionReady
 	}
-
-	for _, sub := range ep.Endpoints {
-		skipEndpoint := false
-		// ready indicates that this endpoint is prepared to receive traffic,
-		// according to whatever system is managing the endpoint. A nil value
-		// indicates an unknown state. In most cases consumers should interpret this
-		// unknown state as ready.
-		// More info: vendor/k8s.io/api/discovery/v1beta1/types.go
-		if sub.Conditions.Ready != nil && !*sub.Conditions.Ready {
-			skipEndpoint = true
-			// Terminating indicates that the endpoint is getting terminated. A
-			// nil values indicates an unknown state. Ready is never true when
-			// an endpoint is terminating. Propagate the terminating endpoint
-			// state so that we can gracefully remove those endpoints.
-			// More details : vendor/k8s.io/api/discovery/v1/types.go
-			if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
-				skipEndpoint = false
-			}
-		}
-		if skipEndpoint {
-			continue
-		}
-		for _, addr := range sub.Addresses {
-			addrCluster, err := cmtypes.ParseAddrCluster(addr)
-			if err != nil {
-				continue
-			}
-
-			backend, ok := endpoints.Backends[addrCluster]
-			if !ok {
-				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[addrCluster] = backend
-				if nodeName, ok := sub.Topology[corev1.LabelHostname]; ok {
-					backend.NodeName = nodeName
-				}
-				if sub.Hostname != nil {
-					backend.Hostname = *sub.Hostname
-				}
-				if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
-					backend.Terminating = true
-					metrics.TerminatingEndpointsEvents.Inc()
-				}
-				if zoneName, ok := sub.Topology[corev1.LabelTopologyZone]; ok {
-					backend.Zone = zoneName
-				}
-			}
-
-			for _, port := range ep.Ports {
-				name, lbPort := parseEndpointPortV1Beta1(port)
-				if lbPort != nil {
-					backend.Ports[name] = lbPort
-				}
-			}
-		}
+	if conditions.Serving == nil || conditions.Serving != nil && *conditions.Serving {
+		bc |= BackendConditionServing
 	}
-	return endpoints
-}
-
-// parseEndpointPortV1Beta1 returns the port name and the port parsed as a
-// L4Addr from the given port.
-func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string, *loadbalancer.L4Addr) {
-	proto := loadbalancer.TCP
-	if port.Protocol != nil {
-		switch *port.Protocol {
-		case slim_corev1.ProtocolTCP:
-			proto = loadbalancer.TCP
-		case slim_corev1.ProtocolUDP:
-			proto = loadbalancer.UDP
-		case slim_corev1.ProtocolSCTP:
-			proto = loadbalancer.SCTP
-		default:
-			return "", nil
-		}
+	if conditions.Terminating != nil && *conditions.Terminating {
+		bc |= BackendConditionTerminating
 	}
-	if port.Port == nil {
-		return "", nil
-	}
-	var name string
-	if port.Name != nil {
-		name = *port.Name
-	}
-	lbPort := loadbalancer.NewL4Addr(proto, uint16(*port.Port))
-	return name, lbPort
+	return
 }
 
 // ParseEndpointSliceV1 parses a Kubernetes EndpointSlice resource.
 // It reads ready and terminating state of endpoints in the EndpointSlice to
 // return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
 func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSlice) *Endpoints {
-	endpoints := newEndpoints()
+	// Precalculate the number of backends we'll add to pre-allocate enough room in the backends map.
+	backendCount := 0
+	for _, sub := range ep.Endpoints {
+		backendCount += len(sub.Addresses)
+	}
+	endpoints := newEndpoints(backendCount)
 	endpoints.ObjectMeta = ep.ObjectMeta
 	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
 
@@ -323,110 +278,88 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 		logfields.LenEndpoints, len(ep.Endpoints),
 		logfields.Name, ep.Name,
 	)
-	for _, sub := range ep.Endpoints {
-		// ready indicates that this endpoint is prepared to receive traffic,
-		// according to whatever system is managing the endpoint. A nil value
-		// indicates an unknown state. In most cases consumers should interpret this
-		// unknown state as ready.
-		// More info: vendor/k8s.io/api/discovery/v1/types.go
-		isReady := sub.Conditions.Ready == nil || *sub.Conditions.Ready
-		// serving is identical to ready except that it is set regardless of the
-		// terminating state of endpoints. This condition should be set to true for
-		// a ready endpoint that is terminating. If nil, consumers should defer to
-		// the ready condition.
-		// More info: vendor/k8s.io/api/discovery/v1/types.go
-		isServing := (sub.Conditions.Serving == nil && isReady) || (sub.Conditions.Serving != nil && *sub.Conditions.Serving)
-		// Terminating indicates that the endpoint is getting terminated. A
-		// nil values indicates an unknown state. Ready is never true when
-		// an endpoint is terminating. Propagate the terminating endpoint
-		// state so that we can gracefully remove those endpoints.
-		// More info: vendor/k8s.io/api/discovery/v1/types.go
-		isTerminating := sub.Conditions.Terminating != nil && *sub.Conditions.Terminating
 
-		// if is not Ready allow endpoints that are Serving and Terminating
-		if !isReady {
+	// Parse the ports shared by all the backends.
+	ports := make(map[loadbalancer.L4Addr][]string, len(ep.Ports))
+	for _, port := range ep.Ports {
+		if name, lbPort, ok := parseEndpointPortV1(port); ok {
+			ports[lbPort] = append(ports[lbPort], name)
+		}
+	}
 
-			// filter not Serving endpoints since those can not receive traffic
-			if !isServing {
-				logger.Debug(
-					"discarding Endpoint on EndpointSlice: not Serving",
-					logfields.Name, ep.Name,
-				)
-				continue
+	for i, sub := range ep.Endpoints {
+		conditions := ParseEndpointConditionsV1(sub.Conditions)
+		if conditions == 0 {
+			// Skip backends that have no conditions set as these are not ready to
+			// serve traffic.
+			continue
+		}
+
+		// Construct the backend configuration shared by all the addresses in this slice.
+		backend := &Backend{
+			Conditions: conditions,
+			Ports:      ports,
+		}
+
+		if sub.NodeName != nil {
+			backend.NodeName = *sub.NodeName
+		} else {
+			if nodeName, ok := sub.DeprecatedTopology[corev1.LabelHostname]; ok {
+				backend.NodeName = nodeName
 			}
 		}
 
+		if sub.Hostname != nil {
+			backend.Hostname = *sub.Hostname
+		}
+		if sub.Zone != nil {
+			backend.Zone = *sub.Zone
+		} else if zoneName, ok := sub.DeprecatedTopology[corev1.LabelTopologyZone]; ok {
+			backend.Zone = zoneName
+		}
+
+		if sub.Hints != nil && (*sub.Hints).ForZones != nil {
+			hints := (*sub.Hints).ForZones
+			backend.HintsForZones = make([]string, len(hints))
+			for i, hint := range hints {
+				backend.HintsForZones[i] = hint.Name
+			}
+		}
+
+		// Add reference to the backend configuration for each of the addresses.
 		for _, addr := range sub.Addresses {
 			addrCluster, err := cmtypes.ParseAddrCluster(addr)
 			if err != nil {
 				logger.Info(
-					"Unable to parse address for EndpointSlices",
+					"Unable to parse address in EndpointSlice",
 					logfields.Error, err,
 					logfields.Address, addr,
 					logfields.Name, ep.Name,
 				)
 				continue
 			}
-
-			backend, ok := endpoints.Backends[addrCluster]
-			if !ok {
-				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[addrCluster] = backend
-				if sub.NodeName != nil {
-					backend.NodeName = *sub.NodeName
-				} else {
-					if nodeName, ok := sub.DeprecatedTopology[corev1.LabelHostname]; ok {
-						backend.NodeName = nodeName
-					}
-				}
-				if sub.Hostname != nil {
-					backend.Hostname = *sub.Hostname
-				}
-				if sub.Zone != nil {
-					backend.Zone = *sub.Zone
-				} else if zoneName, ok := sub.DeprecatedTopology[corev1.LabelTopologyZone]; ok {
-					backend.Zone = zoneName
-				}
-				// If is not ready check if is serving and terminating
-				if !isReady &&
-					isServing && isTerminating {
-					logger.Debug(
-						"Endpoint address on EndpointSlice is Terminating",
-						logfields.Address, addr,
-						logfields.Name, ep.Name,
-					)
-					backend.Terminating = true
-					metrics.TerminatingEndpointsEvents.Inc()
-				}
-			}
-
-			for _, port := range ep.Ports {
-				name, lbPort := parseEndpointPortV1(port)
-				if lbPort != nil {
-					backend.Ports[name] = lbPort
-				}
-			}
-			if sub.Hints != nil && (*sub.Hints).ForZones != nil {
-				hints := (*sub.Hints).ForZones
-				backend.HintsForZones = make([]string, len(hints))
-				for i, hint := range hints {
-					backend.HintsForZones[i] = hint.Name
-				}
-			}
+			endpoints.Backends[addrCluster] = backend
 		}
+
+		if backend.Conditions.IsTerminating() {
+			metrics.TerminatingEndpointsEvents.Inc()
+		}
+
+		logger.Debug("Processed endpoint",
+			logfields.Index, i,
+			logfields.Name, ep.Name,
+			logfields.Addresses, sub.Addresses,
+			logfields.Backend, backend,
+			logfieldTerminating, backend.Conditions.IsTerminating(),
+		)
 	}
 
-	logger.Debug(
-		"EndpointSlice has backends",
-		logfields.LenBackends, len(endpoints.Backends),
-		logfields.Name, ep.Name,
-	)
 	return endpoints
 }
 
 // parseEndpointPortV1 returns the port name and the port parsed as a L4Addr from
 // the given port.
-func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (string, *loadbalancer.L4Addr) {
+func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (name string, addr loadbalancer.L4Addr, ok bool) {
 	proto := loadbalancer.TCP
 	if port.Protocol != nil {
 		switch *port.Protocol {
@@ -437,94 +370,14 @@ func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (string, *loadbala
 		case slim_corev1.ProtocolSCTP:
 			proto = loadbalancer.SCTP
 		default:
-			return "", nil
+			return
 		}
 	}
 	if port.Port == nil {
-		return "", nil
+		return
 	}
-	var name string
 	if port.Name != nil {
 		name = *port.Name
 	}
-	lbPort := loadbalancer.NewL4Addr(proto, uint16(*port.Port))
-	return name, lbPort
-}
-
-// EndpointSlices is the collection of all endpoint slices of a service.
-// The map key is the name of the endpoint slice or the name of the legacy
-// v1.Endpoint. The endpoints stored here are not namespaced since this
-// structure is only used as a value of another map that is already namespaced.
-// (see ServiceCache.endpoints).
-//
-// +deepequal-gen=true
-type EndpointSlices struct {
-	epSlices map[string]*Endpoints
-}
-
-// NewEndpointsSlices returns a new EndpointSlices
-func NewEndpointsSlices() *EndpointSlices {
-	return &EndpointSlices{
-		epSlices: map[string]*Endpoints{},
-	}
-}
-
-// GetEndpoints returns a read only a single *Endpoints structure with all
-// Endpoints' backends joined.
-func (es *EndpointSlices) GetEndpoints() *Endpoints {
-	if es == nil || len(es.epSlices) == 0 {
-		return nil
-	}
-	allEps := newEndpoints()
-	for _, eps := range es.epSlices {
-		for backend, ep := range eps.Backends {
-			// EndpointSlices may have duplicate addresses on different slices.
-			// kubectl get endpointslices -n endpointslicemirroring-4896
-			// NAME                             ADDRESSTYPE   PORTS   ENDPOINTS     AGE
-			// example-custom-endpoints-f6z84   IPv4          9090    10.244.1.49   28s
-			// example-custom-endpoints-g6r6v   IPv4          8090    10.244.1.49   28s
-			b, ok := allEps.Backends[backend]
-			if !ok {
-				allEps.Backends[backend] = ep.DeepCopy()
-			} else {
-				for k, v := range ep.Ports {
-					b.Ports[k] = v.DeepCopy()
-				}
-			}
-		}
-	}
-	return allEps
-}
-
-// Upsert maps the 'esname' to 'e'.
-// - 'esName': Name of the Endpoint Slice
-// - 'e': Endpoints to store in the map
-func (es *EndpointSlices) Upsert(esName string, e *Endpoints) {
-	if es == nil {
-		panic("BUG: EndpointSlices is nil")
-	}
-	es.epSlices[esName] = e
-}
-
-// Delete deletes the endpoint slice in the internal map. Returns true if there
-// are not any more endpoints available in the map.
-func (es *EndpointSlices) Delete(esName string) bool {
-	if es == nil || len(es.epSlices) == 0 {
-		return true
-	}
-	delete(es.epSlices, esName)
-	return len(es.epSlices) == 0
-}
-
-// externalEndpoints is the collection of external endpoints in all remote
-// clusters. The map key is the name of the remote cluster.
-type externalEndpoints struct {
-	endpoints map[string]*Endpoints
-}
-
-// newExternalEndpoints returns a new ExternalEndpoints
-func newExternalEndpoints() externalEndpoints {
-	return externalEndpoints{
-		endpoints: map[string]*Endpoints{},
-	}
+	return name, loadbalancer.NewL4Addr(proto, uint16(*port.Port)), true
 }

@@ -3,7 +3,7 @@ run:
   modules-download-mode: readonly
   issues-exit-code: 1
   tests: true
-  timeout: 20m
+  timeout: 60m
 linters:
   default: none
   enable:
@@ -11,6 +11,7 @@ linters:
     - err113
     - errorlint
     - exhaustruct
+    - forbidigo
     - goheader
     - gomodguard
     - gosec
@@ -38,6 +39,13 @@ linters:
         - .+tls\.Config
         - .+v3\.Config
         - .+translation\.Config
+    forbidigo:
+      forbid:
+        # List based on https://github.com/vishvananda/netlink/pull/1018
+        - pattern: ^netlink\.(Handle\.)?("AddrList|BridgeVlanList|ChainList|ClassList|ConntrackTableList|DevLinkGetDeviceList|DevLinkGetAllPortList|DevlinkGetDeviceParams|FilterList|FouList|GenlFamilyList|GTPPDPList|LinkByName|LinkByAlias|LinkList|LinkSubscribeWithOptions|NeighList|NeighProxyList|NeighListExecute|LinkGetProtinfo|QdiscList|RdmaLinkList|RdmaLinkByName|RdmaLinkDel|RouteList|RouteListFiltered|RouteListFilteredIter|RouteSubscribeWithOptions|RuleList|RuleListFiltered|SocketGet|SocketDiagTCPInfo|SocketDiagTCP|SocketDiagUDPInfo|SocketDiagUDP|UnixSocketDiagInfo|UnixSocketDiag|SocketXDPGetInfo|SocketDiagXDP|VDPAGetDevList|VDPAGetDevConfigList|VDPAGetMGMTDevList|XfrmPolicyList|XfrmStateList)
+          pkg: ^github.com/vishvananda/netlink$
+          msg: Found netlink function which can return ErrDumpInterrupted. Use safenetlink package instead.
+      analyze-types: true
     goheader:
       values:
         regexp:
@@ -52,16 +60,32 @@ linters:
               recommendations:
                 - github.com/cilium/dns
               reason: use the cilium fork directly to avoid replace directives in go.mod, see https://github.com/cilium/cilium/pull/27582
+          - go.uber.org/goleak:
+              recommendations:
+                - github.com/cilium/cilium/pkg/testutils
+              reason: Use testutils.Goleak* instead for the shared default options.
           - gopkg.in/check.v1:
               recommendations:
                 - testing
                 - github.com/stretchr/testify/assert
               reason: gocheck has been deprecated, see https://github.com/cilium/cilium/issues/28596
+          - gopkg.in/yaml.v2:
+              recommendations:
+                - go.yaml.in/yaml/v2
+              reason: gopkg.in/yaml.v2 is deprecated, see https://github.com/yaml/go-yaml/discussions/11
+          - gopkg.in/yaml.v3:
+              recommendations:
+                - go.yaml.in/yaml/v3
+              reason: gopkg.in/yaml.v3 is deprecated, see https://github.com/yaml/go-yaml/discussions/11
           - github.com/cilium/checkmate:
               recommendations:
                 - github.com/stretchr/testify/assert
                 - github.com/stretchr/testify/require
               reason: cilium/checkmate has been deprecated, see https://github.com/cilium/cilium/issues/28596
+          - github.com/sirupsen/logrus:
+              recommendations:
+                - log/slog
+              reason: Use the Go 1.21+ log/slog package for structured logging.
           - go.uber.org/multierr:
               recommendations:
                 - errors
@@ -83,6 +107,10 @@ linters:
               recommendations:
                 - k8s.io/utils/ptr
               reason: k8s.io/utils/pointer is deprecated, see https://pkg.go.dev/k8s.io/utils/pointer
+          - github.com/google/gopacket:
+              recommendations:
+                - github.com/gopacket/gopacket
+              reason: This package is better supported and gets regular updates, see https://github.com/cilium/cilium/issues/34536
     gosec:
       includes:
         - G402
@@ -105,8 +133,34 @@ linters:
         - source
       args-on-sep-lines: true
     staticcheck:
+      dot-import-whitelist:
+        - github.com/cilium/cilium/api/v1/health/server/restapi
+        - github.com/cilium/cilium/api/v1/health/server/restapi/connectivity
+        - github.com/cilium/cilium/api/v1/server/restapi/policy
+        - github.com/cilium/cilium/api/v1/server/restapi/endpoint
+        - github.com/cilium/cilium/test/ginkgo-ext
+        - github.com/onsi/gomega
       checks:
-        - ST1019
+        # Default checks https://golangci-lint.run/usage/linters/#staticcheck
+        - all
+        - -ST1000
+        - -ST1003
+        - -ST1006
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        # Disable additional checks that are not applicable to Cilium. Enable them if needed in the future.
+        - -ST1005
+        - -ST1008
+        - -ST1019
+        - -QF1001
+        - -QF1002
+        - -QF1003
+        - -QF1006
+        - -QF1007
+        - -QF1008
+        - -QF1012
     testifylint:
       enable-all: true
       disable: # TODO: remove each disabled rule and fix it
@@ -149,6 +203,13 @@ linters:
       - linters:
           - sloglint
         path: tools/.*.go
+      - linters:
+          - exhaustruct
+        path: .*_test\.go
+      - linters:
+          - gomodguard
+        path: test/
+        text: "logrus"
     paths:
       - third_party$
       - builtin$

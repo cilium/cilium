@@ -12,17 +12,19 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/allocator/podcidr"
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
-	"github.com/cilium/cilium/pkg/testutils"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 )
 
 // TestPodCIDRAllocatorOverlap tests that, on startup all nodes with assigned podCIDRs are processed so that nodes
@@ -41,20 +43,16 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Create a new CIDR allocator
 
 	_, cidr, err := net.ParseCIDR("10.129.0.0/16")
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	set, err := cidrset.NewCIDRSet(cidr, 24)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	// Create a mock APIServer client where we have 2 existing nodes, one with a PodCIDR and one without.
 	// When List'ed from the client, first node-a is returned then node-b
@@ -86,56 +84,45 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 		CiliumFakeClientset: fakeClient,
 	}
 
+	ciliumNodes, err := operatorK8s.CiliumNodeResource(hivetest.Lifecycle(t), fakeSet, nil)
+	require.NoError(t, err)
+
 	// Create a new pod manager with only our IPv4 allocator and fake client set.
 	podCidrManager := podcidr.NewNodesPodCIDRManager(hivetest.Logger(t), []cidralloc.CIDRAllocator{
 		set,
 	}, nil, &ciliumNodeUpdateImplementation{clientset: fakeSet}, nil)
 
 	// start synchronization.
-	cns := newCiliumNodeSynchronizer(fakeSet, podCidrManager, false)
-	if err := cns.Start(ctx, &wg, nil); err != nil {
-		t.Fatal(err)
-	}
+	wg.Go(func() {
+		watchCiliumNodes(ctx, ciliumNodes, podCidrManager, true)
+	})
 
-	// Wait for the "node manager synced" signal, just like we would normally.
-	<-cns.ciliumNodeManagerQueueSynced
-
-	// Trigger the Resync after the cache sync signal
-	podCidrManager.Resync(ctx, time.Time{})
-
-	err = testutils.WaitUntil(func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		// Get node A from the mock APIServer
 		nodeAInt, err := fakeClient.Tracker().Get(ciliumnodesResource, "", "node-a")
-		if err != nil {
-			return false
+		if !assert.NoError(c, err) {
+			return
 		}
 		nodeA := nodeAInt.(*cilium_api_v2.CiliumNode)
 
 		// Get node B from the mock APIServer
 		nodeBInt, err := fakeClient.Tracker().Get(ciliumnodesResource, "", "node-b")
-		if err != nil {
-			return false
+		if !assert.NoError(c, err) {
+			return
 		}
 		nodeB := nodeBInt.(*cilium_api_v2.CiliumNode)
 
-		if len(nodeA.Spec.IPAM.PodCIDRs) != 1 {
-			return false
+		if !assert.Len(c, nodeA.Spec.IPAM.PodCIDRs, 1) {
+			return
 		}
 
-		if len(nodeB.Spec.IPAM.PodCIDRs) != 1 {
-			return false
+		if !assert.Len(c, nodeB.Spec.IPAM.PodCIDRs, 1) {
+			return
 		}
 
-		// The PodCIDRs should be distinct.
-		if nodeA.Spec.IPAM.PodCIDRs[0] == nodeB.Spec.IPAM.PodCIDRs[0] {
-			t.Fatal("Node A and Node B are assigned overlapping PodCIDRs")
-		}
-
-		return true
-	}, 2*time.Minute)
-	if err != nil {
-		t.Fatalf("nodes have no pod CIDR: %s", err)
-	}
+		assert.NotEqual(c, nodeA.Spec.IPAM.PodCIDRs, nodeB.Spec.IPAM.PodCIDRs,
+			"Node A and Node B should not be assigned overlapping PodCIDRs")
+	}, 2*time.Minute, 10*time.Millisecond)
 }
 
 var ciliumnodesResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumnodes"}

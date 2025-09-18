@@ -67,7 +67,6 @@ func (r *gatewayClassReconciler) enqueueRequestForCiliumGatewayClassConfig() han
 func (r *gatewayClassReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		scopedLog := r.logger.With(
-			logfields.Controller, gatewayClass,
 			logfields.Resource, client.ObjectKeyFromObject(o),
 		)
 		list := &gatewayv1.GatewayClassList{}
@@ -75,7 +74,7 @@ func (r *gatewayClassReconciler) enqueueFromIndex(index string) handler.MapFunc 
 		if err := r.Client.List(ctx, list, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(index, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
-			scopedLog.Error("Failed to list related GatewayClass", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Failed to list related GatewayClass", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -83,7 +82,7 @@ func (r *gatewayClassReconciler) enqueueFromIndex(index string) handler.MapFunc 
 		for _, item := range list.Items {
 			c := client.ObjectKeyFromObject(&item)
 			requests = append(requests, reconcile.Request{NamespacedName: c})
-			scopedLog.Info("Enqueued GatewayClass for resource", gatewayClass, c)
+			scopedLog.InfoContext(ctx, "Enqueued GatewayClass for resource", gatewayClass, c)
 		}
 		return requests
 	}

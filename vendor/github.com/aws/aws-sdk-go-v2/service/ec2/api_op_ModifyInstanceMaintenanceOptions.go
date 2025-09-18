@@ -16,7 +16,11 @@ import (
 // not enable simplified automatic recovery for an unsupported instance type. For
 // more information, see [Simplified automatic recovery].
 //
+// Modifies the reboot migration behavior during a user-initiated reboot of an
+// instance that has a pending system-reboot event. For more information, see [Enable or disable reboot migration].
+//
 // [Simplified automatic recovery]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-recover.html#instance-configuration-recovery
+// [Enable or disable reboot migration]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/schedevents_actions_reboot.html#reboot-migration
 func (c *Client) ModifyInstanceMaintenanceOptions(ctx context.Context, params *ModifyInstanceMaintenanceOptionsInput, optFns ...func(*Options)) (*ModifyInstanceMaintenanceOptionsOutput, error) {
 	if params == nil {
 		params = &ModifyInstanceMaintenanceOptionsInput{}
@@ -48,6 +52,22 @@ type ModifyInstanceMaintenanceOptionsInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// Specifies whether to attempt reboot migration during a user-initiated reboot of
+	// an instance that has a scheduled system-reboot event:
+	//
+	//   - default - Amazon EC2 attempts to migrate the instance to new hardware
+	//   (reboot migration). If successful, the system-reboot event is cleared. If
+	//   unsuccessful, an in-place reboot occurs and the event remains scheduled.
+	//
+	//   - disabled - Amazon EC2 keeps the instance on the same hardware (in-place
+	//   reboot). The system-reboot event remains scheduled.
+	//
+	// This setting only applies to supported instances that have a scheduled reboot
+	// event. For more information, see [Enable or disable reboot migration]in the Amazon EC2 User Guide.
+	//
+	// [Enable or disable reboot migration]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/schedevents_actions_reboot.html#reboot-migration
+	RebootMigration types.InstanceRebootMigrationState
+
 	noSmithyDocumentSerde
 }
 
@@ -59,6 +79,22 @@ type ModifyInstanceMaintenanceOptionsOutput struct {
 
 	// The ID of the instance.
 	InstanceId *string
+
+	// Specifies whether to attempt reboot migration during a user-initiated reboot of
+	// an instance that has a scheduled system-reboot event:
+	//
+	//   - default - Amazon EC2 attempts to migrate the instance to new hardware
+	//   (reboot migration). If successful, the system-reboot event is cleared. If
+	//   unsuccessful, an in-place reboot occurs and the event remains scheduled.
+	//
+	//   - disabled - Amazon EC2 keeps the instance on the same hardware (in-place
+	//   reboot). The system-reboot event remains scheduled.
+	//
+	// This setting only applies to supported instances that have a scheduled reboot
+	// event. For more information, see [Enable or disable reboot migration]in the Amazon EC2 User Guide.
+	//
+	// [Enable or disable reboot migration]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/schedevents_actions_reboot.html#reboot-migration
+	RebootMigration types.InstanceRebootMigrationState
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -152,6 +188,36 @@ func (c *Client) addOperationModifyInstanceMaintenanceOptionsMiddlewares(stack *
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
 		return err
 	}
 	if err = addSpanInitializeStart(stack); err != nil {

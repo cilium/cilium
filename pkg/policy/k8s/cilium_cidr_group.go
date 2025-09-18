@@ -12,7 +12,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -24,7 +24,7 @@ import (
 // if this CIDRGroup is referenced by any policies,
 // applies it to the IPCache.
 func (p *policyWatcher) onUpsertCIDRGroup(
-	cidrGroup *cilium_v2_alpha1.CiliumCIDRGroup,
+	cidrGroup *cilium_v2.CiliumCIDRGroup,
 	apiGroup string,
 ) {
 	defer func() {

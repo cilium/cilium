@@ -6,6 +6,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -19,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/pprof"
 )
 
-func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
+func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags := cmd.Flags()
 
 	flags.Int(operatorOption.IPAMAPIBurst, defaults.IPAMAPIBurst, "Upper burst limit when accessing external APIs")
@@ -28,7 +29,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Float64(operatorOption.IPAMAPIQPSLimit, defaults.IPAMAPIQPSLimit, "Queries per second limit when accessing external IPAM APIs")
 	option.BindEnv(vp, operatorOption.IPAMAPIQPSLimit)
 
-	flags.Var(option.NewNamedMapOptions(operatorOption.IPAMSubnetsTags, &operatorOption.Config.IPAMSubnetsTags, nil),
+	flags.Var(option.NewMapOptions(&operatorOption.Config.IPAMSubnetsTags),
 		operatorOption.IPAMSubnetsTags, "Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
 	option.BindEnv(vp, operatorOption.IPAMSubnetsTags)
 
@@ -36,11 +37,11 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		"Subnets IDs (separated by commas)")
 	option.BindEnv(vp, operatorOption.IPAMSubnetsIDs)
 
-	flags.Var(option.NewNamedMapOptions(operatorOption.IPAMInstanceTags, &operatorOption.Config.IPAMInstanceTags, nil), operatorOption.IPAMInstanceTags,
+	flags.Var(option.NewMapOptions(&operatorOption.Config.IPAMInstanceTags), operatorOption.IPAMInstanceTags,
 		"EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
 	option.BindEnv(vp, operatorOption.IPAMInstanceTags)
 
-	flags.Var(option.NewNamedMapOptions(operatorOption.IPAMAutoCreateCiliumPodIPPools, &operatorOption.Config.IPAMAutoCreateCiliumPodIPPools, nil),
+	flags.Var(option.NewMapOptions(&operatorOption.Config.IPAMAutoCreateCiliumPodIPPools),
 		operatorOption.IPAMAutoCreateCiliumPodIPPools,
 		"Automatically create CiliumPodIPPool resources on startup. "+
 			"Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)")
@@ -70,6 +71,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableIPv4EgressGateway)
 	option.BindEnv(vp, option.EnableIPv4EgressGateway)
 
+	flags.Bool(option.EnableEgressGateway, false, "")
+	flags.MarkHidden(option.EnableEgressGateway)
+	option.BindEnv(vp, option.EnableEgressGateway)
+
 	flags.Bool(option.EnableLocalRedirectPolicy, false, "")
 	flags.MarkHidden(option.EnableLocalRedirectPolicy)
 	option.BindEnv(vp, option.EnableLocalRedirectPolicy)
@@ -88,7 +93,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.LogDriver, []string{}, "Logging endpoints to use for example syslog")
 	option.BindEnv(vp, option.LogDriver)
 
-	flags.Var(option.NewNamedMapOptions(option.LogOpt, &option.Config.LogOpt, nil),
+	flags.Var(option.NewMapOptions(&option.Config.LogOpt),
 		option.LogOpt, `Log driver options for cilium-operator, `+
 			`configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}`)
 	option.BindEnv(vp, option.LogOpt)
@@ -143,7 +148,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		switch binaryName {
 		case "cilium-operator":
 			if recommendation := recommendInstead(); recommendation != "" {
-				log.Warnf("cilium-operator will be deprecated in the future, for --%s=%s use %s as it has lower memory footprint", option.IPAM, ipamFlagValue, recommendation)
+				logger.Warn(fmt.Sprintf("cilium-operator will be deprecated in the future, for --%s=%s use %s as it has lower memory footprint", option.IPAM, ipamFlagValue, recommendation))
 			}
 		case "cilium-operator-aws":
 			if ipamFlagValue != ipamOption.IPAMENI {
@@ -200,13 +205,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
 	option.BindEnv(vp, option.IdentityAllocationMode)
 
-	flags.String(option.KVStore, "", "Key-value store type")
-	option.BindEnv(vp, option.KVStore)
-
-	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
-		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
-	option.BindEnv(vp, option.KVStoreOpt)
-
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium Operator is deployed in")
 	option.BindEnv(vp, option.K8sNamespaceName)
 
@@ -215,9 +213,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(vp, operatorOption.SyncK8sServices)
-
-	flags.Bool(operatorOption.SyncK8sNodes, true, "Synchronize Kubernetes nodes to kvstore and perform CNP GC")
-	option.BindEnv(vp, operatorOption.SyncK8sNodes)
 
 	flags.Int(operatorOption.UnmanagedPodWatcherInterval, 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
 	option.BindEnv(vp, operatorOption.UnmanagedPodWatcherInterval)
@@ -265,19 +260,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(operatorOption.PodRestartSelector, "k8s-app=kube-dns", "cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted")
 	option.BindEnv(vp, operatorOption.PodRestartSelector)
 
-	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, defaults.KVstoreMaxConsecutiveQuorumErrors, "Max acceptable kvstore consecutive quorum errors before the operator assumes permanent failure")
-	option.BindEnv(vp, option.KVstoreMaxConsecutiveQuorumErrorsName)
-
-	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
-	option.BindEnv(vp, option.KVstoreLeaseTTL)
-
 	flags.String(option.KubeProxyReplacement, "false", "Enable only selected features (will panic if any selected feature cannot be enabled) (\"false\"), or enable all features (will panic if any feature cannot be enabled) (\"true\") (default \"false\")")
 	flags.MarkHidden(option.KubeProxyReplacement)
 	option.BindEnv(vp, option.KubeProxyReplacement)
-
-	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium")
-	flags.MarkHidden(option.EnableNodePort)
-	option.BindEnv(vp, option.EnableNodePort)
 
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(vp, option.EnablePolicy)
@@ -319,6 +304,15 @@ const (
 	// pprofPort is the port that the pprof listens on
 	pprofPort = "operator-pprof-port"
 
+	// pprofMutexProfileFraction is the flag to enable mutex contention profiling and set the fraction of sampled events.
+	// Set to 1 to sample all events.
+	pprofMutexProfileFraction = "operator-pprof-mutex-profile-fraction"
+
+	// pprofBlockProfileRate is the flag to enable goroutine blocking profiling and set the rate of sampled events in nanoseconds.
+	// Set to 1 to sample all events.
+	// This setting is not recommended for production due to performance overhead.
+	pprofBlockProfileRate = "operator-pprof-block-profile-rate"
+
 	k8sClientQps = "operator-k8s-client-qps"
 
 	k8sClientBurst = "operator-k8s-client-burst"
@@ -336,22 +330,28 @@ var defaultOperatorPprofConfig = operatorPprofConfig{
 // To reuse the same cell, we need a different config type to map the same fields
 // to the operator-specific pprof flag names.
 type operatorPprofConfig struct {
-	OperatorPprof        bool
-	OperatorPprofAddress string
-	OperatorPprofPort    uint16
+	OperatorPprof                     bool
+	OperatorPprofAddress              string
+	OperatorPprofPort                 uint16
+	OperatorPprofMutexProfileFraction int
+	OperatorPprofBlockProfileRate     int
 }
 
 func (def operatorPprofConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(pprofOperator, def.OperatorPprof, "Enable serving pprof debugging API")
 	flags.String(pprofAddress, def.OperatorPprofAddress, "Address that pprof listens on")
 	flags.Uint16(pprofPort, def.OperatorPprofPort, "Port that pprof listens on")
+	flags.Int(pprofMutexProfileFraction, def.OperatorPprofMutexProfileFraction, "Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)")
+	flags.Int(pprofBlockProfileRate, def.OperatorPprofBlockProfileRate, "Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])")
 }
 
 func (def operatorPprofConfig) Config() pprof.Config {
 	return pprof.Config{
-		Pprof:        def.OperatorPprof,
-		PprofAddress: def.OperatorPprofAddress,
-		PprofPort:    def.OperatorPprofPort,
+		Pprof:                     def.OperatorPprof,
+		PprofAddress:              def.OperatorPprofAddress,
+		PprofPort:                 def.OperatorPprofPort,
+		PprofBlockProfileRate:     def.OperatorPprofBlockProfileRate,
+		PprofMutexProfileFraction: def.OperatorPprofMutexProfileFraction,
 	}
 }
 
