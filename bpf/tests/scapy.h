@@ -25,12 +25,66 @@
 #define BUF_DECL(NAME, ...) \
 	const __u8 BUF(NAME)[] = __SCAPY_BUF_BYTES(NAME)
 
+static __always_inline
+int scapy_memcmp(const void *a, const void *b, const __u16 len)
+{
+	__u32 i;
+
+	for (i = 0; i + 8 <= len; i += 8) {
+		__u64 va = *(__u64 *)(a + i);
+		__u64 vb = *(__u64 *)(b + i);
+
+		if (va != vb)
+			return (va < vb) ? -1 : 1;
+	}
+
+	#pragma unroll
+	for (; i < len; i++) {
+		__u8 va = *(__u8 *)(a + i);
+		__u8 vb = *(__u8 *)(b + i);
+
+		if (va != vb)
+			return (va < vb) ? -1 : 1;
+	}
+
+	return 0;
+}
+
+static __always_inline
+void scapy_memcpy(const void *dst, const void *src, const __u32 len)
+{
+	__u32 i;
+
+	#pragma unroll
+	for (i = 0; i + 8 <= len; i += 8)
+		*(__u64 *)(dst + i) = *(__u64 *)(src + i);
+
+	#pragma unroll
+	for (; i < len; i++)
+		*(__u8 *)(dst + i) = *(__u8 *)(src + i);
+}
+
+static __always_inline
+void *scapy__push_data(struct pktgen *builder, void *data, int len)
+{
+	void *pkt_data = pktgen__push_data_room(builder, len);
+
+	if (!pkt_data)
+		return 0;
+	if (pkt_data + len > ctx_data_end(builder->ctx))
+		return 0;
+
+	scapy_memcpy(pkt_data, data, len);
+
+	return pkt_data;
+}
+
 /**
  * Push (append) BUF(NAME) to the end of the ctx pkt builder.
  */
 #define BUILDER_PUSH_BUF(BUILDER, NAME)					\
 	do {								\
-		if (!pktgen__push_data(&(BUILDER), (void *)&BUF(NAME),	\
+		if (!scapy__push_data(&(BUILDER), (void *)&BUF(NAME),	\
 				       sizeof(BUF(NAME))))		\
 			return TEST_ERROR;				\
 	} while (0)
@@ -57,7 +111,7 @@
 			test_log("Buffer '" #BUF_NAME "' of len (%d) < LEN"	\
 				 " (%d)", sizeof(BUF(BUF_NAME)), LEN);		\
 		}								\
-		if (ok && memcmp(__DATA, &BUF(BUF_NAME), LEN) != 0) {		\
+		if (ok && scapy_memcmp(__DATA, &BUF(BUF_NAME), LEN) != 0) {	\
 			ok = false;						\
 			test_log("CTX and buffer '" #BUF_NAME			\
 				 "' content mismatch ");			\
