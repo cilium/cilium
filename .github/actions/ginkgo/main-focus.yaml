@@ -250,7 +250,7 @@ exclude:
   - k8s-version: "1.30"
     focus: "f11-datapath-service-ns-tc"
 
-  - k8s-version: "1.28"
+  - k8s-version: "1.30"
     focus: "f12-datapath-service-ns-misc"
 
   - k8s-version: "1.30"
