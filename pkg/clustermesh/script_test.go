@@ -120,6 +120,7 @@ func TestScript(t *testing.T) {
 				},
 				func() kpr.KPRConfig {
 					return kpr.KPRConfig{
+						EnableNodePort:       true,
 						KubeProxyReplacement: true,
 					}
 				},
