@@ -17,7 +17,7 @@ import (
 
 // removeUnusedTailcalls removes tail calls that are not reachable from
 // entrypoint programs.
-func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
+func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec, reachabilityCache map[string]*analyze.Blocks) error {
 	type tail struct {
 		referenced bool
 		visited    bool
@@ -43,16 +43,22 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 
 	// Discover all tailcalls that are reachable from the given program.
 	visit := func(prog *ebpf.ProgramSpec, tailcalls map[uint32]*tail) error {
-		// Load Blocks computed after compilation, or compute new ones.
-		bl, err := analyze.MakeBlocks(prog.Instructions)
-		if err != nil {
-			return fmt.Errorf("computing Blocks for Program %s: %w", prog.Name, err)
-		}
+		bl, ok := reachabilityCache[prog.Name]
+		if !ok {
+			var err error
+			// Load Blocks computed after compilation, or compute new ones.
+			bl, err = analyze.MakeBlocks(prog.Instructions)
+			if err != nil {
+				return fmt.Errorf("computing Blocks for Program %s: %w", prog.Name, err)
+			}
 
-		// Analyze reachability given the VariableSpecs provided at load time.
-		bl, err = analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
-		if err != nil {
-			return fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
+			// Analyze reachability given the VariableSpecs provided at load time.
+			bl, err = analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
+			if err != nil {
+				return fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
+			}
+
+			reachabilityCache[prog.Name] = bl
 		}
 
 		instIter := bl.LiveInstructions(prog.Instructions)

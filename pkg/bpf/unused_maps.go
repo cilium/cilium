@@ -20,7 +20,7 @@ const poisonedMapLoad = 0xdeadc0de
 // removeUnusedMaps analyzes the given spec to detect which parts of the code
 // will be unreachable given the VariableSpecs. It then removes any MapSpecs
 // that are not used by any Program.
-func removeUnusedMaps(spec *ebpf.CollectionSpec, keep *set.Set[string]) (*set.Set[string], error) {
+func removeUnusedMaps(spec *ebpf.CollectionSpec, keep *set.Set[string], reachabilityCache map[string]*analyze.Blocks) (*set.Set[string], error) {
 	if keep == nil {
 		k := set.NewSet[string]()
 		keep = &k
@@ -48,16 +48,20 @@ func removeUnusedMaps(spec *ebpf.CollectionSpec, keep *set.Set[string]) (*set.Se
 	}
 
 	for name, prog := range spec.Programs {
-		// Load Blocks computed after compilation, or compute new ones.
-		bl, err := analyze.MakeBlocks(prog.Instructions)
-		if err != nil {
-			return nil, fmt.Errorf("computing Blocks for Program %s: %w", prog.Name, err)
-		}
+		bl, ok := reachabilityCache[name]
+		if !ok {
+			var err error
+			// Load Blocks computed after compilation, or compute new ones.
+			bl, err = analyze.MakeBlocks(prog.Instructions)
+			if err != nil {
+				return nil, fmt.Errorf("computing Blocks for Program %s: %w", prog.Name, err)
+			}
 
-		// Analyze reachability given the VariableSpecs provided at load time.
-		bl, err = analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
-		if err != nil {
-			return nil, fmt.Errorf("reachability analysis for program %s: %w", name, err)
+			// Analyze reachability given the VariableSpecs provided at load time.
+			bl, err = analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
+			if err != nil {
+				return nil, fmt.Errorf("reachability analysis for program %s: %w", name, err)
+			}
 		}
 
 		// Record which maps are still referenced after reachability analysis.
