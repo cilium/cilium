@@ -151,7 +151,8 @@ jobs:
             --helm-set=extraArgs[0]=\"--local-router-ipv4=169.254.23.0\" \
             --helm-set=enableIPv4Masquerade=true \
             --helm-set=bpf.masquerade=true \
-            --helm-set=ipMasqAgent.enabled=true"
+            --helm-set=ipMasqAgent.enabled=true \
+            --helm-set=nodePort.enabled=true"
 
           if [ "${{ matrix.ipFamily }}" = "dual" ]; then
             CILIUM_INSTALL_DEFAULTS="${CILIUM_INSTALL_DEFAULTS} \

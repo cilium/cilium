@@ -110,24 +110,34 @@ jobs:
         include:
         - name: Without_XDP
           kube-proxy-replacement: true
+          enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: dedicated
           default-ingress-controller: false
         - name: With_XDP
           kube-proxy-replacement: true
+          enable-node-port: false
           bpf-lb-acceleration: native
           loadbalancer-mode: dedicated
           default-ingress-controller: false
         - name: With_Shared_LB
           kube-proxy-replacement: true
+          enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: shared
           default-ingress-controller: false
         - name: With_Default_Ingress_Controller
           kube-proxy-replacement: true
+          enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: dedicated
           default-ingress-controller: true
+        - name: Without_KPR
+          kube-proxy-replacement: false
+          enable-node-port: true
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: dedicated
+          default-ingress-controller: false
 
     steps:
       - name: Collect Workflow Telemetry
@@ -158,6 +168,7 @@ jobs:
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set kubeProxyReplacement=${{ matrix.kube-proxy-replacement }} \
+            --helm-set nodePort.enabled=${{ matrix.enable-node-port }} \
             --helm-set=ingressController.enabled=true \
             --helm-set=ingressController.loadbalancerMode=${{ matrix.loadbalancer-mode }} \
             --helm-set=ingressController.default=${{ matrix.default-ingress-controller }} \
