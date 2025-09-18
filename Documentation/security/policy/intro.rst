@@ -102,6 +102,33 @@ it transitions an endpoint in to default-deny and causes legitimate traffic to b
               dns:
                 - matchPattern: "*"
 
+Policy Deny Response Handling
+==============================
+
+By default, when network policy denies egress traffic from a pod, Cilium silently drops the packets.
+This means applications experience connection timeouts rather than immediate connection failures when attempting to reach forbidden destinations.
+
+However, some applications may benefit from receiving explicit rejection notifications instead of experiencing connection timeouts.
+This can provide faster feedback to applications and improve user experience by reducing wait times.
+
+This behavior can be configured with the ``--policy-deny-response`` option:
+
+**none** (default)
+  Silently drop denied packets. Applications will experience connection timeouts when policy denies traffic.
+
+**icmp**
+  Send an ICMP Destination Unreachable response back to the source pod when egress traffic is denied by policy.
+  This provides immediate feedback to applications that the connection was rejected.
+
+.. note::
+   This feature only applies to ipv4 egress pod traffic denied by network policy.
+   Ingress traffic denial behavior and ipv6 are not supported currently. Check :gh-issue:`41859` for updates
+
+.. warning::
+   When using ``--policy-deny-response=icmp``, ensure that ICMP ingress traffic is allowed by your network policies. 
+   If ICMP traffic is blocked by ingress policies, applications will not receive 
+   the rejection notifications and will still experience connection timeouts.
+
 .. _policy_rule:
 
 Rule Basics
