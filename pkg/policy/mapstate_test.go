@@ -1200,7 +1200,10 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 				proxyPort = 1
 				priority = x.redirect
 			}
-			value := newMapStateEntry(NilRuleOrigin, proxyPort, priority, x.deny, NoAuthRequirement, 0)
+			value := mapStateEntry{
+				MapStateEntry:    types.NewMapStateEntry(x.deny, proxyPort, priority, NoAuthRequirement, 0),
+				derivedFromRules: NilRuleOrigin,
+			}
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(versioned.LatestTx)
@@ -1684,7 +1687,10 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 				proxyPort = 1
 				priority = x.redirect
 			}
-			value := newMapStateEntry(NilRuleOrigin, proxyPort, priority, x.deny, x.authReq, 0)
+			value := mapStateEntry{
+				MapStateEntry:    types.NewMapStateEntry(x.deny, proxyPort, priority, x.authReq, 0),
+				derivedFromRules: NilRuleOrigin,
+			}
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(versioned.LatestTx)
