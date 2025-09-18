@@ -325,8 +325,6 @@ Removed Options
 * The previously deprecated ``--enable-session-affinity``, ``--enable-internal-traffic-policy``, and
   ``--enable-svc-source-range-check`` flags have been removed. Their corresponding features are
   enabled by default.
-* The previously deprecated ``--enable-node-port``, ``--enable-host-port``, and ``--enable-external-ips``
-  flags have been removed. To enable the corresponding features, users must set ``--kube-proxy-replacement=true``.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
