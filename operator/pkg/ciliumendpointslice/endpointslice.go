@@ -453,6 +453,7 @@ func (c *Controller) syncCESsInLocalCacheNoCeps(ctx context.Context) error {
 				c.logger.WarnContext(ctx, "Error getting CiliumNode by IP", logfields.Error, err)
 				continue
 			}
+			fmt.Println("Mapping CEP:", cep.Name, "on NodeIP:", cep.Networking.NodeIP, "to NodeName:", nodeObj[0].Name, "with CID:", identityid, "labels:", labels)
 			c.manager.initializeMappingPodToNode(NewCEPName(cep.Name, ces.Namespace), NodeName(nodeObj[0].Name), CESName(ces.Name), CID(identityid), labels, EncryptionKey(cep.Encryption.Key))
 		}
 	}

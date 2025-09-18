@@ -382,15 +382,10 @@ func (r *reconciler) getEndpointEncryptionKey(pod *slim_corev1.Pod) (int, error)
 }
 
 func (r *reconciler) getNodeNameForPod(pod *slim_corev1.Pod) (string, error) {
-	if pod.Status.HostIP == "" {
-		return "", fmt.Errorf("pod has no host IP")
+	if pod.Spec.NodeName == "" {
+		return "", fmt.Errorf("pod has empty node name")
 	}
-	return pod.Status.HostIP, nil
-
-	// if pod.Spec.NodeName == "" {
-	// 	return "", fmt.Errorf("pod has empty node name")
-	// }
-	// return pod.Spec.NodeName, nil
+	return pod.Spec.NodeName, nil
 }
 
 func (r *reconciler) getNamedPorts(pod *slim_corev1.Pod) models.NamedPorts {
