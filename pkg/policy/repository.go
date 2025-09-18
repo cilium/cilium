@@ -51,6 +51,13 @@ type PolicyRepository interface {
 	GetSelectorCache() *SelectorCache
 	// GetLog returns the policy log string associated with the given cookie, if it exists.
 	GetLog(cookie uint32) (log string, exists bool)
+	// LogCookieCount returns the number of allocated policy log cookies.
+	LogCookieCount() int
+	// MarkLogCookieInUse marks a policy log cookie as in use (i.e. present in an endpoint's
+	// policy map).
+	MarkLogCookieInUse(cookie uint32)
+	// SweepLogCookies garbage collects all policy log cookies not marked in-use.
+	SweepLogCookies()
 	Iterate(f func(rule *api.Rule))
 	ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
@@ -609,4 +616,20 @@ func (p *Repository) GetPolicySnapshot() map[identity.NumericIdentity]SelectorPo
 // GetLog returns the policy log string associated with the given cookie, if it exists.
 func (p *Repository) GetLog(cookie uint32) (log string, exists bool) {
 	return p.selectorCache.logCookies.Get(cookie)
+}
+
+// LogCookieCount returns the number of allocated policy log cookies.
+func (p *Repository) LogCookieCount() int {
+	return p.selectorCache.logCookies.Count()
+}
+
+// MarkLogCookieInUse marks a policy log cookie as in use (i.e. present in an endpoint's policy
+// map).
+func (p *Repository) MarkLogCookieInUse(cookie uint32) {
+	p.selectorCache.logCookies.MarkInUse(cookie)
+}
+
+// SweepLogCookies garbage collects all policy log cookies not marked in-use.
+func (p *Repository) SweepLogCookies() {
+	p.selectorCache.logCookies.Sweep()
 }
