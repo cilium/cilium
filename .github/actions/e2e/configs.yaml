@@ -86,7 +86,6 @@
   misc: 'socketLB.enabled=false,nodePort.enabled=true,bpf.masquerade=true'
   local-redirect-policy: 'true'
   node-local-dns: 'true'
-  skip-include-conn-disrupt-test-ns-traffic: 'true'
 - name: '9'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.10-20250915.013221'
