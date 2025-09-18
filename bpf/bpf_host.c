@@ -987,6 +987,10 @@ int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 	int ret;
 	__u64 time;
 
+	/* Announcing L2 addresses for a L3 device makes no sense: */
+	if (THIS_IS_L3_DEV)
+		return CTX_ACT_OK;
+
 	time = config_get(RUNTIME_CONFIG_AGENT_LIVENESS);
 	if (!time)
 		return CTX_ACT_OK;
