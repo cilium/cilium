@@ -354,7 +354,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
 			if (ret != 0)
 				return ret;
-			if (l2_hdr_required && ETH_HLEN == 0) {
+			if (l2_hdr_required && THIS_IS_L3_DEV) {
 				/* l2 header is added */
 				l3_off += __ETH_HLEN;
 			}
@@ -763,7 +763,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
 			if (ret != 0)
 				return ret;
-			if (l2_hdr_required && ETH_HLEN == 0) {
+			if (l2_hdr_required && THIS_IS_L3_DEV) {
 				/* l2 header is added */
 				l3_off += __ETH_HLEN;
 				if (!____revalidate_data_pull(ctx, &data, &data_end,

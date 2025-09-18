@@ -115,7 +115,7 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	 * Otherwise, the kernel will drop such request in
 	 * https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/net/core/filter.c?h=v6.7.4#n2147
 	 */
-	if (ETH_HLEN == 0) {
+	if (THIS_IS_L3_DEV) {
 		int ret;
 
 		ret = add_l2_hdr(ctx);
@@ -148,7 +148,7 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 	 * Otherwise, the kernel will drop such request in
 	 * https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/net/core/filter.c?h=v6.7.4#n2147
 	 */
-	if (ETH_HLEN == 0) {
+	if (THIS_IS_L3_DEV) {
 		int ret;
 
 		ret = add_l2_hdr(ctx);

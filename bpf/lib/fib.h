@@ -33,7 +33,7 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 		 * skip L2 addr settings.
 		 */
 		*l2_hdr_required = false;
-	} else if (ETH_HLEN == 0) {
+	} else if (THIS_IS_L3_DEV) {
 		/* The packet is going to be redirected from L3 to L2
 		 * device, so we need to create L2 header first.
 		 */
