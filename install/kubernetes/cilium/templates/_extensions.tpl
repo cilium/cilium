@@ -31,6 +31,15 @@ Allow packagers to add extra volumes to cilium-operator.
 {{- end }}
 
 {{/*
+Allow packagers to set securityContext for cilium-operator.
+*/}}
+{{- define "cilium.operator.securityContext" }}
+{{- with .Values.operator.securityContext }}
+{{ toYaml . }}
+{{- end }}
+{{- end }}
+
+{{/*
 Intentionally empty to allow downstream chart packagers to add extra
 containers to hubble-relay without having to modify the deployment manifest
 directly.

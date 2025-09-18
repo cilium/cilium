@@ -263,9 +263,10 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
-        {{- with .Values.operator.securityContext }}
+        {{- $sc := include "cilium.operator.securityContext" . | trim }}
+        {{- if $sc }}
         securityContext:
-          {{- toYaml . | trim | nindent 10 }}
+          {{- $sc | nindent 10 }}
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
       hostNetwork: {{ .Values.operator.hostNetwork }}
