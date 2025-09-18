@@ -50,5 +50,11 @@ static int a(void *ctx) {
 __section_entry
 static int cil_entry(void *ctx) {
         tail_call_static(ctx, cilium_calls, TAIL_A);
+
+        // Technically unreachable, but makes sure all paths are visited by the
+        // pruner. In real-world code, tail calls are often invoked
+        // conditionally, e.g. for error reporting or v4/v6 handling depending
+        // on the packet, so the search can't stop after the first tail call.
+        tail_call_static(ctx, cilium_calls, TAIL_E);
         return 0;
 }
