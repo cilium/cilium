@@ -65,7 +65,6 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -1309,7 +1308,6 @@ type daemonParams struct {
 	LBConfig            loadbalancer.Config
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
 	DNSNameManager      namemanager.NameManager
-	KPRConfig           kpr.KPRConfig
 	EndpointAPIFence    endpointapi.Fence
 	IPSecConfig         datapath.IPsecConfig
 	HealthConfig        healthconfig.CiliumHealthConfig
@@ -1471,7 +1469,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			&EndpointMapManager{
 				logger:          d.logger,
 				EndpointManager: d.endpointManager,
-			}, d.bwManager, d.lbConfig, d.kprCfg)
+			}, d.bwManager, d.lbConfig)
 		ms.CollectStaleMapGarbage()
 		ms.RemoveDisabledMaps()
 

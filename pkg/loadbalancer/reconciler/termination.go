@@ -101,7 +101,7 @@ func makeSocketDestroyer(p socketTerminationParams) (sockets.SocketDestroyer, er
 }
 
 func registerSocketTermination(p socketTerminationParams) error {
-	if !(p.ExtConfig.EnableSocketLB || p.ExtConfig.BPFSocketLBHostnsOnly) {
+	if !(p.Config.EnableSocketLB || p.ExtConfig.BPFSocketLBHostnsOnly) {
 		return nil
 	}
 

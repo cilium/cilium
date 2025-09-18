@@ -17,7 +17,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -51,7 +50,6 @@ func newLocalNodeConfig(
 	masqInterface string,
 	xdpConfig xdp.Config,
 	lbConfig loadbalancer.Config,
-	kprCfg kpr.KPRConfig,
 	maglevConfig maglev.Config,
 	mtuTbl statedb.Table[mtu.RouteMTU],
 	wgCfg wgTypes.WireguardConfig,
@@ -83,7 +81,7 @@ func newLocalNodeConfig(
 
 	watchChans := []<-chan struct{}{devsWatch, addrsWatch, mtuWatch}
 	var directRoutingDevice *tables.Device
-	if option.Config.DirectRoutingDeviceRequired(kprCfg, wgCfg.Enabled()) {
+	if option.Config.DirectRoutingDeviceRequired(lbConfig.KubeProxyReplacement, wgCfg.Enabled()) {
 		drd, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
 		if drd == nil {
 			return datapath.LocalNodeConfiguration{}, nil, errors.New("direct routing device required but not configured")
@@ -127,7 +125,6 @@ func newLocalNodeConfig(
 		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
 		XDPConfig:                    xdpConfig,
 		LBConfig:                     lbConfig,
-		KPRConfig:                    kprCfg,
 		MaglevConfig:                 maglevConfig,
 	}, common.MergeChannels(watchChans...), nil
 }

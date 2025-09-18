@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -43,14 +42,12 @@ import (
 //
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
-func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig) error {
-	if !kprCfg.KubeProxyReplacement {
+func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config, wgCfg wgTypes.WireguardConfig) error {
+	if !lbConfig.KubeProxyReplacement {
 		option.Config.EnableHostLegacyRouting = true
 	}
-	logger.Info("kube-proxy replacement starting with the following config",
-		logfields.KPRConfiguration, kprCfg)
 
-	if kprCfg.KubeProxyReplacement {
+	if lbConfig.KubeProxyReplacement {
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
 			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
 			if ip.To4() == nil {
@@ -147,7 +144,7 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		// InstallNoConntrackIptRules can only be enabled when Cilium is
 		// running in full KPR mode as otherwise conntrack would be
 		// required for NAT operations
-		if !(kprCfg.KubeProxyReplacement && kprCfg.EnableSocketLB) {
+		if !(lbConfig.KubeProxyReplacement && lbConfig.EnableSocketLB) {
 			return fmt.Errorf("%s requires the agent to run with %s.",
 				option.InstallNoConntrackIptRules, option.KubeProxyReplacement)
 		}
@@ -158,7 +155,7 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		}
 	}
 
-	if !kprCfg.EnableSocketLB {
+	if !lbConfig.EnableSocketLB {
 		option.Config.EnableSocketLBTracing = false
 		option.Config.EnableSocketLBPeer = false
 	}
@@ -167,14 +164,13 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		return nil
 	}
 
-	return probeKubeProxyReplacementOptions(logger, lbConfig, kprCfg, sysctl)
+	return probeKubeProxyReplacementOptions(logger, lbConfig, sysctl)
 }
 
 // probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with
 // the running kernel.
-func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, sysctl sysctl.Sysctl) error {
-
-	if kprCfg.KubeProxyReplacement {
+func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer.Config, sysctl sysctl.Sysctl) error {
+	if lbConfig.KubeProxyReplacement {
 		if err := checkNodePortAndEphemeralPortRanges(lbConfig, sysctl); err != nil {
 			return err
 		}
@@ -191,7 +187,7 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 		}
 	}
 
-	if kprCfg.EnableSocketLB {
+	if lbConfig.EnableSocketLB {
 		if err := probes.HaveAttachCgroup(); err != nil {
 			return fmt.Errorf("socketlb enabled, but kernel does not support attaching bpf programs to cgroups: %w", err)
 		}
@@ -239,10 +235,10 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, ipsecEnabled bool) error {
+func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config, ipsecEnabled bool) error {
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
-	if option.Config.EnableMKE && kprCfg.EnableSocketLB {
+	if option.Config.EnableMKE && lbConfig.EnableSocketLB {
 		markHostExtension(logger)
 	}
 
@@ -256,7 +252,7 @@ func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
 		// KPR=true is needed or we might rely on netfilter.
-		case !kprCfg.KubeProxyReplacement:
+		case !lbConfig.KubeProxyReplacement:
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.KubeProxyReplacement)
 		}
 		if msg != "" {

@@ -10,7 +10,6 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -115,7 +114,7 @@ func TestUpdateNetworkMode(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultNetworkModes {
@@ -167,7 +166,7 @@ func TestUpdateIPAMMode(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultIPAMModes {
@@ -219,7 +218,7 @@ func TestUpdateCNIChainingMode(t *testing.T) {
 				CNIChainingMode: tt.chainingMode,
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultChainingModes {
@@ -281,7 +280,7 @@ func TestUpdateInternetProtocol(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultChainingModes {
@@ -332,7 +331,7 @@ func TestUpdateIdentityAllocationMode(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultIdentityAllocationModes {
@@ -388,7 +387,7 @@ func TestUpdateCiliumEndpointSlices(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.CPCiliumEndpointSlicesEnabled.Get()
 
@@ -430,7 +429,7 @@ func TestUpdateDeviceMode(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultDeviceModes {
@@ -485,7 +484,7 @@ func TestUpdateHostFirewall(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.NPHostFirewallEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableHostFirewall, counterValue)
@@ -530,7 +529,7 @@ func TestUpdateLocalRedirectPolicies(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.NPLocalRedirectPolicyEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableLRP, counterValue)
@@ -576,7 +575,7 @@ func TestUpdateMutualAuth(t *testing.T) {
 				MutualAuth:      tt.enableMutualAuth,
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.NPMutualAuthEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableMutualAuth, counterValue)
@@ -622,7 +621,7 @@ func TestUpdateNonDefaultDeny(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.NPNonDefaultDenyEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableNonDefaultDeny, counterValue)
@@ -665,7 +664,7 @@ func TestUpdateCIDRPolicyModeToNode(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultCIDRPolicies {
@@ -789,7 +788,7 @@ func TestUpdateEncryptionMode(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{EnableWireguard: tt.enableWireguard}, fakeTypes.IPsecConfig{EnableIPsec: tt.enableIPSec})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{EnableWireguard: tt.enableWireguard}, fakeTypes.IPsecConfig{EnableIPsec: tt.enableIPSec})
 
 			// Check that only the expected mode's counter is incremented
 			for _, encMode := range defaultEncryptionModes {
@@ -850,7 +849,10 @@ func TestUpdateKubeProxyReplacement(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{KubeProxyReplacement: tt.enableKubeProxyReplacement}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			lbCfg := loadbalancer.DefaultConfig
+			lbCfg.UserConfig.KubeProxyReplacement = tt.enableKubeProxyReplacement
+
+			metrics.update(params, config, lbCfg, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.ACLBKubeProxyReplacementEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableKubeProxyReplacement, counterValue)
@@ -906,7 +908,7 @@ func TestUpdateNodePortConfig(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			// Check that only the expected mode's counter is incremented
 			for _, portMode := range defaultNodePortModes {
@@ -967,7 +969,7 @@ func TestUpdateBGP(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.ACLBBGPEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for bgpControlPlane: %t, got %.f", tt.expected, tt.bgpControlPlane, counterValue)
@@ -1013,7 +1015,7 @@ func TestUpdateIPv4EgressGateway(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.ACLBEgressGatewayEnabled.Get()
 
@@ -1060,7 +1062,7 @@ func TestUpdateBandwidthManager(t *testing.T) {
 				BandwidthManager: tt.enableBandwidthManager,
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.ACLBBandwidthManagerEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableBandwidthManager, counterValue)
@@ -1106,7 +1108,7 @@ func TestUpdateSCTP(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.ACLBSCTPEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableSCTP, counterValue)
@@ -1152,7 +1154,7 @@ func TestUpdateVTEP(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.ACLBVTEPEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableVTEP, counterValue)
@@ -1198,7 +1200,7 @@ func TestUpdateEnvoyConfig(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.ACLBCiliumEnvoyConfigEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEnvoyConfig, counterValue)
@@ -1254,7 +1256,7 @@ func TestUpdateBigTCPProtocol(t *testing.T) {
 				},
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultBigTCPAddressFamilies {
@@ -1310,7 +1312,7 @@ func TestUpdateL2Announcements(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.ACLBL2LBEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableL2Announcements, counterValue)
@@ -1356,7 +1358,7 @@ func TestUpdateL2PodAnnouncements(t *testing.T) {
 				L2PodAnnouncement: tt.enableL2PodAnnouncements,
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.ACLBL2PodAnnouncementEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableL2PodAnnouncements, counterValue)
@@ -1402,7 +1404,7 @@ func TestUpdateExtEnvoyProxyMode(t *testing.T) {
 				CNIChainingMode: defaultChainingModes[0],
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultExternalEnvoyProxyModes {
@@ -1458,7 +1460,7 @@ func TestUpdateDynamicNodeConfig(t *testing.T) {
 				isDynamicConfigSourceKindNodeConfig: tt.enableDynamicNodeConfig,
 			}
 
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+			metrics.update(params, config, lbConfig, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
 
 			counterValue := metrics.ACLBCiliumNodeConfigEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableDynamicNodeConfig, counterValue)

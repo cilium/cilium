@@ -1099,13 +1099,15 @@ func TestBPFOps(t *testing.T) {
 
 	// Enable features.
 	extCfg := loadbalancer.ExternalConfig{
-		ZoneMapper:           &option.DaemonConfig{},
-		EnableIPv4:           true,
-		EnableIPv6:           true,
-		KubeProxyReplacement: true,
+		ZoneMapper: &option.DaemonConfig{},
+		EnableIPv4: true,
+		EnableIPv6: true,
 	}
 
-	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
+	userConfig := loadbalancer.DefaultUserConfig
+	userConfig.KubeProxyReplacement = true
+
+	cfg, _ := loadbalancer.NewConfig(log, userConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
 
 	var lbmaps maps.LBMaps
 	if testutils.IsPrivileged() {

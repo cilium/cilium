@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/idpool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -73,7 +73,7 @@ type linuxNodeHandler struct {
 
 	enableEncapsulation func(node *nodeTypes.Node) bool
 
-	kprCfg kpr.KPRConfig
+	lbCfg loadbalancer.Config
 
 	ipsecCfg datapath.IPsecConfig
 }
@@ -93,7 +93,7 @@ func NewNodeHandler(
 	nodeMap nodemap.MapV2,
 	nodeManager manager.NodeManager,
 	nodeConfigNotifier *manager.NodeConfigNotifier,
-	kprCfg kpr.KPRConfig,
+	lbCfg loadbalancer.Config,
 	ipsecAgent datapath.IPsecAgent,
 ) (datapath.NodeHandler, datapath.NodeIDHandler) {
 	datapathConfig := DatapathConfiguration{
@@ -101,7 +101,7 @@ func NewNodeHandler(
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeTypes.IPsecConfig{})
+	handler := newNodeHandler(log, datapathConfig, nodeMap, lbCfg, ipsecAgent, fakeTypes.IPsecConfig{})
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
@@ -122,7 +122,7 @@ func newNodeHandler(
 	log *slog.Logger,
 	datapathConfig DatapathConfiguration,
 	nodeMap nodemap.MapV2,
-	kprCfg kpr.KPRConfig,
+	lbCfg loadbalancer.Config,
 	ipsecAgent datapath.IPsecAgent,
 	ipsecCfg datapath.IPsecConfig,
 ) *linuxNodeHandler {
@@ -137,7 +137,7 @@ func newNodeHandler(
 		nodeIPsByIDs:         map[uint16]sets.Set[string]{},
 		ipsecMetricCollector: ipsec.NewXFRMCollector(log),
 		ipsecUpdateNeeded:    map[nodeTypes.Identity]bool{},
-		kprCfg:               kprCfg,
+		lbCfg:                lbCfg,
 		ipsecAgent:           ipsecAgent,
 		ipsecCfg:             ipsecCfg,
 	}
