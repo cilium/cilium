@@ -1686,8 +1686,6 @@ const (
 
 	Section = "section"
 
-	Instruction = "instruction"
-
 	Reference = "reference"
 
 	MapRenames = "mapRenames"
