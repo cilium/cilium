@@ -96,6 +96,7 @@ func VariableSpecs(variables map[string]*ebpf.VariableSpec) map[string]VariableS
 
 type Reachable struct {
 	blocks Blocks
+	insns  asm.Instructions
 
 	// l is a bitmap tracking reachable blocks.
 	l bitmap
@@ -162,19 +163,19 @@ func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]Va
 		}] = v
 	}
 
-	live := newBitmap(uint64(blocks.count()))
-	jumps := newBitmap(uint64(blocks.count()))
+	r := &Reachable{
+		blocks: blocks,
+		insns:  insns,
+		l:      newBitmap(uint64(blocks.count())),
+		j:      newBitmap(uint64(blocks.count())),
+	}
 
 	// Start recursing at first block since it is always live.
-	if err := visitBlock(blocks.first(), blocks, insns, vars, live, jumps); err != nil {
+	if err := r.visitBlock(blocks.first(), vars); err != nil {
 		return nil, fmt.Errorf("predicting blocks: %w", err)
 	}
 
-	return &Reachable{
-		blocks: blocks,
-		l:      live,
-		j:      jumps,
-	}, nil
+	return r, nil
 }
 
 // Iterate returns an iterator that wraps an internal BlockIterator. The
@@ -183,9 +184,9 @@ func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]Va
 //
 // The BlockIterator itself is yielded so it can be cloned to start a
 // backtracking session.
-func (r *Reachable) Iterate(insns asm.Instructions) iter.Seq2[*BlockIterator, bool] {
+func (r *Reachable) Iterate() iter.Seq2[*BlockIterator, bool] {
 	return func(yield func(*BlockIterator, bool) bool) {
-		iter := r.blocks.iterate(insns)
+		iter := r.blocks.iterate(r.insns)
 		for iter.Next() {
 			live := r.l.get(iter.block.id)
 			if !yield(iter, live) {
@@ -294,11 +295,11 @@ type mapOffset struct {
 
 // unpredictableBlock is called when the branch cannot be predicted. It visits
 // both the branch and fallthrough blocks.
-func unpredictableBlock(b *Block, blocks Blocks, insns asm.Instructions, vars map[mapOffset]VariableSpec, live, jumps bitmap) error {
-	if err := visitBlock(b.branch, blocks, insns, vars, live, jumps); err != nil {
+func (r *Reachable) unpredictableBlock(b *Block, vars map[mapOffset]VariableSpec) error {
+	if err := r.visitBlock(b.branch, vars); err != nil {
 		return fmt.Errorf("visiting branch block %d: %w", b.branch.id, err)
 	}
-	if err := visitBlock(b.fthrough, blocks, insns, vars, live, jumps); err != nil {
+	if err := r.visitBlock(b.fthrough, vars); err != nil {
 		return fmt.Errorf("visiting fallthrough block %d: %w", b.fthrough.id, err)
 	}
 	return nil
@@ -306,33 +307,33 @@ func unpredictableBlock(b *Block, blocks Blocks, insns asm.Instructions, vars ma
 
 // visitBlock recursively visits a block and its successors to determine
 // reachability based on the branch instructions and the provided vars.
-func visitBlock(b *Block, blocks Blocks, insns asm.Instructions, vars map[mapOffset]VariableSpec, live, jumps bitmap) error {
+func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error {
 	if b == nil {
 		return nil
 	}
 
 	// Don't evaluate the same block twice, this would lead to an infinite loop.
 	// A live block implies a visited block.
-	if live.get(b.id) {
+	if r.l.get(b.id) {
 		return nil
 	}
-	live.set(b.id, true)
+	r.l.set(b.id, true)
 
-	iter := b.iterateGlobal(blocks, insns)
+	iter := b.iterateGlobal(r.blocks, r.insns)
 
 	branch := findBranch(iter)
 	if branch == nil {
-		return unpredictableBlock(b, blocks, insns, vars, live, jumps)
+		return r.unpredictableBlock(b, vars)
 	}
 
 	deref := findDereference(iter, branch.Dst)
 	if deref == nil {
-		return unpredictableBlock(b, blocks, insns, vars, live, jumps)
+		return r.unpredictableBlock(b, vars)
 	}
 
 	load := findMapLoad(iter, deref.Src)
 	if load == nil {
-		return unpredictableBlock(b, blocks, insns, vars, live, jumps)
+		return r.unpredictableBlock(b, vars)
 	}
 
 	// TODO(tb): evalBranch doesn't currently take the deref's offset field into
@@ -340,7 +341,7 @@ func visitBlock(b *Block, blocks Blocks, insns asm.Instructions, vars map[mapOff
 	// to be more robust and remove this limitation.
 	vs := lookupVariable(load, vars)
 	if vs == nil || !vs.Constant() || vs.Size() > 8 {
-		return unpredictableBlock(b, blocks, insns, vars, live, jumps)
+		return r.unpredictableBlock(b, vars)
 	}
 
 	jump, err := evalBranch(branch, vs)
@@ -350,12 +351,12 @@ func visitBlock(b *Block, blocks Blocks, insns asm.Instructions, vars map[mapOff
 
 	// If the branch is always taken, only visit the branch target.
 	if jump {
-		jumps.set(b.id, true)
-		return visitBlock(b.branch, blocks, insns, vars, live, jumps)
+		r.j.set(b.id, true)
+		return r.visitBlock(b.branch, vars)
 	}
 
 	// Otherwise, only visit the fallthrough target.
-	return visitBlock(b.fthrough, blocks, insns, vars, live, jumps)
+	return r.visitBlock(b.fthrough, vars)
 }
 
 // lookupVariable retrieves the VariableSpec for the given load instruction from

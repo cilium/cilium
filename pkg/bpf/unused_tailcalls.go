@@ -54,7 +54,7 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 			return fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
 		}
 
-		for iter, live := range r.Iterate(prog.Instructions) {
+		for iter, live := range r.Iterate() {
 			if !live {
 				continue
 			}
