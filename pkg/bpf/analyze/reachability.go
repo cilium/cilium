@@ -99,18 +99,18 @@ type Reachable struct {
 	insns  asm.Instructions
 
 	// l is a bitmap tracking reachable blocks.
-	l bitmap
+	l Bitmap
 
 	// j is a bitmap tracking predicted jumps. If the nth bit is 1, the jump
 	// at the end of block n is predicted to always be taken.
-	j bitmap
+	j Bitmap
 }
 
 func (r *Reachable) isLive(id uint64) bool {
 	if id >= r.blocks.count() {
 		return false
 	}
-	return r.l.get(id)
+	return r.l.Get(id)
 }
 
 func (r *Reachable) countAll() uint64 {
@@ -118,7 +118,7 @@ func (r *Reachable) countAll() uint64 {
 }
 
 func (r *Reachable) countLive() uint64 {
-	return r.l.popcount()
+	return r.l.Popcount()
 }
 
 // Reachability determines whether or not each Block in blocks is reachable
@@ -166,8 +166,8 @@ func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]Va
 	r := &Reachable{
 		blocks: blocks,
 		insns:  insns,
-		l:      newBitmap(uint64(blocks.count())),
-		j:      newBitmap(uint64(blocks.count())),
+		l:      NewBitmap(uint64(blocks.count())),
+		j:      NewBitmap(uint64(blocks.count())),
 	}
 
 	// Start recursing at first block since it is always live.
@@ -188,7 +188,7 @@ func (r *Reachable) Iterate() iter.Seq2[*BlockIterator, bool] {
 	return func(yield func(*BlockIterator, bool) bool) {
 		iter := r.blocks.iterate(r.insns)
 		for iter.Next() {
-			live := r.l.get(iter.block.id)
+			live := r.l.Get(iter.block.id)
 			if !yield(iter, live) {
 				return
 			}
@@ -202,9 +202,9 @@ func (r *Reachable) Dump(insns asm.Instructions) string {
 		sb.WriteString(fmt.Sprintf("\n=== Block %d ===\n", block.id))
 		sb.WriteString(block.Dump(insns))
 
-		sb.WriteString(fmt.Sprintf("Live: %t, ", r.l.get(uint64(block.id))))
+		sb.WriteString(fmt.Sprintf("Live: %t, ", r.l.Get(uint64(block.id))))
 		sb.WriteString("branch: ")
-		if r.j.get(uint64(block.id)) {
+		if r.j.Get(uint64(block.id)) {
 			sb.WriteString("jump")
 		} else {
 			sb.WriteString("fallthrough")
@@ -314,10 +314,10 @@ func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error 
 
 	// Don't evaluate the same block twice, this would lead to an infinite loop.
 	// A live block implies a visited block.
-	if r.l.get(b.id) {
+	if r.l.Get(b.id) {
 		return nil
 	}
-	r.l.set(b.id, true)
+	r.l.Set(b.id, true)
 
 	iter := b.iterateGlobal(r.blocks, r.insns)
 
@@ -351,7 +351,7 @@ func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error 
 
 	// If the branch is always taken, only visit the branch target.
 	if jump {
-		r.j.set(b.id, true)
+		r.j.Set(b.id, true)
 		return r.visitBlock(b.branch, vars)
 	}
 
