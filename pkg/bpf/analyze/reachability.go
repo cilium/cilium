@@ -177,22 +177,18 @@ func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]Va
 	}, nil
 }
 
-// LiveInstructions returns a sequence of [asm.Instruction]s held by Blocks. The
-// bool value indicates if the instruction is live (reachable), false if it's
-// not.
+// Iterate returns an iterator that wraps an internal BlockIterator. The
+// internal iterator is yielded along with a bool indicating whether the current
+// instruction is reachable.
 //
-// Returns nil if block reachability hasn't been computed yet.
-func (r *Reachable) LiveInstructions(insns asm.Instructions) iter.Seq2[*asm.Instruction, bool] {
-	if len(r.l) == 0 {
-		return nil
-	}
-
-	return func(yield func(*asm.Instruction, bool) bool) {
+// The BlockIterator itself is yielded so it can be cloned to start a
+// backtracking session.
+func (r *Reachable) Iterate(insns asm.Instructions) iter.Seq2[*BlockIterator, bool] {
+	return func(yield func(*BlockIterator, bool) bool) {
 		iter := r.blocks.iterate(insns)
 		for iter.Next() {
-			ins := iter.Instruction()
 			live := r.l.get(iter.block.id)
-			if !yield(ins, live) {
+			if !yield(iter, live) {
 				return
 			}
 		}
