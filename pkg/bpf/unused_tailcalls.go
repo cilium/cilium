@@ -5,6 +5,7 @@ package bpf
 
 import (
 	"fmt"
+	"iter"
 	"log/slog"
 
 	"github.com/cilium/ebpf"
@@ -54,17 +55,9 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 			return fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
 		}
 
-		const windowSize = 3
-
-		i := -1
-		for _, live := range bl.LiveInstructions(prog.Instructions) {
-			i++
+		instIter := bl.LiveInstructions(prog.Instructions)
+		for inst, live := range instIter.Forward() {
 			if !live {
-				continue
-			}
-
-			if i <= windowSize {
-				// Not enough instructions to backtrack yet.
 				continue
 			}
 
@@ -77,22 +70,35 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 			//   call tail_call
 
 			// Find the tail call instruction.
-			inst := prog.Instructions[i]
 			if !inst.IsBuiltinCall() || inst.Constant != int64(asm.FnTailCall) {
 				continue
 			}
 
+			prev, stop := iter.Pull2(instIter.Copy().Backward())
+
+			// Skip past the tail call
+			_, _, ok := prev()
+			if !ok {
+				stop()
+				continue
+			}
+
 			// Check that the previous instruction is a mov of the tail call index.
-			movIdx := prog.Instructions[i-1]
-			if movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
+			movIdx, _, ok := prev()
+			if !ok || movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
+				stop()
 				continue
 			}
 
 			// Check that the instruction before that is the load of the tail call map.
-			movR2 := prog.Instructions[i-2]
-			if movR2.OpCode != asm.LoadImmOp(asm.DWord) || movR2.Src != asm.PseudoMapFD {
+			movR2, _, ok := prev()
+			if !ok || movR2.OpCode != asm.LoadImmOp(asm.DWord) || movR2.Src != asm.PseudoMapFD {
+				stop()
 				continue
 			}
+
+			// Stop backwards iteration.
+			stop()
 
 			ref := movR2.Reference()
 
@@ -102,7 +108,6 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 					"skipping tail call into map other than the calls map",
 					logfields.Section, prog.SectionName,
 					logfields.Prog, prog.Name,
-					logfields.Instruction, i,
 					logfields.Reference, ref,
 				)
 				continue
@@ -111,10 +116,9 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 			tc := tailcalls[uint32(movIdx.Constant)]
 			if tc == nil {
 				return fmt.Errorf(
-					"potential missed tail call in program %s to slot %d at insn %d",
+					"potential missed tail call in program %s to slot %d",
 					prog.Name,
 					movIdx.Constant,
-					i,
 				)
 			}
 
