@@ -17,9 +17,6 @@ on:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
         default: '{}'
-  push:
-    branches:
-      - 'renovate/v1.17-**'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -47,7 +44,6 @@ concurrency:
     ${{ github.workflow }}
     ${{ github.event_name }}
     ${{
-      (github.event_name == 'push' && github.sha) ||
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
