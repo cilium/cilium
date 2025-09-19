@@ -74,8 +74,6 @@ struct dnshdr {
 // Monitor and log plain text pod-to-pod packets passing through the bridge if:
 // 1. packet traced by proxy and at least one IP is in PodCIDR, or
 // 2. both IPs are in PodCIDR and not CiliumInternalIPs.
-// In addition, skip TCP RST packets, as they might be kernel-level packet due
-// to proxy timeout sockets (https://github.com/cilium/cilium/issues/35485).
 //
 // Shift header references to inner packet in case of encapsulation:
 // - EinV (< v1.18):  outer packet is plaintext overlay, checks must be against inner packet.
@@ -149,7 +147,7 @@ kprobe:br_forward
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
           ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
         ) {
-        if ($ip4h->protocol != PROTO_TCP || !$tcph->rst) {
+        if ($ip4h->protocol != PROTO_TCP) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
           printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
@@ -236,7 +234,7 @@ kprobe:br_forward
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
           ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
         ) {
-        if ($ip6h->nexthdr != PROTO_TCP || !$tcph->rst) {
+        if ($ip6h->nexthdr != PROTO_TCP) {
           $time = strftime("%H:%M:%S:%f", nsecs);
 
           printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
