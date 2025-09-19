@@ -2,6 +2,7 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request: {}
   pull_request_target:
     types:
       - opened
@@ -404,8 +405,8 @@ jobs:
     name: Pre-Comment
     runs-on: ubuntu-24.04
     if: ${{
-         github.event_name == 'pull_request_target' &&
-         github.event.pull_request.user.login == 'cilium-renovate[bot]'
+         github.event_name == 'pull_request' &&
+         github.event.pull_request.user.login == 'aanm'
         }}
     steps:
     - name: Debug
@@ -419,8 +420,8 @@ jobs:
     needs: pre-comment
     environment: "Trigger CI from renovate PRs"
     if: ${{
-         github.event_name == 'pull_request_target' &&
-         github.event.pull_request.user.login == 'cilium-renovate[bot]'
+         github.event_name == 'pull_request' &&
+         github.event.pull_request.user.login == 'aanm'
         }}
     steps:
       - name: Post /test comment
