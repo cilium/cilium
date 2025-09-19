@@ -754,6 +754,68 @@ func TestParseToCiliumLabels(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "parse labels with empty source",
+			args: args{
+				name:      "test-policy",
+				namespace: "default",
+				uid:       uuid,
+				ruleLbs: labels.LabelArray{
+					{
+						Key:    "policy-comment",
+						Value:  "allow all traffic inside namespace",
+						Source: "",
+					},
+					{
+						Key:    "team",
+						Value:  "platform",
+						Source: labels.LabelSourceUnspec,
+					},
+					{
+						Key:    "explicit-source",
+						Value:  "test",
+						Source: "custom",
+					},
+				},
+			},
+			want: labels.LabelArray{
+				{
+					Key:    "explicit-source",
+					Value:  "test",
+					Source: "custom",
+				},
+				{
+					Key:    "io.cilium.k8s.policy.derived-from",
+					Value:  "CiliumNetworkPolicy",
+					Source: labels.LabelSourceK8s,
+				},
+				{
+					Key:    "io.cilium.k8s.policy.name",
+					Value:  "test-policy",
+					Source: labels.LabelSourceK8s,
+				},
+				{
+					Key:    "io.cilium.k8s.policy.namespace",
+					Value:  "default",
+					Source: labels.LabelSourceK8s,
+				},
+				{
+					Key:    "io.cilium.k8s.policy.uid",
+					Value:  string(uuid),
+					Source: labels.LabelSourceK8s,
+				},
+				{
+					Key:    "policy-comment",
+					Value:  "allow all traffic inside namespace",
+					Source: labels.LabelSourceUnspec,
+				},
+				{
+					Key:    "team",
+					Value:  "platform",
+					Source: labels.LabelSourceUnspec,
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		got := ParseToCiliumLabels(tt.args.namespace, tt.args.name, tt.args.uid, tt.args.ruleLbs)

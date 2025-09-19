@@ -387,8 +387,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 			},
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
-				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
-				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
+				lbls := utils.ParseToCiliumLabels("production", "db", uuid, labels.ParseLabelArray("foo=bar"))
 				r.MustAddList(policyapi.Rules{
 					policyapi.NewRule().
 						WithEndpointSelector(policyapi.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
