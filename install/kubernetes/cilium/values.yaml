@@ -990,6 +990,22 @@ ingressController:
     # Valid values are "Cluster" and "Local".
     # ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
     externalTrafficPolicy: Cluster
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Configures the service's supported IP family policy.
+    # Valid values are:
+    #     SingleStack: Single-stack service. The control plane allocates a cluster IP for the Service, using the first configured service cluster IP range.
+    #     PreferDualStack: Allocates IPv4 and IPv6 cluster IPs for the Service.
+    #     RequireDualStack: Allocates Service .spec.ClusterIPs from both IPv4 and IPv6 address ranges.
+    # ref: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+    ipFamilyPolicy: ~
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Sets the families that should be supported and the order in which they should be applied to ClusterIP as well.
+    # Valid values are "IPv4" and/or "IPv6"
+    ipFamilies: []
   # Host Network related configuration
   hostNetwork:
     # -- Configure whether the Envoy listeners should be exposed on the host network.
