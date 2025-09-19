@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
-	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -47,6 +46,10 @@ type EC2API interface {
 	AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (string, error)
 }
 
+type MetadataAPI interface {
+	GetInstanceMetadata() (string, string, string, string, string, error)
+}
+
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
@@ -63,16 +66,18 @@ type InstancesManager struct {
 	routeTables    ipamTypes.RouteTableMap
 	securityGroups types.SecurityGroupMap
 	api            EC2API
+	metadata       MetadataAPI
 	limitsGetter   *limits.LimitsGetter
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(logger *slog.Logger, api EC2API) (*InstancesManager, error) {
+func NewInstancesManager(logger *slog.Logger, api EC2API, metadata MetadataAPI) (*InstancesManager, error) {
 
 	m := &InstancesManager{
 		logger:    logger.With(subsysLogAttr...),
 		instances: ipamTypes.NewInstanceMap(),
 		api:       api,
+		metadata:  metadata,
 	}
 
 	limitsGetter, err := limits.NewLimitsGetter(logger, api, limits.TriggerMinInterval, limits.EC2apiTimeout, limits.EC2apiRetryCount)
@@ -205,7 +210,7 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.Time {
 	resyncStart := time.Now()
 
-	_, _, _, currentVpcID, _, err := metadata.GetInstanceMetadata()
+	_, _, _, currentVpcID, _, err := m.metadata.GetInstanceMetadata()
 	if err != nil {
 		m.logger.Warn("Unable to retrieve AWS instance metadata and will use cached VPC ID", logfields.Error, err)
 		// when we can't retrieve the VPC ID from AWS metadata, we use the cached VPC ID
