@@ -104,13 +104,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 		ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
 		if (ret != 0)
 			return ret;
-		if (l2_hdr_required) {
+		if (l2_hdr_required)
 			l3_off += __ETH_HLEN;
-			if (!____revalidate_data_pull(ctx, &data, &data_end,
-						      (void **)&ip6, sizeof(*ip6),
-							  false, l3_off))
-				return DROP_INVALID;
-		}
 #endif
 
 		return ipv6_local_delivery(ctx, l3_off, identity, MARK_MAGIC_IDENTITY, ep,

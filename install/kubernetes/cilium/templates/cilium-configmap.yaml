@@ -968,6 +968,10 @@ data:
   # Capacity of the buffer to store recent events.
   hubble-event-buffer-capacity: {{ .Values.hubble.eventBufferCapacity | quote }}
 {{- end }}
+{{- if hasKey .Values.hubble "lostEventSendInterval" }}
+  # Interval to send lost events from Observer server.
+  hubble-lost-event-send-interval: {{ include "validateDuration" .Values.hubble.lostEventSendInterval | quote }}
+{{- end }}
 {{- if or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled}}
   # Address to expose Hubble metrics (e.g. ":7070"). Metrics server will be disabled if this
   # field is not set.

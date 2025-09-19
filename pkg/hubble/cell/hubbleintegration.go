@@ -243,6 +243,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	observerOpts = append(observerOpts,
 		observeroption.WithMaxFlows(maxFlows),
 		observeroption.WithMonitorBuffer(h.config.EventQueueSize),
+		observeroption.WithLostEventSendInterval(h.config.LostEventSendInterval),
 	)
 
 	// register exporters
@@ -276,7 +277,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		return nil, fmt.Errorf("failed to initialize observer server: %w", err)
 	}
 	go hubbleObserver.Start()
-	h.monitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver))
+	h.monitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver, h.config.LostEventSendInterval))
 
 	tlsEnabled := h.tlsConfigPromise != nil
 

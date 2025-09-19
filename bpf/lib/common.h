@@ -105,6 +105,8 @@ union v6addr {
 #define d2 d.d2
 } __packed;
 
+#define THIS_IS_L3_DEV		(ETH_HLEN == 0)
+
 static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
 						      int l2_off, __u16 *proto)
 {
@@ -113,7 +115,7 @@ static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
 	void *data = ctx_data(ctx);
 	struct ethhdr *eth;
 
-	if (ETH_HLEN == 0) {
+	if (THIS_IS_L3_DEV) {
 		/* The packet is received on L2-less device. Determine L3
 		 * protocol from skb->protocol.
 		 */

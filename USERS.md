@@ -331,6 +331,11 @@ Users (Alphabetically)
       U: Service load-balancing, Encryption, CNI, NetworkPolicies
       Q: @kevholditch-f3, samo-f3, ewilde-form3
 
+    * N: FPT Telecom
+      D: FTEL uses Cilium as their CNI plugin to handle the massive CPE Management traffic to the backends
+      U: CNI, CiliumclusterWideNetworkPolicy, CiliumNetworkPolicy, Kube-Proxy Replacement, Hubble, Direct Routing, Egress Gateway, Service Load Balancing, L2 Announcement, BGP Advertisement
+      Q: @minhng99
+
     * N: FRSCA - Factory for Repeatable Secure Creation of Artifacts
       D: FRSCA is utilizing tetragon integrated with Tekton to create runtime attestation to attest artifact and builder attributes
       U: Runtime observability
