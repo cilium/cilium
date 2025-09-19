@@ -42,7 +42,7 @@ db/cmp neighbors neighbors.reachable.table
 db/cmp neighbors neighbors.stale.table
 
 # Wait for the refresh to happen, which will trigger the neighbor table to change
-db/cmp neighbors neighbors.reachable.table
+db/cmp --timeout=1m neighbors neighbors.reachable.table
 
 # Assert the refresh was not due to the agent
 metrics cilium_neighbor_entry_refresh_count -o refresh-count.actual
