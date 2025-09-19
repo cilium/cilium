@@ -110,8 +110,9 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return nil
 	}
 
-	if !params.OperatorConfig.KubeProxyReplacement {
-		params.Logger.Warn("Gateway API support requires kube-proxy-replacement enabled")
+	if !params.OperatorConfig.KubeProxyReplacement &&
+		!params.OperatorConfig.EnableNodePort {
+		params.Logger.Warn("Gateway API support requires either kube-proxy-replacement or enable-node-port enabled")
 		return nil
 	}
 

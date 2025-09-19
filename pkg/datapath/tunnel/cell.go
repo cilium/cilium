@@ -34,7 +34,8 @@ var Cell = cell.Module(
 		// handled here, as the corresponding logic has not yet been modularized).
 		func(kpr kpr.KPRConfig, lbcfg loadbalancer.Config) EnablerOut {
 			return NewEnabler(
-				kpr.KubeProxyReplacement &&
+				(kpr.EnableNodePort ||
+					kpr.KubeProxyReplacement) &&
 					lbcfg.LoadBalancerUsesDSR() &&
 					lbcfg.DSRDispatch == loadbalancer.DSRDispatchGeneve,
 				// The datapath logic takes care of the MTU overhead. So no need to

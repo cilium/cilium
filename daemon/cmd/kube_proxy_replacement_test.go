@@ -31,6 +31,7 @@ type kprConfig struct {
 	kubeProxyReplacement bool
 
 	enableSocketLB             bool
+	enableNodePort             bool
 	enableIPSec                bool
 	enableHostLegacyRouting    bool
 	installNoConntrackIptRules bool
@@ -55,6 +56,7 @@ func (cfg *kprConfig) set() (err error) {
 
 	kprFlags := kpr.KPRFlags{
 		KubeProxyReplacement: cfg.kubeProxyReplacement,
+		EnableNodePort:       cfg.enableNodePort,
 		EnableSocketLB:       cfg.enableSocketLB,
 	}
 
@@ -105,7 +107,12 @@ func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg 
 		}
 	}
 	require.Equal(t, cfg.enableSocketLB, kprCfg.EnableSocketLB)
+<<<<<<< HEAD
 	require.Equal(t, cfg.enableIPSec, ipsecCfg.Enabled())
+=======
+	require.Equal(t, cfg.enableNodePort, kprCfg.EnableNodePort)
+	require.Equal(t, cfg.enableIPSec, option.Config.EnableIPSec)
+>>>>>>> parent of 31eecce183 (agent: Remove deprecated EnableNodePort)
 	require.Equal(t, cfg.enableHostLegacyRouting, option.Config.EnableHostLegacyRouting)
 	require.Equal(t, cfg.installNoConntrackIptRules, option.Config.InstallNoConntrackIptRules)
 	require.Equal(t, cfg.enableBPFMasquerade, option.Config.EnableBPFMasquerade)
@@ -143,6 +150,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			},
 			kprConfig{
 				enableSocketLB:          true,
+				enableNodePort:          true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -157,6 +165,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			},
 			kprConfig{
 				enableSocketLB:          true,
+				enableNodePort:          true,
 				enableHostLegacyRouting: false,
 				enableIPSec:             true,
 				enableSocketLBTracing:   true,
@@ -174,6 +183,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			},
 			kprConfig{
 				enableSocketLB:             true,
+				enableNodePort:             true,
 				enableHostLegacyRouting:    false,
 				enableBPFMasquerade:        true,
 				enableIPv4Masquerade:       true,
@@ -193,6 +203,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			kprConfig{
 				expectedErrorRegex:         ".+with enable-bpf-masquerade.",
 				enableSocketLB:             true,
+				enableNodePort:             true,
 				enableHostLegacyRouting:    false,
 				installNoConntrackIptRules: true,
 				enableIPv4Masquerade:       true,
@@ -208,6 +219,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			},
 			kprConfig{
 				enableSocketLB:          false,
+				enableNodePort:          false,
 				enableIPSec:             false,
 				enableHostLegacyRouting: true,
 				enableSocketLBTracing:   false,
@@ -221,11 +233,13 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			func(cfg *kprConfig) {
 				cfg.kubeProxyReplacement = false
 				cfg.installNoConntrackIptRules = true
+				cfg.enableNodePort = true
 			},
 			kprConfig{
 				expectedErrorRegex:         ".+with kube-proxy-replacement.",
 				enableSocketLB:             false,
-				enableHostLegacyRouting:    true,
+				enableNodePort:             true,
+				enableHostLegacyRouting:    false,
 				installNoConntrackIptRules: true,
 				enableSocketLBTracing:      true,
 			},
@@ -243,6 +257,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			kprConfig{
 				expectedErrorRegex:      "Node Port .+ mode cannot be used with .+ tunneling.",
 				enableSocketLB:          true,
+				enableNodePort:          true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -260,6 +275,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			},
 			kprConfig{
 				enableSocketLB:          true,
+				enableNodePort:          true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -276,6 +292,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			},
 			kprConfig{
 				enableSocketLB:          true,
+				enableNodePort:          true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -293,6 +310,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			kprConfig{
 				expectedErrorRegex:      "Node Port .+ mode cannot be used with .+ tunneling.",
 				enableSocketLB:          true,
+				enableNodePort:          true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -310,6 +328,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			},
 			kprConfig{
 				enableSocketLB:          true,
+				enableNodePort:          true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -326,6 +345,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			},
 			kprConfig{
 				enableSocketLB:          true,
+				enableNodePort:          true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},
@@ -343,6 +363,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			kprConfig{
 				expectedErrorRegex:      "Node Port .+ mode cannot be used with .+ tunneling.",
 				enableSocketLB:          true,
+				enableNodePort:          true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
 			},

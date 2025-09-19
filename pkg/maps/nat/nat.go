@@ -388,8 +388,8 @@ func DeleteSwappedMapping6(m *Map, tk tuple.TupleKey) error {
 }
 
 // GlobalMaps returns all global NAT maps.
-func GlobalMaps(registry *metrics.Registry, ipv4, ipv6, natRequired bool) (ipv4Map, ipv6Map *Map) {
-	if !natRequired {
+func GlobalMaps(registry *metrics.Registry, ipv4, ipv6, nodeport bool) (ipv4Map, ipv6Map *Map) {
+	if !nodeport {
 		return
 	}
 	if ipv4 {
@@ -426,8 +426,8 @@ func maxEntries() int {
 }
 
 // RetriesMaps returns the maps that contain the histograms of the number of retries.
-func RetriesMaps(ipv4, ipv6, natRequired bool) (ipv4RetriesMap, ipv6RetriesMap RetriesMap) {
-	if !natRequired {
+func RetriesMaps(ipv4, ipv6, nodeport bool) (ipv4RetriesMap, ipv6RetriesMap RetriesMap) {
+	if !nodeport {
 		return
 	}
 	if ipv4 {
