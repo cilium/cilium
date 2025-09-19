@@ -21,6 +21,15 @@ const (
 	MaxAllowPrecedence = MaxPrecedence & ^(PrecedenceDeny | PrecedenceProxyPriorityMask)
 )
 
+type EntryKind uint8
+
+const (
+	// Valid entries are inserted into datapath
+	Valid EntryKind = iota
+	// Invalid entries are not inserted into datapath
+	Invalid
+)
+
 // ProxyPortPrecedenceMayDiffer returns true if the non-proxy port precedence bits are the same
 func (p Precedence) ProxyPortPrecedenceMayDiffer(o Precedence) bool {
 	return p^o < PrecedenceDeny
@@ -39,8 +48,8 @@ type MapStateEntry struct {
 	// Key. Any other value signifies proxy redirection.
 	ProxyPort uint16
 
-	// Invalid is only set to mark the current entry for update when syncing entries to datapath
-	Invalid bool
+	// only zero Kind entries are inserted into datapath
+	Kind EntryKind
 
 	// AuthRequirement is non-zero when authentication is required for the traffic to be
 	// allowed, except for when it explicitly defines authentication is not required.
@@ -52,6 +61,14 @@ type MapStateEntry struct {
 }
 
 type MapStateMap map[Key]MapStateEntry
+
+func (e *MapStateEntry) Invalidate() {
+	e.Kind = Invalid
+}
+
+func (e MapStateEntry) IsValid() bool {
+	return e.Kind == Valid
+}
 
 // String returns a string representation of the MapStateEntry
 func (e MapStateEntry) String() string {

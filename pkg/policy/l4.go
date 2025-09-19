@@ -636,16 +636,15 @@ func (c *ChangeState) Size() int {
 
 // generateWildcardMapStateEntry creates map state entry for wildcard selector in the filter.
 func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16) mapStateEntry {
-	wildcardEntry := mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
-
 	if l4.wildcard != nil {
 		currentRule := l4.PerSelectorPolicies[l4.wildcard]
 		cs := l4.wildcard
 
-		wildcardEntry = l4.makeMapStateEntry(logger, p, port, cs, currentRule)
+		return l4.makeMapStateEntry(logger, p, port, cs, currentRule)
 	}
 
-	return wildcardEntry
+	return mapStateEntry{MapStateEntry: MapStateEntry{Kind: types.Invalid}}
+
 }
 
 // makeMapStateEntry creates a mapStateEntry for the given selector and policy for the Endpoint.
@@ -663,7 +662,7 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 				logfields.Error, err,
 				logfields.EndpointSelector, cs,
 			)
-			return mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
+			return mapStateEntry{MapStateEntry: MapStateEntry{Kind: types.Invalid}}
 		}
 	}
 
@@ -720,7 +719,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 
 	// Compute and insert the wildcard entry, if present.
 	wildcardEntry := l4.generateWildcardMapStateEntry(scopedLog, p, port)
-	if !wildcardEntry.Invalid {
+	if wildcardEntry.IsValid() {
 		for _, keyToAdd := range keysToAdd {
 			keyToAdd.Identity = 0
 			p.policyMapState.insertWithChanges(keyToAdd, wildcardEntry, features, changes)
@@ -749,14 +748,14 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 
 		// create MapStateEntry
 		entry := l4.makeMapStateEntry(logger, p, port, cs, currentRule)
-		if entry.Invalid {
+		if !entry.IsValid() {
 			continue
 		}
 
 		// If this entry is identical to the wildcard's entry, we can elide it.
 		// Do not elide for port wildcards. TODO: This is probably too
 		// conservative, determine if it's safe to elide l3 entry when no l4 specifier is present.
-		if !wildcardEntry.Invalid && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
+		if wildcardEntry.IsValid() && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
 			scopedLog.Debug("ToMapState: Skipping L3/L4 key due to existing identical L4-only key", logfields.EndpointSelector, cs)
 			continue
 		}
@@ -1626,7 +1625,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 		// If the entry is identical to wildcard map entry, we can elide it.
 		// See comment in L4Filter.toMapState()
 		wildcardMapEntry := l4.generateWildcardMapStateEntry(logger, epPolicy, port)
-		if !wildcardMapEntry.Invalid && port != 0 && value.MapStateEntry == wildcardMapEntry.MapStateEntry {
+		if wildcardMapEntry.IsValid() && port != 0 && value.MapStateEntry == wildcardMapEntry.MapStateEntry {
 			logger.Debug(
 				"AccumulateMapChanges: Skipping L3/L4 key due to existing identical L4-only key",
 				logfields.EndpointSelector, cs)
