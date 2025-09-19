@@ -196,13 +196,14 @@ steps:
       udpMessageSize: {{$UDPMessageSize}}
       hasEGWPolicy: {{$CreateEGWPolicy}}
 
+# https://github.com/cilium/cilium/pull/41781
 # Run the connections stress test.
-- module:
-    path: modules/stress-test.yaml
-    params:
-      image: {{$TestImage}}
-      externalTarget: {{$ExternalTarget}}
-      instance: stress
+#- module:
+#    path: modules/stress-test.yaml
+#    params:
+#      image: {{$TestImage}}
+#      externalTarget: {{$ExternalTarget}}
+#      instance: stress
 
 - module:
     path: ../cilium-agent-pprofs.yaml

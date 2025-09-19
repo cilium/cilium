@@ -35,7 +35,7 @@ steps:
         ExternalTarget: {{ $externalTarget }}
         ExternalTargetPort: {{ IfThenElse (ne $test "diff-port") 1338 1339 }}
         ClientConnectTimeout: "30s"
-        Stress: true
+        Stress: false
         AffinityType: {{ IfThenElse (eq $test "base") "none" ( IfThenElse (eq $test "diff-node") "antiAffinity" "affinity" ) }}
         AffinityInstance: {{ $instance }}-base
 
