@@ -19,6 +19,7 @@ import (
 	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	metricscell "github.com/cilium/cilium/pkg/hubble/metrics/cell"
+	"github.com/cilium/cilium/pkg/hubble/observer/namespace"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	parsercell "github.com/cilium/cilium/pkg/hubble/parser/cell"
@@ -44,14 +45,17 @@ var Cell = cell.Module(
 	// Hubble flow log exporters
 	exportercell.Cell,
 
-	// Parser for Hubble flows
-	parsercell.Cell,
-
 	// Metrics server and flow processor
 	metricscell.Cell,
 
 	// Drop event emitter flow processor
 	dropeventemitter.Cell,
+
+	// Parser for Hubble flows
+	parsercell.Cell,
+
+	// Hubble flows k8s namespaces monitor
+	namespace.Cell,
 )
 
 // The core cell group, which contains the Hubble integration and the
@@ -85,7 +89,8 @@ type hubbleParams struct {
 
 	DropEventEmitter dropeventemitter.FlowProcessor
 
-	PayloadParser parser.Decoder
+	PayloadParser    parser.Decoder
+	NamespaceManager namespace.Manager
 
 	GRPCMetrics          *grpc_prometheus.ServerMetrics
 	MetricsFlowProcessor metrics.FlowProcessor
@@ -112,6 +117,7 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.ExporterBuilders,
 		params.DropEventEmitter,
 		params.PayloadParser,
+		params.NamespaceManager,
 		params.GRPCMetrics,
 		params.MetricsFlowProcessor,
 		params.Config,

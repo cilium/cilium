@@ -94,9 +94,8 @@ func getRandomEndpoint() *testutils.FakeEndpointInfo {
 func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.LocalObserverServer {
 	queueSize := numFlows
 
-	pp := noopParser(t)
-	nsMgr := observer.NewNamespaceManager()
-	s, err := observer.NewLocalServer(pp, nsMgr, log,
+	pp, nm := noopParser(t), testutils.NoopNamespaceManager
+	s, err := observer.NewLocalServer(pp, nm, log,
 		observeroption.WithMaxFlows(container.Capacity65535),
 		observeroption.WithMonitorBuffer(queueSize),
 	)

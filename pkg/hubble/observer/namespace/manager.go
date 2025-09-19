@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-package observer
+package namespace
 
 import (
-	"context"
 	"sort"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
@@ -12,14 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var _ NamespaceManager = &namespaceManager{}
-
-const (
-	checkNamespaceAgeFrequency = 5 * time.Minute
-	namespaceTTL               = time.Hour
-)
-
-type NamespaceManager interface {
+type Manager interface {
 	GetNamespaces() []*observerpb.Namespace
 	AddNamespace(*observerpb.Namespace)
 }
@@ -35,36 +27,24 @@ type namespaceManager struct {
 	nowFunc    func() time.Time
 }
 
-func NewNamespaceManager() *namespaceManager {
+// NOTE: there are still a couple of places where we need to construct a
+// functional ns manager outside of Hive/Cell, i.e. testing and Hubble Relay.
+func NewManager() *namespaceManager {
 	return &namespaceManager{
 		namespaces: make(map[string]namespaceRecord),
 		nowFunc:    time.Now,
 	}
 }
 
-func (m *namespaceManager) Run(ctx context.Context) {
-	ticker := time.NewTicker(checkNamespaceAgeFrequency)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			// periodically remove any namespaces which haven't been seen in flows
-			// for the last hour
-			m.cleanupNamespaces()
-		}
-	}
-}
-
+// cleanupNamespaces remove all namespaces not seen in flows for the last hour.
 func (m *namespaceManager) cleanupNamespaces() {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	for key, record := range m.namespaces {
 		if record.added.Add(namespaceTTL).Before(m.nowFunc()) {
 			delete(m.namespaces, key)
 		}
 	}
-	m.mu.Unlock()
 }
 
 func (m *namespaceManager) GetNamespaces() []*observerpb.Namespace {
