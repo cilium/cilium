@@ -14,7 +14,7 @@ func TestCepToCESCounts(t *testing.T) {
 		name      string
 		cepName   CEPName
 		cesName   CESName
-		nodeName  NodeIP
+		nodeName  NodeName
 		cid       CID
 		gidLabels string
 		count     int
@@ -23,7 +23,7 @@ func TestCepToCESCounts(t *testing.T) {
 			name:      "Insert CEPs - 1",
 			cepName:   NewCEPName("cilium-adf8-kube-system", "ns"),
 			cesName:   CESName("ces-dfbkjswert-twis"),
-			nodeName:  NodeIP("node1"),
+			nodeName:  NodeName("node1"),
 			cid:       CID("cid1"),
 			gidLabels: "test:hello",
 			count:     1,
@@ -32,7 +32,7 @@ func TestCepToCESCounts(t *testing.T) {
 			name:      "Insert CEPs - 2",
 			cepName:   NewCEPName("cilium-dtyr-kube-system", "ns"),
 			cesName:   CESName("ces-dfbkjswert-twis"),
-			nodeName:  NodeIP("node2"),
+			nodeName:  NodeName("node2"),
 			cid:       CID("cid2"),
 			gidLabels: "key:value",
 			count:     2,
@@ -41,7 +41,7 @@ func TestCepToCESCounts(t *testing.T) {
 			name:      "Insert CEPs - 3",
 			cepName:   NewCEPName("cilium-fgh8-kube-system", "ns"),
 			cesName:   CESName("ces-dfbkjswert-twis"),
-			nodeName:  NodeIP("node1"),
+			nodeName:  NodeName("node1"),
 			cid:       CID("cid1"),
 			gidLabels: "test:hello",
 			count:     3,
@@ -50,7 +50,7 @@ func TestCepToCESCounts(t *testing.T) {
 			name:      "Insert CEPs - 4",
 			cepName:   NewCEPName("cilium-cspn-kube-system", "ns"),
 			cesName:   CESName("ces-dfbkjswert-twis"),
-			nodeName:  NodeIP("node3"),
+			nodeName:  NodeName("node3"),
 			cid:       CID("cid2"),
 			gidLabels: "key:value",
 			count:     4,
@@ -59,7 +59,7 @@ func TestCepToCESCounts(t *testing.T) {
 			name:      "Check same CEP-name with CES name",
 			cepName:   NewCEPName("cilium-cspn-kube-system", "ns"),
 			cesName:   CESName("ces-dfbkjswert-0wis"),
-			nodeName:  NodeIP("node3"),
+			nodeName:  NodeName("node3"),
 			cid:       CID("cid2"),
 			gidLabels: "key:value",
 			count:     4,
@@ -68,7 +68,7 @@ func TestCepToCESCounts(t *testing.T) {
 			name:      "Check CEP with same labels, different CID",
 			cepName:   NewCEPName("cilium-asdf-kube-system", "ns"),
 			cesName:   CESName("ces-dfbkjswert-twis"),
-			nodeName:  NodeIP("node3"),
+			nodeName:  NodeName("node3"),
 			cid:       CID("cid3"),
 			gidLabels: "key:value",
 			count:     5,

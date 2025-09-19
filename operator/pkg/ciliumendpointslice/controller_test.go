@@ -147,13 +147,13 @@ func createCEPandVerifyCESCreated(t *testing.T, fakeClient k8sClient.Clientset, 
 	return err == nil, nil
 }
 
-func TestRegisterController(t *testing.T) {
-	defer goleak.VerifyNone(
+func TestRegisterControllerNoCEPs(t *testing.T) {
+	defer testutils.GoleakVerifyNone(
 		t,
 		// To ignore goroutine started by the workqueue. It reports metrics
 		// on unfinished work with default tick period of 0.5s - it terminates
 		// no longer than 0.5s after the workqueue is stopped.
-		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Typed[...]).updateUnfinishedWorkLoop"),
+		testutils.GoleakIgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop"),
 	)
 
 	fakeClient, pod, ciliumEndpointSlice, namespace, ciliumNode, ciliumIdentity, _, hive := initHiveTest(t, true, true)
@@ -248,7 +248,6 @@ func initHiveTest(t *testing.T, enableCES, enableCESwithoutCEPs bool) (k8sClient
 			}
 		}),
 		metrics.Metric(NewMetrics),
-		cell.Provide(func() workqueue.MetricsProvider { return nil }),
 		cell.Invoke(func(p params) error {
 			registerController(p)
 			return nil

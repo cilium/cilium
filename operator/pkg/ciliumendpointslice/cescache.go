@@ -103,11 +103,11 @@ func (c *CESCache) DumpState() string {
 	}
 	s += "Global ID Labels to CID Set\n"
 	for labels, data := range c.globalIdLabelsToCIDSet {
-		s += fmt.Sprintf("  %s: { SelectedID: %d, IDs: %s, CEPs: %s }\n", labels, data.selectedID, data.ids, data.ceps)
+		s += fmt.Sprintf("  %s: { SelectedID: %v, IDs: %s, CEPs: %s }\n", labels, data.selectedID, data.ids, data.ceps)
 	}
 	s += "CID to Global ID Labels\n"
 	for cid, labels := range c.cidToGidLabels {
-		s += fmt.Sprintf("  %d: %s\n", cid, labels)
+		s += fmt.Sprintf("  %v: %s\n", cid, labels)
 	}
 	return s
 }
