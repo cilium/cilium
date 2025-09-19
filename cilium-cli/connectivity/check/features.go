@@ -172,10 +172,15 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 				result[features.KPRSocketLB] = features.Status{Enabled: f.SocketLB.Enabled}
 				result[features.KPRSocketLBHostnsOnly] = features.Status{Enabled: f.BpfSocketLBHostnsOnly}
 			}
+			acceleration := strings.ToLower(f.NodePort.Acceleration)
+			result[features.KPRNodePortAcceleration] = features.Status{
+				Enabled: mode == "true" && acceleration != "disabled",
+				Mode:    acceleration,
+			}
 		}
 	}
 	result[features.KPR] = features.Status{
-		Enabled: mode == "true" || mode == "strict",
+		Enabled: mode == "true",
 		Mode:    mode,
 	}
 
