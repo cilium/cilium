@@ -11,6 +11,7 @@ import (
 
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
@@ -207,8 +208,8 @@ func iteration2(t *testing.T, api *ec2mock.API, mngr *InstancesManager) {
 func TestGetSubnet(t *testing.T) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
-
-	mngr, err := NewInstancesManager(hivetest.Logger(t), api)
+	metadataMockapi, _ := metadataMock.NewMetadataMock()
+	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -246,8 +247,8 @@ func TestGetSubnet(t *testing.T) {
 func TestFindSubnetByIDs(t *testing.T) {
 	api := ec2mock.NewAPI(subnets2, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
-
-	mngr, err := NewInstancesManager(hivetest.Logger(t), api)
+	metadataMockapi, _ := metadataMock.NewMetadataMock()
+	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -286,8 +287,8 @@ func TestFindSubnetByIDs(t *testing.T) {
 func TestFindSubnetByTags(t *testing.T) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
-
-	mngr, err := NewInstancesManager(hivetest.Logger(t), api)
+	metadataMockapi, _ := metadataMock.NewMetadataMock()
+	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -324,7 +325,8 @@ func TestGetSecurityGroupByTags(t *testing.T) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 
-	mngr, err := NewInstancesManager(hivetest.Logger(t), api)
+	metadataMockapi, _ := metadataMock.NewMetadataMock()
+	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 

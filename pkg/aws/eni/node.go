@@ -270,7 +270,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.Rel
 
 // ReleaseIPPrefixes performs the ENI IPPrefixes release operation
 func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *ipam.ReleaseAction) error {
-	if err := n.manager.api.UnassignENIPrefixes(ctx, r.InterfaceID, r.IPPrefixesToRelease); err != nil {
+	if err := n.manager.ec2api.UnassignENIPrefixes(ctx, r.InterfaceID, r.IPPrefixesToRelease); err != nil {
 		return err
 	}
 
@@ -321,7 +321,7 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 	if len(r.IPsToRelease) <= 0 {
 		return nil
 	}
-	if err := n.manager.api.UnassignPrivateIpAddresses(ctx, r.InterfaceID, r.IPsToRelease); err != nil {
+	if err := n.manager.ec2api.UnassignPrivateIpAddresses(ctx, r.InterfaceID, r.IPsToRelease); err != nil {
 		return err
 	}
 
@@ -414,7 +414,7 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 
 	if isPrefixDelegated {
 		numPrefixes := ip.PrefixCeil(a.IPv4.AvailableForAllocation, option.ENIPDBlockSizeIPv4)
-		err := n.manager.api.AssignENIPrefixes(ctx, a.InterfaceID, int32(numPrefixes))
+		err := n.manager.ec2api.AssignENIPrefixes(ctx, a.InterfaceID, int32(numPrefixes))
 		if !isSubnetAtPrefixCapacity(err) {
 			return err
 		}
@@ -425,7 +425,7 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 			logfields.Node, n.k8sObj.Name,
 		)
 	}
-	assignedIPs, err := n.manager.api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.IPv4.AvailableForAllocation))
+	assignedIPs, err := n.manager.ec2api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.IPv4.AvailableForAllocation))
 	if err != nil {
 		return err
 	}
@@ -438,7 +438,7 @@ func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags
 	defer n.mutex.RUnlock()
 	for _, eni := range n.enis {
 		if eni.PublicIP == "" {
-			return n.manager.api.AssociateEIP(ctx, eni.ID, staticIPTags)
+			return n.manager.ec2api.AssociateEIP(ctx, eni.ID, staticIPTags)
 		}
 	}
 
@@ -609,7 +609,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	)
 	scopedLog.Info("No more IPs available, creating new ENI")
 
-	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, isPrefixDelegated)
+	eniID, eni, err := n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, isPrefixDelegated)
 	if err != nil {
 		if isPrefixDelegated && isSubnetAtPrefixCapacity(err) {
 			// Subnet might be out of available /28 prefixes, but /32 IP addresses might be available.
@@ -618,7 +618,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 				"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
 				logfields.Node, n.k8sObj.Name,
 			)
-			eniID, eni, err = n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false)
+			eniID, eni, err = n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false)
 		}
 		if err != nil {
 			return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
@@ -635,7 +635,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	var attachmentID string
 	for range maxAttachRetries {
-		attachmentID, err = n.manager.api.AttachNetworkInterface(ctx, index, n.node.InstanceID(), eniID)
+		attachmentID, err = n.manager.ec2api.AttachNetworkInterface(ctx, index, n.node.InstanceID(), eniID)
 
 		// The index is already in use, this can happen if the local
 		// list of ENIs is oudated.  Retry the attachment to avoid
@@ -648,7 +648,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	}
 
 	if err != nil {
-		delErr := n.manager.api.DeleteNetworkInterface(ctx, eniID)
+		delErr := n.manager.ec2api.DeleteNetworkInterface(ctx, eniID)
 		if delErr != nil {
 			scopedLog.Warn(
 				"Unable to undo ENI creation after failure to attach",
@@ -675,9 +675,9 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	if resource.Spec.ENI.DeleteOnTermination == nil || *resource.Spec.ENI.DeleteOnTermination {
 		// We have an attachment ID from the last API, which lets us mark the
 		// interface as delete on termination
-		err = n.manager.api.ModifyNetworkInterface(ctx, eniID, attachmentID, true)
+		err = n.manager.ec2api.ModifyNetworkInterface(ctx, eniID, attachmentID, true)
 		if err != nil {
-			delErr := n.manager.api.DeleteNetworkInterface(ctx, eniID)
+			delErr := n.manager.ec2api.DeleteNetworkInterface(ctx, eniID)
 			if delErr != nil {
 				scopedLog.Warn(
 					"Unable to undo ENI creation after failure to attach",
