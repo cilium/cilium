@@ -13,6 +13,18 @@ import (
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
+type metadata struct {
+	client *imds.Client
+}
+
+func NewMetadata() (*metadata, error) {
+	client, err := newClient()
+	if err != nil {
+		return nil, err
+	}
+	return &metadata{client: client}, nil
+}
+
 func newClient() (*imds.Client, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
@@ -40,7 +52,7 @@ func getMetadata(client *imds.Client, path string) (string, error) {
 }
 
 // GetInstanceMetadata returns required AWS metadatas
-func GetInstanceMetadata() (instanceID, instanceType, availabilityZone, vpcID, subnetID string, err error) {
+func (m *metadata) GetInstanceMetadata() (instanceID, instanceType, availabilityZone, vpcID, subnetID string, err error) {
 	client, err := newClient()
 	if err != nil {
 		return

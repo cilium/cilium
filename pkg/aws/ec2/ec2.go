@@ -534,9 +534,11 @@ func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetwork
 }
 
 // describeVpcs lists all VPCs
-func (c *Client) describeVpcs(ctx context.Context) ([]ec2_types.Vpc, error) {
+func (c *Client) describeVpcs(ctx context.Context, vpcID string) ([]ec2_types.Vpc, error) {
 	var result []ec2_types.Vpc
-	paginator := ec2.NewDescribeVpcsPaginator(c.ec2Client, &ec2.DescribeVpcsInput{})
+	filters := addVPCFilterIfPresent([]ec2_types.Filter{}, vpcID)
+	input := &ec2.DescribeVpcsInput{Filters: filters}
+	paginator := ec2.NewDescribeVpcsPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
 		c.limiter.Limit(ctx, DescribeVpcs)
 		sinceStart := spanstat.Start()
@@ -551,10 +553,10 @@ func (c *Client) describeVpcs(ctx context.Context) ([]ec2_types.Vpc, error) {
 }
 
 // GetVpcs retrieves and returns all Vpcs
-func (c *Client) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error) {
+func (c *Client) GetVpcs(ctx context.Context, vpcID string) (ipamTypes.VirtualNetworkMap, error) {
 	vpcs := ipamTypes.VirtualNetworkMap{}
 
-	vpcList, err := c.describeVpcs(ctx)
+	vpcList, err := c.describeVpcs(ctx, vpcID)
 	if err != nil {
 		return nil, err
 	}
@@ -579,12 +581,13 @@ func (c *Client) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, erro
 }
 
 // describeSubnets lists all subnets
-func (c *Client) describeSubnets(ctx context.Context) ([]ec2_types.Subnet, error) {
+func (c *Client) describeSubnets(ctx context.Context, vpcID string) ([]ec2_types.Subnet, error) {
 	var result []ec2_types.Subnet
 	input := &ec2.DescribeSubnetsInput{}
 	if len(c.subnetsFilters) > 0 {
 		input.Filters = c.subnetsFilters
 	}
+	input.Filters = addVPCFilterIfPresent(input.Filters, vpcID)
 	paginator := ec2.NewDescribeSubnetsPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
 		c.limiter.Limit(ctx, DescribeSubnets)
@@ -601,10 +604,10 @@ func (c *Client) describeSubnets(ctx context.Context) ([]ec2_types.Subnet, error
 }
 
 // GetSubnets returns all EC2 subnets as a subnetMap
-func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
+func (c *Client) GetSubnets(ctx context.Context, vpcID string) (ipamTypes.SubnetMap, error) {
 	subnets := ipamTypes.SubnetMap{}
 
-	subnetList, err := c.describeSubnets(ctx)
+	subnetList, err := c.describeSubnets(ctx, vpcID)
 	if err != nil {
 		return nil, err
 	}
@@ -644,12 +647,13 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 }
 
 // describeRouteTables lists all route tables
-func (c *Client) describeRouteTables(ctx context.Context) ([]ec2_types.RouteTable, error) {
+func (c *Client) describeRouteTables(ctx context.Context, vpcID string) ([]ec2_types.RouteTable, error) {
 	var result []ec2_types.RouteTable
 	input := &ec2.DescribeRouteTablesInput{}
 	if len(c.routeTableFilters) > 0 {
 		input.Filters = c.routeTableFilters
 	}
+	input.Filters = addVPCFilterIfPresent(input.Filters, vpcID)
 	paginator := ec2.NewDescribeRouteTablesPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
 		c.limiter.Limit(ctx, DescribeRouteTables)
@@ -665,10 +669,10 @@ func (c *Client) describeRouteTables(ctx context.Context) ([]ec2_types.RouteTabl
 }
 
 // GetRouteTables returns all EC2 route tables as a RouteTableMap
-func (c *Client) GetRouteTables(ctx context.Context) (ipamTypes.RouteTableMap, error) {
+func (c *Client) GetRouteTables(ctx context.Context, vpcID string) (ipamTypes.RouteTableMap, error) {
 	routeTables := ipamTypes.RouteTableMap{}
 
-	routeTableList, err := c.describeRouteTables(ctx)
+	routeTableList, err := c.describeRouteTables(ctx, vpcID)
 	if err != nil {
 		return nil, err
 	}
@@ -922,9 +926,11 @@ func createAWSTagSlice(tags map[string]string) []ec2_types.Tag {
 	return awsTags
 }
 
-func (c *Client) describeSecurityGroups(ctx context.Context) ([]ec2_types.SecurityGroup, error) {
+func (c *Client) describeSecurityGroups(ctx context.Context, vpcID string) ([]ec2_types.SecurityGroup, error) {
 	var result []ec2_types.SecurityGroup
-	paginator := ec2.NewDescribeSecurityGroupsPaginator(c.ec2Client, &ec2.DescribeSecurityGroupsInput{})
+	filters := addVPCFilterIfPresent([]ec2_types.Filter{}, vpcID)
+	input := &ec2.DescribeSecurityGroupsInput{Filters: filters}
+	paginator := ec2.NewDescribeSecurityGroupsPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
 		c.limiter.Limit(ctx, DescribeSecurityGroups)
 		sinceStart := spanstat.Start()
@@ -939,10 +945,10 @@ func (c *Client) describeSecurityGroups(ctx context.Context) ([]ec2_types.Securi
 }
 
 // GetSecurityGroups returns all EC2 security groups as a SecurityGroupMap
-func (c *Client) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error) {
+func (c *Client) GetSecurityGroups(ctx context.Context, vpcID string) (types.SecurityGroupMap, error) {
 	securityGroups := types.SecurityGroupMap{}
 
-	secGroupList, err := c.describeSecurityGroups(ctx)
+	secGroupList, err := c.describeSecurityGroups(ctx, vpcID)
 	if err != nil {
 		return securityGroups, err
 	}
@@ -982,4 +988,16 @@ func (c *Client) GetInstanceTypes(ctx context.Context) ([]ec2_types.InstanceType
 		result = append(result, output.InstanceTypes...)
 	}
 	return result, nil
+}
+
+// addVPCFilterIfPresent checks if a vpcID is provided and, if so, adds a
+// vpc-id filter to the given list of filters.
+func addVPCFilterIfPresent(filters []ec2_types.Filter, vpcID string) []ec2_types.Filter {
+	if len(vpcID) > 0 {
+		return append(filters, ec2_types.Filter{
+			Name:   aws.String("vpc-id"),
+			Values: []string{vpcID},
+		})
+	}
+	return filters
 }
