@@ -37,6 +37,7 @@ var Cell = cell.Module(
 		}),
 		heartbeat.Cell,
 
+		cell.Provide(kvstoremesh.NewSyncWaiter),
 		cell.Invoke(func(*kvstoremesh.KVStoreMesh) {}),
 	),
 

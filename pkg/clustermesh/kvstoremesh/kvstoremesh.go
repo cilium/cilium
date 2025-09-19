@@ -68,6 +68,8 @@ type KVStoreMesh struct {
 
 	// clock allows to override the clock for testing purposes
 	clock clock.Clock
+
+	started chan struct{}
 }
 
 type params struct {
@@ -97,6 +99,7 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 		storeFactory: params.StoreFactory,
 		logger:       params.Logger,
 		clock:        clock.RealClock{},
+		started:      make(chan struct{}),
 	}
 	km.common = common.NewClusterMesh(common.Configuration{
 		Logger:              params.Logger,
@@ -109,26 +112,38 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 
 	lc.Append(km.common)
 
+	// Needs to run after the "common" start hook, to signal that initialization
+	// successfully completed.
+	lc.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			close(km.started)
+			return nil
+		},
+	})
+
 	return &km
 }
 
-type SyncWaiterParams struct {
-	KVStoreMesh *KVStoreMesh
-	SyncState   syncstate.SyncState
-	Lifecycle   cell.Lifecycle
-	JobGroup    job.Group
-	Health      cell.Health
-}
+// SyncWaiter wraps a SyncState to wait for KVStoreMesh synchronization, while
+// allowing to force marking it as ready when necessary.
+type SyncWaiter func()
 
-func RegisterSyncWaiter(p SyncWaiterParams) {
-	syncedCallback := p.SyncState.WaitForResource()
+func NewSyncWaiter(jg job.Group, km *KVStoreMesh, ss syncstate.SyncState) SyncWaiter {
+	done := ss.WaitForResource()
 
-	p.JobGroup.Add(
+	jg.Add(
 		job.OneShot("kvstoremesh-sync-waiter", func(ctx context.Context, health cell.Health) error {
-			return p.KVStoreMesh.synced(ctx, syncedCallback)
+			return km.synced(ctx, func(ctx context.Context) {
+				done(ctx)
+				ss.Stop()
+			})
 		}),
 	)
+
+	return func() { ss.Stop(); done(context.Background()) }
 }
+
+func (sw SyncWaiter) ForceReady() { sw() }
 
 func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -182,6 +197,12 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 // timeout has been reached. The given syncCallback is always executed before
 // the function returns.
 func (km *KVStoreMesh) synced(ctx context.Context, syncCallback func(context.Context)) error {
+	select {
+	case <-km.started:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, km.config.GlobalReadyTimeout)
 	defer func() {
 		syncCallback(ctx)
