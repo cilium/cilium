@@ -58,8 +58,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   host-fw: 'true'
-  # Disable until https://github.com/cilium/cilium/issues/41520 is resolved
-  # lb-acceleration: 'testing-only'
+  lb-acceleration: 'testing-only'
   ingress-controller: 'true'
   bgp-control-plane: 'true'
 - name: '7'
@@ -166,8 +165,7 @@
   tunnel: 'vxlan'
   lb-mode: 'snat'
   egress-gateway: 'true'
-  # Disable until https://github.com/cilium/cilium/issues/41520 is resolved
-  # lb-acceleration: 'testing-only'
+  lb-acceleration: 'testing-only'
   ingress-controller: 'true'
 - name: '15'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
