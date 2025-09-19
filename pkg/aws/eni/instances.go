@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -28,10 +29,11 @@ import (
 type EC2API interface {
 	GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error)
 	GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error)
-	GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error)
-	GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
-	GetRouteTables(ctx context.Context) (ipamTypes.RouteTableMap, error)
-	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
+	GetSubnets(ctx context.Context, vpcID string) (ipamTypes.SubnetMap, error)
+	GetVpcs(ctx context.Context, vpcID string) (ipamTypes.VirtualNetworkMap, error)
+	GetRouteTables(ctx context.Context, vpcID string) (ipamTypes.RouteTableMap, error)
+	GetSecurityGroups(ctx context.Context, vpcID string) (types.SecurityGroupMap, error)
+
 	GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error)
 	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error)
 	AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error)
@@ -51,7 +53,8 @@ type InstancesManager struct {
 	logger *slog.Logger
 	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
 	resyncLock lock.RWMutex
-
+	// vpcID is the VPC ID current operator running on, we will use it to filter other AWS resources only within this VPC
+	vpcID string
 	// mutex protects the fields below
 	mutex          lock.RWMutex
 	instances      *ipamTypes.InstanceMap
@@ -202,24 +205,31 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.Time {
 	resyncStart := time.Now()
 
-	vpcs, err := m.api.GetVpcs(ctx)
+	_, _, _, currentVpcID, _, err := metadata.GetInstanceMetadata()
+	if err != nil {
+		m.logger.Warn("Unable to retrieve AWS instance metadata and will use cached VPC ID", logfields.Error, err)
+		// when we can't retrieve the VPC ID from AWS metadata, we use the cached VPC ID
+		currentVpcID = m.vpcID
+	}
+
+	vpcs, err := m.api.GetVpcs(ctx, currentVpcID)
 	if err != nil {
 		m.logger.Warn("Unable to synchronize EC2 VPC list", logfields.Error, err)
 		return time.Time{}
 	}
 
-	subnets, err := m.api.GetSubnets(ctx)
+	subnets, err := m.api.GetSubnets(ctx, currentVpcID)
 	if err != nil {
 		m.logger.Warn("Unable to retrieve EC2 subnets list", logfields.Error, err)
 		return time.Time{}
 	}
 
-	securityGroups, err := m.api.GetSecurityGroups(ctx)
+	securityGroups, err := m.api.GetSecurityGroups(ctx, currentVpcID)
 	if err != nil {
 		m.logger.Warn("Unable to retrieve EC2 security group list", logfields.Error, err)
 		return time.Time{}
 	}
-	routeTables, err := m.api.GetRouteTables(ctx)
+	routeTables, err := m.api.GetRouteTables(ctx, currentVpcID)
 	if err != nil {
 		m.logger.Warn("Unable to retrieve EC2 route table list", logfields.Error, err)
 		return time.Time{}
@@ -268,6 +278,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 		m.instances.UpdateInstance(instanceID, instance)
 	}
 
+	m.vpcID = currentVpcID
 	m.subnets = subnets
 	m.vpcs = vpcs
 	m.securityGroups = securityGroups

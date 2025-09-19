@@ -722,7 +722,7 @@ func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 	return instances, nil
 }
 
-func (e *API) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error) {
+func (e *API) GetVpcs(ctx context.Context, vpcID string) (ipamTypes.VirtualNetworkMap, error) {
 	vpcs := ipamTypes.VirtualNetworkMap{}
 
 	e.mutex.RLock()
@@ -734,7 +734,7 @@ func (e *API) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error) 
 	return vpcs, nil
 }
 
-func (e *API) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
+func (e *API) GetSubnets(ctx context.Context, vpcID string) (ipamTypes.SubnetMap, error) {
 	subnets := ipamTypes.SubnetMap{}
 
 	e.mutex.RLock()
@@ -746,7 +746,7 @@ func (e *API) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 	return subnets, nil
 }
 
-func (e *API) GetRouteTables(ctx context.Context) (ipamTypes.RouteTableMap, error) {
+func (e *API) GetRouteTables(ctx context.Context, vpcID string) (ipamTypes.RouteTableMap, error) {
 	routeTables := ipamTypes.RouteTableMap{}
 
 	e.mutex.RLock()
@@ -783,7 +783,7 @@ func (e *API) TagENI(ctx context.Context, eniID string, eniTags map[string]strin
 	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
 }
 
-func (e *API) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error) {
+func (e *API) GetSecurityGroups(ctx context.Context, vpcID string) (types.SecurityGroupMap, error) {
 	securityGroups := types.SecurityGroupMap{}
 
 	e.mutex.RLock()
