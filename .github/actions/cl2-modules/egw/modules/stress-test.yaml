@@ -4,9 +4,9 @@
 
 # One repetition towards the given IP/port combination
 # Another repetition towards the same IP/port combination (same node)
-# Another repetition towards the same IP/port combination (different node)
-# Another repetition towards the same IP, but different port (same node)
-{{$tests := "base,same-port-node,diff-node,diff-port" }}
+#{{$tests := "base,same-port-node,diff-node,diff-port" }}
+# https://github.com/cilium/cilium/pull/41781
+{{$tests := "base,same-port-node" }}
 
 steps:
 - module:
