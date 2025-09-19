@@ -395,5 +395,17 @@ func ParseToCiliumLabels(namespace, name string, uid types.UID, ruleLbs labels.L
 	}
 
 	policyLbls := GetPolicyLabels(namespace, name, uid, resourceType)
-	return append(policyLbls, ruleLbs...).Sort()
+
+	// Ensure user-defined labels from CiliumNetworkPolicy have k8s source
+	userLbls := make(labels.LabelArray, len(ruleLbs))
+	for i, lbl := range ruleLbs {
+		if lbl.Source == "" || lbl.Source == labels.LabelSourceUnspec {
+			// If source is empty or unspec, set it to k8s since these labels come from Kubernetes
+			userLbls[i] = labels.NewLabel(lbl.Key, lbl.Value, labels.LabelSourceK8s)
+		} else {
+			userLbls[i] = lbl
+		}
+	}
+
+	return append(policyLbls, userLbls...).Sort()
 }
