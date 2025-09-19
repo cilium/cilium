@@ -517,6 +517,10 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 	}
 
 	/* Amend the L3 checksum due to changing the addresses. */
+	/* With a patch that moves this part before the L4 header processing,
+	 * E2E tests failed. I want to determine whether the tests are broken
+	 * or the patch itself is inappropriate.
+	 */
 	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 
