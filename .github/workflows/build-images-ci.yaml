@@ -431,4 +431,4 @@ jobs:
           PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           echo ${TOKEN} | gh auth login --with-token
-          gh pr --repo $GITHUB_REPOSITORY} comment ${PULL_REQUEST_NUMBER} --body "/test"
+          gh pr --repo ${GITHUB_REPOSITORY} comment ${PULL_REQUEST_NUMBER} --body "/test"
