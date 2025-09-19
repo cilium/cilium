@@ -5,7 +5,6 @@ package k8s
 
 import (
 	"cmp"
-	"maps"
 	"net/netip"
 	"slices"
 	"testing"
@@ -447,10 +446,12 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Contains(t, rules[0].Labels, svcByLabelLbl)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	bazEndpointSelectors := api.NewESFromMatchRequirements(bazSvcSelector, nil)
+	bazExpectedLabels := map[string]string{
+		labels.LabelSourceK8sKeyPrefix + "app":                      bazSvcSelector["app"],
+		labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel: bazSvcID.Namespace(),
+	}
+	bazEndpointSelectors := api.NewESFromMatchRequirements(bazExpectedLabels, nil)
 	bazEndpointSelectors.Generated = true
-	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
-	bazEndpointSelectors.AddMatch(podPrefixLbl, bazSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
 	assert.Equal(t, bazEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
@@ -562,10 +563,12 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Equal(t, svcByNameCNP.Spec.Egress[0].ToServices, rules[0].Egress[0].ToServices)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	fooEndpointSelectors := api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
+	fooExpectedLabels := map[string]string{
+		labels.LabelSourceK8sKeyPrefix + "app":                      fooSvcSelector["app"],
+		labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel: fooSvcID.Namespace(),
+	}
+	fooEndpointSelectors := api.NewESFromMatchRequirements(fooExpectedLabels, nil)
 	fooEndpointSelectors.Generated = true
-	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
 	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
@@ -590,9 +593,12 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	fooEndpointSelectors = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
+	fooExpectedLabels = map[string]string{
+		labels.LabelSourceK8sKeyPrefix + "app":                      fooSvcSelector["app"],
+		labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel: fooSvcID.Namespace(),
+	}
+	fooEndpointSelectors = api.NewESFromMatchRequirements(fooExpectedLabels, nil)
 	fooEndpointSelectors.Generated = true
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
 	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
@@ -653,9 +659,12 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	barEndpointSelectors := api.NewESFromMatchRequirements(maps.Clone(barSvcLabels), nil)
+	barExpectedLabels := map[string]string{
+		labels.LabelSourceK8sKeyPrefix + "app":                      barSvcLabels["app"],
+		labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel: barSvcID.Namespace(),
+	}
+	barEndpointSelectors := api.NewESFromMatchRequirements(barExpectedLabels, nil)
 	barEndpointSelectors.Generated = true
-	barEndpointSelectors.AddMatch(podPrefixLbl, barSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
 	assert.Equal(t, barEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
@@ -705,9 +714,12 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	fooEndpointSelectors = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
+	fooExpectedLabels = map[string]string{
+		labels.LabelSourceK8sKeyPrefix + "app":                      fooSvcSelector["app"],
+		labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel: fooSvcID.Namespace(),
+	}
+	fooEndpointSelectors = api.NewESFromMatchRequirements(fooExpectedLabels, nil)
 	fooEndpointSelectors.Generated = true
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
 	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
@@ -718,6 +730,40 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 			svcByNameKey: {},
 		},
 	}, p.cnpByServiceID)
+
+	// test service has a selector label with a '.' in the key.
+	dottedCNP := &types.SlimCNP{
+		CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+			TypeMeta:   metav1.TypeMeta{APIVersion: "cilium.io/v2", Kind: "CiliumNetworkPolicy"},
+			ObjectMeta: metav1.ObjectMeta{Name: "svc-dot-key", Namespace: "test"},
+			Spec:       &api.Rule{EndpointSelector: api.NewESFromLabels(), Egress: []api.EgressRule{{EgressCommonRule: api.EgressCommonRule{ToServices: []api.Service{{K8sService: &api.K8sServiceNamespace{ServiceName: "dot-svc", Namespace: "dot-ns"}}}}}}},
+		},
+	}
+	dottedKey := resource.NewKey(dottedCNP)
+	dottedResID := resourceIDForCiliumNetworkPolicy(dottedKey, dottedCNP)
+	require.NoError(t, p.onUpsert(dottedCNP, dottedKey, k8sAPIGroupCiliumNetworkPolicyV2, dottedResID, nil))
+	rules = <-policyAdd
+	require.Len(t, rules, 1)
+	require.Empty(t, rules[0].Egress[0].ToEndpoints)
+
+	dotSvcID := loadbalancer.NewServiceName("dot-ns", "dot-svc")
+	dottedSelector := map[string]string{"app.kubernetes.io/name": "my-app"}
+	dotEv := servicesFixture.upsertService(dotSvcID, nil, dottedSelector, nil, nil)
+	require.NoError(t, p.updateToServicesPolicies(dotEv))
+	rules = <-policyAdd
+	require.Len(t, rules, 1)
+	require.Len(t, rules[0].Egress, 1)
+	require.Len(t, rules[0].Egress[0].ToEndpoints, 1)
+
+	expectedLabels := map[string]string{
+		labels.LabelSourceK8sKeyPrefix + "app.kubernetes.io/name":   "my-app",
+		labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel: dotSvcID.Namespace(),
+	}
+	expectedES := api.NewESFromMatchRequirements(expectedLabels, nil)
+	expectedES.Generated = true
+	assert.Equal(t, expectedES, rules[0].Egress[0].ToEndpoints[0], "expected generated endpoint selector with dotted key to match")
+	assert.Contains(t, p.cnpByServiceID, dotSvcID)
+	assert.Contains(t, p.cnpByServiceID[dotSvcID], dottedKey)
 }
 
 func Test_hasMatchingToServices(t *testing.T) {
