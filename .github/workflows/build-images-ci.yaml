@@ -379,3 +379,37 @@ jobs:
         run: |
           cd image-digest/
           find -type f | sort | xargs -d '\n' cat
+
+  pre-comment:
+    # Avoid running the "Trigger CI from renovate PRs" environment if we don't need to.
+    name: Pre-Comment
+    needs: build-and-push-prs
+    runs-on: ubuntu-24.04
+    if: ${{
+         github.event_name == 'pull_request_target' &&
+         github.event.pull_request.user.login == 'cilium-renovate[bot]'
+        }}
+    steps:
+    - name: Debug
+      run: |
+        echo ${{ github.event.pull_request.user.login }}
+        echo ${{ github.event.event_name }}
+
+  comment:
+    name: Post test comment for Renovate PRs after images built
+    runs-on: ubuntu-24.04
+    needs: pre-comment
+    environment: "Trigger CI from renovate PRs"
+    if: ${{
+         github.event_name == 'pull_request_target' &&
+         github.event.pull_request.user.login == 'cilium-renovate[bot]'
+        }}
+    steps:
+      - name: Post /test comment
+        env:
+          TOKEN: ${{ secrets.AUTO_COMMENT_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo ${TOKEN} | gh auth login --with-token
+          gh pr --repo ${GITHUB_REPOSITORY} comment ${PULL_REQUEST_NUMBER} --body "/test"
