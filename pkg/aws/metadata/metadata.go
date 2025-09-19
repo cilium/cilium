@@ -13,6 +13,26 @@ import (
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
+type metadataClient struct {
+	client *imds.Client
+}
+
+type MetaDataInfo struct {
+	InstanceID       string
+	InstanceType     string
+	AvailabilityZone string
+	VPCID            string
+	SubnetID         string
+}
+
+func NewClient() (*metadataClient, error) {
+	client, err := newClient()
+	if err != nil {
+		return nil, err
+	}
+	return &metadataClient{client: client}, nil
+}
+
 func newClient() (*imds.Client, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
@@ -40,42 +60,44 @@ func getMetadata(client *imds.Client, path string) (string, error) {
 }
 
 // GetInstanceMetadata returns required AWS metadatas
-func GetInstanceMetadata() (instanceID, instanceType, availabilityZone, vpcID, subnetID string, err error) {
-	client, err := newClient()
+func (m *metadataClient) GetInstanceMetadata() (MetaDataInfo, error) {
+
+	instanceID, err := getMetadata(m.client, "instance-id")
 	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 
-	instanceID, err = getMetadata(client, "instance-id")
+	instanceType, err := getMetadata(m.client, "instance-type")
 	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 
-	instanceType, err = getMetadata(client, "instance-type")
+	eth0MAC, err := getMetadata(m.client, "mac")
 	if err != nil {
-		return
-	}
-
-	eth0MAC, err := getMetadata(client, "mac")
-	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 	vpcIDPath := fmt.Sprintf("network/interfaces/macs/%s/vpc-id", eth0MAC)
-	vpcID, err = getMetadata(client, vpcIDPath)
+	vpcID, err := getMetadata(m.client, vpcIDPath)
 	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 
 	subnetIDPath := fmt.Sprintf("network/interfaces/macs/%s/subnet-id", eth0MAC)
-	subnetID, err = getMetadata(client, subnetIDPath)
+	subnetID, err := getMetadata(m.client, subnetIDPath)
 	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 
-	availabilityZone, err = getMetadata(client, "placement/availability-zone")
+	availabilityZone, err := getMetadata(m.client, "placement/availability-zone")
 	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 
-	return
+	return MetaDataInfo{
+		InstanceID:       instanceID,
+		InstanceType:     instanceType,
+		AvailabilityZone: availabilityZone,
+		VPCID:            vpcID,
+		SubnetID:         subnetID,
+	}, nil
 }
