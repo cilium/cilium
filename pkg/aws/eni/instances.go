@@ -47,6 +47,10 @@ type EC2API interface {
 	AssociateEIP(ctx context.Context, eniID string, eipTags ipamTypes.Tags) (string, error)
 }
 
+type MetadataAPI interface {
+	GetInstanceMetadata() (metadata.MetaDataInfo, error)
+}
+
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
@@ -62,20 +66,22 @@ type InstancesManager struct {
 	vpcs           ipamTypes.VirtualNetworkMap
 	routeTables    ipamTypes.RouteTableMap
 	securityGroups types.SecurityGroupMap
-	api            EC2API
+	ec2api         EC2API
+	metadataapi    MetadataAPI
 	limitsGetter   *limits.LimitsGetter
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(logger *slog.Logger, api EC2API) (*InstancesManager, error) {
+func NewInstancesManager(logger *slog.Logger, ec2api EC2API, metadataapi MetadataAPI) (*InstancesManager, error) {
 
 	m := &InstancesManager{
-		logger:    logger.With(subsysLogAttr...),
-		instances: ipamTypes.NewInstanceMap(),
-		api:       api,
+		logger:      logger.With(subsysLogAttr...),
+		instances:   ipamTypes.NewInstanceMap(),
+		ec2api:      ec2api,
+		metadataapi: metadataapi,
 	}
 
-	limitsGetter, err := limits.NewLimitsGetter(logger, api, limits.TriggerMinInterval, limits.EC2apiTimeout, limits.EC2apiRetryCount)
+	limitsGetter, err := limits.NewLimitsGetter(logger, ec2api, limits.TriggerMinInterval, limits.EC2apiTimeout, limits.EC2apiRetryCount)
 	if err != nil {
 		return nil, err
 	}
@@ -205,31 +211,34 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.Time {
 	resyncStart := time.Now()
 
-	_, _, _, currentVpcID, _, err := metadata.GetInstanceMetadata()
+	var currentVpcID string
+	metadataInfo, err := m.metadataapi.GetInstanceMetadata()
 	if err != nil {
 		m.logger.Warn("Unable to retrieve AWS instance metadata and will use cached VPC ID", logfields.Error, err)
 		// when we can't retrieve the VPC ID from AWS metadata, we use the cached VPC ID
 		currentVpcID = m.vpcID
+	} else {
+		currentVpcID = metadataInfo.VPCID
 	}
 
-	vpcs, err := m.api.GetVpcs(ctx, currentVpcID)
+	vpcs, err := m.ec2api.GetVpcs(ctx, currentVpcID)
 	if err != nil {
 		m.logger.Warn("Unable to synchronize EC2 VPC list", logfields.Error, err)
 		return time.Time{}
 	}
 
-	subnets, err := m.api.GetSubnets(ctx, currentVpcID)
+	subnets, err := m.ec2api.GetSubnets(ctx, currentVpcID)
 	if err != nil {
 		m.logger.Warn("Unable to retrieve EC2 subnets list", logfields.Error, err)
 		return time.Time{}
 	}
 
-	securityGroups, err := m.api.GetSecurityGroups(ctx, currentVpcID)
+	securityGroups, err := m.ec2api.GetSecurityGroups(ctx, currentVpcID)
 	if err != nil {
 		m.logger.Warn("Unable to retrieve EC2 security group list", logfields.Error, err)
 		return time.Time{}
 	}
-	routeTables, err := m.api.GetRouteTables(ctx, currentVpcID)
+	routeTables, err := m.ec2api.GetRouteTables(ctx, currentVpcID)
 	if err != nil {
 		m.logger.Warn("Unable to retrieve EC2 route table list", logfields.Error, err)
 		return time.Time{}
@@ -239,7 +248,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	// will be refetched from EC2 API and updated to the local cache. Otherwise only
 	// the given instance will be updated.
 	if instanceID == "" {
-		instances, err := m.api.GetInstances(ctx, vpcs, subnets)
+		instances, err := m.ec2api.GetInstances(ctx, vpcs, subnets)
 		if err != nil {
 			m.logger.Warn("Unable to synchronize EC2 interface list", logfields.Error, err)
 			return time.Time{}
@@ -258,7 +267,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 		defer m.mutex.Unlock()
 		m.instances = instances
 	} else {
-		instance, err := m.api.GetInstance(ctx, vpcs, subnets, instanceID)
+		instance, err := m.ec2api.GetInstance(ctx, vpcs, subnets, instanceID)
 		if err != nil {
 			m.logger.Warn("Unable to synchronize EC2 interface list", logfields.Error, err)
 			return time.Time{}
