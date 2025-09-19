@@ -5,6 +5,7 @@ package bpf
 
 import (
 	"fmt"
+	"iter"
 	"log/slog"
 
 	"github.com/cilium/ebpf"
@@ -16,7 +17,7 @@ import (
 
 // removeUnusedTailcalls removes tail calls that are not reachable from
 // entrypoint programs.
-func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
+func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec, reachabilityCache map[string]*analyze.Blocks) error {
 	type tail struct {
 		referenced bool
 		visited    bool
@@ -42,29 +43,27 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 
 	// Discover all tailcalls that are reachable from the given program.
 	visit := func(prog *ebpf.ProgramSpec, tailcalls map[uint32]*tail) error {
-		// Load Blocks computed after compilation, or compute new ones.
-		bl, err := analyze.MakeBlocks(prog.Instructions)
-		if err != nil {
-			return fmt.Errorf("computing Blocks for Program %s: %w", prog.Name, err)
-		}
-
-		// Analyze reachability given the VariableSpecs provided at load time.
-		bl, err = analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
-		if err != nil {
-			return fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
-		}
-
-		const windowSize = 3
-
-		i := -1
-		for _, live := range bl.LiveInstructions(prog.Instructions) {
-			i++
-			if !live {
-				continue
+		bl, ok := reachabilityCache[prog.Name]
+		if !ok {
+			var err error
+			// Load Blocks computed after compilation, or compute new ones.
+			bl, err = analyze.MakeBlocks(prog.Instructions)
+			if err != nil {
+				return fmt.Errorf("computing Blocks for Program %s: %w", prog.Name, err)
 			}
 
-			if i <= windowSize {
-				// Not enough instructions to backtrack yet.
+			// Analyze reachability given the VariableSpecs provided at load time.
+			bl, err = analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
+			if err != nil {
+				return fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
+			}
+
+			reachabilityCache[prog.Name] = bl
+		}
+
+		instIter := bl.LiveInstructions(prog.Instructions)
+		for inst, live := range instIter.Forward() {
+			if !live {
 				continue
 			}
 
@@ -77,22 +76,35 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 			//   call tail_call
 
 			// Find the tail call instruction.
-			inst := prog.Instructions[i]
 			if !inst.IsBuiltinCall() || inst.Constant != int64(asm.FnTailCall) {
 				continue
 			}
 
+			prev, stop := iter.Pull2(instIter.Copy().Backward())
+
+			// Skip past the tail call
+			_, _, ok := prev()
+			if !ok {
+				stop()
+				continue
+			}
+
 			// Check that the previous instruction is a mov of the tail call index.
-			movIdx := prog.Instructions[i-1]
-			if movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
+			movIdx, _, ok := prev()
+			if !ok || movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
+				stop()
 				continue
 			}
 
 			// Check that the instruction before that is the load of the tail call map.
-			movR2 := prog.Instructions[i-2]
-			if movR2.OpCode != asm.LoadImmOp(asm.DWord) || movR2.Src != asm.PseudoMapFD {
+			movR2, _, ok := prev()
+			if !ok || movR2.OpCode != asm.LoadImmOp(asm.DWord) || movR2.Src != asm.PseudoMapFD {
+				stop()
 				continue
 			}
+
+			// Stop backwards iteration.
+			stop()
 
 			ref := movR2.Reference()
 
@@ -102,7 +114,6 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 					"skipping tail call into map other than the calls map",
 					logfields.Section, prog.SectionName,
 					logfields.Prog, prog.Name,
-					logfields.Instruction, i,
 					logfields.Reference, ref,
 				)
 				continue
@@ -111,10 +122,9 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 			tc := tailcalls[uint32(movIdx.Constant)]
 			if tc == nil {
 				return fmt.Errorf(
-					"potential missed tail call in program %s to slot %d at insn %d",
+					"potential missed tail call in program %s to slot %d",
 					prog.Name,
 					movIdx.Constant,
-					i,
 				)
 			}
 

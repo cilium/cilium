@@ -332,6 +332,83 @@ func getBlock(ins *asm.Instruction) *Block {
 	return nil
 }
 
+// LiveInstructionIterator is an iterator that can traverse all instructions in
+// a Blocks in both directions, returning whether each instruction is live (reachable) or not.
+type LiveInstructionIterator struct {
+	blocks   *Blocks
+	insns    asm.Instructions
+	blockIdx int
+	insIdx   int
+}
+
+// Copy returns a copy of the iterator that can be used independently of the original.
+func (it *LiveInstructionIterator) Copy() *LiveInstructionIterator {
+	return &LiveInstructionIterator{
+		blocks:   it.blocks,
+		insns:    it.insns,
+		blockIdx: it.blockIdx,
+		insIdx:   it.insIdx,
+	}
+}
+
+// Backward returns a iterator that traverses the instructions in the Blocks
+// in reverse order, starting from the current position of the iterator.
+func (it *LiveInstructionIterator) Backward() iter.Seq2[*asm.Instruction, bool] {
+	if len(it.blocks.l) == 0 {
+		return nil
+	}
+
+	return func(yield func(*asm.Instruction, bool) bool) {
+		for {
+			if it.blockIdx < 0 {
+				return
+			}
+
+			block := it.blocks.b[it.blockIdx]
+			if it.insIdx < block.start {
+				it.blockIdx--
+				continue
+			}
+
+			ins := &it.insns[it.insIdx]
+			live := it.blocks.isLive(block.id)
+			if !yield(ins, live) {
+				return
+			}
+			it.insIdx--
+		}
+	}
+}
+
+// Forward returns an iterator that traverses the instructions in the Blocks in
+// forward order, starting from the current position of the iterator.
+func (it *LiveInstructionIterator) Forward() iter.Seq2[*asm.Instruction, bool] {
+	if len(it.blocks.l) == 0 {
+		return nil
+	}
+
+	return func(yield func(*asm.Instruction, bool) bool) {
+		for {
+			if it.blockIdx >= len(it.blocks.b) {
+				return
+			}
+
+			block := it.blocks.b[it.blockIdx]
+			if it.insIdx > block.end {
+				it.blockIdx++
+				continue
+			}
+
+			ins := &it.insns[it.insIdx]
+			live := it.blocks.isLive(block.id)
+			if !yield(ins, live) {
+				return
+			}
+			it.insIdx++
+		}
+	}
+}
+
 // Blocks is a list of basic blocks.
 type Blocks struct {
 	b []*Block
@@ -344,26 +421,14 @@ type Blocks struct {
 	j bitmap
 }
 
-// LiveInstructions returns a sequence of [asm.Instruction]s held by Blocks. The
-// bool value indicates if the instruction is live (reachable), false if it's
-// not.
-//
-// Returns nil if block reachability hasn't been computed yet.
-func (bl *Blocks) LiveInstructions(insns asm.Instructions) iter.Seq2[*asm.Instruction, bool] {
-	if len(bl.l) == 0 {
-		return nil
-	}
-
-	return func(yield func(*asm.Instruction, bool) bool) {
-		for _, b := range bl.b {
-			for i := range insns[b.start : b.end+1] {
-				ins := &insns[b.start+i]
-				live := bl.l.get(b.id)
-				if !yield(ins, live) {
-					return
-				}
-			}
-		}
+// LiveInstructions returns an copy-able iterator that can traverse all instructions
+// in the Blocks in both directions, returning whether each instruction is live (reachable) or not.
+func (bl *Blocks) LiveInstructions(insns asm.Instructions) *LiveInstructionIterator {
+	return &LiveInstructionIterator{
+		blocks:   bl,
+		insns:    insns,
+		blockIdx: 0,
+		insIdx:   0,
 	}
 }
 

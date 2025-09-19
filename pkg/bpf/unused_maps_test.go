@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -28,7 +29,7 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 	require.NoError(t, spec.Assign(&obj))
 
 	// Initially, all maps should be kept.
-	keep, err := removeUnusedMaps(spec, nil)
+	keep, err := removeUnusedMaps(spec, nil, make(map[string]*analyze.Blocks))
 	require.NoError(t, err)
 	assert.True(t, keep.Has("map_a"))
 
@@ -39,7 +40,7 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 
 	// When setting use_map_b to true, map_a should be pruned.
 	require.NoError(t, obj.UseMapB.Set(true))
-	keep, err = removeUnusedMaps(spec, nil)
+	keep, err = removeUnusedMaps(spec, nil, make(map[string]*analyze.Blocks))
 	require.NoError(t, err)
 
 	assert.False(t, keep.Has("map_a"))

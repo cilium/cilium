@@ -10,6 +10,8 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/bpf/analyze"
 )
 
 func TestRemoveUnusedTailcalls(t *testing.T) {
@@ -33,7 +35,7 @@ func TestRemoveUnusedTailcalls(t *testing.T) {
 	require.NoError(t, cpy.Assign(&obj))
 	require.NoError(t, obj.UseTailB.Set(true))
 
-	require.NoError(t, removeUnusedTailcalls(logger, cpy))
+	require.NoError(t, removeUnusedTailcalls(logger, cpy, make(map[string]*analyze.Blocks)))
 
 	assert.Contains(t, cpy.Programs, "cil_entry")
 	assert.Contains(t, cpy.Programs, "a")
@@ -49,7 +51,7 @@ func TestRemoveUnusedTailcalls(t *testing.T) {
 	require.NoError(t, cpy.Assign(&obj))
 	require.NoError(t, obj.UseTailB.Set(false))
 
-	require.NoError(t, removeUnusedTailcalls(logger, cpy))
+	require.NoError(t, removeUnusedTailcalls(logger, cpy, make(map[string]*analyze.Blocks)))
 
 	assert.Contains(t, cpy.Programs, "cil_entry")
 	assert.Contains(t, cpy.Programs, "a")
