@@ -1,0 +1,105 @@
+# Verify that local redirect policy can use the overrideIP field for the backend and frontend API can take it but not used it.  
+hive start
+
+# Add LRP and then LRP-selected pod.
+k8s/add lrp-addr.yaml
+k8s/add pod.yaml
+
+
+# Compare tables
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+# Remove the LRP.
+k8s/delete lrp-addr.yaml
+
+# Tables and maps should now be empty.
+* db/empty services frontends backends localredirectpolicies
+
+
+-- lrp.table --
+Name               Type     FrontendType      Frontends
+test/lrp-addr      address  addr-named-ports  169.254.169.254:5050/TCP, 169.254.169.254:5051/TCP
+
+-- services.table --
+Name                              Source
+test/lrp-addr:local-redirect      k8s
+
+-- frontends.table --
+Address                    Type          ServiceName                       Backends            RedirectTo  Status
+169.254.169.254:5050/TCP   LocalRedirect test/lrp-addr:local-redirect      1.1.1.3:50/TCP                  Done
+169.254.169.254:5051/TCP   LocalRedirect test/lrp-addr:local-redirect      1.1.1.4:51/TCP                  Done
+
+-- backends.table --
+Address             Instances
+1.1.1.3:50/TCP      test/lrp-addr:local-redirect (test)
+1.1.1.4:51/TCP      test/lrp-addr:local-redirect (test1)
+
+
+
+-- lrp-addr.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr"
+  namespace: test
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "5050"
+          name: "test"
+          protocol: TCP
+          overrideIP: 1.1.1.1
+        - port: "5051"
+          name: "test1"
+          protocol: TCP
+          overrideIP: 1.1.1.2
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "50"
+        name: "test"
+        protocol: TCP
+        overrideIP: 1.1.1.3
+      - port: "51"
+        name: "test1"
+        protocol: TCP
+        overrideIP: 1.1.1.4
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 50
+          name: test
+          protocol: TCP
+        - containerPort: 51
+          name: test1
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  conditions:
+  - lastProbeTime: null
+    type: Ready

@@ -6,6 +6,7 @@ package redirectpolicy
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -154,6 +155,8 @@ type bePortInfo struct {
 	l4Addr lb.L4Addr
 	// name is the port name
 	name lb.FEPortName
+	// overrideIP is the IP address to use for the backend port
+	overrideIP net.IP
 }
 
 func (p bePortInfo) String() string {
@@ -220,7 +223,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		}
 		feMappings = make([]feMapping, len(addrMatcher.ToPorts))
 		for i, portInfo := range addrMatcher.ToPorts {
-			p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
+			p, pName, proto, _, err := portInfo.SanitizePortInfo(checkNamedPort)
 			if err != nil {
 				return nil, fmt.Errorf("invalid address matcher port: %w", err)
 			}
@@ -254,7 +257,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		}
 		feMappings = make([]feMapping, len(svcMatcher.ToPorts))
 		for i, portInfo := range svcMatcher.ToPorts {
-			p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
+			p, pName, proto, _, err := portInfo.SanitizePortInfo(checkNamedPort)
 			if err != nil {
 				return nil, fmt.Errorf("invalid service matcher port: %w", err)
 			}
@@ -283,7 +286,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		checkNamedPort = true
 	}
 	for i, portInfo := range redirectTo.ToPorts {
-		p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
+		p, pName, proto, ip, err := portInfo.SanitizePortInfo(checkNamedPort)
 		if err != nil {
 			return nil, fmt.Errorf("invalid backend port: %w", err)
 		}
@@ -292,7 +295,8 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 				Protocol: proto,
 				Port:     p,
 			},
-			name: lb.FEPortName(pName),
+			name:       lb.FEPortName(pName),
+			overrideIP: ip,
 		}
 		bePorts[i] = beP
 		if len(pName) > 0 {
