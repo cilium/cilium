@@ -141,8 +141,14 @@ print_prev_patch() {
                 exit 1
             fi
 
+            decrement="1"
+            # There's no images for v1.16.14, fall back to v1.16.13
+            if [[ "${patch}" -eq "15" ]] ; then
+                decrement="2"
+            fi
+
             >&2 echo "INFO: tag '${tag}' not found, assuming we're on a release preparation Pull Request: decrementing patch release number"
-            tag="v${major}.${minor}.$((patch - 1))${TAG_SUFFIX:-}"
+            tag="v${major}.${minor}.$((patch - ${decrement}))${TAG_SUFFIX:-}"
 
             # Note: Based on the current usage of this script in workflows, we
             # assume that the version computed by decrementing the patch number
