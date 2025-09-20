@@ -1337,7 +1337,7 @@ func (ct *ConnectivityTest) ForEachIPFamily(do func(features.IPFamily)) {
 func (ct *ConnectivityTest) ShouldRunConnDisruptNSTraffic() bool {
 	return ct.params.IncludeConnDisruptTestNSTraffic &&
 		ct.Features[features.NodeWithoutCilium].Enabled &&
-		(ct.Params().MultiCluster == "" || ct.Features[features.KPR].Enabled) &&
+		(ct.Params().MultiCluster == "" || ct.Features[features.KPRNodePort].Enabled) &&
 		!ct.Features[features.KPRNodePortAcceleration].Enabled
 }
 

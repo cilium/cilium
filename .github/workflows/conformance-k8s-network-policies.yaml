@@ -119,7 +119,11 @@ jobs:
             --set-string=operator.extraEnv[3].name=KUBE_CACHE_MUTATION_DETECTOR \
             --set-string=operator.extraEnv[3].value=true \
             --set nodeinit.enabled=true \
-            --set kubeProxyReplacement=true \
+            --set kubeProxyReplacement=false \
+            --set socketLB.enabled=false \
+            --set externalIPs.enabled=true \
+            --set nodePort.enabled=true \
+            --set hostPort.enabled=true \
             --set bpf.masquerade=false \
             --set ipam.mode=kubernetes \
             --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \

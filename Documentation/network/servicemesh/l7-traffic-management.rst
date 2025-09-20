@@ -16,7 +16,8 @@ and CiliumClusterwideEnvoyConfig).
 Prerequisites
 #############
 
-* Cilium must be configured with the kube-proxy replacement, using
+* Cilium must be configured with NodePort enabled, using
+  ``nodePort.enabled=true`` or by enabling the kube-proxy replacement with
   ``kubeProxyReplacement=true``. For more information, see :ref:`kube-proxy
   replacement <kubeproxy-free>`.
 
