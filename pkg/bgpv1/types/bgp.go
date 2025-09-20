@@ -244,10 +244,10 @@ type RoutePolicyActions struct {
 	// AddCommunities defines a list of BGP standard community values to be added to the matched route.
 	// If empty, no communities will be added.
 	AddCommunities []string
-	// AddCommunities defines a list of BGP large community values to be added to the matched route.
+	// AddLargeCommunities defines a list of BGP large community values to be added to the matched route.
 	// If empty, no communities will be added.
 	AddLargeCommunities []string
-	// SetLocalPreference define a BGP local preference value to be set on the matched route.
+	// SetLocalPreference defines a BGP local preference value to be set on the matched route.
 	// If nil, no local preference is set.
 	SetLocalPreference *int64
 	// NextHop sets (or doesn't set) a next hop value on the matched route.
