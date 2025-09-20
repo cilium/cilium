@@ -72,43 +72,118 @@ tcp_svc_three = 53
 default_data = "Should not change!!"
 
 # Utility functions
-def get_v6_ns_addr(v6_addr:str) -> str:
-    addr_bytes = in6_getnsma(inet_pton(socket.AF_INET6, v6_svc_one))
+def v6_get_ns_addr(v6_addr:str) -> str:
+    addr_bytes = in6_getnsma(inet_pton(socket.AF_INET6, v6_addr))
     return inet_ntop(socket.AF_INET6, addr_bytes)
 
-def v6_ns_mac(v6_addr:str) -> str:
-    addr_bytes = in6_getnsma(inet_pton(socket.AF_INET6, v6_svc_one))
+def v6_get_ns_mac(v6_addr:str) -> str:
+    addr_bytes = in6_getnsma(inet_pton(socket.AF_INET6, v6_addr))
     return in6_getnsmac(addr_bytes)
 
 # Test packet/buffer definitions
 
-## L2 announce (v4)
+## IPv6 ndp from netdev
+### Pod NS/NA
+v6_ndp_pod_ns = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(dst=v6_pod_two, src=v6_pod_one, hlim=255) /
+    ICMPv6ND_NS(tgt=v6_pod_three)
+)
 
-l2_announce_arp_req = Ether(dst=mac_bcast, src=mac_one)/                       \
-                      ARP(op="who-has", psrc=v4_ext_one, pdst=v4_svc_one,      \
-                          hwsrc=mac_one, hwdst=mac_bcast)
-l2_announce_arp_reply = Ether(dst=mac_one, src=mac_two)/                       \
-                        ARP(op="is-at", psrc=v4_svc_one, pdst=v4_ext_one,      \
-                            hwsrc=mac_two, hwdst=mac_one)
+v6_ndp_pod_ns_llopt = (
+    v6_ndp_pod_ns /
+    ICMPv6NDOptSrcLLAddr(lladdr="01:01:01:01:01:01")
+)
+
+v6_ndp_pod_na_llopt = (
+    Ether(dst=mac_one, src=mac_two) /
+    IPv6(dst=v6_pod_one, src=v6_pod_three, hlim=255) /
+    ICMPv6ND_NA(R=0, S=1, O=1, tgt=v6_pod_three) /
+    ICMPv6NDOptDstLLAddr(lladdr=mac_two)
+)
+
+v6_ndp_pod_ns_mmac = v6_get_ns_mac(v6_pod_three)
+v6_ndp_pod_ns_ma = v6_get_ns_addr(v6_pod_three)
+assert(v6_ndp_pod_ns_mmac == '33:33:ff:00:00:03')
+assert(v6_ndp_pod_ns_ma == 'ff02::1:ff00:3')
+
+v6_ndp_pod_ns_mcast = (
+    Ether(dst=v6_ndp_pod_ns_mmac, src=mac_one) /
+    IPv6(dst=v6_ndp_pod_ns_ma, src=v6_pod_one, hlim=255) /
+    ICMPv6ND_NS(tgt=v6_pod_three)
+)
+
+v6_ndp_pod_ns_mcast_llopt = (
+    v6_ndp_pod_ns_mcast /
+    ICMPv6NDOptSrcLLAddr(lladdr="01:01:01:01:01:01")
+)
+
+### Node NS/NA
+v6_ndp_node_ns = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(dst=v6_pod_two, src=v6_pod_one, hlim=255) /
+    ICMPv6ND_NS(tgt=v6_node_one)
+)
+
+v6_ndp_node_ns_llopt = (
+    v6_ndp_node_ns /
+    ICMPv6NDOptSrcLLAddr(lladdr="01:01:01:01:01:01")
+)
+
+v6_ndp_node_ns_mmac = v6_get_ns_mac(v6_node_one)
+v6_ndp_node_ns_ma = v6_get_ns_addr(v6_node_one)
+assert(v6_ndp_node_ns_mmac == '33:33:ff:00:00:01')
+assert(v6_ndp_node_ns_ma == 'ff02::1:ff00:1')
+
+v6_ndp_node_ns_mcast = (
+    Ether(dst=v6_ndp_node_ns_mmac, src=mac_one) /
+    IPv6(dst=v6_ndp_node_ns_ma, src=v6_pod_one, hlim=255) /
+    ICMPv6ND_NS(tgt=v6_node_one)
+)
+
+v6_ndp_node_ns_mcast_llopt = (
+    v6_ndp_node_ns_mcast /
+    ICMPv6NDOptSrcLLAddr(lladdr="01:01:01:01:01:01")
+)
+
+## L2 announce (v4)
+l2_announce_arp_req = (
+    Ether(dst=mac_bcast, src=mac_one) /
+    ARP(op="who-has", psrc=v4_ext_one, pdst=v4_svc_one, \
+        hwsrc=mac_one, hwdst=mac_bcast)
+)
+
+l2_announce_arp_reply = (
+    Ether(dst=mac_one, src=mac_two) /
+    ARP(op="is-at", psrc=v4_svc_one, pdst=v4_ext_one, \
+        hwsrc=mac_two, hwdst=mac_one)
+)
 
 ## L2 announce (v6)
 
 ### Calculate the IPv6 NS solicitation address
-l2_announce6_ns_mmac = v6_ns_mac(v6_svc_one)
-l2_announce6_ns_ma = get_v6_ns_addr(v6_svc_one)
+l2_announce6_ns_mmac = v6_get_ns_mac(v6_svc_one)
+l2_announce6_ns_ma = v6_get_ns_addr(v6_svc_one)
 assert(l2_announce6_ns_mmac == '33:33:ff:00:00:01')
 assert(l2_announce6_ns_ma == 'ff02::1:ff00:1')
 
-l2_announce6_ns = Ether(dst=l2_announce6_ns_mmac, src=mac_one)/                \
-                  IPv6(src=v6_ext_node_one, dst=l2_announce6_ns_ma, hlim=255)/ \
-                  ICMPv6ND_NS(tgt=v6_svc_one)/                                 \
-                  ICMPv6NDOptSrcLLAddr(lladdr=mac_one)
-l2_announce6_targeted_ns =                                                     \
-                  Ether(dst=mac_two, src=mac_one) /                            \
-                  IPv6(src=v6_ext_node_one, dst=v6_svc_one, hlim=255) /        \
-                  ICMPv6ND_NS(tgt=v6_svc_one) /                                \
-                  ICMPv6NDOptSrcLLAddr(lladdr=mac_one)
-l2_announce6_na = Ether(dst=mac_one, src=mac_two)/                             \
-                  IPv6(src=v6_svc_one, dst=v6_ext_node_one, hlim=255)/         \
-                  ICMPv6ND_NA(R=0, S=1, O=1, tgt=v6_svc_one)/                  \
-                  ICMPv6NDOptDstLLAddr(lladdr=mac_two)
+l2_announce6_ns = (
+    Ether(dst=l2_announce6_ns_mmac, src=mac_one) /
+    IPv6(src=v6_ext_node_one, dst=l2_announce6_ns_ma, hlim=255) /
+    ICMPv6ND_NS(tgt=v6_svc_one) /
+    ICMPv6NDOptSrcLLAddr(lladdr=mac_one)
+)
+
+l2_announce6_targeted_ns = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(src=v6_ext_node_one, dst=v6_svc_one, hlim=255) /
+    ICMPv6ND_NS(tgt=v6_svc_one) /
+    ICMPv6NDOptSrcLLAddr(lladdr=mac_one)
+)
+
+l2_announce6_na = (
+    Ether(dst=mac_one, src=mac_two) /
+    IPv6(src=v6_svc_one, dst=v6_ext_node_one, hlim=255) /
+    ICMPv6ND_NA(R=0, S=1, O=1, tgt=v6_svc_one) /
+    ICMPv6NDOptDstLLAddr(lladdr=mac_two)
+)
