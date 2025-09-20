@@ -351,7 +351,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 	cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 
-	if h.kprCfg.KubeProxyReplacement {
+	if h.kprCfg.EnableNodePort {
 		if option.Config.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
@@ -435,9 +435,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if !option.Config.EnableHostLegacyRouting {
 			cDefinesMap["ENABLE_HOST_ROUTING"] = "1"
 		}
-	}
 
-	if h.kprCfg.KubeProxyReplacement || option.Config.EnableBPFMasquerade {
 		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMin)
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMax)
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMax+1)
@@ -524,47 +522,47 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
 	cDefinesMap["SNAT_COLLISION_RETRIES"] = fmt.Sprintf("%d", nat.SnatCollisionRetries)
 
-	if option.Config.EnableBPFMasquerade {
-		cDefinesMap["ENABLE_NODEPORT"] = "1"
+	if h.kprCfg.EnableNodePort {
+		if option.Config.EnableBPFMasquerade {
+			if option.Config.EnableIPv4Masquerade {
+				cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
 
-		if option.Config.EnableIPv4Masquerade {
-			cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
+				// ip-masq-agent depends on bpf-masq
+				var excludeCIDR *cidr.CIDR
+				if option.Config.EnableIPMasqAgent {
+					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
 
-			// ip-masq-agent depends on bpf-masq
-			var excludeCIDR *cidr.CIDR
-			if option.Config.EnableIPMasqAgent {
-				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
+					// native-routing-cidr is optional with ip-masq-agent and may be nil
+					excludeCIDR = option.Config.IPv4NativeRoutingCIDR
+				} else {
+					excludeCIDR = cfg.NativeRoutingCIDRIPv4
+				}
 
-				// native-routing-cidr is optional with ip-masq-agent and may be nil
-				excludeCIDR = option.Config.IPv4NativeRoutingCIDR
-			} else {
-				excludeCIDR = cfg.NativeRoutingCIDRIPv4
+				if excludeCIDR != nil {
+					cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
+						fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(excludeCIDR.IP))
+					ones, _ := excludeCIDR.Mask.Size()
+					cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
+				}
 			}
+			if option.Config.EnableIPv6Masquerade {
+				cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
 
-			if excludeCIDR != nil {
-				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
-					fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(excludeCIDR.IP))
-				ones, _ := excludeCIDR.Mask.Size()
-				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
-			}
-		}
-		if option.Config.EnableIPv6Masquerade {
-			cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
+				var excludeCIDR *cidr.CIDR
+				if option.Config.EnableIPMasqAgent {
+					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
 
-			var excludeCIDR *cidr.CIDR
-			if option.Config.EnableIPMasqAgent {
-				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
+					excludeCIDR = option.Config.IPv6NativeRoutingCIDR
+				} else {
+					excludeCIDR = cfg.NativeRoutingCIDRIPv6
+				}
 
-				excludeCIDR = option.Config.IPv6NativeRoutingCIDR
-			} else {
-				excludeCIDR = cfg.NativeRoutingCIDRIPv6
-			}
-
-			if excludeCIDR != nil {
-				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR"] = excludeCIDR.IP.String()
-				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR", excludeCIDR.IP))
-				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR_MASK"] = excludeCIDR.Mask.String()
-				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", excludeCIDR.Mask))
+				if excludeCIDR != nil {
+					extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR"] = excludeCIDR.IP.String()
+					fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR", excludeCIDR.IP))
+					extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR_MASK"] = excludeCIDR.Mask.String()
+					fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", excludeCIDR.Mask))
+				}
 			}
 		}
 	}

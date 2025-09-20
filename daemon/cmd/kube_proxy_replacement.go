@@ -44,13 +44,13 @@ import (
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
 func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig) error {
-	if !kprCfg.KubeProxyReplacement {
+	if !kprCfg.EnableNodePort {
 		option.Config.EnableHostLegacyRouting = true
 	}
 	logger.Info("kube-proxy replacement starting with the following config",
 		logfields.KPRConfiguration, kprCfg)
 
-	if kprCfg.KubeProxyReplacement {
+	if kprCfg.EnableNodePort {
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
 			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
 			if ip.To4() == nil {
@@ -147,7 +147,7 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		// InstallNoConntrackIptRules can only be enabled when Cilium is
 		// running in full KPR mode as otherwise conntrack would be
 		// required for NAT operations
-		if !(kprCfg.KubeProxyReplacement && kprCfg.EnableSocketLB) {
+		if !(kprCfg.EnableNodePort && kprCfg.EnableSocketLB) {
 			return fmt.Errorf("%s requires the agent to run with %s.",
 				option.InstallNoConntrackIptRules, option.KubeProxyReplacement)
 		}
@@ -173,8 +173,7 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 // probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with
 // the running kernel.
 func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, sysctl sysctl.Sysctl) error {
-
-	if kprCfg.KubeProxyReplacement {
+	if kprCfg.EnableNodePort {
 		if err := checkNodePortAndEphemeralPortRanges(lbConfig, sysctl); err != nil {
 			return err
 		}

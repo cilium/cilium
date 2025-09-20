@@ -22,7 +22,7 @@ import (
 var ErrMapDisabled = fmt.Errorf("nat map is disabled")
 
 // Cell exposes global nat maps via Hive. These maps depend on
-// the final state of EnableBPFMasquerade, thus the maps are currently
+// the final state of EnableNodePort, thus the maps are currently
 // provided as promises.
 // TODO: Once we have a way of finalizing this config prior to runtime
 // we'll want to provide these using bpf.MapOut[T] (GH: #32557)
@@ -42,7 +42,7 @@ var Cell = cell.Module(
 				if err != nil {
 					return fmt.Errorf("failed to wait for config promise: %w", err)
 				}
-				if !kprCfg.KubeProxyReplacement && !cfg.EnableBPFMasquerade {
+				if !kprCfg.EnableNodePort {
 					res4.Reject(fmt.Errorf("nat IPv4: %w", ErrMapDisabled))
 					res6.Reject(fmt.Errorf("nat IPv6: %w", ErrMapDisabled))
 					return nil
@@ -79,14 +79,7 @@ var Cell = cell.Module(
 				return nil
 			},
 			OnStop: func(hc cell.HookContext) error {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
-				defer cancel()
-				cfg, err := cfgPromise.Await(ctx)
-				if err != nil {
-					return fmt.Errorf("failed to wait for config promise: %w", err)
-				}
-
-				if !kprCfg.KubeProxyReplacement && !cfg.EnableBPFMasquerade {
+				if !kprCfg.EnableNodePort {
 					return nil
 				}
 

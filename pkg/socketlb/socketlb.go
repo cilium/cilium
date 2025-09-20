@@ -102,7 +102,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 			enabled[GetPeerName4] = true
 		}
 
-		if lnc.KPRConfig.KubeProxyReplacement && option.Config.NodePortBindProtection {
+		if lnc.KPRConfig.EnableNodePort && option.Config.NodePortBindProtection {
 			enabled[PostBind4] = true
 		}
 
@@ -124,7 +124,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 			enabled[GetPeerName6] = true
 		}
 
-		if lnc.KPRConfig.KubeProxyReplacement && option.Config.NodePortBindProtection {
+		if lnc.KPRConfig.EnableNodePort && option.Config.NodePortBindProtection {
 			enabled[PostBind6] = true
 		}
 
