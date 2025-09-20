@@ -175,7 +175,7 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 		}
 	}
 	result[features.KPR] = features.Status{
-		Enabled: mode == "true" || mode == "strict",
+		Enabled: mode != "false" && mode != "disabled",
 		Mode:    mode,
 	}
 
