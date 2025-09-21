@@ -10,8 +10,7 @@
             },
             "GoVersion": [
                 "env:GO_VERSION_PREVIOUS"
-            ],
-            "IDENTITY_IMDS_AVAILABLE": "1"
+            ]
         }
     ]
 }

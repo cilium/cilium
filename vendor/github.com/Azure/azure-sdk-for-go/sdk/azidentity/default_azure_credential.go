@@ -48,6 +48,10 @@ type DefaultAzureCredentialOptions struct {
 	// the application responsible for ensuring the configured authority is valid and trustworthy.
 	DisableInstanceDiscovery bool
 
+	// RequireAzureTokenCredentials determines whether NewDefaultAzureCredential returns an error when the environment
+	// variable AZURE_TOKEN_CREDENTIALS has no value.
+	RequireAzureTokenCredentials bool
+
 	// TenantID sets the default tenant for authentication via the Azure CLI, Azure Developer CLI, and workload identity.
 	TenantID string
 }
@@ -82,6 +86,10 @@ type DefaultAzureCredentialOptions struct {
 //   - "dev": try [AzureCLICredential] and [AzureDeveloperCLICredential], in that order
 //   - "prod": try [EnvironmentCredential], [WorkloadIdentityCredential], and [ManagedIdentityCredential], in that order
 //
+// [DefaultAzureCredentialOptions].RequireAzureTokenCredentials controls whether AZURE_TOKEN_CREDENTIALS must be set.
+// NewDefaultAzureCredential returns an error when RequireAzureTokenCredentials is true and AZURE_TOKEN_CREDENTIALS
+// has no value.
+//
 // [DefaultAzureCredential overview]: https://aka.ms/azsdk/go/identity/credential-chains#defaultazurecredential-overview
 type DefaultAzureCredential struct {
 	chain *ChainedTokenCredential
@@ -89,6 +97,10 @@ type DefaultAzureCredential struct {
 
 // NewDefaultAzureCredential creates a DefaultAzureCredential. Pass nil for options to accept defaults.
 func NewDefaultAzureCredential(options *DefaultAzureCredentialOptions) (*DefaultAzureCredential, error) {
+	if options == nil {
+		options = &DefaultAzureCredentialOptions{}
+	}
+
 	var (
 		creds         []azcore.TokenCredential
 		errorMessages []string
@@ -114,11 +126,10 @@ func NewDefaultAzureCredential(options *DefaultAzureCredentialOptions) (*Default
 		default:
 			return nil, fmt.Errorf(`invalid %s value %q. Valid values are "dev", "prod", or the name of any credential type in the default chain. See https://aka.ms/azsdk/go/identity/docs#DefaultAzureCredential for more information`, azureTokenCredentials, atc)
 		}
+	} else if options.RequireAzureTokenCredentials {
+		return nil, fmt.Errorf("%s must be set when RequireAzureTokenCredentials is true. See https://aka.ms/azsdk/go/identity/docs#DefaultAzureCredential for more information", azureTokenCredentials)
 	}
 
-	if options == nil {
-		options = &DefaultAzureCredentialOptions{}
-	}
 	additionalTenants := options.AdditionallyAllowedTenants
 	if len(additionalTenants) == 0 {
 		if tenants := os.Getenv(azureAdditionallyAllowedTenants); tenants != "" {
