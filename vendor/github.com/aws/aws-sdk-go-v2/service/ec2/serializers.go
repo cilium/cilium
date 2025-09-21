@@ -50107,6 +50107,18 @@ func awsEc2query_serializeDocumentCreateVolumePermissionModifications(v *types.C
 	return nil
 }
 
+func awsEc2query_serializeDocumentCreationDateConditionRequest(v *types.CreationDateConditionRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.MaximumDaysSinceCreated != nil {
+		objectKey := object.Key("MaximumDaysSinceCreated")
+		objectKey.Integer(*v.MaximumDaysSinceCreated)
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentCreditSpecificationRequest(v *types.CreditSpecificationRequest, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -50207,6 +50219,18 @@ func awsEc2query_serializeDocumentDeleteQueuedReservedInstancesIdList(v []string
 		av := array.Value()
 		av.String(v[i])
 	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentDeprecationTimeConditionRequest(v *types.DeprecationTimeConditionRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.MaximumDaysSinceDeprecated != nil {
+		objectKey := object.Key("MaximumDaysSinceDeprecated")
+		objectKey.Integer(*v.MaximumDaysSinceDeprecated)
+	}
+
 	return nil
 }
 
@@ -51411,9 +51435,37 @@ func awsEc2query_serializeDocumentImageCriterionRequest(v *types.ImageCriterionR
 	object := value.Object()
 	_ = object
 
+	if v.CreationDateCondition != nil {
+		objectKey := object.Key("CreationDateCondition")
+		if err := awsEc2query_serializeDocumentCreationDateConditionRequest(v.CreationDateCondition, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.DeprecationTimeCondition != nil {
+		objectKey := object.Key("DeprecationTimeCondition")
+		if err := awsEc2query_serializeDocumentDeprecationTimeConditionRequest(v.DeprecationTimeCondition, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.ImageNames != nil {
+		objectKey := object.FlatKey("ImageName")
+		if err := awsEc2query_serializeDocumentImageNameRequestList(v.ImageNames, objectKey); err != nil {
+			return err
+		}
+	}
+
 	if v.ImageProviders != nil {
 		objectKey := object.FlatKey("ImageProvider")
 		if err := awsEc2query_serializeDocumentImageProviderRequestList(v.ImageProviders, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.MarketplaceProductCodes != nil {
+		objectKey := object.FlatKey("MarketplaceProductCode")
+		if err := awsEc2query_serializeDocumentMarketplaceProductCodeRequestList(v.MarketplaceProductCodes, objectKey); err != nil {
 			return err
 		}
 	}
@@ -51508,6 +51560,19 @@ func awsEc2query_serializeDocumentImageIdStringList(v []string, value query.Valu
 		return nil
 	}
 	array := value.Array("ImageId")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentImageNameRequestList(v []string, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
 
 	for i := range v {
 		av := array.Value()
@@ -54179,6 +54244,19 @@ func awsEc2query_serializeDocumentMacSystemIntegrityProtectionConfigurationReque
 		objectKey.String(string(v.NvramProtections))
 	}
 
+	return nil
+}
+
+func awsEc2query_serializeDocumentMarketplaceProductCodeRequestList(v []string, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
+	}
 	return nil
 }
 
