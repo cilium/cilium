@@ -56,7 +56,7 @@ type DescribeImageReferencesInput struct {
 	//
 	// Either IncludeAllResourceTypes or ResourceTypes must be specified.
 	//
-	// [How AMI reference checks work]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-ami-references-works.html
+	// [How AMI reference checks work]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-ami-references.html#how-ami-references-works
 	IncludeAllResourceTypes *bool
 
 	//  The maximum number of items to return for this request. To get the next page
