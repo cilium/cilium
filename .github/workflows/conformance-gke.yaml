@@ -77,7 +77,7 @@ concurrency:
     ${{ github.workflow }}
     ${{ github.event_name }}
     ${{
-      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'schedule' && format('{0}-{1}', github.sha, 'gke')) ||
       (github.event_name == 'workflow_dispatch' && format('{0}-{1}', github.event.inputs.PR-number, 'gke'))
     }}
   cancel-in-progress: true
