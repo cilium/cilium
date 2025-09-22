@@ -216,7 +216,7 @@ status.
 Logs
 ====
 
-BGP Control Plane logs can be found in the Cilium operator (only for BGPv2) and the Cilium agent logs.
+BGP Control Plane logs can be found in the Cilium operator and the Cilium agent logs.
 
 The operator logs are tagged with ``subsys=bgp-cp-operator``. You can use this tag to filter
 the logs as in the following example:
@@ -248,7 +248,7 @@ speaker is integrated within the Cilium agent. The BGP session will be restored
 once the Cilium agent is restarted. However, while the Cilium agent is down,
 the advertised routes will be removed from the BGP peer. As a result, you may
 temporarily lose connectivity to the Pods or Services. You can enable the
-:ref:`Graceful Restart <bgp_control_plane_graceful_restart>` to continue
+:ref:`Graceful Restart <bgp_peer_configuration_graceful_restart>` to continue
 forwarding traffic to the Pods or Services during the agent restart.
 
 Upgrading or Downgrading Cilium
@@ -282,7 +282,7 @@ below to avoid packet loss as much as possible.
       kubectl drain <node-name> --ignore-daemonsets
 
 2. Reconfigure the BGP sessions by modifying or removing the
-   CiliumBGPPeeringPolicy or CiliumBGPClusterConfig node selector label on the Node object.
+   CiliumBGPClusterConfig node selector label on the Node object.
    This will shut down all BGP sessions on the node.
 
    .. code-block:: bash
@@ -344,7 +344,7 @@ Mitigation
 ''''''''''
 
 The recommended way to address this issue is by enabling the
-:ref:`bgp_control_plane_graceful_restart` feature. This feature allows the BGP
+:ref:`bgp_peer_configuration_graceful_restart` feature. This feature allows the BGP
 peer to retain routes for a specific period of time after the BGP session is
 lost. Since the datapath remains active even when the agent is down, this will
 prevent the loss of connectivity to the Pods or Services.
@@ -470,7 +470,7 @@ Control Plane behaves differently depending on the Service's
 
 When the ``externalTrafficPolicy`` is set to ``Cluster``, then the
 Service's VIP remains advertised from all nodes selected by the
-``CiliumBGPPeeringPolicy`` or ``CiliumBGPClusterConfig`` **only** when
+``CiliumBGPClusterConfig`` **only** when
 ``--enable-no-service-endpoints-routable`` is true (the default). If the flag is
 set to ``false`` then Service's VIP is withdrawn.
 
