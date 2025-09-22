@@ -8,6 +8,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
 	"reflect"
@@ -18,6 +19,7 @@ import (
 	"github.com/prometheus/procfs"
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
+	"golang.zx2c4.com/wireguard/wgctrl"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
@@ -26,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/types"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -35,6 +38,8 @@ const (
 
 var (
 	regex = regexp.MustCompile("oseq[[:blank:]]0[xX]([[:xdigit:]]+)")
+
+	errWireguardStateMismatch = errors.New("wireguard state mismatch between kernel and agent")
 )
 
 var encryptStatusCmd = &cobra.Command{
@@ -44,7 +49,7 @@ var encryptStatusCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium encrypt status")
 		status, err := getEncryptionStatus()
 		if err != nil {
-			Fatalf("Cannot get daemon encryption status: %s", err)
+			Fatalf("Cannot get encryption status: %s", err)
 		}
 		if command.OutputOption() {
 			if err := command.PrintOutput(status); err != nil {
@@ -86,72 +91,167 @@ func init() {
 	command.AddOutputOption(encryptStatusCmd)
 }
 
+// containsInterface returns whether an `intf` is contained within a set of interfaces.
+// we do not compare the list of peers, just the peer count and public key.
+func containsInterface(intfList []*models.WireguardInterface, intf *models.WireguardInterface) bool {
+	for _, i := range intfList {
+		if i.Name == intf.Name && i.PeerCount == intf.PeerCount &&
+			i.PublicKey == intf.PublicKey {
+			return true
+		}
+	}
+
+	return false
+}
+
+// validateWireguardState compares two models.WireguardStatus struct and returns
+// an error if they are not the same (if there's a mismatch on the interfaces, peers, keys).
+func validateWireguardState(expected, actual *models.WireguardStatus) error {
+	if expected == nil {
+		if actual != nil {
+			return fmt.Errorf("%w: agent state is empty", errWireguardStateMismatch)
+		}
+	}
+
+	if actual == nil {
+		return fmt.Errorf("%w: actual (kernel) state is empty", errWireguardStateMismatch)
+	}
+
+	if len(actual.Interfaces) != len(expected.Interfaces) {
+		return fmt.Errorf(
+			"%w: interface count did not match between agent state and kernel state. agent: %d, kernel: %d",
+			errWireguardStateMismatch, len(expected.Interfaces), len(actual.Interfaces),
+		)
+	}
+
+	// we need to go over both lists and make sure all
+	// interfaces on one side are seen on the other side
+	// and the other way around.
+	// this is high complexity but it's not a critical code path
+	for _, actualIntf := range actual.Interfaces {
+		if !containsInterface(expected.Interfaces, actualIntf) {
+			return fmt.Errorf("%w: interface %s not found or did not match in the actual set of interfaces", errWireguardStateMismatch, actualIntf.Name)
+		}
+	}
+
+	for _, expectedIntf := range expected.Interfaces {
+		if !containsInterface(actual.Interfaces, expectedIntf) {
+			return fmt.Errorf("%w: interface %s not found or did not match in the expected set of interfaces", errWireguardStateMismatch, expectedIntf.Name)
+		}
+	}
+
+	return nil
+}
+
 func getEncryptionStatus() (models.EncryptionStatus, error) {
+	var result models.EncryptionStatus
+
 	params := daemon.NewGetHealthzParamsWithTimeout(timeout)
 	params.SetBrief(&brief)
+
 	resp, err := client.Daemon.GetHealthz(params)
-	if err != nil {
-		return models.EncryptionStatus{}, err
+	if err == nil {
+		result = *resp.Payload.Encryption
+		if result.Mode == models.EncryptionStatusModeWireguard {
+			actualWgState, err := dumpWireGuardStatus()
+			if err != nil {
+				result.Msg = err.Error()
+			}
+
+			err = validateWireguardState(result.Wireguard, actualWgState)
+			if err != nil {
+				result.Msg += err.Error()
+			}
+		} else {
+			result.Ipsec, err = dumpIPsecStatus()
+			if err != nil {
+				result.Msg += err.Error()
+			}
+		}
+
+		return result, nil
 	}
 
-	enc := resp.Payload.Encryption
-	switch enc.Mode {
-	case models.EncryptionStatusModeIPsec:
-		return dumpIPsecStatus()
-	case models.EncryptionStatusModeWireguard:
-		return dumpWireGuardStatus(enc), nil
+	// if we get here, the agent failed to respond.
+	// get state from the kernel and return it back
+	result.Msg = err.Error()
+
+	result.Ipsec, err = dumpIPsecStatus()
+	if err != nil {
+		result.Msg += "\n" + err.Error()
 	}
-	return models.EncryptionStatus{Mode: models.EncryptionStatusModeDisabled}, nil
+
+	result.Wireguard, err = dumpWireGuardStatus()
+	if err != nil {
+		result.Msg += "\n" + err.Error()
+	}
+
+	return result, nil
 }
 
-func dumpIPsecStatus() (models.EncryptionStatus, error) {
-	status := models.EncryptionStatus{
-		Mode:  models.EncryptionStatusModeIPsec,
-		Ipsec: &models.IPsecStatus{},
-	}
+func dumpIPsecStatus() (*models.IPsecStatus, error) {
 	xfrmStates, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("cannot get xfrm state: %w", err)
+		return nil, fmt.Errorf("cannot get xfrm state: %w", err)
 	}
+
 	keys, err := ipsec.CountUniqueIPsecKeys(xfrmStates)
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("error counting IPsec keys: %w", err)
+		return nil, fmt.Errorf("error counting IPsec keys: %w", err)
 	}
-	status.Ipsec.KeysInUse = int64(keys)
-	decryptInts, err := getDecryptionInterfaces()
+
+	// no ipsec state installed
+	if keys == 0 {
+		return nil, nil
+	}
+
+	var result models.IPsecStatus
+
+	result.KeysInUse = int64(keys)
+
+	result.DecryptInterfaces, err = getDecryptionInterfaces()
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("error getting IPsec decryption interfaces: %w", err)
+		return nil, fmt.Errorf("error getting IPsec decryption interfaces: %w", err)
 	}
-	status.Ipsec.DecryptInterfaces = decryptInts
-	seqNum, err := maxSequenceNumber()
+
+	result.MaxSeqNumber, err = maxSequenceNumber()
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("error getting IPsec max sequence number: %w", err)
+		return nil, fmt.Errorf("error getting IPsec max sequence number: %w", err)
 	}
-	status.Ipsec.MaxSeqNumber = seqNum
+
 	errCount, errMap, err := getXfrmStats("")
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("error getting xfrm stats: %w", err)
+		return nil, fmt.Errorf("error getting xfrm stats: %w", err)
 	}
-	status.Ipsec.ErrorCount = errCount
-	status.Ipsec.XfrmErrors = errMap
-	return status, nil
+
+	result.ErrorCount = errCount
+	result.XfrmErrors = errMap
+	return &result, nil
 }
 
-func dumpWireGuardStatus(p *models.EncryptionStatus) models.EncryptionStatus {
-	status := models.EncryptionStatus{
-		Mode: models.EncryptionStatusModeWireguard,
-		Wireguard: &models.WireguardStatus{
-			Interfaces: make([]*models.WireguardInterface, 0),
-		},
+func dumpWireGuardStatus() (*models.WireguardStatus, error) {
+	wgClient, err := wgctrl.New()
+	if err != nil {
+		return nil, err
 	}
-	for _, wg := range p.Wireguard.Interfaces {
-		status.Wireguard.Interfaces = append(status.Wireguard.Interfaces, &models.WireguardInterface{
-			Name:      wg.Name,
-			PublicKey: wg.PublicKey,
-			PeerCount: wg.PeerCount,
-		})
+
+	defer wgClient.Close()
+
+	wgDevice, err := wgClient.Device(wgTypes.IfaceName)
+	if err != nil {
+		// if we fail here, we probably dont have an interface, so just bail out
+		return nil, nil
 	}
-	return status
+
+	var result models.WireguardStatus
+
+	result.Interfaces = append(result.Interfaces, &models.WireguardInterface{
+		Name:      wgDevice.Name,
+		PublicKey: wgDevice.PublicKey.String(),
+		PeerCount: int64(len(wgDevice.Peers)),
+	})
+
+	return &result, nil
 }
 
 func getXfrmStats(mountPoint string) (int64, map[string]int64, error) {
@@ -215,6 +315,10 @@ func maxSequenceNumber() (string, error) {
 	return fmt.Sprintf("0x%x/0xffffffffffffffff", maxSeqNum), nil
 }
 
+// isDecryptionInterface returns whether we thing an interface is used for decryption or not.
+// FIXME: this simply checks for the existence of the cil_from_network or cil_from_netdev programs
+// in the filter list of the interface - ideally there should be a less ambiguous way of knowing if
+// an interface is used for decryption such as evaluating the addresses in the xfrm states.
 func isDecryptionInterface(link netlink.Link) (bool, error) {
 	filters, err := safenetlink.FilterList(link, tcFilterParentIngress)
 	if err != nil {
@@ -234,6 +338,7 @@ func isDecryptionInterface(link netlink.Link) (bool, error) {
 	return false, nil
 }
 
+// getDecryptionInterfaces returns the interfaces used for decryption.
 func getDecryptionInterfaces() ([]string, error) {
 	links, err := safenetlink.LinkList()
 	if err != nil {
@@ -253,9 +358,12 @@ func getDecryptionInterfaces() ([]string, error) {
 }
 
 func printEncryptionStatus(status models.EncryptionStatus) {
+	if status.Msg != "" {
+		fmt.Printf("Msg: %s\n", status.Msg)
+	}
+
 	fmt.Printf("Encryption: %-26s\n", status.Mode)
-	switch status.Mode {
-	case models.EncryptionStatusModeIPsec:
+	if status.Ipsec != nil {
 		fmt.Printf("Decryption interface(s): %s\n", strings.Join(status.Ipsec.DecryptInterfaces, ", "))
 		fmt.Printf("Keys in use: %-26d\n", status.Ipsec.KeysInUse)
 		fmt.Printf("Max Seq. Number: %s\n", status.Ipsec.MaxSeqNumber)
@@ -263,7 +371,8 @@ func printEncryptionStatus(status models.EncryptionStatus) {
 		for k, v := range status.Ipsec.XfrmErrors {
 			fmt.Printf("\t%s: %-26d\n", k, v)
 		}
-	case models.EncryptionStatusModeWireguard:
+	}
+	if status.Wireguard != nil {
 		for _, s := range status.Wireguard.Interfaces {
 			fmt.Printf("Interface: %s\n", s.Name)
 			fmt.Printf("\tPublic key: %s\n", s.PublicKey)
