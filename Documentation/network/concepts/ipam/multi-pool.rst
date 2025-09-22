@@ -240,7 +240,7 @@ Routing to Allocated PodCIDRs
 -----------------------------
 
 PodCIDRs allocated from ``CiliumPodIPPools`` can be announced to the network by the
-:ref:`bgp_control_plane` (:ref:`bgp_control_plane_multipool_ipam`). Alternatively,
+:ref:`bgp_control_plane` (:ref:`bgp-adverts-multipool`). Alternatively,
 the ``autoDirectNodeRoutes`` Helm option can be used to enable automatic routing
 between nodes on a L2 network.
 

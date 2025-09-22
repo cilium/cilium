@@ -4,7 +4,7 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _bgp_control_plane_v2:
+.. _bgp_control_plane_configuration:
 
 BGP Control Plane Resources
 ###########################
@@ -21,7 +21,7 @@ The following resources are used to manage the BGP Control Plane:
 
 The relationship between various resources is shown in the below diagram:
 
-.. image:: bgpv2.png
+.. image:: bgp.png
     :align: center
 
 
@@ -43,12 +43,6 @@ the BGP router can only initiate connections to the configured peers, but cannot
 This is the default behavior because the BGP Control Plane is designed to function in environments where
 another BGP router (such as Bird) is running on the same node. When it is required to accept incoming
 connections, the ``localPort`` field can be used to specify the listening port.
-
-.. warning::
-
-    The ``CiliumBGPPeeringPolicy`` and ``CiliumBGPClusterConfig`` should not be used together. If both
-    resources are present and Cilium agent matches with both based on the node selector,
-    ``CiliumBGPPeeringPolicy`` will take precedence.
 
 .. warning::
 
