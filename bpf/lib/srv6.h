@@ -411,7 +411,7 @@ srv6_store_meta_sid(struct __ctx_buff *ctx, const union v6addr *sid)
 __declare_tail(CILIUM_CALL_SRV6_ENCAP)
 int tail_srv6_encap(struct __ctx_buff *ctx)
 {
-	struct in6_addr dst_sid;
+	struct in6_addr dst_sid = {0,};
 	int ret = 0;
 	int __maybe_unused ext_err = 0;
 
