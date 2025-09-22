@@ -1367,9 +1367,9 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, versio
 		if len(l7Rules.HTTP) > 0 {
 			// Use L7 rules computed earlier?
 			var httpRules *cilium.HttpNetworkPolicyRules
-			if l7Rules.EnvoyHTTPRules != nil {
-				httpRules = l7Rules.EnvoyHTTPRules
-				canShortCircuit = l7Rules.CanShortCircuit
+			if l7Rules.EnvoyHTTPRules() != nil {
+				httpRules = l7Rules.EnvoyHTTPRules()
+				canShortCircuit = l7Rules.CanShortCircuit()
 			} else {
 				httpRules, canShortCircuit = s.l7RulesTranslator.GetEnvoyHTTPRules(&l7Rules.L7Rules, "")
 			}

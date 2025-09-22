@@ -195,7 +195,7 @@ func (p *selectorPolicy) Attach(ctx PolicyContext) {
 type EndpointPolicy struct {
 	// Note that all Endpoints sharing the same identity will be
 	// referring to a shared selectorPolicy!
-	*selectorPolicy
+	SelectorPolicy *selectorPolicy
 
 	// VersionHandle represents the version of the SelectorCache 'policyMapState' was generated
 	// from.
@@ -321,7 +321,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 	//   ConsumeMapChanges().
 	p.SelectorCache.GetVersionHandleFunc(func(version *versioned.VersionHandle) {
 		calculatedPolicy = &EndpointPolicy{
-			selectorPolicy: p,
+			SelectorPolicy: p,
 			VersionHandle:  version,
 			policyMapState: newMapState(logger, policyOwner.MapStateSize()),
 			policyMapChanges: MapChanges{
@@ -365,7 +365,7 @@ func (p *EndpointPolicy) Ready() (err error) {
 // to allow the EndpointPolicy to be GC'd.
 // PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) Detach(logger *slog.Logger) {
-	p.selectorPolicy.removeUser(p)
+	p.SelectorPolicy.removeUser(p)
 	// in case the call was missed previouly
 	if p.Ready() == nil {
 		// succeeded, so it was missed previously
@@ -499,8 +499,8 @@ func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
 func (p *EndpointPolicy) toMapState(logger *slog.Logger) {
-	p.L4Policy.Ingress.toMapState(logger, p)
-	p.L4Policy.Egress.toMapState(logger, p)
+	p.SelectorPolicy.L4Policy.Ingress.toMapState(logger, p)
+	p.SelectorPolicy.L4Policy.Egress.toMapState(logger, p)
 }
 
 // toMapState transforms the L4DirectionPolicy into
@@ -547,7 +547,7 @@ func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, Pe
 // Caller is responsible for calling the returned 'closer' to release resources held for the new version!
 // 'closer' may not be called while selector cache is locked!
 func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState) {
-	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
+	features := p.SelectorPolicy.L4Policy.Ingress.features | p.SelectorPolicy.L4Policy.Egress.features
 	version, changes := p.policyMapChanges.consumeMapChanges(p, features)
 
 	closer = func() {}
@@ -579,7 +579,7 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
 func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
-		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
+		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
 		policyMapState: emptyMapState(logger),
 	}
 }

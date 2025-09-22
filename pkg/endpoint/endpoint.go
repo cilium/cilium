@@ -2673,8 +2673,8 @@ func (e *Endpoint) SetDefaultConfiguration() {
 func (e *Endpoint) setDefaultPolicyConfig() {
 	e.SetDefaultOpts(option.Config.Opts)
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
-	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
+	e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled = alwaysEnforce
+	e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled = alwaysEnforce
 }
 
 // GetCreatedAt returns the endpoint creation time.
