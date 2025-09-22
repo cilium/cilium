@@ -17,6 +17,9 @@ message Flow {
     // uuid is a universally unique identifier for this flow.
     string uuid = 34;
 
+    // emitter identifies the source that emitted the flow.
+    Emitter emitter = 41;
+
     Verdict verdict = 2;
     // only applicable to Verdict = DROPPED.
     // deprecated in favor of drop_reason_desc.
@@ -148,6 +151,17 @@ message Flow {
     // this list is empty. Duplicate values are elided; each
     // entry is unique.
     repeated string policy_log = 21006;
+}
+
+// Emitter identifies the source that emits a Hubble flow.
+message Emitter {
+    // name identifies the emitter.
+    // The name should be capitalized ("Hubble", not "hubble" nor "HUBBLE").
+    string name = 1;
+    // version identifiers the emitter version.
+    // The version should not contain a 'v' prefix as sometimes seen ("1.19.0",
+    // not "v1.19.0").
+    string version = 2;
 }
 
 enum FlowType {
