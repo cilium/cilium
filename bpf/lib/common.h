@@ -775,7 +775,7 @@ struct ipv4_ct_tuple {
 } __packed;
 
 struct ct_entry {
-	__u64 reserved0;	/* unused since v1.16 */
+	__u64 ip_trace_id;
 	__u64 backend_id;
 	__u64 packets;
 	__u64 bytes;

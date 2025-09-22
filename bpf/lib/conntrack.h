@@ -16,6 +16,7 @@
 #include "l4.h"
 #include "signal.h"
 #include "ipfrag.h"
+#include "trace_helpers.h"
 
 /* Traffic is allowed/dropped based on user-defined policies. */
 DECLARE_CONFIG(bool, enable_extended_ip_protocols, "Pass traffic with extended IP protocols")
@@ -289,6 +290,8 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 
 	entry = map_lookup_elem(map, tuple);
 	if (entry) {
+		if (entry->ip_trace_id)
+			bpf_trace_id_set(entry->ip_trace_id);
 		if (!ct_entry_matches_types(entry, ct_entry_types, ct_state))
 			goto ct_new;
 
@@ -1001,6 +1004,8 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	if (ct_state)
 		ct_create_fill_entry(&entry, ct_state, dir);
 
+	entry.ip_trace_id = 0; /* IPv6 doesn't have IP option support yet */
+
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
@@ -1058,6 +1063,7 @@ static __always_inline int ct_create4(const void *map_main,
 	if (ct_state)
 		ct_create_fill_entry(&entry, ct_state, dir);
 
+	entry.ip_trace_id = load_ip_trace_id();
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
