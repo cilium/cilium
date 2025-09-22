@@ -68,7 +68,7 @@ const (
 	AllReqID = 0
 
 	// DefaultReqID is the default reqid used for all IPSec rules.
-	DefaultReqID = 1
+	DefaultReqID = ipsec.DefaultReqID
 )
 
 type dir string
