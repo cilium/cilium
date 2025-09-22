@@ -203,11 +203,27 @@ func getEncryptionStatus() models.EncryptionStatus {
 	return status
 }
 
+// filterReqID returns the subset of the `xfrmStates` that match the `reqID` passed in.
+func filterReqID(reqID int, xfrmStates []netlink.XfrmState) []netlink.XfrmState {
+	var result []netlink.XfrmState
+	for _, s := range xfrmStates {
+		if s.Reqid != reqID {
+			continue
+		}
+
+		result = append(result, s)
+	}
+
+	return result
+}
+
 func dumpIPsecStatus() (*models.IPsecStatus, error) {
 	xfrmStates, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get xfrm state: %w", err)
 	}
+
+	xfrmStates = filterReqID(ipsec.DefaultReqID, xfrmStates)
 
 	keys, err := ipsec.CountUniqueIPsecKeys(xfrmStates)
 	if err != nil {
