@@ -305,7 +305,6 @@ func Delete(route Route) error {
 		Table:     route.Table,
 		Type:      route.Type,
 		Protocol:  netlink.RouteProtocol(route.Proto),
-		MTU:       route.MTU,
 	}
 
 	// Scope can only be specified for IPv4
