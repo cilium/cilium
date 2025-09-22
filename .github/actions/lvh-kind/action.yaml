@@ -55,9 +55,11 @@ runs:
   using: composite
   steps:
     - name: Provision LVH VMs
-      uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+      uses: cilium/little-vm-helper@4dd358e5d05d410d6cc96a728d601f2e2c4302fa # v0.0.26
       with:
         test-name: ${{ inputs.test-name }}
+        image-repo: 'docker.io/pchaigno'
+        image: 'kind-ci'
         image-version: ${{ inputs.kernel }}
         images-folder-parent: "/tmp"
         host-mount: ./
@@ -78,7 +80,7 @@ runs:
         lvh: 'true'
 
     - name: Create K8s cluster
-      uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+      uses: cilium/little-vm-helper@4dd358e5d05d410d6cc96a728d601f2e2c4302fa # v0.0.26
       with:
         provision: 'false'
         cmd: |
