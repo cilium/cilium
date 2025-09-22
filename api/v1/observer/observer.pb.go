@@ -359,6 +359,7 @@ var Tunnel_Protocol_name = flow.Tunnel_Protocol_name
 var Tunnel_Protocol_value = flow.Tunnel_Protocol_value
 
 type Flow = flow.Flow
+type Emitter = flow.Emitter
 type FileInfo = flow.FileInfo
 type Layer4 = flow.Layer4
 type Layer4_TCP = flow.Layer4_TCP
