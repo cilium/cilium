@@ -398,7 +398,7 @@ skip_tunnel:
 
 #if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
 	if (from_proxy && !identity_is_cluster(info->sec_identity))
-		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
+		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
 	return CTX_ACT_OK;
@@ -851,7 +851,7 @@ skip_tunnel:
 
 #if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
 	if (from_proxy && !identity_is_cluster(info->sec_identity))
-		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
+		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
 	return CTX_ACT_OK;
@@ -1753,16 +1753,16 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 *
 	 * This iptables rule, created by
 	 * iptables.Manager.inboundProxyRedirectRule() is ignored by the mark
-	 * MARK_MAGIC_PROXY_TO_WORLD, in the control plane.
+	 * MARK_MAGIC_SKIP_TPROXY, in the control plane.
 	 * Technically, it is also ignored by MARK_MAGIC_ENCRYPT but reusing
 	 * this mark breaks further processing as its used in the XFRM subsystem.
 	 *
 	 * Therefore, if the packet's mark is zero, indicating it was forwarded
-	 * from 'cilium_host', mark the packet with MARK_MAGIC_PROXY_TO_WORLD
+	 * from 'cilium_host', mark the packet with MARK_MAGIC_SKIP_TPROXY
 	 * and allow it to enter the foward path once punted to stack.
 	 */
 	if (ctx->mark == 0 && THIS_INTERFACE_IFINDEX == CILIUM_NET_IFINDEX)
-		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
+		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
 #endif /* !TUNNEL_MODE */
 
 # ifdef ENABLE_NODEPORT
