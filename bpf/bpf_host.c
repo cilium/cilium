@@ -60,6 +60,10 @@
  #define host_wg_encrypt_hook(ctx, proto, src_sec_identity)			\
 	 wg_maybe_redirect_to_encrypt(ctx, proto, src_sec_identity)
 
+#ifndef tcx_early_hook
+#define tcx_early_hook(ctx, proto) CTX_ACT_OK
+#endif
+
 /* Bit 0 is skipped for robustness, as it's used in some places to indicate from_host itself. */
 #define FROM_HOST_FLAG_NEED_HOSTFW (1 << 1)
 #define FROM_HOST_FLAG_HOST_ID (1 << 2)
@@ -1271,9 +1275,11 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	if (ctx->mark == MARK_MAGIC_DECRYPT)
 		return CTX_ACT_OK;
 #endif
+	ret = tcx_early_hook(ctx, proto);
+	if (ret != CTX_ACT_OK)
+		return ret;
 
 	return do_netdev(ctx, proto, UNKNOWN_ID, TRACE_FROM_NETWORK, false);
-
 drop_err:
 	return send_drop_notify_error(ctx, src_id, ret, METRIC_INGRESS);
 }
