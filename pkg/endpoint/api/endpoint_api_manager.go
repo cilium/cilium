@@ -86,13 +86,26 @@ func (m *endpointAPIManager) errorDuringCreation(ep *endpoint.Endpoint, err erro
 // request that was specified.
 func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
 	if option.Config.EnableEndpointRoutes {
+		// when we are handling a EndpointChangeRequest from a chained cilium CNI
+		// we receive a DatapathConfiguration with RequiredRouting explicitly set
+		// false.
+		//
+		// if we detect this, we want to ignore the global EnableEndpointRoutes
+		// configuration and refrain from configuring endpoint routes since
+		// the primary CNI is handling end-to-end connectivity.
+		installEndpointRoutes := true
 		if epTemplate.DatapathConfiguration == nil {
 			epTemplate.DatapathConfiguration = &models.EndpointDatapathConfiguration{}
+		} else {
+			if epTemplate.DatapathConfiguration.RequireRouting != nil &&
+				!*epTemplate.DatapathConfiguration.RequireRouting {
+				installEndpointRoutes = false
+			}
 		}
 
 		// Indicate to insert a per endpoint route instead of routing
 		// via cilium_host interface
-		epTemplate.DatapathConfiguration.InstallEndpointRoute = true
+		epTemplate.DatapathConfiguration.InstallEndpointRoute = installEndpointRoutes
 
 		// EndpointRoutes mode enables two features:
 		// - Install one route per endpoint into the route table
@@ -113,6 +126,10 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 
 		// Delegate routing to the Linux stack rather than tail-calling
 		// between BPF programs.
+		//
+		// This overwrites the value set by the CNI when in chaining mode, but
+		// with the same false value so is safe, it remains here to handle the
+		// default cni case.
 		disabled := false
 		epTemplate.DatapathConfiguration.RequireRouting = &disabled
 	}
