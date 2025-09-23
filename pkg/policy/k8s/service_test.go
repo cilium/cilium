@@ -50,6 +50,13 @@ func addrToCIDRRule(addr netip.Addr) api.CIDRRule {
 	}
 }
 
+func sortCIDRSet(s api.CIDRRuleSlice) api.CIDRRuleSlice {
+	slices.SortFunc(s, func(a, b api.CIDRRule) int {
+		return cmp.Compare(a.Cidr, b.Cidr)
+	})
+	return s
+}
+
 type servicesFixture struct {
 	db       *statedb.DB
 	services statedb.RWTable[*loadbalancer.Service]
@@ -285,23 +292,17 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	// Check that Spec was translated
 	assert.Contains(t, rules[0].Labels, svcByNameLbl)
-	cidrRuleSlice := api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	}
-	eps := policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice.GetAsEndpointSelectors())
-	eps = append(eps, policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice)...)
-	assert.Equal(t, eps, rules[0].L3)
+	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](rules[0].L3)))
 
 	// Check that Specs was translated
 	assert.Contains(t, rules[1].Labels, svcByNameLbl)
-	cidrRuleSlice = api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	}
-	eps = policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice.GetAsEndpointSelectors())
-	eps = append(eps, policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice)...)
-	assert.Equal(t, eps, rules[1].L3)
+	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](rules[1].L3)))
 
 	// Check that policy has been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -327,34 +328,25 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	// Check that svcByNameCNP Spec (matching foo and bar) was translated
 	assert.Len(t, byNameRules, 2)
 	assert.Contains(t, byNameRules[0].Labels, svcByNameLbl)
-	cidrRuleSlice = api.CIDRRuleSlice{
-		addrToCIDRRule(barEpAddr.Addr()),
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	}
-	eps = policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice.GetAsEndpointSelectors())
-	eps = append(eps, policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice)...)
-	assert.Equal(t, eps, byNameRules[0].L3)
+		addrToCIDRRule(barEpAddr.Addr()),
+	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[0].L3)))
 
 	// Check that svcByNameCNP Specs (matching only foo) was translated
 	assert.Contains(t, byNameRules[1].Labels, svcByNameLbl)
-	cidrRuleSlice = api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	}
-	eps = policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice.GetAsEndpointSelectors())
-	eps = append(eps, policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice)...)
-	assert.Equal(t, eps, byNameRules[1].L3)
+	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[1].L3)))
 
 	// Check that svcByLabelCNP Spec (matching only bar) was translated
 	assert.Len(t, byLabelRules, 1)
 	assert.Contains(t, byLabelRules[0].Labels, svcByLabelLbl)
-	cidrRuleSlice = api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(barEpAddr.Addr()),
-	}
-	eps = policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice.GetAsEndpointSelectors())
-	eps = append(eps, policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice)...)
-	assert.Equal(t, eps, byLabelRules[0].L3)
+	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byLabelRules[0].L3)))
 
 	// Check that policies have been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -377,20 +369,16 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	// Check that svcByNameCNP Spec (matching foo and bar) was translated
 	assert.Contains(t, byNameRules[0].Labels, svcByNameLbl)
-	cidrRuleSlice = api.CIDRRuleSlice{
-		addrToCIDRRule(barEpAddr.Addr()),
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
-	}
-	eps = policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice.GetAsEndpointSelectors())
-	eps = append(eps, policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice)...)
-	assert.Equal(t, eps, byNameRules[0].L3)
+		addrToCIDRRule(barEpAddr.Addr()),
+	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[0].L3)))
 
 	// Check that Specs was translated (matching only foo) was translated
 	assert.Contains(t, byNameRules[1].Labels, svcByNameLbl)
-	cidrRuleSlice = api.CIDRRuleSlice{addrToCIDRRule(fooEpAddr1.Addr())}
-	eps = policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice.GetAsEndpointSelectors())
-	eps = append(eps, policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice)...)
-	assert.Equal(t, eps, byNameRules[1].L3)
+	assert.Equal(t, api.CIDRRuleSlice{
+		addrToCIDRRule(fooEpAddr1.Addr()),
+	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[1].L3)))
 
 	// Delete bar-svc labels. This should remove all CIDRs from svcByLabelCNP
 	barEv = servicesFixture.upsertService(barSvcID, nil, nil, barEps, &barEv)
@@ -411,7 +399,12 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	byNameRules, byLabelRules = policies[0], policies[1]
 
 	// Check that svcByNameCNP has not changed
-	assert.Equal(t, byNameRules, oldByNameRules)
+	assert.Equal(t,
+		sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[0].L3)),
+		sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](oldByNameRules[0].L3)))
+	assert.Equal(t,
+		sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[1].L3)),
+		sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](oldByNameRules[1].L3)))
 
 	// Check that svcByLabelCNP Spec no longer matches anything
 	assert.Len(t, byLabelRules, 1)
