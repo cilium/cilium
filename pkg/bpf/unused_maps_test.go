@@ -28,7 +28,9 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 	require.NoError(t, spec.Assign(&obj))
 
 	// Initially, all maps should be kept.
-	keep, err := removeUnusedMaps(spec, nil)
+	reach, err := computeReachability(spec)
+	require.NoError(t, err)
+	keep, err := removeUnusedMaps(spec, nil, reach)
 	require.NoError(t, err)
 	assert.True(t, keep.Has("map_a"))
 
@@ -39,7 +41,9 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 
 	// When setting use_map_b to true, map_a should be pruned.
 	require.NoError(t, obj.UseMapB.Set(true))
-	keep, err = removeUnusedMaps(spec, nil)
+	reach, err = computeReachability(spec)
+	require.NoError(t, err)
+	keep, err = removeUnusedMaps(spec, nil, reach)
 	require.NoError(t, err)
 
 	assert.False(t, keep.Has("map_a"))

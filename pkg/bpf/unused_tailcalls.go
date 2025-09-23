@@ -10,14 +10,17 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 
-	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // removeUnusedTailcalls removes tail calls that are not reachable from
 // entrypoint programs.
-func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
+func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec, reach reachables) error {
+	if reach == nil {
+		return fmt.Errorf("reachability information is required")
+	}
+
 	// Build a map of tail call slots to ProgramSpecs.
 	tails := make(map[uint32]*ebpf.ProgramSpec)
 	for _, prog := range spec.Programs {
@@ -40,7 +43,7 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 			continue
 		}
 
-		if err := visitProgram(logger, prog, spec.Variables, tails, &visited); err != nil {
+		if err := visitProgram(logger, prog, reach, tails, &visited); err != nil {
 			return err
 		}
 	}
@@ -63,22 +66,15 @@ func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error
 	return nil
 }
 
-func visitProgram(logger *slog.Logger, prog *ebpf.ProgramSpec, vars map[string]*ebpf.VariableSpec, tails map[uint32]*ebpf.ProgramSpec, visited *set.Set[*ebpf.ProgramSpec]) error {
+func visitProgram(logger *slog.Logger, prog *ebpf.ProgramSpec, reach reachables, tails map[uint32]*ebpf.ProgramSpec, visited *set.Set[*ebpf.ProgramSpec]) error {
 	if visited.Has(prog) {
 		return nil
 	}
 	visited.Insert(prog)
 
-	// Load Blocks computed after compilation, or compute new ones.
-	bl, err := analyze.MakeBlocks(prog.Instructions)
-	if err != nil {
-		return fmt.Errorf("computing Blocks for Program %s: %w", prog.Name, err)
-	}
-
-	// Analyze reachability given the VariableSpecs provided at load time.
-	r, err := analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(vars))
-	if err != nil {
-		return fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
+	r := reach[prog.Name]
+	if r == nil {
+		return fmt.Errorf("missing reachability information for program %s", prog.Name)
 	}
 
 	for iter, live := range r.Iterate() {
@@ -138,7 +134,7 @@ func visitProgram(logger *slog.Logger, prog *ebpf.ProgramSpec, vars map[string]*
 		}
 
 		if tail := tails[slot]; tail != nil {
-			if err := visitProgram(logger, tail, vars, tails, visited); err != nil {
+			if err := visitProgram(logger, tail, reach, tails, visited); err != nil {
 				return err
 			}
 		} else {

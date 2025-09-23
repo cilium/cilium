@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 
-	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/container/set"
 )
 
@@ -20,10 +19,13 @@ const poisonedMapLoad = 0xdeadc0de
 // removeUnusedMaps analyzes the given spec to detect which parts of the code
 // will be unreachable given the VariableSpecs. It then removes any MapSpecs
 // that are not used by any Program.
-func removeUnusedMaps(spec *ebpf.CollectionSpec, keep *set.Set[string]) (*set.Set[string], error) {
+func removeUnusedMaps(spec *ebpf.CollectionSpec, keep *set.Set[string], reach reachables) (*set.Set[string], error) {
 	if keep == nil {
 		k := set.NewSet[string]()
 		keep = &k
+	}
+	if reach == nil {
+		return nil, fmt.Errorf("reachability information is required")
 	}
 
 	// VariableSpec's underlying maps always need to remain part of the
@@ -47,17 +49,10 @@ func removeUnusedMaps(spec *ebpf.CollectionSpec, keep *set.Set[string]) (*set.Se
 		}
 	}
 
-	for name, prog := range spec.Programs {
-		// Load Blocks computed after compilation, or compute new ones.
-		bl, err := analyze.MakeBlocks(prog.Instructions)
-		if err != nil {
-			return nil, fmt.Errorf("computing Blocks for Program %s: %w", prog.Name, err)
-		}
-
-		// Analyze reachability given the VariableSpecs provided at load time.
-		r, err := analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
-		if err != nil {
-			return nil, fmt.Errorf("reachability analysis for program %s: %w", name, err)
+	for name := range spec.Programs {
+		r, ok := reach[name]
+		if !ok {
+			return nil, fmt.Errorf("missing reachability information for program %s", name)
 		}
 
 		// Record which maps are still referenced after reachability analysis.
