@@ -390,16 +390,15 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 skip_tunnel:
 #endif
 
-	if (!info || (!from_proxy &&
-		      identity_is_world_ipv6(info->sec_identity))) {
+	if (from_proxy) {
+		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
+		return CTX_ACT_OK;
+	}
+
+	if (!info || identity_is_world_ipv6(info->sec_identity)) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
 	}
-
-#if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
-	if (from_proxy && !identity_is_cluster(info->sec_identity))
-		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
-#endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
 	return CTX_ACT_OK;
 }
@@ -831,8 +830,20 @@ skip_vtep:
 skip_tunnel:
 #endif
 
-	if (!info || (!from_proxy &&
-		      identity_is_world_ipv4(info->sec_identity))) {
+	/* When a proxy's traffic couldn't be delivered by the preceding code,
+	 * we let it pass through (for routing by the stack). To prevent
+	 * tproxy-matching for transparent connections, we need to explicitly
+	 * opt out.
+	 *
+	 * Traffic that lands here is eg to-world, or to-remote-pod (in native
+	 * routing).
+	 */
+	if (from_proxy) {
+		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
+		return CTX_ACT_OK;
+	}
+
+	if (!info || identity_is_world_ipv4(info->sec_identity)) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
 		 *
@@ -841,18 +852,9 @@ skip_tunnel:
 		 * entry. Therefore we need to test for WORLD_ID. It is clearly
 		 * wrong to route a ctx to cilium_host for which we don't know
 		 * anything about it as otherwise we'll run into a routing loop.
-		 *
-		 * Note that we do not drop packets from proxy even if
-		 * they are going to WORLD_ID. This is to avoid
-		 * https://github.com/cilium/cilium/issues/21954.
 		 */
 		return DROP_UNROUTABLE;
 	}
-
-#if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
-	if (from_proxy && !identity_is_cluster(info->sec_identity))
-		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
-#endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
 	return CTX_ACT_OK;
 }
