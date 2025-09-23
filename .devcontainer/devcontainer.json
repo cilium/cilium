@@ -1,6 +1,6 @@
 {
   "name": "Cilium",
-  "image": "quay.io/cilium/cilium-builder:e555ec59e4a192df657910ee0b8372b93b411b14@sha256:5da11a224f23cd9191f74a3bdd0ee959db02b8515ade1942fdab8578e8b0fed8",
+  "image": "quay.io/cilium/cilium-builder:f77118636fa17caa435de55aa7facfd0c83bdab9@sha256:049ebcbaddf4fe4f84abbd27e252988da7ed3a4a22d81483c1e78caf1fa12bad",
   "workspaceFolder": "/go/src/github.com/cilium/cilium",
   "workspaceMount": "source=${localWorkspaceFolder},target=/go/src/github.com/cilium/cilium,type=bind",
   "features": {
