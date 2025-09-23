@@ -80,7 +80,7 @@ func TestPrivilegedNetNSClose(t *testing.T) {
 	assert.NoError(t, ns.Close())
 
 	assert.Nil(t, ns.f)
-	assert.Equal(t, ns.FD(), -1)
+	assert.Equal(t, -1, ns.FD())
 }
 
 func TestPrivilegedNetNSDo(t *testing.T) {
