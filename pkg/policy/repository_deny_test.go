@@ -52,7 +52,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		DefaultDeny: true,
 		Deny:        true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.EndpointSelectorInterfaceSlice{
+		L3: types.PeerSelectorSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
@@ -65,7 +65,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		DefaultDeny: true,
 		Deny:        true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.EndpointSelectorInterfaceSlice{
+		L3: types.PeerSelectorSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
@@ -78,7 +78,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		DefaultDeny: true,
 		Deny:        true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.EndpointSelectorInterfaceSlice{
+		L3: types.PeerSelectorSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
@@ -91,7 +91,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		DefaultDeny: true,
 		Deny:        true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.EndpointSelectorInterfaceSlice{
+		L3: types.PeerSelectorSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
@@ -105,7 +105,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 			DefaultDeny: true,
 			Deny:        true,
 			Subject:     api.NewESFromLabels(fooSelectLabel),
-			L3: types.EndpointSelectorInterfaceSlice{
+			L3: types.PeerSelectorSlice{
 				api.NewESFromLabels(fooSelectLabel),
 			},
 			Labels: labels.LabelArray{
@@ -116,7 +116,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 			DefaultDeny: true,
 			Deny:        true,
 			Subject:     api.NewESFromLabels(fooSelectLabel),
-			L3: types.EndpointSelectorInterfaceSlice{
+			L3: types.PeerSelectorSlice{
 				api.NewESFromLabels(fooSelectLabel),
 			},
 			Labels: labels.LabelArray{

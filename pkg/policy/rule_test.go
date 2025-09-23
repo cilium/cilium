@@ -1563,7 +1563,7 @@ func TestIngressAllowAll(t *testing.T) {
 			DefaultDeny: true,
 			Subject:     endpointSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.EndpointSelectorInterfaceSlice{
+			L3: types.PeerSelectorSlice{
 				api.WildcardEndpointSelector,
 			},
 		}})
@@ -1585,7 +1585,7 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 			DefaultDeny: true,
 			Subject:     endpointSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.EndpointSelectorInterfaceSlice{
+			L3: types.PeerSelectorSlice{
 				api.WildcardEndpointSelector,
 			},
 		}, &types.PolicyEntry{
@@ -1616,7 +1616,7 @@ func TestIngressAllowAllNamedPort(t *testing.T) {
 			DefaultDeny: true,
 			Subject:     endpointSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.EndpointSelectorInterfaceSlice{
+			L3: types.PeerSelectorSlice{
 				api.WildcardEndpointSelector,
 			},
 			L4: []api.PortRule{{
@@ -1642,7 +1642,7 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 			DefaultDeny: true,
 			Subject:     endpointSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.EndpointSelectorInterfaceSlice{
+			L3: types.PeerSelectorSlice{
 				api.WildcardEndpointSelector,
 			},
 		}, &types.PolicyEntry{
@@ -1672,7 +1672,7 @@ func TestIngressL4AllowAll(t *testing.T) {
 			Ingress:     true,
 			DefaultDeny: true,
 			Subject:     endpointSelectorC,
-			L3:          types.EndpointSelectorInterfaceSlice{},
+			L3:          types.PeerSelectorSlice{},
 			L4: []api.PortRule{{
 				Ports: []api.PortProtocol{
 					{Port: "80", Protocol: api.ProtoTCP},
@@ -2313,7 +2313,7 @@ func TestMatches(t *testing.T) {
 			Ingress:     true,
 			DefaultDeny: true,
 			Subject:     endpointSelectorA,
-			L3:          types.EndpointSelectorInterfaceSlice{endpointSelectorC},
+			L3:          types.PeerSelectorSlice{endpointSelectorC},
 		},
 		&types.PolicyEntry{
 			Ingress:     true,
@@ -2323,7 +2323,7 @@ func TestMatches(t *testing.T) {
 				labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
 			),
 			Node: true,
-			L3:   types.EndpointSelectorInterfaceSlice{endpointSelectorC},
+			L3:   types.PeerSelectorSlice{endpointSelectorC},
 		},
 	})
 

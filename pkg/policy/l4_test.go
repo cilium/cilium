@@ -156,7 +156,7 @@ func TestCreateL4Filter(t *testing.T) {
 	}
 
 	for _, selector := range selectors {
-		eps := types.EndpointSelectorInterfaceSlice{selector}
+		eps := types.PeerSelectorSlice{selector}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
@@ -200,7 +200,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 
 	auth := &api.Authentication{Mode: api.AuthenticationModeDisabled}
 	for _, selector := range selectors {
-		eps := types.EndpointSelectorInterfaceSlice{selector}
+		eps := types.PeerSelectorSlice{selector}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
@@ -250,7 +250,7 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 	}
 
 	for _, selector := range selectors {
-		eps := types.EndpointSelectorInterfaceSlice{selector}
+		eps := types.PeerSelectorSlice{selector}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.

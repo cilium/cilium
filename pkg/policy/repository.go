@@ -453,7 +453,7 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 		PolicyEntry: types.PolicyEntry{
 			Ingress: ingress,
 			Subject: api.NewESFromLabels(lbls...),
-			L3:      types.EndpointSelectorInterfaceSlice{api.WildcardEndpointSelector},
+			L3:      types.PeerSelectorSlice{api.WildcardEndpointSelector},
 		},
 	}
 }

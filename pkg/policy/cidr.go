@@ -58,9 +58,9 @@ func GetCIDRPrefixes(rules types.PolicyEntries) []netip.Prefix {
 	}
 	res := make(sets.Set[netip.Prefix], 32)
 	for _, r := range rules {
-		cidrs := types.FromEndpointSelectorInterfaceSlice[api.CIDR](r.L3)
+		cidrs := types.FromPeerSelectorSlice[api.CIDR](r.L3)
 		res.Insert(getPrefixesFromCIDR(cidrs)...)
-		cidrRules := types.FromEndpointSelectorInterfaceSlice[api.CIDRRule](r.L3)
+		cidrRules := types.FromPeerSelectorSlice[api.CIDRRule](r.L3)
 		res.Insert(getPrefixesFromCIDRSet(cidrRules)...)
 	}
 	return res.UnsortedList()

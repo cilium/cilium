@@ -25,7 +25,7 @@ type PolicyEntry struct {
 	// L3 specifies the source/destination endpoints or all endpoints if empty
 	//
 	// +deepequal-gen=false
-	L3 EndpointSelectorInterfaceSlice
+	L3 PeerSelectorSlice
 
 	// L4 specifies the source/destination port rules or none if empty
 	L4 api.PortRules
@@ -81,32 +81,31 @@ func (in *PolicyEntry) DeepEqual(other *PolicyEntry) bool {
 // PolicyEntries is a slice of pointers to PolicyEntry
 type PolicyEntries []*PolicyEntry
 
-// EndpointSelectorInterface is a generic representation of an endpoint selector.
-// It can be converted to an EndpointSelector or FQDNSelector.
-type EndpointSelectorInterface interface {
-	IsEndpointSelectorInterface()
+// PeerSelector is a generic representation of an endpoint selector.
+type PeerSelector interface {
+	IsPeerSelector()
 }
 
-// EndpointSelectorInterfaceSlice is a slice that can hold any of the supported selectors,
+// PeerSelectorSlice is a slice that can hold any of the supported selectors,
 // including EndpointSelector and FQDNSelector.
-type EndpointSelectorInterfaceSlice []EndpointSelectorInterface
+type PeerSelectorSlice []PeerSelector
 
-// ToEndpointSelectorInterfaceSlice converts a slice of any concrete type that implements EndpointSelectorInterface
-// into a EndpointSelectorInterfaceSlice.
-func ToEndpointSelectorInterfaceSlice[T EndpointSelectorInterface](source []T) EndpointSelectorInterfaceSlice {
+// ToPeerSelectorSlice converts a slice of any concrete type that implements PeerSelector
+// into a PeerSelectorSlice.
+func ToPeerSelectorSlice[T PeerSelector](source []T) PeerSelectorSlice {
 	if source == nil {
 		return nil
 	}
-	peers := make(EndpointSelectorInterfaceSlice, len(source))
+	peers := make(PeerSelectorSlice, len(source))
 	for k, v := range source {
 		peers[k] = v
 	}
 	return peers
 }
 
-// FromEndpointSelectorInterfaceSlice takes a slice of EndpointSelectorInterface and returns a new slice
+// FromPeerSelectorSlice takes a slice of PeerSelector and returns a new slice
 // containing only the elements that match the requested concrete type T.
-func FromEndpointSelectorInterfaceSlice[T EndpointSelectorInterface](source EndpointSelectorInterfaceSlice) []T {
+func FromPeerSelectorSlice[T PeerSelector](source PeerSelectorSlice) []T {
 	result := make([]T, 0)
 	for _, v := range source {
 		if item, ok := v.(T); ok {

@@ -154,9 +154,9 @@ func ruleType(r types.PolicyEntry) RuleFeatures {
 	rf.Deny = r.Deny
 	rf.MutualAuth = r.Authentication != nil
 	rf.NonDefaultDeny = r.DefaultDeny
-	rf.ToFQDNs = len(types.FromEndpointSelectorInterfaceSlice[api.FQDNSelector](r.L3)) > 0
+	rf.ToFQDNs = len(types.FromPeerSelectorSlice[api.FQDNSelector](r.L3)) > 0
 	rf.L3 = len(r.L3) > 0 && !rf.ToFQDNs
-	for _, l3 := range types.FromEndpointSelectorInterfaceSlice[api.EndpointSelector](r.L3) {
+	for _, l3 := range types.FromPeerSelectorSlice[api.EndpointSelector](r.L3) {
 		if l3.LabelSelector == nil {
 			continue
 		}

@@ -170,8 +170,8 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 				// Parse CIDR-based parts of rule.
 				if rule.IPBlock != nil {
 					cidrRules := api.CIDRRuleSlice{ipBlockToCIDRRule(rule.IPBlock)}
-					ingress.L3 = append(ingress.L3, types.ToEndpointSelectorInterfaceSlice(cidrRules.GetAsEndpointSelectors())...)
-					ingress.L3 = append(ingress.L3, types.ToEndpointSelectorInterfaceSlice(cidrRules)...)
+					ingress.L3 = append(ingress.L3, types.ToPeerSelectorSlice(cidrRules.GetAsEndpointSelectors())...)
+					ingress.L3 = append(ingress.L3, types.ToPeerSelectorSlice(cidrRules)...)
 				}
 
 				fromRules = append(fromRules, ingress)
@@ -220,8 +220,8 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 				// Parse CIDR-based parts of rule.
 				if rule.IPBlock != nil {
 					cidrRules := api.CIDRRuleSlice{ipBlockToCIDRRule(rule.IPBlock)}
-					egress.L3 = append(egress.L3, types.ToEndpointSelectorInterfaceSlice(cidrRules.GetAsEndpointSelectors())...)
-					egress.L3 = append(egress.L3, types.ToEndpointSelectorInterfaceSlice(cidrRules)...)
+					egress.L3 = append(egress.L3, types.ToPeerSelectorSlice(cidrRules.GetAsEndpointSelectors())...)
+					egress.L3 = append(egress.L3, types.ToPeerSelectorSlice(cidrRules)...)
 				}
 
 				toRules = append(toRules, egress)

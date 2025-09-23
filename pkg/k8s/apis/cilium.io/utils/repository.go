@@ -120,15 +120,15 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 	return entries
 }
 
-func mergeEndpointSelectors(endpoints api.EndpointSelectorSlice, cidrSlice api.CIDRSlice, cidrRuleSlice api.CIDRRuleSlice, fqdns api.FQDNSelectorSlice) types.EndpointSelectorInterfaceSlice {
+func mergeEndpointSelectors(endpoints api.EndpointSelectorSlice, cidrSlice api.CIDRSlice, cidrRuleSlice api.CIDRRuleSlice, fqdns api.FQDNSelectorSlice) types.PeerSelectorSlice {
 	if endpoints == nil && cidrSlice == nil && cidrRuleSlice == nil && fqdns == nil {
 		return nil
 	}
-	l3 := make(types.EndpointSelectorInterfaceSlice, 0, len(endpoints)+len(cidrSlice)+len(cidrRuleSlice)+len(fqdns))
-	l3 = append(l3, types.ToEndpointSelectorInterfaceSlice(endpoints)...)
-	l3 = append(l3, types.ToEndpointSelectorInterfaceSlice(cidrSlice)...)
-	l3 = append(l3, types.ToEndpointSelectorInterfaceSlice(cidrRuleSlice)...)
-	l3 = append(l3, types.ToEndpointSelectorInterfaceSlice(fqdns)...)
+	l3 := make(types.PeerSelectorSlice, 0, len(endpoints)+len(cidrSlice)+len(cidrRuleSlice)+len(fqdns))
+	l3 = append(l3, types.ToPeerSelectorSlice(endpoints)...)
+	l3 = append(l3, types.ToPeerSelectorSlice(cidrSlice)...)
+	l3 = append(l3, types.ToPeerSelectorSlice(cidrRuleSlice)...)
+	l3 = append(l3, types.ToPeerSelectorSlice(fqdns)...)
 	return l3
 }
 

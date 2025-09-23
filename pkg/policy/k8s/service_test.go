@@ -295,14 +295,14 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](rules[0].L3)))
+	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](rules[0].L3)))
 
 	// Check that Specs was translated
 	assert.Contains(t, rules[1].Labels, svcByNameLbl)
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](rules[1].L3)))
+	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](rules[1].L3)))
 
 	// Check that policy has been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -332,21 +332,21 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
 		addrToCIDRRule(barEpAddr.Addr()),
-	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[0].L3)))
+	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[0].L3)))
 
 	// Check that svcByNameCNP Specs (matching only foo) was translated
 	assert.Contains(t, byNameRules[1].Labels, svcByNameLbl)
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[1].L3)))
+	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[1].L3)))
 
 	// Check that svcByLabelCNP Spec (matching only bar) was translated
 	assert.Len(t, byLabelRules, 1)
 	assert.Contains(t, byLabelRules[0].Labels, svcByLabelLbl)
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(barEpAddr.Addr()),
-	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byLabelRules[0].L3)))
+	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byLabelRules[0].L3)))
 
 	// Check that policies have been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -372,13 +372,13 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(barEpAddr.Addr()),
-	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[0].L3)))
+	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[0].L3)))
 
 	// Check that Specs was translated (matching only foo) was translated
 	assert.Contains(t, byNameRules[1].Labels, svcByNameLbl)
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
-	}, sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[1].L3)))
+	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[1].L3)))
 
 	// Delete bar-svc labels. This should remove all CIDRs from svcByLabelCNP
 	barEv = servicesFixture.upsertService(barSvcID, nil, nil, barEps, &barEv)
@@ -400,11 +400,11 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	// Check that svcByNameCNP has not changed
 	assert.Equal(t,
-		sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[0].L3)),
-		sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](oldByNameRules[0].L3)))
+		sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[0].L3)),
+		sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](oldByNameRules[0].L3)))
 	assert.Equal(t,
-		sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](byNameRules[1].L3)),
-		sortCIDRSet(policytypes.FromEndpointSelectorInterfaceSlice[api.CIDRRule](oldByNameRules[1].L3)))
+		sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[1].L3)),
+		sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](oldByNameRules[1].L3)))
 
 	// Check that svcByLabelCNP Spec no longer matches anything
 	assert.Len(t, byLabelRules, 1)

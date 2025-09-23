@@ -49,7 +49,7 @@ type EndpointSelector struct {
 	sanitized bool `json:"-"`
 }
 
-func (n EndpointSelector) IsEndpointSelectorInterface() {}
+func (n EndpointSelector) IsPeerSelector() {}
 
 // Used for `omitzero` json tag.
 func (n *EndpointSelector) IsZero() bool {

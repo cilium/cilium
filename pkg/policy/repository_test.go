@@ -69,7 +69,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 		Ingress:     true,
 		DefaultDeny: true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: policytypes.EndpointSelectorInterfaceSlice{
+		L3: policytypes.PeerSelectorSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
@@ -81,7 +81,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 		Ingress:     true,
 		DefaultDeny: true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: policytypes.EndpointSelectorInterfaceSlice{
+		L3: policytypes.PeerSelectorSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
@@ -93,7 +93,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 		Ingress:     false,
 		DefaultDeny: true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: policytypes.EndpointSelectorInterfaceSlice{
+		L3: policytypes.PeerSelectorSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
@@ -105,7 +105,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 		Ingress:     false,
 		DefaultDeny: true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: policytypes.EndpointSelectorInterfaceSlice{
+		L3: policytypes.PeerSelectorSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
 		Labels: labels.LabelArray{
@@ -118,7 +118,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 			Ingress:     true,
 			DefaultDeny: true,
 			Subject:     api.NewESFromLabels(fooSelectLabel),
-			L3: policytypes.EndpointSelectorInterfaceSlice{
+			L3: policytypes.PeerSelectorSlice{
 				api.NewESFromLabels(fooSelectLabel),
 			},
 			Labels: labels.LabelArray{
@@ -128,7 +128,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 			Ingress:     false,
 			DefaultDeny: true,
 			Subject:     api.NewESFromLabels(fooSelectLabel),
-			L3: policytypes.EndpointSelectorInterfaceSlice{
+			L3: policytypes.PeerSelectorSlice{
 				api.NewESFromLabels(fooSelectLabel),
 			},
 			Labels: labels.LabelArray{
@@ -1455,7 +1455,7 @@ func TestIterate(t *testing.T) {
 		_, _, err := repo.mustAddPolicyEntry(policytypes.PolicyEntry{
 			Subject: epSelector,
 			Labels:  labels.LabelArray{lbls[i]},
-			L3: policytypes.EndpointSelectorInterfaceSlice{
+			L3: policytypes.PeerSelectorSlice{
 				epSelector,
 			},
 		})
@@ -1511,7 +1511,7 @@ func TestDefaultAllow(t *testing.T) {
 			Subject:     api.NewESFromLabels(fooSelectLabel),
 			Labels:      labels.LabelArray{labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceAny)},
 			Ingress:     ingress,
-			L3:          policytypes.EndpointSelectorInterfaceSlice{api.NewESFromLabels(fooSelectLabel)},
+			L3:          policytypes.PeerSelectorSlice{api.NewESFromLabels(fooSelectLabel)},
 			DefaultDeny: defaultDeny,
 		}
 		return &r
@@ -1649,7 +1649,7 @@ func TestReplaceByResource(t *testing.T) {
 		rule := &policytypes.PolicyEntry{
 			Subject: epSelector,
 			Labels:  labels.LabelArray{lbl},
-			L3: policytypes.EndpointSelectorInterfaceSlice{
+			L3: policytypes.PeerSelectorSlice{
 				destSelector,
 			},
 		}
@@ -1791,7 +1791,7 @@ func TestReplaceByLabels(t *testing.T) {
 		rule := &policytypes.PolicyEntry{
 			Subject: epSelector,
 			Labels:  labels.LabelArray{lbl},
-			L3: policytypes.EndpointSelectorInterfaceSlice{
+			L3: policytypes.PeerSelectorSlice{
 				destSelector,
 			},
 		}
