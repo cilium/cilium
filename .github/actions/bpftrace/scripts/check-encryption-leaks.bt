@@ -407,7 +407,7 @@ kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
   }
 }
 
-// Additionally trace traffic flows in which the source got masquerated.
+// Additionally trace traffic flows in which the source got masqueraded.
 // Ignore packets w/o a socket assigned or that are not traced by the proxy.
 kprobe:udp_destroy_sock
 {
@@ -425,7 +425,7 @@ kprobe:udp_destroy_sock
   delete(@trace_sk[$sk]);
 }
 
-// Additionally trace traffic flows in which the source got masquerated.
+// Additionally trace traffic flows in which the source got masqueraded.
 kprobe:__dev_queue_xmit
 {
   $skb = ((struct sk_buff *) arg0);
