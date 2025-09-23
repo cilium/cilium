@@ -401,6 +401,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		ID:                       e.ID,
 		ContainerName:            e.GetContainerName(),
 		ContainerID:              e.GetContainerID(),
+		ContainerNetnsPath:       e.containerNetnsPath,
 		DockerNetworkID:          e.dockerNetworkID,
 		DockerEndpointID:         e.dockerEndpointID,
 		IfName:                   e.ifName,
@@ -450,6 +451,9 @@ type serializableEndpoint struct {
 	// containerID is the container ID that docker has assigned to the endpoint
 	// Note: The JSON tag was kept for backward compatibility.
 	ContainerID string `json:"dockerID,omitempty"`
+
+	// ContainerNetnsPath is the path to the container's network namespace
+	ContainerNetnsPath string
 
 	// dockerNetworkID is the network ID of the libnetwork network if the
 	// endpoint is a docker managed container which uses libnetwork
@@ -581,6 +585,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.initialEnvoyPolicyComputed = make(chan struct{})
 	ep.containerName.Store(&r.ContainerName)
 	ep.containerID.Store(&r.ContainerID)
+	ep.containerNetnsPath = r.ContainerNetnsPath
 	ep.dockerNetworkID = r.DockerNetworkID
 	ep.dockerEndpointID = r.DockerEndpointID
 	ep.ifName = r.IfName
