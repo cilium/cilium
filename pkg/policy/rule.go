@@ -49,7 +49,7 @@ func (r *rule) IsPeerSelector() bool {
 }
 
 func (r *rule) String() string {
-	return r.EndpointSelector.String()
+	return r.Subject.String()
 }
 
 func (r *rule) origin() ruleOrigin {
@@ -500,7 +500,7 @@ func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
 	// Fall back to explicit label matching for the local node
 	// because local node has mutable labels, which are applied asynchronously to the SelectorCache.
 	if r.subjectSelector == nil || ruleSelectsNode {
-		return r.EndpointSelector.Matches(securityIdentity.LabelArray)
+		return r.Subject.Matches(securityIdentity.LabelArray)
 	}
 
 	return r.subjectSelector.Selects(versioned.Latest(), securityIdentity.ID)

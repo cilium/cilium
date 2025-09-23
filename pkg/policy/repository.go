@@ -218,7 +218,7 @@ func (p *Repository) newRule(policyEntry types.PolicyEntry, key ruleKey) *rule {
 		PolicyEntry: policyEntry,
 		key:         key,
 	}
-	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, makeStringLabels(r.Labels), r.EndpointSelector)
+	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, makeStringLabels(r.Labels), r.Subject)
 	return r
 }
 
@@ -451,9 +451,9 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 	return &rule{
 		PolicyEntry: types.PolicyEntry{
-			Ingress:          ingress,
-			EndpointSelector: api.NewESFromLabels(lbls...),
-			L3:               types.EndpointSelectorInterfaceSlice{api.WildcardEndpointSelector},
+			Ingress: ingress,
+			Subject: api.NewESFromLabels(lbls...),
+			L3:      types.EndpointSelectorInterfaceSlice{api.WildcardEndpointSelector},
 		},
 	}
 }

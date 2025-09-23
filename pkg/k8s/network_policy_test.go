@@ -335,7 +335,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 					"foo2": "bar2",
 				}}
 
-			tc.out.EndpointSelector = api.NewESFromLabels(
+			tc.out.Subject = api.NewESFromLabels(
 				labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 				labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
 				labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
@@ -500,10 +500,10 @@ func TestParseNetworkPolicyNoSelectors(t *testing.T) {
 	l3 := policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice.GetAsEndpointSelectors())
 	l3 = append(l3, policytypes.ToEndpointSelectorInterfaceSlice(cidrRuleSlice)...)
 	expectedRule := &policytypes.PolicyEntry{
-		Ingress:          true,
-		DefaultDeny:      true,
-		EndpointSelector: epSelector,
-		L3:               l3,
+		Ingress:     true,
+		DefaultDeny: true,
+		Subject:     epSelector,
+		L3:          l3,
 		Labels: labels.ParseLabelArray(
 			"k8s:"+k8sConst.PolicyLabelName+"=ingress-cidr-test",
 			"k8s:"+k8sConst.PolicyLabelUID+"=11bba160-ddca-11e8-b697-0800273b04ff",
@@ -1502,9 +1502,9 @@ func TestParseNetworkPolicyClusterLabel(t *testing.T) {
 
 	expectedRules := policytypes.PolicyEntries{
 		{
-			EndpointSelector: epSelector,
-			Ingress:          true,
-			DefaultDeny:      true,
+			Subject:     epSelector,
+			Ingress:     true,
+			DefaultDeny: true,
 			L3: policytypes.EndpointSelectorInterfaceSlice{api.NewESFromK8sLabelSelector(
 				labels.LabelSourceK8sKeyPrefix,
 				&slim_metav1.LabelSelector{
@@ -1521,9 +1521,9 @@ func TestParseNetworkPolicyClusterLabel(t *testing.T) {
 				"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
 			),
 		}, {
-			EndpointSelector: epSelector,
-			Ingress:          false,
-			DefaultDeny:      true,
+			Subject:     epSelector,
+			Ingress:     false,
+			DefaultDeny: true,
 			L3: policytypes.EndpointSelectorInterfaceSlice{api.NewESFromK8sLabelSelector(
 				labels.LabelSourceK8sKeyPrefix,
 				&slim_metav1.LabelSelector{

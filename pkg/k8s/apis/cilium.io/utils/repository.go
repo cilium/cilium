@@ -27,16 +27,16 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(iRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				EndpointSelector: es,
-				Node:             node,
-				Labels:           rule.Labels,
-				DefaultDeny:      defaultDeny,
-				Deny:             false,
-				Ingress:          true,
-				L3:               l3,
-				L4:               l4,
-				Authentication:   iRule.Authentication,
-				Log:              rule.Log,
+				Subject:        es,
+				Node:           node,
+				Labels:         rule.Labels,
+				DefaultDeny:    defaultDeny,
+				Deny:           false,
+				Ingress:        true,
+				L3:             l3,
+				L4:             l4,
+				Authentication: iRule.Authentication,
+				Log:            rule.Log,
 			}
 			entries = append(entries, entry)
 		}
@@ -53,15 +53,15 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(iRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				EndpointSelector: es,
-				Node:             node,
-				Labels:           rule.Labels,
-				DefaultDeny:      defaultDeny,
-				Deny:             true,
-				Ingress:          true,
-				L3:               l3,
-				L4:               l4,
-				Log:              rule.Log,
+				Subject:     es,
+				Node:        node,
+				Labels:      rule.Labels,
+				DefaultDeny: defaultDeny,
+				Deny:        true,
+				Ingress:     true,
+				L3:          l3,
+				L4:          l4,
+				Log:         rule.Log,
 			}
 			entries = append(entries, entry)
 		}
@@ -78,16 +78,16 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(eRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				EndpointSelector: es,
-				Node:             node,
-				Labels:           rule.Labels,
-				DefaultDeny:      defaultDeny,
-				Deny:             false,
-				Ingress:          false,
-				L3:               l3,
-				L4:               l4,
-				Authentication:   eRule.Authentication,
-				Log:              rule.Log,
+				Subject:        es,
+				Node:           node,
+				Labels:         rule.Labels,
+				DefaultDeny:    defaultDeny,
+				Deny:           false,
+				Ingress:        false,
+				L3:             l3,
+				L4:             l4,
+				Authentication: eRule.Authentication,
+				Log:            rule.Log,
 			}
 			entries = append(entries, entry)
 		}
@@ -104,15 +104,15 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(eRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				EndpointSelector: es,
-				Node:             node,
-				Labels:           rule.Labels,
-				DefaultDeny:      defaultDeny,
-				Deny:             true,
-				Ingress:          false,
-				L3:               l3,
-				L4:               l4,
-				Log:              rule.Log,
+				Subject:     es,
+				Node:        node,
+				Labels:      rule.Labels,
+				DefaultDeny: defaultDeny,
+				Deny:        true,
+				Ingress:     false,
+				L3:          l3,
+				L4:          l4,
+				Log:         rule.Log,
 			}
 			entries = append(entries, entry)
 		}

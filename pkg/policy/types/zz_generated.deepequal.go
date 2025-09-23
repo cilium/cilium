@@ -27,7 +27,7 @@ func (in *PolicyEntry) deepEqual(other *PolicyEntry) bool {
 		return false
 	}
 
-	if !in.EndpointSelector.DeepEqual(&other.EndpointSelector) {
+	if !in.Subject.DeepEqual(&other.Subject) {
 		return false
 	}
 

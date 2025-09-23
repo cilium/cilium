@@ -1526,9 +1526,9 @@ var (
 	}
 
 	defaultDenyIngress = &types.PolicyEntry{
-		EndpointSelector: api.WildcardEndpointSelector,
-		Ingress:          true,
-		DefaultDeny:      true,
+		Subject:     api.WildcardEndpointSelector,
+		Ingress:     true,
+		DefaultDeny: true,
 	}
 	namedPorts = map[string]uint16{
 		"port-80": 80,
@@ -1559,9 +1559,9 @@ func TestIngressAllowAll(t *testing.T) {
 	repo.MustAddPolicyEntries(types.PolicyEntries{
 		defaultDenyIngress,
 		&types.PolicyEntry{
-			Ingress:          true,
-			DefaultDeny:      true,
-			EndpointSelector: endpointSelectorC,
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
 			// Allow all L3&L4 ingress rule
 			L3: types.EndpointSelectorInterfaceSlice{
 				api.WildcardEndpointSelector,
@@ -1581,17 +1581,17 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 	repo.MustAddPolicyEntries(types.PolicyEntries{
 		defaultDenyIngress,
 		&types.PolicyEntry{
-			Ingress:          true,
-			DefaultDeny:      true,
-			EndpointSelector: endpointSelectorC,
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
 			// Allow all L3&L4 ingress rule
 			L3: types.EndpointSelectorInterfaceSlice{
 				api.WildcardEndpointSelector,
 			},
 		}, &types.PolicyEntry{
-			Ingress:          true,
-			DefaultDeny:      true,
-			EndpointSelector: endpointSelectorC,
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
 			// This rule is a subset of the above
 			// rule and should *NOT* restrict to
 			// port 80 only
@@ -1612,9 +1612,9 @@ func TestIngressAllowAllNamedPort(t *testing.T) {
 	repo.MustAddPolicyEntries(types.PolicyEntries{
 		defaultDenyIngress,
 		&types.PolicyEntry{
-			Ingress:          true,
-			DefaultDeny:      true,
-			EndpointSelector: endpointSelectorC,
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
 			// Allow all L3&L4 ingress rule
 			L3: types.EndpointSelectorInterfaceSlice{
 				api.WildcardEndpointSelector,
@@ -1638,17 +1638,17 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 	repo.MustAddPolicyEntries(types.PolicyEntries{
 		defaultDenyIngress,
 		&types.PolicyEntry{
-			Ingress:          true,
-			DefaultDeny:      true,
-			EndpointSelector: endpointSelectorC,
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
 			// Allow all L3&L4 ingress rule
 			L3: types.EndpointSelectorInterfaceSlice{
 				api.WildcardEndpointSelector,
 			},
 		}, &types.PolicyEntry{
-			Ingress:          true,
-			DefaultDeny:      true,
-			EndpointSelector: endpointSelectorC,
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
 			// This rule is a subset of the above
 			// rule and should *NOT* restrict to
 			// port 80 only
@@ -1669,10 +1669,10 @@ func TestIngressL4AllowAll(t *testing.T) {
 	repo.MustAddPolicyEntries(types.PolicyEntries{
 		defaultDenyIngress,
 		&types.PolicyEntry{
-			Ingress:          true,
-			DefaultDeny:      true,
-			EndpointSelector: endpointSelectorC,
-			L3:               types.EndpointSelectorInterfaceSlice{},
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorC,
+			L3:          types.EndpointSelectorInterfaceSlice{},
 			L4: []api.PortRule{{
 				Ports: []api.PortProtocol{
 					{Port: "80", Protocol: api.ProtoTCP},
@@ -2310,15 +2310,15 @@ func TestMatches(t *testing.T) {
 	repo := td.repo
 	repo.MustAddPolicyEntries(types.PolicyEntries{
 		&types.PolicyEntry{
-			Ingress:          true,
-			DefaultDeny:      true,
-			EndpointSelector: endpointSelectorA,
-			L3:               types.EndpointSelectorInterfaceSlice{endpointSelectorC},
+			Ingress:     true,
+			DefaultDeny: true,
+			Subject:     endpointSelectorA,
+			L3:          types.EndpointSelectorInterfaceSlice{endpointSelectorC},
 		},
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			EndpointSelector: api.NewESFromLabels(
+			Subject: api.NewESFromLabels(
 				labels.ParseSelectLabel("id=a"),
 				labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
 			),

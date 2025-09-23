@@ -16,14 +16,14 @@ import (
 
 func TestGetCIDRPrefixes(t *testing.T) {
 	rules := types.PolicyEntries{{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Ingress:          true,
+		Subject: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Ingress: true,
 		L3: types.ToEndpointSelectorInterfaceSlice(api.CIDRSlice{
 			"192.0.2.0/24",
 		}),
 	}, {
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Ingress:          false,
+		Subject: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Ingress: false,
 		L3: types.ToEndpointSelectorInterfaceSlice(api.CIDRSlice{
 			"192.0.2.0/24",
 			"192.0.3.0/24",
@@ -44,8 +44,8 @@ func TestGetCIDRPrefixes(t *testing.T) {
 
 	// Now, test with CIDRSets.
 	rules = types.PolicyEntries{{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Ingress:          true,
+		Subject: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Ingress: true,
 		L3: types.ToEndpointSelectorInterfaceSlice(api.CIDRRuleSlice{
 			{
 				Cidr:        "192.0.2.0/24",

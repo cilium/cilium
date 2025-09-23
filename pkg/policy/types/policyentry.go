@@ -19,8 +19,8 @@ type PolicyEntry struct {
 	// Log specifies custom policy-specific Hubble logging configuration.
 	Log api.LogConfig
 
-	// EndpointSelector specifies the endpoint that this rule applies to
-	EndpointSelector api.EndpointSelector
+	// Subject specifies the endpoint that this rule applies to
+	Subject api.EndpointSelector
 
 	// L3 specifies the source/destination endpoints or all endpoints if empty
 	//

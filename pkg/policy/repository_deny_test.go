@@ -48,10 +48,10 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	}
 
 	fooIngressDenyRule1 := types.PolicyEntry{
-		Ingress:          true,
-		DefaultDeny:      true,
-		Deny:             true,
-		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+		Ingress:     true,
+		DefaultDeny: true,
+		Deny:        true,
+		Subject:     api.NewESFromLabels(fooSelectLabel),
 		L3: types.EndpointSelectorInterfaceSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
@@ -61,10 +61,10 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	}
 
 	fooIngressDenyRule2 := types.PolicyEntry{
-		Ingress:          true,
-		DefaultDeny:      true,
-		Deny:             true,
-		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+		Ingress:     true,
+		DefaultDeny: true,
+		Deny:        true,
+		Subject:     api.NewESFromLabels(fooSelectLabel),
 		L3: types.EndpointSelectorInterfaceSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
@@ -74,10 +74,10 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	}
 
 	fooEgressDenyRule1 := types.PolicyEntry{
-		Ingress:          false,
-		DefaultDeny:      true,
-		Deny:             true,
-		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+		Ingress:     false,
+		DefaultDeny: true,
+		Deny:        true,
+		Subject:     api.NewESFromLabels(fooSelectLabel),
 		L3: types.EndpointSelectorInterfaceSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
@@ -87,10 +87,10 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	}
 
 	fooEgressDenyRule2 := types.PolicyEntry{
-		Ingress:          false,
-		DefaultDeny:      true,
-		Deny:             true,
-		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+		Ingress:     false,
+		DefaultDeny: true,
+		Deny:        true,
+		Subject:     api.NewESFromLabels(fooSelectLabel),
 		L3: types.EndpointSelectorInterfaceSlice{
 			api.NewESFromLabels(fooSelectLabel),
 		},
@@ -101,10 +101,10 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 
 	combinedRule := types.PolicyEntries{
 		&types.PolicyEntry{
-			Ingress:          true,
-			DefaultDeny:      true,
-			Deny:             true,
-			EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+			Ingress:     true,
+			DefaultDeny: true,
+			Deny:        true,
+			Subject:     api.NewESFromLabels(fooSelectLabel),
 			L3: types.EndpointSelectorInterfaceSlice{
 				api.NewESFromLabels(fooSelectLabel),
 			},
@@ -112,10 +112,10 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 				combinedLabel,
 			},
 		}, &types.PolicyEntry{
-			Ingress:          false,
-			DefaultDeny:      true,
-			Deny:             true,
-			EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+			Ingress:     false,
+			DefaultDeny: true,
+			Deny:        true,
+			Subject:     api.NewESFromLabels(fooSelectLabel),
 			L3: types.EndpointSelectorInterfaceSlice{
 				api.NewESFromLabels(fooSelectLabel),
 			},
