@@ -4,6 +4,7 @@
 package zds
 
 import (
+	"context"
 	"io"
 	"net"
 	"testing"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
 )
@@ -34,6 +36,21 @@ func (epSync *dummyEpSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint
 func (epSync *dummyEpSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
 }
 
+type fakeRestorer struct {
+}
+
+func (r *fakeRestorer) Await(context.Context) (endpointstate.Restorer, error) {
+	return r, nil
+}
+
+func (r *fakeRestorer) WaitForEndpointRestore(_ context.Context) error {
+	return nil
+}
+
+func (r *fakeRestorer) WaitForInitialPolicy(_ context.Context) error {
+	return nil
+}
+
 func setupZDSTestSuite(t *testing.T) *Server {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
@@ -44,6 +61,7 @@ func setupZDSTestSuite(t *testing.T) *Server {
 		Lifecycle:       hivetest.Lifecycle(t),
 		Logger:          logger,
 		EndpointManager: endpointmanager.New(logger, nil, &dummyEpSynchronizer{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{}),
+		RestorerPromise: &fakeRestorer{},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, server)

@@ -20,9 +20,11 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
 )
 
@@ -118,6 +120,7 @@ type serverParams struct {
 	Config    config.Config
 
 	EndpointManager endpointmanager.EndpointManager
+	RestorerPromise promise.Promise[endpointstate.Restorer]
 }
 
 type Server struct {
@@ -128,6 +131,8 @@ type Server struct {
 	deferredEndpoints  []*endpoint.Endpoint
 	subscribed         bool
 	endpointCacheMutex lock.Mutex
+
+	restorerPromise promise.Promise[endpointstate.Restorer]
 
 	activeMu sync.Mutex // serialized access to active zc
 
@@ -141,8 +146,9 @@ type zdsUpdate struct {
 
 func newZDSServer(p serverParams) (*Server, error) {
 	server := &Server{
-		logger:  p.Logger,
-		updates: make(chan zdsUpdate, 100),
+		logger:          p.Logger,
+		updates:         make(chan zdsUpdate, 100),
+		restorerPromise: p.RestorerPromise,
 	}
 
 	var wg sync.WaitGroup
@@ -167,6 +173,16 @@ func newZDSServer(p serverParams) (*Server, error) {
 			server.l, err = net.ListenUnix("unixpacket", resolvedAddr)
 			if err != nil {
 				return fmt.Errorf("failed to listen on ztunnel unix addr: %w", err)
+			}
+
+			restorer, err := p.RestorerPromise.Await(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to await restorer: %w", err)
+			}
+			// Wait for endpoint restore to complete before getting endpoints.
+			// This is to ensure that we don't miss any endpoints that are restored from disk.
+			if err := restorer.WaitForEndpointRestore(ctx); err != nil {
+				return fmt.Errorf("failed to wait for endpoint restore: %w", err)
 			}
 
 			server.subscribeToEndpointEvents(p.EndpointManager)
@@ -281,8 +297,9 @@ func (s *Server) sendSnapshot(zc *ztunnelConn) error {
 		if err != nil {
 			return fmt.Errorf("failed to open netns file: %w", err)
 		}
+		defer ns.Close()
 
-		// this will implicitly close the netns file
+		// this will implicitly close the netns file if it was opened
 		if err := zc.sendAndWaitForAck(req, ns); err != nil {
 			return fmt.Errorf("failed to send endpoint message: %w", err)
 		}
@@ -306,7 +323,6 @@ func (s *Server) sendSnapshot(zc *ztunnelConn) error {
 func (s *Server) subscribeToEndpointEvents(epm endpointmanager.EndpointManager) {
 	epm.Subscribe(s)
 	localEPs := epm.GetEndpoints()
-
 	s.endpointCacheMutex.Lock()
 	defer s.endpointCacheMutex.Unlock()
 
