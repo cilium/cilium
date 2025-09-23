@@ -285,7 +285,7 @@ func (i *cecTranslator) listenerMutators(m *model.Model) []ListenerMutator {
 		res = append(res, withHostNetworkPort(m, i.Config.IPConfig.IPv4Enabled, i.Config.IPConfig.IPv6Enabled))
 	}
 
-	if i.Config.ListenerConfig.StreamIdleTimeoutSeconds > 0 {
+	if i.Config.ListenerConfig.StreamIdleTimeoutSeconds > -1 {
 		res = append(res, WithStreamIdleTimeout(i.Config.ListenerConfig.StreamIdleTimeoutSeconds))
 	}
 
