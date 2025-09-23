@@ -1,0 +1,64 @@
+{{$PIN_TO_LABELLED_NODES := DefaultParam .CL2_PIN_WORKLOADS_TO_LABELLED_NODES false}}
+
+{{$scenario := .scenario}}
+{{$instances := .instances}}
+
+{{$maxConnections := DivideInt 1024 .instances }}
+
+{{$requestProcessingDuration := AddInt (DefaultParam .requestProcessingDuration 0) 0}} # Workaround for incompatible type during comparision
+{{$runDuration := DefaultParam .runDuration 60}}
+
+{{$runTimeout := AddInt $runDuration 10}}
+{{$jobDeadline := MultiplyInt $runDuration 2}}
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/name: http-perf-client
+    index: "{{.Index}}"
+spec:
+  activeDeadlineSeconds: {{$jobDeadline}}
+  template:
+    spec:
+      {{ if $PIN_TO_LABELLED_NODES }}
+      nodeSelector:
+        role.scaffolding/http-perf-client: "true"
+      {{ end }}
+      containers:
+      - image: "docker.io/envoyproxy/nighthawk-dev"
+        name: http-perf-client
+        command: ["/bin/bash"]
+        args:
+          - "-c"
+          - |
+            #!/usr/bin/env bash
+
+            set pipefail
+
+            echo "Starting Nighthawk Client"
+
+            # To get around nighthawk issue of command getting stuck.
+            # Disable stdout/err output buffering so we don't truncate the results output.
+            timeout --kill-after=3 --signal=SIGTERM {{$runTimeout}} \
+              stdbuf -i0 -o0 -e0 \
+                nighthawk_client \
+                  -v critical \
+                  --output-format prometheus \
+                  --no-default-failure-predicates \
+                  --label testing \
+                  --duration {{$runDuration}} \
+                  --rps 10000 \
+                  --connections {{$maxConnections}} \
+                  --concurrency 1 \
+                  --timeout 1 \
+                  --request-body-size 128 \
+                  {{ if ne $requestProcessingDuration 0 }} --request-header "x-nighthawk-test-server-config: {static_delay: \"{{$requestProcessingDuration}}s\"}" {{ end }} \
+                  http://http-server-{{.Index}}:10080/echo \
+              | curl --data-binary @- \
+                "http://pushgateway.monitoring:9091/metrics/job/http-benchmark/instance/$(hostname)/server/http-server-{{.Index}}/scenario/{{$scenario}}"
+      terminationGracePeriodSeconds: 1
+      restartPolicy: Never
+  completions: {{$instances}}
+  parallelism: {{$instances}}
