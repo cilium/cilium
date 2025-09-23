@@ -33,7 +33,9 @@ func TestRemoveUnusedTailcalls(t *testing.T) {
 	require.NoError(t, cpy.Assign(&obj))
 	require.NoError(t, obj.UseTailB.Set(true))
 
-	require.NoError(t, removeUnusedTailcalls(logger, cpy))
+	reach, err := computeReachability(cpy)
+	require.NoError(t, err)
+	require.NoError(t, removeUnusedTailcalls(logger, cpy, reach))
 
 	assert.Contains(t, cpy.Programs, "cil_entry")
 	assert.Contains(t, cpy.Programs, "a")
@@ -49,7 +51,9 @@ func TestRemoveUnusedTailcalls(t *testing.T) {
 	require.NoError(t, cpy.Assign(&obj))
 	require.NoError(t, obj.UseTailB.Set(false))
 
-	require.NoError(t, removeUnusedTailcalls(logger, cpy))
+	reach, err = computeReachability(cpy)
+	require.NoError(t, err)
+	require.NoError(t, removeUnusedTailcalls(logger, cpy, reach))
 
 	assert.Contains(t, cpy.Programs, "cil_entry")
 	assert.Contains(t, cpy.Programs, "a")
