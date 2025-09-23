@@ -1008,7 +1008,8 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 err_ct_fill_up:
 	if (ext_err)
 		*ext_err = (__s8)err;
-	send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
+	if (err == -ENOMEM)
+		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
 	return DROP_CT_CREATE_FAILED;
 }
 
@@ -1068,7 +1069,8 @@ static __always_inline int ct_create4(const void *map_main,
 err_ct_fill_up:
 	if (ext_err)
 		*ext_err = (__s8)err;
-	send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
+	if (err == -ENOMEM)
+		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
 	return DROP_CT_CREATE_FAILED;
 }
 
