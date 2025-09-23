@@ -1200,7 +1200,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 				proxyPort = 1
 				priority = x.redirect
 			}
-			value := newMapStateEntry(NilRuleOrigin, proxyPort, priority, x.deny, NoAuthRequirement)
+			value := newMapStateEntry(NilRuleOrigin, proxyPort, priority, x.deny, NoAuthRequirement, 0)
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(versioned.LatestTx)
@@ -1684,7 +1684,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 				proxyPort = 1
 				priority = x.redirect
 			}
-			value := newMapStateEntry(NilRuleOrigin, proxyPort, priority, x.deny, x.authReq)
+			value := newMapStateEntry(NilRuleOrigin, proxyPort, priority, x.deny, x.authReq, 0)
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(versioned.LatestTx)
@@ -1887,7 +1887,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			}
 			aKeys = append(aKeys, IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort))
 		}
-		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aIsDeny, 0, 0, types.NoAuthRequirement))
+		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aIsDeny, 0, 0, types.NoAuthRequirement, 0))
 		var bKeys []Key
 		for _, idB := range tt.bIdentities {
 			if tt.outcome&worldIPl3only > 0 && idB == worldIPIdentity &&
@@ -1908,7 +1908,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			}
 			bKeys = append(bKeys, IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort))
 		}
-		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement))
+		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement, 0))
 		expectedKeys := emptyMapState(hivetest.Logger(t))
 		if tt.outcome&insertAllowAll > 0 {
 			expectedKeys.insert(anyIngressKey, allowEntry)
@@ -2001,12 +2001,12 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		for _, idA := range tt.aIdentities {
 			aKeys = append(aKeys, IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort))
 		}
-		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aIsDeny, 0, 0, types.NoAuthRequirement))
+		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aIsDeny, 0, 0, types.NoAuthRequirement, 0))
 		var bKeys []Key
 		for _, idB := range tt.bIdentities {
 			bKeys = append(bKeys, EgressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort))
 		}
-		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement))
+		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement, 0))
 		expectedKeys := emptyMapState(hivetest.Logger(t))
 		if tt.outcome&insertAllowAll > 0 {
 			expectedKeys.insert(anyIngressKey, allowEntry)
