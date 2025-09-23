@@ -981,14 +981,14 @@ The ``CiliumBGPNodeConfigOverride`` resource can be used to override some of the
 on a per-node basis.
 
 Here is an example of the ``CiliumBGPNodeConfigOverride`` resource, that sets Router ID, local address and
-local autonomous system number used in each peer for the node with a name ``bgpv2-cplane-dev-multi-homing-worker``.
+local autonomous system number used in each peer for the node with a name ``bgp-cplane-dev-multi-homing-worker``.
 
 .. code-block:: yaml
 
     apiVersion: cilium.io/v2
     kind: CiliumBGPNodeConfigOverride
     metadata:
-      name: bgpv2-cplane-dev-multi-homing-worker
+      name: bgp-cplane-dev-multi-homing-worker
     spec:
       bgpInstances:
         - name: "instance-65000"
@@ -1061,5 +1061,5 @@ operate with a different ASN when required by the network design.
 Sample Configurations
 =====================
 
-Please refer to container lab examples in Cilium repository under `contrib/containerlab/bgpv2
-<https://github.com/cilium/cilium/tree/main/contrib/containerlab/bgpv2>`_.
+Please refer to container lab examples in Cilium repository under `contrib/containerlab
+<https://github.com/cilium/cilium/tree/main/contrib/containerlab>`_.

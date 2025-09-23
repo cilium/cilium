@@ -56,11 +56,11 @@ In the following example, peering status is displayed for two nodes in the clust
 .. code-block:: shell-session
 
     # cilium bgp peers
-    Node                                     Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
-    bgpv2-cplane-dev-service-control-plane   65001      65000     fd00:10::1     established     33m26s   ipv4/unicast   2          2
-                                                                                                          ipv6/unicast   2          2
-    bgpv2-cplane-dev-service-worker          65001      65000     fd00:10::1     established     33m25s   ipv4/unicast   2          2
-                                                                                                          ipv6/unicast   2          2
+    Node                                   Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
+    bgp-cplane-dev-service-control-plane   65001      65000     fd00:10::1     established     33m26s   ipv4/unicast   2          2
+                                                                                                        ipv6/unicast   2          2
+    bgp-cplane-dev-service-worker          65001      65000     fd00:10::1     established     33m25s   ipv4/unicast   2          2
+                                                                                                        ipv6/unicast   2          2
 
 
 Using this command, you can validate BGP session state is ``established`` and expected number
@@ -76,18 +76,18 @@ In the following example, the local BGP routing table for IPv4/Unicast address f
 .. code-block:: shell-session
 
     # cilium bgp routes available ipv4 unicast
-    Node                                     VRouter   Prefix        NextHop   Age      Attrs
-    bgpv2-cplane-dev-service-control-plane   65001     10.1.0.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
-    bgpv2-cplane-dev-service-worker          65001     10.1.1.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
+    Node                                   VRouter   Prefix        NextHop   Age      Attrs
+    bgp-cplane-dev-service-control-plane   65001     10.1.0.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
+    bgp-cplane-dev-service-worker          65001     10.1.1.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
 
 Similarly, you can inspect per peer advertisements using following command.
 
 .. code-block:: shell-session
 
     # cilium bgp routes advertised ipv4 unicast
-    Node                                     VRouter   Peer         Prefix        NextHop          Age     Attrs
-    bgpv2-cplane-dev-service-control-plane   65001     fd00:10::1   10.1.0.0/24   fd00:10:0:1::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:1::2, NLRIs: [10.1.0.0/24]}}]
-    bgpv2-cplane-dev-service-worker          65001     fd00:10::1   10.1.1.0/24   fd00:10:0:2::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.1.1.0/24]}}]
+    Node                                   VRouter   Peer         Prefix        NextHop          Age     Attrs
+    bgp-cplane-dev-service-control-plane   65001     fd00:10::1   10.1.0.0/24   fd00:10:0:1::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:1::2, NLRIs: [10.1.0.0/24]}}]
+    bgp-cplane-dev-service-worker          65001     fd00:10::1   10.1.1.0/24   fd00:10:0:2::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.1.1.0/24]}}]
 
 
 You can validate the BGP attributes are advertised based on configured :ref:`CiliumBGPAdvertisement <bgp-adverts>` resources.
@@ -146,12 +146,12 @@ node, it is managed by Cilium operator.
 Status field of ``CiliumBGPNodeConfig`` maintains real-time BGP operational state. This can be used for
 automation or monitoring purposes.
 
-In the following example, you can see BGP instance state from node ``bgpv2-cplane-dev-service-worker``.
+In the following example, you can see BGP instance state from node ``bgp-cplane-dev-service-worker``.
 
 .. code-block:: shell-session
 
-    # kubectl describe ciliumbgpnodeconfigs bgpv2-cplane-dev-service-worker
-    Name:         bgpv2-cplane-dev-service-worker
+    # kubectl describe ciliumbgpnodeconfigs bgp-cplane-dev-service-worker
+    Name:         bgp-cplane-dev-service-worker
     Namespace:
     Labels:       <none>
     Annotations:  <none>
