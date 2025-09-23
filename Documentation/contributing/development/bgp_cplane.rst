@@ -42,72 +42,54 @@ Prerequisites
 Deploy Lab
 ----------
 
+The following example deploys a lab with the latest stable version of Cilium:
+
 .. code-block:: shell-session
 
-   $ make kind-bgp-v4
+   $ make kind-bgp-service
 
 .. note::
-        The prior example sets up an IPv4 single-stack environment. You can change the ``v4`` part to ``v6`` or ``dual`` to set up an IPv6 single-stack or dual-stack environment respectively. The same goes for the following examples.
+        The prior example sets up an environment showcasing k8s service advertisements over BGP. Please refer to container lab directory in Cilium repository under ``contrib/containerlab`` for more labs.
 
-Install Cilium on the Lab
--------------------------
-
-Install Cilium on the lab with your favorite way. The following example assumes you are modifying the source and want to build your own image. The minimal mandatory Helm values are provided in ``contrib/containerlab/bgp-cplane-dev-v4/values.yaml``. If needed, you can add Helm values to deploy BGP Control Plane with a different Cilium configuration.
+If you want to install a locally built version of Cilium instead of the stable version, pass ``local`` as the ``VERSION`` environment variable value:
 
 .. code-block:: shell-session
 
-   $ KIND_CLUSTER_NAME=bgp-cplane-dev-v4 make kind-image
-   $ cilium install --chart-directory install/kubernetes/cilium -f contrib/containerlab/bgp-cplane-dev-v4/values.yaml --set image.override="localhost:5000/cilium/cilium-dev:local" --set image.pullPolicy=Never --set operator.image.override="localhost:5000/cilium/operator-generic:local" --set operator.image.pullPolicy=Never
+   $ make VERSION=local kind-bgp-service
 
 Peering with Router
 -------------------
 
-Peer Cilium nodes with FRR by applying a CiliumBGPPeeringPolicy:
+Peer Cilium nodes with FRR by applying BGP configuration resources:
 
 .. code-block:: shell-session
 
-   $ make kind-bgp-v4-apply-policy
+   $ make kind-bgp-service-apply-bgp
 
-.. note::
-        At this point, there are only minimal peering settings on the policy and no advertisement configuration present. You need to edit policies, for example, with ``kubectl edit bgpp`` to realize your desired settings. If you need to change the router side, you can edit FRRouting settings with ``docker exec -it clab-bgp-cplane-dev-v4-router0 vtysh``.
+To deploy some example k8s services, run the following commands:
+
+.. code-block:: shell-session
+
+   $ make kind-bgp-service-apply-service
 
 Validating Peering Status
 -------------------------
 
 You can validate the peering status with the following command. Confirm that
-the session state is established and Received and Advertised counters are zero.
+the session state is established and Received and Advertised counters are non-zero.
 
 .. code-block:: shell-session
 
    $ cilium bgp peers
-   Node                              Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
-   bgp-cplane-dev-v4-control-plane   65001      65000     10.0.1.1       established     1s       ipv4/unicast   0          0
-                                                                                                  ipv6/unicast   0          0
-   bgp-cplane-dev-v4-worker          65002      65000     10.0.2.1       established     2s       ipv4/unicast   0          0
-                                                                                                  ipv6/unicast   0          0
-
-Validating Connectivity to Cilium Nodes from Non-Cilium Node
-------------------------------------------------------------
-
-The below example validates connectivity from server2 to server0 (10.0.1.2) and server1 (10.0.2.2). You should see the packets go through router0 (10.0.3.1).
-
-.. code-block:: shell-session
-
-   $ docker exec -it clab-bgp-cplane-dev-v4-server2 mtr 10.0.1.2 -r
-   Start: 2023-10-04T02:24:58+0000
-   HOST: server2                     Loss%   Snt   Last   Avg  Best  Wrst StDev
-     1.|-- 10.0.3.1                   0.0%    10    0.0   0.1   0.0   0.1   0.0
-     2.|-- 10.0.1.2                   0.0%    10    0.2   0.1   0.1   0.3   0.1
-
-   $ docker exec -it clab-bgp-cplane-dev-v4-server2 mtr 10.0.2.2 -r
-   Start: 2023-10-04T02:25:58+0000
-   HOST: server2                     Loss%   Snt   Last   Avg  Best  Wrst StDev
-     1.|-- 10.0.3.1                   0.0%    10    0.1   0.1   0.0   0.1   0.0
-     2.|-- 10.0.2.2                   0.0%    10    0.1   0.1   0.0   0.2   0.0
+   Node                                   Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
+   bgp-cplane-dev-service-control-plane   65001      65000     fd00:10::1     established     51s      ipv4/unicast   6          4
+                                                                                                       ipv6/unicast   4          3
+   bgp-cplane-dev-service-worker          65001      65000     fd00:10::1     established     51s      ipv4/unicast   6          6
+                                                                                                       ipv6/unicast   4          4
 
 Destroy Lab
 -----------
 
 .. code-block:: shell-session
 
-   $ make kind-bgp-v4-down
+   $ make kind-bgp-service-down
