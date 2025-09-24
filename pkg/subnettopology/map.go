@@ -25,7 +25,7 @@ const (
 
 type Key struct {
 	Prefixlen uint32 `align:"lpm_key"`
-	ClusterID uint16 `align:"cluster_id"`
+	Pad2      uint16 `align:"pad2"`
 	Pad1      uint8  `align:"pad1"`
 	Family    uint8  `align:"family"`
 	// represents both IPv6 and IPv4 (in the lowest four bytes)
@@ -58,9 +58,7 @@ func (k Key) String() string {
 	}
 
 	prefixLen := int(k.Prefixlen - getStaticPrefixBits())
-	clusterID := uint32(k.ClusterID)
-
-	return cmtypes.PrefixClusterFrom(netip.PrefixFrom(addr, prefixLen), cmtypes.WithClusterID(clusterID)).String()
+	return cmtypes.PrefixClusterFrom(netip.PrefixFrom(addr, prefixLen)).String()
 }
 
 func (k *Key) New() bpf.MapKey { return &Key{} }
@@ -85,9 +83,9 @@ func getPrefixLen(prefixBits int) uint32 {
 	return getStaticPrefixBits() + uint32(prefixBits)
 }
 
-// NewKey returns an Key based on the provided IP address, mask, and ClusterID.
+// NewKey returns an Key based on the provided IP address and mask.
 // The address family is automatically detected
-func NewKey(ip net.IP, mask net.IPMask, clusterID uint16) Key {
+func NewKey(ip net.IP, mask net.IPMask) Key {
 	result := Key{}
 
 	ones, _ := mask.Size()
@@ -106,8 +104,6 @@ func NewKey(ip net.IP, mask net.IPMask, clusterID uint16) Key {
 		result.Family = bpf.EndpointKeyIPv6
 		copy(result.IP[:], ip)
 	}
-
-	result.ClusterID = clusterID
 
 	return result
 }

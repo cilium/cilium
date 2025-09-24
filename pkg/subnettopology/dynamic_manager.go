@@ -29,6 +29,7 @@ type dynamicManager struct {
 type subnet struct {
 	ip     net.IP
 	prefix net.IPMask
+	id     uint32
 }
 
 func registerDynamicManager(p Params) error {
@@ -94,8 +95,8 @@ func (tm *dynamicManager) onUpdate(newSubnet string, newHash uint64) error {
 	// Sync eBPF map.
 	for _, subnet := range newSubnets {
 		tm.logger.Info("Syncing eBPF map", "ip", subnet.ip.String(), "prefix", subnet.prefix.String(), "hash", newHash)
-		k := NewKey(subnet.ip, subnet.prefix, 0)
-		v := NewValue(1)
+		k := NewKey(subnet.ip, subnet.prefix)
+		v := NewValue(subnet.id)
 		if err := tm.m.Update(&k, &v); err != nil {
 			return fmt.Errorf("invalid CIDR: %s", subnet.ip.String())
 		}
@@ -124,6 +125,7 @@ func (tm *dynamicManager) parse(newSubnet string) ([]subnet, error) {
 	if newSubnet == "" {
 		return subnets, nil
 	}
+	id := uint32(1)
 	entries := strings.Split(newSubnet, ";")
 	for _, entry := range entries {
 		cidrs := strings.Split(entry, ",")
@@ -135,8 +137,10 @@ func (tm *dynamicManager) parse(newSubnet string) ([]subnet, error) {
 			subnets = append(subnets, subnet{
 				ip:     ip,
 				prefix: ipNet.Mask,
+				id:     id,
 			})
 		}
+		id++
 	}
 	return subnets, nil
 }
