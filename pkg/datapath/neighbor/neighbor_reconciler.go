@@ -141,7 +141,11 @@ func (ops *ops) Update(ctx context.Context, rx statedb.ReadTxn, _ statedb.Revisi
 		}
 		if err := ops.funcsGetter.Get().NeighSet(&neighInit); err != nil {
 			// EINVAL is expected (see above)
-			return fmt.Errorf("next hop insert failed for %+v: %w", neighInit, err)
+			if errors.Is(err, unix.EINVAL) {
+				return nil
+			}
+
+			return fmt.Errorf("next hop initial insert failed for %+v: %w", neighInit, err)
 		}
 	}
 	if err := ops.funcsGetter.Get().NeighSet(&neigh); err != nil {
