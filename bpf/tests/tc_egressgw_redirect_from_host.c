@@ -14,25 +14,12 @@
 #define ENABLE_MASQUERADE_IPV6
 #define ENCAP_IFINDEX 0
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include "lib/egressgw.h"
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/policy.h"
-
-#define TO_NETDEV 0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
 
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program gets redirected to the gateway node.
@@ -53,10 +40,7 @@ int egressgw_redirect_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP,
 				  EGRESS_IP);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "tc_egressgw_redirect")
@@ -92,10 +76,7 @@ int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR,
 				  EGRESS_IP);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "tc_egressgw_skip_excluded_cidr_redirect")
@@ -136,10 +117,7 @@ int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_NO_GATEWAY,
 				  EGRESS_IP);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "tc_egressgw_skip_no_gateway_redirect")
@@ -198,10 +176,7 @@ int egressgw_drop_no_egress_ip_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, GATEWAY_NODE_IP,
 				  EGRESS_GATEWAY_NO_EGRESS_IP);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "tc_egressgw_drop_no_egress_ip")
@@ -257,10 +232,7 @@ int egressgw_redirect_setup_v6(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
 				     &egress_ip);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "tc_egressgw_redirect_v6")
@@ -303,10 +275,7 @@ int egressgw_skip_excluded_cidr_redirect_setup_v6(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, EGRESS_GATEWAY_EXCLUDED_CIDR,
 				     &egress_ip);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "tc_egressgw_skip_excluded_cidr_redirect_v6")
@@ -354,10 +323,7 @@ int egressgw_skip_no_gateway_redirect_setup_v6(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, EGRESS_GATEWAY_NO_GATEWAY,
 				     &egress_ip);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "tc_egressgw_skip_no_gateway_redirect_v6")
@@ -421,10 +387,7 @@ int egressgw_drop_no_egress_ip_setup_v6(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, GATEWAY_NODE_IP,
 				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "tc_egressgw_drop_no_egress_ip_v6")

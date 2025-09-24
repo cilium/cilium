@@ -38,7 +38,7 @@
 /*
  * Include entrypoint into host stack.
  */
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include "lib/eth.h"
 static volatile const union macaddr __cilium_net_mac = CILIUM_NET_MAC;
@@ -49,18 +49,6 @@ static volatile const union macaddr __cilium_net_mac = CILIUM_NET_MAC;
  */
 #include "lib/ipcache.h"
 #include "lib/policy.h"
-
-#define FROM_HOST 0
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_HOST] = &cil_from_host,
-	},
-};
 
 static __always_inline int
 pktgen_from_host(struct __ctx_buff *ctx, bool v4)
@@ -118,8 +106,7 @@ setup(struct __ctx_buff *ctx, bool flag_skip_tunnel, bool v4)
 		ipcache_v6_add_entry_with_flags((union v6addr *)DST_IPV6,
 						0, 1230, v4_node_two, 0, flag_skip_tunnel);
 
-	tail_call_static(ctx, entry_call_map, FROM_HOST);
-	return TEST_ERROR;
+	return host_send_packet(ctx);
 }
 
 static __always_inline int

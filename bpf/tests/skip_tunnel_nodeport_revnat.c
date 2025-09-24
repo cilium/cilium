@@ -66,7 +66,7 @@ long mock_fib_lookup(const __maybe_unused void *ctx, const struct bpf_fib_lookup
 /*
  * Include entrypoint into host stack
  */
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 /*
  * Include test helpers
@@ -84,18 +84,6 @@ long mock_fib_lookup(const __maybe_unused void *ctx, const struct bpf_fib_lookup
 #include "lib/conntrack.h"
 #include "lib/nat.h"
 #include "lib/nodeport.h"
-
-#define FROM_NETDEV 0
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_from_netdev,
-	},
-};
 
 static __always_inline int
 pktgen(struct __ctx_buff *ctx, bool v4)
@@ -247,8 +235,7 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 						0, 1230, SRC_TUNNEL_IP, 0, flag_skip_tunnel);
 	}
 
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 static __always_inline int
