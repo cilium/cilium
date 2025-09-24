@@ -15,7 +15,7 @@
 /* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
-#include <bpf_lxc.c>
+#include "lib/bpf_lxc.h"
 
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one})
@@ -26,18 +26,6 @@ ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, false)
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 #include "lib/policy.h"
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[0] = &cil_from_container,
-		[1] = &cil_to_container,
-	},
-};
 
 /* Setup for this test:
  * +-------ClusterIP--------+    +----------Pod 1---------+
@@ -93,10 +81,7 @@ int tc_lb_no_backend_nonroutable_setup(struct __ctx_buff *ctx)
 	/* avoid policy drop */
 	policy_add_egress_allow_all_entry();
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "tc_lb_no_backend_nonroutable")
@@ -139,10 +124,7 @@ int tc_lb_no_backend_nonroutable_etp_setup(struct __ctx_buff *ctx)
 	/* avoid policy drop */
 	policy_add_egress_allow_all_entry();
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "tc_lb_no_backend_nonroutable_etp")

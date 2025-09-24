@@ -16,7 +16,7 @@
 /* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
-#include <bpf_lxc.c>
+#include "lib/bpf_lxc.h"
 
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one})
@@ -32,18 +32,6 @@ ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 #include "lib/policy.h"
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[0] = &cil_from_container,
-		[1] = &cil_to_container,
-	},
-};
 
 /* Setup for this test:
  * +-------ClusterIP--------+    +----------Pod 1---------+
@@ -110,10 +98,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	policy_add_egress_deny_all_entry();
 	policy_add_ingress_deny_all_entry();
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "hairpin_flow_1_forward_v4")
@@ -238,10 +223,7 @@ int hairpin_flow_forward_ingress_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hairpin_flow_2_forward_ingress_v4")
 int hairpin_flow_forward_ingress_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 1);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_receive_packet(ctx);
 }
 
 CHECK("tc", "hairpin_flow_2_forward_ingress_v4")
@@ -352,10 +334,7 @@ int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hairpin_flow_3_reverse_v4")
 int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "hairpin_flow_3_reverse_v4")
@@ -442,10 +421,7 @@ int hairpin_flow_reverse_ingress_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hairpin_flow_4_reverse_ingress_v4")
 int hairpin_flow_reverse_ingress_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 1);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_receive_packet(ctx);
 }
 
 CHECK("tc", "hairpin_flow_4_reverse_ingress_v4")
@@ -515,10 +491,7 @@ int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 	/* avoid policy drop */
 	policy_add_egress_allow_all_entry();
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "tc_drop_no_backend")
@@ -593,8 +566,7 @@ int hairpin_flow_forward_setup_v6(struct __ctx_buff *ctx)
 	policy_add_egress_deny_all_entry();
 	policy_add_ingress_deny_all_entry();
 
-	tail_call_static(ctx, entry_call_map, 0);
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "hairpin_flow_1_forward_v6")
@@ -707,10 +679,7 @@ int hairpin_flow_forward_ingress_pktgen_v6(struct __ctx_buff *ctx)
 SETUP("tc", "hairpin_flow_2_forward_ingress_v6")
 int hairpin_flow_forward_ingress_setup_v6(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 1);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_receive_packet(ctx);
 }
 
 CHECK("tc", "hairpin_flow_2_forward_ingress_v6")
@@ -813,10 +782,7 @@ int hairpin_flow_reverse_pktgen_v6(struct __ctx_buff *ctx)
 SETUP("tc", "hairpin_flow_3_reverse_v6")
 int hairpin_flow_rev_setup_v6(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "hairpin_flow_3_reverse_v6")
@@ -901,10 +867,7 @@ int hairpin_flow_reverse_ingress_pktgen_v6(struct __ctx_buff *ctx)
 SETUP("tc", "hairpin_flow_4_reverse_ingress_v6")
 int hairpin_flow_reverse_ingress_setup_v6(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 1);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_receive_packet(ctx);
 }
 
 CHECK("tc", "hairpin_flow_4_reverse_ingress_v6")
@@ -970,10 +933,7 @@ int tc_drop_no_backend_setup_v6(struct __ctx_buff *ctx)
 	/* avoid policy drop */
 	policy_add_egress_allow_all_entry();
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "tc_drop_no_backend_v6")

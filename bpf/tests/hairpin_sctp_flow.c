@@ -23,7 +23,7 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 	return TC_ACT_REDIRECT;
 }
 
-#include <bpf_lxc.c>
+#include "lib/bpf_lxc.h"
 
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one })
@@ -32,18 +32,6 @@ ASSIGN_CONFIG(union v4addr, service_loopback_ipv4, { .be32 = v4_svc_loopback })
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[0] = &cil_from_container,
-		[1] = &cil_to_container,
-	},
-};
 
 /* Setup for this test:
  * +-------ClusterIP--------+    +----------Pod 1---------+
@@ -97,10 +85,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 
 	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, 0, NULL, NULL);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "hairpin_sctp_flow_1_forward_v4")
@@ -188,10 +173,7 @@ int hairpin_flow_forward_ingress_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hairpin_sctp_flow_2_forward_ingress_v4")
 int hairpin_flow_forward_ingress_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 1);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_receive_packet(ctx);
 }
 
 CHECK("tc", "hairpin_sctp_flow_2_forward_ingress_v4")
@@ -273,10 +255,7 @@ int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "hairpin_sctp_flow_3_reverse_v4")
@@ -360,10 +339,7 @@ int hairpin_sctp_flow_4_reverse_ingress_v4_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hairpin_sctp_flow_4_reverse_ingress_v4")
 int hairpin_sctp_flow_4_reverse_ingress_v4_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 1);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_receive_packet(ctx);
 }
 
 CHECK("tc", "hairpin_sctp_flow_4_reverse_ingress_v4")
