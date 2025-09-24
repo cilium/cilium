@@ -547,53 +547,54 @@ int tc_drop_no_backend_check(const struct __ctx_buff *ctx)
 
 static __always_inline int build_packet_v6(struct __ctx_buff *ctx, __be16 sport)
 {
-    struct pktgen builder;
-    volatile const __u8 *src = mac_one;
-    volatile const __u8 *dst = mac_two;
-    struct tcphdr *l4;
-    void *data;
+	struct pktgen builder;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
+	struct tcphdr *l4;
+	void *data;
 
-    pktgen__init(&builder, ctx);
+	pktgen__init(&builder, ctx);
 
-    l4 = pktgen__push_ipv6_tcp_packet(&builder,
-				      (__u8 *)src, (__u8 *)dst,
-				      (__u8 *)POD_IPV6, (__u8 *)SERVICE_IPV6,
-				      sport, tcp_svc_one);
-    if (!l4)
-	return TEST_ERROR;
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)src, (__u8 *)dst,
+					  (__u8 *)POD_IPV6, (__u8 *)SERVICE_IPV6,
+					  sport, tcp_svc_one);
+	if (!l4)
+		return TEST_ERROR;
 
-    data = pktgen__push_data(&builder, default_data, sizeof(default_data));
-    if (!data)
-	return TEST_ERROR;
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
 
-    pktgen__finish(&builder);
-    return 0;
+	pktgen__finish(&builder);
+	return 0;
 }
 
 PKTGEN("tc", "hairpin_flow_1_forward_v6")
 int hairpin_flow_forward_pktgen_v6(struct __ctx_buff *ctx)
 {
-    return build_packet_v6(ctx, tcp_src_one);
+	return build_packet_v6(ctx, tcp_src_one);
 }
 
 SETUP("tc", "hairpin_flow_1_forward_v6")
 int hairpin_flow_forward_setup_v6(struct __ctx_buff *ctx)
 {
-    __u16 revnat_id = 1;
+	__u16 revnat_id = 1;
 
-    lb_v6_add_service((const union v6addr *)SERVICE_IPV6, tcp_svc_one, IPPROTO_TCP, 1, revnat_id);
-    lb_v6_add_backend((const union v6addr *)SERVICE_IPV6, tcp_svc_one, 1, 124,
-		      (const union v6addr *)POD_IPV6, tcp_dst_one, IPPROTO_TCP, 0);
+	lb_v6_add_service((const union v6addr *)SERVICE_IPV6, tcp_svc_one, IPPROTO_TCP,
+			  1, revnat_id);
+	lb_v6_add_backend((const union v6addr *)SERVICE_IPV6, tcp_svc_one, 1, 124,
+			  (const union v6addr *)POD_IPV6, tcp_dst_one, IPPROTO_TCP, 0);
 
-    ipcache_v6_add_entry((union v6addr *)POD_IPV6, 0, 112233, 0, 0);
+	ipcache_v6_add_entry((union v6addr *)POD_IPV6, 0, 112233, 0, 0);
 
-    endpoint_v6_add_entry((const union v6addr *)POD_IPV6, 0, 0, 0, 0, NULL, NULL);
+	endpoint_v6_add_entry((const union v6addr *)POD_IPV6, 0, 0, 0, 0, NULL, NULL);
 
-    policy_add_egress_deny_all_entry();
-    policy_add_ingress_deny_all_entry();
+	policy_add_egress_deny_all_entry();
+	policy_add_ingress_deny_all_entry();
 
-    tail_call_static(ctx, entry_call_map, 0);
-    return TEST_ERROR;
+	tail_call_static(ctx, entry_call_map, 0);
+	return TEST_ERROR;
 }
 
 CHECK("tc", "hairpin_flow_1_forward_v6")
