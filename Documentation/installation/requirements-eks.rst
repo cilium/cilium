@@ -44,7 +44,6 @@ For more information on AWS ENI mode, see :ref:`ipam_eni`.
         EOF
         eksctl create nodegroup -f ./node-group.yaml
     
-   .. note::
        Ensure cluster name and region matches the values in the ClusterConfig used to create the cluster. 
 
 **Limitations:**
