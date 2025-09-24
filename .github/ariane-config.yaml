@@ -12,6 +12,7 @@ triggers:
     - conformance-gateway-api.yaml
     - conformance-ginkgo.yaml
     - conformance-ingress.yaml
+    - conformance-kpr.yaml
     - conformance-multi-pool.yaml
     - conformance-runtime.yaml
     - integration-test.yaml
@@ -62,6 +63,9 @@ triggers:
   /ci-integration:
     workflows:
     - integration-test.yaml
+  /ci-kpr:
+    workflows:
+    - conformance-kpr.yaml
   /ci-kubespray:
     workflows:
     - conformance-kubespray.yaml
