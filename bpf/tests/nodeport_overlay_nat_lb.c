@@ -93,23 +93,10 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 	return 0;
 }
 
-#include <bpf_overlay.c>
+#include "lib/bpf_overlay.h"
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
-
-#define FROM_OVERLAY	0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_OVERLAY] = &cil_from_overlay,
-	},
-};
 
 /* Test that a SVC request to an intermediate LB node gets DNATed and SNATed,
  * and flows back out on the overlay interface to a remote backend
@@ -154,10 +141,7 @@ int nodeport_overlay_nat_1_fwd_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(BACKEND_IP, 0, BACKEND_SEC_IDENTITY,
 			     BACKEND_NODE_IP, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return overlay_receive_packet(ctx);
 }
 
 CHECK("tc", "nodeport_overlay_nat_1_fwd")
@@ -262,10 +246,7 @@ int nodeport_overlay_nat_2_reply_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(CLIENT_IP, 0, CLIENT_SEC_IDENTITY,
 			     CLIENT_NODE_IP, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return overlay_receive_packet(ctx);
 }
 
 CHECK("tc", "nodeport_overlay_nat_2_reply")
