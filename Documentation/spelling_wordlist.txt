@@ -355,6 +355,7 @@ fec
 filesystem
 filesystems
 firewalling
+fixup
 fortio
 fqdn
 fromCIDR
@@ -682,6 +683,7 @@ reStructuredText
 reachability
 readSecretsOnlyFromSecretsNamespace
 rebase
+rebases
 rebased
 rebasing
 recompiles
@@ -810,6 +812,9 @@ tracepoint
 tracepoints
 tracestate
 transpiling
+Triager
+Triaging
+triaging
 tsne
 tunables
 tunings
