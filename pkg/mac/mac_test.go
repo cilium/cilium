@@ -10,6 +10,54 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestParse(t *testing.T) {
+	macTests := []struct {
+		in      string
+		out     MAC
+		wantErr string
+	}{
+		{"00:00:5e:00:53:01", MAC{0x00, 0x00, 0x5e, 0x00, 0x53, 0x01}, ""},
+		{"00-00-5e-00-53-01", MAC{0x00, 0x00, 0x5e, 0x00, 0x53, 0x01}, ""},
+		{"0000.5e00.5301", MAC{0x00, 0x00, 0x5e, 0x00, 0x53, 0x01}, ""},
+
+		// invalid delimiter
+		{
+			"01.02.03.04.05.06",
+			nil,
+			"invalid MAC address",
+		},
+		// not IEEE 802 MAC-48
+		{
+			"00:00:00:00:fe:80:00:00:00:00:00:00:02:00:5e:10:00:00:00:01",
+			nil,
+			"invalid MAC address",
+		},
+		{
+			"00-00-00-00-fe-80-00-00-00-00-00-00-02-00-5e-10-00-00-00-01",
+			nil,
+			"invalid MAC address",
+		},
+		{
+			"0000.0000.fe80.0000.0000.0000.0200.5e10.0000.0001",
+			nil,
+			"invalid MAC address",
+		},
+	}
+
+	for _, tt := range macTests {
+		t.Run(tt.in, func(t *testing.T) {
+			out, err := ParseMAC(tt.in)
+			require.Equal(t, tt.out, out)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tt.wantErr)
+				require.Panics(t, func() { _ = MustParseMAC(tt.in) })
+			}
+		})
+	}
+}
+
 func TestUint64(t *testing.T) {
 	m := MAC([]byte{0x11, 0x12, 0x23, 0x34, 0x45, 0x56})
 	v, err := m.Uint64()
