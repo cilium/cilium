@@ -41,6 +41,7 @@ import (
 	    https://github.com/kubernetes/kubernetes/pull/120326 (v5.6.0+incompatible
 	    missing a critical fix)
 	*/
+
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -52,17 +53,21 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/util/managedfields"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/watch"
+	clientgoapplyconfigurations "k8s.io/client-go/applyconfigurations"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
@@ -76,8 +81,9 @@ import (
 
 type versionedTracker struct {
 	testing.ObjectTracker
-	scheme                *runtime.Scheme
-	withStatusSubresource sets.Set[schema.GroupVersionKind]
+	scheme                        *runtime.Scheme
+	withStatusSubresource         sets.Set[schema.GroupVersionKind]
+	usesFieldManagedObjectTracker bool
 }
 
 type fakeClient struct {
@@ -98,6 +104,8 @@ type fakeClient struct {
 	indexes map[schema.GroupVersionKind]map[string]client.IndexerFunc
 	// indexesLock must be held when accessing indexes.
 	indexesLock sync.RWMutex
+
+	returnManagedFields bool
 }
 
 var _ client.WithWatch = &fakeClient{}
@@ -131,6 +139,8 @@ type ClientBuilder struct {
 	withStatusSubresource []client.Object
 	objectTracker         testing.ObjectTracker
 	interceptorFuncs      *interceptor.Funcs
+	typeConverters        []managedfields.TypeConverter
+	returnManagedFields   bool
 
 	// indexes maps each GroupVersionKind (GVK) to the indexes registered for that GVK.
 	// The inner map maps from index name to IndexerFunc.
@@ -172,6 +182,8 @@ func (f *ClientBuilder) WithRuntimeObjects(initRuntimeObjs ...runtime.Object) *C
 }
 
 // WithObjectTracker can be optionally used to initialize this fake client with testing.ObjectTracker.
+// Setting this is incompatible with setting WithTypeConverters, as they are a setting on the
+// tracker.
 func (f *ClientBuilder) WithObjectTracker(ot testing.ObjectTracker) *ClientBuilder {
 	f.objectTracker = ot
 	return f
@@ -228,6 +240,31 @@ func (f *ClientBuilder) WithInterceptorFuncs(interceptorFuncs interceptor.Funcs)
 	return f
 }
 
+// WithTypeConverters sets the type converters for the fake client. The list is ordered and the first
+// non-erroring converter is used. A type converter must be provided for all types the client is used
+// for, otherwise it will error.
+//
+// This setting is incompatible with WithObjectTracker, as the type converters are a setting on the tracker.
+//
+// If unset, this defaults to:
+// * clientgoapplyconfigurations.NewTypeConverter(scheme.Scheme),
+// * managedfields.NewDeducedTypeConverter(),
+//
+// Be aware that the behavior of the `NewDeducedTypeConverter` might not match the behavior of the
+// Kubernetes APIServer, it is recommended to provide a type converter for your types. TypeConverters
+// are generated along with ApplyConfigurations.
+func (f *ClientBuilder) WithTypeConverters(typeConverters ...managedfields.TypeConverter) *ClientBuilder {
+	f.typeConverters = append(f.typeConverters, typeConverters...)
+	return f
+}
+
+// WithReturnManagedFields configures the fake client to return managedFields
+// on objects.
+func (f *ClientBuilder) WithReturnManagedFields() *ClientBuilder {
+	f.returnManagedFields = true
+	return f
+}
+
 // Build builds and returns a new fake client.
 func (f *ClientBuilder) Build() client.WithWatch {
 	if f.scheme == nil {
@@ -236,8 +273,6 @@ func (f *ClientBuilder) Build() client.WithWatch {
 	if f.restMapper == nil {
 		f.restMapper = meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	}
-
-	var tracker versionedTracker
 
 	withStatusSubResource := sets.New(inTreeResourcesWithStatus()...)
 	for _, o := range f.withStatusSubresource {
@@ -248,10 +283,36 @@ func (f *ClientBuilder) Build() client.WithWatch {
 		withStatusSubResource.Insert(gvk)
 	}
 
+	if f.objectTracker != nil && len(f.typeConverters) > 0 {
+		panic(errors.New("WithObjectTracker and WithTypeConverters are incompatible"))
+	}
+
+	var usesFieldManagedObjectTracker bool
 	if f.objectTracker == nil {
-		tracker = versionedTracker{ObjectTracker: testing.NewObjectTracker(f.scheme, scheme.Codecs.UniversalDecoder()), scheme: f.scheme, withStatusSubresource: withStatusSubResource}
-	} else {
-		tracker = versionedTracker{ObjectTracker: f.objectTracker, scheme: f.scheme, withStatusSubresource: withStatusSubResource}
+		if len(f.typeConverters) == 0 {
+			// Use corresponding scheme to ensure the converter error
+			// for types it can't handle.
+			clientGoScheme := runtime.NewScheme()
+			if err := scheme.AddToScheme(clientGoScheme); err != nil {
+				panic(fmt.Sprintf("failed to construct client-go scheme: %v", err))
+			}
+			f.typeConverters = []managedfields.TypeConverter{
+				clientgoapplyconfigurations.NewTypeConverter(clientGoScheme),
+				managedfields.NewDeducedTypeConverter(),
+			}
+		}
+		f.objectTracker = testing.NewFieldManagedObjectTracker(
+			f.scheme,
+			serializer.NewCodecFactory(f.scheme).UniversalDecoder(),
+			multiTypeConverter{upstream: f.typeConverters},
+		)
+		usesFieldManagedObjectTracker = true
+	}
+	tracker := versionedTracker{
+		ObjectTracker:                 f.objectTracker,
+		scheme:                        f.scheme,
+		withStatusSubresource:         withStatusSubResource,
+		usesFieldManagedObjectTracker: usesFieldManagedObjectTracker,
 	}
 
 	for _, obj := range f.initObject {
@@ -276,6 +337,7 @@ func (f *ClientBuilder) Build() client.WithWatch {
 		restMapper:            f.restMapper,
 		indexes:               f.indexes,
 		withStatusSubresource: withStatusSubResource,
+		returnManagedFields:   f.returnManagedFields,
 	}
 
 	if f.interceptorFuncs != nil {
@@ -318,6 +380,16 @@ func (t versionedTracker) Add(obj runtime.Object) error {
 		if err != nil {
 			return err
 		}
+
+		// If the fieldManager can not decode fields, it will just silently clear them. This is pretty
+		// much guaranteed not to be what someone that initializes a fake client with objects that
+		// have them set wants, so validate them here.
+		// Ref https://github.com/kubernetes/kubernetes/blob/a956ef4862993b825bcd524a19260192ff1da72d/staging/src/k8s.io/apimachinery/pkg/util/managedfields/internal/fieldmanager.go#L105
+		if t.usesFieldManagedObjectTracker {
+			if err := managedfields.ValidateManagedFields(accessor.GetManagedFields()); err != nil {
+				return fmt.Errorf("invalid managedFields on %T: %w", obj, err)
+			}
+		}
 		if err := t.ObjectTracker.Add(obj); err != nil {
 			return err
 		}
@@ -332,8 +404,9 @@ func (t versionedTracker) Create(gvr schema.GroupVersionResource, obj runtime.Ob
 		return fmt.Errorf("failed to get accessor for object: %w", err)
 	}
 	if accessor.GetName() == "" {
+		gvk, _ := apiutil.GVKForObject(obj, t.scheme)
 		return apierrors.NewInvalid(
-			obj.GetObjectKind().GroupVersionKind().GroupKind(),
+			gvk.GroupKind(),
 			accessor.GetName(),
 			field.ErrorList{field.Required(field.NewPath("metadata.name"), "name is required")})
 	}
@@ -372,6 +445,9 @@ func convertFromUnstructuredIfNecessary(s *runtime.Scheme, o runtime.Object) (ru
 	if err != nil {
 		return nil, fmt.Errorf("scheme recognizes %s but failed to produce an object for it: %w", gvk, err)
 	}
+	if _, isTypedUnstructured := typed.(runtime.Unstructured); isTypedUnstructured {
+		return o, nil
+	}
 
 	unstructuredSerialized, err := json.Marshal(u)
 	if err != nil {
@@ -394,12 +470,20 @@ func (t versionedTracker) Update(gvr schema.GroupVersionResource, obj runtime.Ob
 }
 
 func (t versionedTracker) update(gvr schema.GroupVersionResource, obj runtime.Object, ns string, isStatus, deleting bool, opts metav1.UpdateOptions) error {
-	obj, err := t.updateObject(gvr, obj, ns, isStatus, deleting, opts.DryRun)
+	gvk, err := apiutil.GVKForObject(obj, t.scheme)
+	if err != nil {
+		return err
+	}
+	obj, err = t.updateObject(gvr, obj, ns, isStatus, deleting, opts.DryRun)
 	if err != nil {
 		return err
 	}
 	if obj == nil {
 		return nil
+	}
+
+	if u, unstructured := obj.(*unstructured.Unstructured); unstructured {
+		u.SetGroupVersionKind(gvk)
 	}
 
 	return t.ObjectTracker.Update(gvr, obj, ns, opts)
@@ -433,8 +517,9 @@ func (t versionedTracker) updateObject(gvr schema.GroupVersionResource, obj runt
 	}
 
 	if accessor.GetName() == "" {
+		gvk, _ := apiutil.GVKForObject(obj, t.scheme)
 		return nil, apierrors.NewInvalid(
-			obj.GetObjectKind().GroupVersionKind().GroupKind(),
+			gvk.GroupKind(),
 			accessor.GetName(),
 			field.ErrorList{field.Required(field.NewPath("metadata.name"), "name is required")})
 	}
@@ -521,9 +606,17 @@ func (t versionedTracker) updateObject(gvr schema.GroupVersionResource, obj runt
 }
 
 func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if err := c.addToSchemeIfUnknownAndUnstructuredOrPartial(obj); err != nil {
+		return err
+	}
+
 	c.schemeLock.RLock()
 	defer c.schemeLock.RUnlock()
 	gvr, err := getGVRFromObject(obj, c.scheme)
+	if err != nil {
+		return err
+	}
+	gvk, err := apiutil.GVKForObject(obj, c.scheme)
 	if err != nil {
 		return err
 	}
@@ -532,31 +625,41 @@ func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj client.O
 		return err
 	}
 
-	_, isUnstructured := obj.(runtime.Unstructured)
-	_, isPartialObject := obj.(*metav1.PartialObjectMetadata)
-
-	if isUnstructured || isPartialObject {
-		gvk, err := apiutil.GVKForObject(obj, c.scheme)
-		if err != nil {
-			return err
-		}
-		ta, err := meta.TypeAccessor(o)
-		if err != nil {
-			return err
-		}
-		ta.SetKind(gvk.Kind)
-		ta.SetAPIVersion(gvk.GroupVersion().String())
+	ta, err := meta.TypeAccessor(o)
+	if err != nil {
+		return err
 	}
+
+	// If the final object is unstructuctured, the json
+	// representation must contain GVK or the apimachinery
+	// json serializer will error out.
+	ta.SetAPIVersion(gvk.GroupVersion().String())
+	ta.SetKind(gvk.Kind)
 
 	j, err := json.Marshal(o)
 	if err != nil {
 		return err
 	}
 	zero(obj)
-	return json.Unmarshal(j, obj)
+	if err := json.Unmarshal(j, obj); err != nil {
+		return err
+	}
+
+	if !c.returnManagedFields {
+		obj.SetManagedFields(nil)
+	}
+
+	return ensureTypeMeta(obj, gvk)
 }
 
 func (c *fakeClient) Watch(ctx context.Context, list client.ObjectList, opts ...client.ListOption) (watch.Interface, error) {
+	if err := c.addToSchemeIfUnknownAndUnstructuredOrPartial(list); err != nil {
+		return nil, err
+	}
+
+	c.schemeLock.RLock()
+	defer c.schemeLock.RUnlock()
+
 	gvk, err := apiutil.GVKForObject(list, c.scheme)
 	if err != nil {
 		return nil, err
@@ -572,6 +675,10 @@ func (c *fakeClient) Watch(ctx context.Context, list client.ObjectList, opts ...
 }
 
 func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...client.ListOption) error {
+	if err := c.addToSchemeIfUnknownAndUnstructuredOrPartial(obj); err != nil {
+		return err
+	}
+
 	c.schemeLock.RLock()
 	defer c.schemeLock.RUnlock()
 	gvk, err := apiutil.GVKForObject(obj, c.scheme)
@@ -579,11 +686,12 @@ func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...cl
 		return err
 	}
 
-	originalKind := gvk.Kind
-
+	originalGVK := gvk
 	gvk.Kind = strings.TrimSuffix(gvk.Kind, "List")
+	listGVK := gvk
+	listGVK.Kind += "List"
 
-	if _, isUnstructuredList := obj.(runtime.Unstructured); isUnstructuredList && !c.scheme.Recognizes(gvk) {
+	if _, isUnstructuredList := obj.(runtime.Unstructured); isUnstructuredList && !c.scheme.Recognizes(listGVK) {
 		// We need to register the ListKind with UnstructuredList:
 		// https://github.com/kubernetes/kubernetes/blob/7b2776b89fb1be28d4e9203bdeec079be903c103/staging/src/k8s.io/client-go/dynamic/fake/simple.go#L44-L51
 		c.schemeLock.RUnlock()
@@ -602,37 +710,32 @@ func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...cl
 		return err
 	}
 
-	if _, isUnstructured := obj.(runtime.Unstructured); isUnstructured {
-		ta, err := meta.TypeAccessor(o)
-		if err != nil {
-			return err
-		}
-		ta.SetKind(originalKind)
-		ta.SetAPIVersion(gvk.GroupVersion().String())
-	}
-
 	j, err := json.Marshal(o)
 	if err != nil {
 		return err
 	}
 	zero(obj)
+	if err := ensureTypeMeta(obj, originalGVK); err != nil {
+		return err
+	}
 	objCopy := obj.DeepCopyObject().(client.ObjectList)
 	if err := json.Unmarshal(j, objCopy); err != nil {
 		return err
 	}
 
-	if _, isUnstructured := obj.(runtime.Unstructured); isUnstructured {
-		ta, err := meta.TypeAccessor(obj)
-		if err != nil {
-			return err
-		}
-		ta.SetKind(originalKind)
-		ta.SetAPIVersion(gvk.GroupVersion().String())
-	}
-
 	objs, err := meta.ExtractList(objCopy)
 	if err != nil {
 		return err
+	}
+
+	for _, o := range objs {
+		if err := ensureTypeMeta(o, gvk); err != nil {
+			return err
+		}
+
+		if !c.returnManagedFields {
+			o.(metav1.Object).SetManagedFields(nil)
+		}
 	}
 
 	if listOpts.LabelSelector == nil && listOpts.FieldSelector == nil {
@@ -741,8 +844,13 @@ func (c *fakeClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
 }
 
 func (c *fakeClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	if err := c.addToSchemeIfUnknownAndUnstructuredOrPartial(obj); err != nil {
+		return err
+	}
+
 	c.schemeLock.RLock()
 	defer c.schemeLock.RUnlock()
+
 	createOptions := &client.CreateOptions{}
 	createOptions.ApplyOptions(opts)
 
@@ -773,14 +881,35 @@ func (c *fakeClient) Create(ctx context.Context, obj client.Object, opts ...clie
 		accessor.SetDeletionTimestamp(nil)
 	}
 
+	gvk, err := apiutil.GVKForObject(obj, c.scheme)
+	if err != nil {
+		return err
+	}
+
 	c.trackerWriteLock.Lock()
 	defer c.trackerWriteLock.Unlock()
-	return c.tracker.Create(gvr, obj, accessor.GetNamespace())
+
+	if err := c.tracker.Create(gvr, obj, accessor.GetNamespace(), *createOptions.AsCreateOptions()); err != nil {
+		// The managed fields tracker sets gvk even on errors
+		_ = ensureTypeMeta(obj, gvk)
+		return err
+	}
+
+	if !c.returnManagedFields {
+		obj.SetManagedFields(nil)
+	}
+
+	return ensureTypeMeta(obj, gvk)
 }
 
 func (c *fakeClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+	if err := c.addToSchemeIfUnknownAndUnstructuredOrPartial(obj); err != nil {
+		return err
+	}
+
 	c.schemeLock.RLock()
 	defer c.schemeLock.RUnlock()
+
 	gvr, err := getGVRFromObject(obj, c.scheme)
 	if err != nil {
 		return err
@@ -826,8 +955,13 @@ func (c *fakeClient) Delete(ctx context.Context, obj client.Object, opts ...clie
 }
 
 func (c *fakeClient) DeleteAllOf(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {
+	if err := c.addToSchemeIfUnknownAndUnstructuredOrPartial(obj); err != nil {
+		return err
+	}
+
 	c.schemeLock.RLock()
 	defer c.schemeLock.RUnlock()
+
 	gvk, err := apiutil.GVKForObject(obj, c.scheme)
 	if err != nil {
 		return err
@@ -877,8 +1011,13 @@ func (c *fakeClient) Update(ctx context.Context, obj client.Object, opts ...clie
 }
 
 func (c *fakeClient) update(obj client.Object, isStatus bool, opts ...client.UpdateOption) error {
+	if err := c.addToSchemeIfUnknownAndUnstructuredOrPartial(obj); err != nil {
+		return err
+	}
+
 	c.schemeLock.RLock()
 	defer c.schemeLock.RUnlock()
+
 	updateOptions := &client.UpdateOptions{}
 	updateOptions.ApplyOptions(opts)
 
@@ -892,6 +1031,10 @@ func (c *fakeClient) update(obj client.Object, isStatus bool, opts ...client.Upd
 	if err != nil {
 		return err
 	}
+	gvk, err := apiutil.GVKForObject(obj, c.scheme)
+	if err != nil {
+		return err
+	}
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
 		return err
@@ -899,18 +1042,99 @@ func (c *fakeClient) update(obj client.Object, isStatus bool, opts ...client.Upd
 
 	c.trackerWriteLock.Lock()
 	defer c.trackerWriteLock.Unlock()
-	return c.tracker.update(gvr, obj, accessor.GetNamespace(), isStatus, false, *updateOptions.AsUpdateOptions())
+
+	// Retain managed fields
+	// We can ignore all errors here since update will fail if we encounter an error.
+	obj.SetManagedFields(nil)
+	current, _ := c.tracker.Get(gvr, accessor.GetNamespace(), accessor.GetName())
+	if currentMetaObj, ok := current.(metav1.Object); ok {
+		obj.SetManagedFields(currentMetaObj.GetManagedFields())
+	}
+
+	if err := c.tracker.update(gvr, obj, accessor.GetNamespace(), isStatus, false, *updateOptions.AsUpdateOptions()); err != nil {
+		return err
+	}
+
+	if !c.returnManagedFields {
+		obj.SetManagedFields(nil)
+	}
+
+	return ensureTypeMeta(obj, gvk)
 }
 
 func (c *fakeClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 	return c.patch(obj, patch, opts...)
 }
 
+func (c *fakeClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+	applyOpts := &client.ApplyOptions{}
+	applyOpts.ApplyOptions(opts)
+
+	data, err := json.Marshal(obj)
+	if err != nil {
+		return fmt.Errorf("failed to marshal apply configuration: %w", err)
+	}
+
+	u := &unstructured.Unstructured{}
+	if err := json.Unmarshal(data, u); err != nil {
+		return fmt.Errorf("failed to unmarshal apply configuration: %w", err)
+	}
+
+	applyPatch := &fakeApplyPatch{}
+
+	patchOpts := &client.PatchOptions{}
+	patchOpts.Raw = applyOpts.AsPatchOptions()
+
+	if err := c.patch(u, applyPatch, patchOpts); err != nil {
+		return err
+	}
+
+	acJSON, err := json.Marshal(u)
+	if err != nil {
+		return fmt.Errorf("failed to marshal patched object: %w", err)
+	}
+
+	// We have to zero the object in case it contained a status and there is a
+	// status subresource. If its the private `unstructuredApplyConfiguration`
+	// we can not zero all of it, as that will cause the embedded Unstructured
+	// to be nil which then causes a NPD in the json.Unmarshal below.
+	switch reflect.TypeOf(obj).String() {
+	case "*client.unstructuredApplyConfiguration":
+		zero(reflect.ValueOf(obj).Elem().FieldByName("Unstructured").Interface())
+	default:
+		zero(obj)
+	}
+	if err := json.Unmarshal(acJSON, obj); err != nil {
+		return fmt.Errorf("failed to unmarshal patched object: %w", err)
+	}
+
+	return nil
+}
+
+type fakeApplyPatch struct{}
+
+func (p *fakeApplyPatch) Type() types.PatchType {
+	return types.ApplyPatchType
+}
+
+func (p *fakeApplyPatch) Data(obj client.Object) ([]byte, error) {
+	return json.Marshal(obj)
+}
+
 func (c *fakeClient) patch(obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
-	c.schemeLock.RLock()
-	defer c.schemeLock.RUnlock()
+	if err := c.addToSchemeIfUnknownAndUnstructuredOrPartial(obj); err != nil {
+		return err
+	}
+
 	patchOptions := &client.PatchOptions{}
 	patchOptions.ApplyOptions(opts)
+
+	if errs := validation.ValidatePatchOptions(patchOptions.AsPatchOptions(), patch.Type()); len(errs) > 0 {
+		return apierrors.NewInvalid(schema.GroupKind{Group: "meta.k8s.io", Kind: "PatchOptions"}, "", errs)
+	}
+
+	c.schemeLock.RLock()
+	defer c.schemeLock.RUnlock()
 
 	for _, dryRunOpt := range patchOptions.DryRun {
 		if dryRunOpt == metav1.DryRunAll {
@@ -922,51 +1146,77 @@ func (c *fakeClient) patch(obj client.Object, patch client.Patch, opts ...client
 	if err != nil {
 		return err
 	}
-	accessor, err := meta.Accessor(obj)
-	if err != nil {
-		return err
-	}
-	data, err := patch.Data(obj)
-	if err != nil {
-		return err
-	}
-
 	gvk, err := apiutil.GVKForObject(obj, c.scheme)
 	if err != nil {
 		return err
 	}
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return err
+	}
 
+	var isApplyCreate bool
 	c.trackerWriteLock.Lock()
 	defer c.trackerWriteLock.Unlock()
 	oldObj, err := c.tracker.Get(gvr, accessor.GetNamespace(), accessor.GetName())
 	if err != nil {
-		return err
+		if !apierrors.IsNotFound(err) || patch.Type() != types.ApplyPatchType {
+			return err
+		}
+		oldObj = &unstructured.Unstructured{}
+		isApplyCreate = true
 	}
 	oldAccessor, err := meta.Accessor(oldObj)
 	if err != nil {
 		return err
 	}
 
-	// Apply patch without updating object.
-	// To remain in accordance with the behavior of k8s api behavior,
-	// a patch must not allow for changes to the deletionTimestamp of an object.
-	// The reaction() function applies the patch to the object and calls Update(),
-	// whereas dryPatch() replicates this behavior but skips the call to Update().
-	// This ensures that the patch may be rejected if a deletionTimestamp is modified, prior
-	// to updating the object.
-	action := testing.NewPatchAction(gvr, accessor.GetNamespace(), accessor.GetName(), patch.Type(), data)
-	o, err := dryPatch(action, c.tracker)
-	if err != nil {
-		return err
+	// SSA deletionTimestamp updates are silently ignored
+	if patch.Type() == types.ApplyPatchType && !isApplyCreate {
+		obj.SetDeletionTimestamp(oldAccessor.GetDeletionTimestamp())
 	}
-	newObj, err := meta.Accessor(o)
+
+	data, err := patch.Data(obj)
 	if err != nil {
 		return err
 	}
 
-	// Validate that deletionTimestamp has not been changed
-	if !deletionTimestampEqual(newObj, oldAccessor) {
-		return fmt.Errorf("rejected patch, metadata.deletionTimestamp immutable")
+	action := testing.NewPatchActionWithOptions(
+		gvr,
+		accessor.GetNamespace(),
+		accessor.GetName(),
+		patch.Type(),
+		data,
+		*patchOptions.AsPatchOptions(),
+	)
+
+	// Apply is implemented in the tracker and calling it has side-effects
+	// such as bumping RV and updating managedFields timestamps, hence we
+	// can not dry-run it. Luckily, the only validation we use it for
+	// doesn't apply to SSA - Creating objects with non-nil deletionTimestamp
+	// through SSA is possible and updating the deletionTimestamp is valid,
+	// but has no effect.
+	if patch.Type() != types.ApplyPatchType {
+		// Apply patch without updating object.
+		// To remain in accordance with the behavior of k8s api behavior,
+		// a patch must not allow for changes to the deletionTimestamp of an object.
+		// The reaction() function applies the patch to the object and calls Update(),
+		// whereas dryPatch() replicates this behavior but skips the call to Update().
+		// This ensures that the patch may be rejected if a deletionTimestamp is modified, prior
+		// to updating the object.
+		o, err := dryPatch(action, c.tracker)
+		if err != nil {
+			return err
+		}
+		newObj, err := meta.Accessor(o)
+		if err != nil {
+			return err
+		}
+
+		// Validate that deletionTimestamp has not been changed
+		if !deletionTimestampEqual(newObj, oldAccessor) {
+			return fmt.Errorf("rejected patch, metadata.deletionTimestamp immutable")
+		}
 	}
 
 	reaction := testing.ObjectReaction(c.tracker)
@@ -978,21 +1228,28 @@ func (c *fakeClient) patch(obj client.Object, patch client.Patch, opts ...client
 		panic("tracker could not handle patch method")
 	}
 
-	if _, isUnstructured := obj.(runtime.Unstructured); isUnstructured {
-		ta, err := meta.TypeAccessor(o)
-		if err != nil {
-			return err
-		}
-		ta.SetKind(gvk.Kind)
-		ta.SetAPIVersion(gvk.GroupVersion().String())
+	ta, err := meta.TypeAccessor(o)
+	if err != nil {
+		return err
 	}
+
+	ta.SetAPIVersion(gvk.GroupVersion().String())
+	ta.SetKind(gvk.Kind)
 
 	j, err := json.Marshal(o)
 	if err != nil {
 		return err
 	}
 	zero(obj)
-	return json.Unmarshal(j, obj)
+	if err := json.Unmarshal(j, obj); err != nil {
+		return err
+	}
+
+	if !c.returnManagedFields {
+		obj.SetManagedFields(nil)
+	}
+
+	return ensureTypeMeta(obj, gvk)
 }
 
 // Applying a patch results in a deletionTimestamp that is truncated to the nearest second.
@@ -1020,6 +1277,9 @@ func dryPatch(action testing.PatchActionImpl, tracker testing.ObjectTracker) (ru
 
 	obj, err := tracker.Get(gvr, ns, action.GetName())
 	if err != nil {
+		if apierrors.IsNotFound(err) && action.GetPatchType() == types.ApplyPatchType {
+			return &unstructured.Unstructured{}, nil
+		}
 		return nil, err
 	}
 
@@ -1064,10 +1324,10 @@ func dryPatch(action testing.PatchActionImpl, tracker testing.ObjectTracker) (ru
 		if err = json.Unmarshal(mergedByte, obj); err != nil {
 			return nil, err
 		}
-	case types.ApplyPatchType:
-		return nil, errors.New("apply patches are not supported in the fake client. Follow https://github.com/kubernetes/kubernetes/issues/115598 for the current status")
 	case types.ApplyCBORPatchType:
 		return nil, errors.New("apply CBOR patches are not supported in the fake client")
+	case types.ApplyPatchType:
+		return nil, errors.New("bug in controller-runtime: should not end up in dryPatch for SSA")
 	default:
 		return nil, fmt.Errorf("%s PatchType is not supported", action.GetPatchType())
 	}
@@ -1597,6 +1857,50 @@ func AddIndex(c client.Client, obj runtime.Object, field string, extractValue cl
 	}
 
 	fakeClient.indexes[gvk][field] = extractValue
+
+	return nil
+}
+
+func (c *fakeClient) addToSchemeIfUnknownAndUnstructuredOrPartial(obj runtime.Object) error {
+	c.schemeLock.Lock()
+	defer c.schemeLock.Unlock()
+
+	_, isUnstructured := obj.(*unstructured.Unstructured)
+	_, isUnstructuredList := obj.(*unstructured.UnstructuredList)
+	_, isPartial := obj.(*metav1.PartialObjectMetadata)
+	_, isPartialList := obj.(*metav1.PartialObjectMetadataList)
+	if !isUnstructured && !isUnstructuredList && !isPartial && !isPartialList {
+		return nil
+	}
+
+	gvk, err := apiutil.GVKForObject(obj, c.scheme)
+	if err != nil {
+		return err
+	}
+
+	if !c.scheme.Recognizes(gvk) {
+		c.scheme.AddKnownTypeWithName(gvk, obj)
+	}
+
+	return nil
+}
+
+func ensureTypeMeta(obj runtime.Object, gvk schema.GroupVersionKind) error {
+	ta, err := meta.TypeAccessor(obj)
+	if err != nil {
+		return err
+	}
+	_, isUnstructured := obj.(runtime.Unstructured)
+	_, isPartialObject := obj.(*metav1.PartialObjectMetadata)
+	_, isPartialObjectList := obj.(*metav1.PartialObjectMetadataList)
+	if !isUnstructured && !isPartialObject && !isPartialObjectList {
+		ta.SetKind("")
+		ta.SetAPIVersion("")
+		return nil
+	}
+
+	ta.SetKind(gvk.Kind)
+	ta.SetAPIVersion(gvk.GroupVersion().String())
 
 	return nil
 }

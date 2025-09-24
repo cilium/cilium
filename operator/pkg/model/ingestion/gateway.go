@@ -94,9 +94,9 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 				{
 					Name:      input.Gateway.GetName(),
 					Namespace: input.Gateway.GetNamespace(),
-					Group:     input.Gateway.GroupVersionKind().Group,
-					Version:   input.Gateway.GroupVersionKind().Version,
-					Kind:      input.Gateway.GroupVersionKind().Kind,
+					Group:     gatewayv1.SchemeGroupVersion.Group,
+					Version:   gatewayv1.SchemeGroupVersion.Version,
+					Kind:      "Gateway",
 					UID:       string(input.Gateway.GetUID()),
 				},
 			},
@@ -114,9 +114,9 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 				{
 					Name:      input.Gateway.GetName(),
 					Namespace: input.Gateway.GetNamespace(),
-					Group:     input.Gateway.GroupVersionKind().Group,
-					Version:   input.Gateway.GroupVersionKind().Version,
-					Kind:      input.Gateway.GroupVersionKind().Kind,
+					Group:     gatewayv1.SchemeGroupVersion.Group,
+					Version:   gatewayv1.SchemeGroupVersion.Version,
+					Kind:      "Gateway",
 					UID:       string(input.Gateway.GetUID()),
 				},
 			},
@@ -886,7 +886,7 @@ func toQueryMatch(match gatewayv1.HTTPRouteMatch) []model.KeyValueMatch {
 	return res
 }
 
-func toTLS(tls *gatewayv1.GatewayTLSConfig, grants []gatewayv1beta1.ReferenceGrant, defaultNamespace string) []model.TLSSecret {
+func toTLS(tls *gatewayv1.ListenerTLSConfig, grants []gatewayv1beta1.ReferenceGrant, defaultNamespace string) []model.TLSSecret {
 	if tls == nil {
 		return nil
 	}

@@ -47,13 +47,15 @@ type TypedPredicate[object any] interface {
 	Generic(event.TypedGenericEvent[object]) bool
 }
 
-var _ Predicate = Funcs{}
-var _ Predicate = ResourceVersionChangedPredicate{}
-var _ Predicate = GenerationChangedPredicate{}
-var _ Predicate = AnnotationChangedPredicate{}
-var _ Predicate = or[client.Object]{}
-var _ Predicate = and[client.Object]{}
-var _ Predicate = not[client.Object]{}
+var (
+	_ Predicate = Funcs{}
+	_ Predicate = ResourceVersionChangedPredicate{}
+	_ Predicate = GenerationChangedPredicate{}
+	_ Predicate = AnnotationChangedPredicate{}
+	_ Predicate = or[client.Object]{}
+	_ Predicate = and[client.Object]{}
+	_ Predicate = not[client.Object]{}
+)
 
 // Funcs is a function that implements Predicate.
 type Funcs = TypedFuncs[client.Object]
@@ -259,11 +261,10 @@ func (TypedAnnotationChangedPredicate[object]) Update(e event.TypedUpdateEvent[o
 // This predicate will skip update events that have no change in the object's label.
 // It is intended to be used in conjunction with the GenerationChangedPredicate, as in the following example:
 //
-// Controller.Watch(
-//
-//	&source.Kind{Type: v1.MyCustomKind},
-//	&handler.EnqueueRequestForObject{},
-//	predicate.Or(predicate.GenerationChangedPredicate{}, predicate.LabelChangedPredicate{}))
+//	Controller.Watch(
+//		&source.Kind{Type: v1.MyCustomKind},
+//		&handler.EnqueueRequestForObject{},
+//		predicate.Or(predicate.GenerationChangedPredicate{}, predicate.LabelChangedPredicate{}))
 //
 // This will be helpful when object's labels is carrying some extra specification information beyond object's spec,
 // and the controller will be triggered if any valid spec change (not only in spec, but also in labels) happens.
