@@ -120,6 +120,7 @@ kprobe:br_forward
 
   if ($proto == PROTO_IPV4) {
     if (
+      ($skb->encapsulation || $encap) ||
       (str($8) == "ipsec" && $ip4h->protocol != PROTO_ESP) ||
       (str($8) == "wireguard" && !($ip4h->protocol == PROTO_UDP &&
                                       (bswap($udph->dest) == PORT_WIREGUARD ||
@@ -146,6 +147,7 @@ kprobe:br_forward
             @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
 
       if (
+          ($skb->encapsulation || $encap) ||
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
           ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
         ) {
@@ -213,6 +215,7 @@ kprobe:br_forward
 
   if ($proto == PROTO_IPV6) {
     if (
+      ($skb->encapsulation || $encap) ||
       (str($8) == "ipsec" && $ip6h->nexthdr != PROTO_ESP) ||
       (str($8) == "wireguard" && !($ip6h->nexthdr == PROTO_UDP &&
                                       (bswap($udph->dest) == PORT_WIREGUARD ||
@@ -239,6 +242,7 @@ kprobe:br_forward
             @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
 
       if (
+          ($skb->encapsulation || $encap) ||
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
           ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
         ) {
