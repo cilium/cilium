@@ -52,7 +52,7 @@
 #undef EVENT_SOURCE
 
 /* Include an actual datapath code */
-#include <bpf_lxc.c>
+#include "lib/bpf_lxc.h"
 
 /* Set the LXC source address to be the address of the backend pod */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = BACKEND_IP})
@@ -63,21 +63,6 @@ ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = BACKEND_IP})
 /*
  * Tests
  */
-
-#define FROM_CONTAINER 0
-#define HANDLE_POLICY 1
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_CONTAINER] = &cil_from_container,
-		[HANDLE_POLICY] = &cil_lxc_policy,
-	},
-};
 
 static __always_inline int
 pktgen_to_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
@@ -155,9 +140,7 @@ int overlay_to_lxc_syn_setup(struct __ctx_buff *ctx)
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
 	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, true, 0);
 
-	tail_call_static(ctx, entry_call_map, HANDLE_POLICY);
-
-	return TEST_ERROR;
+	return pod_receive_packet_by_tailcall(ctx);
 }
 
 CHECK("tc", "01_overlay_to_lxc_syn")
@@ -253,9 +236,7 @@ int lxc_to_overlay_synack_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry_with_flags(CLIENT_NODE_IP, 0, REMOTE_NODE_ID,
 					CLIENT_NODE_IP, 0, true);
 
-	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
-
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "02_lxc_to_overlay_synack")
@@ -348,9 +329,7 @@ int overlay_to_lxc_ack_setup(struct __ctx_buff *ctx)
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
 	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, true, 0);
 
-	tail_call_static(ctx, entry_call_map, HANDLE_POLICY);
-
-	return TEST_ERROR;
+	return pod_receive_packet_by_tailcall(ctx);
 }
 
 CHECK("tc", "03_overlay_to_lxc_ack")

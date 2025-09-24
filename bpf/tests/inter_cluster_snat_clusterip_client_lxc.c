@@ -55,7 +55,7 @@
 #undef EVENT_SOURCE
 
 /* Include an actual datapath code */
-#include <bpf_lxc.c>
+#include "lib/bpf_lxc.h"
 
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = CLIENT_IP})
@@ -67,21 +67,6 @@ ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = CLIENT_IP})
 /*
  * Tests
  */
-
-#define FROM_CONTAINER 0
-#define HANDLE_POLICY 1
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_CONTAINER] = &cil_from_container,
-		[HANDLE_POLICY] = &cil_lxc_policy,
-	},
-};
 
 static __always_inline int
 pktgen_from_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
@@ -160,9 +145,7 @@ int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 
 	policy_add_egress_allow_entry(BACKEND_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
 
-	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
-
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "01_lxc_to_overlay_syn")
@@ -264,11 +247,7 @@ int overlay_to_lxc_synack_setup(struct __ctx_buff *ctx)
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
 	local_delivery_fill_meta(ctx, BACKEND_IDENTITY, true, false, true, 2);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, HANDLE_POLICY);
-
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_receive_packet_by_tailcall(ctx);
 }
 
 CHECK("tc", "02_overlay_to_lxc_synack")
@@ -358,8 +337,7 @@ int lxc_to_overlay_ack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "03_lxc_to_overlay_ack")
 int lxc_to_overlay_ack_setup(struct __ctx_buff *ctx)
 {
-	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "03_lxc_to_overlay_ack")
