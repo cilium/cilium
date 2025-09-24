@@ -36,24 +36,12 @@ int mock_skb_change_type(__maybe_unused struct __sk_buff *skb, __u32 type)
 static volatile const __u8 *DEST_EP_MAC = mac_three;
 static volatile const __u8 *DEST_NODE_MAC = mac_four;
 
-#include "bpf_network.c"
+#include "lib/bpf_network.h"
 
 #include "lib/endpoint.h"
 #include "lib/node.h"
 
-#define FROM_NETWORK 0
 #define ESP_SEQUENCE 69865
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETWORK] = &cil_from_network,
-	},
-};
 
 PKTGEN("tc", "ipv4_not_decrypted_ipsec_from_network")
 int ipv4_not_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
@@ -92,8 +80,7 @@ int ipv4_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 	 */
 	node_v4_add_entry(v4_pod_one, NODE_ID, ENCRYPT_KEY);
 
-	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
-	return TEST_ERROR;
+	return network_receive_packet(ctx);
 }
 
 CHECK("tc", "ipv4_not_decrypted_ipsec_from_network")
@@ -205,8 +192,7 @@ int ipv6_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 	 */
 	node_v6_add_entry((union v6addr *)v6_pod_one, NODE_ID, ENCRYPT_KEY);
 
-	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
-	return TEST_ERROR;
+	return network_receive_packet(ctx);
 }
 
 CHECK("tc", "ipv6_not_decrypted_ipsec_from_network")
@@ -309,8 +295,8 @@ int ipv4_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 			      (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
-	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
-	return TEST_ERROR;
+
+	return network_receive_packet(ctx);
 }
 
 CHECK("tc", "ipv4_decrypted_ipsec_from_network")
@@ -419,8 +405,8 @@ int ipv6_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 			      0, 0, (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
-	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
-	return TEST_ERROR;
+
+	return network_receive_packet(ctx);
 }
 
 CHECK("tc", "ipv6_decrypted_ipsec_from_network")
