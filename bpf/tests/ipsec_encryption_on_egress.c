@@ -19,8 +19,6 @@
 #define ENABLE_IPV6
 #define ENABLE_IPSEC
 
-#define TO_NETDEV 0
-
 bool hook_reached;
 
 int mock_ipsec_maybe_redirect_to_encrypt(__maybe_unused struct __ctx_buff *ctx,
@@ -33,19 +31,7 @@ int mock_ipsec_maybe_redirect_to_encrypt(__maybe_unused struct __ctx_buff *ctx,
 
 #define ipsec_maybe_redirect_to_encrypt mock_ipsec_maybe_redirect_to_encrypt
 
-#include "bpf_host.c"
-
-/* setup map for tailcall to egress native device program */
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
+#include "lib/bpf_host.h"
 
 PKTGEN("tc", "ipsec_encryption_on_egress_ipv4")
 int ipsec_encryption_on_egress_ipv4_pktgen(struct __ctx_buff *ctx)
@@ -67,8 +53,7 @@ int ipsec_encryption_on_egress_ipv4_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipsec_encryption_on_egress_ipv4")
 int ipsec_encryption_on_egress_ipv4_setup(struct __ctx_buff *ctx)
 {
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 /* this is a very basic test which ensures any packets leaving on a native
@@ -106,8 +91,7 @@ int ipsec_encryption_on_egress_ipv6_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipsec_encryption_on_egress_ipv6")
 int ipsec_encryption_on_egress_ipv6_setup(struct __ctx_buff *ctx)
 {
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 /* See IPv4 comment */

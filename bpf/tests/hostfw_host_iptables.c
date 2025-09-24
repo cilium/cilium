@@ -21,26 +21,11 @@
 static volatile const __u8 *node_mac = mac_one;
 static volatile const __u8 *server_mac = mac_two;
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/policy.h"
-
-#define FROM_NETDEV	0
-#define TO_NETDEV	1
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_from_netdev,
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
 
 /* Send a request from pod to external endpoint. Emulate that it was
  * SNATed by our iptables setup by setting the .saddr to NODE_IP and
@@ -83,10 +68,7 @@ int hostfw_iptables_host_ipv4_01_pod_setup(struct __ctx_buff *ctx)
 
 	set_identity_mark(ctx, POD_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "hostfw_iptables_host_ipv4_01_pod")
@@ -151,10 +133,7 @@ int hostfw_iptables_host_ipv4_02_pod_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hostfw_iptables_host_ipv4_02_pod")
 int hostfw_iptables_host_ipv4_02_pod_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "hostfw_iptables_host_ipv4_02_pod")
@@ -225,10 +204,7 @@ int hostfw_iptables_host_ipv4_03_host_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "hostfw_iptables_host_ipv4_03_host")
@@ -286,10 +262,7 @@ int hostfw_iptables_host_ipv4_04_host_setup(struct __ctx_buff *ctx)
 
 	policy_add_egress_allow_all_entry();
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "hostfw_iptables_host_ipv4_04_host")
@@ -354,10 +327,7 @@ int hostfw_iptables_host_ipv4_05_host_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hostfw_iptables_host_ipv4_05_host")
 int hostfw_iptables_host_ipv4_05_host_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "hostfw_iptables_host_ipv4_05_host")

@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#include <bpf/ctx/skb.h>
+#include "common.h"
+#include "pktgen.h"
+
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_MASQUERADE_IPV4
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include <bpf/config/node.h>
 
@@ -26,23 +30,6 @@
 #define EXT_HOP_IP v4_ext_two
 #define POD_IP v4_pod_one
 
-#define FROM_NETDEV	0
-#define TO_NETDEV	1
-
-#include "common.h"
-#include "pktgen.h"
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_from_netdev,
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
 
 __always_inline int gen_pmtu_pkt(struct pktgen *builder, __u8 l4_type)
 {
@@ -179,8 +166,8 @@ SETUP("tc", "nodeport_revsnat_icmp4_pmtu")
 int nodeport_revsnat_icmp4_pmtu_setup(struct __ctx_buff *ctx)
 {
 	snat_v4_insert_ct_nat(IPPROTO_TCP);
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	return TEST_ERROR;
+
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "nodeport_revsnat_icmp4_pmtu")
@@ -208,8 +195,8 @@ SETUP("tc", "nodeport_revsnat_icmp4_pmtu_udp")
 int nodeport_revsnat_icmp4_pmtu_udp_setup(struct __ctx_buff *ctx)
 {
 	snat_v4_insert_ct_nat(IPPROTO_UDP);
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	return TEST_ERROR;
+
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "nodeport_revsnat_icmp4_pmtu_udp")

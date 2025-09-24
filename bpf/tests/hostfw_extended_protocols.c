@@ -20,28 +20,13 @@ static volatile const __u8 *dst_mac = mac_two;
 static volatile const __u8 *node_mac2 = mac_three;
 static volatile const __u8 *dst_mac2 = mac_four;
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/policy.h"
 
-#define FROM_NETDEV	0
-#define TO_NETDEV	1
-
 ASSIGN_CONFIG(bool, enable_extended_ip_protocols, true);
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_from_netdev,
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
 
 /* Send an IGMP packet from host to IGMP destination (allow all egress policy).
  *
@@ -77,10 +62,7 @@ int hostfw_igmp_egress_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(NODE_IP, 0, HOST_ID, 0, 0);
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "hostfw_igmp_egress")
@@ -151,10 +133,7 @@ int hostfw_igmp_ingress_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hostfw_igmp_ingress")
 int hostfw_igmp_ingress_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "hostfw_igmp_ingress")
@@ -230,10 +209,7 @@ int hostfw_igmp_egress_policy_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_world_entry();
 	policy_add_egress_allow_entry(0, IPPROTO_IGMP, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "hostfw_igmp_egress_policy")
@@ -308,10 +284,7 @@ int hostfw_igmp_ingress_policy_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_world_entry();
 	policy_add_l4_ingress_deny_entry(0, IPPROTO_IGMP, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "hostfw_igmp_ingress_policy")

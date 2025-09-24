@@ -8,27 +8,14 @@
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include "lib/ipcache.h"
 #include "lib/endpoint.h"
 
 #include "scapy.h"
 
-#define FROM_NETDEV 0
-
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_from_netdev,
-	},
-};
 
 struct test_args {
 	__u32 status_code; /* Only used in generic _check */
@@ -79,8 +66,8 @@ int __ipv6_from_netdev_ns_pod_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v6_add_entry((union v6addr *)v6_pod_three, 0, 0, 0, 0,
 			      (__u8 *)mac_three, (__u8 *)mac_two);
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	return TEST_ERROR;
+
+	return netdev_receive_packet(ctx);
 }
 
 PKTGEN("tc", "011_ipv6_from_netdev_ns_pod")
@@ -165,8 +152,8 @@ int __ipv6_from_netdev_ns_pod_setup_mcast(struct __ctx_buff *ctx)
 {
 	endpoint_v6_add_entry((union v6addr *)v6_pod_three, 0, 0, 0, 0,
 			      (__u8 *)mac_three, (__u8 *)mac_two);
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	return TEST_ERROR;
+
+	return netdev_receive_packet(ctx);
 }
 
 PKTGEN("tc", "012_ipv6_from_netdev_ns_pod_mcast")
@@ -257,8 +244,8 @@ int __ipv6_from_netdev_ns_node_ip_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v6_add_entry((union v6addr *)v6_node_one, 0, 0, ENDPOINT_F_HOST,
 			      0, (__u8 *)mac_three, (__u8 *)mac_two);
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	return TEST_ERROR;
+
+	return netdev_receive_packet(ctx);
 }
 
 /* With LL SRC option */
@@ -348,8 +335,7 @@ int __ipv6_from_netdev_ns_node_ip_setup_mcast(struct __ctx_buff *ctx)
 	endpoint_v6_add_entry((union v6addr *)&v6_node_one, 0, 0, ENDPOINT_F_HOST,
 			      0, (__u8 *)mac_three, (__u8 *)mac_two);
 
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 PKTGEN("tc", "022_ipv6_from_netdev_ns_node_ip_mcast")

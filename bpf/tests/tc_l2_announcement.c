@@ -17,20 +17,9 @@
 #define ENABLE_IPV4
 #define ENABLE_L2_ANNOUNCEMENTS
 
-#include <bpf_host.c>
+#include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[0] = &cil_from_netdev,
-	},
-};
 
 /* Setup for this test:
  * +-------------------------+   +--------------------------------------+    +--------------------------+
@@ -65,10 +54,7 @@ int l2_announcement_arp_no_entry_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "0_no_entry")
 int l2_announcement_arp_no_entry_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "0_no_entry")
@@ -119,10 +105,7 @@ int l2_announcement_arp_happy_path_setup(struct __ctx_buff *ctx)
 
 	config_set(RUNTIME_CONFIG_AGENT_LIVENESS, ktime_get_ns());
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "1_happy_path")
