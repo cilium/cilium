@@ -254,38 +254,37 @@ func createDummyDevice(t *testing.T, macAddr mac.MAC) func() {
 // To create routing info with a list of CIDRs which the interface has access to, set withCIDR parameter to true
 // If withZeroCIDR is also set to true, the function will use the "0.0.0.0/0" CIDR block instead of other CIDR blocks.
 func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, RoutingInfo) {
-	fakeGateway := netip.MustParseAddr("192.168.2.1")
-	fakeSubnet1CIDR := netip.MustParsePrefix("192.168.0.0/16")
-	fakeSubnet2CIDR := netip.MustParsePrefix("192.170.0.0/16")
-	fakeMAC := mac.MustParseMAC("00:11:22:33:44:55")
+	t.Helper()
+
 	logger := hivetest.Logger(t)
 
-	var fakeRoutingInfo *RoutingInfo
+	fakeGateway := "192.168.2.1"
+	fakeSubnet1CIDR := "192.168.0.0/16"
+	fakeSubnet2CIDR := "192.170.0.0/16"
+	fakeMAC := "00:11:22:33:44:55"
+
+	var cidrs []string
+	ipamMode := ipamOption.IPAMAzure
+	masquerade := false
+
 	if withCIDR {
-		cidrs := []string{fakeSubnet1CIDR.String(), fakeSubnet2CIDR.String()}
+		cidrs = []string{fakeSubnet1CIDR, fakeSubnet2CIDR}
 		if withZeroCIDR {
 			cidrs = []string{"0.0.0.0/0"}
 		}
-		fakeRoutingInfo, err = parse(
-			logger,
-			fakeGateway.String(),
-			cidrs,
-			fakeMAC.String(),
-			"1",
-			ipamOption.IPAMENI,
-			true,
-		)
-	} else {
-		fakeRoutingInfo, err = parse(
-			logger,
-			fakeGateway.String(),
-			nil,
-			fakeMAC.String(),
-			"1",
-			ipamOption.IPAMAzure,
-			false,
-		)
+		ipamMode = ipamOption.IPAMENI
+		masquerade = true
 	}
+	fakeRoutingInfo, err := NewRoutingInfo(
+		logger,
+		fakeGateway,
+		cidrs,
+		fakeMAC,
+		"1",
+		ipamMode,
+		masquerade,
+	)
+
 	require.NoError(t, err)
 	require.NotNil(t, fakeRoutingInfo)
 
@@ -293,8 +292,7 @@ func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, Routi
 	option.Config.IPAM = fakeRoutingInfo.IpamMode
 	option.Config.EnableIPv4Masquerade = fakeRoutingInfo.Masquerade
 
-	fakeIP := netip.MustParseAddr("192.168.2.123")
-	return fakeIP, *fakeRoutingInfo
+	return netip.MustParseAddr("192.168.2.123"), *fakeRoutingInfo
 }
 
 func linkExistsWithMAC(t *testing.T, macAddr mac.MAC) bool {
