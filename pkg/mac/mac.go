@@ -58,6 +58,16 @@ func ParseMAC(s string) (MAC, error) {
 	return MAC(ha), nil
 }
 
+// MustParseMAC calls [ParseMAC] and panics on error. It is intended for use in tests with
+// hard-coded strings.
+func MustParseMAC(s string) MAC {
+	mac, err := ParseMAC(s)
+	if err != nil {
+		panic(err)
+	}
+	return mac
+}
+
 // Uint64 returns the MAC in uint64 format. The MAC is represented as little-endian in
 // the returned value.
 // Example:

@@ -257,9 +257,7 @@ func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, Routi
 	fakeGateway := netip.MustParseAddr("192.168.2.1")
 	fakeSubnet1CIDR := netip.MustParsePrefix("192.168.0.0/16")
 	fakeSubnet2CIDR := netip.MustParsePrefix("192.170.0.0/16")
-	fakeMAC, err := mac.ParseMAC("00:11:22:33:44:55")
-	require.NoError(t, err)
-	require.NotNil(t, fakeMAC)
+	fakeMAC := mac.MustParseMAC("00:11:22:33:44:55")
 	logger := hivetest.Logger(t)
 
 	var fakeRoutingInfo *RoutingInfo

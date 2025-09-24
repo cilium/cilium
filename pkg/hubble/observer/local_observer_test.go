@@ -29,6 +29,7 @@ import (
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
@@ -227,9 +228,8 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 
 	for i := range numFlows {
 		tn := monitor.TraceNotify{Type: byte(monitorAPI.MessageTypeTrace)}
-		macOnly := func(mac string) net.HardwareAddr {
-			m, _ := net.ParseMAC(mac)
-			return m
+		macOnly := func(s string) net.HardwareAddr {
+			return net.HardwareAddr(mac.MustParseMAC(s))
 		}
 		data := testutils.MustCreateL3L4Payload(tn, &layers.Ethernet{
 			SrcMAC: macOnly(fake.MAC()),
