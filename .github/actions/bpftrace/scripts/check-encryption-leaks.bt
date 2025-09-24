@@ -103,8 +103,7 @@ kprobe:br_forward
   $encap =
       (($proto == PROTO_IPV4 && $ip4h->protocol == PROTO_UDP) ||
         ($proto == PROTO_IPV6 && $ip6h->nexthdr == PROTO_UDP)) &&
-      ((bswap($udph->source) == PORT_VXLAN || bswap($udph->dest) == PORT_VXLAN) ||
-        (bswap($udph->source) == PORT_GENEVE || bswap($udph->dest) == PORT_GENEVE));
+      (bswap($udph->dest) == PORT_VXLAN || bswap($udph->dest) == PORT_GENEVE);
 
   if ($skb->encapsulation || $encap) {
     // $skb->inner_protocol does not appear to be correctly initialized
@@ -121,7 +120,7 @@ kprobe:br_forward
       (str($8) == "ipsec" && $ip4h->protocol != PROTO_ESP) ||
       (str($8) == "wireguard" && !($ip4h->protocol == PROTO_UDP &&
                                       (bswap($udph->dest) == PORT_WIREGUARD ||
-                                        bswap($udph->source) == PORT_WIREGUARD)))
+                                       bswap($udph->source) == PORT_WIREGUARD)))
       ) {
       $src_is_pod = (bswap($ip4h->saddr) & MASK4) == CIDR4;
       $dst_is_pod = (bswap($ip4h->daddr) & MASK4) == CIDR4;
@@ -206,7 +205,7 @@ kprobe:br_forward
       (str($8) == "ipsec" && $ip6h->nexthdr != PROTO_ESP) ||
       (str($8) == "wireguard" && !($ip6h->nexthdr == PROTO_UDP &&
                                       (bswap($udph->dest) == PORT_WIREGUARD ||
-                                        bswap($udph->source) == PORT_WIREGUARD)))
+                                       bswap($udph->source) == PORT_WIREGUARD)))
       ) {
       $src_is_pod = bswap($ip6h->saddr.in6_u.u6_addr16[0]) == CIDR6;
       $dst_is_pod = bswap($ip6h->daddr.in6_u.u6_addr16[0]) == CIDR6;
@@ -407,8 +406,7 @@ kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
   }
 }
 
-// Additionally trace traffic flows in which the source got masqueraded.
-// Ignore packets w/o a socket assigned or that are not traced by the proxy.
+// Clear traced UDP sockets.
 kprobe:udp_destroy_sock
 {
   $sk = ((struct sock *) arg0);
