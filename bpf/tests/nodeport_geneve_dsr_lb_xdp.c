@@ -79,24 +79,11 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	return 0;
 }
 
-#include <bpf_xdp.c>
+#include "lib/bpf_xdp.h"
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
-
-#define FROM_NETDEV	0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_xdp_entry,
-	},
-};
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
@@ -144,10 +131,7 @@ int nodeport_geneve_dsr_lb_xdp1_local_backend_setup(struct __ctx_buff *ctx)
 
 	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "nodeport_geneve_dsr_lb_xdp1_local_backend")
@@ -259,10 +243,7 @@ int nodeport_geneve_dsr_lb_xdp2_fwd_setup(struct __ctx_buff *ctx)
 
 	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, BACKEND_NODE_IP, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "nodeport_geneve_dsr_lb_xdp2_fwd")

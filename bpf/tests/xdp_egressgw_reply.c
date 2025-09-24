@@ -34,7 +34,7 @@ static __always_inline __maybe_unused long
 mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		__maybe_unused int plen, __maybe_unused __u32 flags);
 
-#include <bpf_xdp.c>
+#include "lib/bpf_xdp.h"
 
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
@@ -64,19 +64,6 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 	return 0;
 }
-
-#define FROM_NETDEV	0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_xdp_entry,
-	},
-};
 
 /* Test that a EgressGW reply gets RevSNATed, and forwarded to the
  * worker node via tunnel.
@@ -132,10 +119,7 @@ int egressgw_reply_setup(struct __ctx_buff *ctx)
 	/* install ipcache entry for the CLIENT_IP: */
 	ipcache_v4_add_entry(CLIENT_IP, 0, 0, CLIENT_NODE_IP, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "xdp_egressgw_reply")
@@ -301,10 +285,7 @@ int egressgw_reply_setup_v6(struct __ctx_buff *ctx)
 	/* install ipcache entry for the CLIENT_IP: */
 	ipcache_v6_add_entry(&client_ip, 0, 0, CLIENT_NODE_IP, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "xdp_egressgw_reply_v6")
