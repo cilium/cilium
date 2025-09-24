@@ -5,19 +5,17 @@ package correlation
 
 import (
 	"log/slog"
-	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
-	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -217,39 +215,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 
 func toProto(info policyTypes.PolicyCorrelationInfo) (policies []*flowpb.Policy) {
 	for model := range labels.ModelsFromLabelArrayListString(info.RuleLabels) {
-		policies = append(policies, policyFromModel(model, info))
+		policies = append(policies, utils.GetPolicyFromLabels(model, info.Revision))
 	}
 	return policies
-}
-
-// policyFromModel derives and sets fields in the flow policy from the label set array and policy
-// correlation information.
-//
-// This function supports namespaced and cluster-scoped resources.
-func policyFromModel(model []string, info policyTypes.PolicyCorrelationInfo) *flowpb.Policy {
-	f := &flowpb.Policy{
-		Labels:   model,
-		Revision: info.Revision,
-	}
-
-	for _, lbl := range model {
-		if lbl, isK8sLabel := strings.CutPrefix(lbl, string(source.Kubernetes)+":"); isK8sLabel {
-			if key, value, found := strings.Cut(lbl, "="); found {
-				switch key {
-				case k8sConst.PolicyLabelName:
-					f.Name = value
-				case k8sConst.PolicyLabelNamespace:
-					f.Namespace = value
-				case k8sConst.PolicyLabelDerivedFrom:
-					f.Kind = value
-				default:
-					if f.Kind != "" && f.Name != "" && f.Namespace != "" {
-						return f
-					}
-				}
-			}
-		}
-	}
-
-	return f
 }
