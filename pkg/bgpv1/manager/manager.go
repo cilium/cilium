@@ -873,8 +873,8 @@ func (m *BGPRouterManager) registerV2(ctx context.Context, rd *reconcileDiffV2) 
 	return nil
 }
 
-// registerBGPServer encapsulates the logic for instantiating a
-// BgpInstance
+// registerBGPInstance encapsulates the logic for instantiating a
+// BGPInstance
 func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 	c *v2.CiliumBGPNodeInstance,
 	ciliumNode *v2.CiliumNode) error {
@@ -945,7 +945,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 // reconcileBGPConfigV2 will utilize the current set of ConfigReconcilerV2
 // to push a BGP Instance to its desired configuration.
 //
-// Each reconcilier is responsible for getting the desired configuration from
+// Each reconciler is responsible for getting the desired configuration from
 // resource store and applying it to the BGP Instance.
 func (m *BGPRouterManager) reconcileBGPConfigV2(ctx context.Context,
 	i *instance.BGPInstance,
@@ -1071,7 +1071,7 @@ func errorsChanged(prevErrs, newErrs []error) bool {
 	return false
 }
 
-// withdraw disconnects and removes BGP Instance(s) as instructed by the provided
+// withdrawV2 disconnects and removes BGP Instance(s) as instructed by the provided
 // work diff.
 func (m *BGPRouterManager) withdrawV2(ctx context.Context, rd *reconcileDiffV2) {
 	txn := m.DB.WriteTxn(m.ReconcileErrorTable)
@@ -1122,7 +1122,7 @@ func (m *BGPRouterManager) withdrawV2(ctx context.Context, rd *reconcileDiffV2) 
 	txn.Commit()
 }
 
-// withdrawAll will disconnect and remove all currently registered BGP Instance(s).
+// withdrawAllV2 will disconnect and remove all currently registered BGP Instance(s).
 //
 // `rd` must be a newly created reconcileDiff which has not had its `Diff` method
 // called.
@@ -1136,7 +1136,7 @@ func (m *BGPRouterManager) withdrawAllV2(ctx context.Context, rd *reconcileDiffV
 	m.withdrawV2(ctx, rd)
 }
 
-// reconcile evaluates existing BGP Instance(s).
+// reconcileV2 evaluates existing BGP Instance(s).
 func (m *BGPRouterManager) reconcileV2(ctx context.Context, rd *reconcileDiffV2) error {
 	var (
 		instancesWithError []string
