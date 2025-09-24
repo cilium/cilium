@@ -379,8 +379,8 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	info = lookup_ip6_remote_endpoint(dst, 0);
 
 #ifdef TUNNEL_MODE
-	__u32 src_subnet_id = lookup_ip6_subnet(&ip6->saddr, 0);
-	__u32 dst_subnet_id = lookup_ip6_subnet(&ip6->daddr, 0);
+	__u32 src_subnet_id = lookup_ip6_subnet(&ip6->saddr);
+	__u32 dst_subnet_id = lookup_ip6_subnet(&ip6->daddr);
 	bool same_subnet = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
 	cilium_dbg3(ctx, DBG_TUNNEL_TRACE, src_subnet_id, dst_subnet_id, src_subnet_id);
 	cilium_dbg3(ctx, DBG_TUNNEL_TRACE, src_subnet_id, dst_subnet_id, dst_subnet_id);
@@ -825,8 +825,8 @@ skip_vtep:
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
 #ifdef TUNNEL_MODE
-	__u32 src_subnet_id = lookup_ip4_subnet(ip4->saddr, 0);
-	__u32 dst_subnet_id = lookup_ip4_subnet(ip4->daddr, 0);
+	__u32 src_subnet_id = lookup_ip4_subnet(ip4->saddr);
+	__u32 dst_subnet_id = lookup_ip4_subnet(ip4->daddr);
 	bool same_subnet = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
 	if ((info && info->flag_skip_tunnel) || same_subnet)
 		goto skip_tunnel;

@@ -12,7 +12,7 @@
 
 struct subnet_key {
 	struct bpf_lpm_trie_key lpm_key;
-	__u16 cluster_id;
+	__u16 pad2;
 	__u8 pad1;
 	__u8 family;
 	union {
@@ -50,7 +50,7 @@ struct {
 
 static __always_inline __maybe_unused __u32 
 subnet_lookup6(const void *map, const union v6addr *addr,
-		__u32 prefix, __u32 cluster_id)
+		__u32 prefix)
 {
     struct subnet_value *value;
 	struct subnet_key key = {
@@ -58,12 +58,6 @@ subnet_lookup6(const void *map, const union v6addr *addr,
 		.family = ENDPOINT_KEY_IPV6,
 		.ip6 = *addr,
 	};
-
-	/* Check overflow */
-	if (cluster_id > UINT16_MAX)
-		return 0;
-
-	key.cluster_id = (__u16)cluster_id;
 
 	ipv6_addr_clear_suffix(&key.ip6, prefix);
 	value = (struct subnet_value *) map_lookup_elem(map, &key);
@@ -76,7 +70,7 @@ subnet_lookup6(const void *map, const union v6addr *addr,
 #define V4_CACHE_KEY_LEN (sizeof(__u32)*8)
 
 static __always_inline __maybe_unused __u32
-subnet_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
+subnet_lookup4(const void *map, __be32 addr, __u32 prefix)
 {
     struct subnet_value *value;
 	struct subnet_key key = {
@@ -84,12 +78,6 @@ subnet_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 		.family = ENDPOINT_KEY_IPV4,
         .ip4 = addr,
 	};
-
-	/* Check overflow */
-	if (cluster_id > UINT16_MAX)
-		return 0;
-
-	key.cluster_id = (__u16)cluster_id;
 
 	key.ip4 &= GET_PREFIX(prefix);
 	value = (struct subnet_value *) map_lookup_elem(map, &key);
@@ -99,7 +87,7 @@ subnet_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 	return value->identity;
 }
 
-#define lookup_ip6_subnet(addr, cluster_id) \
-	subnet_lookup6(&cilium_subnet_map, addr, V6_CACHE_KEY_LEN, cluster_id)
-#define lookup_ip4_subnet(addr, cluster_id) \
-	subnet_lookup4(&cilium_subnet_map, addr, V4_CACHE_KEY_LEN, cluster_id)
+#define lookup_ip6_subnet(addr) \
+	subnet_lookup6(&cilium_subnet_map, addr, V6_CACHE_KEY_LEN)
+#define lookup_ip4_subnet(addr) \
+	subnet_lookup4(&cilium_subnet_map, addr, V4_CACHE_KEY_LEN)
