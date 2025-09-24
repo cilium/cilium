@@ -186,6 +186,14 @@ jobs:
             mv /tmp/result.json.tmp /tmp/result.json
           fi
 
+          # Check if KPR is requested via extra-args
+          KPR=$(echo '${{ inputs.extra-args }}' | jq -r '.["kpr"] // false')
+          if [[ "$KPR" == "true" ]]; then
+            echo "::notice::KPR enabled - setting kpr=true for all matrix entries"
+            jq '.include |= map(. + {"kpr": true})' /tmp/result.json > /tmp/result.json.tmp
+            mv /tmp/result.json.tmp /tmp/result.json
+          fi
+
           jq -c '.include[]' /tmp/matrix.json | while read i; do
             VERSION=$(echo $i | jq -r '.version')
             aws eks describe-cluster-versions | jq -r '.clusterVersions[].clusterVersion' > /tmp/output
