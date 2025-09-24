@@ -329,6 +329,16 @@ func (c *client) Patch(ctx context.Context, obj Object, patch Patch, opts ...Pat
 	}
 }
 
+func (c *client) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error {
+	switch obj := obj.(type) {
+	case *unstructuredApplyConfiguration:
+		defer c.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
+		return c.unstructuredClient.Apply(ctx, obj, opts...)
+	default:
+		return c.typedClient.Apply(ctx, obj, opts...)
+	}
+}
+
 // Get implements client.Client.
 func (c *client) Get(ctx context.Context, key ObjectKey, obj Object, opts ...GetOption) error {
 	if isUncached, err := c.shouldBypassCache(obj); err != nil {

@@ -31,13 +31,16 @@ import (
 // listener, it can be used to forward traffic on the port specified by the
 // listener to a set of backends specified by the UDPRoute.
 type UDPRoute struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the desired state of UDPRoute.
+	// +required
 	Spec UDPRouteSpec `json:"spec"`
 
 	// Status defines the current state of UDPRoute.
+	// +optional
 	Status UDPRouteStatus `json:"status,omitempty"`
 }
 
@@ -47,6 +50,8 @@ type UDPRouteSpec struct {
 
 	// Rules are a list of UDP matchers and actions.
 	//
+	// +required
+	// +listType=atomic
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=16
 	// <gateway:experimental:validation:XValidation:message="Rule name must be unique within the route",rule="self.all(l1, !has(l1.name) || self.exists_one(l2, has(l2.name) && l1.name == l2.name))">
@@ -81,6 +86,8 @@ type UDPRouteRule struct {
 	//
 	// Support for weight: Extended
 	//
+	// +required
+	// +listType=atomic
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=16
 	BackendRefs []BackendRef `json:"backendRefs,omitempty"`

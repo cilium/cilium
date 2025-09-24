@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"fmt"
+	"log/slog"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -34,10 +35,14 @@ var (
 	serviceKeyEcho   = types.NamespacedName{Namespace: "gateway-conformance-mesh", Name: "echo"}
 	serviceKeyEchoV1 = types.NamespacedName{Namespace: "gateway-conformance-mesh", Name: "echo-v1"}
 	serviceKeyEchoV2 = types.NamespacedName{Namespace: "gateway-conformance-mesh", Name: "echo-v2"}
+	serviceTypeMeta  = metav1.TypeMeta{
+		Kind:       "Service",
+		APIVersion: corev1.SchemeGroupVersion.Version,
+	}
 )
 
 func Test_gammaReconciler_Reconcile(t *testing.T) {
-	logger := hivetest.Logger(t)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cecTranslator := translation.NewCECTranslator(translation.Config{
 		RouteConfig: translation.RouteConfig{
 			HostNameSuffixMatch: true,
@@ -106,6 +111,8 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 					readOutput(t, fmt.Sprintf("testdata/gamma/%s/httproute-%s-output.yaml", tt.name, serviceKey.Name), expectedHR)
 					actualHR := &gatewayv1.HTTPRoute{}
 					err = c.Get(t.Context(), client.ObjectKeyFromObject(hr), actualHR)
+					actualHR.TypeMeta = hr.TypeMeta
+					t.Logf("Test HTTPRoute: %#v\n", actualHR)
 					require.NoError(t, err)
 					require.Empty(t, cmp.Diff(expectedHR, actualHR, cmpIgnoreFields...))
 
@@ -114,7 +121,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 					readOutput(t, fmt.Sprintf("testdata/gamma/%s/service-%s-output.yaml", tt.name, serviceKey.Name), expectedService)
 					actualService := &corev1.Service{}
 					err = c.Get(t.Context(), serviceKey, actualService)
-
+					actualService.TypeMeta = serviceTypeMeta
 					require.NoError(t, err)
 					require.Empty(t, cmp.Diff(expectedService, actualService, cmpIgnoreFields...))
 
