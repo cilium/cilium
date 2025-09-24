@@ -41,7 +41,9 @@ func IsGammaService(parent gatewayv1.ParentReference) bool {
 }
 
 func IsGammaServiceEqual(parent gatewayv1.ParentReference, gammaService *corev1.Service, objNamespace string) bool {
-	gammaServiceGroup := gammaService.GroupVersionKind().Group
+	// In some uses, gammaService can have no TypeMeta set,
+	// so, hard-code the Group here.
+	gammaServiceGroup := corev1.SchemeGroupVersion.Group
 	parentNamespace := NamespaceDerefOr(parent.Namespace, objNamespace)
 
 	// Broken out from one line to make testing easier.
@@ -51,7 +53,9 @@ func IsGammaServiceEqual(parent gatewayv1.ParentReference, gammaService *corev1.
 		return false
 	}
 
-	if string(*parent.Kind) != gammaService.Kind {
+	// In some uses, gammaService can have no TypeMeta set,
+	// so, hard-code the Kind here.
+	if string(*parent.Kind) != "Service" {
 		return false
 	}
 

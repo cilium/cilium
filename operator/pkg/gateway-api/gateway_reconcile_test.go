@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"fmt"
+	"log/slog"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -28,8 +29,29 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
+var (
+	gatewayv1APIVersion       = gatewayv1.GroupVersion.Group + "/" + gatewayv1.GroupVersion.Version
+	gatewayv1alpha2APIVersion = gatewayv1alpha2.GroupVersion.Group + "/" + gatewayv1alpha2.GroupVersion.Version
+	gatewayTypeMeta           = metav1.TypeMeta{
+		Kind:       "Gateway",
+		APIVersion: gatewayv1APIVersion,
+	}
+	httpRouteTypeMeta = metav1.TypeMeta{
+		Kind:       "HTTPRoute",
+		APIVersion: gatewayv1APIVersion,
+	}
+	grpcRouteTypeMeta = metav1.TypeMeta{
+		Kind:       "GRPCRoute",
+		APIVersion: gatewayv1APIVersion,
+	}
+	tlsRouteTypeMeta = metav1.TypeMeta{
+		Kind:       "TLSRoute",
+		APIVersion: gatewayv1alpha2APIVersion,
+	}
+)
+
 func Test_Conformance(t *testing.T) {
-	logger := hivetest.Logger(t)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cecTranslator := translation.NewCECTranslator(translation.Config{
 		RouteConfig: translation.RouteConfig{
 			HostNameSuffixMatch: true,
@@ -271,6 +293,9 @@ func Test_Conformance(t *testing.T) {
 					// Checking the output for Gateway
 					actualGateway := &gatewayv1.Gateway{}
 					err = c.Get(t.Context(), gwDetail.FullName, actualGateway)
+					// TODO(youngnick): controller-runtime has broken something with the fake client
+					// Bypass for now
+					actualGateway.TypeMeta = gatewayTypeMeta
 					require.NoError(t, err)
 					expectedGateway := &gatewayv1.Gateway{}
 					readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", tt.name, gwDetail.FullName.Name), expectedGateway)
@@ -280,6 +305,9 @@ func Test_Conformance(t *testing.T) {
 					for _, hr := range filterList {
 						actualHR := &gatewayv1.HTTPRoute{}
 						err = c.Get(t.Context(), client.ObjectKeyFromObject(&hr), actualHR)
+						// TODO(youngnick): controller-runtime has broken something with the fake client
+						// Bypass for now
+						actualHR.TypeMeta = httpRouteTypeMeta
 						require.NoError(t, err, "error getting HTTPRoute %s/%s: %v", hr.Namespace, hr.Name, err)
 						expectedHR := &gatewayv1.HTTPRoute{}
 						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
@@ -289,6 +317,7 @@ func Test_Conformance(t *testing.T) {
 					for _, tlsr := range filterTLSRouteList {
 						actualTLSR := &gatewayv1alpha2.TLSRoute{}
 						err = c.Get(t.Context(), client.ObjectKeyFromObject(&tlsr), actualTLSR)
+						actualTLSR.TypeMeta = tlsRouteTypeMeta
 						require.NoError(t, err, "error getting TLSRoute %s/%s: %v", tlsr.Namespace, tlsr.Name, err)
 						expectedTLSR := &gatewayv1alpha2.TLSRoute{}
 						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tlsroute-%s.yaml", tt.name, tlsr.Name), expectedTLSR)
@@ -298,6 +327,7 @@ func Test_Conformance(t *testing.T) {
 					for _, grpcr := range filterGRPCRouteList {
 						actualGRPCR := &gatewayv1.GRPCRoute{}
 						err = c.Get(t.Context(), client.ObjectKeyFromObject(&grpcr), actualGRPCR)
+						actualGRPCR.TypeMeta = grpcRouteTypeMeta
 						require.NoError(t, err, "error getting GRPCRoute %s/%s: %v", grpcr.Namespace, grpcr.Name, err)
 						expectedGRPCR := &gatewayv1.GRPCRoute{}
 						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)

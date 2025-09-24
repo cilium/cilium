@@ -51,6 +51,7 @@ func (s *SupportedFeature) UnmarshalJSON(data []byte) error {
 // This is solely for the purpose of ensuring backward compatibility and
 // SHOULD NOT be used elsewhere.
 type supportedFeatureInternal struct {
+	// +required
 	Name FeatureName `json:"name"`
 }
 

@@ -25,9 +25,9 @@ The full documentation can be found at [VERSIONING.md](VERSIONING.md), but TL;DR
 
 Users:
 
-- We follow [Semantic Versioning (semver)](https://semver.org)
-- Use releases with your dependency management to ensure that you get compatible code
-- The main branch contains all the latest code, some of which may break compatibility (so "normal" `go get` is not recommended)
+- We stick to a zero major version
+- We publish a minor version for each Kubernetes minor release and allow breaking changes between minor versions
+- We publish patch versions as needed and we don't allow breaking changes in them
 
 Contributors:
 

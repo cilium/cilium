@@ -60,26 +60,12 @@ type GatewayClassList struct {
 	Items           []GatewayClass `json:"items"`
 }
 
-// GatewayClassSpec reflects the configuration of a class of Gateways.
-// +k8s:deepcopy-gen=false
 type GatewayClassSpec = v1.GatewayClassSpec
 
-// ParametersReference identifies an API object containing controller-specific
-// configuration resource within the cluster.
-// +k8s:deepcopy-gen=false
 type ParametersReference = v1.ParametersReference
 
-// GatewayClassConditionType is the type for status conditions on
-// Gateway resources. This type should be used with the
-// GatewayClassStatus.Conditions field.
-// +k8s:deepcopy-gen=false
 type GatewayClassConditionType = v1.GatewayClassConditionType
 
-// GatewayClassConditionReason defines the set of reasons that explain why a
-// particular GatewayClass condition type has been raised.
-// +k8s:deepcopy-gen=false
 type GatewayClassConditionReason = v1.GatewayClassConditionReason
 
-// GatewayClassStatus is the current status for the GatewayClass.
-// +k8s:deepcopy-gen=false
 type GatewayClassStatus = v1.GatewayClassStatus

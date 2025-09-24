@@ -439,6 +439,11 @@ func (cm *controllerManager) Start(ctx context.Context) (err error) {
 		return fmt.Errorf("failed to start other runnables: %w", err)
 	}
 
+	// Start WarmupRunnables and wait for warmup to complete.
+	if err := cm.runnables.Warmup.Start(cm.internalCtx); err != nil {
+		return fmt.Errorf("failed to start warmup runnables: %w", err)
+	}
+
 	// Start the leader election and all required runnables.
 	{
 		ctx, cancel := context.WithCancel(context.Background())
@@ -534,6 +539,18 @@ func (cm *controllerManager) engageStopProcedure(stopComplete <-chan struct{}) e
 	}()
 
 	go func() {
+		go func() {
+			// Stop the warmup runnables in a separate goroutine to avoid blocking.
+			// It is important to stop the warmup runnables in parallel with the other runnables
+			// since we cannot assume ordering of whether or not one of the warmup runnables or one
+			// of the other runnables is holding a lock.
+			// Cancelling the wrong runnable (one that is not holding the lock) will cause the
+			// shutdown sequence to block indefinitely as it will wait for the runnable that is
+			// holding the lock to finish.
+			cm.logger.Info("Stopping and waiting for warmup runnables")
+			cm.runnables.Warmup.StopAndWait(cm.shutdownCtx)
+		}()
+
 		// First stop the non-leader election runnables.
 		cm.logger.Info("Stopping and waiting for non leader election runnables")
 		cm.runnables.Others.StopAndWait(cm.shutdownCtx)

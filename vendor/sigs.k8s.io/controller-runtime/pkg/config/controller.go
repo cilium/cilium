@@ -60,12 +60,33 @@ type Controller struct {
 	// Defaults to true, which means the controller will use leader election.
 	NeedLeaderElection *bool
 
+	// EnableWarmup specifies whether the controller should start its sources when the manager is not
+	// the leader. This is useful for cases where sources take a long time to start, as it allows
+	// for the controller to warm up its caches even before it is elected as the leader. This
+	// improves leadership failover time, as the caches will be prepopulated before the controller
+	// transitions to be leader.
+	//
+	// Setting EnableWarmup to true and NeedLeaderElection to true means the controller will start its
+	// sources without waiting to become leader.
+	// Setting EnableWarmup to true and NeedLeaderElection to false is a no-op as controllers without
+	// leader election do not wait on leader election to start their sources.
+	// Defaults to false.
+	//
+	// Note: This feature is currently in beta and subject to change.
+	// For more details, see: https://github.com/kubernetes-sigs/controller-runtime/issues/3220.
+	EnableWarmup *bool
+
 	// UsePriorityQueue configures the controllers queue to use the controller-runtime provided
 	// priority queue.
 	//
-	// Note: This flag is disabled by default until a future version. It's currently in beta.
+	// Note: This flag is disabled by default until a future version. This feature is currently in beta.
+	// For more details, see: https://github.com/kubernetes-sigs/controller-runtime/issues/2374.
 	UsePriorityQueue *bool
 
 	// Logger is the logger controllers should use.
 	Logger logr.Logger
+
+	// ReconciliationTimeout is used as the timeout passed to the context of each Reconcile call.
+	// By default, there is no timeout.
+	ReconciliationTimeout time.Duration
 }

@@ -56,13 +56,16 @@ import (
 // Implementations MAY also accept HTTP/2 connections with an upgrade from
 // HTTP/1, i.e. without prior knowledge.
 type GRPCRoute struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the desired state of GRPCRoute.
+	// +required
 	Spec GRPCRouteSpec `json:"spec,omitempty"`
 
 	// Status defines the current state of GRPCRoute.
+	// +optional
 	Status GRPCRouteStatus `json:"status,omitempty"`
 }
 
@@ -136,12 +139,14 @@ type GRPCRouteSpec struct {
 	// Support: Core
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
 	Hostnames []Hostname `json:"hostnames,omitempty"`
 
 	// Rules are a list of GRPC matchers, filters and actions.
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
 	// +kubebuilder:validation:XValidation:message="While 16 rules and 64 matches per rule are allowed, the total number of matches across all rules in a route must be less than 128",rule="(self.size() > 0 ? (has(self[0].matches) ? self[0].matches.size() : 0) : 0) + (self.size() > 1 ? (has(self[1].matches) ? self[1].matches.size() : 0) : 0) + (self.size() > 2 ? (has(self[2].matches) ? self[2].matches.size() : 0) : 0) + (self.size() > 3 ? (has(self[3].matches) ? self[3].matches.size() : 0) : 0) + (self.size() > 4 ? (has(self[4].matches) ? self[4].matches.size() : 0) : 0) + (self.size() > 5 ? (has(self[5].matches) ? self[5].matches.size() : 0) : 0) + (self.size() > 6 ? (has(self[6].matches) ? self[6].matches.size() : 0) : 0) + (self.size() > 7 ? (has(self[7].matches) ? self[7].matches.size() : 0) : 0) + (self.size() > 8 ? (has(self[8].matches) ? self[8].matches.size() : 0) : 0) + (self.size() > 9 ? (has(self[9].matches) ? self[9].matches.size() : 0) : 0) + (self.size() > 10 ? (has(self[10].matches) ? self[10].matches.size() : 0) : 0) + (self.size() > 11 ? (has(self[11].matches) ? self[11].matches.size() : 0) : 0) + (self.size() > 12 ? (has(self[12].matches) ? self[12].matches.size() : 0) : 0) + (self.size() > 13 ? (has(self[13].matches) ? self[13].matches.size() : 0) : 0) + (self.size() > 14 ? (has(self[14].matches) ? self[14].matches.size() : 0) : 0) + (self.size() > 15 ? (has(self[15].matches) ? self[15].matches.size() : 0) : 0) <= 128"
 	// <gateway:experimental:validation:XValidation:message="Rule name must be unique within the route",rule="self.all(l1, !has(l1.name) || self.exists_one(l2, has(l2.name) && l1.name == l2.name))">
@@ -156,7 +161,6 @@ type GRPCRouteRule struct {
 	//
 	// Support: Extended
 	// +optional
-	// <gateway:experimental>
 	Name *SectionName `json:"name,omitempty"`
 
 	// Matches define conditions used for matching the rule against incoming
@@ -210,6 +214,7 @@ type GRPCRouteRule struct {
 	// the above criteria.
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=64
 	Matches []GRPCRouteMatch `json:"matches,omitempty"`
 
@@ -239,6 +244,7 @@ type GRPCRouteRule struct {
 	// Support: Core
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
 	// +kubebuilder:validation:XValidation:message="RequestHeaderModifier filter cannot be repeated",rule="self.filter(f, f.type == 'RequestHeaderModifier').size() <= 1"
 	// +kubebuilder:validation:XValidation:message="ResponseHeaderModifier filter cannot be repeated",rule="self.filter(f, f.type == 'ResponseHeaderModifier').size() <= 1"
@@ -274,6 +280,7 @@ type GRPCRouteRule struct {
 	// Support for weight: Core
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
 	BackendRefs []GRPCBackendRef `json:"backendRefs,omitempty"`
 
@@ -405,12 +412,14 @@ type GRPCHeaderMatch struct {
 	// entries with an equivalent header name MUST be ignored. Due to the
 	// case-insensitivity of header names, "foo" and "Foo" are considered
 	// equivalent.
+	// +required
 	Name GRPCHeaderName `json:"name"`
 
 	// Value is the value of the gRPC Header to be matched.
 	//
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=4096
+	// +required
 	Value string `json:"value"`
 }
 
@@ -521,6 +530,7 @@ type GRPCRouteFilter struct {
 	// +unionDiscriminator
 	// +kubebuilder:validation:Enum=ResponseHeaderModifier;RequestHeaderModifier;RequestMirror;ExtensionRef
 	// <gateway:experimental:validation:Enum=ResponseHeaderModifier;RequestHeaderModifier;RequestMirror;ExtensionRef>
+	// +required
 	Type GRPCRouteFilterType `json:"type"`
 
 	// RequestHeaderModifier defines a schema for a filter that modifies request
@@ -631,6 +641,7 @@ type GRPCBackendRef struct {
 	// Filters field in GRPCRouteRule.)
 	//
 	// +optional
+	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
 	// +kubebuilder:validation:XValidation:message="RequestHeaderModifier filter cannot be repeated",rule="self.filter(f, f.type == 'RequestHeaderModifier').size() <= 1"
 	// +kubebuilder:validation:XValidation:message="ResponseHeaderModifier filter cannot be repeated",rule="self.filter(f, f.type == 'ResponseHeaderModifier').size() <= 1"

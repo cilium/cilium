@@ -135,8 +135,8 @@ var GatewayStaticAddresses = suite.ConformanceTest{
 		kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, finalExpectedListenerState)
 		require.Len(t, currentGW.Spec.Addresses, 1, "expected only 1 address left specified on Gateway")
 		statusAddresses := extractStatusAddresses(currentGW.Status.Addresses)
-		require.NotContains(t, statusAddresses, unusableAddress.Value, "should contain the unusable address")
-		require.NotContains(t, statusAddresses, invalidAddress.Value, "should contain the invalid address")
+		require.NotContains(t, statusAddresses, unusableAddress.Value, "should not contain the unusable address")
+		require.NotContains(t, statusAddresses, invalidAddress.Value, "should not contain the invalid address")
 		require.Contains(t, statusAddresses, usableAddress.Value, "should contain the usable address")
 		for _, addr := range currentGW.Status.Addresses {
 			if usableAddress.Value != addr.Value {

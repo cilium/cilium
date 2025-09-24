@@ -14,4 +14,5 @@ const (
 	validGammaServices = "validGammaServices"
 	relevantHTTPRoutes = "relevantHTTPRoutes"
 	numRoutes          = "numRoutes"
+	status             = "status"
 )

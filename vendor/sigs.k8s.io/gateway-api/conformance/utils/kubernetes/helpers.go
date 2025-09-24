@@ -331,13 +331,21 @@ func MeshNamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig conf
 //     - ListenerConditionProgrammed
 //
 // The test will fail if these conditions are not met before the timeouts.
-func GatewayAndRoutesMustBeAccepted(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, controllerName string, gw GatewayRef, routeType any, routeNNs ...types.NamespacedName) string {
+// Note that this also returns a Gateway address to use, but it takes the port
+// from the first listener it finds.  Set parameter `usePort` to false if there
+// are multiple listeners, and true if there is only one listener.
+func GatewayAndRoutesMustBeAccepted(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, controllerName string, gw GatewayRef, routeType any, usePort bool, routeNNs ...types.NamespacedName) string {
 	t.Helper()
 
 	RouteTypeMustHaveParentsField(t, routeType)
 	gwAddr, err := WaitForGatewayAddress(t, c, timeoutConfig, gw)
-
 	require.NoErrorf(t, err, "timed out waiting for Gateway address to be assigned")
+
+	// If the Gateway has multiple listeners, get a portless gwAddr.
+	// Otherwise, you get the first listener's port, which might not be the one you want.
+	if !usePort {
+		gwAddr, _, _ = net.SplitHostPort(gwAddr)
+	}
 
 	ns := gatewayv1.Namespace(gw.Namespace)
 	kind := gatewayv1.Kind("Gateway")
@@ -401,7 +409,7 @@ func GatewayAndRoutesMustBeAccepted(t *testing.T, c client.Client, timeoutConfig
 //
 // The test will fail if these conditions are not met before the timeouts.
 func GatewayAndHTTPRoutesMustBeAccepted(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, controllerName string, gw GatewayRef, routeNNs ...types.NamespacedName) string {
-	return GatewayAndRoutesMustBeAccepted(t, c, timeoutConfig, controllerName, gw, &gatewayv1.HTTPRoute{}, routeNNs...)
+	return GatewayAndRoutesMustBeAccepted(t, c, timeoutConfig, controllerName, gw, &gatewayv1.HTTPRoute{}, true, routeNNs...)
 }
 
 // GatewayAndUDPRoutesMustBeAccepted waits until the specified Gateway has an IP
@@ -409,7 +417,7 @@ func GatewayAndHTTPRoutesMustBeAccepted(t *testing.T, c client.Client, timeoutCo
 // Gateway. The test will fail if these conditions are not met before the
 // timeouts.
 func GatewayAndUDPRoutesMustBeAccepted(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, controllerName string, gw GatewayRef, routeNNs ...types.NamespacedName) string {
-	return GatewayAndRoutesMustBeAccepted(t, c, timeoutConfig, controllerName, gw, &v1alpha2.UDPRoute{}, routeNNs...)
+	return GatewayAndRoutesMustBeAccepted(t, c, timeoutConfig, controllerName, gw, &v1alpha2.UDPRoute{}, true, routeNNs...)
 }
 
 // WaitForGatewayAddress waits until at least one IP Address has been set in the
@@ -419,16 +427,10 @@ func WaitForGatewayAddress(t *testing.T, client client.Client, timeoutConfig con
 
 	var ipAddr, port string
 	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.GatewayMustHaveAddress, true, func(ctx context.Context) (bool, error) {
-		gw := &gatewayv1.Gateway{}
-		err := client.Get(ctx, gwRef.NamespacedName, gw)
-		if err != nil {
-			tlog.Logf(t, "error fetching Gateway: %v", err)
-			return false, fmt.Errorf("error fetching Gateway: %w", err)
-		}
-
-		if err := ConditionsHaveLatestObservedGeneration(gw, gw.Status.Conditions); err != nil {
-			tlog.Log(t, "Gateway", err)
-			return false, nil
+		gw, err := getGatewayStatus(ctx, t, client, gwRef)
+		if gw == nil {
+			// The returned error is nil if the Gateway conditions don't have the latest observed generation.
+			return false, err
 		}
 
 		listener := gw.Spec.Listeners[0]
@@ -442,18 +444,32 @@ func WaitForGatewayAddress(t *testing.T, client client.Client, timeoutConfig con
 			}
 		}
 		port = strconv.FormatInt(int64(listener.Port), 10)
-
 		for _, address := range gw.Status.Addresses {
-			if address.Type != nil && (*address.Type == gatewayv1.IPAddressType || *address.Type == v1alpha2.HostnameAddressType) {
+			if address.Type != nil {
 				ipAddr = address.Value
 				return true, nil
 			}
 		}
-
 		return false, nil
 	})
 	require.NoErrorf(t, waitErr, "error waiting for Gateway to have at least one IP address in status")
 	return net.JoinHostPort(ipAddr, port), waitErr
+}
+
+func getGatewayStatus(ctx context.Context, t *testing.T, client client.Client, gwRef GatewayRef) (*gatewayv1.Gateway, error) {
+	gw := &gatewayv1.Gateway{}
+	err := client.Get(ctx, gwRef.NamespacedName, gw)
+	if err != nil {
+		tlog.Logf(t, "error fetching Gateway: %v", err)
+		return nil, fmt.Errorf("error fetching Gateway: %w", err)
+	}
+
+	if err := ConditionsHaveLatestObservedGeneration(gw, gw.Status.Conditions); err != nil {
+		tlog.Log(t, "Gateway", err)
+		return nil, nil
+	}
+
+	return gw, nil
 }
 
 // GatewayListenersMustHaveConditions checks if every listener of the specified gateway has all
@@ -976,4 +992,48 @@ func findPodConditionInList(t *testing.T, conditions []v1.PodCondition, condName
 
 	tlog.Logf(t, "%s was not in conditions list", condName)
 	return false
+}
+
+// BackendTLSPolicyMustHaveCondition checks that the created BackentTLSPolicy has the Condition,
+// halting after the specified timeout is exceeded.
+func BackendTLSPolicyMustHaveCondition(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, policyNN, gwNN types.NamespacedName, condition metav1.Condition) {
+	t.Helper()
+	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.HTTPRouteMustHaveCondition, true, func(ctx context.Context) (bool, error) {
+		policy := &gatewayv1.BackendTLSPolicy{}
+		err := client.Get(ctx, policyNN, policy)
+		if err != nil {
+			return false, fmt.Errorf("error fetching BackendTLSPolicy %v err: %w", policyNN, err)
+		}
+
+		for _, parent := range policy.Status.Ancestors {
+			if err := ConditionsHaveLatestObservedGeneration(policy, parent.Conditions); err != nil {
+				tlog.Logf(t, "BackendTLSPolicy %s (parentRef=%v) %v",
+					policyNN, parentRefToString(parent.AncestorRef), err,
+				)
+				return false, nil
+			}
+
+			if parent.AncestorRef.Name == gatewayv1.ObjectName(gwNN.Name) && (parent.AncestorRef.Namespace == nil || string(*parent.AncestorRef.Namespace) == gwNN.Namespace) {
+				if findConditionInList(t, parent.Conditions, condition.Type, string(condition.Status), condition.Reason) {
+					return true, nil
+				}
+			}
+		}
+
+		return false, nil
+	})
+
+	require.NoErrorf(t, waitErr, "error waiting for BackendTLSPolicy %v status to have a Condition %v", policyNN, condition)
+}
+
+// BackendTLSPolicyMustHaveLatestConditions will fail the test if there are
+// conditions that were not updated
+func BackendTLSPolicyMustHaveLatestConditions(t *testing.T, r *gatewayv1.BackendTLSPolicy) {
+	t.Helper()
+
+	for _, ancestor := range r.Status.Ancestors {
+		if err := ConditionsHaveLatestObservedGeneration(r, ancestor.Conditions); err != nil {
+			tlog.Fatalf(t, "BackendTLSPolicy(controller=%v, ancestorRef=%#v) %v", ancestor.ControllerName, parentRefToString(ancestor.AncestorRef), err)
+		}
+	}
 }

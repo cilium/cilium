@@ -19,7 +19,7 @@ package features
 import "k8s.io/apimachinery/pkg/util/sets"
 
 // -----------------------------------------------------------------------------
-// Features - GRPCRoute Conformance
+// Features - GRPCRoute Conformance (Core)
 // -----------------------------------------------------------------------------
 
 const (
@@ -37,4 +37,26 @@ var GRPCRouteFeature = Feature{
 // a Core level of support.
 var GRPCRouteCoreFeatures = sets.New(
 	GRPCRouteFeature,
+)
+
+// -----------------------------------------------------------------------------
+// Features - GRPCRoute Conformance (Extended)
+// -----------------------------------------------------------------------------
+
+const (
+	// This option indicates support for the name field in the GRPCRouteRule (extended conformance)
+	SupportGRPCRouteNamedRouteRule FeatureName = "GRPCRouteNamedRouteRule"
+)
+
+// GRPCRouteNamedRouteRule contains metadata for the SupportGRPCRouteNamedRouteRule feature.
+var GRPCRouteNamedRouteRule = Feature{
+	Name:    SupportGRPCRouteNamedRouteRule,
+	Channel: FeatureChannelStandard,
+}
+
+// GRPCRouteExtendedFeatures includes all extended features for GRPCRoute
+// conformance and can be used to opt-in to run all GRPCRoute extended features tests.
+// This does not include any Core Features.
+var GRPCRouteExtendedFeatures = sets.New(
+	GRPCRouteNamedRouteRule,
 )

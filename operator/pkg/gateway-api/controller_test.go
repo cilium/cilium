@@ -101,7 +101,7 @@ var controllerTestFixture = []client.Object{
 					Name:     "https",
 					Hostname: ptr.To[gatewayv1.Hostname]("example.com"),
 					Port:     443,
-					TLS: &gatewayv1.GatewayTLSConfig{
+					TLS: &gatewayv1.ListenerTLSConfig{
 						CertificateRefs: []gatewayv1.SecretObjectReference{
 							{
 								Name: "tls-secret",
@@ -125,7 +125,7 @@ var controllerTestFixture = []client.Object{
 					Name:     "https",
 					Hostname: ptr.To[gatewayv1.Hostname]("example2.com"),
 					Port:     443,
-					TLS: &gatewayv1.GatewayTLSConfig{
+					TLS: &gatewayv1.ListenerTLSConfig{
 						CertificateRefs: []gatewayv1.SecretObjectReference{},
 					},
 				},
