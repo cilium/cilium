@@ -90,6 +90,7 @@ struct dnshdr {
 kprobe:br_forward
 {
   $skb = ((struct sk_buff *) arg1);
+  $time = strftime("%H:%M:%S:%f", nsecs);
 
   $proto = bswap($skb->protocol);
   $ip4h = ((struct iphdr *) ($skb->head + $skb->network_header));
@@ -105,7 +106,27 @@ kprobe:br_forward
         ($proto == PROTO_IPV6 && $ip6h->nexthdr == PROTO_UDP)) &&
       (bswap($udph->dest) == PORT_VXLAN || bswap($udph->dest) == PORT_GENEVE);
 
+  // Overlay packets should be always encrypted. Thus, let's log tunnel headers
+  // and shift references to the inner packet for further logging.
   if ($skb->encapsulation || $encap) {
+    if ($proto == PROTO_IPV4) {
+      printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, encap: %d, skb: %d)\n",
+        $time, $skb,
+        ntop($ip4h->saddr), bswap($udph->source),
+        ntop($ip4h->daddr), bswap($udph->dest),
+        $ip4h->protocol,
+        $encap, $skb->encapsulation);
+    }
+
+    if ($proto == PROTO_IPV6) {
+      printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, encap: %d, skb: %d)\n",
+        $time, $skb,
+        ntop($ip6h->saddr.in6_u.u6_addr8), bswap($udph->source),
+        ntop($ip6h->daddr.in6_u.u6_addr8), bswap($udph->dest),
+        $ip6h->nexthdr,
+        $encap, $skb->encapsulation);
+    }
+
     // $skb->inner_protocol does not appear to be correctly initialized
     $proto = bswap(*((uint16*) ($skb->head + $skb->inner_mac_header + 12)));
     $ip4h = ((struct iphdr*) ($skb->head + $skb->inner_network_header));
@@ -117,6 +138,7 @@ kprobe:br_forward
 
   if ($proto == PROTO_IPV4) {
     if (
+      ($skb->encapsulation || $encap) ||
       (str($8) == "ipsec" && $ip4h->protocol != PROTO_ESP) ||
       (str($8) == "wireguard" && !($ip4h->protocol == PROTO_UDP &&
                                       (bswap($udph->dest) == PORT_WIREGUARD ||
@@ -143,12 +165,11 @@ kprobe:br_forward
             @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
 
       if (
+          ($skb->encapsulation || $encap) ||
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
           ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
         ) {
-        $time = strftime("%H:%M:%S:%f", nsecs);
-
-        printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
+        printf("[%s] [%p]  ↳ %s:%d -> %s:%d (len: %d, proto: %d, ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
           $time, $skb,
           ntop($ip4h->saddr),
           ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->source) : 0,
@@ -156,7 +177,6 @@ kprobe:br_forward
           ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->dest) : 0,
           bswap($ip4h->tot_len),
           $ip4h->protocol,
-          $encap, $skb->encapsulation,
           $skb->dev->ifindex,
           $skb->dev->nd_net.net->ns.inum,
           $src_is_pod, $src_is_internal,
@@ -165,7 +185,7 @@ kprobe:br_forward
           $pod_to_pod_via_proxy == PROXY_TRACED_AND_MASQUERADED);
 
         if ($ip4h->protocol == PROTO_TCP) {
-          printf("[%s] [%p] ↳ Detected TCP message, TCPFlags: %c%c%c%c%c%c%c%c, Seq: %u, Ack: %u\n",
+          printf("[%s] [%p]   ↳ TCP (TCPFlags: %c%c%c%c%c%c%c%c, Seq: %u, Ack: %u)\n",
             $time, $skb,
             $tcph->cwr ? CH_C : CH_DOT, $tcph->ece ? CH_E : CH_DOT,
             $tcph->urg ? CH_U : CH_DOT, $tcph->ack ? CH_A : CH_DOT,
@@ -177,7 +197,7 @@ kprobe:br_forward
         if ($ip4h->protocol == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
           $dns = (struct dnshdr*)($udph + 1);
           $query = (uint8 *)($dns + 1);
-          printf("[%s] [%p] ↳ Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
+          printf("[%s] [%p]   ↳ DNS (ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s)\n",
             $time, $skb,
             bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
             bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
@@ -187,12 +207,12 @@ kprobe:br_forward
         if ($ip4h->protocol == PROTO_ICMP_IPV4) {
           $frag_off = bswap($ip4h->frag_off);
 
-          printf("[%s] [%p] ↳ Detected ICMP message, IPFlags: .%c%c, Type: %u, Code: %u, FragOff: %d, FragID: %d\n",
+          printf("[%s] [%p]   ↳ ICMP (Type: %u, Code: %u, IPFlags: .%c%c, FragOff: %d, FragID: %d)\n",
             $time, $skb,
-            ($frag_off & 0x4000) >> 14 ? CH_D : CH_DOT,
-            ($frag_off & 0x2000) >> 13 ? CH_M : CH_DOT,
             $icmph->type,
             $icmph->code,
+            ($frag_off & 0x4000) >> 14 ? CH_D : CH_DOT,
+            ($frag_off & 0x2000) >> 13 ? CH_M : CH_DOT,
             $frag_off & 0x1FFF,
             bswap($ip4h->id));
         }
@@ -202,6 +222,7 @@ kprobe:br_forward
 
   if ($proto == PROTO_IPV6) {
     if (
+      ($skb->encapsulation || $encap) ||
       (str($8) == "ipsec" && $ip6h->nexthdr != PROTO_ESP) ||
       (str($8) == "wireguard" && !($ip6h->nexthdr == PROTO_UDP &&
                                       (bswap($udph->dest) == PORT_WIREGUARD ||
@@ -228,12 +249,11 @@ kprobe:br_forward
             @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
 
       if (
+          ($skb->encapsulation || $encap) ||
           (!$pod_to_pod_via_proxy && ($src_is_pod && $dst_is_pod) && (!$src_is_internal && !$dst_is_internal)) ||
           ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))
         ) {
-        $time = strftime("%H:%M:%S:%f", nsecs);
-
-        printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
+        printf("[%s] [%p]  ↳ %s:%d -> %s:%d (len: %d, proto: %d, ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
           $time, $skb,
           ntop($ip6h->saddr.in6_u.u6_addr8),
           ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->source) : 0,
@@ -241,7 +261,6 @@ kprobe:br_forward
           ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->dest) : 0,
           bswap($ip6h->payload_len),
           $ip6h->nexthdr,
-          $encap, $skb->encapsulation,
           $skb->dev->ifindex,
           $skb->dev->nd_net.net->ns.inum,
           $src_is_pod, $src_is_internal,
@@ -250,7 +269,7 @@ kprobe:br_forward
           $pod_to_pod_via_proxy == PROXY_TRACED_AND_MASQUERADED);
 
         if ($ip6h->nexthdr == PROTO_TCP) {
-          printf("[%s] [%p] ↳ Detected TCP message, TCPFlags: %c%c%c%c%c%c%c%c, Seq: %u, Ack: %u\n",
+          printf("[%s] [%p]   ↳ TCP (TCPFlags: %c%c%c%c%c%c%c%c, Seq: %u, Ack: %u)\n",
             $time, $skb,
             $tcph->cwr ? CH_C : CH_DOT, $tcph->ece ? CH_E : CH_DOT,
             $tcph->urg ? CH_U : CH_DOT, $tcph->ack ? CH_A : CH_DOT,
@@ -262,7 +281,7 @@ kprobe:br_forward
         if ($ip6h->nexthdr == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
           $dns = (struct dnshdr*)($udph + 1);
           $query = (uint8 *)($dns + 1);
-          printf("[%s] [%p] ↳ Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
+          printf("[%s] [%p]   ↳ DNS (ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s)\n",
             $time, $skb,
             bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
             bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
@@ -279,11 +298,11 @@ kprobe:br_forward
             $frag_off_res_m = bswap($frag_hdr->frag_off);
           }
 
-          printf("[%s] [%p] ↳ Detected ICMP message, IPFlags: ..%c, Type: %u, Code: %u, FragOff: %d, FragID: %d\n",
+          printf("[%s] [%p]   ↳ ICMP (Type: %u, Code: %u, IPFlags: ..%c, FragOff: %d, FragID: %d)\n",
             $time, $skb,
-            $frag_off_res_m & 0x0001 ? CH_M : CH_DOT,
             $icmph->type,
             $icmph->code,
+            $frag_off_res_m & 0x0001 ? CH_M : CH_DOT,
             $frag_off_res_m >> 3,
             $frag_id);
         }
