@@ -57,12 +57,12 @@ func (fs *fakeSender) InterfaceByIndex(idx int) (Interface, error) {
 		return Interface{}, fmt.Errorf("Device does not exit: %d", idx)
 	}
 
-	return Interface{
-		iface: &net.Interface{
+	return InterfaceFromNetInterface(
+		&net.Interface{
 			Index: def.Index,
 			Name:  def.Name,
 		},
-	}, nil
+	), nil
 }
 
 var fakeDevices = map[int]*tables.Device{

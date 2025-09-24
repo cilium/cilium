@@ -62,6 +62,11 @@ type Interface struct {
 	iface *net.Interface
 }
 
+// InterfaceFromNetInterface constructs an Interface from the given *net.Interface.
+func InterfaceFromNetInterface(iface *net.Interface) Interface {
+	return Interface{iface: iface}
+}
+
 type sender struct{}
 
 // arpDropAllFilter filters out all packets, as we are only interested in
@@ -216,13 +221,13 @@ func (s *sender) InterfaceByIndex(idx int) (Interface, error) {
 		return Interface{}, err
 	}
 
-	return Interface{
-		iface: &net.Interface{
+	return InterfaceFromNetInterface(
+		&net.Interface{
 			Index:        link.Attrs().Index,
 			MTU:          link.Attrs().MTU,
 			Name:         link.Attrs().Name,
 			Flags:        link.Attrs().Flags,
 			HardwareAddr: link.Attrs().HardwareAddr,
 		},
-	}, nil
+	), nil
 }
