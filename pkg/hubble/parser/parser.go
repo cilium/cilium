@@ -114,7 +114,12 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 			return nil, errors.ErrEmptyData
 		}
 
-		flow := &pb.Flow{}
+		flow := &pb.Flow{
+			Emitter: &pb.Emitter{
+				Name:    v1.FlowEmitter,
+				Version: v1.FlowEmitterVersion,
+			},
+		}
 		switch payload.Data[0] {
 		case monitorAPI.MessageTypeDebug:
 			// Debug and TraceSock are both perf ring buffer events without any
@@ -145,7 +150,12 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 	case *observerTypes.AgentEvent:
 		switch payload.Type {
 		case monitorAPI.MessageTypeAccessLog:
-			flow := &pb.Flow{}
+			flow := &pb.Flow{
+				Emitter: &pb.Emitter{
+					Name:    v1.FlowEmitter,
+					Version: v1.FlowEmitterVersion,
+				},
+			}
 			logrecord, ok := payload.Message.(accesslog.LogRecord)
 			if !ok {
 				return nil, errors.ErrInvalidAgentMessageType
