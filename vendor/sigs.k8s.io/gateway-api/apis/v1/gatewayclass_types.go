@@ -49,10 +49,12 @@ import (
 //
 // GatewayClass is a Cluster level resource.
 type GatewayClass struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the desired state of GatewayClass.
+	// +required
 	Spec GatewayClassSpec `json:"spec"`
 
 	// Status defines the current state of GatewayClass.
@@ -61,6 +63,7 @@ type GatewayClass struct {
 	// specify their controller name.
 	//
 	// +kubebuilder:default={conditions: {{type: "Accepted", status: "Unknown", message: "Waiting for controller", reason: "Pending", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
+	// +optional
 	Status GatewayClassStatus `json:"status,omitempty"`
 }
 
@@ -83,6 +86,7 @@ type GatewayClassSpec struct {
 	// Support: Core
 	//
 	// +kubebuilder:validation:XValidation:message="Value is immutable",rule="self == oldSelf"
+	// +required
 	ControllerName GatewayController `json:"controllerName"`
 
 	// ParametersRef is a reference to a resource that contains the configuration
@@ -118,15 +122,18 @@ type GatewayClassSpec struct {
 // configuration resource within the cluster.
 type ParametersReference struct {
 	// Group is the group of the referent.
+	// +required
 	Group Group `json:"group"`
 
 	// Kind is kind of the referent.
+	// +required
 	Kind Kind `json:"kind"`
 
 	// Name is the name of the referent.
 	//
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
+	// +required
 	Name string `json:"name"`
 
 	// Namespace is the namespace of the referent.
@@ -256,6 +263,35 @@ type GatewayClassStatus struct {
 	// Controllers should prefer to publish conditions using values
 	// of GatewayClassConditionType for the type of each Condition.
 	//
+	// <gateway:util:excludeFromCRD>
+	// Notes for implementors:
+	//
+	// Conditions are a listType `map`, which means that they function like a
+	// map with a key of the `type` field _in the k8s apiserver_.
+	//
+	// This means that implementations must obey some rules when updating this
+	// section.
+	//
+	// * Implementations MUST perform a read-modify-write cycle on this field
+	//   before modifying it. That is, when modifying this field, implementations
+	//   must be confident they have fetched the most recent version of this field,
+	//   and ensure that changes they make are on that recent version.
+	// * Implementations MUST NOT remove or reorder Conditions that they are not
+	//   directly responsible for. For example, if an implementation sees a Condition
+	//   with type `special.io/SomeField`, it MUST NOT remove, change or update that
+	//   Condition.
+	// * Implementations MUST always _merge_ changes into Conditions of the same Type,
+	//   rather than creating more than one Condition of the same Type.
+	// * Implementations MUST always update the `observedGeneration` field of the
+	//   Condition to the `metadata.generation` of the Gateway at the time of update creation.
+	// * If the `observedGeneration` of a Condition is _greater than_ the value the
+	//   implementation knows about, then it MUST NOT perform the update on that Condition,
+	//   but must wait for a future reconciliation and status update. (The assumption is that
+	//   the implementation's copy of the object is stale and an update will be re-triggered
+	//   if relevant.)
+	//
+	// </gateway:util:excludeFromCRD>
+	//
 	// +optional
 	// +listType=map
 	// +listMapKey=type
@@ -287,5 +323,6 @@ type GatewayClassList struct {
 type FeatureName string
 
 type SupportedFeature struct {
+	// +required
 	Name FeatureName `json:"name"`
 }

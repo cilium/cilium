@@ -29,6 +29,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"regexp"
+	"strings"
 	"testing"
 
 	"golang.org/x/net/http2"
@@ -59,6 +60,7 @@ type Request struct {
 	CertPem          []byte
 	KeyPem           []byte
 	Server           string
+	Body             string
 }
 
 // String returns a printable version of Request for logging. Note that the
@@ -86,6 +88,14 @@ type CapturedRequest struct {
 
 	Namespace string `json:"namespace"`
 	Pod       string `json:"pod"`
+	TLS       TLS    `json:"tls"`
+}
+
+type TLS struct {
+	Version            string `json:"version"`
+	ServerName         string `json:"serverName"`
+	NegotiatedProtocol string `json:"negotiatedProtocol"`
+	CipherSuite        string `json:"cipherSuite"`
 }
 
 // RedirectRequest contains a follow up request metadata captured from a redirect
@@ -194,7 +204,12 @@ func (d *DefaultRoundTripper) defaultRoundTrip(request Request, transport http.R
 	ctx, cancel := context.WithTimeout(context.Background(), d.TimeoutConfig.RequestTimeout)
 	defer cancel()
 	ctx = withT(ctx, request.T)
-	req, err := http.NewRequestWithContext(ctx, method, request.URL.String(), nil)
+
+	var reqBody io.Reader
+	if request.Body != "" {
+		reqBody = strings.NewReader(request.Body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, request.URL.String(), reqBody)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -221,6 +236,18 @@ func (d *DefaultRoundTripper) defaultRoundTrip(request Request, transport http.R
 
 	resp, err := client.Do(req)
 	if err != nil {
+		if d.Debug {
+			var dump []byte
+			if resp != nil {
+				dump, err = httputil.DumpResponse(resp, true)
+				if err != nil {
+					return nil, nil, err
+				}
+				tlog.Logf(request.T, "Error sending request:\n%s\n\n", formatDump(dump, "< "))
+			} else {
+				tlog.Logf(request.T, "Error sending request: %v (no response)\n", err)
+			}
+		}
 		return nil, nil, err
 	}
 	defer resp.Body.Close()

@@ -886,7 +886,7 @@ func toQueryMatch(match gatewayv1.HTTPRouteMatch) []model.KeyValueMatch {
 	return res
 }
 
-func toTLS(tls *gatewayv1.GatewayTLSConfig, grants []gatewayv1beta1.ReferenceGrant, defaultNamespace string) []model.TLSSecret {
+func toTLS(tls *gatewayv1.ListenerTLSConfig, grants []gatewayv1beta1.ReferenceGrant, defaultNamespace string) []model.TLSSecret {
 	if tls == nil {
 		return nil
 	}

@@ -25,6 +25,8 @@ var gatewayClassSupportedFeatures = getSupportedFeatures()
 var exemptFeatures = []features.Feature{
 	features.HTTPRouteParentRefPortFeature,
 	features.MeshConsumerRouteFeature,
+	features.BackendTLSPolicyFeature,
+	features.HTTPRouteCORS,
 }
 
 // List of Gateway API features supported by Cilium.
