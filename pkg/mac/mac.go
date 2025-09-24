@@ -124,16 +124,6 @@ func GenerateRandMAC() (MAC, error) {
 	return buf, nil
 }
 
-// HaveMACAddrs returns true if all given network interfaces have L2 addr.
-func HaveMACAddrs(ifaces []string) bool {
-	for _, iface := range ifaces {
-		if !HasMacAddr(iface) {
-			return false
-		}
-	}
-	return true
-}
-
 // CArrayString returns a string which can be used for assigning the given
 // MAC addr to "union macaddr" in C.
 func CArrayString(m net.HardwareAddr) string {
