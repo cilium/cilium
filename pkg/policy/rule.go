@@ -386,7 +386,7 @@ func mergeIngress(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSli
 
 	found += cnt
 
-	err = toPorts.Iterate(func(r api.Ports) error {
+	handlePortProto := func(r api.Ports) error {
 		// For L4 Policy, an empty slice of EndpointSelector indicates that the
 		// rule allows all at L3 - explicitly specify this by creating a slice
 		// with the WildcardEndpointSelector.
@@ -418,26 +418,16 @@ func mergeIngress(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSli
 		}
 
 		for _, p := range r.GetPortProtocols() {
+			protocols := []api.L4Proto{p.Protocol}
 			if p.Protocol.IsAny() {
-				cnt, err := mergeIngressPortProto(policyCtx, fromEndpoints, auth, hostWildcardL7, r, p, api.ProtoTCP, resMap)
-				if err != nil {
-					return err
+				protocols = []api.L4Proto{
+					api.ProtoTCP,
+					api.ProtoUDP,
+					api.ProtoSCTP,
 				}
-				found += cnt
-
-				cnt, err = mergeIngressPortProto(policyCtx, fromEndpoints, auth, hostWildcardL7, r, p, api.ProtoUDP, resMap)
-				if err != nil {
-					return err
-				}
-				found += cnt
-
-				cnt, err = mergeIngressPortProto(policyCtx, fromEndpoints, auth, hostWildcardL7, r, p, api.ProtoSCTP, resMap)
-				if err != nil {
-					return err
-				}
-				found += cnt
-			} else {
-				cnt, err := mergeIngressPortProto(policyCtx, fromEndpoints, auth, hostWildcardL7, r, p, p.Protocol, resMap)
+			}
+			for _, protocol := range protocols {
+				cnt, err := mergeIngressPortProto(policyCtx, fromEndpoints, auth, hostWildcardL7, r, p, protocol, resMap)
 				if err != nil {
 					return err
 				}
@@ -445,32 +435,12 @@ func mergeIngress(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSli
 			}
 		}
 		return nil
-	})
-	if err != nil {
-		return found, err
 	}
 
-	err = icmp.Iterate(func(r api.Ports) error {
-		if len(fromEndpoints) == 0 {
-			fromEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
-		}
-
-		if !policyCtx.IsDeny() {
-			policyCtx.PolicyTrace("      Allows ICMP type %v\n", r.GetPortProtocols())
-		} else {
-			policyCtx.PolicyTrace("      Denies ICMP type %v\n", r.GetPortProtocols())
-		}
-
-		for _, p := range r.GetPortProtocols() {
-			cnt, err := mergeIngressPortProto(policyCtx, fromEndpoints, auth, hostWildcardL7, r, p, p.Protocol, resMap)
-			if err != nil {
-				return err
-			}
-			found += cnt
-		}
-		return nil
-	})
-
+	if err := toPorts.Iterate(handlePortProto); err != nil {
+		return found, err
+	}
+	err = icmp.Iterate(handlePortProto)
 	return found, err
 }
 
@@ -581,7 +551,7 @@ func mergeEgress(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice,
 
 	found += cnt
 
-	err = toPorts.Iterate(func(r api.Ports) error {
+	handlePortProto := func(r api.Ports) error {
 		// For L4 Policy, an empty slice of EndpointSelector indicates that the
 		// rule allows all at L3 - explicitly specify this by creating a slice
 		// with the WildcardEndpointSelector.
@@ -610,26 +580,16 @@ func mergeEgress(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice,
 		}
 
 		for _, p := range r.GetPortProtocols() {
+			protocols := []api.L4Proto{p.Protocol}
 			if p.Protocol.IsAny() {
-				cnt, err := mergeEgressPortProto(policyCtx, toEndpoints, auth, r, p, api.ProtoTCP, resMap, fqdns)
-				if err != nil {
-					return err
+				protocols = []api.L4Proto{
+					api.ProtoTCP,
+					api.ProtoUDP,
+					api.ProtoSCTP,
 				}
-				found += cnt
-
-				cnt, err = mergeEgressPortProto(policyCtx, toEndpoints, auth, r, p, api.ProtoUDP, resMap, fqdns)
-				if err != nil {
-					return err
-				}
-				found += cnt
-
-				cnt, err = mergeEgressPortProto(policyCtx, toEndpoints, auth, r, p, api.ProtoSCTP, resMap, fqdns)
-				if err != nil {
-					return err
-				}
-				found += cnt
-			} else {
-				cnt, err := mergeEgressPortProto(policyCtx, toEndpoints, auth, r, p, p.Protocol, resMap, fqdns)
+			}
+			for _, protocol := range protocols {
+				cnt, err := mergeEgressPortProto(policyCtx, toEndpoints, auth, r, p, protocol, resMap, fqdns)
 				if err != nil {
 					return err
 				}
@@ -637,32 +597,12 @@ func mergeEgress(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice,
 			}
 		}
 		return nil
-	},
-	)
-	if err != nil {
-		return found, err
 	}
 
-	err = icmp.Iterate(func(r api.Ports) error {
-		if len(toEndpoints) == 0 {
-			toEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
-		}
-		if !policyCtx.IsDeny() {
-			policyCtx.PolicyTrace("      Allows ICMP type %v\n", r.GetPortProtocols())
-		} else {
-			policyCtx.PolicyTrace("      Denies ICMP type %v\n", r.GetPortProtocols())
-		}
-
-		for _, p := range r.GetPortProtocols() {
-			cnt, err := mergeEgressPortProto(policyCtx, toEndpoints, auth, r, p, p.Protocol, resMap, fqdns)
-			if err != nil {
-				return err
-			}
-			found += cnt
-		}
-		return nil
-	})
-
+	if err := toPorts.Iterate(handlePortProto); err != nil {
+		return found, err
+	}
+	err = icmp.Iterate(handlePortProto)
 	return found, err
 }
 
