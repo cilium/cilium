@@ -11,7 +11,12 @@ import (
 	"github.com/cilium/cilium/pkg/bpf/analyze"
 )
 
-type reachables map[string]*analyze.Reachable
+type reachableSpec struct {
+	*ebpf.ProgramSpec
+	*analyze.Reachable
+}
+
+type reachables map[string]*reachableSpec
 
 func computeReachability(spec *ebpf.CollectionSpec) (reachables, error) {
 	out := make(reachables, len(spec.Programs))
@@ -25,10 +30,11 @@ func computeReachability(spec *ebpf.CollectionSpec) (reachables, error) {
 		}
 
 		// Analyze reachability given the VariableSpecs provided at load time.
-		out[name], err = analyze.Reachability(bl, prog.Instructions, vars)
+		r, err := analyze.Reachability(bl, prog.Instructions, vars)
 		if err != nil {
 			return nil, fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
 		}
+		out[name] = &reachableSpec{prog, r}
 	}
 
 	return out, nil
