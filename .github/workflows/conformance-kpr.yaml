@@ -102,7 +102,7 @@ jobs:
       PR-number: ${{ inputs.PR-number || github.ref_name }}
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"kpr": true}'
+      extra-args: '{"kpr": true, "advanced-features": true}'
 
   merge-upload-and-status:
     name: Merge Upload and Status
