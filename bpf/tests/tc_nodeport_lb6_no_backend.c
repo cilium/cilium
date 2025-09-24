@@ -24,27 +24,12 @@ static volatile const __u8 *client_mac = mac_one;
 /* this matches the default node_config.h: */
 static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
 
-#include <bpf_host.c>
+#include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
-
-#define FROM_NETDEV	0
-#define TO_NETDEV	1
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_from_netdev,
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
 
 /* Test that a SVC without backends returns a TCP RST or ICMP error */
 PKTGEN("tc", "tc_nodeport_no_backend")
@@ -92,11 +77,7 @@ int nodeport_no_backend_setup(struct __ctx_buff *ctx)
 
 	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 static __always_inline int
@@ -192,11 +173,7 @@ int nodeport_no_backend2_reply_setup(struct __ctx_buff *ctx)
 	if (__tail_no_service_ipv6(ctx))
 		return TEST_ERROR;
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "tc_nodeport_no_backend2_reply")
