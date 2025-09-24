@@ -62,6 +62,9 @@ triggers:
   /ci-integration:
     workflows:
     - integration-test.yaml
+  /ci-kpr:
+    workflows:
+    - conformance-kpr.yaml
   /ci-kubespray:
     workflows:
     - conformance-kubespray.yaml
