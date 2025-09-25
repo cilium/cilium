@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -147,20 +148,18 @@ func dumpWireGuardStatus() (*models.WireguardStatus, error) {
 
 	defer wgClient.Close()
 
-	devices, err := wgClient.Devices()
+	wgDevice, err := wgClient.Device(wgTypes.IfaceName)
 	if err != nil {
 		return nil, err
 	}
 
 	var result models.WireguardStatus
 
-	for _, d := range devices {
-		result.Interfaces = append(result.Interfaces, &models.WireguardInterface{
-			Name:      d.Name,
-			PublicKey: d.PublicKey.String(),
-			PeerCount: int64(len(d.Peers)),
-		})
-	}
+	result.Interfaces = append(result.Interfaces, &models.WireguardInterface{
+		Name:      wgDevice.Name,
+		PublicKey: wgDevice.PublicKey.String(),
+		PeerCount: int64(len(wgDevice.Peers)),
+	})
 
 	return &result, nil
 }
