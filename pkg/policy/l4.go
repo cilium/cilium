@@ -660,8 +660,6 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 // 'p.PolicyMapState' using insertWithChanges().
 // Keys and old values of any added or deleted entries are added to 'changes'.
 // 'redirects' is the map of currently realized redirects, it is used to find the proxy port for any redirects.
-// p.SelectorCache is used as Identities interface during this call, which only has GetPrefix() that
-// needs no lock.
 func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features policyFeatures, changes ChangeState) {
 	port := l4.Port
 	proto := l4.U8Proto
@@ -675,6 +673,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 	if option.Config.Debug {
 		scopedLog = logger.With(
 			logfields.Port, port,
+			logfields.EndPort, l4.EndPort,
 			logfields.PortName, l4.PortName,
 			logfields.Protocol, proto,
 			logfields.TrafficDirection, direction,
