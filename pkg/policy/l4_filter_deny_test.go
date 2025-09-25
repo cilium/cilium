@@ -10,7 +10,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 )
+
+var denyPerSelectorPolicy = &PerSelectorPolicy{Verdict: types.Deny}
 
 // Tests in this file:
 //
@@ -73,7 +76,7 @@ func TestMergeDenyAllL3(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+			td.wildcardCachedSelector: denyPerSelectorPolicy,
 		},
 		Ingress:    true,
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
@@ -151,8 +154,8 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
-			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA:        denyPerSelectorPolicy,
+			td.wildcardCachedSelector: denyPerSelectorPolicy,
 		},
 		Ingress: true,
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
@@ -196,8 +199,8 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
-			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
+			td.wildcardCachedSelector: denyPerSelectorPolicy,
+			td.cachedSelectorA:        denyPerSelectorPolicy,
 		},
 		Ingress: true,
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
@@ -245,8 +248,8 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 		U8Proto:  6,
 		wildcard: nil,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
-			td.cachedSelectorC: &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA: denyPerSelectorPolicy,
+			td.cachedSelectorC: denyPerSelectorPolicy,
 		},
 		Ingress: true,
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
@@ -299,7 +302,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA:        denyPerSelectorPolicy,
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
@@ -346,7 +349,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA:        denyPerSelectorPolicy,
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
@@ -405,8 +408,9 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA: denyPerSelectorPolicy,
 			td.wildcardCachedSelector: &PerSelectorPolicy{
+				Verdict:          types.Allow,
 				L7Parser:         ParserTypeHTTP,
 				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
@@ -463,8 +467,9 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA: denyPerSelectorPolicy,
 			td.wildcardCachedSelector: &PerSelectorPolicy{
+				Verdict:          types.Allow,
 				L7Parser:         ParserTypeHTTP,
 				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{

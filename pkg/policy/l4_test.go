@@ -315,6 +315,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 80, Protocol: api.ProtoTCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						Verdict:  types.Allow,
 						L7Parser: ParserTypeHTTP,
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -327,6 +328,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 9090, Protocol: api.ProtoTCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						Verdict:  types.Allow,
 						L7Parser: "tester",
 						L7Rules: api.L7Rules{
 							L7Proto: "tester",
@@ -347,6 +349,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 8080, Protocol: api.ProtoTCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						Verdict:  types.Allow,
 						L7Parser: ParserTypeHTTP,
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{
@@ -356,6 +359,7 @@ func TestJSONMarshal(t *testing.T) {
 						},
 					},
 					td.wildcardCachedSelector: &PerSelectorPolicy{
+						Verdict: types.Allow,
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
