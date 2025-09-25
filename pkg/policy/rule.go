@@ -424,6 +424,12 @@ func (resMap *L4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 	return found, err
 }
 
+func (pms *L4PolicyMaps) ensureTier(tier types.Tier) {
+	for len(*pms) <= int(tier) {
+		*pms = append(*pms, makeL4PolicyMap())
+	}
+}
+
 // resolveL4Policy analyzes the rule against the given SearchContext, and
 // merges it with any prior-generated policy within the provided L4Policy.
 //
@@ -448,10 +454,11 @@ func (result *L4PolicyMaps) resolveL4Policy(
 		return nil
 	}
 
-	policyCtx.SetDeny(false)
 	if !r.Deny {
-		policyCtx.SetPriority(r.Priority)
-		cnt, err := (*result)[0].mergeL4Filter(policyCtx, r)
+		policyCtx.SetDeny(false)
+		policyCtx.SetPriority(r.Tier, r.Priority)
+		result.ensureTier(r.Tier)
+		cnt, err := (*result)[r.Tier].mergeL4Filter(policyCtx, r)
 		if err != nil {
 			return err
 		}
@@ -460,10 +467,11 @@ func (result *L4PolicyMaps) resolveL4Policy(
 		}
 	}
 
-	policyCtx.SetDeny(true)
 	if r.Deny {
-		policyCtx.SetPriority(r.Priority)
-		cnt, err := (*result)[0].mergeL4Filter(policyCtx, r)
+		policyCtx.SetDeny(true)
+		policyCtx.SetPriority(r.Tier, r.Priority)
+		result.ensureTier(r.Tier)
+		cnt, err := (*result)[r.Tier].mergeL4Filter(policyCtx, r)
 		if err != nil {
 			return err
 		}

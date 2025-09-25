@@ -128,6 +128,9 @@ func (in *PolicyEntry) DeepEqual(other *PolicyEntry) bool {
 		return false
 	}
 
+	if in.Tier != other.Tier {
+		return false
+	}
 	if in.Priority != other.Priority {
 		return false
 	}
