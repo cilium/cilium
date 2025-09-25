@@ -146,7 +146,7 @@ func (d *Daemon) initMaps() error {
 		return nil
 	}
 
-	if err := lxcmap.LXCMap(d.metricsRegistry).OpenOrCreate(); err != nil {
+	if err := lxcmap.LXCMap(d.params.MetricsRegistry).OpenOrCreate(); err != nil {
 		return fmt.Errorf("initializing lxc map: %w", err)
 	}
 
@@ -160,7 +160,7 @@ func (d *Daemon) initMaps() error {
 	// the first time and its bpf programs have been replaced. Existing endpoints
 	// are using a policy map which is potentially out of sync as local identities
 	// are re-allocated on startup.
-	if err := ipcachemap.IPCacheMap(d.metricsRegistry).Recreate(); err != nil {
+	if err := ipcachemap.IPCacheMap(d.params.MetricsRegistry).Recreate(); err != nil {
 		return fmt.Errorf("initializing ipcache map: %w", err)
 	}
 
@@ -182,8 +182,8 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	ipv4Nat, ipv6Nat := nat.GlobalMaps(d.metricsRegistry, option.Config.EnableIPv4,
-		option.Config.EnableIPv6, d.kprCfg.KubeProxyReplacement || option.Config.EnableBPFMasquerade)
+	ipv4Nat, ipv6Nat := nat.GlobalMaps(d.params.MetricsRegistry, option.Config.EnableIPv4,
+		option.Config.EnableIPv6, d.params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade)
 	if ipv4Nat != nil {
 		if err := ipv4Nat.Create(); err != nil {
 			return fmt.Errorf("initializing ipv4nat map: %w", err)
@@ -195,13 +195,13 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if d.kprCfg.KubeProxyReplacement {
+	if d.params.KPRConfig.KubeProxyReplacement {
 		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing neighbors map: %w", err)
 		}
 	}
-	if d.kprCfg.KubeProxyReplacement || option.Config.EnableBPFMasquerade {
+	if d.params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade {
 		if err := nat.CreateRetriesMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing NAT retries map: %w", err)
@@ -209,13 +209,13 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.EnableIPv4FragmentsTracking {
-		if err := fragmap.InitMap4(d.metricsRegistry, option.Config.FragmentsMapEntries); err != nil {
+		if err := fragmap.InitMap4(d.params.MetricsRegistry, option.Config.FragmentsMapEntries); err != nil {
 			return fmt.Errorf("initializing fragments map: %w", err)
 		}
 	}
 
 	if option.Config.EnableIPv6FragmentsTracking {
-		if err := fragmap.InitMap6(d.metricsRegistry, option.Config.FragmentsMapEntries); err != nil {
+		if err := fragmap.InitMap6(d.params.MetricsRegistry, option.Config.FragmentsMapEntries); err != nil {
 			return fmt.Errorf("initializing fragments map: %w", err)
 		}
 	}
@@ -223,7 +223,7 @@ func (d *Daemon) initMaps() error {
 	if !option.Config.RestoreState {
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
-		lxcmap.LXCMap(d.metricsRegistry).DeleteAll()
+		lxcmap.LXCMap(d.params.MetricsRegistry).DeleteAll()
 	}
 
 	return nil
