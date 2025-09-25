@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -155,6 +156,10 @@ func dumpWireGuardStatus() (*models.WireguardStatus, error) {
 	var result models.WireguardStatus
 
 	for _, d := range devices {
+		if d.Name != wgTypes.IfaceName {
+			continue
+		}
+
 		result.Interfaces = append(result.Interfaces, &models.WireguardInterface{
 			Name:      d.Name,
 			PublicKey: d.PublicKey.String(),
