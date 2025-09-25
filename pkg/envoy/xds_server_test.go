@@ -15,7 +15,7 @@ import (
 	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/types"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/envoy/test"
@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -220,8 +221,10 @@ var L7Rules12 = &policy.PerSelectorPolicy{
 	L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}},
 }
 
+var denyPerSelectorPolicy = &policy.PerSelectorPolicy{Verdict: types.Deny}
+
 var L7Rules12Deny = &policy.PerSelectorPolicy{
-	IsDeny:   true,
+	Verdict:  types.Deny,
 	L7Parser: policy.ParserTypeHTTP,
 	L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}},
 }
@@ -336,7 +339,7 @@ var L4PolicyMap1Deny2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Fil
 		Port:     8080,
 		Protocol: api.ProtoTCP,
 		PerSelectorPolicies: policy.L7DataMap{
-			cachedSelector1: &policy.PerSelectorPolicy{IsDeny: true},
+			cachedSelector1: denyPerSelectorPolicy,
 			cachedSelector2: L7Rules1,
 		},
 	},
@@ -552,7 +555,7 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 	// both cachedSelector2 and cachedSelector2 select identity 1001, but duplicates must have been removed
 	perSelectorPolicies := policy.L7DataMap{
 		cachedSelector2:           nil,
-		cachedSelector1:           &policy.PerSelectorPolicy{IsDeny: true},
+		cachedSelector1:           denyPerSelectorPolicy,
 		cachedRequiresV2Selector1: nil,
 	}
 
@@ -929,7 +932,7 @@ var fullValuesTLSContext = &policy.TLSContext{
 	TrustedCA:        "foo",
 	CertificateChain: "certchain",
 	PrivateKey:       "privatekey",
-	Secret: types.NamespacedName{
+	Secret: k8sTypes.NamespacedName{
 		Name:      "testsecret",
 		Namespace: "testnamespace",
 	},
@@ -937,7 +940,7 @@ var fullValuesTLSContext = &policy.TLSContext{
 
 var onlyTrustedCAOriginatingTLSContext = &policy.TLSContext{
 	TrustedCA: "foo",
-	Secret: types.NamespacedName{
+	Secret: k8sTypes.NamespacedName{
 		Name:      "testsecret",
 		Namespace: "testnamespace",
 	},
@@ -946,7 +949,7 @@ var onlyTrustedCAOriginatingTLSContext = &policy.TLSContext{
 var onlyTerminationDetailsTLSContext = &policy.TLSContext{
 	CertificateChain: "certchain",
 	PrivateKey:       "privatekey",
-	Secret: types.NamespacedName{
+	Secret: k8sTypes.NamespacedName{
 		Name:      "testsecret",
 		Namespace: "testnamespace",
 	},
@@ -957,7 +960,7 @@ var fullValuesTLSContextFromFile = &policy.TLSContext{
 	CertificateChain: "certchain",
 	PrivateKey:       "privatekey",
 	FromFile:         true,
-	Secret: types.NamespacedName{
+	Secret: k8sTypes.NamespacedName{
 		Name:      "testsecret",
 		Namespace: "testnamespace",
 	},
@@ -966,7 +969,7 @@ var fullValuesTLSContextFromFile = &policy.TLSContext{
 var onlyTrustedCAOriginatingTLSContextFromFile = &policy.TLSContext{
 	TrustedCA: "foo",
 	FromFile:  true,
-	Secret: types.NamespacedName{
+	Secret: k8sTypes.NamespacedName{
 		Name:      "testsecret",
 		Namespace: "testnamespace",
 	},
@@ -976,7 +979,7 @@ var onlyTerminationDetailsTLSContextFromFile = &policy.TLSContext{
 	CertificateChain: "certchain",
 	PrivateKey:       "privatekey",
 	FromFile:         true,
-	Secret: types.NamespacedName{
+	Secret: k8sTypes.NamespacedName{
 		Name:      "testsecret",
 		Namespace: "testnamespace",
 	},
@@ -1103,7 +1106,7 @@ var L4PolicyTLSFullContext = &policy.L4Policy{
 						CertificateChain: "terminatingCertchain",
 						PrivateKey:       "terminatingKey",
 						TrustedCA:        "terminatingCA",
-						Secret: types.NamespacedName{
+						Secret: k8sTypes.NamespacedName{
 							Name:      "terminating-tls",
 							Namespace: "tlsns",
 						},
@@ -1112,7 +1115,7 @@ var L4PolicyTLSFullContext = &policy.L4Policy{
 						CertificateChain: "originatingCertchain",
 						PrivateKey:       "originatingKey",
 						TrustedCA:        "originatingCA",
-						Secret: types.NamespacedName{
+						Secret: k8sTypes.NamespacedName{
 							Name:      "originating-tls",
 							Namespace: "tlsns",
 						},

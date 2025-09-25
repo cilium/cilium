@@ -119,6 +119,8 @@ func (a StringSet) Merge(b StringSet) StringSet {
 	return a
 }
 
+type PolicyVerdict uint8
+
 // PerSelectorPolicy contains policy rules for a CachedSelector, i.e. for a
 // selection of numerical identities.
 type PerSelectorPolicy struct {
@@ -130,8 +132,8 @@ type PerSelectorPolicy struct {
 	// values take precedence over rules with later priority values.
 	Priority types.Priority `json:"priority,omitempty"`
 
-	// IsDeny is set if this L4Filter contains should be denied
-	IsDeny bool `json:",omitempty"`
+	// PolicyVerdict specifies if traffic matching this policy should be allowed or denied
+	Verdict types.Verdict `json:"verdict,omitempty"`
 
 	// ListenerPriority of the listener used when multiple listeners would apply to the same
 	// MapStateEntry.
@@ -201,7 +203,7 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 		a.Listener == b.Listener &&
 		a.ListenerPriority == b.ListenerPriority &&
 		(a.Authentication == nil && b.Authentication == nil || a.Authentication != nil && a.Authentication.DeepEqual(b.Authentication)) &&
-		a.IsDeny == b.IsDeny &&
+		a.Verdict == b.Verdict &&
 		a.L7Rules.DeepEqual(&b.L7Rules)
 }
 
@@ -269,8 +271,15 @@ func (sp *PerSelectorPolicy) HasL7Rules() bool {
 	return sp != nil && !sp.L7Rules.IsEmpty()
 }
 
-func (a *PerSelectorPolicy) GetDeny() bool {
-	return a != nil && a.IsDeny
+func (a *PerSelectorPolicy) GetVerdict() types.Verdict {
+	if a == nil {
+		return types.Allow
+	}
+	return a.Verdict
+}
+
+func (a *PerSelectorPolicy) IsDeny() bool {
+	return a.GetVerdict() == types.Deny
 }
 
 // L7DataMap contains a map of L7 rules per endpoint where key is a CachedSelector
@@ -665,16 +674,12 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 		}
 	}
 
-	verdict := types.Allow
-	if currentRule.GetDeny() {
-		verdict = types.Deny
-	}
 	return newMapStateEntry(
 		currentRule.GetPriority(),
 		l4.RuleOrigin[cs],
 		proxyPort,
 		currentRule.GetListenerPriority(),
-		verdict,
+		currentRule.GetVerdict(),
 		currentRule.getAuthRequirement(),
 	)
 }
@@ -841,7 +846,7 @@ func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls stringL
 }
 
 // add L7 rules for all endpoints in the L7DataMap
-func (l7 L7DataMap) addPolicyForSelector(l7Parser L7ParserType, rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, deny bool, sni []string, listener string, listenerPriority ListenerPriority, priority types.Priority) {
+func (l7 L7DataMap) addPolicyForSelector(l7Parser L7ParserType, rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, verdict types.Verdict, sni []string, listener string, listenerPriority ListenerPriority, priority types.Priority) {
 	for epsel := range l7 {
 		l7policy := &PerSelectorPolicy{
 			Priority:         priority,
@@ -849,7 +854,7 @@ func (l7 L7DataMap) addPolicyForSelector(l7Parser L7ParserType, rules *api.L7Rul
 			TerminatingTLS:   terminatingTLS,
 			OriginatingTLS:   originatingTLS,
 			Authentication:   auth,
-			IsDeny:           deny,
+			Verdict:          verdict,
 			ServerNames:      NewStringSet(sni),
 			Listener:         listener,
 			ListenerPriority: listenerPriority,
@@ -1070,7 +1075,11 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 			modifiedRules = ensureWildcard(rules, l7Parser)
 		}
 
-		l4.PerSelectorPolicies.addPolicyForSelector(l7Parser, modifiedRules, terminatingTLS, originatingTLS, entry.Authentication, entry.Deny, sni, listener, listenerPriority, priority)
+		verdict := types.Allow
+		if entry.Deny {
+			verdict = types.Deny
+		}
+		l4.PerSelectorPolicies.addPolicyForSelector(l7Parser, modifiedRules, terminatingTLS, originatingTLS, entry.Authentication, verdict, sni, listener, listenerPriority, priority)
 	}
 
 	for cs := range l4.PerSelectorPolicies {
@@ -1130,7 +1139,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 				features.setFeature(orderedRules)
 			}
 
-			if sp.IsDeny {
+			if sp.Verdict == types.Deny {
 				features.setFeature(denyRules)
 			}
 
@@ -1567,7 +1576,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 	listener := perSelectorPolicy.GetListener()
 	listenerPriority := perSelectorPolicy.GetListenerPriority()
 	authReq := perSelectorPolicy.getAuthRequirement()
-	isDeny := perSelectorPolicy.GetDeny()
+	isDeny := perSelectorPolicy.IsDeny()
 	priority := perSelectorPolicy.GetPriority()
 
 	// Can hold rlock here as neither GetNamedPort() nor LookupRedirectPort() no longer
