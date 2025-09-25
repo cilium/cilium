@@ -22,6 +22,11 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+var (
+	passPriorityForTests   = uint32(1000)
+	passPrecedenceForTests = types.LevelToMaxPrecedence(passPriorityForTests)
+)
+
 func (e mapStateEntry) withLabels(lbls labels.LabelArrayList) mapStateEntry {
 	e.derivedFromRules = makeRuleOrigin(lbls, nil)
 	return e
@@ -46,6 +51,11 @@ func (e mapStateEntry) WithProxyPort(proxyPort uint16) mapStateEntry {
 
 func (e mapStateEntry) withLevel(level uint32) mapStateEntry {
 	e.MapStateEntry = e.MapStateEntry.WithLevel(level)
+	return e
+}
+
+func (e mapStateEntry) withPassLevel(level uint32) mapStateEntry {
+	e.MapStateEntry = e.MapStateEntry.WithLevel(level<<7 + 1)
 	return e
 }
 
@@ -865,6 +875,10 @@ func TcpEgressKey(id identity.NumericIdentity) Key {
 
 func allowEntry() mapStateEntry {
 	return NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
+}
+
+func passEntry() mapStateEntry {
+	return NewMapStateEntry(PassEntry).withLabels(labels.LabelArrayList{nil})
 }
 
 func proxyEntryHTTP(proxyPort uint16) mapStateEntry {
@@ -2787,6 +2801,75 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			{key: egressKey(identityWorldIP, 17, 80, 16), found: true, entry: DenyEntry},
 		},
 	}, {
+		name: "deny 1.1.1.1",
+		identities: identity.IdentityMap{
+			identity1111: labels1111,
+		},
+		orderedEntries: []LevelEntries{{
+			level: 0,
+			entries: []Entry{
+				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
+			},
+		}, {
+			level: 1,
+			entries: []Entry{
+				// HTTP allow 1.1.1.1, overruled by the deny
+				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
+			},
+		}},
+		want: mapStateMap{
+			egressKey(identity1111, 0, 0, 0): denyEntry().withLevel(0),
+		},
+		probes: []probe{},
+	}, {
+		name: "Allow 1.1.1.1",
+		identities: identity.IdentityMap{
+			identity1111: labels1111,
+		},
+		orderedEntries: []LevelEntries{{
+			level: 0,
+			entries: []Entry{
+				// Allow verdict on 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: allowEntry()},
+				// deny 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
+			},
+		}, {
+			level: 1,
+			entries: []Entry{
+				// HTTP allow 1.1.1.1, shadowed by the allow above
+				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
+			},
+		}},
+		want: mapStateMap{
+			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(0),
+		},
+		probes: []probe{},
+	}, {
+		name: "PASS 1.1.1.1 over deny all",
+		identities: identity.IdentityMap{
+			identity1111: labels1111,
+		},
+		orderedEntries: []LevelEntries{{
+			level: 0,
+			entries: []Entry{
+				// HTTP PASS verdict on 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry()},
+				// deny 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
+			},
+		}, {
+			level: 1,
+			entries: []Entry{
+				// HTTP allow 1.1.1.1
+				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
+			},
+		}},
+		want: mapStateMap{
+			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(0x68),
+		},
+		probes: []probe{},
+	}, {
 		name:           "ordered test-n",
 		identities:     identity.IdentityMap{},
 		orderedEntries: []LevelEntries{},
@@ -2824,9 +2907,37 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 
 				// create mapState
 				ms := emptyMapState(hivetest.Logger(t))
-				for _, i := range perm {
-					ms.insertWithChanges(entries[i].key, entries[i].value, orderedRules|denyRules, changes)
+				// check if any entires have a pass verdict
+				need2passes := false
+				for _, e := range entries {
+					if e.value.IsPassEntry() {
+						require.Greater(t, e.value.Precedence, passPrecedenceForTests)
+						need2passes = true
+					}
 				}
+				if need2passes {
+					// pass 1: insert entries with precedence higher than
+					// ms.passPrecedence with the passRules feature set
+					for _, i := range perm {
+						if entries[i].value.Precedence > passPrecedenceForTests {
+							ms.insertWithChanges(entries[i].key, entries[i].value, passRules|orderedRules|denyRules, changes)
+						}
+					}
+					// pass 2: insert entries with precedence lower or equal to
+					// ms.passPrecedence
+					for _, i := range perm {
+						if entries[i].value.Precedence <= passPrecedenceForTests {
+							ms.insertWithChanges(entries[i].key, entries[i].value, orderedRules|denyRules, changes)
+						}
+					}
+				} else {
+					for _, i := range perm {
+						ms.insertWithChanges(entries[i].key, entries[i].value, orderedRules|denyRules, changes)
+					}
+				}
+
+				// only keep valid entries
+				ms.prunePassEntries(changes)
 
 				// validate mapState
 				ms.validatePortProto(t)
@@ -2844,6 +2955,173 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestMapState_passValidation(t *testing.T) {
+	// identities used in tests
+	identity1111 := localIdentity(1111)
+	labels1111 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32")))).LabelArray()
+
+	identityCache := identity.IdentityMap{
+		identity1111: labels1111,
+	}
+	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+
+	type probe struct {
+		key   Key
+		found bool
+		entry MapStateEntry
+	}
+	type Entry struct {
+		key   Key
+		entry mapStateEntry
+	}
+	type PriorityEntries struct {
+		priority uint32
+		entries  []Entry
+	}
+	tests := []struct {
+		name         string               // test name
+		identities   identity.IdentityMap // Identities used in the test
+		tier1Entries []PriorityEntries    // Ordered entries
+		tier2Entries []Entry
+		want         mapStateMap // expected MapState, optional
+		probes       []probe     // probes to test the policy, optional
+	}{{
+		name: "PASS 1.1.1.1 over deny all",
+		identities: identity.IdentityMap{
+			identity1111: labels1111,
+		},
+		tier1Entries: []PriorityEntries{{
+			priority: 0,
+			entries: []Entry{
+				// HTTP PASS verdict on 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry()},
+				// deny 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
+			},
+		}},
+		tier2Entries: []Entry{
+			// HTTP allow 1.1.1.1
+			{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
+		},
+		want: mapStateMap{
+			egressKey(identity1111, 6, 80, 0): allowEntry().withPassLevel(0),
+		},
+		probes: []probe{},
+	}, {
+		name: "PASS 1.1.1.1 over deny all, with wildcard and probes",
+		identities: identity.IdentityMap{
+			identity1111: labels1111,
+		},
+		tier1Entries: []PriorityEntries{{
+			priority: 0,
+			entries: []Entry{
+				// wildcard deny all TCP port 81
+				{key: egressKey(0, 6, 81, 0), entry: denyEntry()},
+			},
+		}, {
+			priority: 1,
+			entries: []Entry{
+				// HTTP PASS verdict on 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry()},
+				// wildcard deny
+				{key: egressKey(0, 0, 0, 0), entry: denyEntry()},
+			},
+		}},
+		tier2Entries: []Entry{
+			// HTTP deny 1.1.1.1 on TCP port 90
+			{key: egressKey(identity1111, 6, 90, 0), entry: denyEntry()},
+			// HTTP allow 1.1.1.1 on TCP port 80-95
+			{key: egressKey(identity1111, 6, 80, 12), entry: allowEntry()},
+		},
+		want: mapStateMap{
+			egressKey(0, 6, 81, 0):             denyEntry().withLevel(0<<14 | 0<<7),
+			egressKey(0, 0, 0, 0):              denyEntry().withLevel(1<<14 | 1<<7),
+			egressKey(identity1111, 6, 90, 0):  denyEntry().withPassLevel(1 << 7),
+			egressKey(identity1111, 6, 80, 12): allowEntry().withPassLevel(1 << 7),
+		},
+		probes: []probe{
+			{key: egressKey(2, 6, 80, 16), found: true, entry: DenyEntry},
+			{key: egressKey(identity1111, 6, 79, 16), found: true, entry: DenyEntry},
+			{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
+			{key: egressKey(identity1111, 6, 81, 16), found: true, entry: DenyEntry},
+			{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
+			{key: egressKey(identity1111, 6, 89, 16), found: true, entry: AllowEntry},
+			{key: egressKey(identity1111, 6, 90, 16), found: true, entry: DenyEntry},
+			{key: egressKey(identity1111, 6, 91, 16), found: true, entry: AllowEntry},
+			{key: egressKey(identity1111, 6, 95, 16), found: true, entry: AllowEntry},
+			{key: egressKey(identity1111, 6, 96, 16), found: true, entry: DenyEntry},
+		},
+	}}
+
+	for _, tt := range tests {
+		t.Log(tt.name)
+
+		t.Run(tt.name, func(t *testing.T) {
+			epPolicy := &EndpointPolicy{
+				SelectorPolicy: &selectorPolicy{
+					SelectorCache: selectorCache,
+					L4Policy: L4Policy{
+						passPriority: passPriorityForTests,
+					},
+				},
+				PolicyOwner:      DummyOwner{logger: hivetest.Logger(t)},
+				policyMapState:   emptyMapState(hivetest.Logger(t)),
+				policyMapChanges: MapChanges{logger: hivetest.Logger(t)},
+			}
+
+			for _, oe := range tt.tier1Entries {
+				for i, kv := range oe.entries {
+					key := kv.key
+					entry := kv.entry.withLevel(oe.priority<<14 + uint32(i)<<7)
+
+					adds := identity.NumericIdentitySlice{key.Identity}
+					keys := []Key{key}
+					epPolicy.policyMapChanges.AccumulateMapChanges(adds, nil, keys, entry)
+				}
+			}
+			for _, kv := range tt.tier2Entries {
+				key := kv.key
+				entry := kv.entry.withLevel(1001<<14 + 1)
+
+				adds := identity.NumericIdentitySlice{key.Identity}
+				keys := []Key{key}
+				epPolicy.policyMapChanges.AccumulateMapChanges(adds, nil, keys, entry)
+			}
+			epPolicy.policyMapChanges.SyncMapChanges(versioned.LatestTx)
+			handle, changes := epPolicy.policyMapChanges.consumeMapChanges(epPolicy, passRules|denyRules|redirectRules)
+			if handle != nil {
+				handle.Close()
+			}
+
+			// validate mapState
+			epPolicy.policyMapState.validatePortProto(t)
+			if len(tt.want) != 0 {
+				wantKeys := make(Keys)
+				for k := range epPolicy.policyMapState.entries {
+					wantKeys[k] = struct{}{}
+				}
+				require.Equal(t, wantKeys, changes.Adds, tt.name+" (adds)")
+				require.Equal(t, Keys{}, changes.Deletes, tt.name+" (deletes)")
+
+				require.Truef(t, epPolicy.policyMapState.equalsMapState(tt.want), "%s: MapState mismatch:\n%s", tt.name, epPolicy.policyMapState.diffMapState(tt.want))
+			}
+			// run probes
+			for i, probe := range tt.probes {
+				v, found := epPolicy.policyMapState.lookup(probe.key)
+				msg := "found"
+				if probe.found {
+					msg = "not found"
+				}
+				require.Equal(t, probe.found, found, "probe %d key %s: %v", i, msg, probe.key)
+				// Ignore and labels for precedence for probe test
+				v.Precedence = 0
+				probe.entry.Precedence = 0
+				require.Equalf(t, probe.entry, v.MapStateEntry, "%s: Verdict mismatch for key %s:\n- %s\n+ %s\n\nMapState:\n%s", tt.name, probe.key, probe.entry, v.MapStateEntry, epPolicy.policyMapState)
+			}
+		})
 	}
 }
 

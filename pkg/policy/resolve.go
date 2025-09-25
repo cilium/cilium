@@ -532,7 +532,6 @@ func (p *EndpointPolicy) MissingMap(realized MapStateMap) iter.Seq2[Key, MapStat
 }
 
 func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
 	p.policyMapState.revertChanges(changes)
 }
 
@@ -554,8 +553,18 @@ func (p *EndpointPolicy) toMapState(logger *slog.Logger) {
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
 func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy) {
+	features := l4policy.features
+	if features.contains(passRules) {
+		// separate pass to handle rules with pass verdicts properly
+		l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
+			l4.toMapState(logger, p, features, ChangeState{})
+			return true
+		})
+		// 2nd without the passRules feature set
+		features &= ^passRules
+	}
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
-		l4.toMapState(logger, p, l4policy.features, ChangeState{})
+		l4.toMapState(logger, p, features, ChangeState{})
 		return true
 	})
 }
@@ -621,6 +630,7 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
+// The returned stub is not modified.
 func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),

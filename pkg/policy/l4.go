@@ -125,6 +125,7 @@ type PolicyVerdict uint8
 const (
 	Allow PolicyVerdict = iota
 	Deny
+	Pass
 )
 
 // PerSelectorPolicy contains policy rules for a CachedSelector, i.e. for a
@@ -138,7 +139,8 @@ type PerSelectorPolicy struct {
 	// values take precedence over rules with later priority values.
 	Priority uint32 `json:"priority,omitempty"`
 
-	// PolicyVerdict specifies if traffic matching this policy should be allowed or denied
+	// PolicyVerdict specifies if traffic matching this policy should be allowed, denied, or if
+	// the verdict should be determined by lower priority rules (pass)
 	Verdict PolicyVerdict `json:",omitempty"`
 
 	// ListenerPriority of the listener used when multiple listeners would apply to the same
@@ -731,50 +733,50 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 			KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 	}
 
-	// Compute and insert the wildcard entry, if present.
+	// Compute the wildcard entry, if present.
 	wildcardEntry := l4.generateWildcardMapStateEntry(scopedLog, p, port)
-	if wildcardEntry.IsValid() {
-		for _, keyToAdd := range keysToAdd {
-			keyToAdd.Identity = 0
-			p.policyMapState.insertWithChanges(keyToAdd, wildcardEntry, features, changes)
 
-			if port == 0 {
-				// Allow-all
-				scopedLog.Debug(
-					"ToMapState: allow all",
-					logfields.EndpointSelector, l4.wildcard,
-				)
-			} else {
-				// L4 allow
-				scopedLog.Debug(
-					"ToMapState: L4 allow all",
-					logfields.EndpointSelector, l4.wildcard,
-				)
-			}
-		}
+	passPriority := uint32(0)
+	l4Policy := l4.policy.Load()
+	if l4Policy != nil {
+		passPriority = l4Policy.passPriority
 	}
 
+	var idents identity.NumericIdentitySlice
+	var entry mapStateEntry
 	for cs, currentRule := range l4.PerSelectorPolicies {
-		// is this wildcard? If so, we already added it above
+		// only handle rules with higher (numerically lower) passPriority if
+		// features.passRules is set, and only handle lower priority rules when not set.
+		if features.contains(passRules) != (currentRule.GetPriority() < passPriority) {
+			continue
+		}
+
+		// is this wildcard? If so, we already created it above
 		if cs == l4.wildcard {
-			continue
-		}
+			entry = wildcardEntry
+			if !entry.IsValid() {
+				continue
+			}
 
-		// create MapStateEntry
-		entry := l4.makeMapStateEntry(logger, p, port, cs, currentRule)
-		if !entry.IsValid() {
-			continue
-		}
+			// wildcard identity
+			idents = identity.NumericIdentitySlice{0}
+		} else {
+			entry = l4.makeMapStateEntry(logger, p, port, cs, currentRule)
+			if !entry.IsValid() {
+				continue
+			}
 
-		// If this entry is identical to the wildcard's entry, we can elide it.
-		// Do not elide for port wildcards. TODO: This is probably too
-		// conservative, determine if it's safe to elide l3 entry when no l4 specifier is present.
-		if wildcardEntry.IsValid() && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
-			scopedLog.Debug("ToMapState: Skipping L3/L4 key due to existing identical L4-only key", logfields.EndpointSelector, cs)
-			continue
-		}
+			// If this entry is identical to the wildcard's entry, we can elide it.
+			// Do not elide for port wildcards. TODO: This is probably too
+			// conservative, determine if it's safe to elide l3 entry when no l4 specifier is present.
+			if wildcardEntry.IsValid() && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
+				scopedLog.Debug("ToMapState: Skipping L3/L4 key due to existing identical L4-only key", logfields.EndpointSelector, cs)
+				continue
+			}
 
-		idents := cs.GetSelections(p.VersionHandle)
+			// Get identities selected for the selector at this version
+			idents = cs.GetSelections(p.VersionHandle)
+		}
 		if option.Config.Debug {
 			if entry.IsDeny() {
 				scopedLog.Debug(
@@ -1115,6 +1117,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 		}
 
 		verdict := Allow
+		// TODO: use Pass verdict when possible in the API
 		if policyCtx.IsDeny() {
 			verdict = Deny
 		}
@@ -1185,6 +1188,10 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 
 			if sp.Verdict == Deny {
 				features.setFeature(denyRules)
+			}
+
+			if sp.Verdict == Pass {
+				features.setFeature(passRules)
 			}
 
 			explicit, authType := getAuthType(sp.Authentication)
@@ -1466,6 +1473,7 @@ const (
 	redirectRules
 	orderedRules
 	authRules
+	passRules
 
 	// if any of the precedenceFeatures is set, then we need to scan for policy overrides due to
 	// precedence differences between rules.
@@ -1530,6 +1538,12 @@ func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redir
 type L4Policy struct {
 	Ingress L4DirectionPolicy
 	Egress  L4DirectionPolicy
+
+	// passPriority is the priority at which policy processing continues after a PASS verdict.
+	// This value is shared for both ingress and egress policies.
+	// Must be set after 'L4Policy' is computed and before endpoint policies are computed
+	// based on this selector policy.
+	passPriority uint32
 
 	authMap authMap
 
@@ -1739,6 +1753,8 @@ func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpoint
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
 // This is done before the L4Policy is exposed to concurrent access.
 func (l4 *L4Policy) Attach(ctx PolicyContext) {
+	// TODO: Set 'l4.passPriority' based on the ingested ingress and egress policies
+
 	ingressRedirects := l4.Ingress.attach(ctx, l4)
 	egressRedirects := l4.Egress.attach(ctx, l4)
 	l4.redirectTypes = ingressRedirects | egressRedirects
