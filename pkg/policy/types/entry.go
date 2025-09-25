@@ -28,6 +28,9 @@ const (
 	Valid EntryKind = iota
 	// Invalid entries are not inserted into datapath
 	Invalid
+	// Pass entries cause subsequent enties to be bypassed upto a context dependent
+	// continuation level
+	Pass
 )
 
 // ProxyPortPrecedenceMayDiffer returns true if the non-proxy port precedence bits are the same
@@ -70,6 +73,10 @@ func (e MapStateEntry) IsValid() bool {
 	return e.Kind == Valid
 }
 
+func (e MapStateEntry) IsPassEntry() bool {
+	return e.Kind == Pass
+}
+
 // String returns a string representation of the MapStateEntry
 func (e MapStateEntry) String() string {
 	var authText string
@@ -86,6 +93,23 @@ func (e MapStateEntry) String() string {
 		",IsDeny=" + strconv.FormatBool(e.IsDeny()) +
 		authText +
 		",Cookie=" + strconv.FormatUint(uint64(e.Cookie), 10)
+}
+
+// Convert API Level to the lowest datapath Precedence at that level:
+//   - Level is capped to 24 bits and inverted (0 becomes the 1 << 24 - 1)
+//   - Inverted level is shifted to the upper bits in the 32-bit Precedence to make space for
+//     the deny and proxy port precedence bits in the lower 8 bits.
+//   - low 8 bits are left as zeroes
+func LevelToPrecedence(level uint32) Precedence {
+	if level > MaxLevel {
+		level = MaxLevel
+	}
+	return Precedence(MaxLevel-level) << PrecedenceLevelShift
+}
+
+// LevelToMaxPrecedence converts API level to the max (deny) precedence on that level
+func LevelToMaxPrecedence(level uint32) Precedence {
+	return LevelToPrecedence(level) | PrecedenceDeny | PrecedenceProxyPriorityMask
 }
 
 // NewMapStateEntry creeates a new MapStateEntry
@@ -108,10 +132,7 @@ func NewMapStateEntry(
 		priority = 0
 		authReq = 0
 	}
-	if level > MaxLevel {
-		level = MaxLevel
-	}
-	precedence := Precedence(MaxLevel-level) << PrecedenceLevelShift
+	precedence := LevelToPrecedence(level)
 	if deny {
 		// Also set all the proxy port priority bits for a deny entry so that the
 		// deny entry on level 0 gets precedence of all-ones (the highest possible
@@ -154,12 +175,14 @@ func DenyEntry() MapStateEntry {
 	return MapStateEntry{Precedence: MaxDenyPrecedence}
 }
 
+// PassEntry returns a MapStateEntry with maximum precedence for a pass entry
+func PassEntry() MapStateEntry {
+	return MapStateEntry{Kind: Pass, Precedence: MaxDenyPrecedence}
+}
+
 func (e MapStateEntry) WithLevel(level uint32) MapStateEntry {
-	if level > MaxLevel {
-		level = MaxLevel
-	}
 	e.Precedence &= 1<<PrecedenceLevelShift - 1 // clear all level bits
-	e.Precedence |= Precedence(MaxLevel-level) << PrecedenceLevelShift
+	e.Precedence |= LevelToPrecedence(level)
 	return e
 }
 
