@@ -262,7 +262,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 						wildcard: td.wildcardCachedSelector,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
-							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+							td.wildcardCachedSelector: denyPerSelectorPolicy,
 						},
 						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 					},
@@ -341,7 +341,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 						wildcard: td.wildcardCachedSelector,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
-							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+							td.wildcardCachedSelector: denyPerSelectorPolicy,
 						},
 						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 					},
@@ -421,7 +421,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 						wildcard: td.wildcardCachedSelector,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
-							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+							td.wildcardCachedSelector: denyPerSelectorPolicy,
 						},
 						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {ruleLabel}}),
 					},
@@ -568,10 +568,10 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 						U8Proto:  0x6,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
-							cachedSelectorWorld:   &PerSelectorPolicy{IsDeny: true},
-							cachedSelectorWorldV4: &PerSelectorPolicy{IsDeny: true},
-							cachedSelectorWorldV6: &PerSelectorPolicy{IsDeny: true},
-							cachedSelectorTest:    &PerSelectorPolicy{IsDeny: true},
+							cachedSelectorWorld:   denyPerSelectorPolicy,
+							cachedSelectorWorldV4: denyPerSelectorPolicy,
+							cachedSelectorWorldV6: denyPerSelectorPolicy,
+							cachedSelectorTest:    denyPerSelectorPolicy,
 						},
 						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 							cachedSelectorWorld:   {ruleLabel},
