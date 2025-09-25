@@ -4,9 +4,12 @@
 package vtep
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -18,21 +21,57 @@ import (
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
-type VTEPManager struct {
+type vtepManager struct {
 	logger  *slog.Logger
 	vtepMap vtep.Map
 }
 
-func newVTEPManager(logger *slog.Logger, vtepMap vtep.Map) *VTEPManager {
-	return &VTEPManager{
-		logger:  logger,
-		vtepMap: vtepMap,
-	}
+type vtepManagerParams struct {
+	cell.In
+
+	Logger    *slog.Logger
+	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
+
+	VTEPMap vtep.Map
 }
 
-func (r *VTEPManager) SetupVTEPMapping() error {
+func newVTEPManager(params vtepManagerParams) {
+	if !option.Config.EnableVTEP {
+		return
+	}
+
+	mgr := &vtepManager{
+		logger:  params.Logger,
+		vtepMap: params.VTEPMap,
+	}
+
+	// Start job to setup and periodically verify VTEP endpoints and routes.
+
+	// use trigger to enforce first execution immediately when the timer job starts
+	tr := job.NewTrigger()
+	tr.Trigger()
+	params.JobGroup.Add(job.Timer("sync-vtep", mgr.syncVTEP, 1*time.Minute, job.WithTrigger(tr)))
+}
+
+func (r *vtepManager) syncVTEP(ctx context.Context) error {
+	r.logger.Debug("Syncing VTEP")
+
+	if err := r.setupVTEPMapping(); err != nil {
+		return err
+	}
+
+	if err := r.setupRouteToVTEPCidr(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *vtepManager) setupVTEPMapping() error {
 	for i, ep := range option.Config.VtepEndpoints {
 		r.logger.Debug(
 			"Updating vtep map entry for VTEP",
@@ -47,7 +86,7 @@ func (r *VTEPManager) SetupVTEPMapping() error {
 	return nil
 }
 
-func (r *VTEPManager) SetupRouteToVtepCidr() error {
+func (r *vtepManager) setupRouteToVTEPCidr() error {
 	routeCidrs := []*cidr.CIDR{}
 
 	filter := &netlink.Route{

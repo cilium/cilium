@@ -8,8 +8,8 @@ import (
 )
 
 var Cell = cell.Module(
-	"datapath-vtep",
-	"VTEP Manager",
+	"vtep",
+	"VTEP",
 
-	cell.Provide(newVTEPManager),
+	cell.Invoke(newVTEPManager),
 )
