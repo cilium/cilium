@@ -189,6 +189,7 @@ func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4Poli
 				return true
 			}
 
+			require.Equal(t, l4.Tier, l4B.Tier)
 			require.Equal(t, l4.Port, l4B.Port)
 			require.Equal(t, l4.EndPort, l4B.EndPort)
 			require.Equal(t, l4.PortName, l4B.PortName)
@@ -343,7 +344,8 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 
 // testPolicyContexttype is a dummy context used when evaluating rules.
 type testPolicyContextType struct {
-	level              types.Priority
+	tier               types.Tier
+	priority           types.Priority
 	ns                 string
 	sc                 *SelectorCache
 	fromFile           bool
@@ -379,13 +381,14 @@ func (p *testPolicyContextType) GetEnvoyHTTPRules(*api.L7Rules) (*cilium.HttpNet
 }
 
 // SetPriority sets the precedence level for the first rule being processed.
-func (p *testPolicyContextType) SetPriority(level types.Priority) {
-	p.level = level
+func (p *testPolicyContextType) SetPriority(tier types.Tier, priority types.Priority) {
+	p.tier = tier
+	p.priority = priority
 }
 
 // Priority returns the precedence level for the current rule.
-func (p *testPolicyContextType) Priority() types.Priority {
-	return p.level
+func (p *testPolicyContextType) Priority() (types.Tier, types.Priority) {
+	return p.tier, p.priority
 }
 
 func (p *testPolicyContextType) DefaultDenyIngress() bool {

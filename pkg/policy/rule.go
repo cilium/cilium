@@ -339,6 +339,7 @@ func (resMap *L4PolicyMap) addFilter(policyCtx PolicyContext, entry *types.Polic
 	if err != nil {
 		return 0, err
 	}
+	// TODO: do not return 1 if the filter was skipped due to priority!
 	return 1, err
 }
 
@@ -414,6 +415,12 @@ func (resMap *L4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 	return found, err
 }
 
+func (pms *L4PolicyMaps) ensureTier(tier types.Tier) {
+	for len(*pms) <= int(tier) {
+		*pms = append(*pms, makeL4PolicyMap())
+	}
+}
+
 // resolveL4Policy analyzes the rule against the given SearchContext, and
 // merges it with any prior-generated policy within the provided L4Policy.
 //
@@ -428,8 +435,8 @@ func (result *L4PolicyMaps) resolveL4Policy(
 	found, foundDeny := 0, 0
 
 	policyCtx.SetOrigin(r.origin())
-
-	cnt, err := (*result)[0].mergeL4Filter(policyCtx, r)
+	result.ensureTier(r.Tier)
+	cnt, err := (*result)[r.Tier].mergeL4Filter(policyCtx, r)
 	if err != nil {
 		return err
 	}
