@@ -100,9 +100,22 @@ jobs:
     secrets: inherit
     with:
       PR-number: ${{ inputs.PR-number || github.ref_name }}
+      UID: 1
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "advanced-features": true}'
+
+  conformance-eks-kpr-ipsec:
+    name: Conformance EKS with KPR + IPsec
+    needs: wait-for-images
+    uses: ./.github/workflows/conformance-eks.yaml
+    secrets: inherit
+    with:
+      PR-number: ${{ inputs.PR-number || github.ref_name }}
+      UID: 2
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      SHA: ${{ inputs.SHA || github.sha }}
+      extra-args: '{"kpr": true, "advanced-features": true, "ipsec": true}'
 
   merge-upload-and-status:
     name: Merge Upload and Status
