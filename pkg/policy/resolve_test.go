@@ -474,6 +474,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{
+								Verdict:          types.Allow,
 								L7Parser:         ParserTypeHTTP,
 								ListenerPriority: ListenerPriorityHTTP,
 								L7Rules: api.L7Rules{
@@ -562,6 +563,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							cachedSelectorHost: nil,
 							td.wildcardCachedSelector: &PerSelectorPolicy{
+								Verdict:          types.Allow,
 								L7Parser:         ParserTypeHTTP,
 								ListenerPriority: ListenerPriorityHTTP,
 								L7Rules: api.L7Rules{
@@ -791,6 +793,7 @@ func TestMapStateWithIngress(t *testing.T) {
 							cachedSelectorWorldV4: nil,
 							cachedSelectorWorldV6: nil,
 							cachedSelectorTest: &PerSelectorPolicy{
+								Verdict: types.Allow,
 								Authentication: &api.Authentication{
 									Mode: api.AuthenticationModeDisabled,
 								},

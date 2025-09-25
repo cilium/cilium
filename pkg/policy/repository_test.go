@@ -397,6 +397,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeKafka,
 					ListenerPriority: ListenerPriorityKafka,
 					L7Rules: api.L7Rules{
@@ -413,6 +414,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeHTTP,
 					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
@@ -429,6 +431,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         L7ParserType("tester"),
 					ListenerPriority: ListenerPriorityProxylib,
 					L7Rules: api.L7Rules{
@@ -535,6 +538,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar1: nil,
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeHTTP,
 					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
@@ -555,6 +559,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar1: nil,
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeKafka,
 					ListenerPriority: ListenerPriorityKafka,
 					L7Rules: api.L7Rules{
@@ -680,6 +685,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeDNS,
 					ListenerPriority: ListenerPriorityDNS,
 					L7Rules: api.L7Rules{
@@ -696,6 +702,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeHTTP,
 					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
@@ -832,6 +839,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar1: nil,
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeHTTP,
 					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
@@ -852,6 +860,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar1: nil,
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeDNS,
 					ListenerPriority: ListenerPriorityDNS,
 					L7Rules: api.L7Rules{
@@ -928,6 +937,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeHTTP,
 					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
@@ -1040,6 +1050,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeKafka,
 					ListenerPriority: ListenerPriorityKafka,
 					L7Rules: api.L7Rules{
@@ -1056,6 +1067,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeHTTP,
 					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
@@ -1153,6 +1165,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeDNS,
 					ListenerPriority: ListenerPriorityDNS,
 					L7Rules: api.L7Rules{
@@ -1169,6 +1182,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
+					Verdict:          types.Allow,
 					L7Parser:         ParserTypeHTTP,
 					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
@@ -1248,6 +1262,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: &PerSelectorPolicy{
+				Verdict:          types.Allow,
 				L7Parser:         ParserTypeHTTP,
 				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{

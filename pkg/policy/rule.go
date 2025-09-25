@@ -181,11 +181,11 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 
 			priority := l7Rules.GetPriority()
 			// Check if either rule takes precedence due to precedence level or deny.
-			if priority < newPriority || (priority == newPriority && l7Rules.GetDeny()) {
+			if priority < newPriority || (priority == newPriority && l7Rules.IsDeny()) {
 				// Later level newL7Rules has no effect.
 				// Same level deny takes takes precedence over any other rule.
 				continue
-			} else if priority > newPriority || (priority == newPriority && newL7Rules.GetDeny()) {
+			} else if priority > newPriority || (priority == newPriority && newL7Rules.IsDeny()) {
 				// Earlier level (or same level deny) newL7Rules takes precedence.
 				// Overwrite existing filter.
 				existingFilter.PerSelectorPolicies[cs] = newL7Rules
@@ -196,10 +196,10 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 
 			// One of the rules may be a nil rule, expand it to an empty non-nil rule
 			if l7Rules == nil {
-				l7Rules = &PerSelectorPolicy{}
+				l7Rules = &PerSelectorPolicy{Verdict: types.Allow}
 			}
 			if newL7Rules == nil {
-				newL7Rules = &PerSelectorPolicy{}
+				newL7Rules = &PerSelectorPolicy{Verdict: types.Allow}
 			}
 
 			// Merge Redirect

@@ -1289,7 +1289,7 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 
 func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, sel policy.CachedSelector, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
 	r := &cilium.PortNetworkPolicyRule{
-		Deny: l7Rules.GetDeny(),
+		Deny: l7Rules.IsDeny(),
 	}
 
 	wildcard := sel.IsWildcard()
@@ -1314,7 +1314,7 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 
 	// Deny rules never have L7 rules and can not be short-circuited (i.e., rule evaluation
 	// after an allow rule must continue to find the possibly applicable deny rule).
-	if l7Rules.GetDeny() {
+	if l7Rules.IsDeny() {
 		return r, false
 	}
 
@@ -1406,7 +1406,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 		for sel, l7 := range selectors {
 			if sel.IsWildcard() {
 				return append(rules, &cilium.PortNetworkPolicyRule{
-					Deny: l7.GetDeny(),
+					Deny: l7.IsDeny(),
 				})
 			}
 			selections := sel.GetSelectionsAt(snapshot)
@@ -1415,7 +1415,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 				return nil
 			}
 			return append(rules, &cilium.PortNetworkPolicyRule{
-				Deny:           l7.GetDeny(),
+				Deny:           l7.IsDeny(),
 				RemotePolicies: selections.AsUint32Slice(),
 			})
 		}
@@ -1429,7 +1429,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 	var allowCount, denyCount int
 	for sel, l7 := range selectors {
 		if sel.IsWildcard() {
-			if l7.GetDeny() {
+			if l7.IsDeny() {
 				wildcardDenyFound = true
 				break
 			} else {
@@ -1448,7 +1448,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 		if len(selections) == 0 {
 			continue
 		}
-		if l7.GetDeny() {
+		if l7.IsDeny() {
 			denyCount += len(selections)
 			denySlices = append(denySlices, selections.AsUint32Slice())
 		} else {
