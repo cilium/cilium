@@ -793,17 +793,8 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableVTEP, defaults.EnableVTEP, "Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)")
 	option.BindEnv(vp, option.EnableVTEP)
 
-	flags.StringSlice(option.VtepEndpoint, []string{}, "List of VTEP IP addresses")
-	option.BindEnv(vp, option.VtepEndpoint)
-
-	flags.StringSlice(option.VtepCIDR, []string{}, "List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress")
-	option.BindEnv(vp, option.VtepCIDR)
-
 	flags.String(option.VtepMask, "255.255.255.0", "VTEP CIDR Mask for all VTEP CIDRs")
 	option.BindEnv(vp, option.VtepMask)
-
-	flags.StringSlice(option.VtepMAC, []string{}, "List of VTEP MAC addresses for forwarding traffic outside the cluster")
-	option.BindEnv(vp, option.VtepMAC)
 
 	flags.Int(option.TCFilterPriority, 1, "Priority of TC BPF filter")
 	flags.MarkHidden(option.TCFilterPriority)

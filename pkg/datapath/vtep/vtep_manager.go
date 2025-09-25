@@ -7,9 +7,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -18,43 +17,22 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 )
+
+type vtepManagerConfig struct {
+	vtepEndpoints []net.IP
+	vtepCIDRs     []*cidr.CIDR
+	vtepMACs      []mac.MAC
+}
 
 type vtepManager struct {
 	logger  *slog.Logger
 	vtepMap vtep.Map
-}
-
-type vtepManagerParams struct {
-	cell.In
-
-	Logger    *slog.Logger
-	Lifecycle cell.Lifecycle
-	JobGroup  job.Group
-
-	VTEPMap vtep.Map
-}
-
-func newVTEPManager(params vtepManagerParams) {
-	if !option.Config.EnableVTEP {
-		return
-	}
-
-	mgr := &vtepManager{
-		logger:  params.Logger,
-		vtepMap: params.VTEPMap,
-	}
-
-	// Start job to setup and periodically verify VTEP endpoints and routes.
-
-	// use trigger to enforce first execution immediately when the timer job starts
-	tr := job.NewTrigger()
-	tr.Trigger()
-	params.JobGroup.Add(job.Timer("sync-vtep", mgr.syncVTEP, 1*time.Minute, job.WithTrigger(tr)))
+	config  vtepManagerConfig
 }
 
 func (r *vtepManager) syncVTEP(ctx context.Context) error {
@@ -72,13 +50,13 @@ func (r *vtepManager) syncVTEP(ctx context.Context) error {
 }
 
 func (r *vtepManager) setupVTEPMapping() error {
-	for i, ep := range option.Config.VtepEndpoints {
+	for i, ep := range r.config.vtepEndpoints {
 		r.logger.Debug(
 			"Updating vtep map entry for VTEP",
 			logfields.IPAddr, ep,
 		)
 
-		err := r.vtepMap.Update(option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
+		err := r.vtepMap.Update(r.config.vtepCIDRs[i], ep, r.config.vtepMACs[i])
 		if err != nil {
 			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
 		}
@@ -105,7 +83,7 @@ func (r *vtepManager) setupRouteToVTEPCidr() error {
 		routeCidrs = append(routeCidrs, rtCIDR)
 	}
 
-	addedVtepRoutes, removedVtepRoutes := cidr.DiffCIDRLists(routeCidrs, option.Config.VtepCIDRs)
+	addedVtepRoutes, removedVtepRoutes := cidr.DiffCIDRLists(routeCidrs, r.config.vtepCIDRs)
 	vtepMTU := mtu.EthernetMTU - mtu.TunnelOverheadIPv4
 
 	if option.Config.EnableL7Proxy {
