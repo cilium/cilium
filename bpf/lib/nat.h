@@ -1372,18 +1372,26 @@ out:
 	return ret;
 }
 
+/* Store struct ipv6_nat_entry objects in map to optimize stack usage. */
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, struct ipv6_nat_entry);
+} ipv6_nat_entry_storage __section_maps_btf;
+
 static __always_inline int
 snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 			   struct ipv6_ct_tuple *tuple,
 			   fraginfo_t fraginfo,
 			   struct ipv6_nat_entry **state,
-			   struct ipv6_nat_entry *tmp,
 			   __u32 off,
 			   const struct ipv6_nat_target *target,
 			   struct trace_ctx *trace,
 			   __s8 *ext_err)
 {
 	bool needs_ct = target->needs_ct;
+	int zero = 0;
 
 	*state = snat_v6_lookup(tuple);
 
@@ -1421,17 +1429,21 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 			/* Check for the reverse SNAT entry. If it is missing (e.g. due to LRU
 			 * eviction), it must be restored before returning.
 			 */
-			struct ipv6_nat_entry rstate;
+			struct ipv6_nat_entry *rstate;
 			struct ipv6_nat_entry *lookup_result;
 
 			lookup_result = snat_v6_lookup(&rtuple);
 			if (!lookup_result) {
-				memset(&rstate, 0, sizeof(rstate));
-				rstate.to_daddr = tuple->saddr;
-				rstate.to_dport = tuple->sport;
-				rstate.common.needs_ct = needs_ct;
-				rstate.common.created = bpf_mono_now();
-				ret = __snat_create(&cilium_snat_v6_external, &rtuple, &rstate,
+				rstate = map_lookup_elem(&ipv6_nat_entry_storage, &zero);
+				if (!rstate)
+					return DROP_INVALID;
+
+				memset(rstate, 0, sizeof(*rstate));
+				rstate->to_daddr = tuple->saddr;
+				rstate->to_dport = tuple->sport;
+				rstate->common.needs_ct = needs_ct;
+				rstate->common.created = bpf_mono_now();
+				ret = __snat_create(&cilium_snat_v6_external, &rtuple, rstate,
 						    false);
 				if (ret < 0) {
 					if (ext_err)
@@ -1453,8 +1465,10 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 			__snat_delete(&cilium_snat_v6_external, &rtuple);
 	}
 
-	*state = tmp;
-	return snat_v6_new_mapping(ctx, tuple, tmp, target, needs_ct, ext_err);
+	*state = map_lookup_elem(&ipv6_nat_entry_storage, &zero);
+	if (!*state)
+		return DROP_INVALID;
+	return snat_v6_new_mapping(ctx, tuple, *state, target, needs_ct, ext_err);
 }
 
 static __always_inline int
@@ -1842,10 +1856,10 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, fraginfo_t fr
 	      int l4_off, bool update_tuple, const struct ipv6_nat_target *target,
 	      __u16 port_off, struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ipv6_nat_entry *state, tmp;
+	struct ipv6_nat_entry *state;
 	int ret;
 
-	ret = snat_v6_nat_handle_mapping(ctx, tuple, fraginfo, &state, &tmp,
+	ret = snat_v6_nat_handle_mapping(ctx, tuple, fraginfo, &state,
 					 l4_off, target, trace, ext_err);
 	if (ret < 0)
 		return ret;
