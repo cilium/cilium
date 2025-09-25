@@ -50,7 +50,6 @@ func (s *netQos) Run(ctx context.Context, t *check.Test) {
 
 	for sample := 1; sample <= perfParameters.Samples; sample++ {
 		for _, c := range t.Context().PerfClientPods() {
-			c := c
 			for _, server := range t.Context().PerfServerPod() {
 				scenarioName := "pod-to-pod"
 

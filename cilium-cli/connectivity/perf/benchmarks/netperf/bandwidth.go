@@ -50,8 +50,6 @@ func (s *bandwidth) Run(ctx context.Context, t *check.Test) {
 
 	for sample := 1; sample <= perfParameters.Samples; sample++ {
 		for _, c := range t.Context().PerfClientPods() {
-			c := c
-
 			client := getTestSet(c.Name())
 			for _, server := range t.Context().PerfServerPod() {
 				if getTestSet(server.Name()) != client {

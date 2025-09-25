@@ -7,6 +7,7 @@ run:
 linters:
   default: none
   enable:
+    - copyloopvar
     - depguard
     - err113
     - errorlint
