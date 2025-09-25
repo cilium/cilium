@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/vtep"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -136,6 +137,8 @@ type Daemon struct {
 	healthConfig healthconfig.CiliumHealthConfig
 
 	ipsecAgent datapath.IPsecAgent
+
+	vtepManager *vtep.VTEPManager
 }
 
 func (d *Daemon) init() error {
@@ -334,6 +337,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		ciliumHealth:      params.CiliumHealth,
 		endpointAPIFence:  params.EndpointAPIFence,
 		healthConfig:      params.HealthConfig,
+		vtepManager:       params.VTEPManager,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
@@ -708,7 +712,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			syncVTEPControllerGroup.Name,
 			controller.ControllerParams{
 				Group:       syncVTEPControllerGroup,
-				DoFunc:      syncVTEP(d.logger, d.metricsRegistry),
+				DoFunc:      syncVTEP(d.vtepManager),
 				RunInterval: time.Minute,
 				Context:     d.ctx,
 			})
