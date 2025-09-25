@@ -364,7 +364,7 @@ int hostfw_iptables_host_ipv4_05_host_check(const struct __ctx_buff *ctx)
 
 	assert(ct_entry->packets == 2);
 
-	policy_delete_egress_entry();
+	policy_delete_egress_all_entry();
 
 	test_finish();
 }
