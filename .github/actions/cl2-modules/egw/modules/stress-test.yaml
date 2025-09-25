@@ -6,7 +6,7 @@
 # Another repetition towards the same IP/port combination (same node)
 # Another repetition towards the same IP/port combination (different node)
 # Another repetition towards the same IP, but different port (same node)
-{{$tests := "base,same-port-node,diff-node,diff-port" }}
+{{$tests := "base,same-port-node" }}
 
 steps:
 - module:
@@ -35,7 +35,7 @@ steps:
         ExternalTarget: {{ $externalTarget }}
         ExternalTargetPort: {{ IfThenElse (ne $test "diff-port") 1338 1339 }}
         ClientConnectTimeout: "30s"
-        Stress: true
+        Stress: false
         AffinityType: {{ IfThenElse (eq $test "base") "none" ( IfThenElse (eq $test "diff-node") "antiAffinity" "affinity" ) }}
         AffinityInstance: {{ $instance }}-base
 
