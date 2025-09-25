@@ -70,13 +70,13 @@ func setupTestDirectories() string {
 		panic("TempDir() failed.")
 	}
 
-	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
+	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0o777)
 	if err != nil {
 		panic("Mkdir failed")
 	}
 
 	socketDir := envoy.GetSocketDir(tempRunDir)
-	err = os.MkdirAll(socketDir, 0700)
+	err = os.MkdirAll(socketDir, 0o700)
 	if err != nil {
 		panic("creating envoy socket directory failed")
 	}
@@ -166,13 +166,13 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 	ds.d, err = daemonPromise.Await(ctx)
 	require.NoError(tb, err)
 
-	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
+	ds.d.params.Policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	// Ensure that the identity allocator is synchronized before starting the
 	// actual tests, to prevent flakes caused by the goroutine started by
 	// [(*CachingIdentityAllocator).InitIdentityAllocator] still lingering
 	// around when the Hive gets stopped.
-	ds.d.identityAllocator.WaitForInitialGlobalIdentities(tb.Context())
+	ds.d.params.IdentityAllocator.WaitForInitialGlobalIdentities(tb.Context())
 
 	// Reset the most common endpoint states before each test.
 	for _, s := range []string{
