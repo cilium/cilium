@@ -49,10 +49,10 @@ type PolicyContext interface {
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool)
 
 	// SetPriority sets the priority level for the first rule being processed.
-	SetPriority(priority types.Priority)
+	SetPriority(tier types.Tier, priority types.Priority)
 
 	// Priority returns the priority level for the current rule.
-	Priority() types.Priority
+	Priority() (tier types.Tier, priority types.Priority)
 
 	// DefaultDenyIngress returns true if default deny is enabled for ingress
 	DefaultDenyIngress() bool
@@ -72,7 +72,10 @@ type policyContext struct {
 	repo *Repository
 	ns   string
 
-	// priority is the precedence priority for the rule being processed.
+	// Policy tier, 0 is the default and highest tier.
+	tier types.Tier
+
+	// priority level for the rule being processed, 0 is the highest priority.
 	priority types.Priority
 
 	defaultDenyIngress bool
@@ -112,14 +115,15 @@ func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNet
 	return p.repo.GetEnvoyHTTPRules(l7Rules, p.ns)
 }
 
-// SetPriority sets the precedence level for the first rule being processed.
-func (p *policyContext) SetPriority(level types.Priority) {
-	p.priority = level
+// SetPriority sets the tier and priority for the first rule being processed.
+func (p *policyContext) SetPriority(tier types.Tier, priority types.Priority) {
+	p.tier = tier
+	p.priority = priority
 }
 
-// Priority returns the precedence level for the current rule.
-func (p *policyContext) Priority() types.Priority {
-	return p.priority
+// Priority returns the tier and priority for the current rule.
+func (p *policyContext) Priority() (types.Tier, types.Priority) {
+	return p.tier, p.priority
 }
 
 // DefaultDenyIngress returns true if default deny is enabled for ingress
@@ -504,19 +508,26 @@ func (p *EndpointPolicy) MissingMap(realized MapStateMap) iter.Seq2[Key, MapStat
 }
 
 func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
 	p.policyMapState.revertChanges(changes)
 }
 
-// toMapState transforms the L4DirectionPolicy into
+// toMapState transforms an attached L4DirectionPolicy into
 // the datapath-friendly format inside EndpointPolicy.PolicyMapState.
 // Called with selectorcache locked for reading.
 // Called without holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
 func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy) {
-	for l4 := range l4policy.Filters() {
-		l4.toMapState(logger, p, l4policy.features, ChangeState{})
+	for tier := range l4policy.PortRules {
+		basePriority := l4policy.tierBasePriority[tier]
+		nextTierPriority := types.MaxPriority
+		if len(l4policy.tierBasePriority) > int(tier)+1 {
+			nextTierPriority = l4policy.tierBasePriority[tier+1]
+		}
+		l4policy.PortRules[tier].ForEach(func(l4 *L4Filter) bool {
+			l4.toMapState(logger, basePriority, nextTierPriority, p, l4policy.features, ChangeState{})
+			return true
+		})
 	}
 }
 
@@ -591,6 +602,7 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
+// The returned stub is not modified.
 func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),

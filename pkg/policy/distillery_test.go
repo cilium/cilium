@@ -461,7 +461,7 @@ func (d *policyDistillery) distillPolicy(logger *slog.Logger, owner PolicyOwner,
 	// because this test suite doesn't have a notion of traffic direction, so
 	// the extra egress allow-all is technically correct, but omitted from the
 	// expected output that's asserted against for the sake of brevity.
-	if entry, ok := epp.policyMapState.get(mapKeyAllowAllE_); ok && !entry.IsDeny() {
+	if entry, ok := epp.policyMapState.get(mapKeyAllowAllE_); ok && entry.IsAllow() && entry.Precedence == types.MaxAllowPrecedence {
 		epp.policyMapState.delete(mapKeyAllowAllE_)
 	}
 	epp.Ready()
@@ -1415,8 +1415,9 @@ var (
 	mapKeyL3WorldEgressIPv4   = EgressKey().WithIdentity(worldReservedIDIPv4)
 	mapKeyL3WorldEgressIPv6   = EgressKey().WithIdentity(worldReservedIDIPv6)
 
-	AllowEntry    = types.AllowEntry().WithPriority(0)
-	DenyEntry     = types.DenyEntry().WithPriority(0)
+	AllowEntry = types.AllowEntry().WithPriority(0)
+	DenyEntry  = types.DenyEntry().WithPriority(0)
+
 	mapEntryDeny  = NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
 	mapEntryAllow = NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
 
