@@ -8,11 +8,21 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+type Tier uint8
+
+const (
+	Admin Tier = iota
+	Normal
+	Baseline
+	numTiers // one past the lowest tier
+)
+
 type Verdict uint8
 
 const (
 	Allow Verdict = iota
 	Deny
+	Pass
 )
 
 func (v Verdict) String() string {
@@ -21,6 +31,8 @@ func (v Verdict) String() string {
 		return "allow"
 	case Deny:
 		return "deny"
+	case Pass:
+		return "pass"
 	default:
 		return "undefined"
 	}
@@ -30,6 +42,8 @@ func (v Verdict) String() string {
 //
 // +deepequal-gen=true
 type PolicyEntry struct {
+	Tier Tier
+
 	// Priority defines the precedence of this rule in relation to other rules.  Lower values
 	// take precedence over higher values. Rules having the default priority level 0 are
 	// considered first, then the rest of the rules, from the earliest to later priority levels.

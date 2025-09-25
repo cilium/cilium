@@ -131,7 +131,8 @@ type PerSelectorPolicy struct {
 	// values take precedence over rules with later priority values.
 	Priority types.Priority `json:"priority,omitempty"`
 
-	// PolicyVerdict specifies if traffic matching this policy should be allowed or denied
+	// PolicyVerdict specifies if traffic matching this policy should be allowed, denied, or if
+	// the verdict should be determined by lower priority rules (pass).
 	Verdict types.Verdict `json:"verdict,omitempty"`
 
 	// ListenerPriority of the listener used when multiple listeners would apply to the same
@@ -532,16 +533,17 @@ func ensureWildcard(rules *api.L7Rules, parserType L7ParserType) *api.L7Rules {
 // specified in terms of selectors that are mapped to security identities via
 // the selector cache.
 type L4Filter struct {
+	Tier types.Tier `json:"tier,omitempty"`
+	// U8Proto is the Protocol in numeric format, or 0 for NONE
+	U8Proto u8proto.U8proto `json:"-"`
 	// Port is the destination port to allow. Port 0 indicates that all traffic
 	// is allowed at L4.
 	Port uint16 `json:"port"`
 	// EndPort is zero for a singular port
-	EndPort  uint16 `json:"endPort,omitempty"`
-	PortName string `json:"port-name,omitempty"`
+	EndPort uint16 `json:"endPort,omitempty"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol api.L4Proto `json:"protocol"`
-	// U8Proto is the Protocol in numeric format, or 0 for NONE
-	U8Proto u8proto.U8proto `json:"-"`
+	PortName string      `json:"port-name,omitempty"`
 	// wildcard is the cached selector representing a wildcard in this filter, if any.
 	// This is nil the wildcard selector in not in 'PerSelectorPolicies'.
 	// When the wildcard selector is in 'PerSelectorPolicies' this is set to that
@@ -642,12 +644,12 @@ func (c *ChangeState) Size() int {
 }
 
 // generateWildcardMapStateEntry creates map state entry for wildcard selector in the filter.
-func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16) mapStateEntry {
+func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16, nextTierPriority types.Priority) mapStateEntry {
 	if l4.wildcard != nil {
 		currentRule := l4.PerSelectorPolicies[l4.wildcard]
 		cs := l4.wildcard
 
-		return l4.makeMapStateEntry(logger, p, port, cs, currentRule)
+		return l4.makeMapStateEntry(logger, p, port, cs, currentRule, nextTierPriority)
 	}
 
 	return makeInvalidEntry()
@@ -655,7 +657,7 @@ func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *Endpoi
 }
 
 // makeMapStateEntry creates a mapStateEntry for the given selector and policy for the Endpoint.
-func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16, cs CachedSelector, currentRule *PerSelectorPolicy) mapStateEntry {
+func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16, cs CachedSelector, currentRule *PerSelectorPolicy, nextTierPriority types.Priority) mapStateEntry {
 	var proxyPort uint16
 	if currentRule.IsRedirect() {
 		var err error
@@ -675,6 +677,7 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 
 	return newMapStateEntry(
 		currentRule.GetPriority(),
+		nextTierPriority,
 		l4.RuleOrigin[cs],
 		proxyPort,
 		currentRule.GetListenerPriority(),
@@ -690,7 +693,7 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 // 'p.PolicyMapState' using insertWithChanges().
 // Keys and old values of any added or deleted entries are added to 'changes'.
 // 'redirects' is the map of currently realized redirects, it is used to find the proxy port for any redirects.
-func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features policyFeatures, changes ChangeState) {
+func (l4 *L4Filter) toMapState(logger *slog.Logger, basePriority, nextTierPriority types.Priority, p *EndpointPolicy, features policyFeatures, changes ChangeState) {
 	port := l4.Port
 	proto := l4.U8Proto
 
@@ -718,6 +721,8 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 		}
 	}
 
+	basePrecedence := basePriority.ToPassPrecedence()
+
 	var keysToAdd []Key
 	for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
 		keysToAdd = append(keysToAdd,
@@ -725,19 +730,20 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 	}
 
 	// Compute the wildcard entry, if present.
-	wildcardEntry := l4.generateWildcardMapStateEntry(scopedLog, p, port)
+	wildcardEntry := l4.generateWildcardMapStateEntry(scopedLog, p, port, nextTierPriority)
+	haveWildcard := wildcardEntry.IsValid() || wildcardEntry.IsPassEntry()
 
 	var idents identity.NumericIdentitySlice
 	var entry mapStateEntry
 	for cs, currentRule := range l4.PerSelectorPolicies {
 		// is this wildcard? If so, we already created it above
-		if wildcardEntry.IsValid() && cs == l4.wildcard {
+		if haveWildcard && cs == l4.wildcard {
 			entry = wildcardEntry
 			// wildcard identity
 			idents = identity.NumericIdentitySlice{0}
 		} else {
-			entry = l4.makeMapStateEntry(logger, p, port, cs, currentRule)
-			if !entry.IsValid() {
+			entry = l4.makeMapStateEntry(logger, p, port, cs, currentRule, nextTierPriority)
+			if !entry.IsValid() && !entry.IsPassEntry() {
 				continue
 			}
 
@@ -771,7 +777,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 		for _, id := range idents {
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = id
-				p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
+				p.policyMapState.insertWithChanges(basePrecedence, keyToAdd, entry, features, changes)
 			}
 		}
 	}
@@ -928,6 +934,7 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 	selectorCache := policyCtx.GetSelectorCache()
 	logger := policyCtx.GetLogger()
 	origin := policyCtx.Origin()
+	tier, priority := policyCtx.Priority()
 
 	portName := ""
 	p := uint64(0)
@@ -943,6 +950,7 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 	u8p, _ := u8proto.ParseProtocol(string(port.Protocol))
 
 	l4 := &L4Filter{
+		Tier:                tier,
 		Port:                uint16(p),            // 0 for L3-only rules and named ports
 		EndPort:             uint16(port.EndPort), // 0 for a single port, >= 'Port' for a range
 		PortName:            portName,             // non-"" for named ports
@@ -1052,7 +1060,6 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 		}
 	}
 
-	priority := policyCtx.Priority()
 	if l7Parser != ParserTypeNone || entry.Authentication != nil || !entry.IsAllow() || priority != 0 {
 		modifiedRules := rules
 
@@ -1280,11 +1287,12 @@ func (ls L4PolicyMaps) Filters() iter.Seq[*L4Filter] {
 func NewL4PolicyMapWithValues(initMap map[string]*L4Filter) L4PolicyMaps {
 	l4M := L4PolicyMaps{makeL4PolicyMap()}
 	for k, v := range initMap {
+		l4M.ensureTier(v.Tier)
 		portProtoSlice := strings.Split(k, "/")
 		if len(portProtoSlice) < 2 {
 			continue
 		}
-		l4M[0].Upsert(portProtoSlice[0], 0, portProtoSlice[1], v)
+		l4M[v.Tier].Upsert(portProtoSlice[0], 0, portProtoSlice[1], v)
 	}
 	return l4M
 }
@@ -1451,13 +1459,21 @@ func (pf policyFeatures) contains(feature policyFeatures) bool {
 type L4DirectionPolicy struct {
 	PortRules L4PolicyMaps
 
+	// TierBasePriority stores the starting priority for each tier.
+	// For tier 0 this is always 0, for later tiers this should be a priority lower (numerically
+	// higher) than any rule's priority on the preceding tiers.
+	tierBasePriority []types.Priority
+
 	// features tracks properties of PortRules to skip code when features are not used
 	features policyFeatures
 }
 
+// newL4DirectionPolicy creates a new L4DirectionPolicy with slices initialized for one tier for
+// legacy compatibility as testing code assumes indexing by '0' works in all situations.
 func newL4DirectionPolicy() L4DirectionPolicy {
 	return L4DirectionPolicy{
-		PortRules: L4PolicyMaps{makeL4PolicyMap()},
+		PortRules:        L4PolicyMaps{makeL4PolicyMap()},
+		tierBasePriority: make([]types.Priority, 1),
 	}
 }
 
@@ -1469,13 +1485,8 @@ func (l4 L4DirectionPolicy) Filters() iter.Seq[*L4Filter] {
 // selectorCache, allowing the map to be garbage collected when there
 // are no more references to it.
 func (l4 L4DirectionPolicy) Detach(selectorCache *SelectorCache) {
-	l4.PortRules.Detach(selectorCache)
-}
-
-// detach is used directly from tracing and testing functions
-func (l4M L4PolicyMaps) Detach(selectorCache *SelectorCache) {
-	for l4 := range l4M.Filters() {
-		l4.detach(selectorCache)
+	for f := range l4.Filters() {
+		f.detach(selectorCache)
 	}
 }
 
@@ -1491,6 +1502,7 @@ func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redir
 		features |= feat
 		redirectTypes |= redir
 	}
+
 	l4.features = features
 	return redirectTypes
 }
@@ -1580,16 +1592,24 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 	derivedFrom := l4.RuleOrigin[cs]
 
 	direction := trafficdirection.Egress
+	directionPolicy := &l4Policy.Egress
 	if l4.Ingress {
 		direction = trafficdirection.Ingress
+		directionPolicy = &l4Policy.Ingress
 	}
 	perSelectorPolicy := l4.PerSelectorPolicies[cs]
 	redirect := perSelectorPolicy.IsRedirect()
 	listener := perSelectorPolicy.GetListener()
 	listenerPriority := perSelectorPolicy.GetListenerPriority()
 	authReq := perSelectorPolicy.getAuthRequirement()
-	isDeny := perSelectorPolicy.IsDeny()
+	verdict := perSelectorPolicy.GetVerdict()
+	tier := l4.Tier
 	priority := perSelectorPolicy.GetPriority()
+	basePriority := directionPolicy.tierBasePriority[tier]
+	nextTierPriority := types.MaxPriority
+	if len(directionPolicy.tierBasePriority) > int(tier)+1 {
+		nextTierPriority = directionPolicy.tierBasePriority[tier+1]
+	}
 
 	// Can hold rlock here as neither GetNamedPort() nor LookupRedirectPort() no longer
 	// takes the Endpoint lock below.
@@ -1629,15 +1649,13 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 			keysToAdd = append(keysToAdd,
 				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
-		verdict := types.Allow
-		if isDeny {
-			verdict = types.Deny
-		}
-		value := newMapStateEntry(priority, derivedFrom, proxyPort, listenerPriority, verdict, authReq)
+
+		value := newMapStateEntry(priority, nextTierPriority, derivedFrom, proxyPort, listenerPriority, verdict, authReq)
 
 		// If the entry is identical to wildcard map entry, we can elide it.
 		// See comment in L4Filter.toMapState()
-		wildcardMapEntry := l4.generateWildcardMapStateEntry(logger, epPolicy, port)
+		wildcardMapEntry := l4.generateWildcardMapStateEntry(logger, epPolicy, port, nextTierPriority)
+
 		if wildcardMapEntry.IsValid() && port != 0 && value.MapStateEntry == wildcardMapEntry.MapStateEntry {
 			logger.Debug(
 				"AccumulateMapChanges: Skipping L3/L4 key due to existing identical L4-only key",
@@ -1662,10 +1680,12 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 				logfields.AuthType, authString,
 				logfields.Listener, listener,
 				logfields.ListenerPriority, listenerPriority,
+				logfields.Tier, tier,
+				logfields.TierBasePriority, basePriority,
 				logfields.Priority, priority,
 			)
 		}
-		epPolicy.policyMapChanges.AccumulateMapChanges(adds, deletes, keysToAdd, value)
+		epPolicy.policyMapChanges.AccumulateMapChanges(tier, basePriority, adds, deletes, keysToAdd, value)
 	}
 }
 

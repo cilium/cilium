@@ -331,7 +331,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		if err != nil {
 			return nil, err
 		}
-		calculatedPolicy.L4Policy.Ingress.PortRules = newL4IngressPolicy
+		calculatedPolicy.L4Policy.Ingress = newL4IngressPolicy
 	}
 
 	if egressEnabled {
@@ -340,7 +340,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		if err != nil {
 			return nil, err
 		}
-		calculatedPolicy.L4Policy.Egress.PortRules = newL4EgressPolicy
+		calculatedPolicy.L4Policy.Egress = newL4EgressPolicy
 	}
 
 	// Make the calculated policy ready for incremental updates
@@ -353,7 +353,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 }
 
 // computePolicyEnforcementAndRules returns whether policy applies at ingress or ingress
-// for the given security identity, as well as a list of any rules which select
+// for the given security identity, as well as a sorted list of any rules which select
 // the set of labels of the given security identity.
 //
 // Must be called with repo mutex held for reading.
@@ -405,6 +405,10 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 		}
 	}
 
+	// sort rules (in place) by priority
+	rulesIngress.sort()
+	rulesEgress.sort()
+
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
 	// If the endpoint has the reserved:init label, i.e. if it has not yet
@@ -429,6 +433,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// 3: Only non-default-deny rules are present. Then, policy is enabled, but we must insert
 	//    an additional allow-all rule. We must do this, even if all traffic is allowed, because
 	//    rules may have additional effects such as enabling L7 proxy.
+	//    The wildcard rule is inserted to the last tier and priority.
 	for _, r := range rulesIngress {
 		hasIngress = true
 		if r.DefaultDeny {
@@ -446,27 +451,49 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 
 	// If there only ingress default-allow rules, then insert a wildcard rule
 	if !hasIngressDefaultDeny && hasIngress {
-		p.logger.Debug("Only default-allow policies, synthesizing ingress wildcard-allow rule", logfields.Identity, securityIdentity)
-		rulesIngress = append(rulesIngress, wildcardRule(securityIdentity.LabelArray, true /*ingress*/))
+		// User the lowest tier and priority
+		lastRule := rulesIngress[len(rulesIngress)-1]
+		tier, priority := lastRule.Tier, lastRule.Priority
+		// Keep the tier and priority as zeroes for backwards compatibility if the last rule
+		// is at tier and priority 0.
+		if tier > 0 || priority > 0 {
+			tier++
+			priority = 0
+		}
+		p.logger.Debug("Only default-allow policies, synthesizing ingress wildcard-allow rule",
+			logfields.Identity, securityIdentity,
+			logfields.Tier, tier,
+			logfields.Priority, priority,
+		)
+		rulesIngress = append(rulesIngress, wildcardRule(securityIdentity.LabelArray, true /*ingress*/, tier, priority))
 	}
 
 	// Same for egress -- synthesize a wildcard rule
 	if !hasEgressDefaultDeny && hasEgress {
-		p.logger.Debug("Only default-allow policies, synthesizing egress wildcard-allow rule", logfields.Identity, securityIdentity)
-		rulesEgress = append(rulesEgress, wildcardRule(securityIdentity.LabelArray, false /*egress*/))
+		// User the lowest tier and priority
+		lastRule := rulesEgress[len(rulesEgress)-1]
+		tier, priority := lastRule.Tier, lastRule.Priority
+		p.logger.Debug("Only default-allow policies, synthesizing egress wildcard-allow rule",
+			logfields.Identity, securityIdentity,
+			logfields.Tier, tier,
+			logfields.Priority, priority,
+		)
+		rulesEgress = append(rulesEgress, wildcardRule(securityIdentity.LabelArray, false /*egress*/, tier, priority))
 	}
 
 	return
 }
 
 // wildcardRule generates a wildcard rule that only selects the given identity.
-func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
+func wildcardRule(lbls labels.LabelArray, ingress bool, tier types.Tier, priority float64) *rule {
 	return &rule{
 		PolicyEntry: types.PolicyEntry{
-			Verdict: types.Allow,
-			Ingress: ingress,
-			Subject: types.NewLabelSelectorFromLabels(lbls...),
-			L3:      types.WildcardSelectors,
+			Tier:     tier,
+			Priority: priority,
+			Verdict:  types.Allow,
+			Ingress:  ingress,
+			Subject:  types.NewLabelSelectorFromLabels(lbls...),
+			L3:       types.WildcardSelectors,
 		},
 	}
 }

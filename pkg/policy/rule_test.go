@@ -1291,6 +1291,8 @@ func TestL3RuleLabels(t *testing.T) {
 			}
 			finalPolicy, err := td.repo.resolvePolicyLocked(idA)
 			require.NoError(t, err)
+			require.Len(t, finalPolicy.L4Policy.Ingress.PortRules, 1)
+			require.Len(t, finalPolicy.L4Policy.Egress.PortRules, 1)
 
 			type expectedResult map[string]labels.LabelArrayList
 			mapDirectionalResultsToExpectedOutput := map[*L4Filter]expectedResult{
@@ -1420,7 +1422,11 @@ func TestL4RuleLabels(t *testing.T) {
 			finalPolicy, err := td.repo.resolvePolicyLocked(idA)
 			require.NoError(t, err)
 
-			require.Equal(t, len(test.expectedIngressLabels), finalPolicy.L4Policy.Ingress.PortRules.Len(), test.description)
+			ingressLen := 0
+			if len(finalPolicy.L4Policy.Ingress.PortRules) > 0 {
+				ingressLen = finalPolicy.L4Policy.Ingress.PortRules[0].Len()
+			}
+			require.Equal(t, len(test.expectedIngressLabels), ingressLen, test.description)
 			for portProto := range test.expectedIngressLabels {
 				portProtoSlice := strings.Split(portProto, "/")
 				out := finalPolicy.L4Policy.Ingress.PortRules[0].ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])
@@ -1430,7 +1436,11 @@ func TestL4RuleLabels(t *testing.T) {
 				require.Equal(t, test.expectedIngressLabels[portProto], lbls, test.description)
 			}
 
-			require.Equal(t, len(test.expectedEgressLabels), finalPolicy.L4Policy.Egress.PortRules.Len(), test.description)
+			egressLen := 0
+			if len(finalPolicy.L4Policy.Egress.PortRules) > 0 {
+				egressLen = finalPolicy.L4Policy.Egress.PortRules[0].Len()
+			}
+			require.Equal(t, len(test.expectedEgressLabels), egressLen, test.description)
 			for portProto := range test.expectedEgressLabels {
 				portProtoSlice := strings.Split(portProto, "/")
 				out := finalPolicy.L4Policy.Egress.PortRules[0].ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])

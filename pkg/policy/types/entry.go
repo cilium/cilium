@@ -31,9 +31,32 @@ func (p *Priority) Increment() bool {
 	return true
 }
 
+func (p *Priority) IncrementWithRoundup(to Priority) bool {
+	np := *p + 1
+	np = ((np + (to - 1)) / to) * to
+	if np > MaxPriority || np < *p {
+		return false
+	}
+	*p = np
+	return true
+}
+
+func (p *Priority) Add(add Priority) bool {
+	np := *p + add
+	if np > MaxPriority || np < *p {
+		return false
+	}
+	*p = np
+	return true
+}
+
 // ProxyPortPrecedenceMayDiffer returns true if the non-proxy port precedence bits are the same
 func (p Precedence) ProxyPortPrecedenceMayDiffer(o Precedence) bool {
 	return p^o < PrecedenceDeny
+}
+
+func (p Precedence) Priority() Priority {
+	return MaxPriority - Priority(p>>precedencePriorityShift)
 }
 
 // MapStateEntry is the configuration associated with a Key in a
@@ -117,6 +140,11 @@ func (priority Priority) toPrecedence() Precedence {
 		priority = MaxPriority
 	}
 	return Precedence(MaxPriority-priority) << precedencePriorityShift
+}
+
+// PassPrecedence is the highest possible precedence for the given priority
+func (priority Priority) ToPassPrecedence() Precedence {
+	return priority.toPrecedence() | PrecedenceDeny | PrecedenceProxyPriorityMask
 }
 
 // NewMapStateEntry creeates a new MapStateEntry
