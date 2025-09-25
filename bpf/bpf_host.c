@@ -1408,6 +1408,14 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 #endif
 
 #ifdef ENABLE_HOST_FIREWALL
+	/* Don't require HostFW policy for our own overlay traffic: */
+	if (magic == MARK_MAGIC_OVERLAY)
+		goto skip_host_firewall;
+
+	/* Don't require HostFW policy for our own IPsec / WG traffic: */
+	if (ctx_mark_is_encrypted(ctx))
+		goto skip_host_firewall;
+
 	/* This was initially added for Egress GW. There it's no longer needed,
 	 * but it potentially also helps other paths (LB-to-remote-backend ?).
 	 */
