@@ -40,6 +40,7 @@ import (
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/vtep"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
@@ -894,7 +895,7 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 		// Changing files permissions to -rwx:r--:---, we are only
 		// adding executable permission to the owner and keeping the
 		// same permissions stored by go-bindata.
-		if err := os.Chmod(fileToChange, os.FileMode(0740)); err != nil {
+		if err := os.Chmod(fileToChange, os.FileMode(0o740)); err != nil {
 			return err
 		}
 	}
@@ -1312,6 +1313,7 @@ type daemonParams struct {
 	EndpointAPIFence    endpointapi.Fence
 	IPSecConfig         datapath.IPsecConfig
 	HealthConfig        healthconfig.CiliumHealthConfig
+	VTEPManager         *vtep.VTEPManager
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
