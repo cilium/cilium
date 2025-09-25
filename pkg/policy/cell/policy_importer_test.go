@@ -5,7 +5,6 @@ package policycell
 
 import (
 	"context"
-	"log/slog"
 	"net/netip"
 	"testing"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
@@ -100,11 +100,16 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		},
 	}
 
-	pi := &policyImporter{
-		log:  slog.Default(),
-		repo: policy.NewPolicyRepository(hivetest.Logger(t), ids, nil, nil, nil, testpolicy.NewPolicyMetricsNoop()),
-		epm:  epm,
-		ipc:  ipc,
+	logger := hivetest.Logger(t)
+	repo := policy.NewPolicyRepository(logger, ids, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	polComputer := compute.InstantiateCellForTesting(t, logger, "policy-cell", "TestAddReplaceRemoveRule", repo)
+
+	pi := &Importer{
+		log:      logger,
+		repo:     repo,
+		computer: polComputer,
+		epm:      epm,
+		ipc:      ipc,
 
 		q: make(chan *policytypes.PolicyUpdate, 10),
 
@@ -503,9 +508,11 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 				return
 			}
 
-			pi := &policyImporter{
-				log:  slog.Default(),
-				repo: args.repo,
+			logger := hivetest.Logger(t)
+			pi := &Importer{
+				log:      logger,
+				repo:     args.repo,
+				computer: compute.InstantiateCellForTesting(t, logger, "policy-cell", "TestAddCiliumNetworkPolicyByLabels", args.repo),
 			}
 
 			pi.processUpdates(context.Background(), []*policytypes.PolicyUpdate{{

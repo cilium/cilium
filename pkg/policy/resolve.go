@@ -161,6 +161,8 @@ type SelectorPolicy interface {
 	// DistillPolicy returns the policy in terms of connectivity to peer
 	// Identities.
 	DistillPolicy(logger *slog.Logger, owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
+
+	GetRevision() uint64
 }
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -529,6 +531,13 @@ func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolic
 			p.L4Policy.Egress.forEachRedirectFilter(yield)
 		}
 	}
+}
+
+func (p *selectorPolicy) GetRevision() uint64 {
+	if p == nil {
+		return 0
+	}
+	return p.Revision
 }
 
 func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, PerSelectorPolicyTuple) bool) bool {

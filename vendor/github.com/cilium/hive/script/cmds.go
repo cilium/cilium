@@ -453,7 +453,10 @@ func Env() Cmd {
 	return Command(
 		CmdUsage{
 			Summary: "set or log the values of environment variables",
-			Args:    "[key[=value]...]",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.Bool("from-stdout", false, "Whether to set the value of the variable from stdout")
+			},
+			Args: "[key[=value]...]",
 			Detail: []string{
 				"With no arguments, print the script environment to the log.",
 				"Otherwise, add the listed key=value pairs to the environment or print the listed keys.",
@@ -474,6 +477,11 @@ func Env() Cmd {
 			},
 		},
 		func(s *State, args ...string) (WaitFunc, error) {
+			fromStdout, err := s.Flags.GetBool("from-stdout")
+			if err != nil {
+				return nil, err
+			}
+
 			out := new(strings.Builder)
 			if len(args) == 0 {
 				for _, kv := range s.env {
@@ -481,14 +489,20 @@ func Env() Cmd {
 				}
 			} else {
 				for _, env := range args {
-					i := strings.Index(env, "=")
-					if i < 0 {
-						// Display value instead of setting it.
-						fmt.Fprintf(out, "%s=%s\n", env, s.envMap[env])
-						continue
-					}
-					if err := s.Setenv(env[:i], env[i+1:]); err != nil {
-						return nil, err
+					if fromStdout {
+						if err := s.Setenv(env, strings.Trim(s.Stdout(), "\n ")); err != nil {
+							return nil, err
+						}
+					} else {
+						i := strings.Index(env, "=")
+						if i < 0 {
+							// Display value instead of setting it.
+							fmt.Fprintf(out, "%s=%s\n", env, s.envMap[env])
+							continue
+						}
+						if err := s.Setenv(env[:i], env[i+1:]); err != nil {
+							return nil, err
+						}
 					}
 				}
 			}
