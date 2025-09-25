@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -15,7 +14,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/datapath/vtep"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -229,20 +227,4 @@ func (d *Daemon) initMaps() error {
 	}
 
 	return nil
-}
-
-func syncVTEP(vtepManager *vtep.VTEPManager) func(context.Context) error {
-	return func(context.Context) error {
-		if option.Config.EnableVTEP {
-			err := vtepManager.SetupVTEPMapping()
-			if err != nil {
-				return err
-			}
-			err = vtepManager.SetupRouteToVtepCidr()
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
 }
