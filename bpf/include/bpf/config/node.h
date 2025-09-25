@@ -22,3 +22,5 @@ NODE_CONFIG(__u32, trace_payload_len, "Length of payload to capture when tracing
 #define TRACE_PAYLOAD_LEN CONFIG(trace_payload_len) /* Backwards compatibility */
 
 NODE_CONFIG(__u32, trace_payload_len_overlay, "Length of payload to capture when tracing overlay packets.")
+
+NODE_CONFIG(bool, policy_deny_response_enabled, "Enable ICMP responses for policy-denied traffic")

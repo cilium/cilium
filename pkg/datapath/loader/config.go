@@ -23,5 +23,11 @@ func nodeConfig(lnc *datapath.LocalNodeConfiguration) config.Node {
 	node.TracePayloadLen = uint32(option.Config.TracePayloadlen)
 	node.TracePayloadLenOverlay = uint32(option.Config.TracePayloadlenOverlay)
 
+	if option.Config.PolicyDenyResponse == option.PolicyDenyResponseIcmp {
+		node.PolicyDenyResponseEnabled = true
+	} else {
+		node.PolicyDenyResponseEnabled = false
+	}
+
 	return node
 }
