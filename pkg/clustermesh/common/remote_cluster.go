@@ -38,6 +38,7 @@ type RemoteCluster interface {
 
 	Stop()
 	Remove(ctx context.Context)
+	RevokeCache(ctx context.Context)
 }
 
 // remoteCluster represents another cluster other than the cluster the agent is
@@ -59,6 +60,15 @@ type remoteCluster struct {
 	resolvers []dial.Resolver
 
 	controllers *controller.Manager
+
+	// cacheTTL is the time to live for the cache of a remote cluster after
+	// connectivity to the remote kvstore is lost. If the connection is not
+	// re-established within this duration, the cached data is revoked to
+	// prevent stale state.
+	cacheTTL time.Duration
+
+	// cacheTTLTimer is the timer that triggers the cache invalidation.
+	cacheTTLTimer <-chan time.Time
 
 	// wg is used to wait for the termination of the goroutines spawned by the
 	// controller upon reconnection for long running background tasks.
@@ -126,6 +136,12 @@ func (rc *remoteCluster) releaseOldConnection() {
 }
 
 func (rc *remoteCluster) restartRemoteConnection() {
+	rc.mutex.Lock()
+	if rc.cacheTTL > 0 && rc.cacheTTLTimer == nil {
+		rc.logger.Warn("Starting remote cluster cache TTL timer", logfields.TTL, rc.cacheTTL)
+		rc.cacheTTLTimer = time.After(rc.cacheTTL)
+	}
+	rc.mutex.Unlock()
 	rc.controllers.UpdateController(
 		rc.remoteConnectionControllerName,
 		controller.ControllerParams{
@@ -142,10 +158,22 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				// connection
 				rc.logger.Debug("Waiting for connection to be established")
 
+				var timerC <-chan time.Time
+				rc.mutex.RLock()
+				timerC = rc.cacheTTLTimer
+				rc.mutex.RUnlock()
+
 				var err error
 				select {
 				case err = <-errChan:
 				case err = <-clusterLock.errors:
+				case <-timerC:
+					err = fmt.Errorf("remote cluster cache TTL timeout exceeded %v", rc.cacheTTL)
+					rc.logger.Warn("Unable to establish etcd connection to remote cluster before remote cluster cache TTL. Removing cached data.", logfields.Error, err)
+					rc.RevokeCache(ctx)
+					rc.mutex.Lock()
+					rc.cacheTTLTimer = nil
+					rc.mutex.Unlock()
 				}
 
 				if err != nil {
@@ -233,6 +261,13 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 					return err
 				}
+
+				rc.mutex.Lock()
+				if rc.cacheTTLTimer != nil {
+					rc.logger.Debug("Connection established, stopping remote cluster cache TTL timer")
+					rc.cacheTTLTimer = nil
+				}
+				rc.mutex.Unlock()
 
 				rc.metricReadinessStatus.Set(metrics.BoolToFloat64(true))
 				return nil

@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-type fakeRemoteCluster struct{ onRun, onStop, onRemove func(ctx context.Context) }
+type fakeRemoteCluster struct{ onRun, onStop, onRemove, onRevokeCache func(ctx context.Context) }
 
 func (f *fakeRemoteCluster) Run(ctx context.Context, _ kvstore.BackendOperations, _ types.CiliumClusterConfig, ready chan<- error) {
 	if f.onRun != nil {
@@ -36,6 +36,12 @@ func (f *fakeRemoteCluster) Run(ctx context.Context, _ kvstore.BackendOperations
 func (f *fakeRemoteCluster) Stop() {
 	if f.onStop != nil {
 		f.onStop(context.Background())
+	}
+}
+
+func (f *fakeRemoteCluster) RevokeCache(ctx context.Context) {
+	if f.onRevokeCache != nil {
+		f.onRevokeCache(ctx)
 	}
 }
 
