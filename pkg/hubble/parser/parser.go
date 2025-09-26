@@ -51,10 +51,11 @@ func New(
 	serviceGetter getters.ServiceGetter,
 	linkGetter getters.LinkGetter,
 	cgroupGetter getters.PodMetadataGetter,
+	policyMetadataGetter getters.PolicyMetadataGetter,
 	opts ...options.Option,
 ) (*Parser, error) {
 
-	l34, err := threefour.New(log, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, linkGetter, opts...)
+	l34, err := threefour.New(log, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, linkGetter, policyMetadataGetter, opts...)
 	if err != nil {
 		return nil, err
 	}
