@@ -5,13 +5,14 @@ package xds
 
 import (
 	"fmt"
+	"net/netip"
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/anypb"
 	"istio.io/istio/pkg/workloadapi"
 
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/k8s/types"
 )
 
 // EndpointEventCollection holds one or more EndpointEvent.
@@ -25,9 +26,9 @@ type EndpointEventCollection []*EndpointEvent
 //
 // Each endpoint.Endpoint in the eps slice will be associated with the provided
 // EndpointEventType.
-func (c *EndpointEventCollection) AppendEndpoints(t EndpointEventType, eps []*endpoint.Endpoint) {
+func (c *EndpointEventCollection) AppendEndpoints(t EndpointEventType, eps []*types.CiliumEndpoint) {
 	for _, ep := range eps {
-		*c = append(*c, &EndpointEvent{Type: t, Endpoint: ep})
+		*c = append(*c, &EndpointEvent{Type: t, CiliumEndpoint: ep})
 	}
 }
 
@@ -61,13 +62,13 @@ func (c EndpointEventCollection) ToDeltaDiscoveryResponse() *v3.DeltaDiscoveryRe
 			// ztunnel uses a very stripped down representation of a Resource
 			// see: https://github.com/istio/ztunnel/blob/58cf2a0f943ffc23c32d889018428ddfa6175144/src/xds/client.rs#L773
 			res := &v3.Resource{
-				Name:     event.K8sUID,
+				Name:     string(event.UID),
 				Resource: anyPBAddr,
 			}
 
 			createResources = append(createResources, res)
 		case REMOVED:
-			removedNames = append(removedNames, event.K8sUID)
+			removedNames = append(removedNames, string(event.UID))
 		}
 	}
 
@@ -95,7 +96,7 @@ const (
 // an event type for the embedded Endpoint.
 type EndpointEvent struct {
 	Type EndpointEventType
-	*endpoint.Endpoint
+	*types.CiliumEndpoint
 }
 
 // ToXDSAddress transforms the embedded Endpoint into a XDS Address capable of
@@ -104,26 +105,35 @@ type EndpointEvent struct {
 // This transformation is heavily opinionated for our ZTunnel integration, make
 // note of the hard-coded values in the transform.
 func (e *EndpointEvent) ToXDSAddress() (*workloadapi.Address, error) {
-	if e.GetPod() == nil {
-		return nil, fmt.Errorf("cannot transform EndpointEvent to XDS Address, missing Pod information")
+	if e.Name == "" {
+		return nil, fmt.Errorf("cannot transform EndpointEvent to XDS Address, missing endpoint information")
 	}
 
 	ipAddresses := make([][]byte, 0)
 
-	if e.IPv4.IsValid() {
-		ipAddresses = append(ipAddresses, e.IPv4.AsSlice())
-	}
-	if e.IPv6.IsValid() {
-		ipAddresses = append(ipAddresses, e.IPv6.AsSlice())
+	//TODO(hemanthmalla): Add proper validation for Addressing
 
+	for _, addr := range e.Networking.Addressing {
+		if addr.IPV4 != "" {
+			if ipv4, err := netip.ParseAddr(addr.IPV4); err == nil && ipv4.IsValid() {
+				ipAddresses = append(ipAddresses, ipv4.AsSlice())
+			}
+		}
+		if addr.IPV6 != "" {
+			if ipv6, err := netip.ParseAddr(addr.IPV6); err == nil && ipv6.IsValid() {
+				ipAddresses = append(ipAddresses, ipv6.AsSlice())
+			}
+		}
 	}
 
 	w := &workloadapi.Workload{
-		Uid:            e.K8sUID,
-		Node:           e.GetPod().Spec.NodeName,
-		Name:           e.K8sPodName,
-		Namespace:      e.K8sNamespace,
-		ServiceAccount: e.GetPod().Spec.ServiceAccountName,
+		Uid: string(e.UID),
+		// TODO(hemanthmalla) Convert this field to node name.
+		// zTunnel will match this with it's own node name.
+		Node:           e.Networking.NodeIP,
+		Name:           e.Name,
+		Namespace:      e.Namespace,
+		ServiceAccount: e.ServiceAccount,
 		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
 		Addresses:      ipAddresses,
 	}

@@ -4,18 +4,18 @@
 package xds
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-// StreamProcessor acts as a endpointmanager.Subscriber
-var _ endpointmanager.Subscriber = (*StreamProcessor)(nil)
 
 type StreamProcessorParams struct {
 	// The backing gRPC bidi stream initiated by zTunnel
@@ -26,8 +26,10 @@ type StreamProcessorParams struct {
 	// Channel where the StreamProcessor listens for Endpoint event.
 	// this is fed by subscribing to EndpointManager.
 	EndpointEventRecv chan *EndpointEvent
-	EndpointManager   endpointmanager.EndpointManager
-	Log               *slog.Logger
+	// Reference to agent's CEP watcher and resource cache.
+	// This will be the source of truth for serving WDS API.
+	K8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
+	Log                       *slog.Logger
 }
 
 // StreamProcessor implements the logic for handling xDS streams to zTunnel.
@@ -35,24 +37,78 @@ type StreamProcessorParams struct {
 // promote decoupling and the handling multiple streams without a shared set of
 // channels being required on the Server object.
 type StreamProcessor struct {
-	stream          v3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
-	streamRecv      chan *v3.DeltaDiscoveryRequest
-	endpointRecv    chan *EndpointEvent
-	endpointManager endpointmanager.EndpointManager
-	expectedNonce   map[string]struct{}
-	log             *slog.Logger
+	stream         v3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
+	streamRecv     chan *v3.DeltaDiscoveryRequest
+	endpointRecv   chan *EndpointEvent
+	expectedNonce  map[string]struct{}
+	log            *slog.Logger
+	endpointSource EndpointEventSource
+}
+
+// EndpointSource provides data for XDS server from different data sources in the agent.
+type EndpointSource struct {
+	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
+	sp                        *StreamProcessor
+}
+
+func NewEndpointSource(k *watchers.K8sCiliumEndpointsWatcher, sp *StreamProcessor) *EndpointSource {
+	return &EndpointSource{
+		k8sCiliumEndpointsWatcher: k,
+		sp:                        sp,
+	}
+}
+
+// Interface different data sources need to implement for usage with StreamProcessor.
+type EndpointEventSource interface {
+	// Subscribe to Endpoint events.
+	SubscribeToEndpointEvents(ctx context.Context, wg *sync.WaitGroup)
+	ListAllEndpoints(ctx context.Context) ([]*types.CiliumEndpoint, error)
 }
 
 func NewStreamProcessor(params *StreamProcessorParams) *StreamProcessor {
 	sp := &StreamProcessor{
-		stream:          params.Stream,
-		streamRecv:      params.StreamRecv,
-		endpointRecv:    params.EndpointEventRecv,
-		endpointManager: params.EndpointManager,
-		log:             params.Log,
-		expectedNonce:   make(map[string]struct{}),
+		stream:        params.Stream,
+		streamRecv:    params.StreamRecv,
+		endpointRecv:  params.EndpointEventRecv,
+		log:           params.Log,
+		expectedNonce: make(map[string]struct{}),
 	}
+	sp.endpointSource = NewEndpointSource(params.K8sCiliumEndpointsWatcher, sp)
 	return sp
+}
+
+func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, wg *sync.WaitGroup) {
+
+	// TODO(hemanthmalla): How should retries be configured here ?
+	newEvents := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointResource().Events(ctx, resource.WithErrorHandler(resource.AlwaysRetry))
+	for e := range newEvents {
+		switch e.Kind {
+		case resource.Upsert:
+			es.sp.endpointRecv <- &EndpointEvent{
+				Type:           CREATE,
+				CiliumEndpoint: e.Object,
+			}
+		case resource.Delete:
+			es.sp.endpointRecv <- &EndpointEvent{
+				Type:           REMOVED,
+				CiliumEndpoint: e.Object,
+			}
+		case resource.Sync:
+			wg.Done()
+		}
+		e.Done(nil)
+	}
+}
+
+func (es *EndpointSource) ListAllEndpoints(ctx context.Context) ([]*types.CiliumEndpoint, error) {
+
+	cepStore, err := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointResource().Store(ctx)
+	if err != nil {
+		es.sp.log.Debug("initialized new stream for resource")
+		return nil, fmt.Errorf("failed to get CiliumEndpoint store from K8sCiliumEndpointsWatcher: %w", err)
+	}
+	eps := cepStore.List()
+	return eps, nil
 }
 
 // handleAddressTypeURL handles a subscription for xdsTypeURLAddress type URLs.
@@ -76,7 +132,11 @@ func (sp *StreamProcessor) handleAddressTypeURL(req *v3.DeltaDiscoveryRequest) e
 	}
 
 	collection := &EndpointEventCollection{}
-	eps := sp.endpointManager.GetEndpoints()
+
+	eps, err := sp.endpointSource.ListAllEndpoints(sp.stream.Context())
+	if err != nil {
+		return err
+	}
 
 	// TODO: we need to filter our ztunnel instance itself.
 	collection.AppendEndpoints(CREATE, eps)
@@ -89,9 +149,12 @@ func (sp *StreamProcessor) handleAddressTypeURL(req *v3.DeltaDiscoveryRequest) e
 	// record the generated Nonce so we can link up any Ack or Nack in our main
 	// event loop.
 	sp.expectedNonce[resp.Nonce] = struct{}{}
-
-	// subscribe to endpoint manager
-	sp.endpointManager.Subscribe(sp)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go sp.endpointSource.SubscribeToEndpointEvents(sp.stream.Context(), wg)
+	// Wait for initial sync of endpoints before returning.
+	// SubscribeToEndpointEvents will call wg.Done() on receiving a sync event.
+	wg.Wait()
 
 	sp.log.Debug("initialized new stream for resource", logfields.Resource, xdsTypeURLAddress)
 
@@ -215,7 +278,6 @@ func (sp *StreamProcessor) Start() {
 		select {
 		// event loop exit condition
 		case <-sp.stream.Context().Done():
-			sp.endpointManager.Unsubscribe(sp)
 			sp.log.Error("Stream context done with error", logfields.Error,
 				sp.stream.Context().Err())
 			return
@@ -225,36 +287,15 @@ func (sp *StreamProcessor) Start() {
 				sp.log.Error("Failed to handle DeltaDiscoveryRequest",
 					logfields.Error, err)
 			}
-		// new event from endpoint manager.
+		// new event from CEP/CES cache store.
 		case epEvent := <-sp.endpointRecv:
 			if err := sp.handleEPEvent(epEvent); err != nil {
 				sp.log.Error("Failed to handle EndpointEvent",
 					logfields.Error,
 					err,
 					logfields.EndpointID,
-					epEvent.ID)
+					epEvent.UID)
 			}
 		}
-	}
-}
-
-func (sp *StreamProcessor) EndpointCreated(ep *endpoint.Endpoint) {
-	sp.endpointRecv <- &EndpointEvent{
-		Type:     CREATE,
-		Endpoint: ep,
-	}
-}
-
-func (sp *StreamProcessor) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
-	sp.endpointRecv <- &EndpointEvent{
-		Type:     REMOVED,
-		Endpoint: ep,
-	}
-}
-
-func (sp *StreamProcessor) EndpointRestored(ep *endpoint.Endpoint) {
-	sp.endpointRecv <- &EndpointEvent{
-		Type:     CREATE,
-		Endpoint: ep,
 	}
 }

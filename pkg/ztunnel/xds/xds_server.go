@@ -28,6 +28,7 @@ import (
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -62,11 +63,12 @@ var _ v3.AggregatedDiscoveryServiceServer = (*Server)(nil)
 // certificate authority capable of signing CSR(s)s submitted by zTunnel and a
 // control plane capable of sending workload and service events to zTunnel.
 type Server struct {
-	l         net.Listener
-	g         *grpc.Server
-	log       *slog.Logger
-	epManager endpointmanager.EndpointManager
-	caCert    *x509.Certificate
+	l                         net.Listener
+	g                         *grpc.Server
+	log                       *slog.Logger
+	epManager                 endpointmanager.EndpointManager
+	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
+	caCert                    *x509.Certificate
 	// cache the PEM encoded certificate, we return this as the trust anchor
 	// on zTunnel certificate creation requests.
 	caCertPEM string
@@ -75,10 +77,11 @@ type Server struct {
 	v3.UnimplementedAggregatedDiscoveryServiceServer
 }
 
-func newServer(log *slog.Logger, epManager endpointmanager.EndpointManager) (*Server, error) {
+func newServer(log *slog.Logger, EPManager endpointmanager.EndpointManager, k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher) (*Server, error) {
 	x := &Server{
-		log:       log,
-		epManager: epManager,
+		log:                       log,
+		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
+		epManager:                 EPManager,
 	}
 	return x, nil
 }
@@ -369,11 +372,11 @@ func (x *Server) DeltaAggregatedResources(stream v3.AggregatedDiscoveryService_D
 	}
 
 	params := StreamProcessorParams{
-		Stream:            stream,
-		StreamRecv:        make(chan *v3.DeltaDiscoveryRequest, 1),
-		EndpointEventRecv: make(chan *EndpointEvent, 1024),
-		EndpointManager:   x.epManager,
-		Log:               x.log,
+		Stream:                    stream,
+		StreamRecv:                make(chan *v3.DeltaDiscoveryRequest, 1),
+		EndpointEventRecv:         make(chan *EndpointEvent, 1024),
+		K8sCiliumEndpointsWatcher: x.k8sCiliumEndpointsWatcher,
+		Log:                       x.log,
 	}
 
 	x.log.Debug("begin processing DeltaAggregatedResources stream")

@@ -312,3 +312,8 @@ func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, val
 func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	return k.k8sPodWatcher.GetCachedPod(namespace, name)
 }
+
+// GetK8sCiliumEndpointsWatcher returns CEP watcher
+func (k *K8sWatcher) GetK8sCiliumEndpointsWatcher() *K8sCiliumEndpointsWatcher {
+	return k.k8sCiliumEndpointsWatcher
+}
