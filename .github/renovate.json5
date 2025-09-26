@@ -604,6 +604,21 @@
       }
     },
     {
+      "matchPackageNames": [
+        "github.com/cilium/charts"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C Documentation update-cmdref"
+        ],
+        "fileFilters": [
+          "Documentation/cmdref/cilium_install.md",
+          "Documentation/cmdref/cilium_upgrade.md"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
       enabled: false,
       matchDepPatterns: [
         // k8s dependencies will be updated manually along with tests
