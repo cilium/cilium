@@ -125,6 +125,14 @@ enum {
 	DBG_SKIP_POLICY,	/**/
 	DBG_LB6_LOOPBACK_SNAT,
 	DBG_LB6_LOOPBACK_SNAT_REV,
+	DBG_SUBNET_CHECK,	/* arg1: saddr (last 4 bytes for IPv6)
+				 * arg2: daddr (last 4 bytes for IPv6)
+				 * arg3: bool (same subnet)
+				 */
+	DBG_TUNNEL_TRACE,	/* arg1: saddr (last 4 bytes for IPv6)
+				 * arg2: daddr (last 4 bytes for IPv6)
+				 * arg3: int (ret)
+				 */
 };
 
 /* Capture types */
