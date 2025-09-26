@@ -147,8 +147,10 @@ enum {
 #define EVENT_SOURCE 0
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_TAGGED)
 #include "events.h"
+#include "common.h"
+#include "utils.h"
 #endif
 
 #include "notify.h"
@@ -167,8 +169,6 @@ struct debug_capture_msg {
 };
 
 #ifdef DEBUG
-#include "common.h"
-#include "utils.h"
 
 /* This takes both literals and modifiers, e.g.,
  * printk("hello\n");
@@ -236,11 +236,65 @@ static __always_inline void cilium_dbg_capture2(struct __ctx_buff *ctx, __u8 typ
 			 &msg, sizeof(msg));
 }
 
-static __always_inline void cilium_dbg_capture(struct __ctx_buff *ctx, __u8 type,
-					       __u32 arg1)
+#elif defined(DEBUG_TAGGED)
+#include "trace_helpers.h"
+
+# define printk(fmt, ...)					\
+		do { } while (0)
+
+static __always_inline void cilium_dbg(struct __ctx_buff *ctx, __u8 type,
+				       __u32 arg1, __u32 arg2)
 {
-	cilium_dbg_capture2(ctx, type, arg1, 0);
+	if (!load_ip_trace_id())
+		return;
+
+	struct debug_msg msg = {
+		__notify_common_hdr(CILIUM_NOTIFY_DBG_MSG, type),
+		.arg1	= arg1,
+		.arg2	= arg2,
+	};
+
+	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU,
+			 &msg, sizeof(msg));
 }
+
+static __always_inline void cilium_dbg3(struct __ctx_buff *ctx, __u8 type,
+					__u32 arg1, __u32 arg2, __u32 arg3)
+{
+	if (!load_ip_trace_id())
+		return;
+
+	struct debug_msg msg = {
+		__notify_common_hdr(CILIUM_NOTIFY_DBG_MSG, type),
+		.arg1	= arg1,
+		.arg2	= arg2,
+		.arg3	= arg3,
+	};
+
+	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU,
+			 &msg, sizeof(msg));
+}
+
+static __always_inline void cilium_dbg_capture2(struct __ctx_buff *ctx, __u8 type,
+						__u32 arg1, __u32 arg2)
+{
+	if (!load_ip_trace_id())
+		return;
+
+	__u64 ctx_len = ctx_full_len(ctx);
+	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
+	struct debug_capture_msg msg = {
+		__notify_common_hdr(CILIUM_NOTIFY_DBG_CAPTURE, type),
+		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_CAPTURE_VER),
+		.arg1	= arg1,
+		.arg2	= arg2,
+	};
+
+	ctx_event_output(ctx, &cilium_events,
+			 (cap_len << 32) | BPF_F_CURRENT_CPU,
+			 &msg, sizeof(msg));
+}
+
 #else
 # define printk(fmt, ...)					\
 		do { } while (0)
@@ -269,6 +323,16 @@ void cilium_dbg_capture2(struct __ctx_buff *ctx __maybe_unused,
 			 __u8 type __maybe_unused, __u32 arg1 __maybe_unused,
 			 __u32 arg2 __maybe_unused)
 {
+}
+
+#endif
+
+#if defined(DEBUG) || defined(DEBUG_TAGGED)
+
+static __always_inline void cilium_dbg_capture(struct __ctx_buff *ctx, __u8 type,
+					       __u32 arg1)
+{
+	cilium_dbg_capture2(ctx, type, arg1, 0);
 }
 
 #endif

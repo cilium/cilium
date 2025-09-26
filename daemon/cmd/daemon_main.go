@@ -101,6 +101,7 @@ const (
 	argDebugVerboseEnvoy    = "envoy"
 	argDebugVerboseDatapath = "datapath"
 	argDebugVerbosePolicy   = "policy"
+	argDebugVerboseTagged   = "tagged"
 
 	apiTimeout   = 60 * time.Second
 	daemonSubsys = "daemon"
@@ -945,6 +946,8 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 			debugDatapath = true
 		case argDebugVerbosePolicy:
 			option.Config.Opts.SetBool(option.DebugPolicy, true)
+		case argDebugVerboseTagged:
+			option.Config.Opts.SetBool(option.DebugTagged, true)
 		default:
 			logger.Warn("Unknown verbose debug group", logfields.Group, grp)
 		}
