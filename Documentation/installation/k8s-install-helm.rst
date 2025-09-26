@@ -113,7 +113,7 @@ Install Cilium
 
           kubectl cluster-info
        
-       The cluster API URL can also be retrieved using the AWS CLI. Run the command below to do this. 
+       Retrieve the cluster API URL using the AWS CLI:
 
        .. code-block:: bash 
 
