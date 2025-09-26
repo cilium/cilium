@@ -99,7 +99,7 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 
 	assert(ct_entry->packets == 1);
 
-	policy_delete_egress_entry();
+	policy_delete_egress_all_entry();
 
 	test_finish();
 }
@@ -244,7 +244,7 @@ int hostfw_igmp_egress_policy_check(const struct __ctx_buff *ctx)
 	if (!ct_entry)
 		test_fatal("no CT entry found");
 
-	policy_delete_egress_entry();
+	policy_delete_egress_all_entry();
 	test_finish();
 }
 
