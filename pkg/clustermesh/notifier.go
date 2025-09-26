@@ -40,16 +40,18 @@ func nodeManagerNotifier(
 	cm *ClusterMesh,
 	nodeMgr nodeManager.NodeManager,
 ) {
-	if cm == nil {
-		return
-	}
-
 	jg.Add(job.OneShot("clustermesh-nodemanager-notifier", func(ctx context.Context, _ cell.Health) error {
-		// wait for initial nodes listing from all remote clusters
-		// before allowing stale node deletion
-		if err := cm.NodesSynced(ctx); err != nil {
-			return err
+		if cm != nil {
+			// wait for initial nodes listing from all remote clusters
+			// before allowing stale node deletion
+			if err := cm.NodesSynced(ctx); err != nil {
+				return err
+			}
 		}
+
+		// Always call [MeshNodeSync], regardless of whether ClusterMesh is enabled,
+		// to ensure uniformity of behavior, and trigger pruning of stale remote
+		// nodes in case ClusterMesh was first enabled, and then disabled subsequently.
 		nodeMgr.MeshNodeSync()
 		return nil
 	}))
