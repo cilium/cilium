@@ -9,16 +9,16 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
 	"github.com/stretchr/testify/require"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/trigger"
 )
 
-func proxyPortsForTest(t *testing.T) (*ProxyPorts, func()) {
+func proxyPortsForTest(t *testing.T) *ProxyPorts {
 	fakeIPTablesManager := &datapath.FakeIptablesManager{}
 	config := ProxyPortsConfig{
 		ProxyPortrangeMin:          10000,
@@ -27,16 +27,9 @@ func proxyPortsForTest(t *testing.T) (*ProxyPorts, func()) {
 	}
 
 	p := NewProxyPorts(hivetest.Logger(t), config, fakeIPTablesManager)
-	triggerDone := make(chan struct{})
-	p.Trigger, _ = trigger.NewTrigger(trigger.Parameters{
-		MinInterval:  10 * time.Millisecond,
-		TriggerFunc:  func(reasons []string) {},
-		ShutdownFunc: func() { close(triggerDone) },
-	})
-	return p, func() {
-		p.Trigger.Shutdown()
-		<-triggerDone
-	}
+	p.Trigger = job.NewTrigger(job.WithDebounce(10 * time.Second))
+
+	return p
 }
 
 func (p *ProxyPorts) released(pp *ProxyPort) bool {
@@ -62,15 +55,14 @@ func (p *ProxyPorts) releaseProxyPortWithWait(name string, portReuseWait time.Du
 func TestPortAllocator(t *testing.T) {
 	testRunDir := t.TempDir()
 	socketDir := envoy.GetSocketDir(testRunDir)
-	err := os.MkdirAll(socketDir, 0700)
+	err := os.MkdirAll(socketDir, 0o700)
 	require.NoError(t, err)
 	if err == nil {
 		defer func() {
 			os.RemoveAll(socketDir)
 		}()
 	}
-	p, cleaner := proxyPortsForTest(t)
-	defer cleaner()
+	p := proxyPortsForTest(t)
 
 	port, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
@@ -253,15 +245,14 @@ func TestPortAllocator(t *testing.T) {
 func TestRestoredPort(t *testing.T) {
 	testRunDir := t.TempDir()
 	socketDir := envoy.GetSocketDir(testRunDir)
-	err := os.MkdirAll(socketDir, 0700)
+	err := os.MkdirAll(socketDir, 0o700)
 	require.NoError(t, err)
 	if err == nil {
 		defer func() {
 			os.RemoveAll(socketDir)
 		}()
 	}
-	p, cleaner := proxyPortsForTest(t)
-	defer cleaner()
+	p := proxyPortsForTest(t)
 
 	// simulate proxy port restored from file
 	const ppName = string("cilium-http-egress")
