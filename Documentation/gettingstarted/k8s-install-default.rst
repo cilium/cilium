@@ -271,6 +271,8 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
            
     .. group-tab:: EKS
 
+       .. include:: ../installation/requirements-eks.rst
+
        **Install Cilium:**
 
        Install Cilium into the EKS cluster.
@@ -280,7 +282,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
            cilium install |CHART_VERSION|
            cilium status --wait
 
-       .. include:: ../installation/requirements-eks.rst
+       .. include:: ../installation/post-installation-eks.rst
 
     .. group-tab:: OpenShift
 

@@ -103,26 +103,26 @@ Install Cilium
 
     .. group-tab:: EKS
 
+       .. include:: requirements-eks.rst
+
        **Retrieve cluster API URL and Port:**
 
        Since the cluster is set up with the kube-proxy explicitly disabled, no component is handling the cluster's 
        internal L4 load balancing. Therefore, the cilium agent needs to be made aware of the EKS cluster's API URL and port. 
-       These details can be retrieved using ``kubectl``. Run the command below to retrieve these details. 
+       These details can be retrieved using the AWS CLI. Run the command below to retrieve these details. 
        
-       .. code-block:: bash
+       .. code-block:: shell-session
 
-          kubectl cluster-info
+          CLUSTER_NAME="<your-cluster-name>"
+          REGION="<your-cluster-region>"
        
        Retrieve the cluster API URL using the AWS CLI:
 
-       .. code-block:: bash 
-
-          aws eks describe-cluster --name <your-cluster-name> --region <your-cluster-region> | jq -r .cluster.endpoint
-
        .. code-block:: shell-session
 
-         API_SERVER_IP=<your_api_server_FQDN>\
-         API_SERVER_PORT=443
+          export API_SERVER_HOST=$(aws eks describe-cluster --name "$CLUSTER_NAME" --region "$REGION" \
+          --query 'cluster.endpoint' --output text | sed -E 's%^https?://([^:/]+).*%\1%') \
+          API_SERVER_PORT=443
 
        **Install Cilium:**
 
@@ -133,11 +133,11 @@ Install Cilium
           helm install cilium |CHART_RELEASE| \\
             --namespace kube-system \\
             --set eni.enabled=true \\
-            --set k8sServiceHost={API_SERVER_IP} \\
+            --set k8sServiceHost={API_SERVER_HOST} \\
             --set k8sServicePort={API_SERVER_PORT}
 
        .. note::
-          Make sure to remove **https://** from your API server FQDN before running the Cilium installation commands
+          Remove **https://** from your API server FQDN before running the Cilium installation commands
           or this will cause the Cilium operator and agent pods to crash. 
 
 
@@ -160,12 +160,10 @@ Install Cilium
                which needs to be accessed must be host networked or exposed through a service
                or ingress.
 
-          To set up Cilium overlay mode, follow the steps below:
+          To set up Cilium overlay mode, exclude the line ``eni.enabled=true`` from the helm command 
+          and this will configure Cilium to use overlay routing mode (which is the helm default).
 
-            1. Excluding the line ``eni.enabled=true`` from the helm command will configure Cilium to use
-               overlay routing mode (which is the helm default).
-
-       .. include:: requirements-eks.rst
+       .. include:: post-installation-eks.rst
 
     .. group-tab:: OpenShift
 
