@@ -249,7 +249,7 @@ func (sp *StreamProcessor) Start() {
 		case epEvent := <-sp.endpointRecv:
 			if err := sp.handleEPEvent(epEvent); err != nil {
 				sp.log.Error("Failed to handle EndpointEvent", logfields.Error, err,
-					logfields.EndpointID, epEvent.ID)
+					logfields.EndpointID, epEvent.UID)
 			}
 		}
 	}

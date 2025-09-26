@@ -27,6 +27,7 @@ import (
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -65,6 +66,7 @@ type Server struct {
 	l                         net.Listener
 	g                         *grpc.Server
 	log                       *slog.Logger
+	epManager endpointmanager.EndpointManager
 	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
 	caCert                    *x509.Certificate
 	// cache the PEM encoded certificate, we return this as the trust anchor
@@ -75,10 +77,11 @@ type Server struct {
 	v3.UnimplementedAggregatedDiscoveryServiceServer
 }
 
-func newServer(log *slog.Logger, k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher) (*Server, error) {
+func newServer(log *slog.Logger, EPManager endpointmanager.EndpointManager, k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher) (*Server, error) {
 	x := &Server{
 		log:                       log,
 		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
+		epManager:                 EPManager,
 	}
 	return x, nil
 }
