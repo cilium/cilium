@@ -1987,8 +1987,7 @@ from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
 			return DROP_INVALID;
 
 		/* The third parameter, ipcache_srcid, is only required when
-		 * the src_id is not HOST_ID. For details, see
-		 * ipv4_whitelist_snated_egress_connections().
+		 * the src_id is not HOST_ID.
 		 * We only arrive here from bpf_lxc if we know the
 		 * src_id is HOST_ID. Therefore, we don't need to pass a value
 		 * for the last parameter. That avoids an ipcache lookup.
