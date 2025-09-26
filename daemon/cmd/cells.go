@@ -61,6 +61,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	ipmasqmaps "github.com/cilium/cilium/pkg/maps/ipmasq"
+	"github.com/cilium/cilium/pkg/maps/iptrace"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	natStats "github.com/cilium/cilium/pkg/maps/nat/stats"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
@@ -131,6 +132,9 @@ var (
 
 		// Provides cilium_datapath_drop/forward Prometheus metrics.
 		metricsmap.Cell,
+
+		// Provides the IP trace map.
+		iptrace.Cell,
 
 		// Provides cilium_bpf_ratelimit_dropped_total Prometheus metric.
 		ratelimitmap.Cell,
