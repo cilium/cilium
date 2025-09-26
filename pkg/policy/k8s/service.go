@@ -376,6 +376,17 @@ func (l labelsMatcher) Has(label string) (exists bool) {
 	return labels.Labels(l).HasLabelWithKey(label)
 }
 
+
+// Lookup implements labels.Labels.
+func (l labelsMatcher) Lookup(label string) (value string, exists bool) {
+	v, ok := labels.Labels(l)[label]
+	if ok {
+		value = v.Value
+		return value, true
+	}
+	return value, false
+}
+
 var _ k8sLabels.Labels = labelsMatcher{}
 
 // serviceRefMatches returns true if the ToServices k8sService reference
