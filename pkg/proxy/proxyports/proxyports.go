@@ -12,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/google/renameio/v2"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/spf13/pflag"
@@ -22,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/trigger"
 )
 
 // field names used while logging
@@ -100,7 +101,7 @@ type ProxyPorts struct {
 	proxyPortsPath string
 
 	// Trigger for storing proxy ports on to file
-	Trigger *trigger.Trigger
+	Trigger job.Trigger
 
 	// mutex is the lock required when accessing fields below or
 	// any of the mutable fields of a specific ProxyPort.
@@ -632,19 +633,22 @@ func (p *ProxyPorts) restoreProxyPortsFromIptables() {
 
 // RestoreProxyPorts tries to find earlier port numbers from datapath and use them
 // as defaults for proxy ports
-func (p *ProxyPorts) RestoreProxyPorts() {
+func (p *ProxyPorts) RestoreProxyPorts(ctx context.Context, health cell.Health) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+	defer close(p.restoreComplete)
 
-	err := p.restoreProxyPortsFromFile(p.restoredProxyPortsStaleLimit)
-	if err != nil {
+	if err := p.restoreProxyPortsFromFile(p.restoredProxyPortsStaleLimit); err != nil {
 		p.logger.Info("Restoring proxy ports from file failed, falling back to restoring from iptables rules",
 			logfields.Path, p.proxyPortsPath,
 			logfields.Error, err,
 		)
 		p.restoreProxyPortsFromIptables()
+
+		return fmt.Errorf("failed to restore proxy ports from file - fallback to restore from iptables rules: %w", err)
 	}
-	close(p.restoreComplete)
+
+	return nil
 }
 
 // RestoreComplete returns a chan that is closed when port restoration is complete.
