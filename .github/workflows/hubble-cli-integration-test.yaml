@@ -51,6 +51,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-24.04
+    permissions: {}
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -59,6 +60,8 @@ jobs:
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -67,6 +70,8 @@ jobs:
 
   integration-test:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     env:
       job_name: "Integration Test"
     name: Hubble CLI Integration Test
@@ -206,6 +211,10 @@ jobs:
     if: ${{ always() }}
     needs: integration-test
     uses: ./.github/workflows/common-post-jobs.yaml
+    permissions:
+      contents: read
+      actions: read
+      statuses: write
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
