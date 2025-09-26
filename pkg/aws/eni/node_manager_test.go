@@ -16,6 +16,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
@@ -67,8 +68,9 @@ var (
 			},
 		},
 	}
-	k8sapi     = &k8sMock{}
-	metricsapi = metricsmock.NewMockMetrics()
+	k8sapi             = &k8sMock{}
+	metricsapi         = metricsmock.NewMockMetrics()
+	metadataMockapi, _ = metadataMock.NewMetadataMock()
 )
 
 func setup(tb testing.TB) {
@@ -83,7 +85,7 @@ func TestGetNodeNames(t *testing.T) {
 	setup(t)
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, false)
@@ -113,7 +115,7 @@ func TestNodeManagerGet(t *testing.T) {
 	setup(t)
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, false)
@@ -144,7 +146,7 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 	const instanceID = "i-testNodeManagerDefaultAllocation-0"
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -190,7 +192,7 @@ func TestNodeManagerPrefixDelegation(t *testing.T) {
 
 	pdTestSubnet := *testSubnet
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{&pdTestSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -261,7 +263,7 @@ func TestNodeManagerENIWithSGTags(t *testing.T) {
 	const instanceID = "i-testNodeManagerDefaultAllocation-0"
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -323,7 +325,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 	const instanceID = "i-testNodeManagerMinAllocate20-1"
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -381,7 +383,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	const instanceID = "i-testNodeManagerMinAllocateAndPreallocate-1"
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -448,7 +450,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 
 	operatorOption.Config.ExcessIPReleaseDelay = 2
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -552,7 +554,7 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 	const instanceID = "i-testNodeManagerDefaultAllocation-0"
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -622,7 +624,7 @@ func TestNodeManagerExceedENICapacity(t *testing.T) {
 	const instanceID = "i-testNodeManagerExceedENICapacity-1"
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -682,7 +684,7 @@ func TestInterfaceCreatedInInitialSubnet(t *testing.T) {
 	}
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet, testSubnet2}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -748,7 +750,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	}
 
 	ec2api := ec2mock.NewAPI(subnets, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instancesManager, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instancesManager, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instancesManager)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instancesManager, k8sapi, metricsapi, 10, false, false)
@@ -819,7 +821,7 @@ func TestNodeManagerInstanceNotRunning(t *testing.T) {
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
 	metricsMock := metricsmock.NewMockMetrics()
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -866,7 +868,7 @@ func TestInstanceBeenDeleted(t *testing.T) {
 	const instanceID = "i-testInstanceBeenDeleted-0"
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -927,7 +929,7 @@ func TestNodeManagerStaticIP(t *testing.T) {
 	const instanceID = "i-testNodeManagerStaticIP-0"
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -973,7 +975,7 @@ func TestNodeManagerStaticIPAlreadyAssociated(t *testing.T) {
 	const instanceID = "i-testNodeManagerStaticIPAlreadyAssociated-0"
 
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(t), ec2api, metadataMockapi)
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 
@@ -1008,7 +1010,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet1, testSubnet2, testSubnet3}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, routeTables)
 	ec2api.SetDelay(ec2mock.AllOperations, delay)
 	ec2api.SetLimiter(rateLimit, burst)
-	instances, err := NewInstancesManager(hivetest.Logger(b), ec2api)
+	instances, err := NewInstancesManager(hivetest.Logger(b), ec2api, metadataMockapi)
 	require.NoError(b, err)
 	require.NotNil(b, instances)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(b), instances, k8sapi, metricsapi, 10, false, false)

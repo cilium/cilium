@@ -77,7 +77,7 @@ func TestMock(t *testing.T) {
 	}
 	api.UpdateSecurityGroups([]*types.SecurityGroup{sg1, sg2})
 
-	sgMap, err := api.GetSecurityGroups(t.Context())
+	sgMap, err := api.GetSecurityGroups(t.Context(), "")
 	require.NoError(t, err)
 	require.Equal(t, types.SecurityGroupMap{"sg1": sg1, "sg2": sg2}, sgMap)
 }
@@ -179,7 +179,7 @@ func TestGetRouteTables(t *testing.T) {
 		routeTables,
 	)
 
-	tables, err := api.GetRouteTables(t.Context())
+	tables, err := api.GetRouteTables(t.Context(), "")
 	require.NoError(t, err)
 	require.Len(t, tables, 2)
 

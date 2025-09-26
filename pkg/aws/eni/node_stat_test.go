@@ -43,7 +43,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 		k8sObj: cn,
 		manager: &InstancesManager{
 			instances:    im,
-			api:          mockEC2API,
+			ec2api:       mockEC2API,
 			limitsGetter: limitsGetter,
 		},
 		enis: map[string]eniTypes.ENI{"eni-a": {}},

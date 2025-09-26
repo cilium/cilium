@@ -381,12 +381,16 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 	case ipamOption.IPAMENI:
 		// set ENI field in the node only when the ENI ipam is specified
 		nodeResource.Spec.ENI = eniTypes.ENISpec{}
-		instanceID, instanceType, availabilityZone, vpcID, subnetID, err := metadata.GetInstanceMetadata()
+		imds, err := metadata.NewClient()
+		if err != nil {
+			logging.Fatal(n.logger, "Unable to create metadata client", logfields.Error, err)
+		}
+		info, err := imds.GetInstanceMetadata()
 		if err != nil {
 			logging.Fatal(n.logger, "Unable to retrieve InstanceID of own EC2 instance", logfields.Error, err)
 		}
 
-		if instanceID == "" {
+		if info.InstanceID == "" {
 			return errors.New("InstanceID of own EC2 instance is empty")
 		}
 
@@ -397,7 +401,7 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		// the PreAllocate value, so to ensure that the agent and the Operator
 		// are not conflicting with each other, we must have similar logic to
 		// determine the appropriate value to place inside the resource.
-		nodeResource.Spec.ENI.VpcID = vpcID
+		nodeResource.Spec.ENI.VpcID = info.VPCID
 		nodeResource.Spec.ENI.FirstInterfaceIndex = aws.Int(defaults.ENIFirstInterfaceIndex)
 		nodeResource.Spec.ENI.UsePrimaryAddress = aws.Bool(defaults.UseENIPrimaryAddress)
 		nodeResource.Spec.ENI.DisablePrefixDelegation = aws.Bool(defaults.ENIDisableNodeLevelPD)
@@ -454,10 +458,10 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 			nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
 		}
 
-		nodeResource.Spec.InstanceID = instanceID
-		nodeResource.Spec.ENI.InstanceType = instanceType
-		nodeResource.Spec.ENI.AvailabilityZone = availabilityZone
-		nodeResource.Spec.ENI.NodeSubnetID = subnetID
+		nodeResource.Spec.InstanceID = info.InstanceID
+		nodeResource.Spec.ENI.InstanceType = info.InstanceType
+		nodeResource.Spec.ENI.AvailabilityZone = info.AvailabilityZone
+		nodeResource.Spec.ENI.NodeSubnetID = info.SubnetID
 
 	case ipamOption.IPAMAzure:
 		if ln.Local.ProviderID == "" {
