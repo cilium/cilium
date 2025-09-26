@@ -661,11 +661,13 @@ enum {
 #define	CB_SRV6_SID_2		CB_1		/* Alias, non-overlapping */
 #define	CB_CLUSTER_ID_EGRESS	CB_1		/* Alias, non-overlapping */
 #define	CB_TRACED		CB_1		/* Alias, non-overlapping */
+#define	CB_POLICY_DENY_DIR	CB_1		/* Alias, non-overlapping */
 	CB_2,
 #define	CB_ADDR_V6_2		CB_2		/* Alias, non-overlapping */
 #define CB_SRV6_SID_3		CB_2		/* Alias, non-overlapping */
 #define	CB_CLUSTER_ID_INGRESS	CB_2		/* Alias, non-overlapping */
 #define CB_NAT_FLAGS		CB_2		/* Alias, non-overlapping */
+#define CB_POLICY_DENY_SRC_ID	CB_2		/* Alias, non-overlapping */
 	CB_3,
 #define	CB_ADDR_V6_3		CB_3		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_3		/* Alias, non-overlapping */
