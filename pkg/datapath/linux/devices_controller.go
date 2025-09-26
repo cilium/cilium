@@ -611,15 +611,6 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 		return false, "link not seen yet"
 	}
 
-	if len(d.Addrs) == 0 {
-		return false, "device has no addresses"
-	}
-
-	// Skip devices that don't have the required flags set.
-	if d.RawFlags&requiredIfFlagsMask == 0 {
-		return false, fmt.Sprintf("missing required flag (mask=0x%x, flags=0x%x)", requiredIfFlagsMask, d.RawFlags)
-	}
-
 	// If user specified devices or wildcards, then skip the device if it doesn't match.
 	// If the device does not match and user not requested auto detection, then skip further checks.
 	// If the device does not match and user requested auto detection, then continue to further checks.
@@ -631,6 +622,15 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 		if !dc.enforceAutoDetection {
 			return false, fmt.Sprintf("not matching user filter %v", dc.filter)
 		}
+	}
+
+	if len(d.Addrs) == 0 {
+		return false, "device has no addresses"
+	}
+
+	// Skip devices that don't have the required flags set.
+	if d.RawFlags&requiredIfFlagsMask == 0 {
+		return false, fmt.Sprintf("missing required flag (mask=0x%x, flags=0x%x)", requiredIfFlagsMask, d.RawFlags)
 	}
 
 	// Skip devices that have an excluded interface flag set.
