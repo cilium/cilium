@@ -8,6 +8,11 @@ on:
         description: "Pull request number."
         required: true
         type: string
+      UID:
+        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
+        required: false
+        default: 1
+        type: number
       context-ref:
         description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
         required: true
@@ -35,6 +40,10 @@ on:
       PR-number:
         description: "Pull request number."
         required: true
+      UID:
+        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
+        required: false
+        default: 1
       context-ref:
         description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
         required: true
@@ -81,13 +90,13 @@ concurrency:
     ${{ github.event_name }}
     ${{
       (github.event_name == 'schedule' && format('{0}-{1}', github.sha, 'eks')) ||
-      (github.event_name == 'workflow_dispatch' && format('{0}-{1}', github.event.inputs.PR-number, 'eks'))
+      (github.event_name == 'workflow_dispatch' && format('{0}-{1}-{2}', github.event.inputs.PR-number, 'eks', inputs.UID))
     }}
   cancel-in-progress: true
 
 env:
   test_concurrency: 3
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.UID }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.214.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
