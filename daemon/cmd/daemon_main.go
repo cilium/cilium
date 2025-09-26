@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -1531,25 +1530,22 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()
 
-	// Start controller to validate daemon config is unchanged
-	cfgGroup := controller.NewGroup("daemon-validate-config")
-	d.controllers.UpdateController(
-		cfgGroup.Name,
-		controller.ControllerParams{
-			Group:  cfgGroup,
-			Health: params.Health,
-			DoFunc: func(context.Context) error {
-				// Validate that Daemon config has not changed, ignoring 'Opts'
-				// that may be modified via config patch events.
-				return option.Config.ValidateUnchanged()
-			},
-			// avoid synhronized run with other
-			// controllers started at same time
-			RunInterval: 61 * time.Second,
-			Context:     d.ctx,
-		})
+	// Register job to validate that daemon config is unchanged
+	registerDaemonConfigValidationJob(params)
 
 	return nil
+}
+
+func registerDaemonConfigValidationJob(params daemonParams) {
+	params.JobGroup.Add(job.Timer(
+		"daemon-validate-config",
+		// Validate that Daemon config has not changed, ignoring 'Opts'
+		// that may be modified via config patch events.
+		func(ctx context.Context) error { return option.Config.ValidateUnchanged() },
+		// avoid synhronized run with other
+		// jobs started at same time
+		61*time.Second,
+	))
 }
 
 func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], resolver promise.Resolver[endpointstate.Restorer]) {
