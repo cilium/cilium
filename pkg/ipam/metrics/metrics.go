@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"math/big"
 
 	ciliumMetrics "github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
@@ -38,6 +39,7 @@ type prometheusMetrics struct {
 	poolMaintainer         *triggerMetrics
 	k8sSync                *triggerMetrics
 	resync                 *triggerMetrics
+	RemainingIPs           *TriggerMetricsIPAM
 }
 
 const LabelTargetNodeName = "target_node"
@@ -178,6 +180,7 @@ func NewPrometheusMetrics(namespace string, registry *ciliumMetrics.Registry) *p
 	m.poolMaintainer = NewTriggerMetrics(namespace, "deficit_resolver")
 	m.k8sSync = NewTriggerMetrics(namespace, "k8s_sync")
 	m.resync = NewTriggerMetrics(namespace, "resync")
+	m.RemainingIPs = NewTriggerMetricsIPAM(namespace, "remaining_ips")
 
 	registry.MustRegister(m.AvailableIPs)
 	registry.MustRegister(m.UsedIPs)
@@ -199,6 +202,7 @@ func NewPrometheusMetrics(namespace string, registry *ciliumMetrics.Registry) *p
 	m.poolMaintainer.Register(registry)
 	m.k8sSync.Register(registry)
 	m.resync.Register(registry)
+	m.RemainingIPs.MultipoolRegister(registry)
 
 	return m
 }
@@ -213,6 +217,10 @@ func (p *prometheusMetrics) K8sSyncTrigger() trigger.MetricsObserver {
 
 func (p *prometheusMetrics) ResyncTrigger() trigger.MetricsObserver {
 	return p.resync
+}
+
+func (p *prometheusMetrics) RemainingIPSTrigger() trigger.MetricsObserver {
+	return p.RemainingIPs
 }
 
 func (p *prometheusMetrics) IncInterfaceAllocation(subnetID string) {
@@ -287,6 +295,41 @@ func (p *prometheusMetrics) DeleteNode(node string) {
 
 func (p *prometheusMetrics) ObserveBackgroundSync(status string, duration time.Duration) {
 	p.BackgroundSyncDuration.WithLabelValues(status).Observe(duration.Seconds())
+}
+
+type TriggerMetricsIPAM struct {
+	RemainingIPs *prometheus.GaugeVec
+}
+
+func NewTriggerMetricsIPAM(namespace, name string) *TriggerMetricsIPAM {
+	return &TriggerMetricsIPAM{
+		RemainingIPs: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: ipamSubsystem,
+			Name:      name,
+			Help:      "Number of remaining IPs in the IPAM pool labeled by family",
+		}, []string{"pool", "family"}),
+	}
+}
+
+func (t *TriggerMetricsIPAM) SetRemainingIPs(poolName string, family string, remaining *big.Int) {
+	t.RemainingIPs.WithLabelValues(poolName, family).Set(float64(remaining.Int64()))
+}
+
+func (t *TriggerMetricsIPAM) QueueEvent(reason string) {
+	// No-op for this metric
+}
+
+func (t *TriggerMetricsIPAM) PostRun(duration, latency time.Duration, folds int) {
+	// No-op for this metric
+}
+
+func (t *TriggerMetricsIPAM) MultipoolRegister(registry *ciliumMetrics.Registry) {
+	registry.MustRegister(t.RemainingIPs)
+}
+
+func (t *TriggerMetricsIPAM) RemainingIPSTrigger() trigger.MetricsObserver {
+	return t
 }
 
 type triggerMetrics struct {
@@ -375,6 +418,8 @@ func (m *NoOpMetrics) ObserveBackgroundSync(status string, duration time.Duratio
 func (m *NoOpMetrics) PoolMaintainerTrigger() trigger.MetricsObserver                            { return &NoOpMetricsObserver{} }
 func (m *NoOpMetrics) K8sSyncTrigger() trigger.MetricsObserver                                   { return &NoOpMetricsObserver{} }
 func (m *NoOpMetrics) ResyncTrigger() trigger.MetricsObserver                                    { return &NoOpMetricsObserver{} }
+func (m *NoOpMetrics) RemainingIPSTrigger() trigger.MetricsObserver                              { return &NoOpMetricsObserver{} }
+func (m *NoOpMetrics) SetRemainingIPs(poolName, family string, remaining *big.Int)               {}
 func (m *NoOpMetrics) DeleteNode(n string)                                                       {}
 
 func merge(slices ...[]float64) []float64 {
