@@ -379,7 +379,10 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngr
 	}
 
 	hcmConfig := &envoy_config_http.HttpConnectionManager{
-		StatPrefix:        "proxy",
+		StatPrefix: "proxy",
+		UpgradeConfigs: []*envoy_config_http.HttpConnectionManager_UpgradeConfig{
+			{UpgradeType: "websocket"},
+		},
 		UseRemoteAddress:  &wrapperspb.BoolValue{Value: true},
 		SkipXffAppend:     true,
 		XffNumTrustedHops: xffNumTrustedHops,

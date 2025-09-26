@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -811,6 +812,9 @@ func TestServiceDelete(t *testing.T) {
 			},
 		},
 	}
+	ipsUsed := getPoolStatusCount(fixture.GetPool("pool-a"), ciliumPoolIPsUsedCondition)
+	require.Equal(t, "0", ipsUsed)
+
 	fixture.UpsertSvc(t, svcA)
 	svcA = fixture.GetSvc("default", "service-a")
 
@@ -821,6 +825,8 @@ func TestServiceDelete(t *testing.T) {
 	if net.ParseIP(svcA.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
 		t.Error("Expected service to receive a IPv4 address")
 	}
+	ipsUsed = getPoolStatusCount(fixture.GetPool("pool-a"), ciliumPoolIPsUsedCondition)
+	require.Equal(t, "1", ipsUsed)
 
 	svcIP := svcA.Status.LoadBalancer.Ingress[0].IP
 
@@ -833,6 +839,9 @@ func TestServiceDelete(t *testing.T) {
 	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); has {
 		t.Fatal("Service IP hasn't been released")
 	}
+	ipsUsed = getPoolStatusCount(fixture.GetPool("pool-a"), ciliumPoolIPsUsedCondition)
+	require.Equal(t, "0", ipsUsed)
+
 }
 
 // TestReallocOnInit tests the edge case where an existing service has an IP assigned for which there is no IP Pool.
@@ -2362,4 +2371,70 @@ func TestRangeFromPrefix(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPoolShrink(t *testing.T) {
+	// Pool with two blocks
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24", "10.0.11.0/24"})
+	fixture := mkTestFixture(t, true, true)
+	fixture.UpsertPool(t, poolA)
+
+	// Check initial state
+	p := fixture.GetPool("pool-a")
+	totalCount := getPoolStatusCount(p, ciliumPoolIPsTotalCondition)
+	require.Equal(t, "512", totalCount, "IPsTotal should be 512 initially")
+	availableCount := getPoolStatusCount(p, ciliumPoolIPsAvailableCondition)
+	require.Equal(t, "512", availableCount, "IPsAvailable should be 512 initially")
+	usedCount := getPoolStatusCount(p, ciliumPoolIPsUsedCondition)
+	require.Equal(t, "0", usedCount, "IPsUsed should be 0 initially")
+
+	// Create service to allocate one IP
+	svcA := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-a",
+			Namespace: "default",
+			UID:       serviceAUID,
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+		},
+	}
+	fixture.UpsertSvc(t, svcA)
+	svcA = fixture.GetSvc("default", "service-a")
+	require.Len(t, svcA.Status.LoadBalancer.Ingress, 1, "Expected service to receive exactly one ingress IP")
+
+	p = fixture.GetPool("pool-a")
+	require.Equal(t, "512", getPoolStatusCount(p, ciliumPoolIPsTotalCondition), "IPsTotal should be 512")
+	require.Equal(t, "511", getPoolStatusCount(p, ciliumPoolIPsAvailableCondition), "IPsAvailable should be 511")
+	require.Equal(t, "1", getPoolStatusCount(p, ciliumPoolIPsUsedCondition), "IPsUsed should be 1")
+
+	svcIP, err := netip.ParseAddr(svcA.Status.LoadBalancer.Ingress[0].IP)
+	require.NoError(t, err)
+	blockToKeep := "10.0.10.0/24"
+	if !netip.MustParsePrefix(blockToKeep).Contains(svcIP) {
+		blockToKeep = "10.0.11.0/24"
+	}
+
+	poolA = fixture.GetPool("pool-a")
+	poolA.Spec.Blocks = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+		{Cidr: cilium_api_v2alpha1.IPv4orIPv6CIDR(blockToKeep)},
+	}
+	fixture.UpsertPool(t, poolA)
+
+	p = fixture.GetPool("pool-a")
+	require.Equal(t, "256", getPoolStatusCount(p, ciliumPoolIPsTotalCondition), "IPsTotal should be 256")
+	require.Equal(t, "255", getPoolStatusCount(p, ciliumPoolIPsAvailableCondition), "IPsAvailable should be 255")
+	require.Equal(t, "1", getPoolStatusCount(p, ciliumPoolIPsUsedCondition), "IPsUsed should be 1")
+}
+
+func getPoolStatusCount(pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool, condType string) string {
+	for _, cond := range pool.Status.Conditions {
+		if cond.Type == condType {
+			return cond.Message
+		}
+	}
+	return ""
 }
