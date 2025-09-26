@@ -71,6 +71,10 @@ type cacheEntry struct {
 	LastError     error
 }
 
+func (m *Map) GetMap() *ebpf.Map {
+	return m.m
+}
+
 type Map struct {
 	Logger *slog.Logger
 	m      *ebpf.Map

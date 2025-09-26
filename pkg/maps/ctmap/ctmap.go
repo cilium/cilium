@@ -146,6 +146,10 @@ type Map struct {
 	clusterID uint32
 }
 
+func (m *Map) GetMap() *ebpf.Map {
+	return m.Map.GetMap()
+}
+
 // GCFilter contains the necessary fields to filter the CT maps.
 type GCFilter struct {
 	// RemoveExpired enables removal of all entries that have expired
@@ -663,6 +667,10 @@ func DeleteIfUpgradeNeeded() {
 	}
 }
 
+func Maps(ipv4, ipv6 bool) []*Map {
+	return maps(ipv4, ipv6)
+}
+
 // maps returns the global connection tracking maps.
 // protocol will not be returned.
 func maps(ipv4, ipv6 bool) []*Map {
@@ -672,10 +680,15 @@ func maps(ipv4, ipv6 bool) []*Map {
 		result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal))
 	}
 	if ipv6 {
+
 		result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal))
 		result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal))
 	}
 	return result
+}
+
+func GCMarkMap() *Map {
+	return newMap("ct4_purge", mapTypeIPv4AnyGlobal)
 }
 
 // GlobalMaps returns a slice of CT maps that are used globally by all
