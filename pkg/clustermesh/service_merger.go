@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
@@ -92,6 +93,11 @@ func (sm *serviceMerger) MergeExternalServiceUpdate(service *serviceStore.Cluste
 func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []loadbalancer.BackendParams) {
 	for ipString, portConfig := range service.Backends {
 		addrCluster := cmtypes.MustParseAddrCluster(ipString)
+		var backendZone *loadbalancer.BackendZone
+		if zone, ok := service.Zones[ipString]; ok {
+			backendZone = ptr.To(zone.ToLBBackendZone())
+		}
+
 		for name, l4 := range portConfig {
 			portNames := []string(nil)
 			if name != "" {
@@ -109,6 +115,7 @@ func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps [
 				NodeName:  "",
 				ClusterID: service.ClusterID,
 				State:     loadbalancer.BackendStateActive,
+				Zone:      backendZone,
 			}
 			beps = append(beps, bep)
 		}
