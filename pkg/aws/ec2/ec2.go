@@ -536,7 +536,11 @@ func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetwork
 // describeVpcs lists all VPCs
 func (c *Client) describeVpcs(ctx context.Context) ([]ec2_types.Vpc, error) {
 	var result []ec2_types.Vpc
-	paginator := ec2.NewDescribeVpcsPaginator(c.ec2Client, &ec2.DescribeVpcsInput{})
+	input := &ec2.DescribeVpcsInput{}
+	if operatorOption.Config.AWSPaginationEnabled {
+		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
+	}
+	paginator := ec2.NewDescribeVpcsPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
 		c.limiter.Limit(ctx, DescribeVpcs)
 		sinceStart := spanstat.Start()
@@ -584,6 +588,8 @@ func (c *Client) describeSubnets(ctx context.Context) ([]ec2_types.Subnet, error
 	input := &ec2.DescribeSubnetsInput{}
 	if len(c.subnetsFilters) > 0 {
 		input.Filters = c.subnetsFilters
+	} else if operatorOption.Config.AWSPaginationEnabled {
+		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
 	}
 	paginator := ec2.NewDescribeSubnetsPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
