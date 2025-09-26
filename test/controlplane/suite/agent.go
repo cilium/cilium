@@ -61,10 +61,6 @@ func (h *agentHandle) tearDown() {
 			h.t.Fatalf("Failed to stop the agent: %s", err)
 		}
 	}
-
-	if h.d != nil {
-		h.d.Close()
-	}
 }
 
 func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraCell cell.Cell) {
@@ -137,7 +133,6 @@ func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(
 	// (i.e. the ones defined through cell.Config(...)) must be set to the *viper.Viper
 	// object bound to the test hive.
 	h.hive.Viper().Set(option.EndpointGCInterval, 0)
-
 }
 
 func (h *agentHandle) startCiliumAgent() (*cmd.Daemon, error) {
