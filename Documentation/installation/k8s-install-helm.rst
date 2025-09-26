@@ -119,7 +119,7 @@ Install Cilium
 
           aws eks describe-cluster --name <your-cluster-name> --region <your-cluster-region> | jq -r .cluster.endpoint
 
-       .. code-block:: bash 
+       .. code-block:: shell-session
 
          API_SERVER_IP=<your_api_server_FQDN>\
          API_SERVER_PORT=443
