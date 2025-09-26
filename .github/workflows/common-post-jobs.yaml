@@ -54,6 +54,8 @@ jobs:
     if: ${{ always() }}
     name: Commit Status Final
     runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
     steps:
       - name: Set final commit status
         if: ${{ inputs.result != 'skipped' }}
