@@ -17,20 +17,22 @@ import (
 )
 
 const (
-	NeighborReconcilerName  = "Neighbor"
-	PodIPPoolReconcilerName = "PodIPPool"
-	ServiceReconcilerName   = "Service"
-	PodCIDRReconcilerName   = "PodCIDR"
+	DefaultGatewayReconcilerName = "DefaultGateway"
+	NeighborReconcilerName       = "Neighbor"
+	PodIPPoolReconcilerName      = "PodIPPool"
+	ServiceReconcilerName        = "Service"
+	PodCIDRReconcilerName        = "PodCIDR"
 )
 
 // Reconciler Priorities, lower number means higher priority. It is used to determine the
 // order in which reconcilers are called. Reconcilers are called from lowest to highest on
 // each Reconcile event.
 const (
-	NeighborReconcilerPriority  = 60
-	PodIPPoolReconcilerPriority = 50
-	ServiceReconcilerPriority   = 40
-	PodCIDRReconcilerPriority   = 30
+	NeighborReconcilerPriority       = 60
+	PodIPPoolReconcilerPriority      = 50
+	ServiceReconcilerPriority        = 40
+	PodCIDRReconcilerPriority        = 30
+	DefaultGatewayReconcilerPriority = 10
 )
 
 var (
@@ -63,6 +65,7 @@ type ConfigReconciler interface {
 
 var ConfigReconcilers = cell.Provide(
 	NewNeighborReconciler,
+	NewDefaultGatewayReconciler,
 	NewPodCIDRReconciler,
 	NewPodIPPoolReconciler,
 	NewServiceReconciler,
