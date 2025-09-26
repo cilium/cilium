@@ -1001,6 +1001,19 @@ struct lb_affinity_match {
 	__u16 pad;
 } __packed;
 
+struct ipv4_sockets_tuple {
+	union v4addr address;
+	__be32 port;
+	__sock_cookie cookie;
+} __packed;
+
+struct ipv6_sockets_tuple {
+	union v6addr address;
+	__be32 port;
+	__u32 pad;
+	__sock_cookie cookie;
+} __packed;
+
 struct ct_state {
 	__u16 rev_nat_index;
 #ifdef USE_LOOPBACK_LB

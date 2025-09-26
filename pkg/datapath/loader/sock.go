@@ -21,6 +21,7 @@ const (
 	v4TCPProgName = "cil_sock_tcp_destroy_v4"
 	v6UDPProgName = "cil_sock_udp_destroy_v6"
 	v6TCPProgName = "cil_sock_tcp_destroy_v6"
+	progName      = "cil_sock_destroy"
 	filterVarName = "cilium_sock_term_filter"
 )
 
@@ -92,6 +93,7 @@ func LoadSockTerm(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfgen.So
 			CilSockTcpDestroyV4: coll.Programs[v4TCPProgName],
 			CilSockUdpDestroyV6: coll.Programs[v6UDPProgName],
 			CilSockTcpDestroyV6: coll.Programs[v6TCPProgName],
+			CilSockDestroy:      coll.Programs[progName],
 		}, func(af uint8, addr net.IP, port uint16) error {
 			var value bpfgen.SockTermSockTermFilter
 			value.AddressFamily = af
