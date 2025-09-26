@@ -1765,7 +1765,6 @@ func (c *Collector) Run() error {
 	// First, run each serial task in its own workerpool.
 	var r []workerpool.Task
 	for i, t := range serialTasks {
-		t := t
 		if c.shouldSkipTask(t) {
 			c.logDebug("Skipping %q", t.Description)
 			continue
@@ -1819,7 +1818,6 @@ func (c *Collector) Run() error {
 
 	// Add the tasks to the worker pool.
 	for i, t := range tasks {
-		t := t
 		if c.shouldSkipTask(t) {
 			c.logDebug("Skipping %q", t.Description)
 			continue
@@ -2255,7 +2253,6 @@ func (c *Collector) shouldSkipTask(t Task) bool {
 func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgentContainerName,
 	tetragonBugtoolPrefix, tetragonCLICommand string) error {
 	for _, p := range pods {
-		p := p
 		workerID := fmt.Sprintf("%s-%s", tetragonBugtoolPrefix, p.Name)
 		if err := c.Pool.Submit(workerID, func(ctx context.Context) error {
 			p, containerName, cleanupFunc, err := c.ensureExecTarget(ctx, p, tetragonAgentContainerName)
@@ -2420,7 +2417,6 @@ func zipDirectory(src string, dst string) error {
 
 func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 	for _, p := range pods {
-		p := p
 		if err := c.Pool.Submit("cilium-bugtool-"+p.Name, func(ctx context.Context) error {
 			p, containerName, cleanupFunc, err := c.ensureExecTarget(ctx, p, ciliumAgentContainerName)
 			if err != nil {
@@ -2485,7 +2481,6 @@ func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 
 func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
-		p := p
 		if err := c.Pool.Submit("hubble-flows-"+p.Name, func(ctx context.Context) error {
 			if err := c.WithFileSink(fmt.Sprintf(hubbleFlowsFileName, p.Name), func(stdout io.Writer) error {
 				return c.WithFileSink(fmt.Sprintf(hubbleObserveFileName, p.Name), func(stderr io.Writer) error {
@@ -2512,7 +2507,6 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 
 func (c *Collector) submitSpireEntriesTasks(pods []*corev1.Pod) error {
 	for _, p := range pods {
-		p := p
 		if err := c.Pool.Submit("spire-entries-"+p.Name, func(ctx context.Context) error {
 			p, containerName, cleanupFunc, err := c.ensureExecTarget(ctx, p, spireServerContainerName)
 			if err != nil {
@@ -2572,7 +2566,6 @@ func extractGopsProfileData(output string) (string, error) {
 
 func (c *Collector) SubmitCniConflistSubtask(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
-		p := p
 		if err := c.Pool.Submit(fmt.Sprintf("cniconflist-%s", p.GetName()), func(ctx context.Context) error {
 			outputStr, err := c.Client.ExecInPod(ctx, p.GetNamespace(), p.GetName(), containerName, []string{
 				lsCommand,
@@ -2623,14 +2616,11 @@ func (c *Collector) getGopsPID(ctx context.Context, pod *corev1.Pod, containerNa
 // SubmitGopsSubtasks submits tasks to collect gops statistics from pods.
 func (c *Collector) SubmitGopsSubtasks(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
-		p := p
-
 		if !podIsRunningAndHasContainer(p, containerName) {
 			continue
 		}
 
 		for _, g := range gopsStats {
-			g := g
 			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
 				agentPID, err := c.getGopsPID(ctx, p, containerName)
 				if err != nil {
@@ -2659,9 +2649,7 @@ func (c *Collector) SubmitGopsSubtasks(pods []*corev1.Pod, containerName string)
 // SubmitProfilingGopsSubtasks submits tasks to collect profiling data from pods.
 func (c *Collector) SubmitProfilingGopsSubtasks(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
-		p := p
 		for g := range gopsProfiling {
-			g := g
 			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
 				agentPID, err := c.getGopsPID(ctx, p, containerName)
 				if err != nil {
@@ -2703,8 +2691,6 @@ func (c *Collector) SubmitProfilingGopsSubtasks(pods []*corev1.Pod, containerNam
 // containers as well, as it does not depend on any shell tools.
 func (c *Collector) SubmitStreamProfilingGopsSubtasks(pods []*corev1.Pod, containerName string, port uint16) error {
 	for _, p := range pods {
-		p := p
-
 		if !podIsRunningAndHasContainer(p, containerName) {
 			continue
 		}
@@ -2749,7 +2735,6 @@ func (c *Collector) SubmitStreamProfilingGopsSubtasks(pods []*corev1.Pod, contai
 // SubmitTracingGopsSubtask submits task to collect tracing data from pods.
 func (c *Collector) SubmitTracingGopsSubtask(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
-		p := p
 		if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, gopsTrace), func(ctx context.Context) error {
 			agentPID, err := c.getGopsPID(ctx, p, containerName)
 			if err != nil {
@@ -2788,10 +2773,8 @@ func (c *Collector) SubmitTracingGopsSubtask(pods []*corev1.Pod, containerName s
 func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, limitBytes int64) error {
 	t := metav1.NewTime(time.Now().Add(-since))
 	for _, p := range pods {
-		p := p
 		allContainers := append(p.Spec.Containers, p.Spec.InitContainers...)
 		for _, d := range allContainers {
-			d := d
 			if err := c.Pool.Submit(fmt.Sprintf("logs-%s-%s", p.Name, d.Name), func(ctx context.Context) error {
 				if err := c.WithFileSink(fmt.Sprintf(ciliumLogsFileName, p.Name, d.Name), func(out io.Writer) error {
 					return c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
@@ -2803,9 +2786,9 @@ func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, lim
 				// Check if this container has restarted, in which case we should gather the previous one's logs too.
 				previous := false
 				for _, s := range p.Status.ContainerStatuses {
-					s := s
 					if s.Name == d.Name && s.RestartCount > 0 {
 						previous = true
+						break
 					}
 				}
 				if previous {
@@ -2919,7 +2902,6 @@ func (c *Collector) submitKVStoreTasks(ctx context.Context, pod *corev1.Pod) err
 // SubmitMetricsSubtask submits tasks to collect metrics from pods.
 func (c *Collector) SubmitMetricsSubtask(pods []*corev1.Pod, containerName, portName string) error {
 	for _, p := range pods {
-		p := p
 		if !podIsRunningAndHasContainer(p, containerName) {
 			continue
 		}
@@ -3125,7 +3107,6 @@ func filterRestartedContainersPods(l *corev1.PodList, limit int) []*corev1.Pod {
 func filterPods(l *corev1.PodList, filter func(po *corev1.Pod) bool, limit int) []*corev1.Pod {
 	r := make([]*corev1.Pod, 0)
 	for _, p := range l.Items {
-		p := p
 		if filter(&p) {
 			r = append(r, &p)
 			if limit > 0 && len(r) >= limit {
