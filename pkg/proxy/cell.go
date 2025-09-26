@@ -4,11 +4,12 @@
 package proxy
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
-	"github.com/cilium/cilium/pkg/controller"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
@@ -20,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog/endpoint"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/trigger"
 )
 
 // Cell provides the L7 Proxy which provides support for L7 network policies.
@@ -43,6 +43,7 @@ type proxyParams struct {
 	cell.In
 
 	Lifecycle             cell.Lifecycle
+	JobGroup              job.Group
 	Logger                *slog.Logger
 	LocalNodeStore        *node.LocalNodeStore
 	ProxyPorts            *proxyports.ProxyPorts
@@ -61,37 +62,29 @@ func newProxy(params proxyParams) *Proxy {
 
 	p := createProxy(params.Logger, params.LocalNodeStore, params.ProxyPorts, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
 
-	triggerDone := make(chan struct{})
+	p.proxyPorts.Trigger = job.NewTrigger(job.WithDebounce(10 * time.Second))
 
-	controllerManager := controller.NewManager()
-	controllerGroup := controller.NewGroup("proxy-ports-allocator")
-	controllerName := "proxy-ports-checkpoint"
+	params.JobGroup.Add(job.OneShot("proxy-ports-restore", func(ctx context.Context, health cell.Health) error {
+		if err := p.proxyPorts.RestoreProxyPorts(ctx, health); err != nil {
+			// report error to health but proceed to start the checkpoint job
+			health.Degraded("restore from file failed", err)
+		}
 
+		// Restore all proxy ports before we register the job to overwrite the file below
+		params.JobGroup.Add(job.Timer("proxy-ports-checkpoint",
+			p.proxyPorts.StoreProxyPorts,
+			time.Minute, /* periodic save in case of I/O errors */
+			job.WithTrigger(p.proxyPorts.Trigger),
+		))
+
+		return nil
+	}))
+
+	// Register final save at shutdown
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) (err error) {
-			// Restore all proxy ports before we create the trigger to overwrite the
-			// file below
-			p.proxyPorts.RestoreProxyPorts()
-
-			p.proxyPorts.Trigger, err = trigger.NewTrigger(trigger.Parameters{
-				MinInterval: 10 * time.Second,
-				TriggerFunc: func(reasons []string) {
-					controllerManager.UpdateController(controllerName, controller.ControllerParams{
-						Group:    controllerGroup,
-						DoFunc:   p.proxyPorts.StoreProxyPorts,
-						StopFunc: p.proxyPorts.StoreProxyPorts, // perform one last checkpoint when the controller is removed
-					})
-				},
-				ShutdownFunc: func() {
-					controllerManager.RemoveControllerAndWait(controllerName) // waits for StopFunc
-					close(triggerDone)
-				},
-			})
-			return err
-		},
-		OnStop: func(cell.HookContext) error {
-			p.proxyPorts.Trigger.Shutdown()
-			<-triggerDone
+		OnStop: func(ctx cell.HookContext) error {
+			// ignore errors at shutdown
+			_ = p.proxyPorts.StoreProxyPorts(ctx)
 			return nil
 		},
 	})
