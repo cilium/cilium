@@ -8,6 +8,11 @@ on:
         description: "Pull request number."
         required: true
         type: string
+      UID:
+        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
+        required: false
+        default: 1
+        type: number
       context-ref:
         description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
         required: true
@@ -26,6 +31,11 @@ on:
         required: false
         type: boolean
         default: true
+      test-concurrency:
+        description: "Count of namespaces to perform the connectivity tests in parallel."
+        required: false
+        type: number
+        default: 3
     secrets:
       AWS_PR_ASSUME_ROLE:
         required: true
@@ -35,6 +45,10 @@ on:
       PR-number:
         description: "Pull request number."
         required: true
+      UID:
+        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
+        required: false
+        default: 1
       context-ref:
         description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
         required: true
@@ -81,13 +95,13 @@ concurrency:
     ${{ github.event_name }}
     ${{
       (github.event_name == 'schedule' && format('{0}-{1}', github.sha, 'eks')) ||
-      (github.event_name == 'workflow_dispatch' && format('{0}-{1}', github.event.inputs.PR-number, 'eks'))
+      (github.event_name == 'workflow_dispatch' && format('{0}-{1}-{2}', github.event.inputs.PR-number, 'eks', inputs.UID))
     }}
   cancel-in-progress: true
 
 env:
-  test_concurrency: 3
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+  test_concurrency: ${{ inputs.test-concurrency || 3 }}
+  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.UID }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.214.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
@@ -186,6 +200,14 @@ jobs:
             mv /tmp/result.json.tmp /tmp/result.json
           fi
 
+          # Check if KPR is requested via extra-args
+          KPR=$(echo '${{ inputs.extra-args }}' | jq -r '.["kpr"] // false')
+          if [[ "$KPR" == "true" ]]; then
+            echo "::notice::KPR enabled - setting kpr=true for all matrix entries"
+            jq '.include |= map(. + {"kpr": true})' /tmp/result.json > /tmp/result.json.tmp
+            mv /tmp/result.json.tmp /tmp/result.json
+          fi
+
           jq -c '.include[]' /tmp/matrix.json | while read i; do
             VERSION=$(echo $i | jq -r '.version')
             aws eks describe-cluster-versions | jq -r '.clusterVersions[].clusterVersion' > /tmp/output
@@ -269,6 +291,19 @@ jobs:
           fi
           if [[ "${{ matrix.aws-eni-pd }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set eni.awsEnablePrefixDelegation=true"
+          fi
+
+          ADV_FEAT=$(echo '${{ inputs.extra-args }}' | jq -r '.["advanced-features"] // false')
+          if [[ "$ADV_FEAT" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
+              --helm-set enableIPv4Masquerade=true \
+              --helm-set localRedirectPolicy=true \
+              --helm-set egressGateway.enabled=true"
+          fi
+
+          WG=$(echo '${{ inputs.extra-args }}' | jq -r '.["wireguard"] // false')
+          if [[ "$WG" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=wireguard"
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"

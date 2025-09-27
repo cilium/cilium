@@ -8,7 +8,6 @@ include:
   - version: "1.32"
     region: ca-central-1
     default: true
-    kpr: true
     aws-eni-pd: true
   - version: "1.33"
     region: us-east-1
