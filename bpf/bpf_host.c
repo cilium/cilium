@@ -1218,6 +1218,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	__u32 src_id = UNKNOWN_ID;
 	__be16 proto = 0;
 
+	//ctx->tc_index &= ~(TC_INDEX_F_FROM_EGRESS_PROXY|TC_INDEX_F_FROM_INGRESS_PROXY);
+
 	check_and_store_ip_trace_id(ctx);
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
@@ -1664,6 +1666,7 @@ exit:
 	if (IS_ERR(ret))
 		goto drop_err;
 
+	ctx->tc_index = 0;
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 			  trace.reason, trace.monitor, proto);

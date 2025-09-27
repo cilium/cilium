@@ -289,7 +289,7 @@ jobs:
 
           cilium encrypt create-key --auth-algo ${{ matrix.key-one }}
 
-          cilium install ${{ steps.cilium-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
+          cilium install ${{ steps.cilium-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id --set bpf.monitorAggregation=none
 
           cilium status --wait --interactive=false
           kubectl get pods --all-namespaces -o wide
