@@ -41,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/util"
 	"github.com/cilium/cilium/pkg/version"
@@ -923,17 +922,8 @@ const (
 	// EnableVTEP enables cilium VXLAN VTEP integration
 	EnableVTEP = "enable-vtep"
 
-	// VTEP endpoint IPs
-	VtepEndpoint = "vtep-endpoint"
-
-	// VTEP CIDRs
-	VtepCIDR = "vtep-cidr"
-
 	// VTEP CIDR Mask applies to all VtepCIDR
 	VtepMask = "vtep-mask"
-
-	// VTEP MACs
-	VtepMAC = "vtep-mac"
 
 	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
 	// filters to be inserted prior to the cilium filter.
@@ -1794,17 +1784,8 @@ type DaemonConfig struct {
 	// EnableVTEP enable Cilium VXLAN VTEP integration
 	EnableVTEP bool
 
-	// VtepEndpoints VTEP endpoint IPs
-	VtepEndpoints []net.IP
-
-	// VtepCIDRs VTEP CIDRs
-	VtepCIDRs []*cidr.CIDR
-
 	// VtepMask VTEP Mask
 	VtepCidrMask net.IP
-
-	// VtepMACs VTEP MACs
-	VtepMACs []mac.MAC
 
 	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
 	// filters to be inserted prior to the cilium filter.
@@ -3248,52 +3229,14 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(logger *slog.Logger, vp *vipe
 
 // Validate VTEP integration configuration
 func (c *DaemonConfig) validateVTEP(vp *viper.Viper) error {
-	vtepEndpoints := vp.GetStringSlice(VtepEndpoint)
-	vtepCIDRs := vp.GetStringSlice(VtepCIDR)
 	vtepCidrMask := vp.GetString(VtepMask)
-	vtepMACs := vp.GetStringSlice(VtepMAC)
 
-	if (len(vtepEndpoints) < 1) ||
-		len(vtepEndpoints) != len(vtepCIDRs) ||
-		len(vtepEndpoints) != len(vtepMACs) {
-		return fmt.Errorf("VTEP configuration must have the same number of Endpoint, VTEP and MAC configurations (Found %d endpoints, %d MACs, %d CIDR ranges)", len(vtepEndpoints), len(vtepMACs), len(vtepCIDRs))
-	}
-	if len(vtepEndpoints) > defaults.MaxVTEPDevices {
-		return fmt.Errorf("VTEP must not exceed %d VTEP devices (Found %d VTEPs)", defaults.MaxVTEPDevices, len(vtepEndpoints))
-	}
-	for _, ep := range vtepEndpoints {
-		endpoint := net.ParseIP(ep)
-		if endpoint == nil {
-			return fmt.Errorf("Invalid VTEP IP: %v", ep)
-		}
-		ip4 := endpoint.To4()
-		if ip4 == nil {
-			return fmt.Errorf("Invalid VTEP IPv4 address %v", ip4)
-		}
-		c.VtepEndpoints = append(c.VtepEndpoints, endpoint)
-
-	}
-	for _, v := range vtepCIDRs {
-		externalCIDR, err := cidr.ParseCIDR(v)
-		if err != nil {
-			return fmt.Errorf("Invalid VTEP CIDR: %v", v)
-		}
-		c.VtepCIDRs = append(c.VtepCIDRs, externalCIDR)
-
-	}
 	mask := net.ParseIP(vtepCidrMask)
 	if mask == nil {
 		return fmt.Errorf("Invalid VTEP CIDR Mask: %v", vtepCidrMask)
 	}
 	c.VtepCidrMask = mask
-	for _, m := range vtepMACs {
-		externalMAC, err := mac.ParseMAC(m)
-		if err != nil {
-			return fmt.Errorf("Invalid VTEP MAC: %v", m)
-		}
-		c.VtepMACs = append(c.VtepMACs, externalMAC)
 
-	}
 	return nil
 }
 
