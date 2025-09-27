@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/netip"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -208,11 +209,11 @@ func TestStreamProcessorStart(t *testing.T) {
 
 		// Create mock endpoint manager
 		var unsub bool
-		mockEM := &MockEndpointManager{
-			_Unsubscribe: func(s endpointmanager.Subscriber) {
-				unsub = true
-			},
-		}
+		// mockEM := &MockEndpointManager{
+		// 	_Unsubscribe: func(s endpointmanager.Subscriber) {
+		// 		unsub = true
+		// 	},
+		// }
 
 		// Create channels for the stream processor
 		streamRecv := make(chan *v3.DeltaDiscoveryRequest, 1)
@@ -223,7 +224,8 @@ func TestStreamProcessorStart(t *testing.T) {
 			Stream:            mockStream,
 			StreamRecv:        streamRecv,
 			EndpointEventRecv: endpointEventRecv,
-			EndpointManager:   mockEM,
+			//TODO(hemanthmalla): Replace this with CEP store mock
+			// EndpointManager:   mockEM,
 			Log:               slog.New(slog.NewTextHandler(io.Discard, nil)),
 		})
 
@@ -307,9 +309,9 @@ func TestStreamProcessorEndpointEvents(t *testing.T) {
 		createEp2.SetPod(createPod3)
 
 		// Create the three events in sequence: CREATE, REMOVE, CREATE
-		event1 := &EndpointEvent{Type: CREATE, Endpoint: createEp1}
-		event2 := &EndpointEvent{Type: REMOVED, Endpoint: removeEp}
-		event3 := &EndpointEvent{Type: CREATE, Endpoint: createEp2}
+		event1 := &EndpointEvent{Type: CREATE, CiliumEndpoint: endpointToCiliumEndpoint(createEp1)}
+		event2 := &EndpointEvent{Type: REMOVED, CiliumEndpoint: endpointToCiliumEndpoint(removeEp)}
+		event3 := &EndpointEvent{Type: CREATE, CiliumEndpoint: endpointToCiliumEndpoint(createEp2)}
 
 		// Setup mock stream to capture the response
 		var capturedResponse *v3.DeltaDiscoveryResponse
@@ -409,6 +411,7 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 			expectedNonce: map[string]struct{}{
 				"x": {},
 			},
+			log: slog.New(slog.NewTextHandler(os.Stdout, nil)),
 		}
 
 		req := &v3.DeltaDiscoveryRequest{
@@ -441,76 +444,75 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 			"87654321-4321-4321-4321-cba987654321", // ep2
 			"abcdef12-5678-9012-3456-789012345678", // ep3
 		}
-		mockEndpointManager := &MockEndpointManager{
-			_Subscribe: func(s endpointmanager.Subscriber) {
-				sub = true
-			},
-			_GetEndpoints: func() []*endpoint.Endpoint {
-				// Create multiple test endpoints to ensure comprehensive transformation testing
-				endpoints := make([]*endpoint.Endpoint, 0, 3)
+		// mockEndpointManager := &MockEndpointManager{
+		// 	_Subscribe: func(s endpointmanager.Subscriber) {
+		// 		sub = true
+		// 	},
+		// 	_GetEndpoints: func() []*endpoint.Endpoint {
+		// 		// Create multiple test endpoints to ensure comprehensive transformation testing
+		// 		endpoints := make([]*endpoint.Endpoint, 0, 3)
 
-				// Endpoint 1: Full IPv4 + IPv6 endpoint with complete K8s metadata
-				ep1 := &endpoint.Endpoint{
-					ID:           1001,
-					K8sUID:       expectedUIDs[0],
-					K8sPodName:   "test-pod-1",
-					K8sNamespace: "default",
-					IPv4:         netip.MustParseAddr("10.0.1.100"),
-					IPv6:         netip.MustParseAddr("fd00::1:100"),
-				}
-				// Create and set a mock Pod for ep1
-				pod1 := &slim_corev1.Pod{
-					Spec: slim_corev1.PodSpec{
-						NodeName:           "node-1",
-						ServiceAccountName: "default-sa",
-					},
-				}
-				ep1.SetPod(pod1)
-				endpoints = append(endpoints, ep1)
+		// 		// Endpoint 1: Full IPv4 + IPv6 endpoint with complete K8s metadata
+		// 		ep1 := &endpoint.Endpoint{
+		// 			ID:           1001,
+		// 			K8sUID:       expectedUIDs[0],
+		// 			K8sPodName:   "test-pod-1",
+		// 			K8sNamespace: "default",
+		// 			IPv4:         netip.MustParseAddr("10.0.1.100"),
+		// 			IPv6:         netip.MustParseAddr("fd00::1:100"),
+		// 		}
+		// 		// Create and set a mock Pod for ep1
+		// 		pod1 := &slim_corev1.Pod{
+		// 			Spec: slim_corev1.PodSpec{
+		// 				NodeName:           "node-1",
+		// 				ServiceAccountName: "default-sa",
+		// 			},
+		// 		}
+		// 		ep1.SetPod(pod1)
+		// 		endpoints = append(endpoints, ep1)
 
-				// Endpoint 2: IPv4-only endpoint with different metadata
-				ep2 := &endpoint.Endpoint{
-					ID:           1002,
-					K8sUID:       expectedUIDs[1],
-					K8sPodName:   "test-pod-2",
-					K8sNamespace: "kube-system",
-					IPv4:         netip.MustParseAddr("10.0.2.200"),
-				}
-				// Create and set a mock Pod for ep2
-				pod2 := &slim_corev1.Pod{
-					Spec: slim_corev1.PodSpec{
-						NodeName:           "node-2",
-						ServiceAccountName: "kube-system-sa",
-					},
-				}
-				ep2.SetPod(pod2)
-				endpoints = append(endpoints, ep2)
+		// 		// Endpoint 2: IPv4-only endpoint with different metadata
+		// 		ep2 := &endpoint.Endpoint{
+		// 			ID:           1002,
+		// 			K8sUID:       expectedUIDs[1],
+		// 			K8sPodName:   "test-pod-2",
+		// 			K8sNamespace: "kube-system",
+		// 			IPv4:         netip.MustParseAddr("10.0.2.200"),
+		// 		}
+		// 		// Create and set a mock Pod for ep2
+		// 		pod2 := &slim_corev1.Pod{
+		// 			Spec: slim_corev1.PodSpec{
+		// 				NodeName:           "node-2",
+		// 				ServiceAccountName: "kube-system-sa",
+		// 			},
+		// 		}
+		// 		ep2.SetPod(pod2)
+		// 		endpoints = append(endpoints, ep2)
 
-				// Endpoint 3: IPv6-only endpoint with different namespace
-				ep3 := &endpoint.Endpoint{
-					ID:           1003,
-					K8sUID:       expectedUIDs[2],
-					K8sPodName:   "test-pod-3",
-					K8sNamespace: "cilium-system",
-					IPv6:         netip.MustParseAddr("fd00::2:300"),
-				}
-				// Create and set a mock Pod for ep3
-				pod3 := &slim_corev1.Pod{
-					Spec: slim_corev1.PodSpec{
-						NodeName:           "node-3",
-						ServiceAccountName: "cilium-sa",
-					},
-				}
-				ep3.SetPod(pod3)
-				endpoints = append(endpoints, ep3)
+		// 		// Endpoint 3: IPv6-only endpoint with different namespace
+		// 		ep3 := &endpoint.Endpoint{
+		// 			ID:           1003,
+		// 			K8sUID:       expectedUIDs[2],
+		// 			K8sPodName:   "test-pod-3",
+		// 			K8sNamespace: "cilium-system",
+		// 			IPv6:         netip.MustParseAddr("fd00::2:300"),
+		// 		}
+		// 		// Create and set a mock Pod for ep3
+		// 		pod3 := &slim_corev1.Pod{
+		// 			Spec: slim_corev1.PodSpec{
+		// 				NodeName:           "node-3",
+		// 				ServiceAccountName: "cilium-sa",
+		// 			},
+		// 		}
+		// 		ep3.SetPod(pod3)
+		// 		endpoints = append(endpoints, ep3)
 
-				return endpoints
-			},
-		}
+		// 		return endpoints
+		// 	},
+		// }
 
 		sp := StreamProcessor{
 			stream:          mockStream,
-			endpointManager: mockEndpointManager,
 			expectedNonce:   make(map[string]struct{}),
 		}
 

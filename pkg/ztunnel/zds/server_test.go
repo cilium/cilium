@@ -16,7 +16,6 @@ import (
 	"istio.io/istio/pkg/zdsapi"
 
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
@@ -60,7 +59,6 @@ func setupZDSTestSuite(t *testing.T) *Server {
 		Config:          config.Config{ZDSUnixAddr: zdsTestUnixAddress},
 		Lifecycle:       hivetest.Lifecycle(t),
 		Logger:          logger,
-		EndpointManager: endpointmanager.New(logger, nil, &dummyEpSynchronizer{}, nil, nil, nil),
 		RestorerPromise: &fakeRestorer{},
 	})
 	require.NoError(t, err)

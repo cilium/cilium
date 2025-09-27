@@ -109,14 +109,17 @@ func (e *EndpointEvent) ToXDSAddress() (*workloadapi.Address, error) {
 	ipAddresses := make([][]byte, 0)
 
 	//TODO(hemanthmalla): Add proper validation for Addressing
-	if e.Networking.Addressing[0].IPV4 != "" {
-		if ipv4, err := netip.ParseAddr(e.Networking.Addressing[0].IPV4); err == nil && ipv4.IsValid() {
-			ipAddresses = append(ipAddresses, ipv4.AsSlice())
+
+	for _, addr := range e.Networking.Addressing {
+		if addr.IPV4 != "" {
+			if ipv4, err := netip.ParseAddr(addr.IPV4); err == nil && ipv4.IsValid() {
+				ipAddresses = append(ipAddresses, ipv4.AsSlice())
+			}
 		}
-	}
-	if e.Networking.Addressing[0].IPV6 != "" {
-		if ipv6, err := netip.ParseAddr(e.Networking.Addressing[0].IPV6); err == nil && ipv6.IsValid() {
-			ipAddresses = append(ipAddresses, ipv6.AsSlice())
+		if addr.IPV6 != "" {
+			if ipv6, err := netip.ParseAddr(addr.IPV6); err == nil && ipv6.IsValid() {
+				ipAddresses = append(ipAddresses, ipv6.AsSlice())
+			}
 		}
 	}
 

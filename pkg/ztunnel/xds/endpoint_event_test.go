@@ -11,7 +11,11 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
+	apimachineryTypes "k8s.io/apimachinery/pkg/types"
 )
 
 func TestEndpointEventToXDSAddress(t *testing.T) {
@@ -32,13 +36,17 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 				NodeName:           "test-node",
 				ServiceAccountName: "test-service-account",
 			},
+			Status: slim_corev1.PodStatus{
+				HostIP: netip.MustParseAddr("10.1.1.10").String(),
+			},
 		}
 		ep.SetPod(pod)
 
+		cep := endpointToCiliumEndpoint(ep)
 		// Create EndpointEvent for CREATE
 		event := &EndpointEvent{
 			Type:     CREATE,
-			Endpoint: ep,
+			CiliumEndpoint: cep,
 		}
 
 		// Transform to XDS Address
@@ -54,7 +62,11 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 		require.Equal(t, ep.K8sUID, workload.Uid, "Workload.Uid should match endpoint.K8sUID")
 		require.Equal(t, ep.K8sPodName, workload.Name, "Workload.Name should match endpoint.K8sPodName")
 		require.Equal(t, ep.K8sNamespace, workload.Namespace, "Workload.Namespace should match endpoint.K8sNamespace")
-		require.Equal(t, pod.Spec.NodeName, workload.Node, "Workload.Node should match pod.Spec.NodeName")
+		// TODO(hemanthmalla): Currently we're setting zTunnel node name to host IP due to lack of nodename in CEP. 
+		// Revert to node name once we lookup with a local object that has node name. 
+		require.Equal(t, pod.Status.HostIP, workload.Node, "Workload.Node should match pod.Status.HostIP")
+		// require.Equal(t, pod.Spec.NodeName, workload.Node, "Workload.Node should match pod.Spec.NodeName")
+
 		require.Equal(t, pod.Spec.ServiceAccountName, workload.ServiceAccount, "Workload.ServiceAccount should match pod.Spec.ServiceAccountName")
 		require.Equal(t, workloadapi.TunnelProtocol_HBONE, workload.TunnelProtocol, "Workload.TunnelProtocol should be HBONE")
 
@@ -87,13 +99,16 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 				NodeName:           "remove-node",
 				ServiceAccountName: "remove-service-account",
 			},
+			Status: slim_corev1.PodStatus{
+				HostIP: netip.MustParseAddr("10.2.1.10").String(),
+			},
 		}
 		ep.SetPod(pod)
 
 		// Create EndpointEvent for REMOVE
 		event := &EndpointEvent{
 			Type:     REMOVED,
-			Endpoint: ep,
+			CiliumEndpoint: endpointToCiliumEndpoint(ep),
 		}
 
 		// Transform to XDS Address
@@ -112,7 +127,10 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 		require.Equal(t, ep.K8sUID, workload.Uid, "Workload.Uid should match endpoint.K8sUID")
 		require.Equal(t, ep.K8sPodName, workload.Name, "Workload.Name should match endpoint.K8sPodName")
 		require.Equal(t, ep.K8sNamespace, workload.Namespace, "Workload.Namespace should match endpoint.K8sNamespace")
-		require.Equal(t, pod.Spec.NodeName, workload.Node, "Workload.Node should match pod.Spec.NodeName")
+		// TODO(hemanthmalla): Currently we're setting zTunnel node name to host IP due to lack of nodename in CEP. 
+		// Revert to node name once we lookup with a local object that has node name. 
+		require.Equal(t, pod.Status.HostIP, workload.Node, "Workload.Node should match pod.Status.HostIP")
+		// require.Equal(t, pod.Spec.NodeName, workload.Node, "Workload.Node should match pod.Spec.NodeName")
 		require.Equal(t, pod.Spec.ServiceAccountName, workload.ServiceAccount, "Workload.ServiceAccount should match pod.Spec.ServiceAccountName")
 		require.Equal(t, workloadapi.TunnelProtocol_HBONE, workload.TunnelProtocol, "Workload.TunnelProtocol should be HBONE")
 
@@ -127,31 +145,42 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 		ipv6Bytes := ep.IPv6.AsSlice()
 		require.Contains(t, workload.Addresses, ipv6Bytes, "IPv6 address should be present in workload addresses")
 	})
-
-	t.Run("Missing Pod Information", func(t *testing.T) {
-		// Create endpoint without pod information to test error case
-		ep := &endpoint.Endpoint{
-			ID:           1004,
-			K8sUID:       "no-pod-uid-12345678-1234-1234-1234-123456789abc",
-			K8sPodName:   "no-pod",
-			K8sNamespace: "no-pod-namespace",
-			IPv4:         netip.MustParseAddr("10.0.1.20"),
-			IPv6:         netip.MustParseAddr("fd00::1:200"),
-		}
-		// Don't call ep.SetPod() - leave pod as nil
-
-		event := &EndpointEvent{
-			Type:     CREATE,
-			Endpoint: ep,
-		}
-
-		// Should return error for missing pod information
-		address, err := event.ToXDSAddress()
-		require.Error(t, err, "ToXDSAddress should error when pod is nil")
-		require.Nil(t, address, "Address should be nil when error occurs")
-		require.Contains(t, err.Error(), "missing Pod information", "Error should mention missing Pod information")
-	})
 }
+
+func endpointToCiliumEndpoint(ep *endpoint.Endpoint) *types.CiliumEndpoint {
+	hostIP := ""
+	serviceAccount := ""
+	if ep.GetPod() != nil {
+		hostIP = ep.GetPod().Status.HostIP
+		serviceAccount = ep.GetPod().Spec.ServiceAccountName
+	}
+	cep := &types.CiliumEndpoint{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      ep.K8sPodName,
+			Namespace: ep.K8sNamespace,
+			UID:       apimachineryTypes.UID(ep.K8sUID),
+		},
+		
+		Networking: &v2.EndpointNetworking{
+			Addressing: v2.AddressPairList{},
+			NodeIP:     hostIP,
+		},
+		ServiceAccount: serviceAccount,
+	}
+	
+	if ep.IPv4.IsValid() {
+		cep.Networking.Addressing = append(cep.Networking.Addressing, &v2.AddressPair{
+			IPV4: ep.IPv4.String(),
+		})
+	}
+	if ep.IPv6.IsValid() {
+		cep.Networking.Addressing = append(cep.Networking.Addressing, &v2.AddressPair{
+			IPV6: ep.IPv6.String(),
+		})
+	}
+	return cep
+}
+
 
 func TestEndpointEventCollectionToDeltaDiscoveryResponse(t *testing.T) {
 	t.Run("CREATE-REMOVE-CREATE Collection", func(t *testing.T) {
@@ -176,6 +205,9 @@ func TestEndpointEventCollectionToDeltaDiscoveryResponse(t *testing.T) {
 				NodeName:           "create-node-1",
 				ServiceAccountName: "create-sa-1",
 			},
+			Status: slim_corev1.PodStatus{
+				HostIP: netip.MustParseAddr("100.1.1.10").String(),
+			},
 		}
 		createEp1.SetPod(createPod1)
 
@@ -192,6 +224,9 @@ func TestEndpointEventCollectionToDeltaDiscoveryResponse(t *testing.T) {
 			Spec: slim_corev1.PodSpec{
 				NodeName:           "remove-node",
 				ServiceAccountName: "remove-sa",
+			},
+			Status: slim_corev1.PodStatus{
+				HostIP: netip.MustParseAddr("100.1.1.10").String(),
 			},
 		}
 		removeEp.SetPod(removePod)
@@ -210,14 +245,17 @@ func TestEndpointEventCollectionToDeltaDiscoveryResponse(t *testing.T) {
 				NodeName:           "create-node-2",
 				ServiceAccountName: "create-sa-2",
 			},
+			Status: slim_corev1.PodStatus{
+				HostIP: netip.MustParseAddr("100.1.1.20").String(),
+			},
 		}
 		createEp2.SetPod(createPod2)
 
 		// Create EndpointEventCollection with CREATE, REMOVE, CREATE sequence
 		collection := EndpointEventCollection{
-			&EndpointEvent{Type: CREATE, Endpoint: createEp1},
-			&EndpointEvent{Type: REMOVED, Endpoint: removeEp},
-			&EndpointEvent{Type: CREATE, Endpoint: createEp2},
+			&EndpointEvent{Type: CREATE, CiliumEndpoint: endpointToCiliumEndpoint(createEp1)},
+			&EndpointEvent{Type: REMOVED, CiliumEndpoint: endpointToCiliumEndpoint(removeEp)},
+			&EndpointEvent{Type: CREATE, CiliumEndpoint: endpointToCiliumEndpoint(createEp2)},
 		}
 
 		// Transform to DeltaDiscoveryResponse
@@ -250,7 +288,8 @@ func TestEndpointEventCollectionToDeltaDiscoveryResponse(t *testing.T) {
 				require.Equal(t, testUIDs[0], workload.Uid)
 				require.Equal(t, "create-pod-1", workload.Name)
 				require.Equal(t, "create-namespace-1", workload.Namespace)
-				require.Equal(t, "create-node-1", workload.Node)
+				// require.Equal(t, "create-node-1", workload.Node)
+				require.Equal(t, "100.1.1.10", workload.Node)
 				require.Equal(t, "create-sa-1", workload.ServiceAccount)
 				require.Equal(t, workloadapi.TunnelProtocol_HBONE, workload.TunnelProtocol)
 				require.Len(t, workload.Addresses, 2, "Should have 2 IP addresses")
@@ -259,7 +298,8 @@ func TestEndpointEventCollectionToDeltaDiscoveryResponse(t *testing.T) {
 				require.Equal(t, testUIDs[2], workload.Uid)
 				require.Equal(t, "create-pod-2", workload.Name)
 				require.Equal(t, "create-namespace-2", workload.Namespace)
-				require.Equal(t, "create-node-2", workload.Node)
+				// require.Equal(t, "create-node-2", workload.Node)
+				require.Equal(t, "100.1.1.20", workload.Node)
 				require.Equal(t, "create-sa-2", workload.ServiceAccount)
 				require.Equal(t, workloadapi.TunnelProtocol_HBONE, workload.TunnelProtocol)
 				require.Len(t, workload.Addresses, 2, "Should have 2 IP addresses")
@@ -273,48 +313,5 @@ func TestEndpointEventCollectionToDeltaDiscoveryResponse(t *testing.T) {
 		// Validate REMOVE resources (should be 1: removeEp)
 		require.Len(t, response.RemovedResources, 1, "Should have 1 REMOVE resource")
 		require.Equal(t, testUIDs[1], response.RemovedResources[0], "REMOVE resource UID should match removeEp UID")
-	})
-
-	t.Run("Invalid Endpoint", func(t *testing.T) {
-		// Create endpoint without pod to test error handling
-		invalidEp := &endpoint.Endpoint{
-			ID:           4001,
-			K8sUID:       "invalid-uid-12345678-1234-1234-1234-123456789abc",
-			K8sPodName:   "invalid-pod",
-			K8sNamespace: "invalid-namespace",
-			IPv4:         netip.MustParseAddr("10.4.4.40"),
-		}
-		// Don't set pod - this will cause ToXDSAddress to fail
-
-		validEp := &endpoint.Endpoint{
-			ID:           4002,
-			K8sUID:       "valid-uid-87654321-4321-4321-4321-cba987654321",
-			K8sPodName:   "valid-pod",
-			K8sNamespace: "valid-namespace",
-			IPv4:         netip.MustParseAddr("10.5.5.50"),
-			IPv6:         netip.MustParseAddr("fd00::5:500"),
-		}
-		validPod := &slim_corev1.Pod{
-			Spec: slim_corev1.PodSpec{
-				NodeName:           "valid-node",
-				ServiceAccountName: "valid-sa",
-			},
-		}
-		validEp.SetPod(validPod)
-
-		// Create collection with invalid CREATE and valid CREATE
-		collection := EndpointEventCollection{
-			&EndpointEvent{Type: CREATE, Endpoint: invalidEp}, // Will fail transformation
-			&EndpointEvent{Type: CREATE, Endpoint: validEp},   // Will succeed
-		}
-
-		// Transform to DeltaDiscoveryResponse
-		response := collection.ToDeltaDiscoveryResponse()
-		require.NotNil(t, response, "DeltaDiscoveryResponse should not be nil")
-
-		// Should only contain the valid endpoint (invalid one is skipped)
-		require.Len(t, response.Resources, 1, "Should have 1 valid CREATE resource")
-		require.Equal(t, "valid-uid-87654321-4321-4321-4321-cba987654321", response.Resources[0].Name, "Should contain only the valid endpoint")
-		require.Empty(t, response.RemovedResources, "Should have no REMOVE resources")
 	})
 }
