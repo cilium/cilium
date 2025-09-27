@@ -31,6 +31,11 @@ on:
         required: false
         type: boolean
         default: true
+      test-concurrency:
+        description: "Count of namespaces to perform the connectivity tests in parallel."
+        required: false
+        type: number
+        default: 3
     secrets:
       AWS_PR_ASSUME_ROLE:
         required: true
@@ -95,7 +100,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  test_concurrency: 3
+  test_concurrency: ${{ inputs.test-concurrency || 3 }}
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.UID }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.214.0
