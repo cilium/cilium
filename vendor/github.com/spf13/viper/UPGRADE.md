@@ -83,6 +83,27 @@ v := viper.NewWithOptions(
 )
 ```
 
+### BREAKING: "github.com/mitchellh/mapstructure" depedency replaced
+
+The original [mapstructure](https://github.com/mitchellh/mapstructure) has been [archived](https://github.com/mitchellh/mapstructure/issues/349) and was replaced with a [fork](https://github.com/go-viper/mapstructure) maintained by Viper ([#1723](https://github.com/spf13/viper/pull/1723)).
+
+As a result, the package import path needs to be changed in cases where `mapstructure` is directly referenced in your code.
+
+For example, when providing a custom decoder config:
+
+```go
+err := viper.Unmarshal(&appConfig, func(config *mapstructure.DecoderConfig) {
+	config.TagName = "yaml"
+})
+```
+
+The change is fairly straightforward, just replace all occurrences of the import path `github.com/mitchellh/mapstructure` with `github.com/go-viper/mapstructure/v2`:
+
+```diff
+- import "github.com/mitchellh/mapstructure"
++ import "github.com/go-viper/mapstructure/v2"
+```
+
 ### BREAKING: HCL, Java properties, INI removed from core
 
 In order to reduce third-party dependencies, Viper dropped support for the following formats from the core:

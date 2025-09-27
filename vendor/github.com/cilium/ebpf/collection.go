@@ -437,7 +437,7 @@ func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collec
 		make(map[string]*Map),
 		make(map[string]*Program),
 		make(map[string]*Variable),
-		newBTFCache(&opts.Programs),
+		btf.NewCache(),
 	}, nil
 }
 

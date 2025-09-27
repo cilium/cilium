@@ -21,21 +21,12 @@ const invalidFd = -1
 func newFD(value int) *FD {
 	testmain.TraceFD(value, 1)
 
-	fd := &FD{value}
-	runtime.SetFinalizer(fd, (*FD).finalize)
+	fd := &FD{raw: value}
+	fd.cleanup = runtime.AddCleanup(fd, func(raw int) {
+		testmain.LeakFD(raw)
+		_ = unix.Close(raw)
+	}, fd.raw)
 	return fd
-}
-
-// finalize is set as the FD's runtime finalizer and
-// sends a leak trace before calling FD.Close().
-func (fd *FD) finalize() {
-	if fd.raw == invalidFd {
-		return
-	}
-
-	testmain.LeakFD(fd.raw)
-
-	_ = fd.Close()
 }
 
 func (fd *FD) String() string {
@@ -63,6 +54,6 @@ func (fd *FD) Disown() int {
 	testmain.ForgetFD(value)
 	fd.raw = invalidFd
 
-	runtime.SetFinalizer(fd, nil)
+	fd.cleanup.Stop()
 	return value
 }

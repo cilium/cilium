@@ -3,6 +3,7 @@ package sys
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/efw"
@@ -12,7 +13,8 @@ import (
 //
 // It is not equivalent to a real file descriptor or handle.
 type FD struct {
-	raw int
+	raw     int
+	cleanup runtime.Cleanup
 }
 
 // NewFD wraps a raw fd with a finalizer.
