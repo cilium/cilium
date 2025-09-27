@@ -1240,13 +1240,16 @@ __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
 	enum trace_point obs_point = TRACE_FROM_NETWORK;
+	__u32 flags __maybe_unused;
 	__u32 src_id = UNKNOWN_ID;
 	__be16 proto = 0;
+	int ret;
+
+	bpf_clear_meta(ctx);
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
-	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
+	flags = ctx_get_xfer(ctx, XFER_FLAGS);
 #endif
-	int ret;
 
 #ifdef ENABLE_WIREGUARD
 	/* When attached as ingress to cilium_wg0 with host-to-host encryption and
@@ -1337,6 +1340,12 @@ int cil_from_host(struct __ctx_buff *ctx)
 	int ret __maybe_unused;
 	__be16 proto = 0;
 	__u32 magic;
+
+	/* We can't clear all with bpf_clear_meta here because we may carry the
+	 * security identity in the skb->cb when IPsec is enabled. So instead
+	 * just clear the tc_classid and we'll clear the rest in do_netdev.
+	 */
+	WRITE_ONCE(ctx->tc_classid, 0);
 
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
