@@ -678,6 +678,7 @@ Makefile* @cilium/build
 # BIG TCP tests
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
+/tools/complexity-diff @cilium/loader
 /tools/dpgen @cilium/loader
 /tools/metricslint @cilium/metrics
 /tools/ @cilium/contributing
