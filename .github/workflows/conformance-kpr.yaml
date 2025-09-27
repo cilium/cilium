@@ -116,6 +116,7 @@ jobs:
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "advanced-features": true, "ipsec": true}'
+      test-concurrency: 2
 
   conformance-eks-kpr-wireguard:
     name: Conformance EKS with KPR + WireGuard
