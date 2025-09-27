@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -165,6 +166,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					Logger:                logger,
 				},
 				FeatureMetrics: NewClusterMeshMetricsNoop(),
+				globalServices: common.NewGlobalServiceCache(logger),
 			}
 			rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 			ready := make(chan error)
@@ -294,6 +296,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			Logger:                logger,
 		},
 		FeatureMetrics: NewClusterMeshMetricsNoop(),
+		globalServices: common.NewGlobalServiceCache(logger),
 	}
 	rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 

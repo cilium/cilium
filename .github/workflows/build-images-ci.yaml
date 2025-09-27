@@ -19,16 +19,33 @@ permissions:
   contents: read
   # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
   id-token: write
+  # To be able to check if base images were built
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || (github.event_name == 'merge_group' && github.run_id) }}
   cancel-in-progress: true
 
 jobs:
+  wait-for-base-images:
+    name: Wait for lint checks
+    uses: ./.github/workflows/wait-for-status-check.yaml
+    with:
+      # Only run this job if the event is pull_request_target and if the PR
+      # is not opened from a fork.
+      # This is to avoid waiting for base images on push to main or merge_group
+      # events as the lint-images-base does not run on those events.
+      if: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name }}
+      sha: ${{ github.event.pull_request.head.sha || github.sha }}
+      lint-workflows: "lint-images-base.yaml"
+      timeout-minutes: 2
+      poll-interval: 15
+
   build-and-push-prs:
     timeout-minutes: 45
     name: Build and Push Images
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    needs: wait-for-base-images
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
     strategy:
@@ -382,3 +399,37 @@ jobs:
       checkout_ref: ${{ needs.build-and-push-prs.outputs.sha }}
       image_tag: ${{ needs.build-and-push-prs.outputs.sha }}
     secrets: inherit
+
+  pre-comment:
+    # Avoid running the "Trigger CI from renovate PRs" environment if we don't need to.
+    name: Pre-Comment
+    needs: build-and-push-prs
+    runs-on: ubuntu-24.04
+    if: ${{
+         github.event_name == 'pull_request_target' &&
+         github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
+        }}
+    steps:
+    - name: Debug
+      run: |
+        echo ${{ github.event.pull_request.user.login }}
+        echo ${{ github.event.event_name }}
+
+  comment:
+    name: Post test comment for Renovate PRs after images built
+    runs-on: ubuntu-24.04
+    needs: pre-comment
+    environment: "Trigger CI from renovate PRs"
+    if: ${{
+         github.event_name == 'pull_request_target' &&
+         github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
+        }}
+    steps:
+      - name: Post /test comment
+        env:
+          TOKEN: ${{ secrets.AUTO_COMMENT_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo ${TOKEN} | gh auth login --with-token
+          gh pr --repo ${GITHUB_REPOSITORY} comment ${PULL_REQUEST_NUMBER} --body "/test"

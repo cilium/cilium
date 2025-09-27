@@ -34,7 +34,7 @@
 /*
  * Include entrypoint into host stack
  */
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, {.addr = v6_node_one_addr})
 
@@ -45,18 +45,6 @@ ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, {.addr = v6_node_one_addr})
 #include "lib/ipcache.h"
 #include "lib/policy.h"
 #include "lib/clear.h"
-
-#define TO_NETDEV 0
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
 
 static __always_inline int
 pktgen(struct __ctx_buff *ctx, bool v4)
@@ -132,8 +120,7 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 						0, flag_skip_tunnel);
 	}
 
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 static __always_inline int

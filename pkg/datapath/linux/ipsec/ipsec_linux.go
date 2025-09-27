@@ -69,9 +69,6 @@ const (
 
 	// DefaultReqID is the default reqid used for all IPSec rules.
 	DefaultReqID = 1
-
-	// EncryptedOverlayReqID is the reqid used for encrypting overlay traffic.
-	EncryptedOverlayReqID = 2
 )
 
 type dir string

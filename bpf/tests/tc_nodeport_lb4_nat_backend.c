@@ -52,26 +52,11 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 	tail_call(ctx, &mock_policy_call_map, slot);
 }
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
-
-#define FROM_NETDEV	0
-#define TO_NETDEV	1
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_from_netdev,
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
 
 /* Test that a remote LB
  * - doesn't touch a NATed request,
@@ -118,10 +103,7 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "tc_nodeport_nat_backend")

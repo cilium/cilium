@@ -4564,6 +4564,8 @@ const (
 	InstanceTypeI8ge48xlarge       InstanceType = "i8ge.48xlarge"
 	InstanceTypeI8geMetal24xl      InstanceType = "i8ge.metal-24xl"
 	InstanceTypeI8geMetal48xl      InstanceType = "i8ge.metal-48xl"
+	InstanceTypeMacM4Metal         InstanceType = "mac-m4.metal"
+	InstanceTypeMacM4proMetal      InstanceType = "mac-m4pro.metal"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -5588,6 +5590,8 @@ func (InstanceType) Values() []InstanceType {
 		"i8ge.48xlarge",
 		"i8ge.metal-24xl",
 		"i8ge.metal-48xl",
+		"mac-m4.metal",
+		"mac-m4pro.metal",
 	}
 }
 

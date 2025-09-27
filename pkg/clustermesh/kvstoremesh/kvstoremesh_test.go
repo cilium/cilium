@@ -748,10 +748,12 @@ func TestRemoteClusterSync(t *testing.T) {
 				clusters: make(map[string]*remoteCluster),
 			}
 			km := KVStoreMesh{
-				config: tt.config,
-				common: mockClusterMesh,
-				logger: hivetest.Logger(t),
+				config:  tt.config,
+				common:  mockClusterMesh,
+				logger:  hivetest.Logger(t),
+				started: make(chan struct{}),
 			}
+			close(km.started)
 
 			rc := &remoteCluster{
 				name:         "foo",

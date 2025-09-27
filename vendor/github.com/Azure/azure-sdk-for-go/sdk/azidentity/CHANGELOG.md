@@ -1,5 +1,17 @@
 # Release History
 
+## 1.12.0 (2025-09-16)
+
+### Features Added
+- Added `DefaultAzureCredentialOptions.RequireAzureTokenCredentials`. `NewDefaultAzureCredential` returns an
+  error when this option is true and the environment variable `AZURE_TOKEN_CREDENTIALS` has no value.
+
+### Other Changes
+- `AzureDeveloperCLICredential` no longer hangs when AZD_DEBUG is set
+- `GetToken` methods of `AzureCLICredential` and `AzureDeveloperCLICredential` return an error when
+  `TokenRequestOptions.Claims` has a value because these credentials can't acquire a token in that
+  case. The error messages describe the action required to get a token.
+
 ## 1.11.0 (2025-08-05)
 
 ### Other Changes

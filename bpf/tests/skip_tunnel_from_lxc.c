@@ -30,25 +30,13 @@
 /*
  * Include entrypoint into lxc egress stack
  */
-#include "bpf_lxc.c"
+#include "lib/bpf_lxc.h"
 
 /*
  * Include test helpers
  */
 #include "lib/ipcache.h"
 #include "lib/policy.h"
-
-#define FROM_CONTAINER 0
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_CONTAINER] = &cil_from_container,
-	},
-};
 
 static __always_inline int
 pktgen_from_lxc(struct __ctx_buff *ctx, bool v4)
@@ -106,8 +94,7 @@ setup(struct __ctx_buff *ctx, bool flag_skip_tunnel, bool v4)
 		ipcache_v6_add_entry_with_flags((union v6addr *)DST_IPV6,
 						0, 1230, v4_node_two, 0, flag_skip_tunnel);
 
-	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 static __always_inline int

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -76,6 +77,28 @@ func TestL4Addr_Equals(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestL3n4Addr_DeepEqual(t *testing.T) {
+	var v4, v6 L3n4Addr
+	require.NoError(t, v4.ParseFromString("1.1.1.1:80/TCP"))
+	require.NoError(t, v6.ParseFromString("[2001::1]:80/TCP"))
+
+	assert.True(t, v4.DeepEqual(&v4))
+	assert.True(t, v6.DeepEqual(&v6))
+	assert.False(t, v4.DeepEqual(&v6))
+	assert.False(t, v6.DeepEqual(&v4))
+
+	var nilp *L3n4Addr
+	assert.True(t, nilp.DeepEqual(nil))
+	assert.False(t, nilp.DeepEqual(&v4))
+
+	var v4_2, v6_2 L3n4Addr
+	require.NoError(t, v4_2.ParseFromString("1.1.1.1:80/TCP"))
+	require.NoError(t, v6_2.ParseFromString("[2001::1]:80/TCP"))
+
+	assert.True(t, v4.DeepEqual(&v4_2))
+	assert.True(t, v6.DeepEqual(&v6_2))
 }
 
 func TestL3n4Addr_Bytes(t *testing.T) {
@@ -598,6 +621,34 @@ func TestServiceNameYAMLJSON(t *testing.T) {
 				assert.True(t, test.name.Equal(name), "Equal %v %v", test.name, name)
 			}
 		}
+	}
+}
+
+func TestL4AddrParsing(t *testing.T) {
+	type testCase struct {
+		err    bool
+		input  string
+		output L4Addr
+	}
+
+	testCases := []testCase{
+		{false, "443/tcp", L4Addr{Protocol: TCP, Port: 443}},
+		{false, "1312/udp", L4Addr{Protocol: UDP, Port: 1312}},
+		{true, "65538/tcp", L4Addr{}}, // port > 16 bits
+		{true, "123/abcd", L4Addr{}},  // unknown proto
+	}
+
+	for _, tc := range testCases {
+		addr, err := L4AddrFromString(tc.input)
+		if tc.err {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err)
+			// test the conversion back
+			require.Equal(t, addr.String(), strings.ToUpper(tc.input))
+		}
+
+		require.Equal(t, tc.output, addr)
 	}
 }
 

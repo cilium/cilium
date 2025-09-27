@@ -10,17 +10,17 @@ import (
 )
 
 func TestBitmap(t *testing.T) {
-	b := newBitmap(100)
+	b := NewBitmap(100)
 
 	for i := range uint64(100) {
-		b.set(i, i%2 == 0)
+		b.Set(i, i%2 == 0)
 	}
 
 	for i := range uint64(100) {
 		expected := i%2 == 0
-		assert.Equal(t, expected, b.get(i))
+		assert.Equal(t, expected, b.Get(i))
 	}
 
-	b.set(200, true)
-	assert.False(t, b.get(200))
+	b.Set(200, true)
+	assert.False(t, b.Get(200))
 }

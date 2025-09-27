@@ -11,26 +11,13 @@
 #define ENABLE_LOCAL_REDIRECT_POLICY 1
 #define ENABLE_SOCKET_LB_HOST_ONLY 1
 
-#include <bpf_lxc.c>
+#include "lib/bpf_lxc.h"
 
 ASSIGN_CONFIG(__u64, endpoint_netns_cookie, 5000)
 
 #include "lib/lb.h"
 #include "lib/ipcache.h"
 #include "lib/endpoint.h"
-
-#define FROM_CONTAINER 0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_CONTAINER] = &cil_from_container,
-	},
-};
 
 #define V4_SERVICE_IP		v4_svc_one
 #define SERVICE_PORT		tcp_svc_one
@@ -83,10 +70,7 @@ int v4_local_backend_to_service_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(V4_BACKEND_IP, 0, 112233, 0, 0);
 	endpoint_v4_add_entry(V4_BACKEND_IP, 0, 0, 0, 0, 0, NULL, NULL);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 /* Test that sending a packet from a backend pod to its own service does not
@@ -182,10 +166,7 @@ int v6_local_backend_to_service_setup(struct __ctx_buff *ctx)
 	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);
 	endpoint_v6_add_entry(&backend_ip, 0, 0, 0, 0, NULL, NULL);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "v6_local_redirect")

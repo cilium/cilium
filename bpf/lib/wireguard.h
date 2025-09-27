@@ -3,8 +3,6 @@
 
 #pragma once
 
-#ifdef ENABLE_WIREGUARD
-
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
@@ -17,11 +15,16 @@
 
 #include "linux/icmpv6.h"
 
+DECLARE_CONFIG(__u32, wg_ifindex, "Index of the WireGuard interface.")
+DECLARE_CONFIG(__u16, wg_port, "Port for the WireGuard interface.")
+
+#ifdef ENABLE_WIREGUARD
+
 /* ctx_is_wireguard is used to check whether ctx is a WireGuard network packet.
  * This function returns true in case all the following conditions are satisfied:
  *
  * - ctx is a UDP packet;
- * - L4 dport == WG_PORT;
+ * - L4 dport == CONFIG(wg_port);
  * - L4 sport == dport;
  * - valid identity in cluster.
  */
@@ -42,7 +45,7 @@ ctx_is_wireguard(struct __ctx_buff *ctx, int l4_off, __u8 protocol, __u32 identi
 		return false;
 
 	/* Packet is not for cilium@WireGuard.*/
-	if (l4.dport != bpf_htons(WG_PORT))
+	if (l4.dport != bpf_htons(CONFIG(wg_port)))
 		return false;
 
 	/* Packet does not come from cilium@WireGuard. */
@@ -142,10 +145,13 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	 *  encrypted.
 	 */
 	magic = ctx->mark & MARK_MAGIC_HOST_MASK;
-	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
+	if (magic == MARK_MAGIC_PROXY_INGRESS ||
+	    magic == MARK_MAGIC_PROXY_EGRESS ||
+	    magic == MARK_MAGIC_SKIP_TPROXY)
 		goto maybe_encrypt;
 #if defined(TUNNEL_MODE)
 	/* In tunneling mode the mark might have been reset. Check TC index instead.
+	 * TODO: remove this in v1.20, once we can rely on MARK_MAGIC_SKIP_TPROXY.
 	 */
 	if (tc_index_from_ingress_proxy(ctx) || tc_index_from_egress_proxy(ctx))
 		goto maybe_encrypt;
@@ -181,7 +187,7 @@ maybe_encrypt: __maybe_unused
 	if (dst && dst->key) {
 		set_identity_mark(ctx, src_sec_identity, MARK_MAGIC_IDENTITY);
 overlay_encrypt: __maybe_unused
-		return ctx_redirect(ctx, WG_IFINDEX, 0);
+		return ctx_redirect(ctx, CONFIG(wg_ifindex), 0);
 	}
 
 out:
@@ -195,10 +201,8 @@ static __always_inline bool
 strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 	struct remote_endpoint_info __maybe_unused *dest_info, __maybe_unused *src_info;
 	bool __maybe_unused in_strict_cidr = false;
+	struct iphdr __maybe_unused *ip4;
 	void *data, *data_end;
-#ifdef ENABLE_IPV4
-	struct iphdr *ip4;
-#endif
 
 	switch (proto) {
 #ifdef ENABLE_IPV4

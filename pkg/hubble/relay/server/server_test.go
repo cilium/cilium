@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -94,9 +95,8 @@ func getRandomEndpoint() *testutils.FakeEndpointInfo {
 func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.LocalObserverServer {
 	queueSize := numFlows
 
-	pp := noopParser(t)
-	nsMgr := observer.NewNamespaceManager()
-	s, err := observer.NewLocalServer(pp, nsMgr, log,
+	pp, nm := noopParser(t), testutils.NoopNamespaceManager
+	s, err := observer.NewLocalServer(pp, nm, log,
 		observeroption.WithMaxFlows(container.Capacity65535),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
@@ -108,12 +108,10 @@ func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.Lo
 		tn := monitor.TraceNotify{Type: byte(monitorAPI.MessageTypeTrace)}
 		src := getRandomEndpoint()
 		dst := getRandomEndpoint()
-		srcMAC, _ := net.ParseMAC(fake.MAC())
-		dstMAC, _ := net.ParseMAC(fake.MAC())
 		data := testutils.MustCreateL3L4Payload(tn,
 			&layers.Ethernet{
-				SrcMAC:       srcMAC,
-				DstMAC:       dstMAC,
+				SrcMAC:       net.HardwareAddr(mac.MustParseMAC(fake.MAC())),
+				DstMAC:       net.HardwareAddr(mac.MustParseMAC(fake.MAC())),
 				EthernetType: layers.EthernetTypeIPv4,
 			},
 			&layers.IPv4{

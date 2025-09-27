@@ -225,6 +225,16 @@ jobs:
     with:
       step: "4-post-release"
       version: ${{ github.ref_name }}
+    # This is the intended behavior of GitHub Actions. Declaring entries under
+    # "secrets:" grants the called workflow permission to read
+    # CILIUM_RELEASE_BOT_PEM and CILIUM_RELEASE_BOT_APP_ID. It does not pass
+    # literal values here; the values are resolved only in the called
+    # workflow's scope. If the called workflow sets an environment
+    # (e.g., environment: TestEnvironment), environment-scoped secrets are
+    # populated there and become available to its steps.
+    secrets:
+      CILIUM_RELEASE_BOT_PEM: ${{ secrets.CILIUM_RELEASE_BOT_PEM }}
+      CILIUM_RELEASE_BOT_APP_ID: ${{ secrets.CILIUM_RELEASE_BOT_APP_ID }}
 
   call-publish-helm:
     name: Publish Helm Chart
@@ -233,3 +243,13 @@ jobs:
     with:
       step: "5-publish-helm"
       version: ${{ github.ref_name }}
+    # This is the intended behavior of GitHub Actions. Declaring entries under
+    # "secrets:" grants the called workflow permission to read
+    # CILIUM_RELEASE_BOT_PEM and CILIUM_RELEASE_BOT_APP_ID. It does not pass
+    # literal values here; the values are resolved only in the called
+    # workflow's scope. If the called workflow sets an environment
+    # (e.g., environment: TestEnvironment), environment-scoped secrets are
+    # populated there and become available to its steps.
+    secrets:
+      CILIUM_RELEASE_BOT_PEM: ${{ secrets.CILIUM_RELEASE_BOT_PEM }}
+      CILIUM_RELEASE_BOT_APP_ID: ${{ secrets.CILIUM_RELEASE_BOT_APP_ID }}

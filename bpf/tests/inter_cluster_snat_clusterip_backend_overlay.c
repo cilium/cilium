@@ -98,28 +98,13 @@ int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 }
 
 /* Include an actual datapath code */
-#include <bpf_overlay.c>
+#include "lib/bpf_overlay.h"
 
 #include "lib/endpoint.h"
 
 /*
  * Tests
  */
-
-#define TO_OVERLAY 0
-#define FROM_OVERLAY 1
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[TO_OVERLAY] = &cil_to_overlay,
-		[FROM_OVERLAY] = &cil_from_overlay,
-	},
-};
 
 static __always_inline int
 pktgen_to_overlay(struct __ctx_buff *ctx, bool syn, bool ack)
@@ -194,7 +179,7 @@ int from_overlay_syn_setup(struct __ctx_buff *ctx)
 	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0, 0,
 			      (__u8 *)BACKEND_MAC, (__u8 *)BACKEND_ROUTER_MAC);
 
-	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
+	return overlay_receive_packet(ctx);
 	return TEST_ERROR;
 }
 
@@ -292,8 +277,7 @@ int to_overlay_synack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_to_overlay_synack")
 int to_overlay_synack_setup(struct __ctx_buff *ctx)
 {
-	tail_call_static(ctx, entry_call_map, TO_OVERLAY);
-	return TEST_ERROR;
+	return overlay_send_packet(ctx);
 }
 
 CHECK("tc", "02_to_overlay_synack")
@@ -366,8 +350,7 @@ int from_overlay_ack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "03_from_overlay_ack")
 int from_overlay_ack_setup(struct __ctx_buff *ctx)
 {
-	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
-	return TEST_ERROR;
+	return overlay_receive_packet(ctx);
 }
 
 CHECK("tc", "03_from_overlay_ack")

@@ -113,16 +113,12 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, struct remote_endpoint_info *info,
 static __always_inline int
 do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 {
+	struct ipv6hdr __maybe_unused *ip6;
+	struct iphdr __maybe_unused *ip4;
 	void *data, *data_end;
 	__u8 protocol = 0;
 	__u16 node_id = 0;
 	bool decrypted;
-#ifdef ENABLE_IPV6
-	struct ipv6hdr *ip6;
-#endif
-#ifdef ENABLE_IPV4
-	struct iphdr *ip4;
-#endif
 
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 
@@ -224,20 +220,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
 
-	/* if we are in tunnel mode the overlay prog can detect if the packet
-	 * was already encrypted before encapsulation.
-	 *
-	 * if it was, we can simply short-circuit here and return, no encryption
-	 * is required
-	 *
-	 * this would only be the case when transitioning from v1.17 -> v1.18
-	 * and can be removed on v1.19 release.
-	 */
-# if defined(TUNNEL_MODE)
-	if (ctx_is_overlay_encrypted(ctx))
-		return CTX_ACT_OK;
-# endif /* TUNNEL_MODE */
-
 	switch (proto) {
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
@@ -256,9 +238,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		 * set_ipsec_encrypt to obtain the correct node ID and spi.
 		 */
 		if (ctx_is_overlay(ctx)) {
-			/* NOTE: we confirm double-encryption will not occur
-			 * above in the `ctx_is_overlay_encrypted` check
-			 */
 			fake_info.tunnel_endpoint.ip4 = ip4->daddr;
 			fake_info.flag_has_tunnel_ep = true;
 
@@ -292,9 +271,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		/* See comment in IPv4 case.
 		 */
 		if (ctx_is_overlay(ctx)) {
-			/* NOTE: we confirm double-encryption will not occur
-			 * above in the `ctx_is_overlay_encrypted` check
-			 */
 			ipv6_addr_copy_unaligned(&fake_info.tunnel_endpoint.ip6,
 						 (union v6addr *)&ip6->daddr);
 			fake_info.flag_has_tunnel_ep = true;

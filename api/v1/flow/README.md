@@ -9,6 +9,7 @@
     - [CiliumEventType](#flow-CiliumEventType)
     - [DNS](#flow-DNS)
     - [DebugEvent](#flow-DebugEvent)
+    - [Emitter](#flow-Emitter)
     - [Endpoint](#flow-Endpoint)
     - [EndpointRegenNotification](#flow-EndpointRegenNotification)
     - [EndpointUpdateNotification](#flow-EndpointUpdateNotification)
@@ -173,6 +174,22 @@ DNS flow. This is basically directly mapped from Cilium&#39;s [LogRecordDNS](htt
 
 
 
+<a name="flow-Emitter"></a>
+
+### Emitter
+Emitter identifies the source that emits a Hubble flow.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  | name identifies the emitter. The name should be capitalized (&#34;Hubble&#34;, not &#34;hubble&#34; nor &#34;HUBBLE&#34;). |
+| version | [string](#string) |  | version identifiers the emitter version. The version should not contain a &#39;v&#39; prefix as sometimes seen (&#34;1.19.0&#34;, not &#34;v1.19.0&#34;). |
+
+
+
+
+
+
 <a name="flow-Endpoint"></a>
 
 ### Endpoint
@@ -289,6 +306,7 @@ EventTypeFilter is a filter describing a particular event type.
 | ----- | ---- | ----- | ----------- |
 | time | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | uuid | [string](#string) |  | uuid is a universally unique identifier for this flow. |
+| emitter | [Emitter](#flow-Emitter) |  | emitter identifies the source that emitted the flow. |
 | verdict | [Verdict](#flow-Verdict) |  |  |
 | drop_reason | [uint32](#uint32) |  | **Deprecated.** only applicable to Verdict = DROPPED. deprecated in favor of drop_reason_desc. |
 | auth_type | [AuthType](#flow-AuthType) |  | auth_type is the authentication type specified for the flow in Cilium Network Policy. Only set on policy verdict events. |
@@ -581,7 +599,7 @@ Message for L7 flow, which roughly corresponds to Cilium&#39;s accesslog [LogRec
 | latency_ns | [uint64](#uint64) |  | Latency of the response |
 | dns | [DNS](#flow-DNS) |  |  |
 | http | [HTTP](#flow-HTTP) |  |  |
-| kafka | [Kafka](#flow-Kafka) |  |  |
+| kafka | [Kafka](#flow-Kafka) |  | **Deprecated.**  |
 
 
 
@@ -600,6 +618,8 @@ that happened before the events were captured by Hubble.
 | source | [LostEventSource](#flow-LostEventSource) |  | source is the location where events got lost. |
 | num_events_lost | [uint64](#uint64) |  | num_events_lost is the number of events that haven been lost at source. |
 | cpu | [google.protobuf.Int32Value](#google-protobuf-Int32Value) |  | cpu on which the event was lost if the source of lost events is PERF_EVENT_RING_BUFFER. |
+| first | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | first is the timestamp of the first event that was lost. |
+| last | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | last is the timestamp of the last event that was lost. |
 
 
 

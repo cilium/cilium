@@ -1834,6 +1834,9 @@
     "enableMasqueradeRouteSource": {
       "type": "boolean"
     },
+    "enableNoServiceEndpointsRoutable": {
+      "type": "boolean"
+    },
     "enableNonDefaultDenyPolicies": {
       "type": "boolean"
     },
@@ -4206,6 +4209,12 @@
     "kubeConfigPath": {
       "type": "string"
     },
+    "kubeProxyReplacement": {
+      "type": [
+        "string",
+        "boolean"
+      ]
+    },
     "kubeProxyReplacementHealthzBindAddr": {
       "type": "string"
     },
@@ -5033,6 +5042,9 @@
         "string",
         "array"
       ]
+    },
+    "policyDenyResponse": {
+      "type": "string"
     },
     "policyEnforcementMode": {
       "type": "string"

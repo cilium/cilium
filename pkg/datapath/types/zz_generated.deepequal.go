@@ -244,10 +244,10 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EnableWireguard != other.EnableWireguard {
 		return false
 	}
-	if in.EnableIPSec != other.EnableIPSec {
+	if in.WireguardIfIndex != other.WireguardIfIndex {
 		return false
 	}
-	if in.EnableIPSecEncryptedOverlay != other.EnableIPSecEncryptedOverlay {
+	if in.EnableIPSec != other.EnableIPSec {
 		return false
 	}
 	if in.EncryptNode != other.EncryptNode {
@@ -300,6 +300,10 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	}
 
 	if in.KPRConfig != other.KPRConfig {
+		return false
+	}
+
+	if in.SvcRouteConfig != other.SvcRouteConfig {
 		return false
 	}
 

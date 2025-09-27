@@ -17,6 +17,9 @@ message Flow {
     // uuid is a universally unique identifier for this flow.
     string uuid = 34;
 
+    // emitter identifies the source that emitted the flow.
+    Emitter emitter = 41;
+
     Verdict verdict = 2;
     // only applicable to Verdict = DROPPED.
     // deprecated in favor of drop_reason_desc.
@@ -150,6 +153,17 @@ message Flow {
     repeated string policy_log = 21006;
 }
 
+// Emitter identifies the source that emits a Hubble flow.
+message Emitter {
+    // name identifies the emitter.
+    // The name should be capitalized ("Hubble", not "hubble" nor "HUBBLE").
+    string name = 1;
+    // version identifiers the emitter version.
+    // The version should not contain a 'v' prefix as sometimes seen ("1.19.0",
+    // not "v1.19.0").
+    string version = 2;
+}
+
 enum FlowType {
     UNKNOWN_TYPE = 0;
     L3_L4 = 1; // not sure about the underscore here, but `L34` also reads strange
@@ -210,7 +224,7 @@ enum TraceObservationPoint {
     // TO_CRYPTO indicates network packets are transmitted towards the crypto
     // process for encryption.
     TO_CRYPTO = 13;
-    
+
 }
 
 enum TraceReason {
@@ -258,7 +272,7 @@ message Layer7 {
     oneof record {
         DNS dns = 100;
         HTTP http = 101;
-        Kafka kafka = 102;
+        Kafka kafka = 102 [deprecated = true];
     }
 }
 
@@ -714,6 +728,7 @@ message HTTP {
 
 // L7 information for Kafka flows. It corresponds to Cilium's [accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229) type.
 message Kafka {
+    option deprecated = true;
     int32 error_code = 1;
     int32 api_version = 2;
     string api_key = 3;
@@ -757,6 +772,10 @@ message LostEvent {
     // cpu on which the event was lost if the source of lost events is
     // PERF_EVENT_RING_BUFFER.
     google.protobuf.Int32Value cpu = 3;
+    // first is the timestamp of the first event that was lost.
+    google.protobuf.Timestamp first = 4;
+    // last is the timestamp of the last event that was lost.
+    google.protobuf.Timestamp last = 5;
 }
 
 // AgentEventType is the type of agent event. These values are shared with type

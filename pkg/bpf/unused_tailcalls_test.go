@@ -33,14 +33,16 @@ func TestRemoveUnusedTailcalls(t *testing.T) {
 	require.NoError(t, cpy.Assign(&obj))
 	require.NoError(t, obj.UseTailB.Set(true))
 
-	require.NoError(t, removeUnusedTailcalls(logger, cpy))
+	reach, err := computeReachability(cpy)
+	require.NoError(t, err)
+	require.NoError(t, removeUnusedTailcalls(cpy, reach, logger))
 
 	assert.Contains(t, cpy.Programs, "cil_entry")
 	assert.Contains(t, cpy.Programs, "a")
 	assert.Contains(t, cpy.Programs, "b")
 	assert.Contains(t, cpy.Programs, "c")
 	assert.NotContains(t, cpy.Programs, "d")
-	assert.NotContains(t, cpy.Programs, "e")
+	assert.Contains(t, cpy.Programs, "e")
 
 	cpy = spec.Copy()
 	obj = struct {
@@ -49,12 +51,14 @@ func TestRemoveUnusedTailcalls(t *testing.T) {
 	require.NoError(t, cpy.Assign(&obj))
 	require.NoError(t, obj.UseTailB.Set(false))
 
-	require.NoError(t, removeUnusedTailcalls(logger, cpy))
+	reach, err = computeReachability(cpy)
+	require.NoError(t, err)
+	require.NoError(t, removeUnusedTailcalls(cpy, reach, logger))
 
 	assert.Contains(t, cpy.Programs, "cil_entry")
 	assert.Contains(t, cpy.Programs, "a")
 	assert.NotContains(t, cpy.Programs, "b")
 	assert.Contains(t, cpy.Programs, "c")
 	assert.NotContains(t, cpy.Programs, "d")
-	assert.NotContains(t, cpy.Programs, "e")
+	assert.Contains(t, cpy.Programs, "e")
 }

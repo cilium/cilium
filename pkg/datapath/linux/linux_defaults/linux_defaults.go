@@ -27,9 +27,10 @@ const (
 	// table which is between 253-255. See ip-route(8).
 	RouteTableInterfacesOffset = 10
 
-	// MarkProxyToWorld is the default mark to use to indicate that a packet
-	// from proxy needs to be sent to the world.
-	MarkProxyToWorld = 0x800
+	// MarkSkipTProxy is the default mark to use to indicate that a packet
+	// should skip tproxy-processing. This is needed for eg. traffic by transparent
+	// proxy connections which later passes through the cilium_host / cilium_net pair.
+	MarkSkipTProxy = 0x800
 
 	// RouteMarkDecrypt is the default route mark to use to indicate datapath
 	// needs to decrypt a packet.

@@ -10,158 +10,157 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 
-	"github.com/cilium/cilium/pkg/bpf/analyze"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // removeUnusedTailcalls removes tail calls that are not reachable from
 // entrypoint programs.
-func removeUnusedTailcalls(logger *slog.Logger, spec *ebpf.CollectionSpec) error {
-	type tail struct {
-		referenced bool
-		visited    bool
-		spec       *ebpf.ProgramSpec
+func removeUnusedTailcalls(spec *ebpf.CollectionSpec, reach reachables, logger *slog.Logger) error {
+	if reach == nil {
+		return fmt.Errorf("reachability information is required")
 	}
 
-	// Build a map of tail call slots to ProgramSpecs.
-	tails := make(map[uint32]*tail)
-	for _, prog := range spec.Programs {
-		if !isTailCall(prog) {
+	tails, err := tailCallSlots(reach)
+	if err != nil {
+		return fmt.Errorf("getting tail call slots: %w", err)
+	}
+
+	live, err := livePrograms(reach, tails, logger)
+	if err != nil {
+		return fmt.Errorf("getting live programs: %w", err)
+	}
+
+	deleteUnused(spec, live, logger)
+
+	return nil
+}
+
+// tailCallSlots returns a map of tail call slot indices to reachableSpecs.
+// Used for stepping into a ProgramSpec when its tail call slot appears in the
+// instruction stream of a calling program.
+func tailCallSlots(reach reachables) (map[uint32]*reachableSpec, error) {
+	// Build a map of tail call slots to reachableSpecs.
+	tails := make(map[uint32]*reachableSpec)
+	for _, r := range reach {
+		if !isTailCall(r.ProgramSpec) {
 			continue
 		}
 
-		slot, err := tailCallSlot(prog)
+		slot, err := tailCallSlot(r.ProgramSpec)
 		if err != nil {
-			return fmt.Errorf("getting tail call slot: %w", err)
+			return nil, err
 		}
 
-		tails[slot] = &tail{
-			spec: prog,
+		tails[slot] = r
+	}
+
+	return tails, nil
+}
+
+// livePrograms returns all programs reachable from entrypoints via tail calls.
+func livePrograms(reach reachables, tails map[uint32]*reachableSpec, logger *slog.Logger) (*set.Set[*ebpf.ProgramSpec], error) {
+	visited := &set.Set[*ebpf.ProgramSpec]{}
+	for _, r := range reach {
+		if !isEntrypoint(r.ProgramSpec) {
+			continue
+		}
+
+		if err := visitProgram(r, tails, visited, logger); err != nil {
+			return nil, err
 		}
 	}
 
-	// Discover all tailcalls that are reachable from the given program.
-	visit := func(prog *ebpf.ProgramSpec, tailcalls map[uint32]*tail) error {
-		// Load Blocks computed after compilation, or compute new ones.
-		bl, err := analyze.MakeBlocks(prog.Instructions)
-		if err != nil {
-			return fmt.Errorf("computing Blocks for Program %s: %w", prog.Name, err)
-		}
+	return visited, nil
+}
 
-		// Analyze reachability given the VariableSpecs provided at load time.
-		bl, err = analyze.Reachability(bl, prog.Instructions, analyze.VariableSpecs(spec.Variables))
-		if err != nil {
-			return fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
-		}
-
-		const windowSize = 3
-
-		i := -1
-		for _, live := range bl.LiveInstructions(prog.Instructions) {
-			i++
-			if !live {
-				continue
-			}
-
-			if i <= windowSize {
-				// Not enough instructions to backtrack yet.
-				continue
-			}
-
-			// The `tail_call_static` C function is always used to call tail calls when
-			// the map index is known at compile time.
-			// Due to inline ASM this generates the following instructions:
-			//   Mov R1, Rx
-			//   Mov R2, <map>
-			//   Mov R3, <index>
-			//   call tail_call
-
-			// Find the tail call instruction.
-			inst := prog.Instructions[i]
-			if !inst.IsBuiltinCall() || inst.Constant != int64(asm.FnTailCall) {
-				continue
-			}
-
-			// Check that the previous instruction is a mov of the tail call index.
-			movIdx := prog.Instructions[i-1]
-			if movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
-				continue
-			}
-
-			// Check that the instruction before that is the load of the tail call map.
-			movR2 := prog.Instructions[i-2]
-			if movR2.OpCode != asm.LoadImmOp(asm.DWord) || movR2.Src != asm.PseudoMapFD {
-				continue
-			}
-
-			ref := movR2.Reference()
-
-			// Ignore static tail calls made to maps that are not the calls map
-			if ref != callsMap {
-				logger.Debug(
-					"skipping tail call into map other than the calls map",
-					logfields.Section, prog.SectionName,
-					logfields.Prog, prog.Name,
-					logfields.Instruction, i,
-					logfields.Reference, ref,
-				)
-				continue
-			}
-
-			tc := tailcalls[uint32(movIdx.Constant)]
-			if tc == nil {
-				return fmt.Errorf(
-					"potential missed tail call in program %s to slot %d at insn %d",
-					prog.Name,
-					movIdx.Constant,
-					i,
-				)
-			}
-
-			tc.referenced = true
-		}
-
+func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *set.Set[*ebpf.ProgramSpec], logger *slog.Logger) error {
+	if visited.Has(r.ProgramSpec) {
 		return nil
 	}
+	visited.Insert(r.ProgramSpec)
 
-	// Discover all tailcalls that are reachable from the entrypoints.
-	for _, prog := range spec.Programs {
-		if !isEntrypoint(prog) {
+	for iter, live := range r.Iterate() {
+		if !live {
 			continue
 		}
-		if err := visit(prog, tails); err != nil {
-			return err
-		}
-	}
 
-	// Keep visiting tailcalls until no more are discovered.
-reset:
-	for _, tailcall := range tails {
-		// If a tailcall is referenced by an entrypoint or another tailcall we should visit it
-		if tailcall.referenced && !tailcall.visited {
-			if err := visit(tailcall.spec, tails); err != nil {
+		// The `tail_call_static` C function is always used to call tail calls when
+		// the map index is known at compile time, as opposed to `tail_call_dynamic`
+		// which is used when the slot is variable, such as when jumping to a policy
+		// program of an endpoint id that is resolved at runtime. Only the _static
+		// macro will generate the exact instruction sequence we're looking for.
+		//
+		// Due to inline ASM this generates the following instructions:
+		//   Mov R1, Rx
+		//   Mov R2, <map>
+		//   Mov R3, <index>
+		//   call bpf_tail_call
+
+		// Find a tail call instruction.
+		call := iter.Instruction()
+		if !call.IsBuiltinCall() || call.Constant != int64(asm.FnTailCall) {
+			continue
+		}
+
+		// Start a backtracking session starting at the current instruction.
+		iter = iter.Clone()
+
+		// The preceding instruction must be the load of the index into R3.
+		if !iter.Previous() {
+			continue
+		}
+		movIdx := iter.Instruction()
+		if movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
+			continue
+		}
+		slot := uint32(movIdx.Constant)
+
+		// The preceding instruction must be the load of the calls pointer map into R2.
+		if !iter.Previous() {
+			continue
+		}
+		mapPtr := iter.Instruction()
+		if !mapPtr.IsLoadFromMap() {
+			continue
+		}
+		ref := mapPtr.Reference()
+
+		// Only consider calls into cilium_calls. Some programs statically call into
+		// the policy map, only if the slot (endpoint id) is known at compile time.
+		if ref != callsMap {
+			logger.Debug("Ignoring tail call into map",
+				logfields.Reference, ref,
+				logfields.Prog, r.ProgramSpec.Name,
+			)
+			continue
+		}
+
+		if tail := tails[slot]; tail != nil {
+			if err := visitProgram(tail, tails, visited, logger); err != nil {
 				return err
 			}
-			tailcall.visited = true
-
-			// Visiting this tail call might have caused tail calls earlier in the list to become referenced, but this
-			// loop already skipped them. So reset the loop. If we already visited a tailcall we will ignore them anyway.
-			goto reset
-		}
-	}
-
-	// Remove all tailcalls that are not referenced.
-	for _, tailcall := range tails {
-		if !tailcall.referenced {
-			logger.Debug(
-				"unreferenced tail call, deleting",
-				logfields.Section, tailcall.spec.SectionName,
-				logfields.Prog, tailcall.spec.Name,
-			)
-
-			delete(spec.Programs, tailcall.spec.Name)
+		} else {
+			return fmt.Errorf("missed tail call in program %s to slot %d at insn %d", r.ProgramSpec.Name, slot, iter.Index())
 		}
 	}
 
 	return nil
+}
+
+// deleteUnused removes unreferenced tail calls from the CollectionSpec.
+func deleteUnused(spec *ebpf.CollectionSpec, live *set.Set[*ebpf.ProgramSpec], logger *slog.Logger) {
+	for name, prog := range spec.Programs {
+		if !isTailCall(prog) {
+			continue
+		}
+
+		if live.Has(prog) {
+			continue
+		}
+
+		delete(spec.Programs, name)
+
+		logger.Debug("Deleted unreferenced tail call from CollectionSpec", logfields.Prog, prog.Name)
+	}
 }

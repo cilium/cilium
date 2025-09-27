@@ -9,7 +9,7 @@
   key-two: 'rfc4106-gcm-aes'
 - name: 'ipsec-2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250812.093650'
+  kernel: '5.10-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -18,7 +18,7 @@
   key-two: 'cbc-aes-sha256'
 - name: 'ipsec-3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250812.093650'
+  kernel: '5.10-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -29,7 +29,7 @@
   kvstore: 'true'
 - name: 'ipsec-4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'geneve'
@@ -40,7 +40,7 @@
   kvstore: 'true'
 - name: 'ipsec-5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250812.093650'
+  kernel: '5.10-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -51,7 +51,7 @@
   key-two: 'cbc-aes-sha256'
 - name: 'ipsec-6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250812.093650'
+  kernel: '5.10-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -65,7 +65,7 @@
   key-two: 'rfc4106-gcm-aes'
 - name: 'ipsec-7'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250812.093650'
+  kernel: '5.15-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
@@ -76,7 +76,7 @@
   skip-upgrade: 'true'
 - name: 'ipsec-8'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -89,7 +89,7 @@
   key-two: 'rfc4106-gcm-aes'
 - name: 'ipsec-9'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'

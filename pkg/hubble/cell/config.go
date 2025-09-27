@@ -8,12 +8,15 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	hubbleDefaults "github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
+	peercell "github.com/cilium/cilium/pkg/hubble/peer/cell"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type config struct {
@@ -28,6 +31,9 @@ type config struct {
 	// MonitorEvents specifies Cilium monitor events for Hubble to observe. By
 	// default, Hubble observes all monitor events.
 	MonitorEvents []string `mapstructure:"hubble-monitor-events"`
+	// LostEventSendInterval specifies the interval at which lost events are
+	// sent from the Observer server, if any.
+	LostEventSendInterval time.Duration `mapstructure:"hubble-lost-event-send-interval"`
 
 	// SocketPath specifies the UNIX domain socket for Hubble server to listen
 	// to.
@@ -43,9 +49,10 @@ type config struct {
 var defaultConfig = config{
 	EnableHubble: false,
 	// Hubble internals (parser, ringbuffer) configuration
-	EventBufferCapacity: observeroption.Default.MaxFlows.AsInt(),
-	EventQueueSize:      0, // see getDefaultMonitorQueueSize()
-	MonitorEvents:       []string{},
+	EventBufferCapacity:   observeroption.Default.MaxFlows.AsInt(),
+	EventQueueSize:        0, // see getDefaultMonitorQueueSize()
+	MonitorEvents:         []string{},
+	LostEventSendInterval: hubbleDefaults.LostEventSendInterval,
 	// Hubble local server configuration
 	SocketPath: hubbleDefaults.SocketPath,
 	// Hubble TCP server configuration
@@ -64,6 +71,7 @@ func (def config) Flags(flags *pflag.FlagSet) {
 			strings.Join(monitorAPI.AllMessageTypeNames(), " "),
 		),
 	)
+	flags.Duration("hubble-lost-event-send-interval", def.LostEventSendInterval, "Interval at which lost events are sent from the Observer server, if any.")
 	// Hubble local server configuration
 	flags.String("hubble-socket-path", def.SocketPath, "Set hubble's socket path to listen for connections")
 	// Hubble TCP server configuration
@@ -82,3 +90,17 @@ func getDefaultMonitorQueueSize(numCPU int) int {
 	monitorQueueSize := min(numCPU*ciliumDefaults.MonitorQueueSizePerCPU, ciliumDefaults.MonitorQueueSizePerCPUMaximum)
 	return monitorQueueSize
 }
+
+// ConfigProviders provides configuration objects for Hubble components.
+// This group creates and provides configuration structs by combining
+// different configuration sources (hubble config, TLS config, etc.).
+var ConfigProviders = cell.Group(
+	// Provide HubbleConfig struct for peer service and other components
+	cell.ProvidePrivate(func(cfg config, tlsCfg certloaderConfig) *peercell.HubbleConfig {
+		return &peercell.HubbleConfig{
+			ListenAddress:   cfg.ListenAddress,
+			PreferIpv6:      cfg.PreferIpv6,
+			EnableServerTLS: !tlsCfg.DisableServerTLS,
+		}
+	}),
+)

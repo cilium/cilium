@@ -25,19 +25,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	return 0;
 }
 
-#include "bpf_xdp.c"
+#include "lib/bpf_xdp.h"
 #include "lib/nodeport.h"
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[0] = &cil_xdp_entry,
-	},
-};
 
 #define CLIENT_IP IPV4(10, 0, 0, 1)
 #define FRONTEND_IP IPV4(10, 0, 1, 1)
@@ -169,10 +158,7 @@ int test1_setup(struct __ctx_buff *ctx)
 	if (ret)
 		return ret;
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "session_affinity")

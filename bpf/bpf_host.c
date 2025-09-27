@@ -60,6 +60,10 @@
  #define host_wg_encrypt_hook(ctx, proto, src_sec_identity)			\
 	 wg_maybe_redirect_to_encrypt(ctx, proto, src_sec_identity)
 
+#ifndef tcx_early_hook
+#define tcx_early_hook(ctx, proto) CTX_ACT_OK
+#endif
+
 /* Bit 0 is skipped for robustness, as it's used in some places to indicate from_host itself. */
 #define FROM_HOST_FLAG_NEED_HOSTFW (1 << 1)
 #define FROM_HOST_FLAG_HOST_ID (1 << 2)
@@ -347,14 +351,14 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			return CTX_ACT_OK;
 
 #ifdef ENABLE_HOST_ROUTING
-		/* add L2 header for L2-less interface, such as cilium_wg0 */
-		if (!from_host) {
+		/* add L2 header for L2-less interface: */
+		if (!from_host && THIS_IS_L3_DEV) {
 			bool l2_hdr_required = true;
 
 			ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
 			if (ret != 0)
 				return ret;
-			if (l2_hdr_required && ETH_HLEN == 0) {
+			if (l2_hdr_required) {
 				/* l2 header is added */
 				l3_off += __ETH_HLEN;
 			}
@@ -386,16 +390,15 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 skip_tunnel:
 #endif
 
-	if (!info || (!from_proxy &&
-		      identity_is_world_ipv6(info->sec_identity))) {
+	if (from_proxy) {
+		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
+		return CTX_ACT_OK;
+	}
+
+	if (!info || identity_is_world_ipv6(info->sec_identity)) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
 	}
-
-#if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
-	if (from_proxy && !identity_is_cluster(info->sec_identity))
-		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
-#endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
 	return CTX_ACT_OK;
 }
@@ -756,14 +759,14 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			return CTX_ACT_OK;
 
 #ifdef ENABLE_HOST_ROUTING
-		/* add L2 header for L2-less interface, such as cilium_wg0 */
-		if (!from_host) {
+		/* add L2 header for L2-less interface: */
+		if (!from_host && THIS_IS_L3_DEV) {
 			bool l2_hdr_required = true;
 
 			ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
 			if (ret != 0)
 				return ret;
-			if (l2_hdr_required && ETH_HLEN == 0) {
+			if (l2_hdr_required) {
 				/* l2 header is added */
 				l3_off += __ETH_HLEN;
 				if (!____revalidate_data_pull(ctx, &data, &data_end,
@@ -827,8 +830,20 @@ skip_vtep:
 skip_tunnel:
 #endif
 
-	if (!info || (!from_proxy &&
-		      identity_is_world_ipv4(info->sec_identity))) {
+	/* When a proxy's traffic couldn't be delivered by the preceding code,
+	 * we let it pass through (for routing by the stack). To prevent
+	 * tproxy-matching for transparent connections, we need to explicitly
+	 * opt out.
+	 *
+	 * Traffic that lands here is eg to-world, or to-remote-pod (in native
+	 * routing).
+	 */
+	if (from_proxy) {
+		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
+		return CTX_ACT_OK;
+	}
+
+	if (!info || identity_is_world_ipv4(info->sec_identity)) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
 		 *
@@ -837,18 +852,9 @@ skip_tunnel:
 		 * entry. Therefore we need to test for WORLD_ID. It is clearly
 		 * wrong to route a ctx to cilium_host for which we don't know
 		 * anything about it as otherwise we'll run into a routing loop.
-		 *
-		 * Note that we do not drop packets from proxy even if
-		 * they are going to WORLD_ID. This is to avoid
-		 * https://github.com/cilium/cilium/issues/21954.
 		 */
 		return DROP_UNROUTABLE;
 	}
-
-#if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
-	if (from_proxy && !identity_is_cluster(info->sec_identity))
-		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
-#endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
 	return CTX_ACT_OK;
 }
@@ -986,6 +992,10 @@ int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 	struct l2_responder_stats *stats;
 	int ret;
 	__u64 time;
+
+	/* Announcing L2 addresses for a L3 device makes no sense: */
+	if (THIS_IS_L3_DEV)
+		return CTX_ACT_OK;
 
 	time = config_get(RUNTIME_CONFIG_AGENT_LIVENESS);
 	if (!time)
@@ -1264,12 +1274,14 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	 * ignore the return value from do_decrypt.
 	 */
 	do_decrypt(ctx, proto);
-	if (ctx->mark == MARK_MAGIC_DECRYPT)
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
 		return CTX_ACT_OK;
 #endif
+	ret = tcx_early_hook(ctx, proto);
+	if (ret != CTX_ACT_OK)
+		return ret;
 
 	return do_netdev(ctx, proto, UNKNOWN_ID, TRACE_FROM_NETWORK, false);
-
 drop_err:
 	return send_drop_notify_error(ctx, src_id, ret, METRIC_INGRESS);
 }
@@ -1325,15 +1337,6 @@ int cil_from_host(struct __ctx_buff *ctx)
 	if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
 		obs_point = TRACE_FROM_PROXY;
 
-#ifdef ENABLE_IPSEC
-	if (magic == MARK_MAGIC_ENCRYPT) {
-		send_trace_notify(ctx, TRACE_FROM_STACK, identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-				  TRACE_REASON_ENCRYPTED, 0, proto);
-		return CTX_ACT_OK;
-	}
-#endif /* ENABLE_IPSEC */
-
 	return do_netdev(ctx, proto, identity, obs_point, true);
 }
 
@@ -1370,6 +1373,17 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		src_sec_identity = get_identity(ctx);
 #endif
 
+	/* Load the ethertype just once: */
+	validate_ethertype(ctx, &proto);
+
+#ifdef ENABLE_IPSEC
+	if (magic == MARK_MAGIC_ENCRYPT)
+		send_trace_notify(ctx, TRACE_FROM_STACK,
+				  ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY), UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+				  TRACE_REASON_ENCRYPTED, 0, proto);
+#endif /* ENABLE_IPSEC */
+
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
 	if (ctx->vlan_present) {
@@ -1392,9 +1406,6 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 #endif
-
-	/* Load the ethertype just once: */
-	validate_ethertype(ctx, &proto);
 
 #ifdef ENABLE_HOST_FIREWALL
 	/* This was initially added for Egress GW. There it's no longer needed,
@@ -1744,16 +1755,16 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 *
 	 * This iptables rule, created by
 	 * iptables.Manager.inboundProxyRedirectRule() is ignored by the mark
-	 * MARK_MAGIC_PROXY_TO_WORLD, in the control plane.
+	 * MARK_MAGIC_SKIP_TPROXY, in the control plane.
 	 * Technically, it is also ignored by MARK_MAGIC_ENCRYPT but reusing
 	 * this mark breaks further processing as its used in the XFRM subsystem.
 	 *
 	 * Therefore, if the packet's mark is zero, indicating it was forwarded
-	 * from 'cilium_host', mark the packet with MARK_MAGIC_PROXY_TO_WORLD
+	 * from 'cilium_host', mark the packet with MARK_MAGIC_SKIP_TPROXY
 	 * and allow it to enter the foward path once punted to stack.
 	 */
 	if (ctx->mark == 0 && THIS_INTERFACE_IFINDEX == CILIUM_NET_IFINDEX)
-		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
+		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
 #endif /* !TUNNEL_MODE */
 
 # ifdef ENABLE_NODEPORT

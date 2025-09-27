@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#include <bpf/ctx/skb.h>
+#include "common.h"
+#include "pktgen.h"
+
 #define ENABLE_SCTP
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_MASQUERADE_IPV6
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include <bpf/config/node.h>
 
@@ -19,10 +23,7 @@
 #include <lib/time.h>
 
 #include <bpf/helpers.h>
-#include <bpf/ctx/skb.h>
 #include <bpf/api.h>
-#include "common.h"
-#include "pktgen.h"
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
@@ -40,21 +41,6 @@
 #define NODE_ONE { .addr = v6_node_one_addr }
 #define EXT_IP { .addr = v6_ext_node_one_addr }
 #define POD_IP { .addr = v6_pod_one_addr }
-
-#define FROM_NETDEV	0
-#define TO_NETDEV	1
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_from_netdev,
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
 
 /*
  * Input packet represents a device sending a PKT_TOO_BIG response ICMPv6
@@ -240,8 +226,8 @@ int snat_v6_pmtu_setup(struct __ctx_buff *ctx)
 	ret = snat_v6_insert_ct_nat(IPPROTO_TCP);
 	if (ret < 0)
 		return TEST_FAIL;
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	return TEST_PASS;
+
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "snat_v6_tcp_pmtu")
@@ -273,8 +259,8 @@ int snat_v6_pmtu_udp_setup(struct __ctx_buff *ctx)
 	ret = snat_v6_insert_ct_nat(IPPROTO_UDP);
 	if (ret < 0)
 		return TEST_FAIL;
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	return TEST_PASS;
+
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "snat_v6_udp_pmtu")

@@ -53,6 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/health"
+	"github.com/cilium/cilium/pkg/healthconfig"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -227,17 +228,11 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(vp, option.EnableEndpointRoutes)
 
-	flags.Bool(option.EnableHealthChecking, defaults.EnableHealthChecking, "Enable connectivity health checking")
-	option.BindEnv(vp, option.EnableHealthChecking)
-
 	flags.Bool(option.AgentHealthRequireK8sConnectivity, true, "Require Kubernetes connectivity in agent health endpoint")
 	option.BindEnv(vp, option.AgentHealthRequireK8sConnectivity)
 
 	flags.Bool(option.EnableHealthCheckLoadBalancerIP, defaults.EnableHealthCheckLoadBalancerIP, "Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled")
 	option.BindEnv(vp, option.EnableHealthCheckLoadBalancerIP)
-
-	flags.Bool(option.EnableEndpointHealthChecking, defaults.EnableEndpointHealthChecking, "Enable connectivity health checking between virtual endpoints")
-	option.BindEnv(vp, option.EnableEndpointHealthChecking)
 
 	flags.Int(option.HealthCheckICMPFailureThreshold, defaults.HealthCheckICMPFailureThreshold, "Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy.")
 	option.BindEnv(vp, option.HealthCheckICMPFailureThreshold)
@@ -594,6 +589,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.ServiceNoBackendResponse)
 
 	flags.Int(option.TracePayloadlen, defaults.TracePayloadLen, "Length of payload to capture when tracing native packets.")
+
+	flags.String(option.PolicyDenyResponse, defaults.PolicyDenyResponse, "How to handle pod egress traffic dropped by network policy: either drop the packet (\"none\") or reject with an ICMP Destination Unreachable (\"icmp\")")
+	option.BindEnv(vp, option.PolicyDenyResponse)
+
 	option.BindEnv(vp, option.TracePayloadlen)
 
 	flags.Int(option.TracePayloadlenOverlay, defaults.TracePayloadLenOverlay, "Length of payload to capture when tracing overlay packets.")
@@ -949,10 +948,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		default:
 			logger.Warn("Unknown verbose debug group", logfields.Group, grp)
 		}
-	}
-	// Enable policy debugging if debug is enabled.
-	if option.Config.Debug {
-		option.Config.Opts.SetBool(option.DebugPolicy, true)
 	}
 
 	common.RequireRootPrivilege("cilium-agent")
@@ -1317,6 +1312,7 @@ type daemonParams struct {
 	KPRConfig           kpr.KPRConfig
 	EndpointAPIFence    endpointapi.Fence
 	IPSecConfig         datapath.IPsecConfig
+	HealthConfig        healthconfig.CiliumHealthConfig
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
@@ -1516,7 +1512,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	bootstrapStats.healthCheck.Start()
-	if option.Config.EnableHealthChecking {
+	if d.healthConfig.IsHealthCheckingEnabled() {
 		if err := d.ciliumHealth.Init(d.ctx, d.healthEndpointRouting, cleaner.cleanupFuncs.Add); err != nil {
 			return fmt.Errorf("failed to initialize cilium health: %w", err)
 		}

@@ -22,7 +22,6 @@ on:
     branches:
       - main
       - ft/main/**
-      - 'renovate/main-**'
     paths-ignore:
       - 'Documentation/**'
 
@@ -566,13 +565,12 @@ jobs:
         env:
           KVSTORE_ID: 1
         run: |
-          # Explicitly configure the NodePort to make sure that it is different in
-          # each cluster, to workaround #24692
+          # Let the NodePort to be selected randomly, to prevent the risk of conflicts.
           cilium --context ${{ env.contextName1 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.ciliumClusterName1 }} \
             --helm-set cluster.id=1 \
-            --helm-set clustermesh.apiserver.service.nodePort=32379 \
+            --helm-set clustermesh.apiserver.service.nodePort=0 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
             ${{ steps.vars.outputs.cilium_install_multipool_ipam_cluster1 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
@@ -589,13 +587,12 @@ jobs:
         env:
           KVSTORE_ID: 2
         run: |
-          # Explicitly configure the NodePort to make sure that it is different in
-          # each cluster, to workaround #24692
+          # Let the NodePort to be selected randomly, to prevent the risk of conflicts.
           cilium --context ${{ env.contextName2 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.ciliumClusterName2 }} \
             --helm-set cluster.id=${{ matrix.maxConnectedClusters }} \
-            --helm-set clustermesh.apiserver.service.nodePort=32380 \
+            --helm-set clustermesh.apiserver.service.nodePort=0 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
             ${{ steps.vars.outputs.cilium_install_multipool_ipam_cluster2 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \

@@ -36,15 +36,13 @@ func TestReachabilitySimple(t *testing.T) {
 	noElim, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
 
-	assert.EqualValues(t, 5, noElim.count(), "All blocks should be live")
-	assert.Equal(t, noElim.count(), noElim.countLive())
+	assert.EqualValues(t, 5, noElim.countAll(), "All blocks should be live")
+	assert.Equal(t, noElim.countAll(), noElim.countLive())
 
-	iter := noElim.LiveInstructions(obj.Program.Instructions)
-	assert.NotNil(t, iter)
 	var found bool
-	for ins, live := range iter {
+	for iter, live := range noElim.Iterate() {
 		assert.True(t, live)
-		if ins.Reference() == "map_a" {
+		if iter.Instruction().Reference() == "map_a" {
 			found = true
 		}
 	}
@@ -55,20 +53,14 @@ func TestReachabilitySimple(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.False(t, elim.isLive(1), "Second block with map_a reference should be dead")
-	assert.Equal(t, elim.count()-1, elim.countLive())
+	assert.Equal(t, elim.countAll()-1, elim.countLive())
 
-	iter = elim.LiveInstructions(obj.Program.Instructions)
-	assert.NotNil(t, iter)
-	for ins, live := range iter {
+	for iter, live := range elim.Iterate() {
 		if !live {
 			continue
 		}
-		assert.NotEqual(t, "map_a", ins.Reference(), "map_a should not be live")
+		assert.NotEqual(t, "map_a", iter.Instruction().Reference(), "map_a should not be live")
 	}
-
-	// Reachability should fail when called a second time on the same Blocks.
-	_, err = Reachability(elim, obj.Program.Instructions, VariableSpecs(spec.Variables))
-	assert.Error(t, err)
 }
 
 var _ VariableSpec = (*mockVarSpec)(nil)
@@ -152,8 +144,8 @@ func TestReachabilityPointerReuse(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.EqualValues(t, 5, eliminated.count())
-	assert.NotEqual(t, eliminated.count(), eliminated.countLive())
+	assert.EqualValues(t, 5, eliminated.countAll())
+	assert.NotEqual(t, eliminated.countAll(), eliminated.countLive())
 	assert.True(t, eliminated.isLive(0))
 	assert.True(t, eliminated.isLive(1))
 	assert.False(t, eliminated.isLive(2))
@@ -204,7 +196,7 @@ func TestReachabilityLongJump(t *testing.T) {
 	// 1: dead, since it is skipped by the first branch
 	// 2: live, we've determined the first branch is always taken
 	// 3: dead, since it's the target of the long jump that is never taken
-	assert.NotEqual(t, disabled.count(), disabled.countLive())
+	assert.NotEqual(t, disabled.countAll(), disabled.countLive())
 	assert.True(t, disabled.isLive(0))
 	assert.False(t, disabled.isLive(1))
 	assert.True(t, disabled.isLive(2))
@@ -220,7 +212,7 @@ func TestReachabilityLongJump(t *testing.T) {
 	// 1: live, we've determined the first branch insn is never taken
 	// 2: dead, the long jump is taken
 	// 3: live, target of the long jump
-	assert.NotEqual(t, enabled.count(), enabled.countLive())
+	assert.NotEqual(t, enabled.countAll(), enabled.countLive())
 	assert.True(t, enabled.isLive(0))
 	assert.True(t, enabled.isLive(1))
 	assert.False(t, enabled.isLive(2))

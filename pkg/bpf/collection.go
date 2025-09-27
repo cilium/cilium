@@ -208,7 +208,12 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, fmt.Errorf("applying variable overrides: %w", err)
 	}
 
-	if err := removeUnusedTailcalls(logger, spec); err != nil {
+	reach, err := computeReachability(spec)
+	if err != nil {
+		return nil, nil, fmt.Errorf("computing reachability: %w", err)
+	}
+
+	if err := removeUnusedTailcalls(spec, reach, logger); err != nil {
 		return nil, nil, fmt.Errorf("removing unused tail calls: %w", err)
 	}
 
@@ -216,7 +221,7 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, fmt.Errorf("resolving tail calls: %w", err)
 	}
 
-	keep, err := removeUnusedMaps(spec, opts.Keep)
+	keep, err := removeUnusedMaps(spec, opts.Keep, reach)
 	if err != nil {
 		return nil, nil, fmt.Errorf("pruning unused maps: %w", err)
 	}

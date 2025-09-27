@@ -17,9 +17,6 @@ on:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
         default: '{}'
-  push:
-    branches:
-      - 'renovate/main-**'
   # Run every 8 hours
   schedule:
     - cron:  '0 5/8 * * *'
@@ -50,7 +47,6 @@ concurrency:
     ${{ github.workflow }}
     ${{ github.event_name }}
     ${{
-      (github.event_name == 'push' && github.sha) ||
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
@@ -90,22 +86,22 @@ jobs:
           - kernel: 'rhel8.6-20250812.093650'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.10-20250812.093650'
+          - kernel: '5.10-20250917.183741'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.15-20250812.093650'
+          - kernel: '5.15-20250917.183741'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.1-20250812.093650'
+          - kernel: '6.1-20250917.183741'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.6-20250812.093650'
+          - kernel: '6.6-20250917.183741'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.12-20250812.093650'
+          - kernel: '6.12-20250917.183741'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'bpf-next-20250812.093650'
+          - kernel: 'bpf-next-20250917.183741'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:

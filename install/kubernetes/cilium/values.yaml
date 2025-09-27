@@ -1155,6 +1155,8 @@ healthCheckICMPFailureThreshold: 3
 hostFirewall:
   # -- Enables the enforcement of host policies in the eBPF datapath.
   enabled: false
+# -- Enable routing to a service that has zero endpoints
+enableNoServiceEndpointsRoutable: true
 # -- Configure socket LB
 socketLB:
   # -- Enable socket LB
@@ -1222,6 +1224,9 @@ hubble:
   #   1, 3, 7, 15, 31, 63, 127, 255, 511, 1023,
   #   2047, 4095, 8191, 16383, 32767, 65535
   # eventBufferCapacity: "4095"
+
+  # -- The interval at which Hubble will send out lost events from the Observer server, if any.
+  # lostEventSendInterval: 1s
 
   # -- Hubble metrics configuration.
   # See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics
@@ -1412,7 +1417,7 @@ hubble:
         #   --set hubble.redact.http.headers.deny="Authorization,Proxy-Authorization"
         deny: []
     kafka:
-      # -- Enables redacting Kafka's API key.
+      # -- Enables redacting Kafka's API key (deprecated, will be removed in v1.19).
       # Example:
       #
       #   redact:
@@ -2125,8 +2130,10 @@ readinessProbe:
 # -- Configure the kube-proxy replacement in Cilium BPF datapath
 # Valid options are "true" or "false".
 # ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/
-#kubeProxyReplacement: "false"
-
+# @schema@
+# type: [string, boolean]
+# @schema@
+kubeProxyReplacement: "false"
 # -- healthz server bind address for the kube-proxy replacement.
 # To enable set the value to '0.0.0.0:10256' for all ipv4
 # addresses and this '[::]:10256' for all ipv6 addresses.
@@ -2825,6 +2832,11 @@ tunnelSourcePortRange: 0-0
 #  - reject (default)
 #  - drop
 serviceNoBackendResponse: reject
+# -- Configure what the response should be to pod egress traffic denied by network policy.
+# Possible values:
+#  - none (default)
+#  - icmp
+policyDenyResponse: none
 # -- Configure the underlying network MTU to overwrite auto-detected MTU.
 # This value doesn't change the host network interface MTU i.e. eth0 or ens0.
 # It changes the MTU for cilium_net@cilium_host, cilium_host@cilium_net,
@@ -3089,7 +3101,7 @@ nodeinit:
     override: ~
     repository: "quay.io/cilium/startup-script"
     tag: "1755531540-60ee83e"
-    digest: "sha256:0c91245afb3a4ff78b5cc8c09226806e94a9a10eb0adb74a85e0eeed2a5cae8c"
+    digest: "sha256:5bdca3c2dec2c79f58d45a7a560bf1098c2126350c901379fe850b7f78d3d757"
     useDigest: true
     pullPolicy: "Always"
   # -- The priority class to use for the nodeinit pod.
@@ -3510,14 +3522,6 @@ clustermesh:
       # -- The type of service used for apiserver access.
       type: NodePort
       # -- Optional port to use as the node port for apiserver access.
-      #
-      # WARNING: make sure to configure a different NodePort in each cluster if
-      # kube-proxy replacement is enabled, as Cilium is currently affected by a known
-      # bug (#24692) when NodePorts are handled by the KPR implementation. If a service
-      # with the same NodePort exists both in the local and the remote cluster, all
-      # traffic originating from inside the cluster and targeting the corresponding
-      # NodePort will be redirected to a local backend, regardless of whether the
-      # destination node belongs to the local or the remote cluster.
       nodePort: 32379
       # -- Annotations for the clustermesh-apiserver service.
       # Example annotations to configure an internal load balancer on different cloud providers:

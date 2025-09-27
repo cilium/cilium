@@ -14,6 +14,8 @@ type BPFHost struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Enable routes when service has 0 endpoints.
+	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// Length of the Ethernet header on this device. May be set to zero on L2-less
@@ -33,13 +35,17 @@ type BPFHost struct {
 	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
+	// Index of the WireGuard interface.
+	WgIfindex uint32 `config:"wg_ifindex"`
+	// Port for the WireGuard interface.
+	WgPort uint16 `config:"wg_port"`
 
 	Node
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{0x5dc, false, false, 0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFHost{0x5dc, false, false, false, 0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, 0x0, node}
+		false, 0x0, 0x0, 0x0, node}
 }

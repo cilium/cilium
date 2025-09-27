@@ -1,0 +1,178 @@
+#! --cluster-name=foo
+
+# Initialize the kvstore state with a bunch of nodes.
+kvstore/update cilium/state/nodes/v1/foo/node-1 node-1.json
+kvstore/update cilium/state/nodes/v1/foo/node-2 node-2.json
+kvstore/update cilium/state/nodes/v1/foo/node-3 node-3.json
+kvstore/update cilium/state/nodes/v1/other/cluster node-other-cluster.json
+
+# Initialize the kubernetes state with a bunch of CiliumNodes and pods.
+k8s/add cilium-node-1.yaml
+k8s/add cilium-node-2.yaml
+k8s/add cilium-node-4.yaml
+
+k8s/add pod-node-1a.yaml
+k8s/add pod-node-1b.yaml
+k8s/add pod-node-3a.yaml
+k8s/add pod-node-5a.yaml
+
+hive/start
+
+# Assert that the nodes for which there's no corresponding CiliumNode are deleted.
+# Entries for other clusters should not be touched.
+kvstore/list --keys-only cilium/state/nodes keys.actual
+* cmp keys.actual keys.expected.v1
+
+# Creating a kvstore entry for a non-existing CiliumNode should cause it to be
+# immediately deleted (as we are setting the delay to 0 for testing purposes).
+kvstore/update cilium/state/nodes/v1/foo/node-3 node-3.json
+
+# Wait for garbage collection.
+kvstore/list --keys-only cilium/state/nodes keys.actual
+* cmp keys.actual keys.expected.v1
+
+# Creating a kvstore entry for an existing CiliumNode should not trigger GC.
+kvstore/update cilium/state/nodes/v1/foo/node-4 node-4.json
+
+# Wait for a bit of time so that things can settle, and ensure that the entry
+# was actually not deleted.
+sleep 50ms
+
+kvstore/list --keys-only cilium/state/nodes keys.actual
+cmp keys.actual keys.expected.v2
+
+# Deleting a CiliumNode should trigger the GC of the corresponding kvstore entry.
+k8s/delete cilium-node-2.yaml
+
+# Wait for garbage collection.
+kvstore/list --keys-only cilium/state/nodes keys.actual
+* cmp keys.actual keys.expected.v3
+
+# Deleting a CiliumNode should not trigger the GC of the corresponding kvstore
+# entry if a Cilium pod is still running.
+k8s/delete cilium-node-1.yaml
+
+# Wait for a bit of time so that things can settle, and ensure that the entry
+# was actually not deleted.
+sleep 50ms
+
+kvstore/list --keys-only cilium/state/nodes keys.actual
+cmp keys.actual keys.expected.v3
+
+# Deleting the pod should now cause the entry to be deleted.
+k8s/delete pod-node-1a.yaml
+
+# Wait for garbage collection.
+kvstore/list --keys-only cilium/state/nodes keys.actual
+* cmp keys.actual keys.expected.v4
+
+# Creating a kvstore entry for a node where Cilium is running should not trigger GC.
+kvstore/update cilium/state/nodes/v1/foo/node-5 node-5.json
+
+# Wait for a bit of time so that things can settle, and ensure that the entry
+# was actually not deleted.
+sleep 50ms
+
+kvstore/list --keys-only cilium/state/nodes keys.actual
+cmp keys.actual keys.expected.v5
+
+###
+
+-- node-1.json --
+{ "cluster": "foo", "name": "node-1" }
+
+-- node-2.json --
+{ "cluster": "foo", "name": "node-2" }
+
+-- node-3.json --
+{ "cluster": "foo", "name": "node-3" }
+
+-- node-4.json --
+{ "cluster": "foo", "name": "node-4" }
+
+-- node-5.json --
+{ "cluster": "foo", "name": "node-5" }
+
+-- node-other-cluster.json --
+{ "cluster": "other", "name": "cluster" }
+
+
+-- cilium-node-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-1
+
+-- cilium-node-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-2
+
+-- cilium-node-4.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-4
+
+-- pod-node-1a.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cilium-42lwq
+  labels:
+    k8s-app: cilium
+    app.kubernetes.io/name: cilium-agent
+    app.kubernetes.io/part-of: cilium
+spec:
+  nodeName: node-1
+
+-- pod-node-1b.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foobar
+spec:
+  nodeName: node-1
+
+-- pod-node-3a.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qux
+  labels:
+    k8s-app: other
+spec:
+  nodeName: node-3
+
+-- pod-node-5a.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cilium-cl4dn
+  labels:
+    k8s-app: cilium
+spec:
+  nodeName: node-5
+
+
+-- keys.expected.v1 --
+# cilium/state/nodes/v1/foo/node-1
+# cilium/state/nodes/v1/foo/node-2
+# cilium/state/nodes/v1/other/cluster
+-- keys.expected.v2 --
+# cilium/state/nodes/v1/foo/node-1
+# cilium/state/nodes/v1/foo/node-2
+# cilium/state/nodes/v1/foo/node-4
+# cilium/state/nodes/v1/other/cluster
+-- keys.expected.v3 --
+# cilium/state/nodes/v1/foo/node-1
+# cilium/state/nodes/v1/foo/node-4
+# cilium/state/nodes/v1/other/cluster
+-- keys.expected.v4 --
+# cilium/state/nodes/v1/foo/node-4
+# cilium/state/nodes/v1/other/cluster
+-- keys.expected.v5 --
+# cilium/state/nodes/v1/foo/node-4
+# cilium/state/nodes/v1/foo/node-5
+# cilium/state/nodes/v1/other/cluster

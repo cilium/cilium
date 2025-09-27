@@ -58,6 +58,16 @@ func ParseMAC(s string) (MAC, error) {
 	return MAC(ha), nil
 }
 
+// MustParseMAC calls [ParseMAC] and panics on error. It is intended for use in tests with
+// hard-coded strings.
+func MustParseMAC(s string) MAC {
+	mac, err := ParseMAC(s)
+	if err != nil {
+		panic(err)
+	}
+	return mac
+}
+
 // Uint64 returns the MAC in uint64 format. The MAC is represented as little-endian in
 // the returned value.
 // Example:
@@ -122,16 +132,6 @@ func GenerateRandMAC() (MAC, error) {
 	buf[0] = (buf[0] | 0x02) & 0xfe
 
 	return buf, nil
-}
-
-// HaveMACAddrs returns true if all given network interfaces have L2 addr.
-func HaveMACAddrs(ifaces []string) bool {
-	for _, iface := range ifaces {
-		if !HasMacAddr(iface) {
-			return false
-		}
-	}
-	return true
 }
 
 // CArrayString returns a string which can be used for assigning the given

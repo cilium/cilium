@@ -316,6 +316,7 @@ communicating via the proxy must reconnect to re-establish connections.
   This flag currently masquerades traffic to node ``InternalIP`` addresses.
   This may change in future. See :gh-issue:`35823`
   and :gh-issue:`17177` for further discussion on this topic.
+* MCS-API CRDs need to be updated, see the MCS-API :ref:`clustermesh_mcsapi_prereqs` for updated CRD links.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -330,7 +331,9 @@ Removed Options
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
-
+* The ``--enable-ipsec-encrypted-overlay`` flag has no effect and will be removed in Cilium 1.20. Starting from
+  Cilium 1.18 the IPsec encryption is always applied after overlay encapsulation, and therefore this special opt-in
+  flag is no longer needed.
 
 Helm Options
 ~~~~~~~~~~~~

@@ -19,9 +19,12 @@ import (
 	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	metricscell "github.com/cilium/cilium/pkg/hubble/metrics/cell"
+	"github.com/cilium/cilium/pkg/hubble/observer/namespace"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	parsercell "github.com/cilium/cilium/pkg/hubble/parser/cell"
+	"github.com/cilium/cilium/pkg/hubble/peer"
+	peercell "github.com/cilium/cilium/pkg/hubble/peer/cell"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -38,20 +41,29 @@ var Cell = cell.Module(
 
 	Core,
 
+	// Configuration providers group creates config objects for other components
+	ConfigProviders,
+
 	// Hubble TLS certificates
 	certloaderGroup,
 
 	// Hubble flow log exporters
 	exportercell.Cell,
 
-	// Parser for Hubble flows
-	parsercell.Cell,
-
 	// Metrics server and flow processor
 	metricscell.Cell,
 
 	// Drop event emitter flow processor
 	dropeventemitter.Cell,
+
+	// Parser for Hubble flows
+	parsercell.Cell,
+
+	// Hubble flows k8s namespaces monitor
+	namespace.Cell,
+
+	// Peer service for handling peer discovery and notifications
+	peercell.Cell,
 )
 
 // The core cell group, which contains the Hubble integration and the
@@ -85,10 +97,13 @@ type hubbleParams struct {
 
 	DropEventEmitter dropeventemitter.FlowProcessor
 
-	PayloadParser parser.Decoder
+	PayloadParser    parser.Decoder
+	NamespaceManager namespace.Manager
 
 	GRPCMetrics          *grpc_prometheus.ServerMetrics
 	MetricsFlowProcessor metrics.FlowProcessor
+
+	PeerService *peer.Service
 
 	Config config
 }
@@ -99,7 +114,7 @@ type HubbleIntegration interface {
 }
 
 func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
-	h, err := new(
+	h, err := createHubbleIntegration(
 		params.IdentityAllocator,
 		params.EndpointManager,
 		params.IPCache,
@@ -112,8 +127,10 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.ExporterBuilders,
 		params.DropEventEmitter,
 		params.PayloadParser,
+		params.NamespaceManager,
 		params.GRPCMetrics,
 		params.MetricsFlowProcessor,
+		params.PeerService,
 		params.Config,
 		params.Logger,
 	)

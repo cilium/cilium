@@ -191,75 +191,45 @@ func (b *Block) edge(insns asm.Instructions) *edge {
 	return getEdgeMeta(&insns[b.end])
 }
 
-func (b *Block) len() int {
-	return max(b.end-b.start+1, 0)
-}
-
-func (b *Block) iterate(insns asm.Instructions) *asm.InstructionIterator {
+func (b *Block) iterateLocal(insns asm.Instructions) *BlockIterator {
 	if b.start < 0 || b.end < 0 || b.start >= len(insns) || b.end >= len(insns) {
 		return nil
 	}
 
-	i := insns[b.start : b.end+1].Iterate()
-
-	// Setting these fields correctly allows the insn printer to show correct
-	// raw offsets of instructions matching verifier output. Makes debugging
-	// significantly easier.
-	i.Index = b.start
-	i.Offset = b.raw
-
-	return i
+	return &BlockIterator{
+		block:  b,
+		insns:  insns,
+		index:  b.start,
+		offset: b.raw,
+		local:  true,
+	}
 }
 
-// backward returns an iterator that traverses the instructions in the block
-// in reverse order, starting from the last instruction and going to the first.
-//
-// Doesn't return an [iter.Seq2] because converting it to a pull-based iterator
-// using [iter.Pull] is incredibly, prohibitively expensive. Maybe this improves
-// in a future Go version.
-func (b *Block) backward(insns asm.Instructions) func() (*asm.Instruction, bool) {
-	// Track depth of block traversal to avoid infinite loops. Used in favor of a
-	// visited set since it's much cheaper than frequent map lookups. Typical
-	// depth is 1-3 with some double-digit outliers.
-	const maxDepth uint8 = 128
-	var depth uint8 = 0
-
-	i := b.len() - 1
-	return func() (*asm.Instruction, bool) {
-		if i < 0 {
-			// If we've reached the start of the block, roll over to its predecessor
-			// if there is exactly one. Sometimes, map pointers are reused from a
-			// previous block.
-			//
-			// This is not needed for blocks with multiple predecessors, since
-			// execution could've originated from any of them, making the contents of
-			// the pointer register undefined.
-			if len(b.predecessors) == 1 {
-				pred := b.predecessors[0]
-				if pred == b {
-					// Blocks representing loops can have themselves as a predecessor.
-					// Don't roll over to itself for obvious reasons.
-					return nil, false
-				}
-
-				if depth >= maxDepth {
-					return nil, false
-				}
-				depth++
-
-				b = pred
-				i = b.len() - 1
-			} else {
-				// Zero or multiple predecessors means we can't roll over to a
-				// predecessor, stop here.
-				return nil, false
-			}
-		}
-
-		out := &insns[b.start+i]
-		i--
-		return out, true
+func (b *Block) iterateGlobal(blocks Blocks, insns asm.Instructions) *BlockIterator {
+	if b.start < 0 || b.end < 0 || b.start >= len(insns) || b.end >= len(insns) {
+		return nil
 	}
+	return &BlockIterator{
+		blocks: blocks,
+		block:  b,
+		insns:  insns,
+		index:  b.start,
+		offset: b.raw,
+		local:  false,
+	}
+}
+
+// predecessor returns the previous Block in the control flow if there is
+// exactly one predecessor, otherwise returns nil.
+//
+// This is useful for walking the control flow backwards when there is no
+// branching, e.g. for finding the last instruction that wrote to a register
+// before it is read.
+func (b *Block) predecessor() *Block {
+	if len(b.predecessors) == 1 {
+		return b.predecessors[0]
+	}
+	return nil
 }
 
 func (b *Block) String() string {
@@ -281,18 +251,19 @@ func (b *Block) Dump(insns asm.Instructions) string {
 
 	if len(insns) != 0 {
 		sb.WriteString("Instructions:\n")
-		i := b.iterate(insns)
+		i := b.iterateLocal(insns)
 		for i.Next() {
-			if i.Ins.Symbol() != "" {
-				fmt.Fprintf(&sb, "\t%s:\n", i.Ins.Symbol())
+			ins := i.Instruction()
+			if ins.Symbol() != "" {
+				fmt.Fprintf(&sb, "\t%s:\n", ins.Symbol())
 			}
-			if src := i.Ins.Source(); src != nil {
+			if src := ins.Source(); src != nil {
 				line := strings.TrimSpace(src.String())
 				if line != "" {
 					fmt.Fprintf(&sb, "\t%*s; %s\n", 4, " ", line)
 				}
 			}
-			fmt.Fprintf(&sb, "\t%*d: %v\n", 4, i.Offset, i.Ins)
+			fmt.Fprintf(&sb, "\t%*d: %v\n", 4, i.Offset(), ins)
 		}
 		sb.WriteString("\n")
 	} else {
@@ -314,6 +285,203 @@ func (b *Block) Dump(insns asm.Instructions) string {
 	return sb.String()
 }
 
+// maxDepth is the maximum depth of block traversal when backtracking to
+// predecessors. Used in favor of a visited set since it's much cheaper than
+// frequent map lookups. Typical depth while looking for map pointer loads is
+// 1-3 with some double-digit outliers.
+const maxDepth = 128
+
+// BlockIterator is an iterator over the instructions in a block or a list of
+// blocks.
+//
+// It can be configured to iterate locally within a block or globally across
+// multiple blocks. When iterating globally, it will roll over to the next or
+// previous block when reaching the end or start of the current block,
+// respectively.
+//
+// The iterator tracks the raw instruction offset of the current instruction
+// when iterating forwards, but not when iterating backwards since that would
+// require summing up instruction sizes from the start of the block. Raw offsets
+// are only used for dumping instructions in forward order.
+type BlockIterator struct {
+	blocks Blocks
+	block  *Block
+
+	insns asm.Instructions
+	depth uint8
+
+	ins   *asm.Instruction
+	index int
+
+	// offset is zero when backtracking to predecessors or when iterating
+	// backwards from the end of a block (e.g. with a new iterator).
+	offset asm.RawInstructionOffset
+
+	local bool
+}
+
+func (i *BlockIterator) Instruction() *asm.Instruction {
+	return i.ins
+}
+
+func (i *BlockIterator) Index() int {
+	return i.index
+}
+
+func (i *BlockIterator) Offset() asm.RawInstructionOffset {
+	return i.offset
+}
+
+func (i *BlockIterator) Clone() *BlockIterator {
+	return &BlockIterator{
+		i.blocks,
+		i.block,
+		i.insns,
+		i.depth,
+		i.ins,
+		i.index,
+		i.offset,
+		i.local,
+	}
+}
+
+// nextBlock pulls the next block by identifier, if it exists. Otherwise,
+// returns false.
+//
+// Positions the iterator at the start of the next block. Offset is updated to
+// the raw offset of the first instruction in the next block.
+func (i *BlockIterator) nextBlock() bool {
+	if i.block == nil {
+		return false
+	}
+
+	if i.block.id+1 >= i.blocks.count() {
+		return false
+	}
+	next := i.blocks[i.block.id+1]
+
+	// Reset loop detection when moving forward since we're primarily concerned
+	// with infinite loops while backtracking continuously. Fallthroughs always
+	// point to the end of the program eventually.
+	i.depth = 0
+
+	i.block = next
+	i.index = i.block.start
+	i.offset = i.block.raw
+	i.ins = &i.insns[i.index]
+
+	return true
+}
+
+// prevBlock pulls the previous block in the control flow if there is exactly
+// one predecessor, otherwise returns false.
+//
+// Sometimes, map pointers are loaded into a register in a previous block.
+// Backtracking into multiple predecessors is not useful since the contents of
+// the pointer register would be ambiguous if assigned from multiple
+// predecessors.
+//
+// Positions the iterator at the end of the previous block. Offset is set to 0
+// since backtracking requires summing up instruction sizes from the start of
+// the block.
+func (i *BlockIterator) prevBlock() bool {
+	if i.block == nil {
+		return false
+	}
+
+	prev := i.block.predecessor()
+	if prev == nil || prev == i.block {
+		return false
+	}
+
+	// Simple loop detection to avoid infinite loops when backtracking
+	// continuously. Depth gets reset when moving forward.
+	if i.depth >= maxDepth {
+		return false
+	}
+	i.depth++
+
+	i.block = prev
+	i.index = i.block.end
+
+	// Raw offset tracking disabled for backtracking since it requires summing
+	// up instruction sizes from the start of the block. Raw offsets are only
+	// used for dumping instructions in forward order.
+	i.offset = 0
+
+	i.ins = &i.insns[i.index]
+
+	return true
+}
+
+// Next advances the iterator to the next instruction in the block. If the end
+// of the block is reached, it will either stop (if iterating locally) or roll
+// over to the next block (if iterating globally).
+func (i *BlockIterator) Next() bool {
+	if i.block == nil || i.index < i.block.start || i.index > i.block.end {
+		return false
+	}
+
+	// First call to Next with this iterator, pull the first insn and return.
+	if i.ins == nil {
+		i.ins = &i.insns[i.index]
+		return true
+	}
+
+	if i.index+1 > i.block.end {
+		if !i.local {
+			// Iterating globally, roll over to the next block if it exists.
+			return i.nextBlock()
+		}
+
+		// Iterating locally, stop here.
+		return false
+	}
+
+	i.index++
+	i.offset += asm.RawInstructionOffset(i.ins.Size() / asm.InstructionSize)
+	i.ins = &i.insns[i.index]
+
+	return true
+}
+
+func (i *BlockIterator) Previous() bool {
+	if i.block == nil || i.index < i.block.start || i.index > i.block.end {
+		return false
+	}
+
+	if i.ins == nil {
+		i.index = i.block.end
+		i.ins = &i.insns[i.index]
+
+		// Raw offset tracking disabled for backtracking since it requires summing
+		// up instruction sizes from the start of the block. Raw offsets are only
+		// used for dumping instructions in forward order.
+		i.offset = 0
+
+		return true
+	}
+
+	if i.index-1 < i.block.start {
+		if !i.local {
+			// Iterating globally, roll over to the previous block if it exists.
+			return i.prevBlock()
+		}
+
+		// Iterating locally, stop here.
+		return false
+	}
+
+	i.index--
+	i.ins = &i.insns[i.index]
+
+	// Prevent offset underflow.
+	raw := asm.RawInstructionOffset(i.ins.Size() / asm.InstructionSize)
+	i.offset = min(i.offset, i.offset-raw)
+
+	return true
+}
+
 // getBlock retrieves the block associated with an instruction. It checks both
 // the leader and edge metadata to find the block. If neither is found, it
 // returns nil, indicating that the instruction forms neither the start nor end
@@ -333,53 +501,10 @@ func getBlock(ins *asm.Instruction) *Block {
 }
 
 // Blocks is a list of basic blocks.
-type Blocks struct {
-	b []*Block
+type Blocks []*Block
 
-	// l is a bitmap tracking reachable blocks.
-	l bitmap
-
-	// j is a bitmap tracking predicted jumps. If the nth bit is 1, the jump
-	// at the end of block n is predicted to always be taken.
-	j bitmap
-}
-
-// LiveInstructions returns a sequence of [asm.Instruction]s held by Blocks. The
-// bool value indicates if the instruction is live (reachable), false if it's
-// not.
-//
-// Returns nil if block reachability hasn't been computed yet.
-func (bl *Blocks) LiveInstructions(insns asm.Instructions) iter.Seq2[*asm.Instruction, bool] {
-	if len(bl.l) == 0 {
-		return nil
-	}
-
-	return func(yield func(*asm.Instruction, bool) bool) {
-		for _, b := range bl.b {
-			for i := range insns[b.start : b.end+1] {
-				ins := &insns[b.start+i]
-				live := bl.l.get(b.id)
-				if !yield(ins, live) {
-					return
-				}
-			}
-		}
-	}
-}
-
-func newBlocks(cap uint64) *Blocks {
-	if cap == 0 {
-		// Provide capacity for at least one block.
-		cap = 1
-	}
-
-	return &Blocks{
-		b: make([]*Block, 0, cap),
-	}
-}
-
-func (bl *Blocks) count() uint64 {
-	return uint64(len(bl.b))
+func (bl Blocks) count() uint64 {
+	return uint64(len(bl))
 }
 
 func (bl *Blocks) add(b *Block) {
@@ -388,76 +513,42 @@ func (bl *Blocks) add(b *Block) {
 	}
 
 	b.id = uint64(bl.count())
-	bl.b = append(bl.b, b)
+	*bl = append(*bl, b)
 }
 
-func (bl *Blocks) first() *Block {
-	if len(bl.b) == 0 {
+func (bl Blocks) first() *Block {
+	if len(bl) == 0 {
 		return nil
 	}
-	return bl.b[0]
+	return bl[0]
 }
 
-func (bl *Blocks) last() *Block {
-	if len(bl.b) == 0 {
+func (bl Blocks) last() *Block {
+	if len(bl) == 0 {
 		return nil
 	}
-	return bl.b[len(bl.b)-1]
+	return bl[len(bl)-1]
 }
 
-func (bl *Blocks) isLive(id uint64) bool {
-	if id >= bl.count() {
-		return false
+func (bl Blocks) iterate(insns asm.Instructions) *BlockIterator {
+	if len(bl) == 0 {
+		return nil
 	}
-	return bl.l.get(id)
+	return bl.first().iterateGlobal(bl, insns)
 }
 
-func (bl *Blocks) countLive() uint64 {
-	var count uint64
-	for i := range uint64(len(bl.b)) {
-		if bl.l.get(i) {
-			count++
-		}
-	}
-	return count
-}
-
-func (bl *Blocks) String() string {
+func (bl Blocks) String() string {
 	return bl.Dump(nil)
 }
 
-func (bl *Blocks) Dump(insns asm.Instructions) string {
+func (bl Blocks) Dump(insns asm.Instructions) string {
 	var sb strings.Builder
-	for _, block := range bl.b {
+	for _, block := range bl {
 		sb.WriteString(fmt.Sprintf("\n=== Block %d ===\n", block.id))
 		sb.WriteString(block.Dump(insns))
-
-		// No reachability information yet.
-		if len(bl.l) == 0 {
-			continue
-		}
-
-		sb.WriteString(fmt.Sprintf("Live: %t, ", bl.l.get(uint64(block.id))))
-		sb.WriteString("branch: ")
-		if bl.j.get(uint64(block.id)) {
-			sb.WriteString("jump")
-		} else {
-			sb.WriteString("fallthrough")
-		}
 		sb.WriteString("\n")
 	}
 	return sb.String()
-}
-
-// Copy returns a shallow copy of the block list. Reachability information is
-// not copied.
-//
-// Individual blocks are attached to leader and edge [asm.Instruction] metadata
-// and should not be modified.
-func (bl *Blocks) Copy() *Blocks {
-	return &Blocks{
-		b: slices.Clone(bl.b),
-	}
 }
 
 // MakeBlocks returns a list of basic blocks of instructions that are always
@@ -466,7 +557,7 @@ func (bl *Blocks) Copy() *Blocks {
 //
 // Blocks are created by finding branches and jump targets in the given insns
 // and cutting up the instruction stream accordingly.
-func MakeBlocks(insns asm.Instructions) (*Blocks, error) {
+func MakeBlocks(insns asm.Instructions) (Blocks, error) {
 	if len(insns) == 0 {
 		return nil, errors.New("insns is empty, cannot compute blocks")
 	}
@@ -488,7 +579,7 @@ func MakeBlocks(insns asm.Instructions) (*Blocks, error) {
 }
 
 // computeBlocks computes the basic blocks from the given instruction stream.
-func computeBlocks(insns asm.Instructions) (*Blocks, error) {
+func computeBlocks(insns asm.Instructions) (Blocks, error) {
 	targets, err := rawJumpTargets(insns)
 	if err != nil {
 		return nil, fmt.Errorf("collecting jump targets: %w", err)
@@ -517,7 +608,7 @@ type blocksKey struct{}
 // given insns.
 //
 // If insns is empty, does nothing.
-func storeBlocks(insns asm.Instructions, bl *Blocks) error {
+func storeBlocks(insns asm.Instructions, bl Blocks) error {
 	if len(insns) == 0 {
 		return errors.New("insns is empty, cannot store Blocks")
 	}
@@ -531,12 +622,12 @@ func storeBlocks(insns asm.Instructions, bl *Blocks) error {
 // given insns.
 //
 // If no Blocks is present, returns nil.
-func loadBlocks(insns asm.Instructions) *Blocks {
+func loadBlocks(insns asm.Instructions) Blocks {
 	if len(insns) == 0 {
 		return nil
 	}
 
-	blocks, ok := insns[0].Metadata.Get(blocksKey{}).(*Blocks)
+	blocks, ok := insns[0].Metadata.Get(blocksKey{}).(Blocks)
 	if !ok {
 		return nil
 	}
@@ -685,8 +776,9 @@ func tagLeadersAndEdges(insns asm.Instructions, targets rawTargets) error {
 // instruction and finalizes the current one when it reaches an edge
 // instruction. No blocks are pointing to each other yet, this is done in a
 // subsequent step.
-func allocateBlocks(insns asm.Instructions) (*Blocks, error) {
-	blocks := newBlocks(0)
+func allocateBlocks(insns asm.Instructions) (Blocks, error) {
+	// Expect at least one block.
+	blocks := make(Blocks, 0, 1)
 
 	var block *Block
 	i := insns.Iterate()
@@ -743,14 +835,14 @@ func maybeFinalizeBlock(blk *Block, i *asm.InstructionIterator) {
 // predecessors, branch and fallthrough targets based on the relationships
 // between instructions identified in prior steps. Assumes that blocks have been
 // allocated and that the leaders and edges have been tagged.
-func connectBlocks(blocks *Blocks, insns asm.Instructions) error {
+func connectBlocks(blocks Blocks, insns asm.Instructions) error {
 	if blocks.count() == 0 {
 		return errors.New("no blocks to connect, this is a bug")
 	}
 
 	// Wire all blocks together by setting their predecessors, branch and
 	// fallthrough targets.
-	for _, blk := range blocks.b {
+	for _, blk := range blocks {
 		// Predecessors of the first instruction are the block's predecessors.
 		leader := blk.leader(insns)
 		if leader == nil {

@@ -18,23 +18,10 @@
 /* Test SRH encap. Reduced encap code path is a subset of SRH encap */
 #define ENABLE_SRV6_SRH_ENCAP
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 #include "lib/ipcache.h"
 #include "lib/endpoint.h"
 #include "lib/lb.h"
-
-#define FROM_NETDEV 0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_from_netdev,
-	},
-};
 
 #define POD_IPV4 v4_pod_one
 #define POD_IPV6 v6_pod_one
@@ -126,9 +113,7 @@ int srv6_decap_to_pod_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 	endpoint_v4_add_entry(POD_IPV4, 12345, 100, 0, 0, 0,
 			      (__u8 *)POD_MAC, (__u8 *)ROUTER_MAC);
 
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-
-	return TEST_FAIL;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "tc_srv6_decap_to_pod_ipv4")
@@ -264,9 +249,7 @@ int srv6_decap_to_pod_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 	endpoint_v6_add_entry((const union v6addr *)POD_IPV6, 12345, 100, 0, 0,
 			      (__u8 *)POD_MAC, (__u8 *)ROUTER_MAC);
 
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-
-	return TEST_FAIL;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "tc_srv6_decap_to_pod_ipv6")
@@ -407,9 +390,7 @@ int srv6_decap_to_service_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 	endpoint_v4_add_entry(POD_IPV4, 12345, 100, 0, 0, 0,
 			      (__u8 *)POD_MAC, (__u8 *)ROUTER_MAC);
 
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-
-	return TEST_FAIL;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "tc_srv6_decap_to_service_ipv4")
@@ -550,9 +531,7 @@ int srv6_decap_to_service_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 	endpoint_v6_add_entry((const union v6addr *)POD_IPV6, 12345, 100, 0, 0,
 			      (__u8 *)POD_MAC, (__u8 *)ROUTER_MAC);
 
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-
-	return TEST_FAIL;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "tc_srv6_decap_to_service_ipv6")

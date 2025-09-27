@@ -3,8 +3,8 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:ae90e3650b7d5fd1e470749980667ecda33d77db@sha256:655cd2c0d34d2ea927b0015058202c6458b0c4965d97090c310a8490e793e9e6
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:22e31ca0018cad492dcb99bc08368dc11fac28de@sha256:ae2f5413d4cbea8bfa2c6d05f499b5a6a3512bddf1844bb059e1a8b57b1137de
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:f5e2620e352d7bc93f5fa2e2309786102e73c014@sha256:5afb2abd71a4725003c967ee47d9555df10da1e754c07ffc48dfa8e615b83fd5
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:061e77638353be08d1a792ef38b8f4597344139d@sha256:db098a1d65275c3d3f8090706feaab9a30c437fb24942b25ffdea06a010c5bae
 #
 # cilium-envoy from github.com/cilium/proxy
 #
@@ -52,11 +52,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     # bash_completion is the same for both architectures.
     make GOARCH=${BUILDARCH} DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} PKG_BUILD=1 $(echo $MODIFIERS | tr -d '"') \
     install-bash-completion licenses-all && \
-    mv LICENSE.all /tmp/install/${TARGETOS}/${TARGETARCH}/LICENSE.all && \
-    mkdir -p /tmp/hubble/${TARGETOS}/${TARGETARCH} && \
-    cd hubble && \
-    make GOOS=${TARGETOS} GOARCH=${TARGETARCH} $(echo $MODIFIERS | tr -d '"') && \
-    mv hubble /tmp/hubble/${TARGETOS}/${TARGETARCH}/hubble
+    mv LICENSE.all /tmp/install/${TARGETOS}/${TARGETARCH}/LICENSE.all
 
 # Extract debug symbols to /tmp/debug and strip the binaries if NOSTRIP is not set.
 # Use the appropriate objcopy for the target architecture.
@@ -109,8 +105,6 @@ COPY --from=cilium-envoy /usr/bin/cilium-envoy /usr/bin/cilium-envoy-starter /us
 # local unix domain socket instead of Hubble Relay.
 ENV HUBBLE_SERVER=unix:///var/run/cilium/hubble.sock
 COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH} /
-COPY --from=builder /tmp/hubble/${TARGETOS}/${TARGETARCH}/hubble /usr/bin/hubble
-RUN /usr/bin/hubble completion bash > /etc/bash_completion.d/hubble
 WORKDIR /home/cilium
 
 ENV INITSYSTEM="SYSTEMD"

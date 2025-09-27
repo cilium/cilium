@@ -777,6 +777,27 @@ func (l L4Addr) String() string {
 	return fmt.Sprintf("%d/%s", l.Port, l.Protocol)
 }
 
+// L4AddrFromString returns a L4Addr from its string representation.
+func L4AddrFromString(s string) (L4Addr, error) {
+	splitted := strings.Split(s, "/")
+
+	if len(splitted) != 2 {
+		return L4Addr{}, fmt.Errorf("%w for %s", ErrInvalidL4Addr, s)
+	}
+
+	proto, err := NewL4Type(strings.ToUpper(splitted[1]))
+	if err != nil {
+		return L4Addr{}, fmt.Errorf("%w for %s", err, splitted[0])
+	}
+
+	portUInt64, err := strconv.ParseUint(splitted[0], 10, 16)
+	if err != nil {
+		return L4Addr{}, fmt.Errorf("%s is not a valid port number. %w", splitted[1], err)
+	}
+
+	return NewL4Addr(proto, uint16(portUInt64)), nil
+}
+
 // L3n4Addr is an unique L3+L4 address and scope (for traffic policies).
 type L3n4Addr unique.Handle[l3n4AddrRep]
 
@@ -809,6 +830,16 @@ func (l L3n4Addr) Scope() uint8 {
 
 func (l L3n4Addr) AddrCluster() cmtypes.AddrCluster {
 	return l.rep().addrCluster
+}
+
+func (l *L3n4Addr) DeepEqual(other *L3n4Addr) bool {
+	if l == nil && other == nil {
+		return true
+	}
+	if other == nil || l == nil {
+		return false
+	}
+	return *l == *other
 }
 
 // NewL3n4Addr creates a new L3n4Addr.

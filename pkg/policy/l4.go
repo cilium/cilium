@@ -224,14 +224,6 @@ func getAuthType(auth *api.Authentication) (bool, AuthType) {
 	}
 }
 
-// getAuthType returns the AuthType of the L4Filter.
-func (a *PerSelectorPolicy) getAuthType() (bool, AuthType) {
-	if a == nil {
-		return false, types.AuthTypeDisabled
-	}
-	return getAuthType(a.Authentication)
-}
-
 // GetAuthRequirement returns the AuthRequirement of the L4Filter.
 func (a *PerSelectorPolicy) getAuthRequirement() AuthRequirement {
 	if a == nil {
@@ -599,15 +591,6 @@ type ChangeState struct {
 	Adds    Keys        // Added or modified keys, if not nil
 	Deletes Keys        // deleted keys, if not nil
 	old     mapStateMap // Old values of all modified or deleted keys, if not nil
-}
-
-// NewRevertState returns an empty ChangeState suitable for reverting MapState changes.
-// The private 'old' field is initialized so that old state can be restored if need be.
-func NewRevertState() ChangeState {
-	return ChangeState{
-		Adds: make(Keys),
-		old:  make(mapStateMap),
-	}
 }
 
 func (c *ChangeState) Empty() bool {

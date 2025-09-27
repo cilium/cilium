@@ -862,3 +862,176 @@ func TestTunnelNoTrackRulesTunnelingDisabled(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestNoTrackHostPorts(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+
+	testMgr := &Manager{
+		haveIp6tables:        false,
+		haveSocketMatch:      true,
+		haveBPFSocketAssign:  false,
+		ipEarlyDemuxDisabled: false,
+		sharedCfg: SharedConfig{
+			EnableIPv4: true,
+			EnableIPv6: true,
+		},
+		ip4tables: mockIp4tables,
+		ip6tables: mockIp6tables,
+	}
+
+	testState := make(noTrackHostPortsByPod)
+
+	var testPod, testPod2 podAndNameSpace
+
+	t.Run("test adding notrack host port", func(t *testing.T) {
+		testPod = podAndNameSpace{namespace: "testns", podName: "testpod1"}
+		ports := []string{"443/tcp"}
+
+		mockIp4tables.expectations = append(mockIp4tables.expectations, []expectation{
+			{args: "-t raw -A CILIUM_PRE_raw -p tcp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}...)
+
+		mockIp6tables.expectations = append(mockIp6tables.expectations, []expectation{
+			{args: "-t raw -A CILIUM_PRE_raw -p tcp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}...)
+
+		assert.NoError(t, testMgr.setNoTrackHostPorts(testState, testPod, ports))
+		assert.Contains(t, testState, testPod)
+
+		// add a second time does not error out or trigger iptables commands
+		assert.NoError(t, testMgr.setNoTrackHostPorts(testState, testPod, ports))
+
+		// add same port entry for another pod, make sure we dont see any new iptables commands
+		testPod2 = podAndNameSpace{namespace: "testns", podName: "testpod2"}
+		assert.NoError(t, testMgr.setNoTrackHostPorts(testState, testPod2, ports))
+
+		assert.Contains(t, testState, testPod)
+		assert.Contains(t, testState, testPod2)
+
+		// add another port. we expect to see the new rules being added, and then the 2 previous rules being deleted
+		mockIp4tables.expectations = append(mockIp4tables.expectations, []expectation{
+			{args: "-t raw -A CILIUM_PRE_raw -p tcp --match multiport --dports 443,999 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443,999 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -D CILIUM_PRE_raw -p tcp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}...)
+
+		mockIp6tables.expectations = append(mockIp6tables.expectations, []expectation{
+			{args: "-t raw -A CILIUM_PRE_raw -p tcp --match multiport --dports 443,999 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443,999 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -D CILIUM_PRE_raw -p tcp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}...)
+
+		assert.NoError(t, testMgr.setNoTrackHostPorts(testState, testPod2, []string{"999/tcp", "443/tcp"}))
+		assert.NoError(t, mockIp4tables.checkExpectations())
+		assert.NoError(t, mockIp6tables.checkExpectations())
+	})
+
+	t.Run("test changing the port", func(t *testing.T) {
+		mockIp4tables.expectations = []expectation{
+			{args: "-t raw -A CILIUM_PRE_raw -p tcp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -D CILIUM_PRE_raw -p tcp --match multiport --dports 443,999 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443,999 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -A CILIUM_PRE_raw -p udp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p udp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}
+
+		mockIp6tables.expectations = []expectation{
+			{args: "-t raw -A CILIUM_PRE_raw -p tcp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -D CILIUM_PRE_raw -p tcp --match multiport --dports 443,999 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443,999 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -A CILIUM_PRE_raw -p udp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p udp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}
+
+		assert.NoError(t, testMgr.setNoTrackHostPorts(testState, testPod2, []string{"443/udp"}))
+		assert.NoError(t, mockIp4tables.checkExpectations())
+		assert.NoError(t, mockIp6tables.checkExpectations())
+	})
+
+	t.Run("test empty ports annotation", func(t *testing.T) {
+		testPod3 := podAndNameSpace{namespace: "123", podName: "321"}
+		mockIp4tables.expectations = []expectation{
+			{args: "-t raw -A CILIUM_PRE_raw -p udp --match multiport --dports 443,8123 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p udp --match multiport --sports 443,8123 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -D CILIUM_PRE_raw -p udp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p udp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}
+
+		mockIp6tables.expectations = []expectation{
+			{args: "-t raw -A CILIUM_PRE_raw -p udp --match multiport --dports 443,8123 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p udp --match multiport --sports 443,8123 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -D CILIUM_PRE_raw -p udp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p udp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}
+
+		assert.NoError(t, testMgr.setNoTrackHostPorts(testState, testPod3, []string{"8123/udp"}))
+
+		mockIp4tables.expectations = append(mockIp4tables.expectations, []expectation{
+			{args: "-t raw -A CILIUM_PRE_raw -p udp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p udp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -D CILIUM_PRE_raw -p udp --match multiport --dports 443,8123 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p udp --match multiport --sports 443,8123 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}...)
+
+		mockIp6tables.expectations = append(mockIp6tables.expectations, []expectation{
+			{args: "-t raw -A CILIUM_PRE_raw -p udp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -A CILIUM_OUTPUT_raw -p udp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -D CILIUM_PRE_raw -p udp --match multiport --dports 443,8123 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p udp --match multiport --sports 443,8123 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}...)
+
+		// empty port should trigger a delete-like behaviour
+		assert.NoError(t, testMgr.setNoTrackHostPorts(testState, testPod3, strings.Split("", "/")))
+
+		assert.NoError(t, mockIp4tables.checkExpectations())
+		assert.NoError(t, mockIp6tables.checkExpectations())
+	})
+
+	t.Run("test deleting notrack host port", func(t *testing.T) {
+		mockIp4tables.expectations = []expectation{
+			{args: "-t raw -D CILIUM_PRE_raw -p udp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p udp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}
+
+		mockIp6tables.expectations = []expectation{
+			{args: "-t raw -D CILIUM_PRE_raw -p udp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p udp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}
+
+		assert.NoError(t, testMgr.removeNoTrackHostPorts(testState, testPod2))
+
+		// now we update the previous one with an empty set. should cause rules to be deleted since this pod is the last reference for port 443
+		mockIp4tables.expectations = append(mockIp4tables.expectations, []expectation{
+			{args: "-t raw -D CILIUM_PRE_raw -p tcp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}...)
+
+		mockIp6tables.expectations = append(mockIp6tables.expectations, []expectation{
+			{args: "-t raw -D CILIUM_PRE_raw -p tcp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+		}...)
+
+		assert.NoError(t, testMgr.setNoTrackHostPorts(testState, testPod, nil))
+
+		assert.NoError(t, mockIp4tables.checkExpectations())
+		assert.NoError(t, mockIp6tables.checkExpectations())
+		assert.Empty(t, testState)
+	})
+}

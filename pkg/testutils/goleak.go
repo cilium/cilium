@@ -22,6 +22,7 @@ func defaultGoleakOptions() []goleak.Option {
 		// Unfortunately we don't have a way for waiting for the workqueue's background goroutine
 		// to exit (used by pkg/k8s/resource), so we'll just need to ignore it.
 		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Typed[...]).updateUnfinishedWorkLoop"),
+		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*delayingType[...]).waitingLoop"),
 	}
 }
 

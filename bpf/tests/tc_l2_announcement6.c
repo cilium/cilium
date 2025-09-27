@@ -22,22 +22,11 @@
 #define ENABLE_IPV6
 #define ENABLE_L2_ANNOUNCEMENTS
 
-#include <bpf_host.c>
+#include "lib/bpf_host.h"
 
 #define V6_ALEN 16
 
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[0] = &cil_from_netdev,
-	},
-};
 
 struct icmp6_opthdr {
 	__u8 type;
@@ -82,10 +71,7 @@ int l2_announcement_nd_no_entry_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "0_no_entry")
 int l2_announcement_nd_no_entry_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "0_no_entry")
@@ -126,10 +112,7 @@ int l2_announcement_nd_no_entry_tar_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "0_no_entry_targeted")
 int l2_announcement_nd_no_entry_tar_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "0_no_entry_targeted")
@@ -179,9 +162,7 @@ int __l2_announcement_nd_ok_setup(struct __ctx_buff *ctx)
 
 	config_set(RUNTIME_CONFIG_AGENT_LIVENESS, ktime_get_ns());
 
-	tail_call_static(ctx, entry_call_map, 0);
-
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 SETUP("tc", "1_ok")

@@ -8,7 +8,7 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
 - name: '2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250812.093650'
+  kernel: '5.10-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -16,7 +16,7 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
 - name: '3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250812.093650'
+  kernel: '5.10-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -24,7 +24,7 @@
   kvstore: 'true'
 - name: '4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250812.093650'
+  kernel: '5.10-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -36,7 +36,7 @@
   ingress-controller: 'true'
 - name: '5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250812.093650'
+  kernel: '5.15-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -49,7 +49,7 @@
   ingress-controller: 'true'
 - name: '6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.1-20250812.093650'
+  kernel: '6.1-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -63,7 +63,7 @@
   bgp-control-plane: 'true'
 - name: '7'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -78,7 +78,7 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
 - name: '8'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'geneve'
@@ -89,7 +89,7 @@
   skip-include-conn-disrupt-test-ns-traffic: 'true'
 - name: '9'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250812.093650'
+  kernel: '5.10-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -103,7 +103,7 @@
   ingress-controller: 'true'
 - name: '10'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250812.093650'
+  kernel: '5.15-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -116,7 +116,7 @@
   kvstore: 'true'
 - name: '11'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.1-20250812.093650'
+  kernel: '6.1-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -132,7 +132,7 @@
   node-local-dns: 'true'
 - name: '12'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -157,7 +157,7 @@
   # explains why 5.4 might cause north-south-loadbalancing tests to
   # fail.
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250812.093650'
+  kernel: '5.15-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -169,7 +169,7 @@
   ingress-controller: 'true'
 - name: '15'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -181,7 +181,7 @@
   ciliumendpointslice: 'true'
 - name: '16'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250812.093650'
+  kernel: '5.15-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -195,7 +195,7 @@
   ingress-controller: 'true'
 - name: '17'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -206,7 +206,7 @@
   ingress-controller: 'true'
 - name: '18'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -217,7 +217,7 @@
   ingress-controller: 'true'
 - name: '19'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -228,7 +228,7 @@
   kvstore: 'true'
 - name: '20'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   misc: 'bpf.datapathMode=netkit-l2'
   kube-proxy: 'none'
   kpr: 'true'
@@ -238,7 +238,7 @@
   ingress-controller: 'true'
 - name: '21'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -248,7 +248,7 @@
   ingress-controller: 'true'
 - name: '22'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   misc: 'bpf.datapathMode=netkit-l2'
   kube-proxy: 'none'
   kpr: 'true'
@@ -258,7 +258,7 @@
   ingress-controller: 'true'
 - name: '23'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -270,7 +270,7 @@
   host-fw: 'true'
 - name: '24'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -283,7 +283,7 @@
   ingress-controller: 'true'
 - name: '25'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -296,7 +296,7 @@
   ingress-controller: 'true'
 - name: '26'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.6-20250812.093650'
+  kernel: '6.6-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -307,7 +307,7 @@
   ingress-controller: 'true'
 - name: '27'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.6-20250812.093650'
+  kernel: '6.6-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -318,7 +318,7 @@
   ingress-controller: 'true'
 - name: '28'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.6-20250812.093650'
+  kernel: '6.6-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -330,7 +330,7 @@
   ingress-controller: 'true'
 - name: '29'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -343,7 +343,7 @@
   skip-upgrade: 'true'
 - name: '30'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -354,7 +354,7 @@
   ingress-controller: 'true'
 - name: '31'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -366,7 +366,7 @@
   ingress-controller: 'true'
 - name: '32'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250812.093650'
+  kernel: '5.15-20250917.183741'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -378,7 +378,7 @@
   skip-upgrade: 'true'
 - name: '33'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250812.093650'
+  kernel: '6.12-20250917.183741'
   kube-proxy: 'iptables'
   kpr: 'false'
   ipv6: 'true'

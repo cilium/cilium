@@ -1339,3 +1339,6 @@ Host Policies known issues
   services for the native device (such as NodePort), hosts will enforce Host
   Policies on service addresses rather than the service endpoints. For details,
   refer to :gh-issue:`12545`.
+
+- Host Firewall and thus Host Policies do not work together with IPsec. 
+  For details, refer to :gh-issue:`41854`.

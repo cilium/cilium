@@ -27,6 +27,8 @@
 #include "fib.h"
 #include "srv6.h"
 
+DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
+	       "Enable routes when service has 0 endpoints")
 DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached to (default: MTU set in node_config.h by agent)")
 ASSIGN_CONFIG(__u16, device_mtu, MTU)
 #define THIS_MTU CONFIG(device_mtu) /* Backwards compatibility */
@@ -113,7 +115,7 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	 * Otherwise, the kernel will drop such request in
 	 * https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/net/core/filter.c?h=v6.7.4#n2147
 	 */
-	if (ETH_HLEN == 0) {
+	if (THIS_IS_L3_DEV) {
 		int ret;
 
 		ret = add_l2_hdr(ctx);
@@ -146,7 +148,7 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 	 * Otherwise, the kernel will drop such request in
 	 * https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/net/core/filter.c?h=v6.7.4#n2147
 	 */
-	if (ETH_HLEN == 0) {
+	if (THIS_IS_L3_DEV) {
 		int ret;
 
 		ret = add_l2_hdr(ctx);
@@ -1351,13 +1353,15 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 			key, tuple, svc, &ct_state_svc,
 			nodeport_xlate6(svc, tuple), ext_err, 0);
 	if (IS_ERR(ret)) {
-#ifdef SERVICE_NO_BACKEND_RESPONSE
 		if (ret == DROP_NO_SERVICE) {
+			if (!CONFIG(enable_no_service_endpoints_routable))
+				return handle_nonroutable_endpoints_v6(svc);
+#ifdef SERVICE_NO_BACKEND_RESPONSE
 			edt_set_aggregate(ctx, 0);
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
-						 ext_err);
-		}
+									 ext_err);
 #endif
+		}
 		if (ret == LB_PUNT_TO_STACK) {
 			*punt_to_stack = true;
 			return CTX_ACT_OK;
@@ -2706,14 +2710,17 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 				nodeport_xlate4(svc, tuple), &cluster_id, ext_err, 0);
 	}
 	if (IS_ERR(ret)) {
-#ifdef SERVICE_NO_BACKEND_RESPONSE
 		if (ret == DROP_NO_SERVICE) {
+			if (!CONFIG(enable_no_service_endpoints_routable))
+				return handle_nonroutable_endpoints_v4(svc);
+
+#ifdef SERVICE_NO_BACKEND_RESPONSE
 			/* Packet is TX'ed back out, avoid EDT false-positives: */
 			edt_set_aggregate(ctx, 0);
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
 						 ext_err);
-		}
 #endif
+		}
 		if (ret == LB_PUNT_TO_STACK) {
 			*punt_to_stack = true;
 			return CTX_ACT_OK;

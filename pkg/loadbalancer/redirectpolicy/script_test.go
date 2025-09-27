@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
@@ -78,6 +79,7 @@ func TestScript(t *testing.T) {
 				node.LocalNodeStoreTestCell,
 				maglev.Cell,
 				cell.Provide(
+					func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 					source.NewSources,
 					func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
 					tables.NewNodeAddressTable,

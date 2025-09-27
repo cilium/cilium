@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -50,7 +49,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
-	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const NodePortMaxNAT = 65535
@@ -65,7 +63,6 @@ type HeaderfileWriter struct {
 	nodeExtraDefineFns []dpdef.Fn
 	sysctl             sysctl.Sysctl
 	kprCfg             kpr.KPRConfig
-	ipsecConfig        datapath.IPsecConfig
 }
 
 func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
@@ -83,7 +80,6 @@ func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
 		log:                p.Log,
 		sysctl:             p.Sysctl,
 		kprCfg:             p.KPRConfig,
-		ipsecConfig:        p.IPSecConfig,
 	}, nil
 }
 
@@ -176,7 +172,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LOCAL_NODE_ID"] = fmt.Sprintf("%d", identity.ReservedIdentityRemoteNode)
 	cDefinesMap["REMOTE_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameRemoteNode))
 	cDefinesMap["KUBE_APISERVER_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameKubeAPIServer))
-	cDefinesMap["ENCRYPTED_OVERLAY_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameEncryptedOverlay))
 	cDefinesMap["CILIUM_LB_SERVICE_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBServiceMapEntries)
 	cDefinesMap["CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBBackendMapEntries)
 	cDefinesMap["CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBRevNatEntries)
@@ -240,20 +235,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if cfg.EnableIPSec {
 		cDefinesMap["ENABLE_IPSEC"] = "1"
-
-		if h.ipsecConfig.EncryptedOverlayEnabled() {
-			cDefinesMap["ENABLE_ENCRYPTED_OVERLAY"] = "1"
-		}
 	}
 
 	if cfg.EnableWireguard {
 		cDefinesMap["ENABLE_WIREGUARD"] = "1"
-		ifindex, err := link.GetIfIndex(wgtypes.IfaceName)
-		if err != nil {
-			return fmt.Errorf("getting %s ifindex: %w", wgtypes.IfaceName, err)
-		}
-		cDefinesMap["WG_IFINDEX"] = fmt.Sprintf("%d", ifindex)
-		cDefinesMap["WG_PORT"] = fmt.Sprintf("%d", wgtypes.ListenPort)
 
 		if option.Config.EncryptNode {
 			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"

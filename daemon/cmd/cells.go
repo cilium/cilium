@@ -13,6 +13,8 @@ import (
 	"github.com/cilium/statedb"
 	"google.golang.org/grpc"
 
+	"github.com/cilium/cilium/pkg/healthconfig"
+
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
@@ -78,6 +80,7 @@ import (
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 var (
@@ -332,11 +335,16 @@ var (
 		// Cilium health infrastructure (host and endpoint connectivity)
 		health.Cell,
 
+		// Cilium health config
+		healthconfig.Cell,
+
 		// Cilium Status Collector
 		status.Cell,
 
 		// Cilium Debuginfo API
 		debugapi.Cell,
+
+		svcrouteconfig.Cell,
 	)
 )
 

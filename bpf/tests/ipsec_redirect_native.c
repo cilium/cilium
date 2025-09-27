@@ -3,25 +3,12 @@
 
 #include "ipsec_redirect_generic.h"
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include "node_config.h"
 #include "lib/encrypt.h"
 #include "tests/lib/ipcache.h"
 #include "tests/lib/node.h"
-
-#define TO_NETDEV 0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
 
 static __always_inline
 void set_src_identity(bool ipv4_inner, bool ipv4_outer, __u32 identity)
@@ -85,8 +72,7 @@ int ipsec_redirect_setup(struct __ctx_buff *ctx, bool ipv4_inner, bool ipv4_oute
 	set_src_identity(ipv4_inner, ipv4_outer, SOURCE_IDENTITY);
 	set_dst_identity(ipv4_inner, ipv4_outer, DST_IDENTITY);
 
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 static __always_inline

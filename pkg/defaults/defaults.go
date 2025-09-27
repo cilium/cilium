@@ -363,8 +363,8 @@ const (
 	// per GC interval
 	ENIGarbageCollectionMaxPerInterval = 25
 
-	// ENIMaxResultsPerApiCall is the maximum number of ENI objects to fetch per DescribeNetworkInterfaces API call
-	ENIMaxResultsPerApiCall = 1000
+	// AWSResultsPerApiCall is the maximum number of objects to fetch per paginated API call
+	AWSResultsPerApiCall = 1000
 
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
@@ -472,6 +472,9 @@ const (
 	// - {ICMP,UDP,TCP}v6 over (future) VXLANv6 (>=132B) -- decode error
 	// The value is aligned to 3 cache-lines, see above comment in TracePayloadLen.
 	TracePayloadLenOverlay = 192
+
+	// PolicyDenyResponse is the default action for pod egress network policy denials (drop packets silently)
+	PolicyDenyResponse = "none"
 
 	// TunnelPortVXLAN is the default VXLAN port
 	TunnelPortVXLAN uint16 = 8472

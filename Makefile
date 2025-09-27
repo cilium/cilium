@@ -12,7 +12,7 @@ debug: all
 
 include Makefile.defs
 
-SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool tools/mount tools/sysctlfix plugins/cilium-cni
+SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool hubble tools/mount tools/sysctlfix plugins/cilium-cni
 SUBDIR_OPERATOR_CONTAINER := operator
 SUBDIR_RELAY_CONTAINER := hubble-relay
 SUBDIR_CLUSTERMESH_APISERVER_CONTAINER := clustermesh-apiserver
@@ -575,12 +575,11 @@ gateway-api-conformance: ## Run Gateway API conformance tests.
 	GATEWAY_API_CONFORMANCE_TESTS=1 \
 	GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES} \
 	GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES} \
-	$(GO) test -p 4 -v ./operator/pkg/gateway-api \
+	$(GO_TEST) $(GO_TEST_FLAGS) -p 4 -v ./operator/pkg/gateway-api \
 		$(GATEWAY_TEST_FLAGS) \
 		-test.run "TestConformance" \
 		-test.timeout=29m \
-		-json \
-	| tparse -progress
+	| $(GOTEST_FORMATTER)
 
 BPF_TEST ?= ""
 BPF_TEST_DUMP_CTX ?= ""

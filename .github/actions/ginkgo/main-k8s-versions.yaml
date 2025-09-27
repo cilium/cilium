@@ -6,7 +6,7 @@ include:
     # renovate: datasource=docker
     kube-image: "quay.io/cilium/kindest-node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "6.12-20250812.093650"
+    kernel: "6.12-20250917.183741"
     kernel-type: "latest"
 
   - k8s-version: "1.33"
@@ -30,5 +30,5 @@ include:
     # renovate: datasource=docker
     kube-image: "quay.io/cilium/kindest-node:v1.31.0@sha256:d2b2a8cd6fa282b9a4126938341a4d2924dfa96f60b1f983d519498c9cde1a99"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "5.10-20250812.093650"
+    kernel: "5.10-20250917.183741"
     kernel-type: "stable"

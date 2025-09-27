@@ -18,7 +18,6 @@ This troubleshooting guide covers failure investigation techniques, common error
 - [Troubleshoot EnvironmentCredential authentication issues](#troubleshoot-environmentcredential-authentication-issues)
 - [Troubleshoot ManagedIdentityCredential authentication issues](#troubleshoot-managedidentitycredential-authentication-issues)
   - [Azure App Service and Azure Functions managed identity](#azure-app-service-and-azure-functions-managed-identity)
-  - [Azure Kubernetes Service managed identity](#azure-kubernetes-service-managed-identity)
   - [Azure Virtual Machine managed identity](#azure-virtual-machine-managed-identity)
 - [Troubleshoot WorkloadIdentityCredential authentication issues](#troubleshoot-workloadidentitycredential-authentication-issues)
 - [Get additional help](#get-additional-help)
@@ -120,7 +119,6 @@ azlog.SetEvents(azidentity.EventAuthentication)
 |---|---|---|
 |Azure Virtual Machines and Scale Sets|[Configuration](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/qs-configure-portal-windows-vm)|[Troubleshooting](#azure-virtual-machine-managed-identity)|
 |Azure App Service and Azure Functions|[Configuration](https://learn.microsoft.com/azure/app-service/overview-managed-identity)|[Troubleshooting](#azure-app-service-and-azure-functions-managed-identity)|
-|Azure Kubernetes Service|[Configuration](https://azure.github.io/aad-pod-identity/docs/)|[Troubleshooting](#azure-kubernetes-service-managed-identity)|
 |Azure Arc|[Configuration](https://learn.microsoft.com/azure/azure-arc/servers/managed-identity-authentication)||
 |Azure Service Fabric|[Configuration](https://learn.microsoft.com/azure/service-fabric/concepts-managed-identity)||
 
@@ -158,14 +156,6 @@ curl "$IDENTITY_ENDPOINT?resource=https://management.core.windows.net&api-versio
 ```
 
 > This command's output will contain an access token and SHOULD NOT BE SHARED, to avoid compromising account security.
-
-### Azure Kubernetes Service managed identity
-
-#### Pod Identity
-
-| Error Message |Description| Mitigation |
-|---|---|---|
-|"no azure identity found for request clientID"|The application attempted to authenticate before an identity was assigned to its pod|Verify the pod is labeled correctly. This also occurs when a correctly labeled pod authenticates before the identity is ready. To prevent initialization races, configure NMI to set the Retry-After header in its responses as described in [Pod Identity documentation](https://azure.github.io/aad-pod-identity/docs/configure/feature_flags/#set-retry-after-header-in-nmi-response).
 
 <a id="azure-cli"></a>
 ## Troubleshoot AzureCLICredential authentication issues
