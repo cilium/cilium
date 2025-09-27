@@ -117,6 +117,18 @@ jobs:
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "advanced-features": true, "ipsec": true}'
 
+  conformance-eks-kpr-wireguard:
+    name: Conformance EKS with KPR + WireGuard
+    needs: wait-for-images
+    uses: ./.github/workflows/conformance-eks.yaml
+    secrets: inherit
+    with:
+      PR-number: ${{ inputs.PR-number || github.ref_name }}
+      UID: 3
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      SHA: ${{ inputs.SHA || github.sha }}
+      extra-args: '{"kpr": true, "advanced-features": true, "wireguard": true}'
+
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
