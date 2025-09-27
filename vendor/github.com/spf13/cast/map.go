@@ -15,7 +15,7 @@ func toMapE[K comparable, V any](i any, keyFn func(any) K, valFn func(any) V) (m
 	m := map[K]V{}
 
 	if i == nil {
-		return nil, fmt.Errorf(errorMsg, i, i, m)
+		return m, fmt.Errorf(errorMsg, i, i, m)
 	}
 
 	switch v := i.(type) {
@@ -45,14 +45,10 @@ func toMapE[K comparable, V any](i any, keyFn func(any) K, valFn func(any) V) (m
 
 	case string:
 		err := jsonStringToObject(v, &m)
-		if err != nil {
-			return nil, err
-		}
-
-		return m, nil
+		return m, err
 
 	default:
-		return nil, fmt.Errorf(errorMsg, i, i, m)
+		return m, fmt.Errorf(errorMsg, i, i, m)
 	}
 }
 
@@ -112,23 +108,19 @@ func ToStringMapStringSliceE(i any) (map[string][]string, error) {
 		for k, val := range v {
 			key, err := ToStringE(k)
 			if err != nil {
-				return nil, fmt.Errorf(errorMsg, i, i, m)
+				return m, fmt.Errorf(errorMsg, i, i, m)
 			}
 			value, err := ToStringSliceE(val)
 			if err != nil {
-				return nil, fmt.Errorf(errorMsg, i, i, m)
+				return m, fmt.Errorf(errorMsg, i, i, m)
 			}
 			m[key] = value
 		}
 	case string:
 		err := jsonStringToObject(v, &m)
-		if err != nil {
-			return nil, err
-		}
-
-		return m, nil
+		return m, err
 	default:
-		return nil, fmt.Errorf(errorMsg, i, i, m)
+		return m, fmt.Errorf(errorMsg, i, i, m)
 	}
 
 	return m, nil
@@ -180,15 +172,11 @@ func toStringMapIntE[T int | int64](i any, fn func(any) T, fnE func(any) (T, err
 
 	case string:
 		err := jsonStringToObject(v, &m)
-		if err != nil {
-			return nil, err
-		}
-
-		return m, nil
+		return m, err
 	}
 
 	if reflect.TypeOf(i).Kind() != reflect.Map {
-		return nil, fmt.Errorf(errorMsg, i, i, m)
+		return m, fmt.Errorf(errorMsg, i, i, m)
 	}
 
 	mVal := reflect.ValueOf(m)
