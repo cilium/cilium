@@ -526,6 +526,12 @@ const (
 	// EndpointSelector is a selector for Endpoints
 	EndpointSelector = "EndpointSelector"
 
+	// PodSelector is a selector for Pods
+	PodSelector = "PodSelector"
+
+	// NamespaceSelector is a selector for Namespaces
+	NamespaceSelector = "NamespaceSelector"
+
 	// Path is a filesystem path. It can be a file or directory.
 	// Note: pkg/proxy/accesslog points to this variable so be careful when
 	// changing the value
@@ -1810,4 +1816,10 @@ const (
 
 	// CESFeatureEnabled indicates whether CiliumEndpointSlice feature is enabled.
 	CESFeatureEnabled = "cesEnabled"
+
+	// Matches is a list of pools that match a pod.
+	Matches = "matches"
+
+	// CompiledPools is a map of pools that use podSelectors
+	CompiledPools = "compiledPools"
 )

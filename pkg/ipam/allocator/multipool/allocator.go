@@ -59,6 +59,7 @@ func (a *Allocator) UpsertPool(ctx context.Context, pool *cilium_v2alpha1.Cilium
 		logfields.IPv4MaskSize, ipv4MaskSize,
 		logfields.IPv6CIDRs, ipv6CIDRs,
 		logfields.IPv6MaskSize, ipv6MaskSize,
+		logfields.Selector, pool.Spec.PodSelector,
 	)
 
 	return a.poolAlloc.UpsertPool(

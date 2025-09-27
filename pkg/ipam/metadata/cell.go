@@ -7,11 +7,15 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -25,11 +29,16 @@ var Cell = cell.Module(
 type managerParams struct {
 	cell.In
 
+	Lifecycle    cell.Lifecycle
 	Logger       *slog.Logger
 	DaemonConfig *option.DaemonConfig
+	Clientset    k8sClient.Clientset
 	DB           *statedb.DB
 	Pods         statedb.Table[k8s.LocalPod]
 	Namespaces   statedb.Table[k8s.Namespace]
+	Jobs         job.Group
+
+	PodIPPoolResource resource.Resource[*api_v2alpha1.CiliumPodIPPool]
 }
 
 func newIPAMMetadataManager(params managerParams) Manager {
@@ -38,11 +47,14 @@ func newIPAMMetadataManager(params managerParams) Manager {
 	}
 
 	manager := &manager{
-		logger:     params.Logger,
-		db:         params.DB,
-		namespaces: params.Namespaces,
-		pods:       params.Pods,
+		logger:        params.Logger,
+		db:            params.DB,
+		namespaces:    params.Namespaces,
+		pods:          params.Pods,
+		compiledPools: map[string]compiledPool{},
 	}
+
+	params.Jobs.Add(job.Observer("ipam-pool-watcher", manager.handlePoolEvent, params.PodIPPoolResource))
 
 	return manager
 }
