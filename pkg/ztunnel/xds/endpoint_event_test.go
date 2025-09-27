@@ -11,7 +11,11 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
+	apimachineryTypes "k8s.io/apimachinery/pkg/types"
 )
 
 func TestEndpointEventToXDSAddress(t *testing.T) {
@@ -38,7 +42,7 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 		// Create EndpointEvent for CREATE
 		event := &EndpointEvent{
 			Type:     CREATE,
-			Endpoint: ep,
+			CiliumEndpoint: endpointToCiliumEndpoint(ep),
 		}
 
 		// Transform to XDS Address
@@ -93,7 +97,7 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 		// Create EndpointEvent for REMOVE
 		event := &EndpointEvent{
 			Type:     REMOVED,
-			Endpoint: ep,
+			CiliumEndpoint: endpointToCiliumEndpoint(ep),
 		}
 
 		// Transform to XDS Address
@@ -142,7 +146,7 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 
 		event := &EndpointEvent{
 			Type:     CREATE,
-			Endpoint: ep,
+			CiliumEndpoint: endpointToCiliumEndpoint(ep),
 		}
 
 		// Should return error for missing pod information
@@ -152,6 +156,33 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 		require.Contains(t, err.Error(), "missing Pod information", "Error should mention missing Pod information")
 	})
 }
+
+func endpointToCiliumEndpoint(ep *endpoint.Endpoint) *types.CiliumEndpoint {
+	cep := &types.CiliumEndpoint{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      ep.K8sPodName,
+			Namespace: ep.K8sNamespace,
+			UID:       apimachineryTypes.UID(ep.K8sUID),
+		},
+		
+		Networking: &v2.EndpointNetworking{
+			Addressing: v2.AddressPairList{},
+		},
+	}
+	
+	if ep.IPv4.IsValid() {
+		cep.Networking.Addressing = append(cep.Networking.Addressing, &v2.AddressPair{
+			IPV4: ep.IPv4.String(),
+		})
+	}
+	if ep.IPv6.IsValid() {
+		cep.Networking.Addressing = append(cep.Networking.Addressing, &v2.AddressPair{
+			IPV6: ep.IPv6.String(),
+		})
+	}
+	return cep
+}
+
 
 func TestEndpointEventCollectionToDeltaDiscoveryResponse(t *testing.T) {
 	t.Run("CREATE-REMOVE-CREATE Collection", func(t *testing.T) {
@@ -215,9 +246,9 @@ func TestEndpointEventCollectionToDeltaDiscoveryResponse(t *testing.T) {
 
 		// Create EndpointEventCollection with CREATE, REMOVE, CREATE sequence
 		collection := EndpointEventCollection{
-			&EndpointEvent{Type: CREATE, Endpoint: createEp1},
-			&EndpointEvent{Type: REMOVED, Endpoint: removeEp},
-			&EndpointEvent{Type: CREATE, Endpoint: createEp2},
+			&EndpointEvent{Type: CREATE, CiliumEndpoint: endpointToCiliumEndpoint(createEp1)},
+			&EndpointEvent{Type: REMOVED, CiliumEndpoint: endpointToCiliumEndpoint(removeEp)},
+			&EndpointEvent{Type: CREATE, CiliumEndpoint: endpointToCiliumEndpoint(createEp2)},
 		}
 
 		// Transform to DeltaDiscoveryResponse
@@ -304,8 +335,8 @@ func TestEndpointEventCollectionToDeltaDiscoveryResponse(t *testing.T) {
 
 		// Create collection with invalid CREATE and valid CREATE
 		collection := EndpointEventCollection{
-			&EndpointEvent{Type: CREATE, Endpoint: invalidEp}, // Will fail transformation
-			&EndpointEvent{Type: CREATE, Endpoint: validEp},   // Will succeed
+			&EndpointEvent{Type: CREATE, CiliumEndpoint: endpointToCiliumEndpoint(invalidEp)}, // Will fail transformation
+			&EndpointEvent{Type: CREATE, CiliumEndpoint: endpointToCiliumEndpoint(validEp)},   // Will succeed
 		}
 
 		// Transform to DeltaDiscoveryResponse
