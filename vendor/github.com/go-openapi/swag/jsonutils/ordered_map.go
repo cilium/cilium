@@ -15,185 +15,111 @@
 package jsonutils
 
 import (
-	"strconv"
-	"strings"
+	"iter"
 
-	"github.com/mailru/easyjson/jlexer"
-	"github.com/mailru/easyjson/jwriter"
+	"github.com/go-openapi/swag/jsonutils/adapters"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // JSONMapSlice represents a JSON object, with the order of keys maintained.
+//
+// It behaves like an ordered map, but keys can't be accessed in constant time.
 type JSONMapSlice []JSONMapItem
 
-// MarshalJSON renders a [JSONMapSlice] as JSON bytes, preserving the order of keys.
-func (s JSONMapSlice) MarshalJSON() ([]byte, error) {
-	w := &jwriter.Writer{Flags: jwriter.NilMapAsEmpty | jwriter.NilSliceAsEmpty}
-	s.MarshalEasyJSON(w)
-
-	return w.BuildBytes()
+// OrderedItems iterates over all (key,value) pairs with the order of keys maintained.
+//
+// This implements the [ifaces.Ordered] interface, so that [ifaces.Adapter] s know how to marshal
+// keys in the desired order.
+func (s JSONMapSlice) OrderedItems() iter.Seq2[string, any] {
+	return func(yield func(string, any) bool) {
+		for _, item := range s {
+			if !yield(item.Key, item.Value) {
+				return
+			}
+		}
+	}
 }
 
-// MarshalEasyJSON renders a [JSONMapSlice] as JSON bytes, using easyJSON
-func (s JSONMapSlice) MarshalEasyJSON(w *jwriter.Writer) {
-	if s == nil {
-		w.RawString("null")
+// SetOrderedItems sets keys in the [JSONMapSlice] objects, as presented by
+// the provided iterator.
+//
+// As a special case, if items is nil, this sets to receiver to a nil slice.
+//
+// This implements the [ifaces.SetOrdered] interface, so that [ifaces.Adapter] s know how to unmarshal
+// keys in the desired order.
+func (s *JSONMapSlice) SetOrderedItems(items iter.Seq2[string, any]) {
+	if items == nil {
+		// force receiver to be a nil slice
+		*s = nil
 
 		return
 	}
 
-	w.RawByte('{')
+	m := *s
+	if len(m) > 0 {
+		// update mode: short-circuited when unmarshaling fresh data structures
+		idx := make(map[string]int, len(m))
 
-	if len(s) == 0 {
-		w.RawByte('}')
+		for i, item := range m {
+			idx[item.Key] = i
+		}
+
+		for k, v := range items {
+			idx, ok := idx[k]
+			if ok {
+				m[idx].Value = v
+
+				continue
+			}
+
+			m = append(m, JSONMapItem{Key: k, Value: v})
+		}
+
+		*s = m
 
 		return
 	}
 
-	s[0].MarshalEasyJSON(w)
-
-	for i := 1; i < len(s); i++ {
-		w.RawByte(',')
-		s[i].MarshalEasyJSON(w)
+	for k, v := range items {
+		m = append(m, JSONMapItem{Key: k, Value: v})
 	}
 
-	w.RawByte('}')
+	*s = m
+}
+
+// MarshalJSON renders a [JSONMapSlice] as JSON bytes, preserving the order of keys.
+//
+// It will pick the JSON library currently configured by the [adapters.Registry] (defaults to the standard library).
+func (s JSONMapSlice) MarshalJSON() ([]byte, error) {
+	orderedMarshaler := adapters.OrderedMarshalAdapterFor(s)
+	defer orderedMarshaler.Redeem()
+
+	return orderedMarshaler.OrderedMarshal(s)
 }
 
 // UnmarshalJSON builds a [JSONMapSlice] from JSON bytes, preserving the order of keys.
 //
-// Inner objects are unmarshaled as [JSONMapSlice] slices and not map[string]any.
+// Inner objects are unmarshaled as ordered [JSONMapSlice] slices and not map[string]any.
+//
+// It will pick the JSON library currently configured by the [adapters.Registry] (defaults to the standard library).
 func (s *JSONMapSlice) UnmarshalJSON(data []byte) error {
-	l := jlexer.Lexer{Data: data}
-	s.UnmarshalEasyJSON(&l)
-
-	return l.Error()
-}
-
-// UnmarshalEasyJSON builds a [JSONMapSlice] from JSON bytes, using easyJSON
-func (s *JSONMapSlice) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	if in.IsNull() {
-		in.Skip()
-
-		return
+	if typeutils.IsNil(*s) {
+		// allow to unmarshal with a simple var declaration (nil slice)
+		*s = JSONMapSlice{}
 	}
 
-	result := make(JSONMapSlice, 0)
-	in.Delim('{')
-	for !in.IsDelim('}') {
-		var mi JSONMapItem
-		mi.UnmarshalEasyJSON(in)
-		result = append(result, mi)
-	}
-	in.Delim('}')
+	orderedUnmarshaler := adapters.OrderedUnmarshalAdapterFor(s)
+	defer orderedUnmarshaler.Redeem()
 
-	*s = result
+	return orderedUnmarshaler.OrderedUnmarshal(data, s)
 }
 
 // JSONMapItem represents the value of a key in a JSON object held by [JSONMapSlice].
 //
-// Notice that JSONMapItem should not be marshaled to or unmarshaled from JSON directly,
-// use this type as part of a [JSONMapSlice] when dealing with JSON bytes.
+// Notice that JSONMapItem should not be marshaled to or unmarshaled from JSON directly.
+//
+// Use this type as part of a [JSONMapSlice] when dealing with JSON bytes.
 type JSONMapItem struct {
 	Key   string
 	Value any
-}
-
-// MarshalEasyJSON renders a [JSONMapItem] as JSON bytes, using easyJSON
-func (s JSONMapItem) MarshalEasyJSON(w *jwriter.Writer) {
-	w.String(s.Key)
-	w.RawByte(':')
-	w.Raw(WriteJSON(s.Value))
-}
-
-// UnmarshalEasyJSON builds a [JSONMapItem] from JSON bytes, using easyJSON
-func (s *JSONMapItem) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	key := in.UnsafeString()
-	in.WantColon()
-	value := s.asInterface(in)
-	in.WantComma()
-
-	s.Key = key
-	s.Value = value
-}
-
-// asInterface is very much like [jlexer.Lexer.Interface], but unmarshals an object
-// into a [JSONMapSlice], not a map[string]any.
-//
-// We have to force parsing errors somehow, since [jlexer.Lexer] doesn't let us
-// set a parsing error directly.
-func (s *JSONMapItem) asInterface(in *jlexer.Lexer) any {
-	tokenKind := in.CurrentToken()
-
-	if !in.Ok() {
-		return nil
-	}
-
-	switch tokenKind {
-	case jlexer.TokenString:
-		return in.String()
-
-	case jlexer.TokenNumber:
-		// determine if we may use an integer type
-		n := in.JsonNumber().String()
-		if strings.ContainsRune(n, '.') {
-			f, _ := strconv.ParseFloat(n, 64)
-			return f
-		}
-
-		i, _ := strconv.ParseInt(n, 10, 64)
-		return i
-
-	case jlexer.TokenBool:
-		return in.Bool()
-
-	case jlexer.TokenNull:
-		in.Null()
-		return nil
-
-	case jlexer.TokenDelim:
-		if in.IsDelim('{') {
-			ret := make(JSONMapSlice, 0)
-			ret.UnmarshalEasyJSON(in)
-
-			if in.Ok() {
-				return ret
-			}
-
-			// lexer is in an error state: will exhaust
-			return nil
-		}
-
-		if in.IsDelim('[') {
-			in.Delim('[') // consume
-
-			ret := []interface{}{}
-			for !in.IsDelim(']') {
-				ret = append(ret, s.asInterface(in))
-				in.WantComma()
-			}
-			in.Delim(']')
-
-			if in.Ok() {
-				return ret
-			}
-
-			// lexer is in an error state: will exhaust
-			return nil
-		}
-
-		if in.Ok() {
-			in.Delim('{') // force error
-		}
-
-		return nil
-
-	case jlexer.TokenUndef:
-		fallthrough
-	default:
-		if in.Ok() {
-			in.Delim('{') // force error
-		}
-
-		return nil
-	}
 }

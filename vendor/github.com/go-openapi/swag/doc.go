@@ -16,63 +16,43 @@
 //
 // You may also use it standalone for your projects.
 //
-// NOTE: all features that were previously exposed as package-level members (constants, variables,
+// NOTE: all features that used to be exposed as package-level members (constants, variables,
 // functions and types) are now deprecated and are superseded by equivalent features in
 // more specialized sub-packages.
+// Moving forward, no additional feature will be added to the [swag] API directly at the root package level,
+// which remains there for backward-compatibility purposes.
 //
-// Here is what is inside:
+// Child modules will continue to evolve or some new ones may be added in the future.
 //
-// Module [cmdutils]:
+// # Modules
 //
-//   - utilities to work with CLIs
+//   - [cmdutils]      utilities to work with CLIs
 //
-// Module [conv]:
+//   - [conv]          type conversion utilities
 //
-//   - convert between value and pointers for builtin types
-//   - convert from string to builtin types (wraps strconv)
+//   - [fileutils]     file utilities
 //
-// Module [fileutils]:
+//   - [jsonname]      JSON utilities
 //
-//   - file upload type
-//   - search in path
+//   - [jsonutils]     JSON utilities
 //
-// Module [jsonname]:
+//   - [loading]       file loading
 //
-//   - json names for go properties
+//   - [mangling]      safe name generation
 //
-// Module [jsonutils]:
+//   - [netutils]      networking utilities
 //
-//   - fast json concatenation
-//   - read and write JSON from and to dynamic go data structures
+//   - [stringutils]   `string` utilities
 //
-// Module [loading]:
+//   - [typeutils]     `go` types utilities
 //
-//   - load from file or http
+//   - [yamlutils]     YAML utilities
 //
-// Module [mangling]:
-//
-//   - name mangling to generate clean identifiers
-//
-// Module [netutils]:
-//
-//   - host, port from address
-//
-// Module [stringutils]:
-//
-//   - find string in list
-//   - join/split arrays of query parameters
-//
-// Module [typeutils]:
-//
-//   - check the zero value of any type
-//
-// Module [yamlutils]:
-//
-//   - converting YAML to JSON
-//   - loading YAML into a dynamic YAML document
+// # Dependencies
 //
 // This repo has a few dependencies outside of the standard library:
 //
-//   - YAML utilities depend on [gopkg.in/yaml.v3]
-//   - JSON utilities depend on [github.com/mailru/easyjson]
+//   - YAML utilities depend on [go.yaml.in/yaml/v3]
 package swag
+
+//go:generate mockery

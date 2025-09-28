@@ -218,8 +218,8 @@ func NewRoutableContext(spec *loads.Document, routableAPI RoutableAPI, routes Ro
 // If a nil Router is provided, the DefaultRouter (denco-based) will be used.
 func NewRoutableContextWithAnalyzedSpec(spec *loads.Document, an *analysis.Spec, routableAPI RoutableAPI, routes Router) *Context {
 	// Either there are no spec doc and analysis, or both of them.
-	if !((spec == nil && an == nil) || (spec != nil && an != nil)) {
-		panic(errors.New(http.StatusInternalServerError, "routable context requires either both spec doc and analysis, or none of them"))
+	if (spec != nil || an != nil) && (spec == nil || an == nil) {
+		panic(fmt.Errorf("%d: %s", http.StatusInternalServerError, "routable context requires either both spec doc and analysis, or none of them"))
 	}
 
 	return &Context{
@@ -307,6 +307,9 @@ type contentTypeValue struct {
 
 // BasePath returns the base path for this API
 func (c *Context) BasePath() string {
+	if c.spec == nil {
+		return ""
+	}
 	return c.spec.BasePath()
 }
 
@@ -341,7 +344,7 @@ func (c *Context) BindValidRequest(request *http.Request, route *MatchedRoute, b
 			if len(res) == 0 {
 				cons, ok := route.Consumers[ct]
 				if !ok {
-					res = append(res, errors.New(500, "no consumer registered for %s", ct))
+					res = append(res, errors.New(http.StatusInternalServerError, "no consumer registered for %s", ct))
 				} else {
 					route.Consumer = cons
 					requestContentType = ct
@@ -486,7 +489,7 @@ func (c *Context) Authorize(request *http.Request, route *MatchedRoute) (interfa
 				return nil, nil, err
 			}
 
-			return nil, nil, errors.New(http.StatusForbidden, err.Error())
+			return nil, nil, errors.New(http.StatusForbidden, "%v", err)
 		}
 	}
 
@@ -552,7 +555,7 @@ func (c *Context) Respond(rw http.ResponseWriter, r *http.Request, produces []st
 			prods := c.api.ProducersFor(normalizeOffers([]string{c.api.DefaultProduces()}))
 			pr, ok := prods[c.api.DefaultProduces()]
 			if !ok {
-				panic(errors.New(http.StatusInternalServerError, cantFindProducer(format)))
+				panic(fmt.Errorf("%d: %s", http.StatusInternalServerError, cantFindProducer(format)))
 			}
 			prod = pr
 		}
@@ -585,7 +588,7 @@ func (c *Context) Respond(rw http.ResponseWriter, r *http.Request, produces []st
 		producers := c.api.ProducersFor(normalizeOffers(offers))
 		prod, ok := producers[format]
 		if !ok {
-			panic(errors.New(http.StatusInternalServerError, cantFindProducer(format)))
+			panic(fmt.Errorf("%d: %s", http.StatusInternalServerError, cantFindProducer(format)))
 		}
 		if err := prod.Produce(rw, data); err != nil {
 			panic(err) // let the recovery middleware deal with this
@@ -606,7 +609,7 @@ func (c *Context) Respond(rw http.ResponseWriter, r *http.Request, produces []st
 				prods := c.api.ProducersFor(normalizeOffers([]string{c.api.DefaultProduces()}))
 				pr, ok := prods[c.api.DefaultProduces()]
 				if !ok {
-					panic(errors.New(http.StatusInternalServerError, cantFindProducer(format)))
+					panic(fmt.Errorf("%d: %s", http.StatusInternalServerError, cantFindProducer(format)))
 				}
 				prod = pr
 			}
@@ -617,7 +620,7 @@ func (c *Context) Respond(rw http.ResponseWriter, r *http.Request, produces []st
 		return
 	}
 
-	c.api.ServeErrorFor(route.Operation.ID)(rw, r, errors.New(http.StatusInternalServerError, "can't produce response"))
+	c.api.ServeErrorFor(route.Operation.ID)(rw, r, fmt.Errorf("%d: %s", http.StatusInternalServerError, "can't produce response"))
 }
 
 // APIHandlerSwaggerUI returns a handler to serve the API.
@@ -677,6 +680,15 @@ func (c *Context) APIHandler(builder Builder, opts ...UIOption) http.Handler {
 	return Spec(specPath, c.spec.Raw(), Redoc(redocOpts, c.RoutesHandler(b)), specOpts...)
 }
 
+// RoutesHandler returns a handler to serve the API, just the routes and the contract defined in the swagger spec
+func (c *Context) RoutesHandler(builder Builder) http.Handler {
+	b := builder
+	if b == nil {
+		b = PassthroughBuilder
+	}
+	return NewRouter(c, b(NewOperationExecutor(c)))
+}
+
 func (c Context) uiOptionsForHandler(opts []UIOption) (string, uiOptions, []SpecOption) {
 	var title string
 	sp := c.spec.Spec()
@@ -706,15 +718,6 @@ func (c Context) uiOptionsForHandler(opts []UIOption) (string, uiOptions, []Spec
 	}
 
 	return pth, uiOpts, []SpecOption{WithSpecDocument(doc)}
-}
-
-// RoutesHandler returns a handler to serve the API, just the routes and the contract defined in the swagger spec
-func (c *Context) RoutesHandler(builder Builder) http.Handler {
-	b := builder
-	if b == nil {
-		b = PassthroughBuilder
-	}
-	return NewRouter(c, b(NewOperationExecutor(c)))
 }
 
 func cantFindProducer(format string) string {

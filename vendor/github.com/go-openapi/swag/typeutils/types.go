@@ -22,11 +22,18 @@ type zeroable interface {
 
 // IsZero returns true when the value passed into the function is a zero value.
 // This allows for safer checking of interface values.
-func IsZero(data interface{}) bool {
+func IsZero(data any) bool {
 	v := reflect.ValueOf(data)
 	// check for nil data
 	switch v.Kind() { //nolint:exhaustive
-	case reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+	case
+		reflect.Interface,
+		reflect.Func,
+		reflect.Chan,
+		reflect.Pointer,
+		reflect.UnsafePointer,
+		reflect.Map,
+		reflect.Slice:
 		if v.IsNil() {
 			return true
 		}
@@ -53,6 +60,31 @@ func IsZero(data interface{}) bool {
 		return reflect.DeepEqual(data, reflect.Zero(v.Type()).Interface())
 	case reflect.Invalid:
 		return true
+	default:
+		return false
+	}
+}
+
+// IsNil checks if input is nil.
+//
+// For types chan, func, interface, map, pointer, or slice it returns true if its argument is nil.
+//
+// See [reflect.Value.IsNil].
+func IsNil(input any) bool {
+	if input == nil {
+		return true
+	}
+
+	kind := reflect.TypeOf(input).Kind()
+	switch kind { //nolint:exhaustive
+	case reflect.Pointer,
+		reflect.UnsafePointer,
+		reflect.Map,
+		reflect.Slice,
+		reflect.Chan,
+		reflect.Interface,
+		reflect.Func:
+		return reflect.ValueOf(input).IsNil()
 	default:
 		return false
 	}

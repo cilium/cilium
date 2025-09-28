@@ -24,12 +24,12 @@ import (
 	"strconv"
 
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/conv"
+	"github.com/go-openapi/swag/stringutils"
 	"github.com/go-openapi/validate"
-
-	"github.com/go-openapi/runtime"
 )
 
 const defaultMaxMemory = 32 << 20
@@ -64,85 +64,6 @@ type untypedParamBinder struct {
 
 func (p *untypedParamBinder) Type() reflect.Type {
 	return p.typeForSchema(p.parameter.Type, p.parameter.Format, p.parameter.Items)
-}
-
-func (p *untypedParamBinder) typeForSchema(tpe, format string, items *spec.Items) reflect.Type {
-	switch tpe {
-	case "boolean":
-		return reflect.TypeOf(true)
-
-	case typeString:
-		if tt, ok := p.formats.GetType(format); ok {
-			return tt
-		}
-		return reflect.TypeOf("")
-
-	case "integer":
-		switch format {
-		case "int8":
-			return reflect.TypeOf(int8(0))
-		case "int16":
-			return reflect.TypeOf(int16(0))
-		case "int32":
-			return reflect.TypeOf(int32(0))
-		case "int64":
-			return reflect.TypeOf(int64(0))
-		default:
-			return reflect.TypeOf(int64(0))
-		}
-
-	case "number":
-		switch format {
-		case "float":
-			return reflect.TypeOf(float32(0))
-		case "double":
-			return reflect.TypeOf(float64(0))
-		}
-
-	case typeArray:
-		if items == nil {
-			return nil
-		}
-		itemsType := p.typeForSchema(items.Type, items.Format, items.Items)
-		if itemsType == nil {
-			return nil
-		}
-		return reflect.MakeSlice(reflect.SliceOf(itemsType), 0, 0).Type()
-
-	case "file":
-		return reflect.TypeOf(&runtime.File{}).Elem()
-
-	case "object":
-		return reflect.TypeOf(map[string]interface{}{})
-	}
-	return nil
-}
-
-func (p *untypedParamBinder) allowsMulti() bool {
-	return p.parameter.In == "query" || p.parameter.In == "formData"
-}
-
-func (p *untypedParamBinder) readValue(values runtime.Gettable, target reflect.Value) ([]string, bool, bool, error) {
-	name, in, cf, tpe := p.parameter.Name, p.parameter.In, p.parameter.CollectionFormat, p.parameter.Type
-	if tpe == typeArray {
-		if cf == "multi" {
-			if !p.allowsMulti() {
-				return nil, false, false, errors.InvalidCollectionFormat(name, in, cf)
-			}
-			vv, hasKey, _ := values.GetOK(name)
-			return vv, false, hasKey, nil
-		}
-
-		v, hk, hv := values.GetOK(name)
-		if !hv {
-			return nil, false, hk, nil
-		}
-		d, c, e := p.readFormattedSliceFieldValue(v[len(v)-1], target)
-		return d, c, hk, e
-	}
-
-	vv, hk, _ := values.GetOK(name)
-	return vv, false, hk, nil
 }
 
 func (p *untypedParamBinder) Bind(request *http.Request, routeParams RouteParams, consumer runtime.Consumer, target reflect.Value) error {
@@ -264,8 +185,87 @@ func (p *untypedParamBinder) Bind(request *http.Request, routeParams RouteParams
 		target.Set(reflect.Indirect(newValue))
 		return nil
 	default:
-		return errors.New(500, fmt.Sprintf("invalid parameter location %q", p.parameter.In))
+		return fmt.Errorf("%d: invalid parameter location %q", http.StatusInternalServerError, p.parameter.In)
 	}
+}
+
+func (p *untypedParamBinder) typeForSchema(tpe, format string, items *spec.Items) reflect.Type {
+	switch tpe {
+	case "boolean":
+		return reflect.TypeOf(true)
+
+	case typeString:
+		if tt, ok := p.formats.GetType(format); ok {
+			return tt
+		}
+		return reflect.TypeOf("")
+
+	case "integer":
+		switch format {
+		case "int8":
+			return reflect.TypeOf(int8(0))
+		case "int16":
+			return reflect.TypeOf(int16(0))
+		case "int32":
+			return reflect.TypeOf(int32(0))
+		case "int64":
+			return reflect.TypeOf(int64(0))
+		default:
+			return reflect.TypeOf(int64(0))
+		}
+
+	case "number":
+		switch format {
+		case "float":
+			return reflect.TypeOf(float32(0))
+		case "double":
+			return reflect.TypeOf(float64(0))
+		}
+
+	case typeArray:
+		if items == nil {
+			return nil
+		}
+		itemsType := p.typeForSchema(items.Type, items.Format, items.Items)
+		if itemsType == nil {
+			return nil
+		}
+		return reflect.MakeSlice(reflect.SliceOf(itemsType), 0, 0).Type()
+
+	case "file":
+		return reflect.TypeOf(&runtime.File{}).Elem()
+
+	case "object":
+		return reflect.TypeOf(map[string]interface{}{})
+	}
+	return nil
+}
+
+func (p *untypedParamBinder) allowsMulti() bool {
+	return p.parameter.In == "query" || p.parameter.In == "formData"
+}
+
+func (p *untypedParamBinder) readValue(values runtime.Gettable, target reflect.Value) ([]string, bool, bool, error) {
+	name, in, cf, tpe := p.parameter.Name, p.parameter.In, p.parameter.CollectionFormat, p.parameter.Type
+	if tpe == typeArray {
+		if cf == "multi" {
+			if !p.allowsMulti() {
+				return nil, false, false, errors.InvalidCollectionFormat(name, in, cf)
+			}
+			vv, hasKey, _ := values.GetOK(name)
+			return vv, false, hasKey, nil
+		}
+
+		v, hk, hv := values.GetOK(name)
+		if !hv {
+			return nil, false, hk, nil
+		}
+		d, c, e := p.readFormattedSliceFieldValue(v[len(v)-1], target)
+		return d, c, hk, e
+	}
+
+	vv, hk, _ := values.GetOK(name)
+	return vv, false, hk, nil
 }
 
 func (p *untypedParamBinder) bindValue(data []string, hasKey bool, target reflect.Value) error {
@@ -331,7 +331,7 @@ func (p *untypedParamBinder) setFieldValue(target reflect.Value, defaultValue in
 			}
 			return nil
 		}
-		b, err := swag.ConvertBool(data)
+		b, err := conv.ConvertBool(data)
 		if err != nil {
 			return err
 		}
@@ -431,7 +431,7 @@ func (p *untypedParamBinder) tryUnmarshaler(target reflect.Value, defaultValue i
 		return false, nil
 	}
 	// When a type implements encoding.TextUnmarshaler we'll use that instead of reflecting some more
-	if reflect.PtrTo(target.Type()).Implements(textUnmarshalType) {
+	if reflect.PointerTo(target.Type()).Implements(textUnmarshalType) {
 		if defaultValue != nil && len(data) == 0 {
 			target.Set(reflect.ValueOf(defaultValue))
 			return true, nil
@@ -455,7 +455,7 @@ func (p *untypedParamBinder) readFormattedSliceFieldValue(data string, target re
 		return nil, true, nil
 	}
 
-	return swag.SplitByFormat(data, p.parameter.CollectionFormat), false, nil
+	return stringutils.SplitByFormat(data, p.parameter.CollectionFormat), false, nil
 }
 
 func (p *untypedParamBinder) setSliceFieldValue(target reflect.Value, defaultValue interface{}, data []string, hasKey bool) error {
@@ -479,7 +479,7 @@ func (p *untypedParamBinder) setSliceFieldValue(target reflect.Value, defaultVal
 
 	value := reflect.MakeSlice(reflect.SliceOf(target.Type().Elem()), sz, sz)
 
-	for i := 0; i < sz; i++ {
+	for i := range sz {
 		if err := p.setFieldValue(value.Index(i), nil, data[i], hasKey); err != nil {
 			return err
 		}
