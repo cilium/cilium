@@ -14,6 +14,6 @@
 
 package runtime
 
-import "github.com/go-openapi/swag"
+import "github.com/go-openapi/swag/fileutils"
 
-type File = swag.File
+type File = fileutils.File

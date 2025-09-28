@@ -77,7 +77,7 @@ func (o *UntypedRequestBinder) Bind(request *http.Request, routeParams RoutePara
 		}
 
 		if !target.IsValid() {
-			result = append(result, errors.New(500, "parameter name %q is an unknown field", binder.Name))
+			result = append(result, errors.New(http.StatusInternalServerError, "parameter name %q is an unknown field", binder.Name))
 			continue
 		}
 

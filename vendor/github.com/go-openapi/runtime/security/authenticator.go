@@ -31,7 +31,7 @@ const (
 )
 
 // HttpAuthenticator is a function that authenticates a HTTP request
-func HttpAuthenticator(handler func(*http.Request) (bool, interface{}, error)) runtime.Authenticator { //nolint:revive,stylecheck
+func HttpAuthenticator(handler func(*http.Request) (bool, interface{}, error)) runtime.Authenticator { //nolint:revive
 	return runtime.AuthenticatorFunc(func(params interface{}) (bool, interface{}, error) {
 		if request, ok := params.(*http.Request); ok {
 			return handler(request)
@@ -159,7 +159,7 @@ func APIKeyAuth(name, in string, authenticate TokenAuthentication) runtime.Authe
 	inl := strings.ToLower(in)
 	if inl != query && inl != header {
 		// panic because this is most likely a typo
-		panic(errors.New(500, "api key auth: in value needs to be either \"query\" or \"header\""))
+		panic(errors.New(http.StatusInternalServerError, "api key auth: in value needs to be either \"query\" or \"header\""))
 	}
 
 	var getToken func(*http.Request) string
@@ -187,7 +187,7 @@ func APIKeyAuthCtx(name, in string, authenticate TokenAuthenticationCtx) runtime
 	inl := strings.ToLower(in)
 	if inl != query && inl != header {
 		// panic because this is most likely a typo
-		panic(errors.New(500, "api key auth: in value needs to be either \"query\" or \"header\""))
+		panic(errors.New(http.StatusInternalServerError, "api key auth: in value needs to be either \"query\" or \"header\""))
 	}
 
 	var getToken func(*http.Request) string

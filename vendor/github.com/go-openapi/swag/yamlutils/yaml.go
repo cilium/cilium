@@ -20,13 +20,15 @@ import (
 	"strconv"
 
 	"github.com/go-openapi/swag/jsonutils"
-	yaml "gopkg.in/yaml.v3"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 // YAMLToJSON converts a YAML document into JSON bytes.
 //
 // Note: a YAML document is the output from a [yaml.Marshaler], e.g a pointer to a [yaml.Node].
-func YAMLToJSON(value interface{}) (json.RawMessage, error) {
+//
+// [YAMLToJSON] is typically called after [BytesToYAMLDoc].
+func YAMLToJSON(value any) (json.RawMessage, error) {
 	jm, err := transformData(value)
 	if err != nil {
 		return nil, err
@@ -42,7 +44,7 @@ func YAMLToJSON(value interface{}) (json.RawMessage, error) {
 // This function only supports root documents that are objects.
 //
 // A YAML document is a pointer to a [yaml.Node].
-func BytesToYAMLDoc(data []byte) (interface{}, error) {
+func BytesToYAMLDoc(data []byte) (any, error) {
 	var document yaml.Node // preserve order that is present in the document
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		return nil, err
@@ -53,7 +55,7 @@ func BytesToYAMLDoc(data []byte) (interface{}, error) {
 	return &document, nil
 }
 
-func yamlNode(root *yaml.Node) (interface{}, error) {
+func yamlNode(root *yaml.Node) (any, error) {
 	switch root.Kind {
 	case yaml.DocumentNode:
 		return yamlDocument(root)
@@ -70,41 +72,28 @@ func yamlNode(root *yaml.Node) (interface{}, error) {
 	}
 }
 
-func yamlDocument(node *yaml.Node) (interface{}, error) {
+func yamlDocument(node *yaml.Node) (any, error) {
 	if len(node.Content) != 1 {
 		return nil, fmt.Errorf("unexpected YAML Document node content length: %d: %w", len(node.Content), ErrYAML)
 	}
 	return yamlNode(node.Content[0])
 }
 
-func yamlMapping(node *yaml.Node) (interface{}, error) {
-	const sensibleAllocDivider = 2
+func yamlMapping(node *yaml.Node) (any, error) {
+	const sensibleAllocDivider = 2 // nodes concatenate (key,value) sequences
 	m := make(YAMLMapSlice, len(node.Content)/sensibleAllocDivider)
 
-	var j int
-	for i := 0; i < len(node.Content); i += 2 {
-		var nmi YAMLMapItem
-		k, err := yamlStringScalarC(node.Content[i])
-		if err != nil {
-			return nil, fmt.Errorf("unable to decode YAML map key: %w: %w", err, ErrYAML)
-		}
-		nmi.Key = k
-		v, err := yamlNode(node.Content[i+1])
-		if err != nil {
-			return nil, fmt.Errorf("unable to process YAML map value for key %q: %w: %w", k, err, ErrYAML)
-		}
-		nmi.Value = v
-		m[j] = nmi
-		j++
+	if err := m.UnmarshalYAML(node); err != nil {
+		return nil, err
 	}
+
 	return m, nil
 }
 
-func yamlSequence(node *yaml.Node) (interface{}, error) {
-	s := make([]interface{}, 0)
+func yamlSequence(node *yaml.Node) (any, error) {
+	s := make([]any, 0)
 
-	for i := 0; i < len(node.Content); i++ {
-
+	for i := range len(node.Content) {
 		v, err := yamlNode(node.Content[i])
 		if err != nil {
 			return nil, fmt.Errorf("unable to decode YAML sequence value: %w: %w", err, ErrYAML)
@@ -123,7 +112,7 @@ const ( // See https://yaml.org/type/
 	yamlNull         = "tag:yaml.org,2002:null"
 )
 
-func yamlScalar(node *yaml.Node) (interface{}, error) {
+func yamlScalar(node *yaml.Node) (any, error) {
 	switch node.LongTag() {
 	case yamlStringScalar:
 		return node.Value, nil
@@ -167,42 +156,42 @@ func yamlStringScalarC(node *yaml.Node) (string, error) {
 	}
 }
 
-func transformData(input interface{}) (out interface{}, err error) {
-	format := func(t interface{}) (string, error) {
-		switch k := t.(type) {
-		case string:
-			return k, nil
-		case uint:
-			return strconv.FormatUint(uint64(k), 10), nil
-		case uint8:
-			return strconv.FormatUint(uint64(k), 10), nil
-		case uint16:
-			return strconv.FormatUint(uint64(k), 10), nil
-		case uint32:
-			return strconv.FormatUint(uint64(k), 10), nil
-		case uint64:
-			return strconv.FormatUint(k, 10), nil
-		case int:
-			return strconv.Itoa(k), nil
-		case int8:
-			return strconv.FormatInt(int64(k), 10), nil
-		case int16:
-			return strconv.FormatInt(int64(k), 10), nil
-		case int32:
-			return strconv.FormatInt(int64(k), 10), nil
-		case int64:
-			return strconv.FormatInt(k, 10), nil
-		default:
-			return "", fmt.Errorf("unexpected map key type, got: %T: %w", k, ErrYAML)
-		}
+func format(t any) (string, error) {
+	switch k := t.(type) {
+	case string:
+		return k, nil
+	case uint:
+		return strconv.FormatUint(uint64(k), 10), nil
+	case uint8:
+		return strconv.FormatUint(uint64(k), 10), nil
+	case uint16:
+		return strconv.FormatUint(uint64(k), 10), nil
+	case uint32:
+		return strconv.FormatUint(uint64(k), 10), nil
+	case uint64:
+		return strconv.FormatUint(k, 10), nil
+	case int:
+		return strconv.Itoa(k), nil
+	case int8:
+		return strconv.FormatInt(int64(k), 10), nil
+	case int16:
+		return strconv.FormatInt(int64(k), 10), nil
+	case int32:
+		return strconv.FormatInt(int64(k), 10), nil
+	case int64:
+		return strconv.FormatInt(k, 10), nil
+	default:
+		return "", fmt.Errorf("unexpected map key type, got: %T: %w", k, ErrYAML)
 	}
+}
 
+func transformData(input any) (out any, err error) {
 	switch in := input.(type) {
 	case yaml.Node:
 		return yamlNode(&in)
 	case *yaml.Node:
 		return yamlNode(in)
-	case map[interface{}]interface{}:
+	case map[any]any:
 		o := make(YAMLMapSlice, 0, len(in))
 		for ke, va := range in {
 			var nmi YAMLMapItem
@@ -218,10 +207,10 @@ func transformData(input interface{}) (out interface{}, err error) {
 			o = append(o, nmi)
 		}
 		return o, nil
-	case []interface{}:
+	case []any:
 		len1 := len(in)
-		o := make([]interface{}, len1)
-		for i := 0; i < len1; i++ {
+		o := make([]any, len1)
+		for i := range len1 {
 			o[i], err = transformData(in[i])
 			if err != nil {
 				return nil, err
