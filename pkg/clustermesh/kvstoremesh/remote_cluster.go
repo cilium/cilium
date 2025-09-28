@@ -76,7 +76,8 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	}
 
 	dstcfg := types.CiliumClusterConfig{
-		ID: srccfg.ID,
+		ID:      srccfg.ID,
+		Version: srccfg.Version,
 		Capabilities: types.CiliumClusterConfigCapabilities{
 			SyncedCanaries:        true,
 			Cached:                true,

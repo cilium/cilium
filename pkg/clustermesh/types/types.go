@@ -11,6 +11,8 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -94,7 +96,8 @@ func RegisterClusterInfoValidator(lc cell.Lifecycle, cinfo ClusterInfo) {
 }
 
 type CiliumClusterConfig struct {
-	ID uint32 `json:"id,omitempty"`
+	ID      uint32                `json:"id,omitempty"`
+	Version version.CiliumVersion `json:"version,omitempty"`
 
 	Capabilities CiliumClusterConfigCapabilities `json:"capabilities,omitempty"`
 }
@@ -114,4 +117,38 @@ type CiliumClusterConfigCapabilities struct {
 	// Whether or not MCS-API ServiceExports is enabled by the cluster.
 	// Additionally a nil values means that it's not supported.
 	ServiceExportsEnabled *bool `json:"serviceExportsEnabled,omitempty"`
+}
+
+type VersionCompatibility string
+
+const (
+	VersionCompatibilityUnknown      VersionCompatibility = "unknown"
+	VersionCompatibilitySupported    VersionCompatibility = "supported"
+	VersionCompatibilityUntested     VersionCompatibility = "untested"
+	VersionCompatibilityIncompatible VersionCompatibility = "incompatible"
+)
+
+func CheckVersionCompatibility(remoteCiliumVersion version.CiliumVersion) (VersionCompatibility, error) {
+	if remoteCiliumVersion.Version == "" {
+		// TODO: once 1.19 is released we should be able to return VersionCheckNotTested here
+		//       for now we assume it's supported to facilitate the downstream logic
+		return VersionCompatibilitySupported, nil
+	}
+
+	localVersion, err := versioncheck.Version(version.GetCiliumVersion().Version)
+	if err != nil {
+		return VersionCompatibilityUnknown, fmt.Errorf("unable to parse local Cilium version %q: %w", remoteCiliumVersion.Version, err)
+	}
+	remoteVersion, err := versioncheck.Version(remoteCiliumVersion.Version)
+	if err != nil {
+		return VersionCompatibilityUnknown, fmt.Errorf("unable to parse remote Cilium version %q: %w", remoteCiliumVersion.Version, err)
+	}
+
+	var maxMinorVersionSkew uint64 = 1
+	diffMinorVersion := max(localVersion.Minor, remoteVersion.Minor) - min(localVersion.Minor, remoteVersion.Minor)
+	if diffMinorVersion > maxMinorVersionSkew {
+		return VersionCompatibilityUntested, nil
+	}
+
+	return VersionCompatibilitySupported, nil
 }

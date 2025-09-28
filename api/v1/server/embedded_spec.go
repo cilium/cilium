@@ -4403,6 +4403,10 @@ func init() {
         "synced": {
           "description": "Synchronization status about each resource type",
           "$ref": "#/definitions/RemoteClusterSynced"
+        },
+        "version-compatibility": {
+          "description": "Version compatibility with the remote cluster",
+          "type": "string"
         }
       }
     },
@@ -4433,6 +4437,10 @@ func init() {
         "sync-canaries": {
           "description": "Whether the remote cluster supports per-prefix \"synced\" canaries",
           "type": "boolean"
+        },
+        "version": {
+          "description": "The Cilium version advertised by the remote cluster",
+          "type": "string"
         }
       }
     },
@@ -10212,6 +10220,10 @@ func init() {
         "synced": {
           "description": "Synchronization status about each resource type",
           "$ref": "#/definitions/RemoteClusterSynced"
+        },
+        "version-compatibility": {
+          "description": "Version compatibility with the remote cluster",
+          "type": "string"
         }
       }
     },
@@ -10242,6 +10254,10 @@ func init() {
         "sync-canaries": {
           "description": "Whether the remote cluster supports per-prefix \"synced\" canaries",
           "type": "boolean"
+        },
+        "version": {
+          "description": "The Cilium version advertised by the remote cluster",
+          "type": "string"
         }
       }
     },

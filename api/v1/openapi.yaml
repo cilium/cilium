@@ -2351,6 +2351,9 @@ definitions:
       ready:
         description: Indicates readiness of the remote cluster
         type: boolean
+      version-compatibility:
+        description: Version compatibility with the remote cluster
+        type: string
       connected:
         description: Indicates whether the connection to the remote kvstore is established
         type: boolean
@@ -2425,6 +2428,9 @@ definitions:
       cluster-id:
         description: The Cluster ID advertised by the remote cluster
         type: integer
+      version:
+        description: The Cilium version advertised by the remote cluster
+        type: string
       kvstoremesh:
         description: Whether the remote cluster information is locally cached by kvstoremesh
         type: boolean

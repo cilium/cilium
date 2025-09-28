@@ -79,7 +79,7 @@ func TestClusterMesh(t *testing.T) {
 		require.Zero(t, status.NumFailures, "The status for %s should not report failures", name)
 		require.Zero(t, status.LastFailure, "The status for %s should not report a last failure", name)
 
-		cfg := models.RemoteClusterConfig{ClusterID: int64(id), Kvstoremesh: true, Required: true, Retrieved: true, SyncCanaries: false}
+		cfg := models.RemoteClusterConfig{ClusterID: int64(id), Version: string(types.VersionCompatibilityUnknown), Kvstoremesh: true, Required: true, Retrieved: true, SyncCanaries: false}
 		require.Equal(t, &cfg, status.Config, "The status for %s should propagate the cluster configuration", name)
 	}
 

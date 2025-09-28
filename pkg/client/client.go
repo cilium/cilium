@@ -22,7 +22,9 @@ import (
 
 	clientapi "github.com/cilium/cilium/api/v1/client"
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/version"
 )
 
 type Client struct {
@@ -858,8 +860,10 @@ func FormatStatusResponseRemoteClusters(w io.Writer, clusters []*models.RemoteCl
 					}
 				}
 				if cluster.Config.Retrieved {
-					fmt.Fprintf(w, ", cluster-id=%d, kvstoremesh=%t, sync-canaries=%t, service-exports=%s",
-						cluster.Config.ClusterID, cluster.Config.Kvstoremesh, cluster.Config.SyncCanaries, serviceExportsConfig)
+					ver := cluster.Config.Version
+					versionCheckResult, _ := types.CheckVersionCompatibility(version.FromString(cluster.Config.Version))
+					fmt.Fprintf(w, ", version=%s (%s), cluster-id=%d, kvstoremesh=%t, sync-canaries=%t, service-exports=%s",
+						ver, versionCheckResult, cluster.Config.ClusterID, cluster.Config.Kvstoremesh, cluster.Config.SyncCanaries, serviceExportsConfig)
 				}
 			} else {
 				fmt.Fprint(w, "expected=unknown, retrieved=unknown")
