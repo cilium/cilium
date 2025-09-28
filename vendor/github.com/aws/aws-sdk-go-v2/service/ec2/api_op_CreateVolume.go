@@ -92,7 +92,7 @@ type CreateVolumeInput struct {
 	//
 	// The following are the supported values for each volume type:
 	//
-	//   - gp3 : 3,000 - 16,000 IOPS
+	//   - gp3 : 3,000 - 80,000 IOPS
 	//
 	//   - io1 : 100 - 64,000 IOPS
 	//
@@ -155,7 +155,9 @@ type CreateVolumeInput struct {
 	//
 	// The following are the supported volumes sizes for each volume type:
 	//
-	//   - gp2 and gp3 : 1 - 16,384 GiB
+	//   - gp2 : 1 - 16,384 GiB
+	//
+	//   - gp3 : 1 - 65,536 GiB
 	//
 	//   - io1 : 4 - 16,384 GiB
 	//
@@ -173,11 +175,11 @@ type CreateVolumeInput struct {
 	// The tags to apply to the volume during creation.
 	TagSpecifications []types.TagSpecification
 
-	// The throughput to provision for a volume, with a maximum of 1,000 MiB/s.
+	// The throughput to provision for a volume, with a maximum of 2,000 MiB/s.
 	//
 	// This parameter is valid only for gp3 volumes.
 	//
-	// Valid Range: Minimum value of 125. Maximum value of 1000.
+	// Valid Range: Minimum value of 125. Maximum value of 2,000.
 	Throughput *int32
 
 	// Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume
