@@ -3,7 +3,8 @@
 package awsrulesfn
 
 // GetPartition returns an AWS [Partition] for the region provided. If the
-// partition cannot be determined nil will be returned.
+// partition cannot be determined then the default partition (AWS commercial)
+// will be returned.
 func GetPartition(region string) *PartitionConfig {
 	return getPartition(partitions, region)
 }
@@ -332,7 +333,7 @@ var partitions = []Partition{
 			DnsSuffix:            "c2s.ic.gov",
 			DualStackDnsSuffix:   "api.aws.ic.gov",
 			SupportsFIPS:         true,
-			SupportsDualStack:    false,
+			SupportsDualStack:    true,
 			ImplicitGlobalRegion: "us-iso-east-1",
 		},
 		Regions: map[string]RegionOverrides{
@@ -367,7 +368,7 @@ var partitions = []Partition{
 			DnsSuffix:            "sc2s.sgov.gov",
 			DualStackDnsSuffix:   "api.aws.scloud",
 			SupportsFIPS:         true,
-			SupportsDualStack:    false,
+			SupportsDualStack:    true,
 			ImplicitGlobalRegion: "us-isob-east-1",
 		},
 		Regions: map[string]RegionOverrides{
@@ -395,7 +396,7 @@ var partitions = []Partition{
 			DnsSuffix:            "cloud.adc-e.uk",
 			DualStackDnsSuffix:   "api.cloud-aws.adc-e.uk",
 			SupportsFIPS:         true,
-			SupportsDualStack:    false,
+			SupportsDualStack:    true,
 			ImplicitGlobalRegion: "eu-isoe-west-1",
 		},
 		Regions: map[string]RegionOverrides{
@@ -423,7 +424,7 @@ var partitions = []Partition{
 			DnsSuffix:            "csp.hci.ic.gov",
 			DualStackDnsSuffix:   "api.aws.hci.ic.gov",
 			SupportsFIPS:         true,
-			SupportsDualStack:    false,
+			SupportsDualStack:    true,
 			ImplicitGlobalRegion: "us-isof-south-1",
 		},
 		Regions: map[string]RegionOverrides{

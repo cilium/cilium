@@ -611,6 +611,9 @@ func awsRestjson1_deserializeOpErrorRegisterClient(response *smithyhttp.Response
 	case strings.EqualFold("InvalidScopeException", errorCode):
 		return awsRestjson1_deserializeErrorInvalidScopeException(response, errorBody)
 
+	case strings.EqualFold("SlowDownException", errorCode):
+		return awsRestjson1_deserializeErrorSlowDownException(response, errorBody)
+
 	case strings.EqualFold("UnsupportedGrantTypeException", errorCode):
 		return awsRestjson1_deserializeErrorUnsupportedGrantTypeException(response, errorBody)
 
@@ -1482,6 +1485,15 @@ func awsRestjson1_deserializeDocumentAccessDeniedException(v **types.AccessDenie
 				sv.Error_description = ptr.String(jtv)
 			}
 
+		case "reason":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected AccessDeniedExceptionReason to be of type string, got %T instead", value)
+				}
+				sv.Reason = types.AccessDeniedExceptionReason(jtv)
+			}
+
 		default:
 			_, _ = key, value
 
@@ -1912,6 +1924,15 @@ func awsRestjson1_deserializeDocumentInvalidRequestException(v **types.InvalidRe
 					return fmt.Errorf("expected ErrorDescription to be of type string, got %T instead", value)
 				}
 				sv.Error_description = ptr.String(jtv)
+			}
+
+		case "reason":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected InvalidRequestExceptionReason to be of type string, got %T instead", value)
+				}
+				sv.Reason = types.InvalidRequestExceptionReason(jtv)
 			}
 
 		default:

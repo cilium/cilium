@@ -4224,7 +4224,7 @@ type EbsBlockDevice struct {
 	//
 	// The following are the supported values for each volume type:
 	//
-	//   - gp3 : 3,000 - 16,000 IOPS
+	//   - gp3 : 3,000 - 80,000 IOPS
 	//
 	//   - io1 : 100 - 64,000 IOPS
 	//
@@ -4264,7 +4264,7 @@ type EbsBlockDevice struct {
 	//
 	// This parameter is valid only for gp3 volumes.
 	//
-	// Valid Range: Minimum value of 125. Maximum value of 1000.
+	// Valid Range: Minimum value of 125. Maximum value of 2,000.
 	Throughput *int32
 
 	// Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume
@@ -4302,7 +4302,9 @@ type EbsBlockDevice struct {
 	//
 	// The following are the supported sizes for each volume type:
 	//
-	//   - gp2 and gp3 : 1 - 16,384 GiB
+	//   - gp2 : 1 - 16,384 GiB
+	//
+	//   - gp3 : 1 - 65,536 GiB
 	//
 	//   - io1 : 4 - 16,384 GiB
 	//
@@ -5765,7 +5767,7 @@ type FleetEbsBlockDeviceRequest struct {
 	//
 	// The following are the supported values for each volume type:
 	//
-	//   - gp3 : 3,000 - 16,000 IOPS
+	//   - gp3 : 3,000 - 80,000 IOPS
 	//
 	//   - io1 : 100 - 64,000 IOPS
 	//
@@ -5798,7 +5800,7 @@ type FleetEbsBlockDeviceRequest struct {
 	//
 	// This parameter is valid only for gp3 volumes.
 	//
-	// Valid Range: Minimum value of 125. Maximum value of 1000.
+	// Valid Range: Minimum value of 125. Maximum value of 2,000.
 	Throughput *int32
 
 	// The size of the volume, in GiBs. You must specify either a snapshot ID or a
@@ -5807,7 +5809,9 @@ type FleetEbsBlockDeviceRequest struct {
 	//
 	// The following are the supported sizes for each volume type:
 	//
-	//   - gp2 and gp3 : 1 - 16,384 GiB
+	//   - gp2 : 1 - 16,384 GiB
+	//
+	//   - gp3 : 1 - 65,536 GiB
 	//
 	//   - io1 : 4 - 16,384 GiB
 	//
@@ -11642,7 +11646,7 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	//
 	// The following are the supported values for each volume type:
 	//
-	//   - gp3 : 3,000 - 16,000 IOPS
+	//   - gp3 : 3,000 - 80,000 IOPS
 	//
 	//   - io1 : 100 - 64,000 IOPS
 	//
@@ -11663,9 +11667,9 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	// The ID of the snapshot.
 	SnapshotId *string
 
-	// The throughput to provision for a gp3 volume, with a maximum of 1,000 MiB/s.
+	// The throughput to provision for a gp3 volume, with a maximum of 2,000 MiB/s.
 	//
-	// Valid Range: Minimum value of 125. Maximum value of 1000.
+	// Valid Range: Minimum value of 125. Maximum value of 2,000.
 	Throughput *int32
 
 	// Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume
@@ -11697,7 +11701,9 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	// The size of the volume, in GiBs. You must specify either a snapshot ID or a
 	// volume size. The following are the supported volumes sizes for each volume type:
 	//
-	//   - gp2 and gp3 : 1 - 16,384 GiB
+	//   - gp2 : 1 - 16,384 GiB
+	//
+	//   - gp3 : 1 - 65,536 GiB
 	//
 	//   - io1 : 4 - 16,384 GiB
 	//
@@ -11727,9 +11733,7 @@ type LaunchTemplateElasticInferenceAccelerator struct {
 	// This member is required.
 	Type *string
 
-	//  The number of elastic inference accelerators to attach to the instance.
-	//
-	// Default: 1
+	// The number of elastic inference accelerators to attach to the instance.
 	Count *int32
 
 	noSmithyDocumentSerde
@@ -11740,13 +11744,11 @@ type LaunchTemplateElasticInferenceAccelerator struct {
 // Describes an elastic inference accelerator.
 type LaunchTemplateElasticInferenceAcceleratorResponse struct {
 
-	//  The number of elastic inference accelerators to attach to the instance.
-	//
-	// Default: 1
+	// The number of elastic inference accelerators to attach to the instance.
 	Count *int32
 
-	//  The type of elastic inference accelerator. The possible values are
-	// eia1.medium, eia1.large, and eia1.xlarge.
+	// The type of elastic inference accelerator. The possible values are eia1.medium,
+	// eia1.large, and eia1.xlarge.
 	Type *string
 
 	noSmithyDocumentSerde
@@ -11929,8 +11931,6 @@ type LaunchTemplateInstanceMetadataOptions struct {
 
 	// The desired HTTP PUT response hop limit for instance metadata requests. The
 	// larger the number, the further instance metadata requests can travel.
-	//
-	// Default: 1
 	//
 	// Possible values: Integers from 1 to 64
 	HttpPutResponseHopLimit *int32
