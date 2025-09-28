@@ -32,7 +32,10 @@ func init() {
 	}
 }
 
-// ConcatJSON concatenates multiple json objects efficiently
+// ConcatJSON concatenates multiple json objects or arrays efficiently.
+//
+// Note that [ConcatJSON] performs a very simmple (and fast) concatenation
+// operation: it does not attempt to merge objects.
 func ConcatJSON(blobs ...[]byte) []byte {
 	if len(blobs) == 0 {
 		return nil

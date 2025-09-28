@@ -94,5 +94,6 @@ func normalizeOffers(orig []string) (norm []string) {
 }
 
 func normalizeOffer(orig string) string {
-	return strings.SplitN(orig, ";", 2)[0]
+	const maxParts = 2
+	return strings.SplitN(orig, ";", maxParts)[0]
 }

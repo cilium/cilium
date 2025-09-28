@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-// CSVOpts alter the behavior of the CSV consumer or producer.
+// CSVOpt alter the behavior of the CSV consumer or producer.
 type CSVOpt func(*csvOpts)
 
 type csvOpts struct {

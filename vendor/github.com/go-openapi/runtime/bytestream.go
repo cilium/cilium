@@ -22,7 +22,7 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/jsonutils"
 )
 
 func defaultCloser() error { return nil }
@@ -206,7 +206,7 @@ func ByteStreamProducer(opts ...byteStreamOpt) Producer {
 				return err
 
 			case t.Kind() == reflect.Struct || t.Kind() == reflect.Slice:
-				b, err := swag.WriteJSON(data)
+				b, err := jsonutils.WriteJSON(data)
 				if err != nil {
 					return err
 				}

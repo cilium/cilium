@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/stringutils"
 )
 
 // CanHaveBody returns true if this method can have a body
@@ -50,7 +50,7 @@ func HasBody(r *http.Request) bool {
 		return true
 	}
 
-	if r.Header.Get("content-length") != "" {
+	if r.Header.Get("Content-Length") != "" {
 		// in this case, no Transfer-Encoding should be present
 		// we have a header set but it was explicitly set to 0, so we assume no body
 		return false
@@ -145,5 +145,5 @@ func ReadSingleValue(values Gettable, name string) string {
 // ReadCollectionValue reads a collection value from a string data source
 func ReadCollectionValue(values Gettable, name, collectionFormat string) []string {
 	v := ReadSingleValue(values, name)
-	return swag.SplitByFormat(v, collectionFormat)
+	return stringutils.SplitByFormat(v, collectionFormat)
 }
