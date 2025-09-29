@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"runtime/debug"
 	"time"
 
 	"github.com/vishvananda/netlink"
@@ -49,6 +50,14 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 		)
 		return errors.New("IP not compatible")
 	}
+
+	info.logger.Info("RoutingInfo.Configure",
+		"ip", ip,
+		"mtu", mtu,
+		"compat", compat,
+		"host", host)
+	debug.PrintStack()
+	info.logger.Info("---")
 
 	var (
 		ifindex int
@@ -156,6 +165,13 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 
 func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, compat bool, rx statedb.ReadTxn, routes statedb.Table[*tables.Route]) (*statedb.WatchSet, error) {
 	set := statedb.NewWatchSet()
+
+	info.logger.Info("RoutingInfo.ReconcileGatewayRoutes",
+		"mtu", mtu,
+		"compat", compat,
+		"routes", routes)
+	debug.PrintStack()
+	info.logger.Info("---")
 
 	ifindex, err := retrieveIfIndexFromMAC(info.logger, info.MasterIfMAC, mtu)
 	if err != nil {
