@@ -51,10 +51,7 @@ tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 	return DROP_EP_NOT_READY;
 }
 
-static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
-				       int ifindex __maybe_unused,
-				       bool needs_backlog __maybe_unused,
-				       bool from_tunnel)
+static __always_inline bool should_fast_redirect(struct __ctx_buff *ctx, bool from_host)
 {
 	/* Going via CPU backlog queue (aka needs_backlog) is required
 	 * whenever we cannot do a fast ingress -> ingress switch but
@@ -72,10 +69,18 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 	 * Pod, the ingress_ifindex is > 0 and in both device types we
 	 * do want a redirect peer into the target Pod's netns.
 	 */
-	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING) ||
-	    ctx_get_ingress_ifindex(ctx) == 0) {
+	return is_defined(ENABLE_HOST_ROUTING) &&
+	       !from_host &&
+	       ctx_get_ingress_ifindex(ctx) > 0;
+}
+
+static __always_inline int redirect_ep(struct __ctx_buff *ctx,
+				       int ifindex,
+				       bool from_host,
+				       bool from_tunnel)
+{
+	if (!should_fast_redirect(ctx, from_host))
 		return (int)ctx_redirect(ctx, ifindex, 0);
-	}
 
 	/* When coming from overlay, we need to set packet type
 	 * to HOST as otherwise we might get dropped in IP layer.
@@ -138,31 +143,30 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
  * this case the skb is delivered directly to pod's namespace and the ingress
  * policy (the cil_to_container BPF program) is bypassed.
  */
-#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
-    !defined(ENABLE_HOST_ROUTING)
-	set_identity_mark(ctx, seclabel, magic);
+	if (is_defined(USE_BPF_PROG_FOR_INGRESS_POLICY) &&
+	    !should_fast_redirect(ctx, from_host)) {
+		set_identity_mark(ctx, seclabel, magic);
 
 # if !defined(ENABLE_NODEPORT)
-	/* In tunneling mode, we execute this code to send the packet from
-	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
-	 * redirect() because that would bypass conntrack and the reverse DNAT.
-	 * Thus, we send packets to the stack, but since they have the wrong
-	 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
-	 * will drop them.
-	 */
-	if (from_tunnel) {
-		ctx_change_type(ctx, PACKET_HOST);
-		return CTX_ACT_OK;
-	}
+		/* In tunneling mode, we execute this code to send the packet from
+		 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
+		 * redirect() because that would bypass conntrack and the reverse DNAT.
+		 * Thus, we send packets to the stack, but since they have the wrong
+		 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
+		 * will drop them.
+		 */
+		if (from_tunnel) {
+			ctx_change_type(ctx, PACKET_HOST);
+			return CTX_ACT_OK;
+		}
 # endif /* !ENABLE_NODEPORT */
 
-	return redirect_ep(ctx, ep->ifindex, from_host, from_tunnel);
-#else
+		return redirect_ep(ctx, ep->ifindex, from_host, from_tunnel);
+	}
 
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
 	local_delivery_fill_meta(ctx, seclabel, true, from_host, from_tunnel, cluster_id);
 	return tail_call_policy(ctx, ep->lxc_id);
-#endif
 }
 
 #ifdef ENABLE_IPV6
