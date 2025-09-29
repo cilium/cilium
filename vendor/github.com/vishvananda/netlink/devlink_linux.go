@@ -46,15 +46,21 @@ type DevlinkPortFnSetAttrs struct {
 
 // DevlinkPort represents port and its attributes
 type DevlinkPort struct {
-	BusName        string
-	DeviceName     string
-	PortIndex      uint32
-	PortType       uint16
-	NetdeviceName  string
-	NetdevIfIndex  uint32
-	RdmaDeviceName string
-	PortFlavour    uint16
-	Fn             *DevlinkPortFn
+	BusName          string
+	DeviceName       string
+	PortIndex        uint32
+	PortType         uint16
+	NetdeviceName    string
+	NetdevIfIndex    uint32
+	RdmaDeviceName   string
+	PortFlavour      uint16
+	Fn               *DevlinkPortFn
+	PortNumber       *uint32
+	PfNumber         *uint16
+	VfNumber         *uint16
+	SfNumber         *uint32
+	ControllerNumber *uint32
+	External         *bool
 }
 
 type DevLinkPortAddAttrs struct {
@@ -629,6 +635,24 @@ func (port *DevlinkPort) parseAttributes(attrs []syscall.NetlinkRouteAttr) error
 					port.Fn.OpState = uint8(nested.Value[0])
 				}
 			}
+		case nl.DEVLINK_ATTR_PORT_NUMBER:
+			val := native.Uint32(a.Value)
+			port.PortNumber = &val
+		case nl.DEVLINK_ATTR_PORT_PCI_PF_NUMBER:
+			val := native.Uint16(a.Value)
+			port.PfNumber = &val
+		case nl.DEVLINK_ATTR_PORT_PCI_VF_NUMBER:
+			val := native.Uint16(a.Value)
+			port.VfNumber = &val
+		case nl.DEVLINK_ATTR_PORT_PCI_SF_NUMBER:
+			val := native.Uint32(a.Value)
+			port.SfNumber = &val
+		case nl.DEVLINK_ATTR_PORT_CONTROLLER_NUMBER:
+			val := native.Uint32(a.Value)
+			port.ControllerNumber = &val
+		case nl.DEVLINK_ATTR_PORT_EXTERNAL:
+			val := uint8(a.Value[0]) != 0
+			port.External = &val
 		}
 	}
 	return nil
@@ -816,6 +840,43 @@ func (h *Handle) DevlinkGetDeviceParamByName(bus string, device string, param st
 // Equivalent to: `devlink dev param show <bus>/<device> name <param>`
 func DevlinkGetDeviceParamByName(bus string, device string, param string) (*DevlinkParam, error) {
 	return pkgHandle.DevlinkGetDeviceParamByName(bus, device, param)
+}
+
+// DevlinkSplitPort splits a devlink port.
+// Equivalent to: devlink port split <bus>/<device>/<index> count N
+func (h *Handle) DevlinkSplitPort(port *DevlinkPort, count uint32) error {
+	_, req, err := h.createCmdReq(nl.DEVLINK_CMD_PORT_SPLIT, port.BusName, port.DeviceName)
+	if err != nil {
+		return err
+	}
+
+	req.AddData(nl.NewRtAttr(nl.DEVLINK_ATTR_PORT_INDEX, nl.Uint32Attr(port.PortIndex)))
+	req.AddData(nl.NewRtAttr(nl.DEVLINK_ATTR_PORT_SPLIT_COUNT, nl.Uint32Attr(count)))
+
+	_, err = req.Execute(unix.NETLINK_GENERIC, 0)
+	return err
+}
+
+func DevlinkSplitPort(port *DevlinkPort, count uint32) error {
+	return pkgHandle.DevlinkSplitPort(port, count);
+}
+
+// DevlinkUnsplitPort: unsplit devlink port
+// Equivalent to devlink port unsplit <bus>/<device>/<index>
+func (h *Handle) DevlinkUnsplitPort(port *DevlinkPort) error {
+	_, req, err := h.createCmdReq(nl.DEVLINK_CMD_PORT_UNSPLIT, port.BusName, port.DeviceName)
+	if err != nil {
+		return err
+	}
+
+	req.AddData(nl.NewRtAttr(nl.DEVLINK_ATTR_PORT_INDEX, nl.Uint32Attr(port.PortIndex)))
+
+	_, err = req.Execute(unix.NETLINK_GENERIC, 0)
+	return err
+}
+
+func DevlinkUnsplitPort(port *DevlinkPort) error {
+	return pkgHandle.DevlinkUnsplitPort(port);
 }
 
 // DevlinkSetDeviceParam set specific parameter for devlink device

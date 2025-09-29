@@ -45,6 +45,17 @@ type Encap interface {
 	Equal(Encap) bool
 }
 
+type RouteCacheInfo struct {
+	Users   uint32
+	Age     uint32
+	Expires int32
+	Error   uint32
+	Used    uint32
+	Id      uint32
+	Ts      uint32
+	Tsage   uint32
+}
+
 // Protocol describe what was the originator of the route
 type RouteProtocol int
 
@@ -87,6 +98,8 @@ type Route struct {
 	QuickACK         int
 	Congctl          string
 	FastOpenNoCookie int
+	Expires          int
+	CacheInfo        *RouteCacheInfo
 }
 
 func (r Route) String() string {
@@ -117,6 +130,9 @@ func (r Route) String() string {
 	elems = append(elems, fmt.Sprintf("Flags: %s", r.ListFlags()))
 	elems = append(elems, fmt.Sprintf("Table: %d", r.Table))
 	elems = append(elems, fmt.Sprintf("Realm: %d", r.Realm))
+	if r.Expires != 0 {
+		elems = append(elems, fmt.Sprintf("Expires: %dsec", r.Expires))
+	}
 	return fmt.Sprintf("{%s}", strings.Join(elems, " "))
 }
 

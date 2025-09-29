@@ -284,11 +284,3 @@ func NeighList(linkIndex, family int) ([]Neigh, error) {
 func NeighDeserialize(m []byte) (*Neigh, error) {
 	return nil, ErrNotImplemented
 }
-
-func SocketGet(local, remote net.Addr) (*Socket, error) {
-	return nil, ErrNotImplemented
-}
-
-func SocketDestroy(local, remote net.Addr) (*Socket, error) {
-	return nil, ErrNotImplemented
-}

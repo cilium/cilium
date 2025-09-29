@@ -35,6 +35,13 @@ const (
 	TUNTAP_MULTI_QUEUE_DEFAULTS TuntapFlag = TUNTAP_MULTI_QUEUE | TUNTAP_NO_PI
 )
 
+// Temporary, until merged into kernel and golang-sys picks them up. See net-next commit:
+// https://git.kernel.org/pub/scm/linux/kernel/git/netdev/net-next.git/commit/?id=b73b8146d7ff68e245525adb944a4c998d423d59
+const (
+	IFLA_HEADROOM = 0x44
+	IFLA_TAILROOM = 0x45
+)
+
 var StringToTuntapModeMap = map[string]TuntapMode{
 	"tun": TUNTAP_MODE_TUN,
 	"tap": TUNTAP_MODE_TAP,
@@ -1181,6 +1188,83 @@ func (h *Handle) LinkSetGROIPv4MaxSize(link Link, maxSize int) error {
 	return err
 }
 
+// LinkSetVXLANGroup sets the group address of a VXLAN link device.
+// Equivalent to: `ip link set $link type vxlan { remote | group } $group`
+// Note: netlink does not support changing the group address family. If attempted, this will return an EOPNOTSUPP error.
+func LinkSetVXLANGroup(link *Vxlan, group net.IP) error {
+	return pkgHandle.LinkSetVXLANGroup(link, group)
+}
+
+// LinkSetVXLANGroup sets the group address of a VXLAN link device.
+// Equivalent to: `ip link set $link type vxlan { remote | group } $group [ dev $dev ]`
+// Note: netlink does not support changing the group address family. If attempted, this will return an EOPNOTSUPP error.
+func (h *Handle) LinkSetVXLANGroup(link *Vxlan, group net.IP) error {
+	if link.VtepDevIndex == 0 {
+		return fmt.Errorf("VTEP device index must be set to change or set the group address")
+	}
+
+	base := link.Attrs()
+	h.ensureIndex(base)
+	// RTM_SETLINK does not currently support changing the group address
+	req := h.newNetlinkRequest(unix.RTM_NEWLINK, unix.NLM_F_ACK)
+
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(base.Index)
+	req.AddData(msg)
+
+	linkInfo := nl.NewRtAttr(unix.IFLA_LINKINFO, nil)
+	linkInfo.AddRtAttr(nl.IFLA_INFO_KIND, nl.NonZeroTerminated(link.Type()))
+
+	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
+
+	if v4Group := group.To4(); v4Group != nil {
+		data.AddRtAttr(nl.IFLA_VXLAN_GROUP, []byte(v4Group))
+	} else if v6group := group.To16(); v6group != nil {
+		data.AddRtAttr(nl.IFLA_VXLAN_GROUP6, []byte(v6group))
+	} else {
+		return fmt.Errorf("invalid group address %q", group.String())
+	}
+
+	req.AddData(linkInfo)
+
+	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	return err
+}
+
+// LinkSetVXLANVtepDevIndex sets the VTEP device index of a VXLAN link device.
+// Equivalent to: `ip link set $link type [ dev $dev ]`
+func LinkSetVXLANVtepDevIndex(link *Vxlan, ifIndex int) error {
+	return pkgHandle.LinkSetVXLANVtepDevIndex(link, ifIndex)
+}
+
+// LinkSetVXLANVtepDevIndex sets the VTEP device index of a VXLAN link device.
+// Equivalent to: `ip link set $link type [ dev $dev ]`
+func (h *Handle) LinkSetVXLANVtepDevIndex(link *Vxlan, ifIndex int) error {
+	if link.Group != nil && ifIndex == 0 {
+		return fmt.Errorf("VTEP device index must be set when group address is set")
+	}
+
+	base := link.Attrs()
+	h.ensureIndex(base)
+	// RTM_SETLINK does not currently support changing the the VTEP device index
+	req := h.newNetlinkRequest(unix.RTM_NEWLINK, unix.NLM_F_ACK)
+
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(base.Index)
+	req.AddData(msg)
+
+	linkInfo := nl.NewRtAttr(unix.IFLA_LINKINFO, nil)
+	linkInfo.AddRtAttr(nl.IFLA_INFO_KIND, nl.NonZeroTerminated(link.Type()))
+
+	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
+	data.AddRtAttr(nl.IFLA_VXLAN_LINK, nl.Uint32Attr(uint32(ifIndex)))
+
+	req.AddData(linkInfo)
+
+	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	return err
+}
+
 func boolAttr(val bool) []byte {
 	var v uint8
 	if val {
@@ -1933,7 +2017,7 @@ func LinkByName(name string) (Link, error) {
 // filtering a dump of all link names. In this case, if the returned error is
 // [ErrDumpInterrupted] the result may be missing or outdated.
 func (h *Handle) LinkByName(name string) (Link, error) {
-	if h.lookupByDump {
+	if h.options.lookupByDump {
 		return h.linkByNameDump(name)
 	}
 
@@ -1942,8 +2026,10 @@ func (h *Handle) LinkByName(name string) (Link, error) {
 	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 	req.AddData(msg)
 
-	attr := nl.NewRtAttr(unix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
-	req.AddData(attr)
+	if h.options.collectVFInfo {
+		attr := nl.NewRtAttr(unix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
+		req.AddData(attr)
+	}
 
 	nameData := nl.NewRtAttr(unix.IFLA_IFNAME, nl.ZeroTerminated(name))
 	if len(name) > 15 {
@@ -1955,7 +2041,7 @@ func (h *Handle) LinkByName(name string) (Link, error) {
 	if err == unix.EINVAL {
 		// older kernels don't support looking up via IFLA_IFNAME
 		// so fall back to dumping all links
-		h.lookupByDump = true
+		h.options.lookupByDump = true
 		return h.linkByNameDump(name)
 	}
 
@@ -1979,7 +2065,7 @@ func LinkByAlias(alias string) (Link, error) {
 // filtering a dump of all link names. In this case, if the returned error is
 // [ErrDumpInterrupted] the result may be missing or outdated.
 func (h *Handle) LinkByAlias(alias string) (Link, error) {
-	if h.lookupByDump {
+	if h.options.lookupByDump {
 		return h.linkByAliasDump(alias)
 	}
 
@@ -1988,8 +2074,10 @@ func (h *Handle) LinkByAlias(alias string) (Link, error) {
 	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 	req.AddData(msg)
 
-	attr := nl.NewRtAttr(unix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
-	req.AddData(attr)
+	if h.options.collectVFInfo {
+		attr := nl.NewRtAttr(unix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
+		req.AddData(attr)
+	}
 
 	nameData := nl.NewRtAttr(unix.IFLA_IFALIAS, nl.ZeroTerminated(alias))
 	req.AddData(nameData)
@@ -1998,7 +2086,7 @@ func (h *Handle) LinkByAlias(alias string) (Link, error) {
 	if err == unix.EINVAL {
 		// older kernels don't support looking up via IFLA_IFALIAS
 		// so fall back to dumping all links
-		h.lookupByDump = true
+		h.options.lookupByDump = true
 		return h.linkByAliasDump(alias)
 	}
 
@@ -2017,8 +2105,10 @@ func (h *Handle) LinkByIndex(index int) (Link, error) {
 	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 	msg.Index = int32(index)
 	req.AddData(msg)
-	attr := nl.NewRtAttr(unix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
-	req.AddData(attr)
+	if h.options.collectVFInfo {
+		attr := nl.NewRtAttr(unix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
+		req.AddData(attr)
+	}
 
 	return execGetLink(req)
 }
@@ -2343,6 +2433,10 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 			base.ParentDev = string(attr.Value[:len(attr.Value)-1])
 		case unix.IFLA_PARENT_DEV_BUS_NAME:
 			base.ParentDevBus = string(attr.Value[:len(attr.Value)-1])
+		case IFLA_HEADROOM:
+			base.Headroom = native.Uint16(attr.Value[0:2])
+		case IFLA_TAILROOM:
+			base.Tailroom = native.Uint16(attr.Value[0:2])
 		}
 	}
 
@@ -2796,6 +2890,15 @@ func addNetkitAttrs(nk *Netkit, linkInfo *nl.RtAttr, flag int) error {
 	data.AddRtAttr(nl.IFLA_NETKIT_SCRUB, nl.Uint32Attr(uint32(nk.Scrub)))
 	data.AddRtAttr(nl.IFLA_NETKIT_PEER_SCRUB, nl.Uint32Attr(uint32(nk.PeerScrub)))
 
+	// Any headroom or tailroom set on the primary device attributes will result in
+	// the kernel carrying them over into the peer device attributes for us.
+	if nk.DesiredHeadroom > 0 {
+		data.AddRtAttr(nl.IFLA_NETKIT_HEADROOM, nl.Uint16Attr(nk.DesiredHeadroom))
+	}
+	if nk.DesiredTailroom > 0 {
+		data.AddRtAttr(nl.IFLA_NETKIT_TAILROOM, nl.Uint16Attr(nk.DesiredTailroom))
+	}
+
 	if (flag & unix.NLM_F_EXCL) == 0 {
 		// Modifying peer link attributes will not take effect
 		return nil
@@ -2864,6 +2967,10 @@ func parseNetkitData(link Link, data []syscall.NetlinkRouteAttr) {
 		case nl.IFLA_NETKIT_PEER_SCRUB:
 			netkit.supportsScrub = true
 			netkit.PeerScrub = NetkitScrub(native.Uint32(datum.Value[0:4]))
+		case nl.IFLA_NETKIT_HEADROOM:
+			netkit.DesiredHeadroom = native.Uint16(datum.Value[0:2])
+		case nl.IFLA_NETKIT_TAILROOM:
+			netkit.DesiredTailroom = native.Uint16(datum.Value[0:2])
 		}
 	}
 }
@@ -3365,6 +3472,9 @@ func addGretapAttrs(gretap *Gretap, linkInfo *nl.RtAttr) {
 	data.AddRtAttr(nl.IFLA_GRE_ENCAP_FLAGS, nl.Uint16Attr(gretap.EncapFlags))
 	data.AddRtAttr(nl.IFLA_GRE_ENCAP_SPORT, htons(gretap.EncapSport))
 	data.AddRtAttr(nl.IFLA_GRE_ENCAP_DPORT, htons(gretap.EncapDport))
+	if gretap.IgnoreDf != GRETAP_IGNORE_DF_FALSE {
+		data.AddRtAttr(nl.IFLA_GRE_IGNORE_DF, nl.Uint8Attr(uint8(gretap.IgnoreDf)))
+	}
 }
 
 func parseGretapData(link Link, data []syscall.NetlinkRouteAttr) {
