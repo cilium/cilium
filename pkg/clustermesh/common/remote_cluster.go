@@ -63,6 +63,9 @@ type remoteCluster struct {
 
 	ttlChecker *cacheTTLChecker
 
+	// cacheRevocations is the number of observed cache revocations
+	cacheRevocations int
+
 	// wg is used to wait for the termination of the goroutines spawned by the
 	// controller upon reconnection for long running background tasks.
 	wg sync.WaitGroup
@@ -104,9 +107,10 @@ type remoteCluster struct {
 	// for testing purposes.
 	clusterLockFactory func() *clusterLock
 
-	metricLastFailureTimestamp prometheus.Gauge
-	metricReadinessStatus      prometheus.Gauge
-	metricTotalFailures        prometheus.Gauge
+	metricLastFailureTimestamp  prometheus.Gauge
+	metricReadinessStatus       prometheus.Gauge
+	metricTotalFailures         prometheus.Gauge
+	metricTotalCacheRevocations prometheus.Gauge
 }
 
 // releaseOldConnection releases the etcd connection to a remote cluster
