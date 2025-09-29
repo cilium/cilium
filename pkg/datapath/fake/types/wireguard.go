@@ -26,6 +26,10 @@ func (fwa *WireguardAgent) IfaceIndex() (uint32, error) {
 	return 0, nil
 }
 
+func (fwa *WireguardAgent) IfaceBufferMargins() (uint16, uint16, error) {
+	return 0, 0, nil
+}
+
 func (fwa *WireguardAgent) Status(withPeers bool) (*models.WireguardStatus, error) {
 	return nil, nil
 }
