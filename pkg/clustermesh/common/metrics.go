@@ -17,6 +17,8 @@ type Metrics struct {
 	ReadinessStatus metric.Vec[metric.Gauge]
 	// TotalFailure tracks the number of failures when connecting to remote clusters.
 	TotalFailures metric.Vec[metric.Gauge]
+	// TotalCacheRevocations tracks the number of cache revocations for a remote cluster.
+	TotalCacheRevocations metric.Vec[metric.Gauge]
 }
 
 func MetricsProvider(subsystem string) func() Metrics {
@@ -48,6 +50,13 @@ func MetricsProvider(subsystem string) func() Metrics {
 				Subsystem: subsystem,
 				Name:      "remote_cluster_failures",
 				Help:      "The total number of failures related to the remote cluster",
+			}, []string{metrics.LabelTargetCluster}),
+
+			TotalCacheRevocations: metric.NewGaugeVec(metric.GaugeOpts{
+				Namespace: metrics.Namespace,
+				Subsystem: subsystem,
+				Name:      "remote_cluster_cache_revocations",
+				Help:      "The total number of cache revocations related to the remote cluster",
 			}, []string{metrics.LabelTargetCluster}),
 		}
 	}
