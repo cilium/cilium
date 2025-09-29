@@ -182,12 +182,9 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
  * 1. Host-to-Host or Pod-to-Host traffic
  * 2. Traffic leaving the cluster
  * 3. Remote nodes including Kube API server
- * 4. Traffic is already ESP encrypted
  */
 static __always_inline int
-ipsec_redirect_sec_id_ok(__u32 src_sec_id, __u32 dst_sec_id, int ip_proto) {
-	if (ip_proto == IPPROTO_ESP)
-		return 0;
+ipsec_redirect_sec_id_ok(__u32 src_sec_id, __u32 dst_sec_id) {
 	if (src_sec_id == HOST_ID)
 		return 0;
 	if (dst_sec_id == HOST_ID)
@@ -213,7 +210,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	void *data __maybe_unused, *data_end __maybe_unused;
 	struct iphdr __maybe_unused *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
-	int ip_proto = 0;
 	int ret = 0;
 	union macaddr dst_mac = CILIUM_NET_MAC;
 
@@ -246,8 +242,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			goto overlay_encrypt;
 		}
 #  endif /* TUNNEL_MODE */
-
-		ip_proto = ip4->protocol;
 
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
@@ -282,8 +276,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		}
 #  endif /* TUNNEL_MODE */
 
-		ip_proto = ip6->nexthdr;
-
 		dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 
 		if (src_sec_identity == UNKNOWN_ID) {
@@ -302,8 +294,7 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	if (!dst || !dst->flag_has_tunnel_ep)
 		return CTX_ACT_OK;
 
-	if (!ipsec_redirect_sec_id_ok(src_sec_identity, dst->sec_identity,
-				      ip_proto))
+	if (!ipsec_redirect_sec_id_ok(src_sec_identity, dst->sec_identity))
 		return CTX_ACT_OK;
 
 #  if defined(TUNNEL_MODE)
