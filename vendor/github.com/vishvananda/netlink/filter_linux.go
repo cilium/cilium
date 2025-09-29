@@ -349,7 +349,7 @@ func (h *Handle) filterModify(filter Filter, proto, flags int) error {
 		if native != networkOrder {
 			// Copy TcU32Sel.
 			cSel := *sel
-			keys := make([]nl.TcU32Key, cap(sel.Keys))
+			keys := make([]nl.TcU32Key, len(sel.Keys))
 			copy(keys, sel.Keys)
 			cSel.Keys = keys
 			sel = &cSel
@@ -505,7 +505,8 @@ func (h *Handle) FilterList(link Link, parent uint32) ([]Filter, error) {
 		filterType := ""
 		detailed := false
 		for _, attr := range attrs {
-			switch attr.Attr.Type {
+			attrType := attr.Attr.Type & nl.NLA_TYPE_MASK
+			switch attrType {
 			case nl.TCA_KIND:
 				filterType = string(attr.Value[:len(attr.Value)-1])
 				switch filterType {

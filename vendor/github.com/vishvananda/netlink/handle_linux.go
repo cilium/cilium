@@ -12,13 +12,24 @@ import (
 // Empty handle used by the netlink package methods
 var pkgHandle = &Handle{}
 
-// Handle is an handle for the netlink requests on a
+type HandleOptions struct {
+	lookupByDump  bool
+	collectVFInfo bool
+}
+
+// Handle is a handle for the netlink requests on a
 // specific network namespace. All the requests on the
 // same netlink family share the same netlink socket,
 // which gets released when the handle is Close'd.
 type Handle struct {
-	sockets      map[int]*nl.SocketHandle
-	lookupByDump bool
+	sockets map[int]*nl.SocketHandle
+	options HandleOptions
+}
+
+// DisableVFInfoCollection configures the handle to skip VF information fetching
+func (h *Handle) DisableVFInfoCollection() *Handle {
+	h.options.collectVFInfo = false
+	return h
 }
 
 // SetSocketTimeout configures timeout for default netlink sockets
@@ -136,7 +147,10 @@ func NewHandleAtFrom(newNs, curNs netns.NsHandle) (*Handle, error) {
 }
 
 func newHandle(newNs, curNs netns.NsHandle, nlFamilies ...int) (*Handle, error) {
-	h := &Handle{sockets: map[int]*nl.SocketHandle{}}
+	h := &Handle{
+		sockets: map[int]*nl.SocketHandle{},
+		options: HandleOptions{collectVFInfo: true},
+	}
 	fams := nl.SupportedNlFamilies
 	if len(nlFamilies) != 0 {
 		fams = nlFamilies
@@ -151,12 +165,16 @@ func newHandle(newNs, curNs netns.NsHandle, nlFamilies ...int) (*Handle, error) 
 	return h, nil
 }
 
-// Close releases the resources allocated to this handle
-func (h *Handle) Close() {
+// Close closes all netlink sockets held by this Handle.
+func (h *Handle) Close() error {
+	var firstErr error
 	for _, sh := range h.sockets {
-		sh.Close()
+		if err := sh.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
 	h.sockets = nil
+	return firstErr
 }
 
 // Delete releases the resources allocated to this handle
@@ -164,7 +182,7 @@ func (h *Handle) Close() {
 // Deprecated: use Close instead which is in line with typical resource release
 // patterns for files and other resources.
 func (h *Handle) Delete() {
-	h.Close()
+	_ = h.Close()
 }
 
 func (h *Handle) newNetlinkRequest(proto, flags int) *nl.NetlinkRequest {

@@ -37,6 +37,7 @@ const (
 	SEG6_LOCAL_ACTION_END_AS                   // 13
 	SEG6_LOCAL_ACTION_END_AM                   // 14
 	SEG6_LOCAL_ACTION_END_BPF                  // 15
+	SEG6_LOCAL_ACTION_END_DT46                 // 16
 	__SEG6_LOCAL_ACTION_MAX
 )
 const (
