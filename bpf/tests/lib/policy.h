@@ -60,15 +60,15 @@ policy_add_entry(bool egress, __u32 sec_label, __u8 protocol, __u16 dport, bool 
 }
 
 static __always_inline void
-policy_add_ingress_allow_entry(__u32 sec_label, __u8 protocol, __u16 dport)
+policy_add_ingress_allow_l3_l4_entry(__u32 sec_label, __u8 protocol, __u16 dport)
 {
 	policy_add_entry(false, sec_label, protocol, dport, false);
 }
 
 static __always_inline void
-policy_add_l4_ingress_deny_entry(__u32 sec_label, __u8 protocol, __u16 dport)
+policy_add_ingress_deny_l4_entry(__u8 protocol, __u16 dport)
 {
-	policy_add_entry(false, sec_label, protocol, dport, true);
+	policy_add_entry(false, 0, protocol, dport, true);
 }
 
 static __always_inline void
@@ -78,14 +78,26 @@ policy_add_ingress_deny_all_entry(void)
 }
 
 static __always_inline void
-policy_add_egress_allow_entry(__u32 sec_label, __u8 protocol, __u16 dport)
+policy_add_egress_allow_l3_l4_entry(__u32 sec_label, __u8 protocol, __u16 dport)
 {
 	policy_add_entry(true, sec_label, protocol, dport, false);
 }
 
+static __always_inline void
+policy_add_egress_allow_l3_entry(__u32 sec_label)
+{
+	policy_add_egress_allow_l3_l4_entry(sec_label, 0, 0);
+}
+
+static __always_inline void
+policy_add_egress_allow_l4_entry(__u8 protocol, __u16 dport)
+{
+	policy_add_egress_allow_l3_l4_entry(0, protocol, dport);
+}
+
 static __always_inline void policy_add_egress_allow_all_entry(void)
 {
-	policy_add_entry(true, 0, 0, 0, false);
+	policy_add_egress_allow_l3_l4_entry(0, 0, 0);
 }
 
 static __always_inline void policy_add_egress_deny_all_entry(void)
@@ -94,12 +106,24 @@ static __always_inline void policy_add_egress_deny_all_entry(void)
 }
 
 static __always_inline void
-policy_delete_egress_entry(__u32 sec_label, __u8 protocol, __u16 dport)
+policy_delete_egress_l3_l4_entry(__u32 sec_label, __u8 protocol, __u16 dport)
 {
 	policy_delete_entry(true, sec_label, protocol, dport);
 }
 
+static __always_inline void
+policy_delete_egress_l3_entry(__u32 sec_label)
+{
+	policy_delete_egress_l3_l4_entry(sec_label, 0, 0);
+}
+
+static __always_inline void
+policy_delete_egress_l4_entry(__u8 protocol, __u16 dport)
+{
+	policy_delete_egress_l3_l4_entry(0, protocol, dport);
+}
+
 static __always_inline void policy_delete_egress_all_entry(void)
 {
-	policy_delete_egress_entry(0, 0, 0);
+	policy_delete_egress_l3_l4_entry(0, 0, 0);
 }
