@@ -431,94 +431,100 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 		if len(computedHost) == 1 && computedHost[0] == allHosts {
 			computedHost = nil
 		}
+		grpcRoutes = append(grpcRoutes, extractGRPCRoutes(computedHost, r, services, serviceImports, grants)...)
+	}
+	return grpcRoutes
+}
 
-		for _, rule := range r.Spec.Rules {
-			bes := make([]model.Backend, 0, len(rule.BackendRefs))
-			for _, be := range rule.BackendRefs {
-				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("GRPCRoute"), grants) {
-					continue
-				}
-				svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services, serviceImports, be.BackendObjectReference)
-				if err != nil {
-					continue
-				}
-				if svcName != string(be.Name) {
-					be = *be.DeepCopy()
-					be.BackendObjectReference = gatewayv1beta1.BackendObjectReference{
-						Name:      gatewayv1beta1.ObjectName(svcName),
-						Port:      be.Port,
-						Namespace: be.Namespace,
-					}
-				}
-				if be.BackendRef.Port == nil {
-					// must have port for Service reference
-					continue
-				}
-				svc := getServiceSpec(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services)
-				if svc != nil {
-					bes = append(bes, backendToModelBackend(*svc, be.BackendRef, r.Namespace))
+func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+	var grpcRoutes []model.HTTPRoute
+	for _, rule := range grpcr.Spec.Rules {
+		bes := make([]model.Backend, 0, len(rule.BackendRefs))
+		for _, be := range rule.BackendRefs {
+			if !helpers.IsBackendReferenceAllowed(grpcr.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("GRPCRoute"), grants) {
+				continue
+			}
+			svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, grpcr.Namespace), services, serviceImports, be.BackendObjectReference)
+			if err != nil {
+				continue
+			}
+			if svcName != string(be.Name) {
+				be = *be.DeepCopy()
+				be.BackendObjectReference = gatewayv1beta1.BackendObjectReference{
+					Name:      gatewayv1beta1.ObjectName(svcName),
+					Port:      be.Port,
+					Namespace: be.Namespace,
 				}
 			}
-
-			var dr *model.DirectResponse
-			if len(bes) == 0 {
-				dr = &model.DirectResponse{
-					StatusCode: 500,
-				}
+			if be.BackendRef.Port == nil {
+				// must have port for Service reference
+				continue
 			}
-
-			var requestHeaderFilter *model.HTTPHeaderFilter
-			var responseHeaderFilter *model.HTTPHeaderFilter
-			var requestMirrors []*model.HTTPRequestMirror
-
-			for _, f := range rule.Filters {
-				switch f.Type {
-				case gatewayv1.GRPCRouteFilterRequestHeaderModifier:
-					requestHeaderFilter = &model.HTTPHeaderFilter{
-						HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
-						HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
-						HeadersToRemove: f.RequestHeaderModifier.Remove,
-					}
-				case gatewayv1.GRPCRouteFilterResponseHeaderModifier:
-					responseHeaderFilter = &model.HTTPHeaderFilter{
-						HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
-						HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
-						HeadersToRemove: f.ResponseHeaderModifier.Remove,
-					}
-				case gatewayv1.GRPCRouteFilterRequestMirror:
-					svc := getServiceSpec(string(f.RequestMirror.BackendRef.Name), helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, r.Namespace), services)
-					if svc != nil {
-						requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, r.Namespace))
-					}
-				}
-			}
-
-			if len(rule.Matches) == 0 {
-				grpcRoutes = append(grpcRoutes, model.HTTPRoute{
-					Hostnames:              computedHost,
-					Backends:               bes,
-					DirectResponse:         dr,
-					RequestHeaderFilter:    requestHeaderFilter,
-					ResponseHeaderModifier: responseHeaderFilter,
-					RequestMirrors:         requestMirrors,
-				})
-			}
-
-			for _, match := range rule.Matches {
-				grpcRoutes = append(grpcRoutes, model.HTTPRoute{
-					Hostnames:              computedHost,
-					PathMatch:              toGRPCPathMatch(match),
-					HeadersMatch:           toGRPCHeaderMatch(match),
-					Backends:               bes,
-					DirectResponse:         dr,
-					RequestHeaderFilter:    requestHeaderFilter,
-					ResponseHeaderModifier: responseHeaderFilter,
-					RequestMirrors:         requestMirrors,
-					IsGRPC:                 true,
-				})
+			svc := getServiceSpec(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, grpcr.Namespace), services)
+			if svc != nil {
+				bes = append(bes, backendToModelBackend(*svc, be.BackendRef, grpcr.Namespace))
 			}
 		}
+
+		var dr *model.DirectResponse
+		if len(bes) == 0 {
+			dr = &model.DirectResponse{
+				StatusCode: 500,
+			}
+		}
+
+		var requestHeaderFilter *model.HTTPHeaderFilter
+		var responseHeaderFilter *model.HTTPHeaderFilter
+		var requestMirrors []*model.HTTPRequestMirror
+
+		for _, f := range rule.Filters {
+			switch f.Type {
+			case gatewayv1.GRPCRouteFilterRequestHeaderModifier:
+				requestHeaderFilter = &model.HTTPHeaderFilter{
+					HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
+					HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
+					HeadersToRemove: f.RequestHeaderModifier.Remove,
+				}
+			case gatewayv1.GRPCRouteFilterResponseHeaderModifier:
+				responseHeaderFilter = &model.HTTPHeaderFilter{
+					HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
+					HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
+					HeadersToRemove: f.ResponseHeaderModifier.Remove,
+				}
+			case gatewayv1.GRPCRouteFilterRequestMirror:
+				svc := getServiceSpec(string(f.RequestMirror.BackendRef.Name), helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, grpcr.Namespace), services)
+				if svc != nil {
+					requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, grpcr.Namespace))
+				}
+			}
+		}
+
+		if len(rule.Matches) == 0 {
+			grpcRoutes = append(grpcRoutes, model.HTTPRoute{
+				Hostnames:              hostnames,
+				Backends:               bes,
+				DirectResponse:         dr,
+				RequestHeaderFilter:    requestHeaderFilter,
+				ResponseHeaderModifier: responseHeaderFilter,
+				RequestMirrors:         requestMirrors,
+			})
+		}
+
+		for _, match := range rule.Matches {
+			grpcRoutes = append(grpcRoutes, model.HTTPRoute{
+				Hostnames:              hostnames,
+				PathMatch:              toGRPCPathMatch(match),
+				HeadersMatch:           toGRPCHeaderMatch(match),
+				Backends:               bes,
+				DirectResponse:         dr,
+				RequestHeaderFilter:    requestHeaderFilter,
+				ResponseHeaderModifier: responseHeaderFilter,
+				RequestMirrors:         requestMirrors,
+				IsGRPC:                 true,
+			})
+		}
 	}
+
 	return grpcRoutes
 }
 
