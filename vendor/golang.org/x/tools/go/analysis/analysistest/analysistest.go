@@ -425,7 +425,7 @@ func Run(t Testing, dir string, a *analysis.Analyzer, patterns ...string) []*Res
 
 		// Construct the legacy result.
 		results = append(results, &Result{
-			Pass:        internal.Pass(act),
+			Pass:        internal.ActionPass(act), // may be nil
 			Diagnostics: act.Diagnostics,
 			Facts:       facts,
 			Result:      act.Result,
@@ -448,12 +448,12 @@ func Run(t Testing, dir string, a *analysis.Analyzer, patterns ...string) []*Res
 type Result struct {
 	Action *checker.Action
 
-	// legacy fields
+	// legacy fields (do not use)
 	Facts       map[types.Object][]analysis.Fact // nil key => package fact
-	Pass        *analysis.Pass
-	Diagnostics []analysis.Diagnostic // see Action.Diagnostics
-	Result      any                   // see Action.Result
-	Err         error                 // see Action.Err
+	Pass        *analysis.Pass                   // nil => action not executed
+	Diagnostics []analysis.Diagnostic            // see Action.Diagnostics
+	Result      any                              // see Action.Result
+	Err         error                            // see Action.Err
 }
 
 // loadPackages uses go/packages to load a specified packages (from source, with

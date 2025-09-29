@@ -87,6 +87,7 @@ func newUnsafeMemory(fd, size int) (*Memory, error) {
 		unsafe.Slice((*byte)(alloc), size),
 		ro,
 		true,
+		runtime.Cleanup{},
 	}
 
 	return mm, nil

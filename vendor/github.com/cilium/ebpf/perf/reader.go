@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"sync"
 	"time"
 
@@ -261,7 +260,6 @@ func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions)
 	if err = pr.Resume(); err != nil {
 		return nil, err
 	}
-	runtime.SetFinalizer(pr, (*Reader).Close)
 	return pr, nil
 }
 

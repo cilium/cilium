@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
@@ -61,15 +60,11 @@ type perfEvent struct {
 
 func newPerfEvent(fd *sys.FD, event *tracefs.Event) *perfEvent {
 	pe := &perfEvent{event, fd}
-	// Both event and fd have their own finalizer, but we want to
-	// guarantee that they are closed in a certain order.
-	runtime.SetFinalizer(pe, (*perfEvent).Close)
 	return pe
 }
 
 func (pe *perfEvent) Close() error {
-	runtime.SetFinalizer(pe, nil)
-
+	// We close the perf event before attempting to remove the tracefs event.
 	if err := pe.fd.Close(); err != nil {
 		return fmt.Errorf("closing perf event fd: %w", err)
 	}

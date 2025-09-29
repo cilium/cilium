@@ -49,6 +49,7 @@ TARGETS := \
 	testdata/constants \
 	testdata/errors \
 	testdata/variables \
+	testdata/arena \
 	btf/testdata/relocs \
 	btf/testdata/relocs_read \
 	btf/testdata/relocs_read_tgt \

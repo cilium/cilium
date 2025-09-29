@@ -151,9 +151,9 @@ func loadKernelSpec() (*Spec, error) {
 			return nil, fmt.Errorf("load vmlinux: %w", err)
 		}
 
-		runtime.SetFinalizer(spec.decoder.sharedBuf, func(_ *sharedBuf) {
-			_ = unix.Munmap(raw)
-		})
+		runtime.AddCleanup(spec.decoder.sharedBuf, func(b []byte) {
+			_ = unix.Munmap(b)
+		}, raw)
 
 		return spec, nil
 	}
@@ -225,9 +225,9 @@ func findVMLinux() (*os.File, error) {
 //
 // It is not safe for concurrent use.
 type Cache struct {
-	KernelTypes   *Spec
-	ModuleTypes   map[string]*Spec
-	LoadedModules []string
+	kernelTypes   *Spec
+	moduleTypes   map[string]*Spec
+	loadedModules []string
 }
 
 // NewCache creates a new Cache.
@@ -262,13 +262,13 @@ func NewCache() *Cache {
 // Kernel is equivalent to [LoadKernelSpec], except that repeated calls do
 // not copy the Spec.
 func (c *Cache) Kernel() (*Spec, error) {
-	if c.KernelTypes != nil {
-		return c.KernelTypes, nil
+	if c.kernelTypes != nil {
+		return c.kernelTypes, nil
 	}
 
 	var err error
-	c.KernelTypes, err = LoadKernelSpec()
-	return c.KernelTypes, err
+	c.kernelTypes, err = LoadKernelSpec()
+	return c.kernelTypes, err
 }
 
 // Module is equivalent to [LoadKernelModuleSpec], except that repeated calls do
@@ -276,12 +276,12 @@ func (c *Cache) Kernel() (*Spec, error) {
 //
 // All modules also share the return value of [Kernel] as their base.
 func (c *Cache) Module(name string) (*Spec, error) {
-	if spec := c.ModuleTypes[name]; spec != nil {
+	if spec := c.moduleTypes[name]; spec != nil {
 		return spec, nil
 	}
 
-	if c.ModuleTypes == nil {
-		c.ModuleTypes = make(map[string]*Spec)
+	if c.moduleTypes == nil {
+		c.moduleTypes = make(map[string]*Spec)
 	}
 
 	base, err := c.Kernel()
@@ -302,14 +302,14 @@ func (c *Cache) Module(name string) (*Spec, error) {
 	}
 
 	spec = &Spec{decoder: decoder}
-	c.ModuleTypes[name] = spec
+	c.moduleTypes[name] = spec
 	return spec, err
 }
 
 // Modules returns a sorted list of all loaded modules.
 func (c *Cache) Modules() ([]string, error) {
-	if c.LoadedModules != nil {
-		return c.LoadedModules, nil
+	if c.loadedModules != nil {
+		return c.loadedModules, nil
 	}
 
 	btfDir, err := os.Open("/sys/kernel/btf")
@@ -328,6 +328,6 @@ func (c *Cache) Modules() ([]string, error) {
 	})
 
 	sort.Strings(entries)
-	c.LoadedModules = entries
+	c.loadedModules = entries
 	return entries, nil
 }
