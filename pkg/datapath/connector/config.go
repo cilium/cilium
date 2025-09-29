@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package connector
+
+import (
+	"fmt"
+	"log/slog"
+	"math"
+
+	"github.com/cilium/hive/cell"
+
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/option"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
+)
+
+// Connector configuration. As per BIGTCP, the values here will not be calculated
+// until the Hive has started. This is necessary to allow other dependencies to
+// setup their interfaces etc.
+type ConnectorConfig struct {
+	// podDeviceHeadroom tracks the desired headroom buffer margin for the
+	// network device pair facing a workload.
+	podDeviceHeadroom uint16
+
+	// podDeviceTailroom tracks the desired tailroom buffer margin for the
+	// network device pairs facing a workload.
+	podDeviceTailroom uint16
+}
+
+func (cc *ConnectorConfig) GetPodDeviceHeadroom() uint16 {
+	return cc.podDeviceHeadroom
+}
+
+func (cc *ConnectorConfig) GetPodDeviceTailroom() uint16 {
+	return cc.podDeviceTailroom
+}
+
+type connectorParams struct {
+	cell.In
+
+	Lifecycle    cell.Lifecycle
+	Log          *slog.Logger
+	DaemonConfig *option.DaemonConfig
+	Orchestrator types.Orchestrator
+	WgAgent      wgTypes.WireguardAgent
+	TunnelConfig tunnel.Config
+}
+
+func supportsTunedBufferMargins(datapathMode string) bool {
+	switch datapathMode {
+	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
+		return true
+	}
+	return false
+}
+
+// newConnectorConfig initialises a new ConnectorConfig object with default
+// parameters. If EnableTunedBufferMargins is enabled, we register a callback
+// with the Hive to detect necessary tuning parameters.
+func newConnectorConfig(p connectorParams) (*ConnectorConfig, error) {
+	cc := &ConnectorConfig{}
+
+	if supportsTunedBufferMargins(p.DaemonConfig.DatapathMode) {
+		p.Lifecycle.Append(cell.Hook{
+			OnStart: func(cell.HookContext) error {
+				return generateConnectorConfig(p, cc)
+			},
+		})
+	}
+
+	return cc, nil
+}
+
+// generateConnectorConfig aims to calculate necessary tuning parameters for
+// pod/workload-facing network device pairs.
+func generateConnectorConfig(p connectorParams, cc *ConnectorConfig) error {
+	if !supportsTunedBufferMargins(p.DaemonConfig.DatapathMode) {
+		return nil
+	}
+
+	// We must wait for the Orchestrator to signal that the datapath is initialised,
+	// so that it has chance to create any tunneling devices. Otherwise, we'll fail
+	// to query a device below and error out by accident.
+	<-p.Orchestrator.DatapathInitialized()
+
+	wgHeadroom, wgTailroom, err := p.WgAgent.IfaceBufferMargins()
+	if err != nil {
+		return err
+	}
+
+	tunnelHeadroom, tunnelTailroom, err := p.TunnelConfig.DeviceBufferMargins()
+	if err != nil {
+		return err
+	}
+
+	// There's nothing technically stopping these discovered values from being
+	// to be on the high end of the underlying storage type. When combined, they
+	// may overflow, so look out for this.
+	var totalHeadroom = uint32(wgHeadroom + tunnelHeadroom)
+	if totalHeadroom > math.MaxUint16 {
+		return fmt.Errorf("connector total headroom %d exceeds maximum value %d", totalHeadroom, math.MaxUint16)
+	}
+	var totalTailroom = uint32(wgTailroom + tunnelTailroom)
+	if totalTailroom > math.MaxUint16 {
+		return fmt.Errorf("connector total tailroom %d exeeds maximum value %d", totalHeadroom, math.MaxUint16)
+	}
+
+	// Cache the values
+	cc.podDeviceHeadroom = uint16(totalHeadroom)
+	cc.podDeviceTailroom = uint16(totalTailroom)
+	return nil
+}
