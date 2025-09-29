@@ -53,7 +53,12 @@ const (
 	// Indexes GAMMA HTTPRoutes by all the GAMMA parents of that HTTPRoute.
 	// This is then be used by the Service reconciler to only retrieve any HTTPRoutes that have that specific
 	// Service as a parent.
-	gammaParentRefsIndex = "gammaParentRefs"
+	gammaHTTPRouteParentRefsIndex = "gammaHTTPRouteParentRefs"
+
+	// Indexes GAMMA GRPCRoutes by all the GAMMA parents of that GRPCRoute.
+	// This is then be used by the Service reconciler to only retrieve any GRPCRoutes that have that specific
+	// Service as a parent.
+	gammaGRPCRouteParentRefsIndex = "gammaGRPCRouteParentRefs"
 )
 
 func hasMatchingController(ctx context.Context, c client.Client, controllerName string, logger *slog.Logger) func(object client.Object) bool {
