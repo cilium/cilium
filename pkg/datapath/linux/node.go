@@ -700,11 +700,6 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		return fmt.Errorf("failed to update or remove node routes: %w", err)
 	}
 
-	// Clean up stale IP rules for IPsec. This can be removed in the v1.20 release.
-	if err := n.removeEncryptRules(); err != nil {
-		n.log.Warn("Cannot cleanup previous encryption rule state.", logfields.Error, err)
-	}
-
 	if newConfig.EnableIPSec {
 		// For the ENI ipam mode on EKS, this will be the interface that
 		// the router (cilium_host) IP is associated to.
