@@ -138,6 +138,10 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  encryption: 'ipsec'
+  key-one: 'rfc4106-gcm-aes'
+  key-two: 'rfc4106-gcm-aes'
+  skip-upgrade: 'true'
 - name: '12'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.15-20250923.075842'

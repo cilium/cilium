@@ -53,7 +53,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  test_concurrency: 5
+  test_concurrency: 1
 
 jobs:
   echo-inputs:
@@ -132,7 +132,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
-    timeout-minutes: 55
+    timeout-minutes: 200
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -346,9 +346,9 @@ jobs:
           fi
 
           if ${{ matrix.skip-upgrade != 'true' }}; then
-            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
+            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id --set bpf.monitorAggregation=none
           else
-            cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
+            cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id --set bpf.monitorAggregation=none
           fi
 
           cilium status --wait --interactive=false
@@ -401,7 +401,8 @@ jobs:
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-newest-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }} \
-            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id \
+            --set bpf.monitorAggregation=none
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -483,7 +484,8 @@ jobs:
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }} \
-            --set extraConfig.boot-id-file=/var/run/cilium/boot_id
+            --set extraConfig.boot-id-file=/var/run/cilium/boot_id \
+            --set bpf.monitorAggregation=none
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -549,7 +551,7 @@ jobs:
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - after downgrade"
 
       - name: Fetch artifacts
-        if: ${{ !success() }}
+        if: ${{ always() }}
         shell: bash
         run: |
           if [ "${{ matrix.kvstore }}" == "true" ]; then
@@ -563,7 +565,7 @@ jobs:
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"
-          job_status: "${{ job.status }}"
+          job_status: "failure"
           capture_features_tested: false
 
   merge-upload-and-status:
