@@ -44,8 +44,14 @@ type DaemonConfigurationStatus struct {
 	// datapath mode
 	DatapathMode DatapathMode `json:"datapathMode,omitempty"`
 
+	// Headroom buffer margin on workload facing devices
+	DeviceHeadroom int64 `json:"deviceHeadroom,omitempty"`
+
 	// MTU on workload facing devices
 	DeviceMTU int64 `json:"deviceMTU,omitempty"`
+
+	// Tailroom buffer margin on workload facing devices
+	DeviceTailroom int64 `json:"deviceTailroom,omitempty"`
 
 	// Configured compatibility mode for --egress-multi-home-ip-rule-compat
 	EgressMultiHomeIPRuleCompat bool `json:"egress-multi-home-ip-rule-compat,omitempty"`

@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/act"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
@@ -109,6 +110,9 @@ var Cell = cell.Module(
 
 	// MTU provides the MTU configuration of the node.
 	mtu.Cell,
+
+	// Connector provides pod-specific interface configuration
+	connector.Cell,
 
 	orchestrator.Cell,
 
