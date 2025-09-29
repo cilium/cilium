@@ -1742,7 +1742,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (do_redirect)
-			ret = redirect_ep(ctx, CONFIG(interface_ifindex), from_host,
+			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
+					  should_fast_redirect(ctx, from_host),
 					  from_tunnel);
 		break;
 	default:
@@ -2063,7 +2064,8 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (do_redirect)
-			ret = redirect_ep(ctx, CONFIG(interface_ifindex), from_host,
+			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
+					  should_fast_redirect(ctx, from_host),
 					  from_tunnel);
 		break;
 	default:
