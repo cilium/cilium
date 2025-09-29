@@ -117,18 +117,11 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) error 
 				errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec IN (%q): %w", cidr.IP, err))
 			}
 		}
-		if err := n.replaceNodeIPSecOutRoute(cidr); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", cidr.IP, err))
-		}
 	}
 
 	for _, cidr := range v6CIDR {
 		if err := n.replaceNodeIPSecInRoute(cidr); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec IN (%q): %w", cidr.IP, err))
-		}
-
-		if err := n.replaceNodeIPSecOutRoute(cidr); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", cidr.IP, err))
 		}
 	}
 	return errs
@@ -275,21 +268,9 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv4
 	localIP := localCiliumInternalIP
 
-	var addedCIDRs, removedCIDRs []*cidr.CIDR
+	var removedCIDRs []*cidr.CIDR
 	if oldNode != nil {
-		addedCIDRs, removedCIDRs = cidr.DiffCIDRLists(oldNode.GetIPv4AllocCIDRs(), newNode.GetIPv4AllocCIDRs())
-	} else {
-		addedCIDRs = newNode.GetIPv4AllocCIDRs()
-	}
-	for _, remoteCIDR := range cidr.CIDRsToIPNets(addedCIDRs) {
-		if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
-		}
-	}
-	for _, remoteCIDR := range cidr.CIDRsToIPNets(removedCIDRs) {
-		if err := n.deleteNodeIPSecOutRoute(remoteCIDR); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to delete ipsec OUT (%q): %w", remoteCIDR.IP, err))
-		}
+		_, removedCIDRs = cidr.DiffCIDRLists(oldNode.GetIPv4AllocCIDRs(), newNode.GetIPv4AllocCIDRs())
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
@@ -554,21 +535,9 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv6
 	localIP := localCiliumInternalIP
 
-	var addedCIDRs, removedCIDRs []*cidr.CIDR
+	var removedCIDRs []*cidr.CIDR
 	if oldNode != nil {
-		addedCIDRs, removedCIDRs = cidr.DiffCIDRLists(oldNode.GetIPv6AllocCIDRs(), newNode.GetIPv6AllocCIDRs())
-	} else {
-		addedCIDRs = newNode.GetIPv6AllocCIDRs()
-	}
-	for _, remoteCIDR := range cidr.CIDRsToIPNets(addedCIDRs) {
-		if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
-		}
-	}
-	for _, remoteCIDR := range cidr.CIDRsToIPNets(removedCIDRs) {
-		if err := n.deleteNodeIPSecOutRoute(remoteCIDR); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to delete ipsec OUT (%q): %w", remoteCIDR.IP, err))
-		}
+		_, removedCIDRs = cidr.DiffCIDRLists(oldNode.GetIPv6AllocCIDRs(), newNode.GetIPv6AllocCIDRs())
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
@@ -766,17 +735,6 @@ func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 	}
 }
 
-func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
-	return route.Route{
-		Nexthop: nil,
-		Device:  n.datapathConfig.HostDevice,
-		Prefix:  *ip,
-		Table:   linux_defaults.RouteTableIPSec,
-		MTU:     n.nodeConfig.RoutePostEncryptMTU,
-		Proto:   linux_defaults.RTProto,
-	}
-}
-
 func (n *linuxNodeHandler) isValidIP(ip *net.IPNet) bool {
 	if ip.IP.To4() != nil {
 		if !n.nodeConfig.EnableIPv4 {
@@ -789,40 +747,6 @@ func (n *linuxNodeHandler) isValidIP(ip *net.IPNet) bool {
 	}
 
 	return true
-}
-
-// replaceNodeIPSecOutRoute replace the out IPSec route in the host routing
-// table with the new route. If no route exists the route is installed on the
-// host. The caller must ensure that the CIDR passed in must be non-nil.
-func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) error {
-	if !n.isValidIP(ip) {
-		return nil
-	}
-
-	if err := route.Upsert(n.log, n.createNodeIPSecOutRoute(ip)); err != nil {
-		n.log.Error("Unable to replace the IPSec route OUT the host routing table",
-			logfields.Error, err,
-			logfields.CIDR, ip,
-		)
-		return err
-	}
-	return nil
-}
-
-// The caller must ensure that the CIDR passed in must be non-nil.
-func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) error {
-	if !n.isValidIP(ip) {
-		return nil
-	}
-
-	if err := route.Delete(n.createNodeIPSecOutRoute(ip)); err != nil {
-		n.log.Error("Unable to delete the IPsec route OUT from the host routing table",
-			logfields.Error, err,
-			logfields.CIDR, ip,
-		)
-		return fmt.Errorf("failed to delete ipsec host route out: %w", err)
-	}
-	return nil
 }
 
 // replaceNodeIPSecoInRoute replace the in IPSec routes in the host routing
@@ -869,22 +793,6 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) error {
 		scopedLog.Warn("No node ID found for node.")
 	} else {
 		errs = errors.Join(errs, n.ipsecAgent.DeleteIPsecEndpoint(nodeID))
-	}
-
-	// This is only needed in IPAM modes where we install one route per
-	// remote pod CIDR.
-	if !n.subnetEncryption() {
-		if n.nodeConfig.EnableIPv4 {
-			for _, remoteCIDR := range cidr.CIDRsToIPNets(oldNode.GetIPv4AllocCIDRs()) {
-				errs = errors.Join(errs, n.deleteNodeIPSecOutRoute(remoteCIDR))
-			}
-		}
-
-		if n.nodeConfig.EnableIPv6 {
-			for _, remoteCIDR := range cidr.CIDRsToIPNets(oldNode.GetIPv6AllocCIDRs()) {
-				errs = errors.Join(errs, n.deleteNodeIPSecOutRoute(remoteCIDR))
-			}
-		}
 	}
 
 	delete(n.ipsecUpdateNeeded, oldNode.Identity())
