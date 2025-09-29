@@ -7,7 +7,6 @@ package main
 import (
 	"github.com/cilium/linters/ioreadall"
 	"github.com/cilium/linters/slowg"
-	"github.com/cilium/linters/timeafter"
 
 	"golang.org/x/tools/go/analysis/multichecker"
 )
@@ -16,6 +15,5 @@ func main() {
 	multichecker.Main(
 		ioreadall.Analyzer,
 		slowg.Analyzer,
-		timeafter.Analyzer,
 	)
 }

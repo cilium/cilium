@@ -40,11 +40,3 @@ However, the slowg checker does not prevent the use of With and WithGroup.
 	wlog := log.With("key", val)             // this is fine
 	wlog.Info("info")                        // this is also fine
 	wlog.With("more", "attr").Debug("debug") // this is flagged as inappropriate use
-
-timeafter
----------
-
-`timeafter` is an analyzer that checks for the use of
-[time.After](https://pkg.go.dev/time#After) instances in loops. As stated in its
-documentation, the underlying Timer is not recovered by the garbage collector
-until the timer fires.

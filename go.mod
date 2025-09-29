@@ -16,10 +16,10 @@ require (
 	github.com/aws/smithy-go v1.23.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/charts v0.0.0-20250904103431-47fb6519b6bb
+	github.com/cilium/charts v0.0.0-20250922094717-85453a30c584
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.19.1-0.20250818092626-ae226118949d
+	github.com/cilium/ebpf v0.19.1-0.20250916152554-7c861fdc272c
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
 	github.com/cilium/hive v0.0.0-20250731144630-28e7a35ed227
@@ -87,21 +87,21 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/sasha-s/go-deadlock v0.3.6
 	github.com/sirupsen/logrus v1.9.3
-	github.com/spf13/afero v1.14.0
-	github.com/spf13/cast v1.9.2
+	github.com/spf13/afero v1.15.0
+	github.com/spf13/cast v1.10.0
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
-	github.com/spf13/viper v1.20.1
+	github.com/spf13/viper v1.21.0
 	github.com/spiffe/go-spiffe/v2 v2.6.0
-	github.com/spiffe/spire-api-sdk v1.12.4
+	github.com/spiffe/spire-api-sdk v1.13.1
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/vishvananda/netlink v1.3.1
 	github.com/vishvananda/netns v0.0.5
-	go.etcd.io/etcd/api/v3 v3.6.4
-	go.etcd.io/etcd/client/pkg/v3 v3.6.4
-	go.etcd.io/etcd/client/v3 v3.6.4
+	go.etcd.io/etcd/api/v3 v3.6.5
+	go.etcd.io/etcd/client/pkg/v3 v3.6.5
+	go.etcd.io/etcd/client/v3 v3.6.5
 	go.opentelemetry.io/otel v1.38.0
 	go.opentelemetry.io/otel/trace v1.38.0
 	go.uber.org/goleak v1.3.0
@@ -117,27 +117,27 @@ require (
 	golang.org/x/term v0.35.0
 	golang.org/x/text v0.29.0
 	golang.org/x/time v0.13.0
-	golang.org/x/tools v0.36.0
+	golang.org/x/tools v0.37.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250826171959-ef028d996bc1
-	google.golang.org/grpc v1.75.0
-	google.golang.org/protobuf v1.36.8
-	helm.sh/helm/v3 v3.18.6
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250922171735-9219d122eba9
+	google.golang.org/grpc v1.75.1
+	google.golang.org/protobuf v1.36.9
+	helm.sh/helm/v3 v3.19.0
 	k8s.io/api v0.34.1
 	k8s.io/apiextensions-apiserver v0.34.1
 	k8s.io/apimachinery v0.34.1
 	k8s.io/cli-runtime v0.34.1
 	k8s.io/client-go v0.34.1
 	k8s.io/component-base v0.34.1
-	k8s.io/endpointslice v0.34.0
+	k8s.io/endpointslice v0.34.1
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.34.1
 	k8s.io/metrics v0.34.1
 	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/gateway-api v1.3.1-0.20250611112659-17a60f668a0d
-	sigs.k8s.io/mcs-api v0.3.1-0.20250908090929-79efdd37ed2b
-	sigs.k8s.io/mcs-api/controllers v0.0.0-20250731081715-a807ec696257
+	sigs.k8s.io/mcs-api v0.3.1-0.20250911135410-b2223d716ee2
+	sigs.k8s.io/mcs-api/controllers v0.0.0-20250911135410-b2223d716ee2
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -151,7 +151,7 @@ require (
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/Masterminds/semver/v3 v3.3.0 // indirect
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -171,9 +171,9 @@ require (
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62 // indirect
 	github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba // indirect
-	github.com/cilium/linters v0.2.0 // indirect
+	github.com/cilium/linters v0.3.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20250501225837-2ac532fd4443 // indirect
-	github.com/containerd/containerd v1.7.27 // indirect
+	github.com/containerd/containerd v1.7.28 // indirect
 	github.com/containerd/errdefs v0.3.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
@@ -270,18 +270,18 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
+	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/petermattis/goid v0.0.0-20250813065127-a731cc31b4fe // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rubenv/sql-migrate v1.8.0 // indirect
-	github.com/sagikazarmark/locafero v0.7.0 // indirect
+	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/sourcegraph/conc v0.3.0 // indirect
+	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
@@ -302,6 +302,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
+	golang.org/x/telemetry v0.0.0-20250908211612-aef8a434d053 // indirect
 	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect

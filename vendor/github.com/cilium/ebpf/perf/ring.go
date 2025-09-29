@@ -22,6 +22,7 @@ type perfEventRing struct {
 	cpu  int
 	mmap []byte
 	ringReader
+	cleanup runtime.Cleanup
 }
 
 func newPerfEventRing(cpu, perCPUBuffer int, opts ReaderOptions) (_ *sys.FD, _ *perfEventRing, err error) {
@@ -73,7 +74,9 @@ func newPerfEventRing(cpu, perCPUBuffer int, opts ReaderOptions) (_ *sys.FD, _ *
 		mmap:       mmap,
 		ringReader: reader,
 	}
-	runtime.SetFinalizer(ring, (*perfEventRing).Close)
+	ring.cleanup = runtime.AddCleanup(ring, func(mmap []byte) {
+		_ = unix.Munmap(mmap)
+	}, ring.mmap)
 
 	return fd, ring, nil
 }
@@ -95,7 +98,7 @@ func perfBufferSize(perCPUBuffer int) int {
 }
 
 func (ring *perfEventRing) Close() error {
-	runtime.SetFinalizer(ring, nil)
+	ring.cleanup.Stop()
 	mmap := ring.mmap
 	ring.mmap = nil
 	return unix.Munmap(mmap)

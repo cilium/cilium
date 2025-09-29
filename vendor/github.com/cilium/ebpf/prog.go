@@ -110,6 +110,13 @@ type ProgramSpec struct {
 	// Type determines at which hook in the kernel a program will run.
 	Type ProgramType
 
+	// Network interface index the user intends to attach this program to after
+	// loading. Only valid for some program types.
+	//
+	// Provides driver-specific context about the target interface to the
+	// verifier, required when using certain BPF helpers.
+	Ifindex uint32
+
 	// AttachType of the program, needed to differentiate allowed context
 	// accesses in some newer program types like CGroupSockAddr.
 	//
@@ -229,7 +236,7 @@ func NewProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 		return nil, errors.New("can't load a program from a nil spec")
 	}
 
-	prog, err := newProgramWithOptions(spec, opts, newBTFCache(&opts))
+	prog, err := newProgramWithOptions(spec, opts, btf.NewCache())
 	if errors.Is(err, asm.ErrUnsatisfiedMapReference) {
 		return nil, fmt.Errorf("cannot load program without loading its whole collection: %w", err)
 	}
@@ -280,6 +287,7 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 		ProgName:           maybeFillObjName(spec.Name),
 		ProgType:           sys.ProgType(progType),
 		ProgFlags:          spec.Flags,
+		ProgIfindex:        spec.Ifindex,
 		ExpectedAttachType: sys.AttachType(spec.AttachType),
 		License:            sys.NewStringPointer(spec.License),
 		KernVersion:        kv,
@@ -289,7 +297,7 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 	copy(insns, spec.Instructions)
 
 	var b btf.Builder
-	if err := applyRelocations(insns, spec.ByteOrder, &b, c, opts.ExtraRelocationTargets); err != nil {
+	if err := applyRelocations(insns, spec.ByteOrder, &b, c, opts.KernelTypes, opts.ExtraRelocationTargets); err != nil {
 		return nil, fmt.Errorf("apply CO-RE relocations: %w", err)
 	}
 
@@ -342,7 +350,7 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 		return nil, err
 	}
 
-	handles, err := fixupKfuncs(insns)
+	handles, err := fixupKfuncs(insns, c)
 	if err != nil {
 		return nil, fmt.Errorf("fixing up kfuncs: %w", err)
 	}
@@ -373,7 +381,7 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 		attr.AttachBtfObjFd = uint32(spec.AttachTarget.FD())
 		defer runtime.KeepAlive(spec.AttachTarget)
 	} else if spec.AttachTo != "" {
-		module, targetID, err := findProgramTargetInKernel(spec.AttachTo, spec.Type, spec.AttachType)
+		module, targetID, err := findProgramTargetInKernel(spec.AttachTo, spec.Type, spec.AttachType, c)
 		if err != nil && !errors.Is(err, errUnrecognizedAttachType) {
 			// We ignore errUnrecognizedAttachType since AttachTo may be non-empty
 			// for programs that don't attach anywhere.
@@ -1019,7 +1027,7 @@ var errUnrecognizedAttachType = errors.New("unrecognized attach type")
 //
 // Returns errUnrecognizedAttachType if the combination of progType and attachType
 // is not recognised.
-func findProgramTargetInKernel(name string, progType ProgramType, attachType AttachType) (*btf.Handle, btf.TypeID, error) {
+func findProgramTargetInKernel(name string, progType ProgramType, attachType AttachType, cache *btf.Cache) (*btf.Handle, btf.TypeID, error) {
 	type match struct {
 		p ProgramType
 		a AttachType
@@ -1059,12 +1067,7 @@ func findProgramTargetInKernel(name string, progType ProgramType, attachType Att
 		return nil, 0, errUnrecognizedAttachType
 	}
 
-	spec, err := btf.LoadKernelSpec()
-	if err != nil {
-		return nil, 0, fmt.Errorf("load kernel spec: %w", err)
-	}
-
-	spec, module, err := findTargetInKernel(spec, typeName, &target)
+	spec, module, err := findTargetInKernel(typeName, &target, cache)
 	if errors.Is(err, btf.ErrNotFound) {
 		return nil, 0, &internal.UnsupportedFeatureError{Name: featureName}
 	}
@@ -1094,14 +1097,15 @@ func findProgramTargetInKernel(name string, progType ProgramType, attachType Att
 //
 // Returns a non-nil handle if the type was found in a module, or btf.ErrNotFound
 // if the type wasn't found at all.
-func findTargetInKernel(kernelSpec *btf.Spec, typeName string, target *btf.Type) (*btf.Spec, *btf.Handle, error) {
-	if kernelSpec == nil {
-		return nil, nil, fmt.Errorf("nil kernelSpec: %w", btf.ErrNotFound)
+func findTargetInKernel(typeName string, target *btf.Type, cache *btf.Cache) (*btf.Spec, *btf.Handle, error) {
+	kernelSpec, err := cache.Kernel()
+	if err != nil {
+		return nil, nil, err
 	}
 
-	err := kernelSpec.TypeByName(typeName, target)
+	err = kernelSpec.TypeByName(typeName, target)
 	if errors.Is(err, btf.ErrNotFound) {
-		spec, module, err := findTargetInModule(kernelSpec, typeName, target)
+		spec, module, err := findTargetInModule(typeName, target, cache)
 		if err != nil {
 			return nil, nil, fmt.Errorf("find target in modules: %w", err)
 		}
@@ -1119,7 +1123,7 @@ func findTargetInKernel(kernelSpec *btf.Spec, typeName string, target *btf.Type)
 // are searched in the order they were loaded.
 //
 // Returns btf.ErrNotFound if the target can't be found in any module.
-func findTargetInModule(base *btf.Spec, typeName string, target *btf.Type) (*btf.Spec, *btf.Handle, error) {
+func findTargetInModule(typeName string, target *btf.Type, cache *btf.Cache) (*btf.Spec, *btf.Handle, error) {
 	it := new(btf.HandleIterator)
 	defer it.Handle.Close()
 
@@ -1133,7 +1137,7 @@ func findTargetInModule(base *btf.Spec, typeName string, target *btf.Type) (*btf
 			continue
 		}
 
-		spec, err := it.Handle.Spec(base)
+		spec, err := cache.Module(info.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse types for module %s: %w", info.Name, err)
 		}
@@ -1192,13 +1196,4 @@ func findTargetInProgram(prog *Program, name string, progType ProgramType, attac
 	}
 
 	return spec.TypeID(targetFunc)
-}
-
-func newBTFCache(opts *ProgramOptions) *btf.Cache {
-	c := btf.NewCache()
-	if opts.KernelTypes != nil {
-		c.KernelTypes = opts.KernelTypes
-		c.LoadedModules = []string{}
-	}
-	return c
 }
