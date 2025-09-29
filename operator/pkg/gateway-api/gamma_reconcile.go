@@ -53,27 +53,46 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return controllerruntime.Fail(err)
 	}
 
-	// Ignore deleting Gateway, this can happen when foregroundDeletion is enabled
-	// The reconciliation loop will automatically kick off for related Gateway resources.
+	// Ignore deleting Service, this can happen when foregroundDeletion is enabled
+	// The reconciliation loop will automatically kick off for related GAMMA Service resources.
 	if originalSvc.GetDeletionTimestamp() != nil {
-		scopedLog.InfoContext(ctx, "Gateway is being deleted, doing nothing")
+		scopedLog.InfoContext(ctx, "Service is being deleted, doing nothing")
 		return controllerruntime.Success()
 	}
 
 	svc := originalSvc.DeepCopy()
 
+	var gammaService bool
+
 	// Step 2: Gather all required information for the ingestion model
 
 	httpRouteList := &gatewayv1.HTTPRouteList{}
 	if err := r.Client.List(ctx, httpRouteList, &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(gammaParentRefsIndex, client.ObjectKeyFromObject(svc).String()),
+		FieldSelector: fields.OneTermEqualSelector(gammaHTTPRouteParentRefsIndex, client.ObjectKeyFromObject(svc).String()),
 	}); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to list HTTPRoutes", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
 
-	if len(httpRouteList.Items) == 0 {
-		scopedLog.InfoContext(ctx, "No referencing HTTPRoute found")
+	if len(httpRouteList.Items) != 0 {
+		scopedLog.InfoContext(ctx, "Referencing HTTPRoute found, GAMMA Service")
+		gammaService = true
+	}
+
+	grpcRouteList := &gatewayv1.GRPCRouteList{}
+	if err := r.Client.List(ctx, grpcRouteList, &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(gammaGRPCRouteParentRefsIndex, client.ObjectKeyFromObject(svc).String()),
+	}); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to list GRPCRoutes", logfields.Error, err)
+		return controllerruntime.Fail(err)
+	}
+
+	if len(grpcRouteList.Items) != 0 {
+		scopedLog.InfoContext(ctx, "GRPCRoute found, GAMMA Service")
+		gammaService = true
+	}
+
+	if !gammaService {
 		return controllerruntime.Success()
 	}
 
@@ -98,9 +117,16 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return controllerruntime.Fail(err)
 	}
 
+	// Run the GRPCRoute route checks here and update the status accordingly.
+	if err := r.setGRPCRouteStatuses(scopedLog, ctx, originalSvc, grpcRouteList, grants); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to update GRPCRoute Status", logfields.Error, err)
+		return controllerruntime.Fail(err)
+	}
+
 	// TODO(youngnick): GammaHTTPRoutes needs to be updated now that we have a source Service.
 	httpListeners := ingestion.GammaHTTPRoutes(r.logger, ingestion.GammaInput{
 		HTTPRoutes: httpRouteList.Items,
+		GRPCRoutes: grpcRouteList.Items,
 		Services:   servicesList.Items,
 
 		ReferenceGrants: grants.Items,
@@ -213,6 +239,86 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 	return nil
 }
 
+func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx context.Context, gammaService *corev1.Service, grpcRoutes *gatewayv1.GRPCRouteList, grants *gatewayv1beta1.ReferenceGrantList) error {
+	gammaLogger.DebugContext(ctx, "Updating GRPCRoute statuses for GAMMA Service", numRoutes, len(grpcRoutes.Items))
+	for _, original := range grpcRoutes.Items {
+
+		grpc := original.DeepCopy()
+
+		grpcName := types.NamespacedName{
+			Name:      grpc.Name,
+			Namespace: grpc.Namespace,
+		}
+		// input for the validators
+		i := &routechecks.GRPCRouteInput{
+			Ctx:       ctx,
+			Logger:    gammaLogger.With(grpcRoute, grpcName),
+			Client:    r.Client,
+			Grants:    grants,
+			GRPCRoute: grpc,
+		}
+
+		// Route validators
+		for _, parent := range grpc.Spec.ParentRefs {
+
+			if !helpers.IsGammaServiceEqual(parent, gammaService, grpc.Namespace) {
+				continue
+			}
+
+			// set acceptance to okay, this wil be overwritten in checks if needed
+			i.SetParentCondition(parent, metav1.Condition{
+				Type:    string(gatewayv1.RouteConditionAccepted),
+				Status:  metav1.ConditionTrue,
+				Reason:  string(gatewayv1.RouteReasonAccepted),
+				Message: "Accepted GRPCRoute",
+			})
+
+			// set status to okay, this wil be overwritten in checks if needed
+			i.SetParentCondition(parent, metav1.Condition{
+				Type:    string(gatewayv1.RouteConditionResolvedRefs),
+				Status:  metav1.ConditionTrue,
+				Reason:  string(gatewayv1.RouteReasonResolvedRefs),
+				Message: "Service reference is valid",
+			})
+
+			for _, fn := range []routechecks.CheckWithParentFunc{
+				routechecks.CheckGammaServiceAllowedForNamespace,
+			} {
+				continueCheck, err := fn(i, parent)
+				if err != nil {
+					return r.handleGRPCRouteReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply parentRef check: %w", err), &original, grpc)
+				}
+
+				if !continueCheck {
+					break
+				}
+			}
+
+			for _, fn := range []routechecks.CheckWithParentFunc{
+				routechecks.CheckAgainstCrossNamespaceBackendReferences,
+				routechecks.CheckBackend,
+				routechecks.CheckBackendIsExistingService,
+			} {
+				continueCheck, err := fn(i, parent)
+				if err != nil {
+					return r.handleGRPCRouteReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply route rule check: %w", err), &original, grpc)
+				}
+
+				if !continueCheck {
+					break
+				}
+			}
+
+		}
+
+		if err := r.updateGRPCRouteStatus(ctx, &original, grpc); err != nil {
+			return fmt.Errorf("failed to update GRPCRoute status: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (r *gammaReconciler) ensureEndpointSlice(ctx context.Context, desired *discoveryv1.EndpointSlice) error {
 	ep := desired.DeepCopy()
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, ep, func() error {
@@ -266,6 +372,24 @@ func (r *gammaReconciler) updateHTTPRouteStatus(ctx context.Context, original *g
 
 func (r *gammaReconciler) handleHTTPRouteReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.HTTPRoute, modified *gatewayv1.HTTPRoute) error {
 	if err := r.updateHTTPRouteStatus(ctx, original, modified); err != nil {
+		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
+	}
+	return nil
+}
+
+func (r *gammaReconciler) updateGRPCRouteStatus(ctx context.Context, original *gatewayv1.GRPCRoute, new *gatewayv1.GRPCRoute) error {
+	oldStatus := original.Status.DeepCopy()
+	newStatus := new.Status.DeepCopy()
+
+	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
+		return nil
+	}
+	r.logger.DebugContext(ctx, "Updating GRPCRoute status", grpcRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
+	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *gammaReconciler) handleGRPCRouteReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.GRPCRoute, modified *gatewayv1.GRPCRoute) error {
+	if err := r.updateGRPCRouteStatus(ctx, original, modified); err != nil {
 		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
 	}
 	return nil

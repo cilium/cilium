@@ -1,0 +1,38 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: mesh-grpc-weighted-backends
+  namespace: gateway-conformance-mesh
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: echo
+      port: 7070
+  rules:
+    - backendRefs:
+        - name: echo-v1
+          port: 7070
+          weight: 70
+        - name: echo-v2
+          port: 7070
+          weight: 30
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2025-06-19T03:46:56Z"
+          message: Accepted GRPCRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-06-19T03:46:56Z"
+          message: Service reference is valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        group: ""
+        kind: Service
+        name: echo
+        port: 7070

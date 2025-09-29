@@ -20,15 +20,6 @@ import (
 	k8syaml "sigs.k8s.io/yaml"
 )
 
-func fromYamlFile(t *testing.T, file string, obj any) {
-	t.Helper()
-
-	yamlText, err := os.ReadFile(file)
-	require.NoError(t, err)
-
-	fromYaml(t, string(yamlText), obj)
-}
-
 func fromYaml(t *testing.T, yamlText string, obj any) {
 	t.Helper()
 
