@@ -207,7 +207,7 @@ int hostfw_igmp_egress_policy_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(NODE_IP2, 0, HOST_ID, 0, 0);
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
 	ipcache_v4_add_world_entry();
-	policy_add_egress_allow_entry(0, IPPROTO_IGMP, 0);
+	policy_add_egress_allow_l4_entry(IPPROTO_IGMP, 0);
 
 	return netdev_send_packet(ctx);
 }
@@ -282,7 +282,7 @@ int hostfw_igmp_ingress_policy_setup(struct __ctx_buff *ctx)
 			      0, (__u8 *)node_mac2, (__u8 *)node_mac2);
 	ipcache_v4_add_entry(NODE_IP2, 0, HOST_ID, 0, 0);
 	ipcache_v4_add_world_entry();
-	policy_add_l4_ingress_deny_entry(0, IPPROTO_IGMP, 0);
+	policy_add_ingress_deny_l4_entry(IPPROTO_IGMP, 0);
 
 	return netdev_receive_packet(ctx);
 }
