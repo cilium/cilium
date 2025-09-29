@@ -1605,7 +1605,6 @@ func (m *Manager) installHostTrafficMarkRule(prog runnable) error {
 	matchOverlay := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkOverlay, linux_defaults.MagicMarkHostMask)
 	matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
 	matchFromProxyEPID := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxyEPID, linux_defaults.MagicMarkProxyMask)
-	matchFromDNSProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask)
 	markAsFromHost := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask)
 
 	return prog.runProg([]string{
@@ -1616,7 +1615,6 @@ func (m *Manager) installHostTrafficMarkRule(prog runnable) error {
 		"-m", "mark", "!", "--mark", matchOverlay, // Don't match Cilium's overlay traffic
 		"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
 		"-m", "mark", "!", "--mark", matchFromProxyEPID, // Don't match proxy traffic
-		"-m", "mark", "!", "--mark", matchFromDNSProxy, // Don't match DNS proxy egress traffic
 		"-m", "comment", "--comment", "cilium: host->any mark as from host",
 		"-j", "MARK", "--set-xmark", markAsFromHost})
 }
