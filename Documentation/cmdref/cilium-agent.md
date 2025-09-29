@@ -176,6 +176,7 @@ cilium-agent [flags]
       --enable-standalone-dns-proxy                               Enables standalone DNS proxy
       --enable-tcx                                                Attach endpoint programs using tcx if supported by the kernel (default true)
       --enable-tracing                                            Enable tracing while determining policy (debugging)
+      --enable-tuned-buffer-margins                               Enable tuned buffer margins on pod network interfaces
       --enable-unreachable-routes                                 Add unreachable routes on pod deletion
       --enable-vtep                                               Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)
       --enable-well-known-identities                              Enable well-known identities for known Kubernetes components (default true)
