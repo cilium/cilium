@@ -178,6 +178,20 @@ func (cfg Config) SrcPortHigh() uint16 { return cfg.srcPortHigh }
 // DeviceName returns the name of the tunnel device (empty if disabled).
 func (cfg Config) DeviceName() string { return cfg.deviceName }
 
+// DeviceBufferMargins returns the buffer margins of the tunnel device (zero if disabled)
+func (cfg Config) DeviceBufferMargins() (uint16, uint16, error) {
+	if cfg.EncapProtocol() == Disabled {
+		return 0, 0, nil
+	}
+
+	tunnelDev, err := safenetlink.LinkByName(cfg.DeviceName())
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return tunnelDev.Attrs().Headroom, tunnelDev.Attrs().Tailroom, nil
+}
+
 // ShouldAdaptMTU returns whether we should adapt the MTU calculation to
 // account for encapsulation.
 func (cfg Config) ShouldAdaptMTU() bool { return cfg.shouldAdaptMTU }
