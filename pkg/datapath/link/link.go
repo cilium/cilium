@@ -66,6 +66,14 @@ func GetIfIndex(ifName string) (uint32, error) {
 	return uint32(iface.Attrs().Index), nil
 }
 
+func GetIfBufferMargins(ifName string) (uint16, uint16, error) {
+	iface, err := safenetlink.LinkByName(ifName)
+	if err != nil {
+		return 0, 0, err
+	}
+	return iface.Attrs().Headroom, iface.Attrs().Tailroom, nil
+}
+
 type LinkCache struct {
 	mu          lock.RWMutex
 	indexToName map[int]string
