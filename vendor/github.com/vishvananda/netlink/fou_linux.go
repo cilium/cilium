@@ -6,7 +6,6 @@ package netlink
 import (
 	"encoding/binary"
 	"errors"
-	"log"
 	"net"
 
 	"github.com/vishvananda/netlink/nl"
@@ -170,18 +169,13 @@ func (h *Handle) FouList(fam int) ([]Fou, error) {
 
 	fous := make([]Fou, 0, len(msgs))
 	for _, m := range msgs {
-		f, err := deserializeFouMsg(m)
-		if err != nil {
-			return fous, err
-		}
-
-		fous = append(fous, f)
+		fous = append(fous, deserializeFouMsg(m))
 	}
 
 	return fous, executeErr
 }
 
-func deserializeFouMsg(msg []byte) (Fou, error) {
+func deserializeFouMsg(msg []byte) Fou {
 	fou := Fou{}
 
 	for attr := range nl.ParseAttributes(msg[4:]) {
@@ -202,10 +196,8 @@ func deserializeFouMsg(msg []byte) (Fou, error) {
 			fou.PeerPort = int(networkOrder.Uint16(attr.Value))
 		case FOU_ATTR_IFINDEX:
 			fou.IfIndex = int(native.Uint16(attr.Value))
-		default:
-			log.Printf("unknown fou attribute from kernel: %+v %v", attr, attr.Type&nl.NLA_TYPE_MASK)
 		}
 	}
 
-	return fou, nil
+	return fou
 }

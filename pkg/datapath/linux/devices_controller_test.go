@@ -132,7 +132,9 @@ func TestDevicesController_Restarts(t *testing.T) {
 			return nil, nil
 		},
 
-		Close: func() {},
+		Close: func() error {
+			return nil
+		},
 
 		LinkList: func() ([]netlink.Link, error) {
 			if first.Load() {

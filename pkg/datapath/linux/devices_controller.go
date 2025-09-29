@@ -169,7 +169,13 @@ func (dc *devicesController) Start(startCtx cell.HookContext) error {
 }
 
 func (dc *devicesController) run(ctx context.Context) {
-	defer dc.params.NetlinkFuncs.Close()
+	closeHandle := func() {
+		err := dc.params.NetlinkFuncs.Close()
+		if err != nil {
+			dc.log.Warn("Netlink handle close error", logfields.Error, err)
+		}
+	}
+	defer closeHandle()
 
 	// Run the controller in a loop and restarting on failures until stopped.
 	// We're doing this as netlink is an unreliable protocol that may drop
@@ -702,7 +708,7 @@ type netlinkFuncs struct {
 	AddrSubscribe     func(ch chan<- netlink.AddrUpdate, done <-chan struct{}, errorCallback func(error)) error
 	LinkSubscribe     func(ch chan<- netlink.LinkUpdate, done <-chan struct{}, errorCallback func(error)) error
 	NeighSubscribe    func(ch chan<- netlink.NeighUpdate, done <-chan struct{}, errorCallback func(error)) error
-	Close             func()
+	Close             func() error
 	LinkList          func() ([]netlink.Link, error)
 	AddrList          func(link netlink.Link, family int) ([]netlink.Addr, error)
 	RouteListFiltered func(family int, filter *netlink.Route, filterMask uint64) ([]netlink.Route, error)
