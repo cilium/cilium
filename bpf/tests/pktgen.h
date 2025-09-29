@@ -67,6 +67,14 @@ volatile const __u8 mac_zero[] = mac_zero_addr;
 #define v4_pod_two	IPV4(192, 168, 0, 2)
 #define v4_pod_three	IPV4(192, 168, 0, 3)
 
+/* Node-specific PodCIDR */
+#define v4_pod_one_on_node_two		IPV4(192, 168, 1, 1)
+#define v4_pod_two_on_node_two		IPV4(192, 168, 1, 2)
+#define v4_pod_three_on_node_two	IPV4(192, 168, 1, 3)
+#define v4_pod_cidr_on_node_two		IPV4(192, 168, 1, 0)
+
+#define v4_pod_cidr_size		24
+
 #define v4_svc_loopback	IPV4(10, 245, 255, 31)
 #define v6_svc_loopback {0xfd, 0x05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 

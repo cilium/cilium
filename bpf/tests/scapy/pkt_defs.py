@@ -36,6 +36,14 @@ v4_pod_one    = "192.168.0.1"
 v4_pod_two    = "192.168.0.2"
 v4_pod_three  = "192.168.0.3"
 
+#Node-specific PodCIDR
+v4_pod_cidr_on_node_two  = "192.168.1.0"
+v4_pod_one_on_node_two   = "192.168.1.1"
+v4_pod_two_on_node_two   = "192.168.1.2"
+v4_pod_three_on_node_two = "192.168.1.3"
+
+v4_pod_cidr_size = 24
+
 v4_svc_loopback = "10.245.255.31"
 
 v4_all = "0.0.0.0"
