@@ -32,24 +32,24 @@ void set_src_identity(bool ipv4_inner, bool ipv4_outer, __u32 identity)
 }
 
 static __always_inline
-void set_dst_identity(bool ipv4_inner, bool ipv4_outer, __u32 identity)
+void set_dst_identity(bool ipv4_inner, bool ipv4_outer, __u32 identity, __u8 spi)
 {
 	if (ipv4_inner)
 		if (ipv4_outer)
-			ipcache_v4_add_entry(DST_IP, 0, identity, DST_NODE_IP, TARGET_SPI);
+			ipcache_v4_add_entry(DST_IP, 0, identity, DST_NODE_IP, spi);
 		else
 			ipcache_v4_add_entry_ipv6_underlay(DST_IP, 0, identity,
 							   (const union v6addr *)DST_NODE_IP_6,
-							   TARGET_SPI);
+							   spi);
 	else
 		if (ipv4_outer)
 			ipcache_v6_add_entry((const union v6addr *)DST_IP_6, 0,
-					     identity, DST_NODE_IP, TARGET_SPI);
+					     identity, DST_NODE_IP, spi);
 		else
 			ipcache_v6_add_entry_ipv6_underlay((const union v6addr *)DST_IP_6, 0,
 							   identity,
 							   (const union v6addr *)DST_NODE_IP_6,
-							   TARGET_SPI);
+							   spi);
 }
 
 static __always_inline
@@ -70,7 +70,7 @@ int ipsec_redirect_setup(struct __ctx_buff *ctx, bool ipv4_inner, bool ipv4_oute
 	map_update_elem(&cilium_encrypt_state, &encrypt_key, &cfg, BPF_ANY);
 
 	set_src_identity(ipv4_inner, ipv4_outer, SOURCE_IDENTITY);
-	set_dst_identity(ipv4_inner, ipv4_outer, DST_IDENTITY);
+	set_dst_identity(ipv4_inner, ipv4_outer, DST_IDENTITY, TARGET_SPI);
 
 	return netdev_send_packet(ctx);
 }
@@ -129,7 +129,7 @@ int bad_identities_check(struct __ctx_buff *ctx, bool is_ipv4)
 	 * Ensure host-to-pod traffic is not encrypted.
 	 */
 	TEST("native-host-to-pod", {
-		set_dst_identity(is_ipv4, true, DST_IDENTITY);
+		set_dst_identity(is_ipv4, true, DST_IDENTITY, TARGET_SPI);
 		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, HOST_ID);
 		assert(ret == CTX_ACT_OK);
 	})
@@ -138,7 +138,7 @@ int bad_identities_check(struct __ctx_buff *ctx, bool is_ipv4)
 	 * Ensure world-to-pod traffic is not encrypted.
 	 */
 	TEST("native-world-to-pod", {
-		set_dst_identity(is_ipv4, true, DST_IDENTITY);
+		set_dst_identity(is_ipv4, true, DST_IDENTITY, TARGET_SPI);
 		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, WORLD_ID);
 		assert(ret == CTX_ACT_OK);
 	})
@@ -147,7 +147,7 @@ int bad_identities_check(struct __ctx_buff *ctx, bool is_ipv4)
 	 * Ensure remote_node-to-pod traffic is not encrypted.
 	 */
 	TEST("native-remote_node-to-pod", {
-		set_dst_identity(is_ipv4, true, DST_IDENTITY);
+		set_dst_identity(is_ipv4, true, DST_IDENTITY, TARGET_SPI);
 		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, REMOTE_NODE_ID);
 		assert(ret == CTX_ACT_OK);
 	})
@@ -156,7 +156,7 @@ int bad_identities_check(struct __ctx_buff *ctx, bool is_ipv4)
 	 * Ensure pod-to-host traffic is not encrypted.
 	 */
 	TEST("native-pod-to-host", {
-		set_dst_identity(is_ipv4, true, HOST_ID);
+		set_dst_identity(is_ipv4, true, HOST_ID, 0);
 		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
 		assert(ret == CTX_ACT_OK);
 	})
@@ -165,7 +165,7 @@ int bad_identities_check(struct __ctx_buff *ctx, bool is_ipv4)
 	 * Ensure pod-to-world traffic is not encrypted.
 	 */
 	TEST("native-pod-to-world", {
-		set_dst_identity(is_ipv4, true, WORLD_ID);
+		set_dst_identity(is_ipv4, true, WORLD_ID, 0);
 		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
 		assert(ret == CTX_ACT_OK);
 	})
@@ -174,7 +174,7 @@ int bad_identities_check(struct __ctx_buff *ctx, bool is_ipv4)
 	 * Ensure pod-to-remote_node traffic is not encrypted.
 	 */
 	TEST("native-pod-to-remote_node", {
-		set_dst_identity(is_ipv4, true, REMOTE_NODE_ID);
+		set_dst_identity(is_ipv4, true, REMOTE_NODE_ID, 0);
 		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
 		assert(ret == CTX_ACT_OK);
 	})
