@@ -73,6 +73,9 @@ type remoteCluster struct {
 	// restored.
 	cacheRevokeCancel context.CancelFunc
 
+	// cacheRevocations is the number of observed cache revocations
+	cacheRevocations int
+
 	// wg is used to wait for the termination of the goroutines spawned by the
 	// controller upon reconnection for long running background tasks.
 	wg sync.WaitGroup
@@ -114,9 +117,10 @@ type remoteCluster struct {
 	// for testing purposes.
 	clusterLockFactory func() *clusterLock
 
-	metricLastFailureTimestamp prometheus.Gauge
-	metricReadinessStatus      prometheus.Gauge
-	metricTotalFailures        prometheus.Gauge
+	metricLastFailureTimestamp  prometheus.Gauge
+	metricReadinessStatus       prometheus.Gauge
+	metricTotalFailures         prometheus.Gauge
+	metricTotalCacheRevocations prometheus.Gauge
 }
 
 // releaseOldConnection releases the etcd connection to a remote cluster
@@ -154,6 +158,8 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				rc.logger.Warn("Remote cluster cache TTL expired, revoking cache", logfields.TTL, rc.cacheTTL)
 				rc.RevokeCache(context.Background())
 				rc.mutex.Lock()
+				rc.cacheRevocations++
+				rc.metricTotalCacheRevocations.Set(float64(rc.cacheRevocations))
 				rc.mutex.Unlock()
 			case <-ctx.Done():
 				rc.logger.Debug("Remote cluster cache TTL timer cancelled; connection successfully re-established.")

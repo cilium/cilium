@@ -154,9 +154,10 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		remoteClientFactory: cm.conf.RemoteClientFactory,
 		clusterLockFactory:  newClusterLock,
 
-		metricLastFailureTimestamp: cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
-		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
-		metricTotalFailures:        cm.conf.Metrics.TotalFailures.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
+		metricLastFailureTimestamp:  cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
+		metricReadinessStatus:       cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
+		metricTotalFailures:         cm.conf.Metrics.TotalFailures.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
+		metricTotalCacheRevocations: cm.conf.Metrics.TotalCacheRevocations.WithLabelValues(cm.conf.ClusterInfo.Name, name),
 	}
 
 	rc.RemoteCluster = cm.conf.NewRemoteCluster(name, rc.status)
