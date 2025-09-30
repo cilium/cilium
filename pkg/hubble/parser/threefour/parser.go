@@ -67,6 +67,8 @@ type packet struct {
 	layers.TCP
 	layers.UDP
 	layers.SCTP
+	layers.VRRPv2
+	layers.IGMPv1or2
 
 	overlay struct {
 		Layers []gopacket.LayerType
@@ -80,6 +82,8 @@ type packet struct {
 		layers.TCP
 		layers.UDP
 		layers.SCTP
+		layers.VRRPv2
+		layers.IGMPv1or2
 	}
 }
 
@@ -100,6 +104,7 @@ func New(
 		&packet.IPv4, &packet.IPv6,
 		&packet.ICMPv4, &packet.ICMPv6,
 		&packet.TCP, &packet.UDP, &packet.SCTP,
+		&packet.VRRPv2, &packet.IGMPv1or2,
 	}
 	packet.decLayerL2Dev = gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, decoders...)
 	packet.decLayerL3Dev.IPv4 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, decoders...)
@@ -111,6 +116,7 @@ func New(
 		&packet.overlay.IPv4, &packet.overlay.IPv6,
 		&packet.overlay.ICMPv4, &packet.overlay.ICMPv6,
 		&packet.overlay.TCP, &packet.overlay.UDP, &packet.overlay.SCTP,
+		&packet.overlay.VRRPv2, &packet.overlay.IGMPv1or2,
 	}
 	packet.decLayerOverlay.VXLAN = gopacket.NewDecodingLayerParser(layers.LayerTypeVXLAN, overlayDecoders...)
 	packet.decLayerOverlay.Geneve = gopacket.NewDecodingLayerParser(layers.LayerTypeGeneve, overlayDecoders...)
@@ -353,6 +359,12 @@ func decodeLayers(payload []byte, packet *packet, isL3Device, isIPv6, isVXLAN, i
 		case layers.LayerTypeICMPv6:
 			l4 = decodeICMPv6(&packet.ICMPv6)
 			summary = "ICMPv6 " + packet.ICMPv6.TypeCode.String()
+		case layers.LayerTypeVRRP:
+			l4 = decodeVRRP(&packet.VRRPv2)
+			summary = "VRRP " + packet.VRRPv2.Type.String()
+		case layers.LayerTypeIGMP:
+			l4 = decodeIGMP(&packet.IGMPv1or2)
+			summary = "IGMP " + packet.IGMPv1or2.Type.String()
 		}
 	}
 
@@ -421,6 +433,12 @@ func decodeLayers(payload []byte, packet *packet, isL3Device, isIPv6, isVXLAN, i
 		case layers.LayerTypeICMPv6:
 			l4 = decodeICMPv6(&packet.overlay.ICMPv6)
 			summary = "ICMPv6 " + packet.overlay.ICMPv6.TypeCode.String()
+		case layers.LayerTypeVRRP:
+			l4 = decodeVRRP(&packet.overlay.VRRPv2)
+			summary = "VRRP " + packet.overlay.VRRPv2.Type.String()
+		case layers.LayerTypeIGMP:
+			l4 = decodeIGMP(&packet.overlay.IGMPv1or2)
+			summary = "IGMP " + packet.overlay.IGMPv1or2.Type.String()
 		}
 	}
 
@@ -561,6 +579,25 @@ func decodeICMPv6(icmp *layers.ICMPv6) *pb.Layer4 {
 		Protocol: &pb.Layer4_ICMPv6{ICMPv6: &pb.ICMPv6{
 			Type: uint32(icmp.TypeCode.Type()),
 			Code: uint32(icmp.TypeCode.Code()),
+		}},
+	}
+}
+
+func decodeVRRP(vrrp *layers.VRRPv2) *pb.Layer4 {
+	return &pb.Layer4{
+		Protocol: &pb.Layer4_VRRP{VRRP: &pb.VRRP{
+			Type:     uint32(vrrp.Type),
+			Vrid:     uint32(vrrp.VirtualRtrID),
+			Priority: uint32(vrrp.Priority),
+		}},
+	}
+}
+
+func decodeIGMP(igmp *layers.IGMPv1or2) *pb.Layer4 {
+	return &pb.Layer4{
+		Protocol: &pb.Layer4_IGMP{IGMP: &pb.IGMP{
+			Type:         uint32(igmp.Type),
+			GroupAddress: igmp.GroupAddress.String(),
 		}},
 	}
 }
