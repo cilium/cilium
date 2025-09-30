@@ -74,6 +74,29 @@
 #ifdef ENABLE_PER_PACKET_LB
 
 #ifdef ENABLE_IPV4
+
+#ifdef ENABLE_DSR
+static __always_inline struct lb4_service *
+lb4_lookup_service_for_nodeport_dsr(struct lb4_key key)
+{
+	struct remote_endpoint_info *info;
+	__u16 service_port;
+
+	service_port = bpf_ntohs(key.dport);
+
+	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
+		return NULL;
+
+	info = lookup_ip4_remote_endpoint(key.address, 0);
+	if (info && identity_is_remote_node(info->sec_identity)) {
+		key.address = 0;
+		return lb4_lookup_service(&key, true);
+	}
+
+	return NULL;
+}
+#endif /* ENABLE_DSR */
+
 static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *ip4,
 						       __s8 *ext_err)
 {
@@ -85,6 +108,9 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	__u16 proxy_port = 0;
 	__u32 cluster_id = 0;
 	int l4_off;
+	__u32 dsr_addr __maybe_unused;
+	__u16 dsr_port __maybe_unused;
+	bool is_dsr __maybe_unused = false;
 	int ret = 0;
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
@@ -101,6 +127,19 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	lb4_fill_key(&key, &tuple);
 
 	svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+#if defined(ENABLE_DSR)
+	if (!svc) {
+		svc = lb4_lookup_service_for_nodeport_dsr(key);
+		if (svc) {
+			is_dsr = true;
+			ct_state_new.src_sec_id = LXC_ID;
+			ct_state_new.node_port = 1;
+			ct_state_new.dsr_internal = 1;
+			dsr_addr = tuple.daddr;
+			dsr_port = tuple.sport;
+		}
+	}
+#endif /* ENABLE_DSR */
 	if (svc) {
 #if defined(ENABLE_L7_LB)
 		if (lb4_svc_is_l7_loadbalancer(svc)) {
@@ -139,6 +178,14 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			}
 			return ret;
 		}
+#if defined(ENABLE_DSR)
+		if (is_dsr) {
+			__ipv4_ct_tuple_reverse(&tuple);
+			ret = snat_v4_create_dsr(&tuple, dsr_addr, dsr_port, ext_err);
+			if (IS_ERR(ret))
+				return ret;
+		}
+#endif /* ENABLE_DSR */
 	}
 skip_service_lookup:
 	/* Store state to be picked up on the continuation tail call. */
@@ -1990,6 +2037,28 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		if (unlikely(ct_state->rev_nat_index)) {
 			int ret2;
 
+#ifdef ENABLE_DSR
+			if (ct_state->dsr_internal) {
+				struct ipv4_ct_tuple dsr_tuple = {};
+				struct ipv4_nat_entry *dsr_entry;
+
+				dsr_tuple = *tuple;
+				dsr_tuple.flags = NAT_DIR_EGRESS;
+				dsr_tuple.sport = tuple->dport;
+				dsr_tuple.dport = tuple->sport;
+
+				dsr_entry = nodeport_dsr_lookup_v4_nat_entry(&dsr_tuple);
+				if (dsr_entry) {
+					ret = __lb4_rev_nat(ctx, ETH_HLEN, l4_off, tuple,
+							    &dsr_entry->nat_info,
+								ct_state->loopback,
+							    ipfrag_has_l4_header(fraginfo));
+					if (IS_ERR(ret))
+						return ret;
+					break;
+				}
+			}
+#endif /* ENABLE_DSR */
 			ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
 					   ct_state->rev_nat_index,
 					   ct_state->loopback,
