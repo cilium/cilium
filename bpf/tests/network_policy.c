@@ -50,7 +50,7 @@ int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 		int ret;
 
 		policy_add_egress_allow_l3_l4_entry(REMOTE_IDENTITY, IPPROTO_UDP,
-						    __bpf_htons(80));
+						    __bpf_htons(80), 0);
 
 		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
 					  __bpf_htons(80));
@@ -64,14 +64,53 @@ int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 		assert(ret == DROP_POLICY);
 
 		policy_delete_egress_l3_l4_entry(REMOTE_IDENTITY, IPPROTO_UDP,
-						 __bpf_htons(80));
+						 __bpf_htons(80), 0);
+	});
+
+	/* Allow access to UDP ports 80-83, at REMOTE_IDENTITY. */
+	TEST("L3 + partially wildcarded L4 policy", {
+		int ret;
+
+		policy_add_egress_allow_l3_l4_entry(REMOTE_IDENTITY, IPPROTO_UDP,
+						    __bpf_htons(80), 2);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(79));
+		assert(ret == DROP_POLICY);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(80));
+		assert(ret == CTX_ACT_OK);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(81));
+		assert(ret == CTX_ACT_OK);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(82));
+		assert(ret == CTX_ACT_OK);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(83));
+		assert(ret == CTX_ACT_OK);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(84));
+		assert(ret == DROP_POLICY);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_TCP,
+					  __bpf_htons(80));
+		assert(ret == DROP_POLICY);
+
+		policy_delete_egress_l3_l4_entry(REMOTE_IDENTITY, IPPROTO_UDP,
+						 __bpf_htons(80), 2);
 	});
 
 	/* Allow access to all UDP ports, at REMOTE_IDENTITY. */
 	TEST("L3 + wildcarded L4 policy", {
 		int ret;
 
-		policy_add_egress_allow_l3_l4_entry(REMOTE_IDENTITY, IPPROTO_UDP, 0);
+		policy_add_egress_allow_l3_l4_entry(REMOTE_IDENTITY, IPPROTO_UDP, 0, 0);
 
 		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
 					  __bpf_htons(80));
@@ -81,7 +120,7 @@ int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 					  __bpf_htons(80));
 		assert(ret == DROP_POLICY);
 
-		policy_delete_egress_l3_l4_entry(REMOTE_IDENTITY, IPPROTO_UDP, 0);
+		policy_delete_egress_l3_l4_entry(REMOTE_IDENTITY, IPPROTO_UDP, 0, 0);
 	});
 
 	/* Allow full L3 access, at REMOTE_IDENTITY. */
@@ -105,7 +144,7 @@ int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 	TEST("L4-only policy", {
 		int ret;
 
-		policy_add_egress_allow_l4_entry(IPPROTO_UDP, __bpf_htons(80));
+		policy_add_egress_allow_l4_entry(IPPROTO_UDP, __bpf_htons(80), 0);
 
 		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
 					  __bpf_htons(80));
@@ -118,14 +157,53 @@ int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 					  __bpf_htons(80));
 		assert(ret == DROP_POLICY);
 
-		policy_delete_egress_l4_entry(IPPROTO_UDP, __bpf_htons(80));
+		policy_delete_egress_l4_entry(IPPROTO_UDP, __bpf_htons(80), 0);
+	});
+
+	/* Allow access to UDP ports 80-83, at all dst endpoints. */
+	TEST("partially wildcarded L4-only policy", {
+		int ret;
+
+		policy_add_egress_allow_l3_l4_entry(0, IPPROTO_UDP,
+						    __bpf_htons(80), 2);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(79));
+		assert(ret == DROP_POLICY);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(80));
+		assert(ret == CTX_ACT_OK);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(81));
+		assert(ret == CTX_ACT_OK);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(82));
+		assert(ret == CTX_ACT_OK);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(83));
+		assert(ret == CTX_ACT_OK);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
+					  __bpf_htons(84));
+		assert(ret == DROP_POLICY);
+
+		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_TCP,
+					  __bpf_htons(80));
+		assert(ret == DROP_POLICY);
+
+		policy_delete_egress_l3_l4_entry(0, IPPROTO_UDP,
+						 __bpf_htons(80), 2);
 	});
 
 	/* Allow access to all UDP ports, at all dst endpoints. */
 	TEST("wildcarded L4-only policy", {
 		int ret;
 
-		policy_add_egress_allow_l4_entry(IPPROTO_UDP, 0);
+		policy_add_egress_allow_l4_entry(IPPROTO_UDP, 0, 0);
 
 		ret = check_egress_policy(ctx, REMOTE_IDENTITY, IPPROTO_UDP,
 					  __bpf_htons(80));
@@ -135,7 +213,7 @@ int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 					  __bpf_htons(80));
 		assert(ret == DROP_POLICY);
 
-		policy_delete_egress_l4_entry(IPPROTO_UDP, 0);
+		policy_delete_egress_l4_entry(IPPROTO_UDP, 0, 0);
 	});
 
 	/* Allow full L3 access, at all dst endpoints. */

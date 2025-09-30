@@ -145,7 +145,8 @@ int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(BACKEND_IP, BACKEND_CLUSTER_ID, BACKEND_IDENTITY,
 			     BACKEND_NODE_IP, 0);
 
-	policy_add_egress_allow_l3_l4_entry(BACKEND_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
+	policy_add_egress_allow_l3_l4_entry(BACKEND_IDENTITY, IPPROTO_TCP,
+					    BACKEND_PORT, 0);
 
 	return pod_send_packet(ctx);
 }
