@@ -263,7 +263,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			ExternalIdentifiers: e.getModelEndpointIdentitiersRLocked(),
 			// FIXME GH-3280 When we begin returning endpoint revisions this should
 			// change to return the configured and in-datapath policies.
-			Policy:      e.GetPolicyModel(),
+			Policy:      e.getPolicyModel(),
 			Log:         statusLog,
 			Controllers: controllerMdl,
 			State:       e.getModelCurrentStateRLocked().Pointer(), // TODO: Validate
@@ -419,10 +419,10 @@ func getIdentities(ep *policy.EndpointPolicy) (ingIdentities, ingDenyIdentities,
 		slices.Compact(egIdentities), slices.Compact(egDenyIdentities)
 }
 
-// GetPolicyModel returns the endpoint's policy as an API model.
+// getPolicyModel returns the endpoint's policy as an API model.
 //
 // Must be called with e.mutex RLock()ed.
-func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
+func (e *Endpoint) getPolicyModel() *models.EndpointPolicyStatus {
 	if e == nil {
 		return nil
 	}
@@ -488,6 +488,19 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		ProxyPolicyRevision: int64(e.proxyPolicyRevision),
 		ProxyStatistics:     proxyStats,
 	}
+}
+
+// GetPolicyModel returns the endpoint's policy as an API model.
+func (e *Endpoint) GetPolicyModel() (*models.EndpointPolicyStatus, error) {
+	if e == nil {
+		return nil, nil
+	}
+	if err := e.lockAlive(); err != nil {
+		return nil, err
+	}
+	defer e.unlock()
+
+	return e.getPolicyModel(), nil
 }
 
 // policyStatus returns the endpoint's policy status

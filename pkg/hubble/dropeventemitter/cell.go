@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/pflag"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -41,6 +42,8 @@ type config struct {
 	K8sDropEventsInterval time.Duration `mapstructure:"hubble-drop-events-interval"`
 	// K8sDropEventsReasons controls which drop reasons to emit events for.
 	K8sDropEventsReasons []string `mapstructure:"hubble-drop-events-reasons"`
+	// EnableK8sDropEventsPolicies controls if L4 network policies are included in event message
+	EnableK8sDropEventsExtended bool `mapstructure:"hubble-drop-events-extended"`
 }
 
 var defaultConfig = config{
@@ -50,12 +53,14 @@ var defaultConfig = config{
 		strings.ToLower(flowpb.DropReason_AUTH_REQUIRED.String()),
 		strings.ToLower(flowpb.DropReason_POLICY_DENIED.String()),
 	},
+	EnableK8sDropEventsExtended: false,
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("hubble-drop-events", def.EnableK8sDropEvents, "Emit packet drop Events related to pods (alpha)")
 	flags.Duration("hubble-drop-events-interval", def.K8sDropEventsInterval, "Minimum time between emitting same events")
 	flags.StringSlice("hubble-drop-events-reasons", def.K8sDropEventsReasons, "Drop reasons to emit events for")
+	flags.Bool("hubble-drop-events-extended", def.EnableK8sDropEventsExtended, "Include L4 network policies in drop event message")
 }
 
 func (cfg *config) normalize() {
@@ -89,6 +94,8 @@ type params struct {
 	K8sWatcher *watchers.K8sWatcher
 
 	Config config
+
+	EndpointsLookup endpointmanager.EndpointsLookup
 }
 
 func newDropEventEmitter(p params) FlowProcessor {
@@ -103,9 +110,10 @@ func newDropEventEmitter(p params) FlowProcessor {
 		"Building the Hubble packet drop events emitter",
 		logfields.Interval, p.Config.K8sDropEventsInterval,
 		logfields.Reasons, p.Config.K8sDropEventsReasons,
+		logfields.CiliumNetworkPolicy, p.Config.EnableK8sDropEventsExtended,
 	)
 
-	flowProcessor := new(p.Logger, p.Config.K8sDropEventsInterval, p.Config.K8sDropEventsReasons, p.Clientset, p.K8sWatcher)
+	flowProcessor := new(p.Logger, p.Config.K8sDropEventsInterval, p.Config.K8sDropEventsReasons, p.Config.EnableK8sDropEventsExtended, p.Clientset, p.K8sWatcher, p.EndpointsLookup)
 	p.Lifecycle.Append(cell.Hook{
 		OnStop: func(hc cell.HookContext) error {
 			flowProcessor.Shutdown()
