@@ -104,6 +104,17 @@ func (h *portDistributionHandler) ProcessFlow(ctx context.Context, flow *flowpb.
 		labels := append([]string{"ICMPv6", "0"}, labelValues...)
 		h.portDistribution.WithLabelValues(labels...).Inc()
 	}
+
+	if flow.GetL4().GetVRRP() != nil {
+		labels := append([]string{"VRRP", "0"}, labelValues...)
+		h.portDistribution.WithLabelValues(labels...).Inc()
+	}
+
+	if flow.GetL4().GetIGMP() != nil {
+		labels := append([]string{"IGMP", "0"}, labelValues...)
+		h.portDistribution.WithLabelValues(labels...).Inc()
+	}
+
 	return nil
 }
 

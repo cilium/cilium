@@ -63,6 +63,26 @@ func TestFlowProtocolFilter(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "vrrp",
+			args: args{
+				f: []*flowpb.FlowFilter{{Protocol: []string{"vrrp"}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_VRRP{VRRP: &flowpb.VRRP{}}},
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "igmp",
+			args: args{
+				f: []*flowpb.FlowFilter{{Protocol: []string{"igmp"}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_IGMP{IGMP: &flowpb.IGMP{}}},
+				}},
+			},
+			want: true,
+		},
+		{
 			name: "multiple protocols",
 			args: args{
 				f: []*flowpb.FlowFilter{{Protocol: []string{"tcp", "kafka"}}},
