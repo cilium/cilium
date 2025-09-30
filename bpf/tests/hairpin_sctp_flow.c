@@ -9,11 +9,11 @@
 #include "common.h"
 
 /* Enable code paths under test*/
-#define ENABLE_IPV4
-#define ENABLE_SCTP
+#define ENABLE_IPV4 1
+#define ENABLE_SCTP 1
 
 /* Use to-container for ingress policy: */
-#define USE_BPF_PROG_FOR_INGRESS_POLICY
+#define USE_BPF_PROG_FOR_INGRESS_POLICY 1
 
 #define ctx_redirect_peer mock_ctx_redirect_peer
 static __always_inline __maybe_unused int
