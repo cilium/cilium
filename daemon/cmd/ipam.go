@@ -36,7 +36,7 @@ const (
 	mismatchRouterIPsMsg = "Mismatch of router IPs found during restoration. The Kubernetes resource contained %s, while the filesystem contained %s. Using the router IP from the filesystem. To change the router IP, specify --%s and/or --%s."
 )
 
-func (d *Daemon) allocateRouterIPv4(family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
+func (d *Daemon) allocateRouterIPv4(ctx context.Context, family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
 	if option.Config.LocalRouterIPv4 != "" {
 		routerIP := net.ParseIP(option.Config.LocalRouterIPv4)
 		if routerIP == nil {
@@ -47,11 +47,11 @@ func (d *Daemon) allocateRouterIPv4(family types.NodeAddressingFamily, fromK8s, 
 		}
 		return routerIP, nil
 	} else {
-		return d.allocateDatapathIPs(family, fromK8s, fromFS)
+		return d.allocateDatapathIPs(ctx, family, fromK8s, fromFS)
 	}
 }
 
-func (d *Daemon) allocateRouterIPv6(family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
+func (d *Daemon) allocateRouterIPv6(ctx context.Context, family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
 	if option.Config.LocalRouterIPv6 != "" {
 		routerIP := net.ParseIP(option.Config.LocalRouterIPv6)
 		if routerIP == nil {
@@ -62,7 +62,7 @@ func (d *Daemon) allocateRouterIPv6(family types.NodeAddressingFamily, fromK8s, 
 		}
 		return routerIP, nil
 	} else {
-		return d.allocateDatapathIPs(family, fromK8s, fromFS)
+		return d.allocateDatapathIPs(ctx, family, fromK8s, fromFS)
 	}
 }
 
@@ -178,7 +178,7 @@ func waitForENI(ctx context.Context, macAddr string) error {
 	return wait.ExponentialBackoffWithContext(ctx, bo, findENIByMAC)
 }
 
-func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
+func (d *Daemon) allocateDatapathIPs(ctx context.Context, family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
 	// Avoid allocating external IP
 	d.params.IPAM.ExcludeIP(family.PrimaryExternal(), "node-ip", ipam.PoolDefault())
 
@@ -226,7 +226,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		// This avoids spurious errors where netlink is not able to find
 		// the ifindex by its MAC because the ENI is not showing up yet.
 		if option.Config.IPAM == ipamOption.IPAMENI {
-			if err := waitForENI(context.TODO(), result.PrimaryMAC); err != nil {
+			if err := waitForENI(ctx, result.PrimaryMAC); err != nil {
 				d.params.Logger.Warn("unable to find ENI netlink interface, this will likely lead to an error in configuring the router routes and rules",
 					logfields.MACAddr, result.PrimaryMAC,
 				)
@@ -483,7 +483,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	bootstrapStats.ipam.Start()
 
 	if option.Config.EnableIPv4 {
-		routerIP, err := d.allocateRouterIPv4(d.params.NodeAddressing.IPv4(), router.IPv4FromK8s, router.IPv4FromFS)
+		routerIP, err := d.allocateRouterIPv4(ctx, d.params.NodeAddressing.IPv4(), router.IPv4FromK8s, router.IPv4FromFS)
 		if err != nil {
 			return err
 		}
@@ -493,7 +493,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	}
 
 	if option.Config.EnableIPv6 {
-		routerIP, err := d.allocateRouterIPv6(d.params.NodeAddressing.IPv6(), router.IPv6FromK8s, router.IPv6FromFS)
+		routerIP, err := d.allocateRouterIPv6(ctx, d.params.NodeAddressing.IPv6(), router.IPv6FromK8s, router.IPv6FromFS)
 		if err != nil {
 			return err
 		}
