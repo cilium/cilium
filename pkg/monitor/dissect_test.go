@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -262,5 +264,84 @@ func TestConnectionSummaryIcmp(t *testing.T) {
 		srcIP,
 		dstIP,
 		"icmp DestinationUnreachable(Host)")
+	require.Equal(t, expect, summary)
+}
+
+func TestConnectionSummaryVrrp(t *testing.T) {
+	srcIP := net.ParseIP("1.2.3.4").To4()
+	dstIP := net.ParseIP("224.0.0.18").To4()
+
+	ethernetLayer := &layers.Ethernet{
+		SrcMAC:       net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+		DstMAC:       net.HardwareAddr{0x01, 0x00, 0x5e, 0x00, 0x00, 0x12},
+		EthernetType: layers.EthernetTypeIPv4,
+	}
+	ipLayer := &layers.IPv4{
+		Version:  4,
+		Protocol: layers.IPProtocolVRRP,
+		SrcIP:    srcIP,
+		DstIP:    dstIP,
+	}
+	vrrpPayload := []byte{
+		0x21,       // Version 2, Type 1 (Advertisement)
+		0x0a,       // VRID: 10
+		0x78,       // Priority: 120
+		0x01,       // Count IP Addrs: 1
+		0x00,       // Auth Type: 0
+		0x01,       // Advertisement Interval: 1
+		0x00, 0x00, // Checksum (placeholder)
+
+		// Virtual IP Address (192.168.1.1)
+		0xc0, 0xa8, 0x01, 0x01,
+	}
+
+	buf := gopacket.NewSerializeBuffer()
+	opts := gopacket.SerializeOptions{
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+	err := gopacket.SerializeLayers(buf, opts, ethernetLayer, ipLayer, gopacket.Payload(vrrpPayload))
+	require.NoError(t, err)
+
+	packetData := buf.Bytes()
+	summary := GetConnectionSummary(packetData, nil)
+
+	expect := fmt.Sprintf("%s -> %s vrrp VRRPv2 Advertisement 10 120", srcIP, dstIP)
+	require.Equal(t, expect, summary)
+}
+
+func TestConnectionSummaryIgmp(t *testing.T) {
+	srcIP := net.ParseIP("1.2.3.4").To4()
+	groupAddress := net.ParseIP("224.0.0.251").To4()
+
+	// Construct the entire packet as a byte array directly
+	packetData := []byte{
+		// Ethernet Header (14 bytes)
+		0x01, 0x00, 0x5e, 0x00, 0x00, 0xfb, // Dst MAC
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, // Src MAC
+		0x08, 0x00, // EtherType: IPv4
+
+		// IPv4 Header (20 bytes)
+		0x45, 0x00, // Version, IHL, DSCP, ECN
+		0x00, 0x1c, // Total Length: 28 (20 IP + 8 IGMP)
+		0x00, 0x00, 0x00, 0x00, // ID, Flags, Fragment Offset
+		0x01, 0x02, // TTL, Protocol (IGMP)
+		0x00, 0x00, // Checksum (will be calculated)
+		0x01, 0x02, 0x03, 0x04, // Src IP
+		0xe0, 0x00, 0x00, 0xfb, // Dst IP
+
+		// IGMP (8 bytes)
+		0x16,       // Type: Membership Report v2
+		0x00,       // Max Resp Code
+		0xf9, 0x05, // Checksum
+		0xe0, 0x00, 0x00, 0xfb, // Group Address
+	}
+
+	summary := GetConnectionSummary(packetData, nil)
+
+	expect := fmt.Sprintf("%s -> %s igmp IGMPv2 Membership Report %s",
+		srcIP.String(),
+		groupAddress.String(),
+		groupAddress.String())
 	require.Equal(t, expect, summary)
 }
