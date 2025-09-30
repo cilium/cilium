@@ -135,7 +135,8 @@ int overlay_to_lxc_syn_setup(struct __ctx_buff *ctx)
 	 * Apply policy based on the remote "real"
 	 * identity instead of remote-node identity.
 	 */
-	policy_add_ingress_allow_l3_l4_entry(CLIENT_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
+	policy_add_ingress_allow_l3_l4_entry(CLIENT_IDENTITY, IPPROTO_TCP,
+					     BACKEND_PORT, 0);
 
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
 	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, true, 0);
