@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh"
@@ -102,7 +101,7 @@ func runLeaderElection(ctx context.Context, lc *LeaderLifecycle, params params) 
 		params.Shutdowner.Shutdown(hive.ShutdownWithError(errors.New("Leader election lost")))
 	})
 
-	params.Metrics.LeaderElectionStatus.With(prometheus.Labels{metrics.LabelLeaderElectionName: "kvstoremesh"}).Set(float64(0))
+	params.Metrics.LeaderElectionStatus.Set(float64(0))
 
 	// Try to win leader election with short timeout to verify if we can
 	// be immediately promoted as leader (e.g., we are the only replica).
@@ -142,7 +141,7 @@ func runLeaderElection(ctx context.Context, lc *LeaderLifecycle, params params) 
 	}()
 
 	params.Log.Info("Leader election lock acquired")
-	params.Metrics.LeaderElectionStatus.With(prometheus.Labels{metrics.LabelLeaderElectionName: "kvstoremesh"}).Set(float64(1))
+	params.Metrics.LeaderElectionStatus.Set(float64(1))
 
 	err = lc.Start(params.Log, ctx)
 	if err != nil {

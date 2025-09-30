@@ -10,16 +10,19 @@ import (
 
 type Metrics struct {
 	// LeaderElectionStatus indicates state of leader election
-	LeaderElectionStatus metric.Vec[metric.Gauge]
+	LeaderElectionStatus metric.Gauge
 }
 
 func MetricsProvider() Metrics {
 	return Metrics{
-		LeaderElectionStatus: metric.NewGaugeVec(metric.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: "",
-			Name:      "leader_election_master_status",
-			Help:      "leader election status",
-		}, []string{metrics.LabelLeaderElectionName}),
+		// LeaderElectionStatus mimic similar metric in controller-manager
+		// by using the same metrics name and forcing a name label
+		LeaderElectionStatus: metric.NewGauge(metric.GaugeOpts{
+			Namespace:   metrics.Namespace,
+			Subsystem:   "",
+			Name:        "leader_election_master_status",
+			Help:        "The leader election status",
+			ConstLabels: map[string]string{"name": "kvstoremesh"},
+		}),
 	}
 }
