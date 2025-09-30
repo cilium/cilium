@@ -69,6 +69,11 @@ static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_stat
 #endif
 }
 
+struct dsr_nat_info {
+	union v6addr nat_addr;
+	__be16 nat_port;
+};
+
 struct ct_buffer4 {
 	struct ipv4_ct_tuple tuple;
 	struct ct_state ct_state;
@@ -280,6 +285,8 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		state->proxy_redirect = entry->proxy_redirect;
 		state->from_l7lb = entry->from_l7lb;
 		state->from_tunnel = entry->from_tunnel;
+		ipv6_addr_copy(&state->nat_addr, &entry->nat_addr);
+		state->nat_port = entry->nat_port;
 	}
 }
 
