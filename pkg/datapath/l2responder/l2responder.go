@@ -8,7 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/netip"
+	"syscall"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -20,8 +25,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
+	"github.com/cilium/cilium/pkg/multicast"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -71,6 +78,23 @@ type l2ResponderReconciler struct {
 	params params
 }
 
+// Used for IPv6 L2 Sol. Node. MC MAC sync
+type McMACEntry struct {
+	IfIndex int
+	MAC     [6]byte
+}
+
+type McMACMap map[McMACEntry]mac.MAC
+
+func (m McMACMap) Add(ifIndex int, ip netip.Addr) {
+	mac := multicast.SolicitedNodeMACAddr(ip)
+	key := McMACEntry{
+		IfIndex: ifIndex,
+	}
+	copy(key.MAC[:], mac[:6])
+	m[key] = mac
+}
+
 func NewL2ResponderReconciler(params params) *l2ResponderReconciler {
 	reconciler := l2ResponderReconciler{
 		params: params,
@@ -116,25 +140,18 @@ func (p *l2ResponderReconciler) cycle(
 	fullReconciliation <-chan time.Time,
 ) {
 	arMap := p.params.L2ResponderMap
-	ndMap := p.params.L2V6ResponderMap
 	log := p.params.Logger
 
 	lr := cachingLinkResolver{nl: p.params.NetLink}
 
 	process := func(e *tables.L2AnnounceEntry, deleted bool) error {
-
 		idx, err := lr.LinkIndex(e.NetworkInterface)
 		if err != nil {
 			return fmt.Errorf("link index: %w", err)
 		}
 
 		if deleted {
-			if e.IP.Is6() {
-				err = ndMap.Delete(e.IP, uint32(idx))
-			} else {
-				err = arMap.Delete(e.IP, uint32(idx))
-			}
-
+			err = arMap.Delete(e.IP, uint32(idx))
 			if err != nil {
 				return fmt.Errorf("delete %s@%d: %w", e.IP, idx, err)
 			}
@@ -142,20 +159,12 @@ func (p *l2ResponderReconciler) cycle(
 			return nil
 		}
 
-		if e.IP.Is6() {
-			err = gneighOnNewEntry(ndMap, p.params.GNeighSender, e.IP, idx)
-		} else {
-			err = garpOnNewEntry(arMap, p.params.GNeighSender, e.IP, idx)
-		}
+		err = garpOnNewEntry(arMap, p.params.GNeighSender, e.IP, idx)
 		if err != nil {
 			log.Warn("Unable to send gratuitous ARP/NDP. Continuing...", logfields.Error, err)
 		}
 
-		if e.IP.Is6() {
-			err = ndMap.Create(e.IP, uint32(idx))
-		} else {
-			err = arMap.Create(e.IP, uint32(idx))
-		}
+		err = arMap.Create(e.IP, uint32(idx))
 		if err != nil {
 			return fmt.Errorf("create %s@%d: %w", e.IP, idx, err)
 		}
@@ -163,14 +172,32 @@ func (p *l2ResponderReconciler) cycle(
 		return nil
 	}
 
+	// Note: at this point we ONLY support partial reconciliation for v4
+	//       VIPs. Changes in IPv6 require full reconciliation (due to L2
+	//       Sol. Nod. multicast address synchronization.
+	v6Changes := false
+
 	// Partial reconciliation
 	txn := p.params.StateDB.ReadTxn()
 	changes, watch := changeIter.Next(txn)
 	for change := range changes {
+		if change.Object.IP.Is6() {
+			v6Changes = true
+			// No need to continue, the rest of v4 will be synced
+			// during full resync
+			break
+		}
 		err := process(change.Object, change.Deleted)
 		if err != nil {
 			log.Error("error during partial reconciliation", logfields.Error, err)
 			break
+		}
+	}
+
+	if v6Changes {
+		err := p.fullReconciliation(txn)
+		if err != nil {
+			log.Error("Error(s) while full reconciling l2 responder map", logfields.Error, err)
 		}
 	}
 
@@ -213,6 +240,17 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 	desiredMap := make(map[l2respondermap.L2ResponderKey]desiredEntry)
 	desiredMap6 := make(map[l2v6respondermap.L2V6ResponderKey]desiredEntry)
 
+	// Note that multiple IPv6 addresses may have the same Sol. Node MC MAC
+	// address (and IPv6 Sol. Node addr) if they share the same last 24bits.
+	// Therefore, and in absence of a more refined approach (see TODO), loop
+	// through all entries and aggregate.
+	//
+	// TODO: improve this by having a secondary index with last 3 bytes
+	// of the IP address (suggested by Dylan)
+
+	currMcMACMap := make(McMACMap)
+	desiredMcMACMap := make(McMACMap)
+
 	for e := range tbl.All(txn) {
 		idx, err := lr.LinkIndex(e.NetworkInterface)
 		if err != nil {
@@ -221,6 +259,8 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 		}
 
 		if e.IP.Is6() {
+			desiredMcMACMap.Add(idx, e.IP)
+
 			desiredMap6[l2v6respondermap.L2V6ResponderKey{
 				IP:      types.IPv6(e.IP.As16()),
 				IfIndex: uint32(idx),
@@ -251,6 +291,8 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 	})
 	var toDelete6 []*l2v6respondermap.L2V6ResponderKey
 	ndMap.IterateWithCallback(func(key *l2v6respondermap.L2V6ResponderKey, _ *l2respondermap.L2ResponderStats) {
+		currMcMACMap.Add(int(key.IfIndex), netip.AddrFrom16(key.IP))
+
 		e, found := desiredMap6[*key]
 		if !found {
 			toDelete6 = append(toDelete6, key)
@@ -301,6 +343,13 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 			errs = errors.Join(errs, fmt.Errorf("create %s@%d: %w", key.IP, key.IfIndex, err))
 		}
 	}
+
+	// Now sync IPv6 L2 MC MACs
+	err = reconcileMcMACEntries(currMcMACMap, desiredMcMACMap)
+	if err != nil {
+		errs = errors.Join(errs, err)
+	}
+
 	return errs
 }
 
@@ -372,4 +421,93 @@ func (clr *cachingLinkResolver) LinkIndex(name string) (int, error) {
 	clr.cache[name] = idx
 
 	return idx, nil
+}
+
+// L2 Sol. Node MC MAC address sync. First add unconditionallty all
+// desired, and remove what's in curr but not in desired remove
+func reconcileMcMACEntries(curr McMACMap, desired McMACMap) (err error) {
+	var errs error
+
+	for key, mac := range desired {
+		err := addRemoveIpv6SolNodeMACAddr(key.IfIndex, mac, true)
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("Add L2 MC Sol. Node MAC address %s@%d: %w", key.MAC, key.IfIndex, err))
+		}
+
+		_, found := curr[key]
+		if found {
+			delete(curr, key)
+		}
+	}
+	for key, mac := range curr {
+		err := addRemoveIpv6SolNodeMACAddr(key.IfIndex, mac, false)
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("Remove L2 MC Sol. Node MAC address %s@%d: %w", key.MAC, key.IfIndex, err))
+		}
+	}
+
+	return errs
+}
+
+// from linux headers, necessary for ioctl
+const (
+	SIOCADDMULTI = 0x8931
+	SIOCDELMULTI = 0x8932
+	ETH_ALEN     = 6
+)
+
+type ifreq struct {
+	Name   [unix.IFNAMSIZ]byte
+	Hwaddr unix.RawSockaddr
+}
+
+// For VIPs, some NICs implement L2 MCAST MAC filtering
+//
+// Add/remove L2 announced VIPs' Solicited Node MCAST MAC address
+// so that NICs pass the packet up to the Kernel stack and we can intercept it
+// from BPF.
+//
+// Unfortunately we can't do this via netlink, so ioctl it is
+func addRemoveIpv6SolNodeMACAddr(ifindex int, mac mac.MAC, add bool) error {
+	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, syscall.ETH_P_ALL)
+	if err != nil {
+		return fmt.Errorf("Unable to open socket to ifindex %d. Error: %w", ifindex, err)
+	}
+	defer syscall.Close(fd)
+
+	ifi, err := net.InterfaceByIndex(ifindex)
+	if err != nil {
+		return fmt.Errorf("unable to find interface with ifindex: %d. Is it gone?: %w", ifindex, err)
+	}
+
+	// Note: multiple IP addresses (e.g. assigned and VIPs) can share the
+	//       same sol-node MAC address. The kernel handles refcnting between
+	//       the assigned IP addresses and _a single_ static entry.
+	//       Therefore, we need to make sure we refcnt our VIPs' sol-
+	//       node MAC addresses for that single static entry, to make it
+	//       consistent.
+	//
+	//       The caller of this function is expected to have done the refcnt
+
+	var ifr ifreq
+	copy(ifr.Name[:], ifi.Name)
+	ifr.Hwaddr.Family = syscall.AF_UNSPEC
+	for i := 0; i < ETH_ALEN; i++ {
+		ifr.Hwaddr.Data[i] = int8(mac[i])
+	}
+
+	op := SIOCADDMULTI
+	if !add {
+		op = SIOCDELMULTI
+	}
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(op), uintptr(unsafe.Pointer(&ifr)))
+	if errno != 0 {
+		if add && errno != unix.EEXIST {
+			return fmt.Errorf("ioctl SIOCADDMULTI for iface %s failed: %w", ifi.Name, errno)
+		} else if !add && errno != unix.ENOENT {
+			return fmt.Errorf("ioctl SIOCDELMULTI for iface %s failed: %w", ifi.Name, errno)
+		}
+	}
+
+	return nil
 }
