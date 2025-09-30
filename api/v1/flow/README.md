@@ -23,6 +23,7 @@
     - [HTTPHeader](#flow-HTTPHeader)
     - [ICMPv4](#flow-ICMPv4)
     - [ICMPv6](#flow-ICMPv6)
+    - [IGMP](#flow-IGMP)
     - [IP](#flow-IP)
     - [IPCacheNotification](#flow-IPCacheNotification)
     - [IPTraceID](#flow-IPTraceID)
@@ -45,6 +46,7 @@
     - [TraceParent](#flow-TraceParent)
     - [Tunnel](#flow-Tunnel)
     - [UDP](#flow-UDP)
+    - [VRRP](#flow-VRRP)
     - [Workload](#flow-Workload)
   
     - [AgentEventType](#flow-AgentEventType)
@@ -492,6 +494,22 @@ L7 information for HTTP flows. It corresponds to Cilium&#39;s [accesslog.LogReco
 
 
 
+<a name="flow-IGMP"></a>
+
+### IGMP
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| type | [uint32](#uint32) |  |  |
+| group_address | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="flow-IP"></a>
 
 ### IP
@@ -581,6 +599,8 @@ L7 information for Kafka flows. It corresponds to Cilium&#39;s [accesslog.LogRec
 | ICMPv4 | [ICMPv4](#flow-ICMPv4) |  | ICMP is technically not L4, but mutually exclusive with the above |
 | ICMPv6 | [ICMPv6](#flow-ICMPv6) |  |  |
 | SCTP | [SCTP](#flow-SCTP) |  |  |
+| VRRP | [VRRP](#flow-VRRP) |  |  |
+| IGMP | [IGMP](#flow-IGMP) |  |  |
 
 
 
@@ -878,6 +898,23 @@ TraceParent identifies the incoming request in a tracing system.
 | ----- | ---- | ----- | ----------- |
 | source_port | [uint32](#uint32) |  |  |
 | destination_port | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="flow-VRRP"></a>
+
+### VRRP
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| type | [uint32](#uint32) |  |  |
+| vrid | [uint32](#uint32) |  |  |
+| priority | [uint32](#uint32) |  |  |
 
 
 
