@@ -1019,12 +1019,16 @@ Name                                      Labels                                
 Clustermesh
 ~~~~~~~~~~~
 
-============================================== ======================================= ========== ==================================================================
-Name                                           Labels                                  Default    Description
-============================================== ======================================= ========== ==================================================================
-``clustermesh_remote_cluster_services``        ``source_cluster``, ``target_cluster``  Enabled    The total number of services per remote cluster
-``clustermesh_remote_cluster_service_exports`` ``source_cluster``, ``target_cluster``  Enabled    The total number of MCS-API service exports per remote cluster
-============================================== ======================================= ========== ==================================================================
+=============================================== ============================================================ ========== ==================================================================
+Name                                            Labels                                                       Default    Description
+=============================================== ============================================================ ========== ==================================================================
+``clustermesh_remote_clusters``                 ``source_cluster``, ``source_node_name``                     Enabled    The total number of remote clusters meshed with the local cluster
+``clustermesh_remote_cluster_failures``         ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of failures related to the remote cluster
+``clustermesh_remote_cluster_last_failure_ts``  ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
+``clustermesh_remote_cluster_readiness_status`` ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The readiness status of the remote cluster
+``clustermesh_remote_cluster_services``         ``source_cluster``, ``target_cluster``                       Enabled    The total number of services per remote cluster
+``clustermesh_remote_cluster_service_exports``  ``source_cluster``, ``target_cluster``                       Enabled    The total number of MCS-API service exports per remote cluster
+=============================================== ============================================================ ========== ==================================================================
 
 
 Hubble
@@ -1552,17 +1556,28 @@ Name                                     Labels                                 
 ``bootstrap_seconds``                    ``source_cluster``                           Duration in seconds to complete bootstrap
 ======================================== ============================================ ========================================================
 
-Remote clusters
-~~~~~~~~~~~~~~~
+KVStoremesh
+~~~~~~~~~~~
 
-==================================== ======================================= =================================================================
-Name                                 Labels                                                       Description
-==================================== ======================================= =================================================================
-``remote_clusters``                  ``source_cluster``                      The total number of remote clusters meshed with the local cluster
-``remote_cluster_failures``          ``source_cluster``, ``target_cluster``  The total number of failures related to the remote cluster
-``remote_cluster_last_failure_ts``   ``source_cluster``, ``target_cluster``  The timestamp of the last failure of the remote cluster
-``remote_cluster_readiness_status``  ``source_cluster``, ``target_cluster``  The readiness status of the remote cluster
-==================================== ======================================= =================================================================
+================================= ======== ==========================
+Name                              Labels   Description
+================================= ======== ==========================
+``leader_election_master_status`` ``name`` The leader election status
+================================= ======== ==========================
+
+Clustermesh
+~~~~~~~~~~~
+
+Note that these metrics are not prefixed by ``clustermesh_``.
+
+=============================================== ============================================================ ==================================================================
+Name                                            Labels                                                       Description
+=============================================== ============================================================ ==================================================================
+``remote_clusters``                             ``source_cluster``, ``source_node_name``                     The total number of remote clusters meshed with the local cluster
+``remote_cluster_failures``                     ``source_cluster``, ``source_node_name``, ``target_cluster`` The total number of failures related to the remote cluster
+``remote_cluster_last_failure_ts``              ``source_cluster``, ``source_node_name``, ``target_cluster`` The timestamp of the last failure of the remote cluster
+``remote_cluster_readiness_status``             ``source_cluster``, ``source_node_name``, ``target_cluster`` The readiness status of the remote cluster
+=============================================== ============================================================ ==================================================================
 
 KVstore
 ~~~~~~~
