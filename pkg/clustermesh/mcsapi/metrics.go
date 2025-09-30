@@ -15,29 +15,31 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
+const subsystem = "mcsapi"
+
 func registerMCSAPICollector(registry *metrics.Registry, logger *slog.Logger, client client.Client) {
 	registry.MustRegister(&mcsAPICollector{
 		logger: logger,
 		client: client,
 
 		serviceExportInfo: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, "", "serviceexport_info"),
+			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceexport_info"),
 			"Information about ServiceExport in the local cluster",
 			[]string{"serviceexport", "namespace"}, nil),
 		serviceExportStatusCondition: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, "", "serviceexport_status_condition"),
+			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceexport_status_condition"),
 			"Status Condition of ServiceExport in the local cluster",
 			[]string{"serviceexport", "namespace", "condition", "status"}, nil),
 		serviceImportInfo: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, "", "serviceimport_info"),
+			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceimport_info"),
 			"Information about ServiceImport in the local cluster",
 			[]string{"serviceimport", "namespace"}, nil),
 		serviceImportStatusCondition: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, "", "serviceimport_status_condition"),
+			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceimport_status_condition"),
 			"Status Condition of ServiceImport in the local cluster",
 			[]string{"serviceimport", "namespace", "condition", "status"}, nil),
 		serviceImportStatusClusters: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, "", "serviceimport_status_clusters"),
+			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceimport_status_clusters"),
 			"The number of clusters currently backing a ServiceImport",
 			[]string{"serviceimport", "namespace"}, nil),
 	})
