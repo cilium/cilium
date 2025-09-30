@@ -22,27 +22,24 @@ type Metrics struct {
 func NewMetrics() Metrics {
 	return Metrics{
 		TotalNodes: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: metrics.Namespace + "_" + subsystem + "_remote_cluster_nodes",
-			Namespace:  metrics.Namespace,
-			Subsystem:  subsystem,
-			Name:       "remote_cluster_nodes",
-			Help:       "The total number of nodes in the remote cluster",
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemClusterMesh,
+			Name:      "remote_cluster_nodes",
+			Help:      "The total number of nodes in the remote cluster",
 		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 
 		TotalServices: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: metrics.Namespace + "_" + subsystem + "_remote_cluster_services",
-			Namespace:  metrics.Namespace,
-			Subsystem:  subsystem,
-			Name:       "remote_cluster_services",
-			Help:       "The total number of services in the remote cluster",
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemClusterMesh,
+			Name:      "remote_cluster_services",
+			Help:      "The total number of services in the remote cluster",
 		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 
 		TotalEndpoints: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: metrics.Namespace + "_" + subsystem + "_remote_cluster_endpoints",
-			Namespace:  metrics.Namespace,
-			Subsystem:  subsystem,
-			Name:       "remote_cluster_endpoints",
-			Help:       "The total number of endpoints in the remote cluster",
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemClusterMesh,
+			Name:      "remote_cluster_endpoints",
+			Help:      "The total number of endpoints in the remote cluster",
 		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 	}
 }
