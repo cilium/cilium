@@ -258,8 +258,9 @@ var (
 	// LabelValuesBool is metric label value set for boolean type.
 	LabelValuesBool = metric.NewValues(LabelValueTrue, LabelValueFalse)
 
-	// Namespace is used to scope metrics from cilium. It is prepended to metric
-	// names and separated with a '_'
+	// Namespace is used to scope metrics from the current cilium component by
+	// overwriting its value at runtime before hive initialization. It is prepended
+	// to metric names and separated with a '_'
 	Namespace = CiliumAgentNamespace
 
 	registryResolver, registry = promise.New[*Registry]()
