@@ -54,6 +54,10 @@ func (f *clientWithFieldManager) Patch(ctx context.Context, obj Object, patch Pa
 	return f.c.Patch(ctx, obj, patch, append([]PatchOption{FieldOwner(f.owner)}, opts...)...)
 }
 
+func (f *clientWithFieldManager) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error {
+	return f.c.Apply(ctx, obj, append([]ApplyOption{FieldOwner(f.owner)}, opts...)...)
+}
+
 func (f *clientWithFieldManager) Delete(ctx context.Context, obj Object, opts ...DeleteOption) error {
 	return f.c.Delete(ctx, obj, opts...)
 }

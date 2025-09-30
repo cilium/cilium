@@ -94,7 +94,7 @@ var secretFixture = []client.Object{
 					Port:     443,
 					Hostname: ptr.To[gatewayv1.Hostname]("*.cilium.io"),
 					Protocol: "HTTPS",
-					TLS: &gatewayv1.GatewayTLSConfig{
+					TLS: &gatewayv1.ListenerTLSConfig{
 						CertificateRefs: []gatewayv1.SecretObjectReference{
 							{
 								Name: "synced-secret-with-source-and-ref",
@@ -135,7 +135,7 @@ var secretFixture = []client.Object{
 					Port:     443,
 					Hostname: ptr.To[gatewayv1.Hostname]("*.acme.io"),
 					Protocol: "HTTPS",
-					TLS: &gatewayv1.GatewayTLSConfig{
+					TLS: &gatewayv1.ListenerTLSConfig{
 						CertificateRefs: []gatewayv1.SecretObjectReference{
 							{
 								Name: "secret-with-non-cilium-ref",
@@ -165,7 +165,7 @@ var secretFixture = []client.Object{
 					Port:     443,
 					Hostname: ptr.To[gatewayv1.Hostname]("*.cilium.io"),
 					Protocol: "HTTPS",
-					TLS: &gatewayv1.GatewayTLSConfig{
+					TLS: &gatewayv1.ListenerTLSConfig{
 						CertificateRefs: []gatewayv1.SecretObjectReference{
 							{
 								Name: "secret-shared-not-synced",

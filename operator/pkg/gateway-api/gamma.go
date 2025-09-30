@@ -20,6 +20,7 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -52,7 +53,11 @@ func (r *gammaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// all the GAMMA parents of that HTTPRoute.
 	// This is then be used by the Service reconciler to only retrieve any HTTPRoutes that have that specific
 	// Service as a parent.
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, gammaParentRefsIndex, getGammaHTTPRouteParentIndexFunc(r.logger)); err != nil {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, gammaHTTPRouteParentRefsIndex, indexers.IndexHTTPRouteByGammaService); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, gammaGRPCRouteParentRefsIndex, indexers.IndexGRPCRouteByGammaService); err != nil {
 		return err
 	}
 
@@ -60,8 +65,10 @@ func (r *gammaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("gammaService").
 		// Watch its own resource
 		For(&corev1.Service{}).
-		// Watch HTTPRoute linked to Gateway
+		// Watch HTTPRoute linked to Service
 		Watches(&gatewayv1.HTTPRoute{}, r.enqueueRequestForOwningHTTPRoute(r.logger)).
+		// Watch GRPCRoute linked to Service
+		Watches(&gatewayv1.GRPCRoute{}, r.enqueueRequestForOwningGRPCRoute(r.logger)).
 		// Watch for changes to Reference Grants
 		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
 		// Watch created and owned resources
@@ -79,7 +86,20 @@ func (r *gammaReconciler) enqueueRequestForOwningHTTPRoute(logger *slog.Logger) 
 			return nil
 		}
 
-		return getGammaReconcileRequestsForRoute(ctx, r.Client, a, hr.Spec.CommonRouteSpec, logger)
+		return getGammaReconcileRequestsForRoute(ctx, r.Client, a, hr.Spec.CommonRouteSpec, logger, hr.Kind)
+	})
+}
+
+// enqueueRequestForOwningGRPCRoute returns an event handler for any changes with HTTP Routes
+// belonging to the given Service
+func (r *gammaReconciler) enqueueRequestForOwningGRPCRoute(logger *slog.Logger) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+		grpcr, ok := a.(*gatewayv1.GRPCRoute)
+		if !ok {
+			return nil
+		}
+
+		return getGammaReconcileRequestsForRoute(ctx, r.Client, a, grpcr.Spec.CommonRouteSpec, logger, grpcr.Kind)
 	})
 }
 
@@ -116,36 +136,8 @@ func (r *gammaReconciler) enqueueAll() handler.MapFunc {
 	}
 }
 
-func getGammaHTTPRouteParentIndexFunc(logger *slog.Logger) func(rawObj client.Object) []string {
-	return func(rawObj client.Object) []string {
-		hr, ok := rawObj.(*gatewayv1.HTTPRoute)
-		if !ok {
-			return []string{}
-		}
-		scopedLog := logger.With(namespacedName, types.NamespacedName{
-			Namespace: hr.Namespace,
-			Name:      hr.Name,
-		})
-		gammaParentRefs := []string{}
-
-		for _, parent := range hr.Spec.ParentRefs {
-			if helpers.IsGammaService(parent) {
-				ns := helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace)
-				gammaParentRefs = append(gammaParentRefs,
-					types.NamespacedName{
-						Namespace: ns,
-						Name:      string(parent.Name),
-					}.String())
-				scopedLog.Debug("Added at least one GAMMA Service to GAMMA index", validGammaServices, gammaParentRefs)
-			}
-		}
-
-		return gammaParentRefs
-	}
-}
-
 // getGammaReconcileRequestsForRoute returns a list of GAMMA services to be reconciled based on the supplied HTTPRoute.
-func getGammaReconcileRequestsForRoute(ctx context.Context, c client.Client, object metav1.Object, route gatewayv1.CommonRouteSpec, logger *slog.Logger) []reconcile.Request {
+func getGammaReconcileRequestsForRoute(ctx context.Context, c client.Client, object metav1.Object, route gatewayv1.CommonRouteSpec, logger *slog.Logger, objKind string) []reconcile.Request {
 	var reqs []reconcile.Request
 
 	scopedLog := logger.With(
@@ -181,6 +173,7 @@ func getGammaReconcileRequestsForRoute(ctx context.Context, c client.Client, obj
 		scopedLog.InfoContext(ctx, "Enqueued GAMMA Service for Route",
 			logfields.K8sNamespace, ns,
 			logfields.ParentResource, parent.Name,
+			logfields.Kind, objKind,
 			logfields.Route, object.GetName())
 
 		reqs = append(reqs, reconcile.Request{

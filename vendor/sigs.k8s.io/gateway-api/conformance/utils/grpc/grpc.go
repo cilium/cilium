@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
+	"sigs.k8s.io/gateway-api/conformance/utils/weight"
 )
 
 const (
@@ -288,4 +289,21 @@ func MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, c Client, ti
 	}
 	http.AwaitConvergence(t, timeoutConfig.RequiredConsecutiveSuccesses, timeoutConfig.MaxTimeToConsistency, sendRPC)
 	tlog.Logf(t, "Request passed")
+}
+
+// AddEntropy adds randomness to ExpectedResponse to avoid caching issues and ensure each request is unique.
+// It randomly chooses to add a delay, random metadata, or both.
+func AddEntropy(exp *ExpectedResponse) error {
+	addRandomMetadata := func(randomValue string) error {
+		if exp.RequestMetadata == nil {
+			exp.RequestMetadata = &RequestMetadata{}
+		}
+		if exp.RequestMetadata.Metadata == nil {
+			exp.RequestMetadata.Metadata = make(map[string]string)
+		}
+		exp.RequestMetadata.Metadata["x-jitter"] = randomValue
+		return nil
+	}
+
+	return weight.AddRandomEntropy(addRandomMetadata)
 }

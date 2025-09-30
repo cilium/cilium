@@ -82,6 +82,10 @@ func (c *dryRunClient) Patch(ctx context.Context, obj Object, patch Patch, opts 
 	return c.client.Patch(ctx, obj, patch, append(opts, DryRunAll)...)
 }
 
+func (c *dryRunClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error {
+	return c.client.Apply(ctx, obj, append(opts, DryRunAll)...)
+}
+
 // Get implements client.Client.
 func (c *dryRunClient) Get(ctx context.Context, key ObjectKey, obj Object, opts ...GetOption) error {
 	return c.client.Get(ctx, key, obj, opts...)

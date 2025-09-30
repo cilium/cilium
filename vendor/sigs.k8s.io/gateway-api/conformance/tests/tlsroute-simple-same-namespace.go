@@ -49,7 +49,7 @@ var TLSRouteSimpleSameNamespace = suite.ConformanceTest{
 		ns := "gateway-conformance-infra"
 		routeNN := types.NamespacedName{Name: "gateway-conformance-infra-test", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "gateway-tlsroute", Namespace: ns}
-		certNN := types.NamespacedName{Name: "tls-passthrough-checks-certificate", Namespace: ns}
+		certNN := types.NamespacedName{Name: "tls-checks-certificate", Namespace: ns}
 
 		kubernetes.NamespacesMustBeReady(t, suite.Client, suite.TimeoutConfig, []string{ns})
 

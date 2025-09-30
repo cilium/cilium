@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -73,6 +74,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 		{name: "mesh-request-header-modifier", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 		{name: "mesh-rewrite-path", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 		{name: "mesh-weighted-backends", serviceKey: []types.NamespacedName{serviceKeyEcho}},
+		{name: "mesh-grpc-weight", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 	}
 
 	for _, tt := range tests {
@@ -80,15 +82,16 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 			for _, serviceKey := range tt.serviceKey {
 				t.Run(serviceKey.String(), func(t *testing.T) {
 					base := readInputDir(t, "testdata/gamma/base")
-					hr := &gatewayv1.HTTPRoute{}
-					fromYamlFile(t, fmt.Sprintf("testdata/gamma/%s/httproute-%s-input.yaml", tt.name, serviceKey.Name), hr)
+					input := readInputDir(t, fmt.Sprintf("testdata/gamma/%s/input", tt.name))
 
 					c := fake.NewClientBuilder().
 						WithScheme(testScheme()).
-						WithObjects(append(base, hr)...).
-						WithIndex(&gatewayv1.HTTPRoute{}, gammaParentRefsIndex, getGammaHTTPRouteParentIndexFunc(logger)).
+						WithObjects(append(base, input...)...).
+						WithIndex(&gatewayv1.HTTPRoute{}, gammaHTTPRouteParentRefsIndex, indexers.IndexHTTPRouteByGammaService).
+						WithIndex(&gatewayv1.GRPCRoute{}, gammaGRPCRouteParentRefsIndex, indexers.IndexGRPCRouteByGammaService).
 						WithStatusSubresource(&corev1.Service{}).
 						WithStatusSubresource(&gatewayv1.HTTPRoute{}).
+						WithStatusSubresource(&gatewayv1.GRPCRoute{}).
 						Build()
 
 					r := &gammaReconciler{
@@ -97,35 +100,59 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 						logger:     logger,
 					}
 
+					// Reconcile all related HTTPRoute objects
+					hrList := &gatewayv1.HTTPRouteList{}
+					err := c.List(t.Context(), hrList)
+					require.NoError(t, err)
+					filterHTTPRouteList := filterHTTPRoute(hrList, serviceKey.Name, serviceKey.Namespace)
+
+					// Reconcile all related GRPCRoute objects
+					grpcrList := &gatewayv1.GRPCRouteList{}
+					err = c.List(t.Context(), grpcrList)
+					require.NoError(t, err)
+					filterGRPCRouteList := filterGRPCRoute(grpcrList, serviceKey.Name, serviceKey.Namespace)
+
+					t.Logf("Test %s, HTTPRoutes: %d, GRPCRoutes: %d", tt.name, len(filterHTTPRouteList), len(filterGRPCRouteList))
 					result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: serviceKey})
 					require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 					require.Equal(t, ctrl.Result{}, result)
 
-					// Checking the output for HTTPRoute
-					expectedHR := &gatewayv1.HTTPRoute{}
-					readOutput(t, fmt.Sprintf("testdata/gamma/%s/httproute-%s-output.yaml", tt.name, serviceKey.Name), expectedHR)
-					actualHR := &gatewayv1.HTTPRoute{}
-					err = c.Get(t.Context(), client.ObjectKeyFromObject(hr), actualHR)
-					require.NoError(t, err)
-					require.Empty(t, cmp.Diff(expectedHR, actualHR, cmpIgnoreFields...))
-
 					// Checking the output for Service
 					expectedService := &corev1.Service{}
-					readOutput(t, fmt.Sprintf("testdata/gamma/%s/service-%s-output.yaml", tt.name, serviceKey.Name), expectedService)
+					readOutput(t, fmt.Sprintf("testdata/gamma/%s/output/service-%s.yaml", tt.name, serviceKey.Name), expectedService)
 					actualService := &corev1.Service{}
 					err = c.Get(t.Context(), serviceKey, actualService)
-
 					require.NoError(t, err)
-					require.Empty(t, cmp.Diff(expectedService, actualService, cmpIgnoreFields...))
 
-					// Checking the output for CiliumEnvoyConfig
-					expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
-					readOutput(t, fmt.Sprintf("testdata/gamma/%s/cec-%s-output.yaml", tt.name, serviceKey.Name), expectedCEC)
-					actualCEC := &ciliumv2.CiliumEnvoyConfig{}
-					err = c.Get(t.Context(), serviceKey, actualCEC)
+					for _, hr := range filterHTTPRouteList {
+						actualHR := &gatewayv1.HTTPRoute{}
+						err = c.Get(t.Context(), client.ObjectKeyFromObject(&hr), actualHR)
+						require.NoError(t, err, "error getting HTTPRoute %s/%s: %v", hr.Namespace, hr.Name, err)
+						expectedHR := &gatewayv1.HTTPRoute{}
+						readOutput(t, fmt.Sprintf("testdata/gamma/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
+						require.Empty(t, cmp.Diff(expectedHR, actualHR, cmpIgnoreFields...))
+					}
 
-					require.NoError(t, err)
-					require.Empty(t, cmp.Diff(expectedCEC, actualCEC, protocmp.Transform()))
+					for _, grpcr := range filterGRPCRouteList {
+						actualGRPCR := &gatewayv1.GRPCRoute{}
+						err = c.Get(t.Context(), client.ObjectKeyFromObject(&grpcr), actualGRPCR)
+						require.NoError(t, err, "error getting GRPCRoute %s/%s: %v", grpcr.Namespace, grpcr.Name, err)
+						expectedGRPCR := &gatewayv1.GRPCRoute{}
+						readOutput(t, fmt.Sprintf("testdata/gamma/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)
+						require.Empty(t, cmp.Diff(expectedGRPCR, actualGRPCR, cmpIgnoreFields...))
+					}
+
+					if !tt.wantErr {
+						// Checking the output for CiliumEnvoyConfig
+						actualCEC := &ciliumv2.CiliumEnvoyConfig{}
+						err = c.Get(t.Context(), serviceKey, actualCEC)
+						require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
+						expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
+						readOutput(t, fmt.Sprintf("testdata/gamma/%s/output/cec-%s.yaml", tt.name, serviceKey.Name), expectedCEC)
+
+						require.NoError(t, err)
+						require.Empty(t, cmp.Diff(expectedCEC, actualCEC, protocmp.Transform()))
+					}
 				})
 			}
 		})

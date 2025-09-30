@@ -35,6 +35,28 @@ func IndexHTTPRouteByGateway(rawObj client.Object) []string {
 	return gateways
 }
 
+// IndexHTTPRouteByGammaService is a client.IndexerFunc that takes a single HTTPRoute and returns all
+// referenced Service object full names (`namespace/name`) to add to the relevant index.
+func IndexHTTPRouteByGammaService(rawObj client.Object) []string {
+	services := []string{}
+	hr, ok := rawObj.(*gatewayv1.HTTPRoute)
+	if !ok {
+		return services
+	}
+	for _, parent := range hr.Spec.ParentRefs {
+		if !helpers.IsGammaService(parent) {
+			continue
+		}
+		services = append(services,
+			types.NamespacedName{
+				Namespace: helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace),
+				Name:      string(parent.Name),
+			}.String(),
+		)
+	}
+	return services
+}
+
 // GenerateIndexerHTTPRouteByBackendService makes a client.IndexerFunc that takes a single HTTPRoute and
 // returns all referenced backend service full names (`namespace/name`) to add to the relevant index.
 func GenerateIndexerHTTPRouteByBackendService(c client.Client, logger *slog.Logger) client.IndexerFunc {

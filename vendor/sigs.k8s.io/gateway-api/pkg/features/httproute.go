@@ -97,6 +97,12 @@ const (
 
 	// This option indicates support for HTTPRoute with a backendref with an appProtocol 'kubernetes.io/ws' (extended conformance)
 	SupportHTTPRouteBackendProtocolWebSocket FeatureName = "HTTPRouteBackendProtocolWebSocket"
+
+	// This option indicates support for the name field in the HTTPRouteRule (extended conformance)
+	SupportHTTPRouteNamedRouteRule FeatureName = "HTTPRouteNamedRouteRule"
+
+	// This option indicates support for the cors filter in the HTTPRouteFilter (extended conformance)
+	SupportHTTPRouteCORS FeatureName = "HTTPRouteCORS"
 )
 
 var (
@@ -190,6 +196,16 @@ var (
 		Name:    SupportHTTPRouteBackendProtocolWebSocket,
 		Channel: FeatureChannelStandard,
 	}
+	// HTTPRouteNamedRouteRule contains metadata for the SupportHTTPRouteNamedRouteRule feature.
+	HTTPRouteNamedRouteRule = Feature{
+		Name:    SupportHTTPRouteNamedRouteRule,
+		Channel: FeatureChannelStandard,
+	}
+	// HTTPRouteCORS contains metadata for the SupportHTTPRouteCORS feature.
+	HTTPRouteCORS = Feature{
+		Name:    SupportHTTPRouteCORS,
+		Channel: FeatureChannelExperimental,
+	}
 )
 
 // HTTPRouteExtendedFeatures includes all extended features for HTTPRoute
@@ -214,4 +230,6 @@ var HTTPRouteExtendedFeatures = sets.New(
 	HTTPRouteParentRefPortFeature,
 	HTTPRouteBackendProtocolH2CFeature,
 	HTTPRouteBackendProtocolWebSocketFeature,
+	HTTPRouteNamedRouteRule,
+	HTTPRouteCORS,
 )

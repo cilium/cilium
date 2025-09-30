@@ -172,6 +172,15 @@ type Options struct {
 	// is "done" with an object, and would otherwise not requeue it, i.e., we
 	// recommend the `Reconcile` function return `reconcile.Result{RequeueAfter: t}`,
 	// instead of `reconcile.Result{}`.
+	//
+	// SyncPeriod will locally trigger an artificial Update event with the same
+	// object in both ObjectOld and ObjectNew for everything that is in the
+	// cache.
+	//
+	// Predicates or Handlers that expect ObjectOld and ObjectNew to be different
+	// (such as GenerationChangedPredicate) will filter out this event, preventing
+	// it from triggering a reconciliation.
+	// SyncPeriod does not sync between the local cache and the server.
 	SyncPeriod *time.Duration
 
 	// ReaderFailOnMissingInformer configures the cache to return a ErrResourceNotCached error when a user

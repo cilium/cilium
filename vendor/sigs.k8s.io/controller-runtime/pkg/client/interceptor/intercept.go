@@ -19,6 +19,7 @@ type Funcs struct {
 	DeleteAllOf       func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.DeleteAllOfOption) error
 	Update            func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.UpdateOption) error
 	Patch             func(ctx context.Context, client client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error
+	Apply             func(ctx context.Context, client client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error
 	Watch             func(ctx context.Context, client client.WithWatch, obj client.ObjectList, opts ...client.ListOption) (watch.Interface, error)
 	SubResource       func(client client.WithWatch, subResource string) client.SubResourceClient
 	SubResourceGet    func(ctx context.Context, client client.Client, subResourceName string, obj client.Object, subResource client.Object, opts ...client.SubResourceGetOption) error
@@ -90,6 +91,14 @@ func (c interceptor) Patch(ctx context.Context, obj client.Object, patch client.
 		return c.funcs.Patch(ctx, c.client, obj, patch, opts...)
 	}
 	return c.client.Patch(ctx, obj, patch, opts...)
+}
+
+func (c interceptor) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+	if c.funcs.Apply != nil {
+		return c.funcs.Apply(ctx, c.client, obj, opts...)
+	}
+
+	return c.client.Apply(ctx, obj, opts...)
 }
 
 func (c interceptor) DeleteAllOf(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {

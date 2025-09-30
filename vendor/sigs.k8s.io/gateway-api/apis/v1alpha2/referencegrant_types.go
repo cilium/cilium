@@ -59,16 +59,8 @@ type ReferenceGrantList struct {
 	Items           []ReferenceGrant `json:"items"`
 }
 
-// ReferenceGrantSpec identifies a cross namespace relationship that is trusted
-// for Gateway API.
-// +k8s:deepcopy-gen=false
 type ReferenceGrantSpec = v1beta1.ReferenceGrantSpec
 
-// ReferenceGrantFrom describes trusted namespaces and kinds.
-// +k8s:deepcopy-gen=false
 type ReferenceGrantFrom = v1beta1.ReferenceGrantFrom
 
-// ReferenceGrantTo describes what Kinds are allowed as targets of the
-// references.
-// +k8s:deepcopy-gen=false
 type ReferenceGrantTo = v1beta1.ReferenceGrantTo

@@ -53,6 +53,10 @@ func (c *clientWithFieldValidation) Patch(ctx context.Context, obj Object, patch
 	return c.client.Patch(ctx, obj, patch, append([]PatchOption{c.validation}, opts...)...)
 }
 
+func (c *clientWithFieldValidation) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error {
+	return c.client.Apply(ctx, obj, opts...)
+}
+
 func (c *clientWithFieldValidation) Delete(ctx context.Context, obj Object, opts ...DeleteOption) error {
 	return c.client.Delete(ctx, obj, opts...)
 }
