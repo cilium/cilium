@@ -1310,6 +1310,15 @@ definitions:
           Useful for tests.
         additionalProperties:
           type: object
+      ipv4-enabled:
+        description: Whether IPv4 policy is enabled
+        type: boolean
+      ipv6-enabled:
+        description: Whether IPv6 policy is enabled
+        type: boolean
+      container-netns-path:
+        description: Path of Container Netns
+        type: string
   EndpointBatchDeleteRequest:
     description: |
       Properties selecting a batch of endpoints to delete.
@@ -2542,6 +2551,9 @@ definitions:
           ipv6:
             description: Status of masquerading for IPv6 traffic
             type: boolean
+      enableZTunnel:
+        description: Enable ztunnel as encryption infrastructure
+        type: boolean
       egress-multi-home-ip-rule-compat:
         description: Configured compatibility mode for --egress-multi-home-ip-rule-compat
         type: boolean

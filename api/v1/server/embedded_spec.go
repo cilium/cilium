@@ -2466,6 +2466,10 @@ func init() {
           "description": "Enable route MTU for pod netns when CNI chaining is used",
           "type": "boolean"
         },
+        "enableZTunnel": {
+          "description": "Enable ztunnel as encryption infrastructure",
+          "type": "boolean"
+        },
         "immutable": {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
@@ -2663,6 +2667,10 @@ func init() {
           "description": "Name assigned to container",
           "type": "string"
         },
+        "container-netns-path": {
+          "description": "Path of Container Netns",
+          "type": "string"
+        },
         "datapath-configuration": {
           "$ref": "#/definitions/EndpointDatapathConfiguration"
         },
@@ -2697,6 +2705,14 @@ func init() {
         "interface-name": {
           "description": "Name of network device in host netns",
           "type": "string"
+        },
+        "ipv4-enabled": {
+          "description": "Whether IPv4 policy is enabled",
+          "type": "boolean"
+        },
+        "ipv6-enabled": {
+          "description": "Whether IPv6 policy is enabled",
+          "type": "boolean"
         },
         "k8s-namespace": {
           "description": "Kubernetes namespace name",
@@ -7883,6 +7899,10 @@ func init() {
           "description": "Enable route MTU for pod netns when CNI chaining is used",
           "type": "boolean"
         },
+        "enableZTunnel": {
+          "description": "Enable ztunnel as encryption infrastructure",
+          "type": "boolean"
+        },
         "immutable": {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
@@ -8103,6 +8123,10 @@ func init() {
           "description": "Name assigned to container",
           "type": "string"
         },
+        "container-netns-path": {
+          "description": "Path of Container Netns",
+          "type": "string"
+        },
         "datapath-configuration": {
           "$ref": "#/definitions/EndpointDatapathConfiguration"
         },
@@ -8137,6 +8161,14 @@ func init() {
         "interface-name": {
           "description": "Name of network device in host netns",
           "type": "string"
+        },
+        "ipv4-enabled": {
+          "description": "Whether IPv4 policy is enabled",
+          "type": "boolean"
+        },
+        "ipv6-enabled": {
+          "description": "Whether IPv6 policy is enabled",
+          "type": "boolean"
         },
         "k8s-namespace": {
           "description": "Kubernetes namespace name",

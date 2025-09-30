@@ -64,6 +64,12 @@ type EndpointChangeRequest struct {
 	// Name of network device in host netns
 	InterfaceName string `json:"interface-name,omitempty"`
 
+	// Whether IPv4 policy is enabled
+	IPV4Enabled bool `json:"ipv4-enabled,omitempty"`
+
+	// Whether IPv6 policy is enabled
+	IPV6Enabled bool `json:"ipv6-enabled,omitempty"`
+
 	// Kubernetes namespace name
 	K8sNamespace string `json:"k8s-namespace,omitempty"`
 

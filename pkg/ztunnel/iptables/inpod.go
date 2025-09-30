@@ -4,6 +4,7 @@
 package iptables
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -279,4 +281,262 @@ func addInPodRules(logger *slog.Logger, ipv4Enabled, ipv6Enabled bool) error {
 	)
 
 	return rm.install(ipv4Enabled, ipv6Enabled)
+}
+
+// DeleteInPodRules removes all iptables rules created by CreateInPodRules.
+//
+// Note that this function is supposed to be called from within the pods
+// network namespace.
+func DeleteInPodRules(logger *slog.Logger, ipv4Enabled, ipv6Enabled bool) error {
+	// Remove iptables rules and chains (reverse order)
+	if err := deleteInPodRules(logger, ipv4Enabled, ipv6Enabled); err != nil {
+		logger.Error("Failed to delete inpod iptables rules", logfields.Error, err)
+		// Continue cleanup even if this fails
+	}
+
+	// Remove netlink rules
+	if err := deleteInPodMarkRule(ipv6Enabled); err != nil {
+		logger.Error("Failed to delete inpod mark rules", logfields.Error, err)
+		// Continue cleanup even if this fails
+	}
+
+	// Remove loopback routes
+	if err := deleteLoopbackRoute(ipv6Enabled); err != nil {
+		logger.Error("Failed to delete loopback routes", logfields.Error, err)
+		// Continue cleanup even if this fails
+	}
+
+	return nil
+}
+
+func deleteLoopbackRoute(ipv6Enabled bool) error {
+	loopbackLink, err := safenetlink.LinkByName("lo")
+	if err != nil {
+		return fmt.Errorf("failed to find 'lo' link: %w", err)
+	}
+
+	// Delete netlink routes for localhost
+	cidrs := []string{"0.0.0.0/0"}
+	if ipv6Enabled {
+		cidrs = append(cidrs, "0::0/0")
+	}
+	for _, fullCIDR := range cidrs {
+		_, localhostDst, err := net.ParseCIDR(fullCIDR)
+		if err != nil {
+			return fmt.Errorf("parse CIDR: %w", err)
+		}
+
+		netlinkRoute := &netlink.Route{
+			Dst:       localhostDst,
+			Scope:     netlink.SCOPE_HOST,
+			Type:      unix.RTN_LOCAL,
+			Table:     RouteTableInbound,
+			LinkIndex: loopbackLink.Attrs().Index,
+		}
+
+		if err := netlink.RouteDel(netlinkRoute); err != nil {
+			// Route might not exist, which is fine
+			if !isNotExistError(err) {
+				return fmt.Errorf("failed to delete route (%+v): %w", netlinkRoute, err)
+			}
+		}
+	}
+	return nil
+}
+
+func deleteInPodMarkRule(ipv6Enabled bool) error {
+	var rules []*netlink.Rule
+	mask := uint32(InpodMask)
+
+	inpodMarkRule := netlink.NewRule()
+	inpodMarkRule.Family = unix.AF_INET
+	inpodMarkRule.Table = RouteTableInbound
+	inpodMarkRule.Mark = InpodTProxyMark
+	inpodMarkRule.Mask = &mask
+	inpodMarkRule.Priority = InpodRulePriority
+	rules = append(rules, inpodMarkRule)
+
+	if ipv6Enabled {
+		inpodMarkRule6 := netlink.NewRule()
+		inpodMarkRule6.Family = unix.AF_INET6
+		inpodMarkRule6.Table = RouteTableInbound
+		inpodMarkRule6.Mark = InpodTProxyMark
+		inpodMarkRule6.Mask = &mask
+		inpodMarkRule6.Priority = InpodRulePriority
+		rules = append(rules, inpodMarkRule6)
+	}
+
+	for _, rule := range rules {
+		if err := netlink.RuleDel(rule); err != nil {
+			// Rule might not exist, which is fine
+			if !isNotExistError(err) {
+				return fmt.Errorf("failed to delete netlink rule: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (m *ruleManager) delete(ipv4Enabled, ipv6Enabled bool) error {
+	// Delete rules in reverse order
+	for i := len(m.rules) - 1; i >= 0; i-- {
+		rule := m.rules[i]
+		args := []string{"-t", rule.table, "-D", rule.chain}
+		args = append(args, rule.parameters...)
+		if ipv4Enabled {
+			if _, err := exec.WithTimeout(defaults.ExecTimeout, "iptables", replaceIPPlaceholder(args, rule.ipv4)...).Output(m.logger, false); err != nil {
+				// Rule might not exist, log but continue
+				m.logger.Debug("Failed to delete iptables rule (might not exist)",
+					logfields.Args, args,
+					logfields.Error, err,
+				)
+			}
+		}
+
+		if ipv6Enabled {
+			if _, err := exec.WithTimeout(defaults.ExecTimeout, "ip6tables", replaceIPPlaceholder(args, rule.ipv6)...).Output(m.logger, false); err != nil {
+				// Rule might not exist, log but continue
+				m.logger.Debug("Failed to delete ip6tables rule (might not exist)",
+					logfields.Args, args,
+					logfields.Error, err,
+				)
+			}
+		}
+	}
+	return nil
+}
+
+func (m *ruleManager) deleteChains(ipv4Enabled, ipv6Enabled bool) error {
+	// First, flush the chains
+	for _, table := range []string{"mangle", "nat"} {
+		for _, chain := range []string{InpodPreroutingChain, InpodOutputChain} {
+			if ipv4Enabled {
+				if _, err := exec.WithTimeout(defaults.ExecTimeout, "iptables", "-t", table, "-F", chain).Output(m.logger, false); err != nil {
+					m.logger.Debug("Failed to flush iptables chain (might not exist)",
+						logfields.Chain, chain,
+						logfields.Error, err,
+					)
+				}
+			}
+			if ipv6Enabled {
+				if _, err := exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-t", table, "-F", chain).Output(m.logger, false); err != nil {
+					m.logger.Debug("Failed to flush ip6tables chain (might not exist)",
+						logfields.Chain, chain,
+						logfields.Error, err,
+					)
+				}
+			}
+		}
+	}
+
+	// Then, delete the chains
+	for _, table := range []string{"mangle", "nat"} {
+		for _, chain := range []string{InpodPreroutingChain, InpodOutputChain} {
+			if ipv4Enabled {
+				if _, err := exec.WithTimeout(defaults.ExecTimeout, "iptables", "-t", table, "-X", chain).Output(m.logger, false); err != nil {
+					m.logger.Debug("Failed to delete iptables chain (might not exist)",
+						logfields.Chain, chain,
+						logfields.Error, err,
+					)
+				}
+			}
+			if ipv6Enabled {
+				if _, err := exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-t", table, "-X", chain).Output(m.logger, false); err != nil {
+					m.logger.Debug("Failed to delete ip6tables chain (might not exist)",
+						logfields.Chain, chain,
+						logfields.Error, err,
+					)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func deleteInPodRules(logger *slog.Logger, ipv4Enabled, ipv6Enabled bool) error {
+	rm := ruleManager{
+		logger: logger,
+	}
+
+	// Build the same rules as in addInPodRules to delete them
+	// Jump rules
+	rm.add("mangle", "PREROUTING", "-j", InpodPreroutingChain)
+	rm.add("mangle", "OUTPUT", "-j", InpodOutputChain)
+	rm.add("nat", "PREROUTING", "-j", InpodPreroutingChain)
+	rm.add("nat", "OUTPUT", "-j", InpodOutputChain)
+
+	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
+	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
+
+	// Rules in custom chains
+	rm.add("mangle", InpodPreroutingChain, "-m", "mark",
+		"--mark", inpodMark,
+		"-j", "CONNMARK",
+		"--set-xmark", inpodTproxyMark)
+
+	rm.addVersioned(
+		"127.0.0.1/32", "::1/128",
+		"nat", InpodPreroutingChain,
+		"!", "-d", VersionSpecificPlaceholder,
+		"-p", "tcp",
+		"-m", "tcp",
+		"!", "--dport", fmt.Sprint(ZtunnelInboundPort),
+		"-m", "mark",
+		"!", "--mark", inpodMark,
+		"-j", "REDIRECT",
+		"--to-ports", fmt.Sprint(ZtunnelInboundPlaintextPort),
+	)
+
+	rm.add("mangle", InpodOutputChain,
+		"-m", "connmark",
+		"--mark", inpodTproxyMark,
+		"-j", "CONNMARK",
+		"--restore-mark",
+		"--nfmask", fmt.Sprintf("0x%x", InpodRestoreMask),
+		"--ctmask", fmt.Sprintf("0x%x", InpodRestoreMask),
+	)
+
+	rm.add("nat", InpodOutputChain,
+		"-p", "tcp",
+		"-m", "mark",
+		"--mark", inpodTproxyMark,
+		"-j", "ACCEPT")
+
+	rm.addVersioned("127.0.0.1/32", "::1/128",
+		"nat", InpodOutputChain,
+		"!", "-d", VersionSpecificPlaceholder,
+		"-o", "lo",
+		"-j", "ACCEPT",
+	)
+
+	rm.addVersioned("127.0.0.1/32", "::1/128",
+		"nat", InpodOutputChain,
+		"!", "-d", VersionSpecificPlaceholder,
+		"-p", "tcp",
+		"-m", "mark",
+		"!", "--mark", inpodMark,
+		"-j", "REDIRECT",
+		"--to-ports", fmt.Sprintf("%d", ZtunnelOutboundPort),
+	)
+
+	// Delete rules first
+	if err := rm.delete(ipv4Enabled, ipv6Enabled); err != nil {
+		return err
+	}
+
+	// Then delete chains
+	if err := rm.deleteChains(ipv4Enabled, ipv6Enabled); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// isNotExistError checks if the error indicates that a resource doesn't exist
+func isNotExistError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for common "not exist" error patterns
+	return errors.Is(err, unix.ENOENT) || errors.Is(err, unix.ESRCH)
 }

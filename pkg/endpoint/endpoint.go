@@ -246,6 +246,8 @@ type Endpoint struct {
 	// Constant after endpoint creation / restoration.
 	mac mac.MAC // Container MAC address.
 
+	IPv6Enabled bool
+
 	// IPv6 is the IPv6 address of the endpoint.
 	// Constant after endpoint creation / restoration.
 	IPv6 netip.Addr
@@ -253,6 +255,8 @@ type Endpoint struct {
 	// IPv6IPAMPool is the IPAM address pool from which the IPv6 address has been allocated from.
 	// Constant after endpoint creation / restoration.
 	IPv6IPAMPool string
+
+	IPv4Enabled bool
 
 	// IPv4 is the IPv4 address of the endpoint.
 	// Constant after endpoint creation / restoration.
@@ -2722,21 +2726,4 @@ func (e *Endpoint) isProperty(propertyKey string) bool {
 
 func (e *Endpoint) GetContainerNetnsPath() string {
 	return e.containerNetnsPath
-}
-
-// NeedsZtunnel returns true if the endpoint needs to be connected to the
-// ztunnel.
-func (e *Endpoint) NeedsZtunnel() bool {
-	if e.isHost || e.HasLabels(labels.LabelHealth) {
-		return false
-	}
-
-	if e.containerNetnsPath == "" {
-		return false
-	}
-
-	if strings.Contains(e.K8sPodName, "ztunnel") {
-		return false
-	}
-	return true
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
+	"github.com/cilium/cilium/pkg/ztunnel/iptables"
 )
 
 type ztunnelConn struct {
@@ -123,20 +124,36 @@ type serverParams struct {
 	RestorerPromise promise.Promise[endpointstate.Restorer]
 }
 
+type serverOut struct {
+	cell.Out
+	*Server
+	EndpointEnroller
+}
+
+// EndpointEnroller allows enrolling and disenrolling endpoints to/from the ztunnel.
+type EndpointEnroller interface {
+	InitialSnapshot(ep ...*endpoint.Endpoint) error
+	EnrollEndpoint(ep *endpoint.Endpoint) error
+	DisenrollEndpoint(ep *endpoint.Endpoint) error
+}
+
+var _ EndpointEnroller = &Server{}
+
 type Server struct {
 	l      *net.UnixListener
 	logger *slog.Logger
 
 	endpointCache      map[uint16]*endpoint.Endpoint
-	deferredEndpoints  []*endpoint.Endpoint
-	subscribed         bool
 	endpointCacheMutex lock.Mutex
 
 	restorerPromise promise.Promise[endpointstate.Restorer]
 
-	activeMu sync.Mutex // serialized access to active zc
+	zc            *ztunnelConn // active connection
+	zcInitialized chan struct{}
+	activeMu      lock.Mutex // serialized access to active zc
 
-	updates chan zdsUpdate // updates to send to ztunnel
+	updates             chan zdsUpdate // updates to send to ztunnel
+	initialSnapshotSent chan struct{}
 }
 
 type zdsUpdate struct {
@@ -144,11 +161,14 @@ type zdsUpdate struct {
 	ns      *netns.NetNS
 }
 
-func newZDSServer(p serverParams) (*Server, error) {
+func newZDSServer(p serverParams) serverOut {
 	server := &Server{
-		logger:          p.Logger,
-		updates:         make(chan zdsUpdate, 100),
-		restorerPromise: p.RestorerPromise,
+		logger:              p.Logger,
+		updates:             make(chan zdsUpdate, 100),
+		restorerPromise:     p.RestorerPromise,
+		endpointCache:       make(map[uint16]*endpoint.Endpoint),
+		initialSnapshotSent: make(chan struct{}),
+		zcInitialized:       make(chan struct{}),
 	}
 
 	var wg sync.WaitGroup
@@ -184,9 +204,6 @@ func newZDSServer(p serverParams) (*Server, error) {
 			if err := restorer.WaitForEndpointRestore(ctx); err != nil {
 				return fmt.Errorf("failed to wait for endpoint restore: %w", err)
 			}
-
-			server.subscribeToEndpointEvents(p.EndpointManager)
-
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -197,14 +214,17 @@ func newZDSServer(p serverParams) (*Server, error) {
 		},
 		OnStop: func(hc cell.HookContext) error {
 			cancel()
-
-			p.EndpointManager.Unsubscribe(server)
 			wg.Wait()
 			return nil
 		},
 	})
 
-	return server, nil
+	out := serverOut{
+		Server:           server,
+		EndpointEnroller: server,
+	}
+
+	return out
 }
 
 func (s *Server) Serve(ctx context.Context) {
@@ -227,6 +247,8 @@ func (s *Server) Serve(ctx context.Context) {
 			s.logger.Error("failed to accept connection", logfields.Error, err)
 			return
 		}
+		s.zc = &ztunnelConn{conn: conn}
+		close(s.zcInitialized)
 
 		if !sem.TryAcquire(1) {
 			conn.Close()
@@ -234,7 +256,7 @@ func (s *Server) Serve(ctx context.Context) {
 		}
 
 		go func() {
-			if err := s.handleConn(ctx, &ztunnelConn{conn: conn}); err != nil {
+			if err := s.handleConn(ctx); err != nil {
 				s.logger.Error("failed to handle connection", logfields.Error, err)
 			}
 			sem.Release(1)
@@ -242,33 +264,26 @@ func (s *Server) Serve(ctx context.Context) {
 	}
 }
 
-func (s *Server) handleConn(ctx context.Context, zc *ztunnelConn) error {
+func (s *Server) handleConn(ctx context.Context) error {
 	s.activeMu.Lock()
 	defer s.activeMu.Unlock()
-	defer zc.Close()
+	defer s.zc.Close()
 	s.logger.Info("new ztunnel connection")
 
-	hello, err := zc.readHello()
+	hello, err := s.zc.readHello()
 	if err != nil {
 		return fmt.Errorf("failed to read hello from ztunnel: %w", err)
 	}
-	s.logger.Info("received hello from ztunnel",
-		logfields.Version,
-		hello.GetVersion())
+	s.logger.Info("received hello from ztunnel", logfields.Version, hello.GetVersion())
 
-	if err := s.sendSnapshot(zc); err != nil {
-		return fmt.Errorf("failed to send snapshot: %w", err)
-	}
-
-	// send deferred endpoints
-	for _, ep := range s.deferredEndpoints {
-		s.EndpointCreated(ep)
-	}
+	s.logger.Info("waiting for initial snapshot to be sent")
+	<-s.initialSnapshotSent
+	s.logger.Info("initial snapshot sent, processing updates")
 
 	for {
 		select {
 		case update := <-s.updates:
-			if err := zc.sendAndWaitForAck(update.request, update.ns); err != nil {
+			if err := s.zc.sendAndWaitForAck(update.request, update.ns); err != nil {
 				return fmt.Errorf("failed to send update: %w", err)
 			}
 
@@ -279,91 +294,16 @@ func (s *Server) handleConn(ctx context.Context, zc *ztunnelConn) error {
 	}
 }
 
-func (s *Server) sendSnapshot(zc *ztunnelConn) error {
-	s.endpointCacheMutex.Lock()
-	defer s.endpointCacheMutex.Unlock()
-	for id, ep := range s.endpointCache {
-		s.logger.Info("sending endpoint as part of snapshot",
-			logfields.EndpointID,
-			id)
-
-		req := &zdsapi.WorkloadRequest{
-			Payload: &zdsapi.WorkloadRequest_Add{
-				Add: endpointToWorkload(ep),
-			},
-		}
-
-		ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
-		if err != nil {
-			return fmt.Errorf("failed to open netns file: %w", err)
-		}
-		defer ns.Close()
-
-		// this will implicitly close the netns file if it was opened
-		if err := zc.sendAndWaitForAck(req, ns); err != nil {
-			return fmt.Errorf("failed to send endpoint message: %w", err)
-		}
-	}
-
-	req := &zdsapi.WorkloadRequest{
-		Payload: &zdsapi.WorkloadRequest_SnapshotSent{
-			SnapshotSent: &zdsapi.SnapshotSent{},
-		},
-	}
-
-	if err := zc.sendAndWaitForAck(req, nil); err != nil {
-		return fmt.Errorf("failed to send snapshot message: %w", err)
-	}
-	s.subscribed = true
-	s.logger.Info("snapshot sent to ztunnel")
-
-	return nil
-}
-
-func (s *Server) subscribeToEndpointEvents(epm endpointmanager.EndpointManager) {
-	epm.Subscribe(s)
-	localEPs := epm.GetEndpoints()
-	s.endpointCacheMutex.Lock()
-	defer s.endpointCacheMutex.Unlock()
-
-	s.endpointCache = map[uint16]*endpoint.Endpoint{}
-	for _, ep := range localEPs {
-		if !ep.NeedsZtunnel() {
-			s.logger.Info("endpoint subscribe: endpoint does not need ztunnel",
-				logfields.EndpointID,
-				ep.GetID16())
-			continue
-		}
-		s.endpointCache[ep.GetID16()] = ep
-	}
-}
-
-func (s *Server) EndpointCreated(ep *endpoint.Endpoint) {
-	if !ep.NeedsZtunnel() {
-		s.logger.Info("endpoint created: endpoint does not need ztunnel",
-			logfields.EndpointID,
-			ep.GetID16())
-		return
-	}
-
+func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
+	s.logger.Info("enrolling endpoint to ztunnel", logfields.EndpointID, ep.GetID16())
 	s.endpointCacheMutex.Lock()
 	defer s.endpointCacheMutex.Unlock()
 	// if the endpoint is already in the cache, ztunnel already received it
 	if _, ok := s.endpointCache[ep.GetID16()]; ok {
-		s.logger.Info("endpoint already in ztunnel",
-			logfields.EndpointID,
-			ep.GetID16())
-		return
+		s.logger.Info("endpoint already in ztunnel", logfields.EndpointID, ep.GetID16())
+		return nil
 	}
-
-	if !s.subscribed {
-		s.deferredEndpoints = append(s.deferredEndpoints, ep)
-		return
-	}
-
-	s.logger.Info("adding endpoint to ztunnel",
-		logfields.EndpointID,
-		ep.GetID16())
+	s.logger.Info("adding endpoint to ztunnel", logfields.EndpointID, ep.GetID16())
 	s.endpointCache[ep.GetID16()] = ep
 
 	req := &zdsapi.WorkloadRequest{
@@ -375,26 +315,30 @@ func (s *Server) EndpointCreated(ep *endpoint.Endpoint) {
 	ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
 	if err != nil {
 		s.logger.Error("failed to open netns file",
-			logfields.EndpointID,
-			ep.GetID16(), logfields.Error,
-			err)
-		return
+			logfields.EndpointID, ep.GetID16(),
+			logfields.Error, err,
+		)
+		return err
+	}
+
+	if err = ns.Do(func() error {
+		return iptables.CreateInPodRules(s.logger, ep.IPv4Enabled, ep.IPv6Enabled)
+	}); err != nil {
+		return fmt.Errorf("unable to setup iptable rules for ztunnel inpod mode: %w", err)
 	}
 
 	s.updates <- zdsUpdate{
 		request: req,
 		ns:      ns,
 	}
+	return nil
 }
 
-func (s *Server) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
-	s.logger.Info("removing endpoint from ztunnel",
-		logfields.EndpointID,
-		ep.GetID16())
+func (s *Server) DisenrollEndpoint(ep *endpoint.Endpoint) error {
+	s.logger.Info("disenrolling endpoint from ztunnel", logfields.EndpointID, ep.GetID16())
 	s.endpointCacheMutex.Lock()
 	defer s.endpointCacheMutex.Unlock()
 	delete(s.endpointCache, ep.GetID16())
-
 	req := &zdsapi.WorkloadRequest{
 		Payload: &zdsapi.WorkloadRequest_Del{
 			Del: &zdsapi.DelWorkload{
@@ -403,13 +347,74 @@ func (s *Server) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 		},
 	}
 
+	ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
+	if err != nil {
+		s.logger.Error("failed to open netns file",
+			logfields.EndpointID, ep.GetID16(),
+			logfields.Error, err,
+		)
+		return err
+	}
+
+	if err = ns.Do(func() error {
+		return iptables.DeleteInPodRules(s.logger, ep.IPv4Enabled, ep.IPv6Enabled)
+	}); err != nil {
+		return fmt.Errorf("unable to remove iptable rules for ztunnel inpod mode: %w", err)
+	}
+
 	s.updates <- zdsUpdate{
 		request: req,
 		ns:      nil,
 	}
+	return nil
 }
 
-// EndpointRestored implements endpointmanager.Subscriber.
-func (s *Server) EndpointRestored(ep *endpoint.Endpoint) {
-	// No-op
+func (s *Server) InitialSnapshot(eps ...*endpoint.Endpoint) error {
+	s.logger.Info("waiting for ztunnel connection to be established")
+	<-s.zcInitialized
+	s.logger.Info("ztunnel connection established, sending initial snapshot")
+	s.endpointCacheMutex.Lock()
+	defer s.endpointCacheMutex.Unlock()
+	for _, ep := range eps {
+		if _, ok := s.endpointCache[ep.GetID16()]; ok {
+			continue
+		}
+		s.endpointCache[ep.GetID16()] = ep
+		req := &zdsapi.WorkloadRequest{
+			Payload: &zdsapi.WorkloadRequest_Add{
+				Add: endpointToWorkload(ep),
+			},
+		}
+
+		ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
+		if err != nil {
+			s.logger.Error("failed to open netns file",
+				logfields.EndpointID, ep.GetID16(),
+				logfields.Error, err,
+			)
+			return err
+		}
+
+		if err = ns.Do(func() error {
+			return iptables.CreateInPodRules(s.logger, ep.IPv4Enabled, ep.IPv6Enabled)
+		}); err != nil {
+			return fmt.Errorf("unable to setup iptable rules for ztunnel inpod mode: %w", err)
+		}
+
+		if err := s.zc.sendAndWaitForAck(req, ns); err != nil {
+			return fmt.Errorf("failed to send endpoint message: %w", err)
+		}
+	}
+	req := &zdsapi.WorkloadRequest{
+		Payload: &zdsapi.WorkloadRequest_SnapshotSent{
+			SnapshotSent: &zdsapi.SnapshotSent{},
+		},
+	}
+
+	if err := s.zc.sendAndWaitForAck(req, nil); err != nil {
+		return fmt.Errorf("failed to send snapshot message: %w", err)
+	}
+	s.logger.Info("snapshot sent to ztunnel")
+	close(s.initialSnapshotSent)
+	return nil
 }
