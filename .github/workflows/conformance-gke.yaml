@@ -63,22 +63,25 @@ permissions:
 concurrency:
   # Structure:
   # - Workflow name
+  #   For workflow_call events, this is the name of the *parent* workflow.
   # - Event type
   # - A unique identifier depending on event type:
   #   - schedule: SHA
-  #   - workflow_dispatch: PR number. Because in workflow_call the parent context
-  #     is used, we need to add a prefix name ('gke') for the concurrency group
-  #     so that workflows that are executed in parallel don't conflict with each
-  #     other.
+  #   - workflow_dispatch: PR number.
+  # The 'gke' suffix added to both schedule and workflow_dispatch ensures
+  # that for workflow_call events it doesn't conflict with other potential
+  # parallel workflow_call done to other workflows from the same parent
+  # workflow. As otherwise the group name would be identical.
   #
   # This structure ensures a unique concurrency group name is generated for each
   # type of testing, such that re-runs will cancel the previous run.
   group: |
     ${{ github.workflow }}
+    gke
     ${{ github.event_name }}
     ${{
-      (github.event_name == 'schedule' && format('{0}-{1}', github.sha, 'gke')) ||
-      (github.event_name == 'workflow_dispatch' && format('{0}-{1}', github.event.inputs.PR-number, 'gke'))
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
   cancel-in-progress: true
 
