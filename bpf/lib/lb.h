@@ -9,6 +9,7 @@
 #include "ipv4.h"
 #include "hash.h"
 #include "eps.h"
+#include "identity.h"
 #include "nat_46x64.h"
 #include "ratelimit.h"
 
@@ -978,6 +979,29 @@ lb6_lookup_service(struct lb6_key *key, const bool east_west)
 	return __lb6_lookup_service(key);
 }
 
+static __always_inline const struct lb6_service *
+lb6_wildcard_lookup_service(struct lb6_key key __maybe_unused)
+{
+#ifndef ENABLE_NODEPORT
+	return NULL;
+#else
+	const struct remote_endpoint_info *info;
+	__u16 service_port;
+
+	service_port = bpf_ntohs(key.dport);
+	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
+		return NULL;
+
+	info = lookup_ip6_remote_endpoint(&key.address, 0);
+	if (info && identity_is_remote_node(info->sec_identity)) {
+		memset(&key.address, 0, sizeof(key.address));
+		return lb6_lookup_service(&key, true);
+	}
+
+	return NULL;
+#endif
+}
+
 static __always_inline const struct lb6_backend *
 __lb6_lookup_backend(__u32 backend_id)
 {
@@ -1306,7 +1330,15 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			}
 		}
 		if (backend_id == 0) {
-			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
+			/* No CT entry has been found, so select a svc endpoint */
+			if (state->node_port && state->dsr_internal) {
+				struct lb6_key wildcard_key = *key;
+
+				memset(&wildcard_key.address, 0, sizeof(wildcard_key.address));
+				backend_id = lb6_select_backend_id(ctx, &wildcard_key, tuple, svc);
+			} else {
+				backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
+			}
 			backend = lb6_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
 				goto no_service;
@@ -1521,19 +1553,29 @@ lb4_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
  * @arg ctx		packet
  * @arg l3_off		offset to L3
  * @arg l4_off		offset to L4
- * @arg index		reverse NAT index
+ * @arg ct_state	CT state
  * @arg loopback	loopback connection
  * @arg tuple		tuple
+ * @arg has_l4_header	packet has L4 header
  */
 static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
-				       __u16 index, bool loopback,
+				       const struct ct_state *state, bool loopback,
 				       struct ipv4_ct_tuple *tuple, bool has_l4_header)
 {
-	const struct lb4_reverse_nat *nat;
+	struct lb4_reverse_nat nat_info;
+	const struct lb4_reverse_nat *nat = NULL;
 
-	nat = lb4_lookup_rev_nat_entry(ctx, index);
-	if (nat == NULL)
-		return 0;
+	if (state->nat_port) {
+		nat_info.address = state->nat_addr.p4;
+		nat_info.port = state->nat_port;
+		nat = &nat_info;
+	}
+
+	if (!nat) {
+		nat = lb4_lookup_rev_nat_entry(ctx, state->rev_nat_index);
+		if (!nat)
+			return 0;
+	}
 
 	return __lb4_rev_nat(ctx, l3_off, l4_off, tuple, nat,
 			     loopback, has_l4_header);
@@ -1681,6 +1723,29 @@ lb4_lookup_service(struct lb4_key *key, const bool east_west)
 
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb4_lookup_service(key);
+}
+
+static __always_inline const struct lb4_service *
+lb4_wildcard_lookup_service(struct lb4_key key __maybe_unused)
+{
+#ifndef ENABLE_NODEPORT
+	return NULL;
+#else
+	const struct remote_endpoint_info *info;
+	__u16 service_port;
+
+	service_port = bpf_ntohs(key.dport);
+	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
+		return NULL;
+
+	info = lookup_ip4_remote_endpoint(key.address, 0);
+	if (info && identity_is_remote_node(info->sec_identity)) {
+		key.address = 0;
+		return lb4_lookup_service(&key, true);
+	}
+
+	return NULL;
+#endif
 }
 
 static __always_inline const struct lb4_backend *
@@ -2017,7 +2082,14 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		}
 		if (backend_id == 0) {
 			/* No CT entry has been found, so select a svc endpoint */
-			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
+			if (state->node_port && state->dsr_internal) {
+				struct lb4_key wildcard_key = *key;
+
+				wildcard_key.address = 0;
+				backend_id = lb4_select_backend_id(ctx, &wildcard_key, tuple, svc);
+			} else {
+				backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
+			}
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
 				goto no_service;

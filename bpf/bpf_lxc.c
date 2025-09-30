@@ -112,6 +112,10 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 {
 	__u32 meta = clear ? ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
 			     ctx_load_meta(ctx, CB_CT_STATE);
+	__be32 nat_addr = clear ? ctx_load_and_clear_meta(ctx, CB_NAT_ADDR_v4) :
+					ctx_load_meta(ctx, CB_NAT_ADDR_v4);
+	__u16 nat_port = clear ? (__u16)ctx_load_and_clear_meta(ctx, CB_NAT_PORT) :
+					(__u16)ctx_load_meta(ctx, CB_NAT_PORT);
 
 	if (meta & 1)
 		state->loopback = 1;
@@ -125,6 +129,9 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 	*cluster_id = clear ? ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS) :
 			      ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
 #endif
+
+	state->nat_addr.p4 = nat_addr;
+	state->nat_port = nat_port;
 }
 
 #ifdef ENABLE_PER_PACKET_LB
@@ -139,6 +146,8 @@ lb4_ctx_store_state(struct __ctx_buff *ctx, const struct ct_state *state,
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
 		       state->loopback);
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
+	ctx_store_meta(ctx, CB_NAT_ADDR_v4, state->nat_addr.p4);
+	ctx_store_meta(ctx, CB_NAT_PORT, (__u32)state->nat_port);
 }
 
 /* lb4_ctx_restore_state() restores per packet load balancing state from the
@@ -173,6 +182,18 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	lb4_fill_key(&key, &tuple);
 
 	svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+#if defined(ENABLE_DSR)
+	if (!svc) {
+		svc = lb4_wildcard_lookup_service(key);
+		if (svc) {
+			ct_state_new.src_sec_id = LXC_ID;
+			ct_state_new.node_port = 1;
+			ct_state_new.dsr_internal = 1;
+			ct_state_new.nat_addr.p4 = tuple.daddr;
+			ct_state_new.nat_port = tuple.sport;
+		}
+	}
+#endif /* ENABLE_DSR */
 	if (svc) {
 		const struct lb4_backend *backend;
 
@@ -266,6 +287,10 @@ lb6_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 
 	if (meta & 1)
 		state->loopback = 1;
+#ifdef ENABLE_DSR
+	if (meta & 2)
+		state->dsr_internal = 1;
+#endif /* ENABLE_DSR */
 
 	state->rev_nat_index = meta >> 16;
 
@@ -283,6 +308,9 @@ lb6_ctx_store_state(struct __ctx_buff *ctx, const struct ct_state *state,
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
+#ifdef ENABLE_DSR
+		       (state->dsr_internal ? 1 : 0) << 1 |
+#endif /* ENABLE_DSR */
 		       state->loopback);
 }
 
@@ -296,6 +324,9 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	struct lb6_key key = {};
 	__u16 proxy_port = 0;
 	int l4_off;
+	union v6addr dsr_addr __maybe_unused;
+	__u16 dsr_port __maybe_unused;
+	bool is_dsr __maybe_unused = false;
 	int ret;
 
 	tuple.nexthdr = ip6->nexthdr;
@@ -323,6 +354,19 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	 * state in the address.
 	 */
 	svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+#if defined(ENABLE_DSR)
+	if (!svc) {
+		svc = lb6_wildcard_lookup_service(key);
+		if (svc) {
+			is_dsr = true;
+			ct_state_new.src_sec_id = LXC_ID;
+			ct_state_new.node_port = 1;
+			ct_state_new.dsr_internal = 1;
+			ipv6_addr_copy(&dsr_addr, &tuple.daddr);
+			dsr_port = tuple.sport;
+		}
+	}
+#endif /* ENABLE_DSR */
 	if (svc) {
 		const struct lb6_backend *backend;
 
@@ -372,6 +416,15 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 				       l4_off, &key, &tuple, ct_state_new.loopback);
 		if (IS_ERR(ret))
 			return ret;
+
+#if defined(ENABLE_DSR)
+		if (is_dsr) {
+			__ipv6_ct_tuple_reverse(&tuple);
+			ret = snat_v6_create_dsr(&tuple, &dsr_addr, dsr_port, ext_err);
+			if (IS_ERR(ret))
+				return ret;
+		}
+#endif /* ENABLE_DSR */
 	}
 
 skip_service_lookup:
@@ -1752,6 +1805,29 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		if (unlikely(ct_state->rev_nat_index)) {
 			int ret2;
 
+#ifdef ENABLE_DSR
+			if (ct_state->dsr_internal) {
+				struct ipv6_ct_tuple dsr_tuple = {};
+				struct ipv6_nat_entry *dsr_entry;
+
+				dsr_tuple = *tuple;
+				dsr_tuple.flags = NAT_DIR_EGRESS;
+				dsr_tuple.sport = tuple->dport;
+				dsr_tuple.dport = tuple->sport;
+
+				dsr_entry = nodeport_dsr_lookup_v6_nat_entry(&dsr_tuple);
+				if (dsr_entry) {
+					ret = __lb6_rev_nat(ctx, l4_off, tuple,
+							    &dsr_entry->nat_info,
+								ipfrag_has_l4_header(fraginfo),
+								CT_INGRESS,
+								ct_state->loopback);
+					if (IS_ERR(ret))
+						return ret;
+					break;
+				}
+			}
+#endif /* ENABLE_DSR */
 			ret2 = lb6_rev_nat(ctx, l4_off, ct_state->rev_nat_index,
 					   ct_state->loopback,
 					   tuple,
@@ -2055,10 +2131,9 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		if (unlikely(ct_state->rev_nat_index)) {
 			int ret2;
 
-			ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
-					   ct_state->rev_nat_index,
-					   ct_state->loopback,
-					   tuple, ipfrag_has_l4_header(fraginfo));
+			ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off, ct_state,
+					   ct_state->loopback, tuple,
+					   ipfrag_has_l4_header(fraginfo));
 			if (IS_ERR(ret2))
 				return ret2;
 		}

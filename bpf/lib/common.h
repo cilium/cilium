@@ -366,11 +366,13 @@ enum {
 #define CB_SRV6_SID_3		CB_2		/* Alias, non-overlapping */
 #define	CB_CLUSTER_ID_INGRESS	CB_2		/* Alias, non-overlapping */
 #define CB_NAT_FLAGS		CB_2		/* Alias, non-overlapping */
+#define CB_NAT_ADDR_v4		CB_2		/* Alias, non-overlapping */
 	CB_3,
 #define	CB_ADDR_V6_3		CB_3		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_3		/* Alias, non-overlapping */
 #define CB_SRV6_SID_4		CB_3		/* Alias, non-overlapping */
 #define CB_DSR_L3_OFF		CB_3		/* Alias, non-overlapping */
+#define CB_NAT_PORT			CB_3		/* Alias, non-overlapping */
 	CB_CT_STATE,
 #define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_CT_STATE	/* Alias, non-overlapping,
