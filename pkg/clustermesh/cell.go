@@ -46,7 +46,7 @@ var Cell = cell.Module(
 	cell.Config(wait.TimeoutConfigDefault),
 
 	metrics.Metric(NewMetrics),
-	metrics.Metric(common.MetricsProvider(subsystem)),
+	metrics.Metric(common.MetricsProvider(metrics.SubsystemClusterMesh)),
 
 	cell.ProvidePrivate(newServiceMerger),
 	cell.Invoke(registerServicesInitialized),
