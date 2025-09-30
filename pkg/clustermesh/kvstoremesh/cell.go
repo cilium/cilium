@@ -22,6 +22,8 @@ var Cell = cell.Module(
 
 	cell.Config(common.DefaultConfig),
 
+	// Don't pass ClusterMesh subsystem to prefer cilium_kvstoremesh_
+	// instead of the more redundant cilium_kvstoremesh_clustermesh_
 	metrics.Metric(common.MetricsProvider("")),
 	metrics.Metric(MetricsProvider),
 )

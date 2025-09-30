@@ -18,8 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
-const subsystem = "clustermesh"
-
 // Cell is the cell for the Operator ClusterMesh
 var Cell = cell.Module(
 	"endpointslicesync-clustermesh",

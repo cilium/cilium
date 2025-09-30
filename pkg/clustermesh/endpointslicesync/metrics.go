@@ -75,8 +75,8 @@ func linkHistogramVec(k8sHistogramVec *k8smetrics.HistogramVec, ciliumHistogramV
 func NewMetrics() Metrics {
 	endpointsAddedPerSync := metric.NewHistogramVec(
 		metric.HistogramOpts{
-			Namespace:                      metrics.CiliumOperatorNamespace,
-			Subsystem:                      subsystem,
+			Namespace:                      metrics.Namespace,
+			Subsystem:                      metrics.SubsystemClusterMesh,
 			Name:                           "endpoints_added_per_sync",
 			Help:                           "Number of endpoints added on each Service sync",
 			NativeHistogramBucketFactor:    2,
@@ -89,8 +89,8 @@ func NewMetrics() Metrics {
 
 	endpointsRemovedPerSync := metric.NewHistogramVec(
 		metric.HistogramOpts{
-			Namespace:                      metrics.CiliumOperatorNamespace,
-			Subsystem:                      subsystem,
+			Namespace:                      metrics.Namespace,
+			Subsystem:                      metrics.SubsystemClusterMesh,
 			Name:                           "endpoints_removed_per_sync",
 			Help:                           "Number of endpoints removed on each Service sync",
 			NativeHistogramBucketFactor:    2,
@@ -103,8 +103,8 @@ func NewMetrics() Metrics {
 
 	endpointsDesired := metric.NewGaugeVec(
 		metric.GaugeOpts{
-			Namespace: metrics.CiliumOperatorNamespace,
-			Subsystem: subsystem,
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemClusterMesh,
 			Name:      "endpoints_desired",
 			Help:      "Number of endpoints desired",
 		},
@@ -114,8 +114,8 @@ func NewMetrics() Metrics {
 
 	numEndpointSlices := metric.NewGaugeVec(
 		metric.GaugeOpts{
-			Namespace: metrics.CiliumOperatorNamespace,
-			Subsystem: subsystem,
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemClusterMesh,
 			Name:      "num_endpoint_slices",
 			Help:      "Number of endpoints desired",
 		},
@@ -125,8 +125,8 @@ func NewMetrics() Metrics {
 
 	desiredEndpointSlices := metric.NewGaugeVec(
 		metric.GaugeOpts{
-			Namespace: metrics.CiliumOperatorNamespace,
-			Subsystem: subsystem,
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemClusterMesh,
 			Name:      "desired_endpoint_slices",
 			Help:      "Number of EndpointSlices that would exist with perfect endpoint allocation",
 		},
@@ -136,8 +136,8 @@ func NewMetrics() Metrics {
 
 	endpointSliceChanges := metric.NewCounterVec(
 		metric.CounterOpts{
-			Namespace: metrics.CiliumOperatorNamespace,
-			Subsystem: subsystem,
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemClusterMesh,
 			Name:      "endpoint_slice_changes",
 			Help:      "Number of EndpointSlice changes",
 		},
@@ -147,8 +147,8 @@ func NewMetrics() Metrics {
 
 	endpointSlicesChangedPerSync := metric.NewHistogramVec(
 		metric.HistogramOpts{
-			Namespace: metrics.CiliumOperatorNamespace,
-			Subsystem: subsystem,
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemClusterMesh,
 			Name:      "endpointslices_changed_per_sync",
 			Help:      "Number of EndpointSlices changed on each Service sync",
 		},
@@ -158,8 +158,8 @@ func NewMetrics() Metrics {
 
 	endpointSliceSyncs := metric.NewCounterVec(
 		metric.CounterOpts{
-			Namespace: metrics.CiliumOperatorNamespace,
-			Subsystem: subsystem,
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemClusterMesh,
 			Name:      "endpoint_slice_syncs",
 			Help:      "Number of EndpointSlice syncs",
 		},

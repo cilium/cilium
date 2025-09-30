@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -59,7 +60,7 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 				onRun: func(context.Context) { ready <- struct{}{} },
 			}
 		},
-		Metrics: MetricsProvider("clustermesh")(),
+		Metrics: MetricsProvider(metrics.SubsystemClusterMesh)(),
 	})
 
 	rc := cm.(*clusterMesh).newRemoteCluster(name, path)

@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -103,7 +104,7 @@ func TestClusterMesh(t *testing.T) {
 			clusters = append(clusters, rc)
 			return rc
 		},
-		Metrics: MetricsProvider("clustermesh")(),
+		Metrics: MetricsProvider(metrics.SubsystemClusterMesh)(),
 	})
 
 	assertForEachRemoteCluster := func(t *testing.T, expected uint) {
@@ -232,7 +233,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 				},
 			}
 		},
-		Metrics: MetricsProvider("clustermesh")(),
+		Metrics: MetricsProvider(metrics.SubsystemClusterMesh)(),
 	})
 	hivetest.Lifecycle(t).Append(gcm)
 	cm := gcm.(*clusterMesh)

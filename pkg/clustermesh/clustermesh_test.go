@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -124,7 +125,7 @@ func TestClusterMesh(t *testing.T) {
 		IPCache:               ipc,
 		ClusterIDsManager:     usedIDs,
 		Metrics:               NewMetrics(),
-		CommonMetrics:         common.MetricsProvider(subsystem)(),
+		CommonMetrics:         common.MetricsProvider(metrics.SubsystemClusterMesh)(),
 		StoreFactory:          storeFactory,
 		FeatureMetrics:        NewClusterMeshMetricsNoop(),
 		Logger:                slog.Default(),

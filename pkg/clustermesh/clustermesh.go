@@ -29,8 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-const subsystem = "clustermesh"
-
 // Configuration is the configuration that must be provided to
 // NewClusterMesh()
 type Configuration struct {
