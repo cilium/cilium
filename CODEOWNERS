@@ -663,10 +663,12 @@ Makefile* @cilium/build
 /test/Makefile* @cilium/ci-structure @cilium/build
 # Service handling tests
 /test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
+/test/k8s/lrp.go @cilium/sig-lb
 # Datapath tests
 /test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure
 # Policy tests
+/test/k8s/chaos.go @cilium/sig-policy
 /test/k8s/net_policies.go @cilium/sig-policy @cilium/ci-structure
 /test/runtime/net_policies.go @cilium/sig-policy @cilium/ci-structure
 # Hubble/monitoring tests
@@ -679,6 +681,8 @@ Makefile* @cilium/build
 # BIG TCP tests
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
+/test/k8s/config.go @cilium/sig-k8s
+/test/k8s/pod_mac_address.go @cilium/sig-k8s
 /tools/dpgen @cilium/loader
 /tools/metricslint @cilium/metrics
 /tools/ @cilium/contributing
