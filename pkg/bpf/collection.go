@@ -149,6 +149,10 @@ type CollectionOptions struct {
 
 	// Set of objects to keep during reachability pruning.
 	Keep *set.Set[string]
+
+	// ConfigDumpPath is the path to write a file to containing the constants used
+	// during loading, typically to be included in sysdumps.
+	ConfigDumpPath string
 }
 
 func (co *CollectionOptions) populateMapReplacements() {
@@ -223,6 +227,10 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 	fixed := fixedResources(spec, opts.Keep)
 	if err := removeUnusedMaps(spec, fixed, reach, logger); err != nil {
 		return nil, nil, fmt.Errorf("pruning unused maps: %w", err)
+	}
+
+	if err := dumpConstants(spec, opts); err != nil {
+		return nil, nil, fmt.Errorf("writing constants: %w", err)
 	}
 
 	// Find and strip all CILIUM_PIN_REPLACE pinning flags before creating the
