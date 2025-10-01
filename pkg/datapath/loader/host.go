@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
@@ -89,8 +90,9 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants:  ciliumHostConfiguration(ep, lnc),
-		MapRenames: ciliumHostMapRenames(ep),
+		Constants:      ciliumHostConfiguration(ep, lnc),
+		MapRenames:     ciliumHostMapRenames(ep),
+		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(ep.InterfaceName()), hostEndpointConfig),
 	})
 	if err != nil {
 		return err
@@ -154,8 +156,9 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants:  ciliumNetConfiguration(ep, lnc, net),
-		MapRenames: ciliumNetMapRenames(ep, net),
+		Constants:      ciliumNetConfiguration(ep, lnc, net),
+		MapRenames:     ciliumNetMapRenames(ep, net),
+		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(defaults.SecondHostDevice), hostEndpointConfig),
 	})
 	if err != nil {
 		return err
@@ -238,8 +241,9 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 			CollectionOptions: ebpf.CollectionOptions{
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
-			Constants:  netdevConfiguration(ep, lnc, iface, masq4, masq6),
-			MapRenames: netdevMapRenames(ep, iface),
+			Constants:      netdevConfiguration(ep, lnc, iface, masq4, masq6),
+			MapRenames:     netdevMapRenames(ep, iface),
+			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), hostEndpointConfig),
 		})
 		if err != nil {
 			return err

@@ -52,6 +52,9 @@ func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *da
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants: encryptionConfiguration(lnc),
+		// A single bpf_network.o Collection is attached to multiple devices, only
+		// store a single config at the root of the bpf statedir.
+		ConfigDumpPath: bpfStateDeviceDir(networkConfig),
 	})
 	if err != nil {
 		return err

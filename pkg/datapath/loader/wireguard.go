@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
@@ -59,6 +60,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
+		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(device.Attrs().Name), wireguardConfig),
 	})
 	if err != nil {
 		return err

@@ -182,6 +182,7 @@ func loadAssignAttach(logger *slog.Logger, xdpMode xdp.Mode, iface netlink.Link,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
+		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
 	})
 	if err != nil {
 		return err
