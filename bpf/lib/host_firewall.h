@@ -69,6 +69,10 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
 
+	/* Reply traffic and related are allowed regardless of policy verdict. */
+	if (ret == CT_REPLY || ret == CT_RELATED)
+		return CTX_ACT_OK;
+
 	if (!is_host_id) {
 		if (ret == CT_NEW) {
 			ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global,
@@ -88,10 +92,6 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 		   ip6->daddr.s6_addr32[3], dst_sec_identity);
-
-	/* Reply traffic and related are allowed regardless of policy verdict. */
-	if (ret == CT_REPLY || ret == CT_RELATED)
-		return CTX_ACT_OK;
 
 	/* Perform policy lookup. */
 	verdict = policy_can_egress6(ctx, tuple, ct_buffer->l4_off, HOST_ID,
@@ -343,6 +343,10 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
 
+	/* Reply traffic and related are allowed regardless of policy verdict. */
+	if (ret == CT_REPLY || ret == CT_RELATED)
+		return CTX_ACT_OK;
+
 	/* Some pod-originating traffic may have a host IP as source IP
 	 * (eg. non-transparent proxy connection, or when using iptables masquerading).
 	 * The response packet will therefore have a host IP as the destination IP.
@@ -373,10 +377,6 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 		   ip4->daddr, dst_sec_identity);
-
-	/* Reply traffic and related are allowed regardless of policy verdict. */
-	if (ret == CT_REPLY || ret == CT_RELATED)
-		return CTX_ACT_OK;
 
 	/* Perform policy lookup. */
 	verdict = policy_can_egress4(ctx, tuple, ct_buffer->l4_off, HOST_ID,
