@@ -6,6 +6,7 @@ package metadata
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
@@ -59,6 +60,22 @@ func getMetadata(ctx context.Context, client *imds.Client, path string) (string,
 	return string(value), err
 }
 
+func getMetadataList(ctx context.Context, client *imds.Client, path string) ([]string, error) {
+	res, err := client.GetMetadata(ctx, &imds.GetMetadataInput{
+		Path: path,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve metadata list %s: %w", path, err)
+	}
+	defer res.Content.Close()
+
+	bytes, err := safeio.ReadAllLimit(res.Content, safeio.MB)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read metadata list %s content: %w", path, err)
+	}
+	return strings.Fields(string(bytes)), nil
+}
+
 // GetInstanceMetadata returns required AWS metadatas
 func (m *metadataClient) GetInstanceMetadata(ctx context.Context) (MetaDataInfo, error) {
 
@@ -100,4 +117,22 @@ func (m *metadataClient) GetInstanceMetadata(ctx context.Context) (MetaDataInfo,
 		VPCID:            vpcID,
 		SubnetID:         subnetID,
 	}, nil
+}
+
+func GetMACs(ctx context.Context) ([]string, error) {
+	client, err := newClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create AWS IMDS client: %w", err)
+	}
+
+	list, err := getMetadataList(ctx, client, "network/interfaces/macs")
+	if err != nil {
+		return nil, fmt.Errorf("unable to get AWS IMDS: %w", err)
+	}
+
+	// Remove trailing /
+	for i, item := range list {
+		list[i] = strings.TrimSuffix(item, "/")
+	}
+	return list, err
 }

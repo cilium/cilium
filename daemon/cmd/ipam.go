@@ -8,11 +8,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/cidr"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -146,6 +149,28 @@ func reallocateDatapathIPs(logger *slog.Logger, alloc ipamAllocateIP, fromK8s, f
 	return result
 }
 
+func waitForENI(ctx context.Context, macAddr string) error {
+	bo := wait.Backoff{
+		Duration: 250 * time.Millisecond,
+		Factor:   2,
+		Jitter:   0.2,
+		Steps:    5,
+	}
+
+	findENIByMAC := func(ctx context.Context) (bool, error) {
+		macs, err := metadata.GetMACs(ctx)
+		if err != nil {
+			return false, fmt.Errorf("unable to list ENIs MAC addresses: %w", err)
+		}
+		if !slices.Contains(macs, macAddr) {
+			return false, nil
+		}
+		return true, nil
+	}
+
+	return wait.ExponentialBackoffWithContext(ctx, bo, findENIByMAC)
+}
+
 func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
 	// Avoid allocating external IP
 	d.params.IPAM.ExcludeIP(family.PrimaryExternal(), "node-ip", ipam.PoolDefault())
@@ -189,6 +214,18 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		if err != nil {
 			return nil, fmt.Errorf("failed to create router info: %w", err)
 		}
+
+		// wait for ENI to be up and running before querying netlink with MAC
+		// address. This avoids spurious errors where netlink is not able to find
+		// the ifindex because the ENI is not showing up yet.
+		if option.Config.IPAM == ipamOption.IPAMENI {
+			if err := waitForENI(context.TODO(), result.PrimaryMAC); err != nil {
+				d.params.Logger.Warn("unable to find metadata for ENI, this will likely lead to an error in configuring the router routes and rules",
+					logfields.MACAddr, result.PrimaryMAC,
+				)
+			}
+		}
+
 		if err = routingInfo.Configure(
 			result.IP,
 			d.params.MTU.GetDeviceMTU(),
