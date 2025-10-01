@@ -157,7 +157,7 @@ func (d *Daemon) getPodForEndpoint(ep *endpoint.Endpoint) error {
 //
 // 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
 //   - recreate endpoint's policy, as well as bpf programs and maps
-func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
+func (d *Daemon) fetchOldEndpoints(ctx context.Context, dir string) (*endpointRestoreState, error) {
 	state := &endpointRestoreState{
 		possible: nil,
 		restored: []*endpoint.Endpoint{},
@@ -177,7 +177,7 @@ func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, d.params.Logger, d.params.EndpointCreator, dir, eptsID)
+	state.possible = endpoint.ReadEPsFromDirNames(ctx, d.params.Logger, d.params.EndpointCreator, dir, eptsID)
 
 	if len(state.possible) == 0 {
 		d.params.Logger.Info("No old endpoints found.")

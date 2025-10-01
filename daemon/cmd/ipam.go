@@ -535,7 +535,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	return d.allocateHealthIPs()
 }
 
-func (d *Daemon) configureIPAM() {
+func (d *Daemon) configureIPAM(ctx context.Context) {
 	// If the device has been specified, the IPv4AllocPrefix and the
 	// IPv6AllocPrefix were already allocated before the k8s.Init().
 	//
@@ -576,7 +576,7 @@ func (d *Daemon) configureIPAM() {
 	}
 
 	device := ""
-	drd, _ := d.params.DirectRoutingDevice.Get(d.ctx, d.params.DB.ReadTxn())
+	drd, _ := d.params.DirectRoutingDevice.Get(ctx, d.params.DB.ReadTxn())
 	if drd != nil {
 		device = drd.Name
 	}

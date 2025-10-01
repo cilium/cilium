@@ -1365,7 +1365,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if err := startDaemon(daemon, restoredEndpoints, cleaner, params); err != nil {
+					if err := startDaemon(daemonCtx, daemon, restoredEndpoints, cleaner, params); err != nil {
 						params.Logger.Error("Daemon start failed", logfields.Error, err)
 						daemonResolver.Reject(err)
 					} else {
@@ -1388,15 +1388,15 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 // startDaemon starts the old unmodular part of the cilium-agent.
 // option.Config has already been exposed via *option.DaemonConfig promise,
 // so it may not be modified here
-func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) error {
+func startDaemon(ctx context.Context, d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) error {
 	bootstrapStats.k8sInit.Start()
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
 		// (Check Daemon.InitK8sSubsystem() for more info)
 		select {
 		case <-params.CacheStatus:
-		case <-d.ctx.Done():
-			return d.ctx.Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 
@@ -1408,7 +1408,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	// After K8s caches have been synced, IPCache can start label injection.
 	// Ensure that the initial labels are injected before we regenerate endpoints
 	params.Logger.Debug("Waiting for initial IPCache revision")
-	if err := params.IPCache.WaitForRevision(d.ctx, 1); err != nil {
+	if err := params.IPCache.WaitForRevision(ctx, 1); err != nil {
 		params.Logger.Error("Failed to wait for initial IPCache revision", logfields.Error, err)
 	}
 
@@ -1417,15 +1417,15 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	bootstrapStats.enableConntrack.Start()
 	params.Logger.Info("Starting connection tracking garbage collector")
 	params.CTNATMapGC.Enable()
-	params.CTNATMapGC.Observe4().Observe(d.ctx, ctmap.NatMapNext4, func(err error) {})
-	params.CTNATMapGC.Observe6().Observe(d.ctx, ctmap.NatMapNext6, func(err error) {})
+	params.CTNATMapGC.Observe4().Observe(ctx, ctmap.NatMapNext4, func(err error) {})
+	params.CTNATMapGC.Observe6().Observe(ctx, ctmap.NatMapNext6, func(err error) {})
 	bootstrapStats.enableConntrack.End(true)
 
 	if params.EndpointManager.HostEndpointExists() {
-		params.EndpointManager.InitHostEndpointLabels(d.ctx)
+		params.EndpointManager.InitHostEndpointLabels(ctx)
 	} else {
 		params.Logger.Info("Creating host endpoint")
-		if err := params.EndpointCreator.AddHostEndpoint(d.ctx); err != nil {
+		if err := params.EndpointCreator.AddHostEndpoint(ctx); err != nil {
 			return fmt.Errorf("unable to create host endpoint: %w", err)
 		}
 	}
@@ -1439,7 +1439,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 				params.Logger.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
 			} else {
 				params.Logger.Info("Creating ingress endpoint")
-				err := params.EndpointCreator.AddIngressEndpoint(d.ctx)
+				err := params.EndpointCreator.AddIngressEndpoint(ctx)
 				if err != nil {
 					return fmt.Errorf("unable to create ingress endpoint: %w", err)
 				}
@@ -1451,7 +1451,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		if d.endpointRestoreComplete != nil {
 			select {
 			case <-d.endpointRestoreComplete:
-			case <-d.ctx.Done():
+			case <-ctx.Done():
 				return
 			}
 		}
@@ -1503,7 +1503,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	bootstrapStats.healthCheck.Start()
 	if params.HealthConfig.IsHealthCheckingEnabled() {
-		if err := params.CiliumHealth.Init(d.ctx, d.healthEndpointRouting, cleaner.cleanupFuncs.Add); err != nil {
+		if err := params.CiliumHealth.Init(ctx, d.healthEndpointRouting, cleaner.cleanupFuncs.Add); err != nil {
 			return fmt.Errorf("failed to initialize cilium health: %w", err)
 		}
 	}

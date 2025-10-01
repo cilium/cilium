@@ -51,7 +51,6 @@ const (
 type Daemon struct {
 	params daemonParams
 
-	ctx         context.Context
 	controllers *controller.Manager
 
 	endpointRestoreComplete       chan struct{}
@@ -220,7 +219,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 
 	d := Daemon{
 		params:      params,
-		ctx:         ctx,
 		controllers: controller.NewManager(),
 	}
 
@@ -360,7 +358,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
-	restoredEndpoints, err := d.fetchOldEndpoints(option.Config.StateDir)
+	restoredEndpoints, err := d.fetchOldEndpoints(ctx, option.Config.StateDir)
 	if err != nil {
 		params.Logger.Error("Unable to read existing endpoints", logfields.Error, err)
 	}
@@ -505,7 +503,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	restoredRouterIPs.IPv4FromFS, restoredRouterIPs.IPv6FromFS = node.ExtractCiliumHostIPFromFS(params.Logger)
 
 	// Configure IPAM without using the configuration yet.
-	d.configureIPAM()
+	d.configureIPAM(ctx)
 
 	// Start IPAM
 	d.startIPAM()
