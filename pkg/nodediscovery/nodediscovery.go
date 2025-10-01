@@ -381,11 +381,11 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 	case ipamOption.IPAMENI:
 		// set ENI field in the node only when the ENI ipam is specified
 		nodeResource.Spec.ENI = eniTypes.ENISpec{}
-		imds, err := metadata.NewClient()
+		imds, err := metadata.NewClient(ctx)
 		if err != nil {
 			logging.Fatal(n.logger, "Unable to create metadata client", logfields.Error, err)
 		}
-		info, err := imds.GetInstanceMetadata()
+		info, err := imds.GetInstanceMetadata(ctx)
 		if err != nil {
 			logging.Fatal(n.logger, "Unable to retrieve InstanceID of own EC2 instance", logfields.Error, err)
 		}

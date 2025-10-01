@@ -48,7 +48,7 @@ type EC2API interface {
 }
 
 type MetadataAPI interface {
-	GetInstanceMetadata() (metadata.MetaDataInfo, error)
+	GetInstanceMetadata(ctx context.Context) (metadata.MetaDataInfo, error)
 }
 
 // InstancesManager maintains the list of instances. It must be kept up to date
@@ -212,7 +212,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	resyncStart := time.Now()
 
 	var currentVpcID string
-	metadataInfo, err := m.metadataapi.GetInstanceMetadata()
+	metadataInfo, err := m.metadataapi.GetInstanceMetadata(ctx)
 	if err != nil {
 		// when we can't retrieve the VPC ID from AWS metadata, we use the cached VPC ID
 		m.logger.Info("Unable to retrieve AWS instance metadata and will use cached VPC ID",
