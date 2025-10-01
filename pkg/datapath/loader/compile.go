@@ -38,26 +38,32 @@ const (
 	endpointPrefix = "bpf_lxc"
 	endpointProg   = endpointPrefix + "." + string(outputSource)
 	endpointObj    = endpointPrefix + ".o"
+	endpointConfig = endpointPrefix + ".json"
 
 	hostEndpointPrefix = "bpf_host"
 	hostEndpointProg   = hostEndpointPrefix + "." + string(outputSource)
 	hostEndpointObj    = hostEndpointPrefix + ".o"
+	hostEndpointConfig = hostEndpointPrefix + ".json"
 
 	networkPrefix = "bpf_network"
 	networkProg   = networkPrefix + "." + string(outputSource)
 	networkObj    = networkPrefix + ".o"
+	networkConfig = networkPrefix + ".json"
 
 	xdpPrefix = "bpf_xdp"
 	xdpProg   = xdpPrefix + "." + string(outputSource)
 	xdpObj    = xdpPrefix + ".o"
+	xdpConfig = xdpPrefix + ".json"
 
 	overlayPrefix = "bpf_overlay"
 	overlayProg   = overlayPrefix + "." + string(outputSource)
 	overlayObj    = overlayPrefix + ".o"
+	overlayConfig = overlayPrefix + ".json"
 
 	wireguardPrefix = "bpf_wireguard"
 	wireguardProg   = wireguardPrefix + "." + string(outputSource)
 	wireguardObj    = wireguardPrefix + ".o"
+	wireguardConfig = wireguardPrefix + ".json"
 )
 
 var (
