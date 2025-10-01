@@ -30,7 +30,7 @@ type Configuration struct {
 
 	Config
 
-	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
+	// ClusterInfo is the id/name of the local cluster.
 	ClusterInfo types.ClusterInfo
 
 	// RemoteClientFactory is the factory to create new backend instances.
@@ -38,9 +38,6 @@ type Configuration struct {
 
 	// NewRemoteCluster is a function returning a new implementation of the remote cluster business logic.
 	NewRemoteCluster RemoteClusterCreatorFunc
-
-	// nodeName is the name of the local node. This is used for logging and metrics
-	NodeName string
 
 	// ClusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	ClusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
@@ -153,9 +150,9 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		remoteClientFactory: cm.conf.RemoteClientFactory,
 		clusterLockFactory:  newClusterLock,
 
-		metricLastFailureTimestamp: cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
-		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
-		metricTotalFailures:        cm.conf.Metrics.TotalFailures.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
+		metricLastFailureTimestamp: cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(name),
+		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(name),
+		metricTotalFailures:        cm.conf.Metrics.TotalFailures.WithLabelValues(name),
 	}
 
 	rc.RemoteCluster = cm.conf.NewRemoteCluster(name, rc.status)
@@ -197,7 +194,7 @@ func (cm *clusterMesh) addLocked(name, path string) {
 		cm.clusters[name] = cluster
 	}
 
-	cm.conf.Metrics.TotalRemoteClusters.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName).Set(float64(len(cm.clusters)))
+	cm.conf.Metrics.TotalRemoteClusters.Set(float64(len(cm.clusters)))
 
 	cluster.connect()
 }
@@ -220,7 +217,7 @@ func (cm *clusterMesh) remove(name string) {
 
 	cm.tombstones[name] = removed
 	delete(cm.clusters, name)
-	cm.conf.Metrics.TotalRemoteClusters.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName).Set(float64(len(cm.clusters)))
+	cm.conf.Metrics.TotalRemoteClusters.Set(float64(len(cm.clusters)))
 
 	cm.wg.Add(1)
 	go func() {
