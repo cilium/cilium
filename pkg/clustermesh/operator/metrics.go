@@ -22,12 +22,12 @@ func NewMetrics() Metrics {
 			Subsystem: metrics.SubsystemClusterMesh,
 			Name:      "remote_cluster_services",
 			Help:      "The total number of services in the remote cluster",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelTargetCluster}),
+		}, []string{metrics.LabelTargetCluster}),
 		TotalServiceExports: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
 			Subsystem: metrics.SubsystemClusterMesh,
 			Name:      "remote_cluster_service_exports",
 			Help:      "The total number of MCS-API service exports in the remote cluster",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelTargetCluster}),
+		}, []string{metrics.LabelTargetCluster}),
 	}
 }
