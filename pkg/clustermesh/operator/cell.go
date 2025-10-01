@@ -45,7 +45,7 @@ type clusterMeshParams struct {
 	CfgMCSAPI MCSAPIConfig
 	Logger    *slog.Logger
 
-	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
+	// ClusterInfo is the id/name of the local cluster.
 	ClusterInfo types.ClusterInfo
 
 	// RemoteClientFactory is the factory to create new backend instances.

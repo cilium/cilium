@@ -218,10 +218,8 @@ const (
 	LabelDirection = "direction"
 
 	// LabelSourceCluster is the label for source cluster name
+	// This should not be used to self identify the local cluster
 	LabelSourceCluster = "source_cluster"
-
-	// LabelSourceNodeName is the label for source node name
-	LabelSourceNodeName = "source_node_name"
 
 	// LabelTargetCluster is the label for target cluster name
 	LabelTargetCluster = "target_cluster"
