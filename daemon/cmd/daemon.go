@@ -14,7 +14,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/controller"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -50,8 +49,6 @@ const (
 // monitoring when a LXC starts.
 type Daemon struct {
 	params daemonParams
-
-	controllers *controller.Manager
 
 	endpointRestoreComplete       chan struct{}
 	endpointInitialPolicyComplete chan struct{}
@@ -218,8 +215,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	})
 
 	d := Daemon{
-		params:      params,
-		controllers: controller.NewManager(),
+		params: params,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
