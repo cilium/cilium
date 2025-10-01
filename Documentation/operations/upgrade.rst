@@ -395,6 +395,11 @@ now report per cluster metric instead of a "global" count and were renamed to re
 * ``cilium_operator_clustermesh_remote_cluster_services``
 * ``cilium_operator_clustermesh_remote_cluster_service_exports``
 
+The following metrics no longer reports a ``source_cluster`` and a ``source_node_name`` label:
+* ``node_health_connectivity_status``
+* ``node_health_connectivity_latency_seconds``
+
+
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 
