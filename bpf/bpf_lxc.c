@@ -574,7 +574,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		 * within the cluster, it must match policy or be dropped. If it's
 		 * bound for the host/outside, perform the CIDR policy check.
 		 */
-		verdict = policy_can_egress6(ctx, &cilium_policy_v2, tuple, l4_off, SECLABEL_IPV6,
+		verdict = policy_can_egress6(ctx, tuple, l4_off, SECLABEL_IPV6,
 					     *dst_sec_identity, &policy_match_type, &audited,
 					     ext_err, &proxy_port);
 
@@ -1018,7 +1018,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		 * within the cluster, it must match policy or be dropped. If it's
 		 * bound for the host/outside, perform the CIDR policy check.
 		 */
-		verdict = policy_can_egress4(ctx, &cilium_policy_v2, tuple, l4_off, SECLABEL_IPV4,
+		verdict = policy_can_egress4(ctx, tuple, l4_off, SECLABEL_IPV4,
 					     *dst_sec_identity, &policy_match_type, &audited,
 					     ext_err, &proxy_port);
 
@@ -1688,7 +1688,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 			break;
 #endif /* ENABLE_PER_PACKET_LB */
 
-		verdict = policy_can_ingress6(ctx, &cilium_policy_v2, tuple, l4_off,
+		verdict = policy_can_ingress6(ctx, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV6,
 					      &policy_match_type, &audited, ext_err, proxy_port);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
@@ -2028,7 +2028,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 			break;
 #endif /* ENABLE_PER_PACKET_LB */
 
-		verdict = policy_can_ingress4(ctx, &cilium_policy_v2, tuple, l4_off,
+		verdict = policy_can_ingress4(ctx, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV4,
 					      &policy_match_type, &audited, ext_err, proxy_port);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
