@@ -102,7 +102,7 @@ set_ipsec_encrypt(struct __ctx_buff *ctx,
 
 	mark = ipsec_encode_encryption_mark(spi, node_value->id);
 
-	set_identity_meta(ctx, seclabel);
+	set_encrypt_identity_meta(ctx, seclabel);
 	if (use_meta)
 		ctx->cb[CB_ENCRYPT_MAGIC] = mark;
 	ctx->mark = mark;

@@ -35,12 +35,6 @@ ctx_load_meta_ipv6(const struct xdp_md *ctx __maybe_unused,
 	build_bug_on((off + 4) * sizeof(__u32) > META_PIVOT);
 }
 
-static __always_inline __maybe_unused void
-set_identity_meta(struct xdp_md *ctx __maybe_unused,
-		__u32 identity __maybe_unused)
-{
-}
-
 static __always_inline __maybe_unused int
 redirect_self(struct xdp_md *ctx __maybe_unused)
 {
