@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 )
 
 var (
@@ -157,6 +158,16 @@ func (a Address) SolicitedNodeMaddr() netip.Addr {
 	copy(maddr[13:], ipv6.AsSlice()[13:])
 
 	return netip.AddrFrom16([16]byte(maddr))
+}
+
+// Construct solicited-node multicast MAC: 33:33:FF:XX:XX:XX
+// where XX:XX:XX are the last 3 bytes of the target IP address
+func SolicitedNodeMACAddr(addr netip.Addr) mac.MAC {
+	if !addr.Is6() {
+		return mac.MAC([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0})
+	}
+	bytes := addr.As16()
+	return mac.MAC([]byte{0x33, 0x33, 0xFF, bytes[13], bytes[14], bytes[15]})
 }
 
 // interfaceByName get *net.Interface by name using netlink.
