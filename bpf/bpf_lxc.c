@@ -1261,12 +1261,20 @@ ct_recreate4:
 	{
 		struct remote_endpoint_info fake_info = {0};
 		struct vtep_key vkey = {};
+		struct vtep_policy_key vpkey = {.prefixlen = 64, .src_ip = ip4->saddr, .dst_ip = ip4->daddr, };
 		struct vtep_value *vtep;
 
 		vkey.vtep_ip = ip4->daddr & VTEP_MASK;
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
-		if (!vtep)
-			goto skip_vtep;
+		if (!vtep) {
+		  if (!info || info->sec_identity == WORLD_IPV4_ID) {
+		    vtep = map_lookup_elem(&cilium_vtep_policy_map, &vpkey);
+		    if (!vtep)
+		      goto skip_vtep;
+		  } else {
+		    goto skip_vtep;
+		  }
+		}
 
 		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
