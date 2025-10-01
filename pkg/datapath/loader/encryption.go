@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
@@ -22,6 +23,10 @@ import (
 func init() {
 	encryptionConfigs.register(config.Encryption)
 }
+
+const (
+	networkConfig = networkPrefix + ".json"
+)
 
 // encryptionConfigs holds functions that yield a BPF configuration object for
 // attaching instances of bpf_network.c to externally-facing network devices.
@@ -51,7 +56,8 @@ func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *da
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants: encryptionConfiguration(lnc),
+		Constants:  encryptionConfiguration(lnc),
+		ConfigPath: filepath.Join(option.Config.StateDir, "dp_config", "ipsec", networkConfig),
 	})
 	if err != nil {
 		return err

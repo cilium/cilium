@@ -33,6 +33,8 @@ func init() {
 
 const (
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
+
+	xdpConfig = xdpPrefix + ".json"
 )
 
 // xdpConfigs holds functions that yield a BPF configuration object for
@@ -182,6 +184,7 @@ func loadAssignAttach(logger *slog.Logger, xdpMode xdp.Mode, iface netlink.Link,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
+		ConfigPath: filepath.Join(option.Config.StateDir, "dp_config", "devices", iface.Attrs().Name, xdpConfig),
 	})
 	if err != nil {
 		return err
