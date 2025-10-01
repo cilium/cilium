@@ -474,6 +474,7 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 		},
 		Constants:  co,
 		MapRenames: renames,
+		ConfigPath: filepath.Join(option.Config.StateDir, "dp_config", "devices", "cilium_host", hostEndpointConfig),
 	})
 	if err != nil {
 		return err
@@ -564,6 +565,7 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 		},
 		Constants:  co,
 		MapRenames: renames,
+		ConfigPath: filepath.Join(option.Config.StateDir, "dp_config", "devices", "cilium_net", hostEndpointConfig),
 	})
 	if err != nil {
 		return err
@@ -626,6 +628,7 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 			},
 			Constants:  co,
 			MapRenames: renames,
+			ConfigPath: filepath.Join(option.Config.StateDir, "dp_config", "devices", iface.Attrs().Name, networkConfig),
 		})
 		if err != nil {
 			return err
@@ -738,6 +741,7 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*
 		},
 		Constants:  co,
 		MapRenames: renames,
+		ConfigPath: filepath.Join(ep.StateDir(), endpointConfig),
 	})
 	if err != nil {
 		return err
@@ -842,6 +846,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
+		ConfigPath: filepath.Join(option.Config.StateDir, "dp_config", "devices", device.Attrs().Name, overlayConfig),
 	})
 	if err != nil {
 		return err
@@ -891,6 +896,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
+		ConfigPath: filepath.Join(option.Config.StateDir, "dp_config", "devices", device.Attrs().Name, wireguardConfig),
 	})
 	if err != nil {
 		return err
