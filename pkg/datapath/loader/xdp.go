@@ -154,6 +154,24 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 
+	if err := loadAssignAttach(logger, xdpDev, xdpMode, iface, spec, cfg); err != nil {
+		// Usually, a jumbo MTU causes the invalid argument error, e.g.:
+		// "create link: invalid argument" or "update link: invalid argument"
+		if !errors.Is(err, unix.EINVAL) {
+			return err
+		}
+
+		// The following retry might be helpful if the NIC driver is XDP Fragment aware
+		logger.Error("loading eBPF program failed, setting XDP frags and retrying", logfields.Error, err)
+		for _, prog := range spec.Programs {
+			prog.Flags |= unix.BPF_F_XDP_HAS_FRAGS
+		}
+		return loadAssignAttach(logger, xdpDev, xdpMode, iface, spec, cfg)
+	}
+	return nil
+}
+
+func loadAssignAttach(logger *slog.Logger, xdpDev string, xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec, cfg *config.BPFXDP) error {
 	var obj xdpObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
