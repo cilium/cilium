@@ -715,16 +715,32 @@ func (ms *mapState) prunePassEntries(changes ChangeState) {
 //
 // Incremental changes performed are recorded in 'changes'.
 func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, features policyFeatures, changes ChangeState) {
+	ms.logger.Info("insertWithChanges", logfields.Key, newKey, logfields.Entry, newEntry)
 	if newEntry.IsDeny() {
-		// Bail if covered by a key of higher precedence, or by a deny key of the same
-		// precedence.
+		bail := false
+		var passPrecedence types.Precedence
 		for k, v := range ms.BroaderOrEqualKeys(newKey) {
-			if v.Precedence > newEntry.Precedence ||
-				// New deny entry is also bailed due to different covering deny key
-				// of the same precedence, equal keys need to be merged
-				v.Precedence == newEntry.Precedence && k != newKey {
-				return
+			// Bail if covered by a key of higher precedence.
+			// Bump precedence if covered by a higher precedence PASS verdict.
+			if v.Precedence > newEntry.Precedence {
+				if v.IsPassEntry() && !features.contains(passRules) {
+					passPrecedence = max(passPrecedence, v.Precedence)
+					continue
+				}
+				bail = true
 			}
+			// New deny entry is also bailed due to different covering deny key
+			// of the same precedence, equal keys need to be merged
+			if v.Precedence == newEntry.Precedence && k != newKey {
+				bail = true
+			}
+		}
+		if passPrecedence > 0 {
+			// This entry is covered by a rule with a PASS verdict.
+			// Make this entry also a pass entry, and bump the precedence
+			newEntry.InheritPassPrecedence(passPrecedence)
+		} else if bail {
+			return
 		}
 
 		// Delete covered entries of lower precedence, and
@@ -744,11 +760,24 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 
 		// No pruning of allow rules if all rules have the same precedence level.
 		if features.contains(precedenceFeatures) {
+			bail := false
+			var passPrecedence types.Precedence
 			// Bail if covered by a key of a higher precedence.
 			for _, v := range ms.BroaderOrEqualKeys(newKey) {
 				if v.Precedence > newEntry.Precedence {
-					return
+					if v.IsPassEntry() && !features.contains(passRules) {
+						passPrecedence = max(passPrecedence, v.Precedence)
+						continue
+					}
+					bail = true
 				}
+			}
+			if passPrecedence > 0 {
+				// This entry is covered by a rule with a PASS verdict.
+				// Make this entry also a pass entry, and bump the precedence
+				newEntry.InheritPassPrecedence(passPrecedence)
+			} else if bail {
+				return
 			}
 
 			// Delete covered entries of lower precedence levels
@@ -1013,8 +1042,8 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 	// sort changes in mc.synced so that we will insert possible pass entries before any lower precedence entries
 	if features.contains(passRules) {
 		slices.SortFunc(mc.synced, func(a, b mapChange) int {
-			// return negative int when precedence of a > b, so that higher precedence values
-			// will appear first in the sorted order
+			// return negative int when precedence of a > b, so that higher precedence
+			// values will appear first in the sorted order
 			return int(b.Value.Precedence - a.Value.Precedence)
 		})
 	}
@@ -1025,11 +1054,8 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 		key := mc.synced[i].Key
 		entry := mc.synced[i].Value
 
-		// remove pass entries before processing lower precedence entries
-		if entry.Precedence <= passPrecedence {
-			for _, j := range passEntries {
-				p.policyMapState.deleteKeyWithChanges(mc.synced[j].Key, mc.synced[j].Value.Precedence, changes)
-			}
+		// switch to tier 2?
+		if features.contains(passRules) && entry.Precedence <= passPrecedence {
 			// clear the feature flag for the lower precedence entries
 			features &= ^passRules
 		}
@@ -1049,6 +1075,13 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 			// Pass entries do not exist in mapstate at this point, so
 			// no point trying to delete them
 			p.policyMapState.deleteKeyWithChanges(key, entry.Precedence, changes)
+		}
+	}
+
+	// remove entries with PASS verdict
+	for _, j := range passEntries {
+		if mc.synced[j].Value.IsPassEntry() {
+			p.policyMapState.deleteKeyWithChanges(mc.synced[j].Key, mc.synced[j].Value.Precedence, changes)
 		}
 	}
 

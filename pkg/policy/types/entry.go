@@ -15,6 +15,8 @@ const (
 	PrecedenceLevelShift                   = 8
 	PrecedenceLevelBits                    = 32 - PrecedenceLevelShift
 	MaxLevel                               = 1<<PrecedenceLevelBits - 1
+	PassPrecedenceBits                     = 17
+	PassPrecedenceMask          Precedence = (1<<PassPrecedenceBits - 1) << (32 - PassPrecedenceBits)
 
 	MaxPrecedence      = ^Precedence(0)
 	MaxDenyPrecedence  = MaxPrecedence
@@ -67,6 +69,12 @@ type MapStateMap map[Key]MapStateEntry
 
 func (e *MapStateEntry) Invalidate() {
 	e.Kind = Invalid
+}
+
+func (e *MapStateEntry) InheritPassPrecedence(p Precedence) {
+	if p > e.Precedence {
+		e.Precedence = p&PassPrecedenceMask | e.Precedence&^PassPrecedenceMask
+	}
 }
 
 func (e MapStateEntry) IsValid() bool {
