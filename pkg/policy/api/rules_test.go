@@ -116,8 +116,7 @@ func TestRuleMarshalling(t *testing.T) {
 			FromEndpoints: []EndpointSelector{testSelectors["empty"].expected},
 		}}},
 		sanitized: []IngressRule{{IngressCommonRule: IngressCommonRule{
-			FromEndpoints:       []EndpointSelector{testSelectors["empty"].sanitized},
-			aggregatedSelectors: []EndpointSelector{},
+			FromEndpoints: []EndpointSelector{testSelectors["empty"].sanitized},
 		}}},
 		sanitizedJSON: `[{"fromEndpoints":[{}]}]`,
 	}
