@@ -50,9 +50,15 @@ get_epid(const struct __sk_buff *ctx)
 }
 
 static __always_inline __maybe_unused void
-set_identity_meta(struct __sk_buff *ctx, __u32 identity)
+set_encrypt_identity_meta(struct __sk_buff *ctx, __u32 identity)
 {
 	ctx->cb[CB_ENCRYPT_IDENTITY] = identity;
+}
+
+static __always_inline __maybe_unused __u32
+get_encrypt_identity_meta(const struct __sk_buff *ctx)
+{
+	return ctx->cb[CB_ENCRYPT_IDENTITY];
 }
 
 static __always_inline __maybe_unused int
