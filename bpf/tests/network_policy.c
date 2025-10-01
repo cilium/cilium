@@ -20,8 +20,7 @@ check_egress_policy(struct __ctx_buff *ctx, __u32 dst_id, __u8 proto, __be16 dpo
 	__s8 ext_err;
 	__u16 proxy_port;
 
-	return policy_can_egress(ctx, &cilium_policy_v2,
-				 0 /* ignored */, dst_id,
+	return policy_can_egress(ctx, 0 /* ignored */, dst_id,
 				 0 /* ICMP only */,
 				 dport, proto, 0 /* ICMP only */,
 				 &match_type, &audited, &ext_err, &proxy_port);
