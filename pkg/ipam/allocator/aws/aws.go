@@ -129,7 +129,7 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
-	imds, err := metadata.NewClient()
+	imds, err := metadata.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize metadata client: %w", err)
 	}
