@@ -6,7 +6,6 @@ package api
 import (
 	"context"
 
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/slices"
 )
 
@@ -97,10 +96,6 @@ type IngressCommonRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	FromNodes []EndpointSelector `json:"fromNodes,omitempty"`
-
-	// TODO: Move this to the policy package
-	// (https://github.com/cilium/cilium/issues/8353)
-	aggregatedSelectors EndpointSelectorSlice `json:"-"`
 }
 
 // DeepEqual returns true if both IngressCommonRule are deep equal.
@@ -211,67 +206,6 @@ type IngressDenyRule struct {
 	ICMPs ICMPRules `json:"icmps,omitempty"`
 }
 
-// SetAggregatedSelectors creates a single slice containing all of the following
-// fields within the IngressRule, converted to EndpointSelector, to be stored
-// within the IngressRule for easy lookup while performing policy evaluation
-// for the rule:
-// * FromEntities
-// * FromCIDR
-// * FromCIDRSet
-//
-// FromEndpoints is not aggregated due to requirement folding in
-// GetSourceEndpointSelectorsWithRequirements()
-func (i *IngressCommonRule) SetAggregatedSelectors() {
-	// Goroutines can race setting i.aggregatedSelectors, but they will all compute the same result, so it does not matter.
-
-	// explicitly check for empty non-nil slices, it should not result in any identity being selected.
-	if (i.FromCIDR != nil && len(i.FromCIDR) == 0) ||
-		(i.FromCIDRSet != nil && len(i.FromCIDRSet) == 0) ||
-		(i.FromEntities != nil && len(i.FromEntities) == 0) {
-		i.aggregatedSelectors = nil
-		return
-	}
-
-	res := make(EndpointSelectorSlice, 0, len(i.FromEntities)+len(i.FromCIDR)+len(i.FromCIDRSet))
-	res = append(res, i.FromEntities.GetAsEndpointSelectors()...)
-	res = append(res, i.FromCIDR.GetAsEndpointSelectors()...)
-	res = append(res, i.FromCIDRSet.GetAsEndpointSelectors()...)
-
-	i.aggregatedSelectors = res
-}
-
-// GetSourceEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
-// all L3 source selectors of the ingress rule
-func (i *IngressCommonRule) GetSourceEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
-	if i.aggregatedSelectors == nil {
-		i.SetAggregatedSelectors()
-	}
-
-	// explicitly check for empty non-nil slices, it should not result in any identity being selected.
-	if i.aggregatedSelectors == nil || (i.FromEndpoints != nil && len(i.FromEndpoints) == 0) ||
-		(i.FromNodes != nil && len(i.FromNodes) == 0) {
-		return nil
-	}
-
-	res := make(EndpointSelectorSlice, 0, len(i.FromEndpoints)+len(i.aggregatedSelectors)+len(i.FromNodes))
-	if len(requirements) > 0 && len(i.FromEndpoints) > 0 {
-		for idx := range i.FromEndpoints {
-			sel := *i.FromEndpoints[idx].DeepCopy()
-			sel.MatchExpressions = append(sel.MatchExpressions, requirements...)
-			sel.SyncRequirementsWithLabelSelector()
-			// Even though this string is deep copied, we need to override it
-			// because we are updating the contents of the MatchExpressions.
-			sel.cachedLabelSelectorString = sel.LabelSelector.String()
-			res = append(res, sel)
-		}
-	} else {
-		res = append(res, i.FromEndpoints...)
-		res = append(res, i.FromNodes...)
-	}
-
-	return append(res, i.aggregatedSelectors...)
-}
-
 // AllowsWildcarding returns true if wildcarding should be performed upon
 // policy evaluation for the given rule.
 func (i *IngressCommonRule) AllowsWildcarding() bool {
@@ -316,7 +250,6 @@ func (e *IngressRule) CreateDerivative(ctx context.Context) (*IngressRule, error
 	}
 	newRule.FromCIDRSet = append(e.FromCIDRSet, cidrSet...)
 	newRule.FromGroups = nil
-	e.SetAggregatedSelectors()
 	return newRule, nil
 }
 
@@ -336,6 +269,5 @@ func (e *IngressDenyRule) CreateDerivative(ctx context.Context) (*IngressDenyRul
 	}
 	newRule.FromCIDRSet = append(e.FromCIDRSet, cidrSet...)
 	newRule.FromGroups = nil
-	e.SetAggregatedSelectors()
 	return newRule, nil
 }
