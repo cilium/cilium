@@ -12,8 +12,8 @@ gobgp/add-server test 65010 10.99.4.111 1790
 # Configure peers on GoBGP
 gobgp/add-peer 10.99.4.112 65001
 
-# Add k8s services
-k8s/add service-1.yaml
+# Add a k8s service
+k8s/add service.yaml
 
 # Configure BGP on Cilium
 k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
@@ -25,18 +25,18 @@ gobgp/wait-state 10.99.4.112 ESTABLISHED
 gobgp/routes -o routes.actual
 * cmp gobgp-routes-empty.expected routes.actual
 
-# Add corresponding endpointSlices
-k8s/add endpoints1.yaml
+# Add corresponding endpointSlice
+k8s/add endpoints.yaml
 
 # Validate that LB IP is advertised
 gobgp/routes -o routes.actual
 * cmp gobgp-routes.expected routes.actual
 
-# Delete one service
-k8s/delete service-1.yaml
+# Delete the service
+k8s/delete service.yaml
 sleep 0.1s # give some time for the change to propagate to avoid false positive
 
-# Validate that LB IP is still advertised
+# Validate that LB IP is withdrawn
 gobgp/routes -o routes.actual
 * cmp gobgp-routes-empty.expected routes.actual
 
@@ -106,7 +106,7 @@ spec:
       matchExpressions:
         - { key: bgp, operator: In, values: [ advertise ] }
 
--- service-1.yaml --
+-- service.yaml --
 apiVersion: v1
 kind: Service
 metadata:
@@ -139,7 +139,7 @@ status:
     ingress:
     - ip: 172.16.1.1
 
--- endpoints1.yaml --
+-- endpoints.yaml --
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
