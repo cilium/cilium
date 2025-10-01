@@ -5070,6 +5070,14 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "packetizationLayerPMTUD": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"

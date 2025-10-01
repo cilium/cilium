@@ -167,6 +167,7 @@ cilium-agent [flags]
       --enable-nat46x64-gateway                                   Enable NAT46 and NAT64 gateway
       --enable-no-service-endpoints-routable                      Enable routes when service has 0 endpoints (default true)
       --enable-node-selector-labels                               Enable use of node label based identity
+      --enable-packetization-layer-pmtud                          Enables kernel packetization layer path mtu discovery on Pod netns (default true)
       --enable-pmtu-discovery                                     Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                      Enable policy enforcement (default "default")
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy

@@ -2470,6 +2470,10 @@ func init() {
           "description": "True if BBR is enabled only in the host network namespace",
           "type": "boolean"
         },
+        "enablePacketizationLayerPMTUD": {
+          "description": "Enable PLPMTUD probing on the pod netns",
+          "type": "boolean"
+        },
         "enableRouteMTUForCNIChaining": {
           "description": "Enable route MTU for pod netns when CNI chaining is used",
           "type": "boolean"
@@ -7893,6 +7897,10 @@ func init() {
         },
         "enableBBRHostNamespaceOnly": {
           "description": "True if BBR is enabled only in the host network namespace",
+          "type": "boolean"
+        },
+        "enablePacketizationLayerPMTUD": {
+          "description": "Enable PLPMTUD probing on the pod netns",
           "type": "boolean"
         },
         "enableRouteMTUForCNIChaining": {
