@@ -455,19 +455,22 @@ tail_handle_ipv6(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 			return ret;
 
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
-		if (from_host)
-			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
-						 CILIUM_CALL_IPV6_CONT_FROM_HOST,
-						 tail_handle_ipv6_cont_from_host,
-						 &ext_err);
-		else
-			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
-						 CILIUM_CALL_IPV6_CONT_FROM_NETDEV,
-						 tail_handle_ipv6_cont_from_netdev,
-						 &ext_err);
+		if (from_host) {
+			if (is_defined(ENABLE_HOST_FIREWALL))
+				ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CONT_FROM_HOST,
+							 &ext_err);
+			else
+				ret = tail_handle_ipv6_cont_from_host(ctx);
+		} else {
+			if (is_defined(ENABLE_HOST_FIREWALL))
+				ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CONT_FROM_NETDEV,
+							 &ext_err);
+			else
+				ret = tail_handle_ipv6_cont_from_netdev(ctx);
+		}
 	}
 
-	/* Catch errors from both handle_ipv6 and invoke_tailcall_if here. */
+	/* Catch errors from both handle_ipv6 and tail_call_internal here. */
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  METRIC_INGRESS);
@@ -911,19 +914,22 @@ tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 			return ret;
 
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
-		if (from_host)
-			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
-						 CILIUM_CALL_IPV4_CONT_FROM_HOST,
-						 tail_handle_ipv4_cont_from_host,
-						 &ext_err);
-		else
-			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
-						 CILIUM_CALL_IPV4_CONT_FROM_NETDEV,
-						 tail_handle_ipv4_cont_from_netdev,
-						 &ext_err);
+		if (from_host) {
+			if (is_defined(ENABLE_HOST_FIREWALL))
+				ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CONT_FROM_HOST,
+							 &ext_err);
+			else
+				ret = tail_handle_ipv4_cont_from_host(ctx);
+		} else {
+			if (is_defined(ENABLE_HOST_FIREWALL))
+				ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CONT_FROM_NETDEV,
+							 &ext_err);
+			else
+				ret = tail_handle_ipv4_cont_from_netdev(ctx);
+		}
 	}
 
-	/* Catch errors from both handle_ipv4 and invoke_tailcall_if here. */
+	/* Catch errors from both handle_ipv4 and tail_call_internal here. */
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  METRIC_INGRESS);
@@ -1915,24 +1921,22 @@ to_host_from_lxc(struct __ctx_buff *ctx)
 	case bpf_htons(ETH_P_IPV6):
 		ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 		ctx_store_meta(ctx, CB_TRACED, 1);
-		ret = invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-						    is_defined(ENABLE_IPV6)),
-					      is_defined(DEBUG)),
-					 CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
-					 tail_ipv6_host_policy_ingress,
-					 &ext_err);
+		if ((is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) || is_defined(DEBUG))
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
+						 &ext_err);
+		else
+			ret = tail_ipv6_host_policy_ingress(ctx);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 		ctx_store_meta(ctx, CB_TRACED, 1);
-		ret = invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-						    is_defined(ENABLE_IPV6)),
-					      is_defined(DEBUG)),
-					 CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY,
-					 tail_ipv4_host_policy_ingress,
-					 &ext_err);
+		if ((is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) || is_defined(DEBUG))
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY,
+						 &ext_err);
+		else
+			ret = tail_ipv4_host_policy_ingress(ctx);
 		break;
 # endif
 	default:
