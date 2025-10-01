@@ -1244,8 +1244,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:       "node_health_connectivity_status",
 			Help:       "The number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes",
 		}, []string{
-			LabelSourceCluster,
-			LabelSourceNodeName,
 			LabelType,
 			LabelConnectivityStatus,
 		}),
@@ -1257,8 +1255,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "The histogram for last observed latency between the current Cilium agent and other Cilium nodes in seconds",
 			Buckets:    []float64{0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0},
 		}, []string{
-			LabelSourceCluster,
-			LabelSourceNodeName,
 			LabelType,
 			LabelProtocol,
 			LabelAddressType,
