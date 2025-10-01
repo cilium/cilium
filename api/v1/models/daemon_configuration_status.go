@@ -60,6 +60,9 @@ type DaemonConfigurationStatus struct {
 	// True if BBR is enabled only in the host network namespace
 	EnableBBRHostNamespaceOnly bool `json:"enableBBRHostNamespaceOnly,omitempty"`
 
+	// Enable PLPMTUD probing on the pod netns
+	EnablePacketizationLayerPMTUD bool `json:"enablePacketizationLayerPMTUD,omitempty"`
+
 	// Enable route MTU for pod netns when CNI chaining is used
 	EnableRouteMTUForCNIChaining bool `json:"enableRouteMTUForCNIChaining,omitempty"`
 
