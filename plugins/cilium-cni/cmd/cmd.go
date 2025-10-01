@@ -813,6 +813,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			macAddrStr = newEp.Status.Networking.Mac
 		}
 		if err = ns.Do(func() error {
+			configurePacketizationLayerPMTUD(scopedLogger, conf, sysctl)
 			return configureCongestionControl(conf, sysctl)
 		}); err != nil {
 			return fmt.Errorf("unable to configure congestion control: %w", err)
@@ -1293,4 +1294,36 @@ func needsEndpointRoutingOnHost(conf *models.DaemonConfigurationStatus) bool {
 		return conf.InstallUplinkRoutesForDelegatedIPAM
 	}
 	return false
+}
+
+const (
+	// Based on recommendation in https://datatracker.ietf.org/doc/html/rfc4821.
+	mtuProbeBaseMSS = 1024
+	mtuProbeFloor   = 48
+	mtuProbeAlways  = 2
+)
+
+// configurePacketPathMTUDiscovery configures netns to use plpmtud for mtu discovery.
+// When using connection based transport protocols such as tcp, this adjusts message
+// size to discover a working MTU for network path in case of a black hole.
+func configurePacketizationLayerPMTUD(logger *slog.Logger, conf *models.DaemonConfigurationStatus, sysctl sysctl.Sysctl) {
+	if !conf.EnablePacketizationLayerPMTUD {
+		return
+	}
+
+	err := sysctl.ApplySettings([]tables.Sysctl{
+		{Name: []string{"net", "ipv4", "tcp_base_mss"}, Val: strconv.Itoa(mtuProbeBaseMSS)},
+	})
+	if err != nil {
+		logger.Warn("could not apply net.ipv4.tcp_base_mss setting for plmtud "+
+			"(note: this flag was only added in kernel version 5.11): %w", logfields.Error, err)
+	}
+	// Note: These setting apply to both IPv4 and IPv6.
+	if err = sysctl.ApplySettings([]tables.Sysctl{
+		{Name: []string{"net", "ipv4", "tcp_mtu_probing"}, Val: strconv.Itoa(mtuProbeAlways)},
+		{Name: []string{"net", "ipv4", "tcp_mtu_probe_floor"}, Val: strconv.Itoa(mtuProbeFloor)},
+	}); err != nil {
+		logger.Warn("could not enable mtu probing",
+			logfields.Error, err)
+	}
 }
