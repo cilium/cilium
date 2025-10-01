@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
-	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -30,11 +29,10 @@ type clusterMesh struct {
 	// common implements the common logic to connect to remote clusters.
 	common common.ClusterMesh
 
-	cfg         ClusterMeshConfig
-	cfgMCSAPI   MCSAPIConfig
-	logger      *slog.Logger
-	clusterInfo types.ClusterInfo
-	metrics     Metrics
+	cfg       ClusterMeshConfig
+	cfgMCSAPI MCSAPIConfig
+	logger    *slog.Logger
+	metrics   Metrics
 
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
@@ -102,7 +100,6 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 		cfg:                  params.Cfg,
 		cfgMCSAPI:            params.CfgMCSAPI,
 		logger:               params.Logger,
-		clusterInfo:          params.ClusterInfo,
 		metrics:              params.Metrics,
 		globalServices:       common.NewGlobalServiceCache(params.Logger),
 		globalServiceExports: NewGlobalServiceExportCache(),
@@ -225,7 +222,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 			},
 		),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.services.Stop() }),
-		store.RWSWithEntriesMetric(cm.metrics.TotalServices.WithLabelValues(cm.clusterInfo.Name, rc.name)),
+		store.RWSWithEntriesMetric(cm.metrics.TotalServices.WithLabelValues(rc.name)),
 	)
 
 	rc.remoteServiceExports = cm.storeFactory.NewWatchStore(
@@ -248,7 +245,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 			},
 		),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.serviceExports.Stop() }),
-		store.RWSWithEntriesMetric(cm.metrics.TotalServiceExports.WithLabelValues(cm.clusterInfo.Name, name)),
+		store.RWSWithEntriesMetric(cm.metrics.TotalServiceExports.WithLabelValues(name)),
 	)
 
 	return rc
