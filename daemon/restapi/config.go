@@ -406,6 +406,7 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		GSOIPV4MaxSize:                      int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
 		IPLocalReservedPorts:                h.getIPLocalReservedPorts(),
 		EnableBBRHostNamespaceOnly:          h.bandwidthConfig.EnableBBRHostnsOnly,
+		EnableEndpointPacketPMTUD:           option.Config.EnableEndpointPacketPMTUD,
 	}
 
 	cfg := &models.DaemonConfiguration{

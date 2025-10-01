@@ -2525,6 +2525,9 @@ definitions:
       enableRouteMTUForCNIChaining:
         description: Enable route MTU for pod netns when CNI chaining is used
         type: boolean
+      enableEndpointPacketPMTUD:
+        description: Enable plpmtud probing on the pod netns
+        type: boolean
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
       ipam-mode:
