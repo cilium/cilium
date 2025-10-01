@@ -813,6 +813,9 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			macAddrStr = newEp.Status.Networking.Mac
 		}
 		if err = ns.Do(func() error {
+			if err := configurePacketizationLayerPMTUD(conf, sysctl); err != nil {
+				return fmt.Errorf("failed to enable mtu probing: %w", err)
+			}
 			return configureCongestionControl(conf, sysctl)
 		}); err != nil {
 			return fmt.Errorf("unable to configure congestion control: %w", err)
@@ -1293,4 +1296,26 @@ func needsEndpointRoutingOnHost(conf *models.DaemonConfigurationStatus) bool {
 		return conf.InstallUplinkRoutesForDelegatedIPAM
 	}
 	return false
+}
+
+const (
+	// Based on recommendation in https://datatracker.ietf.org/doc/html/rfc4821.
+	mtuProbeBaseMSS = 1024
+	mtuProbeFloor   = 48
+	mtuProbeAlways  = 2
+)
+
+// configurePacketPathMTUDiscovery configures netns to use plpmtud for mtu discovery.
+// When using connection based transport protocols such as tcp, this adjusts message
+// size to discover a
+func configurePacketizationLayerPMTUD(conf *models.DaemonConfigurationStatus, sysctl sysctl.Sysctl) error {
+	if !conf.EnablePacketizationLayerPMTUD {
+		return nil
+	}
+	// Note: These setting apply to both IPv4 and IPv6
+	return sysctl.ApplySettings([]tables.Sysctl{
+		{Name: []string{"net", "ipv4", "tcp_mtu_probing"}, Val: strconv.Itoa(mtuProbeAlways)},
+		{Name: []string{"net", "ipv4", "tcp_base_mss"}, Val: strconv.Itoa(mtuProbeBaseMSS)},
+		{Name: []string{"net", "ipv4", "tcp_mtu_probe_floor"}, Val: strconv.Itoa(mtuProbeFloor)},
+	})
 }

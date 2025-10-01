@@ -999,6 +999,9 @@ const (
 
 	// IPTracingOptionType specifies what IPv4 option type should be used to extract trace information from a packet
 	IPTracingOptionType = "ip-tracing-option-type"
+
+	// EnablePacketizationLayerPMTUD enables kernel plpmtud discovery on Pod netns.
+	EnablePacketizationLayerPMTUD = "enable-packetization-layer-pmtud"
 )
 
 // Default string arguments
@@ -1899,6 +1902,9 @@ type DaemonConfig struct {
 
 	// IPTracingOptionType determines whether to enable IP tracing, and if enabled what option type to use.
 	IPTracingOptionType uint
+
+	// EnablePacketizationLayerPMTUD enables kernel packetization layer path mtu discovery on Pod netns.
+	EnablePacketizationLayerPMTUD bool
 }
 
 var (
@@ -2591,7 +2597,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.BootIDFile = vp.GetString(BootIDFilename)
 	c.EnableExtendedIPProtocols = vp.GetBool(EnableExtendedIPProtocols)
 	c.IPTracingOptionType = vp.GetUint(IPTracingOptionType)
-
+	c.EnablePacketizationLayerPMTUD = vp.GetBool(EnablePacketizationLayerPMTUD)
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
 	case ServiceNoBackendResponseReject, ServiceNoBackendResponseDrop:
