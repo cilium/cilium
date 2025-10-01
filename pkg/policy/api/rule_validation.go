@@ -168,8 +168,6 @@ func (i *IngressRule) sanitize(hostPolicy bool) error {
 		}
 	}
 
-	i.SetAggregatedSelectors()
-
 	return nil
 }
 
@@ -197,8 +195,6 @@ func (i *IngressDenyRule) sanitize() error {
 			return err
 		}
 	}
-
-	i.SetAggregatedSelectors()
 
 	return nil
 }
@@ -361,8 +357,6 @@ func (e *EgressRule) sanitize(hostPolicy bool) error {
 		}
 	}
 
-	e.SetAggregatedSelectors()
-
 	return nil
 }
 
@@ -411,8 +405,6 @@ func (e *EgressDenyRule) sanitize() error {
 			return err
 		}
 	}
-
-	e.SetAggregatedSelectors()
 
 	return nil
 }
