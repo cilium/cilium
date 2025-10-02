@@ -81,11 +81,11 @@ type Repository struct {
 	// Always positive (>0).
 	revision atomic.Uint64
 
-	// SelectorCache tracks the selectors used in the policies
+	// selectorCache tracks the selectors used in the policies
 	// resolved from the repository.
 	selectorCache *SelectorCache
 
-	// PolicyCache tracks the selector policies created from this repo
+	// policyCache tracks the selector policies created from this repo
 	policyCache *policyCache
 
 	certManager certificatemanager.CertificateManager
