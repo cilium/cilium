@@ -25,6 +25,7 @@ import (
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 var Cell = cell.Module(
@@ -71,7 +72,17 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 			params.Config.SkipUnknownCGroupIDs,
 		),
 	)
-	return parser.New(params.Log, g, g, g, params.Ipcache, g, params.LinkCache, params.CGroupManager, parserOpts...)
+	return parser.New(
+		params.Log,
+		g,
+		g,
+		g,
+		params.Ipcache,
+		g,
+		params.LinkCache,
+		params.CGroupManager,
+		params.PolicyRepo,
+		parserOpts...)
 }
 
 type payloadParserParams struct {
@@ -86,6 +97,7 @@ type payloadParserParams struct {
 	Ipcache           *ipcache.IPCache
 	CGroupManager     manager.CGroupManager
 	LinkCache         *link.LinkCache
+	PolicyRepo        policy.PolicyRepository
 
 	Config config
 }
