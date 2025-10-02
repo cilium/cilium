@@ -322,6 +322,11 @@ communicating via the proxy must reconnect to re-establish connections.
 * The previously deprecated ``CiliumBGPPeeringPolicy`` CRD and its control plane (BGPv1) has been removed.
   Please migrate to ``cilium.io/v2`` CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``,
   ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) before upgrading.
+* If running Cilium with IPsec, Kube-Proxy Replacement, and BPF Masquerading enabled,
+  `eBPF_Host_Routing` will be automatically enabled. That was already the case when running without
+  IPsec. Running BPF Host Routing with IPsec however requires
+  `a kernel bugfix <`https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=c4327229948879814229b46aa26a750718888503>`_.
+  You can disable BPF Host Routing with ``--enable-host-legacy-routing=true``.
 * Certificate generation with the CronJob method for Hubble and ClusterMesh has
   changed. The Job resource to generate certificates is now created like any other
   resource and is no longer part of Helm post-install or post-upgrade hooks. This
