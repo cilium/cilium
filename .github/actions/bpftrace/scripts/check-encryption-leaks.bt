@@ -103,8 +103,7 @@ kprobe:br_forward
   $encap =
       (($proto == PROTO_IPV4 && $ip4h->protocol == PROTO_UDP) ||
         ($proto == PROTO_IPV6 && $ip6h->nexthdr == PROTO_UDP)) &&
-      ((bswap($udph->source) == PORT_VXLAN || bswap($udph->dest) == PORT_VXLAN) ||
-        (bswap($udph->source) == PORT_GENEVE || bswap($udph->dest) == PORT_GENEVE));
+      (bswap($udph->dest) == PORT_VXLAN || bswap($udph->dest) == PORT_GENEVE);
 
   if ($skb->encapsulation || $encap) {
     // $skb->inner_protocol does not appear to be correctly initialized
