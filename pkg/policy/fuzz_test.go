@@ -84,7 +84,10 @@ func FuzzAccumulateMapChange(f *testing.F) {
 			proxyPort = 1
 		}
 		key := KeyForDirection(dir).WithPortProto(proto, port)
-		value := newMapStateEntry(NilRuleOrigin, proxyPort, 0, deny, NoAuthRequirement, 0)
+		value := mapStateEntry{
+			MapStateEntry:    types.NewMapStateEntry(deny, proxyPort, 0, NoAuthRequirement, 0),
+			derivedFromRules: NilRuleOrigin,
+		}
 		policyMaps := MapChanges{logger: slog.New(slog.DiscardHandler)}
 		policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		policyMaps.SyncMapChanges(versioned.LatestTx)
