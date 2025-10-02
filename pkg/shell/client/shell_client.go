@@ -43,14 +43,14 @@ var stdReadWriter = struct {
 	Writer: os.Stdout,
 }
 
-func dialShell(w io.Writer) (net.Conn, error) {
+func dialShell(c baseshell.Config, w io.Writer) (net.Conn, error) {
 	var conn net.Conn
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	for {
 		var err error
 		var d net.Dialer
-		conn, err = d.DialContext(ctx, "unix", shellCmdCfg.ShellSockPath)
+		conn, err = d.DialContext(ctx, "unix", c.ShellSockPath)
 		if err == nil {
 			break
 		}
@@ -70,7 +70,14 @@ func dialShell(w io.Writer) (net.Conn, error) {
 // use [AddShellOptions] to add shell-related flags to the command.
 // (e.g., see cilium-dbg/cmd/metrics_list.go).
 func ShellExchange(w io.Writer, format string, args ...any) error {
-	conn, err := dialShell(os.Stderr)
+	return ShellExchangeWithConfig(shellCmdCfg, w, format, args...)
+}
+
+// ShellExchangeWithConfig sends a command to the shell with a specific configuration.
+// This is useful to interact with different shell sockets from Go code.
+// When using this package as a cobra.Command, refer to [ShellCmd] and [ShellExchange].
+func ShellExchangeWithConfig(c baseshell.Config, w io.Writer, format string, args ...any) error {
+	conn, err := dialShell(c, os.Stderr)
 	if err != nil {
 		return err
 	}
@@ -150,7 +157,7 @@ func interactiveShell() {
 	// Try to dial the shell.sock. Since it takes a moment for the server to come up and this
 	// is meant for interactive use we'll try to be helpful and retry the dialing until
 	// server comes up.
-	conn, err := dialShell(console)
+	conn, err := dialShell(shellCmdCfg, console)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
