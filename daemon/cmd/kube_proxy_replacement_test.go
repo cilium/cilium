@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/afero"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -18,14 +17,11 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
-
-type KPRSuite struct{}
 
 type kprConfig struct {
 	kubeProxyReplacement bool
@@ -113,23 +109,7 @@ func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg 
 	require.Equal(t, cfg.enableSocketLBTracing, option.Config.EnableSocketLBTracing)
 }
 
-func setupKPRSuite(tb testing.TB) *KPRSuite {
-	s := &KPRSuite{}
-
-	mockCmd := &cobra.Command{}
-	h := hive.New(Agent)
-	h.RegisterFlags(mockCmd.Flags())
-	logger := hivetest.Logger(tb)
-	InitGlobalFlags(logger, mockCmd, h.Viper())
-	option.Config.Populate(logger, h.Viper())
-	option.Config.DryMode = true
-
-	return s
-}
-
 func TestInitKubeProxyReplacementOptions(t *testing.T) {
-	setupKPRSuite(t)
-
 	cases := []struct {
 		name string
 		mod  func(*kprConfig)
