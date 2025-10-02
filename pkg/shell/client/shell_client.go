@@ -25,11 +25,15 @@ import (
 // Config for [ShellCmd]. Use [AddShellOptions] to adjust flags.
 var shellCmdCfg = baseshell.DefaultConfig
 
-var ShellCmd = &cobra.Command{
-	Use:   "shell [command] [args]...",
-	Short: "Connect to the Cilium shell",
-	Run:   executeShell,
-}
+var ShellCmd = func() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "shell [command] [args]...",
+		Short: "Connect to the Cilium shell",
+		Run:   executeShell,
+	}
+	AddShellOptions(cmd)
+	return cmd
+}()
 
 var stdReadWriter = struct {
 	io.Reader
