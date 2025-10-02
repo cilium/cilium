@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/logcookie"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -534,6 +535,8 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 		}
 	}
 
+	logCookieBakery := logcookie.NewBakery[uint32, string](logger)
+
 	ws := newTestCachedSelector("wildcard", true)
 	testSelA := newTestCachedSelector("test-selector-a", false, 101, 102, 103)
 	testSelB := newTestCachedSelector("test-selector-b", false, 201, 202, 203)
@@ -585,7 +588,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 			b.StartTimer()
 
 			for _, filter := range testL4Filters {
-				filter.toMapState(logger, epPolicy, 0, ChangeState{})
+				filter.toMapState(logger, epPolicy, 0, ChangeState{}, logCookieBakery)
 			}
 		}
 	})
@@ -606,7 +609,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 					psp := filter.PerSelectorPolicies
 					filter.PerSelectorPolicies = L7DataMap{ws: nil}
 
-					filter.toMapState(logger, epPolicy, 0, ChangeState{})
+					filter.toMapState(logger, epPolicy, 0, ChangeState{}, logCookieBakery)
 					filter.PerSelectorPolicies = psp
 				}
 			}
@@ -619,7 +622,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 						b.FailNow()
 					}
 
-					l4Policy.AccumulateMapChanges(logger, filter, cs, testSel.selections, nil)
+					l4Policy.AccumulateMapChanges(logger, filter, cs, testSel.selections, nil, logCookieBakery)
 					l4Policy.SyncMapChanges(filter, versioned.LatestTx)
 
 					closer, _ := epPolicy.ConsumeMapChanges()
