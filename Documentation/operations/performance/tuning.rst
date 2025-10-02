@@ -162,7 +162,12 @@ in any of the Cilium pods and look for the line reporting the status for
 "Host Routing" which should state "BPF".
 
 .. note::
-   BPF host routing is incompatible with Istio (see :gh-issue:`36022` for details).
+   BPF Host Routing is incompatible with Istio (see :gh-issue:`36022` for details).
+
+.. note::
+   When using BPF Host Routing with IPsec, `a kernel bugfix <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=c4327229948879814229b46aa26a750718888503>`_
+   is required. If you observe connectivity problems, ensure that the kernel
+   package on your nodes has been upgraded recently before reporting an issue.
 
 **Requirements:**
 
