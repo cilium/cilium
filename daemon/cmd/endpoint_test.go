@@ -66,7 +66,7 @@ func (ds *DaemonSuite) testEndpointAddReservedLabel(t *testing.T) {
 	// reserved:world label.
 	epTemplate.Labels = append(epTemplate.Labels, "reserved:init")
 	_, code, err = ds.endpointAPIManager.CreateEndpoint(context.TODO(), epTemplate)
-	require.Condition(t, errorMatch(err, "not allowed to add reserved labels:.+"))
+	require.ErrorContains(t, err, "not allowed to add reserved labels:")
 	require.Equal(t, apiEndpoint.PutEndpointIDInvalidCode, code)
 
 	// Endpoint was created with invalid data; should transition from
