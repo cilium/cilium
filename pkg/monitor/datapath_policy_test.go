@@ -16,7 +16,7 @@ import (
 func TestDecodePolicyVerdicyNotify(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	require.Equal(t, 32, PolicyVerdictNotifyLen)
+	require.Equal(t, 40, PolicyVerdictNotifyLen)
 
 	input := PolicyVerdictNotify{
 		Type:        0x00,
@@ -32,8 +32,7 @@ func TestDecodePolicyVerdicyNotify(t *testing.T) {
 		Proto:       0x1b,
 		Flags:       0x1c,
 		AuthType:    0x1d,
-		Pad1:        0x1e,
-		Pad2:        0x20_21,
+		Cookie:      0x1e_1f_20_21,
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
@@ -56,8 +55,7 @@ func TestDecodePolicyVerdicyNotify(t *testing.T) {
 	require.Equal(t, input.Proto, output.Proto)
 	require.Equal(t, input.Flags, output.Flags)
 	require.Equal(t, input.AuthType, output.AuthType)
-	require.Equal(t, input.Pad1, output.Pad1)
-	require.Equal(t, input.Pad2, output.Pad2)
+	require.Equal(t, input.Cookie, output.Cookie)
 }
 
 func BenchmarkNewDecodePolicyVerdictNotify(b *testing.B) {

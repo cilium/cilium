@@ -156,6 +156,7 @@ type PolicyEntry struct {
 	ProxyPortPriority policyTypes.ProxyPortPriority `align:"proxy_port_priority"`
 	Pad1              uint8                         `align:"pad1"`
 	Pad2              uint16                        `align:"pad2"`
+	Cookie            uint32                        `align:"cookie"`
 }
 
 // GetProxyPort returns the ProxyPortNetwork in host byte order
@@ -307,7 +308,8 @@ func NewEntryFromPolicyEntry(key PolicyKey, pe policyTypes.MapStateEntry) Policy
 
 	if pe.IsDeny() {
 		return PolicyEntry{
-			Flags: pef,
+			Flags:  pef,
+			Cookie: pe.Cookie,
 		}
 	} else {
 		return PolicyEntry{
@@ -315,6 +317,7 @@ func NewEntryFromPolicyEntry(key PolicyKey, pe policyTypes.MapStateEntry) Policy
 			Flags:             pef,
 			AuthRequirement:   pe.AuthRequirement,
 			ProxyPortPriority: pe.ProxyPortPriority,
+			Cookie:            pe.Cookie,
 		}
 	}
 }
@@ -399,6 +402,7 @@ func (pm *PolicyMap) DumpToMapStateMap() (policyTypes.MapStateMap, error) {
 			ProxyPortPriority: val.ProxyPortPriority,
 			ProxyPort:         val.GetProxyPort(),
 			AuthRequirement:   val.AuthRequirement,
+			Cookie:            val.Cookie,
 		}.WithDeny(val.IsDeny())
 		// if policymapEntry has invalid prefix length, force update by storing as an
 		// invalid MapStateEntry
