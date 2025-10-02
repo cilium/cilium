@@ -3,7 +3,7 @@
 
 // This module contains the kube-proxy replacement initialization helpers.
 
-package cmd
+package initializer
 
 import (
 	"errors"
@@ -34,7 +34,7 @@ import (
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-// initKubeProxyReplacementOptions will grok the global config and determine
+// InitKubeProxyReplacementOptions will grok the global config and determine
 // if we strictly enforce a kube-proxy replacement.
 //
 // if we determine the config denotes a "strict" kube-proxy replacement, the
@@ -43,7 +43,7 @@ import (
 //
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
-func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig) error {
+func InitKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig) error {
 	if !kprCfg.KubeProxyReplacement {
 		option.Config.EnableHostLegacyRouting = true
 	}
@@ -173,7 +173,6 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 // probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with
 // the running kernel.
 func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, sysctl sysctl.Sysctl) error {
-
 	if kprCfg.KubeProxyReplacement {
 		if err := checkNodePortAndEphemeralPortRanges(lbConfig, sysctl); err != nil {
 			return err
@@ -237,9 +236,9 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 	return nil
 }
 
-// finishKubeProxyReplacementInit finishes initialization of kube-proxy
+// FinishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, ipsecEnabled bool) error {
+func FinishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, ipsecEnabled bool) error {
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
 	if option.Config.EnableMKE && kprCfg.EnableSocketLB {
@@ -334,7 +333,7 @@ func markHostExtension(logger *slog.Logger) {
 				return nil
 			}
 			logger.Info("Marking as MKE host extension", logfields.Path, path)
-			f, err := os.OpenFile(path+"/net_cls.classid", os.O_RDWR, 0644)
+			f, err := os.OpenFile(path+"/net_cls.classid", os.O_RDWR, 0o644)
 			if err != nil {
 				return err
 			}

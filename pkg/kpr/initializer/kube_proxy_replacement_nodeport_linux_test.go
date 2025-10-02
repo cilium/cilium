@@ -3,7 +3,7 @@
 
 //go:build linux
 
-package cmd
+package initializer
 
 import (
 	"fmt"
