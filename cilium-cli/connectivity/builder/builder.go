@@ -310,6 +310,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		bgpControlPlane{},
 		multicast{},
 		strictModeEncryption{},
+		ztunnelPodToPodEncryption{},
 	}
 	return injectTests(tests, connTests...)
 }
