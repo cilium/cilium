@@ -34,23 +34,24 @@ import (
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-// InitKubeProxyReplacementOptions will grok the global config and determine
-// if we strictly enforce a kube-proxy replacement.
-//
-// if we determine the config denotes a "strict" kube-proxy replacement, the
-// returned boolean will be true, when we detect a "non-strict" configuration the
-// return boolean is false.
-//
-// if this function cannot determine the strictness an error is returned and the boolean
-// is false. If an error is returned the boolean is of no meaning.
-func InitKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig) error {
-	if !kprCfg.KubeProxyReplacement {
+type kprInitializer struct {
+	logger       *slog.Logger
+	sysctl       sysctl.Sysctl
+	tunnelConfig tunnel.Config
+	lbConfig     loadbalancer.Config
+	kprCfg       kpr.KPRConfig
+	wgCfg        wgTypes.WireguardConfig
+	ipsecAgent   datapath.IPsecAgent
+}
+
+func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
+	if !r.kprCfg.KubeProxyReplacement {
 		option.Config.EnableHostLegacyRouting = true
 	}
-	logger.Info("kube-proxy replacement starting with the following config",
-		logfields.KPRConfiguration, kprCfg)
+	r.logger.Info("kube-proxy replacement starting with the following config",
+		logfields.KPRConfiguration, r.kprCfg)
 
-	if kprCfg.KubeProxyReplacement {
+	if r.kprCfg.KubeProxyReplacement {
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
 			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
 			if ip.To4() == nil {
@@ -85,7 +86,7 @@ func InitKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 			option.Config.LoadBalancerRSSv6 = *cidr
 		}
 
-		dsrIPIP := lbConfig.LoadBalancerUsesDSR() && lbConfig.DSRDispatch == loadbalancer.DSRDispatchIPIP
+		dsrIPIP := r.lbConfig.LoadBalancerUsesDSR() && r.lbConfig.DSRDispatch == loadbalancer.DSRDispatchIPIP
 		if dsrIPIP && option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
 			option.Config.EnableIPIPDevices = true
 		}
@@ -96,8 +97,8 @@ func InitKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		}
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
-			wgCfg.Enabled() && option.Config.EncryptNode {
-			logger.Warn(
+			r.wgCfg.Enabled() && option.Config.EncryptNode {
+			r.logger.Warn(
 				fmt.Sprintf(
 					"With %s: %s and %s, %s enabled, N/S Loadbalancer traffic won't be encrypted "+
 						"when an intermediate node redirects a request to another node where a selected backend is running.",
@@ -107,36 +108,36 @@ func InitKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		}
 
 		if !option.Config.NodePortBindProtection {
-			logger.Warn("NodePort BPF configured without bind(2) protection against service ports")
+			r.logger.Warn("NodePort BPF configured without bind(2) protection against service ports")
 		}
 
-		if option.Config.TunnelingEnabled() && tunnelConfig.UnderlayProtocol() == tunnel.IPv6 &&
+		if option.Config.TunnelingEnabled() && r.tunnelConfig.UnderlayProtocol() == tunnel.IPv6 &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			return fmt.Errorf("XDP acceleration cannot be used with an IPv6 underlay")
 		}
 
-		if option.Config.TunnelingEnabled() && tunnelConfig.EncapProtocol() == tunnel.VXLAN &&
-			lbConfig.LoadBalancerUsesDSR() {
-			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", lbConfig.LBMode, tunnel.VXLAN)
+		if option.Config.TunnelingEnabled() && r.tunnelConfig.EncapProtocol() == tunnel.VXLAN &&
+			r.lbConfig.LoadBalancerUsesDSR() {
+			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", r.lbConfig.LBMode, tunnel.VXLAN)
 		}
 
-		if option.Config.TunnelingEnabled() && lbConfig.LoadBalancerUsesDSR() &&
-			lbConfig.DSRDispatch != loadbalancer.DSRDispatchGeneve {
+		if option.Config.TunnelingEnabled() && r.lbConfig.LoadBalancerUsesDSR() &&
+			r.lbConfig.DSRDispatch != loadbalancer.DSRDispatchGeneve {
 			return fmt.Errorf("Tunnel routing with Node Port %q mode requires %s dispatch.",
-				lbConfig.LBMode, loadbalancer.DSRDispatchGeneve)
+				r.lbConfig.LBMode, loadbalancer.DSRDispatchGeneve)
 		}
 
-		if lbConfig.LoadBalancerUsesDSR() &&
-			lbConfig.DSRDispatch == loadbalancer.DSRDispatchGeneve &&
-			tunnelConfig.EncapProtocol() != tunnel.Geneve {
+		if r.lbConfig.LoadBalancerUsesDSR() &&
+			r.lbConfig.DSRDispatch == loadbalancer.DSRDispatchGeneve &&
+			r.tunnelConfig.EncapProtocol() != tunnel.Geneve {
 			return fmt.Errorf("Node Port %q mode with %q dispatch requires %s tunnel protocol.",
-				lbConfig.LBMode, lbConfig.DSRDispatch, tunnel.Geneve)
+				r.lbConfig.LBMode, r.lbConfig.DSRDispatch, tunnel.Geneve)
 		}
 
 		if option.Config.LoadBalancerIPIPSockMark {
 			if !dsrIPIP {
 				return fmt.Errorf("Node Port %q mode with IPIP socket mark logic requires %s dispatch.",
-					lbConfig.LBMode, loadbalancer.DSRDispatchIPIP)
+					r.lbConfig.LBMode, loadbalancer.DSRDispatchIPIP)
 			}
 			option.Config.EnableHealthDatapath = true
 			option.Config.EnableIPIPDevices = true
@@ -147,7 +148,7 @@ func InitKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		// InstallNoConntrackIptRules can only be enabled when Cilium is
 		// running in full KPR mode as otherwise conntrack would be
 		// required for NAT operations
-		if !(kprCfg.KubeProxyReplacement && kprCfg.EnableSocketLB) {
+		if !(r.kprCfg.KubeProxyReplacement && r.kprCfg.EnableSocketLB) {
 			return fmt.Errorf("%s requires the agent to run with %s.",
 				option.InstallNoConntrackIptRules, option.KubeProxyReplacement)
 		}
@@ -158,7 +159,7 @@ func InitKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		}
 	}
 
-	if !kprCfg.EnableSocketLB {
+	if !r.kprCfg.EnableSocketLB {
 		option.Config.EnableSocketLBTracing = false
 		option.Config.EnableSocketLBPeer = false
 	}
@@ -167,7 +168,7 @@ func InitKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		return nil
 	}
 
-	return probeKubeProxyReplacementOptions(logger, lbConfig, kprCfg, sysctl)
+	return probeKubeProxyReplacementOptions(r.logger, r.lbConfig, r.kprCfg, r.sysctl)
 }
 
 // probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with
@@ -236,41 +237,39 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 	return nil
 }
 
-// FinishKubeProxyReplacementInit finishes initialization of kube-proxy
-// replacement after all devices are known.
-func FinishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, ipsecEnabled bool) error {
+func (r *kprInitializer) FinishKubeProxyReplacementInit(devices []*tables.Device, directRoutingDevice string) error {
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
-	if option.Config.EnableMKE && kprCfg.EnableSocketLB {
-		markHostExtension(logger)
+	if option.Config.EnableMKE && r.kprCfg.EnableSocketLB {
+		markHostExtension(r.logger)
 	}
 
 	if !option.Config.EnableHostLegacyRouting {
 		msg := ""
 		switch {
 		// Needs host stack for packet handling.
-		case ipsecEnabled:
+		case r.ipsecAgent.Enabled():
 			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", datapath.EnableIPSec)
 		// Non-BPF masquerade requires netfilter and hence CT.
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
 		// KPR=true is needed or we might rely on netfilter.
-		case !kprCfg.KubeProxyReplacement:
+		case !r.kprCfg.KubeProxyReplacement:
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.KubeProxyReplacement)
 		}
 		if msg != "" {
 			option.Config.EnableHostLegacyRouting = true
-			logger.Info(fmt.Sprintf("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting))
+			r.logger.Info(fmt.Sprintf("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting))
 		}
 	}
 
-	if option.Config.NodePortNat46X64 && lbConfig.LBMode != loadbalancer.LBModeSNAT {
+	if option.Config.NodePortNat46X64 && r.lbConfig.LBMode != loadbalancer.LBModeSNAT {
 		return fmt.Errorf("NAT46/NAT64 requires SNAT mode for services")
 	}
 
 	if option.Config.EnableIPv4 &&
 		!option.Config.TunnelingEnabled() &&
-		lbConfig.LoadBalancerUsesDSR() &&
+		r.lbConfig.LoadBalancerUsesDSR() &&
 		directRoutingDevice != "" &&
 		len(devices) > 1 {
 
@@ -281,14 +280,14 @@ func FinishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 		// and the client IP is reachable via other device than the direct
 		// routing one.
 
-		if val, err := sysctl.Read([]string{"net", "ipv4", "conf", directRoutingDevice, "rp_filter"}); err != nil {
-			logger.Warn(fmt.Sprintf(
+		if val, err := r.sysctl.Read([]string{"net", "ipv4", "conf", directRoutingDevice, "rp_filter"}); err != nil {
+			r.logger.Warn(fmt.Sprintf(
 				"Unable to read net.ipv4.conf.%s.rp_filter: %s. Ignoring the check",
 				directRoutingDevice, err),
 			)
 		} else {
 			if val == "1" {
-				logger.Warn(fmt.Sprintf(`DSR might not work for requests sent to other than %s device. `+
+				r.logger.Warn(fmt.Sprintf(`DSR might not work for requests sent to other than %s device. `+
 					`Run 'sysctl -w net.ipv4.conf.%s.rp_filter=2' (or set to '0') on each node to fix`,
 					directRoutingDevice, directRoutingDevice))
 			}

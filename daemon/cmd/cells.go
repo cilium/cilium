@@ -13,8 +13,6 @@ import (
 	"github.com/cilium/statedb"
 	"google.golang.org/grpc"
 
-	"github.com/cilium/cilium/pkg/healthconfig"
-
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
@@ -43,6 +41,7 @@ import (
 	fqdn "github.com/cilium/cilium/pkg/fqdn/cell"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/health"
+	"github.com/cilium/cilium/pkg/healthconfig"
 	hubble "github.com/cilium/cilium/pkg/hubble/cell"
 	identity "github.com/cilium/cilium/pkg/identity/cell"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
@@ -53,7 +52,7 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
-	"github.com/cilium/cilium/pkg/kpr"
+	kpr "github.com/cilium/cilium/pkg/kpr/initializer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
@@ -268,7 +267,7 @@ var (
 		// Provides the BPF ip-masq-agent implementation, which is responsible for managing IP masquerading rules
 		ipmasq.Cell,
 
-		// Provides KPRConfig
+		// Provides KPR config & initialization logic
 		kpr.Cell,
 
 		// Provides PolicyRepository (List of policy rules)
@@ -426,7 +425,8 @@ func kvstoreExtraOptions(in struct {
 	NodeManager nodeManager.NodeManager
 	ClientSet   k8sClient.Clientset
 	Resolver    *dial.ServiceResolver
-}) (kvstore.ExtraOptions, kvstore.BootstrapStat) {
+},
+) (kvstore.ExtraOptions, kvstore.BootstrapStat) {
 	goopts := kvstore.ExtraOptions{
 		ClusterSizeDependantInterval: in.NodeManager.ClusterSizeDependantInterval,
 	}
