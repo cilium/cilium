@@ -57,7 +57,7 @@ func MetricsProvider(subsystem string) func() Metrics {
 				Subsystem: subsystem,
 				Name:      "remote_cluster_cache_revocations",
 				Help:      "The total number of cache revocations related to the remote cluster",
-			}, []string{metrics.LabelSourceCluster, metrics.LabelTargetCluster}),
+			}, []string{metrics.LabelSourceCluster, metrics.LabelTargetCluster, metrics.LabelMode}),
 		}
 	}
 }

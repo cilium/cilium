@@ -73,6 +73,10 @@ type remoteCluster struct {
 	// restored.
 	cacheRevokeCancel context.CancelFunc
 
+	// enableCacheRevocation controls whether cached state for a remote cluster is actually
+	// revoked once its TTL expires.
+	enableCacheRevocation bool
+
 	// cacheRevocations is the number of observed cache revocations
 	cacheRevocations int
 
@@ -155,8 +159,12 @@ func (rc *remoteCluster) restartRemoteConnection() {
 			defer rc.wg.Done()
 			select {
 			case <-time.After(rc.cacheTTL):
-				rc.logger.Warn("Remote cluster cache TTL expired, revoking cache", logfields.TTL, rc.cacheTTL)
-				rc.RevokeCache(context.Background())
+				if rc.enableCacheRevocation {
+					rc.logger.Warn("Remote cluster cache TTL expired, revoking cache", logfields.TTL, rc.cacheTTL)
+					rc.RevokeCache(context.Background())
+				} else {
+					rc.logger.Warn("Remote cluster cache TTL expired. Revocation is not enabled, taking no action", logfields.TTL, rc.cacheTTL)
+				}
 				rc.mutex.Lock()
 				rc.cacheRevocations++
 				rc.metricTotalCacheRevocations.Set(float64(rc.cacheRevocations))

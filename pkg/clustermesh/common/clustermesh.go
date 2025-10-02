@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 type StatusFunc func() *models.RemoteCluster
@@ -138,11 +139,18 @@ func (cm *clusterMesh) Stop(cell.HookContext) error {
 }
 
 func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
+	var mode string
+	if cm.conf.EnableRemoteClusterCacheRevocation {
+		mode = metrics.LabelValueModeExecuted
+	} else {
+		mode = metrics.LabelValueModeDryRun
+	}
 	rc := &remoteCluster{
 		name:                         name,
 		configPath:                   path,
 		clusterSizeDependantInterval: cm.conf.ClusterSizeDependantInterval,
 		cacheTTL:                     cm.conf.RemoteClusterCacheTTL,
+		enableCacheRevocation:        cm.conf.EnableRemoteClusterCacheRevocation,
 
 		resolvers: cm.conf.Resolvers,
 
@@ -157,7 +165,7 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		metricLastFailureTimestamp:  cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
 		metricReadinessStatus:       cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
 		metricTotalFailures:         cm.conf.Metrics.TotalFailures.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
-		metricTotalCacheRevocations: cm.conf.Metrics.TotalCacheRevocations.WithLabelValues(cm.conf.ClusterInfo.Name, name),
+		metricTotalCacheRevocations: cm.conf.Metrics.TotalCacheRevocations.WithLabelValues(cm.conf.ClusterInfo.Name, name, mode),
 	}
 
 	rc.RemoteCluster = cm.conf.NewRemoteCluster(name, rc.status)

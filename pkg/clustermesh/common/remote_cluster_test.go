@@ -159,6 +159,7 @@ func TestRemoteClusterCacheRevokeOnTimeout(t *testing.T) {
 	}
 
 	// Configure the TTL and mock the factory to permanently fail all future connections.
+	rc.enableCacheRevocation = true
 	rc.cacheTTL = 2 * time.Second
 	rc.remoteClientFactory = func(ctx context.Context, logger *slog.Logger, cfgpath string,
 		options kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
