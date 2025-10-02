@@ -137,6 +137,9 @@ func TestRemoteClusterCacheRevokeOnTimeout(t *testing.T) {
 			}
 		},
 		Metrics: MetricsProvider("clustermesh")(),
+		Config: Config{
+			EnableRemoteClusterCacheRevocation: true,
+		},
 	})
 
 	rc := cm.(*clusterMesh).newRemoteCluster(name, path)

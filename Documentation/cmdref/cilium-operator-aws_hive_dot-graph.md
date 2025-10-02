@@ -45,6 +45,7 @@ cilium-operator-aws hive dot-graph [flags]
       --enable-lb-ipam                                       Enable LB IPAM (default true)
       --enable-node-ipam                                     Enable Node IPAM
       --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
+      --enable-remote-cluster-cache-revocation               Enable revocation of cached state for a remote cluster once its TTL expires. When disabled (default), revocation is not performed, but log messages are emitted when the cache would have been revoked.
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
@@ -99,7 +100,7 @@ cilium-operator-aws hive dot-graph [flags]
       --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
       --policy-default-local-cluster                         Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-secrets-namespace string                      Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
-      --remote-cluster-cache-ttl duration                    The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked (default).
+      --remote-cluster-cache-ttl duration                    The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked. (default 15m0s)
       --shell-sock-path string                               Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
       --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
       --synchronize-k8s-nodes                                Perform GC of stale node entries from the KVStore (default true)

@@ -247,6 +247,15 @@ const (
 	LabelReachable          = "reachable"
 	LabelUnreachable        = "unreachable"
 	LabelUnknown            = "unknown"
+
+	// LabelMode indicates the mode of the metric
+	LabelMode = "mode"
+
+	// LabelValueModeExecuted is used when the metric is for an action that was executed
+	LabelValueModeExecuted = "executed"
+
+	// LabelValueModeDryRun is used when the metric is for an action that was dry-run (not executed)
+	LabelValueModeDryRun = "dry-run"
 )
 
 var (
