@@ -319,6 +319,11 @@ communicating via the proxy must reconnect to re-establish connections.
 * MCS-API CRDs need to be updated, see the MCS-API :ref:`clustermesh_mcsapi_prereqs` for updated CRD links.
 * Cilium will stop reporting its local cluster name and node name in metrics. Users relying on those
   should configure their metrics collection system to add similar labels instead.
+* If running Cilium with IPsec, Kube-Proxy Replacement, and BPF Masquerading enabled,
+  `eBPF_Host_Routing` will be automatically enabled. That was already the case when running without
+  IPsec. Running BPF Host Routing with IPsec however requires
+  `a kernel bugfix <`https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=c4327229948879814229b46aa26a750718888503>`_.
+  You can disable BPF Host Routing with ``--enable-host-legacy-routing=true``.
 
 Removed Options
 ~~~~~~~~~~~~~~~
