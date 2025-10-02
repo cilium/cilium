@@ -18,36 +18,21 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-type NodePortSuite struct {
-	prevEphemeralPortRange string
-	prevReservedPortRanges string
-	sysctl                 sysctl.Sysctl
-}
-
-func setupNodePortSuite(tb testing.TB) *NodePortSuite {
-	testutils.PrivilegedTest(tb)
-
-	s := &NodePortSuite{}
-	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
-	prevEphemeralPortRange, err := s.sysctl.Read([]string{"net", "ipv4", "ip_local_port_range"})
-	require.NoError(tb, err)
-	s.prevEphemeralPortRange = prevEphemeralPortRange
-	prevReservedPortRanges, err := s.sysctl.Read([]string{"net", "ipv4", "ip_local_reserved_ports"})
-	require.NoError(tb, err)
-	s.prevReservedPortRanges = prevReservedPortRanges
-
-	tb.Cleanup(func() {
-		err = s.sysctl.Write([]string{"net", "ipv4", "ip_local_port_range"}, s.prevEphemeralPortRange)
-		require.NoError(tb, err)
-		err = s.sysctl.Write([]string{"net", "ipv4", "ip_local_reserved_ports"}, s.prevReservedPortRanges)
-		require.NoError(tb, err)
-	})
-
-	return s
-}
-
 func TestPrivilegedCheckNodePortAndEphemeralPortRanges(t *testing.T) {
-	s := setupNodePortSuite(t)
+	testutils.PrivilegedTest(t)
+
+	sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+	prevEphemeralPortRange, err := sysctl.Read([]string{"net", "ipv4", "ip_local_port_range"})
+	require.NoError(t, err)
+	prevReservedPortRanges, err := sysctl.Read([]string{"net", "ipv4", "ip_local_reserved_ports"})
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		err = sysctl.Write([]string{"net", "ipv4", "ip_local_port_range"}, prevEphemeralPortRange)
+		require.NoError(t, err)
+		err = sysctl.Write([]string{"net", "ipv4", "ip_local_reserved_ports"}, prevReservedPortRanges)
+		require.NoError(t, err)
+	})
 
 	cases := []struct {
 		npMin       uint16
@@ -75,18 +60,18 @@ func TestPrivilegedCheckNodePortAndEphemeralPortRanges(t *testing.T) {
 		cfg.NodePortMin = test.npMin
 		cfg.NodePortMax = test.npMax
 		option.Config.EnableAutoProtectNodePortRange = test.autoProtect
-		err := s.sysctl.Write([]string{"net", "ipv4", "ip_local_port_range"},
+		err := sysctl.Write([]string{"net", "ipv4", "ip_local_port_range"},
 			fmt.Sprintf("%d %d", test.epMin, test.epMax))
 		require.NoError(t, err)
-		err = s.sysctl.Write([]string{"net", "ipv4", "ip_local_reserved_ports"}, test.resPorts)
+		err = sysctl.Write([]string{"net", "ipv4", "ip_local_reserved_ports"}, test.resPorts)
 		require.NoError(t, err)
 
-		err = checkNodePortAndEphemeralPortRanges(cfg, s.sysctl)
+		err = checkNodePortAndEphemeralPortRanges(cfg, sysctl)
 		if test.expErr {
 			require.Condition(t, errorMatch(err, test.expErrMatch))
 		} else {
 			require.NoError(t, err)
-			resPorts, err := s.sysctl.Read([]string{"net", "ipv4", "ip_local_reserved_ports"})
+			resPorts, err := sysctl.Read([]string{"net", "ipv4", "ip_local_reserved_ports"})
 			require.NoError(t, err)
 			require.Equal(t, test.expResPorts, resPorts)
 		}
