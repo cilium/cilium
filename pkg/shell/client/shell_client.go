@@ -22,7 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 )
 
-var config = baseshell.DefaultConfig
+// Config for [ShellCmd]. Use [AddShellOptions] to adjust flags.
+var shellCmdCfg = baseshell.DefaultConfig
 
 var ShellCmd = &cobra.Command{
 	Use:   "shell [command] [args]...",
@@ -45,7 +46,7 @@ func dialShell(w io.Writer) (net.Conn, error) {
 	for {
 		var err error
 		var d net.Dialer
-		conn, err = d.DialContext(ctx, "unix", config.ShellSockPath)
+		conn, err = d.DialContext(ctx, "unix", shellCmdCfg.ShellSockPath)
 		if err == nil {
 			break
 		}
@@ -60,6 +61,10 @@ func dialShell(w io.Writer) (net.Conn, error) {
 	return conn, nil
 }
 
+// ShellExchange uses [shellCmdCfg] to send a command to the shell.
+// When using this function from within a command different than [ShellCmd],
+// use [AddShellOptions] to add shell-related flags to the command.
+// (e.g., see cilium-dbg/cmd/metrics_list.go).
 func ShellExchange(w io.Writer, format string, args ...any) error {
 	conn, err := dialShell(os.Stderr)
 	if err != nil {
@@ -228,7 +233,8 @@ func printShellGreeting(term *term.Terminal) {
 	fmt.Fprint(term, "\n")
 }
 
-// AddShellSockOption adds the --shell-sock-path to the command.
-func AddShellSockOption(cmd *cobra.Command) {
-	config.Flags(cmd.Flags())
+// AddShellOptions adds the shell flags to the command.
+// Similar to [baseshell.Config.Flags], but for [ShellCmd].
+func AddShellOptions(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&shellCmdCfg.ShellSockPath, baseshell.ShellSockPathName, baseshell.DefaultConfig.ShellSockPath, "Path to the shell UNIX socket")
 }
