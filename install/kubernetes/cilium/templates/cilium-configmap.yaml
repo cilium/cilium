@@ -1399,6 +1399,9 @@ data:
   nat-map-stats-interval: {{ .Values.nat.mapStatsInterval | quote }}
   enable-lb-ipam: {{ .Values.enableLBIPAM | quote }}
   enable-non-default-deny-policies: {{ .Values.enableNonDefaultDenyPolicies | quote }}
+{{- if hasKey .Values "enableTunedBufferMargins" }}
+  enable-tuned-buffer-margins: {{ .Values.enableTunedBufferMargins | quote }}
+{{- end }}
 
 {{- if hasKey .Values.daemon "enableSourceIPVerification" }}
   enable-source-ip-verification: {{ .Values.daemon.enableSourceIPVerification | quote }}

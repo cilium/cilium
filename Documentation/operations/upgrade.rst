@@ -319,6 +319,9 @@ communicating via the proxy must reconnect to re-establish connections.
 * MCS-API CRDs need to be updated, see the MCS-API :ref:`clustermesh_mcsapi_prereqs` for updated CRD links.
 * Cilium will stop reporting its local cluster name and node name in metrics. Users relying on those
   should configure their metrics collection system to add similar labels instead.
+* The new Helm option ``enableTunedBufferMargins`` enables automatic alignment of packet buffer
+  margins on pod-facing network devices to that of the underlying devices when using the netkit driver. This is
+  experimental and requires ``bpf.datapathMode=netkit`` or ``bpf.datapathMode=netkit-l2``. It defaults to false.
 
 Removed Options
 ~~~~~~~~~~~~~~~

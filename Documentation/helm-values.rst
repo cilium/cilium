@@ -1256,6 +1256,10 @@
      - Enable Non-Default-Deny policies
      - bool
      - ``true``
+   * - :spelling:ignore:`enableTunedBufferMargins`
+     - Enable tuning of buffer margins on pod network devices (this is experimental and requires bpf.datapathMode=netkit or bpf.datapathMode=netkit-l2)
+     - bool
+     - ``false``
    * - :spelling:ignore:`enableXTSocketFallback`
      - Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel.
      - bool

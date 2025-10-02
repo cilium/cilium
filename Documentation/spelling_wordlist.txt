@@ -246,7 +246,7 @@ cni
 cnp
 codebase
 codeowner
-codeowners
+codeownersconfig
 commonLabels
 compat
 config
@@ -280,6 +280,7 @@ datacenter
 datagram
 datagrams
 datapath
+datapathMode
 datastore
 datastream
 datastreams
