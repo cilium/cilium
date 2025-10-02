@@ -11,7 +11,8 @@ cilium-dbg shell [command] [args]... [flags]
 ### Options
 
 ```
-  -h, --help   help for shell
+  -h, --help                     help for shell
+      --shell-sock-path string   Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 
 ### Options inherited from parent commands
