@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
-	kprinitializer "github.com/cilium/cilium/pkg/kpr/initializer"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -203,7 +202,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	// detection, might disable BPF NodePort and friends. But this is fine, as
 	// the feature does not influence the decision which BPF maps should be
 	// created.
-	if err := kprinitializer.InitKubeProxyReplacementOptions(params.Logger, params.Sysctl, params.TunnelConfig, params.LBConfig, params.KPRConfig, params.WGAgent); err != nil {
+	if err := params.KPRInitializer.InitKubeProxyReplacementOptions(); err != nil {
 		params.Logger.Error("unable to initialize kube-proxy replacement options", logfields.Error, err)
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
@@ -425,7 +424,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	}
 
 	nativeDevices, _ := datapathTables.SelectedDevices(params.Devices, rxn)
-	if err := kprinitializer.FinishKubeProxyReplacementInit(params.Logger, params.Sysctl, nativeDevices, drdName, params.LBConfig, params.KPRConfig, params.IPsecAgent.Enabled()); err != nil {
+	if err := params.KPRInitializer.FinishKubeProxyReplacementInit(nativeDevices, drdName); err != nil {
 		params.Logger.Error("failed to finalise LB initialization", logfields.Error, err)
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}

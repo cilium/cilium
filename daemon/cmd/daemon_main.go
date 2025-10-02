@@ -34,11 +34,9 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -65,6 +63,7 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kpr"
+	kprinitializer "github.com/cilium/cilium/pkg/kpr/initializer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -1285,11 +1284,9 @@ type daemonParams struct {
 	IPIdentityWatcher   *ipcache.LocalIPIdentityWatcher
 	EndpointRegenerator *endpoint.Regenerator
 	ClusterInfo         cmtypes.ClusterInfo
-	TunnelConfig        tunnel.Config
 	BandwidthManager    datapath.BandwidthManager
 	IPsecAgent          datapath.IPsecAgent
 	MTU                 mtu.MTU
-	Sysctl              sysctl.Sysctl
 	SyncHostIPs         *syncHostIPs
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	IPAM                *ipam.IPAM
@@ -1300,6 +1297,7 @@ type daemonParams struct {
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
 	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
+	KPRInitializer      kprinitializer.KPRInitializer
 	EndpointAPIFence    endpointapi.Fence
 	IPSecConfig         datapath.IPsecConfig
 	HealthConfig        healthconfig.CiliumHealthConfig
