@@ -317,6 +317,9 @@ communicating via the proxy must reconnect to re-establish connections.
   This may change in future. See :gh-issue:`35823`
   and :gh-issue:`17177` for further discussion on this topic.
 * MCS-API CRDs need to be updated, see the MCS-API :ref:`clustermesh_mcsapi_prereqs` for updated CRD links.
+* The new Helm option ``enableTunedBufferMargins`` enables automatic alignment of packet buffer
+  margins on pod-facing network devices to that of the underlying devices when using the netkit driver. This is
+  experimental and requires ``bpf.datapathMode=netkit`` or ``bpf.datapathMode=netkit=l2``. It defaults to false.
 
 Removed Options
 ~~~~~~~~~~~~~~~
