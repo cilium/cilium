@@ -227,16 +227,9 @@ bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoi
 }
 
 static __always_inline
-int egress_gw_handle_packet(struct __ctx_buff *ctx,
-			    struct ipv4_ct_tuple *tuple,
-			    __u32 src_sec_identity, __u32 dst_sec_identity,
-			    const struct trace_ctx *trace)
+int egress_gw_handle_packet(struct ipv4_ct_tuple *tuple,
+			    __u32 dst_sec_identity, __be32 *gateway_ip)
 {
-	struct remote_endpoint_info fake_info = {0};
-	struct endpoint_info *gateway_node_ep;
-	__be32 gateway_ip = 0;
-	int ret;
-
 	/* If the packet is destined to an entity inside the cluster,
 	 * either EP or node, it should not be forwarded to an egress
 	 * gateway since only traffic leaving the cluster is supposed to
@@ -245,27 +238,7 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 	if (identity_is_cluster(dst_sec_identity))
 		return CTX_ACT_OK;
 
-	ret = egress_gw_request_needs_redirect_hook(tuple, &gateway_ip);
-	if (IS_ERR(ret))
-		return ret;
-
-	if (ret == CTX_ACT_OK)
-		return ret;
-
-	/* If the gateway node is the local node, then just let the
-	 * packet go through, as it will be SNATed later on by
-	 * handle_nat_fwd().
-	 */
-	gateway_node_ep = __lookup_ip4_endpoint(gateway_ip);
-	if (gateway_node_ep && (gateway_node_ep->flags & ENDPOINT_F_HOST))
-		return CTX_ACT_OK;
-
-	/* Send the packet to egress gateway node through a tunnel. */
-	fake_info.tunnel_endpoint.ip4 = gateway_ip;
-	fake_info.flag_has_tunnel_ep = true;
-	return __encap_and_redirect_with_nodeid(ctx, &fake_info,
-						src_sec_identity, dst_sec_identity,
-						NOT_VTEP_DST, trace, bpf_htons(ETH_P_IP));
+	return egress_gw_request_needs_redirect_hook(tuple, gateway_ip);
 }
 
 #ifdef ENABLE_IPV6
@@ -439,16 +412,9 @@ bool egress_gw_reply_needs_redirect_hook_v6(struct ipv6hdr *ip6,
 }
 
 static __always_inline
-int egress_gw_handle_packet_v6(struct __ctx_buff *ctx,
-			       struct ipv6_ct_tuple *tuple,
-			       __u32 src_sec_identity, __u32 dst_sec_identity,
-			       const struct trace_ctx *trace)
+int egress_gw_handle_packet_v6(struct ipv6_ct_tuple *tuple,
+			       __u32 dst_sec_identity, __be32 *gateway_ip)
 {
-	struct remote_endpoint_info fake_info = {0};
-	struct endpoint_info *gateway_node_ep;
-	__be32 gateway_ip = 0;
-	int ret;
-
 	/* If the packet is destined to an entity inside the cluster,
 	 * either EP or node, it should not be forwarded to an egress
 	 * gateway since only traffic leaving the cluster is supposed to
@@ -457,27 +423,7 @@ int egress_gw_handle_packet_v6(struct __ctx_buff *ctx,
 	if (identity_is_cluster(dst_sec_identity))
 		return CTX_ACT_OK;
 
-	ret = egress_gw_request_needs_redirect_hook_v6(tuple, &gateway_ip);
-	if (IS_ERR(ret))
-		return ret;
-
-	if (ret == CTX_ACT_OK)
-		return ret;
-
-	/* If the gateway node is the local node, then just let the
-	 * packet go through, as it will be SNATed later on by
-	 * handle_nat_fwd().
-	 */
-	gateway_node_ep = __lookup_ip4_endpoint(gateway_ip);
-	if (gateway_node_ep && (gateway_node_ep->flags & ENDPOINT_F_HOST))
-		return CTX_ACT_OK;
-
-	/* Send the packet to egress gateway node through a tunnel. */
-	fake_info.tunnel_endpoint.ip4 = gateway_ip;
-	fake_info.flag_has_tunnel_ep = true;
-	return __encap_and_redirect_with_nodeid(ctx, &fake_info, src_sec_identity,
-						dst_sec_identity, NOT_VTEP_DST, trace,
-						bpf_htons(ETH_P_IPV6));
+	return egress_gw_request_needs_redirect_hook_v6(tuple, gateway_ip);
 }
 #endif /* ENABLE_IPV6 */
 
@@ -486,6 +432,9 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 			     __u32 src_sec_identity, __u32 dst_sec_identity,
 			     struct trace_ctx *trace)
 {
+	struct remote_endpoint_info fake_info = {0};
+	struct endpoint_info *gateway_node_ep;
+	__be32 gateway_ip = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
@@ -536,9 +485,9 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 
 		/* lower-level code expects CT tuple to be flipped: */
 		__ipv4_ct_tuple_reverse(&tuple4);
-		return egress_gw_handle_packet(ctx, &tuple4,
-					       src_sec_identity, dst_sec_identity,
-					       trace);
+		ret = egress_gw_handle_packet(&tuple4, dst_sec_identity,
+					      &gateway_ip);
+		break;
 #if defined(ENABLE_IPV6)
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -579,13 +528,30 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 
 		/* lower-level code expects CT tuple to be flipped: */
 		__ipv6_ct_tuple_reverse(&tuple6);
-		return egress_gw_handle_packet_v6(ctx, &tuple6,
-						  src_sec_identity, dst_sec_identity,
-						  trace);
+		ret = egress_gw_handle_packet_v6(&tuple6, dst_sec_identity,
+						 &gateway_ip);
+		break;
 #endif
 	default:
 		return CTX_ACT_OK;
 	}
+
+	if (ret != CTX_ACT_REDIRECT)
+		return ret;
+
+	/* If the selected gateway node is the local node, then we don't
+	 * need to redirect the packet.
+	 */
+	gateway_node_ep = __lookup_ip4_endpoint(gateway_ip);
+	if (gateway_node_ep && (gateway_node_ep->flags & ENDPOINT_F_HOST))
+		return CTX_ACT_OK;
+
+	/* Send the packet to egress gateway node through a tunnel. */
+	fake_info.tunnel_endpoint.ip4 = gateway_ip;
+	fake_info.flag_has_tunnel_ep = true;
+	return encap_and_redirect_with_nodeid(ctx, &fake_info,
+					      src_sec_identity, dst_sec_identity,
+					      trace, proto);
 }
 
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
