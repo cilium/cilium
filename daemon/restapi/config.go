@@ -78,7 +78,8 @@ type configModifyApiHandlerParams struct {
 	BandwidthConfig datapath.BandwidthConfig
 	WgConfig        wgTypes.WireguardConfig
 	ConnectorConfig types.ConnectorConfig
-	EventHandler    *ConfigModifyEventHandler
+
+	EventHandler *ConfigModifyEventHandler
 }
 
 type configModifyApiHandlerOut struct {
