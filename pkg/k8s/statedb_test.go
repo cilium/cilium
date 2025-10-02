@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"iter"
 	"slices"
+	"strconv"
 	"sync/atomic"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 	"github.com/stretchr/testify/assert"
@@ -150,6 +152,47 @@ func newTestTable(db *statedb.DB) (statedb.RWTable[*testObject], error) {
 		db,
 		"test",
 		testNameIndex,
+	)
+}
+
+type slimTestObject struct {
+	Name   string
+	Status string
+}
+
+// TableHeader implements statedb.TableWritable.
+func (s *slimTestObject) TableHeader() []string {
+	return []string{"Name", "Status"}
+}
+
+// TableRow implements statedb.TableWritable.
+func (s *slimTestObject) TableRow() []string {
+	return []string{s.Name, s.Status}
+}
+
+var _ statedb.TableWritable = &slimTestObject{}
+
+func (s *slimTestObject) DeepCopy() *slimTestObject {
+	s2 := *s
+	return &s2
+}
+
+var (
+	slimTestNameIndex = statedb.Index[*slimTestObject, string]{
+		Name: "name",
+		FromObject: func(obj *slimTestObject) index.KeySet {
+			return index.NewKeySet(index.String(obj.Name))
+		},
+		FromKey: index.String,
+		Unique:  true,
+	}
+)
+
+func newSlimTestTable(db *statedb.DB) (statedb.RWTable[*slimTestObject], error) {
+	return statedb.NewTable(
+		db,
+		"slim",
+		slimTestNameIndex,
 	)
 }
 
@@ -419,6 +462,153 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	if p.doQueryAll {
 		assert.True(t, queryAllCalled.Load(), "provided query all func not used")
 	}
+}
+
+func TestStateDBReflectorShared(t *testing.T) {
+	var (
+		db      *statedb.DB
+		testTbl statedb.RWTable[*testObject]
+		slimTbl statedb.RWTable[*slimTestObject]
+
+		obj = func(no int, status string) *testObject {
+			return &testObject{
+				PartialObjectMetadata: metav1.PartialObjectMetadata{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            fmt.Sprintf("obj-%d", no),
+						ResourceVersion: fmt.Sprintf("%d", no),
+					},
+				},
+				Status: status,
+			}
+		}
+
+		lw = testutils.NewFakeListerWatcher(obj(0, "init"))
+	)
+
+	hive := hive.New(
+		cell.ProvidePrivate(
+			// reflector 1
+			func(tbl statedb.RWTable[*testObject], slw k8s.SharedListerWatcher) k8s.ReflectorConfig[*testObject] {
+				return k8s.ReflectorConfig[*testObject]{
+					Name:                "shared-1",
+					Table:               tbl,
+					BufferSize:          10,
+					BufferWaitTime:      10 * time.Millisecond,
+					SharedListerWatcher: slw,
+					Transform: func(txn statedb.ReadTxn, a any) (obj *testObject, ok bool) {
+						obj = a.(*testObject).DeepCopy()
+						obj.Status = "shared-1"
+						version, _ := strconv.Atoi(obj.ResourceVersion)
+						return obj, version%2 == 0 // every second object
+					},
+				}
+			},
+			newTestTable,
+			// reflector 2
+			func(tbl statedb.RWTable[*slimTestObject], slw k8s.SharedListerWatcher) k8s.ReflectorConfig[*slimTestObject] {
+				return k8s.ReflectorConfig[*slimTestObject]{
+					Name:                "shared-2",
+					Table:               tbl,
+					BufferSize:          3,
+					BufferWaitTime:      3 * time.Millisecond,
+					SharedListerWatcher: slw,
+					Transform: func(txn statedb.ReadTxn, a any) (s *slimTestObject, ok bool) {
+						obj := a.(*testObject)
+						s = &slimTestObject{
+							Name:   obj.Name,
+							Status: "shared-2",
+						}
+						version, _ := strconv.Atoi(obj.ResourceVersion)
+						return s, version%3 == 0 // every third object
+					},
+				}
+			},
+			newSlimTestTable,
+			// shared lister watcher
+			func(jg job.Group) k8s.SharedListerWatcher {
+				return k8s.NewSharedListerWatcher("testobjs", jg, lw)
+			},
+		),
+		cell.Invoke(
+			k8s.RegisterReflector[*testObject],
+			k8s.RegisterReflector[*slimTestObject],
+			func(db_ *statedb.DB, testTbl_ statedb.RWTable[*testObject], slimTbl_ statedb.RWTable[*slimTestObject]) {
+				db = db_
+				testTbl = testTbl_
+				slimTbl = slimTbl_
+			},
+		),
+	)
+
+	tlog := hivetest.Logger(t)
+	if err := hive.Start(tlog, t.Context()); err != nil {
+		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	// Wait until the tables has been initialized.
+	_, initWatch := testTbl.Initialized(db.ReadTxn())
+	<-initWatch
+	_, initWatch = slimTbl.Initialized(db.ReadTxn())
+	<-initWatch
+
+	// Check that both tables observed the initial object
+	testIter, testWatch := testTbl.AllWatch(db.ReadTxn())
+	testObjs := statedb.Collect(testIter)
+	require.Len(t, testObjs, 1)
+	require.Equal(t, "obj-0", testObjs[0].Name)
+	require.Equal(t, "shared-1", testObjs[0].Status)
+
+	slimIter, slimWatch := slimTbl.AllWatch(db.ReadTxn())
+	slimObjs := statedb.Collect(slimIter)
+	require.Len(t, slimObjs, 1)
+	require.Equal(t, "obj-0", slimObjs[0].Name)
+	require.Equal(t, "shared-2", slimObjs[0].Status)
+
+	// Insert obj-1, this should be ignored by both reflectors
+	lw.Upsert(obj(1, "upsert"))
+	select {
+	case <-testWatch:
+		t.Fatal("shared-1 should not have been updated")
+	case <-slimWatch:
+		t.Fatal("shared-2 should not have been updated")
+	default:
+	}
+
+	// Insert obj-2, this should be visible only to shared-1
+	lw.Upsert(obj(2, "upsert"))
+	select {
+	case <-testWatch:
+	case <-slimWatch:
+		t.Fatal("shared-2 should not have been updated")
+	}
+	testIter, testWatch = testTbl.AllWatch(db.ReadTxn())
+	testObjs = statedb.Collect(testIter)
+	require.Len(t, testObjs, 2)
+	require.Equal(t, "obj-0", testObjs[0].Name)
+	require.Equal(t, "shared-1", testObjs[0].Status)
+	require.Equal(t, "obj-2", testObjs[1].Name)
+	require.Equal(t, "shared-1", testObjs[1].Status)
+
+	// Insert obj-6, both reflectors should handle this
+	lw.Upsert(obj(6, "upsert"))
+	<-testWatch
+	testIter, _ = testTbl.AllWatch(db.ReadTxn())
+	testObjs = statedb.Collect(testIter)
+	require.Len(t, testObjs, 3)
+	require.Equal(t, "obj-0", testObjs[0].Name)
+	require.Equal(t, "shared-1", testObjs[0].Status)
+	require.Equal(t, "obj-2", testObjs[1].Name)
+	require.Equal(t, "shared-1", testObjs[1].Status)
+	require.Equal(t, "obj-6", testObjs[2].Name)
+	require.Equal(t, "shared-1", testObjs[2].Status)
+	<-slimWatch
+	slimIter, _ = slimTbl.AllWatch(db.ReadTxn())
+	slimObjs = statedb.Collect(slimIter)
+	require.Len(t, slimObjs, 2)
+	require.Equal(t, "obj-0", slimObjs[0].Name)
+	require.Equal(t, "shared-2", slimObjs[0].Status)
+	require.Equal(t, "obj-6", slimObjs[1].Name)
+	require.Equal(t, "shared-2", slimObjs[1].Status)
 }
 
 func TestStateDBReflector_jobName(t *testing.T) {

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/promise"
@@ -39,6 +40,13 @@ func RegisterReflector[Obj any](jobGroup job.Group, db *statedb.DB, cfg Reflecto
 		return err
 	}
 
+	var source stream.Observable[CacheStoreEvent]
+	if cfg.SharedListerWatcher != nil {
+		source = cfg.SharedListerWatcher.registerSubscriber()
+	} else {
+		source = ListerWatcherToObservable(cfg.ListerWatcher)
+	}
+
 	// Register initializer that marks when the table has been initially populated,
 	// e.g. the initial "List" has concluded.
 	targetTable := cfg.Table
@@ -46,6 +54,7 @@ func RegisterReflector[Obj any](jobGroup job.Group, db *statedb.DB, cfg Reflecto
 		ReflectorConfig: cfg.withDefaults(),
 		db:              db,
 		table:           targetTable,
+		source:          source,
 	}
 	wtxn := db.WriteTxn(targetTable)
 	r.initDone = targetTable.RegisterInitializer(wtxn, r.ReflectorConfig.Name)
@@ -87,6 +96,131 @@ func OnDemandTable[Obj any](jobs job.Registry, health cell.Health, log *slog.Log
 	), nil
 }
 
+// SharedListerWatcher is a private interface type only obtainable via NewSharedListerWatcher
+type SharedListerWatcher interface {
+	// registerSubscriber obtains a new subscription to this ListerWatcher.
+	// Must be called before Hive is started and the returned Observable
+	// must be used (otherwise the producer will time out waiting for
+	// the subscriber to start observing).
+	registerSubscriber() stream.Observable[CacheStoreEvent]
+}
+
+// NewSharedListerWatcher creates a new SharedListerWatcher which can be used by multiple
+// reflectors to react to events from the same ListerWatcher. The lw ListerWatcher is
+// stopped once the provided jobGroup is stopped. The name is used for diagnostic purposes
+// only and should use dash-case (also known as kebab-case).
+// When providing a SharedWatcher via Hive, it is recommended to define a newtype based on
+// SharedListerWatcher.
+//
+// Usage:
+//
+//	type NodeListerWatcher SharedListerWatcher
+//	var cs client.Clientset
+//	var jg job.Group
+//	var slw NodeListerWatcher
+//	slw = NewSharedListerWatcher("nodes", jg, utils.ListerWatcherFromTyped(cs.CoreV1().Nodes()))
+func NewSharedListerWatcher(name string, jobGroup job.Group, source cache.ListerWatcher) SharedListerWatcher {
+	mcast, start := stream.ToMulticast(ListerWatcherToObservable(source))
+	mu := &lock.Mutex{}
+	cond := sync.NewCond(mu)
+	m := &multicastListerWatcher{
+		name:  name,
+		mcast: mcast,
+
+		mu:      mu,
+		cond:    cond,
+		pending: 0,
+		started: false,
+		needed:  false,
+	}
+
+	jobGroup.Add(job.OneShot(fmt.Sprintf("start-lister-watcher-%s", name), func(ctx context.Context, health cell.Health) error {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+
+		// Once started, we disallow any new subscribers from registering themselves,
+		// since we do not want to maintain a cache just to inform late subscribers.
+		m.started = true
+		if !m.needed {
+			health.OK("No subscribers registered")
+			return nil
+		}
+
+		// Wake up for loop below if context is cancelled
+		cleanupCancellation := context.AfterFunc(ctx, func() {
+			m.mu.Lock()
+			m.cond.Broadcast()
+			m.mu.Unlock()
+		})
+		defer cleanupCancellation()
+
+		// Wait for all registered subscribers to call `Observe`
+		for m.pending > 0 && ctx.Err() == nil {
+			m.cond.Wait()
+		}
+
+		// Check if we timed out while waiting for subscribers
+		if ctx.Err() != nil {
+			return fmt.Errorf("timed out waiting for subscribers: %w", ctx.Err())
+		}
+
+		// Start upstream observable (non-blocking)
+		health.OK("Starting ListerWatcher")
+		start(ctx)
+		return nil
+	}))
+
+	return m
+}
+
+// multicastListerWatcher is an implementation of SharedListerWatcher using multicast streams
+type multicastListerWatcher struct {
+	name  string
+	mcast stream.Observable[CacheStoreEvent]
+
+	mu      *lock.Mutex
+	cond    *sync.Cond
+	pending int
+	started bool
+	needed  bool
+}
+
+func (m *multicastListerWatcher) registerSubscriber() stream.Observable[CacheStoreEvent] {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.started {
+		panic(fmt.Sprintf("cannot subscribe after shared lister watcher (%s) has been started", m.name))
+	}
+
+	// Register this subscriber in the WaitGroup. This ensures the upstream K8s watch
+	// is not started until this subscriber is ready to receive events (i.e. has
+	// called Observe on the returned observable).
+	m.needed = true
+	m.pending++
+
+	used := false
+	return stream.FuncObservable[CacheStoreEvent](
+		func(ctx context.Context, next func(CacheStoreEvent), complete func(error)) {
+			if used {
+				panic("observable must not used twice")
+			}
+
+			m.mcast.Observe(ctx, next, complete)
+
+			// Once Observe() on stream.Multicast returns it is guaranteed that this
+			// subscriber will receive events from the upstream Observable, which is
+			// why we can report ourselves as ready.
+			m.mu.Lock()
+			m.pending--
+			m.cond.Broadcast()
+			m.mu.Unlock()
+
+			used = true
+		},
+	)
+}
+
 type ReflectorConfig[Obj any] struct {
 	// Mandatory name of the reflector. This is used as the table initializer name and as
 	// the reflector job name.
@@ -95,14 +229,27 @@ type ReflectorConfig[Obj any] struct {
 	// Mandatory table to reflect the objects to.
 	Table statedb.RWTable[Obj]
 
-	// Mandatory ListerWatcher to use to retrieve the objects.
+	// ListerWatcher to use to retrieve the objects.
 	//
 	// Use [utils.ListerWatcherFromTyped] to create one from the Clientset, e.g.
 	//
 	//   var cs client.Clientset
 	//   utils.ListerWatcherFromTyped(cs.CoreV1().Nodes())
 	//
+	// Exactly one of ListerWatcher or SharedListerWatcher must be set.
 	ListerWatcher cache.ListerWatcher
+
+	// SharedListerWatcher allows multiple reflectors to share a ListerWatcher.
+	//
+	// Use NewSharedListerWatcher to create a shared lister watcher which can be
+	// passed to multiple reflectors. Buffer and metric scope settings still apply
+	// to each reflector individually when using a SharedListerWatcher.
+	//
+	// When using SharedListerWatcher, RegisterReflector must be called before the
+	// Hive is started.
+	//
+	// Exactly one of ListerWatcher or SharedListerWatcher must be set.
+	SharedListerWatcher SharedListerWatcher
 
 	// Optional maximum number of objects to commit in one transaction. Uses default if left zero.
 	// This does not apply to the initial listing which is committed in one go.
@@ -209,8 +356,8 @@ func (cfg ReflectorConfig[Obj]) validate() error {
 	if cfg.Table == nil {
 		return fmt.Errorf("%T.Table cannot be nil", cfg)
 	}
-	if cfg.ListerWatcher == nil {
-		return fmt.Errorf("%T.ListerWatcher cannot be nil", cfg)
+	if (cfg.ListerWatcher == nil) == (cfg.SharedListerWatcher == nil) {
+		return fmt.Errorf("Exactly one of %[1]T.ListerWatcher and %[1]T.SharedListerWatcher must be set", cfg)
 	}
 	if cfg.BufferSize <= 0 {
 		return fmt.Errorf("%T.BufferSize (%d) must be larger than zero", cfg, cfg.BufferSize)
@@ -231,6 +378,7 @@ type k8sReflector[Obj any] struct {
 	initDone func(statedb.WriteTxn)
 	db       *statedb.DB
 	table    statedb.RWTable[Obj]
+	source   stream.Observable[CacheStoreEvent]
 }
 
 func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
@@ -311,7 +459,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 	// This reduces the number of write transactions required and thus the number of times
 	// readers get woken up, which results in much better overall throughput.
 	src := stream.Buffer(
-		ListerWatcherToObservable(r.ListerWatcher),
+		r.source,
 		bufferSize,
 		waitTime,
 
