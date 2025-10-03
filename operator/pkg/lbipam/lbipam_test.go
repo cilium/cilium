@@ -59,6 +59,10 @@ func TestConflictResolution(t *testing.T) {
 		}
 	}
 
+	if fixture.lbipam.metrics.ConflictingPools.Get() != 1 {
+		t.Fatalf("cilium_operator_lbipam_conflicting_pools should report 1 but got %d", int(fixture.lbipam.metrics.ConflictingPools.Get()))
+	}
+
 	// Phase 2, resolving the conflict
 
 	// Remove the conflicting range
@@ -72,6 +76,10 @@ func TestConflictResolution(t *testing.T) {
 	poolB = fixture.GetPool("pool-b")
 	if isPoolConflicting(poolB) {
 		t.Fatal("Pool B should no longer be conflicting")
+	}
+
+	if fixture.lbipam.metrics.ConflictingPools.Get() != 0 {
+		t.Fatalf("cilium_operator_lbipam_conflicting_pools should report 0 but got %d", int(fixture.lbipam.metrics.ConflictingPools.Get()))
 	}
 }
 
@@ -88,6 +96,10 @@ func TestPoolInternalConflict(t *testing.T) {
 		t.Fatal("Pool A should be conflicting")
 	}
 
+	if fixture.lbipam.metrics.ConflictingPools.Get() != 1 {
+		t.Fatalf("cilium_operator_lbipam_conflicting_pools should report 1 but got %d", int(fixture.lbipam.metrics.ConflictingPools.Get()))
+	}
+
 	poolA.Spec.Blocks = []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
 		{
 			Cidr: "10.0.10.0/24",
@@ -98,6 +110,10 @@ func TestPoolInternalConflict(t *testing.T) {
 
 	if isPoolConflicting(poolA) {
 		t.Fatal("Expected pool to be un-marked conflicting")
+	}
+
+	if fixture.lbipam.metrics.ConflictingPools.Get() != 0 {
+		t.Fatalf("cilium_operator_lbipam_conflicting_pools should report 0 but got %d", int(fixture.lbipam.metrics.ConflictingPools.Get()))
 	}
 }
 
