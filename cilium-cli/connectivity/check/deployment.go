@@ -81,6 +81,8 @@ const (
 	lrpBackendDeploymentName                   = "lrp-backend"
 	lrpClientDeploymentName                    = "lrp-client"
 	kindLrpName                                = "lrp"
+	ccnpDeploymentName                         = "client-ccnp"
+	kindCCNPName                               = "ccnp"
 	loadbalancerL7DeploymentName               = "l7-lb"
 
 	hostNetNSDeploymentName          = "host-netns"
@@ -654,6 +656,9 @@ func (ct *ConnectivityTest) deployNamespace(ctx context.Context) error {
 			if err := ct.DeleteConnDisruptTestDeployment(ctx, client); err != nil {
 				return err
 			}
+			if err := ct.DeleteCCNPTestEnv(ctx, client); err != nil {
+				return err
+			}
 		}
 
 		_, err := client.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
@@ -674,6 +679,70 @@ func (ct *ConnectivityTest) deployNamespace(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
+
+	namespaceConfigs := []struct {
+		name string
+		obj  *corev1.Namespace
+	}{
+		{
+			name: "cilium-test-ccnp1",
+			obj: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cilium-test-ccnp1",
+				},
+			},
+		},
+		{
+			name: "cilium-test-ccnp2",
+			obj: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cilium-test-ccnp2",
+				},
+			},
+		},
+	}
+
+	for _, nsConfig := range namespaceConfigs {
+
+		clientccnp := ct.clients.src
+		var err error
+
+		_, err = clientccnp.GetNamespace(ctx, nsConfig.name, metav1.GetOptions{})
+		if err != nil {
+			_, err = clientccnp.CreateNamespace(ctx, nsConfig.obj, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create namespace %s: %w", nsConfig.name, err)
+			}
+		}
+
+		_, err = clientccnp.GetDeployment(ctx, nsConfig.name, ccnpDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			clientDeployment := newDeployment(deploymentParameters{
+				Name:         ccnpDeploymentName,
+				Kind:         kindCCNPName,
+				Image:        ct.params.CurlImage,
+				Command:      []string{"/usr/bin/pause"},
+				Annotations:  ct.params.DeploymentAnnotations.Match(ccnpDeploymentName),
+				Affinity:     &corev1.Affinity{NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity()},
+				NodeSelector: ct.params.NodeSelector,
+			})
+			_, err = clientccnp.CreateServiceAccount(ctx, nsConfig.name, k8s.NewServiceAccount(ccnpDeploymentName), metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service account %s in namespace %s: %w", ccnpDeploymentName, nsConfig.name, err)
+			}
+			_, err = clientccnp.CreateDeployment(ctx, nsConfig.name, clientDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s in namespace %s: %w", ccnpDeploymentName, nsConfig.name, err)
+			}
+		}
+
+	}
+
+	return nil
+
 }
 
 // deploy ensures the test Namespace, Services and Deployments are running on the cluster.
@@ -1193,6 +1262,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
+	if ct.Features[features.CCNP].Enabled {
+		ct.Logf("✨ [%s] Deploying ccnp deployment...", ct.clients.src.ClusterName())
+		ct.deployCCNPTestEnv(ctx)
+	}
+
 	if ct.Features[features.LocalRedirectPolicy].Enabled {
 		ct.Logf("✨ [%s] Deploying lrp-client deployment...", ct.clients.src.ClusterName())
 		lrpClientDeployment := newDeployment(deploymentParameters{
@@ -1380,6 +1454,34 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (ct *ConnectivityTest) DeleteCCNPTestEnv(ctx context.Context, client *k8s.Client) error {
+
+	namespaces := []string{"cilium-test-ccnp1", "cilium-test-ccnp2"}
+
+	for _, ns := range namespaces {
+		_, err := client.GetDeployment(ctx, ns, ccnpDeploymentName, metav1.GetOptions{})
+		if err == nil {
+			ct.Logf("🔥 [%s] Deleting ccnp deployment in %s ns...", client.ClusterName(), ns)
+			_ = client.DeleteDeployment(ctx, ns, ccnpDeploymentName, metav1.DeleteOptions{})
+		}
+
+		_, err = client.GetNamespace(ctx, ns, metav1.GetOptions{})
+		if err == nil {
+			ct.Logf("⌛ [%s] Waiting for namespace %s to disappear", client.ClusterName(), ns)
+			for err == nil {
+				time.Sleep(time.Second)
+				// Retry the namespace deletion in-case the previous delete was
+				// rejected, i.e. by yahoo/k8s-namespace-guard
+				_ = client.DeleteNamespace(ctx, ns, metav1.DeleteOptions{})
+				_, err = client.GetNamespace(ctx, ns, metav1.GetOptions{})
+			}
+		}
+	}
+
+	return nil
+
 }
 
 func (ct *ConnectivityTest) patchDeployment(ctx context.Context) error {
@@ -2255,6 +2357,26 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 						K8sClient: ct.client,
 						Pod:       lrpPod.DeepCopy(),
 					}
+				}
+			}
+		}
+	}
+
+	if ct.Features[features.CCNP].Enabled {
+
+		namespaces := []string{"cilium-test-ccnp1", "cilium-test-ccnp2"}
+		for _, ns := range namespaces {
+			if err := WaitForDeployment(ctx, ct, ct.clients.src, ns, ccnpDeploymentName); err != nil {
+				return err
+			}
+			ccnpPods, err := ct.client.ListPods(ctx, ns, metav1.ListOptions{LabelSelector: "kind=" + kindCCNPName})
+			if err != nil {
+				return fmt.Errorf("unable to list ccnp pods in namespace %s: %w", ns, err)
+			}
+			for _, ccnpPod := range ccnpPods.Items {
+				ct.ccnpTestPods[ns] = Pod{
+					K8sClient: ct.client,
+					Pod:       ccnpPod.DeepCopy(),
 				}
 			}
 		}
