@@ -235,7 +235,6 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 		},
 		Metrics: MetricsProvider(metrics.SubsystemClusterMesh)(),
 	})
-	hivetest.Lifecycle(t).Append(gcm)
 	cm := gcm.(*clusterMesh)
 
 	// Directly call the add/remove methods, rather than creating/removing the
@@ -258,7 +257,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 
 	// Multiple removals and additions, ending with an addition should lead to a ready cluster
 	ready.Store("cluster2", false)
-	cm.remove("cluster2")
+	cm.remove("cluster2") // Note that the removal is blocked at this point
 	cm.add("cluster2", path("cluster2"))
 	cm.remove("cluster2")
 	cm.add("cluster2", path("cluster2"))
@@ -273,7 +272,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 
 	// Multiple removals and additions, ending with a removal should lead to a non-ready cluster
 	ready.Store("cluster3", false)
-	cm.remove("cluster3")
+	cm.remove("cluster3") // Note that the removal is blocked at this point
 	cm.add("cluster3", path("cluster3"))
 	cm.remove("cluster3")
 	cm.add("cluster3", path("cluster3"))
