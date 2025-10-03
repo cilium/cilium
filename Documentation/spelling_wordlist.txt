@@ -246,6 +246,7 @@ cni
 cnp
 codebase
 codeowner
+codeowners
 codeownersconfig
 commonLabels
 compat
