@@ -316,6 +316,7 @@ communicating via the proxy must reconnect to re-establish connections.
   This flag currently masquerades traffic to node ``InternalIP`` addresses.
   This may change in future. See :gh-issue:`35823`
   and :gh-issue:`17177` for further discussion on this topic.
+* This release introduces enabling packet layer path MTU discovery by default on CNI Pod endpoints, this is controlled via the ``enable-endpoint-packet-layer-pmtud`` flag.
 
 Removed Options
 ~~~~~~~~~~~~~~~
