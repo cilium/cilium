@@ -416,98 +416,19 @@ jobs:
       # This needs to be performed in a different step, because nodeGroups are not
       # supported during cluster creation in a cluster without VPC CNI. Cilium is
       # also required to be already installed for the step to complete successfully.
+
       - name: Create EKS nodegroups
-        shell: bash
-        run: |
-          cat <<EOF > eks-nodegroup.yaml
-          apiVersion: eksctl.io/v1alpha5
-          kind: ClusterConfig
-
-          metadata:
-            name: ${{ steps.vars.outputs.cluster_name }}
-            region: ${{ steps.vars.outputs.eks_region }}
-            version: "${{ steps.vars.outputs.eks_version }}"
-            tags:
-              usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
-              owner: "${{ steps.vars.outputs.owner }}"
-
-          managedNodeGroups:
-          - name: ng-amd64-client
-            instanceTypes:
-            - ${{ steps.vars.outputs.node_instance_type }}
-            availabilityZones:
-            - ${{ steps.vars.outputs.eks_zone_1 }}
-            desiredCapacity: ${{ steps.vars.outputs.num_client_nodes }}
-            spot: false
-            privateNetworking: true
-            volumeType: "gp3"
-            volumeSize: 20
-            maxPodsPerNode: 110
-            taints:
-            - key: "node.cilium.io/agent-not-ready"
-              value: "true"
-              effect: "NoExecute"
-            labels:
-              role.scaffolding/egw-client: "true"
-          - name: ng-amd64-egw-node
-            instanceTypes:
-            - ${{ steps.vars.outputs.node_instance_type }}
-            availabilityZones:
-            - ${{ steps.vars.outputs.eks_zone_1 }}
-            desiredCapacity: 1
-            spot: false
-            privateNetworking: true
-            volumeType: "gp3"
-            volumeSize: 20
-            maxPodsPerNode: 110
-            taints:
-            - key: "node.cilium.io/agent-not-ready"
-              value: "true"
-              effect: "NoExecute"
-            labels:
-              role.scaffolding/egw-node: "true"
-          - name: ng-amd64-heapster
-            instanceTypes:
-            - ${{ steps.vars.outputs.node_instance_type }}
-            availabilityZones:
-            - ${{ steps.vars.outputs.eks_zone_1 }}
-            desiredCapacity: 1
-            spot: false
-            privateNetworking: true
-            volumeType: "gp3"
-            volumeSize: 20
-            maxPodsPerNode: 110
-            taints:
-            - key: "node.cilium.io/agent-not-ready"
-              value: "true"
-              effect: "NoExecute"
-            labels:
-              role.scaffolding/monitoring: "true"
-          - name: ng-amd64-no-cilium
-            instanceTypes:
-            - ${{ steps.vars.outputs.node_instance_type }}
-            availabilityZones:
-            - ${{ steps.vars.outputs.eks_zone_2 }}
-            desiredCapacity: 1
-            spot: false
-            privateNetworking: true
-            volumeType: "gp3"
-            volumeSize: 20
-            taints:
-            - key: "cilium.io/no-schedule"
-              value: "true"
-              effect: "NoSchedule"
-            labels:
-              cilium.io/no-schedule: "true"
-            # Manually inject a dummy CNI configuration to let the Kubelet turn
-            # ready. This is necessary as otherwise the node creation would
-            # never complete. Regardless, no pods will be scheduled here given
-            # that the node is tainted.
-            preBootstrapCommands:
-            - "echo '{ \"cniVersion\": \"0.3.1\", \"name\": \"dummy\", \"type\": \"dummy-cni\", \"log-file\": \"/var/run/dummy.log\" }' > /etc/cni/net.d/05-dummy.conf"
-          EOF
-
-          eksctl create nodegroup -f ./eks-nodegroup.yaml --timeout=10m
+        uses: ./.github/actions/setup-eks-nodegroup
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          region: ${{ steps.vars.outputs.eks_region }}
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: ${{ steps.vars.outputs.eks_version }}
+          spot: false
+          mode: "egw"
+          client_node_number: ${{ steps.vars.outputs.num_client_nodes }}
+          egw_default_zone: ${{ steps.vars.outputs.eks_zone_1 }}
+          egw_no_cilium_zone: ${{ steps.vars.outputs.eks_zone_2 }}
 
       - name: Wait for Cilium status to be ready
         run: |
