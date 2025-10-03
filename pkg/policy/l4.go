@@ -1233,30 +1233,6 @@ func (l4 *L4Filter) String() string {
 	return string(b)
 }
 
-// Note: Only used for policy tracing
-func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) (bool, bool) {
-	if l4.wildcard != nil {
-		perSelectorPolicy := l4.PerSelectorPolicies[l4.wildcard]
-		isDeny := perSelectorPolicy.GetDeny()
-		return true, isDeny
-	} else if len(labels) == 0 {
-		return false, false
-	}
-
-	var selected bool
-	for sel, rule := range l4.PerSelectorPolicies {
-		// slow, but OK for tracing
-		idSel := sel.(*identitySelector)
-		if lis, ok := idSel.source.(*labelIdentitySelector); ok && lis.xxxMatches(labels) {
-			selected = true
-			if rule.GetDeny() {
-				return true, true
-			}
-		}
-	}
-	return selected, false
-}
-
 // addL4Filter adds 'filterToMerge' into the 'resMap'. Returns an error if it
 // the 'filterToMerge' can't be merged with an existing filter for the same
 // port and proto.
@@ -1296,7 +1272,6 @@ type L4PolicyMap interface {
 	Upsert(port string, endPort uint16, protocol string, l4 *L4Filter)
 	Delete(port string, endPort uint16, protocol string)
 	ExactLookup(port string, endPort uint16, protocol string) *L4Filter
-	MatchesLabels(port, protocol string, labels labels.LabelArray) (match, isDeny bool)
 	Detach(selectorCache *SelectorCache)
 	ForEach(func(l4 *L4Filter) bool)
 	Len() int
@@ -1441,37 +1416,6 @@ func (l4M *l4PolicyMap) ExactLookup(port string, endPort uint16, protocol string
 		Proto:   protoU,
 	}
 	return l4M.RangePortMap[ppK]
-}
-
-// MatchesLabels checks if a given port, protocol, and labels matches
-// any Rule in the L4PolicyMap.
-func (l4M *l4PolicyMap) MatchesLabels(port, protocol string, labels labels.LabelArray) (match, isDeny bool) {
-	if iana.IsSvcName(port) {
-		l4 := l4M.NamedPortMap[port+"/"+protocol]
-		if l4 != nil {
-			return l4.matchesLabels(labels)
-		}
-		return
-	}
-
-	portU, protoU := parsePortProtocol(port, protocol)
-	l4PortProtoKeys := make(map[portProtoKey]struct{})
-	l4M.RangePortIndex.Ancestors(32, makePolicyMapKey(portU, 0xffff, protoU),
-		func(_ uint, _ uint32, portProtoSet map[portProtoKey]struct{}) bool {
-			for k := range portProtoSet {
-				v, ok := l4M.RangePortMap[k]
-				if ok {
-					if _, ok := l4PortProtoKeys[k]; !ok {
-						match, isDeny = v.matchesLabels(labels)
-						if isDeny {
-							return false
-						}
-					}
-				}
-			}
-			return true
-		})
-	return
 }
 
 // ForEach iterates over all L4Filters in the l4PolicyMap.
