@@ -306,6 +306,12 @@ spec:
         {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
         - --max-connected-clusters={{ .Values.clustermesh.maxConnectedClusters }}
         {{- end }}
+        {{- if hasKey .Values.clustermesh.remoteCluster "enableCacheRevocation" }}
+        - --enable-remote-cluster-cache-revocation={{ .Values.clustermesh.remoteCluster.enableCacheRevocation }}
+        {{- end }}
+        {{- if hasKey .Values.clustermesh.remoteCluster "cacheTTL" }}
+        - --remote-cluster-cache-ttl={{ .Values.clustermesh.remoteCluster.cacheTTL }}
+        {{- end }}
         - --health-port={{ .Values.clustermesh.apiserver.kvstoremesh.healthPort }}
         {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}

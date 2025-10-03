@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright Authors of Cilium
+//  Copyright Authors of Cilium
 
 package common
 
@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/pflag"
@@ -18,17 +19,38 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-type Config struct {
+const (
 	// ClusterMeshConfig is the path to the clustermesh configuration directory.
-	ClusterMeshConfig string
-}
+	ClusterMeshConfig = "clustermesh-config"
 
-func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.String("clustermesh-config", def.ClusterMeshConfig, "Path to the ClusterMesh configuration directory")
+	// RemoteClusterCacheTTL is the time to live for the cache of a remote cluster after
+	// connectivity is lost. If the connection is not re-established within this duration, the
+	// cached data is revoked to prevent stale state
+	RemoteClusterCacheTTL = "remote-cluster-cache-ttl"
+
+	// EnableRemoteClusterCacheRevocation controls whether cached state for a remote cluster is
+	// actually revoked once its TTL expires. When disabled (default), the revocation runs in "dry
+	// run" mode, where revocations are not performed, but log messages are emitted when the cache
+	// would have been revoked.
+	EnableRemoteClusterCacheRevocation = "enable-remote-cluster-cache-revocation"
+)
+
+type Config struct {
+	ClusterMeshConfig                  string        `mapstructure:"clustermesh-config"`
+	RemoteClusterCacheTTL              time.Duration `mapstructure:"remote-cluster-cache-ttl"`
+	EnableRemoteClusterCacheRevocation bool          `mapstructure:"enable-remote-cluster-cache-revocation"`
 }
 
 var DefaultConfig = Config{
-	ClusterMeshConfig: "",
+	ClusterMeshConfig:                  "",
+	RemoteClusterCacheTTL:              time.Duration(15 * time.Minute),
+	EnableRemoteClusterCacheRevocation: false,
+}
+
+func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.String(ClusterMeshConfig, def.ClusterMeshConfig, "Path to the ClusterMesh configuration directory")
+	flags.Duration(RemoteClusterCacheTTL, def.RemoteClusterCacheTTL, "The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked.")
+	flags.Bool(EnableRemoteClusterCacheRevocation, def.EnableRemoteClusterCacheRevocation, "Enable revocation of cached state for a remote cluster once its TTL expires. When disabled (default), revocation is not performed, but log messages are emitted when the cache would have been revoked.")
 }
 
 // clusterLifecycle is the interface to implement in order to receive cluster

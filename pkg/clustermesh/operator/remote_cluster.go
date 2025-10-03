@@ -89,6 +89,10 @@ func (rc *remoteCluster) Stop() {
 	rc.synced.Stop()
 }
 
+func (rc *remoteCluster) RevokeCache(ctx context.Context) {
+	rc.Remove(ctx)
+}
+
 func (rc *remoteCluster) Remove(context.Context) {
 	for _, clusterDeleteHook := range rc.clusterDeleteHooks {
 		clusterDeleteHook(rc.name)

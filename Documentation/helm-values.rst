@@ -1024,6 +1024,14 @@
      - Control whether policy rules assume by default the local cluster if not explicitly selected
      - bool
      - ``true``
+   * - :spelling:ignore:`clustermesh.remoteCluster.cacheTTL`
+     - The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked.
+     - string
+     - ``"15m"``
+   * - :spelling:ignore:`clustermesh.remoteCluster.enableCacheRevocation`
+     - Enable revocation of cached state for a remote cluster once its TTL expires. When disabled (default), revocation is not performed, but log messages are emitted when the cache would have been revoked.
+     - bool
+     - ``false``
    * - :spelling:ignore:`clustermesh.useAPIServer`
      - Deploy clustermesh-apiserver for clustermesh
      - bool

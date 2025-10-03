@@ -38,6 +38,7 @@ type RemoteCluster interface {
 
 	Stop()
 	Remove(ctx context.Context)
+	RevokeCache(ctx context.Context)
 }
 
 // remoteCluster represents another cluster other than the cluster the agent is
@@ -59,6 +60,25 @@ type remoteCluster struct {
 	resolvers []dial.Resolver
 
 	controllers *controller.Manager
+
+	// cacheTTL is the time to live for the cache of a remote cluster after
+	// connectivity to the remote kvstore is lost. If the connection is not
+	// re-established within this duration, the cached data is revoked to
+	// prevent stale state.
+	cacheTTL time.Duration
+
+	// cacheRevokeCancel cancels the cache TTL timer. A non-nil value indicates that the client
+	// can't connect to the remote cluster kvstore, and that the timer is either pending or has
+	// already fired. It serves to prevent new timers from being started until the connection is
+	// restored.
+	cacheRevokeCancel context.CancelFunc
+
+	// enableCacheRevocation controls whether cached state for a remote cluster is actually
+	// revoked once its TTL expires.
+	enableCacheRevocation bool
+
+	// cacheRevocations is the number of observed cache revocations
+	cacheRevocations int
 
 	// wg is used to wait for the termination of the goroutines spawned by the
 	// controller upon reconnection for long running background tasks.
@@ -101,9 +121,10 @@ type remoteCluster struct {
 	// for testing purposes.
 	clusterLockFactory func() *clusterLock
 
-	metricLastFailureTimestamp prometheus.Gauge
-	metricReadinessStatus      prometheus.Gauge
-	metricTotalFailures        prometheus.Gauge
+	metricLastFailureTimestamp  prometheus.Gauge
+	metricReadinessStatus       prometheus.Gauge
+	metricTotalFailures         prometheus.Gauge
+	metricTotalCacheRevocations prometheus.Gauge
 }
 
 // releaseOldConnection releases the etcd connection to a remote cluster
@@ -126,6 +147,34 @@ func (rc *remoteCluster) releaseOldConnection() {
 }
 
 func (rc *remoteCluster) restartRemoteConnection() {
+	rc.mutex.Lock()
+	if rc.cacheTTL > 0 && rc.cacheRevokeCancel == nil {
+		rc.logger.Warn("Starting remote cluster cache TTL timer", logfields.TTL, rc.cacheTTL)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		rc.cacheRevokeCancel = cancel
+
+		rc.wg.Add(1)
+		go func() {
+			defer rc.wg.Done()
+			select {
+			case <-time.After(rc.cacheTTL):
+				if rc.enableCacheRevocation {
+					rc.logger.Warn("Remote cluster cache TTL expired, revoking cache", logfields.TTL, rc.cacheTTL)
+					rc.RevokeCache(context.Background())
+				} else {
+					rc.logger.Warn("Remote cluster cache TTL expired. Revocation is not enabled, taking no action", logfields.TTL, rc.cacheTTL)
+				}
+				rc.mutex.Lock()
+				rc.cacheRevocations++
+				rc.metricTotalCacheRevocations.Set(float64(rc.cacheRevocations))
+				rc.mutex.Unlock()
+			case <-ctx.Done():
+				rc.logger.Debug("Remote cluster cache TTL timer cancelled; connection successfully re-established.")
+			}
+		}()
+	}
+	rc.mutex.Unlock()
 	rc.controllers.UpdateController(
 		rc.remoteConnectionControllerName,
 		controller.ControllerParams{
@@ -233,6 +282,13 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 					return err
 				}
+
+				rc.mutex.Lock()
+				if rc.cacheRevokeCancel != nil {
+					rc.cacheRevokeCancel()
+					rc.cacheRevokeCancel = nil
+				}
+				rc.mutex.Unlock()
 
 				rc.metricReadinessStatus.Set(metrics.BoolToFloat64(true))
 				return nil

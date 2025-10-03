@@ -1396,6 +1396,12 @@ data:
 {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
   max-connected-clusters: {{ .Values.clustermesh.maxConnectedClusters | quote }}
 {{- end }}
+{{- if hasKey .Values.clustermesh.remoteCluster "enableCacheRevocation" }}
+  enable-remote-cluster-cache-revocation: {{ .Values.clustermesh.remoteCluster.enableCacheRevocation | quote }}
+{{- end }}
+{{- if hasKey .Values.clustermesh.remoteCluster "cacheTTL" }}
+  remote-cluster-cache-ttl: {{ .Values.clustermesh.remoteCluster.cacheTTL | quote }}
+{{- end }}
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
   clustermesh-enable-mcs-api: {{ (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) | quote }}
   policy-default-local-cluster: {{ .Values.clustermesh.policyDefaultLocalCluster | quote }}
