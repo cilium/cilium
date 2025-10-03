@@ -7,12 +7,16 @@ import (
 	"log/slog"
 	"slices"
 	"sort"
+	"strconv"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -82,7 +86,7 @@ func (i *identitySelector) MaySelectPeers() bool {
 var _ types.CachedSelector = (*identitySelector)(nil)
 
 type selectorSource interface {
-	matches(scIdentity) bool
+	matches(logger *slog.Logger, id scIdentity) bool
 
 	remove(identityNotifier)
 
@@ -104,7 +108,7 @@ func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
 
 // matches returns true if the identity contains at least one label
 // that matches the FQDNSelector's IdentityLabel string
-func (f *fqdnSelector) matches(identity scIdentity) bool {
+func (f *fqdnSelector) matches(_ *slog.Logger, identity scIdentity) bool {
 	return identity.lbls.Intersects(labels.LabelArray{f.selector.IdentityLabel()})
 }
 
@@ -112,15 +116,119 @@ func (f *fqdnSelector) metricsClass() string {
 	return LabelValueSCFQDN
 }
 
-type labelIdentitySelector struct {
-	selector   api.EndpointSelector
-	namespaces []string // allowed namespaces, or ""
+// Version of k8sLbls.requirement where the key is pre-parsed and values are stored as a Set optimal
+// for single-valued values.
+type requirement struct {
+	key      labels.Label       // pre-parsed Label
+	operator selection.Operator // requirement operator
+	values   set.Set[string]    // usually only one value
 }
 
-// xxxMatches returns true if the CachedSelector matches given labels.
-// This is slow, but only used for policy tracing, so it's OK.
-func (l *labelIdentitySelector) xxxMatches(labels labels.LabelArray) bool {
-	return l.selector.Matches(labels)
+func (r *requirement) hasValue(value string) bool {
+	return r.values.Has(value)
+}
+
+// Matches returns true if the Requirement matches the input Labels.
+// This is structurally the same as k8sLbls.Requirement.Matches(),
+// but takes LabelArray as an argument instead of a string.
+func (r *requirement) Matches(logger *slog.Logger, ls labels.LabelArray) bool {
+	switch r.operator {
+	case selection.In, selection.Equals, selection.DoubleEquals:
+		val, exists := ls.LookupLabel(r.key)
+		if !exists {
+			return false
+		}
+		return r.hasValue(val)
+	case selection.NotIn, selection.NotEquals:
+		val, exists := ls.LookupLabel(r.key)
+		if !exists {
+			return true
+		}
+		return !r.hasValue(val)
+	case selection.Exists:
+		return ls.HasLabel(r.key)
+	case selection.DoesNotExist:
+		return !ls.HasLabel(r.key)
+	case selection.GreaterThan, selection.LessThan:
+		val, exists := ls.LookupLabel(r.key)
+		if !exists {
+			return false
+		}
+		lsValue, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			logger.Info(
+				"ParseInt failed",
+				logfields.Error, err,
+				logfields.EndpointLabelSelector, ls,
+				logfields.Value, val,
+			)
+			return false
+		}
+
+		// There should be only one string value in r.values, and can be converted to an
+		// integer.
+		if r.values.Len() != 1 {
+			logger.Info(
+				"Invalid values count for 'Gt', 'Lt' operators, exactly one value is required",
+				logfields.Label, r.key,
+				logfields.Value, r.values,
+				logfields.LenEntries, r.values.Len())
+			return false
+		}
+
+		var rValue int64
+		for val := range r.values.Members() {
+			rValue, err = strconv.ParseInt(val, 10, 64)
+			if err != nil {
+				logger.Info(
+					"ParseInt failed, for 'Gt', 'Lt' operators, the value must be an integer",
+					logfields.Error, err,
+					logfields.Label, r.key,
+					logfields.Value, val,
+				)
+				return false
+			}
+		}
+		return (r.operator == selection.GreaterThan && lsValue > rValue) || (r.operator == selection.LessThan && lsValue < rValue)
+	default:
+		return false
+	}
+}
+
+type labelIdentitySelector struct {
+	cachedString string
+	namespaces   []string // allowed namespaces, or ""
+	requirements []requirement
+}
+
+// matchesLabels returns true if the CachedSelector matches given labels.
+func (l *labelIdentitySelector) matchesLabels(logger *slog.Logger, labels labels.LabelArray) bool {
+	for i := range l.requirements {
+		if !l.requirements[i].Matches(logger, labels) {
+			return false
+		}
+	}
+	return true
+}
+
+func newLabelIdentitySelector(es api.EndpointSelector) *labelIdentitySelector {
+	apiRequirements := es.Requirements()
+	requirements := make([]requirement, 0, len(apiRequirements))
+	for _, req := range apiRequirements {
+		requirements = append(requirements, requirement{
+			key:      labels.ParseSelectDotLabel(req.Key()),
+			operator: req.Operator(),
+			values:   set.NewSet[string](req.ValuesUnsorted()...),
+		})
+	}
+
+	namespaces, _ := es.GetMatch(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel)
+
+	return &labelIdentitySelector{
+		cachedString: es.CachedString(),
+		namespaces:   namespaces,
+		requirements: requirements,
+	}
 }
 
 func (l *labelIdentitySelector) matchesNamespace(ns string) bool {
@@ -137,8 +245,8 @@ func (l *labelIdentitySelector) matchesNamespace(ns string) bool {
 	return true
 }
 
-func (l *labelIdentitySelector) matches(identity scIdentity) bool {
-	return l.matchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
+func (l *labelIdentitySelector) matches(logger *slog.Logger, identity scIdentity) bool {
+	return l.matchesNamespace(identity.namespace) && l.matchesLabels(logger, identity.lbls)
 }
 
 func (l *labelIdentitySelector) remove(_ identityNotifier) {
@@ -146,11 +254,11 @@ func (l *labelIdentitySelector) remove(_ identityNotifier) {
 }
 
 func (l *labelIdentitySelector) metricsClass() string {
-	if l.selector.DeepEqual(&api.EntitySelectorMapping[api.EntityCluster][0]) {
+	if l.cachedString == api.EntitySelectorMapping[api.EntityCluster][0].CachedString() {
 		return LabelValueSCCluster
 	}
 	for _, entity := range api.EntitySelectorMapping[api.EntityWorld] {
-		if l.selector.DeepEqual(&entity) {
+		if l.cachedString == entity.CachedString() {
 			return LabelValueSCWorld
 		}
 	}
