@@ -58,10 +58,10 @@
 
 /* These values have to stay in sync with the enum */
 /* values in bpf/tests/bpftest/trf.proto */
-#define TEST_ERROR 0
-#define TEST_PASS 1
-#define TEST_FAIL 2
-#define TEST_SKIP 3
+#define TEST_ERROR 100
+#define TEST_PASS 101
+#define TEST_FAIL 102
+#define TEST_SKIP 103
 
 /* Max number of cpus to check when doing percpu hash assertions */
 #define NR_CPUS 128
