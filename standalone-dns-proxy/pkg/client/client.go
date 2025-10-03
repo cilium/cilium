@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	DNSRulesTableName     = "sdp-dns-rules"
-	IPtoEndpointTableName = "sdp-ip-to-endpoint"
+	DNSRulesTableName         = "sdp-dns-rules"
+	IPtoEndpointTableName     = "sdp-ip-to-endpoint"
+	PrefixToIdentityTableName = "sdp-prefix-to-identity"
 )
 
 func DNSRulesCompositeKey(epID uint32, pp restore.PortProto) uint64 {
@@ -42,14 +43,15 @@ type DNSRules struct {
 	DNSRule    policy.L7DataMap
 }
 
-type EndpointInfo struct {
-	ID       uint64
+type PrefixToIdentity struct {
+	Prefix   []netip.Prefix
 	Identity identity.NumericIdentity
 }
 
 type IPtoEndpointInfo struct {
-	IP       netip.Prefix
-	Endpoint EndpointInfo
+	IP       []netip.Addr
+	ID       uint64
+	Identity identity.NumericIdentity
 }
 
 var (
@@ -64,11 +66,29 @@ var (
 		FromString: index.Uint64String,
 		Unique:     true,
 	}
-
-	IdIPToEndpointIndex = statedb.Index[IPtoEndpointInfo, netip.Prefix]{
+	IdIPToEndpointIndex = statedb.Index[IPtoEndpointInfo, netip.Addr]{
 		Name: "ip",
 		FromObject: func(e IPtoEndpointInfo) index.KeySet {
-			return index.NewKeySet(index.NetIPPrefix(e.IP))
+			keys := make([]index.Key, 0, len(e.IP))
+			for _, ip := range e.IP {
+				keys = append(keys, index.NetIPAddr(ip))
+			}
+			return index.NewKeySet(keys...)
+		},
+		FromKey: func(key netip.Addr) index.Key {
+			return index.NetIPAddr(key)
+		},
+		FromString: index.NetIPAddrString,
+		Unique:     true,
+	}
+	PrefixToIdentityIndex = statedb.Index[PrefixToIdentity, netip.Prefix]{
+		Name: "prefix",
+		FromObject: func(p PrefixToIdentity) index.KeySet {
+			keys := make([]index.Key, 0, len(p.Prefix))
+			for _, prefix := range p.Prefix {
+				keys = append(keys, index.NetIPPrefix(prefix))
+			}
+			return index.NewKeySet(keys...)
 		},
 		FromKey: func(key netip.Prefix) index.Key {
 			return index.NetIPPrefix(key)
@@ -109,9 +129,23 @@ func (i IPtoEndpointInfo) TableHeader() []string {
 
 func (i IPtoEndpointInfo) TableRow() []string {
 	return []string{
-		i.IP.String(),
-		fmt.Sprintf("%d", i.Endpoint.ID),
-		fmt.Sprintf("%d", i.Endpoint.Identity.Uint32()),
+		fmt.Sprintf("%v", i.IP),
+		fmt.Sprintf("%d", i.ID),
+		fmt.Sprintf("%d", i.Identity.Uint32()),
+	}
+}
+
+func (p PrefixToIdentity) TableRow() []string {
+	return []string{
+		fmt.Sprintf("%v", p.Prefix),
+		fmt.Sprintf("%d", p.Identity.Uint32()),
+	}
+}
+
+func (i PrefixToIdentity) TableHeader() []string {
+	return []string{
+		"Prefix",
+		"Identity",
 	}
 }
 
@@ -137,18 +171,20 @@ type ConnectionHandler interface {
 type GRPCClient struct {
 	logger *slog.Logger
 
-	db                *statedb.DB
-	dnsRulesTable     statedb.RWTable[DNSRules]
-	ipToEndpointTable statedb.RWTable[IPtoEndpointInfo]
+	db                    *statedb.DB
+	dnsRulesTable         statedb.RWTable[DNSRules]
+	ipToEndpointTable     statedb.RWTable[IPtoEndpointInfo]
+	prefixToIdentityTable statedb.RWTable[PrefixToIdentity]
 }
 
 // createGRPCClient creates a new gRPC connection handler client for standalone DNS proxy
-func createGRPCClient(logger *slog.Logger, db *statedb.DB, dnsRulesTable statedb.RWTable[DNSRules], ipToEndpointTable statedb.RWTable[IPtoEndpointInfo]) *GRPCClient {
+func createGRPCClient(logger *slog.Logger, db *statedb.DB, dnsRulesTable statedb.RWTable[DNSRules], ipToEndpointTable statedb.RWTable[IPtoEndpointInfo], prefixToIdentityTable statedb.RWTable[PrefixToIdentity]) *GRPCClient {
 	return &GRPCClient{
-		logger:            logger,
-		db:                db,
-		dnsRulesTable:     dnsRulesTable,
-		ipToEndpointTable: ipToEndpointTable,
+		logger:                logger,
+		db:                    db,
+		dnsRulesTable:         dnsRulesTable,
+		ipToEndpointTable:     ipToEndpointTable,
+		prefixToIdentityTable: prefixToIdentityTable,
 	}
 }
 
@@ -190,13 +226,25 @@ func NewIPtoEndpointTable(db *statedb.DB) (statedb.RWTable[IPtoEndpointInfo], er
 	)
 }
 
-// updatePolicyState processes the received PolicyState message and updates the DNSRules/IPToIdentity table accordingly.
+func NewPrefixToIdentityTable(db *statedb.DB) (statedb.RWTable[PrefixToIdentity], error) {
+	return statedb.NewTable(
+		db,
+		PrefixToIdentityTableName,
+		PrefixToIdentityIndex,
+	)
+}
+
+// updatePolicyState processes the received PolicyState message and updates the DNSRules/IPToEndpoint table accordingly.
 func (c *GRPCClient) updatePolicyState(state *pb.PolicyState) error {
 	err := c.updateDNSRules(state.GetEgressL7DnsPolicy())
 	if err != nil {
 		return err
 	}
 	err = c.updateIPToEndpoint(state.GetIdentityToEndpointMapping())
+	if err != nil {
+		return err
+	}
+	err = c.updatePrefixToIdentity(state.GetIdentityToPrefixMapping())
 	if err != nil {
 		return err
 	}
@@ -288,23 +336,52 @@ func (c *GRPCClient) updateIPToEndpoint(mappings []*pb.IdentityToEndpointMapping
 
 	for _, mapping := range mappings {
 		for _, epInfo := range mapping.GetEndpointInfo() {
+			ips := make([]netip.Addr, 0, len(epInfo.GetIp()))
 			for _, ip := range epInfo.GetIp() {
-				var prefix netip.Prefix
-				err := prefix.UnmarshalBinary(ip)
-				if err != nil {
-					return err
+				addr, ok := netip.AddrFromSlice(ip)
+				if !ok {
+					return fmt.Errorf("invalid IP address: %v", ip)
 				}
-				_, _, err = c.ipToEndpointTable.Insert(wtxn, IPtoEndpointInfo{
-					IP: prefix,
-					Endpoint: EndpointInfo{
-						ID:       epInfo.GetId(),
-						Identity: identity.NumericIdentity(mapping.GetIdentity()),
-					},
-				})
-				if err != nil {
-					return err
-				}
+				ips = append(ips, addr)
 			}
+			_, _, err := c.ipToEndpointTable.Insert(wtxn, IPtoEndpointInfo{
+				IP:       ips,
+				ID:       epInfo.GetId(),
+				Identity: identity.NumericIdentity(mapping.GetIdentity()),
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	wtxn.Commit()
+
+	return nil
+}
+
+func (c *GRPCClient) updatePrefixToIdentity(mappings []*pb.IdentityToPrefixMapping) error {
+	wtxn := c.db.WriteTxn(c.prefixToIdentityTable)
+	defer wtxn.Abort()
+
+	// Clear existing entries as we are replacing the entire mapping with the given snapshot.
+	c.prefixToIdentityTable.DeleteAll(wtxn)
+
+	for _, mapping := range mappings {
+		prefixes := make([]netip.Prefix, 0, len(mapping.GetPrefix()))
+		for _, ip := range mapping.GetPrefix() {
+			var prefix netip.Prefix
+			err := prefix.UnmarshalBinary(ip)
+			if err != nil {
+				return err
+			}
+			prefixes = append(prefixes, prefix)
+		}
+		_, _, err := c.prefixToIdentityTable.Insert(wtxn, PrefixToIdentity{
+			Prefix:   prefixes,
+			Identity: identity.NumericIdentity(mapping.GetIdentity()),
+		})
+		if err != nil {
+			return err
 		}
 	}
 	wtxn.Commit()
