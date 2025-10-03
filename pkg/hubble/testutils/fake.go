@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -414,20 +415,20 @@ var NoopIdentityGetter = FakeIdentityGetter{
 
 // FakePolicyMetadataGetter is used for unit tests that need PolicyMetadataGetter.
 type FakePolicyMetadataGetter struct {
-	OnGetLog func(cookie uint32) (string, bool)
+	OnGetCookie func(cookie uint32) (*cookie.BakedCookie, bool)
 }
 
-// GetLog implements PolicyMetadataGetter.GetLog.
-func (f *FakePolicyMetadataGetter) GetLog(cookie uint32) (string, bool) {
-	if f.OnGetLog != nil {
-		return f.OnGetLog(cookie)
+// GetCookie implements PolicyMetadataGetter.GetCookie.
+func (f *FakePolicyMetadataGetter) GetCookie(cookie uint32) (*cookie.BakedCookie, bool) {
+	if f.OnGetCookie != nil {
+		return f.OnGetCookie(cookie)
 	}
-	panic("OnGetLog not set")
+	panic("OnGetCookie not set")
 }
 
 var NoopPolicyMetadataGetter = FakePolicyMetadataGetter{
-	OnGetLog: func(cookie uint32) (string, bool) {
-		return "", false
+	OnGetCookie: func(cookie uint32) (*cookie.BakedCookie, bool) {
+		return nil, false
 	},
 }
 

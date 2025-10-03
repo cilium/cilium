@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -72,8 +73,8 @@ type PodMetadataGetter interface {
 
 // PolicyMetadataGetter fetches policy metadata.
 type PolicyMetadataGetter interface {
-	// GetLog returns the policy log string associated with the given cookie, if it exists.
-	GetLog(cookie uint32) (string, bool)
+	// GetCookie returns the policy cookie associated with the given cookie, if it exists.
+	GetCookie(cookie uint32) (*cookie.BakedCookie, bool)
 }
 
 // EndpointInfo defines readable fields of a Cilium endpoint.

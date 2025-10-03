@@ -44,7 +44,7 @@ func (r *rule) IdentitySelectionUpdated(
 	logger *slog.Logger,
 	selector policytypes.CachedSelector,
 	added, deleted []identity.NumericIdentity,
-	bakery cookie.PolicyLogBakery,
+	bakery cookie.PolicyBakery,
 ) {
 }
 

@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
@@ -49,15 +50,15 @@ type PolicyRepository interface {
 	GetRevision() uint64
 	GetRulesList() *models.Policy
 	GetSelectorCache() *SelectorCache
-	// GetLog returns the policy log string associated with the given cookie, if it exists.
-	GetLog(cookie uint32) (log string, exists bool)
-	// LogCookieCount returns the number of allocated policy log cookies.
-	LogCookieCount() int
-	// MarkLogCookieInUse marks a policy log cookie as in use (i.e. present in an endpoint's
+	// GetCookie returns the policy metadata associated with the given cookie, if it exists.
+	GetCookie(cookie uint32) (dow *cookie.BakedCookie, exists bool)
+	// CookieCount returns the number of allocated policy cookies.
+	CookieCount() int
+	// MarkCookieInUse marks a policy cookie as in use (i.e. present in an endpoint's
 	// policy map).
-	MarkLogCookieInUse(cookie uint32)
-	// SweepLogCookies garbage collects all policy log cookies not marked in-use.
-	SweepLogCookies()
+	MarkCookieInUse(cookie uint32)
+	// SweepCookies garbage collects all policy cookies not marked in-use.
+	SweepCookies()
 	Iterate(f func(rule *api.Rule))
 	ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
@@ -613,23 +614,22 @@ func (p *Repository) GetPolicySnapshot() map[identity.NumericIdentity]SelectorPo
 	return p.policyCache.GetPolicySnapshot()
 }
 
-// GetLog returns the policy log string associated with the given cookie, if it exists.
-func (p *Repository) GetLog(cookie uint32) (log string, exists bool) {
-	return p.selectorCache.logCookies.Get(cookie)
+// GetCookie returns the policy cookie value associated with the given cookie, if it exists.
+func (p *Repository) GetCookie(cookie uint32) (*cookie.BakedCookie, bool) {
+	return p.selectorCache.cookies.Get(cookie)
 }
 
-// LogCookieCount returns the number of allocated policy log cookies.
-func (p *Repository) LogCookieCount() int {
-	return p.selectorCache.logCookies.Count()
+// CookieCount returns the number of allocated policy cookies.
+func (p *Repository) CookieCount() int {
+	return p.selectorCache.cookies.Count()
 }
 
-// MarkLogCookieInUse marks a policy log cookie as in use (i.e. present in an endpoint's policy
-// map).
-func (p *Repository) MarkLogCookieInUse(cookie uint32) {
-	p.selectorCache.logCookies.MarkInUse(cookie)
+// MarkCookieInUse marks a policy cookie as in use (i.e. present in an endpoint's policy map).
+func (p *Repository) MarkCookieInUse(cookie uint32) {
+	p.selectorCache.cookies.MarkInUse(cookie)
 }
 
-// SweepLogCookies garbage collects all policy log cookies not marked in-use.
-func (p *Repository) SweepLogCookies() {
-	p.selectorCache.logCookies.Sweep()
+// SweepCookies garbage collects all policy cookies not marked in-use.
+func (p *Repository) SweepCookies() {
+	p.selectorCache.cookies.Sweep()
 }

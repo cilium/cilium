@@ -345,7 +345,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 	// Must come after the 'insertUser()' above to guarantee
 	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
-	calculatedPolicy.toMapState(logger, p.SelectorCache.logCookies)
+	calculatedPolicy.toMapState(logger, p.SelectorCache.cookies)
 	if !policyOwner.IsHost() {
 		calculatedPolicy.policyMapState.determineAllowLocalhostIngress()
 	}
@@ -499,7 +499,7 @@ func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 // Called without holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (p *EndpointPolicy) toMapState(logger *slog.Logger, logCookieBakery cookie.PolicyLogBakery) {
+func (p *EndpointPolicy) toMapState(logger *slog.Logger, logCookieBakery cookie.PolicyBakery) {
 	p.L4Policy.Ingress.toMapState(logger, p, logCookieBakery)
 	p.L4Policy.Egress.toMapState(logger, p, logCookieBakery)
 }
@@ -510,7 +510,7 @@ func (p *EndpointPolicy) toMapState(logger *slog.Logger, logCookieBakery cookie.
 // Called without holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy, logCookieBakery cookie.PolicyLogBakery) {
+func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy, logCookieBakery cookie.PolicyBakery) {
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
 		l4.toMapState(logger, p, l4policy.features, ChangeState{}, logCookieBakery)
 		return true

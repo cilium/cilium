@@ -165,7 +165,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	var dbg *monitor.DebugCapture
 	var eventSubType uint8
 	var authType pb.AuthType
-	var policyLogCookie uint32
+	var policyCookie uint32
 
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
@@ -199,7 +199,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		eventSubType = pvn.SubType
 		packetOffset = monitor.PolicyVerdictNotifyLen
 		authType = pb.AuthType(pvn.GetAuthType())
-		policyLogCookie = pvn.Cookie
+		policyCookie = pvn.Cookie
 	case monitorAPI.MessageTypeCapture:
 		dbg = &monitor.DebugCapture{}
 		if err := dbg.Decode(data); err != nil {
@@ -294,16 +294,15 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	// If provided, look up policy log string based on the cookie we got. This will be more
 	// specific than the policy log string retrieved from the correlated policy. Also don't make
 	// this conditional on policy correlation being enabled as this is a simple map lookup.
-	if policyLogCookie != 0 && p.policyMetadataGetter != nil {
-		policyLog, ok := p.policyMetadataGetter.GetLog(policyLogCookie)
+	if policyCookie != 0 && p.policyMetadataGetter != nil {
+		cookie, ok := p.policyMetadataGetter.GetCookie(policyCookie)
 		if !ok {
 			p.log.Debug(
-				"no policy log string for cookie",
-				logfields.PolicyLogCookie, policyLogCookie,
+				"no associated policy cookie found",
+				logfields.PolicyCookie, policyCookie,
 			)
-
 		}
-		decoded.PolicyLog = []string{policyLog}
+		decoded.PolicyLog = cookie.Logs
 	}
 
 	return nil

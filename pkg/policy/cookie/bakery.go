@@ -31,8 +31,8 @@ type Bakery[C constraints.Unsigned, V comparable] interface {
 	Count() int
 }
 
-// PolicyLogBakery is a Bakery allocating uint32 cookies for policy log strings.
-type PolicyLogBakery Bakery[uint32, string]
+// PolicyBakery is a Bakery allocating uint32 cookies for policy baked cookies.
+type PolicyBakery Bakery[uint32, *BakedCookie]
 
 type bakery[C constraints.Unsigned, V comparable] struct {
 	logger *slog.Logger
@@ -89,8 +89,8 @@ func (b *bakery[C, V]) Allocate(value V) (cookie C, ok bool) {
 	b.cookieToValue[cookie] = holder[V]{value: value, since: b.lastSeenGeneration}
 	b.valueToCookie[value] = cookie
 	b.logger.Debug("Allocated policy log cookie",
-		logfields.PolicyLogCookie, cookie,
-		logfields.PolicyLogString, value,
+		logfields.PolicyCookie, cookie,
+		logfields.PolicyCookieValue, value,
 	)
 	return cookie, true
 }
@@ -129,9 +129,9 @@ func (b *bakery[C, V]) Sweep() {
 			delete(b.valueToCookie, val.value)
 			// Correct for offset added during allocation. See comment in Allocate.
 			b.cookieSet.Release(int(cookie - 1))
-			b.logger.Debug("Released policy log cookie",
-				logfields.PolicyLogCookie, cookie,
-				logfields.PolicyLogCookie, val.value,
+			b.logger.Debug("Released policy cookie",
+				logfields.PolicyCookie, cookie,
+				logfields.PolicyCookieValue, val.value,
 			)
 		}
 	}
