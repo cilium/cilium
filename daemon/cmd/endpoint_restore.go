@@ -62,6 +62,7 @@ type endpointRestorer struct {
 	ipSecAgent       datapath.IPsecAgent
 	ipamManager      *ipam.IPAM
 
+	restoreState                  *endpointRestoreState
 	endpointRestoreComplete       chan struct{}
 	endpointInitialPolicyComplete chan struct{}
 }
@@ -80,6 +81,11 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 
 		endpointRestoreComplete:       make(chan struct{}),
 		endpointInitialPolicyComplete: make(chan struct{}),
+		restoreState: &endpointRestoreState{
+			possible: nil,
+			restored: []*endpoint.Endpoint{},
+			toClean:  []*endpoint.Endpoint{},
+		},
 	}
 }
 
@@ -212,32 +218,30 @@ func (r *endpointRestorer) getPodForEndpoint(ep *endpoint.Endpoint) error {
 //
 // 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
 //   - recreate endpoint's policy, as well as bpf programs and maps
-func (r *endpointRestorer) FetchOldEndpoints(ctx context.Context, dir string) (*endpointRestoreState, error) {
-	state := &endpointRestoreState{
-		possible: nil,
-		restored: []*endpoint.Endpoint{},
-		toClean:  []*endpoint.Endpoint{},
-	}
-
+func (r *endpointRestorer) FetchOldEndpoints(ctx context.Context, dir string) error {
 	if !option.Config.RestoreState {
 		r.logger.Info("Endpoint restore is disabled, skipping restore step")
-		return state, nil
+		return nil
 	}
 
 	r.logger.Info("Reading old endpoints...")
 
 	dirFiles, err := os.ReadDir(dir)
 	if err != nil {
-		return state, err
+		return err
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	state.possible = endpoint.ReadEPsFromDirNames(ctx, r.logger, r.endpointCreator, dir, eptsID)
+	r.restoreState.possible = endpoint.ReadEPsFromDirNames(ctx, r.logger, r.endpointCreator, dir, eptsID)
 
-	if len(state.possible) == 0 {
+	if len(r.restoreState.possible) == 0 {
 		r.logger.Info("No old endpoints found.")
 	}
-	return state, nil
+	return nil
+}
+
+func (r *endpointRestorer) GetState() *endpointRestoreState {
+	return r.restoreState
 }
 
 // restoreOldEndpoints performs the second step in restoring the endpoint structure,
@@ -245,10 +249,10 @@ func (r *endpointRestorer) FetchOldEndpoints(ctx context.Context, dir string) (*
 // endpoints into the endpoints list. It needs to be followed by a call to
 // regenerateRestoredEndpoints() once the endpoint builder is ready.
 // Endpoints which cannot be associated with a container workload are deleted.
-func (r *endpointRestorer) RestoreOldEndpoints(state *endpointRestoreState) {
+func (r *endpointRestorer) RestoreOldEndpoints() {
 	failed := 0
 	defer func() {
-		state.possible = nil
+		r.restoreState.possible = nil
 	}()
 
 	if !option.Config.RestoreState {
@@ -270,7 +274,7 @@ func (r *endpointRestorer) RestoreOldEndpoints(state *endpointRestoreState) {
 		}
 	}
 
-	for _, ep := range state.possible {
+	for _, ep := range r.restoreState.possible {
 		scopedLog := r.logger.With(logfields.EndpointID, ep.ID)
 		if r.clientset.IsEnabled() {
 			scopedLog = scopedLog.With(logfields.CEPName, ep.GetK8sNamespaceAndCEPName())
@@ -286,7 +290,7 @@ func (r *endpointRestorer) RestoreOldEndpoints(state *endpointRestoreState) {
 			}
 		}
 		if !restore {
-			state.toClean = append(state.toClean, ep)
+			r.restoreState.toClean = append(r.restoreState.toClean, ep)
 			continue
 		}
 
@@ -296,7 +300,7 @@ func (r *endpointRestorer) RestoreOldEndpoints(state *endpointRestoreState) {
 		ep.SetDefaultConfiguration()
 		ep.SkipStateClean()
 
-		state.restored = append(state.restored, ep)
+		r.restoreState.restored = append(r.restoreState.restored, ep)
 
 		if existingEndpoints != nil {
 			delete(existingEndpoints, ep.GetIPv4Address())
@@ -306,7 +310,7 @@ func (r *endpointRestorer) RestoreOldEndpoints(state *endpointRestoreState) {
 
 	r.logger.Info(
 		"Endpoints restored",
-		logfields.Restored, len(state.restored),
+		logfields.Restored, len(r.restoreState.restored),
 		logfields.Failed, failed,
 	)
 
@@ -533,7 +537,7 @@ func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) 
 	return nil
 }
 
-func (r *endpointRestorer) InitRestore(restoredEndpoints *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) {
+func (r *endpointRestorer) InitRestore(endpointsRegenerator *endpoint.Regenerator) {
 	if !option.Config.RestoreState {
 		r.logger.Info("State restore is disabled. Existing endpoints on node are ignored")
 		return
@@ -545,5 +549,5 @@ func (r *endpointRestorer) InitRestore(restoredEndpoints *endpointRestoreState, 
 	// When we regenerate restored endpoints, it is guaranteed that we have
 	// received the full list of policies present at the time the daemon
 	// is bootstrapped.
-	r.regenerateRestoredEndpoints(restoredEndpoints, endpointsRegenerator)
+	r.regenerateRestoredEndpoints(r.restoreState, endpointsRegenerator)
 }
