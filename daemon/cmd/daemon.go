@@ -50,9 +50,6 @@ const (
 type Daemon struct {
 	params daemonParams
 
-	endpointRestoreComplete       chan struct{}
-	endpointInitialPolicyComplete chan struct{}
-
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
@@ -218,14 +215,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 		params: params,
 	}
 
-	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
-	// can wait on it to get closed and not block forever if they happen so start
-	// waiting when it is not yet initialized (which causes them to block forever).
-	if option.Config.RestoreState {
-		d.endpointRestoreComplete = make(chan struct{})
-		d.endpointInitialPolicyComplete = make(chan struct{})
-	}
-
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
 	// in to the metadata layer.
 	if option.Config.RestoreState && !option.Config.DryMode {
@@ -354,7 +343,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
-	restoredEndpoints, err := d.fetchOldEndpoints(ctx, option.Config.StateDir)
+	restoredEndpoints, err := d.params.EndpointRestorer.FetchOldEndpoints(ctx, option.Config.StateDir)
 	if err != nil {
 		params.Logger.Error("Unable to read existing endpoints", logfields.Error, err)
 	}
@@ -508,7 +497,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	d.restoreOldEndpoints(restoredEndpoints)
+	d.params.EndpointRestorer.RestoreOldEndpoints(restoredEndpoints)
 	bootstrapStats.restore.End(true)
 
 	// We must do this after IPAM because we must wait until the

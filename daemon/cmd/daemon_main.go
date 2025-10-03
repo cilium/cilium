@@ -40,9 +40,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
-	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
-	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -1231,6 +1229,7 @@ var daemonCell = cell.Module(
 		promise.New[endpointstate.Restorer],
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
+		newEndpointRestorer,
 	),
 	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
@@ -1259,7 +1258,7 @@ type daemonParams struct {
 	NodeAddressing      datapath.NodeAddressing
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
-	EndpointMetadata    endpointmetadata.EndpointMetadataFetcher
+	EndpointRestorer    *endpointRestorer
 	CertManager         certificatemanager.CertificateManager
 	SecretManager       certificatemanager.SecretManager
 	IdentityAllocator   identitycell.CachingIdentityAllocator
@@ -1298,7 +1297,6 @@ type daemonParams struct {
 	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer
-	EndpointAPIFence    endpointapi.Fence
 	IPSecConfig         datapath.IPsecConfig
 	HealthConfig        healthconfig.CiliumHealthConfig
 }
@@ -1410,7 +1408,7 @@ func startDaemon(ctx context.Context, d *Daemon, restoredEndpoints *endpointRest
 		params.Logger.Error("Failed to wait for initial IPCache revision", logfields.Error, err)
 	}
 
-	d.initRestore(restoredEndpoints, params.EndpointRegenerator)
+	d.params.EndpointRestorer.InitRestore(restoredEndpoints, params.EndpointRegenerator)
 
 	bootstrapStats.enableConntrack.Start()
 	params.Logger.Info("Starting connection tracking garbage collector")
@@ -1446,12 +1444,8 @@ func startDaemon(ctx context.Context, d *Daemon, restoredEndpoints *endpointRest
 	}
 
 	go func() {
-		if d.endpointRestoreComplete != nil {
-			select {
-			case <-d.endpointRestoreComplete:
-			case <-ctx.Done():
-				return
-			}
+		if err := d.params.EndpointRestorer.WaitForEndpointRestore(ctx); err != nil {
+			return
 		}
 
 		ms := maps.NewMapSweeper(
@@ -1549,7 +1543,7 @@ func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Prom
 				if err != nil {
 					resolver.Reject(err)
 				} else {
-					resolver.Resolve(daemon)
+					resolver.Resolve(daemon.params.EndpointRestorer)
 				}
 			}()
 			return nil
