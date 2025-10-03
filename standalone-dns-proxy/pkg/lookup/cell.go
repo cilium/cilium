@@ -30,21 +30,23 @@ var Cell = cell.Module(
 type clientParams struct {
 	cell.In
 
-	Logger       *slog.Logger
-	IPToIdentity statedb.RWTable[client.IPtoEndpointInfo]
-	DB           *statedb.DB
-	JobGroup     job.Group
+	Logger           *slog.Logger
+	IPToIdentity     statedb.RWTable[client.IPtoEndpointInfo]
+	PrefixToIdentity statedb.RWTable[client.PrefixToIdentity]
+	DB               *statedb.DB
+	JobGroup         job.Group
 }
 
 func newRulesClient(params clientParams) lookup.ProxyLookupHandler {
 	r := &rulesClient{
-		logger:            params.Logger,
-		ipToIdentityTable: params.IPToIdentity,
-		db:                params.DB,
-		prefixLengths:     counter.DefaultPrefixLengthCounter(),
+		logger:                params.Logger,
+		ipToIdentityTable:     params.IPToIdentity,
+		prefixToIdentityTable: params.PrefixToIdentity,
+		db:                    params.DB,
+		prefixLengths:         counter.DefaultPrefixLengthCounter(),
 	}
 
-	params.JobGroup.Add(job.OneShot("sdp-watch-ip-endpoint-mapping", r.watchIPToEndpointTable,
+	params.JobGroup.Add(job.OneShot("sdp-watch-prefix-to-identity-mapping", r.watchPrefixToIdentityTable,
 		job.WithRetry(3, &job.ExponentialBackoff{Min: 5 * time.Second, Max: 10 * time.Second}),
 		job.WithShutdown()))
 
