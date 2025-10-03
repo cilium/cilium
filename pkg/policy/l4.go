@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/logcookie"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -617,7 +617,7 @@ func (l4 *L4Filter) generateWildcardMapStateEntry(
 	logger *slog.Logger,
 	p *EndpointPolicy,
 	port uint16,
-	logCookieBakery logcookie.PolicyLogBakery,
+	logCookieBakery cookie.PolicyLogBakery,
 ) mapStateEntry {
 	wildcardEntry := mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
 
@@ -638,7 +638,7 @@ func (l4 *L4Filter) makeMapStateEntry(
 	port uint16,
 	cs CachedSelector,
 	currentRule *PerSelectorPolicy,
-	logCookieBakery logcookie.PolicyLogBakery,
+	logCookieBakery cookie.PolicyLogBakery,
 ) mapStateEntry {
 	var proxyPort uint16
 	if currentRule.IsRedirect() {
@@ -675,7 +675,7 @@ func (l4 *L4Filter) makeMapStateEntry(
 	}
 }
 
-func getPolicyLogCookie(logger *slog.Logger, logCookieBakery logcookie.PolicyLogBakery, derivedFrom ruleOrigin) uint32 {
+func getPolicyLogCookie(logger *slog.Logger, logCookieBakery cookie.PolicyLogBakery, derivedFrom ruleOrigin) uint32 {
 	logString := derivedFrom.RawLog()
 	if logString == "" {
 		// Cookie value 0 means no cookie (default if no policy log string is given).
@@ -708,7 +708,7 @@ func (l4 *L4Filter) toMapState(
 	p *EndpointPolicy,
 	features policyFeatures,
 	changes ChangeState,
-	logCookieBakery logcookie.PolicyLogBakery,
+	logCookieBakery cookie.PolicyLogBakery,
 ) {
 	port := l4.Port
 	proto := l4.U8Proto
@@ -830,7 +830,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(
 	logger *slog.Logger,
 	cs types.CachedSelector,
 	added, deleted []identity.NumericIdentity,
-	logCookieBakery logcookie.PolicyLogBakery,
+	logCookieBakery cookie.PolicyLogBakery,
 ) {
 	logger.Debug(
 		"identities selected by L4Filter updated",
@@ -1677,7 +1677,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(
 	l4 *L4Filter,
 	cs CachedSelector,
 	adds, deletes []identity.NumericIdentity,
-	logCookieBakery logcookie.PolicyLogBakery,
+	logCookieBakery cookie.PolicyLogBakery,
 ) {
 	port := uint16(l4.Port)
 	proto := l4.U8Proto

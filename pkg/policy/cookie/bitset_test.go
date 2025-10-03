@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package logcookie
+package cookie
 
 import (
 	"math/rand/v2"

@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/logcookie"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -535,7 +535,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 		}
 	}
 
-	logCookieBakery := logcookie.NewBakery[uint32, string](logger)
+	logCookieBakery := cookie.NewBakery[uint32, string](logger)
 
 	ws := newTestCachedSelector("wildcard", true)
 	testSelA := newTestCachedSelector("test-selector-a", false, 101, 102, 103)
