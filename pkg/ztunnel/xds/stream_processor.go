@@ -11,10 +11,12 @@ import (
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type StreamProcessorParams struct {
@@ -78,6 +80,37 @@ func NewStreamProcessor(params *StreamProcessorParams) *StreamProcessor {
 }
 
 func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, wg *sync.WaitGroup) {
+	if option.Config.EnableCiliumEndpointSlice {
+		newSliceEvents := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointSliceResource().Events(ctx, resource.WithErrorHandler(resource.AlwaysRetry))
+		for e := range newSliceEvents {
+			if e.Object == nil {
+				e.Done(nil)
+				continue
+			}
+			if e.Kind == resource.Sync {
+				wg.Done()
+				e.Done(nil)
+				continue
+			}
+			for _, coreCep := range e.Object.Endpoints {
+				cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&coreCep, e.Object.Namespace)
+				switch e.Kind {
+				case resource.Upsert:
+					es.sp.endpointRecv <- &EndpointEvent{
+						Type:           CREATE,
+						CiliumEndpoint: cep,
+					}
+				case resource.Delete:
+					es.sp.endpointRecv <- &EndpointEvent{
+						Type:           REMOVED,
+						CiliumEndpoint: cep,
+					}
+				}
+			}
+			e.Done(nil)
+		}
+		return
+	}
 
 	// TODO(hemanthmalla): How should retries be configured here ?
 	newEvents := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointResource().Events(ctx, resource.WithErrorHandler(resource.AlwaysRetry))
@@ -101,13 +134,28 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, wg *syn
 }
 
 func (es *EndpointSource) ListAllEndpoints(ctx context.Context) ([]*types.CiliumEndpoint, error) {
+	eps := []*types.CiliumEndpoint{}
+	if option.Config.EnableCiliumEndpointSlice {
+		cesStore, err := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointSliceResource().Store(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get CiliumEndpointSlice store from K8sCiliumEndpointsWatcher: %w", err)
+		}
+		slices := cesStore.List()
+
+		for _, s := range slices {
+			for _, ep := range s.Endpoints {
+				cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ep, s.Namespace)
+				eps = append(eps, cep)
+			}
+		}
+		return eps, nil
+	}
 
 	cepStore, err := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointResource().Store(ctx)
 	if err != nil {
-		es.sp.log.Debug("initialized new stream for resource")
 		return nil, fmt.Errorf("failed to get CiliumEndpoint store from K8sCiliumEndpointsWatcher: %w", err)
 	}
-	eps := cepStore.List()
+	eps = cepStore.List()
 	return eps, nil
 }
 
