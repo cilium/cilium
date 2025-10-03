@@ -4,6 +4,7 @@
 package analyze
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"iter"
@@ -336,15 +337,12 @@ func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error 
 		return r.unpredictableBlock(b, vars)
 	}
 
-	// TODO(tb): evalBranch doesn't currently take the deref's offset field into
-	// account so it can't deal with variables over 8 bytes in size. Improve it
-	// to be more robust and remove this limitation.
 	vs := lookupVariable(load, vars)
-	if vs == nil || !vs.Constant() || vs.Size() > 8 {
+	if vs == nil || !vs.Constant() {
 		return r.unpredictableBlock(b, vars)
 	}
 
-	jump, err := evalBranch(branch, vs)
+	jump, err := evalBranch(branch, vs, deref)
 	if err != nil {
 		return fmt.Errorf("evaluating branch of block %d: %w", b.id, err)
 	}
@@ -384,34 +382,66 @@ func lookupVariable(load *asm.Instruction, vars map[mapOffset]VariableSpec) Vari
 // variable it refers to.
 //
 // Returns true if the branch is always taken, false if it is never taken,
-func evalBranch(branch *asm.Instruction, vs VariableSpec) (bool, error) {
+func evalBranch(branch *asm.Instruction, vs VariableSpec, deref *asm.Instruction) (bool, error) {
 	// Extract the variable value
 	var (
 		value int64
 		err   error
 	)
-	switch vs.Size() {
-	case 1:
-		var value8 int8
-		err = vs.Get(&value8)
-		value = int64(value8)
-	case 2:
-		var value16 int16
-		err = vs.Get(&value16)
-		value = int64(value16)
-	case 4:
-		var value32 int32
-		err = vs.Get(&value32)
-		value = int64(value32)
-	case 8:
-		var value64 int64
-		err = vs.Get(&value64)
-		value = value64
-	default:
-		return false, fmt.Errorf("jump instruction on variable %v of size %d?", vs, vs.Size())
-	}
-	if err != nil {
-		return false, fmt.Errorf("getting value of variable: %w", err)
+
+	// Use original logic for simple cases, new logic only when needed
+	if vs.Size() <= 8 && deref.Offset == 0 {
+		// Original optimized path for simple variables
+		switch vs.Size() {
+		case 1:
+			var value8 int8
+			err = vs.Get(&value8)
+			value = int64(value8)
+		case 2:
+			var value16 int16
+			err = vs.Get(&value16)
+			value = int64(value16)
+		case 4:
+			var value32 int32
+			err = vs.Get(&value32)
+			value = int64(value32)
+		case 8:
+			var value64 int64
+			err = vs.Get(&value64)
+			value = value64
+		default:
+			return false, fmt.Errorf("jump instruction on variable %v of size %d?", vs, vs.Size())
+		}
+		if err != nil {
+			return false, fmt.Errorf("getting value of variable: %w", err)
+		}
+	} else {
+		// New path for struct field access or large variables
+		fieldSize := deref.OpCode.Size().Sizeof()
+		fieldOffset := deref.Offset
+
+		rawBytes := make([]byte, vs.Size())
+		if err := vs.Get(&rawBytes); err != nil {
+			return false, fmt.Errorf("getting raw bytes of variable: %w", err)
+		}
+
+		if int(fieldOffset)+fieldSize > len(rawBytes) {
+			return false, fmt.Errorf("field access out of bounds")
+		}
+
+		fieldBytes := rawBytes[fieldOffset : fieldOffset+int16(fieldSize)]
+		switch fieldSize {
+		case 1:
+			value = int64(int8(fieldBytes[0]))
+		case 2:
+			value = int64(int16(binary.LittleEndian.Uint16(fieldBytes)))
+		case 4:
+			value = int64(int32(binary.LittleEndian.Uint32(fieldBytes)))
+		case 8:
+			value = int64(binary.LittleEndian.Uint64(fieldBytes))
+		default:
+			return false, fmt.Errorf("unsupported field size %d", fieldSize)
+		}
 	}
 
 	// Now lets determine if the branch is always taken or never taken.
