@@ -1945,6 +1945,13 @@ hubble:
       # - source
       # - destination
       # - verdict
+      fieldAggregate: []
+      # - time
+      # - source
+      # - destination
+      # - verdict
+      aggregationInterval: "30s"
+      # --- Defines the interval at which to aggregate before exporting Hubble flows.
       allowList: []
       # - '{"verdict":["DROPPED","ERROR"]}'
       denyList: []
@@ -1970,6 +1977,8 @@ hubble:
         content:
           - name: all
             fieldMask: []
+            fieldAggregate: []
+            aggregationInterval: "30s"
             includeFilters: []
             excludeFilters: []
             filePath: "/var/run/cilium/hubble/events.log"
