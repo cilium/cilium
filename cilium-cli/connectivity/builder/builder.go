@@ -114,6 +114,12 @@ var (
 
 	//go:embed manifests/bgp-peering-policy.yaml
 	bgpPeeringPolicyYAML string
+
+	//go:embed manifests/allow-ingress-specific-ns-ccnp.yaml
+	ingressfromSpecificNSYAML string
+
+	//go:embed manifests/allow-egress-specific-ns-ccnp.yaml
+	egresstoSpecificNSYAML string
 )
 
 var (
@@ -325,6 +331,8 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 		hostFirewallEgress{},
 		clientEgressL7TlsDenyWithoutHeaders{},
 		clientEgressL7TlsHeaders{},
+		egresstoSpecificNamespace{},
+		ingressfromSpecificNamespace{},
 	}
 	return injectTests(tests, ct)
 }
@@ -367,6 +375,8 @@ func renderTemplates(clusterNameLocal, clusterNameRemote string, param check.Par
 		"clientEgressOnlyDNSPolicyYAML":                              clientEgressOnlyDNSPolicyYAML,
 		"echoIngressFromCIDRYAML":                                    echoIngressFromCIDRYAML,
 		"denyCIDRPolicyYAML":                                         denyCIDRPolicyYAML,
+		"ingressfromSpecificNSYAML":                                  ingressfromSpecificNSYAML,
+		"egresstoSpecificNSYAML":                                     egresstoSpecificNSYAML,
 	}
 	if param.K8sLocalHostTest {
 		templates["clientEgressToCIDRCPHostPolicyYAML"] = clientEgressToCIDRCPHostPolicyYAML
