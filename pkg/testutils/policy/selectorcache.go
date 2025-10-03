@@ -14,7 +14,7 @@ import (
 
 type DummySelectorCacheUser struct{}
 
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(logger *slog.Logger, selector types.CachedSelector, added, deleted []identity.NumericIdentity, logCookieBakery cookie.PolicyLogBakery) {
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(logger *slog.Logger, selector types.CachedSelector, added, deleted []identity.NumericIdentity, logCookieBakery cookie.PolicyBakery) {
 }
 
 func (d *DummySelectorCacheUser) IdentitySelectionCommit(logger *slog.Logger, txn *versioned.Tx) {

@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
@@ -776,11 +777,11 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 		},
 	}
 	policyMetadataGetter := &testutils.FakePolicyMetadataGetter{
-		OnGetLog: func(cookie uint32) (string, bool) {
-			if cookie != 0 {
-				return "policy log", true
+		OnGetCookie: func(c uint32) (*cookie.BakedCookie, bool) {
+			if c == 0 {
+				return nil, false
 			}
-			return "", false
+			return cookie.NewBakedCookie("", []string{"policy log"}, 1), true
 		},
 	}
 

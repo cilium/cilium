@@ -617,7 +617,7 @@ func (l4 *L4Filter) generateWildcardMapStateEntry(
 	logger *slog.Logger,
 	p *EndpointPolicy,
 	port uint16,
-	logCookieBakery cookie.PolicyLogBakery,
+	logCookieBakery cookie.PolicyBakery,
 ) mapStateEntry {
 	wildcardEntry := mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
 
@@ -638,7 +638,7 @@ func (l4 *L4Filter) makeMapStateEntry(
 	port uint16,
 	cs CachedSelector,
 	currentRule *PerSelectorPolicy,
-	logCookieBakery cookie.PolicyLogBakery,
+	logCookieBakery cookie.PolicyBakery,
 ) mapStateEntry {
 	var proxyPort uint16
 	if currentRule.IsRedirect() {
@@ -660,7 +660,13 @@ func (l4 *L4Filter) makeMapStateEntry(
 	var cookie uint32
 	derivedFrom, ok := l4.RuleOrigin[cs]
 	if ok {
-		cookie = getPolicyLogCookie(logger, logCookieBakery, derivedFrom)
+		// !!BOZO!! when no version available what should be the default 0 or 1?
+		var version uint64
+		if p.VersionHandle.IsValid() {
+			version = uint64(p.VersionHandle.Version())
+		}
+
+		cookie = getPolicyLogCookie(logger, logCookieBakery, derivedFrom, version)
 	}
 
 	return mapStateEntry{
@@ -675,22 +681,28 @@ func (l4 *L4Filter) makeMapStateEntry(
 	}
 }
 
-func getPolicyLogCookie(logger *slog.Logger, logCookieBakery cookie.PolicyLogBakery, derivedFrom ruleOrigin) uint32 {
-	logString := derivedFrom.RawLog()
-	if logString == "" {
-		// Cookie value 0 means no cookie (default if no policy log string is given).
+func getPolicyLogCookie(logger *slog.Logger, logCookieBakery cookie.PolicyBakery, derivedFrom ruleOrigin, version uint64) uint32 {
+	bc := cookie.NewBakedCookie(
+		derivedFrom.LabelsString(),
+		derivedFrom.Logs(),
+		version,
+	)
+	if bc.IsEmpty() {
 		return 0
 	}
 
-	logger.Debug("Allocating policy log cookie for log string",
-		logfields.PolicyLogString, logString,
+	logger.Debug("Allocating policy log cookie",
+		logfields.PolicyCookieLogs, bc.Logs,
+		logfields.Labels, bc.Labels,
 	)
-	cookie, ok := logCookieBakery.Allocate(logString)
+	cookie, ok := logCookieBakery.Allocate(bc)
 	if !ok {
-		logger.Warn("Failed to allocate policy log cookie for log string",
-			logfields.PolicyLogString, logString,
+		logger.Warn("Failed to allocate policy log cookie",
+			logfields.PolicyCookieLogs, bc.Logs,
+			logfields.Labels, bc.Labels,
 		)
 	}
+
 	return cookie
 }
 
@@ -708,7 +720,7 @@ func (l4 *L4Filter) toMapState(
 	p *EndpointPolicy,
 	features policyFeatures,
 	changes ChangeState,
-	logCookieBakery cookie.PolicyLogBakery,
+	logCookieBakery cookie.PolicyBakery,
 ) {
 	port := l4.Port
 	proto := l4.U8Proto
@@ -830,7 +842,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(
 	logger *slog.Logger,
 	cs types.CachedSelector,
 	added, deleted []identity.NumericIdentity,
-	logCookieBakery cookie.PolicyLogBakery,
+	logCookieBakery cookie.PolicyBakery,
 ) {
 	logger.Debug(
 		"identities selected by L4Filter updated",
@@ -1677,14 +1689,14 @@ func (l4Policy *L4Policy) AccumulateMapChanges(
 	l4 *L4Filter,
 	cs CachedSelector,
 	adds, deletes []identity.NumericIdentity,
-	logCookieBakery cookie.PolicyLogBakery,
+	logCookieBakery cookie.PolicyBakery,
 ) {
 	port := uint16(l4.Port)
 	proto := l4.U8Proto
 	var cookie uint32
 	derivedFrom, ok := l4.RuleOrigin[cs]
 	if ok {
-		cookie = getPolicyLogCookie(logger, logCookieBakery, derivedFrom)
+		cookie = getPolicyLogCookie(logger, logCookieBakery, derivedFrom, l4Policy.Revision)
 	}
 
 	direction := trafficdirection.Egress

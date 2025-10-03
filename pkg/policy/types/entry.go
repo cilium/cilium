@@ -145,6 +145,13 @@ func (e MapStateEntry) WithProxyPort(proxyPort uint16) MapStateEntry {
 	return e
 }
 
+// WithCookie returns a MapStateEntry with the given cookie.
+func (e MapStateEntry) WithCookie(cookie uint32) MapStateEntry {
+	e.Cookie = cookie
+
+	return e
+}
+
 // Merge is only called if both entries are denies or allows
 func (e *MapStateEntry) Merge(entry MapStateEntry) {
 	// Only allow entries have proxy redirection or auth requirement

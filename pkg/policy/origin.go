@@ -72,6 +72,10 @@ func (ro ruleOrigin) LabelsString() labels.LabelArrayListString {
 	return ro.Value().labels
 }
 
+func (ro ruleOrigin) Logs() []string {
+	return ro.Value().log.List()
+}
+
 func (ro ruleOrigin) LogString() string {
 	out, _ := json.Marshal(ro.Value().log.List())
 	return string(out)

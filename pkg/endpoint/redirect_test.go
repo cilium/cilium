@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/revert"
@@ -42,6 +43,14 @@ type RedirectSuite struct {
 	stats             *regenerationStatistics
 	datapathRegenCtxt *datapathRegenerationContext
 }
+
+type fakeBakery struct{}
+
+func (f *fakeBakery) Allocate(*cookie.BakedCookie) (uint32, bool) { return 0, true }
+func (f *fakeBakery) Get(uint32) (*cookie.BakedCookie, bool)      { return &cookie.BakedCookie{}, true }
+func (f *fakeBakery) MarkInUse(uint32)                            {}
+func (f *fakeBakery) Sweep()                                      {}
+func (f *fakeBakery) Count() int                                  { return 0 }
 
 func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	testutils.IntegrationTest(tb)
@@ -66,8 +75,8 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 
 	s.do.idmgr = identitymanager.NewIDManager(logger)
 	s.do.repo = policy.NewPolicyRepository(logger, identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, testpolicy.NewPolicyMetricsNoop())
+	s.do.repo.GetSelectorCache().SetCookies(&fakeBakery{})
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
-
 	s.rsp = &RedirectSuiteProxy{
 		parserProxyPortMap: map[string]uint16{
 			policy.ParserTypeHTTP.String():  httpPort,

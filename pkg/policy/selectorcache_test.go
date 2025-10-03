@@ -120,7 +120,7 @@ func (csu *cachedSelectionUser) WaitForUpdate() (adds, deletes int) {
 	return csu.adds, csu.deletes
 }
 
-func (csu *cachedSelectionUser) IdentitySelectionUpdated(logger *slog.Logger, selector policytypes.CachedSelector, added, deleted []identity.NumericIdentity, logCookieBakery cookie.PolicyLogBakery) {
+func (csu *cachedSelectionUser) IdentitySelectionUpdated(logger *slog.Logger, selector policytypes.CachedSelector, added, deleted []identity.NumericIdentity, logCookieBakery cookie.PolicyBakery) {
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
 
@@ -638,5 +638,15 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 func testNewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
 	sc := NewSelectorCache(logger, ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
+	sc.cookies = &fakeBakery{}
+
 	return sc
 }
+
+type fakeBakery struct{}
+
+func (f *fakeBakery) Allocate(*cookie.BakedCookie) (uint32, bool) { return 0, true }
+func (f *fakeBakery) Get(uint32) (*cookie.BakedCookie, bool)      { return &cookie.BakedCookie{}, true }
+func (f *fakeBakery) MarkInUse(uint32)                            {}
+func (f *fakeBakery) Sweep()                                      {}
+func (f *fakeBakery) Count() int                                  { return 0 }
