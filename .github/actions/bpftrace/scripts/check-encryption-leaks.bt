@@ -161,7 +161,7 @@ kprobe:br_forward
             $encap, $skb->encapsulation);
         }
 
-        printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
+        printf("[%s] [%p]  ↳ %s:%d -> %s:%d (len: %d, proto: %d, ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
           $time, $skb,
           ntop($ip4h->saddr),
           ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->source) : 0,
@@ -177,7 +177,7 @@ kprobe:br_forward
           $pod_to_pod_via_proxy == PROXY_TRACED_AND_MASQUERADED);
 
         if ($ip4h->protocol == PROTO_TCP) {
-          printf("[%s] [%p] ↳ Detected TCP message, TCPFlags: %c%c%c%c%c%c%c%c, Seq: %u, Ack: %u\n",
+          printf("[%s] [%p]   ↳ Detected TCP message, TCPFlags: %c%c%c%c%c%c%c%c, Seq: %u, Ack: %u\n",
             $time, $skb,
             $tcph->cwr ? CH_C : CH_DOT, $tcph->ece ? CH_E : CH_DOT,
             $tcph->urg ? CH_U : CH_DOT, $tcph->ack ? CH_A : CH_DOT,
@@ -189,7 +189,7 @@ kprobe:br_forward
         if ($ip4h->protocol == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
           $dns = (struct dnshdr*)($udph + 1);
           $query = (uint8 *)($dns + 1);
-          printf("[%s] [%p] ↳ Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
+          printf("[%s] [%p]   ↳ Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
             $time, $skb,
             bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
             bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
@@ -199,7 +199,7 @@ kprobe:br_forward
         if ($ip4h->protocol == PROTO_ICMP_IPV4) {
           $frag_off = bswap($ip4h->frag_off);
 
-          printf("[%s] [%p] ↳ Detected ICMP message, IPFlags: .%c%c, Type: %u, Code: %u, FragOff: %d, FragID: %d\n",
+          printf("[%s] [%p]   ↳ Detected ICMP message, IPFlags: .%c%c, Type: %u, Code: %u, FragOff: %d, FragID: %d\n",
             $time, $skb,
             ($frag_off & 0x4000) >> 14 ? CH_D : CH_DOT,
             ($frag_off & 0x2000) >> 13 ? CH_M : CH_DOT,
@@ -254,7 +254,7 @@ kprobe:br_forward
             $encap, $skb->encapsulation);
         }
 
-        printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
+        printf("[%s] [%p]  ↳ %s:%d -> %s:%d (len: %d, proto: %d, ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
           $time, $skb,
           ntop($ip6h->saddr.in6_u.u6_addr8),
           ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->source) : 0,
@@ -270,7 +270,7 @@ kprobe:br_forward
           $pod_to_pod_via_proxy == PROXY_TRACED_AND_MASQUERADED);
 
         if ($ip6h->nexthdr == PROTO_TCP) {
-          printf("[%s] [%p] ↳ Detected TCP message, TCPFlags: %c%c%c%c%c%c%c%c, Seq: %u, Ack: %u\n",
+          printf("[%s] [%p]   ↳ Detected TCP message, TCPFlags: %c%c%c%c%c%c%c%c, Seq: %u, Ack: %u\n",
             $time, $skb,
             $tcph->cwr ? CH_C : CH_DOT, $tcph->ece ? CH_E : CH_DOT,
             $tcph->urg ? CH_U : CH_DOT, $tcph->ack ? CH_A : CH_DOT,
@@ -282,7 +282,7 @@ kprobe:br_forward
         if ($ip6h->nexthdr == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
           $dns = (struct dnshdr*)($udph + 1);
           $query = (uint8 *)($dns + 1);
-          printf("[%s] [%p] ↳ Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
+          printf("[%s] [%p]   ↳ Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
             $time, $skb,
             bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
             bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
@@ -299,7 +299,7 @@ kprobe:br_forward
             $frag_off_res_m = bswap($frag_hdr->frag_off);
           }
 
-          printf("[%s] [%p] ↳ Detected ICMP message, IPFlags: ..%c, Type: %u, Code: %u, FragOff: %d, FragID: %d\n",
+          printf("[%s] [%p]   ↳ Detected ICMP message, IPFlags: ..%c, Type: %u, Code: %u, FragOff: %d, FragID: %d\n",
             $time, $skb,
             $frag_off_res_m & 0x0001 ? CH_M : CH_DOT,
             $icmph->type,
