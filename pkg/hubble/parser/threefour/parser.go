@@ -287,25 +287,37 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.ProxyPort = decodeProxyPort(dbg, tn)
 	decoded.Summary = summary
 
-	if p.correlateL3L4Policy && p.endpointGetter != nil {
-		correlation.CorrelatePolicy(p.log, p.endpointGetter, decoded)
-	}
-
-	// If provided, look up policy log string based on the cookie we got. This will be more
-	// specific than the policy log string retrieved from the correlated policy. Also don't make
-	// this conditional on policy correlation being enabled as this is a simple map lookup.
-	if policyCookie != 0 && p.policyMetadataGetter != nil {
-		cookie, ok := p.policyMetadataGetter.GetCookie(policyCookie)
-		if !ok {
-			p.log.Debug(
-				"no associated policy cookie found",
-				logfields.PolicyCookie, policyCookie,
-			)
-		}
-		decoded.PolicyLog = cookie.Logs
-	}
+	p.correlatePolicy(policyCookie, decoded)
 
 	return nil
+}
+
+func (p *Parser) correlatePolicy(policyCookie uint32, f *pb.Flow) {
+	var correlated bool
+
+	// If we have a valid cookie use it to add log info and correlate the flow.
+	if policyCookie != 0 && p.policyMetadataGetter != nil {
+		// If provided, look up policy log string based on the cookie we got. This will be more
+		// specific than the policy log string retrieved from the correlated policy. Also don't make
+		// this conditional on policy correlation being enabled as this is a simple map lookup.
+		if cookie, ok := p.policyMetadataGetter.GetCookie(policyCookie); !ok {
+			p.log.Debug(
+				"no policy cookie found",
+				logfields.PolicyCookie, policyCookie,
+			)
+		} else {
+			f.PolicyLog = cookie.Logs
+			// Now if we have have a valid cookie use the labels and revision metadata to correlate.
+			if p.correlateL3L4Policy && p.endpointGetter != nil && cookie.Labels != "" {
+				correlation.CorrelatePolicyFromCookie(p.log, cookie, f)
+				correlated = true
+			}
+		}
+	}
+
+	if !correlated && p.correlateL3L4Policy && p.endpointGetter != nil {
+		correlation.CorrelatePolicy(p.log, p.endpointGetter, f)
+	}
 }
 
 func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {

@@ -781,7 +781,14 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 			if c == 0 {
 				return nil, false
 			}
-			return cookie.NewBakedCookie("", []string{"policy log"}, 1), true
+
+			lbls := "[" +
+				"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy" + " " +
+				"k8s:io.cilium.k8s.policy.name=web-policy" + " " +
+				"k8s:io.cilium.k8s.policy.namespace=foo-namespace" + " " +
+				"k8s:io.cilium.k8s.policy.uid=1234-5678" +
+				"]"
+			return cookie.NewBakedCookie(labels.LabelArrayListString(lbls), []string{"blee", "blah"}, 1), true
 		},
 	}
 
@@ -826,7 +833,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	assert.Equal(t, uint32(monitorAPI.PolicyMatchL3L4), f.GetPolicyMatchType())
 	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
 	assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
-	assert.Equal(t, []string{"policy log"}, f.GetPolicyLog())
+	assert.Equal(t, []string{"blee", "blah"}, f.GetPolicyLog())
 
 	expectedPolicy := []*flowpb.Policy{
 		{

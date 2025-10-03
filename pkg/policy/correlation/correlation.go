@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/flow"
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
@@ -15,11 +16,44 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+func CorrelatePolicyFromCookie(logger *slog.Logger, cookie *cookie.BakedCookie, f *flowpb.Flow) {
+	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) {
+		return
+	}
+
+	allowed, denied := parseVerdict(f)
+	if !(allowed || denied) {
+		return
+	}
+
+	direction, endpointID, _, proto, dport := extractFlowKey(f)
+	if dport == 0 || proto == 0 {
+		logger.Debug(
+			"failed to extract flow key",
+			logfields.EndpointID, endpointID,
+		)
+		return
+	}
+
+	policies := policiesFromCookie(cookie)
+	switch {
+	case direction == trafficdirection.Egress && allowed:
+		f.EgressAllowedBy = policies
+	case direction == trafficdirection.Egress && denied:
+		f.EgressDeniedBy = policies
+	case direction == trafficdirection.Ingress && allowed:
+		f.IngressAllowedBy = policies
+	case direction == trafficdirection.Ingress && denied:
+		f.IngressDeniedBy = policies
+	}
+}
 
 // CorrelatePolicy updates the IngressAllowedBy/EgressAllowedBy fields on the
 // provided flow.
@@ -92,6 +126,14 @@ func CorrelatePolicy(
 	}
 	// policy log is independent of verdict
 	f.PolicyLog = info.Log
+}
+
+func parseVerdict(flow *flow.Flow) (allowed, denied bool) {
+	verdict := flow.GetVerdict()
+	allowed = verdict == flowpb.Verdict_FORWARDED || verdict == flowpb.Verdict_REDIRECTED
+	denied = verdict == flowpb.Verdict_DROPPED && flow.GetDropReasonDesc() == flowpb.DropReason_POLICY_DENY
+
+	return
 }
 
 func extractFlowKey(f *flowpb.Flow) (
@@ -257,4 +299,46 @@ func policyFromModel(model []string, info policyTypes.PolicyCorrelationInfo) *fl
 	}
 
 	return f
+}
+
+func policiesFromCookie(cookie *cookie.BakedCookie) (policies []*flowpb.Policy) {
+	for model := range labels.ModelsFromLabelArrayListString(cookie.Labels) {
+		policies = append(policies, policyFromCookie(model, cookie.Version))
+	}
+
+	return policies
+}
+
+func policyFromCookie(lbls []string, rev uint64) *flowpb.Policy {
+	p := &flowpb.Policy{
+		Labels:   lbls,
+		Revision: rev,
+	}
+
+	for _, lbl := range lbls {
+		if lbl, isK8sLabel := strings.CutPrefix(lbl, string(source.Kubernetes)+":"); isK8sLabel {
+			key, value, ok := strings.Cut(lbl, "=")
+			if !ok {
+				continue
+			}
+
+			switch key {
+			case k8sConst.PolicyLabelName:
+				p.Name = value
+
+			case k8sConst.PolicyLabelNamespace:
+				p.Namespace = value
+
+			case k8sConst.PolicyLabelDerivedFrom:
+				p.Kind = value
+
+			default:
+				if p.Kind != "" && p.Name != "" && p.Namespace != "" {
+					return p
+				}
+			}
+		}
+	}
+
+	return p
 }
