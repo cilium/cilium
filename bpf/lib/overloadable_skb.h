@@ -153,6 +153,10 @@ redirect_self(const struct __sk_buff *ctx)
 static __always_inline __maybe_unused bool
 neigh_resolver_available(void)
 {
+	/* Kernel bugs be damned. */
+	if (is_defined(IS_BPF_OVERLAY))
+		return false;
+
 	return true;
 }
 
