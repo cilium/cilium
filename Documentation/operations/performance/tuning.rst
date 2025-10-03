@@ -603,6 +603,22 @@ jumbo frames, Cilium will automatically make use of it.
 To benefit from this, make sure that your system is configured to use jumbo
 frames if your network allows for it.
 
+Disable Packet Layer PMTUD
+--------------------------
+
+Cilium enables Linux's TCP Packetization Layer Path MTU Discovery by default for Pod endpoints.
+This is a kernel feature that implements `RFC4821 <https://datatracker.ietf.org/doc/html/rfc4821>`__ which provides a way of
+dynamically discovering the correct path MTU size for connections that is resilient against lost packets
+and firewalls blocking regular ICMP based PMTUD messages.
+In particular, this provides a robust MTU discovery mechanism against network black holes arising 
+from incorrect MTU sizes and firewalls dropping PMTUD error messages.
+
+Although this provides a more robust way of discovery path MTU, it comes at the possible cost of connections
+initially using sub-optimal MSS resulting in lower network performance.
+In the case where the correct MTU is known, disabling this feature may provide some improved network throughput on TCP connections.
+
+This feature can be disabled via the helm value: ``pmtuDiscovery.packetizationLayerPMTUD.enabled=false``.
+
 Bandwidth Manager
 =================
 
