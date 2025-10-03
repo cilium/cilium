@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/logcookie"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -89,7 +89,7 @@ type SelectorCache struct {
 	// logCookies manages the cookies associated with policy log strings.
 	// TODO(tk): this is not directly related to the selector cache but added here for practical
 	// reasons. Refactor this to be part of the policy repository instead.
-	logCookies logcookie.PolicyLogBakery
+	logCookies cookie.PolicyLogBakery
 }
 
 // GetVersionHandleFunc calls the given function with a versioned.VersionHandle for the
@@ -251,7 +251,7 @@ func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCa
 		logger:     logger,
 		idCache:    make(map[identity.NumericIdentity]scIdentity, len(ids)),
 		selectors:  make(map[string]*identitySelector),
-		logCookies: logcookie.NewBakery[uint32, string](logger),
+		logCookies: cookie.NewBakery[uint32, string](logger),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	sc.versioned = &versioned.Coordinator{

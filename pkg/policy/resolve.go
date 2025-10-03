@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/logcookie"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -499,7 +499,7 @@ func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 // Called without holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (p *EndpointPolicy) toMapState(logger *slog.Logger, logCookieBakery logcookie.PolicyLogBakery) {
+func (p *EndpointPolicy) toMapState(logger *slog.Logger, logCookieBakery cookie.PolicyLogBakery) {
 	p.L4Policy.Ingress.toMapState(logger, p, logCookieBakery)
 	p.L4Policy.Egress.toMapState(logger, p, logCookieBakery)
 }
@@ -510,7 +510,7 @@ func (p *EndpointPolicy) toMapState(logger *slog.Logger, logCookieBakery logcook
 // Called without holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy, logCookieBakery logcookie.PolicyLogBakery) {
+func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy, logCookieBakery cookie.PolicyLogBakery) {
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
 		l4.toMapState(logger, p, l4policy.features, ChangeState{}, logCookieBakery)
 		return true

@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/logcookie"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -44,7 +44,7 @@ func (r *rule) IdentitySelectionUpdated(
 	logger *slog.Logger,
 	selector policytypes.CachedSelector,
 	added, deleted []identity.NumericIdentity,
-	bakery logcookie.PolicyLogBakery,
+	bakery cookie.PolicyLogBakery,
 ) {
 }
 
