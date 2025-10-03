@@ -97,6 +97,9 @@ kprobe:br_forward
   $udph = ((struct udphdr*) ($skb->head + $skb->transport_header));
   $tcph = ((struct tcphdr*) ($skb->head + $skb->transport_header));
   $icmph = ((struct icmphdr*) ($skb->head + $skb->transport_header));
+  $tunnel_ip4h = $ip4h;
+  $tunnel_ip6h = $ip6h;
+  $tunnel_udph = $udph;
 
   // $skb->encapsulation might be unset when encap headers are manually pushed,
   // despite $skb->inner references being correct.
@@ -149,7 +152,16 @@ kprobe:br_forward
         ) {
         $time = strftime("%H:%M:%S:%f", nsecs);
 
-        printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
+        if ($skb->encapsulation || $encap) {
+          printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, encap: %d, skb: %d)\n",
+            $time, $skb,
+            ntop($tunnel_ip4h->saddr), bswap($tunnel_udph->source),
+            ntop($tunnel_ip4h->daddr), bswap($tunnel_udph->dest),
+            $tunnel_ip4h->protocol,
+            $encap, $skb->encapsulation);
+        }
+
+        printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
           $time, $skb,
           ntop($ip4h->saddr),
           ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->source) : 0,
@@ -157,7 +169,6 @@ kprobe:br_forward
           ($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ? bswap($udph->dest) : 0,
           bswap($ip4h->tot_len),
           $ip4h->protocol,
-          $encap, $skb->encapsulation,
           $skb->dev->ifindex,
           $skb->dev->nd_net.net->ns.inum,
           $src_is_pod, $src_is_internal,
@@ -234,7 +245,16 @@ kprobe:br_forward
         ) {
         $time = strftime("%H:%M:%S:%f", nsecs);
 
-        printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, encap: %d (skb: %d), ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
+        if ($skb->encapsulation || $encap) {
+          printf("[%s] [%p] %s:%d -> %s:%d (proto: %d, encap: %d, skb: %d)\n",
+            $time, $skb,
+            ntop($ip6h->saddr.in6_u.u6_addr8), bswap($tunnel_udph->source),
+            ntop($ip6h->daddr.in6_u.u6_addr8), bswap($tunnel_udph->dest),
+            $tunnel_ip6h->nexthdr,
+            $encap, $skb->encapsulation);
+        }
+
+        printf("[%s] [%p] %s:%d -> %s:%d (len: %d, proto: %d, ifindex: %d, netns: %x, srcPod: %d (internal: %d), dstPod: %d (internal: %d), proxy: %d (masqueraded: %d))\n",
           $time, $skb,
           ntop($ip6h->saddr.in6_u.u6_addr8),
           ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->source) : 0,
@@ -242,7 +262,6 @@ kprobe:br_forward
           ($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ? bswap($udph->dest) : 0,
           bswap($ip6h->payload_len),
           $ip6h->nexthdr,
-          $encap, $skb->encapsulation,
           $skb->dev->ifindex,
           $skb->dev->nd_net.net->ns.inum,
           $src_is_pod, $src_is_internal,
