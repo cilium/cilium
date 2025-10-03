@@ -61,7 +61,7 @@ const (
 	ciliumPreRawChain     = "CILIUM_PRE_raw"
 	ciliumForwardChain    = "CILIUM_FORWARD"
 	feederDescription     = "cilium-feeder:"
-	xfrmDescription       = "cilium-xfrm-notrack:"
+	encryptionDescription = "cilium-encryption-notrack:"
 )
 
 // Minimum iptables versions supporting the -w and -w<seconds> flags
@@ -1690,8 +1690,8 @@ func (m *Manager) installRules(state desiredState) error {
 		return fmt.Errorf("cannot install static proxy rules: %w", err)
 	}
 
-	if err := m.addCiliumAcceptXfrmRules(); err != nil {
-		return fmt.Errorf("cannot install xfrm rules: %w", err)
+	if err := m.addCiliumAcceptEncryptionRules(); err != nil {
+		return fmt.Errorf("cannot install encryption rules: %w", err)
 	}
 
 	localDeliveryInterface := m.getDeliveryInterface(defaults.HostDevice)
@@ -1742,9 +1742,9 @@ func (m *Manager) installRules(state desiredState) error {
 		}
 	}
 
-	if m.sharedCfg.EnableIPSec {
-		if err := m.addCiliumNoTrackXfrmRules(); err != nil {
-			return fmt.Errorf("cannot install xfrm rules: %w", err)
+	if m.sharedCfg.EnableIPSec || m.sharedCfg.EnableWireguard {
+		if err := m.addCiliumNoTrackEncryptionRules(); err != nil {
+			return fmt.Errorf("cannot install encryption rules: %w", err)
 		}
 	}
 
@@ -1798,15 +1798,25 @@ func (m *Manager) remoteSNATDstAddrExclusionCIDR(nativeRoutingCIDR, allocCIDR st
 	return allocCIDR
 }
 
-func (m *Manager) ciliumNoTrackXfrmRules(prog iptablesInterface, input string) error {
-	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
-	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
+func (m *Manager) ciliumNoTrackEncryptionRules(prog iptablesInterface, input string) error {
+	matchDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
+	matchEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 
-	for _, match := range []string{matchFromIPSecDecrypt, matchFromIPSecEncrypt} {
+	for _, match := range []string{matchDecrypt, matchEncrypt} {
 		if err := prog.runProg([]string{
 			"-t", "raw", input, ciliumPreRawChain,
 			"-m", "mark", "--mark", match,
-			"-m", "comment", "--comment", xfrmDescription,
+			"-m", "comment", "--comment", encryptionDescription,
+			"-j", "CT", "--notrack"}); err != nil {
+			return err
+		}
+	}
+
+	for _, match := range []string{matchDecrypt, matchEncrypt} {
+		if err := prog.runProg([]string{
+			"-t", "raw", input, ciliumOutputRawChain,
+			"-m", "mark", "--mark", match,
+			"-m", "comment", "--comment", encryptionDescription,
 			"-j", "CT", "--notrack"}); err != nil {
 			return err
 		}
@@ -1818,21 +1828,21 @@ func (m *Manager) ciliumNoTrackXfrmRules(prog iptablesInterface, input string) e
 // This avoids encryption bits and keyID, 0x*d00 for decryption
 // and 0x*e00 for encryption, colliding with existing rules. Needed
 // for kube-proxy for example.
-func (m *Manager) addCiliumAcceptXfrmRules() error {
-	if !m.sharedCfg.EnableIPSec {
+func (m *Manager) addCiliumAcceptEncryptionRules() error {
+	if !m.sharedCfg.EnableIPSec && !m.sharedCfg.EnableWireguard {
 		return nil
 	}
 
-	insertAcceptXfrm := func(ipt iptablesInterface, table, chain string) error {
-		matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
-		matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
+	insertAcceptEncrypt := func(ipt iptablesInterface, table, chain string) error {
+		matchDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
+		matchEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 
-		comment := "exclude xfrm marks from " + table + " " + chain + " chain"
+		comment := "exclude encrypt/decrypt marks from " + table + " " + chain + " chain"
 
 		if err := ipt.runProg([]string{
 			"-t", table,
 			"-A", chain,
-			"-m", "mark", "--mark", matchFromIPSecEncrypt,
+			"-m", "mark", "--mark", matchEncrypt,
 			"-m", "comment", "--comment", comment,
 			"-j", "ACCEPT"}); err != nil {
 			return err
@@ -1841,7 +1851,7 @@ func (m *Manager) addCiliumAcceptXfrmRules() error {
 		return ipt.runProg([]string{
 			"-t", table,
 			"-A", chain,
-			"-m", "mark", "--mark", matchFromIPSecDecrypt,
+			"-m", "mark", "--mark", matchDecrypt,
 			"-m", "comment", "--comment", comment,
 			"-j", "ACCEPT"})
 	}
@@ -1850,13 +1860,13 @@ func (m *Manager) addCiliumAcceptXfrmRules() error {
 		switch chain.table {
 		case "filter", "nat":
 			if m.sharedCfg.EnableIPv4 {
-				if err := insertAcceptXfrm(m.ip4tables, chain.table, chain.name); err != nil {
+				if err := insertAcceptEncrypt(m.ip4tables, chain.table, chain.name); err != nil {
 					return err
 				}
 			}
 			// ip6tables chain exists only if chain.ipv6 is true
 			if m.sharedCfg.EnableIPv6 && chain.ipv6 {
-				if err := insertAcceptXfrm(m.ip6tables, chain.table, chain.name); err != nil {
+				if err := insertAcceptEncrypt(m.ip6tables, chain.table, chain.name); err != nil {
 					return err
 				}
 			}
@@ -1865,14 +1875,14 @@ func (m *Manager) addCiliumAcceptXfrmRules() error {
 	return nil
 }
 
-func (m *Manager) addCiliumNoTrackXfrmRules() (err error) {
+func (m *Manager) addCiliumNoTrackEncryptionRules() (err error) {
 	if m.sharedCfg.EnableIPv4 {
-		if err = m.ciliumNoTrackXfrmRules(m.ip4tables, "-I"); err != nil {
+		if err = m.ciliumNoTrackEncryptionRules(m.ip4tables, "-I"); err != nil {
 			return
 		}
 	}
 	if m.sharedCfg.EnableIPv6 {
-		return m.ciliumNoTrackXfrmRules(m.ip6tables, "-I")
+		return m.ciliumNoTrackEncryptionRules(m.ip6tables, "-I")
 	}
 	return nil
 }
