@@ -12,15 +12,46 @@ import (
 	"time"
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/stretchr/testify/require"
 	status "google.golang.org/genproto/googleapis/rpc/status"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachineryTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
-
-	"github.com/stretchr/testify/require"
 )
+
+// makeCEP is a test helper that creates a CiliumEndpoint with the given parameters.
+// Pass empty strings for optional parameters to use defaults.
+func makeCEP(name, namespace, ip string) *types.CiliumEndpoint {
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	cep := &types.CiliumEndpoint{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			UID:       apimachineryTypes.UID(name + "-uid"),
+		},
+	}
+
+	if ip != "" {
+		cep.Networking = &v2.EndpointNetworking{
+			Addressing: v2.AddressPairList{
+				{IPV4: ip},
+			},
+		}
+	}
+
+	return cep
+}
 
 // Create a mock stream
 var _ v3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer = (*MockStream)(nil)
@@ -410,4 +441,295 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 		require.True(t, s.GetSubscriptionStatus(), "EndpointManager.Subscribe should have been called")
 
 	})
+}
+
+func TestComputeEndpointDiff(t *testing.T) {
+	t.Run("detect new endpoints", func(t *testing.T) {
+		oldCEPs := map[string]*types.CiliumEndpoint{}
+		newCEPs := map[string]*types.CiliumEndpoint{
+			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
+			"default/pod-2": makeCEP("pod-2", "default", "10.0.1.2"),
+		}
+
+		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
+
+		require.Len(t, added, 2)
+		require.Empty(t, updated)
+		require.Empty(t, removed)
+	})
+
+	t.Run("detect removed endpoints", func(t *testing.T) {
+		oldCEPs := map[string]*types.CiliumEndpoint{
+			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
+			"default/pod-2": makeCEP("pod-2", "default", "10.0.1.2"),
+		}
+		newCEPs := map[string]*types.CiliumEndpoint{
+			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
+		}
+
+		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
+
+		require.Empty(t, added)
+		require.Empty(t, updated)
+		require.Len(t, removed, 1)
+		require.Equal(t, "pod-2", removed[0].Name)
+	})
+
+	t.Run("detect updated endpoints", func(t *testing.T) {
+		oldCEPs := map[string]*types.CiliumEndpoint{
+			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
+		}
+		newCEPs := map[string]*types.CiliumEndpoint{
+			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.99"), // Different IP
+		}
+
+		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
+
+		require.Empty(t, added)
+		require.Len(t, updated, 1)
+		require.Empty(t, removed)
+		require.Equal(t, "pod-1", updated[0].Name)
+		require.Equal(t, "10.0.1.99", updated[0].Networking.Addressing[0].IPV4)
+	})
+
+	t.Run("detect mixed changes", func(t *testing.T) {
+		oldCEPs := map[string]*types.CiliumEndpoint{
+			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
+			"default/pod-2": makeCEP("pod-2", "default", "10.0.1.2"),
+		}
+		newCEPs := map[string]*types.CiliumEndpoint{
+			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.99"), // Updated
+			"default/pod-3": makeCEP("pod-3", "default", "10.0.1.3"),  // Added
+		}
+
+		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
+
+		require.Len(t, added, 1)
+		require.Len(t, updated, 1)
+		require.Len(t, removed, 1)
+		require.Equal(t, "pod-3", added[0].Name)
+		require.Equal(t, "pod-1", updated[0].Name)
+		require.Equal(t, "pod-2", removed[0].Name)
+	})
+}
+
+func TestEmitEndpointEvents(t *testing.T) {
+	eventChan := make(chan *EndpointEvent, 10)
+	sp := &StreamProcessor{
+		endpointRecv: eventChan,
+	}
+	es := &EndpointSource{sp: sp}
+
+	endpoints := []*types.CiliumEndpoint{
+		makeCEP("pod-1", "", ""),
+		makeCEP("pod-2", "", ""),
+	}
+
+	es.emitEndpointEvents(CREATE, endpoints)
+
+	require.Len(t, eventChan, 2)
+	event1 := <-eventChan
+	event2 := <-eventChan
+
+	require.Equal(t, CREATE, event1.Type)
+	require.Equal(t, CREATE, event2.Type)
+	require.Equal(t, "pod-1", event1.CiliumEndpoint.Name)
+	require.Equal(t, "pod-2", event2.CiliumEndpoint.Name)
+}
+
+func TestHandleCESUpsert(t *testing.T) {
+	tests := []struct {
+		name            string
+		initialCES      *v2alpha1.CiliumEndpointSlice // To populate the cache
+		newCES          *v2alpha1.CiliumEndpointSlice
+		key             resource.Key
+		expectedAdded   int
+		expectedUpdated int
+		expectedRemoved int
+	}{
+		{
+			name:       "new CES with endpoints",
+			initialCES: nil, // Empty cache
+			newCES: &v2alpha1.CiliumEndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ces-1",
+					Namespace: "default",
+				},
+				Endpoints: []v2alpha1.CoreCiliumEndpoint{
+					{
+						Name:       "pod-1",
+						IdentityID: 100,
+					},
+					{
+						Name:       "pod-2",
+						IdentityID: 200,
+					},
+				},
+			},
+			key:             resource.Key{Name: "ces-1", Namespace: "default"},
+			expectedAdded:   2,
+			expectedUpdated: 0,
+			expectedRemoved: 0,
+		},
+		{
+			name: "update existing CES - add and remove endpoints",
+			initialCES: &v2alpha1.CiliumEndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ces-1",
+					Namespace: "default",
+				},
+				Endpoints: []v2alpha1.CoreCiliumEndpoint{
+					{
+						Name:       "pod-1",
+						IdentityID: 100,
+					},
+					{
+						Name:       "pod-2",
+						IdentityID: 200,
+					},
+				},
+			},
+			newCES: &v2alpha1.CiliumEndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ces-1",
+					Namespace: "default",
+				},
+				Endpoints: []v2alpha1.CoreCiliumEndpoint{
+					{
+						Name:       "pod-2",
+						IdentityID: 200,
+					},
+					{
+						Name:       "pod-3",
+						IdentityID: 300,
+					},
+				},
+			},
+			key:             resource.Key{Name: "ces-1", Namespace: "default"},
+			expectedAdded:   1, // pod-3
+			expectedUpdated: 0, // pod-2 unchanged
+			expectedRemoved: 1, // pod-1
+		},
+		{
+			name: "update existing CES - modify endpoint",
+			initialCES: &v2alpha1.CiliumEndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ces-1",
+					Namespace: "default",
+				},
+				Endpoints: []v2alpha1.CoreCiliumEndpoint{
+					{
+						Name:       "pod-1",
+						IdentityID: 100,
+					},
+				},
+			},
+			newCES: &v2alpha1.CiliumEndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ces-1",
+					Namespace: "default",
+				},
+				Endpoints: []v2alpha1.CoreCiliumEndpoint{
+					{
+						Name:       "pod-1",
+						IdentityID: 999, // Changed identity
+					},
+				},
+			},
+			key:             resource.Key{Name: "ces-1", Namespace: "default"},
+			expectedAdded:   0,
+			expectedUpdated: 1, // pod-1 with new identity
+			expectedRemoved: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			eventChan := make(chan *EndpointEvent, 10)
+			sp := &StreamProcessor{
+				endpointRecv: eventChan,
+			}
+			es := &EndpointSource{sp: sp}
+
+			// Populate the cache with the initial CES if provided
+			cesCache := make(map[resource.Key]map[string]*types.CiliumEndpoint)
+			if tt.initialCES != nil {
+				cesCache[tt.key] = convertCESToEndpointMap(tt.initialCES)
+			}
+
+			es.handleCESUpsert(tt.newCES, cesCache, tt.key)
+
+			// Count events by type
+			addedCount := 0
+			removedCount := 0
+
+			close(eventChan)
+			for event := range eventChan {
+				switch event.Type {
+				case CREATE:
+					addedCount++
+				case REMOVED:
+					removedCount++
+				}
+			}
+
+			require.Equal(t, tt.expectedAdded+tt.expectedUpdated, addedCount, "unexpected number of CREATE events")
+			require.Equal(t, tt.expectedRemoved, removedCount, "unexpected number of REMOVED events")
+
+			// Verify cache was updated
+			cachedEndpoints := cesCache[tt.key]
+			require.NotNil(t, cachedEndpoints)
+			require.Len(t, tt.newCES.Endpoints, len(cachedEndpoints))
+		})
+	}
+}
+
+func TestHandleCESDelete(t *testing.T) {
+	cesCache := map[resource.Key]map[string]*types.CiliumEndpoint{
+		{Name: "ces-1", Namespace: "default"}: {
+			"default/pod-1": makeCEP("pod-1", "", ""),
+			"default/pod-2": makeCEP("pod-2", "", ""),
+		},
+	}
+
+	ces := &v2alpha1.CiliumEndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ces-1",
+			Namespace: "default",
+		},
+		Endpoints: []v2alpha1.CoreCiliumEndpoint{
+			{
+				Name:       "pod-1",
+				IdentityID: 100,
+			},
+			{
+				Name:       "pod-2",
+				IdentityID: 200,
+			},
+		},
+	}
+	key := resource.Key{Name: "ces-1", Namespace: "default"}
+
+	eventChan := make(chan *EndpointEvent, 10)
+	sp := &StreamProcessor{
+		endpointRecv: eventChan,
+	}
+	es := &EndpointSource{sp: sp}
+
+	es.handleCESDelete(ces, cesCache, key)
+
+	// Should emit REMOVED events for all endpoints
+	require.Len(t, eventChan, 2)
+
+	removedCount := 0
+	close(eventChan)
+	for event := range eventChan {
+		require.Equal(t, REMOVED, event.Type)
+		removedCount++
+	}
+	require.Equal(t, 2, removedCount)
+
+	// Verify cache entry was deleted
+	_, exists := cesCache[key]
+	require.False(t, exists, "cache entry should be deleted")
 }

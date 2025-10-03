@@ -11,10 +11,13 @@ import (
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"github.com/cilium/cilium/pkg/k8s"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type StreamProcessorParams struct {
@@ -77,7 +80,110 @@ func NewStreamProcessor(params *StreamProcessorParams) *StreamProcessor {
 	return sp
 }
 
+// convertCESToEndpointMap converts a CiliumEndpointSlice to a map of CiliumEndpoints
+// keyed by namespace/name for easy lookup and comparison.
+func convertCESToEndpointMap(ces *v2alpha1.CiliumEndpointSlice) map[string]*types.CiliumEndpoint {
+	result := make(map[string]*types.CiliumEndpoint, len(ces.Endpoints))
+	for _, coreCep := range ces.Endpoints {
+		cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&coreCep, ces.Namespace)
+		cepName := cep.Namespace + "/" + cep.Name
+		result[cepName] = cep
+	}
+	return result
+}
+
+// computeEndpointDiff compares old and new endpoint maps and returns lists of
+// endpoints that were added, updated, or removed.
+func computeEndpointDiff(oldCEPs, newCEPs map[string]*types.CiliumEndpoint) (added, updated, removed []*types.CiliumEndpoint) {
+	// Find removed endpoints (in old but not in new)
+	for cepName, oldCEP := range oldCEPs {
+		if _, exists := newCEPs[cepName]; !exists {
+			removed = append(removed, oldCEP)
+		}
+	}
+
+	// Find new or updated endpoints
+	for cepName, newCEP := range newCEPs {
+		if oldCEP, exists := oldCEPs[cepName]; !exists {
+			// New endpoint
+			added = append(added, newCEP)
+		} else if !oldCEP.DeepEqual(newCEP) {
+			// Updated endpoint
+			updated = append(updated, newCEP)
+		}
+	}
+
+	return added, updated, removed
+}
+
+// emitEndpointEvents sends endpoint events to the event channel.
+func (es *EndpointSource) emitEndpointEvents(eventType EndpointEventType, endpoints []*types.CiliumEndpoint) {
+	for _, ep := range endpoints {
+		es.sp.endpointRecv <- &EndpointEvent{
+			Type:           eventType,
+			CiliumEndpoint: ep,
+		}
+	}
+}
+
+// handleCESUpsert processes an upsert event for a CiliumEndpointSlice.
+func (es *EndpointSource) handleCESUpsert(ces *v2alpha1.CiliumEndpointSlice, cesCache map[resource.Key]map[string]*types.CiliumEndpoint, key resource.Key) {
+	oldCEPs := cesCache[key]
+	if oldCEPs == nil {
+		oldCEPs = make(map[string]*types.CiliumEndpoint)
+	}
+
+	newCEPs := convertCESToEndpointMap(ces)
+	added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
+
+	// Emit events for changes
+	es.emitEndpointEvents(REMOVED, removed)
+	es.emitEndpointEvents(CREATE, added)
+	es.emitEndpointEvents(CREATE, updated) // Updates are treated as CREATE
+
+	// Update cache
+	cesCache[key] = newCEPs
+}
+
+// handleCESDelete processes a delete event for a CiliumEndpointSlice.
+func (es *EndpointSource) handleCESDelete(ces *v2alpha1.CiliumEndpointSlice, cesCache map[resource.Key]map[string]*types.CiliumEndpoint, key resource.Key) {
+	endpoints := convertCESToEndpointMap(ces)
+	endpointList := make([]*types.CiliumEndpoint, 0, len(endpoints))
+	for _, ep := range endpoints {
+		endpointList = append(endpointList, ep)
+	}
+	es.emitEndpointEvents(REMOVED, endpointList)
+	delete(cesCache, key)
+}
+
 func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, wg *sync.WaitGroup) {
+	if option.Config.EnableCiliumEndpointSlice {
+		newSliceEvents := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointSliceResource().Events(ctx, resource.WithErrorHandler(resource.AlwaysRetry))
+		// Keep track of CEPs in each CES to detect deletions on updates
+		cesCache := make(map[resource.Key]map[string]*types.CiliumEndpoint)
+
+		for e := range newSliceEvents {
+			if e.Kind == resource.Sync {
+				wg.Done()
+				e.Done(nil)
+				continue
+			}
+			if e.Object == nil {
+				e.Done(nil)
+				continue
+			}
+
+			switch e.Kind {
+			case resource.Upsert:
+				es.handleCESUpsert(e.Object, cesCache, e.Key)
+			case resource.Delete:
+				es.handleCESDelete(e.Object, cesCache, e.Key)
+			}
+
+			e.Done(nil)
+		}
+		return
+	}
 
 	// TODO(hemanthmalla): How should retries be configured here ?
 	newEvents := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointResource().Events(ctx, resource.WithErrorHandler(resource.AlwaysRetry))
@@ -101,13 +207,28 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, wg *syn
 }
 
 func (es *EndpointSource) ListAllEndpoints(ctx context.Context) ([]*types.CiliumEndpoint, error) {
+	eps := []*types.CiliumEndpoint{}
+	if option.Config.EnableCiliumEndpointSlice {
+		cesStore, err := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointSliceResource().Store(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get CiliumEndpointSlice store from K8sCiliumEndpointsWatcher: %w", err)
+		}
+		slices := cesStore.List()
+
+		for _, s := range slices {
+			for _, ep := range s.Endpoints {
+				cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ep, s.Namespace)
+				eps = append(eps, cep)
+			}
+		}
+		return eps, nil
+	}
 
 	cepStore, err := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointResource().Store(ctx)
 	if err != nil {
-		es.sp.log.Debug("initialized new stream for resource")
 		return nil, fmt.Errorf("failed to get CiliumEndpoint store from K8sCiliumEndpointsWatcher: %w", err)
 	}
-	eps := cepStore.List()
+	eps = cepStore.List()
 	return eps, nil
 }
 
