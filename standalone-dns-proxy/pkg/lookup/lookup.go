@@ -22,9 +22,10 @@ import (
 )
 
 type rulesClient struct {
-	logger            *slog.Logger
-	ipToIdentityTable statedb.RWTable[client.IPtoEndpointInfo]
-	db                *statedb.DB
+	logger                *slog.Logger
+	prefixToIdentityTable statedb.RWTable[client.PrefixToIdentity]
+	ipToIdentityTable     statedb.RWTable[client.IPtoEndpointInfo]
+	db                    *statedb.DB
 	// prefixLengths tracks the unique set of prefix lengths for IPv4 and
 	// IPv6 addresses in order to optimize longest prefix match lookups.
 	prefixLengths *counter.PrefixLengthCounter
@@ -38,15 +39,14 @@ func (r *rulesClient) LookupByIdentity(nid identity.NumericIdentity) []string {
 
 // Note: isHost is always false because the standalone DNS proxy does not handle host endpoints yet.
 func (r *rulesClient) LookupRegisteredEndpoint(endpointAddr netip.Addr) (endpt *endpoint.Endpoint, isHost bool, err error) {
-	prefix := netip.PrefixFrom(endpointAddr, endpointAddr.BitLen())
-	info, _, found := r.ipToIdentityTable.Get(r.db.ReadTxn(), client.IdIPToEndpointIndex.Query(prefix))
+	info, _, found := r.ipToIdentityTable.Get(r.db.ReadTxn(), client.IdIPToEndpointIndex.Query(endpointAddr))
 	if !found {
 		return nil, false, nil
 	}
 	return &endpoint.Endpoint{
-		ID: uint16(info.Endpoint.ID),
+		ID: uint16(info.ID),
 		SecurityIdentity: &identity.Identity{
-			ID: info.Endpoint.Identity,
+			ID: info.Identity,
 		},
 	}, false, nil
 }
@@ -57,11 +57,10 @@ func (r *rulesClient) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, ex
 	if !ip.IsValid() {
 		return ipcache.Identity{}, false
 	}
-	prefix := netip.PrefixFrom(ip, ip.BitLen())
-	info, _, found := r.ipToIdentityTable.Get(r.db.ReadTxn(), client.IdIPToEndpointIndex.Query(prefix))
+	info, _, found := r.ipToIdentityTable.Get(r.db.ReadTxn(), client.IdIPToEndpointIndex.Query(ip))
 	if found {
 		return ipcache.Identity{
-			ID:     info.Endpoint.Identity,
+			ID:     info.Identity,
 			Source: source.Local,
 		}, true
 	}
@@ -85,27 +84,27 @@ func (r *rulesClient) lookupPrefix(prefix netip.Prefix) (identity ipcache.Identi
 	if _, cidr, err := net.ParseCIDR(prefix.String()); err == nil {
 		ones, bits := cidr.Mask.Size()
 		if ones == bits {
-			info, _, exists := r.ipToIdentityTable.Get(r.db.ReadTxn(), client.IdIPToEndpointIndex.Query(prefix))
+			info, _, exists := r.prefixToIdentityTable.Get(r.db.ReadTxn(), client.PrefixToIdentityIndex.Query(prefix))
 			if exists {
 				return ipcache.Identity{
-					ID:     info.Endpoint.Identity,
+					ID:     info.Identity,
 					Source: source.Local,
 				}, exists
 			}
 		}
 	}
-	info, _, exists := r.ipToIdentityTable.Get(r.db.ReadTxn(), client.IdIPToEndpointIndex.Query(prefix))
+	info, _, exists := r.prefixToIdentityTable.Get(r.db.ReadTxn(), client.PrefixToIdentityIndex.Query(prefix))
 	return ipcache.Identity{
-		ID:     info.Endpoint.Identity,
+		ID:     info.Identity,
 		Source: source.Local,
 	}, exists
 }
 
-func (r *rulesClient) watchIPToEndpointTable(ctx context.Context, _ cell.Health) error {
-	// listen for changes in the ipToEndpointTable
-	wtxn := r.db.WriteTxn(r.ipToIdentityTable)
+func (r *rulesClient) watchPrefixToIdentityTable(ctx context.Context, _ cell.Health) error {
+	// listen for changes in the prefixToIdentityTable
+	wtxn := r.db.WriteTxn(r.prefixToIdentityTable)
 	defer wtxn.Abort()
-	changeIterator, err := r.ipToIdentityTable.Changes(wtxn)
+	changeIterator, err := r.prefixToIdentityTable.Changes(wtxn)
 	wtxn.Commit()
 	if err != nil {
 		return err
@@ -115,12 +114,13 @@ func (r *rulesClient) watchIPToEndpointTable(ctx context.Context, _ cell.Health)
 		// Iterate over the changed objects.
 		changes, watch := changeIterator.Next(r.db.ReadTxn())
 		for change := range changes {
-			r.logger.Debug("Detected change in IP to Endpoint mapping", logfields.Object, change)
-			prefix, _ := netip.ParsePrefix(change.Object.IP.String())
-			if change.Deleted {
-				r.prefixLengths.Delete([]netip.Prefix{prefix})
-			} else {
-				r.prefixLengths.Add([]netip.Prefix{prefix})
+			r.logger.Debug("Detected change in Prefix to Identity mapping", logfields.Object, change)
+			for _, prefix := range change.Object.Prefix {
+				if change.Deleted {
+					r.prefixLengths.Delete([]netip.Prefix{prefix})
+				} else {
+					r.prefixLengths.Add([]netip.Prefix{prefix})
+				}
 			}
 		}
 

@@ -274,7 +274,7 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 	// Build egress L7 DNS policies with endpoint information
 	var egressL7DnsPolicy []*pb.DNSPolicy
 	var identityToEndpointMapping []*pb.IdentityToEndpointMapping
-
+	var identityToPrefixMapping []*pb.IdentityToPrefixMapping
 	// Process identity to IPs mappings - build both for quick lookup map and endpoint mappings
 	identityIPMap := make(map[identity.NumericIdentity][]netip.Prefix)
 
@@ -288,14 +288,14 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 
 			ip := prefix.Addr()
 			ep := s.endpointsLookup.LookupIP(ip)
-			pbBytes, err := prefix.MarshalBinary()
-			if err != nil {
-				return err
-			}
 			if ep != nil {
 				epID := uint64(ep.GetID())
-				endpointToIPsBytes[epID] = append(endpointToIPsBytes[epID], pbBytes)
+				endpointToIPsBytes[epID] = append(endpointToIPsBytes[epID], ip.AsSlice())
 			} else {
+				pbBytes, err := prefix.MarshalBinary()
+				if err != nil {
+					return err
+				}
 				prefixWithoutEndpoint = append(prefixWithoutEndpoint, pbBytes)
 			}
 		}
@@ -313,9 +313,9 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 			endpointInfos = append(endpointInfos, endpointInfo)
 		}
 		if len(prefixWithoutEndpoint) > 0 {
-			// Add IPs without endpoint info i.e. cidrs that do not map to any endpoint
-			endpointInfos = append(endpointInfos, &pb.EndpointInfo{
-				Ip: prefixWithoutEndpoint,
+			identityToPrefixMapping = append(identityToPrefixMapping, &pb.IdentityToPrefixMapping{
+				Identity: identityIP.Identity.Uint32(),
+				Prefix:   prefixWithoutEndpoint,
 			})
 		}
 
@@ -358,6 +358,7 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 		RequestId:                 requestID,
 		EgressL7DnsPolicy:         egressL7DnsPolicy,
 		IdentityToEndpointMapping: identityToEndpointMapping,
+		IdentityToPrefixMapping:   identityToPrefixMapping,
 	}
 
 	if err := stream.Send(policyState); err != nil {

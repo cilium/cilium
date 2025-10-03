@@ -32,19 +32,42 @@ func newIPTable(db *statedb.DB) statedb.RWTable[client.IPtoEndpointInfo] {
 	}
 
 	// Pre-insert an entry for testing
-	insertIP(db, table, netip.MustParsePrefix("10.0.0.1/32"), 123, identity.NumericIdentity(5))
-	insertIP(db, table, netip.MustParsePrefix("10.0.0.0/24"), 42, identity.NumericIdentity(5))
+	insertIP(db, table, netip.MustParseAddr("10.0.0.1"), 123, identity.NumericIdentity(5))
+	insertIP(db, table, netip.MustParseAddr("10.0.0.0"), 456, identity.NumericIdentity(5))
 	return table
 }
 
-func insertIP(db *statedb.DB, table statedb.RWTable[client.IPtoEndpointInfo], ip netip.Prefix, id uint64, ident identity.NumericIdentity) {
+func newPrefixToIdentityTable(db *statedb.DB) statedb.RWTable[client.PrefixToIdentity] {
+	table, err := statedb.NewTable[client.PrefixToIdentity](
+		db,
+		client.PrefixToIdentityTableName,
+		client.PrefixToIdentityIndex,
+	)
+	if err != nil {
+		return nil
+	}
+
+	// Pre-insert an entry for testing
+	insertPrefix(db, table, netip.MustParsePrefix("10.0.0.0/24"), identity.NumericIdentity(111))
+	insertPrefix(db, table, netip.MustParsePrefix("10.0.0.0/16"), identity.NumericIdentity(222))
+	return table
+}
+
+func insertPrefix(db *statedb.DB, table statedb.RWTable[client.PrefixToIdentity], prefix netip.Prefix, ident identity.NumericIdentity) {
+	w := db.WriteTxn(table)
+	table.Insert(w, client.PrefixToIdentity{
+		Prefix:   []netip.Prefix{prefix},
+		Identity: ident,
+	})
+	w.Commit()
+}
+
+func insertIP(db *statedb.DB, table statedb.RWTable[client.IPtoEndpointInfo], ip netip.Addr, id uint64, ident identity.NumericIdentity) {
 	w := db.WriteTxn(table)
 	table.Insert(w, client.IPtoEndpointInfo{
-		IP: ip,
-		Endpoint: client.EndpointInfo{
-			ID:       id,
-			Identity: ident,
-		},
+		IP:       []netip.Addr{ip},
+		ID:       id,
+		Identity: ident,
 	})
 	w.Commit()
 }
@@ -54,6 +77,7 @@ func TestLookupRegisteredEndpoint(t *testing.T) {
 	h := hive.New(
 		cell.Provide(newIPTable),
 		cell.Provide(newRulesClient),
+		cell.Provide(newPrefixToIdentityTable),
 		cell.Invoke(func(_lh lookup.ProxyLookupHandler) {
 			rc = _lh
 		}),
@@ -82,6 +106,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 	h := hive.New(
 		cell.Provide(newIPTable),
 		cell.Provide(newRulesClient),
+		cell.Provide(newPrefixToIdentityTable),
 		cell.Invoke(func(_lh lookup.ProxyLookupHandler) {
 			rc = _lh
 		}),
@@ -92,12 +117,12 @@ func TestLookupSecIDByIP(t *testing.T) {
 
 	err := testutils.WaitUntilWithSleep(func() bool {
 		ipv6, ipv4 := rc.(*rulesClient).prefixLengths.ToBPFData()
-		return len(ipv4) == 3 && len(ipv6) == 2
+		return len(ipv4) == 4 && len(ipv6) == 2
 	}, 5*time.Second, 1*time.Second)
 	require.NoError(t, err)
 
 	ipv6, ipv4 := rc.(*rulesClient).prefixLengths.ToBPFData()
-	require.Equal(t, []int{32, 24, 0}, ipv4)
+	require.Equal(t, []int{32, 24, 16, 0}, ipv4)
 	require.Equal(t, []int{128, 0}, ipv6)
 	ident_, exists := rc.LookupSecIDByIP(netip.MustParseAddr("10.0.0.1"))
 	require.True(t, exists)
@@ -105,7 +130,7 @@ func TestLookupSecIDByIP(t *testing.T) {
 
 	ident_, exists = rc.LookupSecIDByIP(netip.MustParseAddr("10.0.0.2"))
 	require.True(t, exists)
-	require.Equal(t, identity.NumericIdentity(5), ident_.ID)
+	require.Equal(t, identity.NumericIdentity(111), ident_.ID)
 
 	ident_, exists = rc.LookupSecIDByIP(netip.MustParseAddr("10.3.0.0"))
 	require.False(t, exists)
