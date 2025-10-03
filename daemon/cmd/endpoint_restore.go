@@ -40,27 +40,29 @@ import (
 type endpointRestorerParams struct {
 	cell.In
 
-	Logger           *slog.Logger
-	K8sWatcher       *watchers.K8sWatcher
-	Clientset        k8sClient.Clientset
-	EndpointCreator  endpointcreator.EndpointCreator
-	EndpointManager  endpointmanager.EndpointManager
-	EndpointMetadata endpointmetadata.EndpointMetadataFetcher
-	EndpointAPIFence endpointapi.Fence
-	IPSecAgent       datapath.IPsecAgent
-	IPAMManager      *ipam.IPAM
+	Logger              *slog.Logger
+	K8sWatcher          *watchers.K8sWatcher
+	Clientset           k8sClient.Clientset
+	EndpointCreator     endpointcreator.EndpointCreator
+	EndpointManager     endpointmanager.EndpointManager
+	EndpointRegenerator *endpoint.Regenerator
+	EndpointMetadata    endpointmetadata.EndpointMetadataFetcher
+	EndpointAPIFence    endpointapi.Fence
+	IPSecAgent          datapath.IPsecAgent
+	IPAMManager         *ipam.IPAM
 }
 
 type endpointRestorer struct {
-	logger           *slog.Logger
-	k8sWatcher       *watchers.K8sWatcher
-	clientset        k8sClient.Clientset
-	endpointCreator  endpointcreator.EndpointCreator
-	endpointManager  endpointmanager.EndpointManager
-	endpointMetadata endpointmetadata.EndpointMetadataFetcher
-	endpointAPIFence endpointapi.Fence
-	ipSecAgent       datapath.IPsecAgent
-	ipamManager      *ipam.IPAM
+	logger              *slog.Logger
+	k8sWatcher          *watchers.K8sWatcher
+	clientset           k8sClient.Clientset
+	endpointCreator     endpointcreator.EndpointCreator
+	endpointManager     endpointmanager.EndpointManager
+	endpointRegenerator *endpoint.Regenerator
+	endpointMetadata    endpointmetadata.EndpointMetadataFetcher
+	endpointAPIFence    endpointapi.Fence
+	ipSecAgent          datapath.IPsecAgent
+	ipamManager         *ipam.IPAM
 
 	restoreState                  *endpointRestoreState
 	endpointRestoreComplete       chan struct{}
@@ -69,15 +71,16 @@ type endpointRestorer struct {
 
 func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 	return &endpointRestorer{
-		logger:           params.Logger,
-		k8sWatcher:       params.K8sWatcher,
-		clientset:        params.Clientset,
-		endpointCreator:  params.EndpointCreator,
-		endpointManager:  params.EndpointManager,
-		endpointMetadata: params.EndpointMetadata,
-		endpointAPIFence: params.EndpointAPIFence,
-		ipSecAgent:       params.IPSecAgent,
-		ipamManager:      params.IPAMManager,
+		logger:              params.Logger,
+		k8sWatcher:          params.K8sWatcher,
+		clientset:           params.Clientset,
+		endpointCreator:     params.EndpointCreator,
+		endpointManager:     params.EndpointManager,
+		endpointRegenerator: params.EndpointRegenerator,
+		endpointMetadata:    params.EndpointMetadata,
+		endpointAPIFence:    params.EndpointAPIFence,
+		ipSecAgent:          params.IPSecAgent,
+		ipamManager:         params.IPAMManager,
 
 		endpointRestoreComplete:       make(chan struct{}),
 		endpointInitialPolicyComplete: make(chan struct{}),
@@ -328,7 +331,7 @@ func (r *endpointRestorer) RestoreOldEndpoints() {
 	}
 }
 
-func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) {
+func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreState) {
 	r.logger.Info(
 		"Regenerating restored endpoints",
 		logfields.Restored, len(state.restored),
@@ -375,7 +378,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 			//
 			// This can be removed in v1.19.
 			r.logger.Info("Successfully restored Host endpoint. Scheduling regeneration", logfields.EndpointID, ep.ID)
-			if err := ep.RegenerateAfterRestore(endpointsRegenerator, r.endpointMetadata.FetchK8sMetadataForEndpoint); err != nil {
+			if err := ep.RegenerateAfterRestore(r.endpointRegenerator, r.endpointMetadata.FetchK8sMetadataForEndpoint); err != nil {
 				r.logger.Debug(
 					"Error regenerating Host endpoint during restore",
 					logfields.Error, err,
@@ -407,7 +410,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 	endpointCleanupCompleted.Wait()
 
 	// Trigger regeneration for relevant restored endopints in a separate goroutine.
-	go r.handleRestoredEndpointsRegeneration(endpointsToRegenerate, endpointsRegenerator)
+	go r.handleRestoredEndpointsRegeneration(endpointsToRegenerate)
 
 	go func() {
 		for _, ep := range state.restored {
@@ -424,7 +427,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 // before regenerating all remaining live endpoints.
 //
 // Once complete, this method closes the daemon 'endpointRestoreComplete' channel.
-func (r *endpointRestorer) handleRestoredEndpointsRegeneration(endpoints []*endpoint.Endpoint, endpointsRegenerator *endpoint.Regenerator) {
+func (r *endpointRestorer) handleRestoredEndpointsRegeneration(endpoints []*endpoint.Endpoint) {
 	startTime := time.Now()
 	// Wait for Endpoint DeletionQueue to be processed first so we can avoid
 	// expensive regeneration for already deleted endpoints.
@@ -455,7 +458,7 @@ func (r *endpointRestorer) handleRestoredEndpointsRegeneration(endpoints []*endp
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup, endpointsRegenerated chan<- bool) {
 			defer wg.Done()
 
-			if err := ep.RegenerateAfterRestore(endpointsRegenerator, r.endpointMetadata.FetchK8sMetadataForEndpoint); err != nil {
+			if err := ep.RegenerateAfterRestore(r.endpointRegenerator, r.endpointMetadata.FetchK8sMetadataForEndpoint); err != nil {
 				r.logger.Debug(
 					"Error regenerating endpoint during restore",
 					logfields.Error, err,
@@ -537,7 +540,7 @@ func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) 
 	return nil
 }
 
-func (r *endpointRestorer) InitRestore(endpointsRegenerator *endpoint.Regenerator) {
+func (r *endpointRestorer) InitRestore() {
 	if !option.Config.RestoreState {
 		r.logger.Info("State restore is disabled. Existing endpoints on node are ignored")
 		return
@@ -549,5 +552,5 @@ func (r *endpointRestorer) InitRestore(endpointsRegenerator *endpoint.Regenerato
 	// When we regenerate restored endpoints, it is guaranteed that we have
 	// received the full list of policies present at the time the daemon
 	// is bootstrapped.
-	r.regenerateRestoredEndpoints(r.restoreState, endpointsRegenerator)
+	r.regenerateRestoredEndpoints(r.restoreState)
 }
