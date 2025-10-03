@@ -13,8 +13,9 @@
 #include "lib/common.h"
 #include "lib/drop.h"
 #include "lib/eth.h"
+#include "lib/trace.h"
+
 #include "linux/bpf.h"
-#include "lib/encap.h"
 
 /* the below structures are define outside of an IFDEF guard to satisfy
  * enterprise_bpf_alignchecker.c requirement
@@ -340,7 +341,6 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 				struct _mcast_ep_delivery_ctx *cb_ctx)
 {
 	int ret = 0;
-	__u8 from_overlay = 0;
 	struct bpf_tunnel_key tun_key = {0};
 
 	if (!cb_ctx || !sub)
@@ -352,23 +352,17 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 	if (!sub->ifindex)
 		return 1;
 
-	from_overlay = (ctx_get_ingress_ifindex(cb_ctx->ctx) == ENCAP_IFINDEX);
-
 	/* set tunnel key for remote delivery
 	 * this helper sets the tunnel metadata on the skb_buff but only
 	 * tunnel drivers will read it, therefore any local delivery will
 	 * simply ignore if its present and deliver without an issue.
 	 *
-	 * if the ingress interface is set to our tunnel interface, do not
-	 * perform delivery, this would cause a loop, since the sender's node
+	 * If called in from-overlay do not perform remote delivery.
+	 * This would cause a loop, since the sender's node
 	 * already delivered to all remote nodes.
-	 *
-	 * checking ctx->ingress_ifindex is reliable since
-	 * __netif_receive_skb_core sets the skb's input interface before
-	 * calling ingress TC programs.
 	 */
 	if (sub->flags & MCAST_SUB_F_REMOTE) {
-		if (from_overlay)
+		if (is_defined(IS_BPF_OVERLAY))
 			return 0;
 
 		tun_key.tunnel_id = WORLD_ID;
