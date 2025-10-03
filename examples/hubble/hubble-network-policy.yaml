@@ -16,11 +16,27 @@ spec:
         - ports:
             - port: "4244"
               protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+            "k8s:io.kubernetes.pod.namespace": kube-system
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
   ingress:
     - fromEndpoints:
         - matchLabels:
             k8s-app: hubble-ui
-            k8s:io.kubernetes.pod.namespace: kube-system
+            "k8s:io.kubernetes.pod.namespace": kube-system
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -35,28 +51,28 @@ spec:
     - toEndpoints:
         - matchLabels:
             k8s-app: hubble-relay
-            k8s:io.kubernetes.pod.namespace: kube-system
+            "k8s:io.kubernetes.pod.namespace": kube-system
       toPorts:
         - ports:
-            - port: "4244"
+            - port: "80"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+            "k8s:io.kubernetes.pod.namespace": kube-system
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
               protocol: TCP
     - toEntities:
         - kube-apiserver
----
-apiVersion: "cilium.io/v2"
-kind: CiliumClusterwideNetworkPolicy
-metadata:
-  name: "wildcard-from-endpoints"
-spec:
-  description: "Policy for ingress allow to kube-dns from all Cilium managed endpoints in the cluster"
-  endpointSelector:
-    matchLabels:
-      k8s:io.kubernetes.pod.namespace: kube-system
-      k8s-app: kube-dns
   ingress:
-  - fromEndpoints:
-    - {}
-    toPorts:
-    - ports:
-      - port: "53"
-        protocol: UDP
+    - toPorts:
+        - ports:
+            - port: "8081"
+              protocol: TCP
+
