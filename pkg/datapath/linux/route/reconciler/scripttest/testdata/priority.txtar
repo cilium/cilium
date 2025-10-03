@@ -1,0 +1,67 @@
+link/add eth0 dummy
+link/add eth1 dummy
+
+addr/add 192.168.1.1/24 eth0
+addr/add 192.168.2.1/24 eth1
+
+link/set lo up
+link/set eth0 up
+link/set eth1 up
+
+hive start
+db/initialized
+
+add-owner owner1
+
+# Same owner+table+prefix+priority replace old route (same primary key)
+add-route owner1 eth0-200-101.yaml
+add-route owner1 eth1-200-100.yaml
+db/cmp desired-routes expected-desired-1.table
+
+# Same table+prefix+priority, different owner: only one route selected lowest AD wins
+add-owner owner2
+add-route owner2 eth0-200-101.yaml
+db/cmp desired-routes expected-desired-2.table
+
+# Same table+prefix, different priority: both routes selected
+remove-owner owner2
+add-owner owner2
+add-route owner2 eth0-201-101.yaml
+db/cmp desired-routes expected-desired-3.table
+
+# Compare installed routes
+route/list --table=2000
+* cmp stdout expected-routes.txt
+
+-- eth0-200-101.yaml --
+table: 2000
+prefix: "10.2.3.4/32"
+adminDistance: 101
+priority: 200
+device: eth0
+-- eth1-200-100.yaml --
+table: 2000
+prefix: "10.2.3.4/32"
+adminDistance: 100
+priority: 200
+device: eth1
+-- eth0-201-101.yaml --
+table: 2000
+prefix: "10.2.3.4/32"
+adminDistance: 101
+priority: 201
+device: eth0
+-- expected-desired-1.table --
+Owner    Table   Prefix        Priority   AD    Selected   Device  
+owner1   2000    10.2.3.4/32   200        100   true       eth1 (3)
+-- expected-desired-2.table --
+Owner    Table   Prefix        Priority   AD    Selected   Device  
+owner1   2000    10.2.3.4/32   200        100   true       eth1 (3)
+owner2   2000    10.2.3.4/32   200        101   false      eth0 (2)
+-- expected-desired-3.table --
+Owner    Table   Prefix        Priority   AD    Selected   Device  
+owner1   2000    10.2.3.4/32   200        100   true       eth1 (3)
+owner2   2000    10.2.3.4/32   201        101   true       eth0 (2)
+-- expected-routes.txt --
+10.2.3.4/32 dev eth1 scope universe table 2000 priority 200
+10.2.3.4/32 dev eth0 scope universe table 2000 priority 201

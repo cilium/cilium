@@ -5,11 +5,15 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
@@ -49,18 +53,26 @@ type proxyParams struct {
 	ProxyPorts            *proxyports.ProxyPorts
 	EnvoyProxyIntegration *envoyProxyIntegration
 	DNSProxyIntegration   *dnsProxyIntegration
+
+	DB           *statedb.DB
+	Devices      statedb.Table[*tables.Device]
+	RouteManager *reconciler.DesiredRouteManager
 }
 
-func newProxy(params proxyParams) *Proxy {
+func newProxy(params proxyParams) (*Proxy, error) {
+	p, err := createProxy(option.Config.EnableL7Proxy, params.Logger, params.LocalNodeStore, params.ProxyPorts, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.DB, params.Devices, params.RouteManager)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create proxy: %w", err)
+	}
+
 	if !option.Config.EnableL7Proxy {
 		params.Logger.Info("L7 proxies are disabled")
 		if option.Config.EnableEnvoyConfig {
 			params.Logger.Warn("CiliumEnvoyConfig functionality isn't enabled when L7 proxies are disabled", logfields.Flag, option.EnableEnvoyConfig)
 		}
-		return nil
-	}
 
-	p := createProxy(params.Logger, params.LocalNodeStore, params.ProxyPorts, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
+		return p, nil
+	}
 
 	p.proxyPorts.Trigger = job.NewTrigger(job.WithDebounce(10 * time.Second))
 
@@ -89,7 +101,7 @@ func newProxy(params proxyParams) *Proxy {
 		},
 	})
 
-	return p
+	return p, nil
 }
 
 type envoyProxyIntegrationParams struct {
