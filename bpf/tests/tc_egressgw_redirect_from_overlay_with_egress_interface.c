@@ -53,8 +53,8 @@ static __always_inline __maybe_unused long
 mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_unused,
 		int plen __maybe_unused, __u32 flags __maybe_unused)
 {
-	/* Should not need a FIB lookup, we provide the EGRESS_IFINDEX */
-	return -1;
+	params->ifindex = IFACE_IFINDEX;
+	return 0;
 }
 
 /* Test that a packet matching an egress gateway policy on the from-overlay program
