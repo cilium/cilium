@@ -9,6 +9,7 @@ const (
 	Debug                = "Debug"
 	DebugLB              = "DebugLB"
 	DebugPolicy          = "DebugPolicy"
+	DebugTagged          = "DebugTagged"
 	DropNotify           = "DropNotification"
 	TraceNotify          = "TraceNotification"
 	TraceSockNotify      = "TraceSockNotification"
@@ -42,6 +43,11 @@ var (
 	specDebugPolicy = Option{
 		Define:      "POLICY_DEBUG",
 		Description: "Enable debugging trace statements for policy enforcement",
+	}
+
+	specDebugTagged = Option{
+		Define:      "DEBUG_TAGGED",
+		Description: "Enable debugging trace statements for tagged packets",
 	}
 
 	specDropNotify = Option{
