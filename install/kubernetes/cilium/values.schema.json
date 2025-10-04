@@ -697,6 +697,9 @@
             "null",
             "array"
           ]
+        },
+        "monitorTraceIPOption": {
+          "type": "integer"
         }
       },
       "type": "object"
