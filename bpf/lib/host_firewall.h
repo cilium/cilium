@@ -19,32 +19,6 @@
 #include "trace.h"
 
 # ifdef ENABLE_IPV6
-#  ifndef ENABLE_MASQUERADE_IPV6
-static __always_inline int
-ipv6_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
-					 enum ct_status ct_ret, __s8 *ext_err)
-{
-	/* If kube-proxy is in use (no BPF-based masquerading), packets from
-	 * pods may be SNATed. The response packet will therefore have a host
-	 * IP as the destination IP.
-	 * To avoid enforcing host policies for response packets to pods, we
-	 * need to create a CT entry for the forward, SNATed packet from the
-	 * pod. Response packets will thus match this CT entry and bypass host
-	 * policies.
-	 * We know the packet is a SNATed packet if the srcid from ipcache is
-	 * HOST_ID, but the actual srcid (derived from the packet mark) isn't.
-	 */
-	if (ct_ret == CT_NEW) {
-		int ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global,
-				     tuple, ctx, CT_EGRESS, NULL, ext_err);
-		if (unlikely(ret < 0))
-			return ret;
-	}
-
-	return CTX_ACT_OK;
-}
-#  endif /* ENABLE_MASQUERADE_IPV6 */
-
 static __always_inline bool
 ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			       __u32 ipcache_srcid, struct ipv6hdr *ip6,
@@ -57,10 +31,8 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	 * 1. Packets from host IPs: need to enforce host policies.
 	 * 2. SNATed packets from pods: need to create a CT entry to skip
 	 *    applying host policies to reply packets
-	 *    (see ipv6_whitelist_snated_egress_connections).
 	 */
-	if (src_sec_identity != HOST_ID &&
-	    (is_defined(ENABLE_MASQUERADE_IPV6) || ipcache_srcid != HOST_ID))
+	if (src_sec_identity != HOST_ID && ipcache_srcid != HOST_ID)
 		return false;
 
 	/* Lookup connection in conntrack map. */
@@ -97,12 +69,16 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
 
-#  ifndef ENABLE_MASQUERADE_IPV6
-	if (!is_host_id)
-		/* Checked in ipv6_host_policy_egress_lookup: src_id == HOST_ID. */
-		return ipv6_whitelist_snated_egress_connections(ctx, tuple, (enum ct_status)ret,
-							   ext_err);
-#  endif /* ENABLE_MASQUERADE_IPV6 */
+	if (!is_host_id) {
+		if (ret == CT_NEW) {
+			ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global,
+					 tuple, ctx, CT_EGRESS, NULL, ext_err);
+			if (unlikely(ret < 0))
+				return ret;
+		}
+
+		return CTX_ACT_OK;
+	}
 
 	/* Retrieve destination identity. */
 	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
@@ -322,32 +298,6 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 # endif /* ENABLE_IPV6 */
 
 # ifdef ENABLE_IPV4
-#  ifndef ENABLE_MASQUERADE_IPV4
-static __always_inline int
-ipv4_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
-					 enum ct_status ct_ret, __s8 *ext_err)
-{
-	/* If kube-proxy is in use (no BPF-based masquerading), packets from
-	 * pods may be SNATed. The response packet will therefore have a host
-	 * IP as the destination IP.
-	 * To avoid enforcing host policies for response packets to pods, we
-	 * need to create a CT entry for the forward, SNATed packet from the
-	 * pod. Response packets will thus match this CT entry and bypass host
-	 * policies.
-	 * We know the packet is a SNATed packet if the srcid from ipcache is
-	 * HOST_ID, but the actual srcid (derived from the packet mark) isn't.
-	 */
-	if (ct_ret == CT_NEW) {
-		int ret = ct_create4(get_ct_map4(tuple), &cilium_ct_any4_global,
-				     tuple, ctx, CT_EGRESS, NULL, ext_err);
-		if (unlikely(ret < 0))
-			return ret;
-	}
-
-	return CTX_ACT_OK;
-}
-#  endif /* ENABLE_MASQUERADE_IPV4 */
-
 static __always_inline bool
 ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			       __u32 ipcache_srcid, struct iphdr *ip4,
@@ -361,8 +311,7 @@ ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	 * 2. SNATed packets from pods: need to create a CT entry to skip
 	 *    applying host policies to reply packets.
 	 */
-	if (src_sec_identity != HOST_ID &&
-	    (is_defined(ENABLE_MASQUERADE_IPV4) || ipcache_srcid != HOST_ID))
+	if (src_sec_identity != HOST_ID && ipcache_srcid != HOST_ID)
 		return false;
 
 	/* Lookup connection in conntrack map. */
@@ -394,12 +343,27 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
 
-#  ifndef ENABLE_MASQUERADE_IPV4
-	if (!is_host_id)
-		/* Checked in ipv4_host_policy_egress_lookup: ipcache_srcid == HOST_ID. */
-		return ipv4_whitelist_snated_egress_connections(ctx, tuple, (enum ct_status)ret,
-							   ext_err);
-#  endif /* ENABLE_MASQUERADE_IPV4 */
+	/* Some pod-originating traffic may have a host IP as source IP
+	 * (eg. non-transparent proxy connection, or when using iptables masquerading).
+	 * The response packet will therefore have a host IP as the destination IP.
+	 *
+	 * To avoid enforcing host policies for response packets to pods, we
+	 * need to create a CT entry for the forward, SNATed packet from the
+	 * pod. Response packets will thus match this CT entry and bypass host
+	 * policies.
+	 * We know the packet is a SNATed packet if the srcid from ipcache is
+	 * HOST_ID, but the actual srcid (derived from the packet mark) isn't.
+	 */
+	if (!is_host_id) {
+		if (ret == CT_NEW) {
+			ret = ct_create4(get_ct_map4(tuple), &cilium_ct_any4_global,
+					 tuple, ctx, CT_EGRESS, NULL, ext_err);
+			if (unlikely(ret < 0))
+				return ret;
+		}
+
+		return CTX_ACT_OK;
+	}
 
 	/* Retrieve destination identity. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
