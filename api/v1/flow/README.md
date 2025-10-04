@@ -1248,6 +1248,7 @@ This mirrors enum xlate_point in bpf/lib/trace_sock.h
 | SRV6_ENCAP | 6 |  |
 | SRV6_DECAP | 7 |  |
 | ENCRYPT_OVERLAY | 8 |  |
+| FRAGMENTS | 9 |  |
 
 
 
