@@ -18,24 +18,100 @@ inputs:
     description: ''
     required: false
     default: 'true'
+  mode:
+    description: ''
+    required: false
+    default: ''
+  client_node_number:
+    description: 'Node number, will only be used for egw mode'
+    required: false
+    default: 4
 runs:
   using: composite
   steps:
     - name: Create EKS nodegroup
       shell: bash
       run: |
-        cat <<EOF > eks-nodegroups.yaml
-        apiVersion: eksctl.io/v1alpha5
-        kind: ClusterConfig
-
-        metadata:
-          name: ${{ inputs.cluster_name }}
-          region: ${{ inputs.region }}
-          version: "${{ inputs.version }}"
-          tags:
-           usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
-           owner: "${{ inputs.owner }}"
-
+        if [ "${{ inputs.mode }}" = "egw" ]; then
+          cat <<EOF > nodegroups.yaml
+        managedNodeGroups:
+        - name: ng-amd64-client
+          instanceTypes:
+           - m5n.xlarge
+          availabilityZones:
+           - ${{ inputs.region }}b
+          desiredCapacity: ${{ inputs.client_node_number }}
+          spot: false
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 20
+          maxPodsPerNode: 110
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
+          labels:
+             role.scaffolding/egw-client: "true"
+        - name: ng-amd64-egw-node
+          instanceTypes:
+           - m5n.xlarge
+          availabilityZones:
+           - ${{ inputs.region }}b
+          desiredCapacity: 1
+          spot: false
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 20
+          maxPodsPerNode: 110
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
+          labels:
+             role.scaffolding/egw-node: "true"
+        - name: ng-amd64-heapster
+          instanceTypes:
+           - m5n.xlarge
+          availabilityZones:
+           - ${{ inputs.region }}b
+          desiredCapacity: 1
+          spot: false
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 20
+          maxPodsPerNode: 110
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
+          labels:
+             role.scaffolding/monitoring: "true"
+        - name: ng-amd64-no-cilium
+          instanceTypes:
+           - m5n.xlarge
+          availabilityZones:
+           - ${{ inputs.region }}c
+          desiredCapacity: 1
+          spot: false
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 20
+          taints:
+           - key: "cilium.io/no-schedule"
+             value: "true"
+             effect: "NoSchedule"
+          labels:
+            cilium.io/no-schedule: "true"
+          # Manually inject a dummy CNI configuration to let the Kubelet turn
+          # ready. This is necessary as otherwise the node creation would
+          # never complete. Regardless, no pods will be scheduled here given
+          # that the node is tainted.
+          preBootstrapCommands:
+          - "echo '{ \"cniVersion\": \"0.3.1\", \"name\": \"dummy\", \"type\": \"dummy-cni\", \"log-file\": \"/var/run/dummy.log\" }' > /etc/cni/net.d/05-dummy.conf"
+        EOF
+        else
+          # Default mode
+          cat <<EOF > nodegroups.yaml
         managedNodeGroups:
         - name: ng-amd64
           instanceTypes:
@@ -62,5 +138,22 @@ runs:
              value: "true"
              effect: "NoExecute"
         EOF
+        fi
+
+        cat <<EOF > eks-nodegroups.yaml
+        apiVersion: eksctl.io/v1alpha5
+        kind: ClusterConfig
+
+        metadata:
+          name: ${{ inputs.cluster_name }}
+          region: ${{ inputs.region }}
+          version: "${{ inputs.version }}"
+          tags:
+           usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
+           owner: "${{ inputs.owner }}"
+
+        EOF
+
+        cat ./nodegroups.yaml >> ./eks-nodegroups.yaml
 
         eksctl create nodegroup -f ./eks-nodegroups.yaml
