@@ -19,7 +19,7 @@ on:
         default: '{}'
   # Run every 8 hours
   schedule:
-    - cron:  '0 5/8 * * *'
+  - cron: '0 5/8 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -61,18 +61,18 @@ jobs:
     name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-24.04
     steps:
-      - name: Echo Workflow Dispatch Inputs
-        run: |
-          echo '${{ tojson(inputs) }}'
+    - name: Echo Workflow Dispatch Inputs
+      run: |
+        echo '${{ tojson(inputs) }}'
 
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-24.04
     steps:
-      - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
+    - name: Set initial commit status
+      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      with:
+        sha: ${{ inputs.SHA || github.sha }}
 
   generate-matrix:
     name: Generate Matrix
@@ -80,45 +80,45 @@ jobs:
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
     steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
+    - name: Checkout context ref (trusted)
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        ref: ${{ inputs.context-ref || github.sha }}
+        persist-credentials: false
 
-      - name: Convert YAML to JSON
-        run: |
-          work_dir=".github/actions/e2e"
-          destination_directory="/tmp/generated/ipsec"
-          mkdir -p "${destination_directory}"
+    - name: Convert YAML to JSON
+      run: |
+        work_dir=".github/actions/e2e"
+        destination_directory="/tmp/generated/ipsec"
+        mkdir -p "${destination_directory}"
 
-          yq -o=json "${work_dir}/ipsec_configs.yaml" | jq . > "${destination_directory}/matrix.json"
+        yq -o=json "${work_dir}/ipsec.yaml" | jq . > "${destination_directory}/matrix.json"
 
-      - name: Generate Matrix
-        id: generate-matrix
-        run: |
-          cd /tmp/generated/ipsec
-          echo "Generated matrix:"
-          cat /tmp/generated/ipsec/matrix.json
-          echo "matrix=$(jq -c . < /tmp/generated/ipsec/matrix.json)" >> $GITHUB_OUTPUT
+    - name: Generate Matrix
+      id: generate-matrix
+      run: |
+        cd /tmp/generated/ipsec
+        echo "Generated matrix:"
+        cat /tmp/generated/ipsec/matrix.json
+        echo "matrix=$(jq -c . < /tmp/generated/ipsec/matrix.json)" >> $GITHUB_OUTPUT
 
   wait-for-images:
     name: Wait for images
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-      - name: Wait for images
-        uses: ./.github/actions/wait-for-images
-        with:
-          SHA: ${{ inputs.SHA || github.sha }}
+    - name: Checkout context ref (trusted)
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        ref: ${{ inputs.context-ref || github.sha }}
+        persist-credentials: false
+    - name: Wait for images
+      uses: ./.github/actions/wait-for-images
+      with:
+        SHA: ${{ inputs.SHA || github.sha }}
 
   setup-and-test:
-    needs: [wait-for-images, generate-matrix]
+    needs: [ wait-for-images, generate-matrix ]
     name: 'Setup & Test'
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     env:
@@ -131,323 +131,323 @@ jobs:
 
     timeout-minutes: 75
     steps:
-      - name: Collect Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
-        with:
-          comment_on_pr: false
+    - name: Collect Workflow Telemetry
+      uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+      with:
+        comment_on_pr: false
 
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
+    - name: Checkout context ref (trusted)
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        ref: ${{ inputs.context-ref || github.sha }}
+        persist-credentials: false
 
-      - name: Cleanup Disk space in runner
-        uses: ./.github/actions/disk-cleanup
+    - name: Cleanup Disk space in runner
+      uses: ./.github/actions/disk-cleanup
 
-      - name: Set Environment Variables
-        uses: ./.github/actions/set-env-variables
+    - name: Set Environment Variables
+      uses: ./.github/actions/set-env-variables
 
-      - name: Get connectivity test flags
-        id: e2e_config
-        uses: ./.github/actions/cli-test-config
-        with:
-          include-unsafe-tests: true
+    - name: Get connectivity test flags
+      id: e2e_config
+      uses: ./.github/actions/cli-test-config
+      with:
+        include-unsafe-tests: true
 
-      - name: Set up job variables
-        id: vars
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            SHA="${{ inputs.SHA }}"
-          else
-            SHA="${{ github.sha }}"
-          fi
-          echo sha=${SHA} >> $GITHUB_OUTPUT
+    - name: Set up job variables
+      id: vars
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          SHA="${{ inputs.SHA }}"
+        else
+          SHA="${{ github.sha }}"
+        fi
+        echo sha=${SHA} >> $GITHUB_OUTPUT
 
-      - name: Derive Cilium installation config and junit type
-        id: cilium-config
-        uses: ./.github/actions/cilium-config
-        with:
-          image-tag: ${{ steps.vars.outputs.sha }}
-          chart-dir: './untrusted/install/kubernetes/cilium'
-          tunnel: ${{ matrix.tunnel }}
-          devices: ${{ matrix.devices }}
-          endpoint-routes: ${{ matrix.endpoint-routes }}
-          ipv4: ${{ matrix.ipv4 }}
-          ipv6: ${{ matrix.ipv6 }}
-          underlay: ${{ matrix.underlay }}
-          kpr: ${{ matrix.kpr }}
-          lb-mode: ${{ matrix.lb-mode }}
-          lb-acceleration: ${{ matrix.lb-acceleration }}
-          encryption: 'ipsec'
-          encryption-node: ${{ matrix.encryption-node }}
-          egress-gateway: ${{ matrix.egress-gateway }}
-          host-fw: ${{ matrix.host-fw }}
-          ingress-controller: ${{ matrix.ingress-controller }}
-          mutual-auth: false
-          misc: ${{ matrix.misc }}
+    - name: Derive Cilium installation config and junit type
+      id: cilium-config
+      uses: ./.github/actions/cilium-config
+      with:
+        image-tag: ${{ steps.vars.outputs.sha }}
+        chart-dir: './untrusted/install/kubernetes/cilium'
+        tunnel: ${{ matrix.tunnel }}
+        devices: ${{ matrix.devices }}
+        endpoint-routes: ${{ matrix.endpoint-routes }}
+        ipv4: ${{ matrix.ipv4 }}
+        ipv6: ${{ matrix.ipv6 }}
+        underlay: ${{ matrix.underlay }}
+        kpr: ${{ matrix.kpr }}
+        lb-mode: ${{ matrix.lb-mode }}
+        lb-acceleration: ${{ matrix.lb-acceleration }}
+        encryption: 'ipsec'
+        encryption-node: ${{ matrix.encryption-node }}
+        egress-gateway: ${{ matrix.egress-gateway }}
+        host-fw: ${{ matrix.host-fw }}
+        ingress-controller: ${{ matrix.ingress-controller }}
+        mutual-auth: false
+        misc: ${{ matrix.misc }}
 
-      - name: Set Kind params
-        id: kind-params
-        shell: bash
-        run: |
-          IP_FAM="dual"
-          if [ "${{ matrix.ipv6 }}" == "false" ]; then
-            IP_FAM="ipv4"
-          fi
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            IP_FAM="ipv6"
-          fi
-          echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
+    - name: Set Kind params
+      id: kind-params
+      shell: bash
+      run: |
+        IP_FAM="dual"
+        if [ "${{ matrix.ipv6 }}" == "false" ]; then
+          IP_FAM="ipv4"
+        fi
+        if [ "${{ matrix.ipv4 }}" == "false" ]; then
+          IP_FAM="ipv6"
+        fi
+        echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
-      - name: Provision K8s on LVH VM
-        id: lvh-kind
-        uses: ./.github/actions/lvh-kind
-        with:
-          test-name: e2e-conformance
-          kernel: ${{ matrix.kernel }}
-          kind-params: "${{ steps.kind-params.outputs.params }}"
-          kind-image: ${{ env.KIND_K8S_IMAGE }}
+    - name: Provision K8s on LVH VM
+      id: lvh-kind
+      uses: ./.github/actions/lvh-kind
+      with:
+        test-name: e2e-conformance
+        kernel: ${{ matrix.kernel }}
+        kind-params: "${{ steps.kind-params.outputs.params }}"
+        kind-image: ${{ env.KIND_K8S_IMAGE }}
 
-      - name: Set up job variables for connectivity tests
-        id: vars-conn
-        run: |
-          EXTRA_CLI_FLAGS=(
-            "--external-target=${{ steps.lvh-kind.outputs.external_target_name }}"
-            "--external-other-target=${{ steps.lvh-kind.outputs.other_external_target_name }}"
-            "--external-cidr=${{ steps.lvh-kind.outputs.ipv4_external_cidr }}"
-            "--external-cidrv6=${{ steps.lvh-kind.outputs.ipv6_external_cidr }}"
-            "--external-ip=${{ steps.lvh-kind.outputs.ipv4_external_target }}"
-            "--external-ipv6=${{ steps.lvh-kind.outputs.ipv6_external_target }}"
-            "--external-other-ip=${{ steps.lvh-kind.outputs.ipv4_other_external_target }}"
-            "--external-other-ipv6=${{ steps.lvh-kind.outputs.ipv6_other_external_target }}"
-            "--external-target-ca-namespace=external-target-secrets"
-            "--external-target-ca-name=custom-ca"
-            "--external-target-ipv6-capable"
-          )
-          if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA_CLI_FLAGS+=("--secondary-network-iface=eth1")
-          fi
+    - name: Set up job variables for connectivity tests
+      id: vars-conn
+      run: |
+        EXTRA_CLI_FLAGS=(
+          "--external-target=${{ steps.lvh-kind.outputs.external_target_name }}"
+          "--external-other-target=${{ steps.lvh-kind.outputs.other_external_target_name }}"
+          "--external-cidr=${{ steps.lvh-kind.outputs.ipv4_external_cidr }}"
+          "--external-cidrv6=${{ steps.lvh-kind.outputs.ipv6_external_cidr }}"
+          "--external-ip=${{ steps.lvh-kind.outputs.ipv4_external_target }}"
+          "--external-ipv6=${{ steps.lvh-kind.outputs.ipv6_external_target }}"
+          "--external-other-ip=${{ steps.lvh-kind.outputs.ipv4_other_external_target }}"
+          "--external-other-ipv6=${{ steps.lvh-kind.outputs.ipv6_other_external_target }}"
+          "--external-target-ca-namespace=external-target-secrets"
+          "--external-target-ca-name=custom-ca"
+          "--external-target-ipv6-capable"
+        )
+        if [ "${{ matrix.secondary-network }}" = "true" ]; then
+          EXTRA_CLI_FLAGS+=("--secondary-network-iface=eth1")
+        fi
 
-          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
-                                      --sysdump-hubble-flows-count=1000000 \
-                                      --sysdump-hubble-flows-timeout=5m \
-                                      --flush-ct \
-                                      ${EXTRA_CLI_FLAGS[*]@Q}"
+        CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
+                                    --sysdump-hubble-flows-count=1000000 \
+                                    --sysdump-hubble-flows-timeout=5m \
+                                    --flush-ct \
+                                    ${EXTRA_CLI_FLAGS[*]@Q}"
 
-          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
-          echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
+        echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+        echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
 
-      - name: Setup bootid file
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
-        with:
-          provision: 'false'
-          cmd: |
-            set -ex
-            for container in \$(docker ps -q); do
-              docker exec \$container mkdir -p /var/run/cilium/
-              docker exec \$container sh -c 'cat /proc/sys/kernel/random/uuid > /var/run/cilium/boot_id'
-            done
+    - name: Setup bootid file
+      uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+      with:
+        provision: 'false'
+        cmd: |
+          set -ex
+          for container in \$(docker ps -q); do
+            docker exec \$container mkdir -p /var/run/cilium/
+            docker exec \$container sh -c 'cat /proc/sys/kernel/random/uuid > /var/run/cilium/boot_id'
+          done
 
-      - name: Start Cilium KVStore
-        id: kvstore
-        if: matrix.kvstore == 'true'
-        run: |
-          make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
+    - name: Start Cilium KVStore
+      id: kvstore
+      if: matrix.kvstore == 'true'
+      run: |
+        make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
 
-          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
-          echo "config= \
-            --set=etcd.enabled=true \
-            --set=identityAllocationMode=kvstore \
-            --set=etcd.endpoints[0]=http://${IP}:2378 \
-          " >> $GITHUB_OUTPUT
+        IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
+        echo "config= \
+          --set=etcd.enabled=true \
+          --set=identityAllocationMode=kvstore \
+          --set=etcd.endpoints[0]=http://${IP}:2378 \
+        " >> $GITHUB_OUTPUT
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@024e340cca1465e2a6336521f12370c7ca58c59a # v0.18.7
-        with:
-          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
-          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ steps.vars.outputs.sha }}
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
+    - name: Install Cilium CLI
+      uses: cilium/cilium-cli@024e340cca1465e2a6336521f12370c7ca58c59a # v0.18.7
+      with:
+        skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+        image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+        image-tag: ${{ steps.vars.outputs.sha }}
+        repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+        release-version: ${{ env.CILIUM_CLI_VERSION }}
 
-      # Warning: since this is a privileged workflow, subsequent workflow job
-      # steps must take care not to execute untrusted code.
-      - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          ref: ${{ steps.vars.outputs.sha }}
-          persist-credentials: false
-          path: untrusted
-          sparse-checkout: |
-            install/kubernetes/cilium
+    # Warning: since this is a privileged workflow, subsequent workflow job
+    # steps must take care not to execute untrusted code.
+    - name: Checkout pull request branch (NOT TRUSTED)
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        ref: ${{ steps.vars.outputs.sha }}
+        persist-credentials: false
+        path: untrusted
+        sparse-checkout: |
+          install/kubernetes/cilium
 
-      - name: Install Cilium
-        shell: bash
-        run: |
-          kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+    - name: Install Cilium
+      shell: bash
+      run: |
+        kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
-          cilium encrypt create-key --auth-algo ${{ matrix.key-one }}
+        cilium encrypt create-key --auth-algo ${{ matrix.key-one }}
 
-          cilium install ${{ steps.cilium-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
+        cilium install ${{ steps.cilium-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
-          cilium status --wait --interactive=false
-          kubectl get pods --all-namespaces -o wide
-          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+        cilium status --wait --interactive=false
+        kubectl get pods --all-namespaces -o wide
+        kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
-      - name: Prepare the bpftrace parameters
-        id: bpftrace-params
-        run: |
-          CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
-          if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
-            CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
-          fi
-          if [[ "${{ matrix.ipv4 }}" == "false" ]]; then
-            CILIUM_INTERNAL_IPS="0.0.0.1 ${CILIUM_INTERNAL_IPS// / 0.0.0.1 }"
-          fi
+    - name: Prepare the bpftrace parameters
+      id: bpftrace-params
+      run: |
+        CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
+        if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
+          CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
+        fi
+        if [[ "${{ matrix.ipv4 }}" == "false" ]]; then
+          CILIUM_INTERNAL_IPS="0.0.0.1 ${CILIUM_INTERNAL_IPS// / 0.0.0.1 }"
+        fi
 
-          echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
+        echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
 
-      - name: Start unencrypted packets check
-        uses: ./.github/actions/bpftrace/start
-        with:
-          # Only check for DNS proxy traffic if IPv4 is enabled.
-          # If it isn't, we will skip the proxy tests and won't have any such traffic.
-          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
+    - name: Start unencrypted packets check
+      uses: ./.github/actions/bpftrace/start
+      with:
+        # Only check for DNS proxy traffic if IPv4 is enabled.
+        # If it isn't, we will skip the proxy tests and won't have any such traffic.
+        script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+        args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
 
-      - name: Run sequential tests (${{ join(matrix.*, ', ') }})
-        shell: bash
-        run: |
-          mkdir -p cilium-junits
+    - name: Run sequential tests (${{ join(matrix.*, ', ') }})
+      shell: bash
+      run: |
+        mkdir -p cilium-junits
 
-          TEST='"seq-.*"'
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='"seq-.*,!pod-to-world.*"'
-          fi
+        TEST='"seq-.*"'
+        if [ "${{ matrix.ipv4 }}" == "false" ]; then
+          TEST='"seq-.*,!pod-to-world.*"'
+        fi
 
-          cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }}-sequential-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test $TEST
+        cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
+          --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+          --junit-file "cilium-junits/${{ env.job_name }}-sequential-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+          --test $TEST
 
-      - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
-        shell: bash
-        run: |
-          mkdir -p cilium-junits
+    - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
+      shell: bash
+      run: |
+        mkdir -p cilium-junits
 
-          TEST='"!seq-.*"'
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='"!(seq-.*|pod-to-world.*|pod-to-cidr)"'
-          fi
+        TEST='"!seq-.*"'
+        if [ "${{ matrix.ipv4 }}" == "false" ]; then
+          TEST='"!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+        fi
 
-          cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }}-concurrent-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test $TEST \
-            --test-concurrency=${{ env.test_concurrency }}
+        cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
+          --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+          --junit-file "cilium-junits/${{ env.job_name }}-concurrent-pre-rotate (${{ join(matrix.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+          --test $TEST \
+          --test-concurrency=${{ env.test_concurrency }}
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
+    - name: Features tested
+      uses: ./.github/actions/feature-status
+      with:
+        title: "Summary of all features tested"
+        json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
 
-      - name: Assert that no unencrypted packets are leaked
-        uses: ./.github/actions/bpftrace/check
+    - name: Assert that no unencrypted packets are leaked
+      uses: ./.github/actions/bpftrace/check
 
-      - name: Start unencrypted packets check for key rotation
-        uses: ./.github/actions/bpftrace/start
-        with:
-          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          # As we are not testing with proxy connections during key rotation,
-          # disable the check for proxy traffic.
-          args: ${{ steps.bpftrace-params.outputs.params }} "false" "ipsec"
+    - name: Start unencrypted packets check for key rotation
+      uses: ./.github/actions/bpftrace/start
+      with:
+        script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+        # As we are not testing with proxy connections during key rotation,
+        # disable the check for proxy traffic.
+        args: ${{ steps.bpftrace-params.outputs.params }} "false" "ipsec"
 
-      - name: Setup conn-disrupt-test before rotating (${{ join(matrix.*, ', ') }})
-        uses: ./.github/actions/conn-disrupt-test-setup
+    - name: Setup conn-disrupt-test before rotating (${{ join(matrix.*, ', ') }})
+      uses: ./.github/actions/conn-disrupt-test-setup
 
-      - name: Rotate IPsec Key (${{ join(matrix.*, ', ') }})
-        uses: ./.github/actions/ipsec-key-rotate
-        with:
-          key-algo: ${{ matrix.key-two }}
+    - name: Rotate IPsec Key (${{ join(matrix.*, ', ') }})
+      uses: ./.github/actions/ipsec-key-rotate
+      with:
+        key-algo: ${{ matrix.key-two }}
 
-      - name: Assert that no unencrypted packets are leaked during key rotation
-        uses: ./.github/actions/bpftrace/check
+    - name: Assert that no unencrypted packets are leaked during key rotation
+      uses: ./.github/actions/bpftrace/check
 
-      - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
-        uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          job-name: ${{ env.job_name }}-${{ matrix.name }}-post-rotate
-          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+    - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
+      uses: ./.github/actions/conn-disrupt-test-check
+      with:
+        job-name: ${{ env.job_name }}-${{ matrix.name }}-post-rotate
+        extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
-      - name: Start unencrypted packets check for tests
-        uses: ./.github/actions/bpftrace/start
-        with:
-          script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
+    - name: Start unencrypted packets check for tests
+      uses: ./.github/actions/bpftrace/start
+      with:
+        script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
+        args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
 
-      - name: Run sequential tests (${{ join(matrix.*, ', ') }})
-        shell: bash
-        run: |
-          mkdir -p cilium-junits
+    - name: Run sequential tests (${{ join(matrix.*, ', ') }})
+      shell: bash
+      run: |
+        mkdir -p cilium-junits
 
-          TEST='"seq-.*"'
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='"seq-.*,!pod-to-world.*"'
-          fi
+        TEST='"seq-.*"'
+        if [ "${{ matrix.ipv4 }}" == "false" ]; then
+          TEST='"seq-.*,!pod-to-world.*"'
+        fi
 
-          cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }}-sequential-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test $TEST
+        cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
+          --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+          --junit-file "cilium-junits/${{ env.job_name }}-sequential-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+          --test $TEST
 
-      - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
-        shell: bash
-        run: |
-          mkdir -p cilium-junits
+    - name: Run concurrent tests (${{ join(matrix.*, ', ') }})
+      shell: bash
+      run: |
+        mkdir -p cilium-junits
 
-          TEST='"!seq-.*"'
-          if [ "${{ matrix.ipv4 }}" == "false" ]; then
-            TEST='"!(seq-.*|pod-to-world.*|pod-to-cidr)"'
-          fi
+        TEST='"!seq-.*"'
+        if [ "${{ matrix.ipv4 }}" == "false" ]; then
+          TEST='"!(seq-.*|pod-to-world.*|pod-to-cidr)"'
+        fi
 
-          cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }}-concurrent-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test $TEST \
-            --test-concurrency=${{ env.test_concurrency }}
+        cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
+          --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+          --junit-file "cilium-junits/${{ env.job_name }}-concurrent-post-rotate (${{ join(matrix.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+          --test $TEST \
+          --test-concurrency=${{ env.test_concurrency }}
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested after all other tests after rotating ipsec keys"
-          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - after rotating keys"
+    - name: Features tested
+      uses: ./.github/actions/feature-status
+      with:
+        title: "Summary of all features tested after all other tests after rotating ipsec keys"
+        json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - after rotating keys"
 
-      - name: Assert that no unencrypted packets are leaked during tests
-        uses: ./.github/actions/bpftrace/check
+    - name: Assert that no unencrypted packets are leaked during tests
+      uses: ./.github/actions/bpftrace/check
 
-      - name: Fetch artifacts
-        if: ${{ !success() }}
-        shell: bash
-        run: |
-          if [ "${{ matrix.kvstore }}" == "true" ]; then
-            echo
-            echo "# Retrieving Cilium etcd logs"
-            kubectl -n kube-system logs kvstore
-          fi
+    - name: Fetch artifacts
+      if: ${{ !success() }}
+      shell: bash
+      run: |
+        if [ "${{ matrix.kvstore }}" == "true" ]; then
+          echo
+          echo "# Retrieving Cilium etcd logs"
+          kubectl -n kube-system logs kvstore
+        fi
 
-      - name: Run common post steps
-        if: ${{ always() }}
-        uses: ./.github/actions/post-logic
-        with:
-          artifacts_suffix: "${{ matrix.name }}"
-          job_status: "${{ job.status }}"
-          capture_features_tested: false
+    - name: Run common post steps
+      if: ${{ always() }}
+      uses: ./.github/actions/post-logic
+      with:
+        artifacts_suffix: "${{ matrix.name }}"
+        job_status: "${{ job.status }}"
+        capture_features_tested: false
 
   merge-upload-and-status:
     name: Merge Upload and Status
