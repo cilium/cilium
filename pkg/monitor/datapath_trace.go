@@ -194,6 +194,7 @@ var (
 		TraceNotifyVersion0: traceNotifyV0Len,
 		TraceNotifyVersion1: traceNotifyV1Len,
 		TraceNotifyVersion2: traceNotifyV2Len,
+		TraceNotifyVersion3: traceNotifyV3Len,
 	}
 )
 
@@ -319,6 +320,12 @@ func (n *TraceNotify) OriginalIP() net.IP {
 	return n.OrigIP[:4]
 }
 
+// OriginalPort returns the original source port if reverse NAT was performed on
+// the flow.
+func (n *TraceNotify) OriginalPort() uint16 {
+	return n.OrigPort
+}
+
 // DataOffset returns the offset from the beginning of TraceNotify where the
 // trace notify data begins.
 //
@@ -342,8 +349,8 @@ func (n *TraceNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.Displ
 	if id := n.IPTraceID; id > 0 {
 		fmt.Fprintf(buf, " [ ip-trace-id = %d ]", id)
 	}
-	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n",
-		n.traceReasonString(), ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
+	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s orig-port %d: %s\n",
+		n.traceReasonString(), ifname, n.OriginalIP().String(), n.OriginalPort(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
 	buf.Flush()
 }
 
@@ -366,7 +373,7 @@ func (n *TraceNotify) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, 
 		n.dumpIdentity(buf, numeric)
 	}
 
-	fmt.Fprintf(buf, ", orig-ip %s", n.OriginalIP().String())
+	fmt.Fprintf(buf, ", orig-ip %s, orig-port %d", n.OriginalIP().String(), n.OriginalPort())
 
 	if n.DstID != 0 {
 		dst := "endpoint"
