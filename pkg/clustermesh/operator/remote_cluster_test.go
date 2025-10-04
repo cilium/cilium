@@ -91,7 +91,6 @@ func TestRemoteClusterStatus(t *testing.T) {
 			metrics := NewMetrics()
 			cm := clusterMesh{
 				logger:               logger,
-				clusterInfo:          types.ClusterInfo{ID: 1, Name: "cluster1", MaxConnectedClusters: 255},
 				metrics:              metrics,
 				storeFactory:         st,
 				globalServices:       common.NewGlobalServiceCache(logger),
@@ -190,7 +189,6 @@ func TestRemoteClusterHooks(t *testing.T) {
 	st := store.NewFactory(logger, store.MetricsProvider())
 	cm := clusterMesh{
 		logger:               logger,
-		clusterInfo:          types.ClusterInfo{ID: 1, Name: "cluster1", MaxConnectedClusters: 255},
 		metrics:              metrics,
 		storeFactory:         st,
 		globalServices:       common.NewGlobalServiceCache(logger),

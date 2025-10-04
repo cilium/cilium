@@ -88,7 +88,6 @@ func InitEtcdLocal(log *slog.Logger) (returnErr error) {
 		logfields.Timeout, timeout,
 		logfields.EtcdDataDir, etcdDataDir,
 		logfields.EtcdClusterName, etcdClusterName,
-		logfields.ClusterName, ciliumClusterName,
 		logfields.EtcdInitialClusterToken, etcdInitialClusterToken,
 	)
 
@@ -144,7 +143,6 @@ func InitEtcdLocal(log *slog.Logger) (returnErr error) {
 		"Starting localhost-only etcd process",
 		logfields.EtcdDataDir, etcdDataDir,
 		logfields.EtcdListenClientUrl, loopbackEndpoint,
-		logfields.EtcdClusterName, etcdClusterName,
 		logfields.EtcdInitialClusterToken, etcdInitialClusterToken,
 	)
 	// Specify the full path to the etcd binary to avoid any PATH search binary replacement nonsense
@@ -266,16 +264,12 @@ func InitEtcdLocal(log *slog.Logger) (returnErr error) {
 	defer etcdClient.Close()
 
 	// Run the init commands
-	log.Info(
-		"Starting etcd init",
-		logfields.ClusterName, ciliumClusterName,
-	)
+	log.Info("Starting etcd init")
 	err = kvstoreEtcdInit.ClusterMeshEtcdInit(ctx, log, etcdClient, ciliumClusterName)
 	if err != nil {
 		log.Error(
 			"Failed to initialise etcd",
 			logfields.Error, err,
-			logfields.ClusterName, ciliumClusterName,
 		)
 		return err
 	}
