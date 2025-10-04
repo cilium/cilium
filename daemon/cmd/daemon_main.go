@@ -39,10 +39,7 @@ import (
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/endpoint"
-	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
-	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -1231,6 +1228,7 @@ var daemonCell = cell.Module(
 		promise.New[endpointstate.Restorer],
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
+		newEndpointRestorer,
 	),
 	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
@@ -1259,7 +1257,7 @@ type daemonParams struct {
 	NodeAddressing      datapath.NodeAddressing
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
-	EndpointMetadata    endpointmetadata.EndpointMetadataFetcher
+	EndpointRestorer    *endpointRestorer
 	CertManager         certificatemanager.CertificateManager
 	SecretManager       certificatemanager.SecretManager
 	IdentityAllocator   identitycell.CachingIdentityAllocator
@@ -1280,27 +1278,25 @@ type daemonParams struct {
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.
-	CTNATMapGC          ctmap.GCRunner
-	IPIdentityWatcher   *ipcache.LocalIPIdentityWatcher
-	EndpointRegenerator *endpoint.Regenerator
-	ClusterInfo         cmtypes.ClusterInfo
-	BandwidthManager    datapath.BandwidthManager
-	IPsecAgent          datapath.IPsecAgent
-	MTU                 mtu.MTU
-	SyncHostIPs         *syncHostIPs
-	NodeDiscovery       *nodediscovery.NodeDiscovery
-	IPAM                *ipam.IPAM
-	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
-	IdentityManager     identitymanager.IDManager
-	MaglevConfig        maglev.Config
-	LBConfig            loadbalancer.Config
-	DNSProxy            bootstrap.FQDNProxyBootstrapper
-	DNSNameManager      namemanager.NameManager
-	KPRConfig           kpr.KPRConfig
-	KPRInitializer      kprinitializer.KPRInitializer
-	EndpointAPIFence    endpointapi.Fence
-	IPSecConfig         datapath.IPsecConfig
-	HealthConfig        healthconfig.CiliumHealthConfig
+	CTNATMapGC        ctmap.GCRunner
+	IPIdentityWatcher *ipcache.LocalIPIdentityWatcher
+	ClusterInfo       cmtypes.ClusterInfo
+	BandwidthManager  datapath.BandwidthManager
+	IPsecAgent        datapath.IPsecAgent
+	MTU               mtu.MTU
+	SyncHostIPs       *syncHostIPs
+	NodeDiscovery     *nodediscovery.NodeDiscovery
+	IPAM              *ipam.IPAM
+	CRDSyncPromise    promise.Promise[k8sSynced.CRDSync]
+	IdentityManager   identitymanager.IDManager
+	MaglevConfig      maglev.Config
+	LBConfig          loadbalancer.Config
+	DNSProxy          bootstrap.FQDNProxyBootstrapper
+	DNSNameManager    namemanager.NameManager
+	KPRConfig         kpr.KPRConfig
+	KPRInitializer    kprinitializer.KPRInitializer
+	IPSecConfig       datapath.IPsecConfig
+	HealthConfig      healthconfig.CiliumHealthConfig
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
@@ -1323,7 +1319,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 				}
 			}()
 
-			d, restoredEndpoints, err := newDaemon(daemonCtx, cleaner, params)
+			d, err := newDaemon(daemonCtx, cleaner, params)
 			if err != nil {
 				cancelDaemonCtx()
 				cleaner.Clean()
@@ -1363,7 +1359,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if err := startDaemon(daemonCtx, daemon, restoredEndpoints, cleaner, params); err != nil {
+					if err := startDaemon(daemonCtx, daemon, cleaner, params); err != nil {
 						params.Logger.Error("Daemon start failed", logfields.Error, err)
 						daemonResolver.Reject(err)
 					} else {
@@ -1386,7 +1382,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 // startDaemon starts the old unmodular part of the cilium-agent.
 // option.Config has already been exposed via *option.DaemonConfig promise,
 // so it may not be modified here
-func startDaemon(ctx context.Context, d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) error {
+func startDaemon(ctx context.Context, d *Daemon, cleaner *daemonCleanup, params daemonParams) error {
 	bootstrapStats.k8sInit.Start()
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
@@ -1410,7 +1406,7 @@ func startDaemon(ctx context.Context, d *Daemon, restoredEndpoints *endpointRest
 		params.Logger.Error("Failed to wait for initial IPCache revision", logfields.Error, err)
 	}
 
-	d.initRestore(restoredEndpoints, params.EndpointRegenerator)
+	d.params.EndpointRestorer.InitRestore()
 
 	bootstrapStats.enableConntrack.Start()
 	params.Logger.Info("Starting connection tracking garbage collector")
@@ -1446,12 +1442,8 @@ func startDaemon(ctx context.Context, d *Daemon, restoredEndpoints *endpointRest
 	}
 
 	go func() {
-		if d.endpointRestoreComplete != nil {
-			select {
-			case <-d.endpointRestoreComplete:
-			case <-ctx.Done():
-				return
-			}
+		if err := d.params.EndpointRestorer.WaitForEndpointRestore(ctx); err != nil {
+			return
 		}
 
 		ms := maps.NewMapSweeper(
@@ -1549,7 +1541,7 @@ func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Prom
 				if err != nil {
 					resolver.Reject(err)
 				} else {
-					resolver.Resolve(daemon)
+					resolver.Resolve(daemon.params.EndpointRestorer)
 				}
 			}()
 			return nil

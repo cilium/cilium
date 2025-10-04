@@ -50,9 +50,6 @@ const (
 type Daemon struct {
 	params daemonParams
 
-	endpointRestoreComplete       chan struct{}
-	endpointInitialPolicyComplete chan struct{}
-
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
@@ -144,37 +141,37 @@ func (d *Daemon) removeOldCiliumHostIPs(ctx context.Context, restoredRouterIPv4,
 }
 
 // newDaemon creates and returns a new Daemon with the parameters set in c.
-func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams) (*Daemon, *endpointRestoreState, error) {
+func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams) (*Daemon, error) {
 	var err error
 
 	bootstrapStats.daemonInit.Start()
 
 	// WireGuard and IPSec are mutually exclusive.
 	if params.IPsecAgent.Enabled() && params.WGAgent.Enabled() {
-		return nil, nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
+		return nil, fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
 	}
 
 	if !params.IPSecConfig.DNSProxyInsecureSkipTransparentModeCheckEnabled() {
 		if params.IPsecAgent.Enabled() && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
-			return nil, nil, fmt.Errorf("IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
+			return nil, fmt.Errorf("IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
 		}
 	}
 
 	if params.IPsecAgent.Enabled() && option.Config.TunnelingEnabled() {
 		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
-			return nil, nil, fmt.Errorf("IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later): %w", err)
+			return nil, fmt.Errorf("IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later): %w", err)
 		}
 	}
 
 	if option.Config.EnableHostFirewall {
 		if params.IPsecAgent.Enabled() {
-			return nil, nil, fmt.Errorf("IPSec cannot be used with the host firewall.")
+			return nil, fmt.Errorf("IPSec cannot be used with the host firewall.")
 		}
 	}
 
 	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
 		if params.IPsecAgent.Enabled() {
-			return nil, nil, fmt.Errorf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, datapath.EnableIPSec)
+			return nil, fmt.Errorf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, datapath.EnableIPSec)
 		}
 	}
 
@@ -190,8 +187,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 		option.Config.IPAM != ipamOption.IPAMENI {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(params.Logger)
 		if err != nil {
-			return nil, nil,
-				fmt.Errorf("Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface. Err: %w", err)
+			return nil, fmt.Errorf("Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface. Err: %w", err)
 		}
 		option.Config.EncryptInterface = append(option.Config.EncryptInterface, link)
 	}
@@ -204,7 +200,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	// created.
 	if err := params.KPRInitializer.InitKubeProxyReplacementOptions(); err != nil {
 		params.Logger.Error("unable to initialize kube-proxy replacement options", logfields.Error, err)
-		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
+		return nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
 	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade)
@@ -216,14 +212,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 
 	d := Daemon{
 		params: params,
-	}
-
-	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
-	// can wait on it to get closed and not block forever if they happen so start
-	// waiting when it is not yet initialized (which causes them to block forever).
-	if option.Config.RestoreState {
-		d.endpointRestoreComplete = make(chan struct{})
-		d.endpointInitialPolicyComplete = make(chan struct{})
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
@@ -264,7 +252,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	bootstrapStats.mapsInit.EndError(err)
 	if err != nil {
 		params.Logger.Error("error while opening/creating BPF maps", logfields.Error, err)
-		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
+		return nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 
 	debug.RegisterStatusObject("ipam", params.IPAM)
@@ -354,16 +342,15 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
-	restoredEndpoints, err := d.fetchOldEndpoints(ctx, option.Config.StateDir)
-	if err != nil {
+	if err := d.params.EndpointRestorer.FetchOldEndpoints(ctx, option.Config.StateDir); err != nil {
 		params.Logger.Error("Unable to read existing endpoints", logfields.Error, err)
 	}
 	bootstrapStats.restore.End(true)
 
 	// Load cached information from restored endpoints in to FQDN NameManager and DNS proxies
 	bootstrapStats.fqdn.Start()
-	params.DNSNameManager.RestoreCache(restoredEndpoints.possible)
-	params.DNSProxy.BootstrapFQDN(restoredEndpoints.possible)
+	params.DNSNameManager.RestoreCache(d.params.EndpointRestorer.GetState().possible)
+	params.DNSProxy.BootstrapFQDN(d.params.EndpointRestorer.GetState().possible)
 	bootstrapStats.fqdn.End(true)
 
 	if params.Clientset.IsEnabled() {
@@ -374,7 +361,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 		if !option.Config.DryMode {
 			_, err := params.CRDSyncPromise.Await(ctx)
 			if err != nil {
-				return nil, restoredEndpoints, err
+				return nil, err
 			}
 		}
 
@@ -387,7 +374,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 
 		if err := agentK8s.WaitForNodeInformation(ctx, params.Logger, params.Resources.LocalNode, params.Resources.LocalCiliumNode); err != nil {
 			params.Logger.Error("unable to connect to get node spec from apiserver", logfields.Error, err)
-			return nil, nil, fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
+			return nil, fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
 		}
 
 		// Kubernetes demands that the localhost can always reach local
@@ -412,8 +399,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	if directRoutingDevice == nil {
 		if option.Config.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled(), params.IPsecAgent.Enabled()) {
 			// Fail hard if devices are required to function.
-			return nil, nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
-				option.DirectRoutingDevice)
+			return nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it", option.DirectRoutingDevice)
 		}
 	} else {
 		drdName = directRoutingDevice.Name
@@ -426,7 +412,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	nativeDevices, _ := datapathTables.SelectedDevices(params.Devices, rxn)
 	if err := params.KPRInitializer.FinishKubeProxyReplacementInit(nativeDevices, drdName); err != nil {
 		params.Logger.Error("failed to finalise LB initialization", logfields.Error, err)
-		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
+		return nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
 
 	// BPF masquerade depends on BPF NodePort, so the following checks should
@@ -441,21 +427,21 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 		}
 		if err != nil {
 			params.Logger.Error("unable to initialize BPF masquerade support", logfields.Error, err)
-			return nil, nil, fmt.Errorf("unable to initialize BPF masquerade support: %w", err)
+			return nil, fmt.Errorf("unable to initialize BPF masquerade support: %w", err)
 		}
 		if option.Config.EnableMasqueradeRouteSource {
 			params.Logger.Error("BPF masquerading does not yet support masquerading to source IP from routing layer")
-			return nil, nil, fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
+			return nil, fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
 		}
 	} else if option.Config.EnableIPMasqAgent {
 		params.Logger.Error(
 			fmt.Sprintf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade),
 			logfields.Error, err,
 		)
-		return nil, nil, fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
+		return nil, fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 	} else if !option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
 		params.Logger.Error("IPv4 and IPv6 masquerading are both disabled, BPF masquerading requires at least one to be enabled")
-		return nil, nil, fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
+		return nil, fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
 	}
 	if len(nativeDevices) == 0 {
 		if option.Config.EnableHostFirewall {
@@ -464,7 +450,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 				fmt.Sprintf(msg, option.Devices),
 				logfields.Error, err,
 			)
-			return nil, nil, fmt.Errorf(msg, option.Devices)
+			return nil, fmt.Errorf(msg, option.Devices)
 		}
 	}
 
@@ -508,13 +494,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	d.restoreOldEndpoints(restoredEndpoints)
+	d.params.EndpointRestorer.RestoreOldEndpoints()
 	bootstrapStats.restore.End(true)
 
 	// We must do this after IPAM because we must wait until the
 	// K8s resources have been synced.
 	if err := d.allocateIPs(ctx, restoredRouterIPs); err != nil { // will log errors/fatal internally
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Must occur after d.allocateIPs(), see GH-14245 and its fix.
@@ -582,13 +568,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	err = d.init()
 	bootstrapStats.bpfBase.EndError(err)
 	if err != nil {
-		return nil, restoredEndpoints, fmt.Errorf("error while initializing daemon: %w", err)
+		return nil, fmt.Errorf("error while initializing daemon: %w", err)
 	}
 
 	// Start the host IP synchronization. Blocks until the initial synchronization
 	// has finished.
 	if err := params.SyncHostIPs.StartAndWaitFirst(ctx); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
@@ -605,5 +591,5 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 		params.Logger.Error("Unable to start IPsec key watcher", logfields.Error, err)
 	}
 
-	return &d, restoredEndpoints, nil
+	return &d, nil
 }
