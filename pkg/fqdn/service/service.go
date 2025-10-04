@@ -274,14 +274,14 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 	// Build egress L7 DNS policies with endpoint information
 	var egressL7DnsPolicy []*pb.DNSPolicy
 	var identityToEndpointMapping []*pb.IdentityToEndpointMapping
-
+	var prefixToIdentityMappings []*pb.IdentityToPrefixMapping
 	// Process identity to IPs mappings - build both for quick lookup map and endpoint mappings
 	identityIPMap := make(map[identity.NumericIdentity][]netip.Prefix)
 
 	for identityIP := range identityToIPs {
 		var prefixes []netip.Prefix
 		endpointToIPsBytes := make(map[uint64][][]byte) // Group IPs by endpoint ID for this identity
-
+		prefixWithoutEndpoint := [][]byte{}
 		// Process each IP prefix and group by endpoint ID
 		for prefix := range identityIP.IPs.All() {
 			prefixes = append(prefixes, prefix)
@@ -291,6 +291,12 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 			if ep != nil {
 				epID := uint64(ep.GetID())
 				endpointToIPsBytes[epID] = append(endpointToIPsBytes[epID], ip.AsSlice())
+			} else {
+				pbBytes, err := prefix.MarshalBinary()
+				if err != nil {
+					return err
+				}
+				prefixWithoutEndpoint = append(prefixWithoutEndpoint, pbBytes)
 			}
 		}
 
@@ -305,6 +311,12 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 				Ip: ipBytes,
 			}
 			endpointInfos = append(endpointInfos, endpointInfo)
+		}
+		if len(prefixWithoutEndpoint) > 0 {
+			prefixToIdentityMappings = append(prefixToIdentityMappings, &pb.IdentityToPrefixMapping{
+				Identity: identityIP.Identity.Uint32(),
+				Prefix:   prefixWithoutEndpoint,
+			})
 		}
 
 		// Add identity to endpoint mapping if there are endpoint infos
@@ -346,6 +358,7 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 		RequestId:                 requestID,
 		EgressL7DnsPolicy:         egressL7DnsPolicy,
 		IdentityToEndpointMapping: identityToEndpointMapping,
+		IdentityToPrefixMapping:   prefixToIdentityMappings,
 	}
 
 	if err := stream.Send(policyState); err != nil {

@@ -78,6 +78,7 @@ message PolicyState {
     repeated DNSPolicy egress_l7_dns_policy = 1;
     string request_id = 2; // Random UUID based identifier which will be referenced in ACKs
     repeated IdentityToEndpointMapping identity_to_endpoint_mapping = 3; // Identity to Endpoint mapping for the DNS server and the source identity
+    repeated IdentityToPrefixMapping identity_to_prefix_mapping = 4; // Identity to Prefix mapping for the identity
 }
 
 // Cilium Identity ID to IP address mapping
@@ -90,4 +91,10 @@ message IdentityToEndpointMapping {
 message EndpointInfo {
     uint64 id = 1;
     repeated bytes ip = 2;
+}
+
+// Cilium Identity ID to IP prefix mapping
+message IdentityToPrefixMapping {
+    uint32 identity = 1;
+    repeated bytes prefix = 2;
 }
