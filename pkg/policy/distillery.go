@@ -92,7 +92,7 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 // Returns whether the cache was updated, or an error.
 //
 // Must be called with repo.Mutex held for reading.
-func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, endpointID uint64) (*selectorPolicy, bool, error) {
+func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, endpointID uint64) (*selectorPolicy, *selectorPolicy, bool, error) {
 	cip := cache.lookupOrCreate(identity)
 
 	// As long as UpdatePolicy() is triggered from endpoint
@@ -109,18 +109,18 @@ func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, e
 
 	// Don't resolve policy if it was already done for this or later revision.
 	if selPolicy := cip.getPolicy(); selPolicy != nil && selPolicy.Revision >= cache.repo.GetRevision() {
-		return selPolicy, false, nil
+		return selPolicy, nil, false, nil
 	}
 
 	// Resolve the policies, which could fail
 	selPolicy, err := cache.repo.resolvePolicyLocked(identity)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
-	cip.setPolicy(selPolicy, endpointID)
+	oldPolicy := cip.setPolicy(selPolicy, endpointID)
 
-	return selPolicy, true, nil
+	return selPolicy, oldPolicy, true, nil
 }
 
 // LocalEndpointIdentityAdded is not needed; we only care about local endpoint
@@ -202,10 +202,6 @@ func (cip *cachedSelectorPolicy) getPolicy() *selectorPolicy {
 // the endpoint that initiated the old selector policy detach. Since detach
 // can trigger endpoint regenerations of all it users, this ensures
 // that endpoints do not continuously update themselves.
-func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy, endpointID uint64) {
-	oldPolicy := cip.policy.Swap(policy)
-	if oldPolicy != nil {
-		// Release the references the previous policy holds on the selector cache.
-		oldPolicy.detach(false, endpointID)
-	}
+func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy, endpointID uint64) *selectorPolicy {
+	return cip.policy.Swap(policy)
 }
