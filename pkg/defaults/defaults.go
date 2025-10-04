@@ -446,6 +446,9 @@ const (
 	// RoutingMode enables choosing between native routing mode or tunneling mode.
 	RoutingMode = "tunnel"
 
+	// SubnetTopologyFilePath is the default path to the file containing the subnet topology
+	SubnetTopologyFilePath = "/var/run/cilium/subnet-topology"
+
 	// TunnelProtocol is the default tunneling protocol
 	TunnelProtocol = "vxlan"
 

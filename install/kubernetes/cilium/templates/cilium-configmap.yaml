@@ -544,6 +544,11 @@ data:
   {{- end }}
 {{- end }}
 
+# If routingMode is hybrid, add the subnet-topology-file-path
+{{- if eq .Values.routingMode "hybrid" }}
+  subnet-topology-file-path: {{ .Values.subnetTopologyFilePath | quote }}
+{{- end }}
+
 {{- if .Values.tunnelPort }}
   tunnel-port: {{ .Values.tunnelPort | quote }}
 {{- end }}
