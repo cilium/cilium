@@ -23,6 +23,8 @@ const (
 	traceNotifyV1Len = 48
 	// traceNotifyV2Len is the amount of packet data provided in a trace notification v2.
 	traceNotifyV2Len = 56
+	// traceNotifyV3Len is the amount of packet data provided in a trace notification v3.
+	traceNotifyV3Len = 64
 )
 
 const (
@@ -44,6 +46,7 @@ const (
 	TraceNotifyVersion0 = iota
 	TraceNotifyVersion1
 	TraceNotifyVersion2
+	TraceNotifyVersion3
 )
 
 // TraceNotify is the message format of a trace notification in the BPF ring buffer
@@ -64,6 +67,8 @@ type TraceNotify struct {
 	Ifindex    uint32                   `align:"ifindex"`
 	OrigIP     types.IPv6               `align:"$union0"`
 	IPTraceID  uint64                   `align:"ip_trace_id"`
+	OrigPort   uint16                   `align:"orig_port"`
+	_          [6]uint8                 `align:"pad"`
 	// data
 }
 
@@ -99,12 +104,18 @@ func (tn *TraceNotify) Decode(data []byte) error {
 	version := data[14]
 
 	// Check against max version.
-	if version > TraceNotifyVersion2 {
+	if version > TraceNotifyVersion3 {
 		return fmt.Errorf("Unrecognized trace event (version %d)", version)
 	}
 
 	// Decode logic for version >= v1.
 	switch version {
+	case TraceNotifyVersion3:
+		if l := len(data); l < traceNotifyV3Len {
+			return fmt.Errorf("unexpected TraceNotify data length (version %d), expected at least %d but got %d", version, traceNotifyV3Len, l)
+		}
+		tn.OrigPort = byteorder.Native.Uint16(data[56:58])
+		fallthrough
 	case TraceNotifyVersion2:
 		if l := len(data); l < traceNotifyV2Len {
 			return fmt.Errorf("unexpected TraceNotify data length (version %d), expected at least %d but got %d", version, traceNotifyV2Len, l)
@@ -186,6 +197,7 @@ var (
 		TraceNotifyVersion0: traceNotifyV0Len,
 		TraceNotifyVersion1: traceNotifyV1Len,
 		TraceNotifyVersion2: traceNotifyV2Len,
+		TraceNotifyVersion3: traceNotifyV3Len,
 	}
 )
 
@@ -324,6 +336,12 @@ func (n *TraceNotify) OriginalIP() net.IP {
 	return n.OrigIP[:4]
 }
 
+// OriginalPort returns the original source port if reverse NAT was performed on
+// the flow.
+func (n *TraceNotify) OriginalPort() uint16 {
+	return n.OrigPort
+}
+
 // DataOffset returns the offset from the beginning of TraceNotify where the
 // trace notify data begins.
 //
@@ -347,8 +365,8 @@ func (n *TraceNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.Displ
 	if id := n.IPTraceID; id > 0 {
 		fmt.Fprintf(buf, " [ ip-trace-id = %d ]", id)
 	}
-	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n",
-		n.traceReasonString(), ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
+	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s orig-port %d: %s\n",
+		n.traceReasonString(), ifname, n.OriginalIP().String(), n.OriginalPort(), GetConnectionSummary(data[hdrLen:], &decodeOpts{n.IsL3Device(), n.IsIPv6(), n.IsVXLAN(), n.IsGeneve()}))
 	buf.Flush()
 }
 
@@ -371,7 +389,7 @@ func (n *TraceNotify) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, 
 		n.dumpIdentity(buf, numeric)
 	}
 
-	fmt.Fprintf(buf, ", orig-ip %s", n.OriginalIP().String())
+	fmt.Fprintf(buf, ", orig-ip %s, orig-port %d", n.OriginalIP().String(), n.OriginalPort())
 
 	if n.DstID != 0 {
 		dst := "endpoint"

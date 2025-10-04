@@ -89,6 +89,13 @@ func (p *Printer) Close() error {
 	return nil
 }
 
+func formatPortWithTranslation(port, xlated uint32) string {
+	if xlated != 0 && xlated != port {
+		return fmt.Sprintf("%d->%d", port, xlated)
+	}
+	return strconv.Itoa(int(port))
+}
+
 // GetPorts returns source and destination port of a flow.
 func (p *Printer) GetPorts(f *flowpb.Flow) (string, string) {
 	l4 := f.GetL4()
@@ -97,9 +104,11 @@ func (p *Printer) GetPorts(f *flowpb.Flow) (string, string) {
 	}
 	switch l4.GetProtocol().(type) {
 	case *flowpb.Layer4_TCP:
-		return strconv.Itoa(int(l4.GetTCP().GetSourcePort())), strconv.Itoa(int(l4.GetTCP().GetDestinationPort()))
+		tcp := l4.GetTCP()
+		return formatPortWithTranslation(tcp.GetSourcePort(), tcp.GetSourcePortXlated()), strconv.Itoa(int(tcp.GetDestinationPort()))
 	case *flowpb.Layer4_UDP:
-		return strconv.Itoa(int(l4.GetUDP().GetSourcePort())), strconv.Itoa(int(l4.GetUDP().GetDestinationPort()))
+		udp := l4.GetUDP()
+		return formatPortWithTranslation(udp.GetSourcePort(), udp.GetSourcePortXlated()), strconv.Itoa(int(udp.GetDestinationPort()))
 	case *flowpb.Layer4_SCTP:
 		return strconv.Itoa(int(l4.GetSCTP().GetSourcePort())), strconv.Itoa(int(l4.GetSCTP().GetDestinationPort()))
 	default:
