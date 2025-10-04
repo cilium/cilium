@@ -55,6 +55,7 @@
 #include "lib/wireguard.h"
 #include "lib/l2_responder.h"
 #include "lib/vtep.h"
+#include "lib/subnet.h"
 
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
  #define host_wg_encrypt_hook(ctx, proto, src_sec_identity)			\
@@ -378,7 +379,14 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	info = lookup_ip6_remote_endpoint(dst, 0);
 
 #ifdef TUNNEL_MODE
-	if (info && info->flag_skip_tunnel)
+	__u32 src_subnet_id = lookup_ip6_subnet((union v6addr *)&ip6->saddr);
+	__u32 dst_subnet_id = lookup_ip6_subnet((union v6addr *)&ip6->daddr);
+	bool same_subnet = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
+
+	cilium_dbg3(ctx, DBG_TUNNEL_TRACE, src_subnet_id, dst_subnet_id, src_subnet_id);
+	cilium_dbg3(ctx, DBG_TUNNEL_TRACE, src_subnet_id, dst_subnet_id, dst_subnet_id);
+	cilium_dbg3(ctx, DBG_SUBNET_CHECK, src_subnet_id, dst_subnet_id, same_subnet);
+	if ((info && info->flag_skip_tunnel) || same_subnet)
 		goto skip_tunnel;
 
 	if (info && info->flag_has_tunnel_ep) {
@@ -818,7 +826,14 @@ skip_vtep:
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
 #ifdef TUNNEL_MODE
-	if (info && info->flag_skip_tunnel)
+	__u32 src_subnet_id = lookup_ip4_subnet(ip4->saddr);
+	__u32 dst_subnet_id = lookup_ip4_subnet(ip4->daddr);
+	bool same_subnet = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
+
+	cilium_dbg3(ctx, DBG_TUNNEL_TRACE, ip4->saddr, ip4->daddr, src_subnet_id);
+	cilium_dbg3(ctx, DBG_TUNNEL_TRACE, ip4->saddr, ip4->daddr, dst_subnet_id);
+	cilium_dbg3(ctx, DBG_SUBNET_CHECK, ip4->saddr, ip4->daddr, same_subnet);
+	if ((info && info->flag_skip_tunnel) || same_subnet)
 		goto skip_tunnel;
 
 	if (info && info->flag_has_tunnel_ep) {
