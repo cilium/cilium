@@ -48,6 +48,13 @@ spec:
   {{- if and .Values.ingressController.service.externalTrafficPolicy (not .Values.ingressController.hostNetwork.enabled) }}
   externalTrafficPolicy: {{ .Values.ingressController.service.externalTrafficPolicy }}
   {{- end }}
+  {{- if .Values.ingressController.service.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.ingressController.service.ipFamilyPolicy }}
+  {{- end }}
+  {{- with .Values.ingressController.service.ipFamilies }}
+  ipFamilies:
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
 ---
 apiVersion: v1
 kind: Endpoints
