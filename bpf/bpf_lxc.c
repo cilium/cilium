@@ -351,7 +351,11 @@ int NAME(struct __ctx_buff *ctx)						\
 		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER,	\
 					  ext_err);				\
 										\
-	ret = invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME, &ext_err);	\
+	if (CONDITION)								\
+		ret = tail_call_internal(ctx, TARGET_ID, &ext_err);		\
+	else									\
+		ret = TARGET_NAME(ctx);						\
+										\
 	if (IS_ERR(ret))							\
 		return drop_for_direction(ctx, DIR, ret, ext_err);		\
 										\
@@ -413,7 +417,11 @@ int NAME(struct __ctx_buff *ctx)						\
 		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER,	\
 					  ext_err);				\
 										\
-	ret = invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME, &ext_err);	\
+	if (CONDITION)								\
+		ret = tail_call_internal(ctx, TARGET_ID, &ext_err);		\
+	else									\
+		ret = TARGET_NAME(ctx);						\
+										\
 	if (IS_ERR(ret))							\
 		return drop_for_direction(ctx, DIR, ret, ext_err);		\
 										\
@@ -1916,7 +1924,7 @@ out:
 
 TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
 		tail_ipv6_ct_ingress_policy_only, CT_INGRESS,
-		__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+		(is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)),
 		CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY, tail_ipv6_policy)
 
 TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, CT_INGRESS,
@@ -2267,7 +2275,7 @@ out:
 
 TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
 		tail_ipv4_ct_ingress_policy_only, CT_INGRESS,
-		__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+		(is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)),
 		CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY, tail_ipv4_policy)
 
 TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS, tail_ipv4_ct_ingress, CT_INGRESS,
@@ -2302,17 +2310,21 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-					 CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
-					 tail_ipv6_ct_ingress_policy_only, &ext_err);
+		if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
+						 &ext_err);
+		else
+			ret = tail_ipv6_ct_ingress_policy_only(ctx);
 		sec_label = SECLABEL_IPV6;
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-					 CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
-					 tail_ipv4_ct_ingress_policy_only, &ext_err);
+		if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
+						 &ext_err);
+		else
+			ret = tail_ipv4_ct_ingress_policy_only(ctx);
 		sec_label = SECLABEL_IPV4;
 		break;
 #endif /* ENABLE_IPV4 */
