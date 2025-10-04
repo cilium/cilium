@@ -1840,6 +1840,9 @@
     "enableNonDefaultDenyPolicies": {
       "type": "boolean"
     },
+    "enableTunedBufferMargins": {
+      "type": "boolean"
+    },
     "enableXTSocketFallback": {
       "type": "boolean"
     },
