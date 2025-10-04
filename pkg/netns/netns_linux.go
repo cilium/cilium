@@ -66,6 +66,7 @@ func New() (*NetNS, error) {
 		// Restore the OS thread to its original network namespace or implicitly
 		// terminate it if something went wrong.
 		if err := restoreUnlock(); err != nil {
+			f.Close()
 			return fmt.Errorf("restore current netns: %w (terminating OS thread)", err)
 		}
 
