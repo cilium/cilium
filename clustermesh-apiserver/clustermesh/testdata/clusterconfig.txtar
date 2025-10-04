@@ -28,6 +28,13 @@ kvstore/list -o json cilium/cluster-config config.actual
 # cilium/cluster-config/cluster3
 {
   "id": 3,
+  "version": {
+    "Version": "",
+    "Revision": "",
+    "GoRuntimeVersion": "",
+    "Arch": "",
+    "AuthorDate": ""
+  },
   "capabilities": {
     "syncedCanaries": true,
     "maxConnectedClusters": 255,
