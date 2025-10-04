@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -612,21 +613,33 @@ func (c *ChangeState) Size() int {
 }
 
 // generateWildcardMapStateEntry creates map state entry for wildcard selector in the filter.
-func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16) mapStateEntry {
+func (l4 *L4Filter) generateWildcardMapStateEntry(
+	logger *slog.Logger,
+	p *EndpointPolicy,
+	port uint16,
+	logCookieBakery cookie.PolicyBakery,
+) mapStateEntry {
 	wildcardEntry := mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
 
 	if l4.wildcard != nil {
 		currentRule := l4.PerSelectorPolicies[l4.wildcard]
 		cs := l4.wildcard
 
-		wildcardEntry = l4.makeMapStateEntry(logger, p, port, cs, currentRule)
+		wildcardEntry = l4.makeMapStateEntry(logger, p, port, cs, currentRule, logCookieBakery)
 	}
 
 	return wildcardEntry
 }
 
 // makeMapStateEntry creates a mapStateEntry for the given selector and policy for the Endpoint.
-func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16, cs CachedSelector, currentRule *PerSelectorPolicy) mapStateEntry {
+func (l4 *L4Filter) makeMapStateEntry(
+	logger *slog.Logger,
+	p *EndpointPolicy,
+	port uint16,
+	cs CachedSelector,
+	currentRule *PerSelectorPolicy,
+	logCookieBakery cookie.PolicyBakery,
+) mapStateEntry {
 	var proxyPort uint16
 	if currentRule.IsRedirect() {
 		var err error
@@ -644,13 +657,53 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 		}
 	}
 
-	return newMapStateEntry(
-		l4.RuleOrigin[cs],
-		proxyPort,
-		currentRule.GetPriority(),
-		currentRule.GetDeny(),
-		currentRule.getAuthRequirement(),
+	var cookie uint32
+	derivedFrom, ok := l4.RuleOrigin[cs]
+	if ok {
+		// !!BOZO!! when no version available what should be the default 0 or 1?
+		var version uint64
+		if p.VersionHandle.IsValid() {
+			version = uint64(p.VersionHandle.Version())
+		}
+
+		cookie = getPolicyLogCookie(logger, logCookieBakery, derivedFrom, version)
+	}
+
+	return mapStateEntry{
+		MapStateEntry: types.NewMapStateEntry(
+			currentRule.GetDeny(),
+			proxyPort,
+			currentRule.GetPriority(),
+			currentRule.getAuthRequirement(),
+			cookie,
+		),
+		derivedFromRules: derivedFrom,
+	}
+}
+
+func getPolicyLogCookie(logger *slog.Logger, logCookieBakery cookie.PolicyBakery, derivedFrom ruleOrigin, version uint64) uint32 {
+	bc := cookie.NewBakedCookie(
+		derivedFrom.LabelsString(),
+		derivedFrom.Logs(),
+		version,
 	)
+	if bc.IsEmpty() {
+		return 0
+	}
+
+	logger.Debug("Allocating policy log cookie",
+		logfields.PolicyCookieLogs, bc.Logs,
+		logfields.Labels, bc.Labels,
+	)
+	cookie, ok := logCookieBakery.Allocate(bc)
+	if !ok {
+		logger.Warn("Failed to allocate policy log cookie",
+			logfields.PolicyCookieLogs, bc.Logs,
+			logfields.Labels, bc.Labels,
+		)
+	}
+
+	return cookie
 }
 
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
@@ -662,7 +715,13 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 // 'redirects' is the map of currently realized redirects, it is used to find the proxy port for any redirects.
 // p.SelectorCache is used as Identities interface during this call, which only has GetPrefix() that
 // needs no lock.
-func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features policyFeatures, changes ChangeState) {
+func (l4 *L4Filter) toMapState(
+	logger *slog.Logger,
+	p *EndpointPolicy,
+	features policyFeatures,
+	changes ChangeState,
+	logCookieBakery cookie.PolicyBakery,
+) {
 	port := l4.Port
 	proto := l4.U8Proto
 
@@ -696,7 +755,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 	}
 
 	// Compute and insert the wildcard entry, if present.
-	wildcardEntry := l4.generateWildcardMapStateEntry(scopedLog, p, port)
+	wildcardEntry := l4.generateWildcardMapStateEntry(scopedLog, p, port, logCookieBakery)
 	if !wildcardEntry.Invalid {
 		for _, keyToAdd := range keysToAdd {
 			keyToAdd.Identity = 0
@@ -725,7 +784,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 		}
 
 		// create MapStateEntry
-		entry := l4.makeMapStateEntry(logger, p, port, cs, currentRule)
+		entry := l4.makeMapStateEntry(logger, p, port, cs, currentRule, logCookieBakery)
 		if entry.Invalid {
 			continue
 		}
@@ -779,7 +838,12 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (l4 *L4Filter) IdentitySelectionUpdated(logger *slog.Logger, cs types.CachedSelector, added, deleted []identity.NumericIdentity) {
+func (l4 *L4Filter) IdentitySelectionUpdated(
+	logger *slog.Logger,
+	cs types.CachedSelector,
+	added, deleted []identity.NumericIdentity,
+	logCookieBakery cookie.PolicyBakery,
+) {
 	logger.Debug(
 		"identities selected by L4Filter updated",
 		logfields.EndpointSelector, cs,
@@ -800,7 +864,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(logger *slog.Logger, cs types.Cache
 	// that we could not push updates on an unstable policy.
 	l4Policy := l4.policy.Load()
 	if l4Policy != nil {
-		l4Policy.AccumulateMapChanges(logger, l4, cs, added, deleted)
+		l4Policy.AccumulateMapChanges(logger, l4, cs, added, deleted, logCookieBakery)
 	}
 }
 
@@ -1620,10 +1684,20 @@ func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
-func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter, cs CachedSelector, adds, deletes []identity.NumericIdentity) {
+func (l4Policy *L4Policy) AccumulateMapChanges(
+	logger *slog.Logger,
+	l4 *L4Filter,
+	cs CachedSelector,
+	adds, deletes []identity.NumericIdentity,
+	logCookieBakery cookie.PolicyBakery,
+) {
 	port := uint16(l4.Port)
 	proto := l4.U8Proto
-	derivedFrom := l4.RuleOrigin[cs]
+	var cookie uint32
+	derivedFrom, ok := l4.RuleOrigin[cs]
+	if ok {
+		cookie = getPolicyLogCookie(logger, logCookieBakery, derivedFrom, l4Policy.Revision)
+	}
 
 	direction := trafficdirection.Egress
 	if l4.Ingress {
@@ -1673,11 +1747,21 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 			keysToAdd = append(keysToAdd,
 				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
-		value := newMapStateEntry(derivedFrom, proxyPort, priority, isDeny, authReq)
+
+		value := mapStateEntry{
+			MapStateEntry: types.NewMapStateEntry(
+				isDeny,
+				proxyPort,
+				priority,
+				authReq,
+				cookie,
+			),
+			derivedFromRules: derivedFrom,
+		}
 
 		// If the entry is identical to wildcard map entry, we can elide it.
 		// See comment in L4Filter.toMapState()
-		wildcardMapEntry := l4.generateWildcardMapStateEntry(logger, epPolicy, port)
+		wildcardMapEntry := l4.generateWildcardMapStateEntry(logger, epPolicy, port, logCookieBakery)
 		if !wildcardMapEntry.Invalid && port != 0 && value.MapStateEntry == wildcardMapEntry.MapStateEntry {
 			logger.Debug(
 				"AccumulateMapChanges: Skipping L3/L4 key due to existing identical L4-only key",

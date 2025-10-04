@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -119,7 +120,7 @@ func (csu *cachedSelectionUser) WaitForUpdate() (adds, deletes int) {
 	return csu.adds, csu.deletes
 }
 
-func (csu *cachedSelectionUser) IdentitySelectionUpdated(logger *slog.Logger, selector policytypes.CachedSelector, added, deleted []identity.NumericIdentity) {
+func (csu *cachedSelectionUser) IdentitySelectionUpdated(logger *slog.Logger, selector policytypes.CachedSelector, added, deleted []identity.NumericIdentity, logCookieBakery cookie.PolicyBakery) {
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
 
@@ -637,5 +638,15 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 func testNewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
 	sc := NewSelectorCache(logger, ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
+	sc.cookies = &fakeLogBakery{}
+
 	return sc
 }
+
+type fakeLogBakery struct{}
+
+func (f *fakeLogBakery) Allocate(*cookie.BakedCookie) (uint32, bool) { return 0, true }
+func (f *fakeLogBakery) Get(uint32) (*cookie.BakedCookie, bool)      { return &cookie.BakedCookie{}, true }
+func (f *fakeLogBakery) MarkInUse(uint32)                            {}
+func (f *fakeLogBakery) Sweep()                                      {}
+func (f *fakeLogBakery) Count() int                                  { return 0 }

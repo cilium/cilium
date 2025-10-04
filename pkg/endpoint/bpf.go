@@ -1557,6 +1557,15 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		e.PolicyDebug("syncPolicyMapWithDump", logfields.DumpedDiffs, diffs)
 	}
 
+	// Garbage collect policy cookies based on policy map dump. Do this after policy map
+	// reconciliation above so currentMap reflects the current state as close as possible.
+	// Avoid iterating the map again in case there are no policy log cookies allocated.
+	if e.policyRepo.CookieCount() > 0 {
+		for _, v := range currentMap {
+			e.policyRepo.MarkCookieInUse(v.Cookie)
+		}
+	}
+
 	return err
 }
 

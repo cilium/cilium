@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -84,6 +85,11 @@ type SelectorCache struct {
 
 	// used to lazily start the handler for user notifications.
 	startNotificationsHandlerOnce sync.Once
+
+	// cookies manages the cookies associated with policy.
+	// TODO(tk): this is not directly related to the selector cache but added here for practical
+	// reasons. Refactor this to be part of the policy repository instead.
+	cookies cookie.PolicyBakery
 }
 
 // GetVersionHandleFunc calls the given function with a versioned.VersionHandle for the
@@ -194,7 +200,7 @@ func (sc *SelectorCache) handleUserNotifications() {
 			if n.selector == nil {
 				n.user.IdentitySelectionCommit(sc.logger, n.txn)
 			} else {
-				n.user.IdentitySelectionUpdated(sc.logger, n.selector, n.added, n.deleted)
+				n.user.IdentitySelectionUpdated(sc.logger, n.selector, n.added, n.deleted, sc.cookies)
 			}
 			n.wg.Done()
 		}
@@ -245,6 +251,7 @@ func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCa
 		logger:    logger,
 		idCache:   make(map[identity.NumericIdentity]scIdentity, len(ids)),
 		selectors: make(map[string]*identitySelector),
+		cookies:   cookie.NewBakery[uint32, *cookie.BakedCookie](logger),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	sc.versioned = &versioned.Coordinator{
