@@ -291,11 +291,11 @@ func (c *compositeClientset) startHeartbeat() {
 
 	heartBeat := func(ctx context.Context) error {
 		// Kubernetes does a get node of the node that kubelet is running [0]. This seems excessive in
-		// our case because the amount of data transferred is bigger than doing a Get of /healthz.
-		// For this reason we have picked to perform a get on `/healthz` instead a get of a node.
+		// our case because the amount of data transferred is bigger than doing a Get of /readyz.
+		// For this reason we have picked to perform a get on `/readyz` instead a get of a node.
 		//
 		// [0] https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet_node_status.go#L423
-		res := restClient.Get().Resource("healthz").Do(ctx)
+		res := restClient.Get().Resource("readyz").Do(ctx)
 		return res.Error()
 	}
 
