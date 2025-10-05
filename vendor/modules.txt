@@ -1463,7 +1463,7 @@ github.com/tidwall/pretty
 # github.com/tidwall/sjson v1.2.5
 ## explicit; go 1.14
 github.com/tidwall/sjson
-# github.com/vishvananda/netlink v1.3.2-0.20250926155043-cd3cb2e12c97
+# github.com/vishvananda/netlink v1.3.2-0.20251005215456-19840dbaef76
 ## explicit; go 1.23
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl

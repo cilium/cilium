@@ -261,11 +261,6 @@ func (h *Handle) SocketDestroy(local, remote net.Addr) error {
 		return ErrNotImplemented
 	}
 
-	s, err := nl.Subscribe(unix.NETLINK_INET_DIAG)
-	if err != nil {
-		return err
-	}
-	defer s.Close()
 	req := h.newNetlinkRequest(nl.SOCK_DESTROY, unix.NLM_F_ACK)
 	req.AddData(&socketRequest{
 		Family:   unix.AF_INET,
@@ -279,7 +274,7 @@ func (h *Handle) SocketDestroy(local, remote net.Addr) error {
 		},
 	})
 
-	_, err = req.Execute(unix.NETLINK_INET_DIAG, 0)
+	_, err := req.Execute(unix.NETLINK_INET_DIAG, 0)
 	return err
 }
 
