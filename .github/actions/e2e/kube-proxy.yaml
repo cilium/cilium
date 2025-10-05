@@ -8,7 +8,7 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
 - name: 'kube-proxy-2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250923.075842'
+  kernel: '5.10-20250929.013214'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -16,7 +16,7 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
 - name: 'kube-proxy-3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20250923.075842'
+  kernel: '5.10-20250929.013214'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -24,7 +24,7 @@
   kvstore: 'true'
 - name: 'kube-proxy-4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250923.075842'
+  kernel: '6.12-20250929.013214'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'geneve'
@@ -35,7 +35,7 @@
   skip-include-conn-disrupt-test-ns-traffic: 'true'
 - name: 'kube-proxy-5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250923.075842'
+  kernel: '5.15-20250929.013214'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -55,7 +55,7 @@
   misc: 'policyCIDRMatchMode=nodes'
 - name: 'kube-proxy-7'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250923.075842'
+  kernel: '6.12-20250929.013214'
   kube-proxy: 'iptables'
   kpr: 'false'
   ipv6: 'true'

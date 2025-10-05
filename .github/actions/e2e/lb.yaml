@@ -1,6 +1,6 @@
 - name: 'lb-1'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250923.075842'
+  kernel: '5.15-20250929.013214'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -13,7 +13,7 @@
   ingress-controller: 'true'
 - name: 'lb-2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.1-20250923.075842'
+  kernel: '6.1-20250929.013214'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -27,7 +27,7 @@
   bgp-control-plane: 'true'
 - name: 'lb-3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250923.075842'
+  kernel: '6.12-20250929.013214'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -46,7 +46,7 @@
   # explains why 5.4 might cause north-south-loadbalancing tests to
   # fail.
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20250923.075842'
+  kernel: '5.15-20250929.013214'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -58,7 +58,7 @@
   ingress-controller: 'true'
 - name: 'lb-5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250923.075842'
+  kernel: '6.12-20250929.013214'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
