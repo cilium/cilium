@@ -1042,6 +1042,10 @@ type AllocatorEvent struct {
 
 	// Key is the key associated with the ID
 	Key AllocatorKey
+
+	// Done is a channel that is closed when this event is processed.
+	// Optional
+	Done chan<- struct{}
 }
 
 // remoteCache represents the cache content of an additional kvstore managing
