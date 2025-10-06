@@ -16,6 +16,7 @@ upheld for whole lifecycle of Cilium 1.x.
 .. toctree::
    :maxdepth: 3
 
+   Aggregate <_api/v1/aggregate/README>
    Flow <_api/v1/flow/README>
    Observer <_api/v1/observer/README>
    Peer <_api/v1/peer/README>

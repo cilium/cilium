@@ -8,18 +8,24 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync"
 
+	"google.golang.org/protobuf/types/known/anypb"
+
+	aggregatepb "github.com/cilium/cilium/api/v1/aggregate"
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
-	DefaultFileMaxSizeMB  = 10
-	DefaultFileMaxBackups = 5
+	DefaultFileMaxSizeMB       = 10
+	DefaultFileMaxBackups      = 5
+	DefaultAggregationInterval = 0 * time.Second
 )
 
 // FlowLogExporter is represents a type that can export hubble events.
@@ -55,13 +61,22 @@ type exporter struct {
 	encoder Encoder
 	writer  io.WriteCloser
 	flow    *flowpb.Flow
-
+	ctx     context.Context
+	// cancel terminates the exporter's child context; invoked by Stop() to
+	// signal the aggregation loop (if running) and any in-flight operations to exit.
+	// After Stop() it is set to nil so repeated Stop() calls are no-ops.
+	cancel context.CancelFunc
+	// a is non-nil only when field aggregation is active AND AggregationInterval > 0.
+	// When the interval <= 0 we keep it nil so events are exported immediately (no silent buffering).
+	a *Aggregator
+	// wg is used for aggregation loop ensures graceful shutdown with final flush.
+	wg   sync.WaitGroup
 	opts Options
 }
 
 // NewExporter initializes an
 // NOTE: Stopped instances cannot be restarted and should be re-created.
-func NewExporter(logger *slog.Logger, options ...Option) (*exporter, error) {
+func NewExporter(ctx context.Context, logger *slog.Logger, options ...Option) (*exporter, error) {
 	opts := DefaultOptions // start with defaults
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
@@ -72,17 +87,21 @@ func NewExporter(logger *slog.Logger, options ...Option) (*exporter, error) {
 		"Configuring Hubble event exporter",
 		logfields.Options, opts,
 	)
-	return newExporter(logger, opts)
+	return newExporter(ctx, logger, opts)
 }
 
 // newExporter let's you supply your own WriteCloser for tests.
-func newExporter(logger *slog.Logger, opts Options) (*exporter, error) {
+func newExporter(ctx context.Context, logger *slog.Logger, opts Options) (*exporter, error) {
+	childCtx, cancel := context.WithCancel(ctx)
 	writer, err := opts.NewWriterFunc()()
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("failed to create writer: %w", err)
 	}
 	encoder, err := opts.NewEncoderFunc()(writer)
 	if err != nil {
+		writer.Close()
+		cancel()
 		return nil, fmt.Errorf("failed to create encoder: %w", err)
 	}
 	var flow *flowpb.Flow
@@ -90,13 +109,29 @@ func newExporter(logger *slog.Logger, opts Options) (*exporter, error) {
 		flow = new(flowpb.Flow)
 		opts.FieldMask.Alloc(flow.ProtoReflect())
 	}
-	return &exporter{
+	ex := &exporter{
+		ctx:     childCtx,
+		cancel:  cancel,
 		logger:  logger,
 		encoder: encoder,
 		writer:  writer,
 		flow:    flow,
 		opts:    opts,
-	}, nil
+	}
+
+	// Initialize aggregator only if field aggregate is active and interval > 0.
+	if opts.FieldAggregate.Active() && opts.aggregationInterval > 0 {
+		ex.a = NewAggregatorWithFields(opts.FieldAggregate, logger)
+		ex.wg.Add(1)
+		go ex.runAggregationLoop(childCtx, opts.aggregationInterval)
+	} else if opts.FieldAggregate.Active() && opts.aggregationInterval <= 0 {
+		logger.Warn(
+			"Field aggregation requested but disabled due to aggregation interval <= 0; Exporting raw events",
+			logfields.Interval, opts.aggregationInterval,
+		)
+	}
+
+	return ex, nil
 }
 
 // Export implements FlowLogExporter.
@@ -127,6 +162,12 @@ func (e *exporter) Export(ctx context.Context, ev *v1.Event) error {
 		}
 	}
 
+	// If aggregation enabled (interval > 0) aggregator is non-nil
+	if e.a != nil {
+		e.a.Add(ev)
+		return nil
+	}
+
 	res := e.eventToExportEvent(ev)
 	if res == nil {
 		return nil
@@ -137,8 +178,17 @@ func (e *exporter) Export(ctx context.Context, ev *v1.Event) error {
 // Stop implements FlowLogExporter.
 func (e *exporter) Stop() error {
 	e.logger.Debug("hubble flow exporter stopping")
+
+	// Cancel the context to stop any ongoing op's (aggregation loop)
+	if e.cancel != nil {
+		e.cancel()
+		e.cancel = nil
+	}
+
+	// Wait for aggregation loop (if any)
+	e.wg.Wait()
 	if e.writer == nil {
-		// Already stoppped
+		// Already stopped
 		return nil
 	}
 	err := e.writer.Close()
@@ -188,4 +238,68 @@ func (e *exporter) eventToExportEvent(event *v1.Event) *observerpb.ExportEvent {
 	default:
 		return nil
 	}
+}
+
+// processedFlowToAggregatedExportEvent converts a pre-processed flow to ExportEvent with aggregation counts
+func (e *exporter) processedFlowToAggregatedExportEvent(processedFlow *flowpb.Flow, ingressCount, egressCount, unknownDirectionFlowCount int) *observerpb.ExportEvent {
+	aggregate := &aggregatepb.Aggregate{
+		IngressFlowCount:          uint32(ingressCount),
+		EgressFlowCount:           uint32(egressCount),
+		UnknownDirectionFlowCount: uint32(unknownDirectionFlowCount),
+	}
+
+	processedFlow.Extensions = toAny(aggregate)
+
+	return &observerpb.ExportEvent{
+		Time:     processedFlow.GetTime(),
+		NodeName: processedFlow.GetNodeName(),
+		ResponseTypes: &observerpb.ExportEvent_Flow{
+			Flow: processedFlow,
+		},
+	}
+}
+
+func toAny(message *aggregatepb.Aggregate) *anypb.Any {
+	a, err := anypb.New(message)
+	if err != nil {
+		return nil
+	}
+	return a
+}
+
+func (e *exporter) runAggregationLoop(ctx context.Context, interval time.Duration) {
+	defer e.wg.Done()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			// Final flush on context cancellation to ensure no aggregates are lost.
+			e.exportAggregates()
+			return
+		case <-ticker.C:
+			e.exportAggregates()
+		}
+	}
+}
+
+// exportAggregates performs a single export cycle and resets the aggregation map.
+func (e *exporter) exportAggregates() {
+	if e.a == nil {
+		return
+	}
+	e.a.mu.Lock()
+
+	for _, v := range e.a.m {
+		res := e.processedFlowToAggregatedExportEvent(v.ProcessedFlow, v.IngressFlowCount, v.EgressFlowCount, v.UnknownDirectionFlowCount)
+		if res == nil {
+			continue
+		}
+		if err := e.encoder.Encode(res); err != nil {
+			e.logger.Error("Failed to encode event for aggregator", logfields.Error, err)
+		}
+	}
+	// Reset map
+	e.a.m = make(map[AggregateKey]*AggregateValue)
+	e.a.mu.Unlock()
 }
