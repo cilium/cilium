@@ -161,6 +161,14 @@ func (t *ipsecKeyDerivationTest) validateNodeBidirectionalTunnels(test *check.Te
 
 	// Check that each tunnel has its reverse
 	for _, state := range states {
+		// Each Encrypt state has two Decrypt states (to support both
+		// CiliumInternalIP and NodeInternalIP at the same time). Thus, we
+		// should check that each Encrypt state has a reverse state, as the
+		// other way around isn't true.
+		if !state.Encrypt {
+			continue
+		}
+
 		forward := fmt.Sprintf("%s->%s", state.Src, state.Dst)
 		reverse := fmt.Sprintf("%s->%s", state.Dst, state.Src)
 
