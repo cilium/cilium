@@ -17,6 +17,10 @@
 #define SECLABEL_IPV4 WORLD_IPV4_ID
 #define SECLABEL_IPV6 WORLD_IPV6_ID
 
+/* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
+ */
+#define SKIP_SRV6_HANDLING
+
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/ipv6.h"
