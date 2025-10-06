@@ -574,6 +574,11 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("foo"), Typ: AllocatorChangeUpsert}, <-events)
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(2), Key: TestAllocatorKey("baz"), Typ: AllocatorChangeUpsert}, <-events)
 
+	ev := <-events
+	require.Equal(t, AllocatorChangeSync, ev.Typ)
+	require.False(t, rc.Synced(), "The cache should not be synchronized")
+	close(ev.Done)
+
 	require.Eventually(t, func() bool {
 		global.remoteCachesMutex.RLock()
 		defer global.remoteCachesMutex.RUnlock()
@@ -599,6 +604,10 @@ func TestWatchRemoteKVStore(t *testing.T) {
 
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: AllocatorChangeUpsert}, <-events)
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(5), Key: TestAllocatorKey("bar"), Typ: AllocatorChangeUpsert}, <-events)
+	ev = <-events
+	require.Equal(t, AllocatorChangeSync, ev.Typ)
+	close(ev.Done)
+
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(2), Key: TestAllocatorKey("baz"), Typ: AllocatorChangeDelete}, <-events)
 
 	require.Eventually(t, func() bool {
@@ -678,18 +687,21 @@ func TestCacheValidators(t *testing.T) {
 	)
 	require.NoError(t, err)
 	allocator.mainCache.OnListDone()
+	ev := <-events
+	require.Equal(t, AllocatorChangeSync, ev.Typ)
+	close(ev.Done)
 
 	t.Cleanup(func() { allocator.Delete() })
 
 	allocator.mainCache.OnUpsert(validID, key)
 	require.Len(t, events, 1, "Valid upsert event should be propagated")
-	require.Equal(t, AllocatorEvent{AllocatorChangeUpsert, validID, key}, <-events)
+	require.Equal(t, AllocatorEvent{AllocatorChangeUpsert, validID, key, nil}, <-events)
 	require.Equal(t, key, allocator.mainCache.getByID(validID))
 	require.Equal(t, AllocatorChangeUpsert, kind)
 
 	allocator.mainCache.OnDelete(validID, key)
 	require.Len(t, events, 1, "Valid deletion event should be propagated")
-	require.Equal(t, AllocatorEvent{AllocatorChangeDelete, validID, key}, <-events)
+	require.Equal(t, AllocatorEvent{AllocatorChangeDelete, validID, key, nil}, <-events)
 	require.Nil(t, allocator.mainCache.getByID(validID))
 	require.Equal(t, AllocatorChangeDelete, kind)
 

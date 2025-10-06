@@ -116,12 +116,21 @@ func (c *cache) OnListDone() {
 	c.keyCache = c.nextKeyCache
 	c.mutex.Unlock()
 
-	log.Debug("Initial list of identities received")
-
 	// report that the list operation has
 	// been completed and the allocator is
 	// ready to use
-	close(c.listDone)
+	if events := c.allocator.events; events != nil {
+		log.Debug("Initial list of identities received, waiting for SelectorCache to consume updates")
+		// Ask the event handler to close listDone once it has processed
+		// all events up to the Sync event
+		events <- AllocatorEvent{
+			Typ:  AllocatorChangeSync,
+			Done: c.listDone,
+		}
+	} else {
+		log.Debug("Initial list of identities received")
+		close(c.listDone)
+	}
 }
 
 func (c *cache) OnUpsert(id idpool.ID, key AllocatorKey) {
