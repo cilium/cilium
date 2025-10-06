@@ -284,10 +284,11 @@ func dumpXfrmStates() ([]types.XfrmStateInfo, error) {
 		// Only include Cilium-managed states (ReqID == 1)
 		if state.Reqid == 1 {
 			stateInfo := types.XfrmStateInfo{
-				Src:   state.Src.String(),
-				Dst:   state.Dst.String(),
-				SPI:   uint32(state.Spi),
-				ReqID: uint32(state.Reqid),
+				Encrypt: ipsec.IsDecryptState(state),
+				Src:     state.Src.String(),
+				Dst:     state.Dst.String(),
+				SPI:     uint32(state.Spi),
+				ReqID:   uint32(state.Reqid),
 			}
 
 			// Extract algorithm and key information

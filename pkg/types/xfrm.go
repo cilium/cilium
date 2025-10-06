@@ -7,6 +7,7 @@ package types
 // This struct is used for JSON serialization of XFRM state information
 // and is shared between cilium-dbg and cilium-cli for consistency
 type XfrmStateInfo struct {
+	Encrypt  bool   `json:"encrypt"`
 	Src      string `json:"src"`
 	Dst      string `json:"dst"`
 	SPI      uint32 `json:"spi"`

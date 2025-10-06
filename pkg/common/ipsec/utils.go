@@ -40,6 +40,13 @@ func CountUniqueIPsecKeys(states []netlink.XfrmState) (int, error) {
 	return len(keys), nil
 }
 
+func IsDecryptState(state netlink.XfrmState) bool {
+	if state.Mark == nil {
+		return false
+	}
+	return state.Mark.Value&maskStateDir == markStateOut
+}
+
 func CountXfrmStatesByDir(states []netlink.XfrmState) (int, int) {
 	nbXfrmIn := 0
 	nbXfrmOut := 0
