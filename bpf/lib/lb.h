@@ -437,6 +437,16 @@ bool lb6_svc_is_itp_local(const struct lb6_service *svc)
 	return svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE;
 }
 
+static __always_inline
+bool lb_punt_etp_local(void)
+{
+#if __ctx_is == __ctx_xdp
+	return true;
+#else
+	return false;
+#endif
+}
+
 static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 					       __be16 old_port, __be16 port, int l4_off,
 					       struct csum_offset *csum_off)
