@@ -195,3 +195,43 @@ l2_announce6_na = (
     ICMPv6ND_NA(R=0, S=1, O=1, tgt=v6_svc_one) /
     ICMPv6NDOptDstLLAddr(lladdr=mac_two)
 )
+
+## Wireguard
+
+wireguard_port = 51871
+
+v4_wireguard = (
+    Ether(dst=mac_two, src=mac_one) /
+    IP(src=v4_node_one, dst=v4_node_two) /
+    UDP(sport=wireguard_port, dport=wireguard_port)
+)
+
+v4_wireguard_sport_mismatch = (
+    Ether(dst=mac_two, src=mac_one) /
+    IP(src=v4_node_one, dst=v4_node_two) /
+    UDP(sport=wireguard_port+1, dport=wireguard_port)
+)
+
+v4_wireguard_proto_mismatch = (
+    Ether(dst=mac_two, src=mac_one) /
+    IP(src=v4_node_one, dst=v4_node_two) /
+    TCP(sport=wireguard_port, dport=wireguard_port)
+)
+
+v6_wireguard = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(src=v6_node_one, dst=v6_node_two) /
+    UDP(sport=wireguard_port, dport=wireguard_port)
+)
+
+v6_wireguard_sport_mismatch = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(src=v6_node_one, dst=v6_node_two) /
+    UDP(sport=wireguard_port+1, dport=wireguard_port)
+)
+
+v6_wireguard_proto_mismatch = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(src=v6_node_one, dst=v6_node_two) /
+    TCP(sport=wireguard_port, dport=wireguard_port)
+)
