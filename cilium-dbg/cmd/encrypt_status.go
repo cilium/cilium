@@ -21,6 +21,9 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 
+	"github.com/cilium/ebpf"
+	ebpf_link "github.com/cilium/ebpf/link"
+
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
@@ -332,9 +335,6 @@ func maxSequenceNumber() (string, error) {
 }
 
 // isDecryptionInterface returns whether we thing an interface is used for decryption or not.
-// FIXME: this simply checks for the existence of the cil_from_network or cil_from_netdev programs
-// in the filter list of the interface - ideally there should be a less ambiguous way of knowing if
-// an interface is used for decryption such as evaluating the addresses in the xfrm states.
 func isDecryptionInterface(link netlink.Link) (bool, error) {
 	filters, err := safenetlink.FilterList(link, tcFilterParentIngress)
 	if err != nil {
@@ -351,6 +351,32 @@ func isDecryptionInterface(link netlink.Link) (bool, error) {
 			}
 		}
 	}
+
+	progs, err := ebpf_link.QueryPrograms(
+		ebpf_link.QueryOptions{
+			Target: link.Attrs().Index,
+			Attach: ebpf.AttachTCXIngress,
+		},
+	)
+	if err != nil {
+		// probably not supported
+		return false, nil
+	}
+
+	for _, p := range progs.Programs {
+		prog, err := ebpf.NewProgramFromID(p.ID)
+		if err != nil {
+			return false, fmt.Errorf("failed to find program: %w for %d", err, p.ID)
+		}
+
+		if progInfo, err := prog.Info(); err == nil {
+			if strings.Contains(progInfo.Name, "cil_from_network") ||
+				strings.Contains(progInfo.Name, "cil_from_netdev") {
+				return true, nil
+			}
+		}
+	}
+
 	return false, nil
 }
 
