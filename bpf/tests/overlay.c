@@ -19,8 +19,8 @@ int overlay_neigh_resolver(__maybe_unused struct __sk_buff *ctx)
 		assert(!neigh_resolver_without_nh_available());
 	});
 
-	TEST("no_neigh_resolver_on_overlay", {
-		assert(!neigh_resolver_available());
+	TEST("neigh_resolver_on_overlay", {
+		assert(neigh_resolver_available());
 	});
 
 	test_finish();
