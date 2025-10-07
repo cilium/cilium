@@ -70,12 +70,7 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
-		break;
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		/* Don't redirect if we can't update the L2 DMAC: */
-		if (!neigh_resolver_available())
-			return CTX_ACT_OK;
-
 		break;
 	default:
 		*ext_err = (__s8)ret;
@@ -386,10 +381,7 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
-		break;
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		if (!neigh_resolver_available())
-			return CTX_ACT_OK;
 		break;
 	default:
 		*ext_err = (__s8)ret;
