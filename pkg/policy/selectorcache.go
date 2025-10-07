@@ -29,12 +29,12 @@ type scIdentity struct {
 
 // scIdentityCache is a cache of Identities keyed by the numeric identity
 type scIdentityCache struct {
-	ids map[identity.NumericIdentity]scIdentity
+	ids map[identity.NumericIdentity]*scIdentity
 }
 
 func newScIdentityCache(ids identity.IdentityMap) scIdentityCache {
 	idCache := scIdentityCache{
-		ids: make(map[identity.NumericIdentity]scIdentity, len(ids)),
+		ids: make(map[identity.NumericIdentity]*scIdentity, len(ids)),
 	}
 
 	for nid, lbls := range ids {
@@ -52,14 +52,14 @@ func (c *scIdentityCache) delete(nid identity.NumericIdentity) {
 	delete(c.ids, nid)
 }
 
-func (c *scIdentityCache) find(nid identity.NumericIdentity) (scIdentity, bool) {
-	id, exists := c.ids[nid]
-	return id, exists
+func (c *scIdentityCache) find(nid identity.NumericIdentity) (*scIdentity, bool) {
+	id := c.ids[nid]
+	return id, id != nil
 }
 
 func (c *scIdentityCache) exists(nid identity.NumericIdentity) bool {
-	_, exists := c.ids[nid]
-	return exists
+	id := c.ids[nid]
+	return id != nil
 }
 
 func (c *scIdentityCache) selections(idSel *identitySelector) iter.Seq[identity.NumericIdentity] {
@@ -74,8 +74,8 @@ func (c *scIdentityCache) selections(idSel *identitySelector) iter.Seq[identity.
 	}
 }
 
-func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) scIdentity {
-	return scIdentity{
+func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) *scIdentity {
+	return &scIdentity{
 		NID:       nid,
 		lbls:      lbls,
 		namespace: lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
