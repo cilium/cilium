@@ -103,11 +103,18 @@ nextLabel:
 // ["k8s:foo=bar"].Intersects(["any:foo=bar"]) == true
 // ["any:foo=bar"].Intersects(["k8s:foo=bar"]) == false
 func (ls LabelArray) Intersects(needed LabelArray) bool {
+	for _, n := range needed {
+		if ls.IntersectsLabel(n) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ls LabelArray) IntersectsLabel(lbl Label) bool {
 	for _, l := range ls {
-		for _, n := range needed {
-			if l.Has(&n) {
-				return true
-			}
+		if l.Has(&lbl) {
+			return true
 		}
 	}
 	return false

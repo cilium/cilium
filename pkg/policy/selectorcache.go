@@ -339,9 +339,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls stringLa
 		return idSel, idSel.addUser(user)
 	}
 
-	source := &fqdnSelector{
-		selector: fqdnSelec,
-	}
+	source := newFqdnSelector(fqdnSelec)
 
 	// Make the FQDN subsystem aware of this selector
 	sc.localIdentityNotifier.RegisterFQDNSelector(source.selector)
