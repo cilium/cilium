@@ -540,7 +540,7 @@ These metrics are also available in sysdump in HTML form (look for ``cilium-dbg-
           ╰───┬───────────────────────────────┬──────────────────────────────┬─╯
            -120min                         -60min                           now
 
-    # Plot the reconcilation errors for sysctl
+    # Plot the reconciliation errors for sysctl
     cilium> metrics/plot reconciler_errors_current.*sysctl
                              cilium_reconciler_errors_current
                             [ module_id=agent.datapath.sysctl ]
@@ -582,7 +582,7 @@ Reconciler
 
 ========================================================= ======================== =================================
 Name                                                      Labels                   Description
-``reconciler_count``                                      ``module_id``            Number of reconcilation rounds performed
+``reconciler_count``                                      ``module_id``            Number of reconciliation rounds performed
 ``reconciler_duration_seconds``                           ``module_id``, ``op``    Histogram of operation durations
 ``reconciler_errors_total``                               ``module_id``            Total number of errors (update/delete)
 ``reconciler_errors_current``                             ``module_id``            Current errors
