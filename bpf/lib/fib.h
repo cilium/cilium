@@ -10,6 +10,15 @@
 #include "neigh.h"
 #include "l3.h"
 
+static __always_inline bool
+neigh_resolver_without_nh_available()
+{
+	/* Work around for
+	 * https://lore.kernel.org/netdev/20251003073418.291171-1-daniel@iogearbox.net
+	 */
+	return !is_defined(IS_BPF_OVERLAY) && neigh_resolver_available();
+}
+
 static __always_inline int
 add_l2_hdr(struct __ctx_buff *ctx __maybe_unused)
 {
@@ -107,9 +116,10 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 			return (int)redirect_neigh(oif, &nh_params,
 						   sizeof(nh_params), 0);
 		}
-
-		return (int)redirect_neigh(oif, NULL, 0, 0);
 	}
+
+	if (neigh_resolver_without_nh_available())
+		return (int)redirect_neigh(oif, NULL, 0, 0);
 
 	if (fib_result == BPF_FIB_LKUP_RET_SUCCESS) {
 		if (eth_store_daddr(ctx, fib_params->l.dmac, 0) < 0)
