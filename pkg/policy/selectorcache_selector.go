@@ -86,7 +86,9 @@ func (i *identitySelector) MaySelectPeers() bool {
 var _ types.CachedSelector = (*identitySelector)(nil)
 
 type selectorSource interface {
-	matches(logger *slog.Logger, id *scIdentity) bool
+	selectedNamespaces() []string // allowed namespaces, or nil for no requirement
+
+	matches(logger *slog.Logger, labels labels.LabelArray) bool
 
 	remove(identityNotifier)
 
@@ -110,14 +112,18 @@ func newFqdnSelector(s api.FQDNSelector) *fqdnSelector {
 	}
 }
 
+func (f *fqdnSelector) selectedNamespaces() []string {
+	return nil
+}
+
 func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
 	dnsProxy.UnregisterFQDNSelector(f.selector)
 }
 
 // matches returns true if the identity contains at least one label
 // that matches the FQDNSelector's IdentityLabel string
-func (f *fqdnSelector) matches(_ *slog.Logger, identity *scIdentity) bool {
-	return identity.lbls.IntersectsLabel(f.label)
+func (f *fqdnSelector) matches(_ *slog.Logger, lbls labels.LabelArray) bool {
+	return lbls.IntersectsLabel(f.label)
 }
 
 func (f *fqdnSelector) metricsClass() string {
@@ -205,12 +211,16 @@ func (r *requirement) Matches(logger *slog.Logger, ls labels.LabelArray) bool {
 
 type labelIdentitySelector struct {
 	cachedString string
-	namespaces   []string // allowed namespaces, or ""
+	namespaces   []string // allowed namespaces, or nil for no namespace requirement
 	requirements []requirement
 }
 
+func (l *labelIdentitySelector) selectedNamespaces() []string {
+	return l.namespaces
+}
+
 // matchesLabels returns true if the CachedSelector matches given labels.
-func (l *labelIdentitySelector) matchesLabels(logger *slog.Logger, labels labels.LabelArray) bool {
+func (l *labelIdentitySelector) matches(logger *slog.Logger, labels labels.LabelArray) bool {
 	for i := range l.requirements {
 		if !l.requirements[i].Matches(logger, labels) {
 			return false
@@ -237,24 +247,6 @@ func newLabelIdentitySelector(es api.EndpointSelector) *labelIdentitySelector {
 		namespaces:   namespaces,
 		requirements: requirements,
 	}
-}
-
-func (l *labelIdentitySelector) matchesNamespace(ns string) bool {
-	if len(l.namespaces) > 0 {
-		if ns != "" {
-			if slices.Contains(l.namespaces, ns) {
-				return true
-			}
-		}
-		// namespace required, but no match
-		return false
-	}
-	// no namespace required, match
-	return true
-}
-
-func (l *labelIdentitySelector) matches(logger *slog.Logger, identity *scIdentity) bool {
-	return l.matchesNamespace(identity.namespace) && l.matchesLabels(logger, identity.lbls)
 }
 
 func (l *labelIdentitySelector) remove(_ identityNotifier) {
