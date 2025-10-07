@@ -133,7 +133,7 @@ When you are ready, click ``Create`` and Rancher will create the cluster.
 .. image:: images/rancher_cluster_state_provisioning.png
 
 The cluster will stay in ``Updating`` state until you add nodes. Click on the cluster.
-In the ``Registration`` tab you should see the generated ``Registation command`` you
+In the ``Registration`` tab you should see the generated ``Registration command`` you
 need to run on the downstream cluster nodes.
 
 Do not forget to select the correct node roles. Rancher comes with the default to

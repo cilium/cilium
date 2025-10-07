@@ -66,7 +66,7 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("use-full-tls-context", false, "If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.")
 	flags.Uint32("proxy-xff-num-trusted-hops-ingress", 0, "Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.")
 	flags.Uint32("proxy-xff-num-trusted-hops-egress", 0, "Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.")
-	flags.Duration("envoy-policy-restore-timeout", 3*time.Minute, "Maxiumum time to wait for enpoint policy restoration before starting serving resources to Envoy")
+	flags.Duration("envoy-policy-restore-timeout", 3*time.Minute, "Maximum time to wait for endpoint policy restoration before starting serving resources to Envoy")
 	flags.Int("envoy-http-upstream-linger-timeout", -1, "Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. "+
 		"If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.")
 }
