@@ -93,11 +93,19 @@ type selectorSource interface {
 
 // fqdnSelector implements the selectorSource for a FQDNSelector. A fqdnSelector
 // matches an identity if the identity has a `fqdn:` label matching the FQDN
-// selector string.
+// selector string (stored in 'label' field).
 // In addition, the remove implementation calls back into the DNS name manager
 // to unregister the FQDN selector.
 type fqdnSelector struct {
 	selector api.FQDNSelector
+	label    labels.Label
+}
+
+func newFqdnSelector(s api.FQDNSelector) *fqdnSelector {
+	return &fqdnSelector{
+		selector: s,
+		label:    s.IdentityLabel(),
+	}
 }
 
 func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
@@ -107,7 +115,7 @@ func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
 // matches returns true if the identity contains at least one label
 // that matches the FQDNSelector's IdentityLabel string
 func (f *fqdnSelector) matches(_ *slog.Logger, identity scIdentity) bool {
-	return identity.lbls.Intersects(labels.LabelArray{f.selector.IdentityLabel()})
+	return identity.lbls.IntersectsLabel(f.label)
 }
 
 func (f *fqdnSelector) metricsClass() string {
