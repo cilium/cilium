@@ -84,7 +84,7 @@ func (i *identitySelector) MaySelectPeers() bool {
 var _ types.CachedSelector = (*identitySelector)(nil)
 
 type selectorSource interface {
-	matches(logger *slog.Logger, id scIdentity) bool
+	matches(logger *slog.Logger, id *scIdentity) bool
 
 	remove(identityNotifier)
 
@@ -114,7 +114,7 @@ func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
 
 // matches returns true if the identity contains at least one label
 // that matches the FQDNSelector's IdentityLabel string
-func (f *fqdnSelector) matches(_ *slog.Logger, identity scIdentity) bool {
+func (f *fqdnSelector) matches(_ *slog.Logger, identity *scIdentity) bool {
 	return identity.lbls.IntersectsLabel(f.label)
 }
 
@@ -158,7 +158,7 @@ func (l *labelIdentitySelector) matchesNamespace(ns string) bool {
 	return true
 }
 
-func (l *labelIdentitySelector) matches(logger *slog.Logger, identity scIdentity) bool {
+func (l *labelIdentitySelector) matches(logger *slog.Logger, identity *scIdentity) bool {
 	return l.matchesNamespace(identity.namespace) && l.matchesLabels(logger, identity.lbls)
 }
 
