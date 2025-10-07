@@ -15,6 +15,7 @@
 #include "lib/bpf_host.h"
 
 #include "lib/node.h"
+#include "scapy.h"
 
 ASSIGN_CONFIG(__u16, wg_port, 51871)
 
@@ -30,20 +31,11 @@ PKTGEN("tc", "ipv4_not_decrypted_wireguard_from_netdev")
 int ipv4_not_decrypted_wireguard_from_netdev_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct udphdr *l4;
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_udp_packet(&builder,
-					  (__u8 *)mac_one,
-					       (__u8 *)mac_two,
-					       v4_node_one,
-					       v4_node_two,
-					       bpf_htons(CONFIG(wg_port)),
-					       bpf_htons(CONFIG(wg_port)));
-
-	if (!l4)
-		return TEST_ERROR;
+	BUF_DECL(V4_WIREGUARD, v4_wireguard);
+	BUILDER_PUSH_BUF(builder, V4_WIREGUARD);
 
 	pktgen__finish(&builder);
 	return 0;
@@ -127,20 +119,11 @@ PKTGEN("tc", "ipv6_not_decrypted_wireguard_from_netdev")
 int ipv6_not_decrypted_wireguard_from_netdev_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct udphdr *l4;
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_udp_packet(&builder,
-					  (__u8 *)mac_one,
-					       (__u8 *)mac_two,
-					       (__u8 *)v6_node_one,
-					       (__u8 *)v6_node_two,
-					       bpf_htons(CONFIG(wg_port)),
-					       bpf_htons(CONFIG(wg_port)));
-
-	if (!l4)
-		return TEST_ERROR;
+	BUF_DECL(V6_WIREGUARD, v6_wireguard);
+	BUILDER_PUSH_BUF(builder, V6_WIREGUARD);
 
 	pktgen__finish(&builder);
 	return 0;
@@ -234,20 +217,11 @@ PKTGEN("tc", "ipv4_not_decrypted_wireguard_from_netdev_no_identity")
 int ipv4_not_decrypted_wireguard_from_netdev_no_identity_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct udphdr *l4;
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_udp_packet(&builder,
-					  (__u8 *)mac_one,
-					       (__u8 *)mac_two,
-					       v4_node_one,
-					       v4_node_two,
-					       bpf_htons(CONFIG(wg_port)),
-					       bpf_htons(CONFIG(wg_port)));
-
-	if (!l4)
-		return TEST_ERROR;
+	BUF_DECL(V4_WIREGUARD_NO_ID, v4_wireguard);
+	BUILDER_PUSH_BUF(builder, V4_WIREGUARD_NO_ID);
 
 	pktgen__finish(&builder);
 	return 0;
@@ -279,20 +253,11 @@ PKTGEN("tc", "ipv6_not_decrypted_wireguard_from_netdev_no_identity")
 int ipv6_not_decrypted_wireguard_from_netdev_no_identity_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct udphdr *l4;
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_udp_packet(&builder,
-					  (__u8 *)mac_one,
-					       (__u8 *)mac_two,
-					       (__u8 *)v6_node_one,
-					       (__u8 *)v6_node_two,
-					       bpf_htons(CONFIG(wg_port)),
-					       bpf_htons(CONFIG(wg_port)));
-
-	if (!l4)
-		return TEST_ERROR;
+	BUF_DECL(V6_WIREGUARD_NO_ID, v6_wireguard);
+	BUILDER_PUSH_BUF(builder, V6_WIREGUARD_NO_ID);
 
 	pktgen__finish(&builder);
 	return 0;
@@ -325,20 +290,11 @@ PKTGEN("tc", "ipv4_not_decrypted_wireguard_from_netdev_port_mismatch")
 int ipv4_not_decrypted_wireguard_from_netdev_port_mismatch_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct udphdr *l4;
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_udp_packet(&builder,
-					  (__u8 *)mac_one,
-					       (__u8 *)mac_two,
-					       v4_node_one,
-					       v4_node_two,
-					       bpf_htons(CONFIG(wg_port)),
-					       bpf_htons(CONFIG(wg_port)) + 1);
-
-	if (!l4)
-		return TEST_ERROR;
+	BUF_DECL(V4_WIREGUARD_SPORT_MISMATCH, v4_wireguard_sport_mismatch);
+	BUILDER_PUSH_BUF(builder, V4_WIREGUARD_SPORT_MISMATCH);
 
 	pktgen__finish(&builder);
 	return 0;
@@ -381,20 +337,11 @@ PKTGEN("tc", "ipv6_not_decrypted_wireguard_from_netdev_port_mismatch")
 int ipv6_not_decrypted_wireguard_from_netdev_port_mismatch_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct udphdr *l4;
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_udp_packet(&builder,
-					  (__u8 *)mac_one,
-					       (__u8 *)mac_two,
-					       (__u8 *)v6_node_one,
-					       (__u8 *)v6_node_two,
-					       bpf_htons(CONFIG(wg_port)),
-					       bpf_htons(CONFIG(wg_port)) + 1);
-
-	if (!l4)
-		return TEST_ERROR;
+	BUF_DECL(V6_WIREGUARD_SPORT_MISMATCH, v6_wireguard_sport_mismatch);
+	BUILDER_PUSH_BUF(builder, V6_WIREGUARD_SPORT_MISMATCH);
 
 	pktgen__finish(&builder);
 	return 0;
@@ -439,20 +386,11 @@ PKTGEN("tc", "ipv4_not_decrypted_wireguard_from_netdev_protocol_mismatch")
 int ipv4_not_decrypted_wireguard_from_netdev_protocol_mismatch_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct tcphdr *l4;
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)mac_one,
-					       (__u8 *)mac_two,
-					       v4_node_one,
-					       v4_node_two,
-					       bpf_htons(CONFIG(wg_port)),
-					       bpf_htons(CONFIG(wg_port)));
-
-	if (!l4)
-		return TEST_ERROR;
+	BUF_DECL(V4_WIREGUARD_PROTO_MISMATCH, v4_wireguard_proto_mismatch);
+	BUILDER_PUSH_BUF(builder, V4_WIREGUARD_PROTO_MISMATCH);
 
 	pktgen__finish(&builder);
 	return 0;
@@ -495,20 +433,11 @@ PKTGEN("tc", "ipv6_not_decrypted_wireguard_from_netdev_protocol_mismatch")
 int ipv6_not_decrypted_wireguard_from_netdev_protocol_mismatch_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct tcphdr *l4;
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_tcp_packet(&builder,
-					  (__u8 *)mac_one,
-					       (__u8 *)mac_two,
-					       (__u8 *)v6_node_one,
-					       (__u8 *)v6_node_two,
-					       bpf_htons(CONFIG(wg_port)),
-					       bpf_htons(CONFIG(wg_port)));
-
-	if (!l4)
-		return TEST_ERROR;
+	BUF_DECL(V6_WIREGUARD_PROTO_MISMATCH, v6_wireguard_proto_mismatch);
+	BUILDER_PUSH_BUF(builder, V6_WIREGUARD_PROTO_MISMATCH);
 
 	pktgen__finish(&builder);
 	return 0;
