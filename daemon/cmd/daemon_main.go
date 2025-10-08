@@ -76,7 +76,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
@@ -1232,6 +1231,7 @@ var daemonCell = cell.Module(
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
 		newEndpointRestorer,
+		newInfraIPAllocator,
 	),
 	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
@@ -1257,7 +1257,6 @@ type daemonParams struct {
 	K8sResourceSynced   *k8sSynced.Resources
 	K8sAPIGroups        *k8sSynced.APIGroups
 	NodeHandler         datapath.NodeHandler
-	NodeAddressing      datapath.NodeAddressing
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
 	EndpointRestorer    *endpointRestorer
@@ -1274,9 +1273,7 @@ type daemonParams struct {
 	MonitorAgent        monitorAgent.Agent
 	DB                  *statedb.DB
 	Namespaces          statedb.Table[agentK8s.Namespace]
-	Routes              statedb.Table[*datapathTables.Route]
 	Devices             statedb.Table[*datapathTables.Device]
-	NodeAddrs           statedb.Table[datapathTables.NodeAddress]
 	DirectRoutingDevice datapathTables.DirectRoutingDevice
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
@@ -1286,7 +1283,6 @@ type daemonParams struct {
 	ClusterInfo       cmtypes.ClusterInfo
 	BandwidthManager  datapath.BandwidthManager
 	IPsecAgent        datapath.IPsecAgent
-	MTU               mtu.MTU
 	SyncHostIPs       *syncHostIPs
 	NodeDiscovery     *nodediscovery.NodeDiscovery
 	IPAM              *ipam.IPAM
@@ -1300,6 +1296,7 @@ type daemonParams struct {
 	KPRInitializer    kprinitializer.KPRInitializer
 	IPSecConfig       datapath.IPsecConfig
 	HealthConfig      healthconfig.CiliumHealthConfig
+	InfraIPAllocator  *infraIPAllocator
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
@@ -1496,7 +1493,7 @@ func startDaemon(ctx context.Context, d *Daemon, cleaner *daemonCleanup, params 
 
 	bootstrapStats.healthCheck.Start()
 	if params.HealthConfig.IsHealthCheckingEnabled() {
-		if err := params.CiliumHealth.Init(ctx, d.healthEndpointRouting, cleaner.cleanupFuncs.Add); err != nil {
+		if err := params.CiliumHealth.Init(ctx, params.InfraIPAllocator.GetHealthEndpointRouting(), cleaner.cleanupFuncs.Add); err != nil {
 			return fmt.Errorf("failed to initialize cilium health: %w", err)
 		}
 	}
