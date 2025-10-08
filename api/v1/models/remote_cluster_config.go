@@ -39,6 +39,9 @@ type RemoteClusterConfig struct {
 
 	// Whether the remote cluster supports per-prefix "synced" canaries
 	SyncCanaries bool `json:"sync-canaries,omitempty"`
+
+	// The Cilium version advertised by the remote cluster
+	Version string `json:"version,omitempty"`
 }
 
 // Validate validates this remote cluster config

@@ -63,6 +63,9 @@ type RemoteCluster struct {
 
 	// Synchronization status about each resource type
 	Synced *RemoteClusterSynced `json:"synced,omitempty"`
+
+	// Version compatibility with the remote cluster
+	VersionCompatibility string `json:"version-compatibility,omitempty"`
 }
 
 // Validate validates this remote cluster

@@ -31,6 +31,13 @@ type CiliumVersion struct {
 	AuthorDate string
 }
 
+func (c CiliumVersion) String() string {
+	if c.Version == "" {
+		return "unknown"
+	}
+	return fmt.Sprintf("%s %s %s go version %s %s", c.Version, c.Revision, c.AuthorDate, c.GoRuntimeVersion, c.Arch)
+}
+
 // ciliumVersion is set to Cilium's version, revision and git author time reference during build.
 var ciliumVersion string
 

@@ -128,7 +128,10 @@ type Parameters struct {
 	HelmReleaseName string
 }
 
-type notConnectedError struct{ error }
+type (
+	notConnectedError         struct{ error }
+	VersionCompatibilityError struct{ error }
+)
 
 func (p Parameters) waitTimeout() time.Duration {
 	if p.WaitDuration != time.Duration(0) {
@@ -699,6 +702,12 @@ func (c *ConnectivityStatus) parseAgentStatus(name string, expected []string, s 
 		} else {
 			c.addError(name, cluster.Name, remoteClusterStatusToError(cluster))
 		}
+
+		if cluster.VersionCompatibility != string(cmtypes.VersionCompatibilitySupported) {
+			c.addError(name, cluster.Name, VersionCompatibilityError{
+				fmt.Errorf("version compatibility issue with the remote cluster: %s", cluster.VersionCompatibility),
+			})
+		}
 	}
 
 	// Add an error for any cluster that was expected but not found
@@ -982,6 +991,8 @@ func (k *K8sClusterMesh) outputConnectivityStatus(agents, kvstoremesh *Connectiv
 							} else {
 								k.Log("     💡 Double check if the cluster name matches the one configured in the remote cluster")
 							}
+						} else if errors.As(err, &VersionCompatibilityError{}) {
+							k.Log("     💡 ClusterMesh only officially supports 1 minor version difference between clusters")
 						}
 					}
 				}
