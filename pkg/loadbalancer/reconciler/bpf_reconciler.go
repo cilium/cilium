@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -43,55 +44,13 @@ const (
 	WildcardPortNumber uint16 = 0
 )
 
-func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config, ops *BPFOps, fes statedb.Table[*loadbalancer.Frontend], w *writer.Writer) (reconciler.Reconciler[*loadbalancer.Frontend], error) {
+func newBPFReconciler(p reconciler.Params, jobs job.Registry, health cell.Health, g job.Group, cfg loadbalancer.Config, ops *BPFOps, fes statedb.Table[*loadbalancer.Frontend], w *writer.Writer) promise.Promise[reconciler.Reconciler[*loadbalancer.Frontend]] {
+	resolve, promise := promise.New[reconciler.Reconciler[*loadbalancer.Frontend]]()
 	if !w.IsEnabled() {
-		return nil, nil
+		resolve.Resolve(nil)
 	}
-
-	// Use a custom lifecycle to start the reconciler so we can delay it starts until tables are initialized.
-	rlc := &cell.DefaultLifecycle{}
-	started := make(chan struct{})
-	p.Lifecycle.Append(cell.Hook{
-		OnStop: func(ctx cell.HookContext) error {
-			// Since starting happens asynchronously, wait for it to be done before trying to stop.
-			select {
-			case <-ctx.Done():
-			case <-started:
-			}
-			return rlc.Stop(p.Log, ctx)
-		},
-	})
-	p.Lifecycle = rlc
-
-	r, err := reconciler.Register(
-		p,
-		fes.(statedb.RWTable[*loadbalancer.Frontend]),
-
-		(*loadbalancer.Frontend).Clone,
-		func(fe *loadbalancer.Frontend, s reconciler.Status) *loadbalancer.Frontend {
-			fe.Status = s
-			return fe
-		},
-		func(fe *loadbalancer.Frontend) reconciler.Status {
-			return fe.Status
-		},
-		ops,
-		nil,
-
-		reconciler.WithRetry(
-			cfg.RetryBackoffMin,
-			cfg.RetryBackoffMax,
-		),
-
-		reconciler.WithPruning(
-			30*time.Minute,
-		),
-	)
-
 	g.Add(
 		job.OneShot("start-reconciler", func(ctx context.Context, health cell.Health) error {
-			defer close(started)
-
 			if len(ops.restoredServiceIDs) > 0 {
 				// We give a short grace period for initializers to finish populating the initial contents
 				// of the tables to avoid scaling down load-balancing due to e.g. seeing backends from k8s
@@ -111,16 +70,39 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 				}
 			}
 
-			health.OK("Starting")
-			if err := rlc.Start(p.Log, ctx); err != nil {
-				return err
+			r, err := reconciler.Register(
+				p,
+				fes.(statedb.RWTable[*loadbalancer.Frontend]),
+
+				(*loadbalancer.Frontend).Clone,
+				func(fe *loadbalancer.Frontend, s reconciler.Status) *loadbalancer.Frontend {
+					fe.Status = s
+					return fe
+				},
+				func(fe *loadbalancer.Frontend) reconciler.Status {
+					return fe.Status
+				},
+				ops,
+				nil,
+
+				reconciler.WithRetry(
+					cfg.RetryBackoffMin,
+					cfg.RetryBackoffMax,
+				),
+
+				reconciler.WithPruning(
+					30*time.Minute,
+				),
+			)
+			if err == nil {
+				resolve.Resolve(r)
+			} else {
+				resolve.Reject(err)
 			}
-			health.OK("Started")
-			return nil
+			return err
 		}),
 	)
-
-	return r, err
+	return promise
 }
 
 type BPFOps struct {

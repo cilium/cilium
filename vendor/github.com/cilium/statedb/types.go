@@ -310,7 +310,8 @@ type Index[Obj any, Key any] struct {
 	Name string
 
 	// FromObject extracts key(s) from the object. The key set
-	// can contain 0, 1 or more keys.
+	// can contain 0, 1 or more keys. Must contain exactly one
+	// key for primary indices.
 	FromObject func(obj Obj) index.KeySet
 
 	// FromKey converts the index key into a raw key.
@@ -379,6 +380,16 @@ func (i Index[Obj, Key]) QueryFromObject(obj Obj) Query[Obj] {
 	return Query[Obj]{
 		index: i.Name,
 		key:   i.encodeKey(i.FromObject(obj).First()),
+	}
+}
+
+// QueryFromKey constructs a query against the index using the given
+// user-supplied key. Be careful when using this and prefer [Index.Query]
+// over this if possible.
+func (i Index[Obj, Key]) QueryFromKey(key index.Key) Query[Obj] {
+	return Query[Obj]{
+		index: i.Name,
+		key:   key,
 	}
 }
 
