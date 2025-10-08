@@ -452,11 +452,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	// Fetch the router IPs from the filesystem in case they were set a priori
 	restoredRouterIPs.IPv4FromFS, restoredRouterIPs.IPv6FromFS = node.ExtractCiliumHostIPFromFS(params.Logger)
 
-	// Configure IPAM without using the configuration yet.
-	d.configureIPAM(ctx)
-
-	// Start IPAM
-	d.startIPAM()
+	// Configure and start IPAM without using the configuration yet.
+	d.configureAndStartIPAM(ctx)
 
 	bootstrapStats.restore.Start()
 	// restore endpoints before any IPs are allocated to avoid eventual IP
