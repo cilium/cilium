@@ -4,6 +4,7 @@
 package suite
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -134,7 +135,7 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 
 	cpt.agentHandle.populateCiliumAgentOptions(cpt.tempDir, modConfig)
 
-	if err := cpt.agentHandle.startCiliumAgent(); err != nil {
+	if err := cpt.agentHandle.hive.Start(cpt.agentHandle.log, context.TODO()); err != nil {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
 	cpt.FakeNodeHandler = cpt.agentHandle.fnh
