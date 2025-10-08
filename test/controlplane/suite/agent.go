@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
@@ -43,8 +44,7 @@ type agentHandle struct {
 	t         *testing.T
 	db        *statedb.DB
 	nodeAddrs statedb.Table[datapathTables.NodeAddress]
-	d         *cmd.Daemon
-	p         promise.Promise[*cmd.Daemon]
+	p         promise.Promise[legacy.DaemonInitialization]
 	fnh       *fakeTypes.FakeNodeHandler
 
 	hive *hive.Hive
@@ -92,7 +92,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		store.Cell,
 		dial.ServiceResolverCell,
 		cmd.ControlPlane,
-		cell.Invoke(func(p promise.Promise[*cmd.Daemon], nh *fakeTypes.FakeNodeHandler) {
+		cell.Invoke(func(p promise.Promise[legacy.DaemonInitialization], nh *fakeTypes.FakeNodeHandler) {
 			h.p = p
 			h.fnh = nh
 		}),
@@ -137,12 +137,16 @@ func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(
 	h.hive.Viper().Set(option.EndpointGCInterval, 0)
 }
 
-func (h *agentHandle) startCiliumAgent() (*cmd.Daemon, error) {
+func (h *agentHandle) startCiliumAgent() error {
 	if err := h.hive.Start(h.log, context.TODO()); err != nil {
-		return nil, err
+		return err
 	}
 
-	return h.p.Await(context.TODO())
+	if _, err := h.p.Await(context.TODO()); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func setupTestDirectories() string {
