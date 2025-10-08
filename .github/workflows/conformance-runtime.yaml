@@ -57,7 +57,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.24.7
+  go-version: 1.24.8
 
 jobs:
   echo-inputs:
@@ -128,7 +128,7 @@ jobs:
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.7
+          go-version: 1.24.8
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -287,7 +287,7 @@ jobs:
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.7
+          go-version: 1.24.8
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
