@@ -957,7 +957,11 @@ Users (Alphabetically)
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
       U: ClusterMesh, Global Service Load Balancing.
       Q: @Oki @luanguimaraesla @rsafonseca
-
+      
+    * N: University of Wisconsin - Madison
+      D: Leveraged in production clusters
+      U: ClusterMesh, Global Service Load Balancing
+      
     * N: WSO2
       D: WSO2 is using Cilium to implemented Zero Trust Network Security for their Kubernetes clusters
       U: CNI, WireGuard Transparent Encryption, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, Hubble, Layer 7 visibility and Service Mesh via Cilium Envoy
