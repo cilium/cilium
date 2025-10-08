@@ -214,8 +214,10 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	var currentVpcID string
 	metadataInfo, err := m.metadataapi.GetInstanceMetadata()
 	if err != nil {
-		m.logger.Warn("Unable to retrieve AWS instance metadata and will use cached VPC ID", logfields.Error, err)
 		// when we can't retrieve the VPC ID from AWS metadata, we use the cached VPC ID
+		m.logger.Info("Unable to retrieve AWS instance metadata and will use cached VPC ID",
+			logfields.VPCID, m.vpcID,
+			logfields.Error, err)
 		currentVpcID = m.vpcID
 	} else {
 		currentVpcID = metadataInfo.VPCID
