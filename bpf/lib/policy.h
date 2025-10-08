@@ -119,14 +119,14 @@ __policy_check(struct policy_entry *policy, const struct policy_entry *policy2, 
 	return CTX_ACT_OK;
 }
 
+/* Allow experimental access to the @map parameter. */
 static __always_inline int
-__policy_can_access(struct __ctx_buff *ctx, __u32 local_id,
+__policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		    __u32 remote_id, __u16 ethertype __maybe_unused, __be16 dport,
 		    __u8 proto, int off __maybe_unused, int dir,
 		    bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
 		    __u16 *proxy_port)
 {
-	const void *map = &cilium_policy_v2;
 	struct policy_entry *policy;
 	struct policy_entry *l4policy;
 	struct policy_key key = {
@@ -250,6 +250,19 @@ check_l4_policy:
 	return __policy_check(l4policy, policy, ext_err, proxy_port);
 }
 
+static __always_inline int
+policy_can_access(struct __ctx_buff *ctx, __u32 local_id,
+		  __u32 remote_id, __u16 ethertype __maybe_unused, __be16 dport,
+		  __u8 proto, int off __maybe_unused, int dir,
+		  bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
+		  __u16 *proxy_port)
+{
+	return __policy_can_access(&cilium_policy_v2, ctx, local_id, remote_id,
+				   ethertype, dport, proto, off, dir,
+				   is_untracked_fragment, match_type, ext_err,
+				   proxy_port);
+}
+
 /**
  * Determine whether the policy allows this traffic on ingress.
  * @arg ctx		Packet to allow or deny
@@ -277,9 +290,9 @@ policy_can_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 {
 	int ret;
 
-	ret = __policy_can_access(ctx, dst_id, src_id, ethertype, dport,
-				  proto, l4_off, CT_INGRESS, is_untracked_fragment,
-				  match_type, ext_err, proxy_port);
+	ret = policy_can_access(ctx, dst_id, src_id, ethertype, dport,
+				proto, l4_off, CT_INGRESS, is_untracked_fragment,
+				match_type, ext_err, proxy_port);
 	if (ret >= CTX_ACT_OK)
 		return ret;
 
@@ -338,9 +351,9 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 	if (src_id != HOST_ID && is_encap(dport, proto))
 		return DROP_ENCAP_PROHIBITED;
 #endif
-	ret = __policy_can_access(ctx, src_id, dst_id, ethertype, dport,
-				  proto, l4_off, CT_EGRESS, false, match_type,
-				  ext_err, proxy_port);
+	ret = policy_can_access(ctx, src_id, dst_id, ethertype, dport,
+				proto, l4_off, CT_EGRESS, false, match_type,
+				ext_err, proxy_port);
 	if (ret >= 0)
 		return ret;
 	cilium_dbg(ctx, DBG_POLICY_DENIED, src_id, dst_id);
