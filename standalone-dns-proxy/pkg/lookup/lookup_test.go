@@ -22,7 +22,7 @@ import (
 )
 
 func newIPTable(db *statedb.DB) statedb.RWTable[client.IPtoEndpointInfo] {
-	table, err := statedb.NewTable[client.IPtoEndpointInfo](
+	table, err := statedb.NewTable(
 		db,
 		client.IPtoEndpointTableName,
 		client.IdIPToEndpointIndex,
@@ -38,7 +38,7 @@ func newIPTable(db *statedb.DB) statedb.RWTable[client.IPtoEndpointInfo] {
 }
 
 func newPrefixToIdentityTable(db *statedb.DB) statedb.RWTable[client.PrefixToIdentity] {
-	table, err := statedb.NewTable[client.PrefixToIdentity](
+	table, err := statedb.NewTable(
 		db,
 		client.PrefixToIdentityTableName,
 		client.PrefixToIdentityIndex,
