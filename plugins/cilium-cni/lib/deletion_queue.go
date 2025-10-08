@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -164,8 +165,35 @@ func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDe
 // indicating the caller to attempt fallback logic.
 func (dc *DeletionFallbackClient) deleteEndpointsBatch(req *models.EndpointBatchDeleteRequest) (bool, error) {
 	if err := dc.tryConnect(); err != nil {
-		// Failed to setup cilium client.
-		return true, err
+		// Check if agent is starting up. If so, it is about to handle the
+		// deletion queue, thus we should avoid taking the lock in order to
+		// reduce contention.
+		// Instead, we wait for it to complete its bootstrap and retry to
+		// connect again later.
+		var dirExists, socketExists bool
+		if _, err := os.Stat(filepath.Dir(client.DefaultSockPath())); errors.Is(err, fs.ErrNotExist) {
+			dirExists = true
+		}
+		if _, err := os.Stat(client.DefaultSockPath()); errors.Is(err, fs.ErrNotExist) {
+			socketExists = true
+		}
+		if !dirExists || !socketExists {
+			// Agent is not bootstrapping
+			return true, err
+		}
+
+		for range 3 {
+			dc.logger.Info("Agent is starting up, will retry to connect to the agent socket again in 5 seconds")
+			time.Sleep(5 * time.Second)
+			if err := dc.tryConnect(); err == nil {
+				dc.logger.Info("Successfully connected to the API after waiting for the agent to start")
+				break
+			}
+		}
+		if dc.cli == nil {
+			// Failed to setup cilium client.
+			return true, err
+		}
 	}
 
 	err := dc.cli.EndpointDeleteMany(req)
