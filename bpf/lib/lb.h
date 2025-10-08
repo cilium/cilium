@@ -413,6 +413,30 @@ bool lb6_svc_is_external(const struct lb6_service *svc __maybe_unused)
 	return svc->flags & (SVC_FLAG_EXTERNAL_IP | SVC_FLAG_LOADBALANCER | SVC_FLAG_NODEPORT);
 }
 
+static __always_inline
+bool lb4_svc_is_etp_local(const struct lb4_service *svc)
+{
+	return svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE;
+}
+
+static __always_inline
+bool lb6_svc_is_etp_local(const struct lb6_service *svc)
+{
+	return svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE;
+}
+
+static __always_inline
+bool lb4_svc_is_itp_local(const struct lb4_service *svc)
+{
+	return svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE;
+}
+
+static __always_inline
+bool lb6_svc_is_itp_local(const struct lb6_service *svc)
+{
+	return svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE;
+}
+
 static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 					       __be16 old_port, __be16 port, int l4_off,
 					       struct csum_offset *csum_off)
@@ -2285,12 +2309,10 @@ static __always_inline
 int handle_nonroutable_endpoints_v4(struct lb4_service *svc)
 {
 	/* Drop the packet when eTP/iTP is set to Local, allow otherwise. */
-	if ((lb4_svc_is_external(svc) &&
-	     (svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE)) ||
-	   (!lb4_svc_is_external(svc) &&
-	    (svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE))) {
+	if ((lb4_svc_is_external(svc) && lb4_svc_is_etp_local(svc)) ||
+	    (!lb4_svc_is_external(svc) && lb4_svc_is_itp_local(svc)))
 		return DROP_NO_SERVICE;
-	}
+
 	/* continue via the slowpath */
 	return CTX_ACT_OK;
 }
@@ -2299,12 +2321,10 @@ static __always_inline
 int handle_nonroutable_endpoints_v6(struct lb6_service *svc)
 {
 	/* Drop the packet when eTP/iTP is set to Local, allow otherwise. */
-	if ((lb6_svc_is_external(svc) &&
-	     (svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE)) ||
-	   (!lb6_svc_is_external(svc) &&
-	    (svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE))) {
+	if ((lb6_svc_is_external(svc) && lb6_svc_is_etp_local(svc)) ||
+	    (!lb6_svc_is_external(svc) && lb6_svc_is_itp_local(svc)))
 		return DROP_NO_SERVICE;
-	}
+
 	/* continue via the slowpath */
 	return CTX_ACT_OK;
 }
