@@ -134,11 +134,9 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 
 	cpt.agentHandle.populateCiliumAgentOptions(cpt.tempDir, modConfig)
 
-	daemon, err := cpt.agentHandle.startCiliumAgent()
-	if err != nil {
+	if err := cpt.agentHandle.startCiliumAgent(); err != nil {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
-	cpt.agentHandle.d = daemon
 	cpt.FakeNodeHandler = cpt.agentHandle.fnh
 
 	return cpt
@@ -326,7 +324,7 @@ func gvrAndName(obj k8sRuntime.Object) (gvr schema.GroupVersionResource, ns stri
 	}
 	ns = objMeta.GetNamespace()
 	name = objMeta.GetName()
-	return
+	return gvr, ns, name
 }
 
 func matchFieldSelector(obj k8sRuntime.Object, selector fields.Selector) bool {
@@ -491,7 +489,7 @@ func augmentTracker[T fakeWithTracker](f T, t *testing.T, watchers *lock.Map[str
 		case k8sTesting.ListActionImpl:
 			filterList(ret, action.GetListRestrictions())
 		}
-		return
+		return handled, ret, err
 	})
 
 	f.PrependWatchReactor(
