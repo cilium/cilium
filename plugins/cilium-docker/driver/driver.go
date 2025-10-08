@@ -80,7 +80,7 @@ func newLibnetworkRoute(route route.Route) api.StaticRoute {
 func NewDriver(logger *slog.Logger, ciliumSockPath, dockerHostPath string) (Driver, error) {
 
 	if ciliumSockPath == "" {
-		ciliumSockPath = client.DefaultSockPath()
+		ciliumSockPath = client.DefaultSockPathProtocol()
 	}
 
 	scopedLog := logger.With(
