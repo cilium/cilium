@@ -12,9 +12,12 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -146,6 +149,35 @@ func reallocateDatapathIPs(logger *slog.Logger, alloc ipamAllocateIP, fromK8s, f
 	return result
 }
 
+func waitForENI(ctx context.Context, macAddr string) error {
+	bo := wait.Backoff{
+		Duration: 250 * time.Millisecond,
+		Factor:   2,
+		Jitter:   0.2,
+		Steps:    5,
+	}
+
+	findENIByMAC := func(ctx context.Context) (bool, error) {
+		links, err := safenetlink.LinkList()
+		if err != nil {
+			return false, fmt.Errorf("unable to list interfaces: %w", err)
+		}
+
+		for _, l := range links {
+			// filter out slave devices
+			if l.Attrs().RawFlags&unix.IFF_SLAVE != 0 {
+				continue
+			}
+			if l.Attrs().HardwareAddr.String() == macAddr {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+
+	return wait.ExponentialBackoffWithContext(ctx, bo, findENIByMAC)
+}
+
 func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
 	// Avoid allocating external IP
 	d.params.IPAM.ExcludeIP(family.PrimaryExternal(), "node-ip", ipam.PoolDefault())
@@ -189,6 +221,18 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		if err != nil {
 			return nil, fmt.Errorf("failed to create router info: %w", err)
 		}
+
+		// wait for ENI to be up and running before configuring routes and rules.
+		// This avoids spurious errors where netlink is not able to find
+		// the ifindex by its MAC because the ENI is not showing up yet.
+		if option.Config.IPAM == ipamOption.IPAMENI {
+			if err := waitForENI(context.TODO(), result.PrimaryMAC); err != nil {
+				d.params.Logger.Warn("unable to find ENI netlink interface, this will likely lead to an error in configuring the router routes and rules",
+					logfields.MACAddr, result.PrimaryMAC,
+				)
+			}
+		}
+
 		if err = routingInfo.Configure(
 			result.IP,
 			d.params.MTU.GetDeviceMTU(),
