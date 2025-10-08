@@ -12,7 +12,8 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// Register creates a new reconciler and registers it to the application lifecycle.
+// Register creates a new reconciler and adds the reconcilation jobs to the provided
+// job group.
 //
 // The setStatus etc. functions are passed in as arguments rather than requiring
 // the object to implement them via interface as this allows constructing multiple
@@ -79,11 +80,9 @@ func Register[Obj comparable](
 		primaryIndexer:       idx,
 	}
 
-	g := params.Jobs.NewGroup(params.Health, params.Lifecycle)
-
-	g.Add(job.OneShot("reconcile", r.reconcileLoop))
+	params.JobGroup.Add(job.OneShot("reconcile", r.reconcileLoop))
 	if r.config.RefreshInterval > 0 {
-		g.Add(job.OneShot("refresh", r.refreshLoop))
+		params.JobGroup.Add(job.OneShot("refresh", r.refreshLoop))
 	}
 	return r, nil
 }

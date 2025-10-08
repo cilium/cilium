@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/promise"
 )
 
 // Load-balancing tables to BPF map reconciliation.
@@ -18,16 +19,22 @@ var Cell = cell.Module(
 	"Load-balancing BPF map reconciliation",
 
 	cell.Provide(
+		// Provide [BPFOps] for reconciling a changed frontend.
+		// Publicly provided only because this is used by pkg/loadbalancer/benchmark.
 		newBPFOps,
-		newBPFReconciler,
-	),
-	cell.Invoke(
-		// Force the registration even if none uses Reconciler[*Frontend].
-		func(reconciler.Reconciler[*loadbalancer.Frontend]) {},
+
+		// Provide the 'lb/' script commands for debugging and testing.
+		scriptCommands,
 	),
 
-	// Provide the 'lb/' script commands for debugging and testing.
-	cell.Provide(scriptCommands),
+	cell.ProvidePrivate(
+		newBPFReconciler,
+	),
+
+	cell.Invoke(
+		// Force the registration even if none uses Reconciler[*Frontend].
+		func(promise.Promise[reconciler.Reconciler[*loadbalancer.Frontend]]) {},
+	),
 
 	// Terminate sockets connected to backends that have been removed.
 	SocketTerminationCell,
