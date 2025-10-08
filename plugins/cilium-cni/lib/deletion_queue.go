@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -37,14 +38,21 @@ type DeletionFallbackClient struct {
 	deleteQueueLockfile string
 
 	newCiliumClientFn newCiliumClientFn
+
+	connectionBackoff time.Duration
 }
 
-// the timeout for connecting and obtaining the lock
-// the default of 30 seconds is too long; kubelet will time us out before then
-const timeoutDuration = 1500 * time.Millisecond
+const (
+	// the timeout for connecting and obtaining the lock
+	// the default of 30 seconds is too long; kubelet will time us out before then
+	timeoutDuration = 1500 * time.Millisecond
 
-// the maximum number of queued deletions allowed, to protect against kubelet insanity
-const maxDeletionFiles = 256
+	// default backoff interval between two subsequent connection attempts to the agent
+	connectionBackoffDefault = 5 * time.Second
+
+	// the maximum number of queued deletions allowed, to protect against kubelet insanity
+	maxDeletionFiles = 256
+)
 
 var (
 	// Indicates a non-recoverable error for DeletionFallbackClient.
@@ -64,6 +72,8 @@ func NewDeletionFallbackClient(logger *slog.Logger) *DeletionFallbackClient {
 		deleteQueueLockfile: defaults.DeleteQueueLockfile,
 
 		newCiliumClientFn: newCiliumClient,
+
+		connectionBackoff: connectionBackoffDefault,
 	}
 }
 
@@ -164,8 +174,35 @@ func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDe
 // indicating the caller to attempt fallback logic.
 func (dc *DeletionFallbackClient) deleteEndpointsBatch(req *models.EndpointBatchDeleteRequest) (bool, error) {
 	if err := dc.tryConnect(); err != nil {
-		// Failed to setup cilium client.
-		return true, err
+		// Check if agent is starting up. If so, it is about to handle the
+		// deletion queue, thus we should avoid taking the lock in order to
+		// reduce contention.
+		// Instead, we wait for it to complete its bootstrap and retry to
+		// connect again later.
+		var dirNotExists, socketNotExists bool
+		if _, err := os.Stat(filepath.Dir(client.DefaultSockPath())); errors.Is(err, fs.ErrNotExist) {
+			dirNotExists = true
+		}
+		if _, err := os.Stat(client.DefaultSockPath()); errors.Is(err, fs.ErrNotExist) {
+			socketNotExists = true
+		}
+		if !dirNotExists || !socketNotExists {
+			// Agent is not bootstrapping
+			return true, err
+		}
+
+		for range 3 {
+			dc.logger.Info("Agent is starting up, will retry to connect to the agent socket again in 5 seconds")
+			time.Sleep(dc.connectionBackoff)
+			if err := dc.tryConnect(); err == nil {
+				dc.logger.Info("Successfully connected to the API after waiting for the agent to start")
+				break
+			}
+		}
+		if dc.cli == nil {
+			// Failed to setup cilium client.
+			return true, err
+		}
 	}
 
 	err := dc.cli.EndpointDeleteMany(req)
