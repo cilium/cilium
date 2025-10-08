@@ -1205,14 +1205,13 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 }
 
 // daemonCell wraps the existing implementation of the cilium-agent that has
-// not yet been converted into a cell. Provides *Daemon as a Promise that is
-// resolved once daemon has been started to facilitate conversion into modules.
+// not yet been converted into a cell.
 var daemonCell = cell.Module(
 	"daemon",
 	"Legacy Daemon",
 
 	cell.Provide(
-		newDaemonPromise,
+		daemonLegacyInitialization,
 		promise.New[endpointstate.Restorer],
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
@@ -1220,7 +1219,7 @@ var daemonCell = cell.Module(
 		newInfraIPAllocator,
 	),
 	cell.Invoke(registerEndpointStateResolver),
-	cell.Invoke(func(promise.Promise[legacy.DaemonInitialization]) {}), // Force instantiation.
+	cell.Invoke(func(_ legacy.DaemonInitialization) {}), // Force instantiation.
 )
 
 type daemonParams struct {
@@ -1285,9 +1284,7 @@ type daemonParams struct {
 	InfraIPAllocator  *infraIPAllocator
 }
 
-func newDaemonPromise(params daemonParams) (promise.Promise[legacy.DaemonInitialization], legacy.DaemonInitialization) {
-	legacyDaemonInitResolver, legacyDaemonInitPromise := promise.New[legacy.DaemonInitialization]()
-
+func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization {
 	// daemonCtx is the daemon-wide context cancelled when stopping.
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
 	cleaner := NewDaemonCleanup()
@@ -1295,18 +1292,11 @@ func newDaemonPromise(params daemonParams) (promise.Promise[legacy.DaemonInitial
 	var wg sync.WaitGroup
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) (err error) {
-			defer func() {
-				// Reject promises on error
-				if err != nil {
-					params.CfgResolver.Reject(err)
-					legacyDaemonInitResolver.Reject(err)
-				}
-			}()
-
+		OnStart: func(cell.HookContext) error {
 			if err := configureDaemon(daemonCtx, cleaner, params); err != nil {
 				cancelDaemonCtx()
 				cleaner.Clean()
+				params.CfgResolver.Reject(err)
 				return fmt.Errorf("daemon configuration failed: %w", err)
 			}
 
@@ -1317,18 +1307,21 @@ func newDaemonPromise(params daemonParams) (promise.Promise[legacy.DaemonInitial
 				// datapath.NodeAddressing is used consistently across the code base.
 				params.Logger.Info("Validating configured node address ranges")
 				if err := node.ValidatePostInit(params.Logger); err != nil {
+					params.CfgResolver.Reject(err)
 					return fmt.Errorf("postinit failed: %w", err)
 				}
 
 				// Store config in file before resolving the DaemonConfig promise.
-				err = option.Config.StoreInFile(params.Logger, option.Config.StateDir)
-				if err != nil {
+				if err := option.Config.StoreInFile(params.Logger, option.Config.StateDir); err != nil {
 					params.Logger.Error("Unable to store Cilium's configuration", logfields.Error, err)
+					params.CfgResolver.Reject(err)
+					return err
 				}
 
-				err = option.StoreViperInFile(params.Logger, option.Config.StateDir)
-				if err != nil {
+				if err := option.StoreViperInFile(params.Logger, option.Config.StateDir); err != nil {
 					params.Logger.Error("Unable to store Viper's configuration", logfields.Error, err)
+					params.CfgResolver.Reject(err)
+					return err
 				}
 			}
 
@@ -1337,16 +1330,13 @@ func newDaemonPromise(params daemonParams) (promise.Promise[legacy.DaemonInitial
 			params.CfgResolver.Resolve(option.Config)
 
 			if option.Config.DryMode {
-				legacyDaemonInitResolver.Resolve(legacy.DaemonInitialization{})
-				return err
+				return nil
 			}
 
 			wg.Go(func() {
 				if err := startDaemon(daemonCtx, cleaner, params); err != nil {
 					params.Logger.Error("Daemon start failed", logfields.Error, err)
-					legacyDaemonInitResolver.Reject(err)
-				} else {
-					legacyDaemonInitResolver.Resolve(legacy.DaemonInitialization{})
+					params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
 				}
 			})
 
@@ -1359,7 +1349,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[legacy.DaemonInitial
 			return nil
 		},
 	})
-	return legacyDaemonInitPromise, legacy.DaemonInitialization{}
+	return legacy.DaemonInitialization{}
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
@@ -1512,25 +1502,10 @@ func registerDaemonConfigValidationJob(params daemonParams) {
 	))
 }
 
-func registerEndpointStateResolver(lc cell.Lifecycle, legacyDaemonInitPromise promise.Promise[legacy.DaemonInitialization], endpointRestorer *endpointRestorer, resolver promise.Resolver[endpointstate.Restorer]) {
-	var wg sync.WaitGroup
-
-	lc.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			wg.Go(func() {
-				if _, err := legacyDaemonInitPromise.Await(context.Background()); err != nil {
-					resolver.Reject(err)
-				} else {
-					resolver.Resolve(endpointRestorer)
-				}
-			})
-			return nil
-		},
-		OnStop: func(ctx cell.HookContext) error {
-			wg.Wait()
-			return nil
-		},
-	})
+func registerEndpointStateResolver(endpointRestorer *endpointRestorer, resolver promise.Resolver[endpointstate.Restorer]) {
+	// Restorer promise is still required to avoid circular dependencies -
+	// but we can immediately resolve it.
+	resolver.Resolve(endpointRestorer)
 }
 
 func initClockSourceOption(logger *slog.Logger) {

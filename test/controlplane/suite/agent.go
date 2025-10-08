@@ -37,14 +37,12 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/promise"
 )
 
 type agentHandle struct {
 	t         *testing.T
 	db        *statedb.DB
 	nodeAddrs statedb.Table[datapathTables.NodeAddress]
-	p         promise.Promise[legacy.DaemonInitialization]
 	fnh       *fakeTypes.FakeNodeHandler
 
 	hive *hive.Hive
@@ -92,8 +90,8 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		store.Cell,
 		dial.ServiceResolverCell,
 		cmd.ControlPlane,
-		cell.Invoke(func(p promise.Promise[legacy.DaemonInitialization], nh *fakeTypes.FakeNodeHandler) {
-			h.p = p
+		cell.Invoke(func(_ legacy.DaemonInitialization, nh *fakeTypes.FakeNodeHandler) {
+			// with dry-run enabled it's enough to depend on DaemonInitialization
 			h.fnh = nh
 		}),
 
@@ -135,18 +133,6 @@ func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(
 	// (i.e. the ones defined through cell.Config(...)) must be set to the *viper.Viper
 	// object bound to the test hive.
 	h.hive.Viper().Set(option.EndpointGCInterval, 0)
-}
-
-func (h *agentHandle) startCiliumAgent() error {
-	if err := h.hive.Start(h.log, context.TODO()); err != nil {
-		return err
-	}
-
-	if _, err := h.p.Await(context.TODO()); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func setupTestDirectories() string {
