@@ -57,7 +57,8 @@ func (r *rulesClient) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, ex
 	if !ip.IsValid() {
 		return ipcache.Identity{}, false
 	}
-	info, _, found := r.ipToIdentityTable.Get(r.db.ReadTxn(), client.IdIPToEndpointIndex.Query(ip))
+	txn := r.db.ReadTxn()
+	info, _, found := r.ipToIdentityTable.Get(txn, client.IdIPToEndpointIndex.Query(ip))
 	if found {
 		return ipcache.Identity{
 			ID:     info.Identity,
@@ -72,7 +73,7 @@ func (r *rulesClient) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, ex
 	}
 	for _, prefixLen := range prefixes {
 		cidr, _ := ip.Prefix(prefixLen)
-		if id, ok := r.lookupPrefix(cidr); ok {
+		if id, ok := r.lookupPrefix(txn, cidr); ok {
 			return id, ok
 		}
 	}
@@ -80,11 +81,11 @@ func (r *rulesClient) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, ex
 	return ipcache.Identity{}, false
 }
 
-func (r *rulesClient) lookupPrefix(prefix netip.Prefix) (identity ipcache.Identity, exists bool) {
+func (r *rulesClient) lookupPrefix(txn statedb.ReadTxn, prefix netip.Prefix) (identity ipcache.Identity, exists bool) {
 	if _, cidr, err := net.ParseCIDR(prefix.String()); err == nil {
 		ones, bits := cidr.Mask.Size()
 		if ones == bits {
-			info, _, exists := r.prefixToIdentityTable.Get(r.db.ReadTxn(), client.PrefixToIdentityIndex.Query(prefix))
+			info, _, exists := r.prefixToIdentityTable.Get(txn, client.PrefixToIdentityIndex.Query(prefix))
 			if exists {
 				return ipcache.Identity{
 					ID:     info.Identity,
@@ -93,7 +94,7 @@ func (r *rulesClient) lookupPrefix(prefix netip.Prefix) (identity ipcache.Identi
 			}
 		}
 	}
-	info, _, exists := r.prefixToIdentityTable.Get(r.db.ReadTxn(), client.PrefixToIdentityIndex.Query(prefix))
+	info, _, exists := r.prefixToIdentityTable.Get(txn, client.PrefixToIdentityIndex.Query(prefix))
 	return ipcache.Identity{
 		ID:     info.Identity,
 		Source: source.Local,

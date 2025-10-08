@@ -22,7 +22,7 @@ import (
 )
 
 func newIPTable(db *statedb.DB) statedb.RWTable[client.IPtoEndpointInfo] {
-	table, err := statedb.NewTable[client.IPtoEndpointInfo](
+	table, err := statedb.NewTable(
 		db,
 		client.IPtoEndpointTableName,
 		client.IdIPToEndpointIndex,
@@ -38,7 +38,7 @@ func newIPTable(db *statedb.DB) statedb.RWTable[client.IPtoEndpointInfo] {
 }
 
 func newPrefixToIdentityTable(db *statedb.DB) statedb.RWTable[client.PrefixToIdentity] {
-	table, err := statedb.NewTable[client.PrefixToIdentity](
+	table, err := statedb.NewTable(
 		db,
 		client.PrefixToIdentityTableName,
 		client.PrefixToIdentityIndex,
@@ -47,9 +47,12 @@ func newPrefixToIdentityTable(db *statedb.DB) statedb.RWTable[client.PrefixToIde
 		return nil
 	}
 
-	// Pre-insert an entry for testing
+	// Pre-insert entries for testing: nested prefixes /8, /24, /16 and /32
+	insertPrefix(db, table, netip.MustParsePrefix("10.0.0.0/8"), identity.NumericIdentity(444))
 	insertPrefix(db, table, netip.MustParsePrefix("10.0.0.0/24"), identity.NumericIdentity(111))
 	insertPrefix(db, table, netip.MustParsePrefix("10.0.0.0/16"), identity.NumericIdentity(222))
+	// Add a more specific /32 entry so lookup prefers it over the /24 and /16
+	insertPrefix(db, table, netip.MustParsePrefix("10.0.0.3/32"), identity.NumericIdentity(333))
 	return table
 }
 
@@ -117,22 +120,38 @@ func TestLookupSecIDByIP(t *testing.T) {
 
 	err := testutils.WaitUntilWithSleep(func() bool {
 		ipv6, ipv4 := rc.(*rulesClient).prefixLengths.ToBPFData()
-		return len(ipv4) == 4 && len(ipv6) == 2
+		return len(ipv4) == 5 && len(ipv6) == 2
 	}, 5*time.Second, 1*time.Second)
 	require.NoError(t, err)
 
 	ipv6, ipv4 := rc.(*rulesClient).prefixLengths.ToBPFData()
-	require.Equal(t, []int{32, 24, 16, 0}, ipv4)
+	require.Equal(t, []int{32, 24, 16, 8, 0}, ipv4)
 	require.Equal(t, []int{128, 0}, ipv6)
 	ident_, exists := rc.LookupSecIDByIP(netip.MustParseAddr("10.0.0.1"))
 	require.True(t, exists)
 	require.Equal(t, identity.NumericIdentity(5), ident_.ID)
 
+	// An IP that is inside the /24 should match the /24
 	ident_, exists = rc.LookupSecIDByIP(netip.MustParseAddr("10.0.0.2"))
 	require.True(t, exists)
 	require.Equal(t, identity.NumericIdentity(111), ident_.ID)
 
-	ident_, exists = rc.LookupSecIDByIP(netip.MustParseAddr("10.3.0.0"))
+	// An IP that is inside the /16 but outside the /24 and /32 should match the /16
+	ident_, exists = rc.LookupSecIDByIP(netip.MustParseAddr("10.0.1.1"))
+	require.True(t, exists)
+	require.Equal(t, identity.NumericIdentity(222), ident_.ID)
+
+	// The /32 entry should take precedence over the /24 and /16
+	ident_, exists = rc.LookupSecIDByIP(netip.MustParseAddr("10.0.0.3"))
+	require.True(t, exists)
+	require.Equal(t, identity.NumericIdentity(333), ident_.ID)
+
+	// An IP that is inside the /8 but outside the /16 should match the /8
+	ident_, exists = rc.LookupSecIDByIP(netip.MustParseAddr("10.255.1.1"))
+	require.True(t, exists)
+	require.Equal(t, identity.NumericIdentity(444), ident_.ID)
+
+	ident_, exists = rc.LookupSecIDByIP(netip.MustParseAddr("11.0.0.0"))
 	require.False(t, exists)
 	require.Equal(t, identity.NumericIdentity(0), ident_.ID)
 
