@@ -51,7 +51,6 @@ import (
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	policyUtils "github.com/cilium/cilium/pkg/policy/utils"
-	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -119,7 +118,6 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
-	var legacyDaemonInitPromise promise.Promise[legacy.DaemonInitialization]
 	ds.hive = hive.New(
 		cell.Provide(
 			func(log *slog.Logger) k8sClient.Clientset {
@@ -149,8 +147,8 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 		ControlPlane,
 		metrics.Cell,
 		store.Cell,
-		cell.Invoke(func(p promise.Promise[legacy.DaemonInitialization]) {
-			legacyDaemonInitPromise = p
+		cell.Invoke(func(legacy.DaemonInitialization) {
+			// with dry-run enabled it's enough to depend on DaemonInitialization
 		}),
 		cell.Invoke(func(pi policycell.PolicyImporter) {
 			ds.PolicyImporter = pi
@@ -187,9 +185,6 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 	option.Config.StateDir = testRunDir
 
 	err := ds.hive.Start(ds.log, ctx)
-	require.NoError(tb, err)
-
-	_, err = legacyDaemonInitPromise.Await(ctx)
 	require.NoError(tb, err)
 
 	ds.policyRepository.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
