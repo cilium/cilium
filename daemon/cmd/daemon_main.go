@@ -1226,7 +1226,7 @@ var daemonCell = cell.Module(
 		newInfraIPAllocator,
 	),
 	cell.Invoke(registerEndpointStateResolver),
-	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
+	cell.Invoke(func(promise.Promise[legacy.DaemonInitialization]) {}), // Force instantiation.
 )
 
 type daemonParams struct {
@@ -1291,14 +1291,13 @@ type daemonParams struct {
 	InfraIPAllocator  *infraIPAllocator
 }
 
-func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
-	daemonResolver, daemonPromise := promise.New[*Daemon]()
+func newDaemonPromise(params daemonParams) (promise.Promise[legacy.DaemonInitialization], legacy.DaemonInitialization) {
+	legacyDaemonInitResolver, legacyDaemonInitPromise := promise.New[legacy.DaemonInitialization]()
 
 	// daemonCtx is the daemon-wide context cancelled when stopping.
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
 	cleaner := NewDaemonCleanup()
 
-	var daemon *Daemon
 	var wg sync.WaitGroup
 
 	params.Lifecycle.Append(cell.Hook{
@@ -1307,17 +1306,15 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 				// Reject promises on error
 				if err != nil {
 					params.CfgResolver.Reject(err)
-					daemonResolver.Reject(err)
+					legacyDaemonInitResolver.Reject(err)
 				}
 			}()
 
-			d, err := newDaemon(daemonCtx, cleaner, params)
-			if err != nil {
+			if err := configureDaemon(daemonCtx, cleaner, params); err != nil {
 				cancelDaemonCtx()
 				cleaner.Clean()
-				return fmt.Errorf("daemon creation failed: %w", err)
+				return fmt.Errorf("daemon configuration failed: %w", err)
 			}
-			daemon = d
 
 			if !option.Config.DryMode {
 				params.Logger.Info("Initializing daemon")
@@ -1341,24 +1338,24 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 				}
 			}
 
-			// 'option.Config' is assumed to be stable at this point, execpt for
+			// 'option.Config' is assumed to be stable at this point, except for
 			// 'option.Config.Opts' that are explicitly deemed to be runtime-changeable
 			params.CfgResolver.Resolve(option.Config)
 
 			if option.Config.DryMode {
-				daemonResolver.Resolve(daemon)
-			} else {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					if err := startDaemon(daemonCtx, daemon, cleaner, params); err != nil {
-						params.Logger.Error("Daemon start failed", logfields.Error, err)
-						daemonResolver.Reject(err)
-					} else {
-						daemonResolver.Resolve(daemon)
-					}
-				}()
+				legacyDaemonInitResolver.Resolve(legacy.DaemonInitialization{})
+				return err
 			}
+
+			wg.Go(func() {
+				if err := startDaemon(daemonCtx, cleaner, params); err != nil {
+					params.Logger.Error("Daemon start failed", logfields.Error, err)
+					legacyDaemonInitResolver.Reject(err)
+				} else {
+					legacyDaemonInitResolver.Resolve(legacy.DaemonInitialization{})
+				}
+			})
+
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
@@ -1368,13 +1365,13 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 			return nil
 		},
 	})
-	return daemonPromise, legacy.DaemonInitialization{}
+	return legacyDaemonInitPromise, legacy.DaemonInitialization{}
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
 // option.Config has already been exposed via *option.DaemonConfig promise,
 // so it may not be modified here
-func startDaemon(ctx context.Context, d *Daemon, cleaner *daemonCleanup, params daemonParams) error {
+func startDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams) error {
 	bootstrapStats.k8sInit.Start()
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
@@ -1398,7 +1395,7 @@ func startDaemon(ctx context.Context, d *Daemon, cleaner *daemonCleanup, params 
 		params.Logger.Error("Failed to wait for initial IPCache revision", logfields.Error, err)
 	}
 
-	d.params.EndpointRestorer.InitRestore()
+	params.EndpointRestorer.InitRestore()
 
 	bootstrapStats.enableConntrack.Start()
 	params.Logger.Info("Starting connection tracking garbage collector")
@@ -1434,7 +1431,7 @@ func startDaemon(ctx context.Context, d *Daemon, cleaner *daemonCleanup, params 
 	}
 
 	go func() {
-		if err := d.params.EndpointRestorer.WaitForEndpointRestore(ctx); err != nil {
+		if err := params.EndpointRestorer.WaitForEndpointRestore(ctx); err != nil {
 			return
 		}
 
@@ -1521,21 +1518,18 @@ func registerDaemonConfigValidationJob(params daemonParams) {
 	))
 }
 
-func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], resolver promise.Resolver[endpointstate.Restorer]) {
+func registerEndpointStateResolver(lc cell.Lifecycle, legacyDaemonInitPromise promise.Promise[legacy.DaemonInitialization], endpointRestorer *endpointRestorer, resolver promise.Resolver[endpointstate.Restorer]) {
 	var wg sync.WaitGroup
 
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				daemon, err := daemonPromise.Await(context.Background())
-				if err != nil {
+			wg.Go(func() {
+				if _, err := legacyDaemonInitPromise.Await(context.Background()); err != nil {
 					resolver.Reject(err)
 				} else {
-					resolver.Resolve(daemon.params.EndpointRestorer)
+					resolver.Resolve(endpointRestorer)
 				}
-			}()
+			})
 			return nil
 		},
 		OnStop: func(ctx cell.HookContext) error {
