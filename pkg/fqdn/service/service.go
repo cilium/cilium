@@ -281,7 +281,6 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 	for identityIP := range identityToIPs {
 		var prefixes []netip.Prefix
 		endpointToIPsBytes := make(map[uint64][][]byte) // Group IPs by endpoint ID for this identity
-		prefixWithoutEndpoint := [][]byte{}
 		// Process each IP prefix and group by endpoint ID
 		for prefix := range identityIP.IPs.All() {
 			prefixes = append(prefixes, prefix)
@@ -291,12 +290,6 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 			if ep != nil {
 				epID := uint64(ep.GetID())
 				endpointToIPsBytes[epID] = append(endpointToIPsBytes[epID], ip.AsSlice())
-			} else {
-				pbBytes, err := prefix.MarshalBinary()
-				if err != nil {
-					return err
-				}
-				prefixWithoutEndpoint = append(prefixWithoutEndpoint, pbBytes)
 			}
 		}
 
@@ -312,12 +305,20 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 			}
 			endpointInfos = append(endpointInfos, endpointInfo)
 		}
-		if len(prefixWithoutEndpoint) > 0 {
-			identityToPrefixMapping = append(identityToPrefixMapping, &pb.IdentityToPrefixMapping{
-				Identity: identityIP.Identity.Uint32(),
-				Prefix:   prefixWithoutEndpoint,
-			})
+
+		// Add identity to prefix mapping
+		prefixBytes := make([][]byte, 0, len(prefixes))
+		for _, p := range prefixes {
+			prefixBin, err := p.MarshalBinary()
+			if err != nil {
+				return err
+			}
+			prefixBytes = append(prefixBytes, prefixBin)
 		}
+		identityToPrefixMapping = append(identityToPrefixMapping, &pb.IdentityToPrefixMapping{
+			Identity: identityIP.Identity.Uint32(),
+			Prefix:   prefixBytes,
+		})
 
 		// Add identity to endpoint mapping if there are endpoint infos
 		if len(endpointInfos) > 0 {
