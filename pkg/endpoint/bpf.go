@@ -84,12 +84,6 @@ func (e *Endpoint) callsMapPath() string {
 	return e.loader.CallsMapPath(e.ID)
 }
 
-// callsCustomMapPath returns the path to cilium custom tail calls map of an
-// endpoint.
-func (e *Endpoint) customCallsMapPath() string {
-	return e.loader.CustomCallsMapPath(e.ID)
-}
-
 // writeInformationalComments writes annotations to the specified writer,
 // including a base64 encoding of the endpoint object, and human-readable
 // strings describing the configuration of the datapath.
@@ -924,11 +918,6 @@ func (e *Endpoint) deleteMaps() []error {
 	}
 	if err := os.RemoveAll(e.callsMapPath()); err != nil {
 		errors = append(errors, fmt.Errorf("removing calls map pin for endpoint %s: %w", e.StringID(), err))
-	}
-	if !e.isHost {
-		if err := os.RemoveAll(e.customCallsMapPath()); err != nil {
-			errors = append(errors, fmt.Errorf("removing custom calls map pin for endpoint %s: %w", e.StringID(), err))
-		}
 	}
 
 	return errors

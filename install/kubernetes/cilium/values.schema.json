@@ -1663,14 +1663,6 @@
     "crdWaitTimeout": {
       "type": "string"
     },
-    "customCalls": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "daemon": {
       "properties": {
         "allowedConfigOverrides": {
