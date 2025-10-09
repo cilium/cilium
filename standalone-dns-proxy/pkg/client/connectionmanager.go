@@ -155,7 +155,7 @@ func (cm *connectionManager) Close() error {
 func (cm *connectionManager) isConnected() bool {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	return cm.connection != nil
+	return cm.fqdnClient != nil
 }
 
 // removeConnection removes the current gRPC connection and client if the revision matches.
