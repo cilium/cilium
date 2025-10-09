@@ -817,10 +817,6 @@ conntrackGCMaxInterval: ""
 # -- (string) Configure timeout in which Cilium will exit if CRDs are not available
 # @default -- `"5m"`
 crdWaitTimeout: ""
-# -- Tail call hooks for custom eBPF programs.
-customCalls:
-  # -- Enable tail call hooks for custom eBPF programs.
-  enabled: false
 daemon:
   # -- Configure where Cilium runtime state should be stored.
   runPath: "/var/run/cilium"

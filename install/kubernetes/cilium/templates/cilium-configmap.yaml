@@ -1172,11 +1172,6 @@ data:
   k8s-service-proxy-name: {{ .Values.k8s.serviceProxyName | quote }}
 {{- end }}
 
-{{- if and .Values.customCalls .Values.customCalls.enabled }}
-  # Enable tail call hooks for custom eBPF programs.
-  enable-custom-calls: {{ .Values.customCalls.enabled | quote }}
-{{- end }}
-
 {{- if .Values.l2announcements.enabled }}
   # Enable L2 announcements
   enable-l2-announcements: {{ .Values.l2announcements.enabled | quote }}
