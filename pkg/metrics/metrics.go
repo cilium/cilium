@@ -285,9 +285,6 @@ var (
 	// It must be thread-safe.
 	Endpoint metric.GaugeFunc
 
-	// EndpointMaxIfindex is the maximum observed interface index for existing endpoints
-	EndpointMaxIfindex = NoOpGauge
-
 	// EndpointRegenerationTotal is a count of the number of times any endpoint
 	// has been regenerated and success/fail outcome
 	EndpointRegenerationTotal = NoOpCounterVec
@@ -625,7 +622,6 @@ type LegacyMetrics struct {
 	NodeHealthConnectivityStatus     metric.Vec[metric.Gauge]
 	NodeHealthConnectivityLatency    metric.Vec[metric.Observer]
 	Endpoint                         metric.GaugeFunc
-	EndpointMaxIfindex               metric.Gauge
 	EndpointRegenerationTotal        metric.Vec[metric.Counter]
 	EndpointStateCount               metric.Vec[metric.Gauge]
 	EndpointRegenerationTimeStats    metric.Vec[metric.Observer]
@@ -1267,15 +1263,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 		WorkQueueRetries:                 WorkQueueRetries,
 	}
 
-	ifindexOpts := metric.GaugeOpts{
-		ConfigName: Namespace + "_endpoint_max_ifindex",
-		Disabled:   true,
-		Namespace:  Namespace,
-		Name:       "endpoint_max_ifindex",
-		Help:       "Maximum interface index observed for existing endpoints",
-	}
-	lm.EndpointMaxIfindex = metric.NewGauge(ifindexOpts)
-
 	v := version.GetCiliumVersion()
 	lm.VersionMetric.WithLabelValues(v.Version, v.Revision, v.Arch)
 	lm.BPFMapCapacity.WithLabelValues("default").Set(DefaultMapCapacity)
@@ -1285,7 +1272,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	NodeHealthConnectivityStatus = lm.NodeHealthConnectivityStatus
 	NodeHealthConnectivityLatency = lm.NodeHealthConnectivityLatency
 	Endpoint = lm.Endpoint
-	EndpointMaxIfindex = lm.EndpointMaxIfindex
 	EndpointRegenerationTotal = lm.EndpointRegenerationTotal
 	EndpointStateCount = lm.EndpointStateCount
 	EndpointRegenerationTimeStats = lm.EndpointRegenerationTimeStats

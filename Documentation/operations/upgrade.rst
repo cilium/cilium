@@ -368,6 +368,7 @@ Removed Metrics
 ~~~~~~~~~~~~~~~
 
 * ``k8s_internal_traffic_policy_enabled`` has been removed, because the corresponding feature is enabled by default.
+* ``endpoint_max_ifindex`` has been removed, because the corresponding datapath limitation no longer applies.
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
