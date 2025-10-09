@@ -219,6 +219,14 @@ jobs:
             mv /tmp/result.json.tmp /tmp/result.json
           fi
 
+          # Check if advanced features are requested in extra-args
+          ADV_FEAT=$(echo '${{ inputs.extra-args }}' | jq -r '.["advanced-features"] // false')
+          if [[ "$ADV_FEAT" == "true" ]]; then
+            echo "::notice::Advanced features enabled - setting advanced-features=true for all matrix entries"
+            jq '.include |= map(. + {"advanced-features": true})' /tmp/result.json > /tmp/result.json.tmp
+            mv /tmp/result.json.tmp /tmp/result.json
+          fi
+
           jq -c '.include[]' /tmp/matrix.json | while read i; do
             VERSION=$(echo $i | jq -r '.version')
             aws eks describe-cluster-versions | jq -r '.clusterVersions[].clusterVersion' > /tmp/output
@@ -339,13 +347,12 @@ jobs:
           if [[ "${{ matrix.aws-eni-pd }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set eni.awsEnablePrefixDelegation=true"
           fi
-
-          ADV_FEAT=$(echo '${{ inputs.extra-args }}' | jq -r '.["advanced-features"] // false')
-          if [[ "$ADV_FEAT" == "true" ]]; then
+          if [[ "${{ matrix.advanced-features }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
               --helm-set enableIPv4Masquerade=true \
               --helm-set localRedirectPolicies.enabled=true \
-              --helm-set egressGateway.enabled=true"
+              --helm-set egressGateway.enabled=true \
+              --helm-set gatewayAPI.enabled=true"
           fi
 
           WG=$(echo '${{ inputs.extra-args }}' | jq -r '.["wireguard"] // false')
@@ -425,6 +432,34 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
+      - name: Install Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.25.1
+
+      - name: Install Gateway API CRDs
+        if: ${{ matrix.advanced-features == true }}
+        run: |
+          gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
+          # Install Gateway CRDs
+          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
+          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
+          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
+          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
+          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
+          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/standard/gateway.networking.k8s.io_backendtlspolicies.yaml
+          ## TLSRoute is only available in experimental channel in v0.7.0
+          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+
+          # To make sure that Gateway API CRs are available
+          kubectl wait --for condition=Established crd/gatewayclasses.gateway.networking.k8s.io --timeout=5m
+          kubectl wait --for condition=Established crd/gateways.gateway.networking.k8s.io --timeout=5m
+          kubectl wait --for condition=Established crd/httproutes.gateway.networking.k8s.io --timeout=5m
+          kubectl wait --for condition=Established crd/tlsroutes.gateway.networking.k8s.io --timeout=5m
+          kubectl wait --for condition=Established crd/grpcroutes.gateway.networking.k8s.io --timeout=5m
+          kubectl wait --for condition=Established crd/referencegrants.gateway.networking.k8s.io --timeout=5m
+
       - name: Install Cilium
         id: install-cilium
         run: |
@@ -485,6 +520,26 @@ jobs:
         with:
           title: "Summary of all features tested"
           json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1"
+
+      - name: Run Gateway API conformance test
+        if: ${{ matrix.advanced-features == true }}
+        timeout-minutes: 30
+        run: |
+          # Cleanup previous connectivity test pods or we won't have enough slots.
+          kubectl delete ns -l app.kubernetes.io/name=cilium-cli
+
+          # Build test flags based on matrix
+          GATEWAY_TEST_FLAGS="--gateway-class cilium --all-features --allow-crds-mismatch --cleanup-base-resources=false --skip-tests \"MeshConsumerRoute,HTTPRouteListenerPortMatching\" --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC --organization cilium --project cilium --url github.com/cilium/cilium --version main --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md --report-output report.yaml"
+
+          # Create JUnit output directory and enable owner attribution
+          mkdir -p cilium-junits
+          LOG_CODEOWNERS=1 \
+          JUNIT_PATH="cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - gateway-conformance.xml" \
+          CODEOWNERS_PATH="${CILIUM_CLI_CODE_OWNERS_PATHS}" \
+          GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES="" \
+          GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES="" \
+          GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS" \
+          make gateway-api-conformance
 
       - name: Setup conn-disrupt-test before rotating (${{ join(matrix.*, ', ') }})
         if: ${{ matrix.ipsec == true }}
