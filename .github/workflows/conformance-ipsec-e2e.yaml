@@ -92,7 +92,7 @@ jobs:
           destination_directory="/tmp/generated/ipsec"
           mkdir -p "${destination_directory}"
 
-          yq -o=json "${work_dir}/ipsec_configs.yaml" | jq . > "${destination_directory}/matrix.json"
+          yq -o=json "${work_dir}/ipsec.yaml" | jq . > "${destination_directory}/matrix.json"
 
       - name: Generate Matrix
         id: generate-matrix
