@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -222,15 +221,6 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 			s.params.IPCache.RemoveMetadata(p, daemonResourceID, labels.LabelHost)
 		}
 	}
-
-	// we have a reference to all ifindex values, so we update the related metric
-	maxIfindex := uint32(0)
-	for _, endpoint := range existingEndpoints {
-		if endpoint.IfIndex > maxIfindex {
-			maxIfindex = endpoint.IfIndex
-		}
-	}
-	metrics.EndpointMaxIfindex.Set(float64(maxIfindex))
 
 	return nil
 }
