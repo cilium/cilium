@@ -763,10 +763,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 		"Value \"auto\" reserves the WireGuard and VXLAN ports used by Cilium")
 	option.BindEnv(vp, option.ContainerIPLocalReservedPorts)
 
-	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
-	option.BindEnv(vp, option.EnableCustomCallsName)
-	flags.MarkDeprecated(option.EnableCustomCallsName, "The feature has been deprecated and it will be removed in v1.19")
-
 	// flags.IntSlice cannot be used due to missing support for appropriate conversion in Viper.
 	// See https://github.com/cilium/cilium/pull/20282 for more information.
 	flags.StringSlice(option.VLANBPFBypass, []string{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
