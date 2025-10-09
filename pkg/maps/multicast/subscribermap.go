@@ -280,6 +280,7 @@ func OpenGroupV4OuterMap(logger *slog.Logger, name string) (*GroupV4OuterMap, er
 	return &GroupV4OuterMap{
 		Map:                  m,
 		batchLookupSupported: haveBatchLookupSupport[GroupV4Key, GroupV4Val](m),
+		logger:               logger,
 	}, nil
 }
 
