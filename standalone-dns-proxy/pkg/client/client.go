@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/statedb/index"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
@@ -199,6 +198,8 @@ type ConnectionHandler interface {
 	NotifyOnMsg(msg *pb.FQDNMapping) error
 
 	// IsConnected returns the current connection status
+	// connected is a cheap, in-memory flag that indicates whether the client has installed a gRPC connection.
+	// DNS proxy can read this deterministically without causing network probes or races with gRPC internals.
 	IsConnected() bool
 }
 
@@ -218,15 +219,18 @@ type GRPCClient struct {
 	port    uint16
 	address string
 
-	// connectInProgress indicates if a connection attempt is currently in progress to prevent overlapping dials
-	// This field is used to ensure that only one connection attempt is made at a time.
-	connectInProgress atomic.Bool
+	// connectJobInProgress indicates if an existing job to create a connection is in progress.
+	// This field is used to ensure that only one job is running at a time to create a connection.
+	connectJobInProgress atomic.Bool
 
-	// policyStreamActive indicates if the policy stream (i.e., the gRPC stream for DNS policy updates) is currently active
-	policyStreamActive atomic.Bool
+	// policyStreamJobActive indicates if the policy stream (i.e., the gRPC stream for DNS policy updates) job is currently active
+	policyStreamJobActive atomic.Bool
 
 	// dialClient is used to create gRPC client connections
 	dialClient dialClient
+
+	// connected indicates whether a gRPC connection has been established
+	connected atomic.Bool
 }
 
 // createGRPCClient creates a new gRPC connection handler client for standalone DNS proxy
@@ -257,10 +261,10 @@ func (c *GRPCClient) ConnectToAgent(ctx context.Context) error {
 	}
 
 	// Prevent overlapping dial attempts.
-	if !c.connectInProgress.CompareAndSwap(false, true) {
+	if !c.connectJobInProgress.CompareAndSwap(false, true) {
 		return nil
 	}
-	defer c.connectInProgress.Store(false)
+	defer c.connectJobInProgress.Store(false)
 
 	conn, err := c.dialClient.Dial(
 		c.address,
@@ -272,36 +276,16 @@ func (c *GRPCClient) ConnectToAgent(ctx context.Context) error {
 		return err
 	}
 
-	conn.Connect()
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	for {
-		state := conn.GetState()
-		if state == connectivity.Ready {
-			c.connManager.updateConnection(conn)
-			c.logger.Info("gRPC connection established")
-			return nil
-		}
-		if state == connectivity.TransientFailure || state == connectivity.Shutdown {
-			_ = conn.Close()
-			c.connManager.updateConnection(nil)
-			return fmt.Errorf("connection failed with state: %v", state)
-		}
-		if !conn.WaitForStateChange(timeoutCtx, state) {
-			_ = conn.Close()
-			c.connManager.updateConnection(nil)
-			return fmt.Errorf("connection timeout: %w", timeoutCtx.Err())
-		}
-	}
+	c.connManager.updateConnection(conn)
+	c.logger.Info("gRPC client connection installed (dial complete)")
+	return nil
 }
 
 // handleConnEvent handles connection events emitted by the connection manager
 // It starts the policy stream if a connection is established
 func (c *GRPCClient) handleConnEvent(ctx context.Context, ev connEvent) error {
 	if ev.Connected {
-		if c.policyStreamActive.CompareAndSwap(false, true) {
+		if c.policyStreamJobActive.CompareAndSwap(false, true) {
 			// Use observer-provided context so that shutdown cancels the stream.
 			go c.handlePolicyStream(ctx)
 		}
@@ -311,9 +295,10 @@ func (c *GRPCClient) handleConnEvent(ctx context.Context, ev connEvent) error {
 
 // handlePolicyStream runs the policy stream to receive DNS policy updates from the Cilium agent
 func (c *GRPCClient) handlePolicyStream(ctx context.Context) {
-	// Ensure policyStreamActive is reset when this goroutine exits
+	// Ensure policyStreamJobActive is reset when this goroutine exits
 	defer func() {
-		c.policyStreamActive.Store(false)
+		c.policyStreamJobActive.Store(false)
+		c.connected.Store(false)
 		c.logger.Debug("Policy stream goroutine exiting, reset policyStreamActive to false")
 	}()
 
@@ -332,6 +317,7 @@ func (c *GRPCClient) handlePolicyStream(ctx context.Context) {
 		return
 	}
 	c.logger.Info("Policy state stream established")
+	c.connected.Store(true)
 
 	for {
 		state, err := stream.Recv()
@@ -363,7 +349,7 @@ func (c *GRPCClient) handlePolicyStream(ctx context.Context) {
 
 // IsConnected returns the current connection status
 func (c *GRPCClient) IsConnected() bool {
-	return c.connManager.isConnected()
+	return c.connected.Load()
 }
 
 func (c *GRPCClient) StopConnection() {
@@ -372,6 +358,8 @@ func (c *GRPCClient) StopConnection() {
 	if err != nil {
 		c.logger.Error("Failed to close connection", logfields.Error, err)
 	}
+
+	c.connected.Store(false)
 	// Update connection manager state
 	c.connManager.updateConnection(nil)
 	c.logger.Info("Stopped gRPC connection")
