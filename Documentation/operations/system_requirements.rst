@@ -307,13 +307,6 @@ enabled by upgrading to more recent kernel versions as detailed below.
 ====================================================== ===============================
 Cilium Feature                                         Minimum Kernel Version
 ====================================================== ===============================
-:ref:`encryption_wg`                                   >= 5.6
-Full support for :ref:`session-affinity`               >= 5.7
-BPF-based proxy redirection                            >= 5.7
-Socket-level LB bypass in pod netns                    >= 5.7
-L3 devices                                             >= 5.8
-BPF-based host routing                                 >= 5.10
-:ref:`enable_multicast` (AMD64)                        >= 5.10
 IPv6 BIG TCP support                                   >= 5.19
 :ref:`enable_multicast` (AArch64)                      >= 6.0
 IPv4 BIG TCP support                                   >= 6.3
