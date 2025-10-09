@@ -644,9 +644,6 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
 		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
 	}
-	if option.Config.EnableCustomCalls {
-		renames["cilium_calls_custom"] = bpf.LocalMapName(callsmap.CustomCallsMapName, uint16(ep.GetID()))
-	}
 
 	return cfg, renames
 }
@@ -982,12 +979,6 @@ func (l *loader) EndpointHash(cfg datapath.EndpointConfiguration, lnCfg *datapat
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
 func (l *loader) CallsMapPath(id uint16) string {
 	return bpf.LocalMapPath(l.logger, callsmap.MapName, id)
-}
-
-// CustomCallsMapPath gets the BPF Custom Calls Map for the endpoint with the
-// specified ID.
-func (l *loader) CustomCallsMapPath(id uint16) string {
-	return bpf.LocalMapPath(l.logger, callsmap.CustomCallsMapName, id)
 }
 
 // HostDatapathInitialized returns a channel which is closed when the

@@ -428,50 +428,6 @@ int NAME(struct __ctx_buff *ctx)						\
 	return ret;								\
 }
 
-/* Private per-EP map for tail calls to user-defined programs. When custom calls
- * are enabled, a map named cilium_calls_custom_XXXXX will be pinned to bpffs
- * when loading the endpoint program.
- */
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__type(key, __u32);
-	__type(value, __u32);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, 4); /* ingress and egress, IPv4 and IPv6 */
-} cilium_calls_custom __section_maps_btf;
-
-#define CUSTOM_CALLS_IDX_IPV4_INGRESS	0
-#define CUSTOM_CALLS_IDX_IPV4_EGRESS	1
-#define CUSTOM_CALLS_IDX_IPV6_INGRESS	2
-#define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
-
-#ifdef ENABLE_CUSTOM_CALLS
-/* Encode return value and identity into cb buffer. This is used before
- * executing tail calls to custom programs. "ret" is the return value supposed
- * to be returned to the kernel, needed by the callee to preserve the datapath
- * logics. The "identity" is the security identity of the local endpoint: the
- * source of the packet on ingress path, or its destination on the egress path.
- * We encode it so that custom programs can retrieve it and use it at their
- * convenience.
- */
-static __always_inline int
-encode_custom_prog_meta(struct __ctx_buff *ctx, int ret, __u32 identity)
-{
-	__u32 custom_meta = 0;
-
-	/* If we cannot encode return value on 8 bits, return an error so we can
-	 * skip the tail call entirely, as custom program has no way to return
-	 * expected value and datapath logics will break.
-	 */
-	if ((ret & 0xff) != ret)
-		return -1;
-	custom_meta |= (__u32)(ret & 0xff) << 24;
-	custom_meta |= (identity & 0xffffff);
-	ctx_store_meta(ctx, CB_CUSTOM_CALLS, custom_meta);
-	return 0;
-}
-#endif
-
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);
@@ -848,15 +804,6 @@ int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 		return send_drop_notify_ext(ctx, SECLABEL_IPV6, dst_sec_identity,
 					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
 					    METRIC_EGRESS);
-
-#ifdef ENABLE_CUSTOM_CALLS
-	if (!encode_custom_prog_meta(ctx, ret, dst_sec_identity)) {
-		tail_call_static(ctx, cilium_calls_custom,
-				 CUSTOM_CALLS_IDX_IPV6_EGRESS);
-		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
-			       REASON_MISSED_CUSTOM_CALL);
-	}
-#endif
 
 	return ret;
 }
@@ -1411,15 +1358,6 @@ int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
 					    METRIC_EGRESS);
 
-#ifdef ENABLE_CUSTOM_CALLS
-	if (!encode_custom_prog_meta(ctx, ret, dst_sec_identity)) {
-		tail_call_static(ctx, cilium_calls_custom,
-				 CUSTOM_CALLS_IDX_IPV4_EGRESS);
-		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
-			       REASON_MISSED_CUSTOM_CALL);
-	}
-#endif
-
 	return ret;
 }
 
@@ -1765,7 +1703,6 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	bool do_redirect = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
-	bool proxy_redirect __maybe_unused = false;
 	bool from_tunnel = false;
 	void *data, *data_end;
 	__u16 proxy_port = 0;
@@ -1792,7 +1729,6 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 		ret = ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, from_host);
 		/* Store meta: essential for proxy ingress, see bpf_host.c */
 		ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
-		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
 #if !defined(ENABLE_ROUTING) && !defined(ENABLE_NODEPORT)
@@ -1814,20 +1750,6 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-#ifdef ENABLE_CUSTOM_CALLS
-	/* Make sure we skip the tail call when the packet is being redirected
-	 * to a L7 proxy, to avoid running the custom program twice on the
-	 * incoming packet (before redirecting, and on the way back from the
-	 * proxy).
-	 */
-	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_label)) {
-		tail_call_static(ctx, cilium_calls_custom,
-				 CUSTOM_CALLS_IDX_IPV6_INGRESS);
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_MISSED_CUSTOM_CALL);
-	}
-#endif
-
 	return ret;
 
 drop_err:
@@ -1839,7 +1761,6 @@ __declare_tail(CILIUM_CALL_IPV6_TO_ENDPOINT)
 int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
-	bool proxy_redirect __maybe_unused = false;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__u16 proxy_port = 0;
@@ -1892,7 +1813,6 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 	case POLICY_ACT_PROXY_REDIRECT:
 		ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
 		ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
-		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
 		break;
@@ -1903,21 +1823,6 @@ out:
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, src_sec_identity, SECLABEL_IPV6, LXC_ID,
 					ret, ext_err, METRIC_INGRESS);
-
-#ifdef ENABLE_CUSTOM_CALLS
-	/* Make sure we skip the tail call when the packet is being redirected
-	 * to a L7 proxy, to avoid running the custom program twice on the
-	 * incoming packet (before redirecting, and on the way back from the
-	 * proxy).
-	 */
-	if (!proxy_redirect &&
-	    !encode_custom_prog_meta(ctx, ret, src_sec_identity)) {
-		tail_call_static(ctx, cilium_calls_custom,
-				 CUSTOM_CALLS_IDX_IPV6_INGRESS);
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_MISSED_CUSTOM_CALL);
-	}
-#endif
 
 	return ret;
 }
@@ -2108,7 +2013,6 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	bool do_redirect = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
-	bool proxy_redirect __maybe_unused = false;
 	bool from_tunnel = false;
 	void *data, *data_end;
 	__u16 proxy_port = 0;
@@ -2137,7 +2041,6 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
 		/* Store meta: essential for proxy ingress, see bpf_host.c */
 		ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
-		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
 #if !defined(ENABLE_ROUTING) && !defined(ENABLE_NODEPORT)
@@ -2166,20 +2069,6 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-#ifdef ENABLE_CUSTOM_CALLS
-	/* Make sure we skip the tail call when the packet is being redirected
-	 * to a L7 proxy, to avoid running the custom program twice on the
-	 * incoming packet (before redirecting, and on the way back from the
-	 * proxy).
-	 */
-	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_label)) {
-		tail_call_static(ctx, cilium_calls_custom,
-				 CUSTOM_CALLS_IDX_IPV4_INGRESS);
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_MISSED_CUSTOM_CALL);
-	}
-#endif
-
 	return ret;
 
 drop_err:
@@ -2191,7 +2080,6 @@ __declare_tail(CILIUM_CALL_IPV4_TO_ENDPOINT)
 int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
-	bool proxy_redirect __maybe_unused = false;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u16 proxy_port = 0;
@@ -2243,7 +2131,6 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 
 		ret = ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
 		ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
-		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
 		break;
@@ -2254,21 +2141,6 @@ out:
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, src_sec_identity, SECLABEL_IPV4, LXC_ID,
 					ret, ext_err, METRIC_INGRESS);
-
-#ifdef ENABLE_CUSTOM_CALLS
-	/* Make sure we skip the tail call when the packet is being redirected
-	 * to a L7 proxy, to avoid running the custom program twice on the
-	 * incoming packet (before redirecting, and on the way back from the
-	 * proxy).
-	 */
-	if (!proxy_redirect &&
-	    !encode_custom_prog_meta(ctx, ret, src_sec_identity)) {
-		tail_call_static(ctx, cilium_calls_custom,
-				 CUSTOM_CALLS_IDX_IPV4_INGRESS);
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_MISSED_CUSTOM_CALL);
-	}
-#endif
 
 	return ret;
 }

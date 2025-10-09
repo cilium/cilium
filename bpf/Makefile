@@ -3,7 +3,6 @@
 
 include ../Makefile.defs
 
-SUBDIRS = custom
 BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_wireguard.o bpf_xdp.o $(BPF_SIMPLE)
 
@@ -43,7 +42,7 @@ MAX_BASE_OPTIONS = -DSKIP_DEBUG=1 -DENABLE_IPV4=1 -DENABLE_IPV6=1 \
 	-DENABLE_ROUTING=1 \
 	-DPOLICY_VERDICT_NOTIFY=1 -DALLOW_ICMP_FRAG_NEEDED=1 -DENABLE_IDENTITY_MARK=1 \
 	-DMONITOR_AGGREGATION=3 -DCT_REPORT_FLAGS=0x0002 -DENABLE_HOST_FIREWALL=1 \
-	-DENABLE_ICMP_RULE=1 -DENABLE_CUSTOM_CALLS=1 -DENABLE_SRV6=1 -DENABLE_L7_LB=1
+	-DENABLE_ICMP_RULE=1 -DENABLE_SRV6=1 -DENABLE_L7_LB=1
 MAX_BASE_OPTIONS += -DENABLE_MASQUERADE_IPV4=1 -DENABLE_IP_MASQ_AGENT_IPV4=1 \
 	-DENABLE_MASQUERADE_IPV6=1 -DENABLE_IP_MASQ_AGENT_IPV6=1 \
 	-DENABLE_NODEPORT=1 \
@@ -155,11 +154,11 @@ endif
 
 include ./Makefile.bpf
 
-.PHONY: all bpf_all build_all subdirs install clean generate gen_compile_commands
+.PHONY: all bpf_all build_all install clean generate gen_compile_commands
 
 all: bpf_all
 
-bpf_all: $(BPF) subdirs generate
+bpf_all: $(BPF) generate
 
 build_all: force
 	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
@@ -230,18 +229,12 @@ bpf_lxc.o:: bpf_lxc.c $(LIB)
 
 $(foreach OPTS,$(LXC_OPTIONS),$(eval $(call PERMUTATION_template,bpf_lxc.o,$(OPTS))))
 
-subdirs: $(SUBDIRS)
-	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
-		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET) &&) true
-
 install-binary:
 
 install-bash-completion:
 
 clean:
 	@$(ECHO_CLEAN)
-	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
-		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET) clean;)
 	$(QUIET)rm -fr *.o *.ll *.i *.s
 	$(QUIET)rm -f $(TARGET)
 

@@ -16,7 +16,6 @@ import (
 // Loader is an interface to abstract out loading of datapath programs.
 type Loader interface {
 	CallsMapPath(id uint16) string
-	CustomCallsMapPath(id uint16) string
 	Unload(ep Endpoint)
 	HostDatapathInitialized() <-chan struct{}
 

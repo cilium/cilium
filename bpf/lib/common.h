@@ -522,7 +522,6 @@ enum {
 #define REASON_LB_REVNAT_STALE		8
 #define REASON_FRAG_PACKET		9
 #define REASON_FRAG_PACKET_UPDATE	10
-#define REASON_MISSED_CUSTOM_CALL	11
 #define REASON_DECRYPTING			12
 #define REASON_ENCRYPTING			13
 #define REASON_LB_REVNAT_DELETE		14
@@ -676,7 +675,6 @@ enum {
 #define	CB_ENCRYPT_IDENTITY	CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */
-#define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_SRV6_VRF_ID		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_FROM_TUNNEL		CB_CT_STATE	/* Alias, non-overlapping */
 };

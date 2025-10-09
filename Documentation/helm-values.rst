@@ -1112,14 +1112,6 @@
      - Configure timeout in which Cilium will exit if CRDs are not available
      - string
      - ``"5m"``
-   * - :spelling:ignore:`customCalls`
-     - Tail call hooks for custom eBPF programs.
-     - object
-     - ``{"enabled":false}``
-   * - :spelling:ignore:`customCalls.enabled`
-     - Enable tail call hooks for custom eBPF programs.
-     - bool
-     - ``false``
    * - :spelling:ignore:`daemon.allowedConfigOverrides`
      - allowedConfigOverrides is a list of config-map keys that can be overridden. That is to say, if this value is set, config sources (excepting the first one) can only override keys in this list.  This takes precedence over blockedConfigOverrides.  By default, all keys may be overridden. To disable overrides, set this to "none" or change the configSources variable.
      - string
