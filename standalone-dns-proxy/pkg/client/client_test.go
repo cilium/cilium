@@ -224,7 +224,7 @@ func TestPolicyStream(t *testing.T) {
 	gc := connHandler.(*GRPCClient)
 	err := testutils.WaitUntilWithSleep(func() bool { return connHandler.IsConnected() }, 30*time.Second, 5*time.Second)
 	require.NoError(t, err, "Connection should be established within timeout")
-	err = testutils.WaitUntilWithSleep(func() bool { return gc.policyStreamActive.Load() }, 30*time.Second, 5*time.Second)
+	err = testutils.WaitUntilWithSleep(func() bool { return gc.policyStreamJobActive.Load() }, 30*time.Second, 5*time.Second)
 	require.NoError(t, err, "Policy stream should be active within timeout")
 	err = testutils.WaitUntilWithSleep(func() bool { return server.success.Load() > 0 }, 10*time.Second, 2*time.Second)
 	require.NoError(t, err, "Should have at least one successful policy exchange within timeout")
@@ -240,13 +240,13 @@ func TestPolicyStream(t *testing.T) {
 
 	err = testutils.WaitUntilWithSleep(func() bool { return !connHandler.IsConnected() }, 15*time.Second, 500*time.Millisecond)
 	require.NoError(t, err, "Connection should be lost within timeout")
-	err = testutils.WaitUntilWithSleep(func() bool { return !gc.policyStreamActive.Load() }, 15*time.Second, 500*time.Millisecond)
+	err = testutils.WaitUntilWithSleep(func() bool { return !gc.policyStreamJobActive.Load() }, 15*time.Second, 500*time.Millisecond)
 	require.NoError(t, err, "Policy stream should be inactive within timeout")
 
 	// Due to the job based reconnect, the connection should be re-established
 	err = testutils.WaitUntilWithSleep(func() bool { return connHandler.IsConnected() }, 15*time.Second, 500*time.Millisecond)
 	require.NoError(t, err, "Connection should be lost within timeout")
-	err = testutils.WaitUntilWithSleep(func() bool { return gc.policyStreamActive.Load() }, 30*time.Second, 5*time.Second)
+	err = testutils.WaitUntilWithSleep(func() bool { return gc.policyStreamJobActive.Load() }, 30*time.Second, 5*time.Second)
 	require.NoError(t, err, "Policy stream should be active within timeout")
 }
 
