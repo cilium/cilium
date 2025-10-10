@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 )
 
 // Cell provides the gRPC connection handler client for standalone DNS proxy.
@@ -20,17 +21,21 @@ var Cell = cell.Module(
 
 	cell.Provide(newGRPCClient),
 	cell.Provide(newDNSRulesTable),
-	cell.Provide(newIPtoIdentityTable),
+	cell.Provide(NewIPtoEndpointTable),
+	cell.Provide(NewPrefixToIdentityTable),
 )
 
 type clientParams struct {
 	cell.In
 
-	Logger   *slog.Logger
-	JobGroup job.Group
+	Logger                *slog.Logger
+	JobGroup              job.Group
+	DB                    *statedb.DB
+	IPtoEndpointTable     statedb.RWTable[IPtoEndpointInfo]
+	PrefixToIdentityTable statedb.RWTable[PrefixToIdentity]
 }
 
 // newGRPCClient creates a new gRPC connection handler client for standalone DNS proxy
 func newGRPCClient(params clientParams) ConnectionHandler {
-	return createGRPCClient(params.Logger)
+	return createGRPCClient(params.Logger, params.DB, params.IPtoEndpointTable, params.PrefixToIdentityTable)
 }

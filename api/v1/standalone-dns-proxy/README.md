@@ -11,6 +11,7 @@
     - [EndpointInfo](#standalonednsproxy-EndpointInfo)
     - [FQDNMapping](#standalonednsproxy-FQDNMapping)
     - [IdentityToEndpointMapping](#standalonednsproxy-IdentityToEndpointMapping)
+    - [IdentityToPrefixMapping](#standalonednsproxy-IdentityToPrefixMapping)
     - [PolicyState](#standalonednsproxy-PolicyState)
     - [PolicyStateResponse](#standalonednsproxy-PolicyStateResponse)
     - [UpdateMappingResponse](#standalonednsproxy-UpdateMappingResponse)
@@ -116,6 +117,22 @@ Cilium Identity ID to IP address mapping
 
 
 
+<a name="standalonednsproxy-IdentityToPrefixMapping"></a>
+
+### IdentityToPrefixMapping
+Cilium Identity ID to IP prefix mapping
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| identity | [uint32](#uint32) |  |  |
+| prefix | [bytes](#bytes) | repeated |  |
+
+
+
+
+
+
 <a name="standalonednsproxy-PolicyState"></a>
 
 ### PolicyState
@@ -128,6 +145,7 @@ and destinatione egress endpoints enforcing fqdn rules.
 | egress_l7_dns_policy | [DNSPolicy](#standalonednsproxy-DNSPolicy) | repeated |  |
 | request_id | [string](#string) |  | Random UUID based identifier which will be referenced in ACKs |
 | identity_to_endpoint_mapping | [IdentityToEndpointMapping](#standalonednsproxy-IdentityToEndpointMapping) | repeated | Identity to Endpoint mapping for the DNS server and the source identity |
+| identity_to_prefix_mapping | [IdentityToPrefixMapping](#standalonednsproxy-IdentityToPrefixMapping) | repeated | Identity to Prefix mapping for the identity |
 
 
 
