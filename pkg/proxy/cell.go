@@ -113,10 +113,6 @@ type envoyProxyIntegrationParams struct {
 }
 
 func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyIntegration {
-	if !option.Config.EnableL7Proxy {
-		return nil
-	}
-
 	return &envoyProxyIntegration{
 		xdsServer:       params.XdsServer,
 		iptablesManager: params.IptablesManager,
@@ -125,10 +121,6 @@ func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyInt
 }
 
 func newDNSProxyIntegration(dnsProxy fqdnproxy.DNSProxier, sdpPolicyUpdater *service.FQDNDataServer) *dnsProxyIntegration {
-	if !option.Config.EnableL7Proxy {
-		return nil
-	}
-
 	return &dnsProxyIntegration{
 		dnsProxy:         dnsProxy,
 		sdpPolicyUpdater: sdpPolicyUpdater,
