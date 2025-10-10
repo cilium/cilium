@@ -1555,14 +1555,15 @@ skip_host_firewall:
 	} else {
 		trace.reason |= TRACE_REASON_ENCRYPTED;
 	}
+#endif /* ENABLE_WIREGUARD */
 
-#if defined(ENCRYPTION_STRICT_MODE)
+#if (defined(ENABLE_IPSEC) || defined(ENABLE_WIREGUARD)) &&		\
+     defined(ENCRYPTION_STRICT_MODE)
 	if (!strict_allow(ctx, proto)) {
 		ret = DROP_UNENCRYPTED_TRAFFIC;
 		goto drop_err;
 	}
 #endif /* ENCRYPTION_STRICT_MODE */
-#endif /* ENABLE_WIREGUARD */
 
 #ifdef ENABLE_HEALTH_CHECK
 	ret = lb_handle_health(ctx, proto);
