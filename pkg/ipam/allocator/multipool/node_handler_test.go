@@ -65,7 +65,7 @@ type mockResult struct {
 
 func TestNodeHandler(t *testing.T) {
 	backend := NewPoolAllocator(hivetest.Logger(t))
-	err := backend.addPool("default", []string{"10.0.0.0/8"}, 24, nil, 0)
+	err := backend.UpsertPool("default", []string{"10.0.0.0/8"}, 24, nil, 0)
 	assert.NoError(t, err)
 
 	onUpdateArgs := make(chan mockArgs)

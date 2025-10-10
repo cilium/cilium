@@ -117,27 +117,6 @@ func (p *PoolAllocator) RestoreFinished() {
 	p.mutex.Unlock()
 }
 
-func (p *PoolAllocator) addPool(poolName string, ipv4CIDRs []string, ipv4MaskSize int, ipv6CIDRs []string, ipv6MaskSize int) error {
-	v4, err := cidralloc.NewCIDRSets(false, ipv4CIDRs, ipv4MaskSize)
-	if err != nil {
-		return err
-	}
-
-	v6, err := cidralloc.NewCIDRSets(true, ipv6CIDRs, ipv6MaskSize)
-	if err != nil {
-		return err
-	}
-
-	p.pools[poolName] = cidrPool{
-		v4:         v4,
-		v6:         v6,
-		v4MaskSize: ipv4MaskSize,
-		v6MaskSize: ipv6MaskSize,
-	}
-
-	return nil
-}
-
 func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAllocator, newCIDRs []netip.Prefix, maskSize int) ([]cidralloc.CIDRAllocator, error) {
 	var newCIDRSets []cidralloc.CIDRAllocator
 	var alloc []string
@@ -233,14 +212,10 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 	defer p.mutex.Unlock()
 
 	pool, exists := p.pools[poolName]
-	if !exists {
-		return p.addPool(poolName, ipv4CIDRs, ipv4MaskSize, ipv6CIDRs, ipv6MaskSize)
-	}
-
-	if ipv4MaskSize != pool.v4MaskSize {
+	if exists && ipv4MaskSize != pool.v4MaskSize {
 		return fmt.Errorf("cannot change IPv4 mask size in existing pool %q", poolName)
 	}
-	if ipv6MaskSize != pool.v6MaskSize {
+	if exists && ipv6MaskSize != pool.v6MaskSize {
 		return fmt.Errorf("cannot change IPv6 mask size in existing pool %q", poolName)
 	}
 
@@ -253,12 +228,20 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 		return fmt.Errorf("invalid IPv6 CIDR: %w", err)
 	}
 
-	v4, err := p.updateCIDRSets(false, pool.v4, ipv4Prefixes, ipv4MaskSize)
+	var v4Prev []cidralloc.CIDRAllocator
+	if exists {
+		v4Prev = pool.v4
+	}
+	v4, err := p.updateCIDRSets(false, v4Prev, ipv4Prefixes, ipv4MaskSize)
 	if err != nil {
 		return err
 	}
 
-	v6, err := p.updateCIDRSets(true, pool.v6, ipv6Prefixes, ipv6MaskSize)
+	var v6Prev []cidralloc.CIDRAllocator
+	if exists {
+		v6Prev = pool.v6
+	}
+	v6, err := p.updateCIDRSets(true, v6Prev, ipv6Prefixes, ipv6MaskSize)
 	if err != nil {
 		return err
 	}
