@@ -1552,6 +1552,7 @@ skip_host_firewall:
 	} else {
 		trace.reason |= TRACE_REASON_ENCRYPTED;
 	}
+#endif /* ENABLE_WIREGUARD */
 
 #if defined(ENCRYPTION_STRICT_MODE)
 	if (!strict_allow(ctx, proto)) {
@@ -1559,7 +1560,6 @@ skip_host_firewall:
 		goto drop_err;
 	}
 #endif /* ENCRYPTION_STRICT_MODE */
-#endif /* ENABLE_WIREGUARD */
 
 #ifdef ENABLE_HEALTH_CHECK
 	ret = lb_handle_health(ctx, proto);
