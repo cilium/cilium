@@ -31,6 +31,15 @@ Known Issues and Workarounds
 Egress traffic to not yet discovered remote endpoints may be unencrypted
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. note::
+
+   The following limitation only applies for Cilium configurations with an
+   IPAM mode that doesn't provide per-node PodCIDRs.
+
+   For configurations with per-node PodCIDRs, Cilium is able to match unknown
+   destinations against these PodCIDRs, and encrypt packets purely based on
+   their destination node.
+
 To determine if a packet needs to be encrypted or not, transparent encryption
 relies on the same mechanisms as policy enforcement to decide if the destination
 of an outgoing packet belongs to a Cilium-managed endpoint on a remote node.
