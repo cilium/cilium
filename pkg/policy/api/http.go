@@ -108,6 +108,12 @@ type PortRuleHTTP struct {
 	HeaderMatches []*HeaderMatch `json:"headerMatches,omitempty"`
 }
 
+// PortRulesHTTP is a slice of PortRuleHTTP.
+// This type allows for an order-agnostic deep equality comparison.
+//
+// +deepequal-gen:unordered-array=true
+type PortRulesHTTP []PortRuleHTTP
+
 // Sanitize sanitizes HTTP rules. It ensures that the path and method fields
 // are valid regular expressions. Note that the proxy may support a wider-range
 // of regular expressions (e.g. that specified by ECMAScript), so this function
