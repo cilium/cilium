@@ -2651,7 +2651,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	encryptionStrictModeEnabled := vp.GetBool(EnableEncryptionStrictMode)
 	if encryptionStrictModeEnabled {
 		if c.EnableIPv6 {
-			logger.Info("WireGuard encryption strict mode only supports IPv4. IPv6 traffic is not protected and can be leaked.")
+			logger.Info("Encryption strict mode only supports IPv4. IPv6 traffic is not protected and can be leaked.")
 		}
 
 		strictCIDR := vp.GetString(EncryptionStrictModeCIDR)

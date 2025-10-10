@@ -63,7 +63,6 @@ traffic to them.
 
 Encryption strict mode has the following limitations:
 
-- Only WireGuard encryption is supported.
 - The pod CIDR and therefore the encryption strict mode CIDR must be IPv4.
   IPv6 traffic is not protected by the strict mode and can be leaked.
 - To disable all dynamic lookups, you must use direct routing mode and the
