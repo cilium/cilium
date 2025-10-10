@@ -127,6 +127,12 @@ const (
 	// PolicyEntriesOld is a set of old policy map keys and values
 	PolicyEntriesOld = "policyEntriesOld"
 
+	// PolicyLogCookie is a policy log cookie.
+	PolicyLogCookie = "policyLogCookie"
+
+	// PolicyLogString is a policy log string.
+	PolicyLogString = "policyLogString"
+
 	// DatapathPolicyRevision is the policy revision currently running in
 	// the datapath
 	DatapathPolicyRevision = "datapathPolicyRevision"
