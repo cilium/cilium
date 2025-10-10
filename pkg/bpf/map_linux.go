@@ -17,6 +17,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/cilium/ebpf"
 	"golang.org/x/sys/unix"
@@ -121,6 +122,13 @@ type Map struct {
 	// group is the metric group name for this map, it classifies maps of the same
 	// type that share the same metric group.
 	group string
+
+	// refCount tracks the number of active operations using this map.
+	// When refCount > 0, the map cannot be closed.
+	refCount int
+
+	// closeCond is used to signal when refCount reaches 0.
+	closeCond *sync.Cond
 }
 
 func (m *Map) Type() ebpf.MapType {
@@ -664,6 +672,26 @@ func (m *Map) open() error {
 	return nil
 }
 
+// acquireRef increments the reference count for this map.
+// It must be called with m.lock held (either RLock or Lock).
+// Returns false if the map is already closed (m.m == nil).
+func (m *Map) acquireRef() bool {
+	if m.m == nil {
+		return false
+	}
+	m.refCount++
+	return true
+}
+
+// releaseRef decrements the reference count and signals waiters if it reaches 0.
+// It must be called with m.lock held (either RLock or Lock).
+func (m *Map) releaseRef() {
+	m.refCount--
+	if m.refCount == 0 && m.closeCond != nil {
+		m.closeCond.Broadcast()
+	}
+}
+
 func (m *Map) Close() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -673,6 +701,15 @@ func (m *Map) Close() error {
 	}
 
 	if m.m != nil {
+		// Wait for all active references to be released before closing.
+		// Initialize closeCond if not already done.
+		if m.closeCond == nil {
+			m.closeCond = sync.NewCond(&m.lock)
+		}
+		for m.refCount > 0 {
+			m.closeCond.Wait()
+		}
+
 		m.m.Close()
 		m.m = nil
 	}
@@ -715,6 +752,12 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 
 	m.lock.RLock()
 	defer m.lock.RUnlock()
+
+	// Acquire a reference to prevent the map from being closed during iteration.
+	if !m.acquireRef() {
+		return errors.New("map is closed")
+	}
+	defer m.releaseRef()
 
 	// Don't need deep copies here, only fresh pointers.
 	mk := m.key.New()
@@ -759,6 +802,12 @@ func (m *Map) DumpPerCPUWithCallback(cb DumpPerCPUCallback) error {
 
 	m.lock.RLock()
 	defer m.lock.RUnlock()
+
+	// Acquire a reference to prevent the map from being closed during iteration.
+	if !m.acquireRef() {
+		return errors.New("map is closed")
+	}
+	defer m.releaseRef()
 
 	// Don't need deep copies here, only fresh pointers.
 	mk := m.key.New()
@@ -830,11 +879,13 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 	// See PR for more details. - https://github.com/cilium/cilium/pull/38590.
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	if m.m == nil {
-		// We currently don't prevent open maps from being closed.
-		// See GH issue - https://github.com/cilium/cilium/issues/39287.
+
+	// Acquire a reference to prevent the map from being closed during iteration.
+	// This addresses GH issue - https://github.com/cilium/cilium/issues/39287.
+	if !m.acquireRef() {
 		return errors.New("map is closed")
 	}
+	defer m.releaseRef()
 
 	// Get the first map key.
 	if err := m.NextKey(nil, currentKey); err != nil {
