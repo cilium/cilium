@@ -264,6 +264,7 @@ jobs:
             --helm-set=bpf.masquerade=true \
             --helm-set=ipv4.enabled=true \
             --helm-set=ipv6.enabled=true \
+            --helm-set=ipam.mode=multi-pool \
             --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
             --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
 
