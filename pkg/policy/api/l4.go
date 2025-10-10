@@ -286,7 +286,7 @@ type L7Rules struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:OneOf
-	HTTP []PortRuleHTTP `json:"http,omitempty"`
+	HTTP PortRulesHTTP `json:"http,omitempty"`
 
 	// Kafka-specific rules.
 	// Deprecated: This beta feature is deprecated and will be removed in a future release.
@@ -299,7 +299,7 @@ type L7Rules struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:OneOf
-	DNS []PortRuleDNS `json:"dns,omitempty"`
+	DNS PortRulesDNS `json:"dns,omitempty"`
 
 	// Name of the L7 protocol for which the Key-value pair rules apply.
 	//
@@ -310,7 +310,7 @@ type L7Rules struct {
 	// Key-value pair rules.
 	//
 	// +kubebuilder:validation:Optional
-	L7 []PortRuleL7 `json:"l7,omitempty"`
+	L7 PortRulesL7 `json:"l7,omitempty"`
 }
 
 // Len returns the total number of rules inside `L7Rules`.

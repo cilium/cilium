@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	policyUtils "github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -239,7 +240,8 @@ func (ds *DaemonSuite) regenerateEndpoint(t *testing.T, e *endpoint.Endpoint) {
 	require.True(t, buildSuccess)
 }
 
-func TestUpdateConsumerMapEtcd(t *testing.T) {
+func TestPrivilegedUpdateConsumerMapEtcd(t *testing.T) {
+	testutils.PrivilegedTest(t)
 	ds := setupDaemonEtcdSuite(t)
 	ds.testUpdateConsumerMap(t)
 }
@@ -435,7 +437,8 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	require.EqualExportedValues(t, expectedNetworkPolicy, prodBarNetworkPolicy)
 }
 
-func TestL4L7ShadowingEtcd(t *testing.T) {
+func TestPrivilegedL4L7ShadowingEtcd(t *testing.T) {
+	testutils.PrivilegedTest(t)
 	ds := setupDaemonEtcdSuite(t)
 	ds.testL4L7Shadowing(t)
 }
@@ -522,7 +525,8 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 	require.EqualExportedValues(t, expectedNetworkPolicy, qaBarNetworkPolicy)
 }
 
-func TestL4L7ShadowingShortCircuitEtcd(t *testing.T) {
+func TestPrivilegedL4L7ShadowingShortCircuitEtcd(t *testing.T) {
+	testutils.PrivilegedTest(t)
 	ds := setupDaemonEtcdSuite(t)
 	ds.testL4L7ShadowingShortCircuit(t)
 }
@@ -606,7 +610,8 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 	require.EqualExportedValues(t, expectedNetworkPolicy, qaBarNetworkPolicy)
 }
 
-func TestL3DependentL7Etcd(t *testing.T) {
+func TestPrivilegedL3DependentL7Etcd(t *testing.T) {
+	testutils.PrivilegedTest(t)
 	ds := setupDaemonEtcdSuite(t)
 	ds.testL3DependentL7(t)
 }
@@ -712,7 +717,8 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 	require.EqualExportedValues(t, expectedNetworkPolicy, qaBarNetworkPolicy)
 }
 
-func TestReplacePolicyEtcd(t *testing.T) {
+func TestPrivilegedReplacePolicyEtcd(t *testing.T) {
+	testutils.PrivilegedTest(t)
 	ds := setupDaemonEtcdSuite(t)
 	ds.testReplacePolicy(t)
 }
@@ -757,7 +763,7 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 		},
 	}
 	ds.updatePolicy(&policyTypes.PolicyUpdate{
-		Rules:           rules,
+		Rules:           policyUtils.RulesToPolicyEntries(rules),
 		ReplaceByLabels: true,
 	})
 
@@ -765,7 +771,8 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 	require.Len(t, foundRules, 2)
 }
 
-func TestRemovePolicyEtcd(t *testing.T) {
+func TestPrivilegedRemovePolicyEtcd(t *testing.T) {
+	testutils.PrivilegedTest(t)
 	ds := setupDaemonEtcdSuite(t)
 	ds.testRemovePolicy(t)
 }
@@ -857,7 +864,8 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 	require.Empty(t, networkPolicies)
 }
 
-func TestIncrementalPolicyEtcd(t *testing.T) {
+func TestPrivilegedIncrementalPolicyEtcd(t *testing.T) {
+	testutils.PrivilegedTest(t)
 	ds := setupDaemonEtcdSuite(t)
 	ds.testIncrementalPolicy(t)
 }

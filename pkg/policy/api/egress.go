@@ -6,7 +6,6 @@ package api
 import (
 	"context"
 
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/slices"
 )
 
@@ -103,10 +102,6 @@ type EgressCommonRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ToNodes []EndpointSelector `json:"toNodes,omitempty"`
-
-	// TODO: Move this to the policy package
-	// (https://github.com/cilium/cilium/issues/8353)
-	aggregatedSelectors EndpointSelectorSlice `json:"-"`
 }
 
 // DeepEqual returns true if both EgressCommonRule are deep equal.
@@ -232,113 +227,6 @@ type EgressDenyRule struct {
 	ICMPs ICMPRules `json:"icmps,omitempty"`
 }
 
-// SetAggregatedSelectors creates a single slice containing all of the following
-// fields within the EgressCommonRule, converted to EndpointSelector, to be
-// stored by the caller of the EgressCommonRule for easy lookup while performing
-// policy evaluation for the rule:
-// * ToEntities
-// * ToCIDR
-// * ToCIDRSet
-// * ToFQDNs
-//
-// ToEndpoints is not aggregated due to requirement folding in
-// GetDestinationEndpointSelectorsWithRequirements()
-func (e *EgressCommonRule) getAggregatedSelectors() EndpointSelectorSlice {
-	// explicitly check for empty non-nil slices, it should not result in any identity being selected.
-	if (e.ToEntities != nil && len(e.ToEntities) == 0) ||
-		(e.ToCIDR != nil && len(e.ToCIDR) == 0) ||
-		(e.ToCIDRSet != nil && len(e.ToCIDRSet) == 0) {
-		return nil
-	}
-
-	res := make(EndpointSelectorSlice, 0, len(e.ToEntities)+len(e.ToCIDR)+len(e.ToCIDRSet))
-	res = append(res, e.ToEntities.GetAsEndpointSelectors()...)
-	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
-	res = append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
-	return res
-}
-
-// SetAggregatedSelectors creates a single slice containing all of the following
-// fields within the EgressRule, converted to EndpointSelector, to be stored
-// within the EgressRule for easy lookup while performing policy evaluation
-// for the rule:
-// * ToEntities
-// * ToCIDR
-// * ToCIDRSet
-// * ToFQDNs
-//
-// ToEndpoints is not aggregated due to requirement folding in
-// GetDestinationEndpointSelectorsWithRequirements()
-func (e *EgressRule) SetAggregatedSelectors() {
-	ess := e.getAggregatedSelectors()
-	ess = append(ess, e.ToFQDNs.GetAsEndpointSelectors()...)
-	e.aggregatedSelectors = ess
-}
-
-// SetAggregatedSelectors creates a single slice containing all of the following
-// fields within the EgressRule, converted to EndpointSelector, to be stored
-// within the EgressRule for easy lookup while performing policy evaluation
-// for the rule:
-// * ToEntities
-// * ToCIDR
-// * ToCIDRSet
-// * ToFQDNs
-//
-// ToEndpoints is not aggregated due to requirement folding in
-// GetDestinationEndpointSelectorsWithRequirements()
-func (e *EgressCommonRule) SetAggregatedSelectors() {
-	e.aggregatedSelectors = e.getAggregatedSelectors()
-}
-
-// GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
-// all L3 dst selectors of the egress rule
-func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
-	if e.aggregatedSelectors == nil {
-		e.SetAggregatedSelectors()
-	}
-	return e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements)
-}
-
-// GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
-// all L3 source selectors of the ingress rule
-func (e *EgressDenyRule) GetDestinationEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
-	if e.aggregatedSelectors == nil {
-		e.SetAggregatedSelectors()
-	}
-	return e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements)
-}
-
-// GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
-// all L3 source selectors of the ingress rule
-func (e *EgressCommonRule) getDestinationEndpointSelectorsWithRequirements(
-	requirements []slim_metav1.LabelSelectorRequirement,
-) EndpointSelectorSlice {
-
-	// explicitly check for empty non-nil slices, it should not result in any identity being selected.
-	if e.aggregatedSelectors == nil || (e.ToEndpoints != nil && len(e.ToEndpoints) == 0) ||
-		(e.ToNodes != nil && len(e.ToNodes) == 0) {
-		return nil
-	}
-
-	res := make(EndpointSelectorSlice, 0, len(e.ToEndpoints)+len(e.aggregatedSelectors)+len(e.ToNodes))
-
-	if len(requirements) > 0 && len(e.ToEndpoints) > 0 {
-		for idx := range e.ToEndpoints {
-			sel := *e.ToEndpoints[idx].DeepCopy()
-			sel.MatchExpressions = append(sel.MatchExpressions, requirements...)
-			sel.SyncRequirementsWithLabelSelector()
-			// Even though this string is deep copied, we need to override it
-			// because we are updating the contents of the MatchExpressions.
-			sel.cachedLabelSelectorString = sel.LabelSelector.String()
-			res = append(res, sel)
-		}
-	} else {
-		res = append(res, e.ToEndpoints...)
-		res = append(res, e.ToNodes...)
-	}
-	return append(res, e.aggregatedSelectors...)
-}
-
 // AllowsWildcarding returns true if wildcarding should be performed upon
 // policy evaluation for the given rule.
 func (e *EgressRule) AllowsWildcarding() bool {
@@ -387,7 +275,6 @@ func (e *EgressRule) CreateDerivative(ctx context.Context) (*EgressRule, error) 
 	}
 	newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
 	newRule.ToGroups = nil
-	e.SetAggregatedSelectors()
 	return newRule, nil
 }
 
@@ -407,6 +294,5 @@ func (e *EgressDenyRule) CreateDerivative(ctx context.Context) (*EgressDenyRule,
 	}
 	newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
 	newRule.ToGroups = nil
-	e.SetAggregatedSelectors()
 	return newRule, nil
 }

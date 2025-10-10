@@ -189,7 +189,6 @@ func parseToCiliumIngressRule(clusterName, namespace string, es api.EndpointSele
 			}
 			retRules[i].IngressCommonRule = parseToCiliumIngressCommonRule(clusterName, namespace, es, ing.IngressCommonRule)
 			retRules[i].Authentication = ing.Authentication.DeepCopy()
-			retRules[i].SetAggregatedSelectors()
 		}
 	}
 	return retRules
@@ -210,7 +209,6 @@ func parseToCiliumIngressDenyRule(clusterName, namespace string, es api.Endpoint
 				copy(retRules[i].ICMPs, ing.ICMPs)
 			}
 			retRules[i].IngressCommonRule = parseToCiliumIngressCommonRule(clusterName, namespace, es, ing.IngressCommonRule)
-			retRules[i].SetAggregatedSelectors()
 		}
 	}
 	return retRules
@@ -296,7 +294,6 @@ func parseToCiliumEgressRule(clusterName, namespace string, es api.EndpointSelec
 
 			retRules[i].EgressCommonRule = parseToCiliumEgressCommonRule(clusterName, namespace, es, egr.EgressCommonRule)
 			retRules[i].Authentication = egr.Authentication
-			retRules[i].SetAggregatedSelectors()
 		}
 	}
 	return retRules
@@ -319,7 +316,6 @@ func parseToCiliumEgressDenyRule(clusterName, namespace string, es api.EndpointS
 			}
 
 			retRules[i].EgressCommonRule = parseToCiliumEgressCommonRule(clusterName, namespace, es, egr.EgressCommonRule)
-			retRules[i].SetAggregatedSelectors()
 		}
 	}
 	return retRules
