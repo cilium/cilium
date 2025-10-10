@@ -62,7 +62,7 @@ func newServer(params serverParams) *FQDNDataServer {
 		return nil
 	}
 
-	if params.DaemonConfig.ToFQDNsProxyPort == 0 || params.Config.StandaloneDNSProxyServerPort == 0 {
+	if params.Config.ToFQDNsProxyPort == 0 || params.Config.StandaloneDNSProxyServerPort == 0 {
 		params.Logger.Error("Standalone DNS proxy requires a valid port number to be set")
 		return nil
 	}
@@ -96,6 +96,9 @@ const (
 	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
 	// been reached.
 	DNSProxyConcurrencyProcessingGracePeriod = "dnsproxy-concurrency-processing-grace-period"
+
+	// ToFQDNsProxyPort is the global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
+	ToFQDNsProxyPort = "tofqdns-proxy-port"
 )
 
 type FQDNConfig struct {
@@ -108,6 +111,12 @@ type FQDNConfig struct {
 	// ToFQDNsEnableDNSCompression allows the DNS proxy to compress responses to
 	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
 	ToFQDNsEnableDNSCompression bool
+
+	// ToFQDNsProxyPort is the user-configured global, shared, DNS listen port used
+	// by the DNS Proxy. Both UDP and TCP are handled on the same port. When it
+	// is 0 a random port will be assigned, and can be obtained from
+	// DefaultDNSProxy.
+	ToFQDNsProxyPort int
 
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
 	// for each FQDN selector in endpoint's restored DNS rules
@@ -125,9 +134,11 @@ var DefaultConfig = FQDNConfig{
 	ToFQDNsEnableDNSCompression:              true,
 	DNSMaxIPsPerRestoredRule:                 1000,
 	DNSProxyConcurrencyProcessingGracePeriod: 0,
+	ToFQDNsProxyPort:                         0,
 }
 
 func (def FQDNConfig) Flags(flags *pflag.FlagSet) {
+	flags.Int(ToFQDNsProxyPort, 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
 	flags.Bool(EnableStandaloneDNSProxy, def.EnableStandaloneDNSProxy, "Enables standalone DNS proxy")
 	flags.Int(StandaloneDNSProxyServerPort, def.StandaloneDNSProxyServerPort, "Global port on which the gRPC server for standalone DNS proxy should listen")
 	flags.Bool(ToFQDNsEnableDNSCompression, def.ToFQDNsEnableDNSCompression, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")
