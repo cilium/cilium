@@ -121,6 +121,7 @@ Stormtroopers
 Suchakra
 Suricata
 Synchronizer
+Tailroom
 Talos
 Telco
 Terraform
@@ -246,6 +247,7 @@ cnp
 codebase
 codeowner
 codeowners
+codeownersconfig
 commonLabels
 compat
 config
@@ -548,8 +550,8 @@ matchLabels
 matchPattern
 maxUnavailable
 mc
-mediabot
 mcsapi
+mediabot
 memcache
 memcached
 memcd
