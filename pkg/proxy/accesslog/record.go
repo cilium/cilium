@@ -33,13 +33,13 @@ const (
 	VerdictForwarded FlowVerdict = "Forwarded"
 
 	// VerdictDenied indicates that the flow was denied
-	VerdictDenied = "Denied"
+	VerdictDenied FlowVerdict = "Denied"
 
 	// VerdictError indicates that there was an error processing the flow
-	VerdictError = "Error"
+	VerdictError FlowVerdict = "Error"
 
 	// VerdictError indicates that the flow was redirected through the proxy
-	VerdictRedirected = "Redirected"
+	VerdictRedirected FlowVerdict = "Redirected"
 )
 
 // ObservationPoint is the type used to describe point of observation
