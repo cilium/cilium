@@ -19,6 +19,7 @@ clustermesh-apiserver kvstoremesh [flags]
   -D, --debug                                        Enable debugging mode
       --enable-gops                                  Enable gops server (default true)
       --enable-heartbeat                             KVStoreMesh will maintain heartbeat in destination etcd cluster
+      --enable-remote-cluster-cache-revocation       Enable revocation of cached state for a remote cluster once its TTL expires. When disabled (default), revocation is not performed, but log messages are emitted when the cache would have been revoked.
       --global-ready-timeout duration                KVStoreMesh will be considered ready even if any remote clusters have failed to synchronize within this duration (default 10m0s)
       --gops-port uint16                             Port for gops server to listen on (default 9894)
       --health-port int                              TCP port for ClusterMesh health API (default 9880)
@@ -37,6 +38,7 @@ clustermesh-apiserver kvstoremesh [flags]
       --pprof-mutex-profile-fraction int             Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --pprof-port uint16                            Port that pprof listens on (default 6064)
       --prometheus-serve-addr string                 Address to serve Prometheus metrics
+      --remote-cluster-cache-ttl duration            The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked. (default 15m0s)
       --shell-sock-path string                       Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 

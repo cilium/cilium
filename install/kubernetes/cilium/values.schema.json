@@ -1564,6 +1564,9 @@
         "policyDefaultLocalCluster": {
           "type": "boolean"
         },
+        "remoteClusterCacheTTL": {
+          "type": "string"
+        },
         "useAPIServer": {
           "type": "boolean"
         }

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/pflag"
@@ -21,14 +22,30 @@ import (
 type Config struct {
 	// ClusterMeshConfig is the path to the clustermesh configuration directory.
 	ClusterMeshConfig string
+
+	// RemoteClusterCacheTTL is the time to live for the cache of a remote cluster after
+	// connectivity is lost. If the connection is not re-established within this duration, the
+	// cached data is revoked to prevent stale state. If not specified or set to 0s, the cache
+	// is never revoked.
+	RemoteClusterCacheTTL time.Duration
+
+	// EnableRemoteClusterCacheRevocation controls whether cached state for a remote cluster is
+	// actually revoked once its TTL expires. When disabled (default), the revocation runs in "dry
+	// run" mode, where revocations are not performed, but log messages are emitted when the cache
+	// would have been revoked.
+	EnableRemoteClusterCacheRevocation bool
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String("clustermesh-config", def.ClusterMeshConfig, "Path to the ClusterMesh configuration directory")
+	flags.Duration("remote-cluster-cache-ttl", def.RemoteClusterCacheTTL, "The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked (default).")
+	flags.Bool("enable-remote-cluster-cache-revocation", def.EnableRemoteClusterCacheRevocation, "Enable revocation of cached state for a remote cluster once its TTL expires. When disabled (default), revocation is not performed, but log messages are emitted when the cache would have been revoked.")
 }
 
 var DefaultConfig = Config{
-	ClusterMeshConfig: "",
+	ClusterMeshConfig:                  "",
+	RemoteClusterCacheTTL:              time.Duration(15 * time.Minute),
+	EnableRemoteClusterCacheRevocation: false,
 }
 
 // clusterLifecycle is the interface to implement in order to receive cluster
