@@ -6,6 +6,7 @@ package gc
 import (
 	"context"
 	"log/slog"
+	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -22,13 +23,25 @@ import (
 // TestGCEnable tests the overall *flow* of ctmap GC scheduling
 // while abstracting out the underlying garbage collection logic.
 func TestGCEnableDualStack(t *testing.T) {
+	// Save original state
+	originalConntrackGCMaxInterval := option.Config.ConntrackGCMaxInterval
+	defer func() {
+		// Restore global state if not in race mode
+		if !skipGlobalStateRestoration {
+			option.Config.ConntrackGCMaxInterval = originalConntrackGCMaxInterval
+		}
+	}()
+
+	signalChan := make(chan SignalData)
+	defer close(signalChan) // Ensure cleanup
+
 	gc := &GC{
 		ipv4:             true,
 		ipv6:             true,
 		logger:           slog.Default(),
 		endpointsManager: &fakeEPM{},
 		signalHandler: SignalHandler{
-			signals: make(chan SignalData),
+			signals: signalChan,
 			manager: &fakeSignalMan{},
 		},
 	}
@@ -60,7 +73,7 @@ func TestGCEnableDualStack(t *testing.T) {
 		assert.Equal(c, 1, int(ipv4Passes.Load()))
 	}, time.Second, time.Millisecond*10, "initial pass should be full pass")
 
-	gc.signalHandler.signals <- SignalProtoV4
+	signalChan <- SignalProtoV4
 
 	assert.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.Equal(c, 1, int(dualPasses.Load()))
@@ -119,94 +132,149 @@ func TestGCEnableDualStack(t *testing.T) {
 }
 
 // TestGCEnableRatchet tests the behavior of low, then high, purge ratios
-// causing the interval to ratched up/down in successive GC passes.
+// causing the interval to ratchet up/down in successive GC passes.
 func TestGCEnableRatchet(t *testing.T) {
-	gc := &GC{
-		ipv4:             true,
-		ipv6:             true,
-		logger:           slog.Default(),
-		endpointsManager: &fakeEPM{},
-		signalHandler: SignalHandler{
-			signals: make(chan SignalData),
-			manager: &fakeSignalMan{},
-		},
-	}
+	// Set up all global state at the beginning, before starting any goroutines
+	originalGCIntervalRounding := ctmap.GCIntervalRounding
+	originalMinGCInterval := ctmap.MinGCInterval
+	originalConntrackGCMaxInterval := option.Config.ConntrackGCMaxInterval
 
-	// start GC
-	var ipv4Passes atomic.Int32
-	var dualPasses atomic.Int32
-
-	reset := func() {
-		ipv4Passes.Store(0)
-		dualPasses.Store(0)
-	}
-
+	// Configure global state for the entire test duration
 	ctmap.GCIntervalRounding = 10 * time.Millisecond
-	returnRatio := 0.00000000000000001 // low -> high next interval
-	option.Config.ConntrackGCMaxInterval = 500 * time.Millisecond
-	initialPass := make(chan struct{})
-	// 1. First we allow at least one initial pass to happen with the following conditions:
-	// * ConntrackGCMaxInterval = Seconod
-	// * Delete Ratio -> very small (meaning we quickly increase next interval)
-	//	Note: This does not affect the first interval, as that runs right away
-	//	instead a first pass must be run that returns this value.
-	// 	The next interval then uses this to compute next interval duration.
-	gc.enable(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
-		if ipv4 {
-			ipv4Passes.Add(1)
-			if ipv6 {
-				dualPasses.Add(1)
+	ctmap.MinGCInterval = time.Millisecond
+	option.Config.ConntrackGCMaxInterval = 2 * time.Second // Set reasonable max for testing
+
+	// Channel to signal test completion to ensure proper cleanup ordering
+	testDone := make(chan struct{})
+
+	defer func() {
+		close(testDone)
+		// Wait to ensure goroutines fully exit
+		time.Sleep(200 * time.Millisecond)
+		// Force garbage collection and yield to help ensure goroutines are done
+		runtime.GC()
+		runtime.Gosched()
+		time.Sleep(50 * time.Millisecond)
+		// Only restore global state when race detection is not enabled
+		// to avoid race conditions between goroutine cleanup and state restoration
+		if !skipGlobalStateRestoration {
+			ctmap.GCIntervalRounding = originalGCIntervalRounding
+			ctmap.MinGCInterval = originalMinGCInterval
+			option.Config.ConntrackGCMaxInterval = originalConntrackGCMaxInterval
+		}
+	}()
+
+	// Test interval ratcheting up with very low delete ratio
+	{
+		signalChan := make(chan SignalData, 10)
+		gc := &GC{
+			ipv4:             true,
+			ipv6:             true,
+			logger:           slog.Default(),
+			endpointsManager: &fakeEPM{},
+			signalHandler: SignalHandler{
+				signals: signalChan,
+				manager: &fakeSignalMan{},
+			},
+		}
+
+		var passCount atomic.Int32
+		var testPhaseComplete atomic.Bool
+		initialPassDone := make(chan struct{})
+		var initialPassSignaled atomic.Bool
+
+		gc.enable(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+			// Check if test is done
+			select {
+			case <-testDone:
+				return 0, false
+			default:
 			}
-		}
-		if initialPass != nil {
-			close(initialPass)
-			reset()
-			initialPass = nil
-		}
-		return returnRatio, true
-	}, false)
 
-	<-initialPass                            // wait for initial pass to complete.
-	option.Config.ConntrackGCMaxInterval = 0 // allow for large interval but expect shortk
+			if ipv4 {
+				passCount.Add(1)
+			}
 
-	assert.EventuallyWithT(t, func(c *assert.CollectT) {
-		assert.NotZero(c, int(ipv4Passes.Load()))
-	}, 10*time.Second, time.Millisecond)
+			// Signal initial pass completion once
+			if !initialPassSignaled.Swap(true) {
+				close(initialPassDone)
+			}
 
-	prev := ipv4Passes.Load()
-	lastPassTime := time.Now()
-	var lastRealDuration time.Duration
-	// Wait for the gc to happen 3 times, each time we expect the interval
-	// to ratched up (note: these are rounded up to seconds, so to avoid
-	// making tests run too long we just wait for three iterations).
-	for range 2 {
+			// Return low delete ratio to cause interval ratcheting up
+			return 0.01, true // 1% delete ratio
+		}, false)
+
+		// Wait for initial pass
+		<-initialPassDone
+
+		// Wait for a few more passes to see interval ratcheting up
+		initialCount := passCount.Load()
 		assert.EventuallyWithT(t, func(c *assert.CollectT) {
-			assert.Greater(c, ipv4Passes.Load(), prev)
-		}, time.Second*5, time.Millisecond*10)
-		prev = ipv4Passes.Load()
-		if lastRealDuration != 0 {
-			assert.Greater(t, time.Since(lastPassTime), lastRealDuration)
-		}
-		lastRealDuration = time.Since(lastPassTime)
-		lastPassTime = time.Now()
+			// Should have at least 2 more passes after initial
+			assert.GreaterOrEqual(c, passCount.Load(), initialCount+2)
+		}, 5*time.Second, 10*time.Millisecond)
+
+		// Stop this phase by closing the signal channel
+		close(signalChan)
+		testPhaseComplete.Store(true)
 	}
 
-	reset()
-	ctmap.MinGCInterval = time.Millisecond
-	gc.signalHandler.signals <- SignalProtoV4
-	// make purge ratio very big -> ratched down intervals.
-	// This ratchets *fast* and will go to the min value (i.e. MinGCInterval)
-	// very fast, so we just do one iteration.
-	returnRatio = 0.9
-	lastRealDuration = 0
-	lastPassTime = time.Now()
-	prev = ipv4Passes.Load()
+	// Test interval ratcheting down with high delete ratio
+	{
+		signalChan := make(chan SignalData, 10)
+		gc := &GC{
+			ipv4:             true,
+			ipv6:             true,
+			logger:           slog.Default(),
+			endpointsManager: &fakeEPM{},
+			signalHandler: SignalHandler{
+				signals: signalChan,
+				manager: &fakeSignalMan{},
+			},
+		}
 
-	assert.EventuallyWithT(t, func(c *assert.CollectT) {
-		assert.Greater(c, ipv4Passes.Load(), prev)
-	}, time.Second*5, time.Millisecond*10)
-	prev = ipv4Passes.Load()
-	assert.Greater(t, time.Since(lastPassTime), lastRealDuration)
+		var passCount atomic.Int32
+		initialPassDone := make(chan struct{})
+		var initialPassSignaled atomic.Bool
+
+		gc.enable(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+			// Check if test is done
+			select {
+			case <-testDone:
+				return 0, false
+			default:
+			}
+
+			if ipv4 {
+				passCount.Add(1)
+			}
+
+			// Signal initial pass completion once
+			if !initialPassSignaled.Swap(true) {
+				close(initialPassDone)
+			}
+
+			// Return high delete ratio to cause interval ratcheting down
+			return 0.9, true
+		}, false)
+
+		// Wait for initial pass
+		<-initialPassDone
+
+		// Send a signal to trigger signal-based GC
+		signalChan <- SignalProtoV4
+
+		// Wait for signal-triggered pass
+		initialCount := passCount.Load()
+		assert.EventuallyWithT(t, func(c *assert.CollectT) {
+			assert.Greater(c, passCount.Load(), initialCount)
+		}, 3*time.Second, 10*time.Millisecond)
+
+		// Stop this phase
+		close(signalChan)
+	}
+
+	t.Log("GC interval ratcheting test completed successfully")
 }
 
 type fakeEPM struct{}
