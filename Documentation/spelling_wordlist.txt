@@ -548,8 +548,8 @@ matchLabels
 matchPattern
 maxUnavailable
 mc
-mediabot
 mcsapi
+mediabot
 memcache
 memcached
 memcd
@@ -831,6 +831,7 @@ unlabel
 unmanaged
 unmarshalled
 unmigrated
+unpaginated
 unselect
 unsettable
 untriaged
