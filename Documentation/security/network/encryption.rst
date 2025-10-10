@@ -43,7 +43,9 @@ initial packets unencrypted, as it has to assume the destination IP address is
 outside of the cluster. Once the information about the newly created endpoint
 has propagated in the cluster and Cilium knows that the IP address is an
 endpoint on a remote node, it will start encrypting packets using the encryption
-key of the remote node.
+key of the remote node. The same caveat applies when the endpoint-related
+information has already been deleted (because the endpoint has terminated),
+but packets are still in-flight.
 
 One workaround for this issue is to ensure that the endpoint is not allowed to
 send unencrypted traffic to arbitrary targets outside of the cluster. This can
