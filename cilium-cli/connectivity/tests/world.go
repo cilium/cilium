@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cloudflare/cfssl/cli/genkey"
@@ -268,11 +269,15 @@ func (s *podToWorldWithExtraTLSIntercept) updateSecret(ctx context.Context, t *c
 
 	g := &csr.Generator{Validator: genkey.Validator}
 
+	// remove trailing dot if any
+	externalTarget := strings.TrimSuffix(t.Context().Params().ExternalTarget, ".")
+	externalOtherTarget := strings.TrimSuffix(t.Context().Params().ExternalOtherTarget, ".")
+
 	csrBytes, keyBytes, err := g.ProcessRequest(&csr.CertificateRequest{
 		CN: "Cilium External Targets",
 		Hosts: []string{
-			t.Context().Params().ExternalTarget,      // Original target
-			t.Context().Params().ExternalOtherTarget, // Additional target
+			externalTarget,      // Original target
+			externalOtherTarget, // Additional target
 		},
 	})
 	if err != nil {

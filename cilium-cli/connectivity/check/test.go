@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -714,6 +715,10 @@ func (t *Test) WithCABundleSecret() *Test {
 
 // WithCertificate makes a secret with a certificate and adds it to the cluster
 func (t *Test) WithCertificate(name, hostname string) *Test {
+
+	// remove any trailing dot
+	hostname = strings.TrimSuffix(hostname, ".")
+
 	caCert, _, caKey, err := initca.New(&csr.CertificateRequest{
 		KeyRequest: csr.NewKeyRequest(),
 		CN:         "Cilium Test CA",
