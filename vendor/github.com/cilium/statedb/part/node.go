@@ -332,13 +332,16 @@ func (n *header[T]) find(key byte) *header[T] {
 		return nil
 	case nodeKind4:
 		n4 := n.node4()
-		size := n4.size()
-		for i := 0; i < int(size); i++ {
-			if n4.keys[i] == key {
-				return n4.children[i]
-			} else if n4.keys[i] > key {
-				return nil
-			}
+		keys := n4.keys
+		switch key {
+		case keys[0]:
+			return n4.children[0]
+		case keys[1]:
+			return n4.children[1]
+		case keys[2]:
+			return n4.children[2]
+		case keys[3]:
+			return n4.children[3]
 		}
 		return nil
 	case nodeKind16:

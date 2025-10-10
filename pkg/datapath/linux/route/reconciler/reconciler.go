@@ -31,13 +31,14 @@ type RouteReconcilerMetrics *reconciler.ExpVarMetrics
 
 func registerReconciler(
 	params reconciler.Params,
+	lc cell.Lifecycle,
 	tbl statedb.RWTable[*DesiredRoute],
 	devices statedb.Table[*tables.Device],
 	log *slog.Logger,
 	config *option.DaemonConfig,
 ) (reconciler.Reconciler[*DesiredRoute], RouteReconcilerMetrics, error) {
 	metrics := reconciler.NewUnpublishedExpVarMetrics()
-	ops := newOps(params.Lifecycle, params.DB, tbl, devices, log, config)
+	ops := newOps(lc, params.DB, tbl, devices, log, config)
 	rec, err := reconciler.Register(
 		params,
 		tbl,
