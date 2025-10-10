@@ -126,3 +126,115 @@ int policy_reject_response_check(const struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(max_entries, 1);
+	__array(values, int());
+} ingress_entry_call_map __section(".maps") = {
+	.values = {
+		[0] = &cil_to_container,
+	},
+};
+
+#define INGRESS_SRC_IP v4_ext_one
+#define INGRESS_DST_IP v4_pod_one
+
+PKTGEN("tc", "policy_reject_response_ingress_v4")
+int policy_reject_response_ingress_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)mac_two, (__u8 *)mac_one,
+					  INGRESS_SRC_IP, INGRESS_DST_IP,
+					  tcp_src_one, tcp_dst_one);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "policy_reject_response_ingress_v4")
+int policy_reject_response_ingress_setup(struct __ctx_buff *ctx)
+{
+	/* Add endpoint for destination */
+	endpoint_v4_add_entry(INGRESS_DST_IP, 0, 0, 0, 0, 0, NULL, NULL);
+
+	/* Add ipcache entries */
+	ipcache_v4_add_entry(INGRESS_SRC_IP, 0, 778899, 0, 0);
+	ipcache_v4_add_entry(INGRESS_DST_IP, 0, 112233, 0, 0);
+
+	/* Add policy that denies ingress from source */
+	policy_add_ingress_deny_all_entry();
+
+	/* Jump into the ingress entrypoint */
+	tail_call_static(ctx, ingress_entry_call_map, 0);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "policy_reject_response_ingress_v4")
+int policy_reject_response_ingress_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct iphdr *l3;
+	struct icmphdr *icmp;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	/* Should redirect ICMP response back to interface */
+	assert(*status_code == TC_ACT_REDIRECT);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	/* Verify this is an ICMP response packet */
+	if (l3->protocol != IPPROTO_ICMP)
+		test_fatal("expected ICMP protocol, got %d", l3->protocol);
+
+	/* Source should be swapped to destination, destination should be source */
+	if (l3->saddr != INGRESS_DST_IP)
+		test_fatal("ICMP src should be destination IP");
+
+	if (l3->daddr != INGRESS_SRC_IP)
+		test_fatal("ICMP dst should be source IP");
+
+	icmp = (void *)l3 + sizeof(struct iphdr);
+
+	if ((void *)icmp + sizeof(struct icmphdr) > data_end)
+		test_fatal("ICMP header out of bounds");
+
+	/* Verify ICMP error type and code for policy rejection */
+	if (icmp->type != ICMP_DEST_UNREACH)
+		test_fatal("expected ICMP_DEST_UNREACH, got type %d", icmp->type);
+
+	if (icmp->code != ICMP_PKT_FILTERED)
+		test_fatal("expected ICMP_PKT_FILTERED, got code %d", icmp->code);
+
+	test_finish();
+}
