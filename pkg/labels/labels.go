@@ -855,6 +855,12 @@ func ParseSelectLabel(str string) Label {
 	return parseSelectLabel(str, ':')
 }
 
+// ParseSelectDotLabel returns a selecting label representation of the given
+// string. Unlike ParseSelectLabel it expects the source separator to be '.'.
+func ParseSelectDotLabel(str string) Label {
+	return parseSelectLabel(str, '.')
+}
+
 // parseSelectLabel returns a selecting label representation of the given
 // string by value.
 // For Cilium format 'delim' must be passed in as ':'

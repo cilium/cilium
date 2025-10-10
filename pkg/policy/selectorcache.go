@@ -4,6 +4,7 @@
 package policy
 
 import (
+	"iter"
 	"log/slog"
 	"sync"
 
@@ -27,13 +28,90 @@ type scIdentity struct {
 }
 
 // scIdentityCache is a cache of Identities keyed by the numeric identity
-type scIdentityCache map[identity.NumericIdentity]scIdentity
+type scIdentityCache struct {
+	ids         map[identity.NumericIdentity]*scIdentity
+	byNamespace map[string]map[*scIdentity]struct{}
+}
 
-func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) scIdentity {
-	return scIdentity{
+func newScIdentityCache(ids identity.IdentityMap) scIdentityCache {
+	idCache := scIdentityCache{
+		ids:         make(map[identity.NumericIdentity]*scIdentity, len(ids)),
+		byNamespace: make(map[string]map[*scIdentity]struct{}, len(ids)),
+	}
+
+	for nid, lbls := range ids {
+		idCache.insert(nid, lbls)
+	}
+
+	return idCache
+}
+
+func (c *scIdentityCache) insert(nid identity.NumericIdentity, lbls labels.LabelArray) *scIdentity {
+	id := &scIdentity{
 		NID:       nid,
 		lbls:      lbls,
 		namespace: lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+	}
+
+	c.ids[nid] = id
+	m := c.byNamespace[id.namespace]
+	if m == nil {
+		m = make(map[*scIdentity]struct{})
+		c.byNamespace[id.namespace] = m
+	}
+	m[id] = struct{}{}
+
+	return id
+}
+
+func (c *scIdentityCache) delete(nid identity.NumericIdentity) bool {
+	id, exists := c.ids[nid]
+	if exists {
+		if m := c.byNamespace[id.namespace]; m != nil {
+			delete(m, id)
+			if len(m) == 0 {
+				delete(c.byNamespace, id.namespace)
+			}
+		}
+		delete(c.ids, nid)
+	}
+	return exists
+}
+
+func (c *scIdentityCache) find(nid identity.NumericIdentity) (*scIdentity, bool) {
+	id := c.ids[nid]
+	return id, id != nil
+}
+
+func (c *scIdentityCache) exists(nid identity.NumericIdentity) bool {
+	id := c.ids[nid]
+	return id != nil
+}
+
+func (c *scIdentityCache) selections(idSel *identitySelector) iter.Seq[identity.NumericIdentity] {
+	return func(yield func(id identity.NumericIdentity) bool) {
+		namespaces := idSel.source.selectedNamespaces()
+		if len(namespaces) > 0 {
+			// iterate identities in selected namespaces
+			for _, ns := range namespaces {
+				for id := range c.byNamespace[ns] {
+					if idSel.source.matches(idSel.logger, id.lbls) {
+						if !yield(id.NID) {
+							return
+						}
+					}
+				}
+			}
+		} else {
+			// no namespaces selected, iterate through all identities
+			for nid, id := range c.ids {
+				if idSel.source.matches(idSel.logger, id.lbls) {
+					if !yield(nid) {
+						return
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -69,6 +147,9 @@ type SelectorCache struct {
 
 	// map key is the string representation of the selector being cached.
 	selectors map[string]*identitySelector
+
+	// selectorsByNamespace indexes selectors by namespace for faster updates
+	selectorsByNamespace map[string]map[*identitySelector]struct{}
 
 	localIdentityNotifier identityNotifier
 
@@ -242,18 +323,15 @@ func (sc *SelectorCache) queueNotifiedUsersCommit(txn *versioned.Tx, wg *sync.Wa
 // NewSelectorCache creates a new SelectorCache with the given identities.
 func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
 	sc := &SelectorCache{
-		logger:    logger,
-		idCache:   make(map[identity.NumericIdentity]scIdentity, len(ids)),
-		selectors: make(map[string]*identitySelector),
+		logger:               logger,
+		idCache:              newScIdentityCache(ids),
+		selectors:            make(map[string]*identitySelector),
+		selectorsByNamespace: make(map[string]map[*identitySelector]struct{}),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	sc.versioned = &versioned.Coordinator{
 		Cleaner: sc.oldVersionCleaner,
 		Logger:  logger,
-	}
-
-	for nid, lbls := range ids {
-		sc.idCache[nid] = newIdentity(nid, lbls)
 	}
 
 	return sc
@@ -339,9 +417,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls stringLa
 		return idSel, idSel.addUser(user)
 	}
 
-	source := &fqdnSelector{
-		selector: fqdnSelec,
-	}
+	source := newFqdnSelector(fqdnSelec)
 
 	// Make the FQDN subsystem aware of this selector
 	sc.localIdentityNotifier.RegisterFQDNSelector(source.selector)
@@ -362,11 +438,23 @@ func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls string
 
 	sc.selectors[key] = idSel
 
-	// Scan the cached set of IDs to determine any new matchers
-	for nid, identity := range sc.idCache {
-		if idSel.source.matches(identity) {
-			idSel.cachedSelections[nid] = struct{}{}
+	namespaces := source.selectedNamespaces()
+	if len(namespaces) == 0 {
+		// use empty namespace string for selectors without namespace requirements
+		namespaces = []string{""}
+	}
+	for _, ns := range namespaces {
+		idx, exists := sc.selectorsByNamespace[ns]
+		if !exists {
+			idx = make(map[*identitySelector]struct{})
+			sc.selectorsByNamespace[ns] = idx
 		}
+		idx[idSel] = struct{}{}
+	}
+
+	// Scan the cached set of IDs to determine any new matchers
+	for nid := range sc.idCache.selections(idSel) {
+		idSel.cachedSelections[nid] = struct{}{}
 	}
 
 	// Note: No notifications are sent for the existing
@@ -412,17 +500,7 @@ func (sc *SelectorCache) AddIdentitySelector(user types.CachedSelectionUser, lbl
 		return idSel, idSel.addUser(user)
 	}
 
-	// Selectors are never modified once a rule is placed in the policy repository,
-	// so no need to deep copy.
-	source := &labelIdentitySelector{
-		selector: selector,
-	}
-	// check is selector has a namespace match or requirement
-	if namespaces, ok := selector.GetMatch(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel); ok {
-		source.namespaces = namespaces
-	}
-
-	return sc.addSelectorLocked(user, lbls, key, source)
+	return sc.addSelectorLocked(user, lbls, key, newLabelIdentitySelector(selector))
 }
 
 // lock must be held
@@ -432,6 +510,23 @@ func (sc *SelectorCache) removeSelectorLocked(selector types.CachedSelector, use
 	if exists {
 		if sel.removeUser(user) {
 			sel.source.remove(sc.localIdentityNotifier)
+
+			namespaces := sel.source.selectedNamespaces()
+			if len(namespaces) == 0 {
+				// use empty namespace string for selectors without namespace
+				// requirements
+				namespaces = []string{""}
+			}
+			for _, ns := range namespaces {
+				idx, exists := sc.selectorsByNamespace[ns]
+				if exists {
+					delete(idx, sel)
+					if len(idx) == 0 {
+						delete(sc.selectorsByNamespace, ns)
+					}
+				}
+			}
+
 			delete(sc.selectors, key)
 		}
 	}
@@ -478,13 +573,13 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool
 	defer sc.mutex.RUnlock()
 
 	for nid := range deleted {
-		if _, exists := sc.idCache[nid]; exists {
+		if sc.idCache.exists(nid) {
 			return false
 		}
 	}
 
 	for nid, lbls := range added {
-		haslbls, exists := sc.idCache[nid]
+		haslbls, exists := sc.idCache.find(nid)
 		if !exists { // id not known to us: cannot skip
 			return false
 		}
@@ -512,6 +607,10 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool
 // endpoints to remove the affected identity only from selectors that no longer select the mutated
 // identity.
 func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) (mutated bool) {
+	// set of namespaces to scan for updates. Always scan selectors that have no namespace
+	// requirements.
+	namespaces := map[string]struct{}{"": {}}
+
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
@@ -520,14 +619,15 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 	// Update idCache so that newly added selectors get
 	// prepopulated with all matching numeric identities.
 	for numericID := range deleted {
-		if old, exists := sc.idCache[numericID]; exists {
+		if old, exists := sc.idCache.find(numericID); exists {
 			sc.logger.Debug(
 				"UpdateIdentities: Deleting identity",
 				logfields.NewVersion, txn,
 				logfields.Identity, numericID,
 				logfields.Labels, old.lbls,
 			)
-			delete(sc.idCache, numericID)
+			namespaces[old.namespace] = struct{}{}
+			sc.idCache.delete(numericID)
 		} else {
 			sc.logger.Warn(
 				"UpdateIdentities: Skipping Delete of a non-existing identity",
@@ -538,7 +638,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 		}
 	}
 	for numericID, lbls := range added {
-		if old, exists := sc.idCache[numericID]; exists {
+		if old, exists := sc.idCache.find(numericID); exists {
 			// Skip if no change. Not skipping if label
 			// order is different, but identity labels are
 			// sorted for the kv-store, so there should
@@ -580,49 +680,56 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				logfields.Labels, lbls,
 			)
 		}
-		sc.idCache[numericID] = newIdentity(numericID, lbls)
+		id := sc.idCache.insert(numericID, lbls)
+
+		namespaces[id.namespace] = struct{}{}
 	}
 
 	updated := false
 	if len(deleted)+len(added) > 0 {
-		// Iterate through all locally used identity selectors and
-		// update the cached numeric identities as required.
-		for _, idSel := range sc.selectors {
-			var adds, dels []identity.NumericIdentity
-			for numericID := range deleted {
-				if _, exists := idSel.cachedSelections[numericID]; exists {
-					dels = append(dels, numericID)
-					delete(idSel.cachedSelections, numericID)
+		for ns := range namespaces {
+			// Iterate through all locally used identity selectors and
+			// update the cached numeric identities as required.
+			for idSel := range sc.selectorsByNamespace[ns] {
+				var adds, dels []identity.NumericIdentity
+				for numericID := range deleted {
+					if _, exists := idSel.cachedSelections[numericID]; exists {
+						dels = append(dels, numericID)
+						delete(idSel.cachedSelections, numericID)
+					}
 				}
-			}
-			for numericID := range added {
-				matches := idSel.source.matches(sc.idCache[numericID])
-				_, exists := idSel.cachedSelections[numericID]
-				if matches && !exists {
-					adds = append(adds, numericID)
-					idSel.cachedSelections[numericID] = struct{}{}
-				} else if !matches && exists {
-					// Identity was mutated and no longer matches, the identity
-					// is deleted from the cached selections, but is not sent to
-					// users as a deletion. Instead, we return 'mutated = true'
-					// telling the caller to trigger forced policy updates on
-					// all endpoints to recompute the policy as if the mutated
-					// identity was never selected by the affected selector.
-					mutated = true
-					delete(idSel.cachedSelections, numericID)
+				for numericID := range added {
+					identity, _ := sc.idCache.find(numericID)
+					matches := idSel.source.matches(sc.logger, identity.lbls)
+					_, exists := idSel.cachedSelections[numericID]
+					if matches && !exists {
+						adds = append(adds, numericID)
+						idSel.cachedSelections[numericID] = struct{}{}
+					} else if !matches && exists {
+						// Identity was mutated and no longer matches, the
+						// identity is deleted from the cached selections,
+						// but is not sent to users as a deletion. Instead,
+						// we return 'mutated = true' telling the caller to
+						// trigger forced policy updates on all endpoints to
+						// recompute the policy as if the mutated identity
+						// was never selected by the affected selector.
+						mutated = true
+						delete(idSel.cachedSelections, numericID)
+					}
 				}
-			}
-			if len(dels)+len(adds) > 0 {
-				updated = true
-				sc.selectorUpdates = sc.selectorUpdates.Append(idSel, txn)
-				idSel.updateSelections(txn)
-				idSel.notifyUsers(sc, adds, dels, wg)
+				if len(dels)+len(adds) > 0 {
+					updated = true
+					sc.selectorUpdates = sc.selectorUpdates.Append(idSel, txn)
+					idSel.updateSelections(txn)
+					idSel.notifyUsers(sc, adds, dels, wg)
+				}
 			}
 		}
 	}
 
 	if updated {
-		// Launch a waiter that holds the new version as long as needed for users to have grabbed it
+		// Launch a waiter that holds the new version as long as needed for users to have
+		// grabbed it
 		sc.queueNotifiedUsersCommit(txn, wg)
 
 		go func(version *versioned.VersionHandle) {
