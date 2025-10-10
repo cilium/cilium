@@ -598,3 +598,335 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 		},
 	}, p.nodes)
 }
+
+func TestOrphanCIDRs(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t))
+
+	// no pools available
+	assert.Empty(t, p.pools)
+
+	// node1 requests allocations from test-pool
+	node1 := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node1",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool: "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{
+								IPv4Addrs: 10,
+								IPv6Addrs: 10,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	// node2 requests allocations from test-pool
+	node2 := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node2",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool: "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{
+								IPv4Addrs: 10,
+								IPv6Addrs: 10,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	// node3 requests allocations from test-pool
+	node3 := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node3",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool: "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{
+								IPv4Addrs: 10,
+								IPv6Addrs: 10,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Mark as ready
+	p.RestoreFinished()
+
+	// no allocations yet
+	assert.Empty(t, p.AllocatedPools(node1.Name))
+	assert.Empty(t, p.AllocatedPools(node2.Name))
+	assert.Empty(t, p.AllocatedPools(node3.Name))
+
+	// upsert new pool test-pool
+	err := p.UpsertPool("test-pool",
+		[]string{"10.100.0.0/16"}, 24,
+		[]string{"fd00:100::/80"}, 96,
+	)
+	assert.NoError(t, err)
+	testPool, exists := p.pools["test-pool"]
+	assert.True(t, exists)
+	assert.Equal(t, 24, testPool.v4MaskSize)
+	assert.Equal(t, 96, testPool.v6MaskSize)
+
+	// allocate to node1 from test-pool
+	err = p.AllocateToNode(node1)
+	assert.NoError(t, err)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.0.0/24",
+				"fd00:100::/96",
+			},
+		},
+	}, p.AllocatedPools(node1.Name))
+	assert.Equal(t, poolToCIDRs{
+		"test-pool": {
+			v4: cidrSet{netip.MustParsePrefix("10.100.0.0/24"): struct{}{}},
+			v6: cidrSet{netip.MustParsePrefix("fd00:100::/96"): struct{}{}},
+		},
+	}, p.nodes[node1.Name])
+
+	// allocate to node2 from test-pool
+	err = p.AllocateToNode(node2)
+	assert.NoError(t, err)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.1.0/24",
+				"fd00:100::1:0:0/96",
+			},
+		},
+	}, p.AllocatedPools(node2.Name))
+	assert.Equal(t, poolToCIDRs{
+		"test-pool": {
+			v4: cidrSet{netip.MustParsePrefix("10.100.1.0/24"): struct{}{}},
+			v6: cidrSet{netip.MustParsePrefix("fd00:100::1:0:0/96"): struct{}{}},
+		},
+	}, p.nodes[node2.Name])
+
+	// delete test-pool
+	err = p.DeletePool("test-pool")
+	assert.NoError(t, err)
+
+	// all previously allocated CIDRs are now orphaned, even if they are kept as allocated in the CiliumNode
+	assert.Empty(t, p.nodes[node1.Name])
+	assert.Empty(t, p.nodes[node2.Name])
+	assert.Equal(t, map[string]poolToCIDRs{
+		node1.Name: {
+			"test-pool": {
+				v4: cidrSet{netip.MustParsePrefix("10.100.0.0/24"): struct{}{}},
+				v6: cidrSet{netip.MustParsePrefix("fd00:100::/96"): struct{}{}},
+			},
+		},
+		node2.Name: {
+			"test-pool": {
+				v4: cidrSet{netip.MustParsePrefix("10.100.1.0/24"): struct{}{}},
+				v6: cidrSet{netip.MustParsePrefix("fd00:100::1:0:0/96"): struct{}{}},
+			},
+		},
+	}, p.orphans)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.0.0/24",
+				"fd00:100::/96",
+			},
+		},
+	}, p.AllocatedPools(node1.Name))
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.1.0/24",
+				"fd00:100::1:0:0/96",
+			},
+		},
+	}, p.AllocatedPools(node2.Name))
+
+	// insert again "test-pool"
+	err = p.UpsertPool("test-pool",
+		[]string{"10.100.0.0/16"}, 24,
+		[]string{"fd00:100::/80"}, 96,
+	)
+	assert.NoError(t, err)
+
+	// orphaned cidrs should be un-orphaned
+	assert.Equal(t, poolToCIDRs{
+		"test-pool": {
+			v4: cidrSet{netip.MustParsePrefix("10.100.0.0/24"): struct{}{}},
+			v6: cidrSet{netip.MustParsePrefix("fd00:100::/96"): struct{}{}},
+		},
+	}, p.nodes[node1.Name])
+	assert.Equal(t, poolToCIDRs{
+		"test-pool": {
+			v4: cidrSet{netip.MustParsePrefix("10.100.1.0/24"): struct{}{}},
+			v6: cidrSet{netip.MustParsePrefix("fd00:100::1:0:0/96"): struct{}{}},
+		},
+	}, p.nodes[node2.Name])
+	assert.Empty(t, p.orphans)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.0.0/24",
+				"fd00:100::/96",
+			},
+		},
+	}, p.AllocatedPools(node1.Name))
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.1.0/24",
+				"fd00:100::1:0:0/96",
+			},
+		},
+	}, p.AllocatedPools(node2.Name))
+
+	// remove v4 CIDRs from "test-pool"
+	err = p.UpsertPool("test-pool",
+		nil, 24,
+		[]string{"fd00:100::/80"}, 96,
+	)
+	assert.NoError(t, err)
+
+	// all previously allocated v4 CIDRs are now orphaned
+	assert.Equal(t, poolToCIDRs{
+		"test-pool": {
+			v4: cidrSet{},
+			v6: cidrSet{netip.MustParsePrefix("fd00:100::/96"): struct{}{}},
+		},
+	}, p.nodes[node1.Name])
+	assert.Equal(t, poolToCIDRs{
+		"test-pool": {
+			v4: cidrSet{},
+			v6: cidrSet{netip.MustParsePrefix("fd00:100::1:0:0/96"): struct{}{}},
+		},
+	}, p.nodes[node2.Name])
+	assert.Equal(t, map[string]poolToCIDRs{
+		node1.Name: {
+			"test-pool": {
+				v4: cidrSet{netip.MustParsePrefix("10.100.0.0/24"): struct{}{}},
+			},
+		},
+		node2.Name: {
+			"test-pool": {
+				v4: cidrSet{netip.MustParsePrefix("10.100.1.0/24"): struct{}{}},
+			},
+		},
+	}, p.orphans)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.0.0/24",
+				"fd00:100::/96",
+			},
+		},
+	}, p.AllocatedPools(node1.Name))
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.1.0/24",
+				"fd00:100::1:0:0/96",
+			},
+		},
+	}, p.AllocatedPools(node2.Name))
+
+	// allocate to node3 from test-pool, but v4 CIDR allocation should fail
+	err = p.AllocateToNode(node3)
+	assert.ErrorIs(t, err, errPoolEmpty)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"fd00:100::2:0:0/96",
+			},
+		},
+	}, p.AllocatedPools(node3.Name))
+
+	// update "test-pool" to restore v4 CIDRs
+	err = p.UpsertPool("test-pool",
+		[]string{"10.100.0.0/16"}, 24,
+		[]string{"fd00:100::/80"}, 96,
+	)
+	assert.NoError(t, err)
+
+	// orphaned cidrs should be un-orphaned and allocated again to nodes
+	assert.Equal(t, poolToCIDRs{
+		"test-pool": {
+			v4: cidrSet{netip.MustParsePrefix("10.100.0.0/24"): struct{}{}},
+			v6: cidrSet{netip.MustParsePrefix("fd00:100::/96"): struct{}{}},
+		},
+	}, p.nodes[node1.Name])
+	assert.Equal(t, poolToCIDRs{
+		"test-pool": {
+			v4: cidrSet{netip.MustParsePrefix("10.100.1.0/24"): struct{}{}},
+			v6: cidrSet{netip.MustParsePrefix("fd00:100::1:0:0/96"): struct{}{}},
+		},
+	}, p.nodes[node2.Name])
+	assert.Empty(t, p.orphans)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.0.0/24",
+				"fd00:100::/96",
+			},
+		},
+	}, p.AllocatedPools(node1.Name))
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.1.0/24",
+				"fd00:100::1:0:0/96",
+			},
+		},
+	}, p.AllocatedPools(node2.Name))
+
+	// allocate again to node3 from test-pool, now it should succeed for v4 too
+	err = p.AllocateToNode(node3)
+	assert.NoError(t, err)
+
+	assert.Equal(t, poolToCIDRs{
+		"test-pool": {
+			v4: cidrSet{netip.MustParsePrefix("10.100.2.0/24"): struct{}{}},
+			v6: cidrSet{netip.MustParsePrefix("fd00:100::3:0:0/96"): struct{}{}},
+		},
+	}, p.nodes[node3.Name])
+	assert.Empty(t, p.orphans)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.2.0/24",
+				"fd00:100::3:0:0/96",
+			},
+		},
+	}, p.AllocatedPools(node3.Name))
+}
