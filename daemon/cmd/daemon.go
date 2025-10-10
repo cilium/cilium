@@ -295,10 +295,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 				"Triggering policy recalculation to remove DNS rules due to option",
 				logfields.Option, option.DNSPolicyUnloadOnShutdown,
 			)
-			params.Policy.BumpRevision()
+
 			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 				Reason:            "unloading DNS rules on graceful shutdown",
 				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+
+				PolicyRevisionToWaitFor: params.Policy.BumpRevision(),
 			}
 			wg := params.EndpointManager.RegenerateAllEndpoints(regenerationMetadata)
 			wg.Wait()

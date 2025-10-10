@@ -625,6 +625,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 //
 // Returns whether the headerfile changed and/or an error.
 func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (preCompilationError error) {
+	fmt.Printf("chris debug: runPreCompilationSteps for %v\n", e.SecurityIdentity)
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 

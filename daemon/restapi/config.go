@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/trigger"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -117,6 +118,7 @@ type configModifyEventHandlerParams struct {
 
 	Orchestrator    datapath.Orchestrator
 	Policy          policy.PolicyRepository
+	PolicyComputer  compute.PolicyRecomputer
 	EndpointManager endpointmanager.EndpointManager
 	L7Proxy         *proxy.Proxy
 }
@@ -129,6 +131,7 @@ func newConfigModifyEventHandler(params configModifyEventHandlerParams) *ConfigM
 		logger:          params.Logger,
 		orchestrator:    params.Orchestrator,
 		policy:          params.Policy,
+		computer:        params.PolicyComputer,
 		endpointManager: params.EndpointManager,
 		l7Proxy:         params.L7Proxy,
 	}
@@ -172,6 +175,7 @@ type ConfigModifyEventHandler struct {
 
 	orchestrator    datapath.Orchestrator
 	policy          policy.PolicyRepository
+	computer        compute.PolicyRecomputer
 	endpointManager endpointmanager.EndpointManager
 	l7Proxy         *proxy.Proxy
 }
@@ -179,10 +183,17 @@ type ConfigModifyEventHandler struct {
 func (h *ConfigModifyEventHandler) datapathRegen(reasons []string) {
 	reason := strings.Join(reasons, ", ")
 
+	// We expect the policy revision to have been bumped prior to this call
+	// here. All endpoints are about to be regenerated so recompute policy
+	// for all endpoints and then trigger regeneration.
+
 	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 		Reason:            reason,
 		RegenerationLevel: regeneration.RegenerateWithDatapath,
+
+		PolicyRevisionToWaitFor: h.policy.GetRevision(),
 	}
+	h.computer.RecomputeIdentityPolicyForAllIdentities(regenerationMetadata.PolicyRevisionToWaitFor)
 	h.endpointManager.RegenerateAllEndpoints(regenerationMetadata)
 }
 
