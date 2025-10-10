@@ -63,6 +63,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	__u8 auth_type = 0;
 	__u32 dst_sec_identity = 0;
 	__u16 proxy_port = 0;
+	__u32 cookie = 0;
 
 	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
@@ -87,7 +88,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		/* Perform policy lookup. */
 		verdict = policy_can_egress6(ctx, tuple, ct_buffer->l4_off, HOST_ID,
 					     dst_sec_identity, &policy_match_type,
-					     &audited, ext_err, &proxy_port);
+					     &audited, ext_err, &proxy_port, &cookie);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 			auth_type = (__u8)*ext_err;
 			verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity,
@@ -120,7 +121,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 			send_policy_verdict_notify(ctx, dst_sec_identity, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 1,
 						   verdict, proxy_port, policy_match_type, audited,
-						   auth_type);
+						   auth_type, cookie);
 
 		if (proxy_port > 0 && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 			/* Trace the packet before it is forwarded to proxy */
@@ -202,6 +203,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	fraginfo_t fraginfo __maybe_unused;
 	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;
+	__u32 cookie = 0;
 
 	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
@@ -232,7 +234,8 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	/* Perform policy lookup */
 	verdict = policy_can_ingress6(ctx, tuple, ct_buffer->l4_off,
 				      is_untracked_fragment, *src_sec_identity, HOST_ID,
-				      &policy_match_type, &audited, ext_err, &proxy_port);
+				      &policy_match_type, &audited, ext_err, &proxy_port,
+				      &cookie);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
 		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, tunnel_endpoint, auth_type);
@@ -263,7 +266,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 1,
 					   verdict, proxy_port, policy_match_type, audited,
-					   auth_type);
+					   auth_type, cookie);
 out:
 	/* This change is necessary for packets redirected from the lxc device to
 	 * the host device.
@@ -332,6 +335,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	__u8 auth_type = 0;
 	__u32 dst_sec_identity = 0;
 	__u16 proxy_port = 0;
+	__u32 cookie = 0;
 
 	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
@@ -369,7 +373,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		/* Perform policy lookup. */
 		verdict = policy_can_egress4(ctx, tuple, ct_buffer->l4_off, HOST_ID,
 					     dst_sec_identity, &policy_match_type,
-					     &audited, ext_err, &proxy_port);
+					     &audited, ext_err, &proxy_port, &cookie);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 			auth_type = (__u8)*ext_err;
 			verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity,
@@ -402,7 +406,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 			send_policy_verdict_notify(ctx, dst_sec_identity, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 0,
 						   verdict, proxy_port, policy_match_type, audited,
-						   auth_type);
+						   auth_type, cookie);
 
 		if (proxy_port > 0 && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 			/* Trace the packet before it is forwarded to proxy */
@@ -478,6 +482,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	fraginfo_t fraginfo __maybe_unused;
 	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;
+	__u32 cookie = 0;
 
 	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
@@ -506,7 +511,8 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	/* Perform policy lookup */
 	verdict = policy_can_ingress4(ctx, tuple, ct_buffer->l4_off,
 				      is_untracked_fragment, *src_sec_identity, HOST_ID,
-				      &policy_match_type, &audited, ext_err, &proxy_port);
+				      &policy_match_type, &audited, ext_err, &proxy_port,
+				      &cookie);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
 		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, tunnel_endpoint, auth_type);
@@ -537,7 +543,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 0,
 					   verdict, proxy_port, policy_match_type, audited,
-					   auth_type);
+					   auth_type, cookie);
 out:
 	/* This change is necessary for packets redirected from the lxc device to
 	 * the host device.

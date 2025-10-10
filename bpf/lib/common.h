@@ -344,7 +344,8 @@ struct policy_entry {
 			has_explicit_auth_type:1;
 	__u8		proxy_port_priority;
 	__u8		pad1;
-	__u16	        pad2;
+	__u16		pad2;
+	__u32		cookie;
 };
 
 /*

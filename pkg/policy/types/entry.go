@@ -33,6 +33,10 @@ type MapStateEntry struct {
 	// AuthRequirement is non-zero when authentication is required for the traffic to be
 	// allowed, except for when it explicitly defines authentication is not required.
 	AuthRequirement AuthRequirement
+
+	// Cookie is the policy log cookie. It is non-zero, datapath will pass up the cookie on any
+	// policy verdict.
+	Cookie uint32
 }
 
 type MapStateMap map[Key]MapStateEntry
@@ -51,12 +55,18 @@ func (e MapStateEntry) String() string {
 	return "IsDeny=" + strconv.FormatBool(e.IsDeny()) +
 		",ProxyPort=" + strconv.FormatUint(uint64(e.ProxyPort), 10) +
 		",Priority=" + strconv.FormatUint(uint64(e.ProxyPortPriority), 10) +
-		authText
+		authText +
+		",Cookie=" + strconv.FormatUint(uint64(e.Cookie), 10)
 }
 
 // NewMapStateEntry creates a new MapStateEntry
 // Listener 'priority' is encoded in ProxyPortPriority, inverted
-func NewMapStateEntry(deny bool, proxyPort uint16, priority ListenerPriority, authReq AuthRequirement) MapStateEntry {
+func NewMapStateEntry(
+	deny bool,
+	proxyPort uint16,
+	priority ListenerPriority,
+	authReq AuthRequirement,
+) MapStateEntry {
 	// Normalize inputs
 	if deny {
 		proxyPort = 0
