@@ -12,6 +12,8 @@ import (
 	"slices"
 	"sort"
 
+	"go4.org/netipx"
+
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/types"
@@ -154,47 +156,64 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 		}
 	}
 
+	var errs []error
+
 	// delete CIDR set for CIDRs not present in the new CIDRs
 	for i, oldCIDR := range cidrSets {
 		if oldCIDR == nil {
 			continue
 		}
-		exists := slices.ContainsFunc(newCIDRs, oldCIDR.IsClusterCIDR)
-		if !exists {
-			cidrSets[i] = nil
-			cidrSets = slices.Delete(cidrSets, i, i+1)
+		if exists := slices.ContainsFunc(newCIDRs, oldCIDR.IsClusterCIDR); exists {
+			continue
+		}
 
-			prefix := oldCIDR.Prefix()
+		cidrSets[i] = nil
+		cidrSets = slices.Delete(cidrSets, i, i+1)
 
-			for node, pools := range p.nodes {
-				for pool, allocatedCIDRSets := range pools {
-					if isV6 {
-						if _, ok := allocatedCIDRSets.v6[prefix]; ok {
-							p.logger.Warn(
-								"CIDR from pool still in use by node",
-								logfields.CIDR, prefix,
-								logfields.PoolName, pool,
-								logfields.Node, node,
-							)
-							delete(p.nodes[node][pool].v6, prefix)
+		for node, pools := range p.nodes {
+			for pool, allocatedCIDRSets := range pools {
+				if isV6 {
+					for cidr := range allocatedCIDRSets.v6 {
+						allocated, err := oldCIDR.IsAllocated(netipx.PrefixIPNet(cidr))
+						if err != nil {
+							errs = append(errs, err)
+							continue
 						}
-					} else {
-						if _, ok := allocatedCIDRSets.v4[prefix]; ok {
-							p.logger.Warn(
-								"CIDR from pool still in use by node",
-								logfields.CIDR, prefix,
-								logfields.PoolName, pool,
-								logfields.Node, node,
-							)
-							delete(p.nodes[node][pool].v4, prefix)
+						if !allocated {
+							continue
 						}
+						p.logger.Warn(
+							"CIDR from pool still in use by node",
+							logfields.CIDR, cidr,
+							logfields.PoolName, pool,
+							logfields.Node, node,
+						)
+						delete(p.nodes[node][pool].v6, cidr)
+					}
+				} else {
+					for cidr := range allocatedCIDRSets.v4 {
+						allocated, err := oldCIDR.IsAllocated(netipx.PrefixIPNet(cidr))
+						if err != nil {
+							errs = append(errs, err)
+							continue
+						}
+						if !allocated {
+							continue
+						}
+						p.logger.Warn(
+							"CIDR from pool still in use by node",
+							logfields.CIDR, cidr,
+							logfields.PoolName, pool,
+							logfields.Node, node,
+						)
+						delete(p.nodes[node][pool].v4, cidr)
 					}
 				}
 			}
 		}
 	}
 	cidrSets = append(cidrSets, newCIDRSets...)
-	return cidrSets, nil
+	return cidrSets, errors.Join(errs...)
 }
 
 func parseCIDRStrings(cidrStrs []string) ([]netip.Prefix, error) {
