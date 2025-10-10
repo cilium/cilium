@@ -525,3 +525,76 @@ func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
 		assert.True(t, updated[0].IsClusterCIDR(newCIDRs[0]))
 	})
 }
+
+func TestPoolUpdateWithCIDRInUse(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t))
+
+	// no pools available
+	assert.Empty(t, p.pools)
+
+	// node requests allocations from test-pool
+	node := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool: "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{
+								IPv4Addrs: 10,
+								IPv6Addrs: 10,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Mark as ready
+	p.RestoreFinished()
+
+	// upsert new pool test-pool
+	err := p.UpsertPool("test-pool",
+		[]string{"10.100.0.0/16"}, 24,
+		[]string{"fd00:100::/80"}, 96,
+	)
+	assert.NoError(t, err)
+	testPool, exists := p.pools["test-pool"]
+	assert.True(t, exists)
+	assert.Equal(t, 24, testPool.v4MaskSize)
+	assert.Equal(t, 96, testPool.v6MaskSize)
+
+	// allocate to node from test-pool
+	err = p.AllocateToNode(node)
+	assert.NoError(t, err)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.0.0/24",
+				"fd00:100::/96",
+			},
+		},
+	}, p.AllocatedPools(node.Name))
+
+	// remove v4 CIDRs from "test-pool"
+	err = p.UpsertPool("test-pool",
+		nil, 24,
+		[]string{"fd00:100::/80"}, 96,
+	)
+	assert.NoError(t, err)
+
+	// "10.100.0.0/24" should not be allocated to the node anymore
+	assert.Equal(t, map[string]poolToCIDRs{
+		node.Name: {
+			"test-pool": {
+				v4: cidrSet{},
+				v6: cidrSet{netip.MustParsePrefix("fd00:100::/96"): {}},
+			},
+		},
+	}, p.nodes)
+}
