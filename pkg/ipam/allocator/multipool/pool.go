@@ -92,6 +92,16 @@ func hasCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) bool {
 	return false
 }
 
+func containsCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) bool {
+	ipnet := netipx.PrefixIPNet(cidr)
+	for _, alloc := range allocators {
+		if alloc.InRange(ipnet) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *cidrPool) allocCIDR(family ipam.Family) (netip.Prefix, error) {
 	switch family {
 	case ipam.IPv4:
