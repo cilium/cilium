@@ -5,6 +5,7 @@ package v2
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -103,6 +104,16 @@ type PortInfo struct {
 	// +kubebuilder:validation:Pattern=`^([0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$`
 	// +kubebuilder:validation:Optional
 	Name string `json:"name"`
+
+	// OverrideIP is an IP address used to override the Pod IP.
+	// This is useful when redirecting pod traffic to a DaemonSet running
+	// in the host network namespace, listening on the loopback interface or
+	// other interfaces for which Cilium cannot obtain the IP from Kubernetes.
+	// This field is only valid for RedirectBackend.
+	//
+	// +kubebuilder:validation:Pattern=`((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))\s*$)|(^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))`
+	// +kubebuilder:validation:Optional
+	OverrideIP string `json:"overrideIP,omitempty"`
 }
 
 type ServiceInfo struct {
@@ -213,34 +224,35 @@ type CiliumLocalRedirectPolicyList struct {
 
 // SanitizePortInfo sanitizes all the fields in the PortInfo.
 // It returns port number, name, and protocol derived from the given input  and error (failure cases).
-func (pInfo *PortInfo) SanitizePortInfo(checkNamedPort bool) (uint16, string, lb.L4Type, error) {
+func (pInfo *PortInfo) SanitizePortInfo(checkNamedPort bool) (uint16, string, lb.L4Type, net.IP, error) {
 	var (
 		pInt     uint16
 		pName    string
 		protocol lb.L4Type
+		ip       net.IP
 	)
 	// Sanitize port
 	if pInfo.Port == "" {
-		return pInt, pName, protocol, fmt.Errorf("port must be specified")
+		return pInt, pName, protocol, ip, fmt.Errorf("port must be specified")
 	} else {
 		p, err := strconv.ParseUint(pInfo.Port, 0, 16)
 		if err != nil {
-			return pInt, pName, protocol, fmt.Errorf("unable to parse port: %w", err)
+			return pInt, pName, protocol, ip, fmt.Errorf("unable to parse port: %w", err)
 		}
 		if p == 0 {
-			return pInt, pName, protocol, fmt.Errorf("port cannot be 0")
+			return pInt, pName, protocol, ip, fmt.Errorf("port cannot be 0")
 		}
 		pInt = uint16(p)
 	}
 	// Sanitize name
 	if checkNamedPort {
 		if pInfo.Name == "" {
-			return pInt, pName, protocol, fmt.Errorf("port %s in the local "+
+			return pInt, pName, protocol, ip, fmt.Errorf("port %s in the local "+
 				"redirect policy spec must have a valid IANA_SVC_NAME, as there are multiple ports", pInfo.Port)
 
 		}
 		if !iana.IsSvcName(pInfo.Name) {
-			return pInt, pName, protocol, fmt.Errorf("port name %s isn't a "+
+			return pInt, pName, protocol, ip, fmt.Errorf("port name %s isn't a "+
 				"valid IANA_SVC_NAME", pInfo.Name)
 		}
 	}
@@ -250,7 +262,14 @@ func (pInfo *PortInfo) SanitizePortInfo(checkNamedPort bool) (uint16, string, lb
 	var err error
 	protocol, err = lb.NewL4Type(string(pInfo.Protocol))
 	if err != nil {
-		return pInt, pName, protocol, err
+		return pInt, pName, protocol, ip, err
 	}
-	return pInt, pName, protocol, nil
+	// Sanitize OverrideIP
+	if pInfo.OverrideIP != "" {
+		ip = net.ParseIP(pInfo.OverrideIP)
+		if ip == nil {
+			return pInt, pName, protocol, ip, fmt.Errorf("invalid IP address: %s", pInfo.OverrideIP)
+		}
+	}
+	return pInt, pName, protocol, ip, nil
 }
