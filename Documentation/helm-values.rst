@@ -1305,7 +1305,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode`
-     - Configure the WireGuard Pod2Pod strict mode.
+     - Configure the Encryption Pod2Pod strict mode.
      - object
      - ``{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false}``
    * - :spelling:ignore:`encryption.strictMode.allowRemoteNodeIdentities`
@@ -1313,11 +1313,11 @@
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode.cidr`
-     - CIDR for the WireGuard Pod2Pod strict mode.
+     - CIDR for the Encryption Pod2Pod strict mode.
      - string
      - ``""``
    * - :spelling:ignore:`encryption.strictMode.enabled`
-     - Enable WireGuard Pod2Pod strict mode.
+     - Enable Encryption Pod2Pod strict mode.
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.type`
