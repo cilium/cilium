@@ -65,6 +65,9 @@ type MCSAPIServiceSpec struct {
 
 	// SessionAffinityConfig contains session affinity configuration.
 	SessionAffinityConfig *corev1.SessionAffinityConfig `json:"sessionAffinityConfig,omitempty"`
+
+	// IPFamilies identifies all the IPFamilies assigned for this ServiceImport.
+	IPFamilies []corev1.IPFamily `json:"ipFamilies,omitempty"`
 }
 
 // GetKeyName returns the kvstore key to be used for MCSAPIServiceSpec
@@ -174,6 +177,14 @@ func KeyCreator(validators ...mcsAPIServiceSpecValidator) store.KeyCreator {
 	}
 }
 
+func toKubeIPFamilies(ipFamilies []slim_corev1.IPFamily) []corev1.IPFamily {
+	kubeIPFamilies := make([]corev1.IPFamily, 0, len(ipFamilies))
+	for _, ipFamily := range ipFamilies {
+		kubeIPFamilies = append(kubeIPFamilies, corev1.IPFamily(ipFamily))
+	}
+	return kubeIPFamilies
+}
+
 func FromCiliumServiceToMCSAPIServiceSpec(clusterName string, svc *slim_corev1.Service, svcExport *mcsapiv1alpha1.ServiceExport) *MCSAPIServiceSpec {
 	ports := make([]mcsapiv1alpha1.ServicePort, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
@@ -195,6 +206,7 @@ func FromCiliumServiceToMCSAPIServiceSpec(clusterName string, svc *slim_corev1.S
 		Ports:           ports,
 		Type:            mcsAPISvcType,
 		SessionAffinity: corev1.ServiceAffinity(svc.Spec.SessionAffinity),
+		IPFamilies:      toKubeIPFamilies(svc.Spec.IPFamilies),
 		Annotations:     maps.Clone(svcExport.Spec.ExportedAnnotations),
 		Labels:          maps.Clone(svcExport.Spec.ExportedLabels),
 	}

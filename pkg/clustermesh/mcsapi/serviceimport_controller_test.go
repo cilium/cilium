@@ -1009,3 +1009,88 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		})
 	}
 }
+
+func newMCSAPISpecIPFamily(ipfamilies []corev1.IPFamily) *mcsapitypes.MCSAPIServiceSpec {
+	return &mcsapitypes.MCSAPIServiceSpec{
+		Cluster:                 "c1",
+		Name:                    "svc",
+		Namespace:               "default",
+		ExportCreationTimestamp: metav1.NewTime(time.Now()),
+		IPFamilies:              ipfamilies,
+	}
+}
+
+func TestIntersectIPFamilies(t *testing.T) {
+	tests := []struct {
+		name           string
+		svcExports     []*mcsapitypes.MCSAPIServiceSpec
+		expectFamilies []corev1.IPFamily
+		expectReason   mcsapiv1alpha1.ServiceExportConditionReason
+	}{
+		{
+			name: "all dual-stack",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv6Protocol, corev1.IPv4Protocol}),
+			},
+			expectFamilies: []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+			expectReason:   mcsapiv1alpha1.ServiceExportReasonNoConflicts,
+		},
+		{
+			name: "all legacy",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily(nil),
+				newMCSAPISpecIPFamily(nil),
+			},
+			expectFamilies: nil,
+			expectReason:   mcsapiv1alpha1.ServiceExportReasonNoConflicts,
+		},
+		{
+			name: "dual-stack then narrows to IPv4",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily(nil),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol}),
+			},
+			expectFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+			expectReason:   mcsapiv1alpha1.ServiceExportReasonNoConflicts,
+		},
+		{
+			name: "keep oldest single stack IPv6",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv6Protocol}),
+				newMCSAPISpecIPFamily(nil),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}),
+			},
+			expectFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
+			expectReason:   mcsapiv1alpha1.ServiceExportReasonNoConflicts,
+		},
+		{
+			name: "simple conflict",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol}),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv6Protocol}),
+			},
+			expectFamilies: []corev1.IPFamily{corev1.IPv4Protocol}, // intersection remains base families per new behavior
+			expectReason:   mcsapiv1alpha1.ServiceExportConditionReason("IPFamilyConflict"),
+		},
+		{
+			name: "dual-stack then narrow to IPv4 and conflict with IPv6",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol}),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv6Protocol}),
+			},
+			expectFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+			expectReason:   mcsapiv1alpha1.ServiceExportConditionReason("IPFamilyConflict"),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			families, reason, _ := intersectIPFamilies(tc.svcExports)
+			require.Equal(t, tc.expectFamilies, families)
+			require.Equal(t, tc.expectReason, reason, tc.name)
+		})
+	}
+}
