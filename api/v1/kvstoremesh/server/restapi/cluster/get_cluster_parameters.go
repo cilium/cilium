@@ -28,7 +28,6 @@ func NewGetClusterParams() GetClusterParams {
 //
 // swagger:parameters GetCluster
 type GetClusterParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }
