@@ -127,6 +127,12 @@ func extractFlowKey(f *flowpb.Flow) (
 	} else if sctp := f.GetL4().GetSCTP(); sctp != nil {
 		proto = u8proto.SCTP
 		dport = uint16(sctp.GetDestinationPort())
+	} else if vrrp := f.GetL4().GetVRRP(); vrrp != nil {
+		proto = u8proto.VRRP
+		dport = 0
+	} else if igmp := f.GetL4().GetIGMP(); igmp != nil {
+		proto = u8proto.IGMP
+		dport = 0
 	} else {
 		proto = u8proto.ANY
 		dport = 0
