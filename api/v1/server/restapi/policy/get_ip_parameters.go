@@ -30,7 +30,6 @@ func NewGetIPParams() GetIPParams {
 //
 // swagger:parameters GetIP
 type GetIPParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -48,7 +47,6 @@ func (o *GetIPParams) BindRequest(r *http.Request, route *middleware.MatchedRout
 	var res []error
 
 	o.HTTPRequest = r
-
 	qs := runtime.Values(r.URL.Query())
 
 	qCidr, qhkCidr, _ := qs.GetOK("cidr")

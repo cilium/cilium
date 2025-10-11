@@ -30,7 +30,6 @@ func NewGetRecorderIDParams() GetRecorderIDParams {
 //
 // swagger:parameters GetRecorderID
 type GetRecorderIDParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
