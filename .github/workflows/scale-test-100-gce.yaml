@@ -201,13 +201,13 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PERF_SA }}
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true
 
       - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
-          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
 
       - name: Clone ClusterLoader2
