@@ -28,7 +28,6 @@ func NewGetPolicySelectorsParams() GetPolicySelectorsParams {
 //
 // swagger:parameters GetPolicySelectors
 type GetPolicySelectorsParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }

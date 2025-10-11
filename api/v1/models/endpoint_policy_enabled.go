@@ -56,7 +56,7 @@ const (
 )
 
 // for schema
-var endpointPolicyEnabledEnum []interface{}
+var endpointPolicyEnabledEnum []any
 
 func init() {
 	var res []EndpointPolicyEnabled
