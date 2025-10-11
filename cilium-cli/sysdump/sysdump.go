@@ -2569,12 +2569,17 @@ func (c *Collector) SubmitCniConflistSubtask(pods []*corev1.Pod, containerName s
 		if err := c.Pool.Submit(fmt.Sprintf("cniconflist-%s", p.GetName()), func(ctx context.Context) error {
 			outputStr, err := c.Client.ExecInPod(ctx, p.GetNamespace(), p.GetName(), containerName, []string{
 				lsCommand,
+				"-1",
 				c.Options.CNIConfigDirectory,
 			})
 			if err != nil {
 				return err
 			}
 			for cniFileName := range strings.SplitSeq(strings.TrimSpace(outputStr.String()), "\n") {
+				// Skip empty filenames (from trailing newlines or extra whitespace)
+				if cniFileName == "" {
+					continue
+				}
 				cniConfigPath := path.Join(c.Options.CNIConfigDirectory, cniFileName)
 				if err := c.WithFileSink(fmt.Sprintf(cniConfigFileName, cniFileName, p.GetName()), func(out io.Writer) error {
 					return c.Client.ExecInPodWithWriters(ctx, nil, p.GetNamespace(), p.GetName(), containerName, []string{
