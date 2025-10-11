@@ -12,6 +12,8 @@ import (
 	"slices"
 	"sort"
 
+	"go4.org/netipx"
+
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/types"
@@ -94,18 +96,20 @@ func addrsInPrefix(p netip.Prefix) *big.Int {
 }
 
 type PoolAllocator struct {
-	logger *slog.Logger
-	mutex  lock.RWMutex
-	pools  map[string]cidrPool    // poolName -> pool
-	nodes  map[string]poolToCIDRs // nodeName -> pool -> cidrs
-	ready  bool
+	logger  *slog.Logger
+	mutex   lock.RWMutex
+	pools   map[string]cidrPool    // poolName -> pool
+	nodes   map[string]poolToCIDRs // nodeName -> pool -> cidrs
+	orphans map[string]cidrSets    // nodeName -> list of orphaned CIDRs (CIDRs allocated to nodes but missing their parent pool)
+	ready   bool
 }
 
 func NewPoolAllocator(logger *slog.Logger) *PoolAllocator {
 	return &PoolAllocator{
-		logger: logger,
-		pools:  map[string]cidrPool{},
-		nodes:  map[string]poolToCIDRs{},
+		logger:  logger,
+		pools:   map[string]cidrPool{},
+		nodes:   map[string]poolToCIDRs{},
+		orphans: map[string]cidrSets{},
 	}
 }
 
@@ -115,25 +119,48 @@ func (p *PoolAllocator) RestoreFinished() {
 	p.mutex.Unlock()
 }
 
-func (p *PoolAllocator) addPool(poolName string, ipv4CIDRs []string, ipv4MaskSize int, ipv6CIDRs []string, ipv6MaskSize int) error {
-	v4, err := cidralloc.NewCIDRSets(false, ipv4CIDRs, ipv4MaskSize)
-	if err != nil {
-		return err
+func (p *PoolAllocator) unorphanCIDR(isV6 bool, node, pool string, cidr netip.Prefix) error {
+	p.logger.Info(
+		"CIDR from pool already in use by node, marking it as allocated",
+		logfields.CIDR, cidr,
+		logfields.PoolName, pool,
+		logfields.Node, node,
+	)
+	if err := p.occupyCIDR(node, pool, cidr); err != nil {
+		return fmt.Errorf("unable to mark orphaned CIDR %s still used by node %s as allocated: %w", cidr, node, err)
 	}
-
-	v6, err := cidralloc.NewCIDRSets(true, ipv6CIDRs, ipv6MaskSize)
-	if err != nil {
-		return err
+	if isV6 {
+		delete(p.orphans[node].v6, cidr)
+	} else {
+		delete(p.orphans[node].v4, cidr)
 	}
-
-	p.pools[poolName] = cidrPool{
-		v4:         v4,
-		v6:         v6,
-		v4MaskSize: ipv4MaskSize,
-		v6MaskSize: ipv6MaskSize,
-	}
-
 	return nil
+}
+
+func (p *PoolAllocator) reconcileOrphanCIDRs(pool string, v4, v6 []cidralloc.CIDRAllocator) error {
+	var errs []error
+	for node, cidrs := range p.orphans {
+		for cidr := range cidrs.v4 {
+			if containsCIDR(v4, cidr) {
+				errs = append(errs, p.unorphanCIDR(false, node, pool, cidr))
+			}
+		}
+		for cidr := range cidrs.v6 {
+			if containsCIDR(v6, cidr) {
+				errs = append(errs, p.unorphanCIDR(true, node, pool, cidr))
+			}
+		}
+
+		switch {
+		case len(p.orphans[node].v4) == 0 && len(p.orphans[node].v6) == 0:
+			delete(p.orphans, node)
+		case len(p.orphans[node].v4) == 0:
+			p.orphans[node] = cidrSets{v6: p.orphans[node].v6}
+		case len(p.orphans[node].v6) == 0:
+			p.orphans[node] = cidrSets{v4: p.orphans[node].v4}
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAllocator, newCIDRs []netip.Prefix, maskSize int) ([]cidralloc.CIDRAllocator, error) {
@@ -154,47 +181,66 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 		}
 	}
 
+	var errs []error
+
 	// delete CIDR set for CIDRs not present in the new CIDRs
 	for i, oldCIDR := range cidrSets {
 		if oldCIDR == nil {
 			continue
 		}
-		exists := slices.ContainsFunc(newCIDRs, oldCIDR.IsClusterCIDR)
-		if !exists {
-			cidrSets[i] = nil
-			cidrSets = slices.Delete(cidrSets, i, i+1)
+		if exists := slices.ContainsFunc(newCIDRs, oldCIDR.IsClusterCIDR); exists {
+			continue
+		}
 
-			prefix := oldCIDR.Prefix()
+		cidrSets[i] = nil
+		cidrSets = slices.Delete(cidrSets, i, i+1)
 
-			for node, pools := range p.nodes {
-				for pool, allocatedCIDRSets := range pools {
-					if isV6 {
-						if _, ok := allocatedCIDRSets.v6[prefix]; ok {
-							p.logger.Warn(
-								"CIDR from pool still in use by node",
-								logfields.CIDR, prefix,
-								logfields.PoolName, pool,
-								logfields.Node, node,
-							)
-							delete(p.nodes[node][pool].v6, prefix)
+		for node, pools := range p.nodes {
+			for pool, allocatedCIDRSets := range pools {
+				if isV6 {
+					for cidr := range allocatedCIDRSets.v6 {
+						allocated, err := oldCIDR.IsAllocated(netipx.PrefixIPNet(cidr))
+						if err != nil {
+							errs = append(errs, err)
+							continue
 						}
-					} else {
-						if _, ok := allocatedCIDRSets.v4[prefix]; ok {
-							p.logger.Warn(
-								"CIDR from pool still in use by node",
-								logfields.CIDR, prefix,
-								logfields.PoolName, pool,
-								logfields.Node, node,
-							)
-							delete(p.nodes[node][pool].v4, prefix)
+						if !allocated {
+							continue
 						}
+						p.logger.Warn(
+							"CIDR from pool still in use by node",
+							logfields.CIDR, cidr,
+							logfields.PoolName, pool,
+							logfields.Node, node,
+						)
+						delete(p.nodes[node][pool].v6, cidr)
+						p.markOrphan(node, cidr)
+					}
+				} else {
+					for cidr := range allocatedCIDRSets.v4 {
+						allocated, err := oldCIDR.IsAllocated(netipx.PrefixIPNet(cidr))
+						if err != nil {
+							errs = append(errs, err)
+							continue
+						}
+						if !allocated {
+							continue
+						}
+						p.logger.Warn(
+							"CIDR from pool still in use by node",
+							logfields.CIDR, cidr,
+							logfields.PoolName, pool,
+							logfields.Node, node,
+						)
+						delete(p.nodes[node][pool].v4, cidr)
+						p.markOrphan(node, cidr)
 					}
 				}
 			}
 		}
 	}
 	cidrSets = append(cidrSets, newCIDRSets...)
-	return cidrSets, nil
+	return cidrSets, errors.Join(errs...)
 }
 
 func parseCIDRStrings(cidrStrs []string) ([]netip.Prefix, error) {
@@ -214,14 +260,10 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 	defer p.mutex.Unlock()
 
 	pool, exists := p.pools[poolName]
-	if !exists {
-		return p.addPool(poolName, ipv4CIDRs, ipv4MaskSize, ipv6CIDRs, ipv6MaskSize)
-	}
-
-	if ipv4MaskSize != pool.v4MaskSize {
+	if exists && ipv4MaskSize != pool.v4MaskSize {
 		return fmt.Errorf("cannot change IPv4 mask size in existing pool %q", poolName)
 	}
-	if ipv6MaskSize != pool.v6MaskSize {
+	if exists && ipv6MaskSize != pool.v6MaskSize {
 		return fmt.Errorf("cannot change IPv6 mask size in existing pool %q", poolName)
 	}
 
@@ -234,12 +276,20 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 		return fmt.Errorf("invalid IPv6 CIDR: %w", err)
 	}
 
-	v4, err := p.updateCIDRSets(false, pool.v4, ipv4Prefixes, ipv4MaskSize)
+	var v4Prev []cidralloc.CIDRAllocator
+	if exists {
+		v4Prev = pool.v4
+	}
+	v4, err := p.updateCIDRSets(false, v4Prev, ipv4Prefixes, ipv4MaskSize)
 	if err != nil {
 		return err
 	}
 
-	v6, err := p.updateCIDRSets(true, pool.v6, ipv6Prefixes, ipv6MaskSize)
+	var v6Prev []cidralloc.CIDRAllocator
+	if exists {
+		v6Prev = pool.v6
+	}
+	v6, err := p.updateCIDRSets(true, v6Prev, ipv6Prefixes, ipv6MaskSize)
 	if err != nil {
 		return err
 	}
@@ -250,7 +300,8 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 		v4MaskSize: ipv4MaskSize,
 		v6MaskSize: ipv6MaskSize,
 	}
-	return nil
+
+	return p.reconcileOrphanCIDRs(poolName, v4, v6)
 }
 
 // DeletePool deletes a pool from p. No new allocations to nodes will be made
@@ -266,7 +317,7 @@ func (p *PoolAllocator) DeletePool(poolName string) error {
 	}
 
 	for node, pools := range p.nodes {
-		for pool := range pools {
+		for pool, cidrSets := range pools {
 			if pool == poolName {
 				p.logger.Warn(
 					"pool still in use by node",
@@ -274,6 +325,12 @@ func (p *PoolAllocator) DeletePool(poolName string) error {
 					logfields.Node, node,
 				)
 				delete(p.nodes[node], poolName)
+				for cidr := range cidrSets.v4 {
+					p.markOrphan(node, cidr)
+				}
+				for cidr := range cidrSets.v6 {
+					p.markOrphan(node, cidr)
+				}
 			}
 		}
 	}
@@ -461,6 +518,24 @@ func (p *PoolAllocator) markReleased(targetNode, sourcePool string, cidr netip.P
 	// remove pool reference if it is now empty
 	if len(cidrs.v4) == 0 && len(cidrs.v6) == 0 {
 		delete(pools, sourcePool)
+	}
+}
+
+func (p *PoolAllocator) markOrphan(targetNode string, cidr netip.Prefix) {
+	cidrs, ok := p.orphans[targetNode]
+	if !ok {
+		cidrs = cidrSets{
+			v4: cidrSet{},
+			v6: cidrSet{},
+		}
+		p.orphans[targetNode] = cidrs
+	}
+
+	switch {
+	case cidr.Addr().Is4():
+		cidrs.v4[cidr] = struct{}{}
+	case cidr.Addr().Is6():
+		cidrs.v6[cidr] = struct{}{}
 	}
 }
 
