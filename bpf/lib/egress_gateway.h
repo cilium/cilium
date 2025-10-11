@@ -307,9 +307,7 @@ bool egress_gw_snat_needed_v6(union v6addr *saddr __maybe_unused,
 		return false;
 
 	*snat_addr = egress_gw_policy->egress_ip;
-# ifdef EGRESS_IFINDEX
-	*egress_ifindex = EGRESS_IFINDEX;
-# endif
+	*egress_ifindex = egress_gw_policy->egress_ifindex;
 
 	return true;
 #else
