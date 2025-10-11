@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
+	"github.com/cilium/cilium/pkg/maps/devicemap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
@@ -81,6 +82,9 @@ var Cell = cell.Module(
 
 	// Provides access to the vtep map.
 	vtep.Cell,
+
+	// Provides the device map which contains information about ifindexes and macs.
+	devicemap.Cell,
 )
 
 type mapApiHandlerOut struct {

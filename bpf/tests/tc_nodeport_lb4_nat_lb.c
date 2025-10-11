@@ -155,6 +155,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+#include "lib/network_device.h"
 
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 
@@ -892,6 +893,8 @@ int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 
 	if (settings)
 		settings->fail_fib = true;
+
+	device_add_entry(DEFAULT_IFACE, (__u8 *)lb_mac, 0);
 
 	return netdev_receive_packet(ctx);
 }

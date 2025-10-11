@@ -4,6 +4,7 @@
 #pragma once
 
 #include "nodeport.h"
+#include "network_device.h"
 
 #ifdef ENABLE_NODEPORT
 

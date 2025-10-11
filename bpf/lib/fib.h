@@ -8,6 +8,7 @@
 
 #include "common.h"
 #include "neigh.h"
+#include "network_device.h"
 #include "l3.h"
 
 static __always_inline bool
@@ -37,7 +38,7 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 		 __u32 ifindex __maybe_unused,
 		 bool *l2_hdr_required __maybe_unused)
 {
-	if (IS_L3_DEV(ifindex)) {
+	if (is_l3_device(ifindex)) {
 		/* The packet is going to be redirected to L3 dev, so
 		 * skip L2 addr settings.
 		 */
@@ -127,7 +128,7 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		if (eth_store_saddr(ctx, fib_params->l.smac, 0) < 0)
 			return DROP_WRITE_ERROR;
 	} else {
-		union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(oif);
+		union macaddr *smac = device_mac(oif);
 		union macaddr *dmac = NULL;
 
 		if (allow_neigh_map) {
@@ -146,7 +147,7 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		}
 		if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
 			return DROP_WRITE_ERROR;
-		if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
+		if (eth_store_saddr_aligned(ctx, smac->addr, 0) < 0)
 			return DROP_WRITE_ERROR;
 	}
 out_send:

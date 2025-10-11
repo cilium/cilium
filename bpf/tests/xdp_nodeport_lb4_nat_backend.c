@@ -25,11 +25,14 @@
 #define BACKEND_IP		v4_pod_one
 #define BACKEND_PORT		__bpf_htons(8080)
 
+#define DEFAULT_IFACE           24
+
 #include "lib/bpf_xdp.h"
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+#include "lib/network_device.h"
 
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *lb_mac = mac_two;
@@ -76,6 +79,8 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, 0, 0, NULL, NULL);
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
+
+	device_add_entry(DEFAULT_IFACE, (__u8 *)client_mac, 0);
 
 	return xdp_receive_packet(ctx);
 }
