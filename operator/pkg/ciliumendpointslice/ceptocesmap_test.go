@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCepToCESCounts(t *testing.T) {
+func TestCepToCESCountsDefault(t *testing.T) {
 	testCases := []struct {
 		name    string
 		cepName CEPName

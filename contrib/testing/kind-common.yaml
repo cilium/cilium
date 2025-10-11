@@ -22,3 +22,7 @@ readinessProbe:
   failureThreshold: 9999
 startupProbe:
   failureThreshold: 9999
+ciliumEndpointSlice:
+  enabled: true
+extraConfig:
+  ces-without-ceps: "true"

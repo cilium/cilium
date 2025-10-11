@@ -40,11 +40,13 @@ cilium-operator-generic hive dot-graph [flags]
       --enable-ingress-controller                            Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.
       --enable-ingress-proxy-protocol                        Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
       --enable-ingress-secrets-sync                          Enables fan-in TLS secrets from multiple namespaces to singular namespace (specified by ingress-secrets-namespace flag) (default true)
+      --enable-ipsec                                         Enable IPsec support
       --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-lb-ipam                                       Enable LB IPAM (default true)
       --enable-node-ipam                                     Enable Node IPAM
       --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
+      --enable-wireguard                                     Enable Wireguard
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
