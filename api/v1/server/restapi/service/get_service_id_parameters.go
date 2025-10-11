@@ -30,7 +30,6 @@ func NewGetServiceIDParams() GetServiceIDParams {
 //
 // swagger:parameters GetServiceID
 type GetServiceIDParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 

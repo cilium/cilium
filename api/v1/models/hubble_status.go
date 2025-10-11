@@ -11,6 +11,7 @@ package models
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -68,11 +69,15 @@ func (m *HubbleStatus) validateMetrics(formats strfmt.Registry) error {
 
 	if m.Metrics != nil {
 		if err := m.Metrics.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("metrics")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("metrics")
 			}
+
 			return err
 		}
 	}
@@ -87,11 +92,15 @@ func (m *HubbleStatus) validateObserver(formats strfmt.Registry) error {
 
 	if m.Observer != nil {
 		if err := m.Observer.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("observer")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("observer")
 			}
+
 			return err
 		}
 	}
@@ -99,7 +108,7 @@ func (m *HubbleStatus) validateObserver(formats strfmt.Registry) error {
 	return nil
 }
 
-var hubbleStatusTypeStatePropEnum []interface{}
+var hubbleStatusTypeStatePropEnum []any
 
 func init() {
 	var res []string
@@ -174,11 +183,15 @@ func (m *HubbleStatus) contextValidateMetrics(ctx context.Context, formats strfm
 		}
 
 		if err := m.Metrics.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("metrics")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("metrics")
 			}
+
 			return err
 		}
 	}
@@ -195,11 +208,15 @@ func (m *HubbleStatus) contextValidateObserver(ctx context.Context, formats strf
 		}
 
 		if err := m.Observer.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("observer")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("observer")
 			}
+
 			return err
 		}
 	}
@@ -249,7 +266,7 @@ func (m *HubbleStatusMetrics) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var hubbleStatusMetricsTypeStatePropEnum []interface{}
+var hubbleStatusMetricsTypeStatePropEnum []any
 
 func init() {
 	var res []string
