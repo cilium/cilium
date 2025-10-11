@@ -28,7 +28,6 @@ func NewPutStatusProbeParams() PutStatusProbeParams {
 //
 // swagger:parameters PutStatusProbe
 type PutStatusProbeParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }
