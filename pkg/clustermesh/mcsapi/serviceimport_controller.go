@@ -121,6 +121,7 @@ func fromServiceToMCSAPIServiceSpec(svc *corev1.Service, cluster string, svcExpo
 		Type:                    mcsAPISvcType,
 		SessionAffinity:         svc.Spec.SessionAffinity,
 		SessionAffinityConfig:   svc.Spec.SessionAffinityConfig.DeepCopy(),
+		IPFamilies:              slices.Clone(svc.Spec.IPFamilies),
 		Annotations:             maps.Clone(svcExport.Spec.ExportedAnnotations),
 		Labels:                  maps.Clone(svcExport.Spec.ExportedLabels),
 	}
@@ -233,6 +234,56 @@ func mergedPortsToMCSPorts(mergedPorts []portMerge) []mcsapiv1alpha1.ServicePort
 	return ports
 }
 
+// intersectIPFamilies returns an intersection of all exported IPFamilies.
+// As we expect that all "pods" have endpoints in all IPFamilies the
+// (exported) Service is advertising, an intersection allows to  consistently
+// reach all "pods" from any ip protocol returned by this function.
+// If we were doing the opposite (a union of all IPFamilies) we could end up
+// in a situation where we would reach only a subset of "pods" depending on
+// the IP protocol used by the client.
+func intersectIPFamilies(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]corev1.IPFamily, mcsapiv1alpha1.ServiceExportConditionReason, string) {
+	// Skip empty IPFamilies to support clusters running Cilium 1.18 or older
+	orderedSvcExports = slices.DeleteFunc(slices.Clone(orderedSvcExports), func(svcExport *mcsapitypes.MCSAPIServiceSpec) bool {
+		return len(svcExport.IPFamilies) == 0
+	})
+	if len(orderedSvcExports) == 0 {
+		return nil, mcsapiv1alpha1.ServiceExportReasonNoConflicts, ""
+	}
+
+	ipFamilies := slices.Clone(orderedSvcExports[0].IPFamilies)
+	clusterConflict := ""
+	for _, svcExport := range orderedSvcExports[1:] {
+		intersection := make([]corev1.IPFamily, 0, len(ipFamilies))
+		for _, ipFamily := range ipFamilies {
+			if slices.Contains(svcExport.IPFamilies, ipFamily) {
+				intersection = append(intersection, ipFamily)
+			}
+		}
+		// If there is no common IPFamilies between the current intersection
+		// we skip the current cluster in order to not end up with no IPFamily
+		// as that may disrupt all traffic going to that ServiceImport and
+		// report a conflict
+		if len(intersection) == 0 {
+			if clusterConflict == "" {
+				// Only report conflict for the first cluster to be consistent
+				// with conflict reporting of other fields
+				clusterConflict = svcExport.Cluster
+			}
+			continue
+		}
+		ipFamilies = intersection
+	}
+
+	if clusterConflict != "" {
+		// Note that there is no standard export condition reason for this case at this time
+		return ipFamilies,
+			mcsapiv1alpha1.ServiceExportConditionReason("IPFamilyConflict"),
+			fmt.Sprintf("IPFamilies conflict. Cluster '%s' has no IPFamilies in common.", clusterConflict)
+	}
+
+	return ipFamilies, mcsapiv1alpha1.ServiceExportReasonNoConflicts, ""
+}
+
 func getClustersStatus(svcExportByCluster operator.ServiceExportsByCluster) []mcsapiv1alpha1.ClusterStatus {
 	clusters := make([]mcsapiv1alpha1.ClusterStatus, 0, len(svcExportByCluster))
 	for _, cluster := range slices.Sorted(maps.Keys(svcExportByCluster)) {
@@ -254,7 +305,7 @@ func derefSessionAffinity(sessionAffinityConfig *corev1.SessionAffinityConfig) *
 
 // checkConflictExport check if there are any conflict to be added on
 // the ServiceExport object. This function does not check for conflict on the
-// ports field this aspect should be done by mergePorts
+// ports and the IPFamilies fields
 func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) (mcsapiv1alpha1.ServiceExportConditionReason, string) {
 	clusterCount := len(orderedSvcExports)
 
@@ -444,6 +495,10 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	orderedSvcExports := orderSvcExportByPriority(svcExportByCluster)
 	mergedPorts, conflictReason, conflictMsg := mergePorts(orderedSvcExports)
+	ipFamilies, conflictReasonIPFamilies, conflictMsgIPFamilies := intersectIPFamilies(orderedSvcExports)
+	if conflictReason == mcsapiv1alpha1.ServiceExportReasonNoConflicts {
+		conflictReason, conflictMsg = conflictReasonIPFamilies, conflictMsgIPFamilies
+	}
 	if conflictReason == mcsapiv1alpha1.ServiceExportReasonNoConflicts {
 		conflictReason, conflictMsg = checkConflictExport(orderedSvcExports)
 	}
@@ -486,6 +541,7 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	oldestClusterSvc := orderedSvcExports[0]
 	svcImport.Spec.Ports = mergedPortsToMCSPorts(mergedPorts)
+	svcImport.Spec.IPFamilies = ipFamilies
 	svcImport.Spec.Type = oldestClusterSvc.Type
 	svcImport.Spec.SessionAffinity = oldestClusterSvc.SessionAffinity
 	svcImport.Spec.SessionAffinityConfig = oldestClusterSvc.SessionAffinityConfig.DeepCopy()
