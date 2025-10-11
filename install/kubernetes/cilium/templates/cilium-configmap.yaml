@@ -255,6 +255,14 @@ data:
   operator-prometheus-serve-addr: ":{{ .Values.operator.prometheus.port }}"
   enable-metrics: "true"
 {{- end }}
+{{- if and .Values.operator.prometheus.enabled .Values.operator.prometheus.tls.enabled }}
+  operator-prometheus-enable-tls: "true"
+  operator-prometheus-tls-cert-file: /var/lib/cilium/tls/prometheus/server.crt
+  operator-prometheus-tls-key-file: /var/lib/cilium/tls/prometheus/server.key
+  {{- if .Values.operator.prometheus.tls.server.mtls.enabled }}
+  operator-prometheus-tls-client-ca-files: /var/lib/cilium/tls/prometheus/client-ca.crt
+  {{- end }}
+{{- end }}
 
 {{- if .Values.operator.skipCRDCreation }}
   skip-crd-creation: "true"
