@@ -250,7 +250,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
-		selectorPolicy: &selectorPolicy{
+		SelectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: L4Policy{
@@ -267,9 +267,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 						},
 						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 					},
-				}),
-					features: denyRules,
-				},
+				})},
 				Egress: newL4DirectionPolicy(),
 			},
 			IngressPolicyEnabled: true,
@@ -282,18 +280,12 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
+	policy.SelectorPolicy.detach(true, 0)
 
-	// Assign an empty mutex so that checker.Equal does not complain about the
-	// difference of the internal time.Time from the lock_debug.go.
-	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
-	policy.policyMapChanges.mutex = lock.Mutex{}
-	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
 	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = mapState{}
-	expectedEndpointPolicy.policyMapState = mapState{}
-	require.Equal(t, &expectedEndpointPolicy, policy)
+
+	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
 
 func TestL3WithLocalHostWildcardd(t *testing.T) {
@@ -347,7 +339,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	require.NotNil(t, cachedSelectorHost)
 
 	expectedEndpointPolicy := EndpointPolicy{
-		selectorPolicy: &selectorPolicy{
+		SelectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: L4Policy{
@@ -379,18 +371,18 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
+	policy.SelectorPolicy.detach(true, 0)
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
-	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
+	policy.SelectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
 	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = mapState{}
 	expectedEndpointPolicy.policyMapState = mapState{}
-	require.Equal(t, &expectedEndpointPolicy, policy)
+	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
 
 func TestMapStateWithIngressDenyWildcard(t *testing.T) {
@@ -443,7 +435,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
-		selectorPolicy: &selectorPolicy{
+		SelectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: L4Policy{
@@ -489,11 +481,11 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	require.Empty(t, policy.policyMapChanges.synced)
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
+	policy.SelectorPolicy.detach(true, 0)
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
-	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
+	policy.SelectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
@@ -601,7 +593,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
-		selectorPolicy: &selectorPolicy{
+		SelectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: L4Policy{
@@ -657,7 +649,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	require.Equal(t, Keys{}, changes.Deletes)
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
+	policy.SelectorPolicy.detach(true, 0)
 	// Verify that cached selector is not found after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
 	cachedSelectorTest = td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
@@ -665,7 +657,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
-	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
+	policy.SelectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
