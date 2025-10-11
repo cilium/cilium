@@ -644,6 +644,14 @@
         "monitorInterval": {
           "type": "string"
         },
+        "monitorTraceIPOption": {
+          "minimum": 0,
+          "maximum": 255,
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
         "natMax": {
           "type": [
             "null",
