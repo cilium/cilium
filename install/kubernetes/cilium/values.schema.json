@@ -4843,6 +4843,30 @@
                 }
               },
               "type": "object"
+            },
+            "tls": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "server": {
+                  "properties": {
+                    "existingSecret": {
+                      "type": "string"
+                    },
+                    "mtls": {
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
             }
           },
           "type": "object"

@@ -4,6 +4,8 @@
 package metrics
 
 import (
+	"context"
+	"crypto/tls"
 	"log/slog"
 	"regexp"
 
@@ -32,7 +34,8 @@ type params struct {
 
 	Metrics []metric.WithMetadata `group:"hive-metrics"`
 
-	Registry *metrics.Registry
+	Registry                   *metrics.Registry
+	PrometheusTlsConfigPromise prometheusTLSConfigPromise
 }
 
 // Note: metrics are always initialized so we have access to sampler ring buffer data
@@ -79,5 +82,26 @@ func initializeMetrics(p params) {
 	p.Registry.MustRegister(metrics.ErrorsWarnings)
 	metrics.FlushLoggingMetrics()
 
-	p.Registry.AddServerRuntimeHooks()
+	metricsServer := p.Registry.CreatePrometheusServer(nil)
+
+	p.Lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			tlsEnabled := p.PrometheusTlsConfigPromise != nil
+			if tlsEnabled {
+				p.Logger.Info("Waiting for TLS certificates to become available")
+				certLoaderWatchedServerConfig, err := p.PrometheusTlsConfigPromise.Await(context.TODO())
+				if err != nil {
+					return err
+				}
+				metricsServer.TLSConfig = certLoaderWatchedServerConfig.ServerConfig(&tls.Config{
+					MinVersion: tls.VersionTLS13,
+				})
+			}
+			go p.Registry.StartServer(metricsServer)
+			return nil
+		},
+		OnStop: func(hc cell.HookContext) error {
+			return metricsServer.Shutdown(hc)
+		},
+	})
 }

@@ -829,7 +829,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.pprof.mutexProfileFraction | int | `0` | Enable mutex contention profiling for cilium-operator and set the fraction of sampled events (set to 1 to sample all events) |
 | operator.pprof.port | int | `6061` | Configure pprof listen port for cilium-operator |
 | operator.priorityClassName | string | `""` | The priority class to use for cilium-operator |
-| operator.prometheus | object | `{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}}` | Enable prometheus metrics for cilium-operator on the configured port at /metrics |
+| operator.prometheus | object | `{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"tls":{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}}` | Enable prometheus metrics for cilium-operator on the configured port at /metrics |
 | operator.prometheus.serviceMonitor.annotations | object | `{}` | Annotations to add to ServiceMonitor cilium-operator |
 | operator.prometheus.serviceMonitor.enabled | bool | `false` | Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml) |
 | operator.prometheus.serviceMonitor.interval | string | `"10s"` | Interval for scrape metrics. |
@@ -838,6 +838,8 @@ contributors across the globe, there is almost always someone available to help.
 | operator.prometheus.serviceMonitor.metricRelabelings | string | `nil` | Metrics relabeling configs for the ServiceMonitor cilium-operator |
 | operator.prometheus.serviceMonitor.relabelings | string | `nil` | Relabeling configs for the ServiceMonitor cilium-operator |
 | operator.prometheus.serviceMonitor.scrapeTimeout | string | `nil` | Timeout after which scrape is considered to be failed. |
+| operator.prometheus.tls | object | `{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}` | TLS configuration for Prometheus |
+| operator.prometheus.tls.server.existingSecret | string | `""` | Name of the Secret containing the certificate, key and CA files for the Prometheus server. |
 | operator.removeNodeTaints | bool | `true` | Remove Cilium node taint from Kubernetes nodes that have a healthy Cilium pod running. |
 | operator.replicas | int | `2` | Number of replicas to run for the cilium-operator deployment |
 | operator.resources | object | `{}` | cilium-operator resource limits & requests ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/ |

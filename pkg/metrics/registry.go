@@ -4,6 +4,7 @@
 package metrics
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -77,31 +78,51 @@ func (reg *Registry) Gather() ([]*dto.MetricFamily, error) {
 }
 
 func (reg *Registry) AddServerRuntimeHooks() {
-	if reg.params.Config.PrometheusServeAddr != "" {
-		// The Handler function provides a default handler to expose metrics
-		// via an HTTP server. "/metrics" is the usual endpoint for that.
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-		srv := http.Server{
-			Addr:    reg.params.Config.PrometheusServeAddr,
-			Handler: mux,
-		}
+	if reg.params.Config.PrometheusServeAddr == "" {
+		return
+	}
 
-		reg.params.Lifecycle.Append(cell.Hook{
-			OnStart: func(hc cell.HookContext) error {
-				go func() {
-					reg.params.Logger.Info("Serving prometheus metrics", logfields.Address, reg.params.Config.PrometheusServeAddr)
-					err := srv.ListenAndServe()
-					if err != nil && !errors.Is(err, http.ErrServerClosed) {
-						reg.params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
-					}
-				}()
-				return nil
-			},
-			OnStop: func(hc cell.HookContext) error {
-				return srv.Shutdown(hc)
-			},
-		})
+	srv := reg.CreatePrometheusServer(nil)
+
+	reg.params.Lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			go reg.StartServer(srv)
+			return nil
+		},
+		OnStop: func(hc cell.HookContext) error {
+			return srv.Shutdown(hc)
+		},
+	})
+}
+
+func (reg *Registry) CreatePrometheusServer(tlsConfig *tls.Config) *http.Server {
+	// The Handler function provides a default handler to expose metrics
+	// via an HTTP server. "/metrics" is the usual endpoint for that.
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+	return &http.Server{
+		Addr:      reg.params.Config.PrometheusServeAddr,
+		Handler:   mux,
+		TLSConfig: tlsConfig,
+	}
+}
+
+func (reg *Registry) StartServer(srv *http.Server) {
+	tlsEnabled := srv.TLSConfig != nil
+
+	reg.params.Logger.Info("Serving prometheus metrics",
+		logfields.Address, reg.params.Config.PrometheusServeAddr,
+		logfields.TLS, tlsEnabled,
+	)
+
+	var err error
+	if tlsEnabled {
+		err = srv.ListenAndServeTLS("", "")
+	} else {
+		err = srv.ListenAndServe()
+	}
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		reg.params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
 	}
 }
 

@@ -247,6 +247,11 @@ spec:
           mountPath: {{ dir .Values.authentication.mutual.spire.agentSocketPath }}
           readOnly: true
         {{- end }}
+        {{- if and .Values.operator.prometheus.enabled .Values.operator.prometheus.tls.enabled }}
+        - name: prometheus-tls
+          mountPath: /var/lib/cilium/tls/prometheus
+          readOnly: true
+        {{- end }}
         {{- range .Values.operator.extraHostPathMounts }}
         - name: {{ .name }}
           mountPath: {{ .mountPath }}
@@ -422,6 +427,26 @@ spec:
               - key: {{ .Values.tls.caBundle.key }}
                 path: local-etcd-client-ca.crt
           {{- end }}
+      {{- end }}
+      {{- if and .Values.operator.prometheus.enabled .Values.operator.prometheus.tls.enabled }}
+      # To read the prometheus configuration
+      - name: prometheus-tls
+        projected:
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          sources:
+          - secret:
+              name: {{ .Values.operator.prometheus.tls.server.existingSecret | default "prometheus-server-certs" }}
+              optional: true
+              items:
+                - key: tls.crt
+                  path: server.crt
+                - key: tls.key
+                  path: server.key
+                {{- if .Values.operator.prometheus.tls.server.mtls.enabled }}
+                - key: ca.crt
+                  path: client-ca.crt
+                {{- end }}
       {{- end }}
       {{- include "cilium-operator.volumes.extra" . | nindent 6 }}
 {{- end }}
