@@ -84,7 +84,7 @@ func NewGetMetricsFailed() *GetMetricsFailed {
 // WriteResponse to the client
 func (o *GetMetricsFailed) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(500)
 }

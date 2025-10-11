@@ -36,7 +36,7 @@ func NewDeleteEndpointIDOK() *DeleteEndpointIDOK {
 // WriteResponse to the client
 func (o *DeleteEndpointIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -148,7 +148,7 @@ func NewDeleteEndpointIDForbidden() *DeleteEndpointIDForbidden {
 // WriteResponse to the client
 func (o *DeleteEndpointIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(403)
 }
@@ -173,7 +173,7 @@ func NewDeleteEndpointIDNotFound() *DeleteEndpointIDNotFound {
 // WriteResponse to the client
 func (o *DeleteEndpointIDNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -198,7 +198,7 @@ func NewDeleteEndpointIDTooManyRequests() *DeleteEndpointIDTooManyRequests {
 // WriteResponse to the client
 func (o *DeleteEndpointIDTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(429)
 }
