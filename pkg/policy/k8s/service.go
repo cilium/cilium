@@ -18,6 +18,7 @@ import (
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -432,8 +433,8 @@ func appendEndpoints(toCIDRSet *api.CIDRRuleSlice, endpoints []api.CIDR) {
 // appendSelector appends the service selector as a generated EndpointSelector
 func appendSelector(toEndpoints *[]api.EndpointSelector, svcSelector map[string]string, namespace string) {
 	selector := maps.Clone(svcSelector)
-	selector[labels.LabelSourceK8sKeyPrefix+k8sConst.PodNamespaceLabel] = namespace
-	endpointSelector := api.NewESFromMatchRequirements(selector, nil)
+	selector[k8sConst.PodNamespaceLabel] = namespace
+	endpointSelector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &slim_metav1.LabelSelector{MatchLabels: selector})
 	endpointSelector.Generated = true
 
 	*toEndpoints = append(*toEndpoints, endpointSelector)
