@@ -417,6 +417,12 @@ spec:
           mountPath: /flowlog-config
           readOnly: true
         {{- end }}
+        # If hybrid routing mode is enabled, add the subnet-topology-file-path
+        {{- if eq .Values.routingMode "hybrid" }}
+        - name: subnet-topology-file
+          mountPath: "/var/lib/cilium/subnet"
+          readOnly: true
+        {{- end }}
         {{- with .Values.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -1108,6 +1114,13 @@ spec:
       - name: hubble-flowlog-config
         configMap:
           name: {{ .Values.hubble.export.dynamic.config.configMapName }}
+          optional: true
+      {{- end }}
+      # If routingMode is hybrid, add the subnet-topology-file-path as configmap
+      {{- if eq .Values.routingMode "hybrid" }}
+      - name: subnet-topology-file
+        configMap:
+          name: {{ .Values.subnetTopologyConfigmapName | quote }}
           optional: true
       {{- end }}
       {{- range .Values.extraHostPathMounts }}
