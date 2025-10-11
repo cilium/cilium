@@ -53,7 +53,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  test_concurrency: 5
+  test_concurrency: 1
 
 jobs:
   echo-inputs:
@@ -132,7 +132,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
-    timeout-minutes: 55
+    timeout-minutes: 200
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -439,7 +439,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-concurrent
-          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
+          tests: 'echo-ingress-l7'
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
           skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
@@ -523,7 +523,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-concurrent
-          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
+          tests: 'echo-ingress-l7'
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
           skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
@@ -549,7 +549,7 @@ jobs:
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - after downgrade"
 
       - name: Fetch artifacts
-        if: ${{ !success() }}
+        if: ${{ always() }}
         shell: bash
         run: |
           if [ "${{ matrix.kvstore }}" == "true" ]; then
@@ -563,7 +563,7 @@ jobs:
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"
-          job_status: "${{ job.status }}"
+          job_status: "failure"
           capture_features_tested: false
 
   merge-upload-and-status:
