@@ -11,6 +11,7 @@ package models
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -79,11 +80,15 @@ func (m *KubeProxyReplacement) validateDeviceList(formats strfmt.Registry) error
 
 		if m.DeviceList[i] != nil {
 			if err := m.DeviceList[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("deviceList" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("deviceList" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -100,11 +105,15 @@ func (m *KubeProxyReplacement) validateFeatures(formats strfmt.Registry) error {
 
 	if m.Features != nil {
 		if err := m.Features.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features")
 			}
+
 			return err
 		}
 	}
@@ -112,7 +121,7 @@ func (m *KubeProxyReplacement) validateFeatures(formats strfmt.Registry) error {
 	return nil
 }
 
-var kubeProxyReplacementTypeModePropEnum []interface{}
+var kubeProxyReplacementTypeModePropEnum []any
 
 func init() {
 	var res []string
@@ -183,11 +192,15 @@ func (m *KubeProxyReplacement) contextValidateDeviceList(ctx context.Context, fo
 			}
 
 			if err := m.DeviceList[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("deviceList" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("deviceList" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -206,11 +219,15 @@ func (m *KubeProxyReplacement) contextValidateFeatures(ctx context.Context, form
 		}
 
 		if err := m.Features.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features")
 			}
+
 			return err
 		}
 	}
@@ -371,11 +388,15 @@ func (m *KubeProxyReplacementFeatures) validateExternalIPs(formats strfmt.Regist
 
 	if m.ExternalIPs != nil {
 		if err := m.ExternalIPs.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "externalIPs")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "externalIPs")
 			}
+
 			return err
 		}
 	}
@@ -390,11 +411,15 @@ func (m *KubeProxyReplacementFeatures) validateGracefulTermination(formats strfm
 
 	if m.GracefulTermination != nil {
 		if err := m.GracefulTermination.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "gracefulTermination")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "gracefulTermination")
 			}
+
 			return err
 		}
 	}
@@ -409,11 +434,15 @@ func (m *KubeProxyReplacementFeatures) validateHostPort(formats strfmt.Registry)
 
 	if m.HostPort != nil {
 		if err := m.HostPort.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "hostPort")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "hostPort")
 			}
+
 			return err
 		}
 	}
@@ -428,11 +457,15 @@ func (m *KubeProxyReplacementFeatures) validateHostReachableServices(formats str
 
 	if m.HostReachableServices != nil {
 		if err := m.HostReachableServices.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "hostReachableServices")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "hostReachableServices")
 			}
+
 			return err
 		}
 	}
@@ -447,11 +480,15 @@ func (m *KubeProxyReplacementFeatures) validateNat46X64(formats strfmt.Registry)
 
 	if m.Nat46X64 != nil {
 		if err := m.Nat46X64.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "nat46X64")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "nat46X64")
 			}
+
 			return err
 		}
 	}
@@ -466,11 +503,15 @@ func (m *KubeProxyReplacementFeatures) validateNodePort(formats strfmt.Registry)
 
 	if m.NodePort != nil {
 		if err := m.NodePort.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "nodePort")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "nodePort")
 			}
+
 			return err
 		}
 	}
@@ -485,11 +526,15 @@ func (m *KubeProxyReplacementFeatures) validateSessionAffinity(formats strfmt.Re
 
 	if m.SessionAffinity != nil {
 		if err := m.SessionAffinity.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "sessionAffinity")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "sessionAffinity")
 			}
+
 			return err
 		}
 	}
@@ -504,11 +549,15 @@ func (m *KubeProxyReplacementFeatures) validateSocketLB(formats strfmt.Registry)
 
 	if m.SocketLB != nil {
 		if err := m.SocketLB.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "socketLB")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "socketLB")
 			}
+
 			return err
 		}
 	}
@@ -523,11 +572,15 @@ func (m *KubeProxyReplacementFeatures) validateSocketLBTracing(formats strfmt.Re
 
 	if m.SocketLBTracing != nil {
 		if err := m.SocketLBTracing.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "socketLBTracing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "socketLBTracing")
 			}
+
 			return err
 		}
 	}
@@ -590,11 +643,15 @@ func (m *KubeProxyReplacementFeatures) contextValidateExternalIPs(ctx context.Co
 		}
 
 		if err := m.ExternalIPs.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "externalIPs")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "externalIPs")
 			}
+
 			return err
 		}
 	}
@@ -611,11 +668,15 @@ func (m *KubeProxyReplacementFeatures) contextValidateGracefulTermination(ctx co
 		}
 
 		if err := m.GracefulTermination.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "gracefulTermination")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "gracefulTermination")
 			}
+
 			return err
 		}
 	}
@@ -632,11 +693,15 @@ func (m *KubeProxyReplacementFeatures) contextValidateHostPort(ctx context.Conte
 		}
 
 		if err := m.HostPort.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "hostPort")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "hostPort")
 			}
+
 			return err
 		}
 	}
@@ -653,11 +718,15 @@ func (m *KubeProxyReplacementFeatures) contextValidateHostReachableServices(ctx 
 		}
 
 		if err := m.HostReachableServices.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "hostReachableServices")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "hostReachableServices")
 			}
+
 			return err
 		}
 	}
@@ -674,11 +743,15 @@ func (m *KubeProxyReplacementFeatures) contextValidateNat46X64(ctx context.Conte
 		}
 
 		if err := m.Nat46X64.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "nat46X64")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "nat46X64")
 			}
+
 			return err
 		}
 	}
@@ -695,11 +768,15 @@ func (m *KubeProxyReplacementFeatures) contextValidateNodePort(ctx context.Conte
 		}
 
 		if err := m.NodePort.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "nodePort")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "nodePort")
 			}
+
 			return err
 		}
 	}
@@ -716,11 +793,15 @@ func (m *KubeProxyReplacementFeatures) contextValidateSessionAffinity(ctx contex
 		}
 
 		if err := m.SessionAffinity.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "sessionAffinity")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "sessionAffinity")
 			}
+
 			return err
 		}
 	}
@@ -737,11 +818,15 @@ func (m *KubeProxyReplacementFeatures) contextValidateSocketLB(ctx context.Conte
 		}
 
 		if err := m.SocketLB.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "socketLB")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "socketLB")
 			}
+
 			return err
 		}
 	}
@@ -758,11 +843,15 @@ func (m *KubeProxyReplacementFeatures) contextValidateSocketLBTracing(ctx contex
 		}
 
 		if err := m.SocketLBTracing.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "socketLBTracing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "socketLBTracing")
 			}
+
 			return err
 		}
 	}
@@ -989,11 +1078,15 @@ func (m *KubeProxyReplacementFeaturesNat46X64) validateGateway(formats strfmt.Re
 
 	if m.Gateway != nil {
 		if err := m.Gateway.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "nat46X64" + "." + "gateway")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "nat46X64" + "." + "gateway")
 			}
+
 			return err
 		}
 	}
@@ -1008,11 +1101,15 @@ func (m *KubeProxyReplacementFeaturesNat46X64) validateService(formats strfmt.Re
 
 	if m.Service != nil {
 		if err := m.Service.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "nat46X64" + "." + "service")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "nat46X64" + "." + "service")
 			}
+
 			return err
 		}
 	}
@@ -1047,11 +1144,15 @@ func (m *KubeProxyReplacementFeaturesNat46X64) contextValidateGateway(ctx contex
 		}
 
 		if err := m.Gateway.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "nat46X64" + "." + "gateway")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "nat46X64" + "." + "gateway")
 			}
+
 			return err
 		}
 	}
@@ -1068,11 +1169,15 @@ func (m *KubeProxyReplacementFeaturesNat46X64) contextValidateService(ctx contex
 		}
 
 		if err := m.Service.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("features" + "." + "nat46X64" + "." + "service")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("features" + "." + "nat46X64" + "." + "service")
 			}
+
 			return err
 		}
 	}
@@ -1241,7 +1346,7 @@ func (m *KubeProxyReplacementFeaturesNodePort) Validate(formats strfmt.Registry)
 	return nil
 }
 
-var kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum []interface{}
+var kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum []any
 
 func init() {
 	var res []string
@@ -1289,7 +1394,7 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateAcceleration(formats strf
 	return nil
 }
 
-var kubeProxyReplacementFeaturesNodePortTypeAlgorithmPropEnum []interface{}
+var kubeProxyReplacementFeaturesNodePortTypeAlgorithmPropEnum []any
 
 func init() {
 	var res []string
@@ -1331,7 +1436,7 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateAlgorithm(formats strfmt.
 	return nil
 }
 
-var kubeProxyReplacementFeaturesNodePortTypeDsrModePropEnum []interface{}
+var kubeProxyReplacementFeaturesNodePortTypeDsrModePropEnum []any
 
 func init() {
 	var res []string
@@ -1376,7 +1481,7 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateDsrMode(formats strfmt.Re
 	return nil
 }
 
-var kubeProxyReplacementFeaturesNodePortTypeModePropEnum []interface{}
+var kubeProxyReplacementFeaturesNodePortTypeModePropEnum []any
 
 func init() {
 	var res []string

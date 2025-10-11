@@ -11,6 +11,7 @@ package models
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -68,11 +69,15 @@ func (m *EncryptionStatus) validateIpsec(formats strfmt.Registry) error {
 
 	if m.Ipsec != nil {
 		if err := m.Ipsec.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipsec")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipsec")
 			}
+
 			return err
 		}
 	}
@@ -80,7 +85,7 @@ func (m *EncryptionStatus) validateIpsec(formats strfmt.Registry) error {
 	return nil
 }
 
-var encryptionStatusTypeModePropEnum []interface{}
+var encryptionStatusTypeModePropEnum []any
 
 func init() {
 	var res []string
@@ -132,11 +137,15 @@ func (m *EncryptionStatus) validateWireguard(formats strfmt.Registry) error {
 
 	if m.Wireguard != nil {
 		if err := m.Wireguard.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("wireguard")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("wireguard")
 			}
+
 			return err
 		}
 	}
@@ -171,11 +180,15 @@ func (m *EncryptionStatus) contextValidateIpsec(ctx context.Context, formats str
 		}
 
 		if err := m.Ipsec.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipsec")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipsec")
 			}
+
 			return err
 		}
 	}
@@ -192,11 +205,15 @@ func (m *EncryptionStatus) contextValidateWireguard(ctx context.Context, formats
 		}
 
 		if err := m.Wireguard.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("wireguard")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("wireguard")
 			}
+
 			return err
 		}
 	}

@@ -124,7 +124,7 @@ func NewDeletePolicyForbidden() *DeletePolicyForbidden {
 // WriteResponse to the client
 func (o *DeletePolicyForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(403)
 }
@@ -149,7 +149,7 @@ func NewDeletePolicyNotFound() *DeletePolicyNotFound {
 // WriteResponse to the client
 func (o *DeletePolicyNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
