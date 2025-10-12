@@ -22,6 +22,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var Cell = cell.Module(
@@ -40,6 +41,7 @@ var ServiceExportSyncCell = cell.Module(
 type mcsAPIParams struct {
 	cell.In
 
+	AgentConfig *option.DaemonConfig
 	ClusterMesh operator.ClusterMesh
 	Cfg         operator.ClusterMeshConfig
 	CfgMCSAPI   operator.MCSAPIConfig
@@ -133,6 +135,7 @@ func registerMCSAPIController(params mcsAPIParams) error {
 	svcImportReconciler := newMCSAPIServiceImportReconciler(
 		params.CtrlRuntimeManager, params.Logger, params.ClusterInfo.Name,
 		params.ClusterMesh.GlobalServiceExports(), remoteClusterServiceSource,
+		params.AgentConfig.EnableIPv4, params.AgentConfig.EnableIPv6,
 	)
 
 	params.JobGroup.Add(job.OneShot("mcsapi-main", func(ctx context.Context, health cell.Health) error {

@@ -27,6 +27,7 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -44,15 +45,20 @@ type mcsAPIServiceImportReconciler struct {
 	cluster                    string
 	globalServiceExports       *operator.GlobalServiceExportCache
 	remoteClusterServiceSource *remoteClusterServiceExportSource
+
+	enableIPv4 bool
+	enableIPv6 bool
 }
 
-func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource) *mcsAPIServiceImportReconciler {
+func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource, enableIPv4, enableIPv6 bool) *mcsAPIServiceImportReconciler {
 	return &mcsAPIServiceImportReconciler{
 		Client:                     mgr.GetClient(),
 		Logger:                     logger,
 		cluster:                    cluster,
 		globalServiceExports:       globalServiceExports,
 		remoteClusterServiceSource: remoteClusterServiceSource,
+		enableIPv4:                 enableIPv4,
+		enableIPv6:                 enableIPv6,
 	}
 }
 
@@ -282,6 +288,31 @@ func intersectIPFamilies(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]
 	}
 
 	return ipFamilies, mcsapiv1alpha1.ServiceExportReasonNoConflicts, ""
+}
+
+func (r mcsAPIServiceImportReconciler) filterSupportedIPFamilies(ipfamilies []corev1.IPFamily) []corev1.IPFamily {
+	supportedIPFamilies := make([]corev1.IPFamily, 0, len(ipfamilies))
+	if ipfamilies == nil {
+		// All exported clusters are legacy, fallback to what we locally support
+		if r.enableIPv4 {
+			supportedIPFamilies = append(supportedIPFamilies, corev1.IPv4Protocol)
+		}
+		if r.enableIPv6 {
+			supportedIPFamilies = append(supportedIPFamilies, corev1.IPv6Protocol)
+		}
+		return supportedIPFamilies
+	}
+
+	// preserve the order of the input
+	for _, ipfamily := range ipfamilies {
+		if ipfamily == corev1.IPv4Protocol && !r.enableIPv4 {
+			continue
+		} else if ipfamily == corev1.IPv6Protocol && !r.enableIPv6 {
+			continue
+		}
+		supportedIPFamilies = append(supportedIPFamilies, ipfamily)
+	}
+	return supportedIPFamilies
 }
 
 func getClustersStatus(svcExportByCluster operator.ServiceExportsByCluster) []mcsapiv1alpha1.ClusterStatus {
@@ -547,13 +578,15 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 	svcImport.Spec.SessionAffinityConfig = oldestClusterSvc.SessionAffinityConfig.DeepCopy()
 	svcImport.Labels = maps.Clone(oldestClusterSvc.Labels)
 	annotations := maps.Clone(oldestClusterSvc.Annotations)
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
 	_, derivedSvcAnnotationExists := svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
 	if derivedSvcAnnotationExists {
-		if annotations == nil {
-			annotations = map[string]string{}
-		}
 		annotations[mcsapicontrollers.DerivedServiceAnnotation] = svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
 	}
+	supportedIPFamilies := r.filterSupportedIPFamilies(svcImport.Spec.IPFamilies)
+	annotations[annotation.SupportedIPFamilies] = mcsapitypes.IPFamiliesToString(supportedIPFamilies)
 	svcImport.Annotations = annotations
 
 	svcImport, err = r.createOrUpdateServiceImport(ctx, svcImport)
@@ -563,7 +596,14 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	svcImportStatusOriginal := svcImport.Status.DeepCopy()
 	svcImport.Status.Clusters = getClustersStatus(svcExportByCluster)
-	if derivedSvcAnnotationExists {
+	if len(supportedIPFamilies) == 0 {
+		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
+			mcsapiv1alpha1.ServiceImportConditionReady,
+			metav1.ConditionFalse,
+			mcsapiv1alpha1.ServiceImportReasonIPFamilyNotSupported,
+			"The local cluster does not support any of the ServiceImport IPFamilies",
+		))
+	} else if derivedSvcAnnotationExists {
 		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
 			mcsapiv1alpha1.ServiceImportConditionReady,
 			metav1.ConditionTrue,
