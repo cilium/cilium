@@ -76,7 +76,10 @@ volatile const __u8 mac_zero[] = mac_zero_addr;
 
 #define v4_svc_loopback	IPV4(10, 245, 255, 31)
 
-#define v4_all	IPV4(0, 0, 0, 0)
+#define v4_all		IPV4(0, 0, 0, 0)
+#define v6_all_addr	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+volatile const __u8 v6_all[] = v6_all_addr;
 
 /* IPv6 addresses for pods in the cluster */
 #define v6_pod_one_addr {0xfd, 0x04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
