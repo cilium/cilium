@@ -159,6 +159,12 @@ type AdditionalUnattendContent struct {
 	SettingName *SettingNames
 }
 
+// AllInstancesDown - Specifies if Scheduled Events should be auto-approved when all instances are down.
+type AllInstancesDown struct {
+	// Specifies if Scheduled Events should be auto-approved when all instances are down. its default value is true
+	AutomaticallyApprove *bool
+}
+
 // AlternativeOption - Describes the alternative option specified by the Publisher for this image when this image is deprecated.
 type AlternativeOption struct {
 	// Describes the type of the alternative option.
@@ -413,10 +419,13 @@ type CapacityReservation struct {
 	// REQUIRED; The geo-location where the resource lives
 	Location *string
 
-	// REQUIRED; SKU of the resource for which capacity needs be reserved. The SKU name and capacity is required to be set. Currently
-	// VM Skus with the capability called 'CapacityReservationSupported' set to true are
-	// supported. Refer to List Microsoft.Compute SKUs in a region (https://docs.microsoft.com/rest/api/compute/resourceskus/list)
-	// for supported values.
+	// REQUIRED; SKU of the resource for which capacity needs be reserved. The SKU name and capacity is required to be set. For
+	// Block capacity reservations, sku.capacity can only accept values 1, 2, 4, 8, 16, 32, 64.
+	// Currently VM Skus with the capability called 'CapacityReservationSupported' set to true are supported. When 'CapacityReservationSupported'
+	// is true, the SKU capability also specifies the
+	// 'SupportedCapacityReservationTypes', which lists the types of capacity reservations (such as Targeted or Block) that the
+	// SKU supports. Refer to List Microsoft.Compute SKUs in a region
+	// (https://docs.microsoft.com/rest/api/compute/resourceskus/list) for supported values.
 	SKU *SKU
 
 	// Properties of the Capacity reservation.
@@ -491,11 +500,16 @@ type CapacityReservationGroupListResult struct {
 
 // CapacityReservationGroupProperties - capacity reservation group Properties.
 type CapacityReservationGroupProperties struct {
-	// Specifies the settings to enable sharing across subscriptions for the capacity reservation group resource. Pls. keep in
-	// mind the capacity reservation group resource generally can be shared across
-	// subscriptions belonging to a single azure AAD tenant or cross AAD tenant if there is a trust relationship established between
-	// the AAD tenants. Note: Minimum api-version: 2023-09-01. Please refer to
-	// https://aka.ms/computereservationsharing for more details.
+	// Indicates the type of capacity reservation. Allowed values are 'Block' for block capacity reservations and 'Targeted' for
+	// reservations that enable a VM to consume a specific capacity reservation when
+	// a capacity reservation group is provided. The reservation type is immutable and cannot be changed after it is assigned.
+	ReservationType *ReservationType
+
+	// Specifies the settings to enable sharing across subscriptions for the capacity reservation group resource. The capacity
+	// reservation group resource can generally be shared across subscriptions
+	// belonging to a single Azure AAD tenant or across AAD tenants if there is a trust relationship established between the tenants.
+	// Block capacity reservation does not support sharing across subscriptions.
+	// Note: Minimum api-version: 2023-09-01. Please refer to https://aka.ms/computereservationsharing for more details.
 	SharingProfile *ResourceSharingProfile
 
 	// READ-ONLY; A list of all capacity reservation resource ids that belong to capacity reservation group.
@@ -562,6 +576,13 @@ type CapacityReservationProfile struct {
 
 // CapacityReservationProperties - Properties of the Capacity reservation.
 type CapacityReservationProperties struct {
+	// Defines the schedule for Block-type capacity reservations. Specifies the schedule during which capacity reservation is
+	// active and VM or VMSS resource can be allocated using reservation. This property
+	// is required and only supported when the capacity reservation group type is 'Block'. The scheduleProfile, start, and end
+	// fields are immutable after creation. Minimum API version: 2025-04-01. Please
+	// refer to https://aka.ms/blockcapacityreservation for more details.
+	ScheduleProfile *ScheduleProfile
+
 	// READ-ONLY; The Capacity reservation instance view.
 	InstanceView *CapacityReservationInstanceView
 
@@ -587,15 +608,19 @@ type CapacityReservationProperties struct {
 	VirtualMachinesAssociated []*SubResourceReadOnly
 }
 
-// CapacityReservationUpdate - Specifies information about the capacity reservation. Only tags and sku.capacity can be updated.
+// CapacityReservationUpdate - Specifies information about the capacity reservation. sku.capacity cannot be updated for Block
+// Capacity Reservation. Tags can be update for all Capacity Reservation Types.
 type CapacityReservationUpdate struct {
 	// Properties of the Capacity reservation.
 	Properties *CapacityReservationProperties
 
 	// SKU of the resource for which capacity needs be reserved. The SKU name and capacity is required to be set. Currently VM
 	// Skus with the capability called 'CapacityReservationSupported' set to true are
-	// supported. Refer to List Microsoft.Compute SKUs in a region (https://docs.microsoft.com/rest/api/compute/resourceskus/list)
-	// for supported values.
+	// supported. When 'CapacityReservationSupported' is true, the SKU capability also specifies the 'SupportedCapacityReservationTypes',
+	// which lists the types of capacity reservations (such as Targeted or
+	// Block) that the SKU supports. Refer to List Microsoft.Compute SKUs in a region (https://docs.microsoft.com/rest/api/compute/resourceskus/list)
+	// for supported values. Note: The SKU name and capacity
+	// cannot be updated for Block capacity reservations.
 	SKU *SKU
 
 	// Resource tags
@@ -2253,6 +2278,9 @@ type EncryptionSettingsElement struct {
 type EventGridAndResourceGraph struct {
 	// Specifies if event grid and resource graph is enabled for Scheduled event related configurations.
 	Enable *bool
+
+	// Specifies the api-version to determine which Scheduled Events configuration schema version will be delivered.
+	ScheduledEventsAPIVersion *string
 }
 
 // ExecutedValidation - This is the executed Validation.
@@ -3752,6 +3780,16 @@ type ManagedDiskParameters struct {
 	StorageAccountType *StorageAccountTypes
 }
 
+// MaxInstancePercentPerZonePolicy - The configuration parameters used to limit the number of virtual machines per availability
+// zone in the virtual machine scale set.
+type MaxInstancePercentPerZonePolicy struct {
+	// Specifies whether maxInstancePercentPerZonePolicy should be enabled on the virtual machine scale set.
+	Enabled *bool
+
+	// Limit on the number of instances in each zone as a percentage of the total capacity of the virtual machine scale set.
+	Value *int32
+}
+
 // MigrateToVirtualMachineScaleSetInput - Describes the Virtual Machine Scale Set to migrate from Availability Set.
 type MigrateToVirtualMachineScaleSetInput struct {
 	// REQUIRED; Specifies information about the Virtual Machine Scale Set that the Availability Set should be migrated to. Minimum
@@ -4152,6 +4190,12 @@ type OrchestrationServiceStateInput struct {
 
 // OrchestrationServiceSummary - Summary for an orchestration service of a virtual machine scale set.
 type OrchestrationServiceSummary struct {
+	// READ-ONLY; The last UTC time when the operation status changed. Minimum API version for this property is 2025-04-01.
+	LastStatusChangeTime *time.Time
+
+	// READ-ONLY; The latest operation status of the service. Minimum API version for this property is 2025-04-01.
+	LatestOperationStatus *OrchestrationServiceOperationStatus
+
 	// READ-ONLY; The name of the service.
 	ServiceName *OrchestrationServiceNames
 
@@ -4208,22 +4252,23 @@ type PatchSettings struct {
 	PatchMode *WindowsVMGuestPatchMode
 }
 
-// Placement - Describes the user-defined constraints for virtual machine hardware placement.
+// Placement - Describes the user-defined constraints for resource hardware placement.
 type Placement struct {
-	// This property supplements the 'zonePlacementPolicy' property. If 'zonePlacementPolicy' is set to 'Any', availability zone
-	// selected by the system must not be present in the list of availability zones
-	// passed with 'excludeZones'. If 'excludeZones' is not provided, all availability zones in region will be considered for
-	// selection.
+	// This property supplements the 'zonePlacementPolicy' property. If 'zonePlacementPolicy' is set to 'Any'/'Auto', availability
+	// zone selected by the system must not be present in the list of availability
+	// zones passed with 'excludeZones'. If 'excludeZones' is not provided, all availability zones in region will be considered
+	// for selection.
 	ExcludeZones []*string
 
-	// This property supplements the 'zonePlacementPolicy' property. If 'zonePlacementPolicy' is set to 'Any', availability zone
-	// selected by the system must be present in the list of availability zones
-	// passed with 'includeZones'. If 'includeZones' is not provided, all availability zones in region will be considered for
-	// selection.
+	// This property supplements the 'zonePlacementPolicy' property. If 'zonePlacementPolicy' is set to 'Any'/'Auto', availability
+	// zone selected by the system must be present in the list of availability
+	// zones passed with 'includeZones'. If 'includeZones' is not provided, all availability zones in region will be considered
+	// for selection.
 	IncludeZones []*string
 
-	// Specifies the policy for virtual machine's placement in availability zone. Possible values are: Any - An availability zone
-	// will be automatically picked by system as part of virtual machine creation.
+	// Specifies the policy for resource's placement in availability zone. Possible values are: Any (used for Virtual Machines),
+	// Auto (used for Virtual Machine Scale Sets) - An availability zone will be
+	// automatically picked by system as part of resource creation.
 	ZonePlacementPolicy *ZonePlacementPolicyType
 }
 
@@ -4447,6 +4492,9 @@ type ProximityPlacementGroupUpdate struct {
 // ProxyAgentSettings - Specifies ProxyAgent settings for the virtual machine or virtual machine scale set. Minimum api-version:
 // 2023-09-01.
 type ProxyAgentSettings struct {
+	// Specify whether to implicitly install the ProxyAgent Extension. This option is currently applicable only for Linux Os.
+	AddProxyAgentExtension *bool
+
 	// Specifies whether ProxyAgent feature should be enabled on the virtual machine or virtual machine scale set.
 	Enabled *bool
 
@@ -4584,6 +4632,9 @@ type ResiliencyPolicy struct {
 
 	// The configuration parameters used while performing resilient VM deletion.
 	ResilientVMDeletionPolicy *ResilientVMDeletionPolicy
+
+	// The configuration parameters used while performing zone allocation.
+	ZoneAllocationPolicy *ZoneAllocationPolicy
 }
 
 // ResilientVMCreationPolicy - The configuration parameters used while performing resilient VM creation.
@@ -4768,9 +4819,9 @@ type ResourceSKUsResult struct {
 }
 
 type ResourceSharingProfile struct {
-	// Specifies an array of subscription resource IDs that capacity reservation group is shared with. Note: Minimum api-version:
-	// 2023-09-01. Please refer to https://aka.ms/computereservationsharing for more
-	// details.
+	// Specifies an array of subscription resource IDs that capacity reservation group is shared with. Block Capacity Reservations
+	// does not support sharing across subscriptions. Note: Minimum api-version:
+	// 2023-09-01. Please refer to https://aka.ms/computereservationsharing for more details.
 	SubscriptionIDs []*SubResource
 }
 
@@ -5259,7 +5310,9 @@ type RunCommandDocumentBase struct {
 
 // RunCommandInput - Capture Virtual Machine parameters.
 type RunCommandInput struct {
-	// REQUIRED; The run command id.
+	// REQUIRED; Specifies a commandId of predefined built-in script. Command IDs available for Linux are listed at https://aka.ms/RunCommandManagedLinux#available-commands,
+	// Windows at
+	// https://aka.ms/RunCommandManagedWindows#available-commands.
 	CommandID *string
 
 	// The run command parameters.
@@ -5476,6 +5529,21 @@ type ScaleInPolicy struct {
 	Rules []*VirtualMachineScaleSetScaleInRules
 }
 
+// ScheduleProfile - Defines the schedule for Block-type capacity reservations. Specifies the schedule during which capacity
+// reservation is active and VM or VMSS resource can be allocated using reservation. This property
+// is required and only supported when the capacity reservation group type is 'Block'. The scheduleProfile, start, and end
+// fields are immutable after creation. Minimum API version: 2025-04-01. Please
+// refer to https://aka.ms/blockcapacityreservation for more details.
+type ScheduleProfile struct {
+	// The required end date for block capacity reservations. Must be after the start date, with a duration of either 1–14 whole
+	// days or 3–26 whole weeks. Example: 2025-06-28.
+	End *string
+
+	// The required start date for block capacity reservations. Must be today or within 56 days in the future. For same-day scheduling,
+	// requests must be submitted before 11:30 AM UTC. Example: 2025-06-27.
+	Start *string
+}
+
 type ScheduledEventsAdditionalPublishingTargets struct {
 	// The configuration parameters used while creating eventGridAndResourceGraph Scheduled Event setting.
 	EventGridAndResourceGraph *EventGridAndResourceGraph
@@ -5484,6 +5552,9 @@ type ScheduledEventsAdditionalPublishingTargets struct {
 // ScheduledEventsPolicy - Specifies Redeploy, Reboot and ScheduledEventsAdditionalPublishingTargets Scheduled Event related
 // configurations.
 type ScheduledEventsPolicy struct {
+	// The configuration parameters used while creating AllInstancesDown scheduled event setting creation.
+	AllInstancesDown *AllInstancesDown
+
 	// The configuration parameters used while publishing scheduledEventsAdditionalPublishingTargets.
 	ScheduledEventsAdditionalPublishingTargets *ScheduledEventsAdditionalPublishingTargets
 
@@ -6396,6 +6467,21 @@ type VMScaleSetConvertToSinglePlacementGroupInput struct {
 	ActivePlacementGroupID *string
 }
 
+// VMScaleSetScaleOutInput - The input for ScaleOut
+type VMScaleSetScaleOutInput struct {
+	// REQUIRED; Specifies the number of virtual machines in the scale set.
+	Capacity *int64
+
+	// The input properties for ScaleOut
+	Properties *VMScaleSetScaleOutInputProperties
+}
+
+// VMScaleSetScaleOutInputProperties - The input properties for ScaleOut
+type VMScaleSetScaleOutInputProperties struct {
+	// The zone in which the scale out is requested for the virtual machine scale set.
+	Zone *string
+}
+
 // VMSizeProperties - Specifies VM Size Property settings on the virtual machine.
 type VMSizeProperties struct {
 	// Specifies the number of vCPUs available for the VM. When this property is not specified in the request body the default
@@ -7034,6 +7120,9 @@ type VirtualMachineNetworkInterfaceConfiguration struct {
 
 	// Describes a virtual machine network profile's IP configuration.
 	Properties *VirtualMachineNetworkInterfaceConfigurationProperties
+
+	// Resource tags applied to the networkInterface address created by this NetworkInterfaceConfiguration
+	Tags map[string]*string
 }
 
 // VirtualMachineNetworkInterfaceConfigurationProperties - Describes a virtual machine network profile's IP configuration.
@@ -7261,6 +7350,9 @@ type VirtualMachinePublicIPAddressConfiguration struct {
 
 	// Describes the public IP Sku. It can only be set with OrchestrationMode as Flexible.
 	SKU *PublicIPAddressSKU
+
+	// Resource tags applied to the publicIP address created by this PublicIPAddressConfiguration
+	Tags map[string]*string
 }
 
 // VirtualMachinePublicIPAddressConfigurationProperties - Describes a virtual machines IP Configuration's PublicIPAddress
@@ -7433,14 +7525,25 @@ type VirtualMachineRunCommandProperties struct {
 	ProvisioningState *string
 }
 
-// VirtualMachineRunCommandScriptSource - Describes the script sources for run command. Use only one of script, scriptUri,
-// commandId.
+// VirtualMachineRunCommandScriptSource - Describes the script sources for run command. Use only one of these script sources:
+// script, scriptUri, commandId, galleryScriptReferenceId.
 type VirtualMachineRunCommandScriptSource struct {
-	// Specifies a commandId of predefined built-in script.
+	// Specifies a commandId of predefined built-in script. Command IDs available for Linux are listed at https://aka.ms/RunCommandManagedLinux#available-commands,
+	// Windows at
+	// https://aka.ms/RunCommandManagedWindows#available-commands.
 	CommandID *string
+
+	// The resource ID of a Gallery Script version that needs to be executed. Example ID looks like
+	// /subscriptions/{subId}/resourceGroups/{rgName}/providers/Microsoft.Compute/galleries/{galleryName}/scripts/{scriptName}/versions/{version}.
+	GalleryScriptReferenceID *string
 
 	// Specifies the script content to be executed on the VM.
 	Script *string
+
+	// Optional. Specify which shell to use for running the script. These values must match those expected by the extension. Currently
+	// supported only for Windows VMs, script uses Powershell 7 when specified.
+	// Powershell 7 must be already installed on the machine to use Powershell7 parameter value.
+	ScriptShell *ScriptShellTypes
 
 	// Specifies the script download location. It can be either SAS URI of an Azure storage blob with read access or public URI.
 	ScriptURI *string
@@ -7481,6 +7584,10 @@ type VirtualMachineScaleSet struct {
 
 	// The identity of the virtual machine scale set, if configured.
 	Identity *VirtualMachineScaleSetIdentity
+
+	// Placement section specifies the user-defined constraints for virtual machine scale set hardware placement. This property
+	// cannot be changed once VMSS is provisioned. Minimum api-version: 2025-04-01.
+	Placement *Placement
 
 	// Specifies information about the marketplace image used to create the virtual machine. This element is only used for marketplace
 	// images. Before you can use a marketplace image from an API, you must
@@ -7830,6 +7937,9 @@ type VirtualMachineScaleSetNetworkConfiguration struct {
 
 	// Describes a virtual machine scale set network profile's IP configuration.
 	Properties *VirtualMachineScaleSetNetworkConfigurationProperties
+
+	// Resource tags applied to the networkInterface address created by this NetworkInterfaceConfiguration
+	Tags map[string]*string
 }
 
 // VirtualMachineScaleSetNetworkConfigurationDNSSettings - Describes a virtual machines scale sets network configuration's
@@ -8018,6 +8128,9 @@ type VirtualMachineScaleSetProperties struct {
 	// overprovisioned VMs.
 	DoNotRunExtensionsOnOverprovisionedVMs *bool
 
+	// Specifies the high speed interconnect placement for the virtual machine scale set.
+	HighSpeedInterconnectPlacement *HighSpeedInterconnectPlacement
+
 	// Specifies information about the dedicated host group that the virtual machine scale set resides in. Minimum api-version:
 	// 2020-06-01.
 	HostGroup *SubResource
@@ -8093,6 +8206,9 @@ type VirtualMachineScaleSetPublicIPAddressConfiguration struct {
 
 	// Describes the public IP Sku. It can only be set with OrchestrationMode as Flexible.
 	SKU *PublicIPAddressSKU
+
+	// Resource tags applied to the publicIP address created by this PublicIPAddressConfiguration
+	Tags map[string]*string
 }
 
 // VirtualMachineScaleSetPublicIPAddressConfigurationDNSSettings - Describes a virtual machines scale sets network configuration's
@@ -8269,6 +8385,9 @@ type VirtualMachineScaleSetUpdateNetworkConfiguration struct {
 	// Describes a virtual machine scale set updatable network profile's IP configuration.Use this object for updating network
 	// profile's IP Configuration.
 	Properties *VirtualMachineScaleSetUpdateNetworkConfigurationProperties
+
+	// Resource tags applied to the networkInterface address created by this NetworkInterfaceConfiguration
+	Tags map[string]*string
 }
 
 // VirtualMachineScaleSetUpdateNetworkConfigurationProperties - Describes a virtual machine scale set updatable network profile's
@@ -8436,6 +8555,9 @@ type VirtualMachineScaleSetUpdatePublicIPAddressConfiguration struct {
 
 	// Describes a virtual machines scale set IP Configuration's PublicIPAddress configuration
 	Properties *VirtualMachineScaleSetUpdatePublicIPAddressConfigurationProperties
+
+	// Resource tags applied to the publicIP address created by this PublicIPAddressConfiguration
+	Tags map[string]*string
 }
 
 // VirtualMachineScaleSetUpdatePublicIPAddressConfigurationProperties - Describes a virtual machines scale set IP Configuration's
@@ -9049,6 +9171,16 @@ type WindowsParameters struct {
 
 	// This is used to install patches that were published on or before this given max published date.
 	MaxPatchPublishDate *time.Time
+
+	// This is used to exclude patches that match the given patch name masks. Alphanumeric strings and wildcard expressions consisting
+	// of * and ? are only supported as input values in the list. Null, empty
+	// and only whitespaces strings as inputs values are not supported.
+	PatchNameMasksToExclude []*string
+
+	// This is used to include patches that match the given patch name masks. Alphanumeric strings and wildcard expressions consisting
+	// of * and ? are only supported as input values in the list. Null, empty
+	// and only whitespaces strings as inputs values are not supported.
+	PatchNameMasksToInclude []*string
 }
 
 // WindowsVMGuestPatchAutomaticByPlatformSettings - Specifies additional settings to be applied when patch mode AutomaticByPlatform
@@ -9059,4 +9191,15 @@ type WindowsVMGuestPatchAutomaticByPlatformSettings struct {
 
 	// Specifies the reboot setting for all AutomaticByPlatform patch installation operations.
 	RebootSetting *WindowsVMGuestPatchAutomaticByPlatformRebootSetting
+}
+
+// ZoneAllocationPolicy - The configuration parameters for zone allocation of a virtual machine scale set.
+type ZoneAllocationPolicy struct {
+	// The configuration parameters used to limit the number of virtual machines per availability zone in the virtual machine
+	// scale set.
+	MaxInstancePercentPerZonePolicy *MaxInstancePercentPerZonePolicy
+
+	// The maximum number of availability zones to use if the ZonePlacementPolicy is 'Auto'. If not specified, all availability
+	// zones will be used.
+	MaxZoneCount *int32
 }
