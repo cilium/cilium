@@ -101,6 +101,15 @@ __ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_iden
 }
 
 static __always_inline void
+ipcache_v6_add_world_entry()
+{
+	union v6addr tunnel_ep = {0};
+
+	__ipcache_v6_add_entry((union v6addr *)v6_all, 0, WORLD_IPV6_ID,
+			       &tunnel_ep, false, false, 0);
+}
+
+static __always_inline void
 ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_identity,
 		     __u32 tunnel_ep, __u8 spi)
 {
