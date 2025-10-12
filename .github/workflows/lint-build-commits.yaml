@@ -112,19 +112,9 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
-          cache: false
+          cache-dependency-path: '**/go.sum'
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.1
-
-      - name: Load Golang cache build from GitHub
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        id: go-cache
-        with:
-          path: /tmp/.cache/go
-          key: ${{ runner.os }}-go-all-cache-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-all-cache-
-            ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -136,19 +126,15 @@ jobs:
             ${{ runner.os }}-ccache-
 
       - name: Create cache directories if they don't exist
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.ccache-cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
-          mkdir -p /tmp/.cache/go/.cache/go-build
-          mkdir -p /tmp/.cache/go/pkg
           mkdir -p /tmp/.cache/ccache/.ccache
 
       - name: Check if build works for every commit
-        if: ${{ github.event_name != 'push' || ( (github.event_name == 'push' || github.event_name == 'workflow_run' ) && (steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true')) }}
+        if: ${{ github.event_name != 'push' || ( (github.event_name == 'push' || github.event_name == 'workflow_run' ) && steps.ccache-cache.outputs.cache-hit != 'true') }}
         env:
           CLANG: "ccache clang"
-          BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
-          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
           BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
         run: |
           set -eu -o pipefail
@@ -159,7 +145,7 @@ jobs:
           done
 
       - name: Reset cache ownership to GitHub runners user
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.ccache-cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
           sudo du -sh /tmp/.cache/
@@ -198,19 +184,9 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
-          cache: false
+          cache-dependency-path: '**/go.sum'
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.1
-
-      - name: Load hubble-cli Golang cache build from GitHub
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        id: hubble-cache
-        with:
-          path: /tmp/.cache/hubble-cli
-          key: ${{ runner.os }}-go-hubble-cli-cache-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-hubble-cli-cache-
-            ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -222,19 +198,15 @@ jobs:
             ${{ runner.os }}-ccache-
 
       - name: Create cache directories if they don't exist
-        if: ${{ steps.ccache-cache.outputs.cache-hit != 'true' || steps.hubble-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.ccache-cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
           mkdir -p /tmp/.cache/ccache/.ccache
-          mkdir -p /tmp/.cache/hubble-cli/.cache/go-build
-          mkdir -p /tmp/.cache/hubble-cli/pkg
 
       - name: Check if hubble CLI builds for every commit
-        if: ${{ github.event_name != 'push' || ( github.event_name == 'push' && steps.hubble-cache.outputs.cache-hit != 'true' ) }}
+        if: ${{ github.event_name != 'push' || ( github.event_name == 'push' && steps.ccache-cache.outputs.cache-hit != 'true' ) }}
         env:
           CLANG: "ccache clang"
-          BUILDER_GOCACHE_DIR: "/tmp/.cache/hubble-cli/.cache/go-build"
-          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/hubble-cli/pkg"
         run: |
           set -eu -o pipefail
           commits="${{ needs.compute-vars.outputs.commits }}"
@@ -292,19 +264,9 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
-          cache: false
+          cache-dependency-path: '**/go.sum'
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.1
-
-      - name: Load Golang cache build from GitHub
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        id: go-cache
-        with:
-          path: /tmp/.cache/go
-          key: ${{ runner.os }}-go-all-cache-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-all-cache-
-            ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -316,18 +278,14 @@ jobs:
             ${{ runner.os }}-ccache-
 
       - name: Create cache directories if they don't exist
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.ccache-cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
-          mkdir -p /tmp/.cache/go/.cache/go-build
-          mkdir -p /tmp/.cache/go/pkg
           mkdir -p /tmp/.cache/ccache/.ccache
 
       - name: Check if datapath build works for every commit
         env:
           CLANG: "ccache clang"
-          BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
-          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
           BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
         run: |
           set -eu -o pipefail
@@ -344,7 +302,7 @@ jobs:
           done
 
       - name: Reset cache ownership to GitHub runners user
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.ccache-cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
           sudo du -sh /tmp/.cache/
@@ -385,7 +343,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
-          cache: false
+          cache-dependency-path: '**/go.sum'
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.1
 
