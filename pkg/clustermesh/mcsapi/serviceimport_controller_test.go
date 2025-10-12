@@ -513,6 +513,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		cluster:                    localClusterName,
 		globalServiceExports:       globalServiceExports,
 		remoteClusterServiceSource: remoteClusterServiceSource,
+		enableIPv4:                 true,
 	}
 
 	t.Run("Service import creation with local-only", func(t *testing.T) {
@@ -775,8 +776,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			"exported-label": "",
 		}))
 		require.True(t, maps.Equal(svcImport.Annotations, map[string]string{
-			mcsapicontrollers.DerivedServiceAnnotation: "",
-			"exported-annotation":                      "",
+			"clustermesh.cilium.io/supported-ip-families": "IPv4",
+			mcsapicontrollers.DerivedServiceAnnotation:    "",
+			"exported-annotation":                         "",
 		}))
 	})
 
@@ -907,12 +909,14 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			name: "conflict-annotations",
 			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
 				return maps.Equal(svcImport.Annotations, map[string]string{
+					"clustermesh.cilium.io/supported-ip-families":   "IPv4",
 					"service.cilium.io/global-sync-endpoint-slices": "true",
 					"service.cilium.io/lb-l7":                       "true",
 				})
 			},
 			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
 				return maps.Equal(svcImport.Annotations, map[string]string{
+					"clustermesh.cilium.io/supported-ip-families":   "IPv4",
 					"service.cilium.io/global-sync-endpoint-slices": "true",
 				})
 			},

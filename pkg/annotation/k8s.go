@@ -125,6 +125,10 @@ const (
 	// we have patched its configuration to enabled MCS-API support.
 	CoreDNSAutoPatched = ClusterMeshPrefix + "/autoPatchedAt"
 
+	// SupportedIPFamilies is an internal annotation in MCS-API to track which
+	// ip families are used and supported by the local cluster
+	SupportedIPFamilies = ClusterMeshPrefix + "/supported-ip-families"
+
 	// ServiceLoadBalancingAlgorithm indicates which backend selection algorithm
 	// for a given Service to use. This annotation will override the default
 	// value set in bpf-lb-algorithm.
