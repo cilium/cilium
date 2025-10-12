@@ -160,7 +160,7 @@ jobs:
         run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@a7a1a882e2d06ebe05d5bb97c3e1f8c984ae96fc # v2.0.7
+        uses: KyleMayes/install-llvm-action@98e68e10c96dffcb7bfed8b2144541a66b49aa02 # v2.0.8
         with:
           version: "17.0.6"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
