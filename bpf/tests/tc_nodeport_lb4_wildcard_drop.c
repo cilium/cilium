@@ -286,7 +286,7 @@ int tc_nodeport_lb4_wildcard_drop_not_unknown2_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_lb4_wildcard_drop_not_unknown2")
 int tc_nodeport_lb4_wildcard_drop_not_unknown2_setup(struct __ctx_buff *ctx)
 {
-	if (tail_no_service_ipv4(ctx))
+	if (tail_no_service_ipv4(ctx) != CTX_ACT_REDIRECT)
 		return TEST_ERROR;
 
 	setup_services(ctx);

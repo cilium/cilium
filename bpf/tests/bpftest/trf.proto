@@ -8,14 +8,15 @@ option go_package = ".;bpftests";
 message SuiteResult {
     message TestResult {
         enum TestStatus {
+            UNKNOWN = 0;
             // Unable to execute test, not indicative of the test itself, usually an unexpected error in the framework
             // like out of memory conditions.
-            ERROR = 0;
-            PASS = 1;
-            FAIL = 2;
+            ERROR = 100;
+            PASS = 101;
+            FAIL = 102;
             // The test was skipped, for example because the feature under test is disabled or unavailable with the
             // current settings or on this platform.
-            SKIP = 3;
+            SKIP = 103;
         }
 
         string name = 1;
