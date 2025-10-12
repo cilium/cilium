@@ -685,20 +685,14 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 	// bump the policy revision directly (as long as we didn't miss an update somehow).
 	if !idsToRegen.Has(secID) {
 		if e.policyRevision < fromRev {
-			if e.state == StateWaitingToRegenerate || e.state == StateRestoring {
-				// We can log this at less severity since a regeneration was already queued.
-				// This can happen if two policy updates come in quick succession, with the first
-				// affecting this endpoint and the second not.
-				e.getLogger().Info(
-					"Endpoint missed a policy revision; triggering regeneration",
-					logfields.PolicyRevision, fromRev,
-				)
-			} else {
-				e.getLogger().Warn(
-					"Endpoint missed a policy revision; triggering regeneration",
-					logfields.PolicyRevision, fromRev,
-				)
-			}
+			// FIXME: https://github.com/cilium/cilium/issues/36493
+			// Currently policy repository version can be bumped through multiple triggers
+			// async to each other. This can lead to out of order processing of regeneration
+			// events. Continue with endpoint regeneration to be safe but log as Info.
+			e.getLogger().Info(
+				"Endpoint missed a policy revision; triggering regeneration",
+				logfields.PolicyRevision, fromRev,
+			)
 		} else {
 			e.getLogger().Debug(
 				"Policy update is a no-op, bumping policyRevision",
