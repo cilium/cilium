@@ -1,6 +1,6 @@
 - name: 'netkit-1'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12-20251008.075427'
   misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -11,7 +11,7 @@
   ingress-controller: 'true'
 - name: 'netkit-2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12-20251008.075427'
   misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -22,7 +22,7 @@
   ingress-controller: 'true'
 - name: 'netkit-3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12-20251008.075427'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -33,7 +33,7 @@
   kvstore: 'true'
 - name: 'netkit-4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12-20251008.075427'
   misc: 'bpf.datapathMode=netkit-l2'
   kube-proxy: 'none'
   kpr: 'true'
@@ -43,7 +43,7 @@
   ingress-controller: 'true'
 - name: 'netkit-5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12-20251008.075427'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -53,7 +53,7 @@
   ingress-controller: 'true'
 - name: 'netkit-6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12-20251008.075427'
   misc: 'bpf.datapathMode=netkit-l2'
   kube-proxy: 'none'
   kpr: 'true'
@@ -63,7 +63,7 @@
   ingress-controller: 'true'
 - name: 'netkit-7'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12-20251008.075427'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -75,7 +75,7 @@
   host-fw: 'true'
 - name: 'netkit-8'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12-20251008.075427'
   misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -88,7 +88,7 @@
   ingress-controller: 'true'
 - name: 'netkit-9'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12-20251008.075427'
   misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
