@@ -71,6 +71,12 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		envoyExternalTargetTLSWarning, envoyExternalOtherTargetTLSWarning, ciliumNodeConfigDeprecation,
 		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation, ccgAlphaResourceDeprecation,
 		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn}
+
+	if ciliumVersion.LT(semver.MustParse("1.18.0")) {
+		errorLogExceptions = append(errorLogExceptions, linkNotFound)
+		warningLogExceptions = append(warningLogExceptions, linkNotFound)
+	}
+
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -479,4 +485,6 @@ var (
 	bgpAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumBGP\w+ is deprecated`)}
 	// ccgAlphaResourceDeprecation is the same as bgpAlphaResourceDeprecation but for the CiliumCIDRGroup.
 	ccgAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumCIDRGroup is deprecated`)}
+	// For https://github.com/cilium/cilium/issues/39370: Fixed only in cilium version >= 1.18
+	linkNotFound = regexMatcher{regexp.MustCompile(`retrieving device .+\: Link not found`)}
 )
