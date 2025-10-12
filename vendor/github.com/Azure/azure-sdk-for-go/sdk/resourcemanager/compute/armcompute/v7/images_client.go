@@ -43,7 +43,7 @@ func NewImagesClient(subscriptionID string, credential azcore.TokenCredential, o
 // BeginCreateOrUpdate - Create or update an image.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - imageName - The name of the image.
 //   - parameters - Parameters supplied to the Create Image operation.
@@ -70,7 +70,7 @@ func (client *ImagesClient) BeginCreateOrUpdate(ctx context.Context, resourceGro
 // CreateOrUpdate - Create or update an image.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 func (client *ImagesClient) createOrUpdate(ctx context.Context, resourceGroupName string, imageName string, parameters Image, options *ImagesClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "ImagesClient.BeginCreateOrUpdate"
@@ -112,7 +112,7 @@ func (client *ImagesClient) createOrUpdateCreateRequest(ctx context.Context, res
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -124,7 +124,7 @@ func (client *ImagesClient) createOrUpdateCreateRequest(ctx context.Context, res
 // BeginDelete - Deletes an Image.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - imageName - The name of the image.
 //   - options - ImagesClientBeginDeleteOptions contains the optional parameters for the ImagesClient.BeginDelete method.
@@ -149,7 +149,7 @@ func (client *ImagesClient) BeginDelete(ctx context.Context, resourceGroupName s
 // Delete - Deletes an Image.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 func (client *ImagesClient) deleteOperation(ctx context.Context, resourceGroupName string, imageName string, options *ImagesClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "ImagesClient.BeginDelete"
@@ -191,7 +191,7 @@ func (client *ImagesClient) deleteCreateRequest(ctx context.Context, resourceGro
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -200,7 +200,7 @@ func (client *ImagesClient) deleteCreateRequest(ctx context.Context, resourceGro
 // Get - Gets an image.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - imageName - The name of the image.
 //   - options - ImagesClientGetOptions contains the optional parameters for the ImagesClient.Get method.
@@ -249,7 +249,7 @@ func (client *ImagesClient) getCreateRequest(ctx context.Context, resourceGroupN
 	if options != nil && options.Expand != nil {
 		reqQP.Set("$expand", *options.Expand)
 	}
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -267,7 +267,7 @@ func (client *ImagesClient) getHandleResponse(resp *http.Response) (ImagesClient
 // NewListPager - Gets the list of Images in the subscription. Use nextLink property in the response to get the next page
 // of Images. Do this till nextLink is null to fetch all the Images.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - options - ImagesClientListOptions contains the optional parameters for the ImagesClient.NewListPager method.
 func (client *ImagesClient) NewListPager(options *ImagesClientListOptions) *runtime.Pager[ImagesClientListResponse] {
 	return runtime.NewPager(runtime.PagingHandler[ImagesClientListResponse]{
@@ -304,7 +304,7 @@ func (client *ImagesClient) listCreateRequest(ctx context.Context, _ *ImagesClie
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -322,7 +322,7 @@ func (client *ImagesClient) listHandleResponse(resp *http.Response) (ImagesClien
 // NewListByResourceGroupPager - Gets the list of images under a resource group. Use nextLink property in the response to
 // get the next page of Images. Do this till nextLink is null to fetch all the Images.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - options - ImagesClientListByResourceGroupOptions contains the optional parameters for the ImagesClient.NewListByResourceGroupPager
 //     method.
@@ -365,7 +365,7 @@ func (client *ImagesClient) listByResourceGroupCreateRequest(ctx context.Context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -383,7 +383,7 @@ func (client *ImagesClient) listByResourceGroupHandleResponse(resp *http.Respons
 // BeginUpdate - Update an image.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - imageName - The name of the image.
 //   - parameters - Parameters supplied to the Update Image operation.
@@ -409,7 +409,7 @@ func (client *ImagesClient) BeginUpdate(ctx context.Context, resourceGroupName s
 // Update - Update an image.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 func (client *ImagesClient) update(ctx context.Context, resourceGroupName string, imageName string, parameters ImageUpdate, options *ImagesClientBeginUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "ImagesClient.BeginUpdate"
@@ -451,7 +451,7 @@ func (client *ImagesClient) updateCreateRequest(ctx context.Context, resourceGro
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {

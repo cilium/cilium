@@ -1,5 +1,40 @@
 # Release History
 
+## 7.1.0 (2025-10-09)
+### Features Added
+
+- New value `OrchestrationServiceNamesAutomaticZoneRebalancing` added to enum type `OrchestrationServiceNames`
+- New value `ZonePlacementPolicyTypeAuto` added to enum type `ZonePlacementPolicyType`
+- New enum type `HighSpeedInterconnectPlacement` with values `HighSpeedInterconnectPlacementNone`, `HighSpeedInterconnectPlacementTrunk`
+- New enum type `OrchestrationServiceOperationStatus` with values `OrchestrationServiceOperationStatusCompleted`, `OrchestrationServiceOperationStatusInProgress`
+- New enum type `ReservationType` with values `ReservationTypeBlock`, `ReservationTypeTargeted`
+- New enum type `ScriptShellTypes` with values `ScriptShellTypesDefault`, `ScriptShellTypesPowershell7`
+- New function `*VirtualMachineScaleSetsClient.BeginScaleOut(context.Context, string, string, VMScaleSetScaleOutInput, *VirtualMachineScaleSetsClientBeginScaleOutOptions) (*runtime.Poller[VirtualMachineScaleSetsClientScaleOutResponse], error)`
+- New struct `AllInstancesDown`
+- New struct `MaxInstancePercentPerZonePolicy`
+- New struct `ScheduleProfile`
+- New struct `VMScaleSetScaleOutInput`
+- New struct `VMScaleSetScaleOutInputProperties`
+- New struct `ZoneAllocationPolicy`
+- New field `ReservationType` in struct `CapacityReservationGroupProperties`
+- New field `ScheduleProfile` in struct `CapacityReservationProperties`
+- New field `ScheduledEventsAPIVersion` in struct `EventGridAndResourceGraph`
+- New field `LastStatusChangeTime`, `LatestOperationStatus` in struct `OrchestrationServiceSummary`
+- New field `AddProxyAgentExtension` in struct `ProxyAgentSettings`
+- New field `ZoneAllocationPolicy` in struct `ResiliencyPolicy`
+- New field `AllInstancesDown` in struct `ScheduledEventsPolicy`
+- New field `Tags` in struct `VirtualMachineNetworkInterfaceConfiguration`
+- New field `Tags` in struct `VirtualMachinePublicIPAddressConfiguration`
+- New field `GalleryScriptReferenceID`, `ScriptShell` in struct `VirtualMachineRunCommandScriptSource`
+- New field `Placement` in struct `VirtualMachineScaleSet`
+- New field `Tags` in struct `VirtualMachineScaleSetNetworkConfiguration`
+- New field `HighSpeedInterconnectPlacement` in struct `VirtualMachineScaleSetProperties`
+- New field `Tags` in struct `VirtualMachineScaleSetPublicIPAddressConfiguration`
+- New field `Tags` in struct `VirtualMachineScaleSetUpdateNetworkConfiguration`
+- New field `Tags` in struct `VirtualMachineScaleSetUpdatePublicIPAddressConfiguration`
+- New field `PatchNameMasksToExclude`, `PatchNameMasksToInclude` in struct `WindowsParameters`
+
+
 ## 7.0.0 (2025-07-23)
 ### Breaking Changes
 

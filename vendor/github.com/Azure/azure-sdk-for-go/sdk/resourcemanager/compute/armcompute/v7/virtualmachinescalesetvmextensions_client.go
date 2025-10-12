@@ -43,7 +43,7 @@ func NewVirtualMachineScaleSetVMExtensionsClient(subscriptionID string, credenti
 // BeginCreateOrUpdate - The operation to create or update the VMSS VM extension.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - instanceID - The instance ID of the virtual machine.
@@ -72,7 +72,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) BeginCreateOrUpdate(ctx 
 // CreateOrUpdate - The operation to create or update the VMSS VM extension.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 func (client *VirtualMachineScaleSetVMExtensionsClient) createOrUpdate(ctx context.Context, resourceGroupName string, vmScaleSetName string, instanceID string, vmExtensionName string, extensionParameters VirtualMachineScaleSetVMExtension, options *VirtualMachineScaleSetVMExtensionsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetVMExtensionsClient.BeginCreateOrUpdate"
@@ -122,7 +122,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) createOrUpdateCreateRequ
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, extensionParameters); err != nil {
@@ -134,7 +134,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) createOrUpdateCreateRequ
 // BeginDelete - The operation to delete the VMSS VM extension.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - instanceID - The instance ID of the virtual machine.
@@ -162,7 +162,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) BeginDelete(ctx context.
 // Delete - The operation to delete the VMSS VM extension.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 func (client *VirtualMachineScaleSetVMExtensionsClient) deleteOperation(ctx context.Context, resourceGroupName string, vmScaleSetName string, instanceID string, vmExtensionName string, options *VirtualMachineScaleSetVMExtensionsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetVMExtensionsClient.BeginDelete"
@@ -212,7 +212,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) deleteCreateRequest(ctx 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -221,7 +221,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) deleteCreateRequest(ctx 
 // Get - The operation to get the VMSS VM extension.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - instanceID - The instance ID of the virtual machine.
@@ -281,7 +281,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) getCreateRequest(ctx con
 	if options != nil && options.Expand != nil {
 		reqQP.Set("$expand", *options.Expand)
 	}
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -299,7 +299,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) getHandleResponse(resp *
 // List - The operation to get all extensions of an instance in Virtual Machine Scaleset.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - instanceID - The instance ID of the virtual machine.
@@ -354,7 +354,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) listCreateRequest(ctx co
 	if options != nil && options.Expand != nil {
 		reqQP.Set("$expand", *options.Expand)
 	}
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -372,7 +372,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) listHandleResponse(resp 
 // BeginUpdate - The operation to update the VMSS VM extension.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - vmScaleSetName - The name of the VM scale set.
 //   - instanceID - The instance ID of the virtual machine.
@@ -401,7 +401,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) BeginUpdate(ctx context.
 // Update - The operation to update the VMSS VM extension.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 func (client *VirtualMachineScaleSetVMExtensionsClient) update(ctx context.Context, resourceGroupName string, vmScaleSetName string, instanceID string, vmExtensionName string, extensionParameters VirtualMachineScaleSetVMExtensionUpdate, options *VirtualMachineScaleSetVMExtensionsClientBeginUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualMachineScaleSetVMExtensionsClient.BeginUpdate"
@@ -451,7 +451,7 @@ func (client *VirtualMachineScaleSetVMExtensionsClient) updateCreateRequest(ctx 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, extensionParameters); err != nil {

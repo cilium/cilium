@@ -1775,6 +1775,13 @@ type VirtualMachineScaleSetsClientBeginRestartOptions struct {
 	VMInstanceIDs *VirtualMachineScaleSetVMInstanceIDs
 }
 
+// VirtualMachineScaleSetsClientBeginScaleOutOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginScaleOut
+// method.
+type VirtualMachineScaleSetsClientBeginScaleOutOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
 // VirtualMachineScaleSetsClientBeginSetOrchestrationServiceStateOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginSetOrchestrationServiceState
 // method.
 type VirtualMachineScaleSetsClientBeginSetOrchestrationServiceStateOptions struct {

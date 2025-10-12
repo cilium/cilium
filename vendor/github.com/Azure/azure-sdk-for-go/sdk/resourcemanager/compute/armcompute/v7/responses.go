@@ -1590,6 +1590,11 @@ type VirtualMachineScaleSetsClientRestartResponse struct {
 	// placeholder for future response values
 }
 
+// VirtualMachineScaleSetsClientScaleOutResponse contains the response from method VirtualMachineScaleSetsClient.BeginScaleOut.
+type VirtualMachineScaleSetsClientScaleOutResponse struct {
+	// placeholder for future response values
+}
+
 // VirtualMachineScaleSetsClientSetOrchestrationServiceStateResponse contains the response from method VirtualMachineScaleSetsClient.BeginSetOrchestrationServiceState.
 type VirtualMachineScaleSetsClientSetOrchestrationServiceStateResponse struct {
 	// placeholder for future response values

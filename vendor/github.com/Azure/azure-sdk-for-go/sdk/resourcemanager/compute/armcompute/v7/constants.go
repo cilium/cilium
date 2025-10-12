@@ -1054,6 +1054,24 @@ func PossibleGallerySharingPermissionTypesValues() []GallerySharingPermissionTyp
 	}
 }
 
+// HighSpeedInterconnectPlacement - Specifies the high speed interconnect placement for the virtual machine scale set.
+type HighSpeedInterconnectPlacement string
+
+const (
+	// HighSpeedInterconnectPlacementNone - No high speed interconnect placement
+	HighSpeedInterconnectPlacementNone HighSpeedInterconnectPlacement = "None"
+	// HighSpeedInterconnectPlacementTrunk - Trunk high speed interconnect placement
+	HighSpeedInterconnectPlacementTrunk HighSpeedInterconnectPlacement = "Trunk"
+)
+
+// PossibleHighSpeedInterconnectPlacementValues returns the possible values for the HighSpeedInterconnectPlacement const type.
+func PossibleHighSpeedInterconnectPlacementValues() []HighSpeedInterconnectPlacement {
+	return []HighSpeedInterconnectPlacement{
+		HighSpeedInterconnectPlacementNone,
+		HighSpeedInterconnectPlacementTrunk,
+	}
+}
+
 // HostCaching - The host caching of the disk. Valid values are 'None', 'ReadOnly', and 'ReadWrite'
 type HostCaching string
 
@@ -1478,12 +1496,33 @@ type OrchestrationServiceNames string
 
 const (
 	OrchestrationServiceNamesAutomaticRepairs OrchestrationServiceNames = "AutomaticRepairs"
+	// OrchestrationServiceNamesAutomaticZoneRebalancing - AutomaticZoneRebalancing orchestration service.
+	OrchestrationServiceNamesAutomaticZoneRebalancing OrchestrationServiceNames = "AutomaticZoneRebalancing"
 )
 
 // PossibleOrchestrationServiceNamesValues returns the possible values for the OrchestrationServiceNames const type.
 func PossibleOrchestrationServiceNamesValues() []OrchestrationServiceNames {
 	return []OrchestrationServiceNames{
 		OrchestrationServiceNamesAutomaticRepairs,
+		OrchestrationServiceNamesAutomaticZoneRebalancing,
+	}
+}
+
+// OrchestrationServiceOperationStatus - The latest operation status of the service.
+type OrchestrationServiceOperationStatus string
+
+const (
+	// OrchestrationServiceOperationStatusCompleted - Completed orchestration service operation status.
+	OrchestrationServiceOperationStatusCompleted OrchestrationServiceOperationStatus = "Completed"
+	// OrchestrationServiceOperationStatusInProgress - InProgress orchestration service operation status.
+	OrchestrationServiceOperationStatusInProgress OrchestrationServiceOperationStatus = "InProgress"
+)
+
+// PossibleOrchestrationServiceOperationStatusValues returns the possible values for the OrchestrationServiceOperationStatus const type.
+func PossibleOrchestrationServiceOperationStatusValues() []OrchestrationServiceOperationStatus {
+	return []OrchestrationServiceOperationStatus{
+		OrchestrationServiceOperationStatusCompleted,
+		OrchestrationServiceOperationStatusInProgress,
 	}
 }
 
@@ -1882,6 +1921,26 @@ func PossibleReplicationStatusTypesValues() []ReplicationStatusTypes {
 	}
 }
 
+// ReservationType - Indicates the type of capacity reservation. Allowed values are 'Block' for block capacity reservations
+// and 'Targeted' for reservations that enable a VM to consume a specific capacity reservation when
+// a capacity reservation group is provided. The reservation type is immutable and cannot be changed after it is assigned.
+type ReservationType string
+
+const (
+	// ReservationTypeBlock - To consume scheduled allocated block capacity reservation when a capacity reservation group is provided.
+	ReservationTypeBlock ReservationType = "Block"
+	// ReservationTypeTargeted - To consume on demand allocated capacity reservation when a capacity reservation group is provided.
+	ReservationTypeTargeted ReservationType = "Targeted"
+)
+
+// PossibleReservationTypeValues returns the possible values for the ReservationType const type.
+func PossibleReservationTypeValues() []ReservationType {
+	return []ReservationType{
+		ReservationTypeBlock,
+		ReservationTypeTargeted,
+	}
+}
+
 // ResilientVMDeletionStatus - Specifies the resilient VM deletion status for the virtual machine.
 type ResilientVMDeletionStatus string
 
@@ -2091,6 +2150,24 @@ func PossibleSSHEncryptionTypesValues() []SSHEncryptionTypes {
 	return []SSHEncryptionTypes{
 		SSHEncryptionTypesEd25519,
 		SSHEncryptionTypesRSA,
+	}
+}
+
+// ScriptShellTypes - Script shell types.
+type ScriptShellTypes string
+
+const (
+	// ScriptShellTypesDefault - Default script shell type.
+	ScriptShellTypesDefault ScriptShellTypes = "Default"
+	// ScriptShellTypesPowershell7 - Powershell7 script shell type.
+	ScriptShellTypesPowershell7 ScriptShellTypes = "Powershell7"
+)
+
+// PossibleScriptShellTypesValues returns the possible values for the ScriptShellTypes const type.
+func PossibleScriptShellTypesValues() []ScriptShellTypes {
+	return []ScriptShellTypes{
+		ScriptShellTypesDefault,
+		ScriptShellTypesPowershell7,
 	}
 }
 
@@ -3144,17 +3221,21 @@ func PossibleZonalPlatformFaultDomainAlignModeValues() []ZonalPlatformFaultDomai
 	}
 }
 
-// ZonePlacementPolicyType - Specifies the policy for virtual machine's placement in availability zone. Possible values are:
-// Any - An availability zone will be automatically picked by system as part of virtual machine creation.
+// ZonePlacementPolicyType - Specifies the policy for resource's placement in availability zone. Possible values are: Any
+// (used for Virtual Machines), Auto (used for Virtual Machine Scale Sets) - An availability zone will be
+// automatically picked by system as part of resource creation.
 type ZonePlacementPolicyType string
 
 const (
 	ZonePlacementPolicyTypeAny ZonePlacementPolicyType = "Any"
+	// ZonePlacementPolicyTypeAuto - Automatic zone placement in a Virtual Machine Scale Set.
+	ZonePlacementPolicyTypeAuto ZonePlacementPolicyType = "Auto"
 )
 
 // PossibleZonePlacementPolicyTypeValues returns the possible values for the ZonePlacementPolicyType const type.
 func PossibleZonePlacementPolicyTypeValues() []ZonePlacementPolicyType {
 	return []ZonePlacementPolicyType{
 		ZonePlacementPolicyTypeAny,
+		ZonePlacementPolicyTypeAuto,
 	}
 }
