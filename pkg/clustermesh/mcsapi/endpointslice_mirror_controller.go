@@ -29,6 +29,7 @@ import (
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/annotation"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -114,8 +115,16 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) shouldMirrorLocalEndpointSlice(
 	); err != nil {
 		return false, client.IgnoreNotFound(err)
 	}
+
 	// Only mirrors EndpointSlice compatible with the derived Service IP family
-	if !slices.Contains(derivedService.Spec.IPFamilies, corev1.IPFamily(localEpSlice.AddressType)) {
+	valIPFamilies, ok := derivedService.Annotations[annotation.SupportedIPFamilies]
+	ipFamilies, err := mcsapitypes.IPFamiliesFromString(valIPFamilies)
+	if !ok || err != nil {
+		// Fallback to service IPFamilies if the annotation is not set.
+		// This is likely because we are upgrading to Cilium 1.19
+		ipFamilies = derivedService.Spec.IPFamilies
+	}
+	if !slices.Contains(ipFamilies, corev1.IPFamily(localEpSlice.AddressType)) {
 		return false, nil
 	}
 	return true, nil

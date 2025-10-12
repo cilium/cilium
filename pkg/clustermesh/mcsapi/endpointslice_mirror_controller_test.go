@@ -235,13 +235,17 @@ var (
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      commonDerivedName,
 				Namespace: "default",
+				Annotations: map[string]string{
+					"clustermesh.cilium.io/supported-ip-families": "IPv4",
+				},
 				Labels: map[string]string{
 					"test-label": "copied",
 				},
 			},
 			Spec: corev1.ServiceSpec{
 				IPFamilies: []corev1.IPFamily{
-					corev1.IPv4Protocol,
+					// Make sure this is ignored if the supported families annotation is present
+					corev1.IPv6Protocol,
 				},
 				Ports: []corev1.ServicePort{{
 					Port: 80,
