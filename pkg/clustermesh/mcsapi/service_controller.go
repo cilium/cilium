@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -25,6 +26,7 @@ import (
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/annotation"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 )
 
 const (
@@ -97,7 +99,38 @@ func getDesiredIPs(svc *corev1.Service) []string {
 	if svc.Spec.ClusterIP == corev1.ClusterIPNone {
 		return []string{}
 	}
-	return slices.Clone(svc.Spec.ClusterIPs)
+
+	valIPFamilies, ok := svc.Annotations[annotation.SupportedIPFamilies]
+	ipFamilies, err := mcsapitypes.IPFamiliesFromString(valIPFamilies)
+	if !ok || err != nil {
+		// Fallback to all ips if the annotation is not set. This is likely
+		// because we are upgrading to Cilium 1.19
+		return slices.Clone(svc.Spec.ClusterIPs)
+	}
+
+	// get IPs in the order of the supported ip families
+	ips := make([]string, 0, len(ipFamilies))
+	for _, family := range ipFamilies {
+		switch family {
+		case corev1.IPv4Protocol:
+			i := slices.IndexFunc(svc.Spec.ClusterIPs, func(ip string) bool {
+				return !strings.Contains(ip, ":")
+			})
+			if i == -1 {
+				continue
+			}
+			ips = append(ips, svc.Spec.ClusterIPs[i])
+		case corev1.IPv6Protocol:
+			i := slices.IndexFunc(svc.Spec.ClusterIPs, func(ip string) bool {
+				return strings.Contains(ip, ":")
+			})
+			if i == -1 {
+				continue
+			}
+			ips = append(ips, svc.Spec.ClusterIPs[i])
+		}
+	}
+	return ips
 }
 
 // patchServiceImport patches the ServiceImport with the derived service name and
@@ -147,6 +180,9 @@ func (r *mcsAPIServiceReconciler) getBaseDerivedService(
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
+			// Always prefer dual stack as we always rely on the supported
+			// ip families annotation to get the real ip families anyway
+			IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 		},
 	}
 	if isHeadless {
@@ -161,6 +197,8 @@ func (r *mcsAPIServiceReconciler) getBaseDerivedService(
 		return svcBase, false, nil
 	}
 
+	// Force prefer dual stack to migrate old services created in Cilium 1.18 or older
+	svc.Spec.IPFamilyPolicy = ptr.To(corev1.IPFamilyPolicyPreferDualStack)
 	if isHeadless != (svc.Spec.ClusterIP == corev1.ClusterIPNone) {
 		// We need to delete the derived service first if we need to switch
 		// to/from headless on a Service that already exists.
@@ -213,6 +251,15 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	svc, svcExists, err := r.getBaseDerivedService(ctx, req, derivedServiceName, svcImport)
 	if err != nil {
 		return controllerruntime.Fail(err)
+	}
+
+	if val, ok := svcImport.Annotations[annotation.SupportedIPFamilies]; val == "" && ok {
+		// If we don't have any supported ip families, we can bail out and cleanup
+		// any existing derived service
+		if svcExists {
+			return controllerruntime.Fail(r.Client.Delete(ctx, svc))
+		}
+		return controllerruntime.Success()
 	}
 
 	svc.Spec.Selector = map[string]string{}
