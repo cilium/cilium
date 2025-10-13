@@ -62,7 +62,10 @@ func newDNSProxy(params dnsProxyParams) (proxy.DNSProxier, error) {
 	proxy := dnsproxy.NewDNSProxy(
 		dnsProxyConfig,
 		params.ProxyLookupHandler,
-		params.DNSRequestHandler.NotifyOnDNSMsg)
+		params.DNSRequestHandler.OnQuery,
+		params.DNSRequestHandler.OnResponse,
+		params.DNSRequestHandler.OnError,
+	)
 
 	return proxy, nil
 }
