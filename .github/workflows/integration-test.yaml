@@ -168,21 +168,8 @@ jobs:
           version: "19.1.7"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
 
-      - name: Create cache directories if they don't exist
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
-        env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
-        shell: bash
-        run: |
-          mkdir -p "${GOCACHE}"
-          mkdir -p "${GOMODCACHE}"
-
       - name: Prepare environment
         timeout-minutes: 15
-        env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
         shell: bash
         run: |
           # renovate: datasource=github-releases depName=mfridman/tparse
@@ -193,9 +180,6 @@ jobs:
       - name: Run integration tests
         id: run-tests
         timeout-minutes: 60
-        env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
         run: |
           export V=0
           export DOCKER_BUILD_FLAGS=--quiet
