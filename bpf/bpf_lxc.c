@@ -718,7 +718,7 @@ ct_recreate6:
 
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV6,
-						   MARK_MAGIC_IDENTITY, ep,
+						   MARK_MAGIC_IDENTITY, ip6, ep,
 						   METRIC_EGRESS, from_l7lb, false);
 		}
 	}
@@ -769,7 +769,7 @@ to_host:
 
 pass_to_stack:
 #ifdef ENABLE_ROUTING
-	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
+	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, ip6, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 #endif
@@ -1815,7 +1815,12 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 			  &proxy_port, false);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
-		ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
+		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
+
+		ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, ip6, proxy_port);
 		ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
 		break;
 	case CTX_ACT_OK:

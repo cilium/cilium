@@ -173,6 +173,7 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
  */
 static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel, __u32 magic,
+					       struct ipv6hdr *ip6,
 					       const struct endpoint_info *ep,
 					       __u8 direction, bool from_host,
 					       bool from_tunnel)
@@ -183,7 +184,8 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
 
-	ret = ipv6_l3(ctx, l3_off, (__u8 *)&router_mac, (__u8 *)&lxc_mac, direction);
+	ret = ipv6_l3(ctx, l3_off, (__u8 *)&router_mac, (__u8 *)&lxc_mac, ip6,
+		      direction);
 	if (ret != CTX_ACT_OK)
 		return ret;
 

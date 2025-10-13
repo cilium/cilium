@@ -227,7 +227,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 	int ret;
 
 	if (is_defined(ENABLE_SKIP_FIB) && neigh_resolver_without_nh_available()) {
-		ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
+		ret = ipv6_l3(ctx, l3_off, NULL, NULL, ip6, METRIC_EGRESS);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 
@@ -253,7 +253,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 
 		*oif = fib_params.l.ifindex;
 
-		ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
+		ret = ipv6_l3(ctx, l3_off, NULL, NULL, ip6, METRIC_EGRESS);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 

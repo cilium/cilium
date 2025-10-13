@@ -23,8 +23,7 @@
 #define SKIP_ICMPV6_NS_HANDLING
 
 /* Controls the inclusion of the CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED section
- * in the bpf_lxc object file. This is needed for all callers of
- * ipv6_local_delivery, which calls into the IPv6 L3 handling.
+ * in the object file.
  */
 #define SKIP_ICMPV6_HOPLIMIT_HANDLING
 
