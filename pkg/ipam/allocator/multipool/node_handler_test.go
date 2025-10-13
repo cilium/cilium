@@ -5,6 +5,7 @@ package multipool
 
 import (
 	"errors"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -214,4 +215,112 @@ func TestNodeHandler(t *testing.T) {
 
 	nh.Delete(node1Update.newNode)
 	nh.Delete(node2Update.newNode)
+}
+
+func TestOrphanCIDRsAfterRestart(t *testing.T) {
+	backend := NewPoolAllocator(hivetest.Logger(t))
+
+	onUpdateArgs := make(chan mockArgs)
+	nodeUpdater := &k8sNodeMock{
+		OnUpdate: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+			onUpdateArgs <- mockArgs{oldNode, newNode}
+			return nil, nil
+		},
+	}
+	nh := NewNodeHandler(hivetest.Logger(t), backend, nodeUpdater)
+
+	// wait 1ms instead of default 1s base duration in unit tests
+	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
+
+	// upsert node with orphan CIDRs from previous operator run
+	node := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool:   "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 16},
+						},
+					},
+					Allocated: []ipamTypes.IPAMPoolAllocation{
+						{
+							Pool: "test-pool",
+							CIDRs: []ipamTypes.IPAMPodCIDR{
+								"10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/24",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	nh.Upsert(node)
+
+	// Node should only be updated after Resync
+	select {
+	case <-onUpdateArgs:
+		t.Fatal("Update should not have been called before Resync")
+	default:
+	}
+
+	// CIDRs allocated from previous operator run should be marked as orphans
+	assert.Equal(t, map[string]poolToCIDRs{
+		node.Name: {
+			"test-pool": {
+				v4: cidrSet{
+					netip.MustParsePrefix("10.0.0.0/24"): {},
+					netip.MustParsePrefix("10.0.1.0/24"): {},
+					netip.MustParsePrefix("10.0.2.0/24"): {},
+				},
+				v6: cidrSet{},
+			},
+		},
+	}, backend.orphans)
+
+	nh.Resync(t.Context(), time.Time{})
+
+	// Node should not be updated, since all allocated CIDRs are orphan
+	select {
+	case <-onUpdateArgs:
+		t.Fatal("Update should not have been called after Resync")
+	default:
+	}
+
+	// Node should not be updated, since we cannot allocate more CIDRs from non existent pools
+	node.Spec.IPAM.Pools.Requested[0].Needed = ipamTypes.IPAMPoolDemand{IPv4Addrs: 16}
+	nh.Upsert(node)
+
+	select {
+	case <-onUpdateArgs:
+		t.Fatal("Update should not have been called after increasing requested IPs")
+	default:
+	}
+
+	// Node should not be updated, but the previous CIDRs should be unorphaned if test-pool is restored
+	err := backend.UpsertPool("test-pool", []string{"10.0.0.0/16"}, 24, nil, 0)
+	assert.NoError(t, err)
+
+	select {
+	case <-onUpdateArgs:
+		t.Fatal("Update should not have been called after increasing requested IPs")
+	default:
+	}
+
+	assert.Empty(t, backend.orphans)
+	assert.Equal(t, map[string]poolToCIDRs{
+		node.Name: {
+			"test-pool": {
+				v4: cidrSet{
+					netip.MustParsePrefix("10.0.0.0/24"): {},
+					netip.MustParsePrefix("10.0.1.0/24"): {},
+					netip.MustParsePrefix("10.0.2.0/24"): {},
+				},
+				v6: cidrSet{},
+			},
+		},
+	}, backend.nodes)
 }
