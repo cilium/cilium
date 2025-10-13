@@ -11,6 +11,18 @@ users to get in touch, it can be challenging to find this information quickly.
 The following is a directory of adopters to help identify users of individual
 features. The users themselves directly maintain the list.
 
+Why Add Your Logo?
+------------------
+
+Cilium is the standard for cloud native networking and your company's support
+helps drive its adoption and success. By joining the adopters, you:  
+
+✅ **Showcase Your Leadership** – Highlight your commitment to modern, eBPF-based
+cloud native networking, observability, and security.
+
+✅ **Support the Open Source Community** – Demonstrate real-world adoption,
+which strengthens the project's credibility and growth.  
+
 Adding yourself as a user
 -------------------------
 
@@ -39,9 +51,7 @@ Requirements to be listed
  * You must represent the user listed. Do *NOT* add entries on behalf of
    other users.
  * There is no minimum deployment size but we request to list permanent
-   production deployments only, i.e., no demo or trial deployments. Commercial
-   use is not required. A well-done home lab setup can be equally
-   interesting as a large-scale commercial deployment.
+   production deployments only, i.e., no demo or trial deployments.
 
 Users (Alphabetically)
 ----------------------
