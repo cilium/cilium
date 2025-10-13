@@ -171,7 +171,7 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		*oif = CONFIG(direct_routing_dev_ifindex);
 #endif
 
-		return fib_do_redirect(ctx, needs_l2_check, NULL, use_neigh_map,
+		return fib_do_redirect(ctx, needs_l2_check, NULL, false,
 				       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
 	} else {
 		int ret;
@@ -235,7 +235,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		*oif = CONFIG(direct_routing_dev_ifindex);
 #endif
 
-		return fib_do_redirect(ctx, needs_l2_check, NULL, allow_neigh_map,
+		return fib_do_redirect(ctx, needs_l2_check, NULL, false,
 				       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
 	} else {
 		struct bpf_fib_lookup_padded fib_params = {0};
@@ -299,7 +299,7 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		*oif = CONFIG(direct_routing_dev_ifindex);
 #endif
 
-		return fib_do_redirect(ctx, needs_l2_check, NULL, allow_neigh_map,
+		return fib_do_redirect(ctx, needs_l2_check, NULL, false,
 				       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
 	} else {
 		struct bpf_fib_lookup_padded fib_params = {0};
