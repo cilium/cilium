@@ -30,7 +30,7 @@ struct subnet_value {
     __u32 identity;
 };
 
-/* Global IP -> Identity map for applying egress label-based policy */
+/* CIDR -> Identity map */
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct subnet_key);
@@ -49,9 +49,9 @@ struct {
 #define V6_CACHE_KEY_LEN (sizeof(union v6addr)*8)
 
 static __always_inline __maybe_unused __u32
-subnet_lookup6(const void *map, const union v6addr *addr,
-		__u32 prefix)
+subnet_lookup6(const void *map, const union v6addr *addr)
 {
+	__u32 prefix = V6_CACHE_KEY_LEN;
     struct subnet_value *value;
 	struct subnet_key key = {
 		.lpm_key = { SUBNET_PREFIX_LEN(prefix), {} },
@@ -70,8 +70,9 @@ subnet_lookup6(const void *map, const union v6addr *addr,
 #define V4_CACHE_KEY_LEN (sizeof(__u32)*8)
 
 static __always_inline __maybe_unused __u32
-subnet_lookup4(const void *map, __be32 addr, __u32 prefix)
+subnet_lookup4(const void *map, __be32 addr)
 {
+	__u32 prefix = V4_CACHE_KEY_LEN;
     struct subnet_value *value;
 	struct subnet_key key = {
 		.lpm_key = { SUBNET_PREFIX_LEN(prefix), {} },
@@ -88,6 +89,6 @@ subnet_lookup4(const void *map, __be32 addr, __u32 prefix)
 }
 
 #define lookup_ip6_subnet(addr) \
-	subnet_lookup6(&cilium_subnet_map, addr, V6_CACHE_KEY_LEN)
+	subnet_lookup6(&cilium_subnet_map, addr)
 #define lookup_ip4_subnet(addr) \
-	subnet_lookup4(&cilium_subnet_map, addr, V4_CACHE_KEY_LEN)
+	subnet_lookup4(&cilium_subnet_map, addr)
