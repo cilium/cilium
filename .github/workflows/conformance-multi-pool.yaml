@@ -112,7 +112,9 @@ jobs:
           destination_directory="/tmp/generated/multi-pool"
           mkdir -p "${destination_directory}"
 
-          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/matrix.json"
+          cat ${work_dir}/{configs,wireguard}.yaml > "${destination_directory}/configs_merged.yaml"
+
+          yq -o=json "${destination_directory}/configs_merged.yaml" | jq . > "${destination_directory}/matrix.json"
 
       - name: Generate Matrix
         id: generate-matrix
