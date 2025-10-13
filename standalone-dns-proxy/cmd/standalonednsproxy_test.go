@@ -111,7 +111,7 @@ func addDataToDNSTable(t *testing.T, sdp *StandaloneDNSProxy, epID uint32, pp re
 		})
 	}
 	dnsRule := make(policy.L7DataMap)
-	dnsRule[&dnsproxy.DNSServerIdentity{Identities: serverID}] = &policy.PerSelectorPolicy{
+	dnsRule[&client.DNSServerIdentity{Identities: serverID}] = &policy.PerSelectorPolicy{
 		L7Rules: api.L7Rules{
 			DNS: pat,
 		},
