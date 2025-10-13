@@ -163,7 +163,7 @@ func TestPrivilegedScript(t *testing.T) {
 				cfg.EnableNoServiceEndpointsRoutable = *noEndpointsRoutable
 			})
 
-		hiveLog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelInfo))
+		hiveLog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 		t.Cleanup(func() {
 			assert.NoError(t, h.Stop(hiveLog, context.TODO()))
 		})

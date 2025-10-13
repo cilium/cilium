@@ -1,0 +1,225 @@
+#! --test-peering-ips=10.99.4.251,10.99.4.252
+
+# Tests BGP advertisements upon modifications of service VIP and LB class.
+
+# Start the hive
+hive start
+
+# Configure gobgp server
+gobgp/add-server test 65010 10.99.4.251 1790
+
+# Configure peers on GoBGP
+gobgp/add-peer 10.99.4.252 65001
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.4.252 ESTABLISHED
+
+# Add k8s service
+k8s/add service-vip-1.yaml
+
+# Validate that LB IP 1 is advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-1.expected routes.actual
+
+# Update service VIP
+k8s/update service-vip-2.yaml
+
+# Validate that LB IP 2 is advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-2.expected routes.actual
+
+# Update service LB class to non-cilium
+k8s/update service-vip-2-claas-other.yaml
+
+# Validate that LB IP is withdrawn
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Update service LB class back to cilium
+k8s/update service-vip-2.yaml
+
+# Validate that LB IP 2 is advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-2.expected routes.actual
+
+# Delete service
+k8s/delete service-vip-2.yaml
+sleep 0.1s # give some time for the change to propagate to avoid false positive
+
+# Validate that LB IP is withdrawn
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-empty.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.4.252
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.4.251
+      localAddress: 10.99.4.252
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: services
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: services
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+
+-- service-vip-1.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo1
+  namespace: test
+  labels:
+    bgp: advertise
+spec:
+  type: LoadBalancer
+  loadBalancerClass: io.cilium/bgp-control-plane
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- service-vip-2.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo1
+  namespace: test
+  labels:
+    bgp: advertise
+spec:
+  type: LoadBalancer
+  loadBalancerClass: io.cilium/bgp-control-plane
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.2
+
+-- service-vip-2-claas-other.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo1
+  namespace: test
+  labels:
+    bgp: advertise
+spec:
+  type: LoadBalancer
+  loadBalancerClass: io.other/other
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.2
+
+-- gobgp-routes-1.expected --
+Prefix          NextHop       Attrs
+172.16.1.1/32   10.99.4.252   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.252}]
+-- gobgp-routes-2.expected --
+Prefix          NextHop       Attrs
+172.16.1.2/32   10.99.4.252   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.252}]
+-- gobgp-routes-empty.expected --
+Prefix   NextHop   Attrs
