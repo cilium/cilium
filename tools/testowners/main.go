@@ -35,20 +35,15 @@ type TestEvent struct {
 
 var (
 	CodeOwners []string
+	Format     string
 )
 
 func init() {
 	flag.StringSliceVar(&CodeOwners, "code-owners", []string{}, "Use the code owners defined in these files for --log-code-owners")
+	flag.StringVar(&Format, "format", "gotest", "The format of the input. One of 'gotest' (default) or 'plain'")
 }
 
-func main() {
-	flag.Parse()
-
-	owners, err := codeowners.Load(CodeOwners)
-	if err != nil {
-		fatal("❗ Failed to load code owners: %s\n", err)
-	}
-
+func fromGotest(owners *codeowners.Ruleset) int {
 	// Example JSON for failed test:
 	// {"Time":"2025-01-31T07:35:57.837543016+01:00","Action":"start","Package":"github.com/cilium/cilium/test/fail"}
 	// {"Time":"2025-01-31T07:35:57.840861715+01:00","Action":"run","Package":"github.com/cilium/cilium/test/fail","Test":"TestFailure"}
@@ -102,6 +97,54 @@ func main() {
 		fmt.Fprintln(w, pkg+"\t"+strings.Join(owners, ", "))
 	}
 	w.Flush()
+
+	return exitCode
+}
+
+func fromPlain(owners *codeowners.Ruleset) int {
+	exitCode := 0
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		filepath := strings.TrimSpace(scanner.Text())
+		rule, err := owners.Match(filepath)
+		if err != nil {
+			fmt.Printf("❗ Error matching filepath %q: %s\n", filepath, err)
+			exitCode = 1
+			continue
+		}
+		if rule == nil || rule.Owners == nil {
+			fmt.Printf("❗ No owners found for filepath %q\n", filepath)
+			exitCode = 1
+			continue
+		}
+
+		fmt.Printf("⛑️ The following owners are responsible for %s:\n", filepath)
+		for _, o := range rule.Owners {
+			fmt.Printf(" - %s\n", o.String())
+		}
+	}
+	return exitCode
+}
+
+func main() {
+	flag.Parse()
+
+	exitCode := 0
+
+	owners, err := codeowners.Load(CodeOwners)
+	if err != nil {
+		fatal("❗ Failed to load code owners: %s\n", err)
+	}
+
+	switch Format {
+	case "gotest":
+		exitCode = fromGotest(owners)
+	case "plain":
+		exitCode = fromPlain(owners)
+	default:
+		fmt.Printf("❗ Unknown format %q. Supported formats are 'gotest' and 'plain'\n", Format)
+		exitCode = 1
+	}
 
 	os.Exit(exitCode)
 }
