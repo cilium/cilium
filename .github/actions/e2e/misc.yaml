@@ -1,4 +1,4 @@
-- name: '1'
+- name: 'misc-1'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.10-20251008.075427'
   kube-proxy: 'iptables'
@@ -10,7 +10,7 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
-- name: '2'
+- name: 'misc-2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.6-20251008.075427'
   kube-proxy: 'none'
@@ -21,7 +21,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
-- name: '3'
+- name: 'misc-3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.6-20251008.075427'
   kube-proxy: 'none'
@@ -32,7 +32,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
-- name: '4'
+- name: 'misc-4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.6-20251008.075427'
   kube-proxy: 'none'
@@ -44,7 +44,7 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
-- name: '5'
+- name: 'misc-5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20251008.075427'
   kube-proxy: 'none'
@@ -55,7 +55,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
-- name: '6'
+- name: 'misc-6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.12-20251008.075427'
   kube-proxy: 'none'
@@ -67,7 +67,7 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
-- name: '7'
+- name: 'misc-7'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.15-20251008.075427'
   kube-proxy: 'none'
