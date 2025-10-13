@@ -293,16 +293,15 @@ func (p *PoolAllocator) DeletePool(poolName string) error {
 	}
 
 	for node, pools := range p.nodes {
-		for pool := range pools {
-			if pool == poolName {
-				p.logger.Warn(
-					"pool still in use by node",
-					logfields.PoolName, pool,
-					logfields.Node, node,
-				)
-				delete(p.nodes[node], poolName)
-			}
+		if _, found := pools[poolName]; !found {
+			continue
 		}
+		p.logger.Warn(
+			"pool still in use by node",
+			logfields.PoolName, poolName,
+			logfields.Node, node,
+		)
+		delete(p.nodes[node], poolName)
 	}
 
 	delete(p.pools, poolName)
