@@ -8,13 +8,17 @@ import (
 	"log/slog"
 	"maps"
 	"net/netip"
+	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 
-	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -218,10 +222,10 @@ func (c *GRPCClient) updateDNSRules(rules []*pb.DNSPolicy) error {
 			}
 			cs := make(policy.L7DataMap)
 			if len(dnsRulesSlice) == 0 {
-				cs[&dnsproxy.DNSServerIdentity{Identities: identities}] = nil
+				cs[&DNSServerIdentity{Identities: identities}] = nil
 
 			} else {
-				cs[&dnsproxy.DNSServerIdentity{Identities: identities}] = &policy.PerSelectorPolicy{
+				cs[&DNSServerIdentity{Identities: identities}] = &policy.PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						DNS: dnsRulesSlice,
 					},
@@ -259,5 +263,45 @@ func (c *GRPCClient) updateDNSRules(rules []*pb.DNSPolicy) error {
 	}
 	wtxn.Commit()
 
+	return nil
+}
+
+// DNSServerIdentity contains the identities of the DNS servers and used to
+// determine if a DNS request is allowed or not from standalone DNS proxy.
+// It adheres the interface policy.CachedSelector and reuses the
+// in agent dns proxy filtering path.
+type DNSServerIdentity struct {
+	Identities identity.NumericIdentitySlice
+}
+
+func (d *DNSServerIdentity) Selects(_ *versioned.VersionHandle, identity identity.NumericIdentity) bool {
+	return slices.Contains(d.Identities, identity)
+}
+
+func (d *DNSServerIdentity) String() string {
+	identityStrings := make([]string, len(d.Identities))
+	for i, id := range d.Identities {
+		identityStrings[i] = strconv.FormatUint(uint64(id), 10)
+	}
+	return strings.Join(identityStrings, ",")
+}
+
+// Not being used in the standalone dns proxy path
+func (d *DNSServerIdentity) IsWildcard() bool {
+	return false
+}
+
+// Not being used in the standalone dns proxy path
+func (d *DNSServerIdentity) IsNone() bool {
+	return false
+}
+
+// Not being used in the standalone dns proxy path
+func (d *DNSServerIdentity) GetSelections(_ *versioned.VersionHandle) identity.NumericIdentitySlice {
+	return d.Identities
+}
+
+// Not being used in the standalone dns proxy path
+func (d *DNSServerIdentity) GetMetadataLabels() labels.LabelArray {
 	return nil
 }
