@@ -34,7 +34,8 @@ func (t strictModeEncryption) build(ct *check.ConnectivityTest, _ map[string]str
 		WithFeatureRequirements(
 			features.RequireEnabled(features.EncryptionStrictMode),
 			// Strict mode is only supported with WireGuard
-			features.RequireMode(features.EncryptionPod, "wireguard"),
+			// TODO or IPsec on v1.19+
+			features.RequireEnabled(features.EncryptionPod),
 			// Strict mode always allows host-to-host tunnel traffic
 			features.RequireDisabled(features.Tunnel),
 		).
