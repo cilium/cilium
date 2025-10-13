@@ -72,16 +72,15 @@ static __always_inline bool fib_ok(int ret)
   *
   * The redirect can occur with or without a preceding FIB lookup.
   *
+  * If redirect_neigh() is available, it is always preferred. Passing
+  * through the nh information from @fib_params if available.
+  *
+  * Otherwise:
   * If a previous FIB lookup was performed with result BPF_FIB_LKUP_RET_SUCCESS,
   * then the L2 addresses are updated from the provided @fib_params along with a
   * plain ctx_redirect().
   *
-  * If no FIB lookup was performed (BPF_FIB_LKUP_NO_NEIGH with no @fib_params) or
-  * the FIB lookup returned BPF_FIB_LKUP_NO_NEIGH, then redirect_neigh() is used
-  * for the redirect. Passing through the nh information from @fib_params if available.
-  *
-  * If redirect_neigh() is not available (== XDP context), a plain ctx_redirect()
-  * is used. The `dmac` is resolved from the neighbour map.
+  * Without a successful FIB lookup, the `dmac` is resolved from the neighbour map.
   */
 static __always_inline int
 fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
