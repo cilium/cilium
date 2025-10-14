@@ -7,7 +7,7 @@ import (
 	"unsafe"
 )
 
-//go:generate go run golang.org/x/tools/cmd/stringer@latest -linecomment -output=btf_types_string.go -type=FuncLinkage,VarLinkage,btfKind
+//go:generate go tool stringer -linecomment -output=btf_types_string.go -type=FuncLinkage,VarLinkage,btfKind
 
 // btfKind describes a Type.
 type btfKind uint8
