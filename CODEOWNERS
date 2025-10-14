@@ -220,6 +220,10 @@
 # - @cilium/wireguard:
 #   Maintain the kernel WireGuard configuration and datapath impacts related to
 #   ensuring traffic is encrypted correctly when WireGuard mode is enabled.
+# - @cilium/ztunnel:
+#   Maintain the ztunnel mTLS-proxy integration in cilium to ensure the ztunnel
+#   agent receives the necessary information to successfully proxy pod-to-pod
+#   traffic through mTLS tunnels.
 #
 # END_CODEOWNERS_DOCS
 #
@@ -650,6 +654,7 @@ Makefile* @cilium/build
 /pkg/wal/ @cilium/sig-foundations
 /pkg/wireguard @cilium/wireguard
 /pkg/xds/ @cilium/envoy
+/pkg/ztunnel/ @cilium/ztunnel
 /plugins/cilium-cni/ @cilium/sig-k8s
 /plugins/cilium-docker/ @cilium/docker
 /README.rst @cilium/docs-structure @cilium/release-managers
