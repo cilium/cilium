@@ -819,6 +819,24 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				result.PrimaryMAC = iface.MAC
 				result.GatewayIP = iface.Gateway
 				result.CIDRs = append(result.CIDRs, iface.CIDR)
+				// Add manually configured Native Routing CIDR
+				if a.conf.IPv4NativeRoutingCIDR != nil {
+					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR.String())
+				}
+				// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
+				// Note that the resulting ip rules will not be dynamically regenerated if the
+				// ip-masq-agent configuration changes.
+				if a.conf.EnableIPMasqAgent {
+					nonMasqCidrs := a.ipMasqAgent.NonMasqCIDRsFromConfig()
+					for _, prefix := range nonMasqCidrs {
+						if ip.To4() != nil && prefix.Addr().Is4() {
+							result.CIDRs = append(result.CIDRs, prefix.String())
+						} else if ip.To4() == nil && prefix.Addr().Is6() {
+							result.CIDRs = append(result.CIDRs, prefix.String())
+						}
+					}
+				}
+
 				// For now, we can hardcode the interface number to a valid
 				// integer because it will not be used in the allocation result
 				// anyway. To elaborate, Azure IPAM mode automatically sets
