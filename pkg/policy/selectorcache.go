@@ -382,7 +382,6 @@ func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls string
 	txn.Commit()
 
 	return idSel, idSel.addUser(user)
-
 }
 
 // FindCachedIdentitySelector finds the given api.EndpointSelector in the
