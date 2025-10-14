@@ -453,9 +453,9 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 					// fully removed to avoid disrupting connections.
 					state = loadbalancer.BackendStateTerminating
 				default:
-					// In all other cases we mark the backend as quarantined. Existing connections
-					// are not disrupted until the backend is actually deleted.
-					state = loadbalancer.BackendStateQuarantined
+					// In all other cases we mark the backend to be in maintenance. This avoids disruptions
+					// to existing connections when a backend readiness is flapping.
+					state = loadbalancer.BackendStateMaintenance
 				}
 				bep := loadbalancer.BackendParams{
 					Address:   l3n4Addr,
