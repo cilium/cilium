@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/flow"
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
@@ -15,11 +16,104 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+// CorrelatePolicyFromCookie computes flow correlation using a cookie.
+// The cookie is expected policy metadata to compute correlation aka policy labels and optional logs.
+func CorrelatePolicyFromCookie(logger *slog.Logger, policyCookie uint32, endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
+	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) {
+		return
+	}
+
+	c, ok := endpointGetter.GetCookie(policyCookie)
+	if !ok {
+		logger.Debug(
+			"no policy cookie found",
+			logfields.PolicyCookie, policyCookie,
+		)
+		return
+	}
+	if !c.HasLabels() {
+		return
+	}
+
+	// We are only interested in flows which are either allowed (i.e. the verdict is either
+	allowed, denied := parseVerdict(f)
+	if !(allowed || denied) {
+		return
+	}
+
+	direction, endpointID, _, proto, dport := extractFlowKey(f)
+	if dport == 0 || proto == 0 {
+		logger.Debug(
+			"failed to extract flow key",
+			logfields.EndpointID, endpointID,
+		)
+		return
+	}
+
+	policies := policiesFromCookie(c)
+	switch {
+	case direction == trafficdirection.Egress && allowed:
+		f.EgressAllowedBy = policies
+	case direction == trafficdirection.Egress && denied:
+		f.EgressDeniedBy = policies
+	case direction == trafficdirection.Ingress && allowed:
+		f.IngressAllowedBy = policies
+	case direction == trafficdirection.Ingress && denied:
+		f.IngressDeniedBy = policies
+	}
+	f.PolicyLog = c.Logs
+}
+
+func parseVerdict(flow *flow.Flow) (allowed, denied bool) {
+	verdict := flow.GetVerdict()
+	allowed = verdict == flowpb.Verdict_FORWARDED || verdict == flowpb.Verdict_REDIRECTED
+	denied = verdict == flowpb.Verdict_DROPPED && flow.GetDropReasonDesc() == flowpb.DropReason_POLICY_DENY
+
+	return
+}
+
+func policiesFromCookie(cookie *cookie.BakedCookie) (policies []*flowpb.Policy) {
+	for model := range labels.ModelsFromLabelArrayListString(cookie.Labels) {
+		policies = append(policies, policyFromCookie(model))
+	}
+
+	return policies
+}
+
+func policyFromCookie(lbls []string) *flowpb.Policy {
+	p := flowpb.Policy{Labels: lbls}
+
+	k8sSrc := string(source.Kubernetes) + ":"
+	for i := range lbls {
+		lbl, ok := strings.CutPrefix(lbls[i], k8sSrc)
+		if !ok {
+			continue
+		}
+		if key, value, ok := strings.Cut(lbl, "="); ok {
+			switch key {
+			case k8sConst.PolicyLabelName:
+				p.Name = value
+			case k8sConst.PolicyLabelNamespace:
+				p.Namespace = value
+			case k8sConst.PolicyLabelDerivedFrom:
+				p.Kind = value
+			default:
+				if p.Kind != "" && p.Name != "" && p.Namespace != "" {
+					return &p
+				}
+			}
+		}
+	}
+
+	return &p
+}
 
 // CorrelatePolicy updates the IngressAllowedBy/EgressAllowedBy fields on the
 // provided flow.
@@ -33,9 +127,7 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 	// FORWARDED or REDIRECTED) or explicitly denied (i.e. DROPPED, and matched by a deny policy),
 	// since we cannot usefully annotate the verdict otherwise. (Put differently, which policy
 	// should be listed in {in|e}gress_denied_by for an unmatched flow?)
-	verdict := f.GetVerdict()
-	allowed := verdict == flowpb.Verdict_FORWARDED || verdict == flowpb.Verdict_REDIRECTED
-	denied := verdict == flowpb.Verdict_DROPPED && f.GetDropReasonDesc() == flowpb.DropReason_POLICY_DENY
+	allowed, denied := parseVerdict(f)
 	if !(allowed || denied) {
 		return
 	}
@@ -74,7 +166,7 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 		return
 	}
 
-	rules := toProto(info)
+	rules := toProto(&info)
 	switch {
 	case direction == trafficdirection.Egress && allowed:
 		f.EgressAllowedBy = rules
@@ -221,7 +313,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 	return ep.GetPolicyCorrelationInfoForKey(key)
 }
 
-func toProto(info policyTypes.PolicyCorrelationInfo) (policies []*flowpb.Policy) {
+func toProto(info *policyTypes.PolicyCorrelationInfo) (policies []*flowpb.Policy) {
 	for model := range labels.ModelsFromLabelArrayListString(info.RuleLabels) {
 		policies = append(policies, policyFromModel(model, info))
 	}
@@ -232,14 +324,15 @@ func toProto(info policyTypes.PolicyCorrelationInfo) (policies []*flowpb.Policy)
 // correlation information.
 //
 // This function supports namespaced and cluster-scoped resources.
-func policyFromModel(model []string, info policyTypes.PolicyCorrelationInfo) *flowpb.Policy {
+func policyFromModel(model []string, info *policyTypes.PolicyCorrelationInfo) *flowpb.Policy {
 	f := &flowpb.Policy{
 		Labels:   model,
 		Revision: info.Revision,
 	}
 
+	k8sSrc := string(source.Kubernetes) + ":"
 	for _, lbl := range model {
-		if lbl, isK8sLabel := strings.CutPrefix(lbl, string(source.Kubernetes)+":"); isK8sLabel {
+		if lbl, isK8sLabel := strings.CutPrefix(lbl, k8sSrc); isK8sLabel {
 			if key, value, found := strings.Cut(lbl, "="); found {
 				switch key {
 				case k8sConst.PolicyLabelName:
