@@ -107,3 +107,24 @@ func (reqs Requirements) Matches(logger *slog.Logger, labels labels.LabelArray) 
 	}
 	return true
 }
+
+// GetFirstK8sMatch checks for a match on the specified k8s key, and returns the values that the key
+// must match, and true. If a match cannot be found, or is with operator other than "In", "Equals",
+// or "DoubleEquals", returns nil, false.  Note: The values of first requirement with the given k8s
+// key are returned. If there are multiple requirements with the same key, technically we should
+// return the intersection of all them. The caller must perform a full match operation to prune out
+// values not in such intersection.
+func (reqs Requirements) GetFirstK8sMatch(key string) ([]string, bool) {
+	for _, r := range reqs {
+		if r.key.Source == labels.LabelSourceK8s && r.key.Key == key {
+			switch r.operator {
+			case selection.In, selection.Equals, selection.DoubleEquals:
+				return r.values.AsSlice(), true
+			default:
+				// any other operator on the key may negate match
+				break
+			}
+		}
+	}
+	return nil, false
+}
