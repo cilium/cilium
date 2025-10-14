@@ -193,6 +193,17 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 	td.repo.MustAddList(apiRules)
 }
 
+func BenchmarkResolveCIDRPolicyRules(b *testing.B) {
+	td := newTestData(hivetest.Logger(b))
+	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
+
+	b.ReportAllocs()
+	for b.Loop() {
+		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
+		ip.detach(true, 0)
+	}
+}
+
 func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	td := newTestData(hivetest.Logger(b))
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
@@ -207,6 +218,17 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	}
 	ip.detach(true, 0)
 	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
+}
+
+func BenchmarkResolveL3IngressPolicyRules(b *testing.B) {
+	td := newTestData(hivetest.Logger(b))
+	td.bootstrapRepo(GenerateL3IngressRules, 1000, b)
+
+	b.ReportAllocs()
+	for b.Loop() {
+		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
+		ip.detach(true, 0)
+	}
 }
 
 func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
