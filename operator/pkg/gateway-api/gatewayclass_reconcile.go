@@ -61,20 +61,9 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return controllerruntime.Fail(nil)
 		}
 
-		if ref.Namespace == nil || ref.Name == "" {
-			scopedLog.Error("ParametersRef must specify namespace and name")
-			setGatewayClassAccepted(gwc, false)
-			if err := r.ensureStatus(ctx, gwc, original); err != nil {
-				scopedLog.ErrorContext(ctx, "Failed to update GatewayClass status", logfields.Error, err)
-				return controllerruntime.Fail(err)
-			}
-			return controllerruntime.Fail(nil)
-		}
-
 		cgcc := &v2alpha1.CiliumGatewayClassConfig{}
 		key := client.ObjectKey{
-			Namespace: string(*ref.Namespace),
-			Name:      ref.Name,
+			Name: ref.Name,
 		}
 		if err := r.Client.Get(ctx, key, cgcc); err != nil {
 			setGatewayClassAccepted(gwc, false)
