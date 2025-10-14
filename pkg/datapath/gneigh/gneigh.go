@@ -62,6 +62,16 @@ type Interface struct {
 	iface *net.Interface
 }
 
+// Name returns the interface name.
+func (i Interface) Name() string {
+	return i.iface.Name
+}
+
+// HardwareAddr returns the interface hardware address.
+func (i Interface) HardwareAddr() net.HardwareAddr {
+	return i.iface.HardwareAddr
+}
+
 // InterfaceFromNetInterface constructs an Interface from the given *net.Interface.
 func InterfaceFromNetInterface(iface *net.Interface) Interface {
 	return Interface{iface: iface}
@@ -90,7 +100,7 @@ func (s *sender) NewArpSender(iface Interface) (ArpSender, error) {
 
 	return &arpSender{
 		cl:    cl,
-		srcHW: iface.iface.HardwareAddr,
+		srcHW: iface.HardwareAddr(),
 	}, nil
 }
 
@@ -123,7 +133,7 @@ func (s *sender) NewNdSender(iface Interface) (NdSender, error) {
 
 	return &ndSender{
 		cl:    cl,
-		srcHW: iface.iface.HardwareAddr,
+		srcHW: iface.HardwareAddr(),
 	}, nil
 }
 

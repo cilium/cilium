@@ -194,7 +194,7 @@ func TestProcessorSingleInterface(t *testing.T) {
 	garps := collect(garpSent)
 	require.Len(t, garps, 1)
 	require.Equal(t, garps[0].addr.String(), ep1.IPv4.String())
-	require.Equal(t, garps[0].iface.iface.Name, cfg.L2PodAnnouncementsInterface)
+	require.Equal(t, garps[0].iface.Name(), cfg.L2PodAnnouncementsInterface)
 
 	// On second event we expect no GARP to be sent.
 	proc.EndpointCreated(ep1)
@@ -205,7 +205,7 @@ func TestProcessorSingleInterface(t *testing.T) {
 	garps = collect(garpSent)
 	require.Len(t, garps, 1)
 	require.Equal(t, garps[0].addr.String(), ep2.IPv4.String())
-	require.Equal(t, garps[0].iface.iface.Name, cfg.L2PodAnnouncementsInterface)
+	require.Equal(t, garps[0].iface.Name(), cfg.L2PodAnnouncementsInterface)
 
 	// Second event for second endpoint should not trigger a GARP.
 	proc.EndpointCreated(ep2)
@@ -220,7 +220,7 @@ func TestProcessorSingleInterface(t *testing.T) {
 	garps = collect(garpSent)
 	require.Len(t, garps, 1)
 	require.Equal(t, garps[0].addr.String(), ep1.IPv4.String())
-	require.Equal(t, garps[0].iface.iface.Name, cfg.L2PodAnnouncementsInterface)
+	require.Equal(t, garps[0].iface.Name(), cfg.L2PodAnnouncementsInterface)
 
 	// But GARP should still not be set for recreated ep2.
 	proc.EndpointCreated(ep2)
@@ -241,8 +241,8 @@ func TestProcessorHappyPathMultipleInterface(t *testing.T) {
 	garps := collect(garpSent)
 	require.Len(t, garps, 2)
 	require.Equal(t, garps[0].addr.String(), ep1.IPv4.String())
-	gotEth0 := garps[0].iface.iface.Name == "eth0" || garps[1].iface.iface.Name == "eth0"
-	gotEns1 := garps[0].iface.iface.Name == "ens1" || garps[1].iface.iface.Name == "ens1"
+	gotEth0 := garps[0].iface.Name() == "eth0" || garps[1].iface.Name() == "eth0"
+	gotEns1 := garps[0].iface.Name() == "ens1" || garps[1].iface.Name() == "ens1"
 	if !(gotEth0 && gotEns1) {
 		t.Fatalf("Expected GARP to be sent on both eth0 and ens1, got: %v", garps)
 	}
@@ -261,7 +261,7 @@ func TestProcessorOnlySelected(t *testing.T) {
 	garps := collect(garpSent)
 	for _, d := range fakeDevices {
 		contains := slices.ContainsFunc(garps, func(g fakeGarp) bool {
-			return g.iface.iface.Name == d.Name
+			return g.iface.Name() == d.Name
 		})
 		if d.Selected && !contains {
 			t.Fatalf("Expected GARP to be sent on selected interface %s", d.Name)
