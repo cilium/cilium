@@ -18,8 +18,8 @@ import (
 	"github.com/cilium/cilium/tools/testowners/codeowners"
 )
 
-func fatal(fmt string, msg ...any) {
-	slog.Error(fmt, msg...)
+func fatal(msg string, args ...any) {
+	slog.Error(msg, args...)
 	os.Exit(1)
 }
 
@@ -133,7 +133,7 @@ func main() {
 
 	owners, err := codeowners.Load(CodeOwners)
 	if err != nil {
-		fatal("❗ Failed to load code owners: %s\n", err)
+		fatal("❗ Failed to load code owners", "error", err)
 	}
 
 	switch Format {
