@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -184,6 +185,68 @@ func TestIPMasq(t *testing.T) {
 			// VPC CIDRs
 			"10.1.0.0/16",
 			"10.2.0.0/16",
+			// Default ip-masq-agent CIDRs
+			"10.0.0.0/8",
+			"172.16.0.0/12",
+			"192.168.0.0/16",
+			"100.64.0.0/10",
+			"192.0.0.0/24",
+			"192.0.2.0/24",
+			"192.88.99.0/24",
+			"198.18.0.0/15",
+			"198.51.100.0/24",
+			"203.0.113.0/24",
+			"240.0.0.0/4",
+			"169.254.0.0/16",
+		},
+		result.CIDRs,
+	)
+
+	ipMasqAgent.Stop()
+}
+
+func TestAzureIPMasq(t *testing.T) {
+	cn := newCiliumNode("node1", 4, 4, 0)
+	dummyResource := ipamTypes.AllocationIP{Resource: "azure-interface-1"}
+	cn.Spec.IPAM.Pool["10.10.1.5"] = dummyResource
+	cn.Status.Azure.Interfaces = []azureTypes.AzureInterface{
+		{
+			ID:      "azure-interface-1",
+			Name:    "eth0",
+			MAC:     "00:00:5e:00:53:01",
+			Gateway: "10.10.1.1",
+			CIDR:    "10.10.1.0/24",
+			Addresses: []azureTypes.AzureAddress{
+				{IP: "10.10.1.5", Subnet: "subnet-1", State: azureTypes.StateSucceeded},
+			},
+		},
+	}
+
+	fakeAddressing := fakeTypes.NewNodeAddressing()
+	conf := testConfigurationCRD
+	conf.IPAM = ipamOption.IPAMAzure
+	conf.EnableIPMasqAgent = true
+	ipMasqAgent := ipmasq.NewIPMasqAgent(hivetest.Logger(t), "", ipMasqMapDummy{})
+	err := ipMasqAgent.Start()
+	require.NoError(t, err)
+
+	initNodeStore.Do(func() {}) // Ensure the real initNodeStore is not called
+	sharedNodeStore = newFakeNodeStore(conf, t)
+	sharedNodeStore.ownNode = cn
+
+	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, ipMasqAgent)
+	ipam.ConfigureAllocator()
+
+	epipv4 := netip.MustParseAddr("10.10.1.5")
+	result, err := ipam.IPv4Allocator.Allocate(epipv4.AsSlice(), "test1", PoolDefault())
+	require.NoError(t, err)
+	// The resulting CIDRs should contain the Azure interface CIDR and the default ip-masq-agent CIDRs
+	require.ElementsMatch(
+		t,
+		[]string{
+			// Azure interface CIDR
+			"10.10.1.0/24",
 			// Default ip-masq-agent CIDRs
 			"10.0.0.0/8",
 			"172.16.0.0/12",
