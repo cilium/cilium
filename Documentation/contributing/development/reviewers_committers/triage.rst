@@ -28,7 +28,7 @@ effort put in by the contributor.
 
 If a (somewhat) large contribution comes in that requires long-term help, the
 Triager takes care of pairing up the contributor with someone from
-the corresponding vertical or working group, who can then help guide the
+the corresponding area, who can then help guide the
 contribution even if it takes several weeks.
 
 PRs that are ready to merge
@@ -66,9 +66,9 @@ PRs that may need attention
 *   Apply ``kind/*`` and ``release-note/*`` labels, external contributors
     cannot apply labels.
 *   Approve workflows and run ``/test``.
-*   Re-run failed jobs due to flakes (e.g. connecting to 1.1.1.1, ..). Link or
-    create issues for persistent flakes.
-*   Bump the PR if feedback was positive but there's been no progress, either
+*   Link or create issues for persistent flakes. See the 
+`CI failure triage guide <https://docs.cilium.io/en/stable/contributing/testing/ci/#ci-failure-triage>`_ for further guidance.
+*   Remind the person if feedback was positive but there's been no progress, either
     from reviewer or author side.
 *   Kindly ask for rebases if conflicts emerge, or if e.g. things changed in
     CI that are causing a job to fail.
@@ -85,7 +85,7 @@ PRs that may need attention
 ^^^^^^^^^^^^^^^^
 
 Triaging bugs means interacting with the reporter until the issue is clear and
-can be labeled with the corresponding vertical.
+can be labeled with the corresponding area.
 
 The main goal of this activity is identifying crucial issues that could impact
 users, and gathering more info so that we can drive towards solutions to those
@@ -109,11 +109,9 @@ set:
 *   Enhancement
 *   Task
 
-Please don't make changes to the filter without discussing in the `#tophat
-<https://slack.com/app_redirect?channel=tophat>`_ channel first.
-
 The effort we spend should be proportional to the reporter's effort. This
-typically means a 5-10 minute assessment of overall impact, project area etc.
+typically means a 5-10 minute assessment of overall impact, project area, severity, reproducibility,
+regressions, and related work.
 
 If the issue isn't clear enough request for more information like a sysdump or
 steps to replicate the issue. Add label ``need-more-info``. Adding
@@ -124,30 +122,20 @@ information and no followup to not waste Triager time looking at them.
 
 For GH issues that have the "Regression" section filled out or otherwise look
 like regressions, (for example: "this worked before but it's not working
-now"), bring it up immediately to the `#vertical-agent
-<https://slack.com/app_redirect?channel=vertical-agent>`_ or `#vertical-datapath
-<https://slack.com/app_redirect?channel=vertical-datapath>`_. Also add the
-``kind/regression`` label.
+now") add the ``kind/regression`` label.
 
 If it has enough information but is not a regression, decide if it's
 ``area/agent``, ``area/datapath`` or ``area/hubble``. When in doubt which one is
-it, bring it up in the developer meeting.
+it, bring it up in #development channel on Slack.
 
 Every issue in ``cilium/cilium`` should have ``area/agent``, ``area/datapath``
-or ``area/hubble`` once it has enough information, on rare occasions it can be
-both agent and datapath.
-
+or ``area/hubble`` once it has enough information.
 If possible add ``"area/*"`` labels and more specific labels, like
-``sig/k8s``, ``area/clustermesh``, etc.
-
-If someone has created an issue outside the issue templates, make your best
-guess and ping the creator to remind them to label their issues. This will
-stop unlabeled issues from building up over time.
+``sig/k8s`` or ``area/clustermesh``.
 
 Once you have added ``area/agent``, ``area/datapath`` or ``area/hubble`` remove
 the ``needs/triage`` label.
 
 Try to achieve an empty queue. There is no date filter, as that means
 explicitly ignoring older issues. If an issue is not relevant, it should be
-closed. If the queue grows faster than we can handle, changes need to be made
-and discussions need to be had.
+closed. If the queue grows faster than we can handle, raise a discussion about the workload in #development.
