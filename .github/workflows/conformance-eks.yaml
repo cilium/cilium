@@ -476,7 +476,7 @@ jobs:
           kubectl delete ns -l app.kubernetes.io/name=cilium-cli
 
           # Build test flags based on matrix
-          GATEWAY_TEST_FLAGS="--gateway-class cilium --all-features --allow-crds-mismatch --skip-tests \"MeshConsumerRoute,HTTPRouteListenerPortMatching\" --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC --organization cilium --project cilium --url github.com/cilium/cilium --version main --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md --report-output report.yaml"
+          GATEWAY_TEST_FLAGS="--gateway-class cilium --all-features --allow-crds-mismatch --cleanup-base-resources=false --skip-tests \"MeshConsumerRoute,HTTPRouteListenerPortMatching\" --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC --organization cilium --project cilium --url github.com/cilium/cilium --version main --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md --report-output report.yaml"
 
           # Create JUnit output directory and enable owner attribution
           mkdir -p cilium-junits
