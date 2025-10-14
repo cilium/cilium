@@ -126,12 +126,13 @@ func (l *labelIdentitySelector) matchesLabels(logger *slog.Logger, labels labels
 }
 
 func newLabelIdentitySelector(es api.EndpointSelector) *labelIdentitySelector {
-	namespaces, _ := es.GetMatch(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel)
+	reqs := selector.FromK8sRequirements(es.Requirements())
+	namespaces, _ := reqs.GetFirstK8sMatch(k8sConst.PodNamespaceLabel)
 
 	return &labelIdentitySelector{
 		cachedString: es.CachedString(),
 		namespaces:   namespaces,
-		selector:     selector.FromK8sRequirements(es.Requirements()),
+		selector:     reqs,
 	}
 }
 
