@@ -191,6 +191,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	var dbg *monitor.DebugCapture
 	var eventSubType uint8
 	var authType pb.AuthType
+	var policyCookie uint32
 
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
@@ -224,6 +225,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		eventSubType = pvn.SubType
 		packetOffset = int(pvn.DataOffset())
 		authType = pb.AuthType(pvn.GetAuthType())
+		policyCookie = pvn.Cookie
 	case monitorAPI.MessageTypeCapture:
 		dbg, err = p.debugCaptureDecoder(data, decoded)
 		if err != nil {
@@ -308,10 +310,19 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.ProxyPort = decodeProxyPort(dbg, tn)
 
 	if p.correlateL3L4Policy && p.endpointGetter != nil {
-		correlation.CorrelatePolicy(p.log, p.endpointGetter, decoded)
+		p.correlatePolicy(policyCookie, decoded)
 	}
 
 	return nil
+}
+
+func (p *Parser) correlatePolicy(policyCookie uint32, f *pb.Flow) {
+	// If we have a valid cookie use it to add log info and correlate the flow.
+	if policyCookie != 0 {
+		correlation.CorrelatePolicyFromCookie(p.log, policyCookie, p.endpointGetter, f)
+		return
+	}
+	correlation.CorrelatePolicy(p.log, p.endpointGetter, f)
 }
 
 func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {

@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -25,6 +26,7 @@ type DNSGetter interface {
 
 // EndpointGetter ...
 type EndpointGetter interface {
+	PolicyMetadataGetter
 	// GetEndpointInfo looks up endpoint by IP address.
 	GetEndpointInfo(ip netip.Addr) (endpoint EndpointInfo, ok bool)
 	// GetEndpointInfo looks up endpoint by id
@@ -68,6 +70,12 @@ type PodMetadataGetter interface {
 	// GetPodMetadataForContainer returns the pod metadata for the given container
 	// cgroup id.
 	GetPodMetadataForContainer(cgroupId uint64) *cgroupManager.PodMetadata
+}
+
+// PolicyMetadataGetter fetches policy metadata.
+type PolicyMetadataGetter interface {
+	// GetCookie returns the policy metadata associated with the given cookie, if it exists.
+	GetCookie(cookie uint32) (*cookie.BakedCookie, bool)
 }
 
 // EndpointInfo defines readable fields of a Cilium endpoint.
