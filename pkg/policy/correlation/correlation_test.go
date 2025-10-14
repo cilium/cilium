@@ -9,9 +9,11 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"github.com/cilium/cilium/api/v1/flow"
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
@@ -20,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -546,5 +549,450 @@ func TestCorrelatePolicy(t *testing.T) {
 	require.Nil(t, flow.IngressAllowedBy)
 	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+}
+
+func TestCorrelatePolicyFromCookie(t *testing.T) {
+	uu := map[string]struct {
+		flow   *flowpb.Flow
+		cookie *cookie.BakedCookie
+		ea, ed []*flow.Policy
+		ia, id []*flow.Policy
+	}{
+		"empty": {
+			flow:   &flowpb.Flow{},
+			cookie: cookie.NewBakedCookie("", nil),
+		},
+
+		"egress": {
+			flow: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					Type: monitorAPI.MessageTypePolicyVerdict,
+				},
+				Verdict:          flowpb.Verdict_FORWARDED,
+				TrafficDirection: flowpb.TrafficDirection_EGRESS,
+				IP: &flowpb.IP{
+					Source:      "1.1.1.1",
+					Destination: "2.2.2.2",
+				},
+				L4: &flowpb.Layer4{
+					Protocol: &flowpb.Layer4_TCP{
+						TCP: &flowpb.TCP{
+							DestinationPort: 8000,
+						},
+					},
+				},
+				Source: &flowpb.Endpoint{
+					ID:       1000,
+					Identity: 1000,
+				},
+				Destination: &flowpb.Endpoint{
+					ID:       2000,
+					Identity: 2000,
+				},
+				PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+			},
+			cookie: cookie.NewBakedCookie(
+				"["+
+					"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy"+" "+
+					"k8s:io.cilium.k8s.policy.name=p-1"+" "+
+					"k8s:io.cilium.k8s.policy.namespace=ns-1"+" "+
+					"k8s:io.cilium.k8s.policy.uid=1234-5678"+
+					"]",
+				[]string{"bozo!"},
+			),
+			ea: []*flow.Policy{
+				{
+					Name:      "p-1",
+					Namespace: "ns-1",
+					Kind:      utils.ResourceTypeCiliumNetworkPolicy,
+					Labels: []string{
+						"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+						"k8s:io.cilium.k8s.policy.name=p-1",
+						"k8s:io.cilium.k8s.policy.namespace=ns-1",
+						"k8s:io.cilium.k8s.policy.uid=1234-5678",
+					},
+				},
+			},
+		},
+
+		"egress-deny": {
+			flow: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					Type: monitorAPI.MessageTypePolicyVerdict,
+				},
+				Verdict:          flowpb.Verdict_DROPPED,
+				DropReasonDesc:   flowpb.DropReason_POLICY_DENY,
+				TrafficDirection: flowpb.TrafficDirection_EGRESS,
+				IP: &flowpb.IP{
+					Source:      "1.1.1.1",
+					Destination: "2.2.2.2",
+				},
+				L4: &flowpb.Layer4{
+					Protocol: &flowpb.Layer4_TCP{
+						TCP: &flowpb.TCP{
+							DestinationPort: 8000,
+						},
+					},
+				},
+				Source: &flowpb.Endpoint{
+					ID:       1000,
+					Identity: 1000,
+				},
+				Destination: &flowpb.Endpoint{
+					ID:       2000,
+					Identity: 2000,
+				},
+				PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+			},
+			cookie: cookie.NewBakedCookie(
+				"["+
+					"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy"+" "+
+					"k8s:io.cilium.k8s.policy.name=p-1"+" "+
+					"k8s:io.cilium.k8s.policy.namespace=ns-1"+" "+
+					"k8s:io.cilium.k8s.policy.uid=1234-5678"+
+					"]",
+				[]string{"bozo!"},
+			),
+			ed: []*flow.Policy{
+				{
+					Name:      "p-1",
+					Namespace: "ns-1",
+					Kind:      utils.ResourceTypeCiliumNetworkPolicy,
+					Labels: []string{
+						"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+						"k8s:io.cilium.k8s.policy.name=p-1",
+						"k8s:io.cilium.k8s.policy.namespace=ns-1",
+						"k8s:io.cilium.k8s.policy.uid=1234-5678",
+					},
+				},
+			},
+		},
+
+		"ingress": {
+			flow: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					Type: monitorAPI.MessageTypePolicyVerdict,
+				},
+				Verdict:          flowpb.Verdict_FORWARDED,
+				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+				IP: &flowpb.IP{
+					Source:      "1.1.1.1",
+					Destination: "2.2.2.2",
+				},
+				L4: &flowpb.Layer4{
+					Protocol: &flowpb.Layer4_TCP{
+						TCP: &flowpb.TCP{
+							DestinationPort: 8000,
+						},
+					},
+				},
+				Source: &flowpb.Endpoint{
+					ID:       1000,
+					Identity: 1000,
+				},
+				Destination: &flowpb.Endpoint{
+					ID:       2000,
+					Identity: 2000,
+				},
+				PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+			},
+			cookie: cookie.NewBakedCookie(
+				"["+
+					"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy"+" "+
+					"k8s:io.cilium.k8s.policy.name=p-1"+" "+
+					"k8s:io.cilium.k8s.policy.namespace=ns-1"+" "+
+					"k8s:io.cilium.k8s.policy.uid=1234-5678"+
+					"]",
+				[]string{"bozo!"},
+			),
+			ia: []*flow.Policy{
+				{
+					Name:      "p-1",
+					Namespace: "ns-1",
+					Kind:      utils.ResourceTypeCiliumNetworkPolicy,
+					Labels: []string{
+						"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+						"k8s:io.cilium.k8s.policy.name=p-1",
+						"k8s:io.cilium.k8s.policy.namespace=ns-1",
+						"k8s:io.cilium.k8s.policy.uid=1234-5678",
+					},
+				},
+			},
+		},
+
+		"ingress-deny": {
+			flow: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					Type: monitorAPI.MessageTypePolicyVerdict,
+				},
+				Verdict:          flowpb.Verdict_DROPPED,
+				DropReasonDesc:   flowpb.DropReason_POLICY_DENY,
+				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+				IP: &flowpb.IP{
+					Source:      "1.1.1.1",
+					Destination: "2.2.2.2",
+				},
+				L4: &flowpb.Layer4{
+					Protocol: &flowpb.Layer4_TCP{
+						TCP: &flowpb.TCP{
+							DestinationPort: 8000,
+						},
+					},
+				},
+				Source: &flowpb.Endpoint{
+					ID:       1000,
+					Identity: 1000,
+				},
+				Destination: &flowpb.Endpoint{
+					ID:       2000,
+					Identity: 2000,
+				},
+				PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+			},
+			cookie: cookie.NewBakedCookie(
+				"["+
+					"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy"+" "+
+					"k8s:io.cilium.k8s.policy.name=p-1"+" "+
+					"k8s:io.cilium.k8s.policy.namespace=ns-1"+" "+
+					"k8s:io.cilium.k8s.policy.uid=1234-5678"+
+					"]",
+				[]string{"bozo!"},
+			),
+			id: []*flow.Policy{
+				{
+					Name:      "p-1",
+					Namespace: "ns-1",
+					Kind:      utils.ResourceTypeCiliumNetworkPolicy,
+					Labels: []string{
+						"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+						"k8s:io.cilium.k8s.policy.name=p-1",
+						"k8s:io.cilium.k8s.policy.namespace=ns-1",
+						"k8s:io.cilium.k8s.policy.uid=1234-5678",
+					},
+				},
+			},
+		},
+
+		"egress-multi": {
+			flow: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					Type: monitorAPI.MessageTypePolicyVerdict,
+				},
+				Verdict:          flowpb.Verdict_FORWARDED,
+				TrafficDirection: flowpb.TrafficDirection_EGRESS,
+				IP: &flowpb.IP{
+					Source:      "1.1.1.1",
+					Destination: "2.2.2.2",
+				},
+				L4: &flowpb.Layer4{
+					Protocol: &flowpb.Layer4_TCP{
+						TCP: &flowpb.TCP{
+							DestinationPort: 8000,
+						},
+					},
+				},
+				Source: &flowpb.Endpoint{
+					ID:       1000,
+					Identity: 1000,
+				},
+				Destination: &flowpb.Endpoint{
+					ID:       2000,
+					Identity: 2000,
+				},
+				PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+			},
+			cookie: cookie.NewBakedCookie(
+				"["+
+					"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy"+" "+
+					"k8s:io.cilium.k8s.policy.name=p-1"+" "+
+					"k8s:io.cilium.k8s.policy.namespace=ns-1"+" "+
+					"k8s:io.cilium.k8s.policy.uid=1234-5678"+
+					"], "+
+					"["+
+					"k8s:io.cilium.k8s.policy.derived-from=CiliumClusterwideNetworkPolicy"+" "+
+					"k8s:io.cilium.k8s.policy.name=p-2"+" "+
+					"k8s:io.cilium.k8s.policy.uid=1234-5679"+
+					"]",
+				[]string{"bozo!"},
+			),
+			ea: []*flow.Policy{
+				{
+					Name:      "p-1",
+					Namespace: "ns-1",
+					Kind:      utils.ResourceTypeCiliumNetworkPolicy,
+					Labels: []string{
+						"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+						"k8s:io.cilium.k8s.policy.name=p-1",
+						"k8s:io.cilium.k8s.policy.namespace=ns-1",
+						"k8s:io.cilium.k8s.policy.uid=1234-5678",
+					},
+				},
+
+				{
+					Name:      "p-2",
+					Namespace: "",
+					Kind:      utils.ResourceTypeCiliumClusterwideNetworkPolicy,
+					Labels: []string{
+						"k8s:io.cilium.k8s.policy.derived-from=CiliumClusterwideNetworkPolicy",
+						"k8s:io.cilium.k8s.policy.name=p-2",
+						"k8s:io.cilium.k8s.policy.uid=1234-5679",
+					},
+				},
+			},
+		},
+	}
+
+	for k, u := range uu {
+		t.Run(k, func(t *testing.T) {
+			epg := &testutils.FakeEndpointGetter{
+				OnGetCookie: func(id uint32) (epCookie *cookie.BakedCookie, ok bool) {
+					return u.cookie, true
+				},
+			}
+
+			CorrelatePolicyFromCookie(hivetest.Logger(t), 42, epg, u.flow)
+			assert.Equal(t, u.ea, u.flow.EgressAllowedBy)
+			assert.Equal(t, u.ed, u.flow.EgressDeniedBy)
+			assert.Equal(t, u.ia, u.flow.IngressAllowedBy)
+			assert.Equal(t, u.id, u.flow.IngressDeniedBy)
+		})
+	}
+}
+
+func BenchmarkCorrelatePolicy(b *testing.B) {
+	flow := flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_FORWARDED,
+		TrafficDirection: flowpb.TrafficDirection_EGRESS,
+		IP: &flowpb.IP{
+			Source:      "1.2.3.4",
+			Destination: "5.6.7.8",
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: 443,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       12,
+			Identity: 1234,
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       56,
+			Identity: 5678,
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+	}
+
+	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
+	policyKey := policy.EgressKey().WithIdentity(identity.NumericIdentity(5678)).WithTCPPort(443)
+	ep := &testutils.FakeEndpointInfo{
+		ID:           12,
+		Identity:     identity.NumericIdentity(1234),
+		IPv4:         net.ParseIP("1.2.3.4"),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
+		},
+		PolicyRevision: 1,
+	}
+
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+			if uint64(id) == ep.ID {
+				return ep, true
+			}
+			b.Fatalf("did not expect endpoint retrieval for non-local endpoint: %d", id)
+			return nil, false
+		},
+	}
+
+	logger := hivetest.Logger(b)
+	for b.Loop() {
+		CorrelatePolicy(logger, endpointGetter, &flow)
+	}
+}
+
+func BenchmarkCorrelatePolicyFromCookie(b *testing.B) {
+	flow := flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_FORWARDED,
+		TrafficDirection: flowpb.TrafficDirection_EGRESS,
+		IP: &flowpb.IP{
+			Source:      "1.1.1.1",
+			Destination: "2.2.2.2",
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: 8000,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       1000,
+			Identity: 1000,
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       2000,
+			Identity: 2000,
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+	}
+	c := cookie.NewBakedCookie(
+		"["+
+			"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy"+" "+
+			"k8s:io.cilium.k8s.policy.name=p-1"+" "+
+			"k8s:io.cilium.k8s.policy.namespace=ns-1"+" "+
+			"k8s:io.cilium.k8s.policy.uid=1234-5678"+
+			"]",
+		[]string{"bozo!"},
+	)
+
+	epg := &testutils.FakeEndpointGetter{
+		OnGetCookie: func(id uint32) (*cookie.BakedCookie, bool) {
+			return c, true
+		},
+	}
+
+	logger := hivetest.Logger(b)
+	for b.Loop() {
+		CorrelatePolicyFromCookie(logger, 42, epg, &flow)
+	}
+}
+
+func Benchmark_policyFromCookie(b *testing.B) {
+	lbls := []string{
+		"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+		"k8s:io.cilium.k8s.policy.name=p-1",
+		"k8s:io.cilium.k8s.policy.namespace=ns-1",
+		"k8s:io.cilium.k8s.policy.uid=1234-5678",
+	}
+	for b.Loop() {
+		_ = policyFromCookie(lbls)
+	}
+}
+
+func Benchmark_policiesFromCookie(b *testing.B) {
+	c := cookie.NewBakedCookie(
+		"["+
+			"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy"+" "+
+			"k8s:io.cilium.k8s.policy.name=p-1"+" "+
+			"k8s:io.cilium.k8s.policy.namespace=ns-1"+" "+
+			"k8s:io.cilium.k8s.policy.uid=1234-5678"+
+			"]",
+		[]string{"bozo!"},
+	)
+	for b.Loop() {
+		_ = policiesFromCookie(c)
 	}
 }

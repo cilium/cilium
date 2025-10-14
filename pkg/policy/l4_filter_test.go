@@ -83,8 +83,8 @@ func (f *fakeBakery) MarkInUse(uint32)                               {}
 func (f *fakeBakery) Sweep()                                         {}
 func (f *fakeBakery) Count() int                                     { return 0 }
 
-func newTestData(logger *slog.Logger) *testData {
-		idMgr := identitymanager.NewIDManager(logger)
+func newTestData(tb testing.TB, logger *slog.Logger) *testData {
+	idMgr := identitymanager.NewIDManager(logger)
 	cookie.ResetCookieBakeryForTests(newFakeBakery())
 
 	td := &testData{
