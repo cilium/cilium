@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/revert"
@@ -59,6 +60,8 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	s.mgr = cache.NewCachingIdentityAllocator(logger, s.do, cache.NewTestAllocatorConfig())
 	<-s.mgr.InitIdentityAllocator(nil, client)
 
+	cookie.ResetCookieBakeryForTests(newFakeBakery())
+
 	identityCache := identity.IdentityMap{
 		identityFoo: labelsFoo,
 		identityBar: labelsBar,
@@ -90,6 +93,15 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 
 	return s
 }
+
+type fakeBakery struct{}
+
+func newFakeBakery() *fakeBakery                                     { return &fakeBakery{} }
+func (f *fakeBakery) Allocate(bc *cookie.BakedCookie) (uint32, bool) { return 0, true }
+func (f *fakeBakery) Get(uint32) (*cookie.BakedCookie, bool)         { return &cookie.BakedCookie{}, true }
+func (f *fakeBakery) MarkInUse(uint32)                               {}
+func (f *fakeBakery) Sweep()                                         {}
+func (f *fakeBakery) Count() int                                     { return 0 }
 
 // RedirectSuiteProxy implements EndpointProxy. It is used for testing the
 // functions related to generating proxy redirects for a given Endpoint.
