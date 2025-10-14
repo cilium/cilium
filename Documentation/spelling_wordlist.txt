@@ -886,3 +886,4 @@ xt
 xwing
 yaml
 zsh
+ztunnel
