@@ -98,7 +98,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 	tableID = computeTableIDFromIfaceNumber(compat, ifaceNum)
 
 	// The condition here should mirror the condition in Delete.
-	if info.Masquerade && info.IpamMode == ipamOption.IPAMENI {
+	if info.Masquerade && (info.IpamMode == ipamOption.IPAMENI || info.IpamMode == ipamOption.IPAMAzure) {
 		// Lookup a VPC specific table for all traffic from an endpoint to the
 		// CIDR configured for the VPC on which the endpoint has the IP on.
 		// ReplaceRule function doesn't handle all zeros cidr and return `file exists` error,
@@ -313,7 +313,7 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 
 	// The condition here should mirror the conditions in Configure.
 	info := node.GetRouterInfo()
-	if info != nil && option.Config.EnableIPv4Masquerade && option.Config.IPAM == ipamOption.IPAMENI {
+	if info != nil && option.Config.EnableIPv4Masquerade && (option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) {
 		ipCIDRs := info.GetCIDRs()
 		cidrs := make([]*net.IPNet, 0, len(ipCIDRs))
 		for i := range ipCIDRs {
