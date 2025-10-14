@@ -1333,7 +1333,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.type`
-     - Encryption method. Can be either ipsec or wireguard.
+     - Encryption method. Can be one of ipsec, wireguard or ztunnel.
      - string
      - ``"ipsec"``
    * - :spelling:ignore:`encryption.wireguard.persistentKeepalive`

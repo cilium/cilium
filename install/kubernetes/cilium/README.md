@@ -383,7 +383,7 @@ contributors across the globe, there is almost always someone available to help.
 | encryption.strictMode.allowRemoteNodeIdentities | bool | `false` | Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap. |
 | encryption.strictMode.cidr | string | `""` | CIDR for the Encryption Pod2Pod strict mode. |
 | encryption.strictMode.enabled | bool | `false` | Enable Encryption Pod2Pod strict mode. |
-| encryption.type | string | `"ipsec"` | Encryption method. Can be either ipsec or wireguard. |
+| encryption.type | string | `"ipsec"` | Encryption method. Can be one of ipsec, wireguard or ztunnel. |
 | encryption.wireguard.persistentKeepalive | string | `"0s"` | Controls WireGuard PersistentKeepalive option. Set 0s to disable. |
 | endpointHealthChecking.enabled | bool | `true` | Enable connectivity health checking between virtual endpoints. |
 | endpointLockdownOnMapOverflow | bool | `false` | Enable endpoint lockdown on policy map overflow. |
