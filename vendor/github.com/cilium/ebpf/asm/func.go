@@ -2,7 +2,7 @@ package asm
 
 import "github.com/cilium/ebpf/internal/platform"
 
-//go:generate go run golang.org/x/tools/cmd/stringer@latest -output func_string.go -type=BuiltinFunc
+//go:generate go tool stringer -output func_string.go -type=BuiltinFunc
 
 // BuiltinFunc is a built-in eBPF function.
 type BuiltinFunc uint32

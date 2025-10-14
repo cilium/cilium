@@ -221,9 +221,37 @@ func AddConfigOverride[Cfg cell.Flagger](h *Hive, override func(*Cfg)) {
 	h.configOverrides = append(h.configOverrides, override)
 }
 
+// RunOptionFunc is a functional option type for configuring hive on Run stage.
+type RunOptionFunc func (*Hive)
+
+// WithStartTimeout overrides hive StartTimeout option.
+func WithStartTimeout(timeout time.Duration) RunOptionFunc {
+	return func(h *Hive) {
+		h.opts.StartTimeout = timeout
+	}
+}
+
+// WithStopTimeout overrides hive StopTimeout option.
+func WithStopTimeout(timeout time.Duration) RunOptionFunc {
+	return func(h *Hive) {
+		h.opts.StopTimeout = timeout
+	}
+}
+
+// WithLogThreshold overrides hive LogThreshold option.
+func WithLogThreshold(threshold time.Duration) RunOptionFunc {
+	return func(h *Hive) {
+		h.opts.LogThreshold = threshold
+	}
+}
+
 // Run populates the cell configurations and runs the hive cells.
 // Interrupt signal or call to Shutdowner.Shutdown() will cause the hive to stop.
-func (h *Hive) Run(log *slog.Logger) error {
+func (h *Hive) Run(log *slog.Logger, opts ...RunOptionFunc) error {
+	for _, opt := range opts {
+		opt(h)
+	}
+
 	startCtx, cancel := context.WithTimeout(context.Background(), h.opts.StartTimeout)
 	defer cancel()
 

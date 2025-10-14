@@ -128,7 +128,6 @@ type Action struct {
 	pass         *analysis.Pass
 	objectFacts  map[objectFactKey]analysis.Fact
 	packageFacts map[packageFactKey]analysis.Fact
-	inputs       map[*analysis.Analyzer]any
 }
 
 func (act *Action) String() string {
@@ -295,7 +294,6 @@ func (act *Action) execOnce() {
 			// in-memory outputs of prerequisite analyzers
 			// become inputs to this analysis pass.
 			inputs[dep.Analyzer] = dep.Result
-
 		} else if dep.Analyzer == act.Analyzer { // (always true)
 			// Same analysis, different package (vertical edge):
 			// serialized facts produced by prerequisite analysis
