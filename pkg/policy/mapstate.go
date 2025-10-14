@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -491,6 +492,39 @@ func newMapState(logger *slog.Logger, size int) mapState {
 	}
 }
 
+func (ms *mapState) generateCookie(derivedFrom ruleOrigin) (cookNum uint32) {
+	defer func() {
+		if e := recover(); e != nil {
+			ms.logger.Debug("unable to compute policy log cookie", logfields.Error, e)
+			return
+		}
+	}()
+
+	bc := cookie.NewBakedCookie(
+		derivedFrom.LabelsString(),
+		derivedFrom.Logs(),
+	)
+	if bc.IsEmpty() {
+		return
+	}
+
+	ms.logger.Debug("Allocating policy log cookie",
+		logfields.PolicyCookieLogs, bc.Logs,
+		logfields.Labels, bc.Labels,
+	)
+
+	var ok bool
+	cookNum, ok = cookie.GetCookieBakery().Allocate(bc)
+	if !ok {
+		ms.logger.Warn("Failed to allocate policy log cookie",
+			logfields.PolicyCookieLogs, bc.Logs,
+			logfields.Labels, bc.Labels,
+		)
+	}
+
+	return cookNum
+}
+
 // Get the MapStateEntry that matches the Key.
 func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
 	v, ok := ms.get(k)
@@ -643,6 +677,7 @@ func (e mapStateEntry) String() string {
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
 func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes ChangeState) bool {
 	var datapathEqual bool
+
 	oldEntry, exists := ms.get(key)
 
 	// Only merge if both old and new have the same precedence
@@ -680,10 +715,12 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 		}
 
 		oldEntry.derivedFromRules = oldEntry.derivedFromRules.Merge(entry.derivedFromRules)
+		oldEntry.Cookie = ms.generateCookie(oldEntry.derivedFromRules)
 
 		ms.updateExisting(key, oldEntry)
 	} else {
 		// Callers already have cloned the containers, no need to do it again here
+		entry.Cookie = ms.generateCookie(entry.derivedFromRules)
 		ms.insert(key, entry)
 	}
 

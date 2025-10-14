@@ -107,7 +107,7 @@ func (p *policyContext) GetSelectorCache() *SelectorCache {
 // GetTLSContext() returns data for TLS Context via a CertificateManager
 func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, inlineSecrets bool, err error) {
 	if p.repo.certManager == nil {
-		return "", "", "", false, fmt.Errorf("No Certificate Manager set on Policy Repository")
+		return "", "", "", false, fmt.Errorf("no Certificate Manager set on Policy Repository")
 	}
 	return p.repo.certManager.GetTLSContext(context.TODO(), tls, p.ns)
 }
@@ -245,7 +245,7 @@ func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port 
 	if proxyPort, exists := p.Redirects[proxyID]; exists {
 		return proxyPort, nil
 	}
-	return 0, fmt.Errorf("Proxy port for redirect %q not found", proxyID)
+	return 0, fmt.Errorf("proxy port for redirect %q not found", proxyID)
 }
 
 // Lookup finds the policy verdict applicable to the given 'key' using the same precedence logic
@@ -615,6 +615,6 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
-		policyMapState: emptyMapState(logger),
+		policyMapState: newMapState(logger, 0),
 	}
 }
