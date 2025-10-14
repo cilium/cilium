@@ -1081,7 +1081,11 @@ data:
   disable-iptables-feeder-rules: {{ .Values.disableIptablesFeederRules | join " " | quote }}
 {{- end }}
 {{- if .Values.aksbyocni.enabled }}
+  {{- if or (not .Values.ipam.mode) (eq .Values.ipam.mode "cluster-pool") }}
   ipam: "cluster-pool"
+  {{- else if eq .Values.ipam.mode "multi-pool" }}
+  ipam: "multi-pool"
+  {{- end }}
 {{- else }}
   ipam: {{ $ipam | quote }}
 {{- end }}
