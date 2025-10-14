@@ -210,6 +210,13 @@ serviceAccounts:
     name: cilium-coredns-mcsapi-autoconfig
     automount: true
     annotations: {}
+  ztunnel:
+    create: true
+    # @schema
+    # type: string
+    # @schema
+    name: "ztunnel"
+    annotations: {}
 # -- Configure termination grace period for cilium-agent DaemonSet.
 terminationGracePeriodSeconds: 1
 # -- Install the cilium agent resources.
@@ -1089,6 +1096,83 @@ encryption:
   wireguard:
     # -- Controls WireGuard PersistentKeepalive option. Set 0s to disable.
     persistentKeepalive: 0s
+# -- Configure Ztunnel for Cilium encryption.
+ztunnel:
+  # -- Enable Ztunnel DaemonSet (requires encryption.enabled=true and encryption.type="ztunnel")
+  enabled: false
+  # -- Ztunnel container image.
+  image:
+    # @schema
+    # type: [null, string]
+    # @schema
+    override: ~
+    repository: "acnpublic.azurecr.io/prism/ztunnel"
+    tag: "v0.1.44"
+    pullPolicy: "IfNotPresent"
+    digest: ""
+    useDigest: false
+  # -- Annotations to be added to ztunnel DaemonSet
+  annotations: {}
+  # -- Annotations to be added to ztunnel pods
+  podAnnotations: {}
+  # -- Labels to be added to ztunnel pods
+  podLabels: {}
+  # -- Node selector for ztunnel pods
+  nodeSelector:
+    kubernetes.io/os: linux
+  # -- Tolerations for ztunnel pods
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - key: CriticalAddonsOnly
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+  # -- The priority class to use for ztunnel pods
+  priorityClassName: "system-node-critical"
+  # -- ztunnel pod security context
+  podSecurityContext: {}
+  # -- ztunnel container security context
+  securityContext:
+    allowPrivilegeEscalation: true
+    capabilities:
+      add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - NET_RAW
+      drop:
+      - ALL
+    privileged: false
+    readOnlyRootFilesystem: true
+    runAsGroup: 1337
+    runAsNonRoot: false
+    runAsUser: 0
+  # -- ztunnel resource limits & requests
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  # -- ztunnel update strategy
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  # -- Roll out ztunnel pods automatically when configmap is updated
+  rollOutPods: false
+  # -- Debug configuration for ztunnel
+  debug:
+    # -- Log level for ztunnel (debug, info, warn, error)
+    logLevel: "info"
+    # -- Enable Rust backtrace (0 to disable, 1 to enable)
+    backtrace: "0"
+  # -- Additional ztunnel container environment variables
+  extraEnv: []
+  # -- Additional ztunnel volumes
+  extraVolumes: []
+  # -- Additional ztunnel volumeMounts
+  extraVolumeMounts: []
 endpointHealthChecking:
   # -- Enable connectivity health checking between virtual endpoints.
   enabled: true
