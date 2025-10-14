@@ -606,9 +606,9 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool
 // endpoints to remove the affected identity only from selectors that no longer select the mutated
 // identity.
 func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) (mutated bool) {
-	// set of namespaces to scan for updates. Always scan selectors that have no namespace
-	// requirements.
-	namespaces := map[string]struct{}{"": {}}
+	// Map of namespaces to scan for updates with added identities in the map value. All
+	// identities are matched against selectors that have no namespace requirements.
+	namespaces := map[string]identity.NumericIdentitySlice{"": {}}
 
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
@@ -625,7 +625,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				logfields.Identity, numericID,
 				logfields.Labels, old.lbls,
 			)
-			namespaces[old.namespace] = struct{}{}
+			namespaces[old.namespace] = identity.NumericIdentitySlice{}
 			sc.idCache.delete(numericID)
 		} else {
 			sc.logger.Warn(
@@ -681,12 +681,17 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 		}
 		id := sc.idCache.insert(numericID, lbls)
 
-		namespaces[id.namespace] = struct{}{}
+		namespaces[id.namespace] = append(namespaces[id.namespace], numericID)
+
+		// namespaced identities are also checked against non-namespeced selectors
+		if id.namespace != "" {
+			namespaces[""] = append(namespaces[""], numericID)
+		}
 	}
 
 	updated := false
 	if len(deleted)+len(added) > 0 {
-		for ns := range namespaces {
+		for ns, nsAdded := range namespaces {
 			// Iterate through all locally used identity selectors and
 			// update the cached numeric identities as required.
 			for idSel := range sc.selectorsByNamespace[ns] {
@@ -697,7 +702,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 						delete(idSel.cachedSelections, numericID)
 					}
 				}
-				for numericID := range added {
+				for _, numericID := range nsAdded {
 					identity, _ := sc.idCache.find(numericID)
 					matches := idSel.source.matches(sc.logger, identity.lbls)
 					_, exists := idSel.cachedSelections[numericID]
