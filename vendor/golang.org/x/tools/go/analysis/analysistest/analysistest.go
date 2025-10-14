@@ -590,7 +590,7 @@ func check(t Testing, gopath string, act *checker.Action) {
 		}
 		filename := sanitize(gopath, filename)
 		linenum := 0
-		for _, line := range strings.Split(string(data), "\n") {
+		for line := range strings.SplitSeq(string(data), "\n") {
 			linenum++
 
 			// Hack: treat a comment of the form "//...// want..."

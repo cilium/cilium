@@ -5,7 +5,7 @@ package efw
 // See https://github.com/microsoft/ebpf-for-windows/blob/main/include/ebpf_result.h
 type Result int32
 
-//go:generate go run golang.org/x/tools/cmd/stringer@latest -tags windows -output result_string_windows.go -type=Result
+//go:generate go tool stringer -tags windows -output result_string_windows.go -type=Result
 
 const (
 	EBPF_SUCCESS Result = iota
