@@ -510,7 +510,7 @@ func L4TypeAsProtocolNumber(l4 L4Type) u8proto.U8proto {
 type FEPortName string
 
 // ServiceID is the service's ID.
-type ServiceID uint16
+type ServiceID uint32
 
 // ServiceName represents the fully-qualified reference to the service by name,
 // including both the namespace and name of the service (and optionally the cluster).

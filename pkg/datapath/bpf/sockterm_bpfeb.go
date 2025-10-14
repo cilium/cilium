@@ -17,7 +17,8 @@ type SockTermIpv4RevnatEntry struct {
 	_           structs.HostLayout
 	Address     uint32
 	Port        uint16
-	RevNatIndex uint16
+	_           [2]byte
+	RevNatIndex uint32
 }
 
 type SockTermIpv4RevnatTuple struct {
@@ -35,7 +36,8 @@ type SockTermIpv6RevnatEntry struct {
 		Addr [16]uint8
 	}
 	Port        uint16
-	RevNatIndex uint16
+	_           [2]byte
+	RevNatIndex uint32
 }
 
 type SockTermIpv6RevnatTuple struct {

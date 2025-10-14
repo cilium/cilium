@@ -126,7 +126,7 @@ bool sock_proto_enabled(__u8 proto)
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_backend *backend,
 					       const struct lb4_key *orig_key,
-					       __u16 rev_nat_id)
+					       __u32 rev_nat_id)
 {
 	struct ipv4_revnat_entry val = {}, *tmp;
 	struct ipv4_revnat_tuple key = {};
@@ -621,7 +621,7 @@ int cil_sock4_getpeername(struct bpf_sock_addr *ctx)
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
 					       const struct lb6_key *orig_key,
-					       __u16 rev_nat_index)
+					       __u32 rev_nat_index)
 {
 	struct ipv6_revnat_entry val = {}, *tmp;
 	struct ipv6_revnat_tuple key = {};
