@@ -222,6 +222,104 @@ commands to run with privileges.
 .. _substitution references: https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#substitution-references
 .. _literal blocks: https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#literal-blocks
 
+Creating configuration files
+----------------------------
+
+When documenting the creation of a file, avoid using HEREDOC syntax with
+``cat`` commands. Instead, prefer to use the ``literalinclude`` directive to
+reference actual files in the repository.
+
+Using literalinclude for configuration files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When showing configuration file contents, use the ``literalinclude`` directive
+to reference files that exist in the repository (typically in the ``examples/``
+directory). If the file does not yet exist in the repository, consider adding it
+to the ``examples/`` directory first. This approach ensures the documentation
+stays synchronized with the actual file and avoids drift between documentation
+and code.
+
+Follow this recommended pattern:
+
+#. Describe to the user how a task could be achieved with the following
+   configuration.
+
+#. Use ``literalinclude`` to include the actual file contents.
+
+#. Explain what the configuration means, including the meaning of key settings.
+
+#. Provide a direct command that users can copy and paste to apply the
+   configuration.
+
+When providing commands that reference repository files, use the ``|SCM_WEB|``
+substitution reference. This ensures the URL points to the correct version
+(branch/tag) of the file, matching the documentation version the user is reading.
+See the earlier section on `substitution references`_ for details.
+
+Example:
+
+.. code-block:: rst
+
+  To configure feature X, create a file with the following contents:
+
+  .. literalinclude:: ../../examples/kubernetes/feature-x.yaml
+      :language: yaml
+
+  This configuration enables feature X by setting:
+
+  - ``enableFeatureX: true``: Activates the feature
+  - ``featureXMode: advanced``: Uses advanced mode for better performance
+
+  Apply the configuration with:
+
+  .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/feature-x.yaml
+
+Using templates with variable substitution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For configuration files that require user-specific values (cluster names, IDs,
+regions), use template files with variable substitution instead of asking users
+to manually edit files. This approach reduces errors by controlling exactly what
+gets written and maintains the copy-paste testing workflow that maintainers rely
+on for debugging.
+
+Store the template file in the ``examples/`` directory with a ``.tmpl`` extension
+and use ``envsubst`` to substitute variables.
+
+Example:
+
+.. code-block:: rst
+
+  Create the cluster configuration file:
+
+  .. code-block:: parsed-literal
+
+     export NAME="$(whoami)-$RANDOM"
+     curl -L \ |SCM_WEB|\/examples/kubernetes/eks-config.tmpl \\
+     | envsubst > eks-config.yaml
+
+  The template contains:
+
+  .. literalinclude:: ../../examples/kubernetes/eks-config.tmpl
+      :language: yaml
+
+  The ``${NAME}`` variable will be substituted with your cluster name.
+
+  Create the cluster:
+
+  .. code-block:: shell-session
+
+     $ eksctl create cluster -f eks-config.yaml
+
+This pattern ensures that:
+
+- Maintainers can copy-paste commands sequentially to reproduce user issues
+- Variables are controlled rather than manually typed, reducing errors
+- Template files are version-controlled and stay synchronized with documentation
+- Failures are systematic (template issue) rather than random (user typos)
+
 Links
 -----
 
