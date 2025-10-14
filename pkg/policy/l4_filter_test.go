@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/policy/utils"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
@@ -69,7 +70,17 @@ type testData struct {
 	cachedSelectorWorldV6 CachedSelector
 }
 
+type fakeBakery struct{}
+
+func newFakeBakery() *fakeBakery                                     { return &fakeBakery{} }
+func (f *fakeBakery) Allocate(bc *cookie.BakedCookie) (uint32, bool) { return 0, true }
+func (f *fakeBakery) Get(uint32) (*cookie.BakedCookie, bool)         { return &cookie.BakedCookie{}, true }
+func (f *fakeBakery) MarkInUse(uint32)                               {}
+func (f *fakeBakery) Sweep()                                         {}
+func (f *fakeBakery) Count() int                                     { return 0 }
+
 func newTestData(logger *slog.Logger) *testData {
+	cookie.ResetCookieBakeryForTests(newFakeBakery())
 
 	td := &testData{
 		sc:                testNewSelectorCache(logger, nil),
