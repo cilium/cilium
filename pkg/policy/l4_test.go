@@ -530,7 +530,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 		return &EndpointPolicy{
 			selectorPolicy:   &selectorPolicy{},
 			PolicyOwner:      owner,
-			policyMapState:   emptyMapState(logger),
+			policyMapState:   emptyMapState(logger, newFakeBakery()),
 			policyMapChanges: MapChanges{logger: logger},
 		}
 	}
