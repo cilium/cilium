@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
@@ -1514,6 +1515,16 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	if diffCount > 0 {
 		e.getLogger().Warn("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps", logfields.Count, diffCount)
 		e.PolicyDebug("syncPolicyMapWithDump", logfields.DumpedDiffs, diffs)
+	}
+
+	// Garbage collect policy cookies based on policy map dump. Do this after policy map
+	// reconciliation above so currentMap reflects the current state as close as possible.
+	// Avoid iterating the map again in case there are no policy cookies allocated.
+	bakery := cookie.GetCookieBakery()
+	if bakery.Count() > 0 {
+		for _, v := range currentMap {
+			bakery.MarkInUse(v.Cookie)
+		}
 	}
 
 	return err
