@@ -7,9 +7,13 @@ eBPF from disk at runtime and to minimise the amount of manual
 work required to interact with eBPF programs. It takes inspiration
 from `bpftool gen skeleton`.
 
-Invoke the program using go generate:
+Add `bpf2go` as a tool dependency in your project's Go module:
 
-    //go:generate go run github.com/cilium/ebpf/cmd/bpf2go foo path/to/src.c -- -I/path/to/include
+    go get -tool github.com/cilium/ebpf/cmd/bpf2go
+
+Invoke the tool using go generate:
+
+    //go:generate go tool bpf2go foo path/to/src.c -- -I/path/to/include
 
 This will emit `foo_bpfel.go` and `foo_bpfeb.go`, with types using `foo`
 as a stem. The two files contain compiled BPF for little and big
