@@ -11,10 +11,10 @@ users to get in touch, it can be challenging to find this information quickly.
 The following is a directory of adopters to help identify users of individual
 features. The users themselves directly maintain the list.
 
-Why Add Your Logo?
-------------------
+Why Add Your Organization?
+--------------------------
 
-Cilium is the standard for cloud native networking and your company's support
+Cilium is the standard for cloud native networking and security, and your company's support
 helps drive its adoption and success. By joining the adopters, you:  
 
 ✅ **Showcase Your Leadership** – Highlight your commitment to modern, eBPF-based
