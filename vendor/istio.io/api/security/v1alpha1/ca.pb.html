@@ -1,0 +1,84 @@
+---
+title: istio.v1.auth
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 3
+---
+<h2 id="Services">Services</h2>
+<h3 id="IstioCertificateService">IstioCertificateService</h3>
+<section>
+<p>Service for managing certificates issued by the CA.</p>
+
+<pre id="IstioCertificateService-CreateCertificate"><code class="language-proto">rpc CreateCertificate(IstioCertificateRequest) returns (IstioCertificateResponse)
+</code></pre>
+<p>Using provided CSR, returns a signed certificate.</p>
+
+</section>
+<h2 id="Types">Types</h2>
+<h3 id="IstioCertificateRequest">IstioCertificateRequest</h3>
+<section>
+<p>Certificate request message. The authentication should be based on:</p>
+<ol>
+<li>Bearer tokens carried in the side channel;</li>
+<li>Client-side certificate via Mutual TLS handshake.
+Note: the service implementation is REQUIRED to verify the authenticated caller is authorize to
+all SANs in the CSR. The server side may overwrite any requested certificate field based on its
+policies.</li>
+</ol>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstioCertificateRequest-csr">
+<td><div class="field"><div class="name"><code><a href="#IstioCertificateRequest-csr">csr</a></code></div>
+<div class="type">string</div>
+</div></td>
+<td>
+<p>PEM-encoded certificate request.
+The public key in the CSR is used to generate the certificate,
+and other fields in the generated certificate may be overwritten by the CA.</p>
+
+</td>
+</tr>
+<tr id="IstioCertificateRequest-validity_duration">
+<td><div class="field"><div class="name"><code><a href="#IstioCertificateRequest-validity_duration">validityDuration</a></code></div>
+<div class="type">int64</div>
+</div></td>
+<td>
+<p>requested certificate validity period, in seconds.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="IstioCertificateResponse">IstioCertificateResponse</h3>
+<section>
+<p>Certificate response message.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstioCertificateResponse-cert_chain">
+<td><div class="field"><div class="name"><code><a href="#IstioCertificateResponse-cert_chain">certChain</a></code></div>
+<div class="type">string[]</div>
+</div></td>
+<td>
+<p>PEM-encoded certificate chain.
+The leaf cert is the first element, and the root cert is the last element.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
