@@ -20,12 +20,9 @@ GO_TAGS_FLAGS += $(GO_TAGS)
 
 TEST_TIMEOUT ?= 5s
 
-BUILDDIR ?= .
-EXT ?=
-
 $(TARGET):
 	$(GO_BUILD) \
-		-o $(BUILDDIR)/$(@)$(EXT) \
+		-o $(@) \
 		$(CLI_MAIN_DIR)
 
 local-release: clean
@@ -48,7 +45,7 @@ local-release: clean
 		for ARCH in $$ARCHS; do \
 			echo Building release binary for $$OS/$$ARCH...; \
 			test -d release/$$OS/$$ARCH|| mkdir -p release/$$OS/$$ARCH; \
-			$(MAKE) GOOS=$$OS GOARCH=$$ARCH BUILDDIR=release/$$OS/$$ARCH EXT=$$EXT; \
+			$(MAKE) GOOS=$$OS GOARCH=$$ARCH TARGET=release/$$OS/$$ARCH/$(TARGET)$$EXT; \
 			if [ $$OS = "windows" ]; \
 			then \
 				zip -j release/$(TARGET)-$$OS-$$ARCH.zip release/$$OS/$$ARCH/$(TARGET)$$EXT; \
@@ -63,7 +60,7 @@ local-release: clean
 
 install: $(TARGET)
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	$(INSTALL) -m 0755 $(BUILDDIR)/$(TARGET)$(EXT) $(DESTDIR)$(BINDIR)
+	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 
 clean:
 	rm -f $(TARGET)
