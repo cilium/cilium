@@ -47,7 +47,7 @@ func (m *HubbleMetricsStatus) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var hubbleMetricsStatusTypeStatePropEnum []interface{}
+var hubbleMetricsStatusTypeStatePropEnum []any
 
 func init() {
 	var res []string

@@ -36,7 +36,7 @@ func NewDeleteRecorderIDOK() *DeleteRecorderIDOK {
 // WriteResponse to the client
 func (o *DeleteRecorderIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -61,7 +61,7 @@ func NewDeleteRecorderIDForbidden() *DeleteRecorderIDForbidden {
 // WriteResponse to the client
 func (o *DeleteRecorderIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(403)
 }
@@ -86,7 +86,7 @@ func NewDeleteRecorderIDNotFound() *DeleteRecorderIDNotFound {
 // WriteResponse to the client
 func (o *DeleteRecorderIDNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

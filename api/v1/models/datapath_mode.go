@@ -44,7 +44,7 @@ const (
 )
 
 // for schema
-var datapathModeEnum []interface{}
+var datapathModeEnum []any
 
 func init() {
 	var res []DatapathMode
