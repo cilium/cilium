@@ -930,3 +930,100 @@ func TestOrphanCIDRs(t *testing.T) {
 		},
 	}, p.AllocatedPools(node3.Name))
 }
+
+func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t))
+
+	// no pools available
+	assert.Empty(t, p.pools)
+
+	// node1 requested allocations from test-pool in a previous operator run
+	node1 := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node1",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool: "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{
+								IPv4Addrs: 10,
+								IPv6Addrs: 10,
+							},
+						},
+					},
+					Allocated: []ipamTypes.IPAMPoolAllocation{
+						{
+							Pool: "test-pool",
+							CIDRs: []ipamTypes.IPAMPodCIDR{
+								"10.100.0.0/24",
+								"fd00:100::/96",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Mark as ready
+	p.RestoreFinished()
+
+	// try to allocate to the node: it should fail, but previous CIDRs should be marked orphans
+	err := p.AllocateToNode(node1)
+	assert.ErrorContains(t, err, `failed to allocate ipv4 address for node "node1" from pool "test-pool"`)
+	assert.ErrorContains(t, err, `cannot allocate from non-existing pool: test-pool`)
+
+	assert.Equal(t, poolToCIDRs{
+		"test-pool": {
+			v4: cidrSet{netip.MustParsePrefix("10.100.0.0/24"): struct{}{}},
+			v6: cidrSet{netip.MustParsePrefix("fd00:100::/96"): struct{}{}},
+		},
+	}, p.orphans[node1.Name])
+	assert.Empty(t, p.nodes[node1.Name])
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.0.0/24",
+				"fd00:100::/96",
+			},
+		},
+	}, p.AllocatedPools(node1.Name))
+
+	// upsert new pool "another-test-pool" that contains orphan CIDRs from "test-pool"
+	// this should fail, since we don't allow another pool to "steal" orphan CIDRs
+	err = p.UpsertPool("another-test-pool",
+		[]string{"10.100.0.0/16"}, 24,
+		[]string{"fd00:100::/80"}, 96,
+	)
+	assert.ErrorContains(t, err, `unable to mark orphaned CIDR 10.100.0.0/24 still used by node node1 as allocated`)
+	assert.ErrorContains(t, err, `cannot reuse from non-existing pool: test-pool`)
+
+	// restore the original "test-pool"
+	// this should succeed, and it should unorphan the CIDRs
+	err = p.UpsertPool("test-pool",
+		[]string{"10.100.0.0/16"}, 24,
+		[]string{"fd00:100::/80"}, 96,
+	)
+	assert.NoError(t, err)
+
+	assert.Empty(t, p.orphans[node1.Name])
+	assert.Equal(t, poolToCIDRs{
+		"test-pool": {
+			v4: cidrSet{netip.MustParsePrefix("10.100.0.0/24"): struct{}{}},
+			v6: cidrSet{netip.MustParsePrefix("fd00:100::/96"): struct{}{}},
+		},
+	}, p.nodes[node1.Name])
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.0.0/24",
+				"fd00:100::/96",
+			},
+		},
+	}, p.AllocatedPools(node1.Name))
+}
