@@ -288,16 +288,9 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 	}
 
 	for i, sub := range ep.Endpoints {
-		conditions := ParseEndpointConditionsV1(sub.Conditions)
-		if conditions == 0 {
-			// Skip backends that have no conditions set as these are not ready to
-			// serve traffic.
-			continue
-		}
-
 		// Construct the backend configuration shared by all the addresses in this slice.
 		backend := &Backend{
-			Conditions: conditions,
+			Conditions: ParseEndpointConditionsV1(sub.Conditions),
 			Ports:      ports,
 		}
 
