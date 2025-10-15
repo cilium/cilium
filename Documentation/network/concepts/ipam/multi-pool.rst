@@ -6,10 +6,8 @@
 
 .. _ipam_crd_multi_pool:
 
-Multi-Pool (Beta)
-#################
-
-.. include:: ../../../beta.rst
+Multi-Pool
+##########
 
 The Multi-Pool IPAM mode supports allocating PodCIDRs from multiple different IPAM pools, depending
 on workload annotations and node labels defined by the user.
@@ -251,8 +249,7 @@ between nodes on a L2 network.
 Limitations
 ***********
 
-Multi-Pool IPAM is a preview feature. The following limitations apply to Cilium running in
-Multi-Pool IPAM mode:
+The following limitations apply to Cilium running in Multi-Pool IPAM mode:
 
 .. warning::
    - IPAM pools with overlapping CIDRs are not supported. Each pod IP must be
