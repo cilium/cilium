@@ -204,7 +204,7 @@ jobs:
           cp /tmp/matrix.json /tmp/result.json
 
           # Check if ipsec is requested via extra-args
-          IPSEC=$(echo '${{ inputs.extra-args }}' | jq -r '.["ipsec"] // false')
+          IPSEC=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
           if [[ "$IPSEC" == "true" ]]; then
             echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
             jq '.include |= map(. + {"ipsec": true})' /tmp/result.json > /tmp/result.json.tmp
