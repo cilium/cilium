@@ -26,6 +26,7 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 {
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	int l3_off = ETH_HLEN, hdrlen;
+	fraginfo_t fraginfo;
 
 	/* Further action is needed in two cases:
 	 * 1. Packets from host IPs: need to enforce host policies.
@@ -39,14 +40,15 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	tuple->nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
-	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr, &fraginfo);
 	if (hdrlen < 0) {
 		ct_buffer->ret = hdrlen;
 		return true;
 	}
 	ct_buffer->l4_off = l3_off + hdrlen;
-	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6, ct_buffer->l4_off,
-				    CT_EGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
+	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6, fraginfo,
+				    ct_buffer->l4_off, CT_EGRESS, SCOPE_BIDIR, NULL,
+				    &ct_buffer->monitor);
 	return true;
 }
 
@@ -158,6 +160,7 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	__u32 dst_sec_identity = WORLD_IPV6_ID;
 	struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
+	fraginfo_t fraginfo;
 	int hdrlen;
 
 	/* Retrieve destination identity. */
@@ -175,14 +178,15 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	/* Lookup connection in conntrack map. */
 	tuple->nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
-	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr, &fraginfo);
 	if (hdrlen < 0) {
 		ct_buffer->ret = hdrlen;
 		return true;
 	}
 	ct_buffer->l4_off = ETH_HLEN + hdrlen;
-	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6, ct_buffer->l4_off,
-				    CT_INGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
+	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6, fraginfo,
+				    ct_buffer->l4_off, CT_INGRESS, SCOPE_BIDIR, NULL,
+				    &ct_buffer->monitor);
 
 	return true;
 }

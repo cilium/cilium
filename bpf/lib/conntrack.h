@@ -661,16 +661,12 @@ ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff 
 static __always_inline int ct_lookup6(const void *map,
 				      struct ipv6_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-				      int l4_off, enum ct_dir dir, enum ct_scope scope,
+				      fraginfo_t fraginfo, int l4_off,
+				      enum ct_dir dir, enum ct_scope scope,
 				      struct ct_state *ct_state,
 				      __u32 *monitor)
 {
-	fraginfo_t fraginfo;
 	int ret;
-
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 

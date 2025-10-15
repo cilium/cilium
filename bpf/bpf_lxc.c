@@ -374,6 +374,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	struct ct_state *ct_state;						\
 	void *data, *data_end;							\
 	struct ipv6hdr *ip6;							\
+	fraginfo_t fraginfo;							\
 	__s8 ext_err = 0;							\
 	__u32 zero = 0;								\
 										\
@@ -387,7 +388,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);		\
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);		\
 										\
-	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);				\
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr, &fraginfo);	\
 	if (hdrlen < 0)								\
 		return drop_for_direction(ctx, DIR, hdrlen, ext_err);		\
 										\
@@ -408,7 +409,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	}									\
 										\
 	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,		\
-				   ct_buffer.l4_off, DIR, scope,		\
+				   fraginfo, ct_buffer.l4_off, DIR, scope,	\
 				   ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret, ext_err);	\
