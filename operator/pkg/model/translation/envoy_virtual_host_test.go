@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -544,6 +545,26 @@ func Test_pathPrefixMutation(t *testing.T) {
 				Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(httpRoute.PathMatch.Prefix)),
 			},
 			Substitution: `/\2`,
+		}, res.Route.RegexRewrite)
+	})
+	t.Run("with root path and prefix rewrite", func(t *testing.T) {
+		httpRoute := model.HTTPRoute{}
+		httpRoute.PathMatch.Prefix = "/"
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			Path: &model.StringMatch{
+				Prefix: "/prefix/",
+			},
+		}
+
+		res := pathPrefixMutation(rewrite, &httpRoute)(route)
+		require.Equal(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+			Pattern: &envoy_type_matcher_v3.RegexMatcher{
+				Regex: `^/(.*)`,
+			},
+			Substitution: strings.TrimSuffix(rewrite.Path.Prefix, "/") + `/\1`,
 		}, res.Route.RegexRewrite)
 	})
 }
