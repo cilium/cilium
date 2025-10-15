@@ -66,12 +66,9 @@ PRs that may need attention
 *   Apply ``kind/*`` and ``release-note/*`` labels, external contributors
     cannot apply labels.
 *   Approve workflows and run ``/test``.
-*   Link or create issues for persistent flakes. See the 
-`CI failure triage guide <https://docs.cilium.io/en/stable/contributing/testing/ci/#ci-failure-triage>`_ for further guidance.
-*   Remind the person if feedback was positive but there's been no progress, either
-    from reviewer or author side.
-*   Kindly ask for rebases if conflicts emerge, or if e.g. things changed in
-    CI that are causing a job to fail.
+*   Link or create issues for persistent flakes. See the `CI failure triage guide <https://docs.cilium.io/en/stable/contributing/testing/ci/#ci-failure-triage>`_ for further guidance.
+*   Remind the person if feedback was positive but there's been no progress, either from reviewer or author side.
+*   Kindly ask for rebases if conflicts emerge, or if e.g. things changed in CI that are causing a job to fail.
 *   Make sure PRs contain no fixup or merge commits before merging them. Merge
     PRs if the button is green. Do not override branch protection.
 *   If the contributor does not appear to be making progress on the PR, mark
