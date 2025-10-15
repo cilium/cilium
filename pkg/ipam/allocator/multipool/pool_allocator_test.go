@@ -1027,3 +1027,57 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 		},
 	}, p.AllocatedPools(node1.Name))
 }
+
+func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t))
+
+	err := p.UpsertPool("test-pool",
+		[]string{"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28"}, 28,
+		nil, 0,
+	)
+	assert.NoError(t, err)
+
+	node := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool: "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{
+								IPv4Addrs: 48,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	p.RestoreFinished()
+
+	err = p.AllocateToNode(node)
+	assert.NoError(t, err)
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28",
+			},
+		},
+	}, p.AllocatedPools(node.Name))
+
+	err = p.UpsertPool("test-pool",
+		[]string{"10.0.0.0/28", "10.0.0.16/28"}, 28,
+		nil, 0,
+	)
+	assert.NoError(t, err)
+	pool := p.pools["test-pool"]
+	assert.True(t, pool.hasCIDR(netip.MustParsePrefix("10.0.0.0/28")))
+	assert.True(t, pool.hasCIDR(netip.MustParsePrefix("10.0.0.16/28")))
+	assert.False(t, pool.hasCIDR(netip.MustParsePrefix("10.0.0.32/28")))
+	assert.False(t, pool.hasCIDR(netip.MustParsePrefix("10.0.0.48/28")))
+}
