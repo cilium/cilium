@@ -199,7 +199,6 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 		}
 
 		cidrSets[i] = nil
-		cidrSets = slices.Delete(cidrSets, i, i+1)
 
 		for node, pools := range p.nodes {
 			for pool, allocatedCIDRSets := range pools {
@@ -253,6 +252,7 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 			}
 		}
 	}
+	cidrSets = slices.DeleteFunc(cidrSets, func(a cidralloc.CIDRAllocator) bool { return a == nil })
 	cidrSets = append(cidrSets, newCIDRSets...)
 	return cidrSets, errors.Join(errs...)
 }
