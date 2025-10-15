@@ -1138,7 +1138,6 @@ here.
 | INVALID_VNI | 183 |  |
 | INVALID_TC_BUFFER | 184 |  |
 | NO_SID | 185 |  |
-| MISSING_SRV6_STATE | 186 |  |
 | NAT46 | 187 |  |
 | NAT64 | 188 |  |
 | AUTH_REQUIRED | 189 |  |

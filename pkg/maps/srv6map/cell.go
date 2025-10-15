@@ -13,5 +13,4 @@ var Cell = cell.Module(
 		newVRFMaps,
 		newSIDMap,
 	),
-	cell.Invoke(cleanupStateMap),
 )

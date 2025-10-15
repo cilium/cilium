@@ -562,23 +562,21 @@ const (
 	DropReason_INVALID_VNI                                           DropReason = 183
 	DropReason_INVALID_TC_BUFFER                                     DropReason = 184
 	DropReason_NO_SID                                                DropReason = 185
-	// Deprecated: Marked as deprecated in flow/flow.proto.
-	DropReason_MISSING_SRV6_STATE                 DropReason = 186
-	DropReason_NAT46                              DropReason = 187
-	DropReason_NAT64                              DropReason = 188
-	DropReason_AUTH_REQUIRED                      DropReason = 189
-	DropReason_CT_NO_MAP_FOUND                    DropReason = 190
-	DropReason_SNAT_NO_MAP_FOUND                  DropReason = 191
-	DropReason_INVALID_CLUSTER_ID                 DropReason = 192
-	DropReason_UNSUPPORTED_PROTOCOL_FOR_DSR_ENCAP DropReason = 193
-	DropReason_NO_EGRESS_GATEWAY                  DropReason = 194
-	DropReason_UNENCRYPTED_TRAFFIC                DropReason = 195
-	DropReason_TTL_EXCEEDED                       DropReason = 196
-	DropReason_NO_NODE_ID                         DropReason = 197
-	DropReason_DROP_RATE_LIMITED                  DropReason = 198
-	DropReason_IGMP_HANDLED                       DropReason = 199
-	DropReason_IGMP_SUBSCRIBED                    DropReason = 200
-	DropReason_MULTICAST_HANDLED                  DropReason = 201
+	DropReason_NAT46                                                 DropReason = 187
+	DropReason_NAT64                                                 DropReason = 188
+	DropReason_AUTH_REQUIRED                                         DropReason = 189
+	DropReason_CT_NO_MAP_FOUND                                       DropReason = 190
+	DropReason_SNAT_NO_MAP_FOUND                                     DropReason = 191
+	DropReason_INVALID_CLUSTER_ID                                    DropReason = 192
+	DropReason_UNSUPPORTED_PROTOCOL_FOR_DSR_ENCAP                    DropReason = 193
+	DropReason_NO_EGRESS_GATEWAY                                     DropReason = 194
+	DropReason_UNENCRYPTED_TRAFFIC                                   DropReason = 195
+	DropReason_TTL_EXCEEDED                                          DropReason = 196
+	DropReason_NO_NODE_ID                                            DropReason = 197
+	DropReason_DROP_RATE_LIMITED                                     DropReason = 198
+	DropReason_IGMP_HANDLED                                          DropReason = 199
+	DropReason_IGMP_SUBSCRIBED                                       DropReason = 200
+	DropReason_MULTICAST_HANDLED                                     DropReason = 201
 	// A BPF program wants to tail call into bpf_host, but the host datapath
 	// hasn't been loaded yet.
 	DropReason_DROP_HOST_NOT_READY DropReason = 202
@@ -651,7 +649,6 @@ var (
 		183: "INVALID_VNI",
 		184: "INVALID_TC_BUFFER",
 		185: "NO_SID",
-		186: "MISSING_SRV6_STATE",
 		187: "NAT46",
 		188: "NAT64",
 		189: "AUTH_REQUIRED",
@@ -729,7 +726,6 @@ var (
 		"INVALID_VNI":                                           183,
 		"INVALID_TC_BUFFER":                                     184,
 		"NO_SID":                                                185,
-		"MISSING_SRV6_STATE":                                    186,
 		"NAT46":                                                 187,
 		"NAT64":                                                 188,
 		"AUTH_REQUIRED":                                         189,
@@ -5736,7 +5732,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"\x06TRACED\x10\x06\x12\x0e\n" +
 	"\n" +
-	"TRANSLATED\x10\a*\xc5\x11\n" +
+	"TRANSLATED\x10\a*\xa8\x11\n" +
 	"\n" +
 	"DropReason\x12\x17\n" +
 	"\x13DROP_REASON_UNKNOWN\x10\x00\x12\x1b\n" +
@@ -5794,8 +5790,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\rVLAN_FILTERED\x10\xb6\x01\x12\x10\n" +
 	"\vINVALID_VNI\x10\xb7\x01\x12\x16\n" +
 	"\x11INVALID_TC_BUFFER\x10\xb8\x01\x12\v\n" +
-	"\x06NO_SID\x10\xb9\x01\x12\x1b\n" +
-	"\x12MISSING_SRV6_STATE\x10\xba\x01\x1a\x02\b\x01\x12\n" +
+	"\x06NO_SID\x10\xb9\x01\x12\n" +
 	"\n" +
 	"\x05NAT46\x10\xbb\x01\x12\n" +
 	"\n" +
