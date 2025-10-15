@@ -130,7 +130,7 @@ func statusDaemon() {
 			healthPkg.GetAndFormatModulesHealth(w, ss, allHealth, "\t\t")
 			fmt.Fprintln(w)
 		} else {
-			fmt.Fprint(w, "Cluster health:\t\tProbe disabled\n")
+			fmt.Fprint(w, "Cluster health:\tProbe disabled\n")
 		}
 		w.Flush()
 	}
