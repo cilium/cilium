@@ -119,7 +119,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			       REASON_PLAINTEXT);
 #endif
 
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON)
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(ENABLE_MASQUERADE_IPV6)
 	{
 		__u32 egress_ifindex = 0;
 		union v6addr snat_addr, daddr;
@@ -143,7 +143,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 								    ext_err);
 		}
 	}
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+#endif /* ENABLE_EGRESS_GATEWAY_COMMON && ENABLE_MASQUERADE_IPV6 */
 
 #if defined(ENABLE_DSR) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
 	/* Pass incoming packets which will be returned using Geneve DSR
@@ -396,7 +396,7 @@ skip_vtep:
 			       REASON_PLAINTEXT);
 #endif
 
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON)
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(ENABLE_MASQUERADE_IPV4)
 	{
 		__u32 egress_ifindex = 0;
 		__be32 snat_addr, daddr;
@@ -419,7 +419,7 @@ skip_vtep:
 								 ext_err);
 		}
 	}
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+#endif /* ENABLE_EGRESS_GATEWAY_COMMON && ENABLE_MASQUERADE_IPV4 */
 
 #if defined(ENABLE_DSR) && (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
 	/* Pass incoming packets which will be returned using Geneve DSR
