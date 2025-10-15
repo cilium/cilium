@@ -496,18 +496,15 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		fraginfo = ipv6_get_fraginfo(ctx, ip6);
-		if (fraginfo < 0)
-			return (int)fraginfo;
-
 		tuple6.nexthdr = ip6->nexthdr;
 		ipv6_addr_copy(&tuple6.daddr, (union v6addr *)&ip6->daddr);
 		ipv6_addr_copy(&tuple6.saddr, (union v6addr *)&ip6->saddr);
 
-		l4_off = ETH_HLEN + ipv6_hdrlen(ctx, &tuple6.nexthdr);
-		if (l4_off < 0)
-			return l4_off;
+		ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple6.nexthdr, &fraginfo);
+		if (ret < 0)
+			return ret;
 
+		l4_off = ETH_HLEN + ret;
 		ret = ct_extract_ports6(ctx, ip6, fraginfo, l4_off,
 					CT_EGRESS, &tuple6);
 		if (IS_ERR(ret)) {
