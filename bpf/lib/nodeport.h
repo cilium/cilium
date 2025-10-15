@@ -976,7 +976,8 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 		goto fib_lookup;
 	}
 out:
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(ENABLE_MASQUERADE_IPV6) &&	\
+    (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))
 	/* The gateway node needs to manually steer any reply traffic
 	 * for a remote pod into the tunnel (to avoid iptables potentially
 	 * dropping or accidentally SNATing the packets).
@@ -986,11 +987,12 @@ out:
 		src_sec_identity = WORLD_ID;
 		goto encap_redirect;
 	}
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+#endif /* ENABLE_EGRESS_GATEWAY_COMMON && ENABLE_MASQUERADE_IPV6 */
 
 	return CTX_ACT_OK;
 
-#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||	\
+#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(ENABLE_MASQUERADE_IPV6) &&	\
+     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||					\
     defined(TUNNEL_MODE)
 encap_redirect:
 	src_port = tunnel_gen_src_port_v6(&tuple);
@@ -1034,7 +1036,8 @@ fib_lookup:
 			       (union v6addr *)&ip6->daddr);
 	}
 
-#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||	\
+#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(ENABLE_MASQUERADE_IPV6) &&	\
+     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||	\
     defined(TUNNEL_MODE)
 fib_redirect:
 #endif
@@ -1136,7 +1139,8 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
+    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(ENABLE_MASQUERADE_IPV6) &&	\
+     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
@@ -2314,7 +2318,7 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	}
 
 skip_revdnat:
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && \
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(ENABLE_MASQUERADE_IPV4) &&		\
     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))
 	/* The gateway node needs to manually steer any reply traffic
 	 * for a remote pod into the tunnel (to avoid iptables potentially
@@ -2325,7 +2329,7 @@ skip_revdnat:
 		src_sec_identity = WORLD_ID;
 		goto redirect;
 	}
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+#endif /* ENABLE_EGRESS_GATEWAY_COMMON && ENABLE_MASQUERADE_IPV4 */
 
 	return CTX_ACT_OK;
 
@@ -2351,8 +2355,8 @@ redirect:
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 
-#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&				\
-     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||			\
+#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(ENABLE_MASQUERADE_IPV4) &&	\
+     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||					\
     defined(TUNNEL_MODE)
 	if (tunnel_endpoint) {
 		__be16 src_port = tunnel_gen_src_port_v4(&tuple);
@@ -2466,7 +2470,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&						\
+    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(ENABLE_MASQUERADE_IPV4) &&	\
      (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)

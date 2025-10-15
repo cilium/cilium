@@ -454,6 +454,7 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		return CTX_ACT_OK;
 
 	switch (proto) {
+#if defined(ENABLE_IPV4) && defined(ENABLE_MASQUERADE_IPV4)
 	case bpf_htons(ETH_P_IP):
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
@@ -491,7 +492,8 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		ret = egress_gw_handle_packet(&tuple4, dst_sec_identity,
 					      &gateway_ip);
 		break;
-#if defined(ENABLE_IPV6)
+#endif /* ENABLE_IPV4 && ENABLE_MASQUERADE_IPV4 */
+#if defined(ENABLE_IPV6) && defined(ENABLE_MASQUERADE_IPV6)
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
@@ -531,7 +533,7 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		ret = egress_gw_handle_packet_v6(&tuple6, dst_sec_identity,
 						 &gateway_ip);
 		break;
-#endif
+#endif /* ENABLE_IPV6 && ENABLE_MASQUERADE_IPV6 */
 	default:
 		return CTX_ACT_OK;
 	}
