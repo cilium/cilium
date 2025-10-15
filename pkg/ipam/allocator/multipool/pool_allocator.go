@@ -120,6 +120,20 @@ func (p *PoolAllocator) RestoreFinished() {
 	p.mutex.Unlock()
 }
 
+func (p *PoolAllocator) cleanupOrphans(node, pool string) {
+	switch {
+	case len(p.orphans[node][pool].v4) == 0 && len(p.orphans[node][pool].v6) == 0:
+		delete(p.orphans[node], pool)
+		if len(p.orphans[node]) == 0 {
+			delete(p.orphans, node)
+		}
+	case len(p.orphans[node][pool].v4) == 0:
+		p.orphans[node][pool] = cidrSets{v6: p.orphans[node][pool].v6}
+	case len(p.orphans[node][pool].v6) == 0:
+		p.orphans[node][pool] = cidrSets{v4: p.orphans[node][pool].v4}
+	}
+}
+
 func (p *PoolAllocator) unorphanCIDR(isV6 bool, node, pool string, cidr netip.Prefix) error {
 	p.logger.Info(
 		"CIDR from pool already in use by node, marking it as allocated",
@@ -154,17 +168,7 @@ func (p *PoolAllocator) reconcileOrphanCIDRs(pool string, v4, v6 []cidralloc.CID
 			}
 		}
 
-		switch {
-		case len(p.orphans[node][pool].v4) == 0 && len(p.orphans[node][pool].v6) == 0:
-			delete(p.orphans[node], pool)
-			if len(p.orphans[node]) == 0 {
-				delete(p.orphans, node)
-			}
-		case len(p.orphans[node][pool].v4) == 0:
-			p.orphans[node][pool] = cidrSets{v6: p.orphans[node][pool].v6}
-		case len(p.orphans[node][pool].v6) == 0:
-			p.orphans[node][pool] = cidrSets{v4: p.orphans[node][pool].v4}
-		}
+		p.cleanupOrphans(node, pool)
 	}
 	return errors.Join(errs...)
 }
@@ -398,6 +402,13 @@ func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
 			err = errors.Join(err, retainErrs)
 		}
 	}
+	// release any orphan cidrs no longer present in allocatedPool
+	for poolName := range p.orphans[cn.Name] {
+		retainErrs := p.retainOrphanCIDRs(cn.Name, poolName, allocatedSet[poolName])
+		if retainErrs != nil {
+			err = errors.Join(err, retainErrs)
+		}
+	}
 
 	// Delay allocation until we have occupied the CIDRs of all existing nodes.
 	// The node manager will call us again once it has ensured that all nodes
@@ -561,6 +572,17 @@ func (p *PoolAllocator) markReleased(targetNode, sourcePool string, cidr netip.P
 	}
 }
 
+func (p *PoolAllocator) isOrphan(targetNode, sourcePool string, cidr netip.Prefix) bool {
+	var found bool
+	switch {
+	case cidr.Addr().Is4():
+		_, found = p.orphans[targetNode][sourcePool].v4[cidr]
+	case cidr.Addr().Is6():
+		_, found = p.orphans[targetNode][sourcePool].v6[cidr]
+	}
+	return found
+}
+
 func (p *PoolAllocator) markOrphan(targetNode string, sourcePool string, cidr netip.Prefix) {
 	pools, ok := p.orphans[targetNode]
 	if !ok {
@@ -583,6 +605,27 @@ func (p *PoolAllocator) markOrphan(targetNode string, sourcePool string, cidr ne
 	case cidr.Addr().Is6():
 		cidrs.v6[cidr] = struct{}{}
 	}
+}
+
+func (p *PoolAllocator) markReleasedOrphan(targetNode, sourcePool string, cidr netip.Prefix) {
+	pools, ok := p.orphans[targetNode]
+	if !ok {
+		return
+	}
+
+	cidrs, ok := pools[sourcePool]
+	if !ok {
+		return
+	}
+
+	switch {
+	case cidr.Addr().Is4():
+		delete(cidrs.v4, cidr)
+	case cidr.Addr().Is6():
+		delete(cidrs.v6, cidr)
+	}
+
+	p.cleanupOrphans(targetNode, sourcePool)
 }
 
 // allocateCIDRs allocates additional IPs from the sourcePool to the targetNode.
@@ -674,6 +717,32 @@ func (p *PoolAllocator) retainCIDRs(targetNode, sourcePool string, retain map[ne
 	return err
 }
 
+// retainOrphanCIDRs releases all orphan CIDRs in sourcePool of targetNode if they are _not_ present in the retain set
+func (p *PoolAllocator) retainOrphanCIDRs(targetNode, sourcePool string, retain map[netip.Prefix]struct{}) (err error) {
+	for prefix := range p.orphans[targetNode][sourcePool].v4 {
+		if _, ok := retain[prefix]; ok {
+			continue
+		}
+
+		releaseErr := p.releaseOrphanCIDR(targetNode, sourcePool, prefix)
+		if releaseErr != nil {
+			err = errors.Join(err, releaseErr)
+		}
+	}
+	for prefix := range p.orphans[targetNode][sourcePool].v6 {
+		if _, ok := retain[prefix]; ok {
+			continue
+		}
+
+		releaseErr := p.releaseOrphanCIDR(targetNode, sourcePool, prefix)
+		if releaseErr != nil {
+			err = errors.Join(err, releaseErr)
+		}
+	}
+
+	return err
+}
+
 func (p *PoolAllocator) releaseCIDR(targetNode, sourcePool string, cidr netip.Prefix) error {
 	// do not release CIDRs not allocated to the node
 	if !p.isAllocated(targetNode, sourcePool, cidr) {
@@ -698,6 +767,24 @@ func (p *PoolAllocator) releaseCIDR(targetNode, sourcePool string, cidr netip.Pr
 	}
 
 	p.markReleased(targetNode, sourcePool, cidr)
+
+	return nil
+}
+
+func (p *PoolAllocator) releaseOrphanCIDR(targetNode, sourcePool string, cidr netip.Prefix) error {
+	// do not release orphan CIDRs not previously allocated to the node
+	if !p.isOrphan(targetNode, sourcePool, cidr) {
+		return nil
+	}
+
+	p.logger.Debug(
+		"releasing orphan cidr",
+		logfields.TargetNode, targetNode,
+		logfields.SourcePool, sourcePool,
+		logfields.CIDR, cidr,
+	)
+
+	p.markReleasedOrphan(targetNode, sourcePool, cidr)
 
 	return nil
 }
