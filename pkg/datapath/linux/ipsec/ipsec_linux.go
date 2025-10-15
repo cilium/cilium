@@ -194,6 +194,7 @@ func (a *Agent) Start(cell.HookContext) error {
 	}
 
 	var err error
+	// Here is ok to directly set agent params because they are initialized anyway
 	a.authKeySize, a.spi, err = a.loadIPSecKeysFile(a.config.IPsecKeyFile)
 	if err != nil {
 		return err
@@ -1185,6 +1186,10 @@ func parseSPI(spiStr string) (uint8, int, error) {
 	return uint8(spi), 0, nil
 }
 
+// setIPSecSPI pushes the current SPI into the BPF datapath by updating
+// the cilium_encrypt_state map.
+// This does not update the [*Agent].spi field: that is the responsibility
+// of the caller.
 func (a *Agent) setIPSecSPI(spi uint8) error {
 	k := encrypt.EncryptKey{Key: 0}
 	v := encrypt.EncryptValue{KeyID: spi}
@@ -1192,7 +1197,6 @@ func (a *Agent) setIPSecSPI(spi uint8) error {
 		a.log.Warn("cilium_encrypt_state map updated failed", logfields.Error, err)
 		return err
 	}
-	a.spi = spi
 	return nil
 }
 
@@ -1229,7 +1233,9 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				continue
 			}
 
-			_, spi, err := a.loadIPSecKeysFile(keyfilePath)
+			// Here we don't directly set agent params, because if [loadIPSecKeysFile]
+			// fails, they still need to reflect the previous state.
+			authKeySize, spi, err := a.loadIPSecKeysFile(keyfilePath)
 			if err != nil {
 				health.Degraded(fmt.Sprintf("Failed to load keyfile %q", keyfilePath), err)
 				a.log.Error("Failed to load IPsec keyfile", logfields.Error, err)
@@ -1255,6 +1261,9 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				a.log.Error("Failed to set IPsec SPI", logfields.Error, err)
 				continue
 			}
+
+			// Finally, update agent params.
+			a.authKeySize, a.spi = authKeySize, spi
 			health.OK("Watching keyfiles")
 		case err := <-watcher.Errors:
 			a.log.Warn("Error encountered while watching file with fsnotify",

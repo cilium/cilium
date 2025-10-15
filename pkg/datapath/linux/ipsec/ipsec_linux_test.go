@@ -147,7 +147,6 @@ func TestPrivilegedLoadKeys(t *testing.T) {
 		require.NoError(t, err)
 		err = a.setIPSecSPI(spi)
 		require.NoError(t, err)
-		require.Equal(t, spi, a.spi)
 	}
 }
 
