@@ -323,7 +323,7 @@ jobs:
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --test 'allow-all-except-world,encryption,packet-drops'
+            --test 'allow-all-except-world,encryption,packet-drops,no-errors-in-logs'
 
       - name: Upload report artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
