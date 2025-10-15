@@ -28,6 +28,8 @@
 #define BACKEND_IP_REMOTE	v4_pod_two
 #define BACKEND_PORT		__bpf_htons(8080)
 
+#define DEFAULT_IFACE           24
+
 #define fib_lookup mock_fib_lookup
 
 static volatile const __u8 *client_mac = mac_one;
@@ -62,8 +64,10 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	__u32 key = 0;
 	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
 
-	if (settings && settings->fail_fib)
+	if (settings && settings->fail_fib) {
+		params->ifindex = DEFAULT_IFACE;
 		return BPF_FIB_LKUP_RET_NO_NEIGH;
+	}
 
 	params->ifindex = 0;
 
@@ -83,6 +87,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+#include "lib/network_device.h"
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
@@ -535,6 +540,8 @@ int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 
 	if (settings)
 		settings->fail_fib = true;
+
+	device_add_entry(DEFAULT_IFACE, (__u8 *)lb_mac, 0);
 
 	return xdp_receive_packet(ctx);
 }
