@@ -37,6 +37,10 @@ inputs:
     default: true
     description: "Enable Hubble flow gathering as part of the connectivity test"
     required: false
+  gateway-api:
+    default: false
+    description: "Whether Gateway API is enabled. If so, we should skip checking for error logs"
+    required: false
   include-unsafe-tests:
     # default: false
     description: "Enable tests that perform operations that are unsafe in prod"
@@ -100,6 +104,10 @@ runs:
 
         if [ -n "${{ inputs.tests }}" ]; then
           CONNECTIVITY_TEST_DEFAULTS+=("--test=${{ inputs.tests }}")
+        fi
+
+        if [ "${{ inputs.gateway-api }}" == "true" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--test='!check-log-errors'")
         fi
 
         echo test_flags=${CONNECTIVITY_TEST_DEFAULTS[*]} >> $GITHUB_OUTPUT
