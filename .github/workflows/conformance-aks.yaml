@@ -248,7 +248,7 @@ jobs:
           fi
 
           # Check if ipsec is requested via extra-args
-          IPSEC=$(echo '${{ inputs.extra-args }}' | jq -r '.["ipsec"] // empty')
+          IPSEC=$(echo '${{ inputs.extra-args }}' | jq -r '.["ipsec"] // false')
           if [[ "$IPSEC" == "true" ]]; then
             echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
           fi
