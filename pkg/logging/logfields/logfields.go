@@ -1828,4 +1828,8 @@ const (
 
 	// CompiledPools is a map of pools that use podSelectors
 	CompiledPools = "compiledPools"
+
+	ReloadKeypairError = "reloadKeypairError"
+
+	ReloadCAError = "reloadCAError"
 )
