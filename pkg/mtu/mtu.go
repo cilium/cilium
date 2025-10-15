@@ -3,6 +3,10 @@
 
 package mtu
 
+import (
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
+)
+
 const (
 	// MaxMTU is the highest MTU that can be used for devices and routes
 	// handled by Cilium. It will typically be used to configure inbound
@@ -79,24 +83,22 @@ const (
 
 // Configuration is an MTU configuration as returned by NewConfiguration
 type Configuration struct {
-	authKeySize      int
+	ipsecAgent       datapath.IPsecAgent
 	encapEnabled     bool
-	ipsecEnabled     bool
 	wireguardEnabled bool
 	tunnelOverhead   int
 }
 
 // NewConfiguration returns a new MTU configuration which is used to calculate
 // MTU values from a base MTU based on the config.
-func NewConfiguration(authKeySize int, ipsecEnabled, encapEnabled, wireguardEnabled, tunnelOverIPv6 bool) Configuration {
+func NewConfiguration(ipsecAgent datapath.IPsecAgent, encapEnabled, wireguardEnabled, tunnelOverIPv6 bool) Configuration {
 	tunnelOverhead := TunnelOverheadIPv4
 	if tunnelOverIPv6 {
 		tunnelOverhead = TunnelOverheadIPv6
 	}
 	return Configuration{
-		authKeySize:      authKeySize,
+		ipsecAgent:       ipsecAgent,
 		encapEnabled:     encapEnabled,
-		ipsecEnabled:     ipsecEnabled,
 		wireguardEnabled: wireguardEnabled,
 		tunnelOverhead:   tunnelOverhead,
 	}
@@ -124,19 +126,19 @@ func (c *Configuration) getRouteMTU(baseMTU int) int {
 		return c.getDeviceMTU(baseMTU) - WireguardOverhead
 	}
 
-	if !c.encapEnabled && !c.ipsecEnabled {
+	if !c.encapEnabled && !c.ipsecAgent.Enabled() {
 		return c.getDeviceMTU(baseMTU)
 	}
 
 	ipsecOverhead := 0
 
-	if c.ipsecEnabled {
+	if c.ipsecAgent.Enabled() {
 		// Add the difference between the default and the actual key sizes here
 		// to account for users specifying non-default auth key lengths.
-		ipsecOverhead = EncryptionIPsecOverhead + (c.authKeySize - EncryptionDefaultAuthKeyLength)
+		ipsecOverhead = EncryptionIPsecOverhead + (c.ipsecAgent.AuthKeySize() - EncryptionDefaultAuthKeyLength)
 	}
 
-	if c.ipsecEnabled && !c.encapEnabled {
+	if c.ipsecAgent.Enabled() && !c.encapEnabled {
 		preEncryptMTU := baseMTU - ipsecOverhead
 		if preEncryptMTU == 0 {
 			return EthernetMTU - EncryptionIPsecOverhead
@@ -146,7 +148,7 @@ func (c *Configuration) getRouteMTU(baseMTU int) int {
 
 	tunnelMTU := baseMTU - (c.tunnelOverhead + ipsecOverhead)
 	if tunnelMTU <= 0 {
-		if c.ipsecEnabled {
+		if c.ipsecAgent.Enabled() {
 			return EthernetMTU - (c.tunnelOverhead + EncryptionIPsecOverhead)
 		}
 		return EthernetMTU - c.tunnelOverhead

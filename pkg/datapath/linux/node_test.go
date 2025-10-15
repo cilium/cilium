@@ -35,7 +35,7 @@ var (
 		RouteMTU:            calcMtu.RouteMTU,
 		RoutePostEncryptMTU: calcMtu.RoutePostEncryptMTU,
 	}
-	mtuConfig = mtu.NewConfiguration(0, false, false, false, false)
+	mtuConfig = mtu.NewConfiguration(&fakeTypes.IPsecAgent{}, false, false, false)
 	calcMtu   = mtuConfig.Calculate(100)
 	nh        = linuxNodeHandler{
 		nodeConfig: nodeConfig,
