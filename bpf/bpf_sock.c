@@ -4,6 +4,8 @@
 #include <bpf/ctx/unspec.h>
 #include <bpf/api.h>
 
+#include <linux/in.h>
+
 #include <bpf/config/node.h>
 #include <bpf/config/sock.h>
 #include <netdev_config.h>
@@ -337,7 +339,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 			 * (node-local nodeport) there is no policy enforcement
 			 * anyway.
 			 */
-			l7backend.address = bpf_htonl(0x7f000001);
+			l7backend.address = bpf_htonl(INADDR_LOOPBACK);
 			l7backend.port = (__be16)svc->l7_lb_proxy_port;
 			l7backend.proto = 0;
 			l7backend.flags = 0;
