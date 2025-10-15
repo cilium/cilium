@@ -324,3 +324,107 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 		},
 	}, backend.nodes)
 }
+
+func TestOrphanCIDRsReleased(t *testing.T) {
+	backend := NewPoolAllocator(hivetest.Logger(t))
+	err := backend.UpsertPool("test-pool",
+		[]string{"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28"}, 28,
+		nil, 0)
+	assert.NoError(t, err)
+
+	onUpdateArgs := make(chan mockArgs)
+	onUpdateResult := make(chan mockResult)
+	nodeUpdater := &k8sNodeMock{
+		OnUpdate: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+			onUpdateArgs <- mockArgs{oldNode, newNode}
+			r := <-onUpdateResult
+			return r.node, r.err
+		},
+	}
+	nh := NewNodeHandler(hivetest.Logger(t), backend, nodeUpdater)
+
+	// wait 1ms instead of default 1s base duration in unit tests
+	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
+
+	node := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool:   "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 48},
+						},
+					},
+				},
+			},
+		},
+	}
+	nh.Upsert(node)
+
+	nh.Resync(t.Context(), time.Time{})
+
+	// CIDRs from test-pool should be allocated to node
+	nodeUpdate := <-onUpdateArgs
+	assert.Equal(t, node.Name, nodeUpdate.newNode.Name)
+	assert.Len(t, nodeUpdate.newNode.Spec.IPAM.Pools.Allocated, 1)
+	assert.Equal(t, "test-pool", nodeUpdate.newNode.Spec.IPAM.Pools.Allocated[0].Pool)
+	assert.ElementsMatch(t, []ipamTypes.IPAMPodCIDR{
+		"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28",
+	}, nodeUpdate.newNode.Spec.IPAM.Pools.Allocated[0].CIDRs)
+	onUpdateResult <- mockResult{node: nodeUpdate.newNode}
+
+	assert.Equal(t, cidrSet{
+		netip.MustParsePrefix("10.0.0.0/28"):  {},
+		netip.MustParsePrefix("10.0.0.16/28"): {},
+		netip.MustParsePrefix("10.0.0.32/28"): {},
+		netip.MustParsePrefix("10.0.0.48/28"): {},
+	}, backend.nodes[node.Name]["test-pool"].v4)
+	assert.Empty(t, backend.orphans)
+
+	// Shrink the pool and remove two CIDRs still in use by the node
+	err = backend.UpsertPool("test-pool",
+		[]string{"10.0.0.0/28", "10.0.0.16/28"}, 28,
+		nil, 0)
+	assert.NoError(t, err)
+
+	assert.Equal(t, cidrSet{
+		netip.MustParsePrefix("10.0.0.0/28"):  {},
+		netip.MustParsePrefix("10.0.0.16/28"): {},
+	}, backend.nodes[node.Name]["test-pool"].v4)
+	assert.Equal(t, cidrSet{
+		netip.MustParsePrefix("10.0.0.32/28"): {},
+		netip.MustParsePrefix("10.0.0.48/28"): {},
+	}, backend.orphans[node.Name]["test-pool"].v4)
+
+	// when orphan CIDRs are not claimed by the node anymore, they should eventually be released
+	node.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{{
+		Pool:   "test-pool",
+		Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 24},
+	}}
+	node.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{{
+		Pool:  "test-pool",
+		CIDRs: []ipamTypes.IPAMPodCIDR{"10.0.0.0/28", "10.0.0.16/28"},
+	}}
+	nh.Upsert(node)
+
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		backend.mutex.Lock()
+		defer backend.mutex.Unlock()
+
+		assert.Equal(c, cidrSet{
+			netip.MustParsePrefix("10.0.0.0/28"):  {},
+			netip.MustParsePrefix("10.0.0.16/28"): {},
+		}, backend.nodes[node.Name]["test-pool"].v4)
+		assert.Empty(c, backend.orphans[node.Name]["test-pool"].v4)
+	}, 5*time.Second, 50*time.Millisecond)
+
+	select {
+	case <-onUpdateArgs:
+		t.Fatal("Update should not have been called after releasing orphan CIDRs")
+	default:
+	}
+}
