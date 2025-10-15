@@ -1,0 +1,46 @@
+{{$policyAppName := .policyAppName}}
+{{$policyName := .Name}}
+
+{{$l3rulesCount := AddInt (DefaultParam .l3rulesCount 0) 1}}
+{{$l4RulesCount := AddInt (DefaultParam .l4RulesCount 0) 1}}
+{{$l7RulesCount := AddInt (DefaultParam .l7RulesCount 0) 1}}
+
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/name: {{$policyAppName}}
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{$policyAppName}}
+  ingress:
+  # For incremental update handling we can dynamically add CIDR groups
+  # that match this selector.
+  - fromCIDRSet:
+    - cidrGroupSelector:
+        matchLabels:
+          app.kubernetes.io/name: {{$policyAppName}}-cidrgroup
+    toPorts:
+    - ports:
+      - port: "10080"
+        protocol: TCP
+      rules:
+        http: [{}]
+  {{ range $l3RuleIndex := Loop $l3rulesCount }}
+  - fromCIDRSet:
+    - cidrGroupRef: "{{$policyName}}-{{$l3RuleIndex}}"
+    toPorts:
+    {{ range $l4RuleIndex := Loop $l4RulesCount }}
+    - ports:
+      - port: "{{ RandIntRange 10000 30000 }}"
+        protocol: TCP
+      rules:
+        http:
+        {{ range $l7RuleIndex := Loop $l7RulesCount }}
+        - method: "GET"
+          path: "/echo/{{$l3RuleIndex}}/{{$l4RuleIndex}}/{{$l7RuleIndex}}"
+        {{ end }}
+    {{ end }}
+  {{ end }}

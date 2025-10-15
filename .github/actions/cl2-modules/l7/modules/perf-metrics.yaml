@@ -1,12 +1,12 @@
 {{$action := .action}}
 {{$perfClientRunDuration := .perfClientRunDuration}}
 
-{{$NETPOL_LATENCY_THRESHOLD := DefaultParam .CL2_NETPOL_LATENCY_THRESHOLD 3}}
+{{$NETPOL_LATENCY_THRESHOLD := DefaultParam .CL2_NETPOL_LATENCY_THRESHOLD 1}}
 
 {{$MEDIAN_CILIUM_AGENT_CPU_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_AGENT_MEDIAN_CPU_USAGE_THRESHOLD 0.25}}
 {{$MEDIAN_CILIUM_AGENT_MEM_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_AGENT_MEDIAN_MEM_USAGE_THRESHOLD 250}}
 
-{{$CILIUM_PROXY_MEDIAN_MEM_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_PROXY_MEDIAN_MEM_USAGE_THRESHOLD 50}}
+{{$CILIUM_PROXY_MEDIAN_MEM_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_PROXY_MEDIAN_MEM_USAGE_THRESHOLD 100}}
 {{$CILIUM_PROXY_MAX_CPU_USAGE_THRESHOLD := DefaultParam .CL2_CCILIUM_PROXY_MAX_CPU_USAGE_THRESHOLD 1.0}}
 
 {{$ENABLE_VIOLATIONS := DefaultParam .CL2_ENABLE_VIOLATIONS true}}
@@ -120,6 +120,10 @@ steps:
         query: histogram_quantile(0.90, sum(rate(envoy_http_downstream_rq_time_bucket{envoy_http_conn_manager_prefix="proxy"}[%v])) by (le))
       - name: Downstream P50
         query: histogram_quantile(0.50, sum(rate(envoy_http_downstream_rq_time_bucket{envoy_http_conn_manager_prefix="proxy"}[%v])) by (le))
+      # (Downstream - Upstream) gives approximate time envoy spent processing the request.
+      - name: P90 Envoy Request Processing Time
+        query: histogram_quantile(0.90, sum(rate(envoy_http_downstream_rq_time_bucket{envoy_http_conn_manager_prefix="proxy"}[%v])) by (le)) - histogram_quantile(0.90, sum(rate(envoy_cluster_upstream_rq_time_bucket{envoy_cluster_name="ingress-cluster"}[%v])) by (le))
+        threshold: 10
 
   - identifier: HTTPPerfClientLatency
     method: GenericPrometheusQuery
@@ -162,6 +166,7 @@ steps:
         query: quantile(0.99, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-policy", scope="global"}) by (quantile)) / quantile(0.99, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="without-l7-policy", scope="global"}) by (quantile))
       - name: P90
         query: quantile(0.90, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-policy", scope="global"}) by (quantile)) / quantile(0.90, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="without-l7-policy", scope="global"}) by (quantile))
+        threshold: 12 # 12x impact on Latency
       - name: P50
         query: quantile(0.5, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="with-l7-policy", scope="global"}) by (quantile)) / quantile(0.5, avg(nighthawk_benchmark_http_client_latency_2xx{scenario="without-l7-policy", scope="global"}) by (quantile))
         threshold: 12 # 12x impact on Latency
@@ -206,4 +211,10 @@ steps:
       queries:
       - name: Unsuccessful HTTP Requests
         query: sum(nighthawk_benchmark_http_1xx{scenario="with-l7-policy", scope="global"}) + sum(nighthawk_benchmark_http_3xx{scenario="with-l7-policy", scope="global"}) + sum(nighthawk_benchmark_http_4xx{scenario="with-l7-policy", scope="global"}) + sum(nighthawk_benchmark_http_5xx{scenario="with-l7-policy", scope="global"}) + sum(nighthawk_benchmark_http_xxx{scenario="with-l7-policy", scope="global"})
+        threshold: 0
+      - name: Connection Timeouts
+        query: sum(nighthawk_upstream_cx_connect_timeout{scenario=~"with-l7-visibility-policy|with-l7-policy", scope="global"})
+        threshold: 0
+      - name: Connection Failures
+        query: sum(nighthawk_upstream_cx_connect_fail{scenario=~"with-l7-visibility-policy|with-l7-policy", scope="global"})
         threshold: 0

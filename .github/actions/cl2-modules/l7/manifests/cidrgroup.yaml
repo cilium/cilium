@@ -1,0 +1,12 @@
+{{$externalCIDRPrefix := .externalCIDRPrefix }}
+{{$policyAppName := .policyAppName}}
+
+apiVersion: cilium.io/v2
+kind: CiliumCIDRGroup
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/name: {{$policyAppName}}
+spec:
+  externalCIDRs:
+    - {{$externalCIDRPrefix}}.{{.Index}}/32

@@ -1,0 +1,166 @@
+{{$namespaces := .namespaces}}
+{{$policyAppName := .policyAppName}}
+
+{{$policiesCount := DefaultParam .policiesCount 128}}
+
+steps:
+
+- name: Pre Creating CiliumCIDRGroups
+  phases:
+{{ range $policyIdx := Loop $policiesCount }}
+  - replicasPerNamespace: 256
+    tuningSet: Sequence
+    objectBundle:
+    - basename: stress-policy-{{$policyIdx}}
+      objectTemplatePath: ./manifests/cidrgroup.yaml
+      templateFillMap:
+        policyAppName: {{$policyAppName}}
+        externalCIDRPrefix: "192.1.{{$policyIdx}}"
+{{ end }}
+
+- name: Cilium Network Policies
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$policiesCount}}
+    tuningSet: SaturationTimeLimited
+    objectBundle:
+    - basename: stress-policy
+      objectTemplatePath: ./manifests/stress-policy.yaml
+      templateFillMap:
+        policyAppName: {{$policyAppName}}
+        l3RulesCount: 2
+        l4RulesCount: 2
+        l7RulesCount: 2
+
+- name: Cilium Network Policies (1)
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$policiesCount}}
+    tuningSet: SaturationTimeLimited
+    objectBundle:
+    - basename: stress-policy
+      objectTemplatePath: ./manifests/stress-policy.yaml
+      templateFillMap:
+        policyAppName: {{$policyAppName}}
+        l3RulesCount: 16
+        l4RulesCount: 16
+        l7RulesCount: 16
+
+- name: Cilium Network Policies (2)
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$policiesCount}}
+    tuningSet: SaturationTimeLimited
+    objectBundle:
+    - basename: stress-policy
+      objectTemplatePath: ./manifests/stress-policy.yaml
+      templateFillMap:
+        policyAppName: {{$policyAppName}}
+        l3RulesCount: 64
+        l4RulesCount: 32
+        l7RulesCount: 16
+
+- name: Cilium Network Policies (3)
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$policiesCount}}
+    tuningSet: SaturationTimeLimited
+    objectBundle:
+    - basename: stress-policy
+      objectTemplatePath: ./manifests/stress-policy.yaml
+      templateFillMap:
+        policyAppName: {{$policyAppName}}
+        l3RulesCount: 128
+        l4RulesCount: 16
+        l7RulesCount: 16
+
+- name: Cilium Network Policies (4)
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$policiesCount}}
+    tuningSet: SaturationTimeLimited
+    objectBundle:
+    - basename: stress-policy
+      objectTemplatePath: ./manifests/stress-policy.yaml
+      templateFillMap:
+        policyAppName: {{$policyAppName}}
+        l3RulesCount: 256
+        l4RulesCount: 16
+        l7RulesCount: 16
+
+- name: Wait for policy to be realized (1)
+  measurements:
+  - identifier: sleep
+    method: Sleep
+    params:
+      duration: 30s
+
+- name: Creating CiliumCIDRGroups for incremental policy updates
+  phases:
+  - replicasPerNamespace: 256
+    tuningSet: Default
+    objectBundle:
+    - basename: stress-policy-incremental
+      objectTemplatePath: ./manifests/cidrgroup.yaml
+      templateFillMap:
+        policyAppName: {{$policyAppName}}-cidrgroup
+        externalCIDRPrefix: "192.2.1"
+
+- name: Wait before cleanup
+  measurements:
+  - identifier: sleep
+    method: Sleep
+    params:
+      duration: 60s
+
+# Restart cilium-agent
+- module:
+    path: ./../common/restart.yaml
+
+# Cleanup all policy resources.
+- name: Cleanup CiliumCIDRGroups for incremental policy updates
+  phases:
+  - replicasPerNamespace: 0
+    tuningSet: Default
+    objectBundle:
+    - basename: stress-policy-incremental
+      objectTemplatePath: ./manifests/cidrgroup.yaml
+      templateFillMap:
+        policyAppName: {{$policyAppName}}-cidrgroup
+        externalCIDRPrefix: "192.2.1"
+
+- name: Cleanup Cilium Network Policies
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: SaturationTimeLimited
+    objectBundle:
+    - basename: stress-policy
+      objectTemplatePath: ./manifests/stress-policy.yaml
+      templateFillMap:
+        policyAppName: {{$policyAppName}}
+
+- name: Cleanup Pre Created CiliumCIDRGroups
+  phases:
+{{ range $policyIdx := Loop $policiesCount }}
+  - replicasPerNamespace: 0
+    tuningSet: Sequence
+    objectBundle:
+    - basename: stress-policy-{{$policyIdx}}
+      objectTemplatePath: ./manifests/cidrgroup.yaml
+      templateFillMap:
+        policyAppName: {{$policyAppName}}
+        externalCIDRPrefix: "192.1.{{$policyIdx}}"
+{{ end }}

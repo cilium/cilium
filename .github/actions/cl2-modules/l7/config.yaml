@@ -7,9 +7,13 @@
 
 {{$podInstancesPerDeployment := $POD_INSTANCES_PER_DEPLOYMENT}}
 {{$perfClientInstancesPerDeployment := $CLIENT_INSTANCES_PER_DEPLOYMENT}}
-
-{{$longRunningRequestProcessingDuration := DefaultParam .CL2_PERF_CLIENT_LONG_RUNNING_REQUEST_PROCESSING_DURATION 1}}
 {{$perfClientRunDuration := DefaultParam .CL2_PERF_CLIENT_RUN_DURATION 60}}
+
+{{$RUN_POLICY_STRESS_TEST := DefaultParam .CL2_RUN_POLICY_STRESS_TEST true}}
+
+{{$podInstancesPerDeploymentForStressTest := 32}}
+{{$perfClientInstancesPerDeploymentForStressTest := 1}}
+{{$perfClientRunDurationForStressTest := 1500}}
 
 name: l7
 namespace:
@@ -19,30 +23,32 @@ tuningSets:
   globalQPSLoad:
     qps: 5
     burst: 10
+- name: SaturationTimeLimited
+  TimeLimitedLoad:
+    timeLimit: 60s
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 5
 
 steps:
+
 - module:
     path: ./modules/workloads.yaml
     params:
       actionName: "create"
       namespaces: {{$namespaces}}
       tuningSet: Default
-      operationTimeout: 15m
+      operationTimeout: 10m
       deploymentsPerNamespace: {{$deploymentsPerNamespace}}
       replicasPerDeployment: {{$podInstancesPerDeployment}}
 
 - module:
-    path: ./modules/metrics.yaml
+    path: ./modules/perf-metrics.yaml
     params:
       action: start
       perfClientRunDuration: {{$perfClientRunDuration}}
 
-- module:
-    path: ./../cilium-agent-pprofs.yaml
-    params:
-      action: start
-
-# Run Perf tests
+# Run Perf tests: Basline
 - module:
     path: ./modules/http-perf.yaml
     params:
@@ -52,6 +58,7 @@ steps:
       deploymentsPerNamespace: {{$deploymentsPerNamespace}}
       clientInstancesPerDeployment: {{$perfClientInstancesPerDeployment}}
       runDuration: {{$perfClientRunDuration}}
+      requestRate: 10000
 
 - name: Apply empty L7 visibility policy to server
   phases:
@@ -61,8 +68,8 @@ steps:
     replicasPerNamespace: {{$deploymentsPerNamespace}}
     tuningSet: Default
     objectBundle:
-    - basename: l7-visibility-policy
-      objectTemplatePath: ./manifests/policy.yaml
+    - basename: l7-policy
+      objectTemplatePath: ./manifests/l7-policy.yaml
       templateFillMap:
         policyDirectionEgress: false
         policyAppName: http-server
@@ -74,7 +81,7 @@ steps:
   - identifier: sleep
     method: Sleep
     params:
-      duration: 30s
+      duration: 5s
 
 - module:
     path: ./modules/http-perf.yaml
@@ -85,21 +92,7 @@ steps:
       deploymentsPerNamespace: {{$deploymentsPerNamespace}}
       clientInstancesPerDeployment: {{$perfClientInstancesPerDeployment}}
       runDuration: {{$perfClientRunDuration}}
-
-- name: Cleanup empty L7 visibility policy
-  phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: Default
-    objectBundle:
-    - basename: l7-visibility-policy
-      objectTemplatePath: ./manifests/policy.yaml
-      templateFillMap:
-        policyDirectionEgress: false
-        policyAppName: http-server
-        rulesPerPolicy: 0
+      requestRate: 10000
 
 # Apply CNP with L7 policy on workloads
 - name: Apply L7 policy to server.
@@ -111,7 +104,7 @@ steps:
     tuningSet: Default
     objectBundle:
     - basename: l7-policy
-      objectTemplatePath: ./manifests/policy.yaml
+      objectTemplatePath: ./manifests/l7-policy.yaml
       templateFillMap:
         policyDirectionEgress: false
         policyAppName: http-server
@@ -122,7 +115,7 @@ steps:
   - identifier: sleep
     method: Sleep
     params:
-      duration: 30s
+      duration: 5s
 
 - module:
     path: ./modules/http-perf.yaml
@@ -133,6 +126,7 @@ steps:
       deploymentsPerNamespace: {{$deploymentsPerNamespace}}
       clientInstancesPerDeployment: {{$perfClientInstancesPerDeployment}}
       runDuration: {{$perfClientRunDuration}}
+      requestRate: 10000
 
 - name: Wait for metrics convergence
   measurements:
@@ -142,12 +136,34 @@ steps:
       duration: 30s
 
 - module:
-    path: ../cilium-agent-pprofs.yaml
-    params:
-      action: gather
-
-- module:
-    path: ./modules/metrics.yaml
+    path: ./modules/perf-metrics.yaml
     params:
       action: gather
       perfClientRunDuration: {{$perfClientRunDuration}}
+
+{{ if $RUN_POLICY_STRESS_TEST }}
+
+## Run Policy Stress test
+- module:
+    path: ./modules/workloads.yaml
+    params:
+      actionName: update
+      namespaces: {{$namespaces}}
+      tuningSet: Default
+      operationTimeout: 10m
+      deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+      replicasPerDeployment: {{$podInstancesPerDeploymentForStressTest}}
+
+- module:
+    path: ./modules/http-perf.yaml
+    params:
+      scenario: policy-stress-testing
+      tuningSet: Default
+      namespaces: {{$namespaces}}
+      deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+      clientInstancesPerDeployment: {{$perfClientInstancesPerDeploymentForStressTest}}
+      runDuration: {{$perfClientRunDurationForStressTest}}
+      requestRate: 100
+      enablePolicyStress: true
+
+{{ end }}

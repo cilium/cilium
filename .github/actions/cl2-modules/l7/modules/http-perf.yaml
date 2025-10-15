@@ -2,11 +2,15 @@
 
 {{$namespaces := .namespaces}}
 {{$tuningSet := .tuningSet}}
+{{$runDuration := .runDuration}}
+{{$requestRate := .requestRate}}
 
 {{$deploymentsPerNamespace := .deploymentsPerNamespace}}
 {{$clientInstancesPerDeployment := .clientInstancesPerDeployment}}
 
 {{$requestProcessingDuration := DefaultParam .requestProcessingDuration 0}}
+
+{{$enablePolicyStress := DefaultParam .enablePolicyStress false}}
 
 steps:
 - name: Start measurement for perf clients ({{$scenario}})
@@ -30,7 +34,17 @@ steps:
       templateFillMap:
         scenario: {{$scenario}}
         instances: {{$clientInstancesPerDeployment}}
+        runDuration: {{$runDuration}}
+        requestRate: {{$requestRate}}
         requestProcessingDuration: {{$requestProcessingDuration}}
+
+{{ if $enablePolicyStress }}
+- module:
+    path: ./modules/policy-stress.yaml
+    params:
+      namespaces: {{$namespaces}} 
+      policyAppName: http-server
+{{ end }}
 
 - name: Wait for Perf Clients to finish ({{$scenario}})
   measurements:

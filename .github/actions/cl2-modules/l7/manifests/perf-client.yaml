@@ -4,10 +4,12 @@
 {{$scenario := .scenario}}
 {{$instances := .instances}}
 
-{{$maxConnections := DivideInt 1024 .instances }}
+{{$requestRate := DefaultParam .requestRate 10000}}
+{{$runDuration := DefaultParam .runDuration 60}}
 
 {{$requestProcessingDuration := AddInt (DefaultParam .requestProcessingDuration 0) 0}} # Workaround for incompatible type during comparision
-{{$runDuration := DefaultParam .runDuration 60}}
+
+{{$maxConnections := DivideInt 1024 .instances }}
 
 {{$runTimeout := AddInt $runDuration 10}}
 {{$jobDeadline := MultiplyInt $runDuration 2}}
@@ -50,7 +52,7 @@ spec:
                   --no-default-failure-predicates \
                   --label testing \
                   --duration {{$runDuration}} \
-                  --rps 10000 \
+                  --rps {{$requestRate}} \
                   --connections {{$maxConnections}} \
                   --concurrency 1 \
                   --timeout 1 \
