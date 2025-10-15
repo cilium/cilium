@@ -303,6 +303,7 @@ jobs:
         with:
           external-target: 'amazon.com.'
           hubble: false
+          gateway-api: ${{ matrix.advanced-features }}
 
       - name: Get PR base branch
         id: get-base-branch
