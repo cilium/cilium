@@ -2253,7 +2253,7 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 
 skip_revdnat:
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && \
-	(defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD))
+    (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))
 	/* The gateway node needs to manually steer any reply traffic
 	 * for a remote pod into the tunnel (to avoid iptables potentially
 	 * dropping or accidentally SNATing the packets).
@@ -2289,8 +2289,8 @@ redirect:
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 
-#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && \
-		(defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD))) ||	\
+#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&				\
+     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||			\
     defined(TUNNEL_MODE)
 	if (tunnel_endpoint) {
 		__be16 src_port = tunnel_gen_src_port_v4(&tuple);
@@ -2405,8 +2405,8 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && \
-		(defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)))
+    (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&						\
+     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
