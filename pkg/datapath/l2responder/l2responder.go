@@ -64,11 +64,14 @@ type params struct {
 	JobGroup            job.Group
 	Health              cell.Health
 	GNeighSender        gneigh.Sender
+	AddRemMcMACFunc     addRemMcMACFunc `optional:"true"`
 }
 
 type linkByNamer interface {
 	LinkByName(name string) (netlink.Link, error)
 }
+
+type addRemMcMACFunc func(ifindex int, mac mac.MAC, add bool) error
 
 func newNeighborNetlink() linkByNamer {
 	return &netlink.Handle{}
@@ -96,6 +99,10 @@ func (m McMACMap) Add(ifIndex int, ip netip.Addr) {
 }
 
 func NewL2ResponderReconciler(params params) *l2ResponderReconciler {
+	if params.AddRemMcMACFunc == nil {
+		params.AddRemMcMACFunc = addRemoveIpv6SolNodeMACAddr
+	}
+
 	reconciler := l2ResponderReconciler{
 		params: params,
 	}
@@ -345,7 +352,7 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 	}
 
 	// Now sync IPv6 L2 MC MACs
-	err = reconcileMcMACEntries(currMcMACMap, desiredMcMACMap)
+	err = p.reconcileMcMACEntries(currMcMACMap, desiredMcMACMap)
 	if err != nil {
 		errs = errors.Join(errs, err)
 	}
@@ -425,11 +432,11 @@ func (clr *cachingLinkResolver) LinkIndex(name string) (int, error) {
 
 // L2 Sol. Node MC MAC address sync. First add unconditionallty all
 // desired, and remove what's in curr but not in desired remove
-func reconcileMcMACEntries(curr McMACMap, desired McMACMap) (err error) {
+func (p *l2ResponderReconciler) reconcileMcMACEntries(curr McMACMap, desired McMACMap) (err error) {
 	var errs error
 
 	for key, mac := range desired {
-		err := addRemoveIpv6SolNodeMACAddr(key.IfIndex, mac, true)
+		err := p.params.AddRemMcMACFunc(key.IfIndex, mac, true)
 		if err != nil {
 			errs = errors.Join(errs, fmt.Errorf("Add L2 MC Sol. Node MAC address %s@%d: %w", key.MAC, key.IfIndex, err))
 		}
@@ -440,7 +447,7 @@ func reconcileMcMACEntries(curr McMACMap, desired McMACMap) (err error) {
 		}
 	}
 	for key, mac := range curr {
-		err := addRemoveIpv6SolNodeMACAddr(key.IfIndex, mac, false)
+		err := p.params.AddRemMcMACFunc(key.IfIndex, mac, false)
 		if err != nil {
 			errs = errors.Join(errs, fmt.Errorf("Remove L2 MC Sol. Node MAC address %s@%d: %w", key.MAC, key.IfIndex, err))
 		}
