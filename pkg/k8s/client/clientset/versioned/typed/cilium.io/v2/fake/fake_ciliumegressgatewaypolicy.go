@@ -7,19 +7,20 @@ package fake
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
+	typedciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumEgressGatewayPolicies implements CiliumEgressGatewayPolicyInterface
 type fakeCiliumEgressGatewayPolicies struct {
-	*gentype.FakeClientWithList[*v2.CiliumEgressGatewayPolicy, *v2.CiliumEgressGatewayPolicyList]
+	*gentype.FakeClientWithListAndApply[*v2.CiliumEgressGatewayPolicy, *v2.CiliumEgressGatewayPolicyList, *ciliumiov2.CiliumEgressGatewayPolicyApplyConfiguration]
 	Fake *FakeCiliumV2
 }
 
-func newFakeCiliumEgressGatewayPolicies(fake *FakeCiliumV2) ciliumiov2.CiliumEgressGatewayPolicyInterface {
+func newFakeCiliumEgressGatewayPolicies(fake *FakeCiliumV2) typedciliumiov2.CiliumEgressGatewayPolicyInterface {
 	return &fakeCiliumEgressGatewayPolicies{
-		gentype.NewFakeClientWithList[*v2.CiliumEgressGatewayPolicy, *v2.CiliumEgressGatewayPolicyList](
+		gentype.NewFakeClientWithListAndApply[*v2.CiliumEgressGatewayPolicy, *v2.CiliumEgressGatewayPolicyList, *ciliumiov2.CiliumEgressGatewayPolicyApplyConfiguration](
 			fake.Fake,
 			"",
 			v2.SchemeGroupVersion.WithResource("ciliumegressgatewaypolicies"),
