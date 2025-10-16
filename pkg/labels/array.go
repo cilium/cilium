@@ -103,11 +103,18 @@ nextLabel:
 // ["k8s:foo=bar"].Intersects(["any:foo=bar"]) == true
 // ["any:foo=bar"].Intersects(["k8s:foo=bar"]) == false
 func (ls LabelArray) Intersects(needed LabelArray) bool {
+	for _, n := range needed {
+		if ls.IntersectsLabel(n) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ls LabelArray) IntersectsLabel(lbl Label) bool {
 	for _, l := range ls {
-		for _, n := range needed {
-			if l.Has(&n) {
-				return true
-			}
+		if l.Has(&lbl) {
+			return true
 		}
 	}
 	return false
@@ -145,7 +152,11 @@ nextLabel:
 // ["cidr:1.0.0.0/8"].Has("cidr.1.1.1.1/32") => false
 func (ls LabelArray) Has(key string) bool {
 	// The key is submitted in the form of `source.key=value`
-	keyLabel := parseSelectLabel(key, '.')
+	keyLabel := ParseSelectDotLabel(key)
+	return ls.HasLabel(keyLabel)
+}
+
+func (ls LabelArray) HasLabel(keyLabel Label) bool {
 	for _, l := range ls {
 		if l.HasKey(&keyLabel) {
 			return true
@@ -168,7 +179,11 @@ func (ls LabelArray) Has(key string) bool {
 // ["cidr:1.1.1.1/32"].Has("cidr.1.0.0.0/8") => true
 // ["cidr:1.0.0.0/8"].Has("cidr.1.1.1.1/32") => false
 func (ls LabelArray) Get(key string) string {
-	keyLabel := parseSelectLabel(key, '.')
+	keyLabel := ParseSelectDotLabel(key)
+	return ls.GetLabel(keyLabel)
+}
+
+func (ls LabelArray) GetLabel(keyLabel Label) string {
 	for _, l := range ls {
 		if l.HasKey(&keyLabel) {
 			return l.Value
@@ -179,7 +194,11 @@ func (ls LabelArray) Get(key string) string {
 
 func (ls LabelArray) Lookup(label string) (value string, exists bool) {
 	// The label is submitted in the form of `source.key=value`
-	keyLabel := parseSelectLabel(label, '.')
+	keyLabel := ParseSelectDotLabel(label)
+	return ls.LookupLabel(keyLabel)
+}
+
+func (ls LabelArray) LookupLabel(keyLabel Label) (value string, exists bool) {
 	for _, l := range ls {
 		if l.HasKey(&keyLabel) {
 			return l.Value, true
