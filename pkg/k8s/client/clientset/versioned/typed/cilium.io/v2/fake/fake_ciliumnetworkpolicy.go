@@ -7,19 +7,20 @@ package fake
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
+	typedciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumNetworkPolicies implements CiliumNetworkPolicyInterface
 type fakeCiliumNetworkPolicies struct {
-	*gentype.FakeClientWithList[*v2.CiliumNetworkPolicy, *v2.CiliumNetworkPolicyList]
+	*gentype.FakeClientWithListAndApply[*v2.CiliumNetworkPolicy, *v2.CiliumNetworkPolicyList, *ciliumiov2.CiliumNetworkPolicyApplyConfiguration]
 	Fake *FakeCiliumV2
 }
 
-func newFakeCiliumNetworkPolicies(fake *FakeCiliumV2, namespace string) ciliumiov2.CiliumNetworkPolicyInterface {
+func newFakeCiliumNetworkPolicies(fake *FakeCiliumV2, namespace string) typedciliumiov2.CiliumNetworkPolicyInterface {
 	return &fakeCiliumNetworkPolicies{
-		gentype.NewFakeClientWithList[*v2.CiliumNetworkPolicy, *v2.CiliumNetworkPolicyList](
+		gentype.NewFakeClientWithListAndApply[*v2.CiliumNetworkPolicy, *v2.CiliumNetworkPolicyList, *ciliumiov2.CiliumNetworkPolicyApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v2.SchemeGroupVersion.WithResource("ciliumnetworkpolicies"),
