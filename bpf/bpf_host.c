@@ -361,10 +361,14 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			if (l2_hdr_required) {
 				/* l2 header is added */
 				l3_off += __ETH_HLEN;
+				if (!____revalidate_data_pull(ctx, &data, &data_end,
+							      (void **)&ip6, sizeof(*ip6),
+							      false, l3_off))
+					return DROP_INVALID;
 			}
 		}
 #endif
-		return ipv6_local_delivery(ctx, l3_off, secctx, magic, ep,
+		return ipv6_local_delivery(ctx, l3_off, secctx, magic, ip6, ep,
 					   METRIC_INGRESS, from_host, false);
 	}
 

@@ -952,7 +952,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		trace->monitor = monitor;
-		ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, METRIC_EGRESS);
+		ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, ip6, METRIC_EGRESS);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 
@@ -1231,7 +1231,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	ipv6_ct_tuple_swap_ports(&tuple);
 	tuple.flags = TUPLE_F_OUT;
 
-	ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, METRIC_EGRESS);
+	ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, ip6, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		goto drop_err;
 
@@ -1340,7 +1340,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 				  bpf_htons(ETH_P_IPV6));
 
 #  if defined(ENABLE_TPROXY)
-		return ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
+		return ctx_redirect_to_proxy_hairpin_ipv6(ctx, ip6, proxy_port);
 #  else
 		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
 		ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);

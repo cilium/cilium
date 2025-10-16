@@ -250,13 +250,10 @@ static __always_inline void ipv6_addr_clear_suffix(union v6addr *addr,
 	addr->p4 &= GET_PREFIX(prefix);
 }
 
-static __always_inline int ipv6_dec_hoplimit(struct __ctx_buff *ctx, int off)
+static __always_inline int ipv6_dec_hoplimit(struct __ctx_buff *ctx, int off,
+					     const struct ipv6hdr *ip6)
 {
-	__u8 hl;
-
-	if (ctx_load_bytes(ctx, off + offsetof(struct ipv6hdr, hop_limit),
-			   &hl, sizeof(hl)) < 0)
-		return DROP_INVALID;
+	__u8 hl = ip6->hop_limit;
 
 	if (hl <= 1)
 		return DROP_TTL_EXCEEDED;
