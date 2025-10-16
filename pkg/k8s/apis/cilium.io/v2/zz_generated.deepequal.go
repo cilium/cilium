@@ -2042,7 +2042,7 @@ func (in *EndpointStatus) DeepEqual(other *EndpointStatus) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
