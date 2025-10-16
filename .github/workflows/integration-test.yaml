@@ -157,19 +157,9 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
-          cache: false
+          cache-dependency-path: '**/go.sum'
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.3
-
-      # Load Golang cache build from GitHub
-      - name: Load Golang cache build from GitHub
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        id: go-cache
-        with:
-          path: /tmp/.cache/go
-          key: ${{ runner.os }}-go-integration-test-cache-${{ runner.arch }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-integration-test-cache-${{ runner.arch }}-
 
       - name: Set clang directory
         id: set_clang_dir
@@ -181,21 +171,8 @@ jobs:
           version: "19.1.7"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
 
-      - name: Create cache directories if they don't exist
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
-        env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
-        shell: bash
-        run: |
-          mkdir -p "${GOCACHE}"
-          mkdir -p "${GOMODCACHE}"
-
       - name: Prepare environment
         timeout-minutes: 15
-        env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
         shell: bash
         run: |
           # renovate: datasource=github-releases depName=mfridman/tparse
@@ -206,9 +183,6 @@ jobs:
       - name: Run integration tests
         id: run-tests
         timeout-minutes: 60
-        env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
         run: |
           export V=0
           export DOCKER_BUILD_FLAGS=--quiet
