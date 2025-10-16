@@ -221,10 +221,19 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 	backend := NewPoolAllocator(hivetest.Logger(t))
 
 	onUpdateArgs := make(chan mockArgs)
+
+	onUpdateStatusArgs := make(chan mockArgs)
+	onUpdateStatusResult := make(chan mockResult)
+
 	nodeUpdater := &k8sNodeMock{
 		OnUpdate: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
 			onUpdateArgs <- mockArgs{oldNode, newNode}
 			return nil, nil
+		},
+		OnUpdateStatus: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+			onUpdateStatusArgs <- mockArgs{oldNode, newNode}
+			r := <-onUpdateStatusResult
+			return r.node, r.err
 		},
 	}
 	nh := NewNodeHandler(hivetest.Logger(t), backend, nodeUpdater)
@@ -260,6 +269,25 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 	}
 	nh.Upsert(node)
 
+	// CIDRs allocated from previous operator run should eventually be marked as orphans
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		backend.mutex.Lock()
+		defer backend.mutex.Unlock()
+
+		assert.Equal(c, map[string]poolToCIDRs{
+			node.Name: {
+				"test-pool": {
+					v4: cidrSet{
+						netip.MustParsePrefix("10.0.0.0/24"): {},
+						netip.MustParsePrefix("10.0.1.0/24"): {},
+						netip.MustParsePrefix("10.0.2.0/24"): {},
+					},
+					v6: cidrSet{},
+				},
+			},
+		}, backend.orphans)
+	}, 5*time.Second, 50*time.Millisecond)
+
 	// Node should only be updated after Resync
 	select {
 	case <-onUpdateArgs:
@@ -267,23 +295,14 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 	default:
 	}
 
-	// CIDRs allocated from previous operator run should be marked as orphans
-	assert.Equal(t, map[string]poolToCIDRs{
-		node.Name: {
-			"test-pool": {
-				v4: cidrSet{
-					netip.MustParsePrefix("10.0.0.0/24"): {},
-					netip.MustParsePrefix("10.0.1.0/24"): {},
-					netip.MustParsePrefix("10.0.2.0/24"): {},
-				},
-				v6: cidrSet{},
-			},
-		},
-	}, backend.orphans)
-
 	nh.Resync(t.Context(), time.Time{})
 
 	// Node should not be updated, since all allocated CIDRs are orphan
+	nodeUpdateStatus := <-onUpdateStatusArgs
+	assert.Equal(t, "node", nodeUpdateStatus.newNode.Name)
+	assert.Contains(t, nodeUpdateStatus.newNode.Status.IPAM.OperatorStatus.Error, "cannot allocate from non-existing pool: test-pool")
+	onUpdateStatusResult <- mockResult{node: nodeUpdateStatus.newNode}
+
 	select {
 	case <-onUpdateArgs:
 		t.Fatal("Update should not have been called after Resync")
@@ -291,8 +310,14 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 	}
 
 	// Node should not be updated, since we cannot allocate more CIDRs from non existent pools
-	node.Spec.IPAM.Pools.Requested[0].Needed = ipamTypes.IPAMPoolDemand{IPv4Addrs: 16}
-	nh.Upsert(node)
+	node2 := node.DeepCopy()
+	node2.Spec.IPAM.Pools.Requested[0].Needed = ipamTypes.IPAMPoolDemand{IPv4Addrs: 24}
+	nh.Upsert(node2)
+
+	nodeUpdate2Status := <-onUpdateStatusArgs
+	assert.Equal(t, "node", nodeUpdate2Status.newNode.Name)
+	assert.Contains(t, nodeUpdate2Status.newNode.Status.IPAM.OperatorStatus.Error, "cannot allocate from non-existing pool: test-pool")
+	onUpdateStatusResult <- mockResult{node: nodeUpdate2Status.newNode}
 
 	select {
 	case <-onUpdateArgs:
@@ -300,19 +325,13 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 	default:
 	}
 
-	// Node should not be updated, but the previous CIDRs should be unorphaned if test-pool is restored
+	// Previous CIDRs should be unorphaned if test-pool is restored
 	err := backend.UpsertPool("test-pool", []string{"10.0.0.0/16"}, 24, nil, 0)
 	assert.NoError(t, err)
 
-	select {
-	case <-onUpdateArgs:
-		t.Fatal("Update should not have been called after increasing requested IPs")
-	default:
-	}
-
 	assert.Empty(t, backend.orphans)
 	assert.Equal(t, map[string]poolToCIDRs{
-		node.Name: {
+		node2.Name: {
 			"test-pool": {
 				v4: cidrSet{
 					netip.MustParsePrefix("10.0.0.0/24"): {},
