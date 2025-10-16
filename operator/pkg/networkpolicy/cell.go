@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -22,6 +21,7 @@ import (
 
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
+	cilium_api_v2_apply "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -111,6 +111,7 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 		logfields.CiliumNetworkPolicyName, pol.Name,
 	)
 
+	// need to clone anyways, because Sanitize is mutating
 	newPol := pol.DeepCopy()
 
 	var errs error
@@ -121,8 +122,8 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 		errs = errors.Join(errs, r.Sanitize())
 	}
 
-	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
-	if newPol.Status.DeepEqual(&pol.Status) {
+	update := updateCondition(event.Object.Status.Conditions, errs)
+	if update == nil {
 		return nil
 	}
 
@@ -131,11 +132,14 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 	} else {
 		log.DebugContext(ctx, "CNP now valid, setting condition")
 	}
-	// Using the UpdateStatus subresource will prevent the generation from being bumped.
-	_, err = pv.params.Clientset.CiliumV2().CiliumNetworkPolicies(pol.Namespace).UpdateStatus(
+
+	// Using the PatchStatus subresource will prevent the generation from being bumped.
+	_, err = pv.params.Clientset.CiliumV2().CiliumNetworkPolicies(pol.Namespace).ApplyStatus(
 		ctx,
-		newPol,
-		metav1.UpdateOptions{},
+		cilium_api_v2_apply.CiliumNetworkPolicy(pol.Name, pol.Namespace).WithStatus(
+			cilium_api_v2_apply.CiliumNetworkPolicyStatus().WithConditions(update),
+		).WithResourceVersion(pol.ResourceVersion),
+		metav1.ApplyOptions{FieldManager: "cilium-operator"},
 	)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -172,8 +176,8 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 		errs = errors.Join(errs, r.Sanitize())
 	}
 
-	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
-	if newPol.Status.DeepEqual(&pol.Status) {
+	update := updateCondition(event.Object.Status.Conditions, errs)
+	if update == nil {
 		return nil
 	}
 
@@ -182,11 +186,13 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 	} else {
 		log.DebugContext(ctx, "CCNP now valid, setting condition")
 	}
-	// Using the UpdateStatus subresource will prevent the generation from being bumped.
-	_, err = pv.params.Clientset.CiliumV2().CiliumClusterwideNetworkPolicies().UpdateStatus(
+	// Using the ApplyStatus subresource will prevent the generation from being bumped.
+	_, err = pv.params.Clientset.CiliumV2().CiliumClusterwideNetworkPolicies().ApplyStatus(
 		ctx,
-		newPol,
-		metav1.UpdateOptions{},
+		cilium_api_v2_apply.CiliumClusterwideNetworkPolicy(pol.Name).WithStatus(
+			cilium_api_v2_apply.CiliumNetworkPolicyStatus().WithConditions(update),
+		).WithResourceVersion(pol.ResourceVersion),
+		metav1.ApplyOptions{FieldManager: "cilium-operator"},
 	)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -200,46 +206,39 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 
 // updateCondition creates or updates the policy validation condition in Conditions, setting
 // the transition time as necessary.
-func updateCondition(conditions []cilium_api_v2.NetworkPolicyCondition, errs error) []cilium_api_v2.NetworkPolicyCondition {
-	wantCondition := corev1.ConditionTrue
-	message := "Policy validation succeeded"
+func updateCondition(conditions []cilium_api_v2.NetworkPolicyCondition, errs error) *cilium_api_v2_apply.NetworkPolicyConditionApplyConfiguration {
+	newStatus := corev1.ConditionTrue
+	newMessage := "Policy validation succeeded"
 	if errs != nil {
-		wantCondition = corev1.ConditionFalse
-		message = errs.Error()
+		newStatus = corev1.ConditionFalse
+		newMessage = errs.Error()
 	}
 
-	// look for the condition type already existing.
-	foundIdx := -1
-	for i, cond := range conditions {
-		if cond.Type == cilium_api_v2.PolicyConditionValid {
-			foundIdx = i
-			// If nothing important changed, short-circuit
-			if cond.Status == wantCondition && cond.Message == message {
-				return conditions
+	update := cilium_api_v2_apply.NetworkPolicyCondition().WithType(cilium_api_v2.PolicyConditionValid)
+
+	// generate update from existing, if present
+	for _, existing := range conditions {
+		if existing.Type == cilium_api_v2.PolicyConditionValid {
+			changed := false
+			if existing.Status != newStatus {
+				// set LTT and Status
+				update = update.WithLastTransitionTime(slimv1.Now()).WithStatus(newStatus)
+				changed = true
 			}
-			break
+			if existing.Message != newMessage {
+				update = update.WithMessage(newMessage)
+				changed = true
+			}
+
+			if changed {
+				return update
+			} else {
+				return nil
+			}
 		}
 	}
 
-	// Otherwise, set / update the condition
-	newCond := cilium_api_v2.NetworkPolicyCondition{
-		Type:               cilium_api_v2.PolicyConditionValid,
-		Status:             wantCondition,
-		LastTransitionTime: slimv1.Now(),
-		Message:            message,
-	}
-
-	out := slices.Clone(conditions)
-
-	if foundIdx >= 0 {
-		// If the status did not change (just the message), don't bump the
-		// LastTransitionTime.
-		if out[foundIdx].Status == newCond.Status {
-			newCond.LastTransitionTime = out[foundIdx].LastTransitionTime
-		}
-		out[foundIdx] = newCond
-	} else {
-		out = append(out, newCond)
-	}
-	return out
+	// Otherwise, make an update from scratch
+	update = update.WithLastTransitionTime(slimv1.Now()).WithMessage(newMessage).WithStatus(newStatus)
+	return update
 }
