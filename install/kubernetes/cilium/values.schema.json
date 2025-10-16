@@ -2184,6 +2184,10 @@
           },
           "type": "object"
         },
+        "initContainers": {
+          "items": {},
+          "type": "array"
+        },
         "initialFetchTimeoutSeconds": {
           "type": "integer"
         },

@@ -102,3 +102,55 @@ Allow packagers to add extra arguments to the clustermesh-apiserver kvstoremesh 
 */}}
 {{- define "clustermesh.kvstoremesh.args.extra" -}}
 {{- end }}
+
+{{/*
+Allow packagers to add init containers to the cilium-envoy pods.
+*/}}
+{{- define "envoy.initContainers" -}}
+{{- end }}
+
+{{/*
+Allow packagers to add extra args to the cilium-envoy container.
+*/}}
+{{- define "envoy.args.extra" -}}
+{{- end }}
+
+{{/*
+Allow packagers to add extra env vars to the cilium-envoy container.
+*/}}
+{{- define "envoy.env.extra" -}}
+{{- end }}
+
+{{/*
+Allow packagers to add extra volume mounts to the cilium-envoy container.
+*/}}
+{{- define "envoy.volumeMounts.extra" -}}
+{{- end }}
+
+{{/*
+Allow packagers to add extra host path mounts to the cilium-envoy container.
+*/}}
+{{- define "envoy.hostPathMounts.extra" -}}
+{{- end }}
+
+
+{{/*
+Allow packagers to define set of ports for cilium-envoy container.
+The template needs to allow overriding ports spec not just adding.
+*/}}
+{{- define "envoy.ports" -}}
+        {{- if .Values.envoy.prometheus.enabled }}
+        ports:
+        - name: envoy-metrics
+          containerPort: {{ .Values.envoy.prometheus.port }}
+          hostPort: {{ .Values.envoy.prometheus.port }}
+          protocol: TCP
+        {{- if and .Values.envoy.debug.admin.enabled .Values.envoy.debug.admin.port }}
+        - name: envoy-admin
+          containerPort: {{ .Values.envoy.debug.admin.port }}
+          hostPort: {{ .Values.envoy.debug.admin.port }}
+          protocol: TCP
+        {{- end }}
+        {{- end }}
+{{- end }}
+
