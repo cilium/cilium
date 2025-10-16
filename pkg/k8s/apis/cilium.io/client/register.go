@@ -367,8 +367,10 @@ func createCRD(logger *slog.Logger, crdVersionedName string, crdMetaName string)
 			clientset,
 			constructV1CRD(crdMetaName, ciliumCRD),
 			crdhelpers.NewDefaultPoller(),
-			k8sconst.CustomResourceDefinitionSchemaVersionKey,
-			versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
+			crdhelpers.NeedsUpdateV1Factory(
+				k8sconst.CustomResourceDefinitionSchemaVersionKey,
+				versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
+			),
 		)
 	}
 }
