@@ -2435,14 +2435,8 @@ func (in *EndpointStatus) DeepCopyInto(out *EndpointStatus) {
 	}
 	if in.Log != nil {
 		in, out := &in.Log, &out.Log
-		*out = make([]*models.EndpointStatusChange, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(models.EndpointStatusChange)
-				**out = **in
-			}
-		}
+		*out = make([]models.EndpointStatusChange, len(*in))
+		copy(*out, *in)
 	}
 	if in.Networking != nil {
 		in, out := &in.Networking, &out.Networking
