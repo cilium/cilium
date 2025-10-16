@@ -139,24 +139,15 @@ func testInvalidLoadKeys(t *testing.T) {
 func TestPrivilegedLoadKeys(t *testing.T) {
 	setupIPSecSuitePrivileged(t, "ipv4")
 
+	a := NewTestIPsecAgent(t)
 	testCases := [][]byte{keysDat, keysNullDat, keysAeadDat, keysAeadDat256}
 	for _, testCase := range testCases {
 		keys := bytes.NewReader(testCase)
-		a := NewTestIPsecAgent(t)
 		_, spi, err := a.LoadIPSecKeys(keys)
 		require.NoError(t, err)
 		err = a.setIPSecSPI(spi)
 		require.NoError(t, err)
 	}
-}
-
-func TestPrivilegedLoadKeysLenChange(t *testing.T) {
-	setupIPSecSuitePrivileged(t, "ipv4")
-
-	a := NewTestIPsecAgent(t)
-	keys := bytes.NewReader(append(keysDat, keysNullDat...))
-	_, _, err := a.LoadIPSecKeys(keys)
-	require.ErrorContains(t, err, "invalid key rotation: key length must not change")
 }
 
 func TestPrivilegedLoadKeysSameSPI(t *testing.T) {

@@ -6,7 +6,7 @@
   tunnel: 'vxlan'
   encryption: 'ipsec'
   key-one: 'rfc4106-gcm-aes'
-  key-two: 'rfc4106-gcm-aes'
+  key-two: 'cbc-aes-sha512'
 - name: 'ipsec-2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.10-20251008.075427'
@@ -15,7 +15,7 @@
   tunnel: 'disabled'
   encryption: 'ipsec'
   key-one: 'cbc-aes-sha256'
-  key-two: 'cbc-aes-sha256'
+  key-two: 'rfc4106-gcm-aes'
 - name: 'ipsec-3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.10-20251008.075427'
