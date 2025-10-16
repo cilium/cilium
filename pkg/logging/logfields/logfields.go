@@ -1486,6 +1486,8 @@ const (
 
 	CRDs = "CRDs"
 
+	CRDName = "crdName"
+
 	PodCIDRs = "podCIDRs"
 
 	LenIPs = "lenIPs"
