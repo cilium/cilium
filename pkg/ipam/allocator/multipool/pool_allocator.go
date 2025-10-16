@@ -206,52 +206,34 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 
 		for node, pools := range p.nodes {
 			for pool, allocatedCIDRSets := range pools {
+				var cidrs cidrSet
 				if isV6 {
-					for cidr := range allocatedCIDRSets.v6 {
-						ipnet := netipx.PrefixIPNet(cidr)
-						if !oldCIDR.InRange(ipnet) {
-							continue
-						}
-						allocated, err := oldCIDR.IsAllocated(ipnet)
-						if err != nil {
-							errs = append(errs, err)
-							continue
-						}
-						if !allocated {
-							continue
-						}
-						p.logger.Warn(
-							"CIDR from pool still in use by node",
-							logfields.CIDR, cidr,
-							logfields.PoolName, pool,
-							logfields.Node, node,
-						)
-						delete(p.nodes[node][pool].v6, cidr)
-						p.markOrphan(node, pool, cidr)
-					}
+					cidrs = allocatedCIDRSets.v6
 				} else {
-					for cidr := range allocatedCIDRSets.v4 {
-						ipnet := netipx.PrefixIPNet(cidr)
-						if !oldCIDR.InRange(ipnet) {
-							continue
-						}
-						allocated, err := oldCIDR.IsAllocated(ipnet)
-						if err != nil {
-							errs = append(errs, err)
-							continue
-						}
-						if !allocated {
-							continue
-						}
-						p.logger.Warn(
-							"CIDR from pool still in use by node",
-							logfields.CIDR, cidr,
-							logfields.PoolName, pool,
-							logfields.Node, node,
-						)
-						delete(p.nodes[node][pool].v4, cidr)
-						p.markOrphan(node, pool, cidr)
+					cidrs = allocatedCIDRSets.v4
+				}
+
+				for cidr := range cidrs {
+					ipnet := netipx.PrefixIPNet(cidr)
+					if !oldCIDR.InRange(ipnet) {
+						continue
 					}
+					allocated, err := oldCIDR.IsAllocated(ipnet)
+					if err != nil {
+						errs = append(errs, err)
+						continue
+					}
+					if !allocated {
+						continue
+					}
+					p.logger.Warn(
+						"CIDR from pool still in use by node",
+						logfields.CIDR, cidr,
+						logfields.PoolName, pool,
+						logfields.Node, node,
+					)
+					p.markOrphan(node, pool, cidr)
+					delete(cidrs, cidr)
 				}
 			}
 		}
