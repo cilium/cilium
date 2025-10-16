@@ -147,8 +147,10 @@ func registerGC(p params) {
 				// CRD mode GC runs in an additional goroutine
 				gc.mgr.RemoveAllAndWait()
 			}
-			gc.rateLimiter.Stop()
+			// Close the worker pool first to ensure all goroutines complete
+			// before stopping the rate limiter they depend on
 			gc.wp.Close()
+			gc.rateLimiter.Stop()
 
 			return nil
 		},
