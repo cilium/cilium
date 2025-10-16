@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	applyconfigurationciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -32,18 +33,19 @@ type CiliumBGPPeeringPolicyInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumBGPPeeringPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumBGPPeeringPolicy, err error)
+	Apply(ctx context.Context, ciliumBGPPeeringPolicy *applyconfigurationciliumiov2alpha1.CiliumBGPPeeringPolicyApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumBGPPeeringPolicy, err error)
 	CiliumBGPPeeringPolicyExpansion
 }
 
 // ciliumBGPPeeringPolicies implements CiliumBGPPeeringPolicyInterface
 type ciliumBGPPeeringPolicies struct {
-	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumBGPPeeringPolicy, *ciliumiov2alpha1.CiliumBGPPeeringPolicyList]
+	*gentype.ClientWithListAndApply[*ciliumiov2alpha1.CiliumBGPPeeringPolicy, *ciliumiov2alpha1.CiliumBGPPeeringPolicyList, *applyconfigurationciliumiov2alpha1.CiliumBGPPeeringPolicyApplyConfiguration]
 }
 
 // newCiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicies
 func newCiliumBGPPeeringPolicies(c *CiliumV2alpha1Client) *ciliumBGPPeeringPolicies {
 	return &ciliumBGPPeeringPolicies{
-		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumBGPPeeringPolicy, *ciliumiov2alpha1.CiliumBGPPeeringPolicyList](
+		gentype.NewClientWithListAndApply[*ciliumiov2alpha1.CiliumBGPPeeringPolicy, *ciliumiov2alpha1.CiliumBGPPeeringPolicyList, *applyconfigurationciliumiov2alpha1.CiliumBGPPeeringPolicyApplyConfiguration](
 			"ciliumbgppeeringpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

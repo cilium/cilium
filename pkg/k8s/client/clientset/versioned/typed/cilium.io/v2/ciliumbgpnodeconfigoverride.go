@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -32,18 +33,19 @@ type CiliumBGPNodeConfigOverrideInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumBGPNodeConfigOverrideList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumBGPNodeConfigOverride, err error)
+	Apply(ctx context.Context, ciliumBGPNodeConfigOverride *applyconfigurationciliumiov2.CiliumBGPNodeConfigOverrideApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumBGPNodeConfigOverride, err error)
 	CiliumBGPNodeConfigOverrideExpansion
 }
 
 // ciliumBGPNodeConfigOverrides implements CiliumBGPNodeConfigOverrideInterface
 type ciliumBGPNodeConfigOverrides struct {
-	*gentype.ClientWithList[*ciliumiov2.CiliumBGPNodeConfigOverride, *ciliumiov2.CiliumBGPNodeConfigOverrideList]
+	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumBGPNodeConfigOverride, *ciliumiov2.CiliumBGPNodeConfigOverrideList, *applyconfigurationciliumiov2.CiliumBGPNodeConfigOverrideApplyConfiguration]
 }
 
 // newCiliumBGPNodeConfigOverrides returns a CiliumBGPNodeConfigOverrides
 func newCiliumBGPNodeConfigOverrides(c *CiliumV2Client) *ciliumBGPNodeConfigOverrides {
 	return &ciliumBGPNodeConfigOverrides{
-		gentype.NewClientWithList[*ciliumiov2.CiliumBGPNodeConfigOverride, *ciliumiov2.CiliumBGPNodeConfigOverrideList](
+		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumBGPNodeConfigOverride, *ciliumiov2.CiliumBGPNodeConfigOverrideList, *applyconfigurationciliumiov2.CiliumBGPNodeConfigOverrideApplyConfiguration](
 			"ciliumbgpnodeconfigoverrides",
 			c.RESTClient(),
 			scheme.ParameterCodec,
