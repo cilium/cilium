@@ -599,7 +599,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// computations fail.
 	defer func() {
 		e.unconditionalLock()
-		e.InitialPolicyComputedLocked()
+		e.initialPolicyComputedLocked()
 		e.unlock()
 	}()
 
@@ -708,7 +708,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		}
 
 		// Signal computation of the initial Envoy policy if not done yet
-		e.InitialPolicyComputedLocked()
+		e.initialPolicyComputedLocked()
 	}
 
 	currentDir := datapathRegenCtxt.currentDir

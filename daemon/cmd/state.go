@@ -373,7 +373,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 
 	go func() {
 		for _, ep := range state.restored {
-			<-ep.InitialEnvoyPolicyComputed
+			ep.WaitForInitialPolicy()
 		}
 		close(d.endpointInitialPolicyComplete)
 	}()
