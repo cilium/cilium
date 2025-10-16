@@ -2511,6 +2511,8 @@ envoy:
     pullPolicy: "${PULL_POLICY}"
     digest: "${CILIUM_ENVOY_DIGEST}"
     useDigest: true
+  # -- Init containers added to the cilium Envoy DaemonSet.
+  initContainers: []
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
   # -- Additional envoy container arguments.
