@@ -161,7 +161,10 @@ int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&METRICS_MAP, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
-	assert(entry->count == 1);
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 
 	policy_delete_egress_entry();
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
