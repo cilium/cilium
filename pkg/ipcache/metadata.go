@@ -739,9 +739,6 @@ func (ipc *IPCache) resolveIdentity(prefix cmtypes.PrefixCluster, info *resource
 		)
 		return nil, false, err
 	}
-	if lbls.HasWorldLabel() {
-		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
-	}
 	return id, isNew, err
 }
 
