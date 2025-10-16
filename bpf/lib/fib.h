@@ -166,9 +166,7 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	     bool use_neigh_map, __s8 *ext_err __maybe_unused, int *oif)
 {
 	if (is_defined(ENABLE_SKIP_FIB) && neigh_resolver_without_nh_available()) {
-#ifdef ENABLE_SKIP_FIB
 		*oif = CONFIG(direct_routing_dev_ifindex);
-#endif
 
 		return fib_do_redirect(ctx, needs_l2_check, NULL, false,
 				       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
@@ -230,9 +228,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 
-#ifdef ENABLE_SKIP_FIB
 		*oif = CONFIG(direct_routing_dev_ifindex);
-#endif
 
 		return fib_do_redirect(ctx, needs_l2_check, NULL, false,
 				       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
@@ -294,9 +290,7 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 
-#ifdef ENABLE_SKIP_FIB
 		*oif = CONFIG(direct_routing_dev_ifindex);
-#endif
 
 		return fib_do_redirect(ctx, needs_l2_check, NULL, false,
 				       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
