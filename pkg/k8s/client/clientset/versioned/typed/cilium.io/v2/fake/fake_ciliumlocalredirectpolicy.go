@@ -7,19 +7,20 @@ package fake
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
+	typedciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumLocalRedirectPolicies implements CiliumLocalRedirectPolicyInterface
 type fakeCiliumLocalRedirectPolicies struct {
-	*gentype.FakeClientWithList[*v2.CiliumLocalRedirectPolicy, *v2.CiliumLocalRedirectPolicyList]
+	*gentype.FakeClientWithListAndApply[*v2.CiliumLocalRedirectPolicy, *v2.CiliumLocalRedirectPolicyList, *ciliumiov2.CiliumLocalRedirectPolicyApplyConfiguration]
 	Fake *FakeCiliumV2
 }
 
-func newFakeCiliumLocalRedirectPolicies(fake *FakeCiliumV2, namespace string) ciliumiov2.CiliumLocalRedirectPolicyInterface {
+func newFakeCiliumLocalRedirectPolicies(fake *FakeCiliumV2, namespace string) typedciliumiov2.CiliumLocalRedirectPolicyInterface {
 	return &fakeCiliumLocalRedirectPolicies{
-		gentype.NewFakeClientWithList[*v2.CiliumLocalRedirectPolicy, *v2.CiliumLocalRedirectPolicyList](
+		gentype.NewFakeClientWithListAndApply[*v2.CiliumLocalRedirectPolicy, *v2.CiliumLocalRedirectPolicyList, *ciliumiov2.CiliumLocalRedirectPolicyApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v2.SchemeGroupVersion.WithResource("ciliumlocalredirectpolicies"),

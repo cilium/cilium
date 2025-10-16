@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type CiliumNetworkPolicyInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumNetworkPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumNetworkPolicy, err error)
+	Apply(ctx context.Context, ciliumNetworkPolicy *applyconfigurationciliumiov2.CiliumNetworkPolicyApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumNetworkPolicy, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, ciliumNetworkPolicy *applyconfigurationciliumiov2.CiliumNetworkPolicyApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumNetworkPolicy, err error)
 	CiliumNetworkPolicyExpansion
 }
 
 // ciliumNetworkPolicies implements CiliumNetworkPolicyInterface
 type ciliumNetworkPolicies struct {
-	*gentype.ClientWithList[*ciliumiov2.CiliumNetworkPolicy, *ciliumiov2.CiliumNetworkPolicyList]
+	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumNetworkPolicy, *ciliumiov2.CiliumNetworkPolicyList, *applyconfigurationciliumiov2.CiliumNetworkPolicyApplyConfiguration]
 }
 
 // newCiliumNetworkPolicies returns a CiliumNetworkPolicies
 func newCiliumNetworkPolicies(c *CiliumV2Client, namespace string) *ciliumNetworkPolicies {
 	return &ciliumNetworkPolicies{
-		gentype.NewClientWithList[*ciliumiov2.CiliumNetworkPolicy, *ciliumiov2.CiliumNetworkPolicyList](
+		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumNetworkPolicy, *ciliumiov2.CiliumNetworkPolicyList, *applyconfigurationciliumiov2.CiliumNetworkPolicyApplyConfiguration](
 			"ciliumnetworkpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

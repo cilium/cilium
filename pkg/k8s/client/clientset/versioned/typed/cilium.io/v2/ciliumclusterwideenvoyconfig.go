@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -32,18 +33,19 @@ type CiliumClusterwideEnvoyConfigInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumClusterwideEnvoyConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumClusterwideEnvoyConfig, err error)
+	Apply(ctx context.Context, ciliumClusterwideEnvoyConfig *applyconfigurationciliumiov2.CiliumClusterwideEnvoyConfigApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumClusterwideEnvoyConfig, err error)
 	CiliumClusterwideEnvoyConfigExpansion
 }
 
 // ciliumClusterwideEnvoyConfigs implements CiliumClusterwideEnvoyConfigInterface
 type ciliumClusterwideEnvoyConfigs struct {
-	*gentype.ClientWithList[*ciliumiov2.CiliumClusterwideEnvoyConfig, *ciliumiov2.CiliumClusterwideEnvoyConfigList]
+	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumClusterwideEnvoyConfig, *ciliumiov2.CiliumClusterwideEnvoyConfigList, *applyconfigurationciliumiov2.CiliumClusterwideEnvoyConfigApplyConfiguration]
 }
 
 // newCiliumClusterwideEnvoyConfigs returns a CiliumClusterwideEnvoyConfigs
 func newCiliumClusterwideEnvoyConfigs(c *CiliumV2Client) *ciliumClusterwideEnvoyConfigs {
 	return &ciliumClusterwideEnvoyConfigs{
-		gentype.NewClientWithList[*ciliumiov2.CiliumClusterwideEnvoyConfig, *ciliumiov2.CiliumClusterwideEnvoyConfigList](
+		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumClusterwideEnvoyConfig, *ciliumiov2.CiliumClusterwideEnvoyConfigList, *applyconfigurationciliumiov2.CiliumClusterwideEnvoyConfigApplyConfiguration](
 			"ciliumclusterwideenvoyconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,

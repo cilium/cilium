@@ -7,19 +7,20 @@ package fake
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
+	typedciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumBGPClusterConfigs implements CiliumBGPClusterConfigInterface
 type fakeCiliumBGPClusterConfigs struct {
-	*gentype.FakeClientWithList[*v2.CiliumBGPClusterConfig, *v2.CiliumBGPClusterConfigList]
+	*gentype.FakeClientWithListAndApply[*v2.CiliumBGPClusterConfig, *v2.CiliumBGPClusterConfigList, *ciliumiov2.CiliumBGPClusterConfigApplyConfiguration]
 	Fake *FakeCiliumV2
 }
 
-func newFakeCiliumBGPClusterConfigs(fake *FakeCiliumV2) ciliumiov2.CiliumBGPClusterConfigInterface {
+func newFakeCiliumBGPClusterConfigs(fake *FakeCiliumV2) typedciliumiov2.CiliumBGPClusterConfigInterface {
 	return &fakeCiliumBGPClusterConfigs{
-		gentype.NewFakeClientWithList[*v2.CiliumBGPClusterConfig, *v2.CiliumBGPClusterConfigList](
+		gentype.NewFakeClientWithListAndApply[*v2.CiliumBGPClusterConfig, *v2.CiliumBGPClusterConfigList, *ciliumiov2.CiliumBGPClusterConfigApplyConfiguration](
 			fake.Fake,
 			"",
 			v2.SchemeGroupVersion.WithResource("ciliumbgpclusterconfigs"),

@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	applyconfigurationciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -32,18 +33,19 @@ type CiliumNodeConfigInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumNodeConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumNodeConfig, err error)
+	Apply(ctx context.Context, ciliumNodeConfig *applyconfigurationciliumiov2alpha1.CiliumNodeConfigApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumNodeConfig, err error)
 	CiliumNodeConfigExpansion
 }
 
 // ciliumNodeConfigs implements CiliumNodeConfigInterface
 type ciliumNodeConfigs struct {
-	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumNodeConfig, *ciliumiov2alpha1.CiliumNodeConfigList]
+	*gentype.ClientWithListAndApply[*ciliumiov2alpha1.CiliumNodeConfig, *ciliumiov2alpha1.CiliumNodeConfigList, *applyconfigurationciliumiov2alpha1.CiliumNodeConfigApplyConfiguration]
 }
 
 // newCiliumNodeConfigs returns a CiliumNodeConfigs
 func newCiliumNodeConfigs(c *CiliumV2alpha1Client, namespace string) *ciliumNodeConfigs {
 	return &ciliumNodeConfigs{
-		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumNodeConfig, *ciliumiov2alpha1.CiliumNodeConfigList](
+		gentype.NewClientWithListAndApply[*ciliumiov2alpha1.CiliumNodeConfig, *ciliumiov2alpha1.CiliumNodeConfigList, *applyconfigurationciliumiov2alpha1.CiliumNodeConfigApplyConfiguration](
 			"ciliumnodeconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,

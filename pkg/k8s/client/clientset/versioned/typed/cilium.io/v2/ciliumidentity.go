@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -32,18 +33,19 @@ type CiliumIdentityInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumIdentityList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumIdentity, err error)
+	Apply(ctx context.Context, ciliumIdentity *applyconfigurationciliumiov2.CiliumIdentityApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumIdentity, err error)
 	CiliumIdentityExpansion
 }
 
 // ciliumIdentities implements CiliumIdentityInterface
 type ciliumIdentities struct {
-	*gentype.ClientWithList[*ciliumiov2.CiliumIdentity, *ciliumiov2.CiliumIdentityList]
+	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumIdentity, *ciliumiov2.CiliumIdentityList, *applyconfigurationciliumiov2.CiliumIdentityApplyConfiguration]
 }
 
 // newCiliumIdentities returns a CiliumIdentities
 func newCiliumIdentities(c *CiliumV2Client) *ciliumIdentities {
 	return &ciliumIdentities{
-		gentype.NewClientWithList[*ciliumiov2.CiliumIdentity, *ciliumiov2.CiliumIdentityList](
+		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumIdentity, *ciliumiov2.CiliumIdentityList, *applyconfigurationciliumiov2.CiliumIdentityApplyConfiguration](
 			"ciliumidentities",
 			c.RESTClient(),
 			scheme.ParameterCodec,

@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type CiliumNodeInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumNodeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumNode, err error)
+	Apply(ctx context.Context, ciliumNode *applyconfigurationciliumiov2.CiliumNodeApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumNode, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, ciliumNode *applyconfigurationciliumiov2.CiliumNodeApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumNode, err error)
 	CiliumNodeExpansion
 }
 
 // ciliumNodes implements CiliumNodeInterface
 type ciliumNodes struct {
-	*gentype.ClientWithList[*ciliumiov2.CiliumNode, *ciliumiov2.CiliumNodeList]
+	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumNode, *ciliumiov2.CiliumNodeList, *applyconfigurationciliumiov2.CiliumNodeApplyConfiguration]
 }
 
 // newCiliumNodes returns a CiliumNodes
 func newCiliumNodes(c *CiliumV2Client) *ciliumNodes {
 	return &ciliumNodes{
-		gentype.NewClientWithList[*ciliumiov2.CiliumNode, *ciliumiov2.CiliumNodeList](
+		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumNode, *ciliumiov2.CiliumNodeList, *applyconfigurationciliumiov2.CiliumNodeApplyConfiguration](
 			"ciliumnodes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
