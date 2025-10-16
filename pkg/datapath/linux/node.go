@@ -161,7 +161,7 @@ func createDirectRouteSpec(log *slog.Logger, CIDR *cidr.CIDR, nodeIP net.IP, ski
 
 	if routes[0].Gw != nil && !routes[0].Gw.IsUnspecified() && !routes[0].Gw.Equal(nodeIP) {
 		if skipUnreachable {
-			log.Warn("route to destination contains gateway, skipping route as not directly reachable",
+			log.Debug("route to destination contains gateway, skipping route as not directly reachable",
 				logfields.NodeIP, nodeIP,
 				logfields.GatewayIP, routes[0].Gw)
 			addRoute = false
