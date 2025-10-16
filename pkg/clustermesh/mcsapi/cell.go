@@ -20,6 +20,7 @@ import (
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -30,6 +31,8 @@ var Cell = cell.Module(
 	"mcsapi",
 	"Multi-Cluster Services API",
 	cell.Invoke(registerMCSAPIController),
+
+	cell.Provide(newMCSAPICRDs),
 )
 
 var ServiceExportSyncCell = cell.Module(
@@ -153,4 +156,16 @@ func registerMCSAPIController(params mcsAPIParams) error {
 		return nil
 	}))
 	return nil
+}
+
+func newMCSAPICRDs(cfg mcsapitypes.MCSAPIConfig) apis.RegisterCRDsFuncOut {
+	return apis.RegisterCRDsFuncOut{
+		Func: func(logger *slog.Logger, client k8sClient.Clientset) error {
+			if !cfg.ShouldInstallMCSAPICrds() {
+				return nil
+			}
+
+			return createCustomResourceDefinitions(logger, client)
+		},
+	}
 }
