@@ -1456,6 +1456,10 @@
      - Envoy container image.
      - object
      - ``{"digest":"sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37","useDigest":true}``
+   * - :spelling:ignore:`envoy.initContainers`
+     - Init containers added to the cilium Envoy DaemonSet.
+     - list
+     - ``[]``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int

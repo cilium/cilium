@@ -2490,6 +2490,8 @@ envoy:
     pullPolicy: "Always"
     digest: "sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76"
     useDigest: true
+  # -- Init containers added to the cilium Envoy DaemonSet.
+  initContainers: []
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
   # -- Additional envoy container arguments.
