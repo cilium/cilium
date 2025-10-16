@@ -65,7 +65,7 @@ type EndpointStatus struct {
 	Identity *EndpointIdentity `json:"identity,omitempty"`
 
 	// Log is the list of the last few warning and error log entries
-	Log []*models.EndpointStatusChange `json:"log,omitempty"`
+	Log []models.EndpointStatusChange `json:"log,omitempty"`
 
 	// Networking is the networking properties of the endpoint.
 	//
