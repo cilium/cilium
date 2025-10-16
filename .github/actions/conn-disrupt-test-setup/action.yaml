@@ -18,6 +18,7 @@ runs:
         # interruption in such flows.
         ${{ inputs.cilium-cli }} connectivity test --include-conn-disrupt-test \
           --include-conn-disrupt-test-ns-traffic \
+          --include-conn-disrupt-test-l7-traffic \
           --include-conn-disrupt-test-egw \
           --include-unsafe-tests \
           --conn-disrupt-test-setup \
