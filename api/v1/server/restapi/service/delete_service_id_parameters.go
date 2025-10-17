@@ -30,7 +30,6 @@ func NewDeleteServiceIDParams() DeleteServiceIDParams {
 //
 // swagger:parameters DeleteServiceID
 type DeleteServiceIDParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 

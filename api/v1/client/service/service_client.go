@@ -76,7 +76,7 @@ type ClientService interface {
 DeleteServiceID deletes a service
 */
 func (a *Client) DeleteServiceID(params *DeleteServiceIDParams, opts ...ClientOption) (*DeleteServiceIDOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewDeleteServiceIDParams()
 	}
@@ -95,17 +95,22 @@ func (a *Client) DeleteServiceID(params *DeleteServiceIDParams, opts ...ClientOp
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*DeleteServiceIDOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for DeleteServiceID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -114,7 +119,7 @@ func (a *Client) DeleteServiceID(params *DeleteServiceIDParams, opts ...ClientOp
 GetLrp retrieves list of all local redirect policies
 */
 func (a *Client) GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetLrpParams()
 	}
@@ -133,17 +138,22 @@ func (a *Client) GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, 
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetLrpOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetLrp: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -152,7 +162,7 @@ func (a *Client) GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, 
 GetService retrieves list of all services
 */
 func (a *Client) GetService(params *GetServiceParams, opts ...ClientOption) (*GetServiceOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetServiceParams()
 	}
@@ -171,17 +181,22 @@ func (a *Client) GetService(params *GetServiceParams, opts ...ClientOption) (*Ge
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetServiceOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetService: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -190,7 +205,7 @@ func (a *Client) GetService(params *GetServiceParams, opts ...ClientOption) (*Ge
 GetServiceID retrieves configuration of a service
 */
 func (a *Client) GetServiceID(params *GetServiceIDParams, opts ...ClientOption) (*GetServiceIDOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetServiceIDParams()
 	}
@@ -209,17 +224,22 @@ func (a *Client) GetServiceID(params *GetServiceIDParams, opts ...ClientOption) 
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetServiceIDOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetServiceID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -228,7 +248,7 @@ func (a *Client) GetServiceID(params *GetServiceIDParams, opts ...ClientOption) 
 PutServiceID creates or update service
 */
 func (a *Client) PutServiceID(params *PutServiceIDParams, opts ...ClientOption) (*PutServiceIDOK, *PutServiceIDCreated, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPutServiceIDParams()
 	}
@@ -247,18 +267,22 @@ func (a *Client) PutServiceID(params *PutServiceIDParams, opts ...ClientOption) 
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// several success responses have to be checked
 	switch value := result.(type) {
 	case *PutServiceIDOK:
 		return value, nil, nil
 	case *PutServiceIDCreated:
 		return nil, value, nil
 	}
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for service: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }

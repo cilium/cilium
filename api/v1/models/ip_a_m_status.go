@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -57,11 +58,15 @@ func (m *IPAMStatus) validateAllocations(formats strfmt.Registry) error {
 
 	if m.Allocations != nil {
 		if err := m.Allocations.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("allocations")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("allocations")
 			}
+
 			return err
 		}
 	}
@@ -90,11 +95,15 @@ func (m *IPAMStatus) contextValidateAllocations(ctx context.Context, formats str
 	}
 
 	if err := m.Allocations.ContextValidate(ctx, formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
 			return ve.ValidateName("allocations")
-		} else if ce, ok := err.(*errors.CompositeError); ok {
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
 			return ce.ValidateName("allocations")
 		}
+
 		return err
 	}
 

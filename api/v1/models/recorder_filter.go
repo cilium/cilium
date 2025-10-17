@@ -54,7 +54,7 @@ func (m *RecorderFilter) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var recorderFilterTypeProtocolPropEnum []interface{}
+var recorderFilterTypeProtocolPropEnum []any
 
 func init() {
 	var res []string

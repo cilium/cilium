@@ -11,6 +11,7 @@ package models
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -60,7 +61,7 @@ func (m *ProxyStatistics) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var proxyStatisticsTypeLocationPropEnum []interface{}
+var proxyStatisticsTypeLocationPropEnum []any
 
 func init() {
 	var res []string
@@ -109,11 +110,15 @@ func (m *ProxyStatistics) validateStatistics(formats strfmt.Registry) error {
 
 	if m.Statistics != nil {
 		if err := m.Statistics.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("statistics")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("statistics")
 			}
+
 			return err
 		}
 	}
@@ -144,11 +149,15 @@ func (m *ProxyStatistics) contextValidateStatistics(ctx context.Context, formats
 		}
 
 		if err := m.Statistics.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("statistics")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("statistics")
 			}
+
 			return err
 		}
 	}
