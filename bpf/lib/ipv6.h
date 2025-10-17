@@ -117,6 +117,7 @@ static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, int l3_off
 					      __u8 *nexthdr, fraginfo_t *fraginfo)
 {
 	int i, len = sizeof(struct ipv6hdr);
+	struct ipv6_frag_hdr frag;
 	__u8 nh = *nexthdr;
 
 	/* 0 is a valid fraginfo that encodes:
@@ -141,8 +142,6 @@ static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, int l3_off
 		}
 
 		if (nh == NEXTHDR_FRAGMENT) {
-			struct ipv6_frag_hdr frag = { 0 };
-
 			if (ctx_load_bytes(ctx, l3_off + len, &frag, sizeof(frag)) < 0)
 				return DROP_INVALID;
 
@@ -354,6 +353,7 @@ ipv6_get_fraginfo(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
 {
 	int l3_off = (int)((void *)ip6 - ctx_data(ctx));
 	int i, len = sizeof(struct ipv6hdr);
+	struct ipv6_frag_hdr frag;
 	__u8 nh = ip6->nexthdr;
 
 #pragma unroll
@@ -374,8 +374,6 @@ ipv6_get_fraginfo(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
 		}
 
 		if (nh == NEXTHDR_FRAGMENT) {
-			struct ipv6_frag_hdr frag;
-
 			if (ctx_load_bytes(ctx, l3_off + len, &frag, sizeof(frag)) < 0)
 				return DROP_INVALID;
 
