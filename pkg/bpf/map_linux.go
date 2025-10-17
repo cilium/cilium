@@ -271,6 +271,23 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	}
 }
 
+func NewMapFromSpec(spec *ebpf.MapSpec, mapKey MapKey, mapValue MapValue) *Map {
+	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
+	defaultSlogLogger := logging.DefaultSlogLogger
+
+	return &Map{
+		Logger: defaultSlogLogger.With(
+			logfields.BPFMapPath, spec.Name,
+			logfields.BPFMapName, spec.Name,
+		),
+		spec:  spec,
+		name:  path.Base(spec.Name),
+		key:   mapKey,
+		value: mapValue,
+		group: spec.Name,
+	}
+}
+
 // NewMap creates a new Map instance - object representing a BPF map
 func NewMapWithInnerSpec(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	maxEntries int, flags uint32, innerSpec *ebpf.MapSpec) *Map {

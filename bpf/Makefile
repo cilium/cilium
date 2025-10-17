@@ -170,7 +170,7 @@ testdata:
 	-c ../pkg/alignchecker/testdata/bpf_foo.c \
 	-o ../pkg/alignchecker/testdata/bpf_foo.o
 
-generate: $(BPF)
+generate: $(BPF) bpf_maps.o
 	$(GO) generate ../pkg/datapath/config
 	BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" $(GO) generate ../pkg/datapath/bpf
 
@@ -229,6 +229,18 @@ bpf_lxc.o:: bpf_lxc.c $(LIB)
 	$(QUIET) ${CLANG} ${MAX_LXC_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 $(foreach OPTS,$(LXC_OPTIONS),$(eval $(call PERMUTATION_template,bpf_lxc.o,$(OPTS))))
+
+bpf_maps.o:: bpf_maps.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_LXC_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+	llvm-strip \
+		--no-strip-all \
+		--strip-debug \
+		--remove-section tc/tail \
+		--remove-section .BTF.ext \
+		--remove-section .llvm_addrsig \
+		--remove-section .text \
+		-o $(ROOT_DIR)/pkg/maps/registry/bpf_maps.o bpf_maps.o
 
 install-binary:
 
