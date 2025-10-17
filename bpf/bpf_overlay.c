@@ -531,37 +531,6 @@ pass_to_stack:
 
 #endif /* ENABLE_IPV4 */
 
-#ifdef ENABLE_IPSEC
-static __always_inline bool is_esp(struct __ctx_buff *ctx, __u16 proto)
-{
-	void *data, *data_end;
-	__u8 protocol = 0;
-	struct ipv6hdr *ip6 __maybe_unused;
-	struct iphdr *ip4 __maybe_unused;
-
-	switch (proto) {
-#ifdef ENABLE_IPV6
-	case bpf_htons(ETH_P_IPV6):
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
-			return false;
-		protocol = ip6->nexthdr;
-		break;
-#endif
-#ifdef ENABLE_IPV4
-	case bpf_htons(ETH_P_IP):
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
-			return false;
-		protocol = ip4->protocol;
-		break;
-#endif
-	default:
-		return false;
-	}
-
-	return protocol == IPPROTO_ESP;
-}
-#endif /* ENABLE_IPSEC */
-
 /* Attached to the ingress of cilium_vxlan/cilium_geneve to execute on packets
  * entering the node via the tunnel.
  */
@@ -582,23 +551,6 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		ret = CTX_ACT_OK;
 		goto out;
 	}
-
-/* We need to handle following possible packets come to this program
- *
- * 1. ESP packets coming from overlay (encrypted and not marked)
- * 2. Non-ESP packets coming from overlay (plain and not marked)
- *
- * 1. will be traced with TRACE_REASON_ENCRYPTED
- * 2. will be traced without TRACE_REASON_ENCRYPTED
- *
- * Note that 1. contains the ESP packets someone else generated.
- * In that case, we trace it as "encrypted", but it doesn't mean
- * "encrypted by Cilium".
- *
- * When IPSec is disabled, we won't use TRACE_REASON_ENCRYPTED even
- * if the packets are ESP, because it doesn't matter for the
- * non-IPSec mode.
- */
 
 	switch (proto) {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
@@ -636,16 +588,9 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		break;
 	}
 
-#ifdef ENABLE_IPSEC
-	if (is_esp(ctx, proto))
-		send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-				  TRACE_REASON_ENCRYPTED, 0, proto);
-	else
-#endif
-		send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
+	send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, UNKNOWN_ID,
+			  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
