@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
 )
@@ -68,6 +69,7 @@ func newFixture(t testing.TB) *fixture {
 			L2V6ResponderMap:    m6,
 			NetLink:             nl,
 			JobGroup:            jg,
+			AddRemMcMACFunc:     addRemMcMACMock,
 		}),
 		proxyNeighborTable: tbl,
 		stateDB:            db,
@@ -81,6 +83,9 @@ var (
 	ip1     = netip.MustParseAddr("1.2.3.4")
 	ip2     = netip.MustParseAddr("2.3.4.5")
 	ip3     = netip.MustParseAddr("3.4.5.6")
+	ipv6_1  = netip.MustParseAddr("fd01::c0a8:0")
+	ipv6_2  = netip.MustParseAddr("fd02::c0a8:0")
+	ns_mac  = mac.MustParseMAC("33:33:ff:a8:00:00")
 	origin1 = resource.Key{Name: "abc"}
 )
 
@@ -389,6 +394,136 @@ func Test1ExistingAddFullSync(t *testing.T) {
 	stats, err := fix.respondermap.Lookup(ip1, ifidx1)
 	assert.NoError(t, err)
 	assert.NotNil(t, stats)
+}
+
+// Test consistent overlapping Solicited Node MAC management
+var macAdd = make(McMACMap)
+var macRem = make(McMACMap)
+
+func clearMACMaps() {
+	macAdd = make(McMACMap)
+	macRem = make(McMACMap)
+}
+
+func makeMcMACKey(ifindex int, mac mac.MAC) McMACEntry {
+	var key McMACEntry
+	key.IfIndex = ifindex
+	copy(key.MAC[:], mac[:6])
+	return key
+}
+
+func addRemMcMACMock(ifindex int, mac mac.MAC, add bool) error {
+	key := makeMcMACKey(ifindex, mac)
+	if add {
+		macAdd[key] = mac
+	} else {
+		macRem[key] = mac
+	}
+	return nil
+}
+
+func TestIpv6McasMAC(t *testing.T) {
+	fix := newFixture(t)
+
+	txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
+	_, _, err := fix.proxyNeighborTable.Insert(txn, &tables.L2AnnounceEntry{
+		L2AnnounceKey: tables.L2AnnounceKey{
+			IP:               ipv6_1,
+			NetworkInterface: if1,
+		},
+		Origins: []resource.Key{origin1},
+	})
+	assert.NoError(t, err)
+	txn.Commit()
+
+	fix.mockNetlink.LinkByNameFn = func(name string) (netlink.Link, error) {
+		return &mockLink{
+			attr: netlink.LinkAttrs{Index: ifidx1},
+		}, nil
+	}
+
+	err = fix.reconciler.fullReconciliation(fix.stateDB.ReadTxn())
+	assert.NoError(t, err)
+
+	assert.Len(t, macAdd, 1)
+	assert.Empty(t, macRem)
+
+	key := makeMcMACKey(ifidx1, ns_mac)
+	_, ok := macAdd[key]
+	assert.True(t, ok, "expected key %v to exist in map", key)
+
+	clearMACMaps()
+	err = fix.reconciler.fullReconciliation(fix.stateDB.ReadTxn())
+	assert.NoError(t, err)
+
+	assert.Len(t, macAdd, 1)
+	assert.Empty(t, macRem)
+
+	_, ok = macAdd[key]
+	assert.True(t, ok, "expected key %v to exist in map", key)
+
+	txn = fix.stateDB.WriteTxn(fix.proxyNeighborTable)
+	_, _, err = fix.proxyNeighborTable.Insert(txn, &tables.L2AnnounceEntry{
+		L2AnnounceKey: tables.L2AnnounceKey{
+			IP:               ipv6_2,
+			NetworkInterface: if1,
+		},
+		Origins: []resource.Key{origin1},
+	})
+	assert.NoError(t, err)
+	txn.Commit()
+
+	clearMACMaps()
+	err = fix.reconciler.fullReconciliation(fix.stateDB.ReadTxn())
+	assert.NoError(t, err)
+
+	assert.Len(t, macAdd, 1)
+	assert.Empty(t, macRem)
+
+	_, ok = macAdd[key]
+	assert.True(t, ok, "expected key %v to exist in map", key)
+
+	txn = fix.stateDB.WriteTxn(fix.proxyNeighborTable)
+	_, _, err = fix.proxyNeighborTable.Delete(txn, &tables.L2AnnounceEntry{
+		L2AnnounceKey: tables.L2AnnounceKey{
+			IP:               ipv6_2,
+			NetworkInterface: if1,
+		},
+		Origins: []resource.Key{origin1},
+	})
+	assert.NoError(t, err)
+	txn.Commit()
+
+	clearMACMaps()
+	err = fix.reconciler.fullReconciliation(fix.stateDB.ReadTxn())
+	assert.NoError(t, err)
+
+	assert.Len(t, macAdd, 1)
+	assert.Empty(t, macRem)
+
+	_, ok = macAdd[key]
+	assert.True(t, ok, "expected key %v to exist in map", key)
+
+	txn = fix.stateDB.WriteTxn(fix.proxyNeighborTable)
+	_, _, err = fix.proxyNeighborTable.Delete(txn, &tables.L2AnnounceEntry{
+		L2AnnounceKey: tables.L2AnnounceKey{
+			IP:               ipv6_1,
+			NetworkInterface: if1,
+		},
+		Origins: []resource.Key{origin1},
+	})
+	assert.NoError(t, err)
+	txn.Commit()
+
+	clearMACMaps()
+	err = fix.reconciler.fullReconciliation(fix.stateDB.ReadTxn())
+	assert.NoError(t, err)
+
+	assert.Empty(t, macAdd)
+	assert.Len(t, macRem, 1)
+
+	_, ok = macRem[key]
+	assert.True(t, ok, "expected key %v to exist in map", key)
 }
 
 type mockNeighborNetlink struct {
