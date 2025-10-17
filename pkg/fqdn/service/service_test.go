@@ -168,8 +168,7 @@ func TestFQDNDataServer(t *testing.T) {
 					},
 					func() *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableL7Proxy:    tt.enableL7Proxy,
-							ToFQDNsProxyPort: tt.port,
+							EnableL7Proxy: tt.enableL7Proxy,
 						}
 					},
 					func() listenConfig {
@@ -186,6 +185,8 @@ func TestFQDNDataServer(t *testing.T) {
 				func(cfg *FQDNConfig) {
 					cfg.EnableStandaloneDNSProxy = tt.enableStandaloneDNSProxy
 					cfg.StandaloneDNSProxyServerPort = tt.serverPort
+					cfg.ToFQDNsProxyPort = tt.port
+
 				})
 
 			tlog := hivetest.Logger(t)
@@ -282,8 +283,7 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 				},
 				func() *option.DaemonConfig {
 					return &option.DaemonConfig{
-						EnableL7Proxy:    enableL7Proxy,
-						ToFQDNsProxyPort: port,
+						EnableL7Proxy: enableL7Proxy,
 					}
 				},
 				func() listenConfig {
@@ -302,6 +302,7 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 		func(cfg *FQDNConfig) {
 			cfg.EnableStandaloneDNSProxy = enableStandaloneDNSProxy
 			cfg.StandaloneDNSProxyServerPort = standaloneDNSProxyServerPort
+			cfg.ToFQDNsProxyPort = port
 		})
 	tlog := hivetest.Logger(t)
 	if err := h.Start(tlog, t.Context()); err != nil {
