@@ -9,6 +9,7 @@ package recorder
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	stderrors "errors"
 	"io"
 	"net/http"
 
@@ -35,7 +36,6 @@ func NewPutRecorderIDParams() PutRecorderIDParams {
 //
 // swagger:parameters PutRecorderID
 type PutRecorderIDParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -44,6 +44,7 @@ type PutRecorderIDParams struct {
 	  In: body
 	*/
 	Config *models.RecorderSpec
+
 	/*ID of recorder
 	  Required: true
 	  In: path
@@ -61,10 +62,12 @@ func (o *PutRecorderIDParams) BindRequest(r *http.Request, route *middleware.Mat
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
-		defer r.Body.Close()
+		defer func() {
+			_ = r.Body.Close()
+		}()
 		var body models.RecorderSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
-			if err == io.EOF {
+			if stderrors.Is(err, io.EOF) {
 				res = append(res, errors.Required("config", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("config", "body", "", err))

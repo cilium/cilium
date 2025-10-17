@@ -36,7 +36,7 @@ func NewPatchEndpointIDOK() *PatchEndpointIDOK {
 // WriteResponse to the client
 func (o *PatchEndpointIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -104,7 +104,7 @@ func NewPatchEndpointIDForbidden() *PatchEndpointIDForbidden {
 // WriteResponse to the client
 func (o *PatchEndpointIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(403)
 }
@@ -129,7 +129,7 @@ func NewPatchEndpointIDNotFound() *PatchEndpointIDNotFound {
 // WriteResponse to the client
 func (o *PatchEndpointIDNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -154,7 +154,7 @@ func NewPatchEndpointIDTooManyRequests() *PatchEndpointIDTooManyRequests {
 // WriteResponse to the client
 func (o *PatchEndpointIDTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(429)
 }

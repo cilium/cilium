@@ -32,7 +32,6 @@ func NewGetPolicyParams() GetPolicyParams {
 //
 // swagger:parameters GetPolicy
 type GetPolicyParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -52,7 +51,9 @@ func (o *GetPolicyParams) BindRequest(r *http.Request, route *middleware.Matched
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
-		defer r.Body.Close()
+		defer func() {
+			_ = r.Body.Close()
+		}()
 		var body models.Labels
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			res = append(res, errors.NewParseError("labels", "body", "", err))

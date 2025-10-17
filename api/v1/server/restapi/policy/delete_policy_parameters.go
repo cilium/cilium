@@ -32,7 +32,6 @@ func NewDeletePolicyParams() DeletePolicyParams {
 //
 // swagger:parameters DeletePolicy
 type DeletePolicyParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -52,7 +51,9 @@ func (o *DeletePolicyParams) BindRequest(r *http.Request, route *middleware.Matc
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
-		defer r.Body.Close()
+		defer func() {
+			_ = r.Body.Close()
+		}()
 		var body models.Labels
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			res = append(res, errors.NewParseError("labels", "body", "", err))

@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -39,7 +40,7 @@ type DaemonConfigurationStatus struct {
 	Addressing *NodeAddressing `json:"addressing,omitempty"`
 
 	// Config map which contains all the active daemon configurations
-	DaemonConfigurationMap map[string]interface{} `json:"daemonConfigurationMap,omitempty"`
+	DaemonConfigurationMap map[string]any `json:"daemonConfigurationMap,omitempty"`
 
 	// datapath mode
 	DatapathMode DatapathMode `json:"datapathMode,omitempty"`
@@ -137,11 +138,15 @@ func (m *DaemonConfigurationStatus) validateAddressing(formats strfmt.Registry) 
 
 	if m.Addressing != nil {
 		if err := m.Addressing.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("addressing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("addressing")
 			}
+
 			return err
 		}
 	}
@@ -155,11 +160,15 @@ func (m *DaemonConfigurationStatus) validateDatapathMode(formats strfmt.Registry
 	}
 
 	if err := m.DatapathMode.Validate(formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
 			return ve.ValidateName("datapathMode")
-		} else if ce, ok := err.(*errors.CompositeError); ok {
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
 			return ce.ValidateName("datapathMode")
 		}
+
 		return err
 	}
 
@@ -173,11 +182,15 @@ func (m *DaemonConfigurationStatus) validateImmutable(formats strfmt.Registry) e
 
 	if m.Immutable != nil {
 		if err := m.Immutable.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("immutable")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("immutable")
 			}
+
 			return err
 		}
 	}
@@ -192,11 +205,15 @@ func (m *DaemonConfigurationStatus) validateKvstoreConfiguration(formats strfmt.
 
 	if m.KvstoreConfiguration != nil {
 		if err := m.KvstoreConfiguration.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("kvstoreConfiguration")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("kvstoreConfiguration")
 			}
+
 			return err
 		}
 	}
@@ -211,11 +228,15 @@ func (m *DaemonConfigurationStatus) validateMasqueradeProtocols(formats strfmt.R
 
 	if m.MasqueradeProtocols != nil {
 		if err := m.MasqueradeProtocols.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("masqueradeProtocols")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("masqueradeProtocols")
 			}
+
 			return err
 		}
 	}
@@ -230,11 +251,15 @@ func (m *DaemonConfigurationStatus) validateNodeMonitor(formats strfmt.Registry)
 
 	if m.NodeMonitor != nil {
 		if err := m.NodeMonitor.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("nodeMonitor")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("nodeMonitor")
 			}
+
 			return err
 		}
 	}
@@ -249,11 +274,15 @@ func (m *DaemonConfigurationStatus) validateRealized(formats strfmt.Registry) er
 
 	if m.Realized != nil {
 		if err := m.Realized.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("realized")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("realized")
 			}
+
 			return err
 		}
 	}
@@ -308,11 +337,15 @@ func (m *DaemonConfigurationStatus) contextValidateAddressing(ctx context.Contex
 		}
 
 		if err := m.Addressing.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("addressing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("addressing")
 			}
+
 			return err
 		}
 	}
@@ -327,11 +360,15 @@ func (m *DaemonConfigurationStatus) contextValidateDatapathMode(ctx context.Cont
 	}
 
 	if err := m.DatapathMode.ContextValidate(ctx, formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
 			return ve.ValidateName("datapathMode")
-		} else if ce, ok := err.(*errors.CompositeError); ok {
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
 			return ce.ValidateName("datapathMode")
 		}
+
 		return err
 	}
 
@@ -345,11 +382,15 @@ func (m *DaemonConfigurationStatus) contextValidateImmutable(ctx context.Context
 	}
 
 	if err := m.Immutable.ContextValidate(ctx, formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
 			return ve.ValidateName("immutable")
-		} else if ce, ok := err.(*errors.CompositeError); ok {
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
 			return ce.ValidateName("immutable")
 		}
+
 		return err
 	}
 
@@ -365,11 +406,15 @@ func (m *DaemonConfigurationStatus) contextValidateKvstoreConfiguration(ctx cont
 		}
 
 		if err := m.KvstoreConfiguration.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("kvstoreConfiguration")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("kvstoreConfiguration")
 			}
+
 			return err
 		}
 	}
@@ -386,11 +431,15 @@ func (m *DaemonConfigurationStatus) contextValidateMasqueradeProtocols(ctx conte
 		}
 
 		if err := m.MasqueradeProtocols.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("masqueradeProtocols")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("masqueradeProtocols")
 			}
+
 			return err
 		}
 	}
@@ -407,11 +456,15 @@ func (m *DaemonConfigurationStatus) contextValidateNodeMonitor(ctx context.Conte
 		}
 
 		if err := m.NodeMonitor.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("nodeMonitor")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("nodeMonitor")
 			}
+
 			return err
 		}
 	}
@@ -428,11 +481,15 @@ func (m *DaemonConfigurationStatus) contextValidateRealized(ctx context.Context,
 		}
 
 		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("realized")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("realized")
 			}
+
 			return err
 		}
 	}

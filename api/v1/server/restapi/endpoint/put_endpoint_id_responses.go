@@ -124,7 +124,7 @@ func NewPutEndpointIDForbidden() *PutEndpointIDForbidden {
 // WriteResponse to the client
 func (o *PutEndpointIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(403)
 }
@@ -149,7 +149,7 @@ func NewPutEndpointIDExists() *PutEndpointIDExists {
 // WriteResponse to the client
 func (o *PutEndpointIDExists) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(409)
 }
@@ -174,7 +174,7 @@ func NewPutEndpointIDTooManyRequests() *PutEndpointIDTooManyRequests {
 // WriteResponse to the client
 func (o *PutEndpointIDTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(429)
 }

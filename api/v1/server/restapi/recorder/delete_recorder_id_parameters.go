@@ -30,7 +30,6 @@ func NewDeleteRecorderIDParams() DeleteRecorderIDParams {
 //
 // swagger:parameters DeleteRecorderID
 type DeleteRecorderIDParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 

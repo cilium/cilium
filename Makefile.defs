@@ -71,8 +71,8 @@ export KUBECTL ?= kubectl
 # command locally for any version update.
 # make generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api
 # renovate: datasource=docker depName=quay.io/goswagger/swagger
-SWAGGER_VERSION = 0.32.3
-SWAGGER_IMAGE_SHA = sha256:9cfa5ae0f8e68753bf3f987c4d656d3ff0908d5f3324ffacba286271c9cc8a2d
+SWAGGER_VERSION = 0.33.1
+SWAGGER_IMAGE_SHA = sha256:03e351c87e7bf5de41b120aec97f0a2255f90a1cd802162ad1947f9e2de9e778
 SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(ROOT_DIR):$(ROOT_DIR) -w $(ROOT_DIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)@$(SWAGGER_IMAGE_SHA)
 
 # go build/test/clean flags
