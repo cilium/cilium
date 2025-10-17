@@ -36,7 +36,7 @@ func NewDeleteIpamIPOK() *DeleteIpamIPOK {
 // WriteResponse to the client
 func (o *DeleteIpamIPOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -61,7 +61,7 @@ func NewDeleteIpamIPInvalid() *DeleteIpamIPInvalid {
 // WriteResponse to the client
 func (o *DeleteIpamIPInvalid) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(400)
 }
@@ -86,7 +86,7 @@ func NewDeleteIpamIPForbidden() *DeleteIpamIPForbidden {
 // WriteResponse to the client
 func (o *DeleteIpamIPForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(403)
 }
@@ -111,7 +111,7 @@ func NewDeleteIpamIPNotFound() *DeleteIpamIPNotFound {
 // WriteResponse to the client
 func (o *DeleteIpamIPNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -179,7 +179,7 @@ func NewDeleteIpamIPDisabled() *DeleteIpamIPDisabled {
 // WriteResponse to the client
 func (o *DeleteIpamIPDisabled) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(501)
 }
