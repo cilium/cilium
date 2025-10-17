@@ -10,6 +10,7 @@ package policy
 
 import (
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 
@@ -25,7 +26,7 @@ type GetFqdnNamesReader struct {
 }
 
 // ReadResponse reads a server response into the received o.
-func (o *GetFqdnNamesReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
+func (o *GetFqdnNamesReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (any, error) {
 	switch response.Code() {
 	case 200:
 		result := NewGetFqdnNamesOK()
@@ -107,7 +108,7 @@ func (o *GetFqdnNamesOK) readResponse(response runtime.ClientResponse, consumer 
 	o.Payload = new(models.NameManager)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -175,7 +176,7 @@ func (o *GetFqdnNamesBadRequest) GetPayload() models.Error {
 func (o *GetFqdnNamesBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
-	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
