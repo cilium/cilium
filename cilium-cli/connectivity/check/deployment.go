@@ -2539,20 +2539,6 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	// TODO: unconditionally re-enable the IPCache check once
-	// https://github.com/cilium/cilium-cli/issues/361 is resolved.
-	if ct.params.SkipIPCacheCheck {
-		ct.Infof("Skipping IPCache check")
-	} else {
-		pods := append(slices.Collect(maps.Values(ct.clientPods)), slices.Collect(maps.Values(ct.echoPods))...)
-		// Set the timeout for all IP cache lookup retries
-		for _, cp := range ct.ciliumPods {
-			if err := WaitForIPCache(ctx, ct, cp, pods); err != nil {
-				return err
-			}
-		}
-	}
-
 	if ct.Features[features.L7LoadBalancer].Enabled {
 		l7LBPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindL7LBName})
 		if err != nil {
