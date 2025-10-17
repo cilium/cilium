@@ -1223,6 +1223,20 @@ __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
 	return check_dsr && entry->dsr_internal;
 }
 
+static __always_inline const struct ct_entry *
+ct_get_nodeport_egress_entry4(const void *map,
+			      struct ipv4_ct_tuple *ingress_tuple)
+{
+	__u8 prev_flags = ingress_tuple->flags;
+	const struct ct_entry *entry;
+
+	ingress_tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, ingress_tuple);
+	ingress_tuple->flags = prev_flags;
+
+	return entry;
+}
+
 /* The function tries to determine whether the flow identified by the given
  * CT_INGRESS tuple belongs to a NodePort traffic (i.e., outside client => N/S
  * LB => local backend).
@@ -1237,13 +1251,9 @@ ct_has_nodeport_egress_entry4(const void *map,
 			      struct ipv4_ct_tuple *ingress_tuple,
 			      __u16 *rev_nat_index, bool check_dsr)
 {
-	__u8 prev_flags = ingress_tuple->flags;
 	const struct ct_entry *entry;
 
-	ingress_tuple->flags = TUPLE_F_OUT;
-	entry = map_lookup_elem(map, ingress_tuple);
-	ingress_tuple->flags = prev_flags;
-
+	entry = ct_get_nodeport_egress_entry4(map, ingress_tuple);
 	if (!entry)
 		return false;
 
@@ -1266,10 +1276,9 @@ ct_has_dsr_egress_entry4(const void *map, struct ipv4_ct_tuple *ingress_tuple)
 	return 0;
 }
 
-static __always_inline bool
-ct_has_nodeport_egress_entry6(const void *map,
-			      struct ipv6_ct_tuple *ingress_tuple,
-			      __u16 *rev_nat_index, bool check_dsr)
+static __always_inline const struct ct_entry *
+ct_get_nodeport_egress_entry6(const void *map,
+			      struct ipv6_ct_tuple *ingress_tuple)
 {
 	__u8 prev_flags = ingress_tuple->flags;
 	const struct ct_entry *entry;
@@ -1278,6 +1287,17 @@ ct_has_nodeport_egress_entry6(const void *map,
 	entry = map_lookup_elem(map, ingress_tuple);
 	ingress_tuple->flags = prev_flags;
 
+	return entry;
+}
+
+static __always_inline bool
+ct_has_nodeport_egress_entry6(const void *map,
+			      struct ipv6_ct_tuple *ingress_tuple,
+			      __u16 *rev_nat_index, bool check_dsr)
+{
+	const struct ct_entry *entry;
+
+	entry = ct_get_nodeport_egress_entry6(map, ingress_tuple);
 	if (!entry)
 		return false;
 
