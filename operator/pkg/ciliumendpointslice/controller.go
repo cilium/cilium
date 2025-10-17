@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
+	wgAgent "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 // params contains all the dependencies for the CiliumEndpointSlice controller.
@@ -37,9 +38,10 @@ type params struct {
 	CiliumNodes         resource.Resource[*v2.CiliumNode]
 	Namespace           resource.Resource[*slim_corev1.Namespace]
 
-	Cfg       Config
-	SharedCfg SharedConfig
-	IPSecCfg  ipsec.EnableConfig
+	Cfg          Config
+	SharedCfg    SharedConfig
+	IPSecCfg     ipsec.EnableConfig
+	WireguardCfg wgAgent.EnableConfig
 
 	Metrics                  *Metrics
 	WorkqueueMetricsProvider workqueue.MetricsProvider
