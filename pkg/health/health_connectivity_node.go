@@ -48,7 +48,7 @@ func (h *ciliumHealthManager) launchCiliumNodeHealth(spec *healthApi.Spec, initi
 	)
 
 	config := server.Config{
-		CiliumURI:     ciliumPkg.DefaultSockPath(),
+		CiliumURI:     ciliumPkg.DefaultSockPathProtocol(),
 		Debug:         option.Config.Opts.IsEnabled(option.Debug),
 		ICMPReqsCount: option.Config.HealthCheckICMPFailureThreshold,
 		ProbeDeadline: serverProbeDeadline,
