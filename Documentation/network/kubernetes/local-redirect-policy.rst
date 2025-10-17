@@ -524,6 +524,10 @@ will get directed to cluster DNS pods backed by the ``kube-dns`` service.
 
 Advanced configurations
 =======================
+
+Skip redirect from backend
+--------------------------
+
 When a local redirect policy is applied, cilium BPF datapath redirects traffic going to the policy frontend
 (identified by ip/port/protocol tuple) address to a node-local backend pod selected by the policy.
 However, for traffic originating from a node-local backend pod destined to the policy frontend, users may want to
@@ -537,3 +541,38 @@ and exposed to user space in versions >= 5.12.
 
     In order to enable this configuration starting Cilium version 1.16.0, previously applied local redirect policies
     and policies selected backend pods need to be deleted, and re-created.
+
+Override IP
+-----------
+The local redirect policy supports overriding the IP address of the backend pod.
+This can be used to redirect traffic to a different IP address than the one assigned by Kubernetes.
+This is useful when the backend pod is running in the host network namespace where it could only 
+listen on the specific address from loopback interface (such as GKE metadata server).
+
+You can use the ``overrideIP`` field to override the IP address of the backend pod.
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2
+    kind: CiliumLocalRedirectPolicy
+    metadata:
+      name: lrp-addr
+      namespace: default
+    spec:
+      redirectBackend:
+        localEndpointSelector:
+          matchLabels:
+            app: proxy
+        toPorts:
+          - port: "50"
+            name: "test"
+            protocol: TCP
+            overrideIP: 1.1.1.3
+          - port: "51"
+            name: "test1"
+            protocol: TCP
+            overrideIP: 1.1.1.4
+
+.. note::
+
+    Field ``overrideIP`` has no effect when used for ``redirectFrontend``.
