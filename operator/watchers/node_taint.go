@@ -190,7 +190,24 @@ func nodeHasCiliumPod(nodeName string) (scheduled bool, ready bool) {
 		return false, false
 	}
 	for _, ciliumPodInterface := range ciliumPodsInNode {
-		ciliumPod := ciliumPodInterface.(*slim_corev1.Pod)
+		if ciliumPodInterface == nil {
+			continue
+		}
+
+		var ciliumPod *slim_corev1.Pod
+		switch obj := ciliumPodInterface.(type) {
+		case *slim_corev1.Pod:
+			ciliumPod = obj
+		case cache.DeletedFinalStateUnknown:
+			pod, ok := obj.Obj.(*slim_corev1.Pod)
+			if !ok {
+				continue
+			}
+			ciliumPod = pod
+		default:
+			continue
+		}
+
 		if ciliumPod.DeletionTimestamp != nil { // even if the pod is running, it will be down shortly
 			continue
 		}
