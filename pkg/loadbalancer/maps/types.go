@@ -206,7 +206,7 @@ func (k *Service4Key) ToHost() ServiceKey {
 type Service4Value struct {
 	BackendID uint32 `align:"$union0"`
 	Count     uint16 `align:"count"`
-	RevNat    uint16 `align:"rev_nat_index"`
+	RevNat    uint32 `align:"rev_nat_index"`
 	Flags     uint8  `align:"flags"`
 	Flags2    uint8  `align:"flags2"`
 	QCount    uint16 `align:"qcount"`
@@ -223,7 +223,7 @@ func (s *Service4Value) SetCount(count int)   { s.Count = uint16(count) }
 func (s *Service4Value) GetCount() int        { return int(s.Count) }
 func (s *Service4Value) SetQCount(count int)  { s.QCount = uint16(count) }
 func (s *Service4Value) GetQCount() int       { return int(s.QCount) }
-func (s *Service4Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
+func (s *Service4Value) SetRevNat(id int)     { s.RevNat = uint32(id) }
 func (s *Service4Value) GetRevNat() int       { return int(s.RevNat) }
 func (s *Service4Value) RevNatKey() RevNatKey { return &RevNat4Key{s.RevNat} }
 func (s *Service4Value) SetFlags(flags uint16) {
@@ -285,14 +285,14 @@ func (s *Service4Value) SetLbAlg(lb loadbalancer.SVCLoadBalancingAlgorithm) {
 
 func (s *Service4Value) ToNetwork() ServiceValue {
 	n := *s
-	n.RevNat = byteorder.HostToNetwork16(n.RevNat)
+	n.RevNat = byteorder.HostToNetwork32(n.RevNat)
 	return &n
 }
 
 // ToHost converts Service4Value to host byte order.
 func (s *Service4Value) ToHost() ServiceValue {
 	h := *s
-	h.RevNat = byteorder.NetworkToHost16(h.RevNat)
+	h.RevNat = byteorder.NetworkToHost32(h.RevNat)
 	return &h
 }
 
@@ -364,7 +364,7 @@ func (k *Service6Key) ToHost() ServiceKey {
 type Service6Value struct {
 	BackendID uint32 `align:"$union0"`
 	Count     uint16 `align:"count"`
-	RevNat    uint16 `align:"rev_nat_index"`
+	RevNat    uint32 `align:"rev_nat_index"`
 	Flags     uint8  `align:"flags"`
 	Flags2    uint8  `align:"flags2"`
 	QCount    uint16 `align:"qcount"`
@@ -381,7 +381,7 @@ func (s *Service6Value) SetCount(count int)   { s.Count = uint16(count) }
 func (s *Service6Value) GetCount() int        { return int(s.Count) }
 func (s *Service6Value) SetQCount(count int)  { s.QCount = uint16(count) }
 func (s *Service6Value) GetQCount() int       { return int(s.QCount) }
-func (s *Service6Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
+func (s *Service6Value) SetRevNat(id int)     { s.RevNat = uint32(id) }
 func (s *Service6Value) GetRevNat() int       { return int(s.RevNat) }
 func (s *Service6Value) RevNatKey() RevNatKey { return &RevNat6Key{s.RevNat} }
 func (s *Service6Value) SetFlags(flags uint16) {
@@ -435,14 +435,14 @@ func (s *Service6Value) GetBackendID() loadbalancer.BackendID {
 
 func (s *Service6Value) ToNetwork() ServiceValue {
 	n := *s
-	n.RevNat = byteorder.HostToNetwork16(n.RevNat)
+	n.RevNat = byteorder.HostToNetwork32(n.RevNat)
 	return &n
 }
 
 // ToHost converts Service6Value to host byte order.
 func (s *Service6Value) ToHost() ServiceValue {
 	h := *s
-	h.RevNat = byteorder.NetworkToHost16(h.RevNat)
+	h.RevNat = byteorder.NetworkToHost32(h.RevNat)
 	return &h
 }
 
@@ -762,11 +762,11 @@ type RevNatValue interface {
 }
 
 type RevNat4Key struct {
-	Key uint16
+	Key uint32
 }
 
 func NewRevNat4Key(id loadbalancer.ServiceID) *RevNat4Key {
-	return &RevNat4Key{uint16(id)}
+	return &RevNat4Key{uint32(id)}
 }
 
 func (k *RevNat4Key) String() string                 { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
@@ -776,14 +776,14 @@ func (v *RevNat4Key) GetKey() loadbalancer.ServiceID { return loadbalancer.Servi
 // ToNetwork converts RevNat4Key to network byte order.
 func (k *RevNat4Key) ToNetwork() RevNatKey {
 	n := *k
-	n.Key = byteorder.HostToNetwork16(n.Key)
+	n.Key = byteorder.HostToNetwork32(n.Key)
 	return &n
 }
 
 // ToHost converts RevNat4Key to host byte order.
 func (k *RevNat4Key) ToHost() RevNatKey {
 	h := *k
-	h.Key = byteorder.NetworkToHost16(h.Key)
+	h.Key = byteorder.NetworkToHost32(h.Key)
 	return &h
 }
 
@@ -814,10 +814,10 @@ func (v *RevNat4Value) String() string {
 func (v *RevNat4Value) New() bpf.MapValue { return &RevNat4Value{} }
 
 type RevNat6Key struct {
-	Key uint16
+	Key uint32
 }
 
-func NewRevNat6Key(value uint16) *RevNat6Key {
+func NewRevNat6Key(value uint32) *RevNat6Key {
 	return &RevNat6Key{value}
 }
 
@@ -828,14 +828,14 @@ func (v *RevNat6Key) GetKey() loadbalancer.ServiceID { return loadbalancer.Servi
 // ToNetwork converts RevNat6Key to network byte order.
 func (v *RevNat6Key) ToNetwork() RevNatKey {
 	n := *v
-	n.Key = byteorder.HostToNetwork16(n.Key)
+	n.Key = byteorder.HostToNetwork32(n.Key)
 	return &n
 }
 
 // ToNetwork converts RevNat6Key to host byte order.
 func (v *RevNat6Key) ToHost() RevNatKey {
 	h := *v
-	h.Key = byteorder.NetworkToHost16(h.Key)
+	h.Key = byteorder.NetworkToHost32(h.Key)
 	return &h
 }
 
@@ -1000,7 +1000,7 @@ type SockRevNat4Key struct {
 type SockRevNat4Value struct {
 	Address     types.IPv4 `align:"address"`
 	Port        int16      `align:"port"`
-	RevNatIndex uint16     `align:"rev_nat_index"`
+	RevNatIndex uint32     `align:"rev_nat_index"`
 }
 
 func NewSockRevNat4Key(cookie uint64, addr net.IP, port uint16) *SockRevNat4Key {
@@ -1042,7 +1042,7 @@ const SizeofSockRevNat6Key = int(unsafe.Sizeof(SockRevNat6Key{}))
 type SockRevNat6Value struct {
 	Address     types.IPv6 `align:"address"`
 	Port        int16      `align:"port"`
-	RevNatIndex uint16     `align:"rev_nat_index"`
+	RevNatIndex uint32     `align:"rev_nat_index"`
 }
 
 // SizeofSockRevNat6Value is the size of type SockRevNat6Value.
@@ -1092,7 +1092,7 @@ var MaglevBackendLen = uint32(unsafe.Sizeof(loadbalancer.BackendID(0)))
 
 // MaglevOuterKey is the key of a maglev outer map.
 type MaglevOuterKey struct {
-	RevNatID uint16
+	RevNatID uint32
 }
 
 // New and String implement bpf.MapKey
@@ -1105,7 +1105,7 @@ var _ bpf.MapKey = &MaglevOuterKey{}
 // The key is in network byte order in the eBPF maps.
 func (k MaglevOuterKey) ToNetwork() MaglevOuterKey {
 	return MaglevOuterKey{
-		RevNatID: byteorder.HostToNetwork16(k.RevNatID),
+		RevNatID: byteorder.HostToNetwork32(k.RevNatID),
 	}
 }
 

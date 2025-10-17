@@ -408,7 +408,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 
 	// Delete Maglev.
 	if ops.useMaglev(fe) {
-		if err := ops.LBMaps.DeleteMaglev(maps.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
+		if err := ops.LBMaps.DeleteMaglev(maps.MaglevOuterKey{RevNatID: uint32(feID)}, fe.Address.IsIPv6()); err != nil {
 			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
 		}
 	}
@@ -441,7 +441,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	}
 	if fe.Address.IsIPv6() {
 		svcKey = maps.NewService6Key(ip, fe.Address.Port(), proto, fe.Address.Scope(), 0)
-		revNatKey = maps.NewRevNat6Key(uint16(feID))
+		revNatKey = maps.NewRevNat6Key(uint32(feID))
 	} else {
 		svcKey = maps.NewService4Key(ip, fe.Address.Port(), proto, fe.Address.Scope(), 0)
 		revNatKey = maps.NewRevNat4Key(feID)
@@ -1275,7 +1275,7 @@ type backendWithRevision struct {
 
 func (ops *BPFOps) updateMaglev(fe *loadbalancer.Frontend, feID loadbalancer.ServiceID, activeBackends []backendWithRevision) error {
 	if len(activeBackends) == 0 {
-		if err := ops.LBMaps.DeleteMaglev(maps.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
+		if err := ops.LBMaps.DeleteMaglev(maps.MaglevOuterKey{RevNatID: uint32(feID)}, fe.Address.IsIPv6()); err != nil {
 			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
 		}
 		return nil
@@ -1284,7 +1284,7 @@ func (ops *BPFOps) updateMaglev(fe *loadbalancer.Frontend, feID loadbalancer.Ser
 	if err != nil {
 		return fmt.Errorf("ops.computeMaglevTable failed: %w", err)
 	}
-	if err := ops.LBMaps.UpdateMaglev(maps.MaglevOuterKey{RevNatID: uint16(feID)}, maglevTable, fe.Address.IsIPv6()); err != nil {
+	if err := ops.LBMaps.UpdateMaglev(maps.MaglevOuterKey{RevNatID: uint32(feID)}, maglevTable, fe.Address.IsIPv6()); err != nil {
 		return fmt.Errorf("ops.LBMaps.UpdateMaglev failed: %w", err)
 	}
 	return nil
