@@ -502,11 +502,27 @@ func (n *Node) recalculate(ctx context.Context) {
 }
 
 // allocationNeeded returns true if this node requires IPs to be allocated
-func (n *Node) allocationNeeded() (needed bool) {
+func (n *Node) allocationNeeded() bool {
 	n.mutex.RLock()
-	needed = !n.ipv4Alloc.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv4.NeededIPs > 0
-	n.mutex.RUnlock()
-	return
+	defer n.mutex.RUnlock()
+
+	if n.ipv4Alloc.waitingForPoolMaintenance {
+		return false
+	}
+
+	if !n.resyncNeeded.IsZero() {
+		return false
+	}
+
+	if n.stats.IPv4.NeededIPs > 0 {
+		return true
+	}
+
+	if len(n.getStaticIPTags()) > 0 && n.stats.IPv4.AssignedStaticIP == "" {
+		return true
+	}
+
+	return false
 }
 
 // releaseNeeded returns true if this node requires IPs to be released
