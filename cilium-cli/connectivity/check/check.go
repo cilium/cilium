@@ -71,7 +71,6 @@ type Parameters struct {
 	Debug                     bool
 	Timestamp                 bool
 	PauseOnFail               bool
-	SkipIPCacheCheck          bool
 	Perf                      bool
 	PerfParameters            PerfParameters
 	CurlImage                 string

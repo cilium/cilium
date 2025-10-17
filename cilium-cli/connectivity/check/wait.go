@@ -319,31 +319,6 @@ func WaitForNodePorts(ctx context.Context, log Logger, client Pod, nodeIP string
 	return nil
 }
 
-// WaitForIPCache waits until all the specified pods are present in the IPCache of the given agent.
-func WaitForIPCache(ctx context.Context, log Logger, agent Pod, pods []Pod) error {
-	log.Logf("⌛ [%s] Waiting for Cilium pod %s to have all the pod IPs in eBPF IPCache...",
-		agent.K8sClient.ClusterName(), agent.Name())
-
-	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
-	defer cancel()
-
-	for {
-		err := validateIPCache(ctx, agent, pods)
-		if err == nil {
-			return nil
-		}
-
-		log.Debugf("[%s] Error checking pod IPs in IPCache: %s", agent.K8sClient.ClusterName(), err)
-
-		select {
-		case <-time.After(PollInterval):
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for pod IPs to be in IPCache of Cilium pod %s (last error: %w)",
-				agent.Name(), err)
-		}
-	}
-}
-
 // BPFEgressGatewayPolicyEntry represents an entry in the BPF egress gateway policy map
 type BPFEgressGatewayPolicyEntry struct {
 	SourceIP  string `json:"sourceIP"`
@@ -439,27 +414,6 @@ func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context,
 
 		return nil
 	}
-}
-
-func validateIPCache(ctx context.Context, agent Pod, pods []Pod) error {
-	stdout, err := agent.K8sClient.ExecInPod(ctx, agent.Namespace(), agent.NameWithoutNamespace(),
-		defaults.AgentContainerName, []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
-	if err != nil {
-		return fmt.Errorf("failed to list ipcache bpf map: %w", err)
-	}
-
-	var ic ipCache
-	if err := json.Unmarshal(stdout.Bytes(), &ic); err != nil {
-		return fmt.Errorf("failed to unmarshal Cilium ipcache stdout json: %w", err)
-	}
-
-	for _, pod := range pods {
-		if _, err := ic.findPodID(pod); err != nil {
-			return fmt.Errorf("couldn't find pod %s in ipcache: %w", pod.Name(), err)
-		}
-	}
-
-	return nil
 }
 
 // DeleteK8sResourceWithWait deletes the provided k8s resource and waits until it is deleted.
