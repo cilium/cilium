@@ -20,7 +20,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
@@ -222,16 +221,36 @@ func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamType
 			input.Filters = append(input.Filters, subnetFilter)
 		}
 	}
-	if operatorOption.Config.AWSPaginationEnabled {
-		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
-	}
 
 	input.Filters = append(input.Filters, ec2_types.Filter{
 		Name:   aws.String("status"),
 		Values: []string{"available"},
 	})
 
+	// Try unpaginated request first, fallback to paginated on failure
 	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
+	c.limiter.Limit(ctx, DescribeNetworkInterfaces)
+	sinceStart := spanstat.Start()
+	output, err := paginator.NextPage(ctx)
+	c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
+
+	if err != nil {
+		// Unpaginated request failed, retry with pagination
+		c.logger.Debug("Unpaginated DescribeNetworkInterfaces failed, retrying with pagination",
+			logfields.Error, err)
+		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
+		paginator = ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
+	} else {
+		// Unpaginated request succeeded, collect results
+		for _, eni := range output.NetworkInterfaces {
+			if len(result) >= int(maxResults) {
+				return result, nil
+			}
+			result = append(result, aws.ToString(eni.NetworkInterfaceId))
+		}
+	}
+
+	// Process remaining pages (either from fallback pagination or continuation of unpaginated)
 	for paginator.HasMorePages() {
 		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
 		sinceStart := spanstat.Start()
@@ -263,9 +282,6 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamType
 			},
 		},
 	}
-	if operatorOption.Config.AWSPaginationEnabled {
-		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
-	}
 	if len(c.subnetsFilters) > 0 {
 		subnetsIDs := make([]string, 0, len(subnets))
 		for id := range subnets {
@@ -276,7 +292,26 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamType
 			Values: subnetsIDs,
 		})
 	}
+
+	// Try unpaginated request first, fallback to paginated on failure
 	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
+	c.limiter.Limit(ctx, DescribeNetworkInterfaces)
+	sinceStart := spanstat.Start()
+	output, err := paginator.NextPage(ctx)
+	c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
+
+	if err != nil {
+		// Unpaginated request failed, retry with pagination
+		c.logger.Debug("Unpaginated DescribeNetworkInterfaces failed, retrying with pagination",
+			logfields.Error, err)
+		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
+		paginator = ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
+	} else {
+		// Unpaginated request succeeded, collect results
+		result = append(result, output.NetworkInterfaces...)
+	}
+
+	// Process remaining pages (either from fallback pagination or continuation of unpaginated)
 	for paginator.HasMorePages() {
 		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
 		sinceStart := spanstat.Start()
@@ -361,15 +396,35 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 		},
 	}
 	if len(enisListFromInstances) > 0 {
+		// MaxResults is incompatible with NetworkInterfaceIds, so we can only use specific IDs here
 		ENIAttrs.NetworkInterfaceIds = enisListFromInstances
-	} else if operatorOption.Config.AWSPaginationEnabled {
-		// MaxResults is incompatible with NetworkInterfaceIds
-		ENIAttrs.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
 	}
 
 	var result []ec2_types.NetworkInterface
 
+	// Try unpaginated request first, fallback to paginated on failure
+	// Note: When NetworkInterfaceIds is specified, MaxResults cannot be used
 	ENIPaginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, ENIAttrs)
+	c.limiter.Limit(ctx, DescribeNetworkInterfaces)
+	sinceStart := spanstat.Start()
+	output, err := ENIPaginator.NextPage(ctx)
+	c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
+
+	if err != nil && len(enisListFromInstances) == 0 {
+		// Unpaginated request failed and we're not using specific IDs, retry with pagination
+		c.logger.Debug("Unpaginated DescribeNetworkInterfaces failed, retrying with pagination",
+			logfields.Error, err)
+		ENIAttrs.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
+		ENIPaginator = ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, ENIAttrs)
+	} else if err != nil {
+		// Error with specific IDs, can't fallback to pagination
+		return nil, err
+	} else {
+		// Unpaginated request succeeded, collect results
+		result = append(result, output.NetworkInterfaces...)
+	}
+
+	// Process remaining pages (either from fallback pagination or continuation of unpaginated)
 	for ENIPaginator.HasMorePages() {
 		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
 		sinceStart := spanstat.Start()
@@ -932,12 +987,28 @@ func createAWSTagSlice(tags map[string]string) []ec2_types.Tag {
 func (c *Client) describeSecurityGroups(ctx context.Context, vpcID string) ([]ec2_types.SecurityGroup, error) {
 	var result []ec2_types.SecurityGroup
 	input := &ec2.DescribeSecurityGroupsInput{}
-	if operatorOption.Config.AWSPaginationEnabled {
-		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
-	}
 	filters := addVPCFilterIfPresent([]ec2_types.Filter{}, vpcID)
 	input.Filters = filters
+
+	// Try unpaginated request first, fallback to paginated on failure
 	paginator := ec2.NewDescribeSecurityGroupsPaginator(c.ec2Client, input)
+	c.limiter.Limit(ctx, DescribeSecurityGroups)
+	sinceStart := spanstat.Start()
+	output, err := paginator.NextPage(ctx)
+	c.metricsAPI.ObserveAPICall(DescribeSecurityGroups, deriveStatus(err), sinceStart.Seconds())
+
+	if err != nil {
+		// Unpaginated request failed, retry with pagination
+		c.logger.Debug("Unpaginated DescribeSecurityGroups failed, retrying with pagination",
+			logfields.Error, err)
+		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
+		paginator = ec2.NewDescribeSecurityGroupsPaginator(c.ec2Client, input)
+	} else {
+		// Unpaginated request succeeded, collect results
+		result = append(result, output.SecurityGroups...)
+	}
+
+	// Process remaining pages (either from fallback pagination or continuation of unpaginated)
 	for paginator.HasMorePages() {
 		c.limiter.Limit(ctx, DescribeSecurityGroups)
 		sinceStart := spanstat.Start()
