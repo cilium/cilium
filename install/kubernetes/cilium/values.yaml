@@ -3516,6 +3516,8 @@ clustermesh:
       # - "external": ``clustermesh-apiserver`` will sync remote cluster information to the etcd used as kvstore. This can't be enabled with crd identity allocation mode.
       kvstoreMode: "internal"
     service:
+      # -- Enable clustermesh-apiserver service creation.
+      enabled: true
       # -- The type of service used for apiserver access.
       type: NodePort
       # -- Optional port to use as the node port for apiserver access.
