@@ -4106,3 +4106,5 @@ authentication:
 enableInternalTrafficPolicy: true
 # -- Enable LoadBalancer IP Address Management
 enableLBIPAM: true
+# -- Enable tuning of buffer margins on pod network devices (this is experimental and requires bpf.datapathMode=netkit or bpf.datapathMode=netkit-l2)
+enableTunedBufferMargins: false

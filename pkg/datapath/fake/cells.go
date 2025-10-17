@@ -65,6 +65,7 @@ var Cell = cell.Module(
 		func() mtu.MTU { return &fakeTypes.MTU{} },
 		func() wgTypes.WireguardAgent { return &fakeTypes.WireguardAgent{} },
 		func() wgTypes.WireguardConfig { return &fakeTypes.WireguardConfig{} },
+		func() types.ConnectorConfig { return &fakeTypes.ConnectorUserConfig{} },
 		func() types.Loader { return &fakeTypes.FakeLoader{} },
 		func() types.Orchestrator { return &fakeTypes.FakeOrchestrator{} },
 		loader.NewCompilationLock,

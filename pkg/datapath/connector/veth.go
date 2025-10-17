@@ -46,7 +46,7 @@ func SetupVeth(defaultLogger *slog.Logger, id string, cfg LinkConfig, sysctl sys
 	return veth, link, tmpIfName, err
 }
 
-// LinkConfig contains the GRO/GSO and MTU values to be configured on both sides of the created pair.
+// LinkConfig contains the GRO/GSO, MTU values and buffer margins to be configured on both sides of the created pair.
 type LinkConfig struct {
 	GROIPv6MaxSize int
 	GSOIPv6MaxSize int
@@ -54,7 +54,9 @@ type LinkConfig struct {
 	GROIPv4MaxSize int
 	GSOIPv4MaxSize int
 
-	DeviceMTU int
+	DeviceMTU      int
+	DeviceHeadroom uint16
+	DeviceTailroom uint16
 }
 
 // SetupVethWithNames sets up the net interface, the peer interface and fills up some endpoint
