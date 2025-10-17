@@ -51,6 +51,8 @@ cilium-operator-aws [flags]
       --enable-ingress-controller                            Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.
       --enable-ingress-proxy-protocol                        Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
       --enable-ingress-secrets-sync                          Enables fan-in TLS secrets from multiple namespaces to singular namespace (specified by ingress-secrets-namespace flag) (default true)
+      --enable-ipsec                                         Enable IPsec
+      --enable-ipsec-key-watcher                             Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations. (default true)
       --enable-ipv4                                          Enable IPv4 support (default true)
       --enable-ipv6                                          Enable IPv6 support (default true)
       --enable-k8s                                           Enable the k8s clientset (default true)
@@ -62,6 +64,7 @@ cilium-operator-aws [flags]
       --enable-node-selector-labels                          Enable use of node label based identity
       --enable-policy string                                 Enable policy enforcement (default "default")
       --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
+      --enable-wireguard                                     Enable WireGuard
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --eni-gc-interval duration                             Interval for garbage collection of unattached ENIs. Set to 0 to disable (default 5m0s)
       --eni-gc-tags map                                      Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected
@@ -93,6 +96,8 @@ cilium-operator-aws [flags]
       --ingress-shared-lb-service-name string                Name of shared LB service name for Ingress. (default "cilium-ingress")
       --instance-tags-filter map                             EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --ipam string                                          Backend to use for IPAM (default "eni")
+      --ipsec-key-file string                                Path to IPsec key file
+      --ipsec-key-rotation-duration duration                 Maximum duration of the IPsec key rotation. The previous key will be removed after that delay. (default 5m0s)
       --k8s-api-server-urls strings                          Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration            Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration               Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
@@ -121,6 +126,7 @@ cilium-operator-aws [flags]
       --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc:8081")
       --mesh-auth-spire-server-connection-timeout duration   SPIRE server connection timeout. (default 10s)
       --metrics-sampling-interval duration                   Set the internal metrics sampling interval (default 5m0s)
+      --node-encryption-opt-out-labels string                Label selector for nodes which will opt-out of node-to-node encryption (default "node-role.kubernetes.io/control-plane")
       --nodes-gc-interval duration                           GC interval for CiliumNodes (default 5m0s)
       --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
       --operator-k8s-client-burst int                        Burst value allowed for the K8s client (default 200)
@@ -148,6 +154,7 @@ cilium-operator-aws [flags]
       --unmanaged-pod-watcher-interval int                   Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
       --validate-network-policy                              Whether to enable or disable the informational network policy validator (default true)
       --version                                              Print version information
+      --wireguard-persistent-keepalive duration              The Wireguard keepalive interval as a Go duration string
 ```
 
 ### SEE ALSO

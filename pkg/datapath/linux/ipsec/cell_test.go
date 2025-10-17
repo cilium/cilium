@@ -143,7 +143,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 			cell.Provide(
 				newIPsecAgent,
-				newIPsecConfig,
+				NewIPsecConfig,
 
 				regeneration.NewFence,
 				tables.NewDeviceTable,

@@ -130,7 +130,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 
 			cell.Provide(
 				newWireguardAgent,
-				newWireguardConfig,
+				NewWireguardConfig,
 
 				regeneration.NewFence,
 				tables.NewDeviceTable,

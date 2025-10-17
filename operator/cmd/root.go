@@ -55,6 +55,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/gops"
@@ -77,6 +78,7 @@ import (
 	shellclient "github.com/cilium/cilium/pkg/shell/client"
 	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 var (
@@ -163,6 +165,14 @@ var (
 		cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax),
 		cell.Invoke(cmtypes.ClusterInfo.Validate),
 
+		cell.Config(ipsec.DefaultUserConfig),
+		cell.Provide(ipsec.NewIPsecConfig),
+		cell.ProvidePrivate(ipsec.BuildConfigFrom),
+
+		cell.Config(agent.DefaultUserConfig),
+		cell.Provide(agent.NewWireguardConfig),
+		cell.ProvidePrivate(agent.BuildConfigFrom),
+
 		cell.Provide(func() *option.DaemonConfig {
 			return option.Config
 		}),
@@ -182,9 +192,13 @@ var (
 
 		cell.Provide(func(
 			daemonCfg *option.DaemonConfig,
+			wgCfg agent.Config,
+			ipsecCfg ipsec.Config,
 		) ciliumendpointslice.SharedConfig {
 			return ciliumendpointslice.SharedConfig{
 				EnableCiliumEndpointSlice: daemonCfg.EnableCiliumEndpointSlice,
+				EnableWireguard:           wgCfg.Enabled(),
+				EnableIPSec:               ipsecCfg.Enabled(),
 			}
 		}),
 

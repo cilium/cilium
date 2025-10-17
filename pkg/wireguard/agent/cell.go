@@ -16,9 +16,9 @@ var Cell = cell.Module(
 	"wireguard-agent",
 	"Manages WireGuard device and peers",
 
-	cell.Config(defaultUserConfig),
-	cell.Provide(newWireguardAgent, newWireguardConfig),
-	cell.ProvidePrivate(buildConfigFrom),
+	cell.Config(DefaultUserConfig),
+	cell.Provide(newWireguardAgent, NewWireguardConfig),
+	cell.ProvidePrivate(BuildConfigFrom),
 )
 
 // newWireguardAgent returns the [*Agent] as an interface [types.WireguardAgent].
@@ -26,13 +26,13 @@ func newWireguardAgent(p params) types.WireguardAgent {
 	return newAgent(p)
 }
 
-// newWireguardConfig returns the [Config] as an interface [types.WireguardConfig].
-func newWireguardConfig(c Config) types.WireguardConfig {
+// NewWireguardConfig returns the [Config] as an interface [types.WireguardConfig].
+func NewWireguardConfig(c Config) types.WireguardConfig {
 	return c
 }
 
-// buildConfigFrom creates the [Config] from [UserConfig] and [option.DaemonConfig].
-func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
+// BuildConfigFrom creates the [Config] from [UserConfig] and [option.DaemonConfig].
+func BuildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
 	return Config{
 		UserConfig: uc,
 
@@ -44,7 +44,7 @@ func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
 	}
 }
 
-var defaultUserConfig = UserConfig{
+var DefaultUserConfig = UserConfig{
 	EnableWireguard:              false,
 	WireguardTrackAllIPsFallback: false,
 	WireguardPersistentKeepalive: 0,

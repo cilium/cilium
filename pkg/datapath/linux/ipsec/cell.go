@@ -22,9 +22,9 @@ var Cell = cell.Module(
 	"ipsec-agent",
 	"Handles initial key setup and knows the key size",
 
-	cell.Config(defaultUserConfig),
-	cell.Provide(newIPsecAgent, newIPsecConfig),
-	cell.ProvidePrivate(buildConfigFrom),
+	cell.Config(DefaultUserConfig),
+	cell.Provide(newIPsecAgent, NewIPsecConfig),
+	cell.ProvidePrivate(BuildConfigFrom),
 )
 
 type params struct {
@@ -45,12 +45,12 @@ func newIPsecAgent(p params) types.IPsecAgent {
 }
 
 // newIPsecAgent returns the [Config] as an interface [types.IPsecConfig].
-func newIPsecConfig(c Config) types.IPsecConfig {
+func NewIPsecConfig(c Config) types.IPsecConfig {
 	return c
 }
 
 // buildConfigFrom creates the [Config] from [UserConfig] and [option.DaemonConfig].
-func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
+func BuildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
 	return Config{
 		UserConfig: uc,
 
@@ -58,7 +58,7 @@ func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
 	}
 }
 
-var defaultUserConfig = UserConfig{
+var DefaultUserConfig = UserConfig{
 	EnableIPsec:                              false,
 	EnableIPsecKeyWatcher:                    true,
 	EnableIPsecXfrmStateCaching:              true,
