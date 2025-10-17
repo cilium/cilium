@@ -80,6 +80,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
+	"github.com/cilium/cilium/pkg/ztunnel"
 )
 
 var (
@@ -344,6 +345,9 @@ var (
 		debugapi.Cell,
 
 		svcrouteconfig.Cell,
+
+		// Instantiates an xDS server used for zTunnel integration.
+		ztunnel.Cell,
 	)
 )
 
