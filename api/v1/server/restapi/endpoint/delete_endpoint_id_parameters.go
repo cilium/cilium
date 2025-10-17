@@ -29,7 +29,6 @@ func NewDeleteEndpointIDParams() DeleteEndpointIDParams {
 //
 // swagger:parameters DeleteEndpointID
 type DeleteEndpointIDParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
