@@ -1937,7 +1937,14 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		}
 		if (backend_id == 0) {
 			/* No CT entry has been found, so select a svc endpoint */
-			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
+			if (state->node_port && state->dsr_internal) {
+				struct lb4_key nodeport_key = *key;
+
+				nodeport_key.address = 0;
+				backend_id = lb4_select_backend_id(ctx, &nodeport_key, tuple, svc);
+			} else {
+				backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
+			}
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
 				goto no_service;
@@ -2071,6 +2078,9 @@ static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
+#ifdef ENABLE_DSR
+		       (state->dsr_internal ? 1 : 0) << 1 |
+#endif /* ENABLE_DSR */
 #ifdef USE_LOOPBACK_LB
 		       state->loopback);
 #else
@@ -2095,6 +2105,10 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 	if (meta & 1)
 		state->loopback = 1;
 #endif
+#ifdef ENABLE_DSR
+	if (meta & 2)
+		state->dsr_internal = 1;
+#endif /* ENABLE_DSR */
 	state->rev_nat_index = meta >> 16;
 
 	*proxy_port = clear ? (ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16) :
