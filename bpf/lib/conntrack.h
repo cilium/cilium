@@ -53,6 +53,7 @@ struct ct_buffer6 {
 	__u32 monitor;
 	int ret;
 	int l4_off;
+	fraginfo_t fraginfo;
 };
 
 static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags)
