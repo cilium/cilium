@@ -7,19 +7,20 @@ package fake
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
+	typedciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumNodeConfigs implements CiliumNodeConfigInterface
 type fakeCiliumNodeConfigs struct {
-	*gentype.FakeClientWithList[*v2.CiliumNodeConfig, *v2.CiliumNodeConfigList]
+	*gentype.FakeClientWithListAndApply[*v2.CiliumNodeConfig, *v2.CiliumNodeConfigList, *ciliumiov2.CiliumNodeConfigApplyConfiguration]
 	Fake *FakeCiliumV2
 }
 
-func newFakeCiliumNodeConfigs(fake *FakeCiliumV2, namespace string) ciliumiov2.CiliumNodeConfigInterface {
+func newFakeCiliumNodeConfigs(fake *FakeCiliumV2, namespace string) typedciliumiov2.CiliumNodeConfigInterface {
 	return &fakeCiliumNodeConfigs{
-		gentype.NewFakeClientWithList[*v2.CiliumNodeConfig, *v2.CiliumNodeConfigList](
+		gentype.NewFakeClientWithListAndApply[*v2.CiliumNodeConfig, *v2.CiliumNodeConfigList, *ciliumiov2.CiliumNodeConfigApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v2.SchemeGroupVersion.WithResource("ciliumnodeconfigs"),

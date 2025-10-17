@@ -7,19 +7,20 @@ package fake
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
+	typedciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumBGPAdvertisements implements CiliumBGPAdvertisementInterface
 type fakeCiliumBGPAdvertisements struct {
-	*gentype.FakeClientWithList[*v2.CiliumBGPAdvertisement, *v2.CiliumBGPAdvertisementList]
+	*gentype.FakeClientWithListAndApply[*v2.CiliumBGPAdvertisement, *v2.CiliumBGPAdvertisementList, *ciliumiov2.CiliumBGPAdvertisementApplyConfiguration]
 	Fake *FakeCiliumV2
 }
 
-func newFakeCiliumBGPAdvertisements(fake *FakeCiliumV2) ciliumiov2.CiliumBGPAdvertisementInterface {
+func newFakeCiliumBGPAdvertisements(fake *FakeCiliumV2) typedciliumiov2.CiliumBGPAdvertisementInterface {
 	return &fakeCiliumBGPAdvertisements{
-		gentype.NewFakeClientWithList[*v2.CiliumBGPAdvertisement, *v2.CiliumBGPAdvertisementList](
+		gentype.NewFakeClientWithListAndApply[*v2.CiliumBGPAdvertisement, *v2.CiliumBGPAdvertisementList, *ciliumiov2.CiliumBGPAdvertisementApplyConfiguration](
 			fake.Fake,
 			"",
 			v2.SchemeGroupVersion.WithResource("ciliumbgpadvertisements"),

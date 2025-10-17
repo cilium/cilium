@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type CiliumClusterwideNetworkPolicyInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumClusterwideNetworkPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumClusterwideNetworkPolicy, err error)
+	Apply(ctx context.Context, ciliumClusterwideNetworkPolicy *applyconfigurationciliumiov2.CiliumClusterwideNetworkPolicyApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumClusterwideNetworkPolicy, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, ciliumClusterwideNetworkPolicy *applyconfigurationciliumiov2.CiliumClusterwideNetworkPolicyApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumClusterwideNetworkPolicy, err error)
 	CiliumClusterwideNetworkPolicyExpansion
 }
 
 // ciliumClusterwideNetworkPolicies implements CiliumClusterwideNetworkPolicyInterface
 type ciliumClusterwideNetworkPolicies struct {
-	*gentype.ClientWithList[*ciliumiov2.CiliumClusterwideNetworkPolicy, *ciliumiov2.CiliumClusterwideNetworkPolicyList]
+	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumClusterwideNetworkPolicy, *ciliumiov2.CiliumClusterwideNetworkPolicyList, *applyconfigurationciliumiov2.CiliumClusterwideNetworkPolicyApplyConfiguration]
 }
 
 // newCiliumClusterwideNetworkPolicies returns a CiliumClusterwideNetworkPolicies
 func newCiliumClusterwideNetworkPolicies(c *CiliumV2Client) *ciliumClusterwideNetworkPolicies {
 	return &ciliumClusterwideNetworkPolicies{
-		gentype.NewClientWithList[*ciliumiov2.CiliumClusterwideNetworkPolicy, *ciliumiov2.CiliumClusterwideNetworkPolicyList](
+		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumClusterwideNetworkPolicy, *ciliumiov2.CiliumClusterwideNetworkPolicyList, *applyconfigurationciliumiov2.CiliumClusterwideNetworkPolicyApplyConfiguration](
 			"ciliumclusterwidenetworkpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

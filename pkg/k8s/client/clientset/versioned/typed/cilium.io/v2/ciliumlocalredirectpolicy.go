@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type CiliumLocalRedirectPolicyInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumLocalRedirectPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumLocalRedirectPolicy, err error)
+	Apply(ctx context.Context, ciliumLocalRedirectPolicy *applyconfigurationciliumiov2.CiliumLocalRedirectPolicyApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumLocalRedirectPolicy, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, ciliumLocalRedirectPolicy *applyconfigurationciliumiov2.CiliumLocalRedirectPolicyApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumLocalRedirectPolicy, err error)
 	CiliumLocalRedirectPolicyExpansion
 }
 
 // ciliumLocalRedirectPolicies implements CiliumLocalRedirectPolicyInterface
 type ciliumLocalRedirectPolicies struct {
-	*gentype.ClientWithList[*ciliumiov2.CiliumLocalRedirectPolicy, *ciliumiov2.CiliumLocalRedirectPolicyList]
+	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumLocalRedirectPolicy, *ciliumiov2.CiliumLocalRedirectPolicyList, *applyconfigurationciliumiov2.CiliumLocalRedirectPolicyApplyConfiguration]
 }
 
 // newCiliumLocalRedirectPolicies returns a CiliumLocalRedirectPolicies
 func newCiliumLocalRedirectPolicies(c *CiliumV2Client, namespace string) *ciliumLocalRedirectPolicies {
 	return &ciliumLocalRedirectPolicies{
-		gentype.NewClientWithList[*ciliumiov2.CiliumLocalRedirectPolicy, *ciliumiov2.CiliumLocalRedirectPolicyList](
+		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumLocalRedirectPolicy, *ciliumiov2.CiliumLocalRedirectPolicyList, *applyconfigurationciliumiov2.CiliumLocalRedirectPolicyApplyConfiguration](
 			"ciliumlocalredirectpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

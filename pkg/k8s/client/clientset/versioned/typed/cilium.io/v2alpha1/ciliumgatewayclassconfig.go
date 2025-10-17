@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	applyconfigurationciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type CiliumGatewayClassConfigInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumGatewayClassConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumGatewayClassConfig, err error)
+	Apply(ctx context.Context, ciliumGatewayClassConfig *applyconfigurationciliumiov2alpha1.CiliumGatewayClassConfigApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumGatewayClassConfig, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, ciliumGatewayClassConfig *applyconfigurationciliumiov2alpha1.CiliumGatewayClassConfigApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumGatewayClassConfig, err error)
 	CiliumGatewayClassConfigExpansion
 }
 
 // ciliumGatewayClassConfigs implements CiliumGatewayClassConfigInterface
 type ciliumGatewayClassConfigs struct {
-	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumGatewayClassConfig, *ciliumiov2alpha1.CiliumGatewayClassConfigList]
+	*gentype.ClientWithListAndApply[*ciliumiov2alpha1.CiliumGatewayClassConfig, *ciliumiov2alpha1.CiliumGatewayClassConfigList, *applyconfigurationciliumiov2alpha1.CiliumGatewayClassConfigApplyConfiguration]
 }
 
 // newCiliumGatewayClassConfigs returns a CiliumGatewayClassConfigs
 func newCiliumGatewayClassConfigs(c *CiliumV2alpha1Client) *ciliumGatewayClassConfigs {
 	return &ciliumGatewayClassConfigs{
-		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumGatewayClassConfig, *ciliumiov2alpha1.CiliumGatewayClassConfigList](
+		gentype.NewClientWithListAndApply[*ciliumiov2alpha1.CiliumGatewayClassConfig, *ciliumiov2alpha1.CiliumGatewayClassConfigList, *applyconfigurationciliumiov2alpha1.CiliumGatewayClassConfigApplyConfiguration](
 			"ciliumgatewayclassconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
