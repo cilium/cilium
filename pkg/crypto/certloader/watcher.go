@@ -82,6 +82,7 @@ func FutureWatcher(ctx context.Context, log *slog.Logger, caFiles []string, cert
 		// to load the CA), we only need a successfully handled CA related fs
 		// notify event to become Ready (in other words, we don't need to
 		// receive a fs event for the keypair in that case to become ready).
+		log.Debug("Attempting initial TLS configuration load")
 		_, keypairErr := w.ReloadKeypair()
 		_, caErr := w.ReloadCA()
 		ready := w.Watch()
@@ -90,7 +91,10 @@ func FutureWatcher(ctx context.Context, log *slog.Logger, caFiles []string, cert
 			res <- w
 			return
 		}
-		log.Debug("Waiting on fswatcher update to be ready")
+		log.Warn("Initial TLS configuration load failed, certificate files might not yet be available, waiting on fswatcher update to become ready",
+			logfields.ReloadKeypairError, keypairErr,
+			logfields.ReloadCAError, caErr,
+		)
 		select {
 		case <-ready:
 			log.Debug("TLS configuration ready")
