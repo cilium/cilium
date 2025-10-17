@@ -154,7 +154,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 			   struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
-	const struct lb6_reverse_nat *nat_info;
+	struct lb6_reverse_nat nat_info __align_stack_8;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	void *data, *data_end;
 	fraginfo_t fraginfo;
@@ -179,8 +179,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 		return ret;
 	}
 
-	nat_info = nodeport_rev_dnat_get_info_ipv6(ctx, &tuple);
-	if (!nat_info)
+	if (!nodeport_rev_dnat_get_info_ipv6(ctx, &tuple, &nat_info))
 		return CTX_ACT_OK;
 
 #if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB)
@@ -190,7 +189,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 	fib_params.l.family = AF_INET6;
 	fib_params.l.ifindex = ctx_get_ifindex(ctx);
 	ipv6_addr_copy((union v6addr *)fib_params.l.ipv6_src,
-		       &nat_info->address);
+		       &nat_info.address);
 	ipv6_addr_copy((union v6addr *)fib_params.l.ipv6_dst,
 		       &tuple.daddr);
 
@@ -209,7 +208,7 @@ skip_fib:
 		trace->reason = TRACE_REASON_CT_REPLY;
 		trace->monitor = monitor;
 
-		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info,
+		ret = __lb6_rev_nat(ctx, l4_off, &tuple, &nat_info,
 				    ipfrag_has_l4_header(fraginfo), CT_EGRESS, false);
 		if (IS_ERR(ret))
 			return ret;
@@ -449,7 +448,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
 	int ret, l3_off = ETH_HLEN, l4_off;
-	const struct lb4_reverse_nat *nat_info;
+	struct lb4_reverse_nat nat_info;
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
@@ -471,8 +470,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 		return ret;
 	}
 
-	nat_info = nodeport_rev_dnat_get_info_ipv4(ctx, &tuple);
-	if (!nat_info)
+	if (!nodeport_rev_dnat_get_info_ipv4(ctx, &tuple, &nat_info))
 		return CTX_ACT_OK;
 
 #if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB)
@@ -484,7 +482,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 	 */
 	fib_params.l.family = AF_INET;
 	fib_params.l.ifindex = ctx_get_ifindex(ctx);
-	fib_params.l.ipv4_src = nat_info->address;
+	fib_params.l.ipv4_src = nat_info.address;
 	fib_params.l.ipv4_dst = tuple.daddr;
 
 	ret = nodeport_fib_lookup_and_redirect(ctx, &fib_params, ext_err);
@@ -508,7 +506,7 @@ skip_fib:
 		trace->monitor = monitor;
 
 		ret = __lb4_rev_nat(ctx, l3_off, l4_off, &tuple,
-				    nat_info, false, ipfrag_has_l4_header(fraginfo));
+				    &nat_info, false, ipfrag_has_l4_header(fraginfo));
 		if (IS_ERR(ret))
 			return ret;
 
