@@ -21,6 +21,12 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(buildConfigFrom),
 )
 
+var OperatorCell = cell.Module(
+	"wireguard-operator",
+	"Operator WireGuard configuration",
+	cell.Config(DefaultEnableConfig),
+)
+
 // newWireguardAgent returns the [*Agent] as an interface [types.WireguardAgent].
 func newWireguardAgent(p params) types.WireguardAgent {
 	return newAgent(p)
@@ -45,7 +51,7 @@ func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
 }
 
 var defaultUserConfig = UserConfig{
-	EnableWireguard:              false,
+	EnableConfig:                 DefaultEnableConfig,
 	WireguardTrackAllIPsFallback: false,
 	WireguardPersistentKeepalive: 0,
 	NodeEncryptionOptOutLabels:   "node-role.kubernetes.io/control-plane",
@@ -53,14 +59,14 @@ var defaultUserConfig = UserConfig{
 
 // User provided flags.
 type UserConfig struct {
-	EnableWireguard              bool
+	EnableConfig                 `mapstructure:",squash"`
 	WireguardTrackAllIPsFallback bool
 	WireguardPersistentKeepalive time.Duration
 	NodeEncryptionOptOutLabels   string
 }
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool(types.EnableWireguard, def.EnableWireguard, "Enable WireGuard")
+	def.EnableConfig.Flags(flags)
 	flags.Duration(types.WireguardPersistentKeepalive, def.WireguardPersistentKeepalive, "The Wireguard keepalive interval as a Go duration string")
 	flags.Bool(types.WireguardTrackAllIPsFallback, def.WireguardTrackAllIPsFallback, "Force WireGuard to track all IPs")
 	flags.MarkHidden(types.WireguardTrackAllIPsFallback)
@@ -81,4 +87,20 @@ type Config struct {
 // Returns true when enabled. Implements [types.WireguardConfig].
 func (c Config) Enabled() bool {
 	return c.EnableWireguard
+}
+
+var DefaultEnableConfig = EnableConfig{
+	EnableWireguard: false,
+}
+
+type EnableConfig struct {
+	EnableWireguard bool
+}
+
+func (c EnableConfig) Enabled() bool {
+	return c.EnableWireguard
+}
+
+func (def EnableConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool(types.EnableWireguard, def.EnableWireguard, "Enable WireGuard")
 }

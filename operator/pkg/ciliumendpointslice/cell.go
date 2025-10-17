@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/metrics"
+	wgAgent "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 const (
@@ -33,6 +34,7 @@ var Cell = cell.Module(
 	cell.Invoke(registerController),
 	metrics.Metric(NewMetrics),
 	ipsec.OperatorCell,
+	wgAgent.OperatorCell,
 )
 
 type Config struct {
