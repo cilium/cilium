@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
+	wgAgent "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 func TestRegisterController(t *testing.T) {
@@ -36,6 +37,7 @@ func TestRegisterController(t *testing.T) {
 		k8sFakeClient.FakeClientBuilderCell(),
 		k8s.ResourcesCell,
 		ipsec.OperatorCell,
+		wgAgent.OperatorCell,
 		cell.Provide(func() Config {
 			return defaultConfig
 		}),
@@ -90,6 +92,7 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 		k8sFakeClient.FakeClientBuilderCell(),
 		k8s.ResourcesCell,
 		ipsec.OperatorCell,
+		wgAgent.OperatorCell,
 		cell.Provide(func() Config {
 			return defaultConfig
 		}),
