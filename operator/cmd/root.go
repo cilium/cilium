@@ -80,6 +80,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
+	wgAgent "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 var (
@@ -150,6 +151,7 @@ var (
 		}),
 
 		ipsec.OperatorCell,
+		wgAgent.OperatorCell,
 
 		cell.Provide(func(
 			daemonCfg *option.DaemonConfig,
