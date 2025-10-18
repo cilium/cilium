@@ -309,6 +309,12 @@ Users (Alphabetically)
       L: https://www.equinix.nl/products/support-services/managed-services/netherlands
       Q: @jonkerj
 
+    * N: Eastern Switzerland University of Applied Sciences (OST)
+      D: OST is using Cilium in their production clusters (self-hosted, bare-metal, private cloud) and in their Cloud Native training courses.
+      U: CNI with Gateway API, Network Policies, L2 Announcements, Hubble Observability, Kube-proxy replacement
+      L: https://www.ost.ch
+      Q: @Jan Untersander
+
     * N: EvoCloud
       D: EvoCloud uses Cilium as a Kubernetes proxy replacement, CNI with Gateway API integration, Cluster mesh with BGP enabled, Network policy and Hubble Observability.
       U: L4/L7 Networking, L2 Announcement, Network Policies, Kube-proxy replacement, CNI with Gateway API, Hubble for tracing and observability, ClusterMesh and ServiceMesh
