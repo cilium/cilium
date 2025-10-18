@@ -1191,8 +1191,6 @@ certgen:
     digest: "${CERTGEN_DIGEST}"
     useDigest: true
     pullPolicy: "${PULL_POLICY}"
-  # -- Seconds after which the completed job pod will be deleted
-  ttlSecondsAfterFinished: 1800
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
   # -- Annotations to be added to the hubble-certgen initial Job and CronJob
