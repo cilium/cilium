@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -97,6 +98,9 @@ type mapState struct {
 	// trie is a Trie that indexes policy Keys without their identity
 	// and stores the identities in an associated builtin map.
 	trie bitlpm.Trie[types.LPMKey, IDSet]
+
+	// bakery tracks policy cookie bakery.
+	bakery cookie.PolicyBakery
 }
 
 type IDSet map[identity.NumericIdentity]struct{}
@@ -426,16 +430,45 @@ func NewMapStateEntry(e MapStateEntry) mapStateEntry {
 	}
 }
 
-func emptyMapState(logger *slog.Logger) mapState {
-	return newMapState(logger, 0)
+func emptyMapState(logger *slog.Logger, bakery cookie.PolicyBakery) mapState {
+	return newMapState(logger, 0, bakery)
 }
 
-func newMapState(logger *slog.Logger, size int) mapState {
+func newMapState(logger *slog.Logger, size int, bakery cookie.PolicyBakery) mapState {
 	return mapState{
 		logger:  logger,
 		entries: make(mapStateMap, size),
 		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
+		bakery:  bakery,
 	}
+}
+
+func (ms *mapState) generateCookie(derivedFrom ruleOrigin) uint32 {
+	if ms.bakery == nil {
+		return 0
+	}
+
+	bc := cookie.NewBakedCookie(
+		derivedFrom.LabelsString(),
+		derivedFrom.Logs(),
+	)
+	if bc.IsEmpty() {
+		return 0
+	}
+
+	ms.logger.Debug("Allocating policy log cookie",
+		logfields.PolicyCookieLogs, bc.Logs,
+		logfields.Labels, bc.Labels,
+	)
+	cookie, ok := ms.bakery.Allocate(bc)
+	if !ok {
+		ms.logger.Warn("Failed to allocate policy log cookie",
+			logfields.PolicyCookieLogs, bc.Logs,
+			logfields.Labels, bc.Labels,
+		)
+	}
+
+	return cookie
 }
 
 // Get the MapStateEntry that matches the Key.
@@ -579,6 +612,9 @@ func (e mapStateEntry) String() string {
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
 func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes ChangeState) bool {
 	var datapathEqual bool
+
+	entry.Cookie = ms.generateCookie(entry.derivedFromRules)
+
 	oldEntry, exists := ms.get(key)
 	// Only merge if both old and new are allows or denies
 	if exists && oldEntry.IsDeny() == entry.IsDeny() {
@@ -596,6 +632,8 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 
 		oldEntry.MapStateEntry.Merge(entry.MapStateEntry)
 		oldEntry.derivedFromRules = oldEntry.derivedFromRules.Merge(entry.derivedFromRules)
+		// !!BOZO!! Need Version??
+		oldEntry.Cookie = ms.generateCookie(oldEntry.derivedFromRules)
 
 		ms.updateExisting(key, oldEntry)
 	} else if !exists || entry.IsDeny() {

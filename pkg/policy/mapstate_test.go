@@ -13,10 +13,16 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+func (e mapStateEntry) withLabelsAndLogs(lbls labels.LabelArrayList, logs []string) mapStateEntry {
+	e.derivedFromRules = makeRuleOrigin(lbls, logs)
+	return e
+}
 
 func (e mapStateEntry) withLabels(lbls labels.LabelArrayList) mapStateEntry {
 	e.derivedFromRules = makeRuleOrigin(lbls, nil)
@@ -825,6 +831,54 @@ func TestMapState_insertWithChanges(t *testing.T) {
 	}
 }
 
+func TestMapState_insertWithChangesWithLabelsAndLogs(t *testing.T) {
+	uu := map[string]struct {
+		k1, k2, k Key
+		entry     MapStateEntry
+		e1, e2    mapStateEntry
+	}{
+		"accumulate-allow": {
+			e1: NewMapStateEntry(AllowEntry).
+				withLabelsAndLogs(
+					labels.LabelArrayListFromString("[b=c]"),
+					[]string{"blee", "blah"},
+				),
+			e2: NewMapStateEntry(AllowEntry).
+				withLabelsAndLogs(
+					labels.LabelArrayListFromString("[a=b], [b=c]"),
+					[]string{"blee", "blah", "zorg"},
+				),
+			k1:    AnyIngressKey(),
+			k2:    ingressKey(0, 0, 0, 0),
+			k:     IngressKey(),
+			entry: AllowEntry,
+		},
+	}
+
+	for k, u := range uu {
+		t.Run(k, func(t *testing.T) {
+			changes := ChangeState{
+				Adds:    make(Keys),
+				Deletes: make(Keys),
+				old:     make(mapStateMap),
+			}
+			ms := testMapState(t, mapStateMap{
+				u.k1: u.e1,
+			})
+			want := testMapState(t, mapStateMap{
+				u.k2: u.e2,
+			})
+
+			entry := NewMapStateEntry(u.entry).
+				withLabelsAndLogs(labels.LabelArrayListFromString("[a=b]"), []string{"zorg"})
+			ms.insertWithChanges(u.k, entry, denyRules, changes)
+			ms.validatePortProto(t)
+			require.Truef(t, ms.Equal(&want), "%s: MapState mismatch:\n%s", k, ms.diff(&want))
+
+		})
+	}
+}
+
 func DNSUDPEgressKey(id identity.NumericIdentity) Key {
 	return EgressKey().WithIdentity(id).WithUDPPort(53)
 }
@@ -1157,7 +1211,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args:      []args{
 			// {cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: ListenerPriorityHTTP, deny: false},
 		},
-		state: emptyMapState(hivetest.Logger(t)),
+		state: emptyMapState(hivetest.Logger(t), newFakeBakery()),
 		adds:  Keys{
 			// HttpIngressKey(42): allowEntry(),
 		},
@@ -1173,7 +1227,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		},
 		PolicyOwner: DummyOwner{logger: hivetest.Logger(t)},
 	}
-	policyMapState := emptyMapState(hivetest.Logger(t))
+	policyMapState := emptyMapState(hivetest.Logger(t), newFakeBakery())
 
 	for _, tt := range tests {
 		policyMaps := MapChanges{logger: hivetest.Logger(t)}
@@ -1346,7 +1400,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: ListenerPriorityHTTP},
 			{cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: ListenerPriorityHTTP},
 		},
-		state:   emptyMapState(hivetest.Logger(t)),
+		state:   emptyMapState(hivetest.Logger(t), newFakeBakery()),
 		adds:    Keys{},
 		deletes: Keys{},
 	}, {
@@ -1644,7 +1698,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		args:      []args{
 			// {cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: ListenerPriorityHTTP, deny: false},
 		},
-		state: emptyMapState(hivetest.Logger(t)),
+		state: emptyMapState(hivetest.Logger(t), newFakeBakery()),
 		adds:  Keys{
 			// HttpIngressKey(42): allowEntry(),
 		},
@@ -1660,13 +1714,13 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		},
 		PolicyOwner: DummyOwner{logger: hivetest.Logger(t)},
 	}
-	policyMapState := emptyMapState(hivetest.Logger(t))
+	policyMapState := emptyMapState(hivetest.Logger(t), newFakeBakery())
 
 	for _, tt := range tests {
 		t.Log(tt.name)
 		policyMaps := MapChanges{logger: hivetest.Logger(t)}
 		if !tt.continued {
-			policyMapState = emptyMapState(hivetest.Logger(t))
+			policyMapState = emptyMapState(hivetest.Logger(t), newFakeBakery())
 		}
 		epPolicy.policyMapState = policyMapState
 
@@ -1909,7 +1963,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			bKeys = append(bKeys, IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort))
 		}
 		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement))
-		expectedKeys := emptyMapState(hivetest.Logger(t))
+		expectedKeys := emptyMapState(hivetest.Logger(t), newFakeBakery())
 		if tt.outcome&insertAllowAll > 0 {
 			expectedKeys.insert(anyIngressKey, allowEntry)
 		}
@@ -1955,7 +2009,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			denyEntry := NewMapStateEntry(DenyEntry)
 			expectedKeys.insert(worldIngressKey, denyEntry)
 		}
-		outcomeKeys := emptyMapState(hivetest.Logger(t))
+		outcomeKeys := emptyMapState(hivetest.Logger(t), newFakeBakery())
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
@@ -1974,7 +2028,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s (MapState):\n%s\nExpected:\n%s\nObtained:\n%s\n", tt.name, outcomeKeys.diff(&expectedKeys), expectedKeys, outcomeKeys)
 
 		// Test also with reverse insertion order
-		outcomeKeys = emptyMapState(hivetest.Logger(t))
+		outcomeKeys = emptyMapState(hivetest.Logger(t), newFakeBakery())
 
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
@@ -2007,7 +2061,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			bKeys = append(bKeys, EgressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort))
 		}
 		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement))
-		expectedKeys := emptyMapState(hivetest.Logger(t))
+		expectedKeys := emptyMapState(hivetest.Logger(t), newFakeBakery())
 		if tt.outcome&insertAllowAll > 0 {
 			expectedKeys.insert(anyIngressKey, allowEntry)
 			expectedKeys.insert(anyEgressKey, allowEntry)
@@ -2018,7 +2072,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		for _, bKey := range bKeys {
 			expectedKeys.insert(bKey, bEntry)
 		}
-		outcomeKeys := emptyMapState(hivetest.Logger(t))
+		outcomeKeys := emptyMapState(hivetest.Logger(t), newFakeBakery())
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
@@ -2035,7 +2089,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
 
 		// Test also with reverse insertion order
-		outcomeKeys = emptyMapState(hivetest.Logger(t))
+		outcomeKeys = emptyMapState(hivetest.Logger(t), newFakeBakery())
 
 		for _, bKey := range bKeys {
 			outcomeKeys.insertWithChanges(bKey, bEntry, allFeatures, changes)
@@ -2053,7 +2107,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 }
 
 func TestMapState_Get_stacktrace(t *testing.T) {
-	ms := emptyMapState(hivetest.Logger(t))
+	ms := emptyMapState(hivetest.Logger(t), newFakeBakery())
 	// This should produce a stacktrace in the error log. It is not validated here but can be
 	// observed manually.
 	// Example log (with newlines expanded):
@@ -2086,3 +2140,12 @@ func TestDenyPreferredInsertLogic(t *testing.T) {
 	p.detach(true, 0)
 	assert.Positive(t, n)
 }
+
+type fakeBakery struct{}
+
+func newFakeBakery() *fakeBakery                                     { return &fakeBakery{} }
+func (f *fakeBakery) Allocate(bc *cookie.BakedCookie) (uint32, bool) { return 0, true }
+func (f *fakeBakery) Get(uint32) (*cookie.BakedCookie, bool)         { return &cookie.BakedCookie{}, true }
+func (f *fakeBakery) MarkInUse(uint32)                               {}
+func (f *fakeBakery) Sweep()                                         {}
+func (f *fakeBakery) Count() int                                     { return 0 }

@@ -64,6 +64,7 @@ func noopParser(t testing.TB) *parser.Parser {
 		&testutils.NoopServiceGetter,
 		&testutils.NoopLinkGetter,
 		&testutils.NoopPodMetadataGetter,
+		&testutils.NoopPolicyMetadataGetter,
 	)
 	require.NoError(t, err)
 	return pp

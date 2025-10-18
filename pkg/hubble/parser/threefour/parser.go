@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -29,13 +30,14 @@ import (
 
 // Parser is a parser for L3/L4 payloads
 type Parser struct {
-	log            *slog.Logger
-	endpointGetter getters.EndpointGetter
-	identityGetter getters.IdentityGetter
-	dnsGetter      getters.DNSGetter
-	ipGetter       getters.IPGetter
-	serviceGetter  getters.ServiceGetter
-	linkGetter     getters.LinkGetter
+	log                  *slog.Logger
+	endpointGetter       getters.EndpointGetter
+	identityGetter       getters.IdentityGetter
+	dnsGetter            getters.DNSGetter
+	ipGetter             getters.IPGetter
+	serviceGetter        getters.ServiceGetter
+	linkGetter           getters.LinkGetter
+	policyMetadataGetter getters.PolicyMetadataGetter
 
 	epResolver          *common.EndpointResolver
 	correlateL3L4Policy bool
@@ -96,6 +98,8 @@ func New(
 	ipGetter getters.IPGetter,
 	serviceGetter getters.ServiceGetter,
 	linkGetter getters.LinkGetter,
+	policyMetadataGetter getters.PolicyMetadataGetter,
+
 	opts ...options.Option,
 ) (*Parser, error) {
 	packet := &packet{}
@@ -138,16 +142,17 @@ func New(
 	}
 
 	return &Parser{
-		log:                 log,
-		dnsGetter:           dnsGetter,
-		endpointGetter:      endpointGetter,
-		identityGetter:      identityGetter,
-		ipGetter:            ipGetter,
-		serviceGetter:       serviceGetter,
-		linkGetter:          linkGetter,
-		epResolver:          common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
-		packet:              packet,
-		correlateL3L4Policy: args.EnableNetworkPolicyCorrelation,
+		log:                  log,
+		dnsGetter:            dnsGetter,
+		endpointGetter:       endpointGetter,
+		identityGetter:       identityGetter,
+		ipGetter:             ipGetter,
+		serviceGetter:        serviceGetter,
+		linkGetter:           linkGetter,
+		policyMetadataGetter: policyMetadataGetter,
+		epResolver:           common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
+		packet:               packet,
+		correlateL3L4Policy:  args.EnableNetworkPolicyCorrelation,
 	}, nil
 }
 
@@ -166,6 +171,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	var dbg *monitor.DebugCapture
 	var eventSubType uint8
 	var authType pb.AuthType
+	var policyCookie uint32
 
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
@@ -199,6 +205,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		eventSubType = pvn.SubType
 		packetOffset = monitor.PolicyVerdictNotifyLen
 		authType = pb.AuthType(pvn.GetAuthType())
+		policyCookie = pvn.Cookie
 	case monitorAPI.MessageTypeCapture:
 		dbg = &monitor.DebugCapture{}
 		if err := dbg.Decode(data); err != nil {
@@ -286,11 +293,37 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.ProxyPort = decodeProxyPort(dbg, tn)
 	decoded.Summary = summary
 
-	if p.correlateL3L4Policy && p.endpointGetter != nil {
-		correlation.CorrelatePolicy(p.log, p.endpointGetter, decoded)
-	}
+	p.correlatePolicy(policyCookie, decoded)
 
 	return nil
+}
+
+func (p *Parser) correlatePolicy(policyCookie uint32, f *pb.Flow) {
+	var correlated bool
+
+	// If we have a valid cookie use it to add log info and correlate the flow.
+	if policyCookie != 0 && p.policyMetadataGetter != nil {
+		// If provided, look up policy log string based on the cookie we got. This will be more
+		// specific than the policy log string retrieved from the correlated policy. Also don't make
+		// this conditional on policy correlation being enabled as this is a simple map lookup.
+		if cookie, ok := p.policyMetadataGetter.GetCookie(policyCookie); !ok {
+			p.log.Debug(
+				"no policy cookie found",
+				logfields.PolicyCookie, policyCookie,
+			)
+		} else {
+			f.PolicyLog = cookie.Logs
+			// Now if we have have a valid cookie use the labels and revision metadata to correlate.
+			if p.correlateL3L4Policy && p.endpointGetter != nil && cookie.Labels != "" {
+				correlation.CorrelatePolicyFromCookie(p.log, cookie, f)
+				correlated = true
+			}
+		}
+	}
+
+	if !correlated && p.correlateL3L4Policy && p.endpointGetter != nil {
+		correlation.CorrelatePolicy(p.log, p.endpointGetter, f)
+	}
 }
 
 func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {

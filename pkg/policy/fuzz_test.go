@@ -44,7 +44,7 @@ func FuzzResolvePolicy(f *testing.F) {
 
 func FuzzDenyPreferredInsert(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
-		keys := emptyMapState(slog.New(slog.DiscardHandler))
+		keys := emptyMapState(slog.New(slog.DiscardHandler), newFakeBakery())
 		key := Key{}
 		entry := NewMapStateEntry(types.AllowEntry())
 		ff := fuzz.NewConsumer(data)

@@ -549,7 +549,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{logger: logger},
-		policyMapState: emptyMapState(logger).withState(mapStateMap{
+		policyMapState: emptyMapState(logger, newFakeBakery()).withState(mapStateMap{
 			EgressKey():                  allowEgressMapStateEntry,
 			IngressKey().WithTCPPort(80): rule1MapStateEntry,
 		}),
@@ -723,7 +723,7 @@ func TestMapStateWithIngress(t *testing.T) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{logger: logger},
-		policyMapState: emptyMapState(logger).withState(mapStateMap{
+		policyMapState: emptyMapState(logger, newFakeBakery()).withState(mapStateMap{
 			EgressKey(): allowEgressMapStateEntry,
 			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry,
 			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry,
@@ -813,7 +813,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: false,
 					EgressPolicyEnabled:  false,
 				},
-				PolicyMapState: emptyMapState(logger),
+				PolicyMapState: emptyMapState(logger, newFakeBakery()),
 			},
 			args: args{
 				identity: 0,
@@ -828,7 +828,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState(logger),
+				PolicyMapState: emptyMapState(logger, newFakeBakery()),
 			},
 			args: args{
 				identity: 0,
@@ -843,7 +843,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger, newFakeBakery()).withState(mapStateMap{
 					IngressKey(): {},
 				}),
 			},
@@ -860,7 +860,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger, newFakeBakery()).withState(mapStateMap{
 					EgressKey(): {},
 				}),
 			},
@@ -877,7 +877,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger, newFakeBakery()).withState(mapStateMap{
 					IngressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
@@ -894,7 +894,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: false,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger, newFakeBakery()).withState(mapStateMap{
 					IngressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
@@ -911,7 +911,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger, newFakeBakery()).withState(mapStateMap{
 					EgressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
@@ -928,7 +928,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  false,
 				},
-				PolicyMapState: emptyMapState(logger).withState(mapStateMap{
+				PolicyMapState: emptyMapState(logger, newFakeBakery()).withState(mapStateMap{
 					EgressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
@@ -969,13 +969,13 @@ func TestEndpointPolicy_GetRuleMeta(t *testing.T) {
 
 	// test empty map state
 	p := &EndpointPolicy{
-		policyMapState: emptyMapState(log),
+		policyMapState: emptyMapState(log, newFakeBakery()),
 	}
 	_, err := p.GetRuleMeta(key1)
 	require.Error(t, err)
 
 	// test non-empty mapstate
-	p.policyMapState = emptyMapState(log).withState(mapStateMap{
+	p.policyMapState = emptyMapState(log, newFakeBakery()).withState(mapStateMap{
 		key1: newMapStateEntry(makeSingleRuleOrigin(lbls, logstr), 0, 0, false, NoAuthRequirement),
 	})
 
@@ -993,7 +993,7 @@ func TestEndpointPolicy_GetRuleMeta(t *testing.T) {
 	}
 
 	p = &EndpointPolicy{
-		policyMapState: emptyMapState(log),
+		policyMapState: emptyMapState(log, newFakeBakery()),
 	}
 
 	p.CopyMapStateFrom(msDump)
