@@ -17,12 +17,17 @@ import (
 // logrErrorKey is the key used by the logr library for the error parameter.
 const logrErrorKey = "err"
 
+// Note: slogHandlerOpts will be mutated by initializeSlog.
+// After mutating the opts, DefaultSlogLogger should be re-initialized
+// with a copy of slogHandlerOpts.
 var slogHandlerOpts = &slog.HandlerOptions{
 	AddSource:   false,
 	Level:       slogLeveler,
 	ReplaceAttr: replaceAttrFn,
 }
 
+// slogLeveler is the global leveler, updates to the log level
+// do not recreate the default logger.
 var slogLeveler = func() *slog.LevelVar {
 	var levelVar slog.LevelVar
 	levelVar.Set(slog.LevelInfo)
@@ -59,24 +64,26 @@ func initializeSlog(logOpts LogOptions, loggers []string) {
 	// Set first the option with or without timestamps
 	switch logFormat {
 	case LogFormatJSON, LogFormatText:
-		opts.ReplaceAttr = ReplaceAttrFnWithoutTimestamp
+		slogHandlerOpts.ReplaceAttr = ReplaceAttrFnWithoutTimestamp
 	case LogFormatJSONTimestamp, LogFormatTextTimestamp:
-		opts.ReplaceAttr = replaceAttrFn
+		slogHandlerOpts.ReplaceAttr = replaceAttrFn
 	}
 
 	// Set the log format in either text or JSON
 	switch logFormat {
 	case LogFormatJSON, LogFormatJSONTimestamp:
-		defaultMultiSlogHandler.SetHandler(slog.NewJSONHandler(
+		defaultMultiSlogHandler = NewMultiSlogHandler(slog.NewJSONHandler(
 			writer,
 			&opts,
 		))
 	case LogFormatText, LogFormatTextTimestamp:
-		defaultMultiSlogHandler.SetHandler(slog.NewTextHandler(
+		defaultMultiSlogHandler = NewMultiSlogHandler(slog.NewTextHandler(
 			writer,
 			&opts,
 		))
 	}
+
+	DefaultSlogLogger = slog.New(defaultMultiSlogHandler)
 }
 
 func ReplaceAttrFn(groups []string, a slog.Attr) slog.Attr {
