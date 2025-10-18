@@ -28,7 +28,6 @@ func NewGetRecorderMasksParams() GetRecorderMasksParams {
 //
 // swagger:parameters GetRecorderMasks
 type GetRecorderMasksParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }
