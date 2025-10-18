@@ -63,6 +63,8 @@ type FQDNSelector struct {
 	MatchPattern string `json:"matchPattern,omitempty"`
 }
 
+func (s FQDNSelector) IsPeerSelector() {}
+
 func (s *FQDNSelector) String() string {
 	const m = "MatchName: "
 	const mm = ", MatchPattern: "
@@ -120,6 +122,12 @@ func (s *FQDNSelector) ToRegex() (*regexp.Regexp, error) {
 
 // PortRuleDNS is a list of allowed DNS lookups.
 type PortRuleDNS FQDNSelector
+
+// PortRulesDNS is a slice of PortRuleDNS.
+// This type allows for an order-agnostic deep equality comparison.
+//
+// +deepequal-gen:unordered-array=true
+type PortRulesDNS []PortRuleDNS
 
 // Sanitize checks that the matchName in the portRule can be compiled as a
 // regex. It does not check that a DNS name is a valid DNS name.

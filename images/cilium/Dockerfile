@@ -3,8 +3,8 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:7eef40ab358578530900d11bdde1627738761451@sha256:b9af63dd993cb4ac3574e85b9a5ca75548090b236f5666ae7855ec1ebb338af2
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:5cc5a357af5e9a7a69580c6ec68167c6d9235b0e@sha256:bb71d88568e9e2cb7315b6793a2aeaeb2a09449d8a72088981673c7c25ab7e74
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:ba1048cbc92b399c794e975577d17899c563cfd8@sha256:721a7bd8f5ff016d3f5b43c8c3b7e2b62d0d864d1a61e4f53ee150d9e2c3b85e
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:70417bd7fc3692f78447bdecb8cd33b51667c490@sha256:ca25a3c54140b614b5580c36a995b8b297dd8d0be670faecc4636780aa16d1ab
 #
 # cilium-envoy from github.com/cilium/proxy
 #
@@ -118,6 +118,7 @@ CMD ["/usr/bin/cilium-dbg"]
 # image, install delve debugger and wrap the cilium-agent binary calls
 # with a script that automatically provisions the debugger on a
 # dedicated port.
+FROM ${CILIUM_BUILDER_IMAGE} AS debug-tools
 FROM release AS debug
 # TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETOS
@@ -126,8 +127,8 @@ ARG TARGETARCH
 ARG DEBUG_HOLD
 ENV DEBUG_HOLD=${DEBUG_HOLD}
 COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH}/usr/bin/cilium-agent /usr/bin/cilium-agent-bin
-COPY --from=builder /go/bin/dlv /usr/bin/dlv
-COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/bin/debug-wrapper /usr/bin/cilium-agent
+COPY --from=debug-tools /go/bin/dlv /usr/bin/dlv
+COPY --from=debug-tools /out/${TARGETOS}/${TARGETARCH}/bin/debug-wrapper /usr/bin/cilium-agent
 
 # Copy the debug symbols across in case the binaries were stripped
 COPY --from=builder /tmp/debug/${TARGETOS}/${TARGETARCH}/ /usr/lib/debug/

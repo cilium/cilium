@@ -38,10 +38,6 @@ func (f *FakeLoader) CallsMapPath(id uint16) string {
 	return ""
 }
 
-func (f *FakeLoader) CustomCallsMapPath(id uint16) string {
-	return ""
-}
-
 func (f *FakeLoader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 	return nil
 }

@@ -12,10 +12,15 @@ int overlay_neigh_resolver(__maybe_unused struct __sk_buff *ctx)
 	test_init();
 
 	/* Due to https://lore.kernel.org/netdev/20251003073418.291171-1-daniel@iogearbox.net
-	 * we shouldn't use bpf_redirect_neigh() from overlay programs.
+	 * we shouldn't use bpf_redirect_neigh() from overlay programs without providing
+	 * the next-hop.
 	 */
-	TEST("no_neigh_resolver_on_overlay", {
-		assert(!neigh_resolver_available());
+	TEST("no_neigh_resolver_without_nh_on_overlay", {
+		assert(!neigh_resolver_without_nh_available());
+	});
+
+	TEST("neigh_resolver_on_overlay", {
+		assert(neigh_resolver_available());
 	});
 
 	test_finish();

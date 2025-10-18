@@ -13,6 +13,9 @@ on:
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
@@ -89,7 +92,7 @@ jobs:
           destination_directory="/tmp/generated/ipsec"
           mkdir -p "${destination_directory}"
 
-          yq -o=json "${work_dir}/ipsec_configs.yaml" | jq . > "${destination_directory}/configs.json"
+          yq -o=json "${work_dir}/ipsec.yaml" | jq . > "${destination_directory}/configs.json"
 
       - name: Generate Matrix
         id: generate-matrix

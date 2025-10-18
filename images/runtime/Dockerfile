@@ -3,7 +3,7 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG GOLANG_IMAGE=docker.io/library/golang:1.25.1@sha256:d7098379b7da665ab25b99795465ec320b1ca9d4addb9f77409c4827dc904211
+ARG GOLANG_IMAGE=docker.io/library/golang:1.25.3@sha256:7d73c4c57127279b23f3f70cbb368bf0fe08f7ab32af5daf5764173d25e78b74
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:24.04@sha256:728785b59223d755e3e5c5af178fab1be7031f3522c5ccd7a0b32b80d8248123
 
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1755973935-c5bf38b@sha256:40f98e82b2fdeb4936776792ee0dedaacab1892c2d689748a1745e3ee911cecf
@@ -14,16 +14,18 @@ FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} AS bpftool-dist
 FROM ${CILIUM_IPTABLES_IMAGE} AS iptables-dist
 
-FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS gops-cni-builder
+FROM ${GOLANG_IMAGE} AS go-builder
 
-RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu
-
-# build-gops.sh will build both archs at the same time
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
+    --mount=target=/root/.cache,type=cache \
+    --mount=target=/go/pkg/mod,type=cache \
     ./build-gops.sh
-# download-cni.sh will build both archs at the same time
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+
+ARG TARGETARCH
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
+    --mount=target=/root/.cache,type=cache \
+    --mount=target=/go/pkg/mod,type=cache \
     ./download-cni.sh
 
 FROM ${UBUNTU_IMAGE} AS rootfs
@@ -49,10 +51,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
 
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
 COPY --from=bpftool-dist /usr/local/bin/bpftool /usr/local/bin/bpftool
-
-ARG TARGETPLATFORM
-COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/loopback /cni/loopback
-COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/gops /bin/gops
+COPY --from=go-builder /out /
 
 FROM scratch
 LABEL maintainer="maintainer@cilium.io"

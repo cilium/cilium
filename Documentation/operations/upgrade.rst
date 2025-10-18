@@ -330,6 +330,7 @@ Removed Options
   enabled by default.
 * The previously deprecated ``--enable-node-port``, ``--enable-host-port``, and ``--enable-external-ips``
   flags have been removed. To enable the corresponding features, users must set ``--kube-proxy-replacement=true``.
+* The previously deprecated custom calls feature (``--enable-custom-calls``) has been removed.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -368,6 +369,7 @@ Removed Metrics
 ~~~~~~~~~~~~~~~
 
 * ``k8s_internal_traffic_policy_enabled`` has been removed, because the corresponding feature is enabled by default.
+* ``endpoint_max_ifindex`` has been removed, because the corresponding datapath limitation no longer applies.
 
 Changed Metrics
 ~~~~~~~~~~~~~~~

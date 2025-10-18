@@ -76,7 +76,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
@@ -96,6 +95,7 @@ const (
 	argDebugVerboseEnvoy    = "envoy"
 	argDebugVerboseDatapath = "datapath"
 	argDebugVerbosePolicy   = "policy"
+	argDebugVerboseTagged   = "tagged"
 
 	apiTimeout   = 60 * time.Second
 	daemonSubsys = "daemon"
@@ -763,10 +763,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 		"Value \"auto\" reserves the WireGuard and VXLAN ports used by Cilium")
 	option.BindEnv(vp, option.ContainerIPLocalReservedPorts)
 
-	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
-	option.BindEnv(vp, option.EnableCustomCallsName)
-	flags.MarkDeprecated(option.EnableCustomCallsName, "The feature has been deprecated and it will be removed in v1.19")
-
 	// flags.IntSlice cannot be used due to missing support for appropriate conversion in Viper.
 	// See https://github.com/cilium/cilium/pull/20282 for more information.
 	flags.StringSlice(option.VLANBPFBypass, []string{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
@@ -931,6 +927,8 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 			debugDatapath = true
 		case argDebugVerbosePolicy:
 			option.Config.Opts.SetBool(option.DebugPolicy, true)
+		case argDebugVerboseTagged:
+			option.Config.Opts.SetBool(option.DebugTagged, true)
 		default:
 			logger.Warn("Unknown verbose debug group", logfields.Group, grp)
 		}
@@ -1229,6 +1227,7 @@ var daemonCell = cell.Module(
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
 		newEndpointRestorer,
+		newInfraIPAllocator,
 	),
 	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
@@ -1254,7 +1253,6 @@ type daemonParams struct {
 	K8sResourceSynced   *k8sSynced.Resources
 	K8sAPIGroups        *k8sSynced.APIGroups
 	NodeHandler         datapath.NodeHandler
-	NodeAddressing      datapath.NodeAddressing
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
 	EndpointRestorer    *endpointRestorer
@@ -1271,9 +1269,7 @@ type daemonParams struct {
 	MonitorAgent        monitorAgent.Agent
 	DB                  *statedb.DB
 	Namespaces          statedb.Table[agentK8s.Namespace]
-	Routes              statedb.Table[*datapathTables.Route]
 	Devices             statedb.Table[*datapathTables.Device]
-	NodeAddrs           statedb.Table[datapathTables.NodeAddress]
 	DirectRoutingDevice datapathTables.DirectRoutingDevice
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
@@ -1283,7 +1279,6 @@ type daemonParams struct {
 	ClusterInfo       cmtypes.ClusterInfo
 	BandwidthManager  datapath.BandwidthManager
 	IPsecAgent        datapath.IPsecAgent
-	MTU               mtu.MTU
 	SyncHostIPs       *syncHostIPs
 	NodeDiscovery     *nodediscovery.NodeDiscovery
 	IPAM              *ipam.IPAM
@@ -1297,6 +1292,7 @@ type daemonParams struct {
 	KPRInitializer    kprinitializer.KPRInitializer
 	IPSecConfig       datapath.IPsecConfig
 	HealthConfig      healthconfig.CiliumHealthConfig
+	InfraIPAllocator  *infraIPAllocator
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
@@ -1493,7 +1489,7 @@ func startDaemon(ctx context.Context, d *Daemon, cleaner *daemonCleanup, params 
 
 	bootstrapStats.healthCheck.Start()
 	if params.HealthConfig.IsHealthCheckingEnabled() {
-		if err := params.CiliumHealth.Init(ctx, d.healthEndpointRouting, cleaner.cleanupFuncs.Add); err != nil {
+		if err := params.CiliumHealth.Init(ctx, params.InfraIPAllocator.GetHealthEndpointRouting(), cleaner.cleanupFuncs.Add); err != nil {
 			return fmt.Errorf("failed to initialize cilium health: %w", err)
 		}
 	}

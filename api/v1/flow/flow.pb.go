@@ -1438,7 +1438,7 @@ func (x Tunnel_Protocol) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Tunnel_Protocol.Descriptor instead.
 func (Tunnel_Protocol) EnumDescriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{17, 0}
+	return file_flow_flow_proto_rawDescGZIP(), []int{19, 0}
 }
 
 type Flow struct {
@@ -2014,6 +2014,8 @@ type Layer4 struct {
 	//	*Layer4_ICMPv4
 	//	*Layer4_ICMPv6
 	//	*Layer4_SCTP
+	//	*Layer4_VRRP
+	//	*Layer4_IGMP
 	Protocol      isLayer4_Protocol `protobuf_oneof:"protocol"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2101,6 +2103,24 @@ func (x *Layer4) GetSCTP() *SCTP {
 	return nil
 }
 
+func (x *Layer4) GetVRRP() *VRRP {
+	if x != nil {
+		if x, ok := x.Protocol.(*Layer4_VRRP); ok {
+			return x.VRRP
+		}
+	}
+	return nil
+}
+
+func (x *Layer4) GetIGMP() *IGMP {
+	if x != nil {
+		if x, ok := x.Protocol.(*Layer4_IGMP); ok {
+			return x.IGMP
+		}
+	}
+	return nil
+}
+
 type isLayer4_Protocol interface {
 	isLayer4_Protocol()
 }
@@ -2126,6 +2146,14 @@ type Layer4_SCTP struct {
 	SCTP *SCTP `protobuf:"bytes,5,opt,name=SCTP,proto3,oneof"`
 }
 
+type Layer4_VRRP struct {
+	VRRP *VRRP `protobuf:"bytes,6,opt,name=VRRP,proto3,oneof"`
+}
+
+type Layer4_IGMP struct {
+	IGMP *IGMP `protobuf:"bytes,7,opt,name=IGMP,proto3,oneof"`
+}
+
 func (*Layer4_TCP) isLayer4_Protocol() {}
 
 func (*Layer4_UDP) isLayer4_Protocol() {}
@@ -2135,6 +2163,10 @@ func (*Layer4_ICMPv4) isLayer4_Protocol() {}
 func (*Layer4_ICMPv6) isLayer4_Protocol() {}
 
 func (*Layer4_SCTP) isLayer4_Protocol() {}
+
+func (*Layer4_VRRP) isLayer4_Protocol() {}
+
+func (*Layer4_IGMP) isLayer4_Protocol() {}
 
 // Message for L7 flow, which roughly corresponds to Cilium's accesslog [LogRecord](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141):
 type Layer7 struct {
@@ -3005,6 +3037,118 @@ func (x *ICMPv6) GetCode() uint32 {
 	return 0
 }
 
+type VRRP struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          uint32                 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
+	Vrid          uint32                 `protobuf:"varint,2,opt,name=vrid,proto3" json:"vrid,omitempty"`
+	Priority      uint32                 `protobuf:"varint,3,opt,name=priority,proto3" json:"priority,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VRRP) Reset() {
+	*x = VRRP{}
+	mi := &file_flow_flow_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VRRP) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VRRP) ProtoMessage() {}
+
+func (x *VRRP) ProtoReflect() protoreflect.Message {
+	mi := &file_flow_flow_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VRRP.ProtoReflect.Descriptor instead.
+func (*VRRP) Descriptor() ([]byte, []int) {
+	return file_flow_flow_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *VRRP) GetType() uint32 {
+	if x != nil {
+		return x.Type
+	}
+	return 0
+}
+
+func (x *VRRP) GetVrid() uint32 {
+	if x != nil {
+		return x.Vrid
+	}
+	return 0
+}
+
+func (x *VRRP) GetPriority() uint32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+type IGMP struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          uint32                 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
+	GroupAddress  string                 `protobuf:"bytes,2,opt,name=group_address,json=groupAddress,proto3" json:"group_address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IGMP) Reset() {
+	*x = IGMP{}
+	mi := &file_flow_flow_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IGMP) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IGMP) ProtoMessage() {}
+
+func (x *IGMP) ProtoReflect() protoreflect.Message {
+	mi := &file_flow_flow_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IGMP.ProtoReflect.Descriptor instead.
+func (*IGMP) Descriptor() ([]byte, []int) {
+	return file_flow_flow_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *IGMP) GetType() uint32 {
+	if x != nil {
+		return x.Type
+	}
+	return 0
+}
+
+func (x *IGMP) GetGroupAddress() string {
+	if x != nil {
+		return x.GroupAddress
+	}
+	return ""
+}
+
 type Tunnel struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Protocol      Tunnel_Protocol        `protobuf:"varint,1,opt,name=protocol,proto3,enum=flow.Tunnel_Protocol" json:"protocol,omitempty"`
@@ -3016,7 +3160,7 @@ type Tunnel struct {
 
 func (x *Tunnel) Reset() {
 	*x = Tunnel{}
-	mi := &file_flow_flow_proto_msgTypes[17]
+	mi := &file_flow_flow_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3028,7 +3172,7 @@ func (x *Tunnel) String() string {
 func (*Tunnel) ProtoMessage() {}
 
 func (x *Tunnel) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[17]
+	mi := &file_flow_flow_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3041,7 +3185,7 @@ func (x *Tunnel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Tunnel.ProtoReflect.Descriptor instead.
 func (*Tunnel) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{17}
+	return file_flow_flow_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Tunnel) GetProtocol() Tunnel_Protocol {
@@ -3078,7 +3222,7 @@ type Policy struct {
 
 func (x *Policy) Reset() {
 	*x = Policy{}
-	mi := &file_flow_flow_proto_msgTypes[18]
+	mi := &file_flow_flow_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3090,7 +3234,7 @@ func (x *Policy) String() string {
 func (*Policy) ProtoMessage() {}
 
 func (x *Policy) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[18]
+	mi := &file_flow_flow_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3103,7 +3247,7 @@ func (x *Policy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Policy.ProtoReflect.Descriptor instead.
 func (*Policy) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{18}
+	return file_flow_flow_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *Policy) GetName() string {
@@ -3159,7 +3303,7 @@ type EventTypeFilter struct {
 
 func (x *EventTypeFilter) Reset() {
 	*x = EventTypeFilter{}
-	mi := &file_flow_flow_proto_msgTypes[19]
+	mi := &file_flow_flow_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3171,7 +3315,7 @@ func (x *EventTypeFilter) String() string {
 func (*EventTypeFilter) ProtoMessage() {}
 
 func (x *EventTypeFilter) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[19]
+	mi := &file_flow_flow_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3184,7 +3328,7 @@ func (x *EventTypeFilter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventTypeFilter.ProtoReflect.Descriptor instead.
 func (*EventTypeFilter) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{19}
+	return file_flow_flow_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *EventTypeFilter) GetType() int32 {
@@ -3225,7 +3369,7 @@ type CiliumEventType struct {
 
 func (x *CiliumEventType) Reset() {
 	*x = CiliumEventType{}
-	mi := &file_flow_flow_proto_msgTypes[20]
+	mi := &file_flow_flow_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3237,7 +3381,7 @@ func (x *CiliumEventType) String() string {
 func (*CiliumEventType) ProtoMessage() {}
 
 func (x *CiliumEventType) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[20]
+	mi := &file_flow_flow_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3250,7 +3394,7 @@ func (x *CiliumEventType) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CiliumEventType.ProtoReflect.Descriptor instead.
 func (*CiliumEventType) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{20}
+	return file_flow_flow_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CiliumEventType) GetType() int32 {
@@ -3375,7 +3519,7 @@ type FlowFilter struct {
 
 func (x *FlowFilter) Reset() {
 	*x = FlowFilter{}
-	mi := &file_flow_flow_proto_msgTypes[21]
+	mi := &file_flow_flow_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3387,7 +3531,7 @@ func (x *FlowFilter) String() string {
 func (*FlowFilter) ProtoMessage() {}
 
 func (x *FlowFilter) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[21]
+	mi := &file_flow_flow_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3400,7 +3544,7 @@ func (x *FlowFilter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowFilter.ProtoReflect.Descriptor instead.
 func (*FlowFilter) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{21}
+	return file_flow_flow_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *FlowFilter) GetUuid() []string {
@@ -3715,7 +3859,7 @@ type DNS struct {
 
 func (x *DNS) Reset() {
 	*x = DNS{}
-	mi := &file_flow_flow_proto_msgTypes[22]
+	mi := &file_flow_flow_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3727,7 +3871,7 @@ func (x *DNS) String() string {
 func (*DNS) ProtoMessage() {}
 
 func (x *DNS) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[22]
+	mi := &file_flow_flow_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3740,7 +3884,7 @@ func (x *DNS) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DNS.ProtoReflect.Descriptor instead.
 func (*DNS) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{22}
+	return file_flow_flow_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *DNS) GetQuery() string {
@@ -3809,7 +3953,7 @@ type HTTPHeader struct {
 
 func (x *HTTPHeader) Reset() {
 	*x = HTTPHeader{}
-	mi := &file_flow_flow_proto_msgTypes[23]
+	mi := &file_flow_flow_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3821,7 +3965,7 @@ func (x *HTTPHeader) String() string {
 func (*HTTPHeader) ProtoMessage() {}
 
 func (x *HTTPHeader) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[23]
+	mi := &file_flow_flow_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3834,7 +3978,7 @@ func (x *HTTPHeader) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPHeader.ProtoReflect.Descriptor instead.
 func (*HTTPHeader) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{23}
+	return file_flow_flow_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *HTTPHeader) GetKey() string {
@@ -3865,7 +4009,7 @@ type HTTP struct {
 
 func (x *HTTP) Reset() {
 	*x = HTTP{}
-	mi := &file_flow_flow_proto_msgTypes[24]
+	mi := &file_flow_flow_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3877,7 +4021,7 @@ func (x *HTTP) String() string {
 func (*HTTP) ProtoMessage() {}
 
 func (x *HTTP) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[24]
+	mi := &file_flow_flow_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3890,7 +4034,7 @@ func (x *HTTP) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTP.ProtoReflect.Descriptor instead.
 func (*HTTP) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{24}
+	return file_flow_flow_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *HTTP) GetCode() uint32 {
@@ -3944,7 +4088,7 @@ type Kafka struct {
 
 func (x *Kafka) Reset() {
 	*x = Kafka{}
-	mi := &file_flow_flow_proto_msgTypes[25]
+	mi := &file_flow_flow_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3956,7 +4100,7 @@ func (x *Kafka) String() string {
 func (*Kafka) ProtoMessage() {}
 
 func (x *Kafka) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[25]
+	mi := &file_flow_flow_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3969,7 +4113,7 @@ func (x *Kafka) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Kafka.ProtoReflect.Descriptor instead.
 func (*Kafka) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{25}
+	return file_flow_flow_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *Kafka) GetErrorCode() int32 {
@@ -4017,7 +4161,7 @@ type Service struct {
 
 func (x *Service) Reset() {
 	*x = Service{}
-	mi := &file_flow_flow_proto_msgTypes[26]
+	mi := &file_flow_flow_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4029,7 +4173,7 @@ func (x *Service) String() string {
 func (*Service) ProtoMessage() {}
 
 func (x *Service) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[26]
+	mi := &file_flow_flow_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4042,7 +4186,7 @@ func (x *Service) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Service.ProtoReflect.Descriptor instead.
 func (*Service) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{26}
+	return file_flow_flow_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *Service) GetName() string {
@@ -4069,7 +4213,7 @@ type IPTraceID struct {
 
 func (x *IPTraceID) Reset() {
 	*x = IPTraceID{}
-	mi := &file_flow_flow_proto_msgTypes[27]
+	mi := &file_flow_flow_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4081,7 +4225,7 @@ func (x *IPTraceID) String() string {
 func (*IPTraceID) ProtoMessage() {}
 
 func (x *IPTraceID) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[27]
+	mi := &file_flow_flow_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4094,7 +4238,7 @@ func (x *IPTraceID) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IPTraceID.ProtoReflect.Descriptor instead.
 func (*IPTraceID) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{27}
+	return file_flow_flow_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *IPTraceID) GetTraceId() uint64 {
@@ -4132,7 +4276,7 @@ type LostEvent struct {
 
 func (x *LostEvent) Reset() {
 	*x = LostEvent{}
-	mi := &file_flow_flow_proto_msgTypes[28]
+	mi := &file_flow_flow_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4144,7 +4288,7 @@ func (x *LostEvent) String() string {
 func (*LostEvent) ProtoMessage() {}
 
 func (x *LostEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[28]
+	mi := &file_flow_flow_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4157,7 +4301,7 @@ func (x *LostEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LostEvent.ProtoReflect.Descriptor instead.
 func (*LostEvent) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{28}
+	return file_flow_flow_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *LostEvent) GetSource() LostEventSource {
@@ -4215,7 +4359,7 @@ type AgentEvent struct {
 
 func (x *AgentEvent) Reset() {
 	*x = AgentEvent{}
-	mi := &file_flow_flow_proto_msgTypes[29]
+	mi := &file_flow_flow_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4227,7 +4371,7 @@ func (x *AgentEvent) String() string {
 func (*AgentEvent) ProtoMessage() {}
 
 func (x *AgentEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[29]
+	mi := &file_flow_flow_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4240,7 +4384,7 @@ func (x *AgentEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentEvent.ProtoReflect.Descriptor instead.
 func (*AgentEvent) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{29}
+	return file_flow_flow_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *AgentEvent) GetType() AgentEventType {
@@ -4399,7 +4543,7 @@ type AgentEventUnknown struct {
 
 func (x *AgentEventUnknown) Reset() {
 	*x = AgentEventUnknown{}
-	mi := &file_flow_flow_proto_msgTypes[30]
+	mi := &file_flow_flow_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4411,7 +4555,7 @@ func (x *AgentEventUnknown) String() string {
 func (*AgentEventUnknown) ProtoMessage() {}
 
 func (x *AgentEventUnknown) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[30]
+	mi := &file_flow_flow_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4424,7 +4568,7 @@ func (x *AgentEventUnknown) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentEventUnknown.ProtoReflect.Descriptor instead.
 func (*AgentEventUnknown) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{30}
+	return file_flow_flow_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *AgentEventUnknown) GetType() string {
@@ -4450,7 +4594,7 @@ type TimeNotification struct {
 
 func (x *TimeNotification) Reset() {
 	*x = TimeNotification{}
-	mi := &file_flow_flow_proto_msgTypes[31]
+	mi := &file_flow_flow_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4462,7 +4606,7 @@ func (x *TimeNotification) String() string {
 func (*TimeNotification) ProtoMessage() {}
 
 func (x *TimeNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[31]
+	mi := &file_flow_flow_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4475,7 +4619,7 @@ func (x *TimeNotification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimeNotification.ProtoReflect.Descriptor instead.
 func (*TimeNotification) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{31}
+	return file_flow_flow_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *TimeNotification) GetTime() *timestamppb.Timestamp {
@@ -4496,7 +4640,7 @@ type PolicyUpdateNotification struct {
 
 func (x *PolicyUpdateNotification) Reset() {
 	*x = PolicyUpdateNotification{}
-	mi := &file_flow_flow_proto_msgTypes[32]
+	mi := &file_flow_flow_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4508,7 +4652,7 @@ func (x *PolicyUpdateNotification) String() string {
 func (*PolicyUpdateNotification) ProtoMessage() {}
 
 func (x *PolicyUpdateNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[32]
+	mi := &file_flow_flow_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4521,7 +4665,7 @@ func (x *PolicyUpdateNotification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PolicyUpdateNotification.ProtoReflect.Descriptor instead.
 func (*PolicyUpdateNotification) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{32}
+	return file_flow_flow_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *PolicyUpdateNotification) GetLabels() []string {
@@ -4556,7 +4700,7 @@ type EndpointRegenNotification struct {
 
 func (x *EndpointRegenNotification) Reset() {
 	*x = EndpointRegenNotification{}
-	mi := &file_flow_flow_proto_msgTypes[33]
+	mi := &file_flow_flow_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4568,7 +4712,7 @@ func (x *EndpointRegenNotification) String() string {
 func (*EndpointRegenNotification) ProtoMessage() {}
 
 func (x *EndpointRegenNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[33]
+	mi := &file_flow_flow_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4581,7 +4725,7 @@ func (x *EndpointRegenNotification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndpointRegenNotification.ProtoReflect.Descriptor instead.
 func (*EndpointRegenNotification) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{33}
+	return file_flow_flow_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *EndpointRegenNotification) GetId() uint64 {
@@ -4618,7 +4762,7 @@ type EndpointUpdateNotification struct {
 
 func (x *EndpointUpdateNotification) Reset() {
 	*x = EndpointUpdateNotification{}
-	mi := &file_flow_flow_proto_msgTypes[34]
+	mi := &file_flow_flow_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4630,7 +4774,7 @@ func (x *EndpointUpdateNotification) String() string {
 func (*EndpointUpdateNotification) ProtoMessage() {}
 
 func (x *EndpointUpdateNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[34]
+	mi := &file_flow_flow_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4643,7 +4787,7 @@ func (x *EndpointUpdateNotification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndpointUpdateNotification.ProtoReflect.Descriptor instead.
 func (*EndpointUpdateNotification) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{34}
+	return file_flow_flow_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *EndpointUpdateNotification) GetId() uint64 {
@@ -4697,7 +4841,7 @@ type IPCacheNotification struct {
 
 func (x *IPCacheNotification) Reset() {
 	*x = IPCacheNotification{}
-	mi := &file_flow_flow_proto_msgTypes[35]
+	mi := &file_flow_flow_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4709,7 +4853,7 @@ func (x *IPCacheNotification) String() string {
 func (*IPCacheNotification) ProtoMessage() {}
 
 func (x *IPCacheNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[35]
+	mi := &file_flow_flow_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4722,7 +4866,7 @@ func (x *IPCacheNotification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IPCacheNotification.ProtoReflect.Descriptor instead.
 func (*IPCacheNotification) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{35}
+	return file_flow_flow_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *IPCacheNotification) GetCidr() string {
@@ -4792,7 +4936,7 @@ type ServiceUpsertNotificationAddr struct {
 
 func (x *ServiceUpsertNotificationAddr) Reset() {
 	*x = ServiceUpsertNotificationAddr{}
-	mi := &file_flow_flow_proto_msgTypes[36]
+	mi := &file_flow_flow_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4804,7 +4948,7 @@ func (x *ServiceUpsertNotificationAddr) String() string {
 func (*ServiceUpsertNotificationAddr) ProtoMessage() {}
 
 func (x *ServiceUpsertNotificationAddr) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[36]
+	mi := &file_flow_flow_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4817,7 +4961,7 @@ func (x *ServiceUpsertNotificationAddr) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceUpsertNotificationAddr.ProtoReflect.Descriptor instead.
 func (*ServiceUpsertNotificationAddr) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{36}
+	return file_flow_flow_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ServiceUpsertNotificationAddr) GetIp() string {
@@ -4853,7 +4997,7 @@ type ServiceUpsertNotification struct {
 
 func (x *ServiceUpsertNotification) Reset() {
 	*x = ServiceUpsertNotification{}
-	mi := &file_flow_flow_proto_msgTypes[37]
+	mi := &file_flow_flow_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4865,7 +5009,7 @@ func (x *ServiceUpsertNotification) String() string {
 func (*ServiceUpsertNotification) ProtoMessage() {}
 
 func (x *ServiceUpsertNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[37]
+	mi := &file_flow_flow_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4878,7 +5022,7 @@ func (x *ServiceUpsertNotification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceUpsertNotification.ProtoReflect.Descriptor instead.
 func (*ServiceUpsertNotification) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{37}
+	return file_flow_flow_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ServiceUpsertNotification) GetId() uint32 {
@@ -4955,7 +5099,7 @@ type ServiceDeleteNotification struct {
 
 func (x *ServiceDeleteNotification) Reset() {
 	*x = ServiceDeleteNotification{}
-	mi := &file_flow_flow_proto_msgTypes[38]
+	mi := &file_flow_flow_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4967,7 +5111,7 @@ func (x *ServiceDeleteNotification) String() string {
 func (*ServiceDeleteNotification) ProtoMessage() {}
 
 func (x *ServiceDeleteNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[38]
+	mi := &file_flow_flow_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4980,7 +5124,7 @@ func (x *ServiceDeleteNotification) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceDeleteNotification.ProtoReflect.Descriptor instead.
 func (*ServiceDeleteNotification) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{38}
+	return file_flow_flow_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ServiceDeleteNotification) GetId() uint32 {
@@ -5000,7 +5144,7 @@ type NetworkInterface struct {
 
 func (x *NetworkInterface) Reset() {
 	*x = NetworkInterface{}
-	mi := &file_flow_flow_proto_msgTypes[39]
+	mi := &file_flow_flow_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5012,7 +5156,7 @@ func (x *NetworkInterface) String() string {
 func (*NetworkInterface) ProtoMessage() {}
 
 func (x *NetworkInterface) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[39]
+	mi := &file_flow_flow_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5025,7 +5169,7 @@ func (x *NetworkInterface) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkInterface.ProtoReflect.Descriptor instead.
 func (*NetworkInterface) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{39}
+	return file_flow_flow_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *NetworkInterface) GetIndex() uint32 {
@@ -5058,7 +5202,7 @@ type DebugEvent struct {
 
 func (x *DebugEvent) Reset() {
 	*x = DebugEvent{}
-	mi := &file_flow_flow_proto_msgTypes[40]
+	mi := &file_flow_flow_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5070,7 +5214,7 @@ func (x *DebugEvent) String() string {
 func (*DebugEvent) ProtoMessage() {}
 
 func (x *DebugEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[40]
+	mi := &file_flow_flow_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5083,7 +5227,7 @@ func (x *DebugEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DebugEvent.ProtoReflect.Descriptor instead.
 func (*DebugEvent) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{40}
+	return file_flow_flow_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *DebugEvent) GetType() DebugEventType {
@@ -5162,7 +5306,7 @@ type FlowFilter_Experimental struct {
 
 func (x *FlowFilter_Experimental) Reset() {
 	*x = FlowFilter_Experimental{}
-	mi := &file_flow_flow_proto_msgTypes[41]
+	mi := &file_flow_flow_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5174,7 +5318,7 @@ func (x *FlowFilter_Experimental) String() string {
 func (*FlowFilter_Experimental) ProtoMessage() {}
 
 func (x *FlowFilter_Experimental) ProtoReflect() protoreflect.Message {
-	mi := &file_flow_flow_proto_msgTypes[41]
+	mi := &file_flow_flow_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5187,7 +5331,7 @@ func (x *FlowFilter_Experimental) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowFilter_Experimental.ProtoReflect.Descriptor instead.
 func (*FlowFilter_Experimental) Descriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{21, 0}
+	return file_flow_flow_proto_rawDescGZIP(), []int{23, 0}
 }
 
 func (x *FlowFilter_Experimental) GetCelExpression() []string {
@@ -5260,14 +5404,18 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\aversion\x18\x02 \x01(\tR\aversion\"2\n" +
 	"\bFileInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
-	"\x04line\x18\x02 \x01(\rR\x04line\"\xc4\x01\n" +
+	"\x04line\x18\x02 \x01(\rR\x04line\"\x88\x02\n" +
 	"\x06Layer4\x12\x1d\n" +
 	"\x03TCP\x18\x01 \x01(\v2\t.flow.TCPH\x00R\x03TCP\x12\x1d\n" +
 	"\x03UDP\x18\x02 \x01(\v2\t.flow.UDPH\x00R\x03UDP\x12&\n" +
 	"\x06ICMPv4\x18\x03 \x01(\v2\f.flow.ICMPv4H\x00R\x06ICMPv4\x12&\n" +
 	"\x06ICMPv6\x18\x04 \x01(\v2\f.flow.ICMPv6H\x00R\x06ICMPv6\x12 \n" +
 	"\x04SCTP\x18\x05 \x01(\v2\n" +
-	".flow.SCTPH\x00R\x04SCTPB\n" +
+	".flow.SCTPH\x00R\x04SCTP\x12 \n" +
+	"\x04VRRP\x18\x06 \x01(\v2\n" +
+	".flow.VRRPH\x00R\x04VRRP\x12 \n" +
+	"\x04IGMP\x18\a \x01(\v2\n" +
+	".flow.IGMPH\x00R\x04IGMPB\n" +
 	"\n" +
 	"\bprotocol\"\xc1\x01\n" +
 	"\x06Layer7\x12$\n" +
@@ -5331,7 +5479,14 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x04code\x18\x02 \x01(\rR\x04code\"0\n" +
 	"\x06ICMPv6\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\rR\x04type\x12\x12\n" +
-	"\x04code\x18\x02 \x01(\rR\x04code\"\xa3\x01\n" +
+	"\x04code\x18\x02 \x01(\rR\x04code\"J\n" +
+	"\x04VRRP\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\rR\x04type\x12\x12\n" +
+	"\x04vrid\x18\x02 \x01(\rR\x04vrid\x12\x1a\n" +
+	"\bpriority\x18\x03 \x01(\rR\bpriority\"?\n" +
+	"\x04IGMP\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\rR\x04type\x12#\n" +
+	"\rgroup_address\x18\x02 \x01(\tR\fgroupAddress\"\xa3\x01\n" +
 	"\x06Tunnel\x121\n" +
 	"\bprotocol\x18\x01 \x01(\x0e2\x15.flow.Tunnel.ProtocolR\bprotocol\x12\x18\n" +
 	"\x02IP\x18\x02 \x01(\v2\b.flow.IPR\x02IP\x12\x1c\n" +
@@ -5794,7 +5949,7 @@ func file_flow_flow_proto_rawDescGZIP() []byte {
 }
 
 var file_flow_flow_proto_enumTypes = make([]protoimpl.EnumInfo, 16)
-var file_flow_flow_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
+var file_flow_flow_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_flow_flow_proto_goTypes = []any{
 	(FlowType)(0),                         // 0: flow.FlowType
 	(AuthType)(0),                         // 1: flow.AuthType
@@ -5829,126 +5984,130 @@ var file_flow_flow_proto_goTypes = []any{
 	(*SCTP)(nil),                          // 30: flow.SCTP
 	(*ICMPv4)(nil),                        // 31: flow.ICMPv4
 	(*ICMPv6)(nil),                        // 32: flow.ICMPv6
-	(*Tunnel)(nil),                        // 33: flow.Tunnel
-	(*Policy)(nil),                        // 34: flow.Policy
-	(*EventTypeFilter)(nil),               // 35: flow.EventTypeFilter
-	(*CiliumEventType)(nil),               // 36: flow.CiliumEventType
-	(*FlowFilter)(nil),                    // 37: flow.FlowFilter
-	(*DNS)(nil),                           // 38: flow.DNS
-	(*HTTPHeader)(nil),                    // 39: flow.HTTPHeader
-	(*HTTP)(nil),                          // 40: flow.HTTP
-	(*Kafka)(nil),                         // 41: flow.Kafka
-	(*Service)(nil),                       // 42: flow.Service
-	(*IPTraceID)(nil),                     // 43: flow.IPTraceID
-	(*LostEvent)(nil),                     // 44: flow.LostEvent
-	(*AgentEvent)(nil),                    // 45: flow.AgentEvent
-	(*AgentEventUnknown)(nil),             // 46: flow.AgentEventUnknown
-	(*TimeNotification)(nil),              // 47: flow.TimeNotification
-	(*PolicyUpdateNotification)(nil),      // 48: flow.PolicyUpdateNotification
-	(*EndpointRegenNotification)(nil),     // 49: flow.EndpointRegenNotification
-	(*EndpointUpdateNotification)(nil),    // 50: flow.EndpointUpdateNotification
-	(*IPCacheNotification)(nil),           // 51: flow.IPCacheNotification
-	(*ServiceUpsertNotificationAddr)(nil), // 52: flow.ServiceUpsertNotificationAddr
-	(*ServiceUpsertNotification)(nil),     // 53: flow.ServiceUpsertNotification
-	(*ServiceDeleteNotification)(nil),     // 54: flow.ServiceDeleteNotification
-	(*NetworkInterface)(nil),              // 55: flow.NetworkInterface
-	(*DebugEvent)(nil),                    // 56: flow.DebugEvent
-	(*FlowFilter_Experimental)(nil),       // 57: flow.FlowFilter.Experimental
-	(*timestamppb.Timestamp)(nil),         // 58: google.protobuf.Timestamp
-	(*wrapperspb.BoolValue)(nil),          // 59: google.protobuf.BoolValue
-	(*anypb.Any)(nil),                     // 60: google.protobuf.Any
-	(*wrapperspb.Int32Value)(nil),         // 61: google.protobuf.Int32Value
-	(*wrapperspb.UInt32Value)(nil),        // 62: google.protobuf.UInt32Value
+	(*VRRP)(nil),                          // 33: flow.VRRP
+	(*IGMP)(nil),                          // 34: flow.IGMP
+	(*Tunnel)(nil),                        // 35: flow.Tunnel
+	(*Policy)(nil),                        // 36: flow.Policy
+	(*EventTypeFilter)(nil),               // 37: flow.EventTypeFilter
+	(*CiliumEventType)(nil),               // 38: flow.CiliumEventType
+	(*FlowFilter)(nil),                    // 39: flow.FlowFilter
+	(*DNS)(nil),                           // 40: flow.DNS
+	(*HTTPHeader)(nil),                    // 41: flow.HTTPHeader
+	(*HTTP)(nil),                          // 42: flow.HTTP
+	(*Kafka)(nil),                         // 43: flow.Kafka
+	(*Service)(nil),                       // 44: flow.Service
+	(*IPTraceID)(nil),                     // 45: flow.IPTraceID
+	(*LostEvent)(nil),                     // 46: flow.LostEvent
+	(*AgentEvent)(nil),                    // 47: flow.AgentEvent
+	(*AgentEventUnknown)(nil),             // 48: flow.AgentEventUnknown
+	(*TimeNotification)(nil),              // 49: flow.TimeNotification
+	(*PolicyUpdateNotification)(nil),      // 50: flow.PolicyUpdateNotification
+	(*EndpointRegenNotification)(nil),     // 51: flow.EndpointRegenNotification
+	(*EndpointUpdateNotification)(nil),    // 52: flow.EndpointUpdateNotification
+	(*IPCacheNotification)(nil),           // 53: flow.IPCacheNotification
+	(*ServiceUpsertNotificationAddr)(nil), // 54: flow.ServiceUpsertNotificationAddr
+	(*ServiceUpsertNotification)(nil),     // 55: flow.ServiceUpsertNotification
+	(*ServiceDeleteNotification)(nil),     // 56: flow.ServiceDeleteNotification
+	(*NetworkInterface)(nil),              // 57: flow.NetworkInterface
+	(*DebugEvent)(nil),                    // 58: flow.DebugEvent
+	(*FlowFilter_Experimental)(nil),       // 59: flow.FlowFilter.Experimental
+	(*timestamppb.Timestamp)(nil),         // 60: google.protobuf.Timestamp
+	(*wrapperspb.BoolValue)(nil),          // 61: google.protobuf.BoolValue
+	(*anypb.Any)(nil),                     // 62: google.protobuf.Any
+	(*wrapperspb.Int32Value)(nil),         // 63: google.protobuf.Int32Value
+	(*wrapperspb.UInt32Value)(nil),        // 64: google.protobuf.UInt32Value
 }
 var file_flow_flow_proto_depIdxs = []int32{
-	58, // 0: flow.Flow.time:type_name -> google.protobuf.Timestamp
+	60, // 0: flow.Flow.time:type_name -> google.protobuf.Timestamp
 	17, // 1: flow.Flow.emitter:type_name -> flow.Emitter
 	6,  // 2: flow.Flow.verdict:type_name -> flow.Verdict
 	1,  // 3: flow.Flow.auth_type:type_name -> flow.AuthType
 	27, // 4: flow.Flow.ethernet:type_name -> flow.Ethernet
 	26, // 5: flow.Flow.IP:type_name -> flow.IP
 	19, // 6: flow.Flow.l4:type_name -> flow.Layer4
-	33, // 7: flow.Flow.tunnel:type_name -> flow.Tunnel
+	35, // 7: flow.Flow.tunnel:type_name -> flow.Tunnel
 	23, // 8: flow.Flow.source:type_name -> flow.Endpoint
 	23, // 9: flow.Flow.destination:type_name -> flow.Endpoint
 	0,  // 10: flow.Flow.Type:type_name -> flow.FlowType
 	20, // 11: flow.Flow.l7:type_name -> flow.Layer7
-	36, // 12: flow.Flow.event_type:type_name -> flow.CiliumEventType
-	42, // 13: flow.Flow.source_service:type_name -> flow.Service
-	42, // 14: flow.Flow.destination_service:type_name -> flow.Service
+	38, // 12: flow.Flow.event_type:type_name -> flow.CiliumEventType
+	44, // 13: flow.Flow.source_service:type_name -> flow.Service
+	44, // 14: flow.Flow.destination_service:type_name -> flow.Service
 	8,  // 15: flow.Flow.traffic_direction:type_name -> flow.TrafficDirection
 	2,  // 16: flow.Flow.trace_observation_point:type_name -> flow.TraceObservationPoint
 	3,  // 17: flow.Flow.trace_reason:type_name -> flow.TraceReason
 	18, // 18: flow.Flow.file:type_name -> flow.FileInfo
-	43, // 19: flow.Flow.ip_trace_id:type_name -> flow.IPTraceID
+	45, // 19: flow.Flow.ip_trace_id:type_name -> flow.IPTraceID
 	7,  // 20: flow.Flow.drop_reason_desc:type_name -> flow.DropReason
-	59, // 21: flow.Flow.is_reply:type_name -> google.protobuf.BoolValue
+	61, // 21: flow.Flow.is_reply:type_name -> google.protobuf.BoolValue
 	9,  // 22: flow.Flow.debug_capture_point:type_name -> flow.DebugCapturePoint
-	55, // 23: flow.Flow.interface:type_name -> flow.NetworkInterface
+	57, // 23: flow.Flow.interface:type_name -> flow.NetworkInterface
 	21, // 24: flow.Flow.trace_context:type_name -> flow.TraceContext
 	13, // 25: flow.Flow.sock_xlate_point:type_name -> flow.SocketTranslationPoint
-	60, // 26: flow.Flow.extensions:type_name -> google.protobuf.Any
-	34, // 27: flow.Flow.egress_allowed_by:type_name -> flow.Policy
-	34, // 28: flow.Flow.ingress_allowed_by:type_name -> flow.Policy
-	34, // 29: flow.Flow.egress_denied_by:type_name -> flow.Policy
-	34, // 30: flow.Flow.ingress_denied_by:type_name -> flow.Policy
+	62, // 26: flow.Flow.extensions:type_name -> google.protobuf.Any
+	36, // 27: flow.Flow.egress_allowed_by:type_name -> flow.Policy
+	36, // 28: flow.Flow.ingress_allowed_by:type_name -> flow.Policy
+	36, // 29: flow.Flow.egress_denied_by:type_name -> flow.Policy
+	36, // 30: flow.Flow.ingress_denied_by:type_name -> flow.Policy
 	25, // 31: flow.Layer4.TCP:type_name -> flow.TCP
 	29, // 32: flow.Layer4.UDP:type_name -> flow.UDP
 	31, // 33: flow.Layer4.ICMPv4:type_name -> flow.ICMPv4
 	32, // 34: flow.Layer4.ICMPv6:type_name -> flow.ICMPv6
 	30, // 35: flow.Layer4.SCTP:type_name -> flow.SCTP
-	4,  // 36: flow.Layer7.type:type_name -> flow.L7FlowType
-	38, // 37: flow.Layer7.dns:type_name -> flow.DNS
-	40, // 38: flow.Layer7.http:type_name -> flow.HTTP
-	41, // 39: flow.Layer7.kafka:type_name -> flow.Kafka
-	22, // 40: flow.TraceContext.parent:type_name -> flow.TraceParent
-	24, // 41: flow.Endpoint.workloads:type_name -> flow.Workload
-	28, // 42: flow.TCP.flags:type_name -> flow.TCPFlags
-	5,  // 43: flow.IP.ipVersion:type_name -> flow.IPVersion
-	15, // 44: flow.Tunnel.protocol:type_name -> flow.Tunnel.Protocol
-	26, // 45: flow.Tunnel.IP:type_name -> flow.IP
-	19, // 46: flow.Tunnel.l4:type_name -> flow.Layer4
-	24, // 47: flow.FlowFilter.source_workload:type_name -> flow.Workload
-	24, // 48: flow.FlowFilter.destination_workload:type_name -> flow.Workload
-	8,  // 49: flow.FlowFilter.traffic_direction:type_name -> flow.TrafficDirection
-	6,  // 50: flow.FlowFilter.verdict:type_name -> flow.Verdict
-	7,  // 51: flow.FlowFilter.drop_reason_desc:type_name -> flow.DropReason
-	55, // 52: flow.FlowFilter.interface:type_name -> flow.NetworkInterface
-	35, // 53: flow.FlowFilter.event_type:type_name -> flow.EventTypeFilter
-	39, // 54: flow.FlowFilter.http_header:type_name -> flow.HTTPHeader
-	28, // 55: flow.FlowFilter.tcp_flags:type_name -> flow.TCPFlags
-	5,  // 56: flow.FlowFilter.ip_version:type_name -> flow.IPVersion
-	57, // 57: flow.FlowFilter.experimental:type_name -> flow.FlowFilter.Experimental
-	39, // 58: flow.HTTP.headers:type_name -> flow.HTTPHeader
-	11, // 59: flow.LostEvent.source:type_name -> flow.LostEventSource
-	61, // 60: flow.LostEvent.cpu:type_name -> google.protobuf.Int32Value
-	58, // 61: flow.LostEvent.first:type_name -> google.protobuf.Timestamp
-	58, // 62: flow.LostEvent.last:type_name -> google.protobuf.Timestamp
-	12, // 63: flow.AgentEvent.type:type_name -> flow.AgentEventType
-	46, // 64: flow.AgentEvent.unknown:type_name -> flow.AgentEventUnknown
-	47, // 65: flow.AgentEvent.agent_start:type_name -> flow.TimeNotification
-	48, // 66: flow.AgentEvent.policy_update:type_name -> flow.PolicyUpdateNotification
-	49, // 67: flow.AgentEvent.endpoint_regenerate:type_name -> flow.EndpointRegenNotification
-	50, // 68: flow.AgentEvent.endpoint_update:type_name -> flow.EndpointUpdateNotification
-	51, // 69: flow.AgentEvent.ipcache_update:type_name -> flow.IPCacheNotification
-	53, // 70: flow.AgentEvent.service_upsert:type_name -> flow.ServiceUpsertNotification
-	54, // 71: flow.AgentEvent.service_delete:type_name -> flow.ServiceDeleteNotification
-	58, // 72: flow.TimeNotification.time:type_name -> google.protobuf.Timestamp
-	62, // 73: flow.IPCacheNotification.old_identity:type_name -> google.protobuf.UInt32Value
-	52, // 74: flow.ServiceUpsertNotification.frontend_address:type_name -> flow.ServiceUpsertNotificationAddr
-	52, // 75: flow.ServiceUpsertNotification.backend_addresses:type_name -> flow.ServiceUpsertNotificationAddr
-	14, // 76: flow.DebugEvent.type:type_name -> flow.DebugEventType
-	23, // 77: flow.DebugEvent.source:type_name -> flow.Endpoint
-	62, // 78: flow.DebugEvent.hash:type_name -> google.protobuf.UInt32Value
-	62, // 79: flow.DebugEvent.arg1:type_name -> google.protobuf.UInt32Value
-	62, // 80: flow.DebugEvent.arg2:type_name -> google.protobuf.UInt32Value
-	62, // 81: flow.DebugEvent.arg3:type_name -> google.protobuf.UInt32Value
-	61, // 82: flow.DebugEvent.cpu:type_name -> google.protobuf.Int32Value
-	83, // [83:83] is the sub-list for method output_type
-	83, // [83:83] is the sub-list for method input_type
-	83, // [83:83] is the sub-list for extension type_name
-	83, // [83:83] is the sub-list for extension extendee
-	0,  // [0:83] is the sub-list for field type_name
+	33, // 36: flow.Layer4.VRRP:type_name -> flow.VRRP
+	34, // 37: flow.Layer4.IGMP:type_name -> flow.IGMP
+	4,  // 38: flow.Layer7.type:type_name -> flow.L7FlowType
+	40, // 39: flow.Layer7.dns:type_name -> flow.DNS
+	42, // 40: flow.Layer7.http:type_name -> flow.HTTP
+	43, // 41: flow.Layer7.kafka:type_name -> flow.Kafka
+	22, // 42: flow.TraceContext.parent:type_name -> flow.TraceParent
+	24, // 43: flow.Endpoint.workloads:type_name -> flow.Workload
+	28, // 44: flow.TCP.flags:type_name -> flow.TCPFlags
+	5,  // 45: flow.IP.ipVersion:type_name -> flow.IPVersion
+	15, // 46: flow.Tunnel.protocol:type_name -> flow.Tunnel.Protocol
+	26, // 47: flow.Tunnel.IP:type_name -> flow.IP
+	19, // 48: flow.Tunnel.l4:type_name -> flow.Layer4
+	24, // 49: flow.FlowFilter.source_workload:type_name -> flow.Workload
+	24, // 50: flow.FlowFilter.destination_workload:type_name -> flow.Workload
+	8,  // 51: flow.FlowFilter.traffic_direction:type_name -> flow.TrafficDirection
+	6,  // 52: flow.FlowFilter.verdict:type_name -> flow.Verdict
+	7,  // 53: flow.FlowFilter.drop_reason_desc:type_name -> flow.DropReason
+	57, // 54: flow.FlowFilter.interface:type_name -> flow.NetworkInterface
+	37, // 55: flow.FlowFilter.event_type:type_name -> flow.EventTypeFilter
+	41, // 56: flow.FlowFilter.http_header:type_name -> flow.HTTPHeader
+	28, // 57: flow.FlowFilter.tcp_flags:type_name -> flow.TCPFlags
+	5,  // 58: flow.FlowFilter.ip_version:type_name -> flow.IPVersion
+	59, // 59: flow.FlowFilter.experimental:type_name -> flow.FlowFilter.Experimental
+	41, // 60: flow.HTTP.headers:type_name -> flow.HTTPHeader
+	11, // 61: flow.LostEvent.source:type_name -> flow.LostEventSource
+	63, // 62: flow.LostEvent.cpu:type_name -> google.protobuf.Int32Value
+	60, // 63: flow.LostEvent.first:type_name -> google.protobuf.Timestamp
+	60, // 64: flow.LostEvent.last:type_name -> google.protobuf.Timestamp
+	12, // 65: flow.AgentEvent.type:type_name -> flow.AgentEventType
+	48, // 66: flow.AgentEvent.unknown:type_name -> flow.AgentEventUnknown
+	49, // 67: flow.AgentEvent.agent_start:type_name -> flow.TimeNotification
+	50, // 68: flow.AgentEvent.policy_update:type_name -> flow.PolicyUpdateNotification
+	51, // 69: flow.AgentEvent.endpoint_regenerate:type_name -> flow.EndpointRegenNotification
+	52, // 70: flow.AgentEvent.endpoint_update:type_name -> flow.EndpointUpdateNotification
+	53, // 71: flow.AgentEvent.ipcache_update:type_name -> flow.IPCacheNotification
+	55, // 72: flow.AgentEvent.service_upsert:type_name -> flow.ServiceUpsertNotification
+	56, // 73: flow.AgentEvent.service_delete:type_name -> flow.ServiceDeleteNotification
+	60, // 74: flow.TimeNotification.time:type_name -> google.protobuf.Timestamp
+	64, // 75: flow.IPCacheNotification.old_identity:type_name -> google.protobuf.UInt32Value
+	54, // 76: flow.ServiceUpsertNotification.frontend_address:type_name -> flow.ServiceUpsertNotificationAddr
+	54, // 77: flow.ServiceUpsertNotification.backend_addresses:type_name -> flow.ServiceUpsertNotificationAddr
+	14, // 78: flow.DebugEvent.type:type_name -> flow.DebugEventType
+	23, // 79: flow.DebugEvent.source:type_name -> flow.Endpoint
+	64, // 80: flow.DebugEvent.hash:type_name -> google.protobuf.UInt32Value
+	64, // 81: flow.DebugEvent.arg1:type_name -> google.protobuf.UInt32Value
+	64, // 82: flow.DebugEvent.arg2:type_name -> google.protobuf.UInt32Value
+	64, // 83: flow.DebugEvent.arg3:type_name -> google.protobuf.UInt32Value
+	63, // 84: flow.DebugEvent.cpu:type_name -> google.protobuf.Int32Value
+	85, // [85:85] is the sub-list for method output_type
+	85, // [85:85] is the sub-list for method input_type
+	85, // [85:85] is the sub-list for extension type_name
+	85, // [85:85] is the sub-list for extension extendee
+	0,  // [0:85] is the sub-list for field type_name
 }
 
 func init() { file_flow_flow_proto_init() }
@@ -5962,13 +6121,15 @@ func file_flow_flow_proto_init() {
 		(*Layer4_ICMPv4)(nil),
 		(*Layer4_ICMPv6)(nil),
 		(*Layer4_SCTP)(nil),
+		(*Layer4_VRRP)(nil),
+		(*Layer4_IGMP)(nil),
 	}
 	file_flow_flow_proto_msgTypes[4].OneofWrappers = []any{
 		(*Layer7_Dns)(nil),
 		(*Layer7_Http)(nil),
 		(*Layer7_Kafka)(nil),
 	}
-	file_flow_flow_proto_msgTypes[29].OneofWrappers = []any{
+	file_flow_flow_proto_msgTypes[31].OneofWrappers = []any{
 		(*AgentEvent_Unknown)(nil),
 		(*AgentEvent_AgentStart)(nil),
 		(*AgentEvent_PolicyUpdate)(nil),
@@ -5984,7 +6145,7 @@ func file_flow_flow_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flow_flow_proto_rawDesc), len(file_flow_flow_proto_rawDesc)),
 			NumEnums:      16,
-			NumMessages:   42,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

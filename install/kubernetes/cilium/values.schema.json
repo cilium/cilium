@@ -1663,14 +1663,6 @@
     "crdWaitTimeout": {
       "type": "string"
     },
-    "customCalls": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "daemon": {
       "properties": {
         "allowedConfigOverrides": {
@@ -2191,6 +2183,10 @@
             }
           },
           "type": "object"
+        },
+        "initContainers": {
+          "items": {},
+          "type": "array"
         },
         "initialFetchTimeoutSeconds": {
           "type": "integer"

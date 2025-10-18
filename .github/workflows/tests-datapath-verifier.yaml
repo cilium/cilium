@@ -13,6 +13,9 @@ on:
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
@@ -54,7 +57,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.25.1
+  go-version: 1.25.3
 
 jobs:
   echo-inputs:
@@ -86,22 +89,22 @@ jobs:
           - kernel: 'rhel8.6-20250812.093650'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.10-20250929.013214'
+          - kernel: '5.10-20251008.075427'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.15-20250929.013214'
+          - kernel: '5.15-20251008.075427'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.1-20250929.013214'
+          - kernel: '6.1-20251008.075427'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.6-20250929.013214'
+          - kernel: '6.6-20251008.075427'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.12-20250929.013214'
+          - kernel: '6.12-20251008.075427'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'bpf-next-20250929.013214'
+          - kernel: 'bpf-next-20251008.075427'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:

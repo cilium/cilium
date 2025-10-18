@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-//go:generate go run golang.org/x/tools/cmd/stringer@latest -type=Errno -tags=windows -output=errno_string_windows.go
+//go:generate go tool stringer -type=Errno -tags=windows -output=errno_string_windows.go
 
 // Windows specific constants for Unix errnos.
 //

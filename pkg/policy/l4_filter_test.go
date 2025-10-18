@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/utils"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -260,7 +262,7 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+	td.repo.ReplaceByLabels(utils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
 
 	// Resolve the Selector policy for test identity
 	td.repo.mutex.RLock()
@@ -299,7 +301,7 @@ func (td *testData) policyInvalid(t *testing.T, errStr string, rules ...*api.Rul
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+	td.repo.ReplaceByLabels(utils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
 
 	_, err := td.repo.resolvePolicyLocked(idA)
 	require.Error(t, err)
@@ -316,7 +318,7 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+	td.repo.ReplaceByLabels(utils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
 
 	_, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -2610,9 +2612,9 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 				Protocol: tc.proto,
 			}
 
-			toEndpoints := api.EndpointSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
+			toEndpoints := policytypes.PeerSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
 
-			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto, nil)
+			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto)
 
 			require.NoError(t, err)
 			require.NotNil(t, l4Filter)

@@ -144,6 +144,10 @@ func l4protocolToString(l4 *flowpb.Layer4) string {
 		return "ICMPv6"
 	case *flowpb.Layer4_SCTP:
 		return "SCTP"
+	case *flowpb.Layer4_IGMP:
+		return "IGMP"
+	case *flowpb.Layer4_VRRP:
+		return "VRRP"
 	}
 	return ""
 }

@@ -45,6 +45,8 @@ var protocols = []string{
 	"sctp",
 	"tcp",
 	"udp",
+	"vrrp",
+	"igmp",
 	// L7
 	"dns",
 	"http",

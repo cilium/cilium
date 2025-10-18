@@ -16,6 +16,10 @@ on:
         description: "SHA under test (head of the PR branch)."
         required: false
         type: string
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+        type: string
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
@@ -38,6 +42,9 @@ on:
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
@@ -147,7 +154,7 @@ jobs:
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
           VERSIONS=$(echo ${{ inputs.extra-args }} | awk -F'=' '{print $2}')
-          IPSEC=$(echo '${{ inputs.extra-args }}' | jq -r '.["ipsec"] // empty')
+          IPSEC=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
 
           # shellcheck disable=SC2193
           if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* || "$VERSIONS" == "all" ]];then
@@ -182,13 +189,13 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PR_SA }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
 
       - name: Filter Matrix
@@ -317,13 +324,13 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PR_SA }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
 
       - name: Install gke-gcloud-auth-plugin

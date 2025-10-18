@@ -15,6 +15,9 @@ on:
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
@@ -58,7 +61,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.25.1
+  go_version: 1.25.3
   test_name: perf-fqdn
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -160,13 +163,13 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PERF_SA }}
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           create_credentials_file: true
           export_environment_variables: true
 
       - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
-          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: "405.0.0"
 
       - name: Clone ClusterLoader2

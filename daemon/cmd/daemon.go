@@ -16,7 +16,6 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
-	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -35,8 +34,8 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/resiliency"
-	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -49,10 +48,6 @@ const (
 // monitoring when a LXC starts.
 type Daemon struct {
 	params daemonParams
-
-	// healthEndpointRouting is the information required to set up the health
-	// endpoint's routing in ENI or Azure IPAM mode
-	healthEndpointRouting *linuxrouting.RoutingInfo
 }
 
 func (d *Daemon) init() error {
@@ -112,32 +107,6 @@ func removeOldRouterState(logger *slog.Logger, ipv6 bool, restoredIP net.IP) err
 	}
 
 	return err
-}
-
-// removeOldCiliumHostIPs calls removeOldRouterState() for both IPv4 and IPv6
-// in a retry loop.
-func (d *Daemon) removeOldCiliumHostIPs(ctx context.Context, restoredRouterIPv4, restoredRouterIPv6 net.IP) {
-	gcHostIPsFn := func(ctx context.Context, retries int) (done bool, err error) {
-		var errs error
-		if option.Config.EnableIPv4 {
-			errs = errors.Join(errs, removeOldRouterState(d.params.Logger, false, restoredRouterIPv4))
-		}
-		if option.Config.EnableIPv6 {
-			errs = errors.Join(errs, removeOldRouterState(d.params.Logger, true, restoredRouterIPv6))
-		}
-		if resiliency.IsRetryable(errs) && !errors.As(errs, &netlink.LinkNotFoundError{}) {
-			d.params.Logger.Warn(
-				"Failed to remove old router IPs from cilium_host.",
-				logfields.Error, errs,
-				logfields.Attempt, retries,
-			)
-			return false, nil
-		}
-		return true, errs
-	}
-	if err := resiliency.Retry(ctx, 100*time.Millisecond, 3, gcHostIPsFn); err != nil {
-		d.params.Logger.Error("Restore of the cilium_host ips failed. Manual intervention is required to remove all other old IPs.", logfields.Error, err)
-	}
 }
 
 // newDaemon creates and returns a new Daemon with the parameters set in c.
@@ -308,10 +277,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 				return nil
 			}
 
-			params.Policy.Iterate(func(rule *policyAPI.Rule) {
-				for _, er := range rule.Egress {
-					_ = er.ToPorts.Iterate(removeL7DNSRules)
-				}
+			params.Policy.Iterate(func(rule *policytypes.PolicyEntry) {
+				_ = rule.L4.Iterate(removeL7DNSRules)
 			})
 
 			if !needsPolicyRegen {
@@ -484,11 +451,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 	// Fetch the router IPs from the filesystem in case they were set a priori
 	restoredRouterIPs.IPv4FromFS, restoredRouterIPs.IPv6FromFS = node.ExtractCiliumHostIPFromFS(params.Logger)
 
-	// Configure IPAM without using the configuration yet.
-	d.configureIPAM(ctx)
-
-	// Start IPAM
-	d.startIPAM()
+	// Configure and start IPAM without using the configuration yet.
+	d.configureAndStartIPAM(ctx)
 
 	bootstrapStats.restore.Start()
 	// restore endpoints before any IPs are allocated to avoid eventual IP
@@ -499,7 +463,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 
 	// We must do this after IPAM because we must wait until the
 	// K8s resources have been synced.
-	if err := d.allocateIPs(ctx, restoredRouterIPs); err != nil { // will log errors/fatal internally
+	if err := params.InfraIPAllocator.AllocateIPs(ctx, restoredRouterIPs); err != nil { // will log errors/fatal internally
 		return nil, err
 	}
 

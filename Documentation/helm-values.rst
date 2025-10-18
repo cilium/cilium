@@ -1112,14 +1112,6 @@
      - Configure timeout in which Cilium will exit if CRDs are not available
      - string
      - ``"5m"``
-   * - :spelling:ignore:`customCalls`
-     - Tail call hooks for custom eBPF programs.
-     - object
-     - ``{"enabled":false}``
-   * - :spelling:ignore:`customCalls.enabled`
-     - Enable tail call hooks for custom eBPF programs.
-     - bool
-     - ``false``
    * - :spelling:ignore:`daemon.allowedConfigOverrides`
      - allowedConfigOverrides is a list of config-map keys that can be overridden. That is to say, if this value is set, config sources (excepting the first one) can only override keys in this list.  This takes precedence over blockedConfigOverrides.  By default, all keys may be overridden. To disable overrides, set this to "none" or change the configSources variable.
      - string
@@ -1153,7 +1145,7 @@
      - string
      - ``"5m"``
    * - :spelling:ignore:`debug.verbose`
-     - Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath or policy), and flow is for enabling debug messages emitted per request, message and connection. Multiple values can be set via a space-separated string (e.g. "datapath envoy").  Applicable values: - flow - kvstore - envoy - datapath - policy
+     - Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath, policy, or tagged), and flow is for enabling debug messages emitted per request, message and connection. Multiple values can be set via a space-separated string (e.g. "datapath envoy").  Applicable values: - flow - kvstore - envoy - datapath - policy - tagged
      - string
      - ``nil``
    * - :spelling:ignore:`defaultLBServiceIPAM`
@@ -1464,6 +1456,10 @@
      - Envoy container image.
      - object
      - ``{"digest":"sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37","useDigest":true}``
+   * - :spelling:ignore:`envoy.initContainers`
+     - Init containers added to the cilium Envoy DaemonSet.
+     - list
+     - ``[]``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int

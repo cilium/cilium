@@ -56,6 +56,15 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 #endif /* ENABLE_IPSEC */
 }
 
+#if defined(ENABLE_IPSEC) || defined(ENABLE_WIREGUARD)
+static __always_inline void
+set_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
+{
+	/* Decrypt "key" is determined by SPI and originating node */
+	ctx->mark = MARK_MAGIC_DECRYPT | node_id << 16;
+}
+#endif /* defined(ENABLE_IPSEC) || defined(ENABLE_WIREGUARD) */
+
 #ifdef ENABLE_IPSEC
 /**
  * or_encrypt_key - mask and shift key into encryption format
@@ -69,13 +78,6 @@ static __always_inline __u32
 ipsec_encode_encryption_mark(__u8 key, __u32 node_id)
 {
 	return or_encrypt_key(key) | node_id << 16;
-}
-
-static __always_inline void
-set_ipsec_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
-{
-	/* Decrypt "key" is determined by SPI and originating node */
-	ctx->mark = MARK_MAGIC_DECRYPT | node_id << 16;
 }
 
 static __always_inline int
@@ -159,7 +161,7 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 		if (!node_id)
 			return send_drop_notify_error(ctx, UNKNOWN_ID, DROP_NO_NODE_ID,
 						      METRIC_INGRESS);
-		set_ipsec_decrypt_mark(ctx, node_id);
+		set_decrypt_mark(ctx, node_id);
 
 		/* We are going to pass this up the stack for IPsec decryption
 		 * but eth_type_trans may already have labeled this as an

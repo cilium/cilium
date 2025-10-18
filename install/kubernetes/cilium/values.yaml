@@ -29,7 +29,7 @@ debug:
   # @schema
   # -- Configure verbosity levels for debug logging
   # This option is used to enable debug messages for operations related to such
-  # sub-system such as (e.g. kvstore, envoy, datapath or policy), and flow is
+  # sub-system such as (e.g. kvstore, envoy, datapath, policy, or tagged), and flow is
   # for enabling debug messages emitted per request, message and connection.
   # Multiple values can be set via a space-separated string (e.g. "datapath envoy").
   #
@@ -39,6 +39,7 @@ debug:
   # - envoy
   # - datapath
   # - policy
+  # - tagged
   verbose: ~
   # -- Set the agent-internal metrics sampling frequency. This sets the
   # frequency of the internal sampling of the agent metrics. These are
@@ -812,10 +813,6 @@ conntrackGCMaxInterval: ""
 # -- (string) Configure timeout in which Cilium will exit if CRDs are not available
 # @default -- `"5m"`
 crdWaitTimeout: ""
-# -- Tail call hooks for custom eBPF programs.
-customCalls:
-  # -- Enable tail call hooks for custom eBPF programs.
-  enabled: false
 daemon:
   # -- Configure where Cilium runtime state should be stored.
   runPath: "/var/run/cilium"
@@ -2493,6 +2490,8 @@ envoy:
     pullPolicy: "Always"
     digest: "sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76"
     useDigest: true
+  # -- Init containers added to the cilium Envoy DaemonSet.
+  initContainers: []
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
   # -- Additional envoy container arguments.

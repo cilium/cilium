@@ -1081,7 +1081,11 @@ data:
   disable-iptables-feeder-rules: {{ .Values.disableIptablesFeederRules | join " " | quote }}
 {{- end }}
 {{- if .Values.aksbyocni.enabled }}
+  {{- if or (not .Values.ipam.mode) (eq .Values.ipam.mode "cluster-pool") }}
   ipam: "cluster-pool"
+  {{- else if eq .Values.ipam.mode "multi-pool" }}
+  ipam: "multi-pool"
+  {{- end }}
 {{- else }}
   ipam: {{ $ipam | quote }}
 {{- end }}
@@ -1170,11 +1174,6 @@ data:
 {{- if hasKey .Values.k8s "serviceProxyName" }}
   # Configure service proxy name for Cilium.
   k8s-service-proxy-name: {{ .Values.k8s.serviceProxyName | quote }}
-{{- end }}
-
-{{- if and .Values.customCalls .Values.customCalls.enabled }}
-  # Enable tail call hooks for custom eBPF programs.
-  enable-custom-calls: {{ .Values.customCalls.enabled | quote }}
 {{- end }}
 
 {{- if .Values.l2announcements.enabled }}

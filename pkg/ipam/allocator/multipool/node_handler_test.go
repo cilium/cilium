@@ -5,6 +5,7 @@ package multipool
 
 import (
 	"errors"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -65,7 +66,7 @@ type mockResult struct {
 
 func TestNodeHandler(t *testing.T) {
 	backend := NewPoolAllocator(hivetest.Logger(t))
-	err := backend.addPool("default", []string{"10.0.0.0/8"}, 24, nil, 0)
+	err := backend.UpsertPool("default", []string{"10.0.0.0/8"}, 24, nil, 0)
 	assert.NoError(t, err)
 
 	onUpdateArgs := make(chan mockArgs)
@@ -214,4 +215,235 @@ func TestNodeHandler(t *testing.T) {
 
 	nh.Delete(node1Update.newNode)
 	nh.Delete(node2Update.newNode)
+}
+
+func TestOrphanCIDRsAfterRestart(t *testing.T) {
+	backend := NewPoolAllocator(hivetest.Logger(t))
+
+	onUpdateArgs := make(chan mockArgs)
+
+	onUpdateStatusArgs := make(chan mockArgs)
+	onUpdateStatusResult := make(chan mockResult)
+
+	nodeUpdater := &k8sNodeMock{
+		OnUpdate: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+			onUpdateArgs <- mockArgs{oldNode, newNode}
+			return nil, nil
+		},
+		OnUpdateStatus: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+			onUpdateStatusArgs <- mockArgs{oldNode, newNode}
+			r := <-onUpdateStatusResult
+			return r.node, r.err
+		},
+	}
+	nh := NewNodeHandler(hivetest.Logger(t), backend, nodeUpdater)
+
+	// wait 1ms instead of default 1s base duration in unit tests
+	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
+
+	// upsert node with orphan CIDRs from previous operator run
+	node := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool:   "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 16},
+						},
+					},
+					Allocated: []ipamTypes.IPAMPoolAllocation{
+						{
+							Pool: "test-pool",
+							CIDRs: []ipamTypes.IPAMPodCIDR{
+								"10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/24",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	nh.Upsert(node)
+
+	// CIDRs allocated from previous operator run should eventually be marked as orphans
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		backend.mutex.Lock()
+		defer backend.mutex.Unlock()
+
+		assert.Equal(c, map[string]poolToCIDRs{
+			node.Name: {
+				"test-pool": {
+					v4: cidrSet{
+						netip.MustParsePrefix("10.0.0.0/24"): {},
+						netip.MustParsePrefix("10.0.1.0/24"): {},
+						netip.MustParsePrefix("10.0.2.0/24"): {},
+					},
+					v6: cidrSet{},
+				},
+			},
+		}, backend.orphans)
+	}, 5*time.Second, 50*time.Millisecond)
+
+	// Node should only be updated after Resync
+	select {
+	case <-onUpdateArgs:
+		t.Fatal("Update should not have been called before Resync")
+	default:
+	}
+
+	nh.Resync(t.Context(), time.Time{})
+
+	// Node should not be updated, since all allocated CIDRs are orphan
+	nodeUpdateStatus := <-onUpdateStatusArgs
+	assert.Equal(t, "node", nodeUpdateStatus.newNode.Name)
+	assert.Contains(t, nodeUpdateStatus.newNode.Status.IPAM.OperatorStatus.Error, "cannot allocate from non-existing pool: test-pool")
+	onUpdateStatusResult <- mockResult{node: nodeUpdateStatus.newNode}
+
+	select {
+	case <-onUpdateArgs:
+		t.Fatal("Update should not have been called after Resync")
+	default:
+	}
+
+	// Node should not be updated, since we cannot allocate more CIDRs from non existent pools
+	node2 := node.DeepCopy()
+	node2.Spec.IPAM.Pools.Requested[0].Needed = ipamTypes.IPAMPoolDemand{IPv4Addrs: 24}
+	nh.Upsert(node2)
+
+	nodeUpdate2Status := <-onUpdateStatusArgs
+	assert.Equal(t, "node", nodeUpdate2Status.newNode.Name)
+	assert.Contains(t, nodeUpdate2Status.newNode.Status.IPAM.OperatorStatus.Error, "cannot allocate from non-existing pool: test-pool")
+	onUpdateStatusResult <- mockResult{node: nodeUpdate2Status.newNode}
+
+	select {
+	case <-onUpdateArgs:
+		t.Fatal("Update should not have been called after increasing requested IPs")
+	default:
+	}
+
+	// Previous CIDRs should be unorphaned if test-pool is restored
+	err := backend.UpsertPool("test-pool", []string{"10.0.0.0/16"}, 24, nil, 0)
+	assert.NoError(t, err)
+
+	assert.Empty(t, backend.orphans)
+	assert.Equal(t, map[string]poolToCIDRs{
+		node2.Name: {
+			"test-pool": {
+				v4: cidrSet{
+					netip.MustParsePrefix("10.0.0.0/24"): {},
+					netip.MustParsePrefix("10.0.1.0/24"): {},
+					netip.MustParsePrefix("10.0.2.0/24"): {},
+				},
+				v6: cidrSet{},
+			},
+		},
+	}, backend.nodes)
+}
+
+func TestOrphanCIDRsReleased(t *testing.T) {
+	backend := NewPoolAllocator(hivetest.Logger(t))
+	err := backend.UpsertPool("test-pool",
+		[]string{"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28"}, 28,
+		nil, 0)
+	assert.NoError(t, err)
+
+	onUpdateArgs := make(chan mockArgs)
+	onUpdateResult := make(chan mockResult)
+	nodeUpdater := &k8sNodeMock{
+		OnUpdate: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+			onUpdateArgs <- mockArgs{oldNode, newNode}
+			r := <-onUpdateResult
+			return r.node, r.err
+		},
+	}
+	nh := NewNodeHandler(hivetest.Logger(t), backend, nodeUpdater)
+
+	// wait 1ms instead of default 1s base duration in unit tests
+	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
+
+	node := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool:   "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 48},
+						},
+					},
+				},
+			},
+		},
+	}
+	nh.Upsert(node)
+
+	nh.Resync(t.Context(), time.Time{})
+
+	// CIDRs from test-pool should be allocated to node
+	nodeUpdate := <-onUpdateArgs
+	assert.Equal(t, node.Name, nodeUpdate.newNode.Name)
+	assert.Len(t, nodeUpdate.newNode.Spec.IPAM.Pools.Allocated, 1)
+	assert.Equal(t, "test-pool", nodeUpdate.newNode.Spec.IPAM.Pools.Allocated[0].Pool)
+	assert.ElementsMatch(t, []ipamTypes.IPAMPodCIDR{
+		"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28",
+	}, nodeUpdate.newNode.Spec.IPAM.Pools.Allocated[0].CIDRs)
+	onUpdateResult <- mockResult{node: nodeUpdate.newNode}
+
+	assert.Equal(t, cidrSet{
+		netip.MustParsePrefix("10.0.0.0/28"):  {},
+		netip.MustParsePrefix("10.0.0.16/28"): {},
+		netip.MustParsePrefix("10.0.0.32/28"): {},
+		netip.MustParsePrefix("10.0.0.48/28"): {},
+	}, backend.nodes[node.Name]["test-pool"].v4)
+	assert.Empty(t, backend.orphans)
+
+	// Shrink the pool and remove two CIDRs still in use by the node
+	err = backend.UpsertPool("test-pool",
+		[]string{"10.0.0.0/28", "10.0.0.16/28"}, 28,
+		nil, 0)
+	assert.NoError(t, err)
+
+	assert.Equal(t, cidrSet{
+		netip.MustParsePrefix("10.0.0.0/28"):  {},
+		netip.MustParsePrefix("10.0.0.16/28"): {},
+	}, backend.nodes[node.Name]["test-pool"].v4)
+	assert.Equal(t, cidrSet{
+		netip.MustParsePrefix("10.0.0.32/28"): {},
+		netip.MustParsePrefix("10.0.0.48/28"): {},
+	}, backend.orphans[node.Name]["test-pool"].v4)
+
+	// when orphan CIDRs are not claimed by the node anymore, they should eventually be released
+	node.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{{
+		Pool:   "test-pool",
+		Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 24},
+	}}
+	node.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{{
+		Pool:  "test-pool",
+		CIDRs: []ipamTypes.IPAMPodCIDR{"10.0.0.0/28", "10.0.0.16/28"},
+	}}
+	nh.Upsert(node)
+
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		backend.mutex.Lock()
+		defer backend.mutex.Unlock()
+
+		assert.Equal(c, cidrSet{
+			netip.MustParsePrefix("10.0.0.0/28"):  {},
+			netip.MustParsePrefix("10.0.0.16/28"): {},
+		}, backend.nodes[node.Name]["test-pool"].v4)
+		assert.Empty(c, backend.orphans[node.Name]["test-pool"].v4)
+	}, 5*time.Second, 50*time.Millisecond)
+
+	select {
+	case <-onUpdateArgs:
+		t.Fatal("Update should not have been called after releasing orphan CIDRs")
+	default:
+	}
 }

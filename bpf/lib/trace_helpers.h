@@ -45,10 +45,8 @@ check_and_store_ip_trace_id(struct __ctx_buff *ctx)
 	__s64 trace_id = 0;
 	int ret;
 
-	if (CONFIG(tracing_ip_option_type) == 0) {
-		bpf_trace_id_set(0);
+	if (CONFIG(tracing_ip_option_type) == 0)
 		return;
-	}
 
 	ret = trace_id_from_ctx(ctx, &trace_id, CONFIG(tracing_ip_option_type));
 	if (IS_ERR(ret))
@@ -59,5 +57,7 @@ check_and_store_ip_trace_id(struct __ctx_buff *ctx)
 
 static __always_inline __u64 load_ip_trace_id(void)
 {
+	if (CONFIG(tracing_ip_option_type) == 0)
+		return 0;
 	return bpf_trace_id_get();
 }
