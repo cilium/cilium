@@ -1181,8 +1181,6 @@ certgen:
     digest: "sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff"
     useDigest: true
     pullPolicy: "Always"
-  # -- Seconds after which the completed job pod will be deleted
-  ttlSecondsAfterFinished: 1800
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
   # -- Annotations to be added to the hubble-certgen initial Job and CronJob

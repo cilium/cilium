@@ -569,7 +569,7 @@ jobs:
           KVSTORE_ID: 1
         run: |
           # Let the NodePort to be selected randomly, to prevent the risk of conflicts.
-          cilium --context ${{ env.contextName1 }} install \
+          cilium --context ${{ env.contextName1 }} install --wait \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.ciliumClusterName1 }} \
             --helm-set cluster.id=1 \

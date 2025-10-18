@@ -772,9 +772,6 @@
         "tolerations": {
           "items": {},
           "type": "array"
-        },
-        "ttlSecondsAfterFinished": {
-          "type": "integer"
         }
       },
       "type": "object"

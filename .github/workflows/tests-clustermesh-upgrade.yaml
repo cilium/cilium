@@ -434,7 +434,7 @@ jobs:
         env:
           KVSTORE_ID: 1
         run: |
-          cilium --context ${{ env.contextName1 }} install \
+          cilium --context ${{ env.contextName1 }} install --wait \
             ${{ steps.downgrade-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
