@@ -322,6 +322,13 @@ communicating via the proxy must reconnect to re-establish connections.
 * The previously deprecated ``CiliumBGPPeeringPolicy`` CRD and its control plane (BGPv1) has been removed.
   Please migrate to ``cilium.io/v2`` CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``,
   ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) before upgrading.
+* Certificate generation with the CronJob method for Hubble and ClusterMesh has
+  changed. The Job that was previously created in post-install and post-upgrade
+  hooks is no longer created. Users installing Cilium using the Helm
+  ``--wait`` option or through ArgoCD are no longer expected to trigger the job
+  when bootstrapping their clusters. Additionally, the Helm option
+  ``certgen.ttlSecondsAfterFinished`` is now set to null by default to favor cleanup through
+  the `CronJob job history limit <https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#jobs-history-limits>`_.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -382,7 +389,7 @@ Changed Metrics
 The following metrics previously had instances (i.e. for some watcher K8s resource type labels) under ``workqueue_``.
 In this release any such metrics have been renamed and combined into the correct metric name prefixed with ``cilium_operator_``.
 
-As well, any remaining Operator k8s workqueue metrics that use the label ``queue_name`` have had it renamed to 
+As well, any remaining Operator k8s workqueue metrics that use the label ``queue_name`` have had it renamed to
 ``name`` to be consistent with agent k8s workqueue metrics.
 
 * The metric ``workqueue_adds_total`` has been renamed and combined into to ``cilium_operator_k8s_workqueue_adds_total``, the label ``queue_name`` has been renamed to ``name``.

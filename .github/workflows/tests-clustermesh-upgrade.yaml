@@ -444,6 +444,7 @@ jobs:
       - name: Copy the Cilium CA secret to cluster2, as they must match
         if: ${{ !matrix.external-kvstore }}
         run: |
+          kubectl --context ${{ env.contextName1 }} wait --for=create -n kube-system secret cilium-ca --timeout=3m
           kubectl --context ${{ env.contextName1 }} get secret -n kube-system cilium-ca -o yaml |
             kubectl --context ${{ env.contextName2 }} create -f -
 

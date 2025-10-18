@@ -152,5 +152,7 @@ spec:
       affinity:
       {{- toYaml . | nindent 8 }}
       {{- end }}
-  ttlSecondsAfterFinished: {{ .Values.certgen.ttlSecondsAfterFinished }}
+  {{- with .Values.certgen.ttlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ . }}
+  {{- end }}
 {{- end }}

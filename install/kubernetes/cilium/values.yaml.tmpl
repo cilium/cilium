@@ -1199,8 +1199,11 @@ certgen:
     digest: "${CERTGEN_DIGEST}"
     useDigest: true
     pullPolicy: "${PULL_POLICY}"
+  # @schema
+  # type: [null, integer]
+  # @schema
   # -- Seconds after which the completed job pod will be deleted
-  ttlSecondsAfterFinished: 1800
+  ttlSecondsAfterFinished: null
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
   # -- Annotations to be added to the hubble-certgen initial Job and CronJob
@@ -1225,6 +1228,11 @@ certgen:
   extraVolumeMounts: []
   # -- Affinity for certgen
   affinity: {}
+  cronJob:
+    # -- The number of successful finished jobs to keep
+    successfulJobsHistoryLimit: 3
+    # -- The number of failed finished jobs to keep
+    failedJobsHistoryLimit: 1
 hubble:
   # -- Enable Hubble (true by default).
   enabled: true
