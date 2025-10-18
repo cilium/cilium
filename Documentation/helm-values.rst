@@ -483,7 +483,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.4","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.4","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -492,6 +492,14 @@
      - Annotations to be added to the hubble-certgen initial Job and CronJob
      - object
      - ``{"cronJob":{},"job":{}}``
+   * - :spelling:ignore:`certgen.cronJob.failedJobsHistoryLimit`
+     - The number of failed finished jobs to keep
+     - int
+     - ``1``
+   * - :spelling:ignore:`certgen.cronJob.successfulJobsHistoryLimit`
+     - The number of successful finished jobs to keep
+     - int
+     - ``3``
    * - :spelling:ignore:`certgen.extraVolumeMounts`
      - Additional certgen volumeMounts.
      - list
@@ -526,8 +534,8 @@
      - ``[]``
    * - :spelling:ignore:`certgen.ttlSecondsAfterFinished`
      - Seconds after which the completed job pod will be deleted
-     - int
-     - ``1800``
+     - string
+     - ``nil``
    * - :spelling:ignore:`cgroup`
      - Configure cgroup related configuration
      - object
