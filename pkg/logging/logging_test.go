@@ -127,3 +127,37 @@ func TestSetupLogging(t *testing.T) {
 	assert.NoError(t, err)
 	require.Equal(t, slog.LevelDebug, GetSlogLevel(DefaultSlogLogger))
 }
+
+func TestSetupLogging3(t *testing.T) {
+	oldLogger := DefaultSlogLogger
+	defer func() {
+		DefaultSlogLogger = oldLogger
+	}()
+	oldLevel := GetSlogLevel(DefaultSlogLogger)
+	defer SetLogLevel(oldLevel)
+
+	// Validates that we configure the DefaultSlogLogger correctly
+	logOpts := LogOptions{
+		"format": "json",
+		"level":  "error",
+	}
+
+	err := SetupLogging([]string{}, logOpts, "", false)
+	assert.NoError(t, err)
+	require.Equal(t, slog.LevelError, GetSlogLevel(DefaultSlogLogger))
+
+	require.IsType(t, &multiSlogHandler{}, DefaultSlogLogger.Handler())
+	msh := DefaultSlogLogger.Handler().(*multiSlogHandler)
+
+	require.Len(t, msh.handlers, 1, "Should start with one handler (json)")
+
+	buf := &bytes.Buffer{}
+	AddHandlers(slog.NewTextHandler(buf, &slog.HandlerOptions{}))
+
+	require.Len(t, msh.handlers, 1)
+	msh = DefaultSlogLogger.Handler().(*multiSlogHandler)
+	require.Len(t, msh.handlers, 2)
+
+	DefaultSlogLogger.Info("hi")
+	require.Contains(t, buf.String(), "hi")
+}
