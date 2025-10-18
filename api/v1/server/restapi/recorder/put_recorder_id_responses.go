@@ -36,7 +36,7 @@ func NewPutRecorderIDOK() *PutRecorderIDOK {
 // WriteResponse to the client
 func (o *PutRecorderIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -61,7 +61,7 @@ func NewPutRecorderIDCreated() *PutRecorderIDCreated {
 // WriteResponse to the client
 func (o *PutRecorderIDCreated) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(201)
 }
@@ -86,7 +86,7 @@ func NewPutRecorderIDForbidden() *PutRecorderIDForbidden {
 // WriteResponse to the client
 func (o *PutRecorderIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(403)
 }

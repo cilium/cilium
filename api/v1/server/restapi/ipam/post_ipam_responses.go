@@ -81,7 +81,7 @@ func NewPostIpamForbidden() *PostIpamForbidden {
 // WriteResponse to the client
 func (o *PostIpamForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(403)
 }
