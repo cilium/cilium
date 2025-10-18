@@ -67,16 +67,17 @@ func initializeSlog(logOpts LogOptions, loggers []string) {
 	// Set the log format in either text or JSON
 	switch logFormat {
 	case LogFormatJSON, LogFormatJSONTimestamp:
-		defaultMultiSlogHandler.SetHandler(slog.NewJSONHandler(
+		defaultMultiSlogHandler = NewMultiSlogHandler(slog.NewJSONHandler(
 			writer,
 			&opts,
 		))
 	case LogFormatText, LogFormatTextTimestamp:
-		defaultMultiSlogHandler.SetHandler(slog.NewTextHandler(
+		defaultMultiSlogHandler = NewMultiSlogHandler(slog.NewTextHandler(
 			writer,
 			&opts,
 		))
 	}
+	DefaultSlogLogger = slog.New(defaultMultiSlogHandler)
 }
 
 func ReplaceAttrFn(groups []string, a slog.Attr) slog.Attr {
