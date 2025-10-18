@@ -1,0 +1,13 @@
+v1.18 backports 2025-10-20
+
+ - [ ] #42108 -- ci: Allow for alpine image overwrite within cache Dockerfile (@jpayne3506)
+ - [ ] #41999 -- lbipam: fix incorrect conflicting pools metric (@hanapedia)
+ - [ ] #42210 -- cilium, routes: Downgrade warning on direct-routing-skip-unreachable (@borkmann)
+ - [ ] #41748 -- Docs: update fragmentation docs to reflect ipv6 (@tommyp1ckles)
+ - [ ] #42217 -- operator: Prevent panic when GCing identities (@HadrienPatte)
+ - [ ] #42172 -- gatewayAPI: fix reference to cluster-scoped CGCC resource (@oblazek)
+
+Once this PR is merged, a GitHub action will update the labels of these PRs:
+```upstream-prs
+42108 41999 42210 41748 42217 42172
+```
