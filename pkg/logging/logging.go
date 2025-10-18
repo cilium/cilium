@@ -110,7 +110,9 @@ func SetLogLevelToDebug() {
 
 // AddHandlers adds additional logrus hook to default logger
 func AddHandlers(hooks ...slog.Handler) {
-	defaultMultiSlogHandler.AddHandlers(hooks...)
+	defaultMultiSlogHandlerMu.Lock()
+	defer defaultMultiSlogHandlerMu.Lock()
+	defaultMultiSlogHandler = defaultMultiSlogHandler.AddHandlers(hooks...)
 }
 
 // SetupLogging sets up each logging service provided in loggers and configures
