@@ -126,6 +126,10 @@ var (
 		cni.Cell,
 
 		// Provide the modular metrics registry, metric HTTP server and legacy metrics cell.
+		cell.ProvidePrivate(func() metrics.TLSConfigPromise {
+			// TODO: TLS support
+			return nil
+		}),
 		metrics.AgentCell,
 
 		// Provides cilium_datapath_drop/forward Prometheus metrics.

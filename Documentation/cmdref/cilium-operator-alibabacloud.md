@@ -122,7 +122,11 @@ cilium-operator-alibabacloud [flags]
       --operator-pprof-block-profile-rate int                Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
       --operator-pprof-mutex-profile-fraction int            Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
+      --operator-prometheus-enable-tls                       Enable TLS for prometheus server
       --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
+      --operator-prometheus-tls-cert-file string             Path to TLS certificate file for prometheus server. The file must contain PEM encoded data
+      --operator-prometheus-tls-client-ca-files strings      Path to one or more TLS client CA certificates files to use for TLS with mutual authentication (mTLS) for prometheus server. The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
+      --operator-prometheus-tls-key-file string              Path to TLS private key file for prometheus server. The file must contain PEM encoded data.
       --parallel-alloc-workers int                           Maximum number of parallel IPAM workers (default 50)
       --pod-restart-selector string                          cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted (default "k8s-app=kube-dns")
       --policy-default-local-cluster                         Control whether policy rules assume by default the local cluster if not explicitly selected (default true)

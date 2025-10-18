@@ -3123,7 +3123,7 @@
    * - :spelling:ignore:`operator.prometheus`
      - Enable prometheus metrics for cilium-operator on the configured port at /metrics
      - object
-     - ``{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}}``
+     - ``{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"tls":{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}}``
    * - :spelling:ignore:`operator.prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor cilium-operator
      - object
@@ -3156,6 +3156,14 @@
      - Timeout after which scrape is considered to be failed.
      - string
      - ``nil``
+   * - :spelling:ignore:`operator.prometheus.tls`
+     - TLS configuration for Prometheus
+     - object
+     - ``{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}``
+   * - :spelling:ignore:`operator.prometheus.tls.server.existingSecret`
+     - Name of the Secret containing the certificate, key and CA files for the Prometheus server.
+     - string
+     - ``""``
    * - :spelling:ignore:`operator.removeNodeTaints`
      - Remove Cilium node taint from Kubernetes nodes that have a healthy Cilium pod running.
      - bool
