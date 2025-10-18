@@ -51,9 +51,21 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if gt (len .Values.authentication.mutual.spire.install.server.initContainers) 0 }}
       initContainers:
+      {{- if gt (len .Values.authentication.mutual.spire.install.server.initContainers) 0 }}
         {{- toYaml .Values.authentication.mutual.spire.install.server.initContainers | nindent 8 }}
+      {{- else }}
+      - name: chown-data
+        image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.initImage | quote }}
+        imagePullPolicy: {{ .Values.authentication.mutual.spire.install.initImage.pullPolicy }}
+        command:
+          - /bin/sh
+          - -c
+          - |
+            {{- tpl (.Files.Get "files/spire/chown-data.bash") . | nindent 12 }}
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
       {{- end }}
       containers:
       - name: cilium-init
@@ -64,6 +76,13 @@ spec:
           - -c
           - |
             {{- tpl (.Files.Get "files/spire/init.bash") . | nindent 12 }}
+        securityContext:
+        {{- with .Values.authentication.mutual.spire.install.server.securityContext }}
+          {{- toYaml . | nindent 10 }}
+        {{- else }}
+          runAsUser: 1000
+          runAsGroup: 1000
+        {{- end }}
       - name: spire-server
         {{- if eq (typeOf .Values.authentication.mutual.spire.install.server.image) "string" }}
         image: {{ .Values.authentication.mutual.spire.install.server.image }}
@@ -107,9 +126,12 @@ spec:
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
-        {{- with .Values.authentication.mutual.spire.install.server.securityContext }}
         securityContext:
+        {{- with .Values.authentication.mutual.spire.install.server.securityContext }}
           {{- toYaml . | nindent 10 }}
+        {{- else }}
+          runAsUser: 1000
+          runAsGroup: 1000
         {{- end }}
       {{- with .Values.authentication.mutual.spire.install.server.affinity }}
       affinity:
