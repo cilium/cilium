@@ -16,22 +16,12 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/signal"
 )
 
 // TestGCEnable tests the overall *flow* of ctmap GC scheduling
 // while abstracting out the underlying garbage collection logic.
 func TestGCEnableDualStack(t *testing.T) {
-	// Save original state
-	originalConntrackGCMaxInterval := option.Config.ConntrackGCMaxInterval
-	defer func() {
-		// Restore global state if not in race mode
-		if !skipGlobalStateRestoration {
-			option.Config.ConntrackGCMaxInterval = originalConntrackGCMaxInterval
-		}
-	}()
-
 	signalChan := make(chan SignalData)
 	defer close(signalChan) // Ensure cleanup
 
@@ -57,8 +47,12 @@ func TestGCEnableDualStack(t *testing.T) {
 	}
 
 	returnRatio := 0.1 // low -> high next interval
-	option.Config.ConntrackGCMaxInterval = time.Millisecond * 500
-	gc.enable(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+	// Use local variables instead of modifying global state
+	localConntrackGCMaxInterval := time.Millisecond * 500
+	localGCIntervalRounding := ctmap.GCIntervalRounding
+	localMinGCInterval := ctmap.MinGCInterval
+
+	gc.enableWithConfig(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 		if ipv4 {
 			ipv4Passes.Add(1)
 			if ipv6 {
@@ -66,7 +60,7 @@ func TestGCEnableDualStack(t *testing.T) {
 			}
 		}
 		return returnRatio, true
-	}, false)
+	}, false, 0, localConntrackGCMaxInterval, localGCIntervalRounding, localMinGCInterval)
 
 	assert.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.Equal(c, 1, int(dualPasses.Load()))
@@ -134,15 +128,10 @@ func TestGCEnableDualStack(t *testing.T) {
 // TestGCEnableRatchet tests the behavior of low, then high, purge ratios
 // causing the interval to ratchet up/down in successive GC passes.
 func TestGCEnableRatchet(t *testing.T) {
-	// Set up all global state at the beginning, before starting any goroutines
-	originalGCIntervalRounding := ctmap.GCIntervalRounding
-	originalMinGCInterval := ctmap.MinGCInterval
-	originalConntrackGCMaxInterval := option.Config.ConntrackGCMaxInterval
-
-	// Configure global state for the entire test duration
-	ctmap.GCIntervalRounding = 10 * time.Millisecond
-	ctmap.MinGCInterval = time.Millisecond
-	option.Config.ConntrackGCMaxInterval = 2 * time.Second // Set reasonable max for testing
+	// Use local configuration variables instead of modifying global state
+	localGCIntervalRounding := 10 * time.Millisecond
+	localMinGCInterval := time.Millisecond
+	localConntrackGCMaxInterval := 2 * time.Second // Set reasonable max for testing
 
 	// Channel to signal test completion to ensure proper cleanup ordering
 	testDone := make(chan struct{})
@@ -155,13 +144,6 @@ func TestGCEnableRatchet(t *testing.T) {
 		runtime.GC()
 		runtime.Gosched()
 		time.Sleep(50 * time.Millisecond)
-		// Only restore global state when race detection is not enabled
-		// to avoid race conditions between goroutine cleanup and state restoration
-		if !skipGlobalStateRestoration {
-			ctmap.GCIntervalRounding = originalGCIntervalRounding
-			ctmap.MinGCInterval = originalMinGCInterval
-			option.Config.ConntrackGCMaxInterval = originalConntrackGCMaxInterval
-		}
 	}()
 
 	// Test interval ratcheting up with very low delete ratio
@@ -183,7 +165,7 @@ func TestGCEnableRatchet(t *testing.T) {
 		initialPassDone := make(chan struct{})
 		var initialPassSignaled atomic.Bool
 
-		gc.enable(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+		gc.enableWithConfig(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 			// Check if test is done
 			select {
 			case <-testDone:
@@ -202,7 +184,7 @@ func TestGCEnableRatchet(t *testing.T) {
 
 			// Return low delete ratio to cause interval ratcheting up
 			return 0.01, true // 1% delete ratio
-		}, false)
+		}, false, 0, localConntrackGCMaxInterval, localGCIntervalRounding, localMinGCInterval)
 
 		// Wait for initial pass
 		<-initialPassDone
@@ -237,7 +219,7 @@ func TestGCEnableRatchet(t *testing.T) {
 		initialPassDone := make(chan struct{})
 		var initialPassSignaled atomic.Bool
 
-		gc.enable(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+		gc.enableWithConfig(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 			// Check if test is done
 			select {
 			case <-testDone:
@@ -256,7 +238,7 @@ func TestGCEnableRatchet(t *testing.T) {
 
 			// Return high delete ratio to cause interval ratcheting down
 			return 0.9, true
-		}, false)
+		}, false, 0, localConntrackGCMaxInterval, localGCIntervalRounding, localMinGCInterval)
 
 		// Wait for initial pass
 		<-initialPassDone
