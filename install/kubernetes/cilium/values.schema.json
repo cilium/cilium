@@ -728,6 +728,17 @@
           },
           "type": "object"
         },
+        "cronJob": {
+          "properties": {
+            "failedJobsHistoryLimit": {
+              "type": "integer"
+            },
+            "successfulJobsHistoryLimit": {
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
         "extraVolumeMounts": {
           "items": {},
           "type": "array"
@@ -782,7 +793,10 @@
           "type": "array"
         },
         "ttlSecondsAfterFinished": {
-          "type": "integer"
+          "type": [
+            "null",
+            "integer"
+          ]
         }
       },
       "type": "object"
