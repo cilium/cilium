@@ -689,7 +689,12 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 
 	// Run maintenance process again to process the acknowledgment
 	err = node.MaintainIPPool(context.Background())
-	require.NoError(t, err)
+
+	// Handle the case where the MaintainIPPool trigger runs first
+	expectedErrorStr := fmt.Sprintf("unable to release IP %s: IP %s not found", releasedIP, releasedIP)
+	require.Condition(t, func() bool {
+		return err == nil || err.Error() == expectedErrorStr
+	})
 
 	// Resync one more time to process acknowledgements.
 	node.instanceSync.Trigger()
