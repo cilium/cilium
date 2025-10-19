@@ -301,7 +301,7 @@ jobs:
 
       - name: Provision LVH VMs
         id: provision-vh-vms
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           test-name: datapath-conformance
           install-dependencies: true
@@ -311,7 +311,7 @@ jobs:
           cpu: 4
           mem: 12G
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.26"
+          lvh-version: "v0.0.27"
           cmd: |
             git config --global --add safe.directory /host
             mv /host/helm /usr/bin
@@ -319,7 +319,7 @@ jobs:
 
       - name: Provision kind
         timeout-minutes: 5
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |
@@ -385,7 +385,7 @@ jobs:
       - name: Run tests
         id: run-tests
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |
@@ -439,7 +439,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |
