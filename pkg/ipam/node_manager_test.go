@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -730,10 +731,13 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		return !inReleaseStatus && !inMarkedForRelease && !inReleaseIPs
 	}, 10*time.Second, time.Second)
 
-	node = mngr.Get("node4")
-	require.NotNil(t, node)
-	require.Equal(t, 4, node.Stats().IPv4.AvailableIPs)
-	require.Equal(t, 2, node.Stats().IPv4.UsedIPs)
+	// Wait for the InstanceSync job to finish and update the node stats
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		node = mngr.Get("node4")
+		assert.NotNil(c, node)
+		assert.Equal(c, 4, node.Stats().IPv4.AvailableIPs)
+		assert.Equal(c, 2, node.Stats().IPv4.UsedIPs)
+	}, 15*time.Second, time.Second, "AvailableIPs and UsedIPs count did not update")
 }
 
 type nodeState struct {
