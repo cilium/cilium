@@ -1,3 +1,7 @@
+# v1.13.2 (2025-10-16)
+
+* **Dependency Update**: Bump minimum Go version to 1.23.
+
 # v1.13.1 (2025-08-27)
 
 * **Dependency Update**: Update to smithy-go v1.23.0.

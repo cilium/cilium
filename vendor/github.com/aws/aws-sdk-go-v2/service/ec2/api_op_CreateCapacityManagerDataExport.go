@@ -6,59 +6,77 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Removes an association between a branch network interface with a trunk network
-// interface.
-func (c *Client) DisassociateTrunkInterface(ctx context.Context, params *DisassociateTrunkInterfaceInput, optFns ...func(*Options)) (*DisassociateTrunkInterfaceOutput, error) {
+//	Creates a new data export configuration for EC2 Capacity Manager. This allows
+//
+// you to automatically export capacity usage data to an S3 bucket on a scheduled
+// basis. The exported data includes metrics for On-Demand, Spot, and Capacity
+// Reservations usage across your organization.
+func (c *Client) CreateCapacityManagerDataExport(ctx context.Context, params *CreateCapacityManagerDataExportInput, optFns ...func(*Options)) (*CreateCapacityManagerDataExportOutput, error) {
 	if params == nil {
-		params = &DisassociateTrunkInterfaceInput{}
+		params = &CreateCapacityManagerDataExportInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DisassociateTrunkInterface", params, optFns, c.addOperationDisassociateTrunkInterfaceMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateCapacityManagerDataExport", params, optFns, c.addOperationCreateCapacityManagerDataExportMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DisassociateTrunkInterfaceOutput)
+	out := result.(*CreateCapacityManagerDataExportOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DisassociateTrunkInterfaceInput struct {
+type CreateCapacityManagerDataExportInput struct {
 
-	// The ID of the association
+	//  The file format for the exported data. Parquet format is recommended for large
+	// datasets and better compression.
 	//
 	// This member is required.
-	AssociationId *string
+	OutputFormat types.OutputFormat
 
-	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see [Ensuring idempotency].
+	//  The name of the S3 bucket where the capacity data export files will be
+	// delivered. The bucket must exist and you must have write permissions to it.
 	//
-	// [Ensuring idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
+	// This member is required.
+	S3BucketName *string
+
+	//  The frequency at which data exports are generated.
+	//
+	// This member is required.
+	Schedule types.Schedule
+
+	//  Unique, case-sensitive identifier that you provide to ensure the idempotency
+	// of the request. For more information, see Ensure Idempotency.
 	ClientToken *string
 
-	// Checks whether you have the required permissions for the action, without
+	//  Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	//  The S3 key prefix for the exported data files. This allows you to organize
+	// exports in a specific folder structure within your bucket. If not specified,
+	// files are placed at the bucket root.
+	S3BucketPrefix *string
+
+	//  The tags to apply to the data export configuration. You can tag the export for
+	// organization and cost tracking purposes.
+	TagSpecifications []types.TagSpecification
+
 	noSmithyDocumentSerde
 }
 
-type DisassociateTrunkInterfaceOutput struct {
+type CreateCapacityManagerDataExportOutput struct {
 
-	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see [Ensuring idempotency].
-	//
-	// [Ensuring idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
-	ClientToken *string
-
-	// Is true if the request succeeds and an error otherwise.
-	Return *bool
+	//  The unique identifier for the created data export configuration. Use this ID
+	// to reference the export in other API calls.
+	CapacityManagerDataExportId *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -66,19 +84,19 @@ type DisassociateTrunkInterfaceOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDisassociateTrunkInterfaceMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateCapacityManagerDataExportMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDisassociateTrunkInterface{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateCapacityManagerDataExport{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDisassociateTrunkInterface{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpCreateCapacityManagerDataExport{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DisassociateTrunkInterface"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateCapacityManagerDataExport"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -133,13 +151,13 @@ func (c *Client) addOperationDisassociateTrunkInterfaceMiddlewares(stack *middle
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addIdempotencyToken_opDisassociateTrunkInterfaceMiddleware(stack, options); err != nil {
+	if err = addIdempotencyToken_opCreateCapacityManagerDataExportMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addOpDisassociateTrunkInterfaceValidationMiddleware(stack); err != nil {
+	if err = addOpCreateCapacityManagerDataExportValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisassociateTrunkInterface(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateCapacityManagerDataExport(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -202,24 +220,24 @@ func (c *Client) addOperationDisassociateTrunkInterfaceMiddlewares(stack *middle
 	return nil
 }
 
-type idempotencyToken_initializeOpDisassociateTrunkInterface struct {
+type idempotencyToken_initializeOpCreateCapacityManagerDataExport struct {
 	tokenProvider IdempotencyTokenProvider
 }
 
-func (*idempotencyToken_initializeOpDisassociateTrunkInterface) ID() string {
+func (*idempotencyToken_initializeOpCreateCapacityManagerDataExport) ID() string {
 	return "OperationIdempotencyTokenAutoFill"
 }
 
-func (m *idempotencyToken_initializeOpDisassociateTrunkInterface) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+func (m *idempotencyToken_initializeOpCreateCapacityManagerDataExport) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
 	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
 ) {
 	if m.tokenProvider == nil {
 		return next.HandleInitialize(ctx, in)
 	}
 
-	input, ok := in.Parameters.(*DisassociateTrunkInterfaceInput)
+	input, ok := in.Parameters.(*CreateCapacityManagerDataExportInput)
 	if !ok {
-		return out, metadata, fmt.Errorf("expected middleware input to be of type *DisassociateTrunkInterfaceInput ")
+		return out, metadata, fmt.Errorf("expected middleware input to be of type *CreateCapacityManagerDataExportInput ")
 	}
 
 	if input.ClientToken == nil {
@@ -231,14 +249,14 @@ func (m *idempotencyToken_initializeOpDisassociateTrunkInterface) HandleInitiali
 	}
 	return next.HandleInitialize(ctx, in)
 }
-func addIdempotencyToken_opDisassociateTrunkInterfaceMiddleware(stack *middleware.Stack, cfg Options) error {
-	return stack.Initialize.Add(&idempotencyToken_initializeOpDisassociateTrunkInterface{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
+func addIdempotencyToken_opCreateCapacityManagerDataExportMiddleware(stack *middleware.Stack, cfg Options) error {
+	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateCapacityManagerDataExport{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
 }
 
-func newServiceMetadataMiddleware_opDisassociateTrunkInterface(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opCreateCapacityManagerDataExport(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DisassociateTrunkInterface",
+		OperationName: "CreateCapacityManagerDataExport",
 	}
 }

@@ -1060,6 +1060,49 @@ func (CapacityBlockResourceState) Values() []CapacityBlockResourceState {
 	}
 }
 
+type CapacityManagerDataExportStatus string
+
+// Enum values for CapacityManagerDataExportStatus
+const (
+	CapacityManagerDataExportStatusPending    CapacityManagerDataExportStatus = "pending"
+	CapacityManagerDataExportStatusInProgress CapacityManagerDataExportStatus = "in-progress"
+	CapacityManagerDataExportStatusDelivered  CapacityManagerDataExportStatus = "delivered"
+	CapacityManagerDataExportStatusFailed     CapacityManagerDataExportStatus = "failed"
+)
+
+// Values returns all known values for CapacityManagerDataExportStatus. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityManagerDataExportStatus) Values() []CapacityManagerDataExportStatus {
+	return []CapacityManagerDataExportStatus{
+		"pending",
+		"in-progress",
+		"delivered",
+		"failed",
+	}
+}
+
+type CapacityManagerStatus string
+
+// Enum values for CapacityManagerStatus
+const (
+	CapacityManagerStatusEnabled  CapacityManagerStatus = "enabled"
+	CapacityManagerStatusDisabled CapacityManagerStatus = "disabled"
+)
+
+// Values returns all known values for CapacityManagerStatus. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityManagerStatus) Values() []CapacityManagerStatus {
+	return []CapacityManagerStatus{
+		"enabled",
+		"disabled",
+	}
+}
+
 type CapacityReservationBillingRequestStatus string
 
 // Enum values for CapacityReservationBillingRequestStatus
@@ -1293,6 +1336,25 @@ func (CapacityReservationType) Values() []CapacityReservationType {
 	}
 }
 
+type CapacityTenancy string
+
+// Enum values for CapacityTenancy
+const (
+	CapacityTenancyDefault   CapacityTenancy = "default"
+	CapacityTenancyDedicated CapacityTenancy = "dedicated"
+)
+
+// Values returns all known values for CapacityTenancy. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityTenancy) Values() []CapacityTenancy {
+	return []CapacityTenancy{
+		"default",
+		"dedicated",
+	}
+}
+
 type CarrierGatewayState string
 
 // Enum values for CarrierGatewayState
@@ -1468,6 +1530,25 @@ func (ClientVpnRouteStatusCode) Values() []ClientVpnRouteStatusCode {
 		"active",
 		"failed",
 		"deleting",
+	}
+}
+
+type Comparison string
+
+// Enum values for Comparison
+const (
+	ComparisonEquals Comparison = "equals"
+	ComparisonIn     Comparison = "in"
+)
+
+// Values returns all known values for Comparison. Note that this can be expanded
+// in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (Comparison) Values() []Comparison {
+	return []Comparison{
+		"equals",
+		"in",
 	}
 }
 
@@ -2425,6 +2506,55 @@ func (FastSnapshotRestoreStateCode) Values() []FastSnapshotRestoreStateCode {
 	}
 }
 
+type FilterByDimension string
+
+// Enum values for FilterByDimension
+const (
+	FilterByDimensionResourceRegion                   FilterByDimension = "resource-region"
+	FilterByDimensionAvailabilityZoneId               FilterByDimension = "availability-zone-id"
+	FilterByDimensionAccountId                        FilterByDimension = "account-id"
+	FilterByDimensionInstanceFamily                   FilterByDimension = "instance-family"
+	FilterByDimensionInstanceType                     FilterByDimension = "instance-type"
+	FilterByDimensionInstancePlatform                 FilterByDimension = "instance-platform"
+	FilterByDimensionReservationArn                   FilterByDimension = "reservation-arn"
+	FilterByDimensionReservationId                    FilterByDimension = "reservation-id"
+	FilterByDimensionReservationType                  FilterByDimension = "reservation-type"
+	FilterByDimensionReservationCreateTimestamp       FilterByDimension = "reservation-create-timestamp"
+	FilterByDimensionReservationStartTimestamp        FilterByDimension = "reservation-start-timestamp"
+	FilterByDimensionReservationEndTimestamp          FilterByDimension = "reservation-end-timestamp"
+	FilterByDimensionReservationEndDateType           FilterByDimension = "reservation-end-date-type"
+	FilterByDimensionTenancy                          FilterByDimension = "tenancy"
+	FilterByDimensionReservationState                 FilterByDimension = "reservation-state"
+	FilterByDimensionReservationInstanceMatchCriteria FilterByDimension = "reservation-instance-match-criteria"
+	FilterByDimensionReservationUnusedFinancialOwner  FilterByDimension = "reservation-unused-financial-owner"
+)
+
+// Values returns all known values for FilterByDimension. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (FilterByDimension) Values() []FilterByDimension {
+	return []FilterByDimension{
+		"resource-region",
+		"availability-zone-id",
+		"account-id",
+		"instance-family",
+		"instance-type",
+		"instance-platform",
+		"reservation-arn",
+		"reservation-id",
+		"reservation-type",
+		"reservation-create-timestamp",
+		"reservation-start-timestamp",
+		"reservation-end-timestamp",
+		"reservation-end-date-type",
+		"tenancy",
+		"reservation-state",
+		"reservation-instance-match-criteria",
+		"reservation-unused-financial-owner",
+	}
+}
+
 type FindingsFound string
 
 // Enum values for FindingsFound
@@ -2782,6 +2912,55 @@ func (GatewayType) Values() []GatewayType {
 	}
 }
 
+type GroupBy string
+
+// Enum values for GroupBy
+const (
+	GroupByResourceRegion                   GroupBy = "resource-region"
+	GroupByAvailabilityZoneId               GroupBy = "availability-zone-id"
+	GroupByAccountId                        GroupBy = "account-id"
+	GroupByInstanceFamily                   GroupBy = "instance-family"
+	GroupByInstanceType                     GroupBy = "instance-type"
+	GroupByInstancePlatform                 GroupBy = "instance-platform"
+	GroupByReservationArn                   GroupBy = "reservation-arn"
+	GroupByReservationId                    GroupBy = "reservation-id"
+	GroupByReservationType                  GroupBy = "reservation-type"
+	GroupByReservationCreateTimestamp       GroupBy = "reservation-create-timestamp"
+	GroupByReservationStartTimestamp        GroupBy = "reservation-start-timestamp"
+	GroupByReservationEndTimestamp          GroupBy = "reservation-end-timestamp"
+	GroupByReservationEndDateType           GroupBy = "reservation-end-date-type"
+	GroupByTenancy                          GroupBy = "tenancy"
+	GroupByReservationState                 GroupBy = "reservation-state"
+	GroupByReservationInstanceMatchCriteria GroupBy = "reservation-instance-match-criteria"
+	GroupByReservationUnusedFinancialOwner  GroupBy = "reservation-unused-financial-owner"
+)
+
+// Values returns all known values for GroupBy. Note that this can be expanded in
+// the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (GroupBy) Values() []GroupBy {
+	return []GroupBy{
+		"resource-region",
+		"availability-zone-id",
+		"account-id",
+		"instance-family",
+		"instance-type",
+		"instance-platform",
+		"reservation-arn",
+		"reservation-id",
+		"reservation-type",
+		"reservation-create-timestamp",
+		"reservation-start-timestamp",
+		"reservation-end-timestamp",
+		"reservation-end-date-type",
+		"tenancy",
+		"reservation-state",
+		"reservation-instance-match-criteria",
+		"reservation-unused-financial-owner",
+	}
+}
+
 type HostMaintenance string
 
 // Enum values for HostMaintenance
@@ -3131,12 +3310,34 @@ func (ImdsSupportValues) Values() []ImdsSupportValues {
 	}
 }
 
+type IngestionStatus string
+
+// Enum values for IngestionStatus
+const (
+	IngestionStatusInitialIngestionInProgress IngestionStatus = "initial-ingestion-in-progress"
+	IngestionStatusIngestionComplete          IngestionStatus = "ingestion-complete"
+	IngestionStatusIngestionFailed            IngestionStatus = "ingestion-failed"
+)
+
+// Values returns all known values for IngestionStatus. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IngestionStatus) Values() []IngestionStatus {
+	return []IngestionStatus{
+		"initial-ingestion-in-progress",
+		"ingestion-complete",
+		"ingestion-failed",
+	}
+}
+
 type InitializationType string
 
 // Enum values for InitializationType
 const (
 	InitializationTypeDefault         InitializationType = "default"
 	InitializationTypeProvisionedRate InitializationType = "provisioned-rate"
+	InitializationTypeVolumeCopy      InitializationType = "volume-copy"
 )
 
 // Values returns all known values for InitializationType. Note that this can be
@@ -3147,6 +3348,7 @@ func (InitializationType) Values() []InitializationType {
 	return []InitializationType{
 		"default",
 		"provisioned-rate",
+		"volume-copy",
 	}
 }
 
@@ -4578,6 +4780,48 @@ const (
 	InstanceTypeR8gn48xlarge       InstanceType = "r8gn.48xlarge"
 	InstanceTypeR8gnMetal24xl      InstanceType = "r8gn.metal-24xl"
 	InstanceTypeR8gnMetal48xl      InstanceType = "r8gn.metal-48xl"
+	InstanceTypeC8iLarge           InstanceType = "c8i.large"
+	InstanceTypeC8iXlarge          InstanceType = "c8i.xlarge"
+	InstanceTypeC8i2xlarge         InstanceType = "c8i.2xlarge"
+	InstanceTypeC8i4xlarge         InstanceType = "c8i.4xlarge"
+	InstanceTypeC8i8xlarge         InstanceType = "c8i.8xlarge"
+	InstanceTypeC8i12xlarge        InstanceType = "c8i.12xlarge"
+	InstanceTypeC8i16xlarge        InstanceType = "c8i.16xlarge"
+	InstanceTypeC8i24xlarge        InstanceType = "c8i.24xlarge"
+	InstanceTypeC8i32xlarge        InstanceType = "c8i.32xlarge"
+	InstanceTypeC8i48xlarge        InstanceType = "c8i.48xlarge"
+	InstanceTypeC8i96xlarge        InstanceType = "c8i.96xlarge"
+	InstanceTypeC8iMetal48xl       InstanceType = "c8i.metal-48xl"
+	InstanceTypeC8iMetal96xl       InstanceType = "c8i.metal-96xl"
+	InstanceTypeC8iFlexLarge       InstanceType = "c8i-flex.large"
+	InstanceTypeC8iFlexXlarge      InstanceType = "c8i-flex.xlarge"
+	InstanceTypeC8iFlex2xlarge     InstanceType = "c8i-flex.2xlarge"
+	InstanceTypeC8iFlex4xlarge     InstanceType = "c8i-flex.4xlarge"
+	InstanceTypeC8iFlex8xlarge     InstanceType = "c8i-flex.8xlarge"
+	InstanceTypeC8iFlex12xlarge    InstanceType = "c8i-flex.12xlarge"
+	InstanceTypeC8iFlex16xlarge    InstanceType = "c8i-flex.16xlarge"
+	InstanceTypeR8gbMedium         InstanceType = "r8gb.medium"
+	InstanceTypeR8gbLarge          InstanceType = "r8gb.large"
+	InstanceTypeR8gbXlarge         InstanceType = "r8gb.xlarge"
+	InstanceTypeR8gb2xlarge        InstanceType = "r8gb.2xlarge"
+	InstanceTypeR8gb4xlarge        InstanceType = "r8gb.4xlarge"
+	InstanceTypeR8gb8xlarge        InstanceType = "r8gb.8xlarge"
+	InstanceTypeR8gb12xlarge       InstanceType = "r8gb.12xlarge"
+	InstanceTypeR8gb16xlarge       InstanceType = "r8gb.16xlarge"
+	InstanceTypeR8gb24xlarge       InstanceType = "r8gb.24xlarge"
+	InstanceTypeR8gbMetal24xl      InstanceType = "r8gb.metal-24xl"
+	InstanceTypeM8aMedium          InstanceType = "m8a.medium"
+	InstanceTypeM8aLarge           InstanceType = "m8a.large"
+	InstanceTypeM8aXlarge          InstanceType = "m8a.xlarge"
+	InstanceTypeM8a2xlarge         InstanceType = "m8a.2xlarge"
+	InstanceTypeM8a4xlarge         InstanceType = "m8a.4xlarge"
+	InstanceTypeM8a8xlarge         InstanceType = "m8a.8xlarge"
+	InstanceTypeM8a12xlarge        InstanceType = "m8a.12xlarge"
+	InstanceTypeM8a16xlarge        InstanceType = "m8a.16xlarge"
+	InstanceTypeM8a24xlarge        InstanceType = "m8a.24xlarge"
+	InstanceTypeM8a48xlarge        InstanceType = "m8a.48xlarge"
+	InstanceTypeM8aMetal24xl       InstanceType = "m8a.metal-24xl"
+	InstanceTypeM8aMetal48xl       InstanceType = "m8a.metal-48xl"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -5616,6 +5860,48 @@ func (InstanceType) Values() []InstanceType {
 		"r8gn.48xlarge",
 		"r8gn.metal-24xl",
 		"r8gn.metal-48xl",
+		"c8i.large",
+		"c8i.xlarge",
+		"c8i.2xlarge",
+		"c8i.4xlarge",
+		"c8i.8xlarge",
+		"c8i.12xlarge",
+		"c8i.16xlarge",
+		"c8i.24xlarge",
+		"c8i.32xlarge",
+		"c8i.48xlarge",
+		"c8i.96xlarge",
+		"c8i.metal-48xl",
+		"c8i.metal-96xl",
+		"c8i-flex.large",
+		"c8i-flex.xlarge",
+		"c8i-flex.2xlarge",
+		"c8i-flex.4xlarge",
+		"c8i-flex.8xlarge",
+		"c8i-flex.12xlarge",
+		"c8i-flex.16xlarge",
+		"r8gb.medium",
+		"r8gb.large",
+		"r8gb.xlarge",
+		"r8gb.2xlarge",
+		"r8gb.4xlarge",
+		"r8gb.8xlarge",
+		"r8gb.12xlarge",
+		"r8gb.16xlarge",
+		"r8gb.24xlarge",
+		"r8gb.metal-24xl",
+		"m8a.medium",
+		"m8a.large",
+		"m8a.xlarge",
+		"m8a.2xlarge",
+		"m8a.4xlarge",
+		"m8a.8xlarge",
+		"m8a.12xlarge",
+		"m8a.16xlarge",
+		"m8a.24xlarge",
+		"m8a.48xlarge",
+		"m8a.metal-24xl",
+		"m8a.metal-48xl",
 	}
 }
 
@@ -7094,6 +7380,107 @@ func (MetadataDefaultHttpTokensState) Values() []MetadataDefaultHttpTokensState 
 	}
 }
 
+type Metric string
+
+// Enum values for Metric
+const (
+	MetricReservationTotalCapacityHrsVcpu       Metric = "reservation-total-capacity-hrs-vcpu"
+	MetricReservationTotalCapacityHrsInst       Metric = "reservation-total-capacity-hrs-inst"
+	MetricReservationMaxSizeVcpu                Metric = "reservation-max-size-vcpu"
+	MetricReservationMaxSizeInst                Metric = "reservation-max-size-inst"
+	MetricReservationMinSizeVcpu                Metric = "reservation-min-size-vcpu"
+	MetricReservationMinSizeInst                Metric = "reservation-min-size-inst"
+	MetricReservationUnusedTotalCapacityHrsVcpu Metric = "reservation-unused-total-capacity-hrs-vcpu"
+	MetricReservationUnusedTotalCapacityHrsInst Metric = "reservation-unused-total-capacity-hrs-inst"
+	MetricReservationUnusedTotalEstimatedCost   Metric = "reservation-unused-total-estimated-cost"
+	MetricReservationMaxUnusedSizeVcpu          Metric = "reservation-max-unused-size-vcpu"
+	MetricReservationMaxUnusedSizeInst          Metric = "reservation-max-unused-size-inst"
+	MetricReservationMinUnusedSizeVcpu          Metric = "reservation-min-unused-size-vcpu"
+	MetricReservationMinUnusedSizeInst          Metric = "reservation-min-unused-size-inst"
+	MetricReservationMaxUtilization             Metric = "reservation-max-utilization"
+	MetricReservationMinUtilization             Metric = "reservation-min-utilization"
+	MetricReservationAvgUtilizationVcpu         Metric = "reservation-avg-utilization-vcpu"
+	MetricReservationAvgUtilizationInst         Metric = "reservation-avg-utilization-inst"
+	MetricReservationTotalCount                 Metric = "reservation-total-count"
+	MetricReservationTotalEstimatedCost         Metric = "reservation-total-estimated-cost"
+	MetricReservationAvgFutureSizeVcpu          Metric = "reservation-avg-future-size-vcpu"
+	MetricReservationAvgFutureSizeInst          Metric = "reservation-avg-future-size-inst"
+	MetricReservationMinFutureSizeVcpu          Metric = "reservation-min-future-size-vcpu"
+	MetricReservationMinFutureSizeInst          Metric = "reservation-min-future-size-inst"
+	MetricReservationMaxFutureSizeVcpu          Metric = "reservation-max-future-size-vcpu"
+	MetricReservationMaxFutureSizeInst          Metric = "reservation-max-future-size-inst"
+	MetricReservationAvgCommittedSizeVcpu       Metric = "reservation-avg-committed-size-vcpu"
+	MetricReservationAvgCommittedSizeInst       Metric = "reservation-avg-committed-size-inst"
+	MetricReservationMaxCommittedSizeVcpu       Metric = "reservation-max-committed-size-vcpu"
+	MetricReservationMaxCommittedSizeInst       Metric = "reservation-max-committed-size-inst"
+	MetricReservationMinCommittedSizeVcpu       Metric = "reservation-min-committed-size-vcpu"
+	MetricReservationMinCommittedSizeInst       Metric = "reservation-min-committed-size-inst"
+	MetricReservedTotalUsageHrsVcpu             Metric = "reserved-total-usage-hrs-vcpu"
+	MetricReservedTotalUsageHrsInst             Metric = "reserved-total-usage-hrs-inst"
+	MetricReservedTotalEstimatedCost            Metric = "reserved-total-estimated-cost"
+	MetricUnreservedTotalUsageHrsVcpu           Metric = "unreserved-total-usage-hrs-vcpu"
+	MetricUnreservedTotalUsageHrsInst           Metric = "unreserved-total-usage-hrs-inst"
+	MetricUnreservedTotalEstimatedCost          Metric = "unreserved-total-estimated-cost"
+	MetricSpotTotalUsageHrsVcpu                 Metric = "spot-total-usage-hrs-vcpu"
+	MetricSpotTotalUsageHrsInst                 Metric = "spot-total-usage-hrs-inst"
+	MetricSpotTotalEstimatedCost                Metric = "spot-total-estimated-cost"
+	MetricSpotAvgRunTimeBeforeInterruptionInst  Metric = "spot-avg-run-time-before-interruption-inst"
+	MetricSpotMaxRunTimeBeforeInterruptionInst  Metric = "spot-max-run-time-before-interruption-inst"
+	MetricSpotMinRunTimeBeforeInterruptionInst  Metric = "spot-min-run-time-before-interruption-inst"
+)
+
+// Values returns all known values for Metric. Note that this can be expanded in
+// the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (Metric) Values() []Metric {
+	return []Metric{
+		"reservation-total-capacity-hrs-vcpu",
+		"reservation-total-capacity-hrs-inst",
+		"reservation-max-size-vcpu",
+		"reservation-max-size-inst",
+		"reservation-min-size-vcpu",
+		"reservation-min-size-inst",
+		"reservation-unused-total-capacity-hrs-vcpu",
+		"reservation-unused-total-capacity-hrs-inst",
+		"reservation-unused-total-estimated-cost",
+		"reservation-max-unused-size-vcpu",
+		"reservation-max-unused-size-inst",
+		"reservation-min-unused-size-vcpu",
+		"reservation-min-unused-size-inst",
+		"reservation-max-utilization",
+		"reservation-min-utilization",
+		"reservation-avg-utilization-vcpu",
+		"reservation-avg-utilization-inst",
+		"reservation-total-count",
+		"reservation-total-estimated-cost",
+		"reservation-avg-future-size-vcpu",
+		"reservation-avg-future-size-inst",
+		"reservation-min-future-size-vcpu",
+		"reservation-min-future-size-inst",
+		"reservation-max-future-size-vcpu",
+		"reservation-max-future-size-inst",
+		"reservation-avg-committed-size-vcpu",
+		"reservation-avg-committed-size-inst",
+		"reservation-max-committed-size-vcpu",
+		"reservation-max-committed-size-inst",
+		"reservation-min-committed-size-vcpu",
+		"reservation-min-committed-size-inst",
+		"reserved-total-usage-hrs-vcpu",
+		"reserved-total-usage-hrs-inst",
+		"reserved-total-estimated-cost",
+		"unreserved-total-usage-hrs-vcpu",
+		"unreserved-total-usage-hrs-inst",
+		"unreserved-total-estimated-cost",
+		"spot-total-usage-hrs-vcpu",
+		"spot-total-usage-hrs-inst",
+		"spot-total-estimated-cost",
+		"spot-avg-run-time-before-interruption-inst",
+		"spot-max-run-time-before-interruption-inst",
+		"spot-min-run-time-before-interruption-inst",
+	}
+}
+
 type MetricType string
 
 // Enum values for MetricType
@@ -7512,6 +7899,25 @@ func (OperationType) Values() []OperationType {
 	return []OperationType{
 		"add",
 		"remove",
+	}
+}
+
+type OutputFormat string
+
+// Enum values for OutputFormat
+const (
+	OutputFormatCsv     OutputFormat = "csv"
+	OutputFormatParquet OutputFormat = "parquet"
+)
+
+// Values returns all known values for OutputFormat. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (OutputFormat) Values() []OutputFormat {
+	return []OutputFormat{
+		"csv",
+		"parquet",
 	}
 }
 
@@ -8020,13 +8426,39 @@ func (ReportStatusType) Values() []ReportStatusType {
 	}
 }
 
+type ReservationEndDateType string
+
+// Enum values for ReservationEndDateType
+const (
+	ReservationEndDateTypeLimited   ReservationEndDateType = "limited"
+	ReservationEndDateTypeUnlimited ReservationEndDateType = "unlimited"
+)
+
+// Values returns all known values for ReservationEndDateType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ReservationEndDateType) Values() []ReservationEndDateType {
+	return []ReservationEndDateType{
+		"limited",
+		"unlimited",
+	}
+}
+
 type ReservationState string
 
 // Enum values for ReservationState
 const (
+	ReservationStateActive         ReservationState = "active"
+	ReservationStateExpired        ReservationState = "expired"
+	ReservationStateCancelled      ReservationState = "cancelled"
+	ReservationStateScheduled      ReservationState = "scheduled"
+	ReservationStatePending        ReservationState = "pending"
+	ReservationStateFailed         ReservationState = "failed"
+	ReservationStateDelayed        ReservationState = "delayed"
+	ReservationStateUnsupported    ReservationState = "unsupported"
 	ReservationStatePaymentPending ReservationState = "payment-pending"
 	ReservationStatePaymentFailed  ReservationState = "payment-failed"
-	ReservationStateActive         ReservationState = "active"
 	ReservationStateRetired        ReservationState = "retired"
 )
 
@@ -8036,10 +8468,36 @@ const (
 // The ordering of this slice is not guaranteed to be stable across updates.
 func (ReservationState) Values() []ReservationState {
 	return []ReservationState{
+		"active",
+		"expired",
+		"cancelled",
+		"scheduled",
+		"pending",
+		"failed",
+		"delayed",
+		"unsupported",
 		"payment-pending",
 		"payment-failed",
-		"active",
 		"retired",
+	}
+}
+
+type ReservationType string
+
+// Enum values for ReservationType
+const (
+	ReservationTypeCapacityBlock ReservationType = "capacity-block"
+	ReservationTypeOdcr          ReservationType = "odcr"
+)
+
+// Values returns all known values for ReservationType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ReservationType) Values() []ReservationType {
+	return []ReservationType{
+		"capacity-block",
+		"odcr",
 	}
 }
 
@@ -8205,6 +8663,7 @@ const (
 	ResourceTypeIpamExternalResourceVerificationToken                  ResourceType = "ipam-external-resource-verification-token"
 	ResourceTypeCapacityBlock                                          ResourceType = "capacity-block"
 	ResourceTypeMacModificationTask                                    ResourceType = "mac-modification-task"
+	ResourceTypeCapacityManagerDataExport                              ResourceType = "capacity-manager-data-export"
 )
 
 // Values returns all known values for ResourceType. Note that this can be
@@ -8310,6 +8769,7 @@ func (ResourceType) Values() []ResourceType {
 		"ipam-external-resource-verification-token",
 		"capacity-block",
 		"mac-modification-task",
+		"capacity-manager-data-export",
 	}
 }
 
@@ -8710,6 +9170,23 @@ func (RuleAction) Values() []RuleAction {
 	return []RuleAction{
 		"allow",
 		"deny",
+	}
+}
+
+type Schedule string
+
+// Enum values for Schedule
+const (
+	ScheduleHourly Schedule = "hourly"
+)
+
+// Values returns all known values for Schedule. Note that this can be expanded in
+// the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (Schedule) Values() []Schedule {
+	return []Schedule{
+		"hourly",
 	}
 }
 

@@ -1090,6 +1090,46 @@ func (m *validateOpCopySnapshot) HandleInitialize(ctx context.Context, in middle
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCopyVolumes struct {
+}
+
+func (*validateOpCopyVolumes) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCopyVolumes) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CopyVolumesInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCopyVolumesInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpCreateCapacityManagerDataExport struct {
+}
+
+func (*validateOpCreateCapacityManagerDataExport) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateCapacityManagerDataExport) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateCapacityManagerDataExportInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateCapacityManagerDataExportInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateCapacityReservationBySplitting struct {
 }
 
@@ -2645,6 +2685,26 @@ func (m *validateOpCreateVpnGateway) HandleInitialize(ctx context.Context, in mi
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpCreateVpnGatewayInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpDeleteCapacityManagerDataExport struct {
+}
+
+func (*validateOpDeleteCapacityManagerDataExport) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteCapacityManagerDataExport) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteCapacityManagerDataExportInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteCapacityManagerDataExportInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -5965,6 +6025,46 @@ func (m *validateOpGetAssociatedIpv6PoolCidrs) HandleInitialize(ctx context.Cont
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpGetAssociatedIpv6PoolCidrsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetCapacityManagerMetricData struct {
+}
+
+func (*validateOpGetCapacityManagerMetricData) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetCapacityManagerMetricData) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetCapacityManagerMetricDataInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetCapacityManagerMetricDataInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetCapacityManagerMetricDimensions struct {
+}
+
+func (*validateOpGetCapacityManagerMetricDimensions) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetCapacityManagerMetricDimensions) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetCapacityManagerMetricDimensionsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetCapacityManagerMetricDimensionsInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -9690,6 +9790,26 @@ func (m *validateOpUnmonitorInstances) HandleInitialize(ctx context.Context, in 
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpUpdateCapacityManagerOrganizationsAccess struct {
+}
+
+func (*validateOpUpdateCapacityManagerOrganizationsAccess) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpUpdateCapacityManagerOrganizationsAccess) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*UpdateCapacityManagerOrganizationsAccessInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpUpdateCapacityManagerOrganizationsAccessInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpWithdrawByoipCidr struct {
 }
 
@@ -9924,6 +10044,14 @@ func addOpCopyImageValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpCopySnapshotValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCopySnapshot{}, middleware.After)
+}
+
+func addOpCopyVolumesValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCopyVolumes{}, middleware.After)
+}
+
+func addOpCreateCapacityManagerDataExportValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateCapacityManagerDataExport{}, middleware.After)
 }
 
 func addOpCreateCapacityReservationBySplittingValidationMiddleware(stack *middleware.Stack) error {
@@ -10236,6 +10364,10 @@ func addOpCreateVpnConnectionRouteValidationMiddleware(stack *middleware.Stack) 
 
 func addOpCreateVpnGatewayValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateVpnGateway{}, middleware.After)
+}
+
+func addOpDeleteCapacityManagerDataExportValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteCapacityManagerDataExport{}, middleware.After)
 }
 
 func addOpDeleteCarrierGatewayValidationMiddleware(stack *middleware.Stack) error {
@@ -10900,6 +11032,14 @@ func addOpGetAssociatedEnclaveCertificateIamRolesValidationMiddleware(stack *mid
 
 func addOpGetAssociatedIpv6PoolCidrsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetAssociatedIpv6PoolCidrs{}, middleware.After)
+}
+
+func addOpGetCapacityManagerMetricDataValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetCapacityManagerMetricData{}, middleware.After)
+}
+
+func addOpGetCapacityManagerMetricDimensionsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetCapacityManagerMetricDimensions{}, middleware.After)
 }
 
 func addOpGetCapacityReservationUsageValidationMiddleware(stack *middleware.Stack) error {
@@ -11644,6 +11784,10 @@ func addOpUnlockSnapshotValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpUnmonitorInstancesValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpUnmonitorInstances{}, middleware.After)
+}
+
+func addOpUpdateCapacityManagerOrganizationsAccessValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpUpdateCapacityManagerOrganizationsAccess{}, middleware.After)
 }
 
 func addOpWithdrawByoipCidrValidationMiddleware(stack *middleware.Stack) error {
@@ -13477,6 +13621,42 @@ func validateOpCopySnapshotInput(v *CopySnapshotInput) error {
 	}
 }
 
+func validateOpCopyVolumesInput(v *CopyVolumesInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CopyVolumesInput"}
+	if v.SourceVolumeId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SourceVolumeId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpCreateCapacityManagerDataExportInput(v *CreateCapacityManagerDataExportInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateCapacityManagerDataExportInput"}
+	if v.S3BucketName == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("S3BucketName"))
+	}
+	if len(v.Schedule) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("Schedule"))
+	}
+	if len(v.OutputFormat) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("OutputFormat"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCreateCapacityReservationBySplittingInput(v *CreateCapacityReservationBySplittingInput) error {
 	if v == nil {
 		return nil
@@ -14885,6 +15065,21 @@ func validateOpCreateVpnGatewayInput(v *CreateVpnGatewayInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "CreateVpnGatewayInput"}
 	if len(v.Type) == 0 {
 		invalidParams.Add(smithy.NewErrParamRequired("Type"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDeleteCapacityManagerDataExportInput(v *DeleteCapacityManagerDataExportInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteCapacityManagerDataExportInput"}
+	if v.CapacityManagerDataExportId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityManagerDataExportId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -17532,6 +17727,54 @@ func validateOpGetAssociatedIpv6PoolCidrsInput(v *GetAssociatedIpv6PoolCidrsInpu
 	invalidParams := smithy.InvalidParamsError{Context: "GetAssociatedIpv6PoolCidrsInput"}
 	if v.PoolId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("PoolId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetCapacityManagerMetricDataInput(v *GetCapacityManagerMetricDataInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetCapacityManagerMetricDataInput"}
+	if v.MetricNames == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("MetricNames"))
+	}
+	if v.StartTime == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("StartTime"))
+	}
+	if v.EndTime == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("EndTime"))
+	}
+	if v.Period == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Period"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetCapacityManagerMetricDimensionsInput(v *GetCapacityManagerMetricDimensionsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetCapacityManagerMetricDimensionsInput"}
+	if v.GroupBy == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("GroupBy"))
+	}
+	if v.StartTime == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("StartTime"))
+	}
+	if v.EndTime == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("EndTime"))
+	}
+	if v.MetricNames == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("MetricNames"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -20683,6 +20926,21 @@ func validateOpUnmonitorInstancesInput(v *UnmonitorInstancesInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "UnmonitorInstancesInput"}
 	if v.InstanceIds == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("InstanceIds"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpUpdateCapacityManagerOrganizationsAccessInput(v *UpdateCapacityManagerOrganizationsAccessInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "UpdateCapacityManagerOrganizationsAccessInput"}
+	if v.OrganizationsAccess == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("OrganizationsAccess"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

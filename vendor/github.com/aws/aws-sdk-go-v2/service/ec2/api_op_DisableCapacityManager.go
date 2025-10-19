@@ -11,68 +11,32 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Cancels the specified Spot Fleet requests.
+//	Disables EC2 Capacity Manager for your account. This stops data ingestion and
 //
-// After you cancel a Spot Fleet request, the Spot Fleet launches no new instances.
-//
-// You must also specify whether a canceled Spot Fleet request should terminate
-// its instances. If you choose to terminate the instances, the Spot Fleet request
-// enters the cancelled_terminating state. Otherwise, the Spot Fleet request
-// enters the cancelled_running state and the instances continue to run until they
-// are interrupted or you terminate them manually.
-//
-// Terminating an instance is permanent and irreversible.
-//
-// After you terminate an instance, you can no longer connect to it, and it can't
-// be recovered. All attached Amazon EBS volumes that are configured to be deleted
-// on termination are also permanently deleted and can't be recovered. All data
-// stored on instance store volumes is permanently lost. For more information, see [How instance termination works]
-// .
-//
-// Before you terminate an instance, ensure that you have backed up all data that
-// you need to retain after the termination to persistent storage.
-//
-// Restrictions
-//
-//   - You can delete up to 100 fleets in a single request. If you exceed the
-//     specified number, no fleets are deleted.
-//
-// [How instance termination works]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-ec2-instance-termination-works.html
-func (c *Client) CancelSpotFleetRequests(ctx context.Context, params *CancelSpotFleetRequestsInput, optFns ...func(*Options)) (*CancelSpotFleetRequestsOutput, error) {
+// removes access to capacity analytics and optimization recommendations.
+// Previously collected data is retained but no new data will be processed.
+func (c *Client) DisableCapacityManager(ctx context.Context, params *DisableCapacityManagerInput, optFns ...func(*Options)) (*DisableCapacityManagerOutput, error) {
 	if params == nil {
-		params = &CancelSpotFleetRequestsInput{}
+		params = &DisableCapacityManagerInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CancelSpotFleetRequests", params, optFns, c.addOperationCancelSpotFleetRequestsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DisableCapacityManager", params, optFns, c.addOperationDisableCapacityManagerMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*CancelSpotFleetRequestsOutput)
+	out := result.(*DisableCapacityManagerOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-// Contains the parameters for CancelSpotFleetRequests.
-type CancelSpotFleetRequestsInput struct {
+type DisableCapacityManagerInput struct {
 
-	// The IDs of the Spot Fleet requests.
-	//
-	// Constraint: You can specify up to 100 IDs in a single request.
-	//
-	// This member is required.
-	SpotFleetRequestIds []string
+	//  Unique, case-sensitive identifier that you provide to ensure the idempotency
+	// of the request.
+	ClientToken *string
 
-	// Indicates whether to terminate the associated instances when the Spot Fleet
-	// request is canceled. The default is to terminate the instances.
-	//
-	// To let the instances continue to run after the Spot Fleet request is canceled,
-	// specify no-terminate-instances .
-	//
-	// This member is required.
-	TerminateInstances *bool
-
-	// Checks whether you have the required permissions for the action, without
+	//  Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
@@ -81,14 +45,14 @@ type CancelSpotFleetRequestsInput struct {
 	noSmithyDocumentSerde
 }
 
-// Contains the output of CancelSpotFleetRequests.
-type CancelSpotFleetRequestsOutput struct {
+type DisableCapacityManagerOutput struct {
 
-	// Information about the Spot Fleet requests that are successfully canceled.
-	SuccessfulFleetRequests []types.CancelSpotFleetRequestsSuccessItem
+	//  The current status of Capacity Manager after the disable operation.
+	CapacityManagerStatus types.CapacityManagerStatus
 
-	// Information about the Spot Fleet requests that are not successfully canceled.
-	UnsuccessfulFleetRequests []types.CancelSpotFleetRequestsErrorItem
+	//  Indicates whether Organizations access is enabled. This will be false after
+	// disabling Capacity Manager.
+	OrganizationsAccess *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -96,19 +60,19 @@ type CancelSpotFleetRequestsOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationCancelSpotFleetRequestsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDisableCapacityManagerMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpCancelSpotFleetRequests{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDisableCapacityManager{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpCancelSpotFleetRequests{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDisableCapacityManager{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CancelSpotFleetRequests"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DisableCapacityManager"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -163,10 +127,10 @@ func (c *Client) addOperationCancelSpotFleetRequestsMiddlewares(stack *middlewar
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpCancelSpotFleetRequestsValidationMiddleware(stack); err != nil {
+	if err = addIdempotencyToken_opDisableCapacityManagerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCancelSpotFleetRequests(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisableCapacityManager(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -229,10 +193,43 @@ func (c *Client) addOperationCancelSpotFleetRequestsMiddlewares(stack *middlewar
 	return nil
 }
 
-func newServiceMetadataMiddleware_opCancelSpotFleetRequests(region string) *awsmiddleware.RegisterServiceMetadata {
+type idempotencyToken_initializeOpDisableCapacityManager struct {
+	tokenProvider IdempotencyTokenProvider
+}
+
+func (*idempotencyToken_initializeOpDisableCapacityManager) ID() string {
+	return "OperationIdempotencyTokenAutoFill"
+}
+
+func (m *idempotencyToken_initializeOpDisableCapacityManager) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	if m.tokenProvider == nil {
+		return next.HandleInitialize(ctx, in)
+	}
+
+	input, ok := in.Parameters.(*DisableCapacityManagerInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("expected middleware input to be of type *DisableCapacityManagerInput ")
+	}
+
+	if input.ClientToken == nil {
+		t, err := m.tokenProvider.GetIdempotencyToken()
+		if err != nil {
+			return out, metadata, err
+		}
+		input.ClientToken = &t
+	}
+	return next.HandleInitialize(ctx, in)
+}
+func addIdempotencyToken_opDisableCapacityManagerMiddleware(stack *middleware.Stack, cfg Options) error {
+	return stack.Initialize.Add(&idempotencyToken_initializeOpDisableCapacityManager{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
+}
+
+func newServiceMetadataMiddleware_opDisableCapacityManager(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "CancelSpotFleetRequests",
+		OperationName: "DisableCapacityManager",
 	}
 }

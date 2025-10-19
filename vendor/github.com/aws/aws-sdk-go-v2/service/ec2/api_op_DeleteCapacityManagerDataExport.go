@@ -6,73 +6,36 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Cancels the specified Spot Fleet requests.
+//	Deletes an existing Capacity Manager data export configuration. This stops
 //
-// After you cancel a Spot Fleet request, the Spot Fleet launches no new instances.
-//
-// You must also specify whether a canceled Spot Fleet request should terminate
-// its instances. If you choose to terminate the instances, the Spot Fleet request
-// enters the cancelled_terminating state. Otherwise, the Spot Fleet request
-// enters the cancelled_running state and the instances continue to run until they
-// are interrupted or you terminate them manually.
-//
-// Terminating an instance is permanent and irreversible.
-//
-// After you terminate an instance, you can no longer connect to it, and it can't
-// be recovered. All attached Amazon EBS volumes that are configured to be deleted
-// on termination are also permanently deleted and can't be recovered. All data
-// stored on instance store volumes is permanently lost. For more information, see [How instance termination works]
-// .
-//
-// Before you terminate an instance, ensure that you have backed up all data that
-// you need to retain after the termination to persistent storage.
-//
-// Restrictions
-//
-//   - You can delete up to 100 fleets in a single request. If you exceed the
-//     specified number, no fleets are deleted.
-//
-// [How instance termination works]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-ec2-instance-termination-works.html
-func (c *Client) CancelSpotFleetRequests(ctx context.Context, params *CancelSpotFleetRequestsInput, optFns ...func(*Options)) (*CancelSpotFleetRequestsOutput, error) {
+// future scheduled exports but does not delete previously exported files from S3.
+func (c *Client) DeleteCapacityManagerDataExport(ctx context.Context, params *DeleteCapacityManagerDataExportInput, optFns ...func(*Options)) (*DeleteCapacityManagerDataExportOutput, error) {
 	if params == nil {
-		params = &CancelSpotFleetRequestsInput{}
+		params = &DeleteCapacityManagerDataExportInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CancelSpotFleetRequests", params, optFns, c.addOperationCancelSpotFleetRequestsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteCapacityManagerDataExport", params, optFns, c.addOperationDeleteCapacityManagerDataExportMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*CancelSpotFleetRequestsOutput)
+	out := result.(*DeleteCapacityManagerDataExportOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-// Contains the parameters for CancelSpotFleetRequests.
-type CancelSpotFleetRequestsInput struct {
+type DeleteCapacityManagerDataExportInput struct {
 
-	// The IDs of the Spot Fleet requests.
-	//
-	// Constraint: You can specify up to 100 IDs in a single request.
+	//  The unique identifier of the data export configuration to delete.
 	//
 	// This member is required.
-	SpotFleetRequestIds []string
+	CapacityManagerDataExportId *string
 
-	// Indicates whether to terminate the associated instances when the Spot Fleet
-	// request is canceled. The default is to terminate the instances.
-	//
-	// To let the instances continue to run after the Spot Fleet request is canceled,
-	// specify no-terminate-instances .
-	//
-	// This member is required.
-	TerminateInstances *bool
-
-	// Checks whether you have the required permissions for the action, without
+	//  Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
@@ -81,14 +44,10 @@ type CancelSpotFleetRequestsInput struct {
 	noSmithyDocumentSerde
 }
 
-// Contains the output of CancelSpotFleetRequests.
-type CancelSpotFleetRequestsOutput struct {
+type DeleteCapacityManagerDataExportOutput struct {
 
-	// Information about the Spot Fleet requests that are successfully canceled.
-	SuccessfulFleetRequests []types.CancelSpotFleetRequestsSuccessItem
-
-	// Information about the Spot Fleet requests that are not successfully canceled.
-	UnsuccessfulFleetRequests []types.CancelSpotFleetRequestsErrorItem
+	//  The unique identifier of the deleted data export configuration.
+	CapacityManagerDataExportId *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -96,19 +55,19 @@ type CancelSpotFleetRequestsOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationCancelSpotFleetRequestsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteCapacityManagerDataExportMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpCancelSpotFleetRequests{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteCapacityManagerDataExport{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpCancelSpotFleetRequests{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDeleteCapacityManagerDataExport{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CancelSpotFleetRequests"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteCapacityManagerDataExport"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -163,10 +122,10 @@ func (c *Client) addOperationCancelSpotFleetRequestsMiddlewares(stack *middlewar
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpCancelSpotFleetRequestsValidationMiddleware(stack); err != nil {
+	if err = addOpDeleteCapacityManagerDataExportValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCancelSpotFleetRequests(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteCapacityManagerDataExport(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -229,10 +188,10 @@ func (c *Client) addOperationCancelSpotFleetRequestsMiddlewares(stack *middlewar
 	return nil
 }
 
-func newServiceMetadataMiddleware_opCancelSpotFleetRequests(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDeleteCapacityManagerDataExport(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "CancelSpotFleetRequests",
+		OperationName: "DeleteCapacityManagerDataExport",
 	}
 }
