@@ -144,7 +144,7 @@ func (mt MapType) hasPerCPUValue() bool {
 // canStoreMapOrProgram returns true if the Map stores references to another Map
 // or Program.
 func (mt MapType) canStoreMapOrProgram() bool {
-	return mt.canStoreMap() || mt.canStoreProgram()
+	return mt.canStoreMap() || mt.canStoreProgram() || mt == StructOpsMap
 }
 
 // canStoreMap returns true if the map type accepts a map fd
