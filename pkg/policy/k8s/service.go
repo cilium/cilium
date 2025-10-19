@@ -362,7 +362,7 @@ func serviceSelectorMatches(sel *api.K8sServiceSelectorNamespace, svc serviceDet
 
 type labelsMatcher labels.Labels
 
-// Get implements labels.Labels.
+// Get implements k8sLabels.Labels.
 func (l labelsMatcher) Get(label string) (value string) {
 	v, ok := labels.Labels(l)[label]
 	if ok {
@@ -371,11 +371,12 @@ func (l labelsMatcher) Get(label string) (value string) {
 	return
 }
 
-// Has implements labels.Labels.
+// Has implements k8sLabels.Labels.
 func (l labelsMatcher) Has(label string) (exists bool) {
 	return labels.Labels(l).HasLabelWithKey(label)
 }
 
+// Lookup implements k8sLabels.Labels.
 func (l labelsMatcher) Lookup(label string) (value string, exists bool) {
 	v, ok := labels.Labels(l)[label]
 	return v.Value, ok
