@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/cilium/ebpf/asm"
@@ -512,7 +514,7 @@ func (cl *collectionLoader) loadMap(mapName string) (*Map, error) {
 		return m, nil
 	}
 
-	m, err := newMapWithOptions(mapSpec, cl.opts.Maps)
+	m, err := newMapWithOptions(mapSpec, cl.opts.Maps, cl.types)
 	if err != nil {
 		return nil, fmt.Errorf("map %s: %w", mapName, err)
 	}
@@ -581,6 +583,7 @@ func (cl *collectionLoader) loadProgram(progName string) (*Program, error) {
 	}
 
 	cl.programs[progName] = prog
+
 	return prog, nil
 }
 
@@ -688,11 +691,112 @@ func (cl *collectionLoader) populateDeferredMaps() error {
 			}
 		}
 
+		if mapSpec.Type == StructOpsMap {
+			// populate StructOps data into `kernVData`
+			if err := cl.populateStructOps(m, mapSpec); err != nil {
+				return err
+			}
+		}
+
 		// Populate and freeze the map if specified.
 		if err := m.finalize(mapSpec); err != nil {
 			return fmt.Errorf("populating map %s: %w", mapName, err)
 		}
 	}
+
+	return nil
+}
+
+// populateStructOps translates the user struct bytes into the kernel value struct
+// layout for a struct_ops map and writes the result back to mapSpec.Contents[0].
+func (cl *collectionLoader) populateStructOps(m *Map, mapSpec *MapSpec) error {
+	userType, ok := btf.As[*btf.Struct](mapSpec.Value)
+	if !ok {
+		return fmt.Errorf("value should be a *Struct")
+	}
+
+	userData, ok := mapSpec.Contents[0].Value.([]byte)
+	if !ok {
+		return fmt.Errorf("value should be an array of byte")
+	}
+	if len(userData) < int(userType.Size) {
+		return fmt.Errorf("user data too short: have %d, need at least %d", len(userData), userType.Size)
+	}
+
+	vType, _, module, err := structOpsFindTarget(userType, cl.types)
+	if err != nil {
+		return fmt.Errorf("struct_ops value type %q: %w", userType.Name, err)
+	}
+	defer module.Close()
+
+	// Find the inner ops struct embedded in the value struct.
+	kType, kTypeOff, err := structOpsFindInnerType(vType)
+	if err != nil {
+		return err
+	}
+
+	kernVData := make([]byte, int(vType.Size))
+	for _, m := range userType.Members {
+		i := slices.IndexFunc(kType.Members, func(km btf.Member) bool {
+			return km.Name == m.Name
+		})
+
+		// Allow field to not exist in target as long as the source is zero.
+		if i == -1 {
+			mSize, err := btf.Sizeof(m.Type)
+			if err != nil {
+				return fmt.Errorf("sizeof(user.%s): %w", m.Name, err)
+			}
+			srcOff := int(m.Offset.Bytes())
+			if srcOff < 0 || srcOff+mSize > len(userData) {
+				return fmt.Errorf("member %q: userdata is too small", m.Name)
+			}
+			for _, b := range userData[srcOff : srcOff+mSize] {
+				// let fail if the field in type user type is missing in type kern type
+				if b != 0 {
+					return fmt.Errorf("%s doesn't exist in %s, but it has non-zero value", m.Name, kType.Name)
+				}
+			}
+			continue
+		}
+
+		km := kType.Members[i]
+
+		switch btf.UnderlyingType(m.Type).(type) {
+		case *btf.Struct, *btf.Union:
+			return fmt.Errorf("nested struct or union not supported")
+
+		case *btf.Pointer:
+			// If this is a pointer → resolve struct_ops program.
+			psKey := kType.Name + ":" + m.Name
+			for k, ps := range cl.coll.Programs {
+				if ps.AttachTo == psKey {
+					p, ok := cl.programs[k]
+					if !ok || p == nil {
+						return nil
+					}
+					if err := structOpsPopulateValue(km, kernVData[kTypeOff:], p); err != nil {
+						return err
+					}
+				}
+			}
+
+		default:
+			// Otherwise → memcpy the field contents.
+			if err := structOpsCopyMember(m, km, userData, kernVData[kTypeOff:]); err != nil {
+				return fmt.Errorf("field %s: %w", kType.Name, err)
+			}
+		}
+	}
+
+	// Populate the map explicitly and keep a reference on cl.programs.
+	// This is necessary because we may inline fds into kernVData which
+	// may become invalid if the GC frees them.
+	if err := m.Put(uint32(0), kernVData); err != nil {
+		return err
+	}
+	mapSpec.Contents = nil
+	runtime.KeepAlive(cl.programs)
 
 	return nil
 }

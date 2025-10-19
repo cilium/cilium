@@ -13,13 +13,13 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.31.12
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.9
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.254.1
-	github.com/aws/smithy-go v1.23.0
+	github.com/aws/smithy-go v1.23.1
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/charts v0.0.0-20251001191925-641dfafd068d
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.19.1-0.20251013125301-c27ff922fc6a
+	github.com/cilium/ebpf v0.19.1-0.20251016154102-8f23ed69cf93
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
 	github.com/cilium/hive v0.0.0-20251008073947-21f6f6e081b5
@@ -109,7 +109,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/crypto v0.43.0
-	golang.org/x/exp v0.0.0-20251009144603-d2f985daa21b
+	golang.org/x/exp v0.0.0-20251017212417-90e834f514db
 	golang.org/x/mod v0.29.0
 	golang.org/x/net v0.46.0
 	golang.org/x/oauth2 v0.32.0
@@ -120,7 +120,7 @@ require (
 	golang.org/x/time v0.14.0
 	golang.org/x/tools v0.38.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251007200510-49b9836ed3ff
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251014184007-4626949a642f
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 	helm.sh/helm/v3 v3.19.0
@@ -137,8 +137,8 @@ require (
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/gateway-api v1.3.1-0.20250611112659-17a60f668a0d
-	sigs.k8s.io/mcs-api v0.3.1-0.20251009195101-44eb57759015
-	sigs.k8s.io/mcs-api/controllers v0.0.0-20251009195101-44eb57759015
+	sigs.k8s.io/mcs-api v0.3.1-0.20251016174042-a93ef0180a10
+	sigs.k8s.io/mcs-api/controllers v0.0.0-20251016174042-a93ef0180a10
 	sigs.k8s.io/yaml v1.6.0
 )
 
