@@ -131,7 +131,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			if (ipv6_addr_equals(&snat_addr, &EGRESS_GATEWAY_NO_EGRESS_IP_V6))
 				return DROP_NO_EGRESS_IP;
 
-			ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, METRIC_INGRESS);
+			ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, ip6, METRIC_INGRESS);
 			if (unlikely(ret != CTX_ACT_OK))
 				return ret;
 
@@ -162,7 +162,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
 		return ipv6_local_delivery(ctx, l3_off, *identity, MARK_MAGIC_IDENTITY,
-					   ep, METRIC_INGRESS, false, true);
+					   ip6, ep, METRIC_INGRESS, false, true);
 
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
@@ -172,7 +172,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		union macaddr router_mac = THIS_INTERFACE_MAC;
 
 		ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
-			      (__u8 *)&host_mac.addr, METRIC_INGRESS);
+			      (__u8 *)&host_mac.addr, ip6, METRIC_INGRESS);
 		if (ret != CTX_ACT_OK)
 			return ret;
 
