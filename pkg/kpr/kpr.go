@@ -17,15 +17,17 @@ var Cell = cell.Module(
 )
 
 type KPRFlags struct {
-	KubeProxyReplacement     bool
-	EnableSocketLB           bool `mapstructure:"bpf-lb-sock"`
-	EnableSocketLBHostnsOnly bool `mapstructure:"bpf-lb-sock-hostns-only"`
+	KubeProxyReplacement                   bool
+	EnableSocketLB                         bool `mapstructure:"bpf-lb-sock"`
+	EnableSocketLBHostnsOnly               bool `mapstructure:"bpf-lb-sock-hostns-only"`
+	EnableSocketLBPodConnectionTermination bool `mapstructure:"bpf-lb-sock-pod-connection-termination"`
 }
 
 var defaultFlags = KPRFlags{
-	KubeProxyReplacement:     false,
-	EnableSocketLB:           false,
-	EnableSocketLBHostnsOnly: false,
+	KubeProxyReplacement:                   false,
+	EnableSocketLB:                         false,
+	EnableSocketLBHostnsOnly:               false,
+	EnableSocketLBPodConnectionTermination: true,
 }
 
 func (def KPRFlags) Flags(flags *pflag.FlagSet) {
@@ -34,20 +36,25 @@ func (def KPRFlags) Flags(flags *pflag.FlagSet) {
 	flags.Bool("bpf-lb-sock", def.EnableSocketLB, "Enable socket-based LB for E/W traffic")
 	flags.Bool("bpf-lb-sock-hostns-only", def.EnableSocketLBHostnsOnly,
 		"Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).")
+	flags.Bool("bpf-lb-sock-terminate-pod-connections", def.EnableSocketLBPodConnectionTermination,
+		"Enable terminating connections to deleted service backends when socket-LB is enabled")
+	flags.MarkHidden("bpf-lb-sock-terminate-pod-connections")
 }
 
 type KPRConfig struct {
-	KubeProxyReplacement     bool
-	EnableSocketLB           bool
-	EnableSocketLBHostnsOnly bool
+	KubeProxyReplacement                   bool
+	EnableSocketLB                         bool
+	EnableSocketLBHostnsOnly               bool
+	EnableSocketLBPodConnectionTermination bool
 }
 
 func NewKPRConfig(flags KPRFlags) (KPRConfig, error) {
 	//nolint:staticcheck
 	cfg := KPRConfig{
-		KubeProxyReplacement:     flags.KubeProxyReplacement,
-		EnableSocketLB:           flags.EnableSocketLB,
-		EnableSocketLBHostnsOnly: flags.EnableSocketLBHostnsOnly,
+		KubeProxyReplacement:                   flags.KubeProxyReplacement,
+		EnableSocketLB:                         flags.EnableSocketLB,
+		EnableSocketLBHostnsOnly:               flags.EnableSocketLBHostnsOnly,
+		EnableSocketLBPodConnectionTermination: flags.EnableSocketLBPodConnectionTermination,
 	}
 
 	if flags.KubeProxyReplacement {

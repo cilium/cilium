@@ -295,10 +295,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.MasqueradeInterfaces, []string{}, "Limit iptables-based egress masquerading to interfaces selector")
 	option.BindEnv(vp, option.MasqueradeInterfaces)
 
-	flags.Bool(option.EnableSocketLBPodConnectionTermination, true, "Enable terminating connections to deleted service backends when socket-LB is enabled")
-	flags.MarkHidden(option.EnableSocketLBPodConnectionTermination)
-	option.BindEnv(vp, option.EnableSocketLBPodConnectionTermination)
-
 	flags.Bool(option.EnableSocketLBTracing, true, "Enable tracing for socket-based LB")
 	option.BindEnv(vp, option.EnableSocketLBTracing)
 

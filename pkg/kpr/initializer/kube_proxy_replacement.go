@@ -226,7 +226,6 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 		}
 	} else {
 		option.Config.EnableSocketLBTracing = false
-		option.Config.EnableSocketLBPodConnectionTermination = false
 	}
 
 	return nil
