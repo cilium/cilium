@@ -203,6 +203,8 @@ int test_intercept_check(struct __ctx_buff *ctx)
 	ft_prep_tx(ctx);
 	assert(ft->tx_ready);
 
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
 	hdr = data + ft->ft_hdr_off;
 	if ((void *)(hdr + 1) > data_end)
 		test_fatal("hdr out of bounds");
@@ -217,6 +219,16 @@ int test_intercept_check(struct __ctx_buff *ctx)
 
 	/* Testing idempotency */
 	ft_prep_tx(ctx);
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+	hdr = data + ft->ft_hdr_off;
+	if ((void *)(hdr + 1) > data_end)
+		test_fatal("hdr out of bounds");
+
+	l4 = (struct ft_l4_ports *)(data + ft->l4_off);
+	if (((void *)(l4 + 1)) > data_end)
+		test_fatal("l4 out of bounds");
+
 	assert(ft->tx_ready);
 	assert(hdr->l4_sport == bpf_htons(64000));
 	assert(l4->sport == bpf_htons(896));
@@ -235,6 +247,12 @@ int test_intercept_check(struct __ctx_buff *ctx)
 	assert(hdr->l4_sport == bpf_htons(896));
 	assert(l4->sport == bpf_htons(64000));
 	assert(ft->tx_ready);
+
+	/* Check deferred checksum adjustment */
+	BUF_DECL(EXP_FT_TC_TRACES3264_CSUM, ee_tc_ft_traces3264_csum);
+	ASSERT_CTX_BUF_OFF("ft_tc_traces3264_csum_ok", "Ether", ctx, 0,
+			   EXP_FT_TC_TRACES3264_CSUM,
+			   sizeof(BUF(EXP_FT_TC_TRACES3264_CSUM)));
 
 	test_finish();
 

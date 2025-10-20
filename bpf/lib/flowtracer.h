@@ -287,7 +287,7 @@ struct ft_l4_ports {
 } __packed;
 
 /**
- * Flowtracer parsing context
+ * Flowtracer context
  *
  * Note: this makes the implicit assumption that no tunneling will happen to
  * this point.
@@ -300,6 +300,8 @@ struct ft_ctx {
 	__u16 l4_off;      /* Total offset from data to L4 hdr (ports) */
 	__u16 l4_csum_off; /* Total offset from data to the L4 csum */
 	__u16 ft_hdr_off;  /* Total offset from data to FT hdr */
+
+	__be32 sum;        /* Accumulated L4 csum delta */
 };
 
 /**
@@ -344,7 +346,6 @@ void __ft_add_trace_uint(struct __ctx_buff *ctx, struct ft_ctx *ft,
 	struct ft_tlv_32 *tlv;
 	__be32 old_tlvs_len;
 	__u16 tlvs_len;
-	__be32 sum;
 
 	build_bug_on(sizeof(struct ft_tlv_32) != 16);
 	build_bug_on(sizeof(struct ft_tlv_64) != 20);
@@ -375,7 +376,7 @@ void __ft_add_trace_uint(struct __ctx_buff *ctx, struct ft_ctx *ft,
 		tlv->value = bpf_htonl(*value32);
 		tlv->tl.len = bpf_htons(sizeof(*tlv));
 		tlvs_len += sizeof(*tlv);
-		sum = csum_diff(NULL, 0, tlv, sizeof(*tlv), 0);
+		ft->sum = csum_diff(NULL, 0, tlv, sizeof(*tlv), ft->sum);
 	} else {
 		struct ft_tlv_64 *tlv64 = (struct ft_tlv_64 *)tlv;
 
@@ -385,19 +386,12 @@ void __ft_add_trace_uint(struct __ctx_buff *ctx, struct ft_ctx *ft,
 		tlv64->value = bpf_cpu_to_be64(*value64);
 		tlv64->tl.len = bpf_htons(sizeof(*tlv64));
 		tlvs_len += sizeof(*tlv64);
-		sum = csum_diff(NULL, 0, tlv64, sizeof(*tlv64), 0);
+		ft->sum = csum_diff(NULL, 0, tlv64, sizeof(*tlv64), ft->sum);
 	}
 
 	hdr->tlvs_len = bpf_htonl(tlvs_len);
-	sum = csum_diff((__be32 *)&old_tlvs_len, 4,
-			(__be32 *)&hdr->tlvs_len, 4,
-			sum);
-
-	/*
-	 * Note this should never fail. If we were to jump to ERR, we would
-	 * have to revalidate ptrs etc, which would be very annoying.
-	 */
-	l4_csum_replace(ctx, ft->l4_csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+	ft->sum = csum_diff((__be32 *)&old_tlvs_len, 4,
+			    (__be32 *)&hdr->tlvs_len, 4, ft->sum);
 
 	return;
 ERR:
@@ -496,7 +490,6 @@ void ft_add_pkt_snap(struct __ctx_buff *ctx, __u32 trace_point, const __u16 len)
 	struct ft_tlv_pkt_snap *tlv;
 	__be32 old_tlvs_len;
 	void *snap;
-	__be32 sum;
 
 	/* Optimize for the non-sentinel pkt */
 	if (likely(ft->ft_hdr_off == 0))
@@ -534,17 +527,10 @@ void ft_add_pkt_snap(struct __ctx_buff *ctx, __u32 trace_point, const __u16 len)
 
 	hdr->tlvs_len = bpf_htonl(bpf_ntohl(old_tlvs_len) +
 				     sizeof(*tlv) + len);
-	sum = csum_diff((__be32 *)&old_tlvs_len, 4,
-			(__be32 *)&hdr->tlvs_len, 4,
-			0);
-	sum = csum_diff(NULL, 0, tlv, sizeof(*tlv), sum);
-	sum = csum_diff(NULL, 0, data, len, sum);
-
-	if (l4_csum_replace(ctx, ft->l4_csum_off, 0, sum,
-			    BPF_F_PSEUDO_HDR) < 0) {
-		hdr->tlvs_len = old_tlvs_len;
-		hdr->flags |= FT_ERROR;
-	}
+	ft->sum = csum_diff((__be32 *)&old_tlvs_len, 4,
+			    (__be32 *)&hdr->tlvs_len, 4, ft->sum);
+	ft->sum = csum_diff(NULL, 0, tlv, sizeof(*tlv), ft->sum);
+	ft->sum = csum_diff(NULL, 0, data, len, ft->sum);
 }
 
 static __always_inline
@@ -669,6 +655,7 @@ void ft_trap(struct __ctx_buff *ctx)
 	void *data = ctx_data(ctx);
 	struct ft_ctx *ft = __ft_get();
 	struct ft_hdr *hdr;
+	__be16 *l4_sum;
 
 	/* Optimize for the non-sentinel pkt */
 	if (likely(ft->ft_hdr_off == 0))
@@ -677,6 +664,13 @@ void ft_trap(struct __ctx_buff *ctx)
 	hdr = data + ft->ft_hdr_off;
 	if ((void *)(hdr + 1) > data_end)
 		return;
+
+	l4_sum = data + ft->l4_csum_off;
+	if ((void *)(l4_sum + 1) > data_end)
+		return;
+
+	/* Adjust accumulated l4 csum */
+	l4_csum_replace(ctx, ft->l4_csum_off, 0, ft->sum, BPF_F_PSEUDO_HDR);
 
 	/* Prepare the message */
 	/* XXX */
@@ -719,6 +713,7 @@ void ft_prep_tx(struct __ctx_buff *ctx)
 	void *data = ctx_data(ctx);
 	struct ft_ctx *ft = __ft_get();
 	struct ft_hdr *hdr;
+	__be16 *l4_sum;
 
 	/* Optimize for the non-sentinel pkt */
 	if (likely(ft->ft_hdr_off == 0) || ft->tx_ready)
@@ -728,8 +723,15 @@ void ft_prep_tx(struct __ctx_buff *ctx)
 	if ((void *)(hdr + 1) > data_end)
 		return;
 
+	l4_sum = data + ft->l4_csum_off;
+	if ((void *)(l4_sum + 1) > data_end)
+		return;
+
 	if (__ft_flip_l4_src_port(ctx, ft, hdr) != 0)
 		return;
+
+	/* Adjust accumulated l4 csum */
+	l4_csum_replace(ctx, ft->l4_csum_off, 0, ft->sum, BPF_F_PSEUDO_HDR);
 
 	ft->tx_ready = true;
 }
