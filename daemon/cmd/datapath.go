@@ -4,9 +4,7 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"strings"
@@ -24,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -166,13 +163,6 @@ func (d *Daemon) initMaps() error {
 
 	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {
 		return fmt.Errorf("initializing metrics map: %w", err)
-	}
-
-	// Tunnel map is no longer used, not even in tunnel routing mode.
-	// Therefore, make sure it gets unpinned at startup.
-	err := tunnel.TunnelMap().Unpin()
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("removing tunnel map: %w", err)
 	}
 
 	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4,
