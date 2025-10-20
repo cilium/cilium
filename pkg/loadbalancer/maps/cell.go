@@ -21,6 +21,9 @@ var Cell = cell.Module(
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
 	cell.Provide(newLBMaps),
 
+	// Provide [SkipLBMap], abstraction for the skip load-balancing BPF map.
+	cell.Provide(newSkipLBMap),
+
 	// Provide the 'lb/' script commands for debugging and testing.
 	cell.Provide(scriptCommands),
 
