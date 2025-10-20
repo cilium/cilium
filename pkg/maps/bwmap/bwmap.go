@@ -62,7 +62,7 @@ type throttleMap struct {
 // ThrottleMap constructs the cilium_throttle map. Direct use of this
 // outside of this package is solely for cilium-dbg.
 func ThrottleMap() *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		MapName,
 		ebpf.Hash,
 		&EdtId{},

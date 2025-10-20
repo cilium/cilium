@@ -59,7 +59,7 @@ func (v *FragmentValue4) New() bpf.MapValue { return &FragmentValue4{} }
 
 // InitMap4 creates the IPv4 fragments map in the kernel.
 func InitMap4(registry *metrics.Registry, mapEntries int) error {
-	fragMap := bpf.NewMap(MapNameIPv4,
+	fragMap := bpf.NewMapDeprecated(MapNameIPv4,
 		ebpf.LRUHash,
 		&FragmentKey4{},
 		&FragmentValue4{},
@@ -107,7 +107,7 @@ func (v *FragmentValue6) New() bpf.MapValue { return &FragmentValue6{} }
 
 // InitMap6 creates the IPv6 fragments map in the kernel.
 func InitMap6(registry *metrics.Registry, mapEntries int) error {
-	fragMap := bpf.NewMap(MapNameIPv6,
+	fragMap := bpf.NewMapDeprecated(MapNameIPv6,
 		ebpf.LRUHash,
 		&FragmentKey6{},
 		&FragmentValue6{},

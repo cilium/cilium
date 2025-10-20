@@ -73,7 +73,7 @@ func newConfigMap() *configMap {
 	var value Value
 
 	return &configMap{
-		bpfMap: bpf.NewMap(MapName,
+		bpfMap: bpf.NewMapDeprecated(MapName,
 			ebpf.Array,
 			&index,
 			&value,

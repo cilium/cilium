@@ -150,7 +150,7 @@ type BPFLBMaps struct {
 //
 
 func NewService4Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		Service4MapV2Name,
 		ebpf.Hash,
 		&Service4Key{},
@@ -161,7 +161,7 @@ func NewService4Map(maxEntries int) *bpf.Map {
 }
 
 func NewService6Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		Service6MapV2Name,
 		ebpf.Hash,
 		&Service6Key{},
@@ -172,7 +172,7 @@ func NewService6Map(maxEntries int) *bpf.Map {
 }
 
 func NewBackend4Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		Backend4MapV3Name,
 		ebpf.Hash,
 		&Backend4KeyV3{},
@@ -183,7 +183,7 @@ func NewBackend4Map(maxEntries int) *bpf.Map {
 }
 
 func NewBackend6Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		Backend6MapV3Name,
 		ebpf.Hash,
 		&Backend6KeyV3{},
@@ -194,7 +194,7 @@ func NewBackend6Map(maxEntries int) *bpf.Map {
 }
 
 func NewRevNat4Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		RevNat4MapName,
 		ebpf.Hash,
 		&RevNat4Key{},
@@ -205,7 +205,7 @@ func NewRevNat4Map(maxEntries int) *bpf.Map {
 }
 
 func NewRevNat6Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		RevNat6MapName,
 		ebpf.Hash,
 		&RevNat6Key{},
@@ -216,7 +216,7 @@ func NewRevNat6Map(maxEntries int) *bpf.Map {
 }
 
 func NewAffinityMatchMap(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		AffinityMatchMapName,
 		ebpf.Hash,
 		&AffinityMatchKey{},
@@ -227,7 +227,7 @@ func NewAffinityMatchMap(maxEntries int) *bpf.Map {
 }
 
 func newAffinity4Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		Affinity4MapName,
 		ebpf.LRUHash,
 		&Affinity4Key{},
@@ -238,7 +238,7 @@ func newAffinity4Map(maxEntries int) *bpf.Map {
 }
 
 func newAffinity6Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		Affinity6MapName,
 		ebpf.LRUHash,
 		&Affinity6Key{},
@@ -249,7 +249,7 @@ func newAffinity6Map(maxEntries int) *bpf.Map {
 }
 
 func NewSourceRange4Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		SourceRange4MapName,
 		ebpf.LPMTrie,
 		&SourceRangeKey4{},
@@ -260,7 +260,7 @@ func NewSourceRange4Map(maxEntries int) *bpf.Map {
 }
 
 func NewSourceRange6Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		SourceRange6MapName,
 		ebpf.LPMTrie,
 		&SourceRangeKey6{},
@@ -271,7 +271,7 @@ func NewSourceRange6Map(maxEntries int) *bpf.Map {
 }
 
 func NewSockRevNat4Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		SockRevNat4MapName,
 		ebpf.LRUHash,
 		&SockRevNat4Key{},
@@ -282,7 +282,7 @@ func NewSockRevNat4Map(maxEntries int) *bpf.Map {
 }
 
 func NewSockRevNat6Map(maxEntries int) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		SockRevNat6MapName,
 		ebpf.LRUHash,
 		&SockRevNat6Key{},

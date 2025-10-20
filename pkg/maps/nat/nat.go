@@ -99,7 +99,7 @@ func NewMap(registry *metrics.Registry, name string, family IPFamily, entries in
 	}
 
 	return &Map{
-		Map: *bpf.NewMap(
+		Map: *bpf.NewMapDeprecated(
 			name,
 			ebpf.LRUHash,
 			mapKey,
@@ -136,7 +136,7 @@ type RetriesMapRecord struct {
 }
 
 func NewRetriesMap(name string) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		name,
 		ebpf.PerCPUArray,
 		&RetriesKey{},

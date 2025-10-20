@@ -41,7 +41,7 @@ type eventsMap struct {
 
 // init creates the events map in the kernel.
 func (e *eventsMap) init(maxEntries int) error {
-	e.m = bpf.NewMap(MapName,
+	e.m = bpf.NewMapDeprecated(MapName,
 		ebpf.PerfEventArray,
 		&Key{},
 		&Value{},

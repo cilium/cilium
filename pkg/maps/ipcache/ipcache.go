@@ -243,7 +243,7 @@ type Map struct {
 }
 
 func newIPCacheMap(name string) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		name,
 		ebpf.LPMTrie,
 		&Key{},
@@ -253,7 +253,7 @@ func newIPCacheMap(name string) *bpf.Map {
 }
 
 func newIPCacheMapV1(name string) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapDeprecated(
 		name,
 		ebpf.LPMTrie,
 		&Key{},

@@ -152,7 +152,7 @@ func newVRFMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4
 		return bpf.MapOut[*VRFMap4]{}, bpf.MapOut[*VRFMap6]{}, nodeOut
 	}
 
-	m4 := bpf.NewMap(
+	m4 := bpf.NewMapDeprecated(
 		vrfMapName4,
 		ebpf.LPMTrie,
 		&VRFKey4{},
@@ -161,7 +161,7 @@ func newVRFMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4
 		unix.BPF_F_NO_PREALLOC,
 	)
 
-	m6 := bpf.NewMap(
+	m6 := bpf.NewMapDeprecated(
 		vrfMapName6,
 		ebpf.LPMTrie,
 		&VRFKey6{},

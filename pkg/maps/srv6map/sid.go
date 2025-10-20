@@ -80,7 +80,7 @@ func newSIDMap(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*SIDMap],
 		return bpf.MapOut[*SIDMap]{}, nodeOut
 	}
 
-	m := bpf.NewMap(
+	m := bpf.NewMapDeprecated(
 		sidMapName,
 		ebpf.Hash,
 		&SIDKey{},

@@ -30,14 +30,14 @@ var (
 
 func neighMapsGet() (*bpf.Map, *bpf.Map) {
 	once.Do(func() {
-		neigh4Map = bpf.NewMap(Map4Name,
+		neigh4Map = bpf.NewMapDeprecated(Map4Name,
 			ebpf.LRUHash,
 			&Key4{},
 			&Value{},
 			option.Config.NeighMapEntriesGlobal,
 			0,
 		)
-		neigh6Map = bpf.NewMap(Map6Name,
+		neigh6Map = bpf.NewMapDeprecated(Map6Name,
 			ebpf.LRUHash,
 			&Key6{},
 			&Value{},

@@ -214,7 +214,7 @@ func RegisterCollector(logger *slog.Logger, ratelimitMetricsMap *ratelimitMetric
 }
 
 func newRatelimitMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMap] {
-	ratelimitMap := &ratelimitMap{bpf.NewMap(
+	ratelimitMap := &ratelimitMap{bpf.NewMapDeprecated(
 		MapName,
 		ebpf.LRUHash,
 		&Key{},
@@ -243,7 +243,7 @@ func newRatelimitMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMap] {
 
 func newRatelimitMetricsMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMetricsMap] {
 	// ratelimitMetrics is the bpf ratelimit metrics map.
-	ratelimitMetricsMap := &ratelimitMetricsMap{bpf.NewMap(
+	ratelimitMetricsMap := &ratelimitMetricsMap{bpf.NewMapDeprecated(
 		MetricsMapName,
 		ebpf.Hash,
 		&MetricsKey{},

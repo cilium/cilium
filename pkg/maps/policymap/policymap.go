@@ -437,7 +437,7 @@ func newPolicyMap(logger *slog.Logger, id uint16, maxEntries int, stats *StatsMa
 	flags := bpf.GetMapMemoryFlags(mapType)
 
 	return &PolicyMap{
-		Map: bpf.NewMap(
+		Map: bpf.NewMapDeprecated(
 			path,
 			mapType,
 			&PolicyKey{},
@@ -478,7 +478,7 @@ func OpenPolicyMap(logger *slog.Logger, path string) (*PolicyMap, error) {
 
 // initCallMap creates the policy call maps in the kernel.
 func initCallMaps() error {
-	policyCallMap := bpf.NewMap(PolicyCallMapName,
+	policyCallMap := bpf.NewMapDeprecated(PolicyCallMapName,
 		ebpf.ProgramArray,
 		&CallKey{},
 		&CallValue{},
@@ -489,7 +489,7 @@ func initCallMaps() error {
 		return err
 	}
 
-	policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
+	policyEgressCallMap := bpf.NewMapDeprecated(PolicyEgressCallMapName,
 		ebpf.ProgramArray,
 		&CallKey{},
 		&CallValue{},

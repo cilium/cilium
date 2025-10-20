@@ -136,7 +136,7 @@ func CreatePrivatePolicyMap6(lc cell.Lifecycle, registry *metrics.Registry, cfg 
 }
 
 func createPolicyMap4(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig, pinning ebpf.PinType) *PolicyMap4 {
-	m := bpf.NewMap(
+	m := bpf.NewMapDeprecated(
 		PolicyMapName4,
 		ebpf.LPMTrie,
 		&EgressPolicyKey4{},
@@ -164,7 +164,7 @@ func createPolicyMap4(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyC
 }
 
 func createPolicyMap6(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig, pinning ebpf.PinType) *PolicyMap6 {
-	m := bpf.NewMap(
+	m := bpf.NewMapDeprecated(
 		PolicyMapName6,
 		ebpf.LPMTrie,
 		&EgressPolicyKey6{},

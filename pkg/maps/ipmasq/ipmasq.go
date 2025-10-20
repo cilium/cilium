@@ -55,7 +55,7 @@ var (
 
 func IPMasq4Map(registry *metrics.Registry) *bpf.Map {
 	onceIPv4.Do(func() {
-		ipMasq4Map = bpf.NewMap(
+		ipMasq4Map = bpf.NewMapDeprecated(
 			MapNameIPv4,
 			ebpf.LPMTrie,
 			&Key4{},
@@ -70,7 +70,7 @@ func IPMasq4Map(registry *metrics.Registry) *bpf.Map {
 
 func IPMasq6Map(registry *metrics.Registry) *bpf.Map {
 	onceIPv6.Do(func() {
-		ipMasq6Map = bpf.NewMap(
+		ipMasq6Map = bpf.NewMapDeprecated(
 			MapNameIPv6,
 			ebpf.LPMTrie,
 			&Key6{},

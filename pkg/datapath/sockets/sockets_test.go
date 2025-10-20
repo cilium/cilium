@@ -234,7 +234,7 @@ type testBPFSocketDestroyer struct {
 func newTestBPFSocketDestroyer(tb testing.TB) socketDestroyerTester {
 	tb.Helper()
 
-	sockRevNat4Map := bpf.NewMap(maps.SockRevNat4MapName,
+	sockRevNat4Map := bpf.NewMapDeprecated(maps.SockRevNat4MapName,
 		ebpf.LRUHash,
 		&maps.SockRevNat4Key{},
 		&maps.SockRevNat4Value{},
@@ -242,7 +242,7 @@ func newTestBPFSocketDestroyer(tb testing.TB) socketDestroyerTester {
 		0,
 	)
 	require.NoError(tb, sockRevNat4Map.OpenOrCreate())
-	sockRevNat6Map := bpf.NewMap(maps.SockRevNat6MapName,
+	sockRevNat6Map := bpf.NewMapDeprecated(maps.SockRevNat6MapName,
 		ebpf.LRUHash,
 		&maps.SockRevNat6Key{},
 		&maps.SockRevNat6Value{},

@@ -148,7 +148,7 @@ func newPolicyMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*Poli
 		return bpf.MapOut[*PolicyMap4]{}, bpf.MapOut[*PolicyMap6]{}, nodeOut
 	}
 
-	m4 := bpf.NewMap(
+	m4 := bpf.NewMapDeprecated(
 		policyMapName4,
 		ebpf.LPMTrie,
 		&PolicyKey4{},
@@ -157,7 +157,7 @@ func newPolicyMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*Poli
 		unix.BPF_F_NO_PREALLOC,
 	)
 
-	m6 := bpf.NewMap(
+	m6 := bpf.NewMapDeprecated(
 		policyMapName6,
 		ebpf.LPMTrie,
 		&PolicyKey6{},

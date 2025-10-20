@@ -99,14 +99,14 @@ func newActiveConnectionTrackingMap(in struct {
 }
 
 func createActiveConnectionTrackingMap(lc cell.Lifecycle, size int) *actMap {
-	m := bpf.NewMap(ActiveConnectionTrackingMapName,
+	m := bpf.NewMapDeprecated(ActiveConnectionTrackingMapName,
 		ebpf.LRUHash,
 		&ActiveConnectionTrackerKey{},
 		&ActiveConnectionTrackerValue{},
 		size,
 		0,
 	)
-	f := bpf.NewMap(FailedConnectionTrackingMapName,
+	f := bpf.NewMapDeprecated(FailedConnectionTrackingMapName,
 		ebpf.LRUHash,
 		&ActiveConnectionTrackerKey{},
 		&FailedConnectionTrackerValue{},

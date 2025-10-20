@@ -57,7 +57,7 @@ func newMap(lc cell.Lifecycle, ipsecCfg datapath.IPsecConfig, dc *option.DaemonC
 		return &encryptMap{}
 	}
 
-	m := bpf.NewMap(MapName,
+	m := bpf.NewMapDeprecated(MapName,
 		ebpf.Array,
 		&EncryptKey{},
 		&EncryptValue{},

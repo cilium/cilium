@@ -8,6 +8,7 @@ import (
 	"encoding"
 	"errors"
 	"iter"
+	"reflect"
 	"testing"
 
 	"github.com/cilium/ebpf"
@@ -56,12 +57,17 @@ var emptySeq iter.Seq2[*TestObject, statedb.Revision] = func(yield func(*TestObj
 func TestPrivilegedMapOps(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	testMap := NewMap("cilium_ops_test",
-		ebpf.Hash,
+	testMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_ops_test",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(reflect.TypeOf(&TestKey{}).Elem().Size()),
+			ValueSize:  uint32(reflect.TypeOf(&TestValue{}).Elem().Size()),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC,
 	)
 
 	err := testMap.OpenOrCreate()
@@ -115,12 +121,16 @@ func TestPrivilegedMapOpsPrune(t *testing.T) {
 	// previously we had issues with Prune concurrently iterating and deleting
 	// entries, which caused the iteration to skip entries
 	testMap := NewMap(
-		"cilium_ops_prune_test",
-		ebpf.LPMTrie,
+		&ebpf.MapSpec{
+			Name:       "cilium_ops_prune_test",
+			Type:       ebpf.LPMTrie,
+			KeySize:    uint32(reflect.TypeOf(&TestLPMKey{}).Elem().Size()),
+			ValueSize:  uint32(reflect.TypeOf(&TestValue{}).Elem().Size()),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestLPMKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC,
 	)
 	err := testMap.OpenOrCreate()
 	require.NoError(t, err, "OpenOrCreate")
@@ -153,12 +163,17 @@ func TestPrivilegedMapOpsPrune(t *testing.T) {
 func TestPrivilegedMapOps_ReconcilerExample(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	exampleMap := NewMap("example",
-		ebpf.Hash,
+	exampleMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "example",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(reflect.TypeOf(&TestKey{}).Elem().Size()),
+			ValueSize:  uint32(reflect.TypeOf(&TestValue{}).Elem().Size()),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC,
 	)
 	err := exampleMap.OpenOrCreate()
 	require.NoError(t, err)
