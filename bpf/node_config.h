@@ -199,10 +199,6 @@
 #  endif
 #endif
 
-#ifdef ENABLE_VTEP
-# define VTEP_MASK 0xffffff
-#endif
-
 #define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \
 case 116: \
 switch (vlan_id) { \

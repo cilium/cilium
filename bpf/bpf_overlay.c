@@ -42,12 +42,9 @@
 #include "lib/clustermesh.h"
 #include "lib/egress_gateway.h"
 #include "lib/tailcall.h"
-
-#ifdef ENABLE_VTEP
 #include "lib/vtep.h"
 #include "lib/arp.h"
 #include "lib/encap.h"
-#endif /* ENABLE_VTEP */
 
 #define overlay_ingress_policy_hook(ctx, ip4, identity, ext_err) CTX_ACT_OK
 
@@ -346,7 +343,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
 
-		vkey.vtep_ip = ip4->saddr & VTEP_MASK;
+		vkey.vtep_ip = ip4->saddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
 		if (!vtep)
 			goto skip_vtep;
@@ -496,7 +493,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip) || !__lookup_ip4_endpoint(tip))
 		goto pass_to_stack;
-	vkey.vtep_ip = sip & VTEP_MASK;
+	vkey.vtep_ip = sip & CONFIG(vtep_mask);
 	info = map_lookup_elem(&cilium_vtep_map, &vkey);
 	if (!info)
 		goto pass_to_stack;

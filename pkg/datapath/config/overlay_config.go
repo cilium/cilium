@@ -28,6 +28,8 @@ type BPFOverlay struct {
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// Pull security context from IP cache.
 	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
+	// VXLAN tunnel endpoint network mask.
+	VtepMask uint32 `config:"vtep_mask"`
 
 	Node
 }
@@ -36,5 +38,5 @@ func NewBPFOverlay(node Node) *BPFOverlay {
 	return &BPFOverlay{0x5dc, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, node}
+		false, 0x0, node}
 }
