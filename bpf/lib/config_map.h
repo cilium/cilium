@@ -21,7 +21,7 @@ struct {
 	__type(key, __u32);
 	__type(value, __u64);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CONFIG_MAP_SIZE);
+	__uint(max_entries, 256);
 } cilium_runtime_config __section_maps_btf;
 
 /*
