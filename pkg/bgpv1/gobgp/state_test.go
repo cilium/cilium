@@ -11,113 +11,161 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/stretchr/testify/require"
-	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 var (
-	neighbor64125 = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:                 64125,
-		PeerAddress:             "192.168.0.1/32",
-		PeerPort:                ptr.To[int32](v2alpha1api.DefaultBGPPeerPort),
-		EBGPMultihopTTL:         ptr.To[int32](1),
-		ConnectRetryTimeSeconds: ptr.To[int32](99),
-		HoldTimeSeconds:         ptr.To[int32](9),
-		KeepAliveTimeSeconds:    ptr.To[int32](3),
+	neighbor64125 = &types.Neighbor{
+		ASN:     64125,
+		Address: netip.MustParseAddr("192.168.0.1"),
+		Transport: &types.NeighborTransport{
+			RemotePort: 179,
+		},
+		EbgpMultihop: &types.NeighborEbgpMultihop{
+			TTL: 1,
+		},
+		Timers: &types.NeighborTimers{
+			ConnectRetry:      99,
+			HoldTime:          9,
+			KeepaliveInterval: 3,
+		},
 	}
 
 	// changed ConnectRetryTime
-	neighbor64125Update = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:                 64125,
-		PeerAddress:             "192.168.0.1/32",
-		PeerPort:                ptr.To[int32](v2alpha1api.DefaultBGPPeerPort),
-		EBGPMultihopTTL:         ptr.To[int32](1),
-		ConnectRetryTimeSeconds: ptr.To[int32](101),
-		HoldTimeSeconds:         ptr.To[int32](9),
-		KeepAliveTimeSeconds:    ptr.To[int32](3),
+	neighbor64125Update = &types.Neighbor{
+		ASN:     64125,
+		Address: netip.MustParseAddr("192.168.0.1"),
+		Transport: &types.NeighborTransport{
+			RemotePort: 179,
+		},
+		EbgpMultihop: &types.NeighborEbgpMultihop{
+			TTL: 1,
+		},
+		Timers: &types.NeighborTimers{
+			ConnectRetry:      101,
+			HoldTime:          9,
+			KeepaliveInterval: 3,
+		},
 	}
 
 	// enabled graceful restart
-	neighbor64125UpdateGR = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:                 64125,
-		PeerAddress:             "192.168.0.1/32",
-		PeerPort:                ptr.To[int32](v2alpha1api.DefaultBGPPeerPort),
-		EBGPMultihopTTL:         ptr.To[int32](1),
-		ConnectRetryTimeSeconds: ptr.To[int32](99),
-		HoldTimeSeconds:         ptr.To[int32](9),
-		KeepAliveTimeSeconds:    ptr.To[int32](3),
-		GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
-			Enabled:            true,
-			RestartTimeSeconds: ptr.To[int32](120),
+	neighbor64125UpdateGR = &types.Neighbor{
+		ASN:     64125,
+		Address: netip.MustParseAddr("192.168.0.1"),
+		Transport: &types.NeighborTransport{
+			RemotePort: 179,
+		},
+		EbgpMultihop: &types.NeighborEbgpMultihop{
+			TTL: 1,
+		},
+		Timers: &types.NeighborTimers{
+			ConnectRetry:      99,
+			HoldTime:          9,
+			KeepaliveInterval: 3,
+		},
+		GracefulRestart: &types.NeighborGracefulRestart{
+			Enabled:     true,
+			RestartTime: 120,
 		},
 	}
 
 	// enabled graceful restart - updated restart time
-	neighbor64125UpdateGRTimer = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:                 64125,
-		PeerAddress:             "192.168.0.1/32",
-		PeerPort:                ptr.To[int32](v2alpha1api.DefaultBGPPeerPort),
-		EBGPMultihopTTL:         ptr.To[int32](1),
-		ConnectRetryTimeSeconds: ptr.To[int32](99),
-		HoldTimeSeconds:         ptr.To[int32](9),
-		KeepAliveTimeSeconds:    ptr.To[int32](3),
-		GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
-			Enabled:            true,
-			RestartTimeSeconds: ptr.To[int32](20),
+	neighbor64125UpdateGRTimer = &types.Neighbor{
+		ASN:     64125,
+		Address: netip.MustParseAddr("192.168.0.1"),
+		Transport: &types.NeighborTransport{
+			RemotePort: 179,
+		},
+		EbgpMultihop: &types.NeighborEbgpMultihop{
+			TTL: 1,
+		},
+		Timers: &types.NeighborTimers{
+			ConnectRetry:      99,
+			HoldTime:          9,
+			KeepaliveInterval: 3,
+		},
+		GracefulRestart: &types.NeighborGracefulRestart{
+			Enabled:     true,
+			RestartTime: 20,
 		},
 	}
 
-	neighbor64126 = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:                 64126,
-		PeerAddress:             "192.168.66.1/32",
-		PeerPort:                ptr.To[int32](v2alpha1api.DefaultBGPPeerPort),
-		EBGPMultihopTTL:         ptr.To[int32](1),
-		ConnectRetryTimeSeconds: ptr.To[int32](99),
-		HoldTimeSeconds:         ptr.To[int32](9),
-		KeepAliveTimeSeconds:    ptr.To[int32](3),
+	neighbor64126 = &types.Neighbor{
+		ASN:     64126,
+		Address: netip.MustParseAddr("192.168.66.1"),
+		Transport: &types.NeighborTransport{
+			RemotePort: 179,
+		},
+		EbgpMultihop: &types.NeighborEbgpMultihop{
+			TTL: 1,
+		},
+		Timers: &types.NeighborTimers{
+			ConnectRetry:      99,
+			HoldTime:          9,
+			KeepaliveInterval: 3,
+		},
 	}
 
 	// changed HoldTime & KeepAliveTime
-	neighbor64126Update = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:                 64126,
-		PeerAddress:             "192.168.66.1/32",
-		PeerPort:                ptr.To[int32](v2alpha1api.DefaultBGPPeerPort),
-		EBGPMultihopTTL:         ptr.To[int32](1),
-		ConnectRetryTimeSeconds: ptr.To[int32](99),
-		HoldTimeSeconds:         ptr.To[int32](12),
-		KeepAliveTimeSeconds:    ptr.To[int32](4),
+	neighbor64126Update = &types.Neighbor{
+		ASN:     64126,
+		Address: netip.MustParseAddr("192.168.66.1"),
+		Transport: &types.NeighborTransport{
+			RemotePort: 179,
+		},
+		EbgpMultihop: &types.NeighborEbgpMultihop{
+			TTL: 1,
+		},
+		Timers: &types.NeighborTimers{
+			ConnectRetry:      99,
+			HoldTime:          12,
+			KeepaliveInterval: 4,
+		},
 	}
 
-	neighbor64127 = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:                 64127,
-		PeerAddress:             "192.168.88.1/32",
-		EBGPMultihopTTL:         ptr.To[int32](1),
-		ConnectRetryTimeSeconds: ptr.To[int32](99),
-		HoldTimeSeconds:         ptr.To[int32](9),
-		KeepAliveTimeSeconds:    ptr.To[int32](3),
+	neighbor64127 = &types.Neighbor{
+		ASN:     64127,
+		Address: netip.MustParseAddr("192.168.88.1"),
+		EbgpMultihop: &types.NeighborEbgpMultihop{
+			TTL: 1,
+		},
+		Timers: &types.NeighborTimers{
+			ConnectRetry:      99,
+			HoldTime:          9,
+			KeepaliveInterval: 3,
+		},
 	}
 
 	// changed EBGPMultihopTTL
-	neighbor64127Update = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:                 64127,
-		PeerAddress:             "192.168.88.1/32",
-		EBGPMultihopTTL:         ptr.To[int32](10),
-		ConnectRetryTimeSeconds: ptr.To[int32](99),
-		HoldTimeSeconds:         ptr.To[int32](9),
-		KeepAliveTimeSeconds:    ptr.To[int32](3),
+	neighbor64127Update = &types.Neighbor{
+		ASN:     64127,
+		Address: netip.MustParseAddr("192.168.88.1"),
+		EbgpMultihop: &types.NeighborEbgpMultihop{
+			TTL: 10,
+		},
+		Timers: &types.NeighborTimers{
+			ConnectRetry:      99,
+			HoldTime:          9,
+			KeepaliveInterval: 3,
+		},
 	}
 
-	neighbor64128 = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:                 64128,
-		PeerAddress:             "192.168.77.1/32",
-		PeerPort:                ptr.To[int32](v2alpha1api.DefaultBGPPeerPort),
-		EBGPMultihopTTL:         ptr.To[int32](1),
-		ConnectRetryTimeSeconds: ptr.To[int32](99),
-		HoldTimeSeconds:         ptr.To[int32](9),
-		KeepAliveTimeSeconds:    ptr.To[int32](3),
+	neighbor64128 = &types.Neighbor{
+		ASN:     64128,
+		Address: netip.MustParseAddr("192.168.77.1"),
+		Transport: &types.NeighborTransport{
+			RemotePort: 179,
+		},
+		EbgpMultihop: &types.NeighborEbgpMultihop{
+			TTL: 1,
+		},
+		Timers: &types.NeighborTimers{
+			ConnectRetry:      99,
+			HoldTime:          9,
+			KeepaliveInterval: 3,
+		},
 	}
 )
 
@@ -127,9 +175,9 @@ func TestGetPeerState(t *testing.T) {
 		// name of the test
 		name string
 		// neighbors to configure
-		neighbors []*v2alpha1api.CiliumBGPNeighbor
+		neighbors []*types.Neighbor
 		// neighbors to update
-		neighborsAfterUpdate []*v2alpha1api.CiliumBGPNeighbor
+		neighborsAfterUpdate []*types.Neighbor
 		// localASN is local autonomous number
 		localASN uint32
 		// expected error message on AddNeighbor() or empty string for no error
@@ -139,20 +187,24 @@ func TestGetPeerState(t *testing.T) {
 	}{
 		{
 			name:      "test add neighbor",
-			neighbors: []*v2alpha1api.CiliumBGPNeighbor{neighbor64125},
+			neighbors: []*types.Neighbor{neighbor64125},
 			localASN:  64124,
 			errStr:    "",
 		},
 		{
 			name: "test add neighbor with port",
-			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
+			neighbors: []*types.Neighbor{
 				{
-					PeerASN:                 64125,
-					PeerAddress:             "192.168.0.1/32",
-					PeerPort:                ptr.To[int32](175),
-					ConnectRetryTimeSeconds: ptr.To[int32](99),
-					HoldTimeSeconds:         ptr.To[int32](9),
-					KeepAliveTimeSeconds:    ptr.To[int32](3),
+					ASN:     64125,
+					Address: netip.MustParseAddr("192.168.0.1"),
+					Transport: &types.NeighborTransport{
+						RemotePort: 175,
+					},
+					Timers: &types.NeighborTimers{
+						ConnectRetry:      99,
+						HoldTime:          9,
+						KeepaliveInterval: 3,
+					},
 				},
 			},
 			localASN: 64124,
@@ -160,13 +212,13 @@ func TestGetPeerState(t *testing.T) {
 		},
 		{
 			name: "test add + update neighbors",
-			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
+			neighbors: []*types.Neighbor{
 				neighbor64125,
 				neighbor64126,
 				neighbor64127,
 				neighbor64128,
 			},
-			neighborsAfterUpdate: []*v2alpha1api.CiliumBGPNeighbor{
+			neighborsAfterUpdate: []*types.Neighbor{
 				// changed ConnectRetryTime
 				neighbor64125Update,
 				// changed HoldTime & KeepAliveTime
@@ -181,10 +233,10 @@ func TestGetPeerState(t *testing.T) {
 		},
 		{
 			name: "test graceful restart - update enable",
-			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
+			neighbors: []*types.Neighbor{
 				neighbor64125,
 			},
-			neighborsAfterUpdate: []*v2alpha1api.CiliumBGPNeighbor{
+			neighborsAfterUpdate: []*types.Neighbor{
 				// enabled GR
 				neighbor64125UpdateGR,
 			},
@@ -193,10 +245,10 @@ func TestGetPeerState(t *testing.T) {
 		},
 		{
 			name: "test graceful restart - update restart time",
-			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
+			neighbors: []*types.Neighbor{
 				neighbor64125UpdateGR,
 			},
-			neighborsAfterUpdate: []*v2alpha1api.CiliumBGPNeighbor{
+			neighborsAfterUpdate: []*types.Neighbor{
 				// changed gr restart time
 				neighbor64125UpdateGRTimer,
 			},
@@ -204,39 +256,28 @@ func TestGetPeerState(t *testing.T) {
 			errStr:   "",
 		},
 		{
-			name: "test add invalid neighbor",
-			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
-				// invalid PeerAddress
-				{
-					PeerASN:                 64125,
-					PeerAddress:             "192.168.0.XYZ",
-					ConnectRetryTimeSeconds: ptr.To[int32](101),
-					HoldTimeSeconds:         ptr.To[int32](30),
-					KeepAliveTimeSeconds:    ptr.To[int32](10),
-				},
-			},
-			localASN: 64124,
-			errStr:   "failed while adding peer invalid IP with ASN 64125: NeighborAddress is not configured",
-		},
-		{
 			name: "test invalid neighbor update",
-			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
+			neighbors: []*types.Neighbor{
 				{
-					PeerASN:                 64125,
-					PeerAddress:             "192.168.0.1/32",
-					ConnectRetryTimeSeconds: ptr.To[int32](101),
-					HoldTimeSeconds:         ptr.To[int32](30),
-					KeepAliveTimeSeconds:    ptr.To[int32](10),
+					ASN:     64125,
+					Address: netip.MustParseAddr("192.168.0.1"),
+					Timers: &types.NeighborTimers{
+						ConnectRetry:      101,
+						HoldTime:          30,
+						KeepaliveInterval: 10,
+					},
 				},
 			},
-			neighborsAfterUpdate: []*v2alpha1api.CiliumBGPNeighbor{
+			neighborsAfterUpdate: []*types.Neighbor{
 				// different ASN
 				{
-					PeerASN:                 64999,
-					PeerAddress:             "192.168.0.1/32",
-					ConnectRetryTimeSeconds: ptr.To[int32](101),
-					HoldTimeSeconds:         ptr.To[int32](30),
-					KeepAliveTimeSeconds:    ptr.To[int32](10),
+					ASN:     64999,
+					Address: netip.MustParseAddr("192.168.0.1"),
+					Timers: &types.NeighborTimers{
+						ConnectRetry:      101,
+						HoldTime:          30,
+						KeepaliveInterval: 10,
+					},
 				},
 			},
 			localASN:     64124,
@@ -262,9 +303,7 @@ func TestGetPeerState(t *testing.T) {
 
 			// add neighbours
 			for _, n := range tt.neighbors {
-				n.SetDefaults()
-
-				err = testSC.AddNeighbor(context.Background(), types.ToNeighborV1(n, ""))
+				err = testSC.AddNeighbor(context.Background(), n)
 				if tt.errStr != "" {
 					require.EqualError(t, err, tt.errStr)
 					return // no more checks
@@ -284,8 +323,7 @@ func TestGetPeerState(t *testing.T) {
 
 			// update neighbours
 			for _, n := range tt.neighborsAfterUpdate {
-				n.SetDefaults()
-				err = testSC.UpdateNeighbor(context.Background(), types.ToNeighborV1(n, ""))
+				err = testSC.UpdateNeighbor(context.Background(), n)
 				if tt.updateErrStr != "" {
 					require.EqualError(t, err, tt.updateErrStr)
 					return // no more checks
@@ -304,31 +342,31 @@ func TestGetPeerState(t *testing.T) {
 }
 
 // validatePeers validates that peers returned from GoBGP GetPeerState match expected list of CiliumBGPNeighbors
-func validatePeers(t *testing.T, localASN uint32, neighbors []*v2alpha1api.CiliumBGPNeighbor, peers []*models.BgpPeer) {
+func validatePeers(t *testing.T, localASN uint32, neighbors []*types.Neighbor, peers []*models.BgpPeer) {
 	for _, n := range neighbors {
 		p := findMatchingPeer(t, peers, n)
-		require.NotNilf(t, p, "no matching peer for PeerASN %d and PeerAddress %s", n.PeerASN, n.PeerAddress)
+		require.NotNilf(t, p, "no matching peer for PeerASN %d and PeerAddress %s", n.ASN, n.Address.String())
 
 		// validate basic data is returned correctly
 		require.Equal(t, int64(localASN), p.LocalAsn)
 
-		expConnectRetry := ptr.Deref[int32](n.ConnectRetryTimeSeconds, v2alpha1api.DefaultBGPConnectRetryTimeSeconds)
-		expHoldTime := ptr.Deref[int32](n.HoldTimeSeconds, v2alpha1api.DefaultBGPHoldTimeSeconds)
-		expKeepAlive := ptr.Deref[int32](n.KeepAliveTimeSeconds, ptr.Deref[int32](n.KeepAliveTimeSeconds, v2alpha1api.DefaultBGPKeepAliveTimeSeconds))
+		expConnectRetry := n.Timers.ConnectRetry
+		expHoldTime := n.Timers.HoldTime
+		expKeepAlive := n.Timers.KeepaliveInterval
 		require.EqualValues(t, expConnectRetry, p.ConnectRetryTimeSeconds)
 		require.EqualValues(t, expHoldTime, p.ConfiguredHoldTimeSeconds)
 		require.EqualValues(t, expKeepAlive, p.ConfiguredKeepAliveTimeSeconds)
 
 		if n.GracefulRestart != nil {
 			require.Equal(t, n.GracefulRestart.Enabled, p.GracefulRestart.Enabled)
-			expGRRestartTime := ptr.Deref[int32](n.GracefulRestart.RestartTimeSeconds, v2alpha1api.DefaultBGPGRRestartTimeSeconds)
+			expGRRestartTime := n.GracefulRestart.RestartTime
 			require.EqualValues(t, expGRRestartTime, p.GracefulRestart.RestartTimeSeconds)
 		} else {
 			require.False(t, p.GracefulRestart.Enabled)
 		}
 
-		if n.EBGPMultihopTTL != nil && *n.EBGPMultihopTTL > 0 {
-			require.EqualValues(t, *n.EBGPMultihopTTL, p.EbgpMultihopTTL)
+		if n.EbgpMultihop != nil && n.EbgpMultihop.TTL > 0 {
+			require.EqualValues(t, n.EbgpMultihop.TTL, p.EbgpMultihopTTL)
 		}
 
 		// since there is no real neighbor, bgp session state will be either idle or active.
@@ -336,15 +374,13 @@ func validatePeers(t *testing.T, localASN uint32, neighbors []*v2alpha1api.Ciliu
 	}
 }
 
-// findMatchingPeer finds models.BgpPeer matching to the provided v2alpha1api.CiliumBGPNeighbor based on the peer ASN and IP
-func findMatchingPeer(t *testing.T, peers []*models.BgpPeer, n *v2alpha1api.CiliumBGPNeighbor) *models.BgpPeer {
+// findMatchingPeer finds models.BgpPeer matching to the provided types.Neighbor based on the peer ASN and IP
+func findMatchingPeer(t *testing.T, peers []*models.BgpPeer, n *types.Neighbor) *models.BgpPeer {
 	for _, p := range peers {
-		nPrefix, err := netip.ParsePrefix(n.PeerAddress)
-		require.NoError(t, err)
 		pIP, err := netip.ParseAddr(p.PeerAddress)
 		require.NoError(t, err)
 
-		if p.PeerAsn == int64(n.PeerASN) && pIP.Compare(nPrefix.Addr()) == 0 {
+		if p.PeerAsn == int64(n.ASN) && pIP == n.Address {
 			return p
 		}
 	}
@@ -365,7 +401,7 @@ func TestGetRoutes(t *testing.T) {
 		testSC.Stop(context.Background(), types.StopRequest{FullDestroy: true})
 	})
 
-	err = testSC.AddNeighbor(context.TODO(), types.ToNeighborV1(neighbor64125, ""))
+	err = testSC.AddNeighbor(context.TODO(), neighbor64125)
 	require.NoError(t, err)
 
 	_, err = testSC.AdvertisePath(context.TODO(), types.PathRequest{
@@ -415,7 +451,7 @@ func TestGetRoutes(t *testing.T) {
 			Afi:  types.AfiIPv4,
 			Safi: types.SafiUnicast,
 		},
-		Neighbor: netip.MustParsePrefix(neighbor64125.PeerAddress).Addr(),
+		Neighbor: neighbor64125.Address,
 	})
 	require.NoError(t, err)
 	require.Empty(t, res.Routes) // adj-rib is empty as there is no actual peering up
@@ -427,7 +463,7 @@ func TestGetRoutes(t *testing.T) {
 			Afi:  types.AfiIPv6,
 			Safi: types.SafiUnicast,
 		},
-		Neighbor: netip.MustParsePrefix(neighbor64125.PeerAddress).Addr(),
+		Neighbor: neighbor64125.Address,
 	})
 	require.NoError(t, err)
 	require.Empty(t, res.Routes) // adj-rib is empty as there is no actual peering up

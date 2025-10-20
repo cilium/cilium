@@ -11,32 +11,11 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 // BGPRouterManager provides a declarative API for defining
 // BGP peers.
 type BGPRouterManager interface {
-	// ConfigurePeers evaluates the provided CiliumBGPPeeringPolicy
-	// and the implementation will configure itself to apply this policy.
-	//
-	// A ControllerState structure is provided which captures Cilium's runtime
-	// state at the time of this method's invocation. It must remain read-only.
-	//
-	// ConfigurePeers should block until it can ensure a subsequent call
-	// to ConfigurePeers can occur without conflict.
-	//
-	// ConfigurePeers should not be called concurrently and expects invocations
-	// to be serialized contingent to the method's completion.
-	//
-	// An error is returned only when the implementation can determine a
-	// critical flaw with the peering policy, not when network connectivity
-	// is an issue.
-	//
-	// Providing a nil policy to ConfigurePeers will withdrawal all routes
-	// and disconnect from the peers.
-	ConfigurePeers(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, ciliumNode *v2.CiliumNode) error
-
 	// ReconcileInstances evaluates the provided CiliumBGPNodeConfig
 	// and the implementation will configure itself to apply this configuration.
 	ReconcileInstances(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error

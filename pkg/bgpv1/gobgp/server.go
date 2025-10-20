@@ -160,7 +160,7 @@ func NewGoBGPServer(ctx context.Context, log *slog.Logger, params types.ServerPa
 
 			logger.l.Debug("Peer state change", types.PeerLogField, p)
 
-			// if channel is nil (BGPv1) below code will not block and will act as a no-op.
+			// if channel is nil (e.g. in tests) below code will not block and will act as a no-op.
 			select {
 			case params.StateNotification <- struct{}{}:
 			default:
@@ -203,7 +203,7 @@ func NewGoBGPServer(ctx context.Context, log *slog.Logger, params types.ServerPa
 
 		logger.l.Debug("Route event received")
 
-		// if channel is nil (BGPv1) below code will not block and will act as a no-op.
+		// if channel is nil (e.g. in tests) below code will not block and will act as a no-op.
 		select {
 		case params.StateNotification <- struct{}{}:
 		default:

@@ -15,7 +15,6 @@ import (
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 var _ v1listers.NodeLister = (*MockNodeLister)(nil)
@@ -37,16 +36,11 @@ func (m *MockNodeLister) Get(name string) (*v1.Node, error) {
 var _ agent.BGPRouterManager = (*MockBGPRouterManager)(nil)
 
 type MockBGPRouterManager struct {
-	ConfigurePeers_     func(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, ciliumNode *v2.CiliumNode) error
 	ReconcileInstances_ func(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error
 	GetPeers_           func(ctx context.Context) ([]*models.BgpPeer, error)
 	GetRoutes_          func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
 	GetRoutePolicies_   func(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
 	Stop_               func(cell.HookContext) error
-}
-
-func (m *MockBGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, ciliumNode *v2.CiliumNode) error {
-	return m.ConfigurePeers_(ctx, policy, ciliumNode)
 }
 
 func (m *MockBGPRouterManager) ReconcileInstances(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error {

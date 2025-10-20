@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 )
@@ -21,10 +20,6 @@ const (
 )
 
 type StateReconcileParams struct {
-	// ConfigMode is the current configuration mode of BGP control plane
-	// This is required by some reconcilers to determine if they need to run or not.
-	ConfigMode *mode.ConfigMode
-
 	// UpdatedInstance is the BGP instance that is being updated.
 	UpdatedInstance *instance.BGPInstance
 
