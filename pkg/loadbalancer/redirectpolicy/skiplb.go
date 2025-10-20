@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -351,48 +350,6 @@ func (sub *skiplbEndpointSubscriber) EndpointDeleted(ep *endpoint.Endpoint, conf
 // EndpointRestored implements endpointmanager.Subscriber.
 func (sub *skiplbEndpointSubscriber) EndpointRestored(ep *endpoint.Endpoint) {
 	sub.EndpointCreated(ep)
-}
-
-// TestSkipLBMap is a SkipLBMap that the test suite can provide to override the
-// map implementation.
-type TestSkipLBMap lbmaps.SkipLBMap
-
-type skiplbmapParams struct {
-	cell.In
-
-	Logger             *slog.Logger
-	TestSkipLBMap      TestSkipLBMap `optional:"true"`
-	Lifecycle          cell.Lifecycle
-	NetNSCookieSupport lbmaps.HaveNetNSCookieSupport
-}
-
-func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmaps.SkipLBMap], err error) {
-	if p.TestSkipLBMap != nil {
-		m := lbmaps.SkipLBMap(p.TestSkipLBMap)
-		out = bpf.NewMapOut(m)
-		return
-	}
-
-	var m lbmaps.SkipLBMap
-	m, err = lbmaps.NewSkipLBMap(p.Logger)
-	if err != nil {
-		return
-	}
-
-	if os.Getuid() != 0 {
-		return
-	}
-
-	p.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			return m.OpenOrCreate()
-		},
-		OnStop: func(cell.HookContext) error {
-			return m.Close()
-		},
-	})
-	out = bpf.NewMapOut(m)
-	return
 }
 
 func newSkipLBMapCommand(m lbmaps.SkipLBMap) hive.ScriptCmdsOut {

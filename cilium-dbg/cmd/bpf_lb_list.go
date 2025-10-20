@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/spf13/cobra"
 
@@ -30,37 +31,77 @@ var (
 )
 
 func dumpSrcRanges(serviceList map[string][]string) {
-	if err := lbmaps.NewSourceRange4Map(0).DumpIfExists(serviceList); err != nil {
+	v4, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.SourceRange4MapName), &lbmaps.SourceRangeKey4{}, &lbmaps.SourceRangeValue{})
+	if err != nil {
+		Fatalf("Unable to open IPv4 source range table: %s", err)
+	}
+
+	if v4.DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv4 source range table: %s", err)
 	}
-	if err := lbmaps.NewSourceRange6Map(0).DumpIfExists(serviceList); err != nil {
+
+	v6, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.SourceRange6MapName), &lbmaps.SourceRangeKey6{}, &lbmaps.SourceRangeValue{})
+	if err != nil {
+		Fatalf("Unable to open IPv6 source range table: %s", err)
+	}
+
+	if v6.DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv6 source range table: %s", err)
 	}
 }
 
 func dumpRevNat(serviceList map[string][]string) {
-	if err := lbmaps.NewRevNat4Map(0).DumpIfExists(serviceList); err != nil {
+	v4, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.RevNat4MapName), &lbmaps.RevNat4Key{}, &lbmaps.RevNat4Value{})
+	if err != nil {
+		Fatalf("Unable to open IPv4 reverse NAT table: %s", err)
+	}
+
+	if v4.DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv4 reverse NAT table: %s", err)
 	}
-	if err := lbmaps.NewRevNat6Map(0).DumpIfExists(serviceList); err != nil {
+
+	v6, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.RevNat6MapName), &lbmaps.RevNat6Key{}, &lbmaps.RevNat6Value{})
+	if err != nil {
+		Fatalf("Unable to open IPv6 reverse NAT table: %s", err)
+	}
+
+	if v6.DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv6 reverse NAT table: %s", err)
 	}
 }
 
 func dumpFrontends(serviceList map[string][]string) {
-	if err := lbmaps.NewService4Map(0).DumpIfExists(serviceList); err != nil {
+	v4, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.Service4MapV2Name), &lbmaps.Service4Key{}, &lbmaps.Service4Value{})
+	if err != nil {
+		Fatalf("Unable to open IPv4 frontend table: %s", err)
+	}
+	if v4.DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv4 frontend table: %s", err)
 	}
-	if err := lbmaps.NewService6Map(0).DumpIfExists(serviceList); err != nil {
+
+	v6, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.Service6MapV2Name), &lbmaps.Service6Key{}, &lbmaps.Service6Value{})
+	if err != nil {
+		Fatalf("Unable to open IPv6 frontend table: %s", err)
+	}
+	if v6.DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv6 frontend table: %s", err)
 	}
 }
 
 func dumpBackends(serviceList map[string][]string) {
-	if err := lbmaps.NewBackend4Map(0).DumpIfExists(serviceList); err != nil {
+	v4, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.Backend4MapV3Name), &lbmaps.Backend4KeyV3{}, &lbmaps.Backend4ValueV3{})
+	if err != nil {
+		Fatalf("Unable to open IPv4 backend table: %s", err)
+	}
+	if v4.DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv4 backend table: %s", err)
 	}
-	if err := lbmaps.NewBackend6Map(0).DumpIfExists(serviceList); err != nil {
+
+	v6, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.Backend6MapV3Name), &lbmaps.Backend6KeyV3{}, &lbmaps.Backend6ValueV3{})
+	if err != nil {
+		Fatalf("Unable to open IPv6 backend table: %s", err)
+	}
+	if v6.DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv6 backend table: %s", err)
 	}
 }
@@ -74,10 +115,18 @@ func dumpSVC(serviceList map[string][]string) {
 		id := key.(lbmaps.BackendKey).GetID()
 		backendMap[id] = value.(lbmaps.BackendValue).ToHost()
 	}
-	if err := lbmaps.NewBackend4Map(0).DumpWithCallbackIfExists(parseBackendEntry); err != nil {
+	v4, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.Backend4MapV3Name), &lbmaps.Backend4KeyV3{}, &lbmaps.Backend4ValueV3{})
+	if err != nil {
+		Fatalf("Unable to open IPv4 backends table: %s", err)
+	}
+	if err := v4.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
 		Fatalf("Unable to dump IPv4 backends table: %s", err)
 	}
-	if err := lbmaps.NewBackend6Map(0).DumpWithCallbackIfExists(parseBackendEntry); err != nil {
+	v6, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.Backend6MapV3Name), &lbmaps.Backend6KeyV3{}, &lbmaps.Backend6ValueV3{})
+	if err != nil {
+		Fatalf("Unable to open IPv6 backends table: %s", err)
+	}
+	if err := v6.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
 		Fatalf("Unable to dump IPv6 backends table: %s", err)
 	}
 
@@ -117,10 +166,18 @@ func dumpSVC(serviceList map[string][]string) {
 		serviceList[svc] = append(serviceList[svc], entry)
 	}
 
-	if err := lbmaps.NewService4Map(0).DumpWithCallbackIfExists(parseSVCEntry); err != nil {
+	v4, err = bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.Service4MapV2Name), &lbmaps.Service4Key{}, &lbmaps.Service4Value{})
+	if err != nil {
+		Fatalf("Unable to open IPv4 services table: %s", err)
+	}
+	if err := v4.DumpWithCallbackIfExists(parseSVCEntry); err != nil {
 		Fatalf("Unable to dump IPv4 services table: %s", err)
 	}
-	if err := lbmaps.NewService6Map(0).DumpWithCallbackIfExists(parseSVCEntry); err != nil {
+	v6, err = bpf.OpenMap(bpf.MapPath(slog.Default(), lbmaps.Service6MapV2Name), &lbmaps.Service6Key{}, &lbmaps.Service6Value{})
+	if err != nil {
+		Fatalf("Unable to open IPv6 services table: %s", err)
+	}
+	if err := v6.DumpWithCallbackIfExists(parseSVCEntry); err != nil {
 		Fatalf("Unable to dump IPv6 services table: %s", err)
 	}
 }
