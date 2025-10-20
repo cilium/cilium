@@ -50,3 +50,17 @@ ee_tc_ft_traces3264 = (
 )
 ee_tc_ft_traces3264_csum = ee_tc_ft_traces3264.copy()
 ee_tc_ft_traces3264_csum["TCP"].chksum = None
+
+ee_tc_ft_nospace = (
+    Ether(dst=mac_one, src=mac_two) /
+    IP(src=v4_ext_one, dst=v4_svc_one) /
+    TCP(dport=80) /
+    FlowTracer(cmds = FT_CMDS_ALL, l4_sport=64000)
+)
+
+ee_tc_ft_nospace_err = (
+    Ether(dst=mac_one, src=mac_two) /
+    IP(src=v4_ext_one, dst=v4_svc_one) /
+    TCP(dport=80) /
+    FlowTracer(cmds = FT_CMDS_ALL, l4_sport=64000, flags=FT_TRUNCATED)
+)

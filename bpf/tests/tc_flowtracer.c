@@ -84,7 +84,6 @@ int test_intercept_check(struct __ctx_buff *ctx)
 	 * Intercept
 	 */
 	ft_intercept(ctx, IPPROTO_TCP, TCP_OFFSET);
-
 	ft = __ft_get();
 
 	/* Verify parsing state is congruent */

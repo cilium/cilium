@@ -337,6 +337,15 @@ void ft_add_dbg_trace(struct __ctx_buff *ctx /*TODO*/)
 }
 
 static __always_inline
+void __ft_set_truncated(struct ft_ctx *ft, struct ft_hdr *hdr)
+{
+	struct ft_hdr old_hdr = *hdr;
+
+	hdr->flags |= FT_TRUNCATED;
+	ft->sum = csum_diff(&old_hdr.l4_sport, 4, &hdr->l4_sport, 4, ft->sum);
+}
+
+static __always_inline
 void __ft_add_trace_uint(struct __ctx_buff *ctx, struct ft_ctx *ft,
 			 struct ft_hdr *hdr, const enum ft_tlv_type type,
 			 __u32 trace_point, const __u32 *value32,
@@ -365,7 +374,7 @@ void __ft_add_trace_uint(struct __ctx_buff *ctx, struct ft_ctx *ft,
 
 	tlv = (struct ft_tlv_32 *)((void *)(hdr + 1) + tlvs_len);
 	if ((void *)(tlv + 1) > data_end) {
-		hdr->flags |= FT_TRUNCATED;
+		__ft_set_truncated(ft, hdr);
 		return;
 	}
 
@@ -380,8 +389,12 @@ void __ft_add_trace_uint(struct __ctx_buff *ctx, struct ft_ctx *ft,
 	} else {
 		struct ft_tlv_64 *tlv64 = (struct ft_tlv_64 *)tlv;
 
-		if ((void *)(tlv64 + 1) > data_end)
-			goto ERR;
+		if ((void *)(tlv64 + 1) > data_end) {
+			tlv->tl.type = 0;
+			tlv->trace_point = 0;
+			__ft_set_truncated(ft, hdr);
+			return;
+		}
 
 		tlv64->value = bpf_cpu_to_be64(*value64);
 		tlv64->tl.len = bpf_htons(sizeof(*tlv64));
@@ -394,11 +407,6 @@ void __ft_add_trace_uint(struct __ctx_buff *ctx, struct ft_ctx *ft,
 			    (__be32 *)&hdr->tlvs_len, 4, ft->sum);
 
 	return;
-ERR:
-	hdr->tlvs_len = old_tlvs_len;
-	tlv->tl.type = 0;
-	tlv->tl.len = 0;
-	hdr->flags |= FT_ERROR;
 }
 
 static __always_inline
