@@ -29,13 +29,13 @@ var Cell = cell.Module(
 	),
 	cell.Invoke(
 		registerReconciler,
-		bpf.RegisterTablePressureMetricsJob[Edt, throttleMap],
+		bpf.RegisterTablePressureMetricsJob[Edt, *throttleMap],
 	),
 )
 
-func registerReconciler(cfg types.BandwidthConfig, m throttleMap, edts statedb.RWTable[Edt], params reconciler.Params) error {
+func registerReconciler(cfg types.BandwidthConfig, m *throttleMap, edts statedb.RWTable[Edt], params reconciler.Params) error {
 	if cfg.EnableBandwidthManager {
-		ops := bpf.NewMapOps[Edt](m.Map)
+		ops := bpf.NewMapOps[Edt](m.m)
 		_, err := reconciler.Register(
 			params,
 			edts,
