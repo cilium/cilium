@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
@@ -105,4 +106,26 @@ func TablePressureMetrics[Obj any, Map mapPressureMetricsOps](
 	))
 
 	return nil
+}
+
+// MaybeTablePressureMetrics is a wrapper around TablePressureMetrics that
+// receives an optional map.
+//
+// If the provided map is a [NoneMap], the Map is considered disabled and the
+// reconciler won't be started.
+func MaybeTablePressureMetrics[Obj any, M mapPressureMetricsOps](
+	g job.Group, registry *metrics.Registry, db *statedb.DB,
+	table statedb.Table[Obj], mi MaybeMap[M]) error {
+	m, ok := mi.Get()
+	if !ok {
+		g.Add(job.OneShot(jobName(m.NonPrefixedName()),
+			func(_ context.Context, health cell.Health) error {
+				health.OK(fmt.Sprintf("Map %s was disabled", m.NonPrefixedName()))
+				return nil
+			}))
+
+		return nil
+	}
+
+	return TablePressureMetrics(g, registry, db, table, m)
 }

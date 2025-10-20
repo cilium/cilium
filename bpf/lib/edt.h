@@ -34,7 +34,7 @@ struct {
 	__type(key, struct edt_id);
 	__type(value, struct edt_info);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, THROTTLE_MAP_SIZE);
+	__uint(max_entries, 65535);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_throttle __section_maps_btf;
 
