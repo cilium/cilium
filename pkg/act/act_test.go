@@ -24,7 +24,7 @@ type mapMock struct {
 	failed      uint64
 }
 
-func (*mapMock) IterateWithCallback(context.Context, act.ActiveConnectionTrackingIterateCallback) error {
+func (*mapMock) IterateWithCallback(context.Context, act.ACTIterator) error {
 	return nil
 }
 

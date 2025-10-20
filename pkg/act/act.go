@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -103,7 +104,7 @@ type actMetric struct {
 
 type ACT struct {
 	log     *slog.Logger
-	src     act.ActiveConnectionTrackingMap
+	src     act.ACTMap
 	metrics ActiveConnectionTrackingMetrics
 	lbmaps  lbmaps.LBMaps
 
@@ -128,7 +129,7 @@ func NewACT(in struct {
 	Log       *slog.Logger
 	Lifecycle cell.Lifecycle
 	Jobs      job.Group
-	Source    act.ActiveConnectionTrackingMap
+	Source    bpf.MaybeMap[act.ACTMap]
 	Metrics   ActiveConnectionTrackingMetrics
 	LBMaps    lbmaps.LBMaps
 	DB        *statedb.DB
@@ -138,7 +139,13 @@ func NewACT(in struct {
 		// Active Connection Tracking is disabled.
 		return nil
 	}
-	a := newAct(in.Log, in.Jobs, in.Source, in.Metrics, in.DB, in.Frontends, option.Config)
+
+	m, ok := in.Source.Get()
+	if !ok {
+		return nil
+	}
+
+	a := newAct(in.Log, in.Jobs, m, in.Metrics, in.DB, in.Frontends, option.Config)
 	a.trig = job.NewTrigger()
 
 	in.Jobs.Add(job.Timer("act-metrics-update", a.update, metricsUpdateInterval))
@@ -156,7 +163,7 @@ func NewACT(in struct {
 	return a
 }
 
-func newAct(log *slog.Logger, jg job.Group, src act.ActiveConnectionTrackingMap, metrics ActiveConnectionTrackingMetrics, db *statedb.DB, frontends statedb.Table[*loadbalancer.Frontend], opts *option.DaemonConfig) *ACT {
+func newAct(log *slog.Logger, jg job.Group, src act.ACTMap, metrics ActiveConnectionTrackingMetrics, db *statedb.DB, frontends statedb.Table[*loadbalancer.Frontend], opts *option.DaemonConfig) *ACT {
 	tracker := make(map[uint8]map[uint16]*actMetric, len(opts.FixedZoneMapping))
 	for zone := range opts.ReverseFixedZoneMapping {
 		tracker[zone] = make(map[uint16]*actMetric)
@@ -167,7 +174,7 @@ func newAct(log *slog.Logger, jg job.Group, src act.ActiveConnectionTrackingMap,
 
 	if db != nil && frontends != nil {
 		jg.Add(
-			job.Observer[statedb.Change[*loadbalancer.Frontend]](
+			job.Observer(
 				"service-ids",
 				func(ctx context.Context, change statedb.Change[*loadbalancer.Frontend]) error {
 					if change.Deleted {
@@ -316,7 +323,7 @@ func (a *ACT) update(ctx context.Context) error {
 	start := time.Now()
 	err := a.src.IterateWithCallback(ctx, a.callback)
 	if err != nil {
-		return fmt.Errorf("iterate over %q: %w", act.ActiveConnectionTrackingMapName, err)
+		return fmt.Errorf("iterate over %q: %w", act.ACTMapName, err)
 	}
 	a.metrics.ProcessingTime.Observe(time.Since(start).Seconds())
 	return nil
