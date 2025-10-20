@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 	"maps"
+	"net"
 	"net/netip"
 	"os"
 	"testing"
@@ -209,4 +210,18 @@ func TestPrivilegedScript(t *testing.T) {
 		setup,
 		[]string{"PATH=" + os.Getenv("PATH")},
 		"testdata/*.txtar")
+}
+
+// toNetlinkAddr converts netip.Prefix to *netlink.Addr
+func toNetlinkAddr(prefix netip.Prefix) *netlink.Addr {
+	pLen := 128
+	if prefix.Addr().Is4() {
+		pLen = 32
+	}
+	return &netlink.Addr{
+		IPNet: &net.IPNet{
+			IP:   prefix.Addr().AsSlice(),
+			Mask: net.CIDRMask(prefix.Bits(), pLen),
+		},
+	}
 }

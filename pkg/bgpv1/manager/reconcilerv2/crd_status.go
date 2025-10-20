@@ -25,7 +25,6 @@ import (
 	"k8s.io/utils/ptr"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
@@ -253,13 +252,6 @@ func (r *StatusReconciler) Priority() int {
 func (r *StatusReconciler) Reconcile(ctx context.Context, params StateReconcileParams) error {
 	r.Lock()
 	defer r.Unlock()
-
-	// do not reconcile if not in BGPv2 mode
-	if params.ConfigMode.Get() != mode.BGPv2 {
-		// reset status to empty if not in BGPv2 mode
-		r.desiredStatus = &v2.CiliumBGPNodeStatus{}
-		return nil
-	}
 
 	current := r.desiredStatus.DeepCopy()
 
